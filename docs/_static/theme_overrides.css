@@ -1,0 +1,21 @@
+/* override table width restrictions */
+@media screen and (min-width: 767px) {
+
+   .wy-table-responsive table td {
+      /* !important prevents the common CSS stylesheets from overriding
+         this as on RTD they are loaded after this stylesheet */
+      white-space: normal !important;
+   }
+
+   .wy-table-responsive {
+      overflow: visible !important;
+   }
+}
+
+
+/* Fix parameter type style */
+.function .classifier {
+   margin: 0 0 0 5px;
+   padding: 3px;
+   background: rgba(0, 0, 0, .1);
+}

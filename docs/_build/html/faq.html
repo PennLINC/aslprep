@@ -1,0 +1,418 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>FAQ, Tips, and Tricks &mdash; aslprep version documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script type="text/javascript" src="https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Contributing to ASLPREP" href="contributors.html" />
+    <link rel="prev" title="Defining standard and nonstandard spaces where data will be resampled" href="spaces.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> aslprep
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                version
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Running <em>aslprep</em> via Docker containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="singularity.html">Running <em>ASLPrep</em> via Singularity containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows.html">Processing pipeline details</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdc.html">Susceptibility Distortion Correction (SDC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs of <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="spaces.html">Defining standard and nonstandard spaces where data will be resampled</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">FAQ, Tips, and Tricks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#should-i-run-quality-control-of-my-images-before-running-aslprep">Should I run quality control of my images before running <em>ASLPrep</em>?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#what-if-i-find-some-images-have-undergone-some-pre-processing-already-e-g-my-t1w-image-is-already-skull-stripped">What if I find some images have undergone some pre-processing already (e.g., my T1w image is already skull-stripped)?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#my-aslprep-run-is-hanging">My <em>ASLPrep</em> run is hanging…</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#error-it-appears-that-recon-all-is-already-running">ERROR: it appears that <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> is already running</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-much-cpu-time-and-ram-should-i-allocate-for-a-typical-aslprep-run">How much CPU time and RAM should I allocate for a typical ASLPrep run?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#a-new-version-of-aslprep-has-been-published-when-should-i-upgrade">A new version of <em>ASLPrep</em> has been published, when should I upgrade?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#i-m-running-aslprep-via-singularity-containers-how-can-i-troubleshoot-problems">I’m running <em>ASLPrep</em> via Singularity containers - how can I troubleshoot problems?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#what-is-templateflow-for">What is <em>TemplateFlow</em> for?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-do-you-use-templateflow-in-the-absence-of-access-to-the-internet">How do you use TemplateFlow in the absence of access to the Internet?</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributing to ASLPREP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Developers - API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aslprep</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>FAQ, Tips, and Tricks</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/faq.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="faq-tips-and-tricks">
+<h1>FAQ, Tips, and Tricks<a class="headerlink" href="#faq-tips-and-tricks" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="should-i-run-quality-control-of-my-images-before-running-aslprep">
+<h2>Should I run quality control of my images before running <em>ASLPrep</em>?<a class="headerlink" href="#should-i-run-quality-control-of-my-images-before-running-aslprep" title="Permalink to this headline">¶</a></h2>
+<p>Yes. You should do so before any processing/analysis takes place.</p>
+<p>Oftentimes (more often than we would like), images have fatal artifacts and problems.</p>
+<p>Some exclusion criteria for data quality should be pre-specified before QC and any screening
+of the original data.
+Those exclusion criteria must be designed in agreement with the goals and challenges of the
+experimental design.
+For instance, when it is planned to run some cortical thickness analysis, images should be excluded
+even when they present the most subtle ghosts or other artifacts that may introduce biases in surface
+reconstruction.
+However, if the same artifactual data was planned to be used just as a reference for spatial
+normalization, some of those artifacts should be noted, but may not grant exclusion of the data.</p>
+<p>When using publicly available datasets, an additional concern is that images may have gone through
+some kind of preprocessing (see next question).</p>
+</div>
+<div class="section" id="what-if-i-find-some-images-have-undergone-some-pre-processing-already-e-g-my-t1w-image-is-already-skull-stripped">
+<h2>What if I find some images have undergone some pre-processing already (e.g., my T1w image is already skull-stripped)?<a class="headerlink" href="#what-if-i-find-some-images-have-undergone-some-pre-processing-already-e-g-my-t1w-image-is-already-skull-stripped" title="Permalink to this headline">¶</a></h2>
+<p>These images imply an unknown level of preprocessing (e.g. was it already bias-field corrected?),
+which makes it difficult to decide on best-practices for further processing.
+Hence, supporting such images was considered very low priority for <em>ASLPrep</em>.</p>
+</div>
+<div class="section" id="my-aslprep-run-is-hanging">
+<h2>My <em>ASLPrep</em> run is hanging…<a class="headerlink" href="#my-aslprep-run-is-hanging" title="Permalink to this headline">¶</a></h2>
+<p>When running on Linux platforms (or containerized environments, because they are built around
+Ubuntu), there is a Python bug that affects <em>ASLPrep</em> that drives the Linux kernel to kill
+processes as a response to running out of memory.
+Depending on the process killed by the kernel, <em>ASLPrep</em> may crash with a <code class="docutils literal notranslate"><span class="pre">BrokenProcessPool</span></code>
+error or hang indefinitely, depending on settings.
+While we are working on finding a solution that does not run up against this bug, this may take some
+time.
+This can be most easily resolved by allocating more memory to the process, if possible.</p>
+<p>Additionally, consider using the <code class="docutils literal notranslate"><span class="pre">--low-mem</span></code> flag, which will make some memory optimizations at the cost of disk space in the working directory.</p>
+</div>
+<div class="section" id="error-it-appears-that-recon-all-is-already-running">
+<h2>ERROR: it appears that <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> is already running<a class="headerlink" href="#error-it-appears-that-recon-all-is-already-running" title="Permalink to this headline">¶</a></h2>
+<p>When running <a class="reference external" href="https://surfer.nmr.mgh.harvard.edu/">FreeSurfer</a>’s <code class="docutils literal notranslate"><span class="pre">recon-all</span></code>, an error may say <em>it appears it is already running</em>.
+FreeSurfer creates files (called <code class="docutils literal notranslate"><span class="pre">IsRunning.{rh,lh,lh+rh}</span></code>, under the <code class="docutils literal notranslate"><span class="pre">scripts/</span></code> folder)
+to determine whether it is already executing <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> on that particular subject
+in another process, compute node, etc.
+If a FreeSurfer execution terminates abruptly, those files are not wiped out, and therefore,
+the next time you try to execute <code class="docutils literal notranslate"><span class="pre">recon-all</span></code>, FreeSurfer <em>thinks</em> it is still running.
+The output you get from ASLPrep will contain something like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>RuntimeError: Command:
+recon-all -autorecon2-volonly -openmp 8 -subjid sub-020 -sd /outputs/freesurfer -nogcareg -nocanorm -nocareg -nonormalization2 -nomaskbfs -nosegmentation -nofill
+Standard output:
+Subject Stamp: freesurfer-Linux-centos6_x86_64-stable-pub-v6.0.1-f53a55a
+Current Stamp: freesurfer-Linux-centos6_x86_64-stable-pub-v6.0.1-f53a55a
+INFO: SUBJECTS_DIR is /outputs/freesurfer
+Actual FREESURFER_HOME /opt/freesurfer
+-rw-rw-r-- 1 11239 users 207798 Apr  1 16:19 /outputs/freesurfer/sub-020/scripts/recon-all.log
+Linux 62324c0da859 4.4.0-142-generic #168-Ubuntu SMP Wed Jan 16 21:00:45 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+
+ERROR: it appears that recon-all is already running
+for sub-020 based on the presence of /outputs/freesurfer/sub-020/scripts/IsRunning.lh+rh. It could
+also be that recon-all was running at one point but
+died in an unexpected way. If it is the case that there
+is a process running, you can kill it and start over or
+just let it run. If the process has died, you should type:
+
+rm /outputs/freesurfer/sub-020/scripts/IsRunning.lh+rh
+
+and re-run. Or you can add -no-isrunning to the recon-all
+command-line. The contents of this file are:
+----------------------------------------------------------
+------------------------------
+SUBJECT sub-020
+HEMI    lh rh
+DATE Fri Mar 22 20:33:09 UTC 2019
+USER root
+HOST 622795a21a5f
+PROCESSID 55530
+PROCESSOR x86_64
+OS Linux
+Linux 622795a21a5f 4.4.0-142-generic #168-Ubuntu SMP Wed Jan 16 21:00:45 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+$Id: recon-all,v 1.580.2.16 2017/01/18 14:11:24 oesteban Exp $
+----------------------------------------------------------
+Standard error:
+
+Return code: 1
+</pre></div>
+</div>
+<p>As suggested by the <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> output message, deleting these files will enable
+FreeSurfer to execute <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> again.
+In general, please be cautious of deleting files and mindful why a file may exist.</p>
+</div>
+<div class="section" id="how-much-cpu-time-and-ram-should-i-allocate-for-a-typical-aslprep-run">
+<h2>How much CPU time and RAM should I allocate for a typical ASLPrep run?<a class="headerlink" href="#how-much-cpu-time-and-ram-should-i-allocate-for-a-typical-aslprep-run" title="Permalink to this headline">¶</a></h2>
+<p>The recommended way to run ASLPrep is to process one subject per container instance. A typical preprocessing run
+without surface processing with freesurfer can be completed in about less than 1 hours with 4 CPUs or in about 30 hour with 16 CPUs.
+More than 16 CPUs do not translate into faster processing times for a single subject. About 8GB of memory should be
+available for a single subject preprocessing run.</p>
+</div>
+<div class="section" id="a-new-version-of-aslprep-has-been-published-when-should-i-upgrade">
+<span id="upgrading"></span><h2>A new version of <em>ASLPrep</em> has been published, when should I upgrade?<a class="headerlink" href="#a-new-version-of-aslprep-has-been-published-when-should-i-upgrade" title="Permalink to this headline">¶</a></h2>
+<p>We follow a philosophy of releasing very often, although the pace is slowing down
+with the maturation of the software.
+It is very likely that your version gets outdated over the extent of your study.
+If that is the case (an ongoing study), then we discourage changing versions.
+In other words, <strong>the whole dataset should be processed with the same version (and
+same container build if they are being used) of *ASLPrep*.</strong></p>
+<p>On the other hand, if the project is about to start, then we strongly recommend
+using the latest version of the tool.</p>
+<p>In any case, if you can find your release listed as <em>flagged</em> in <a class="reference external" href="https://github.com/pennlinc/ASLPrep/blob/master/.versions.json">this file
+of our repo</a>,
+then please update as soon as possible.</p>
+</div>
+<div class="section" id="i-m-running-aslprep-via-singularity-containers-how-can-i-troubleshoot-problems">
+<h2>I’m running <em>ASLPrep</em> via Singularity containers - how can I troubleshoot problems?<a class="headerlink" href="#i-m-running-aslprep-via-singularity-containers-how-can-i-troubleshoot-problems" title="Permalink to this headline">¶</a></h2>
+<p>We have extended <a class="reference external" href="singularity.html">this documentation</a> to cover some of the most
+frequent issues other Singularity users have been faced with.
+Generally, users have found it hard to <a class="reference external" href="singularity.html#singularity-tf">get TemplateFlow and Singularity to work
+together</a>.</p>
+</div>
+<div class="section" id="what-is-templateflow-for">
+<h2>What is <em>TemplateFlow</em> for?<a class="headerlink" href="#what-is-templateflow-for" title="Permalink to this headline">¶</a></h2>
+<p><em>TemplateFlow</em> enables <em>ASLPrep</em> to generate preprocessed outputs spatially normalized to
+a number of different neuroimaging templates (e.g. MNI).
+For further details, please check <a class="reference external" href="spaces.html#templateflow">its documentation section</a>.</p>
+</div>
+<div class="section" id="how-do-you-use-templateflow-in-the-absence-of-access-to-the-internet">
+<span id="tf-no-internet"></span><h2>How do you use TemplateFlow in the absence of access to the Internet?<a class="headerlink" href="#how-do-you-use-templateflow-in-the-absence-of-access-to-the-internet" title="Permalink to this headline">¶</a></h2>
+<p>This is a fairly common situation in <abbr title="high-performance computing">HPCs</abbr>
+systems, where the so-called login nodes have access to the Internet but
+compute nodes are isolated, or in PC/laptop enviroments if you are travelling.
+<em>TemplateFlow</em> will require Internet access the first time it receives a
+query for a template resource that has not been previously accessed.
+If you know what are the templates you are planning to use, you could
+prefetch them using the Python client.
+To do so, follow the next steps.</p>
+<blockquote>
+<div><ol class="arabic">
+<li><p>By default, a mirror of <em>TemplateFlow</em> to store the resources will be
+created in <code class="docutils literal notranslate"><span class="pre">$HOME/.cache/templateflow</span></code>.
+You can modify such a configuration with the <code class="docutils literal notranslate"><span class="pre">TEMPLATEFLOW_HOME</span></code>
+environment variable, e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ export TEMPLATEFLOW_HOME=$HOME/.templateflow
+</pre></div>
+</div>
+</li>
+<li><p>Install the client within your favorite Python 3 environment (this can
+be done in your login-node, or in a host with Internet access,
+without need for Docker/Singularity):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python -m pip install -U templateflow
+</pre></div>
+</div>
+</li>
+<li><p>Use the <code class="docutils literal notranslate"><span class="pre">get()</span></code> utility of the client to pull down all the templates you’ll
+want to use. For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python -c &quot;from templateflow.api import get; get([&#39;MNI152NLin2009cAsym&#39;, &#39;MNI152NLin6Asym&#39;, &#39;OASIS30ANTs&#39;, &#39;MNIPediatricAsym&#39;, &#39;MNIInfant&#39;])&quot;
+</pre></div>
+</div>
+</li>
+</ol>
+</div></blockquote>
+<p>After getting the resources you’ll need, you will just need to make sure your
+runtime environment is able to access the filesystem, at the location of your
+<em>TemplateFlow home</em> directory.
+If you are a Singularity user, please check out <a class="reference internal" href="singularity.html#singularity-tf"><span class="std std-ref">TemplateFlow and Singularity</span></a>.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="contributors.html" class="btn btn-neutral float-right" title="Contributing to ASLPREP" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="spaces.html" class="btn btn-neutral float-left" title="Defining standard and nonstandard spaces where data will be resampled" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020-2020, The ASLPREP developers
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

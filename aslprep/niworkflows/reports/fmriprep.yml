@@ -1,0 +1,138 @@
+package: niworkflows
+sections:
+- name: Summary
+  reportlets:
+  - bids: {datatype: anat, desc: summary, suffix: T1w}
+- name: Anatomical
+  reportlets:
+  - bids:
+      datatype: anat
+      desc: conform
+      extension: [.html]
+      suffix: T1w
+  - bids: {datatype: anat, suffix: dseg}
+    caption: This panel shows the template T1-weighted image (if several T1w images
+      were found), with contours delineating the detected brain mask and brain tissue
+      segmentations.
+    subtitle: Brain mask and brain tissue segmentation of the T1w
+  - bids: {datatype: anat, space: .*, suffix: T1w, regex_search: True}
+    caption: Spatial normalization of the T1w image to the <code>{space}</code> template.
+    description: Results of nonlinear alignment of the T1w reference one or more template
+      space(s). Hover on the panels with the mouse pointer to transition between both
+      spaces.
+    static: false
+    subtitle: Spatial normalization of the anatomical T1w reference
+  - bids: {datatype: anat, desc: reconall, suffix: T1w}
+    caption: Surfaces (white and pial) reconstructed with FreeSurfer (<code>recon-all</code>)
+      overlaid on the participant's T1w template.
+    subtitle: Surface reconstruction
+- name: Fieldmaps
+  ordering: session
+  reportlets:
+  - bids: {datatype: fmap, desc: brain, suffix: mask}
+    caption: Brain extraction of the magnitude image from the fieldmap.
+    subtitle: Skull stripped magnitude image
+- name: functional
+  ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo
+  reportlets:
+  - bids: {datatype: asl, desc: summary, suffix: asl}
+  - bids: {datatype: asl, desc: validation, suffix: asl}
+  - bids: {datatype: asl, desc: magnitude, suffix: asl}
+    caption: Results of affine coregistration between the magnitude image of the fieldmap
+      and the reference EPI image
+    static: false
+    subtitle: Fieldmap to EPI registration
+  - bids: {datatype: asl, desc: fieldmap, suffix: asl}
+    caption: Overlaid on the reference EPI image.
+    static: false
+    subtitle: Fieldmap
+  - bids: {datatype: asl, desc: sdc, suffix: asl}
+    caption: Results of performing susceptibility distortion correction (SDC) on the
+      EPI
+    static: false
+    subtitle: Susceptibility distortion correction
+  - bids: {datatype: asl, desc: forcedsyn, suffix: asl}
+    caption: The dataset contained some fieldmap information, but the argument <code>--force-syn</code>
+      was used. The higher-priority SDC method was used. Here, we show the results
+      of performing SyN-based SDC on the EPI for comparison.
+    static: false
+    subtitle: Experimental fieldmap-less susceptibility distortion correction
+  - bids: {datatype: asl, desc: flirtnobbr, suffix: asl}
+    caption: FSL <code>flirt</code> was used to generate transformations from EPI
+      space to T1 Space - BBR refinement rejected. Note that Nearest Neighbor interpolation
+      is used in the reportlets in order to highlight potential spin-history and other
+      artifacts, whereas final images are resampled using Lanczos interpolation.
+    static: false
+    subtitle: Alignment of functional and anatomical MRI data (volume based)
+  - bids: {datatype: asl, desc: coreg, suffix: asl}
+    caption: <code>mri_coreg</code> (FreeSurfer) was used to generate transformations
+      from EPI space to T1 Space - <code>bbregister</code> refinement rejected. Note
+      that Nearest Neighbor interpolation is used in the reportlets in order to highlight
+      potential spin-history and other artifacts, whereas final images are resampled
+      using Lanczos interpolation.f
+    static: false
+    subtitle: Alignment of functional and anatomical MRI data (volume based)
+  - bids: {datatype: asl, desc: flirtbbr, suffix: asl}
+    caption: FSL <code>flirt</code> was used to generate transformations from EPI-space
+      to T1w-space - The white matter mask calculated with FSL <code>fast</code> (brain
+      tissue segmentation) was used for BBR. Note that Nearest Neighbor interpolation
+      is used in the reportlets in order to highlight potential spin-history and other
+      artifacts, whereas final images are resampled using Lanczos interpolation.
+    static: false
+    subtitle: Alignment of functional and anatomical MRI data (surface driven)
+  - bids: {datatype: asl, desc: bbregister, suffix: asl}
+    caption: <code>bbregister</code> was used to generate transformations from EPI-space
+      to T1w-space. Note that Nearest Neighbor interpolation is used in the reportlets
+      in order to highlight potential spin-history and other artifacts, whereas final
+      images are resampled using Lanczos interpolation.
+    static: false
+    subtitle: Alignment of functional and anatomical MRI data (surface driven)
+  - bids: {datatype: asl, desc: rois, suffix: asl}
+    caption: Brain mask calculated on the asl signal (red contour), along with the
+      masks used for a/tCompCor.<br />The aCompCor mask (magenta contour) is a conservative
+      CSF and white-matter mask for extracting physiological and movement confounds.
+      <br />The fCompCor mask (blue contour) contains the top 5% most variable voxels
+      within a heavily-eroded brain-mask.
+    subtitle: Brain mask and (temporal/anatomical) CompCor ROIs
+  - bids:
+      datatype: asl
+      desc: '[at]compcor'
+      extension: [.html]
+      suffix: asl
+  - bids: {datatype: asl, desc: 'compcorvar', suffix: asl}
+    caption: The cumulative variance explained by the first k components of the
+      <em>t/aCompCor</em> decomposition, plotted for all values of <em>k</em>.
+      The number of components that must be included in the model in order to
+      explain some fraction of variance in the decomposition mask can be used
+      as a feature selection criterion for confound regression.
+    subtitle: Variance explained by t/aCompCor components
+  - bids: {datatype: asl, desc: carpetplot, suffix: asl}
+    caption: Summary statistics are plotted, which may reveal trends or artifacts
+      in the asl data. Global signals calculated within the whole-brain (GS), within
+      the white-matter (WM) and within cerebro-spinal fluid (CSF) show the mean asl
+      signal in their corresponding masks. DVARS and FD show the standardized DVARS
+      and framewise-displacement measures for each time point.<br />A carpet plot
+      shows the time series for all voxels within the brain mask. Voxels are grouped
+      into cortical (blue), and subcortical (orange) gray matter, cerebellum (green)
+      and white matter and CSF (red), indicated by the color map on the left-hand
+      side.
+    subtitle: asl Summary
+  - bids: {datatype: asl, desc: 'confoundcorr', suffix: asl}
+    caption: |
+      Left: Heatmap summarizing the correlation structure among confound variables.
+      (Cosine bases and PCA-derived CompCor components are inherently orthogonal.)
+      Right: magnitude of the correlation between each confound time series and the
+      mean global signal. Strong correlations might be indicative of partial volume
+      effects and can inform decisions about feature orthogonalization prior to
+      confound regression.
+    subtitle: Correlations among nuisance regressors
+  - bids: {datatype: asl, desc: aroma, suffix: asl}
+    caption: |
+      Maps created with maximum intensity projection (glass brain) with a
+      black brain outline. Right hand side of each map: time series (top in seconds),
+      frequency spectrum (bottom in Hertz). Components classified as signal are plotted
+      in green; noise components in red.
+    subtitle: ICA Components classified by AROMA
+- name: About
+  reportlets:
+  - bids: {datatype: anat, desc: about, suffix: T1w}

@@ -1,0 +1,479 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>ASLPrep: A Robust Preprocessing Pipeline for ASL Data &mdash; aslprep version documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script type="text/javascript" src="https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="#" class="icon icon-home"> aslprep
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                version
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Running <em>aslprep</em> via Docker containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="singularity.html">Running <em>ASLPrep</em> via Singularity containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows.html">Processing pipeline details</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdc.html">Susceptibility Distortion Correction (SDC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs of <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="spaces.html">Defining standard and nonstandard spaces where data will be resampled</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ, Tips, and Tricks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributing to ASLPREP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Developers - API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">aslprep</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="#">Docs</a> &raquo;</li>
+        
+      <li><em>ASLPrep</em>: A Robust Preprocessing Pipeline for ASL Data</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="aslprep-a-robust-preprocessing-pipeline-for-asl-data">
+<h1><em>ASLPrep</em>: A Robust Preprocessing Pipeline for ASL Data<a class="headerlink" href="#aslprep-a-robust-preprocessing-pipeline-for-asl-data" title="Permalink to this headline">¶</a></h1>
+<p>This pipeline is developed by the <a class="reference external" href="https://www.satterthwaitelab.com/">Sattarwaite lab at the University of Pennysilvania</a> for use at the <a class="reference external" href="https://www.satterthwaitelab.com/">The Lifespan Informatics and Neuroimaging Center
+at the University of Pennylvannia</a>, as well as for
+open-source software distribution.</p>
+<div class="section" id="about">
+<h2>About<a class="headerlink" href="#about" title="Permalink to this headline">¶</a></h2>
+<p><em>ASLPrep</em> is a Arterial Spin Labeling  (ASL) data
+preprocessing  and Cerebral Blood FLow (CBF) computation pipeline
+that is designed to provide an easily accessible,
+state-of-the-art interface that is robust to variations in scan acquisition
+protocols and that requires minimal user input, while providing easily
+interpretable and comprehensive error and output reporting.
+It performs basic processing steps (coregistration, normalization, unwarping,
+noise component extraction, segmentation, skullstripping etc.) providing
+outputs that can be easily submitted to a variety of group level analyses,
+including task-based or resting-state CBF, graph theory measures, surface or
+volume-based statistics, etc.</p>
+<p>The <em>ASLPrep</em> pipeline uses a combination of tools from well-known software
+packages, including <a class="reference external" href="https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/">FSL</a>, <a class="reference external" href="https://stnava.github.io/ANTs/">ANTs</a>, <a class="reference external" href="https://surfer.nmr.mgh.harvard.edu/">FreeSurfer</a> and <a class="reference external" href="https://afni.nimh.nih.gov/">AFNI</a>.
+This pipeline was designed to provide the best software implementation for each
+state of preprocessing, and will be updated as newer and better neuroimaging
+software become available.</p>
+<p>This tool allows you to easily do the following:</p>
+<ul class="simple">
+<li><p>Take ASL data from raw to fully preprocessed form.</p></li>
+<li><p>Implement tools from different software packages.</p></li>
+<li><p>Achieve optimal data processing quality by using the best tools available.</p></li>
+<li><p>Receive verbose output concerning the stage of preprocessing for each
+subject, including meaningful errors.</p></li>
+<li><p>Automate and parallelize processing steps, which provides a significant
+speed-up from typical linear, manual processing.</p></li>
+<li><p>compute Cerebral Blood Flow(CBF), denoising and partial volume correction</p></li>
+</ul>
+<p>More information and documentation can be found at
+<a class="reference external" href="https://aslprep.readthedocs.io/">https://aslprep.readthedocs.io/</a></p>
+</div>
+<div class="section" id="principles">
+<h2>Principles<a class="headerlink" href="#principles" title="Permalink to this headline">¶</a></h2>
+<p><em>ASLPrep</em> is built around three principles:</p>
+<ol class="arabic simple">
+<li><p><strong>Robustness</strong> - The pipeline adapts the preprocessing steps depending on
+the input dataset and should provide results as good as possible
+independently of scanner make, scanning parameters or presence of additional
+correction scans (such as fieldmaps).</p></li>
+<li><p><strong>Ease of use</strong> - Thanks to dependence on the BIDS standard, manual
+parameter input is reduced to a minimum, allowing the pipeline to run in an
+automatic fashion.</p></li>
+<li><p><strong>“Glass box”</strong> philosophy - Automation should not mean that one should not
+visually inspect the results or understand the methods.
+Thus, <em>ASLPrep</em> provides visual reports for each subject, detailing the
+accuracy of the most important processing steps.
+This, combined with the documentation, can help researchers to understand
+the process and decide which subjects should be kept for the group level
+analysis.</p></li>
+</ol>
+</div>
+<div class="section" id="limitations-and-reasons-not-to-use-aslprep">
+<h2>Limitations and reasons not to use <em>ASLPrep</em><a class="headerlink" href="#limitations-and-reasons-not-to-use-aslprep" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Very narrow <abbr title="field-of-view">FoV</abbr> images oftentimes do not contain
+enough information for standard image registration methods to work correctly.
+Also, problems may arise when extracting the brain from these data.
+Supporting these particular images is already a future line of the development
+road-map.</p></li>
+<li><p><em>ASLPrep</em> may also underperform for particular populations (e.g., infants) and
+non-human brains, although appropriate templates can be provided to overcome the
+issue.</p></li>
+<li><p>If you really want unlimited flexibility (which is obviously a double-edged sword).</p></li>
+<li><p>If you want students to suffer through implementing each step for didactic purposes,
+or to learn shell-scripting or Python along the way.</p></li>
+<li><p>If you are trying to reproduce some <em>in-house</em> lab pipeline.</p></li>
+</ol>
+</div>
+<div class="section" id="acknowledgements">
+<h2>Acknowledgements<a class="headerlink" href="#acknowledgements" title="Permalink to this headline">¶</a></h2>
+<p>Please acknowledge this work using the citation boilerplate that <em>ASLPrep</em> includes
+in the visual report generated for every subject processed.</p>
+</div>
+<div class="section" id="license-information">
+<h2>License information<a class="headerlink" href="#license-information" title="Permalink to this headline">¶</a></h2>
+<p>We use the 3-clause BSD license; the full license may be found in the
+<a class="reference external" href="https://github.com/pennlinc/aslprep/blob/master/LICENSE">LICENSE</a> file
+in the <em>ASLPrep</em> distribution.</p>
+<p>All trademarks referenced herein are property of their respective holders.</p>
+<p>Copyright (c) 2019-2020, the <em>ASLPrep</em> developers and the PENN LINC.
+All rights reserved.</p>
+</div>
+<div class="section" id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#manually-prepared-environment-python-3-5">Manually Prepared Environment (Python 3.5+)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="installation.html#external-dependencies">External Dependencies</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Notes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#execution-and-the-bids-format">Execution and the BIDS format</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#command-line-arguments">Command-Line Arguments</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Positional Arguments">Positional Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Named Arguments">Named Arguments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Options for filtering BIDS queries">Options for filtering BIDS queries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Options to handle performance">Options to handle performance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Workflow configuration">Workflow configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Specific options for ANTs registrations">Specific options for ANTs registrations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Specific options for handling fieldmaps">Specific options for handling fieldmaps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Specific options for SyN distortion correction">Specific options for SyN distortion correction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Specific options for FreeSurfer preprocessing">Specific options for FreeSurfer preprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Surface preprocessing options">Surface preprocessing options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage.html#Other options">Other options</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#the-freesurfer-license">The FreeSurfer license</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Running <em>aslprep</em> via Docker containers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="docker.html#running-aslprep-directly-interacting-with-the-docker-engine">Running <em>aslprep</em> directly interacting with the Docker Engine</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="singularity.html">Running <em>ASLPrep</em> via Singularity containers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="singularity.html#preparing-a-singularity-image">Preparing a Singularity image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singularity.html#running-a-singularity-image">Running a Singularity Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singularity.html#handling-environment-variables">Handling environment variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singularity.html#accessing-the-host-s-filesystem">Accessing the host’s filesystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singularity.html#templateflow-and-singularity"><em>TemplateFlow</em> and Singularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singularity.html#internet-access-problems">Internet access problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="singularity.html#running-singularity-on-a-slurm-system">Running Singularity on a SLURM system</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="workflows.html">Processing pipeline details</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="workflows.html#preprocessing-of-structural-mri">Preprocessing of structural MRI</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#brain-extraction-brain-tissue-segmentation-and-spatial-normalization">Brain extraction, brain tissue segmentation and spatial normalization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#cost-function-masking-during-spatial-normalization">Cost function masking during spatial normalization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#longitudinal-processing">Longitudinal processing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#surface-preprocessing">Surface preprocessing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#refinement-of-the-brain-mask">Refinement of the brain mask</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="workflows.html#aslprep-preprocessing">ASLPrep preprocessing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#asl-reference-image-estimation">ASL reference image estimation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#head-motion-estimation">Head-motion estimation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#slice-time-correction">Slice time correction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#susceptibility-distortion-correction-sdc">Susceptibility Distortion Correction (SDC)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#pre-processed-asl-in-native-space">Pre-processed ASL in native space</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#cbf-computation-in-native-space">CBF Computation in native space</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#asl-and-cbf-to-t1w-registration">ASL and CBF to T1w registration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#resampling-asl-and-cbf-runs-onto-standard-spaces">Resampling ASL  and CBF runs onto standard spaces</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#asl-sampled-to-freesurfer-surfaces">ASL sampled to FreeSurfer surfaces</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#hcp-grayordinates">HCP Grayordinates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#confounds-estimation">Confounds estimation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="workflows.html#t2-driven-coregistration">T2* Driven Coregistration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="sdc.html">Susceptibility Distortion Correction (SDC)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="sdc.html#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sdc.html#correction-methods">Correction methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="sdc.html#calculating-the-effective-echo-spacing-and-total-readout-time">Calculating the effective echo-spacing and total-readout time</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sdc.html#from-the-phase-difference-map-to-a-field-map">From the phase-difference map to a field map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="sdc.html#references">References</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs of <em>ASLPrep</em></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="outputs.html#visual-reports">Visual Reports</a></li>
+<li class="toctree-l2"><a class="reference internal" href="outputs.html#derivatives-of-aslprep-preprocessed-data">Derivatives of <em>ASLPrep</em> (preprocessed data)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="outputs.html#anatomical-derivatives">Anatomical derivatives</a></li>
+<li class="toctree-l3"><a class="reference internal" href="outputs.html#freesurfer-derivatives">FreeSurfer derivatives</a></li>
+<li class="toctree-l3"><a class="reference internal" href="outputs.html#asl-derivatives">ASL derivatives</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="outputs.html#cbf-qulaity-control">CBF qulaity control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="outputs.html#confounds">Confounds</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="outputs.html#confound-regressors-description">Confound regressors description</a></li>
+<li class="toctree-l3"><a class="reference internal" href="outputs.html#confounds-and-carpet-plot-on-the-visual-reports">Confounds and “carpet”-plot on the visual reports</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="spaces.html">Defining standard and nonstandard spaces where data will be resampled</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="spaces.html#templateflow"><em>TemplateFlow</em></a></li>
+<li class="toctree-l2"><a class="reference internal" href="spaces.html#standard-spaces">Standard spaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spaces.html#custom-standard-spaces">Custom standard spaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spaces.html#nonstandard-spaces">Nonstandard spaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="spaces.html#preprocessing-blocks-depending-on-standard-templates">Preprocessing blocks depending on standard templates</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ, Tips, and Tricks</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#should-i-run-quality-control-of-my-images-before-running-aslprep">Should I run quality control of my images before running <em>ASLPrep</em>?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#what-if-i-find-some-images-have-undergone-some-pre-processing-already-e-g-my-t1w-image-is-already-skull-stripped">What if I find some images have undergone some pre-processing already (e.g., my T1w image is already skull-stripped)?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#my-aslprep-run-is-hanging">My <em>ASLPrep</em> run is hanging…</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#error-it-appears-that-recon-all-is-already-running">ERROR: it appears that <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> is already running</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#how-much-cpu-time-and-ram-should-i-allocate-for-a-typical-aslprep-run">How much CPU time and RAM should I allocate for a typical ASLPrep run?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#a-new-version-of-aslprep-has-been-published-when-should-i-upgrade">A new version of <em>ASLPrep</em> has been published, when should I upgrade?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#i-m-running-aslprep-via-singularity-containers-how-can-i-troubleshoot-problems">I’m running <em>ASLPrep</em> via Singularity containers - how can I troubleshoot problems?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#what-is-templateflow-for">What is <em>TemplateFlow</em> for?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#how-do-you-use-templateflow-in-the-absence-of-access-to-the-internet">How do you use TemplateFlow in the absence of access to the Internet?</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributing to ASLPREP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="contributors.html#adding-dependencies">Adding dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="contributors.html#code-server-development-environment-experimental">Code-Server Development Environment (Experimental)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="contributors.html#build-the-docker-image">1. Build the Docker image</a></li>
+<li class="toctree-l3"><a class="reference internal" href="contributors.html#run-the-docker-image">2. Run the Docker image</a></li>
+<li class="toctree-l3"><a class="reference internal" href="contributors.html#copy-aslprep-egg-info-into-your-aslprep-directory">3. Copy aslprep.egg-info into your aslprep directory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="contributors.html#code-server-development-environment-features">Code-Server Development Environment Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="contributors.html#adding-new-features-to-the-citation-boilerplate">Adding new features to the citation boilerplate</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing <em>ASLPrep</em></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="citing.html#note-for-reviewers-and-editors">Note for reviewers and editors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="citing.html#posters">Posters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="citing.html#presentations">Presentations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="citing.html#license-information">License information</a></li>
+<li class="toctree-l2"><a class="reference internal" href="citing.html#other-relevant-references">Other relevant references</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Developers - API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api.html#id1">Workflows</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#aslprep-base-processing-workflows">ASLPrep base processing workflows</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#pre-processing-fmri-bold-signal-workflows">Pre-processing fMRI - BOLD signal workflows</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new</a></li>
+</ul>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020-2020, The ASLPREP developers
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

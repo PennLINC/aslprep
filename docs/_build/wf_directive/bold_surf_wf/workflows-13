@@ -1,0 +1,28 @@
+digraph bold_surf_wf{
+  label="bold_surf_wf";
+  bold_surf_wf_itersource[label="itersource (utility)", shape=box3d,style=filled, color=black, colorscheme=greys7 fillcolor=2];
+  bold_surf_wf_inputnode[label="inputnode (utility)", style=filled, fillcolor="#FFFFC8"];
+  bold_surf_wf_resampling_xfm[label="resampling_xfm (interfaces)", style=filled, fillcolor="#FFFFC8"];
+  bold_surf_wf_set_xfm_source[label="set_xfm_source (interfaces)", style=filled, fillcolor="#FFFFC8"];
+  bold_surf_wf_rename_src[label="rename_src (utility)", style=filled, fillcolor="#FFFFC8"];
+  bold_surf_wf_targets[label="targets (utility)", style=filled, fillcolor="#FFFFC8"];
+  bold_surf_wf_sampler[label="sampler (freesurfer)", style=filled, fillcolor="#FFFFC8"];
+  bold_surf_wf_update_metadata[label="update_metadata (interfaces)", style=filled, fillcolor="#FFFFC8"];
+  bold_surf_wf_outputnode[label="outputnode (utility)", style=filled, fillcolor="#FFFFC8"];
+  bold_surf_wf_itersource -> bold_surf_wf_targets;
+  bold_surf_wf_itersource -> bold_surf_wf_rename_src;
+  bold_surf_wf_itersource -> bold_surf_wf_outputnode;
+  bold_surf_wf_inputnode -> bold_surf_wf_targets;
+  bold_surf_wf_inputnode -> bold_surf_wf_rename_src;
+  bold_surf_wf_inputnode -> bold_surf_wf_resampling_xfm;
+  bold_surf_wf_inputnode -> bold_surf_wf_resampling_xfm;
+  bold_surf_wf_inputnode -> bold_surf_wf_set_xfm_source;
+  bold_surf_wf_inputnode -> bold_surf_wf_sampler;
+  bold_surf_wf_inputnode -> bold_surf_wf_sampler;
+  bold_surf_wf_resampling_xfm -> bold_surf_wf_set_xfm_source;
+  bold_surf_wf_set_xfm_source -> bold_surf_wf_sampler;
+  bold_surf_wf_rename_src -> bold_surf_wf_sampler;
+  bold_surf_wf_targets -> bold_surf_wf_sampler;
+  bold_surf_wf_sampler -> bold_surf_wf_update_metadata;
+  bold_surf_wf_update_metadata -> bold_surf_wf_outputnode;
+}
