@@ -41,7 +41,6 @@ This tool allows you to easily do the following:
 More information and documentation can be found at
 https://aslprep.readthedocs.io/
 
-
 Principles
 ----------
 
