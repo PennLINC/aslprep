@@ -63,7 +63,7 @@ def get_parser():
                              'aslprep (see BIDS-Apps specification).')
 
     # optional arguments
-    parser.add_argument('--version', action='version', version="0.0.1")
+     parser.add_argument('--version', action='version', version=verstr)
 
     g_bids = parser.add_argument_group('Options for filtering BIDS queries')
     g_bids.add_argument('--skip_bids_validation', '--skip-bids-validation', action='store_true',
