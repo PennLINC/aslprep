@@ -106,6 +106,77 @@ class fMRIPlot(object):
         return figure
 
 
+class CBFtsPlot(object):
+    """
+    Generates the CBF  Summary Plot for cbf nd score ts
+    """
+    __slots__ = ['cbf','score','tr', 'seg_data']
+
+    def __init__(self,cbf,score,seg_data,tr):
+        self.cbf = nb.load(cbf)
+        self.score=nb.load(score)
+        self.seg_data = np.asanyarray(nb.load(seg_data).dataobj)
+        self.tr=tr
+
+    def plot(self, figure=None):
+        """Main plotter"""
+        sns.set_style("whitegrid")
+        sns.set_context("paper", font_scale=0.8)
+
+        if figure is None:
+            figure = plt.gcf()
+
+        # Create grid
+        grid = mgs.GridSpec(2, 1, wspace=0.0, hspace=0.05,
+                            height_ratios=[1] * (2 - 1) + [2])
+
+        plot_carpet(self.cbf,self.seg_data,subplot=grid[0], tr=self.tr,title='CBF')
+        plot_carpet(self.score,self.seg_data,subplot=grid[-1], tr=self.tr,title='SCORE')
+
+        # spikesplot_cb([0.7, 0.78, 0.2, 0.008])
+        return figure
+
+
+class CBFPlot(object):
+    """
+    Generates the cbf Summary Plot
+    """
+    __slots__ = ['cbf','score','scrub','basil','pvc','rev_vol']
+
+    def __init__(self,cbf,score,scrub,basil,pvc,rev_vol):
+        self.cbf = cbf
+        self.score = score
+        self.scrub = scrub
+        self.basil=basil
+        self.pvc=pvc
+        self.rev_vol=self.rev_vol
+
+    def plot(self, figure=None):
+        """Main plotter"""
+        cbfmaps=[self.cbf,self.score,self.scrub,self.basil,self.pvc]
+        cbfmapsnames=['cbf','score_cbf','scrub_cbf','basil_cbf','pvc_cbf']
+        import seaborn as sns
+        from seaborn import color_palette
+        sns.set_style("whitegrid")
+        sns.set_context("paper", font_scale=0.8)
+        import matplotlib.pyplot as plt
+        from matplotlib import gridspec as mgs
+        if figure is None:
+            figure = plt.gcf()
+
+        # Create grid
+        grid = mgs.GridSpec(5, 1, wspace=0.0, hspace=0.05,
+                            height_ratios=[1] * (5 - 1) + [5])
+        from nilearn import plotting
+    
+        for i in range(len(cbfmaps)):
+            ax = plt.subplot(grid[i])
+            plotting.plot_stat_map(cbfmaps[i],bg_img=self.rev_vol,
+                       threshold=0,vmax=90,title=cbfmapsnames[i],axes=ax,
+                       cut_coords=[0,0,0], draw_cross=False)
+        return figure
+
+
 def plot_carpet(img, atlaslabels, detrend=True, nskip=0, size=(950, 800),
                 subplot=None, title=None, output_file=None, legend=False,
                 lut=None, tr=None):

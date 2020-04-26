@@ -17,7 +17,7 @@ def init_cbf_compt_wf(mem_gb,metadata,aslcontext,pcasl,omp_nthreads, name='cbf_c
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data using a relatively basic model 
-[@detre_perfusion,@alsop_recommended]. CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity 
+[@detre_perfusion] [@alsop_recommended]. CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity 
 to  motion, Structural Correlation based Outlier Rejection (SCORE) algothim was applied to the CBF to 
 discard few extreme outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
 algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues probalility maps 

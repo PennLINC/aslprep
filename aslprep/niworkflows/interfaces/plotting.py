@@ -9,7 +9,7 @@ from nipype.interfaces.base import (
     File, BaseInterfaceInputSpec, TraitedSpec, SimpleInterface, traits
 )
 from ..viz.plots import (
-    fMRIPlot, compcor_variance_plot, confounds_correlation_plot
+    fMRIPlot,CBFPlot,CBFtsPlot,compcor_variance_plot, confounds_correlation_plot
 )
 
 
@@ -63,6 +63,72 @@ class FMRISummary(SimpleInterface):
             data=dataframe[['outliers', 'DVARS', 'FD']],
             units={'outliers': '%', 'FD': 'mm'},
             vlines={'FD': [self.inputs.fd_thres]},
+        ).plot()
+        fig.savefig(self._results['out_file'], bbox_inches='tight')
+        return runtime
+
+class _CBFSummaryInputSpec(BaseInterfaceInputSpec):
+    cbf = File(exists=True, mandatory=True, desc='')
+    score = File(exists=True, mandatory=True, desc='')
+    scrub = File(exists=True, mandatory=True, desc='')
+    basil = File(exists=True, mandatory=True, desc='')
+    pvc = File(exists=True, mandatory=True, desc='')
+    ref_vol = File(exists=True, mandatory=True, desc='')
+
+
+class _CBFSummaryOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='written file path')
+
+
+class CBFSummary(SimpleInterface):
+    """Prepare an CBF summary plot for the report."""
+    input_spec = _CBFSummaryInputSpec
+    output_spec = _CBFSummaryOutputSpec
+
+    def _run_interface(self, runtime):
+        self._results['out_file'] = fname_presuffix(
+            self.inputs.cbf,
+            suffix='_cbfplot.svg',
+            use_ext=False,
+            newpath=runtime.cwd)
+        fig = CBFPlot(
+            cbf=self.inputs.cbf,
+            score=self.inputs.score,
+            scrub=self.inputs.scrub,
+            basil=self.inputs.basil,
+            pvc=self.inputs.pvc,
+            rev_vol=self.inputs.rev_vol
+        ).plot()
+        fig.savefig(self._results['out_file'], bbox_inches='tight')
+        return runtime
+
+
+class _CBFtsSummaryInputSpec(BaseInterfaceInputSpec):
+    cbf_ts = File(exists=True, mandatory=True, desc='')
+    score_ts = File(exists=True, mandatory=True, desc='')
+    seg_file= File(exists=True, mandatory=True, desc='')
+    tr = tis=traits.Float(desc='',mandatory=True)
+
+class _CBFtsSummaryOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='written file path')
+
+
+class CBFtsSummary(SimpleInterface):
+    """Prepare an CBF summary plot for the report."""
+    input_spec = _CBFtsSummaryInputSpec
+    output_spec = _CBFtsSummaryOutputSpec
+
+    def _run_interface(self, runtime):
+        self._results['out_file'] = fname_presuffix(
+            self.inputs.cbf_ts,
+            suffix='_cbfcarpetplot.svg',
+            use_ext=False,
+            newpath=runtime.cwd)
+        fig = CBFtsPlot(
+            cbf=self.inputs.cbf_ts,
+            score=self.inputs.score_ts,
+            seg_data=self.inputs.seg_file,
+            tr=self.inputs.tr
         ).plot()
         fig.savefig(self._results['out_file'], bbox_inches='tight')
         return runtime
