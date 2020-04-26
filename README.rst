@@ -1,15 +1,15 @@
 *ASLPrep*: A Robust Preprocessing Pipeline for ASL Data
 =========================================================
 
-This pipeline is developed by the `Sattarwaite lab at the University of Pennysilvania
-<https://www.satterthwaitelab.com/>`_ for use at the `The Lifespan Informatics and Neuroimaging Center 
+This pipeline is developed by the `Satterthwaite lab at the University of Pennysilvania
+<https://www.satterthwaitelab.com/>`_ for use at the `The Lifespan Informatics and Neuroimaging Center
 at the University of Pennylvannia <https://www.satterthwaitelab.com/>`_, as well as for
 open-source software distribution.
 
 About
 -----
 *ASLPrep* is a Arterial Spin Labeling  (ASL) data
-preprocessing  and Cerebral Blood FLow (CBF) computation pipeline 
+preprocessing  and Cerebral Blood FLow (CBF) computation pipeline
 that is designed to provide an easily accessible,
 state-of-the-art interface that is robust to variations in scan acquisition
 protocols and that requires minimal user input, while providing easily
