@@ -7,6 +7,7 @@ from ..niworkflows.interfaces import (
 
 from .reports import SubjectSummary, FunctionalSummary, AboutSummary
 from .confounds import GatherConfounds, ICAConfounds, FMRISummary
+from ..niworkflows.interfaces.plotting import (CBFSummary,CBFtsSummary)
 from .multiecho import T2SMap
 
 
@@ -28,6 +29,8 @@ __all__ = [
     'GatherConfounds',
     'ICAConfounds',
     'FMRISummary',
+    'CBFSummary',
+    'CBFtsSummary',
     'T2SMap',
     'DerivativesDataSink',
 ]

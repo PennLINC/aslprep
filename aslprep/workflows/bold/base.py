@@ -34,7 +34,7 @@ from .confounds import init_bold_confs_wf, init_carpetplot_wf
 from .hmc import init_bold_hmc_wf
 from .stc import init_bold_stc_wf
 from .t2s import init_bold_t2s_wf
-from .cbf import init_cbf_compt_wf,init_cbfqc_compt_wf
+from .cbf import init_cbf_compt_wf,init_cbfqc_compt_wf,init_cbfplot_wf
 from .registration import init_bold_t1_trans_wf, init_bold_reg_wf
 from .resampling import (
     init_bold_surf_wf,
@@ -683,15 +683,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
      ])
     
-      
-
-     # register  bold to t1w 
-    
-
-
-
-
-
     if not t2s_coreg:
         workflow.connect([
             (bold_sdc_wf, bold_reg_wf, [
@@ -1031,10 +1022,27 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         (compt_qccbf_wf,func_derivatives_wf,[('outputnode.qc_file','inputnode.qc_file')]),
         
     ])
+    cbf_plot=init_cbfplot_wf(mem_gb=mem_gb,metadata=metadata,
+                     omp_nthreads=omp_nthreads, name='cbf_plot')
+   
+    workflow.connect([
+       (compt_cbf_wf,cbf_plot,[('outputnode.out_mean','inputnode.cbf'),
+                                    ('outputnode.out_avgscore','inputnode.score'),
+                                    ('outputnode.out_scrub','inputnode.scrub'),
+                                    ('outputnode.out_cbfb','inputnode.basil'),
+                                    ('outputnode.out_cbfpv','inputnode.pvc'),
+                                    ('outputnode.out_score','inputnode.score_ts'),
+                                    ('outputnode.out_cbf','inputnode.cbf_ts')]),
+      (inputnode,cbf_plot,[('std2anat_xfm','inputnode.std2anat_xfm')]),
+      (bold_reg_wf,cbf_plot,[('outputnode.itk_t1_to_bold','inputnode.t1_bold_xform')]),
+      (bold_bold_trans_wf,cbf_plot,[('outputnode.bold_mask','inputnode.bold_mask')]),
+      (bold_reference_wf, cbf_plot, [('outputnode.ref_image', 'inputnode.bold_ref')]),
+       ])
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         workflow.connect([
                 (bold_std_trans_wf,compt_qccbf_wf,[('outputnode.bold_mask_std','inputnode.bold_mask_std')]),
             ])
+    
     
         
     # REPORTING ############################################################

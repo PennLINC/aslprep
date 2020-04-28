@@ -128,7 +128,7 @@ class CBFtsPlot(object):
 
         # Create grid
         grid = mgs.GridSpec(2, 1, wspace=0.0, hspace=0.05,
-                            height_ratios=[1] * (2 - 1) + [2])
+                            height_ratios=[2] * (2 - 1) + [2])
 
         plot_carpet(self.cbf,self.seg_data,subplot=grid[0], tr=self.tr,title='CBF')
         plot_carpet(self.score,self.seg_data,subplot=grid[-1], tr=self.tr,title='SCORE')
@@ -141,15 +141,15 @@ class CBFPlot(object):
     """
     Generates the cbf Summary Plot
     """
-    __slots__ = ['cbf','score','scrub','basil','pvc','rev_vol']
+    __slots__ = ['cbf','score','scrub','basil','pvc','ref_vol']
 
-    def __init__(self,cbf,score,scrub,basil,pvc,rev_vol):
+    def __init__(self,cbf,score,scrub,basil,pvc,ref_vol):
         self.cbf = cbf
         self.score = score
         self.scrub = scrub
         self.basil=basil
         self.pvc=pvc
-        self.rev_vol=self.rev_vol
+        self.ref_vol=ref_vol
 
     def plot(self, figure=None):
         """Main plotter"""
@@ -157,24 +157,54 @@ class CBFPlot(object):
         cbfmapsnames=['cbf','score_cbf','scrub_cbf','basil_cbf','pvc_cbf']
         import seaborn as sns
         from seaborn import color_palette
-        sns.set_style("whitegrid")
-        sns.set_context("paper", font_scale=0.8)
         import matplotlib.pyplot as plt
         from matplotlib import gridspec as mgs
-        if figure is None:
-            figure = plt.gcf()
+        from nilearn.plotting import plot_stat_map 
+        
+        ax=plt.gcf()
+       
+        grid = mgs.GridSpec(5, 1, wspace=0.4,)
 
-        # Create grid
-        grid = mgs.GridSpec(5, 1, wspace=0.0, hspace=0.05,
-                            height_ratios=[1] * (5 - 1) + [5])
-        from nilearn import plotting
+        plotstatsimg(cbfmaps[0],ref_vol=self.ref_vol,subplot=grid[0], title=cbfmapsnames[0], output_file=None)
+        plotstatsimg(cbfmaps[1],ref_vol=self.ref_vol,subplot=grid[1], title=cbfmapsnames[1], output_file=None)
+        plotstatsimg(cbfmaps[2],ref_vol=self.ref_vol,subplot=grid[2], title=cbfmapsnames[2], output_file=None)
+        plotstatsimg(cbfmaps[3],ref_vol=self.ref_vol,subplot=grid[3], title=cbfmapsnames[3], output_file=None)
+        plotstatsimg(cbfmaps[4],ref_vol=self.ref_vol,subplot=grid[4], title=cbfmapsnames[4], output_file=None)
+     
+        return ax
+
+
+def plotstatsimg(img, ref_vol,subplot=None, title=None, output_file=None):
+    """
+    """
     
-        for i in range(len(cbfmaps)):
-            ax = plt.subplot(grid[i])
-            plotting.plot_stat_map(cbfmaps[i],bg_img=self.rev_vol,
-                       threshold=0,vmax=90,title=cbfmapsnames[i],axes=ax,
-                       cut_coords=[0,0,0], draw_cross=False)
-        return figure
+    if title is None:
+        title='summary'
+    # If subplot is not defined
+    if subplot is None:
+        subplot = mgs.GridSpec(1, 1)[0]
+    #wratios = [1, 100, 20]
+    gs = mgs.GridSpecFromSubplotSpec(1, 1,subplot_spec=subplot,
+                                     wspace=0.0)
+
+    # Segmentation colorbar
+
+    # Carpet plot
+  
+    ax1 = plt.subplot(gs[0])
+
+    from nilearn.plotting import plot_stat_map 
+    plot_stat_map(stat_map_img=img,bg_img=ref_vol, axes=ax1,threshold=0,vmax=90,title=title,
+                       display_mode='z', cut_coords=5,draw_cross=False,symmetric_cbar=True,annotate=False)
+
+    if output_file is not None:
+        figure = plt.gcf()
+        figure.savefig(output_file, bbox_inches='tight')
+        plt.close(figure)
+        figure = None
+        return output_file
+
+    return ax1,gs
 
 
 def plot_carpet(img, atlaslabels, detrend=True, nskip=0, size=(950, 800),

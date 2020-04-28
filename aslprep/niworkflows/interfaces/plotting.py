@@ -97,7 +97,7 @@ class CBFSummary(SimpleInterface):
             scrub=self.inputs.scrub,
             basil=self.inputs.basil,
             pvc=self.inputs.pvc,
-            rev_vol=self.inputs.rev_vol
+            ref_vol=self.inputs.ref_vol
         ).plot()
         fig.savefig(self._results['out_file'], bbox_inches='tight')
         return runtime
@@ -107,7 +107,7 @@ class _CBFtsSummaryInputSpec(BaseInterfaceInputSpec):
     cbf_ts = File(exists=True, mandatory=True, desc='')
     score_ts = File(exists=True, mandatory=True, desc='')
     seg_file= File(exists=True, mandatory=True, desc='')
-    tr = tis=traits.Float(desc='',mandatory=True)
+    tr =traits.Float(desc='',mandatory=True)
 
 class _CBFtsSummaryOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='written file path')
