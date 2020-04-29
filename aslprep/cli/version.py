@@ -68,7 +68,7 @@ def is_flagged():
     flagged = tuple()
     try:
         response = requests.get(url="""\
-https://raw.githubusercontent.com/aslprep/master/.versions.json""", timeout=1.0)
+https://github.com/PennLINC/aslprep/.versions.json""", timeout=1.0)
     except Exception:
         response = None
 
