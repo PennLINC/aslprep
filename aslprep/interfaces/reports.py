@@ -24,7 +24,7 @@ SUBJECT_TEMPLATE = """\
 \t<ul class="elem-desc">
 \t\t<li>Subject ID: {subject_id}</li>
 \t\t<li>Structural images: {n_t1s:d} T1-weighted {t2w}</li>
-\t\t<li>Functional series: {n_bold:d}</li>
+\t\t<li>ASL series: {n_bold:d}</li>
 {tasks}
 \t\t<li>Standard output spaces: {std_spaces}</li>
 \t\t<li>Non-standard output spaces: {nstd_spaces}</li>

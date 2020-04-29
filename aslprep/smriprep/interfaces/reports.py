@@ -141,7 +141,7 @@ class FSSurfaceReport(SimpleInterface):
     output_spec = _FSSurfaceReportOutputSpec
 
     def _run_interface(self, runtime):
-        from niworkflows.viz.utils import plot_registration, cuts_from_bbox, compose_view
+        from ...niworkflows.viz.utils import plot_registration, cuts_from_bbox, compose_view
         from nibabel import load
 
         rootdir = Path(self.inputs.subjects_dir) / self.inputs.subject_id

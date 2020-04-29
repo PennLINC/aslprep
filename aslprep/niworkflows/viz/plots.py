@@ -154,22 +154,20 @@ class CBFPlot(object):
     def plot(self, figure=None):
         """Main plotter"""
         cbfmaps=[self.cbf,self.score,self.scrub,self.basil,self.pvc]
-        cbfmapsnames=['cbf','score_cbf','scrub_cbf','basil_cbf','pvc_cbf']
-        import seaborn as sns
-        from seaborn import color_palette
+        #cbfmapsnames=['cbf','score_cbf','scrub_cbf','basil_cbf','pvc_cbf']
         import matplotlib.pyplot as plt
         from matplotlib import gridspec as mgs
         from nilearn.plotting import plot_stat_map 
         
         ax=plt.gcf()
        
-        grid = mgs.GridSpec(5, 1, wspace=0.4,)
+        grid = mgs.GridSpec(5, 1)
 
-        plotstatsimg(cbfmaps[0],ref_vol=self.ref_vol,subplot=grid[0], title=cbfmapsnames[0], output_file=None)
-        plotstatsimg(cbfmaps[1],ref_vol=self.ref_vol,subplot=grid[1], title=cbfmapsnames[1], output_file=None)
-        plotstatsimg(cbfmaps[2],ref_vol=self.ref_vol,subplot=grid[2], title=cbfmapsnames[2], output_file=None)
-        plotstatsimg(cbfmaps[3],ref_vol=self.ref_vol,subplot=grid[3], title=cbfmapsnames[3], output_file=None)
-        plotstatsimg(cbfmaps[4],ref_vol=self.ref_vol,subplot=grid[4], title=cbfmapsnames[4], output_file=None)
+        plotstatsimg(cbfmaps[0],ref_vol=self.ref_vol,subplot=grid[0], output_file=None)
+        plotstatsimg(cbfmaps[1],ref_vol=self.ref_vol,subplot=grid[1], output_file=None)
+        plotstatsimg(cbfmaps[2],ref_vol=self.ref_vol,subplot=grid[2], output_file=None)
+        plotstatsimg(cbfmaps[3],ref_vol=self.ref_vol,subplot=grid[3], output_file=None)
+        plotstatsimg(cbfmaps[4],ref_vol=self.ref_vol,subplot=grid[4], output_file=None)
      
         return ax
 
@@ -179,7 +177,7 @@ def plotstatsimg(img, ref_vol,subplot=None, title=None, output_file=None):
     """
     
     if title is None:
-        title='summary'
+        title=''
     # If subplot is not defined
     if subplot is None:
         subplot = mgs.GridSpec(1, 1)[0]
