@@ -802,3 +802,11 @@ def cbf_qei(gm,wm,csf,img,thresh=0.7):
     CV=V/np.abs(GMCBF)
     Q = [fun1(x1,CV),fun1(x2,negGM),fun2(x4,r1)]
     return gmean(Q)
+
+
+
+
+
+
+
+ 

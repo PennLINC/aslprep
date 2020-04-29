@@ -7,6 +7,8 @@ from ...niworkflows.interfaces.itk import MCFLIRT2ITK
 from ...niworkflows.interfaces.cbf_computation import (extractCBF,computeCBF
        ,scorescrubCBF,BASILCBF,refinemask,qccbf)
 from ...niworkflows.interfaces.utility import KeySelect
+from ...niworkflows.interfaces.plotting import (CBFSummary,CBFtsSummary)
+from ...interfaces import  DerivativesDataSink
 import nibabel as nb 
 import numpy as np
 import os,sys
@@ -17,7 +19,7 @@ def init_cbf_compt_wf(mem_gb,metadata,aslcontext,pcasl,omp_nthreads, name='cbf_c
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data using a relatively basic model 
-[@detre_perfusion,@alsop_recommended]. CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity 
+[@detre_perfusion] [@alsop_recommended]. CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity 
 to  motion, Structural Correlation based Outlier Rejection (SCORE) algothim was applied to the CBF to 
 discard few extreme outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
 algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues probalility maps 
@@ -203,7 +205,58 @@ the CBF quality based on structural similarity,spatial variability and the perce
     return workflow
 
 
+def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
+    workflow = Workflow(name=name)
 
+    inputnode = pe.Node(niu.IdentityInterface(
+        fields=['cbf', 'cbf_ts','score_ts','score','scrub','bold_ref',
+            'basil','pvc','bold_mask','t1_bold_xform','std2anat_xfm']),
+        name='inputnode')
+    outputnode = pe.Node(niu.IdentityInterface(
+        fields=['cbf_carpetplot','cbf_summary_plot']),
+        name='outputnode')
+    mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
+     
+    from templateflow.api import get as get_template
+    resample_parc = pe.Node(ApplyTransforms(
+        float=True,
+        input_image=str(get_template(
+            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
+            suffix='dseg', extension=['.nii', '.nii.gz'])),
+        dimension=3, default_value=0, interpolation='MultiLabel'),
+        name='resample_parc')
+    
+
+
+    cbfsummary=pe.Node(CBFSummary(),name='cbf_summary',mem_gb=0.2)
+    cbftssummary=pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),name='cbf_ts_summary',mem_gb=0.2)
+
+    ds_report_cbfplot = pe.Node(
+        DerivativesDataSink(desc='cbfplot', keep_dtype=True),
+        name='ds_report_cbfplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_cbftsplot = pe.Node(
+        DerivativesDataSink(desc='cbftsplot', keep_dtype=True),
+        name='ds_report_cbftsplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+    
+    workflow.connect([(inputnode, mrg_xfms, [('t1_bold_xform', 'in1'),
+                               ('std2anat_xfm', 'in2')]),
+                      (inputnode, resample_parc, [('bold_mask', 'reference_image'),
+                              ('t1_bold_xform', 'transforms')]),
+                      (resample_parc,cbftssummary,[('output_image','seg_file')]),
+                      (inputnode,cbftssummary,[('cbf_ts','cbf_ts'),('score_ts','score_ts')]),
+                      (cbftssummary,ds_report_cbftsplot,[('out_file','in_file')]),
+                      (cbftssummary,outputnode,[('out_file','cbf_carpetplot')]),
+                      (inputnode ,cbfsummary,[('cbf','cbf'),('score','score'),
+                                  ('scrub','scrub'),('basil','basil'),('pvc','pvc'),
+                                ('bold_ref','ref_vol')]),
+                      (cbfsummary,ds_report_cbfplot,[('out_file','in_file')]),
+                      (cbfsummary,outputnode,[('out_file','cbf_summary_plot')]),
+
+    ])
+    return workflow
         
  
         

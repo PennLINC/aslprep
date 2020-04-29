@@ -41,10 +41,10 @@ def get_parser():
     from .version import check_latest, is_flagged
     from ..niworkflows.utils.spaces import Reference, SpatialReferences, OutputReferencesAction
 
-    #verstr = 'ASLPrep v{}'.format(__version__)
-    #currentv = Version(__version__)
-    #is_release = not any((currentv.is_devrelease, currentv.is_prerelease, currentv.is_postrelease))
-    currentv='0.0.1'
+    verstr = 'ASLPREP v{}'.format(__version__)
+    currentv = Version(__version__)
+    is_release = not any((currentv.is_devrelease, currentv.is_prerelease, currentv.is_postrelease))
+
 
     parser = ArgumentParser(description='ASLPrep: ASL PREProcessing workflows',
                             formatter_class=ArgumentDefaultsHelpFormatter)
@@ -63,7 +63,7 @@ def get_parser():
                              'aslprep (see BIDS-Apps specification).')
 
     # optional arguments
-    parser.add_argument('--version', action='version', version="0.0.1")
+    parser.add_argument('--version', action='version', version=verstr)
 
     g_bids = parser.add_argument_group('Options for filtering BIDS queries')
     g_bids.add_argument('--skip_bids_validation', '--skip-bids-validation', action='store_true',
@@ -131,7 +131,18 @@ def get_parser():
              'using the middle echo.')
     g_conf.add_argument(
         '--output-spaces', nargs='*', action=OutputReferencesAction, default=SpatialReferences(),
-        help="Standard and non-standard spaces to resample anatomical and functional images to" )
+        help="""\
+Standard and non-standard spaces to resample anatomical and functional images to. \
+Standard spaces may be specified by the form \
+``<SPACE>[:cohort-<label>][:res-<resolution>][...]``, where ``<SPACE>`` is \
+a keyword designating a spatial reference, and may be followed by optional, \
+colon-separated parameters. \
+Non-standard spaces imply specific orientations and sampling grids. \
+Important to note, the ``res-*`` modifier does not define the resolution used for \
+the spatial normalization. To generate no BOLD outputs, use this option without specifying \
+any spatial references. For further details, please check out \
+https://aslprep.readthedocs.io/en/%s/spaces.html""" % (currentv.base_version
+                                                        if is_release else 'latest'))
 
     g_conf.add_argument('--bold2t1w-dof', action='store', default=6, choices=[6, 9, 12], type=int,
                         help='Degrees of freedom when registering BOLD to T1w images. '
@@ -232,8 +243,22 @@ def get_parser():
                          help='PCASL or PASL, if not the CBF computation will assume PASL \
                              it is also secified in ASL metadata')
 
-    #latest = check_latest()
-    #if latest is not None and currentv < latest:
+    latest = check_latest()
+    if latest is not None and currentv < latest:
+        print("""\
+You are using ASLPrep-%s, and a newer version of ASLPrep is available: %s.
+Please check out our documentation about how and when to upgrade:
+https://aslprep.readthedocs.io/en/latest/faq.html#upgrading""" % (
+            __version__, latest), file=sys.stderr)
+
+    _blist = is_flagged()
+    if _blist[0]:
+        _reason = _blist[1] or 'unknown'
+        print("""\
+WARNING: Version %s of ASLPrep (current) has been FLAGGED
+(reason: %s).
+That means some severe flaw was found in it and we strongly
+discourage its usage.""" % (__version__, _reason), file=sys.stderr)
 
     return parser
 

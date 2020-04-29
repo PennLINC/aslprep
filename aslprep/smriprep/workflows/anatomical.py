@@ -453,7 +453,7 @@ A T1w-reference map was computed after registration of
 
     if num_t1w == 1:
         get1st = pe.Node(niu.Select(index=[0]), name='get1st')
-        outputnode.inputs.t1w_realign_xfm = [pkgr('smriprep', 'data/itkIdentityTransform.txt')]
+        outputnode.inputs.t1w_realign_xfm = [pkgr('aslprep', 'smriprep/data/itkIdentityTransform.txt')]
 
         workflow.connect([
             (t1w_conform, get1st, [('out_file', 'inlist')]),
