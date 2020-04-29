@@ -630,14 +630,14 @@ class qccbf(SimpleInterface):
                  csf=self.inputs.in_csf,img=self.inputs.in_scrub,thresh=0.7)
 
         if self.inputs.in_boldmaskstd and self.inputs.in_templatemask:
-            dict1 = {'fd':[fd],'rel_rms':[rms],'coregDC':[regDC],'coregJC':[regJC],'coregCC':[regCC],'coregCOV':[regCov],
+            dict1 = {'FD':[fd],'relRMS':[rms],'coregDC':[regDC],'coregJC':[regJC],'coregCC':[regCC],'coregCOV':[regCov],
             'normDC':[normDC],'normJC':[normJC],'normCC':[normCC],'normCOV':[normCov],
-            'cbfQei':[meancbf_qei],'scoreQei':[scorecbf_qei],'scrubQei':[scrub_qei],
-            'basilQei':[basilcbf_qei],'pvcQei':[pvcbf_qei] } 
+            'cbfQEI':[meancbf_qei],'scoreQEI':[scorecbf_qei],'scrubQEI':[scrub_qei],
+            'basilQEI':[basilcbf_qei],'pvcQEI':[pvcbf_qei] } 
         else:
-            dict1 = {'fd':[fd],'rel_rms':[rms],'regDC':[regDC],'regJC':[regJC],'coregCC':[regCC],'coregCOV':[regCov],
-            'cbfQei':[meancbf_qei],'scoreQei':[scorecbf_qei],'scrubQei':[scrub_qei],
-            'basilQei':[basilcbf_qei],'pvcQei':[pvcbf_qei] }   
+            dict1 = {'FD':[fd],'relRMS':[rms],'regDC':[regDC],'regJC':[regJC],'coregCC':[regCC],'coregCOV':[regCov],
+            'cbfQei':[meancbf_qei],'scoreQEI':[scorecbf_qei],'scrubQEI':[scrub_qei],
+            'basilQEI':[basilcbf_qei],'pvcQEI':[pvcbf_qei] }   
         
         _,file1=os.path.split(self.inputs.in_file)
         bb=file1.split('_')

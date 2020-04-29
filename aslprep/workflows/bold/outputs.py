@@ -124,23 +124,23 @@ def init_func_derivatives_wf(
             name='meancbfnative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
         scorenative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix='score_cbf', compress=True),
+            DerivativesDataSink(base_directory=output_dir,desc='score',suffix='cbf', compress=True),
             name='scorenative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
         meanscorenative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix='mean_score_cbf', compress=True),
+            DerivativesDataSink(base_directory=output_dir, desc='score',suffix='mean_cbf', compress=True),
             name='meanscorenative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
         scrubnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix='scrub_cbf', compress=True),
+            DerivativesDataSink(base_directory=output_dir,desc='scrub',suffix='cbf', compress=True),
             name='scrubnative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
         basilnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix='basil_cbf', compress=True),
+            DerivativesDataSink(base_directory=output_dir,desc='basil',suffix='cbf', compress=True),
             name='basilnative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
         pvnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix='pvc_cbf', compress=True),
+            DerivativesDataSink(base_directory=output_dir,desc='pvc',suffix='cbf', compress=True),
             name='pvcnative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
        
