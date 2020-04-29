@@ -54,7 +54,7 @@ def init_func_derivatives_wf(
         This workflow's identifier (default: ``func_derivatives_wf``).
 
     """
-    from smriprep.workflows.outputs import _bids_relative
+    from  ...smriprep.workflows.outputs import _bids_relative
     nonstd_spaces = set(spaces.get_nonstandard())
     workflow = Workflow(name=name)
 
