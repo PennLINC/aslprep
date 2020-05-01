@@ -34,7 +34,11 @@ from .confounds import init_bold_confs_wf, init_carpetplot_wf
 from .hmc import init_bold_hmc_wf
 from .stc import init_bold_stc_wf
 from .t2s import init_bold_t2s_wf
-from .cbf import init_cbf_compt_wf,init_cbfqc_compt_wf,init_cbfplot_wf
+from .cbf import (
+    init_cbf_compt_wf,
+    init_cbfqc_compt_wf,
+    init_cbfplot_wf,
+    init_cbfroiquant_wf) 
 from .registration import init_bold_t1_trans_wf, init_bold_reg_wf
 from .resampling import (
     init_bold_surf_wf,
@@ -1043,8 +1047,45 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 (bold_std_trans_wf,compt_qccbf_wf,[('outputnode.bold_mask_std','inputnode.bold_mask_std')]),
             ])
     
-    
-        
+    cbfroiqu=init_cbfroiquant_wf(mem_gb=mem_gb,omp_nthreads=omp_nthreads,
+      name='cbf_roiquant')
+    workflow.connect([ (bold_bold_trans_wf,cbfroiqu,[('outputnode.bold_mask','inputnode.boldmask')]),
+                     (inputnode,cbfroiqu,[('std2anat_xfm','inputnode.std2anat_xfm')]),
+                     (bold_reg_wf,cbfroiqu,[('outputnode.itk_t1_to_bold','inputnode.t1_bold_xform')]),
+                     (compt_cbf_wf,cbfroiqu,[('outputnode.out_mean','inputnode.cbf'),
+                                             ('outputnode.out_avgscore','inputnode.score'),
+                                             ('outputnode.out_scrub','inputnode.scrub'),
+                                             ('outputnode.out_cbfb','inputnode.basil'),
+                                             ('outputnode.out_cbfpv','inputnode.pvc')]),
+                    (cbfroiqu, func_derivatives_wf, 
+                                      [('outputnode.cbf_hvoxf','inputnode.cbf_hvoxf'),
+                                      ('outputnode.cbf_sc207','inputnode.cbf_sc207'),
+                                      ('outputnode.cbf_sc217','inputnode.cbf_sc217'),
+                                      ('outputnode.cbf_sc407','inputnode.cbf_sc407'),
+                                      ('outputnode.cbf_sc417','inputnode.cbf_sc417'),
+                                      ('outputnode.score_hvoxf','inputnode.score_hvoxf'),
+                                      ('outputnode.score_sc207','inputnode.score_sc207'),
+                                      ('outputnode.score_sc217','inputnode.score_sc217'),
+                                      ('outputnode.score_sc407','inputnode.score_sc407'),
+                                      ('outputnode.score_sc417','inputnode.score_sc417'),
+                                      ('outputnode.scrub_hvoxf','inputnode.scrub_hvoxf'),
+                                      ('outputnode.scrub_sc207','inputnode.scrub_sc207'),
+                                      ('outputnode.scrub_sc217','inputnode.scrub_sc217'),
+                                      ('outputnode.scrub_sc407','inputnode.scrub_sc407'),
+                                      ('outputnode.scrub_sc417','inputnode.scrub_sc417'),
+                                      ('outputnode.basil_hvoxf','inputnode.basil_hvoxf'),
+                                      ('outputnode.basil_sc207','inputnode.basil_sc207'),
+                                      ('outputnode.basil_sc217','inputnode.basil_sc217'),
+                                      ('outputnode.basil_sc407','inputnode.basil_sc407'),
+                                      ('outputnode.basil_sc417','inputnode.basil_sc417'),
+                                      ('outputnode.pvc_hvoxf','inputnode.pvc_hvoxf'),
+                                      ('outputnode.pvc_sc207','inputnode.pvc_sc207'),
+                                      ('outputnode.pvc_sc217','inputnode.pvc_sc217'),
+                                      ('outputnode.pvc_sc407','inputnode.pvc_sc407'),
+                                      ('outputnode.pvc_sc417','inputnode.pvc_sc417'),
+                                      ]),
+    ])
+         
     # REPORTING ############################################################
     ds_report_summary = pe.Node(
         DerivativesDataSink(desc='summary', keep_dtype=True),

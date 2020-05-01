@@ -13,6 +13,9 @@ from nipype.interfaces.base import (
 from nipype.interfaces.fsl.base import (FSLCommand, FSLCommandInputSpec, Info)
 from nipype.interfaces import fsl
 from nipype.interfaces.ants import ApplyTransforms
+from pkg_resources import resource_filename as pkgrf
+from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from nipype.interfaces import utility as niu
 
 LOGGER = logging.getLogger('nipype.interface')
 
@@ -654,7 +657,7 @@ class qccbf(SimpleInterface):
 
         self.inputs.qc_file=os.path.abspath(self._results['qc_file'])
     
-        return runtime
+        
 
 def dc(input1, input2):
     r"""
@@ -804,9 +807,90 @@ def cbf_qei(gm,wm,csf,img,thresh=0.7):
     return gmean(Q)
 
 
+def get_atlas(atlasname):
+    if atlasname=='HavardOxford':
+        atlasfile=pkgrf('aslprep', 'data/atlas/HavardOxford/HavardOxfordMNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/HavardOxford/HavardOxfordNodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/HavardOxford/HavardOxfordNodeIndex.1D')
+    elif atlasname=='schaefer200x7':
+        atlasfile=pkgrf('aslprep', 'data/atlas/schaefer200x7/schaefer200x7MNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/schaefer200x7/schaefer200x7NodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/schaefer200x7/schaefer200x7NodeIndex.1D')
+    elif atlasname=='schaefer200x17':
+        atlasfile=pkgrf('aslprep', 'data/atlas/schaefer200x17/schaefer200x17MNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/schaefer200x17/schaefer200x17NodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/schaefer200x17/schaefer200x17NodeIndex.1D')
+    elif atlasname=='schaefer400x7':
+        atlasfile=pkgrf('aslprep', 'data/atlas/schaefer400x7/schaefer400x7MNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/schaefer400x7/schaefer400x7NodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/schaefer200x17/schaefer200x17NodeIndex.1D')
+    elif atlasname=='schaefer400x17':
+        atlasfile=pkgrf('aslprep', 'data/atlas/schaefer400x17/schaefer400x17MNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/schaefer400x17/schaefer400x17NodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/schaefer400x17/schaefer400x17NodeIndex.1D')
+    else:
+         raise RuntimeError(' atlas not available')
+    return atlasfile,atlasdata,atlaslabel
+
+def cbfroiquant(roi_file,roi_label,cbfmap):
+    data = nb.load(cbfmap).get_data()
+    roi = nb.load(roi_file).get_data()
+    if (data.shape != roi.shape):
+        raise ValueError("Image-shapes do not match")
+    if roi_labels is None:
+        roi_labels = np.unique(roi)
+    mean_vals = []
+    for roi_label in roi_labels: 
+        mean_vals.append(np.mean(data[roi==roi_label]))
+
+    return mean_vals
 
 
+class _cbfroiquantInputSpec(BaseInterfaceInputSpec):
+    in_cbf=File(exists=True,mandatory=True,desc='cbf img')
+    boldmask=File(exists=True,mandatory=True,desc='bold mask')
+    transform=File(exists=True, mandatory=True,desc='combined t1 and stand transfomr')
+    havoxf=File(exists=False,mandatory=False,desc='harvard output csv')
+    sc207=File(exists=False,mandatory=False,desc='schearfer atlas 200, 7 networks')
+    sc217=File(exists=False,mandatory=False,desc='schearfer atlas 200, 17 networks')
+    sc407=File(exists=False,mandatory=False,desc='schearfer atlas 400, 7 networks')
+    sc417=File(exists=False,mandatory=False,desc='schearfer atlas 400, 17 networks')
+    out_tmp=File(exists=False,mandatory=False,desc='temporary outfile')
 
+class _cbfroiquantOutputSpec(TraitedSpec):
+    havoxf=File(exists=False,desc='harvard output csv')
+    sc207=File(exists=False,desc='schearfer atlas 200, 7 networks')
+    sc217=File(exists=False,desc='schearfer atlas 200, 17 networks')
+    sc407=File(exists=False,desc='schearfer atlas 400, 7 networks')
+    sc417=File(exists=False,desc='schearfer atlas 400, 17 networks')
+    out_tmp=File(exists=False,desc='temporary outfile')
 
+class cbfqroiquant(SimpleInterface):
+    input_spec = _cbfroiquantInputSpec
+    output_spec = _cbfroiquantOutputSpec
+    
+    def _run_interface(self, runtime):
+        transatlas=ApplyTransforms()
+        transatlas.inputs.dimension=3
+        transatlas.inputs.transforms=self.inputs.transform
+        transatlas.inputs.input_image_type=3
+        transatlas.inputs.interpolation='NearestNeighbor'
+        transatlas.inputs.reference_image=self.inputs.boldmask
 
- 
+        atlaslist=['HarvardOxford','schaefer200x7','schaefer200x17','schaefer400x7','schaefer400x17']
+        outputcsv=['havoxf','sc207','sc217','sc407','sc417']
+        for i in range(0,len(atlaslist)):
+            atlasfile,atlasdata,atlaslabel=get_atlas(atlaslist[i])
+            self._results['out_tmp'] = fname_presuffix(self.inputs.in_cbf,
+                                                   suffix=atlaslist[i], newpath=runtime.cwd)
+            self._results[outputcsv[i]] = fname_presuffix(self.inputs.in_cbf,
+                                                   suffix=atlaslist[i], newpath=runtime.cwd)
+            transatlas.inputs.input_image_type=atlasfile
+            transatlas.inputs.output_image=self._results['out_tmp']
+            transatlas.run()
+            roiquant=cbfroiquant(roi_file=self._results['out_tmp'],roi_label=atlaslabel,
+                            cbfmap=self.inputs.in_cbf)
+            data1=pd.read_csv(atlasdata,header=None)
+            datat = pd.DataFrame(roiquant,columns=data1)
+            datat.to_csv(self._results[outputcsv[i]],index = False,header=True)
+           

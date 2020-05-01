@@ -5,7 +5,7 @@ from ...niworkflows.interfaces import NormalizeMotionParams
 from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from ...niworkflows.interfaces.itk import MCFLIRT2ITK
 from ...niworkflows.interfaces.cbf_computation import (extractCBF,computeCBF
-       ,scorescrubCBF,BASILCBF,refinemask,qccbf)
+       ,scorescrubCBF,BASILCBF,refinemask,qccbf,cbfqroiquant)
 from ...niworkflows.interfaces.utility import KeySelect
 from ...niworkflows.interfaces.plotting import (CBFSummary,CBFtsSummary)
 from ...interfaces import  DerivativesDataSink
@@ -241,10 +241,9 @@ def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
         mem_gb=DEFAULT_MEMORY_MIN_GB)
 
     
-    workflow.connect([(inputnode, mrg_xfms, [('t1_bold_xform', 'in1'),
-                               ('std2anat_xfm', 'in2')]),
-                      (inputnode, resample_parc, [('bold_mask', 'reference_image'),
-                              ('t1_bold_xform', 'transforms')]),
+    workflow.connect([(inputnode, mrg_xfms, [('t1_bold_xform', 'in1'),('std2anat_xfm', 'in2')]),
+                      (inputnode, resample_parc, [('bold_mask', 'reference_image')]),
+                      (mrg_xfms,resample_parc,[('out', 'transforms')]),
                       (resample_parc,cbftssummary,[('output_image','seg_file')]),
                       (inputnode,cbftssummary,[('cbf_ts','cbf_ts'),('score_ts','score_ts')]),
                       (cbftssummary,ds_report_cbftsplot,[('out_file','in_file')]),
@@ -254,23 +253,72 @@ def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
                                 ('bold_ref','ref_vol')]),
                       (cbfsummary,ds_report_cbfplot,[('out_file','in_file')]),
                       (cbfsummary,outputnode,[('out_file','cbf_summary_plot')]),
-
-    ])
+                      ])
     return workflow
-        
- 
-        
 
-
-       
-        
-              
-        
-
-
+def init_cbfroiquant_wf(mem_gb,omp_nthreads,name='cbf_roiquant'):
+    workflow = Workflow(name=name)
     
+    inputnode = pe.Node(niu.IdentityInterface(
+        fields=['cbf','score','scrub','basil','pvc','boldmask','t1_bold_xform','std2anat_xfm']),
+        name='inputnode')
+    outputnode = pe.Node(niu.IdentityInterface(
+        fields=['cbf_hvoxf','score_hvoxf','scrub_hvoxf','basil_hvoxf','pvc_hvoxf',
+                'cbf_sc207','score_sc207','scrub_sc207','basil_sc207','pvc_sc207',
+                'cbf_sc217','score_sc217','scrub_sc217','basil_sc217','pvc_sc217',
+                'cbf_sc407','score_sc407','scrub_sc407','basil_sc407','pvc_sc407'
+                'cbf_sc417','score_sc417','scrub_sc417','basil_sc417','pvc_sc417']),
+        name='outputnode')
 
+    mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
+    cbfroiq=pe.Node(cbfqroiquant(),name='cbfroiq')
+    scoreroiq=pe.Node(cbfqroiquant(),name='scoreroiq')
+    scrubroiq=pe.Node(cbfqroiquant(),name='scoreroiq')
+    basilroiq=pe.Node(cbfqroiquant(),name='basilroiq')
+    pvcroiq=pe.Node(cbfqroiquant(),name='pvcroiq')
 
-    
-
+    workflow.connect([(inputnode, mrg_xfms, [('t1_bold_xform', 'in1'),
+                                             ('std2anat_xfm', 'in2')]), 
+                    (inputnode,cbfroiq,[('cbf','in_cbf')]),
+                    (inputnode,cbfroiq,[('boldmask','boldmask')]),
+                    (mrg_xfms,cbfroiq,[('out','transform')]),
+                    (inputnode,scoreroiq,[('score','in_cbf')]),
+                    (inputnode,scoreroiq,[('boldmask','boldmask')]),
+                    (mrg_xfms,scoreroiq,[('out','transform')]),
+                    (inputnode,scrubroiq,[('scrub','in_cbf')]),
+                    (inputnode,scrubroiq,[('boldmask','boldmask')]),
+                    (mrg_xfms,scrubroiq,[('out','transform')]),
+                    (inputnode,basilroiq,[('basil','in_cbf')]),
+                    (inputnode,basilroiq,[('boldmask','boldmask')]),
+                    (mrg_xfms,basilroiq,[('out','transform')]),
+                    (inputnode,pvcroiq,[('pvc','in_cbf')]),
+                    (inputnode,pvcroiq,[('boldmask','boldmask')]),
+                    (mrg_xfms,pvcroiq,[('out','transform')]),
+                    (cbfroiq,outputnode,[('havoxf','cbf_hvoxf'),
+                                        ('sc207','cbf_sc407'),
+                                        ('sc217','cbf_sc417'),
+                                        ('sc407','cbf_sc407'),
+                                        ('sc417','cbf_sc417')]),
+                    (scoreroiq,outputnode,[('havoxf','score_hvoxf'),
+                                        ('sc207','score_sc407'),
+                                        ('sc217','score_sc417'),
+                                        ('sc407','score_sc407'),
+                                        ('sc417','score_sc417')]),
+                    (scrubroiq,outputnode,[('havoxf','scrub_hvoxf'),
+                                        ('sc207','scrub_sc407'),
+                                        ('sc217','scrub_sc417'),
+                                        ('sc407','scrub_sc407'),
+                                        ('sc417','scrub_sc417')]),
+                    (basilroiq,outputnode,[('havoxf','basil_hvoxf'),
+                                        ('sc207','basil_sc407'),
+                                        ('sc217','basil_sc417'),
+                                        ('sc407','basil_sc407'),
+                                        ('sc417','basil_sc417')]),
+                    (pvcroiq,outputnode,[('havoxf','pvc_hvoxf'),
+                                        ('sc207','pvc_sc407'),
+                                        ('sc217','pvc_sc417'),
+                                        ('sc407','basil_sc407'),
+                                        ('sc417','pvc_sc417')]),
+             ])
+    return workflow
 
