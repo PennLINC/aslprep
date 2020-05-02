@@ -71,7 +71,7 @@ def init_func_derivatives_wf(
         'cbf_hvoxf','score_hvoxf','scrub_hvoxf','basil_hvoxf','pvc_hvoxf',
         'cbf_sc207','score_sc207','scrub_sc207','basil_sc207','pvc_sc207',
         'cbf_sc217','score_sc217','scrub_sc217','basil_sc217','pvc_sc217',
-        'cbf_sc407','score_sc407','scrub_sc407','basil_sc407','pvc_sc407'
+        'cbf_sc407','score_sc407','scrub_sc407','basil_sc407','pvc_sc407',
         'cbf_sc417','score_sc417','scrub_sc417','basil_sc417','pvc_sc417']),
         name='inputnode')
 

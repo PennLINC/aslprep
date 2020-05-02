@@ -266,59 +266,150 @@ def init_cbfroiquant_wf(mem_gb,omp_nthreads,name='cbf_roiquant'):
         fields=['cbf_hvoxf','score_hvoxf','scrub_hvoxf','basil_hvoxf','pvc_hvoxf',
                 'cbf_sc207','score_sc207','scrub_sc207','basil_sc207','pvc_sc207',
                 'cbf_sc217','score_sc217','scrub_sc217','basil_sc217','pvc_sc217',
-                'cbf_sc407','score_sc407','scrub_sc407','basil_sc407','pvc_sc407'
+                'cbf_sc407','score_sc407','scrub_sc407','basil_sc407','pvc_sc407',
                 'cbf_sc417','score_sc417','scrub_sc417','basil_sc417','pvc_sc417']),
         name='outputnode')
 
+    from ...niworkflows.interfaces.cbf_computation import get_atlas
+    hvoxfile,hvoxdata,hvoxlabel=get_atlas(atlasname='HarvardOxford')
+    sc207file,sc207data,sc207label=get_atlas(atlasname='schaefer200x7')
+    sc217file,sc217data,sc217label=get_atlas(atlasname='schaefer200x17')
+    sc407file,sc407data,sc407label=get_atlas(atlasname='schaefer400x7')
+    sc417file,sc417data,sc417label=get_atlas(atlasname='schaefer400x17')
+
     mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
-    cbfroiq=pe.Node(cbfqroiquant(),name='cbfroiq')
-    scoreroiq=pe.Node(cbfqroiquant(),name='scoreroiq')
-    scrubroiq=pe.Node(cbfqroiquant(),name='scoreroiq')
-    basilroiq=pe.Node(cbfqroiquant(),name='basilroiq')
-    pvcroiq=pe.Node(cbfqroiquant(),name='pvcroiq')
+    hvoftrans=pe.Node(ApplyTransforms(float=True,input_image=hvoxfile,
+        dimension=3, default_value=0, interpolation='NearestNeighbor'),name='hvoftrans')
+    sc207trans=pe.Node(ApplyTransforms(float=True,input_image=sc207file,
+        dimension=3, default_value=0, interpolation='NearestNeighbor'),name='sc207trans')
+    sc217trans=pe.Node(ApplyTransforms(float=True,input_image=sc217file,
+        dimension=3, default_value=0, interpolation='NearestNeighbor'),name='sc217trans')
+    sc407trans=pe.Node(ApplyTransforms(float=True,input_image=sc407file,
+        dimension=3, default_value=0, interpolation='NearestNeighbor'),name='sc407trans')
+    sc417trans=pe.Node(ApplyTransforms(float=True,input_image=sc417file,
+        dimension=3, default_value=0, interpolation='NearestNeighbor'),name='sc417trans')
+    
+
+
+    cbfroihv=pe.Node(cbfqroiquant(atlaslabel=hvoxlabel,atlasdata=hvoxdata),name='cbfroihv')
+    cbfroi207=pe.Node(cbfqroiquant(atlaslabel=sc207label,atlasdata=sc207data),name='cbf207')
+    cbfroi217=pe.Node(cbfqroiquant(atlaslabel=sc217label,atlasdata=sc217data),name='cbf217')
+    cbfroi407=pe.Node(cbfqroiquant(atlaslabel=sc407label,atlasdata=sc407data),name='cbf407')
+    cbfroi417=pe.Node(cbfqroiquant(atlaslabel=sc417label,atlasdata=sc417data),name='cbf417')
+
+    scorehv=pe.Node(cbfqroiquant(atlaslabel=hvoxlabel,atlasdata=hvoxdata),name='scorehv')
+    score207=pe.Node(cbfqroiquant(atlaslabel=sc207label,atlasdata=sc207data),name='score207')
+    score217=pe.Node(cbfqroiquant(atlaslabel=sc217label,atlasdata=sc217data),name='score217')
+    score407=pe.Node(cbfqroiquant(atlaslabel=sc407label,atlasdata=sc407data),name='score407')
+    score417=pe.Node(cbfqroiquant(atlaslabel=sc417label,atlasdata=sc417data),name='score417')
+
+    scrubhv=pe.Node(cbfqroiquant(atlaslabel=hvoxlabel,atlasdata=hvoxdata),name='scrubhv')
+    scrub207=pe.Node(cbfqroiquant(atlaslabel=sc207label,atlasdata=sc207data),name='scrub207')
+    scrub217=pe.Node(cbfqroiquant(atlaslabel=sc217label,atlasdata=sc217data),name='scrub217')
+    scrub407=pe.Node(cbfqroiquant(atlaslabel=sc407label,atlasdata=sc407data),name='scrub407')
+    scrub417=pe.Node(cbfqroiquant(atlaslabel=sc417label,atlasdata=sc417data),name='scrub417')
+
+    basilhv=pe.Node(cbfqroiquant(atlaslabel=hvoxlabel,atlasdata=hvoxdata),name='basilhv')
+    basil207=pe.Node(cbfqroiquant(atlaslabel=sc207label,atlasdata=sc207data),name='basil207')
+    basil217=pe.Node(cbfqroiquant(atlaslabel=sc217label,atlasdata=sc217data),name='basil217')
+    basil407=pe.Node(cbfqroiquant(atlaslabel=sc407label,atlasdata=sc407data),name='basil407')
+    basil417=pe.Node(cbfqroiquant(atlaslabel=sc417label,atlasdata=sc417data),name='basil417')
+
+    pvchv=pe.Node(cbfqroiquant(atlaslabel=hvoxlabel,atlasdata=hvoxdata),name='pvchv')
+    pvc207=pe.Node(cbfqroiquant(atlaslabel=sc207label,atlasdata=sc207data),name='pvc207')
+    pvc217=pe.Node(cbfqroiquant(atlaslabel=sc217label,atlasdata=sc217data),name='pvc217')
+    pvc407=pe.Node(cbfqroiquant(atlaslabel=sc407label,atlasdata=sc407data),name='pvc407')
+    pvc417=pe.Node(cbfqroiquant(atlaslabel=sc417label,atlasdata=sc417data),name='pvc417')
+    
 
     workflow.connect([(inputnode, mrg_xfms, [('t1_bold_xform', 'in1'),
                                              ('std2anat_xfm', 'in2')]), 
-                    (inputnode,cbfroiq,[('cbf','in_cbf')]),
-                    (inputnode,cbfroiq,[('boldmask','boldmask')]),
-                    (mrg_xfms,cbfroiq,[('out','transform')]),
-                    (inputnode,scoreroiq,[('score','in_cbf')]),
-                    (inputnode,scoreroiq,[('boldmask','boldmask')]),
-                    (mrg_xfms,scoreroiq,[('out','transform')]),
-                    (inputnode,scrubroiq,[('scrub','in_cbf')]),
-                    (inputnode,scrubroiq,[('boldmask','boldmask')]),
-                    (mrg_xfms,scrubroiq,[('out','transform')]),
-                    (inputnode,basilroiq,[('basil','in_cbf')]),
-                    (inputnode,basilroiq,[('boldmask','boldmask')]),
-                    (mrg_xfms,basilroiq,[('out','transform')]),
-                    (inputnode,pvcroiq,[('pvc','in_cbf')]),
-                    (inputnode,pvcroiq,[('boldmask','boldmask')]),
-                    (mrg_xfms,pvcroiq,[('out','transform')]),
-                    (cbfroiq,outputnode,[('havoxf','cbf_hvoxf'),
-                                        ('sc207','cbf_sc407'),
-                                        ('sc217','cbf_sc417'),
-                                        ('sc407','cbf_sc407'),
-                                        ('sc417','cbf_sc417')]),
-                    (scoreroiq,outputnode,[('havoxf','score_hvoxf'),
-                                        ('sc207','score_sc407'),
-                                        ('sc217','score_sc417'),
-                                        ('sc407','score_sc407'),
-                                        ('sc417','score_sc417')]),
-                    (scrubroiq,outputnode,[('havoxf','scrub_hvoxf'),
-                                        ('sc207','scrub_sc407'),
-                                        ('sc217','scrub_sc417'),
-                                        ('sc407','scrub_sc407'),
-                                        ('sc417','scrub_sc417')]),
-                    (basilroiq,outputnode,[('havoxf','basil_hvoxf'),
-                                        ('sc207','basil_sc407'),
-                                        ('sc217','basil_sc417'),
-                                        ('sc407','basil_sc407'),
-                                        ('sc417','basil_sc417')]),
-                    (pvcroiq,outputnode,[('havoxf','pvc_hvoxf'),
-                                        ('sc207','pvc_sc407'),
-                                        ('sc217','pvc_sc417'),
-                                        ('sc407','basil_sc407'),
-                                        ('sc417','pvc_sc417')]),
+                    (inputnode, hvoftrans,[('boldmask','reference_image')]),
+                    (mrg_xfms, hvoftrans,[('out','transforms')]),
+                    (inputnode, sc207trans,[('boldmask','reference_image')]),
+                    (mrg_xfms, sc207trans,[('out','transforms')]),
+                    (inputnode, sc217trans,[('boldmask','reference_image')]),
+                    (mrg_xfms, sc217trans,[('out','transforms')]),
+                    (inputnode, sc407trans,[('boldmask','reference_image')]),
+                    (mrg_xfms, sc407trans,[('out','transforms')]),
+                    (inputnode, sc417trans,[('boldmask','reference_image')]),
+                    (mrg_xfms, sc417trans,[('out','transforms')]),
+                    (hvoftrans,cbfroihv,[('output_image','atlasfile')]),
+                    (hvoftrans,scorehv,[('output_image','atlasfile')]),
+                    (hvoftrans,scrubhv,[('output_image','atlasfile')]),
+                    (hvoftrans,basilhv,[('output_image','atlasfile')]),
+                    (hvoftrans,pvchv,[('output_image','atlasfile')]),
+                    (sc207trans,cbfroi207,[('output_image','atlasfile')]),
+                    (sc207trans,score207,[('output_image','atlasfile')]),
+                    (sc207trans,scrub207,[('output_image','atlasfile')]),
+                    (sc207trans,basil207,[('output_image','atlasfile')]),
+                    (sc207trans,pvc207,[('output_image','atlasfile')]),
+                    (sc217trans,cbfroi217,[('output_image','atlasfile')]),
+                    (sc217trans,score217,[('output_image','atlasfile')]),
+                    (sc217trans,scrub217,[('output_image','atlasfile')]),
+                    (sc217trans,basil217,[('output_image','atlasfile')]),
+                    (sc217trans,pvc217,[('output_image','atlasfile')]),
+                    (sc407trans,cbfroi407,[('output_image','atlasfile')]),
+                    (sc407trans,score407,[('output_image','atlasfile')]),
+                    (sc407trans,scrub407,[('output_image','atlasfile')]),
+                    (sc407trans,basil407,[('output_image','atlasfile')]),
+                    (sc407trans,pvc407,[('output_image','atlasfile')]),
+                    (sc417trans,cbfroi417,[('output_image','atlasfile')]),
+                    (sc417trans,score417,[('output_image','atlasfile')]),
+                    (sc417trans,scrub417,[('output_image','atlasfile')]),
+                    (sc417trans,basil417,[('output_image','atlasfile')]),
+                    (sc417trans,pvc417,[('output_image','atlasfile')]),
+
+                    (inputnode,cbfroihv,[('cbf','in_cbf')]),
+                    (inputnode,scorehv,[('score','in_cbf')]),
+                    (inputnode,scrubhv,[('scrub','in_cbf')]),
+                    (inputnode,basilhv,[('basil','in_cbf')]),
+                    (inputnode,pvchv,[('pvc','in_cbf')]),
+                    (inputnode,cbfroi207,[('cbf','in_cbf')]),
+                    (inputnode,score207,[('score','in_cbf')]),
+                    (inputnode,scrub207,[('scrub','in_cbf')]),
+                    (inputnode,basil207,[('basil','in_cbf')]),
+                    (inputnode,pvc207,[('pvc','in_cbf')]),
+                    (inputnode,cbfroi217,[('cbf','in_cbf')]),
+                    (inputnode,score217,[('score','in_cbf')]),
+                    (inputnode,scrub217,[(('scrub','in_cbf'))]),
+                    (inputnode,basil217,[(('basil','in_cbf'))]),
+                    (inputnode,pvc217,[(('pvc','in_cbf'))]),
+                    (inputnode,cbfroi407,[(('cbf','in_cbf'))]),
+                    (inputnode,score407,[(('score','in_cbf'))]),
+                    (inputnode,scrub407,[(('scrub','in_cbf'))]),
+                    (inputnode,basil407,[(('basil','in_cbf'))]),
+                    (inputnode,pvc407,[(('pvc','in_cbf'))]),
+                    (inputnode,cbfroi417,[(('cbf','in_cbf'))]),
+                    (inputnode,score417,[(('score','in_cbf'))]),
+                    (inputnode,scrub417,[(('scrub','in_cbf'))]),
+                    (inputnode,basil417,[('basil','in_cbf')]),
+                    (inputnode,pvc417,[('pvc','in_cbf')]),
+                    (cbfroihv,outputnode,[('atlascsv','cbf_hvoxf')]),
+                    (cbfroi207,outputnode,[('atlascsv','cbf_sc207')]), 
+                    (cbfroi217,outputnode,[('atlascsv','cbf_sc217')]),
+                    (cbfroi407,outputnode,[('atlascsv','cbf_sc407')]),
+                    (cbfroi417,outputnode,[('atlascsv','cbf_sc417')]),
+                    (scorehv,outputnode,[('atlascsv','score_hvoxf')]),
+                    (score207,outputnode,[('atlascsv','score_sc207')]), 
+                    (score217,outputnode,[('atlascsv','score_sc217')]),
+                    (score407,outputnode,[('atlascsv','score_sc407')]),
+                    (score417,outputnode,[('atlascsv','score_sc417')]), 
+                    (scrubhv,outputnode,[('atlascsv','scrub_hvoxf')]),
+                    (scrub207,outputnode,[('atlascsv','scrub_sc207')]), 
+                    (scrub217,outputnode,[('atlascsv','scrub_sc217')]),
+                    (scrub407,outputnode,[('atlascsv','scrub_sc407')]),
+                    (scrub417,outputnode,[('atlascsv','scrub_sc417')]), 
+                    (basilhv,outputnode,[('atlascsv','basil_hvoxf')]),
+                    (basil207,outputnode,[('atlascsv','basil_sc207')]), 
+                    (basil217,outputnode,[('atlascsv','basil_sc217')]),
+                    (basil407,outputnode,[('atlascsv','basil_sc407')]),
+                    (basil417,outputnode,[('atlascsv','basil_sc417')]), 
+                    (pvchv,outputnode,[('atlascsv','pvc_hvoxf')]),
+                    (pvc207,outputnode,[('atlascsv','pvc_sc207')]), 
+                    (pvc217,outputnode,[('atlascsv','pvc_sc217')]),
+                    (pvc407,outputnode,[('atlascsv','pvc_sc407')]),
+                    (pvc417,outputnode,[('atlascsv','pvc_sc417')]), 
              ])
     return workflow
 
