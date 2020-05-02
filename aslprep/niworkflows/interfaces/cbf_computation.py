@@ -13,6 +13,9 @@ from nipype.interfaces.base import (
 from nipype.interfaces.fsl.base import (FSLCommand, FSLCommandInputSpec, Info)
 from nipype.interfaces import fsl
 from nipype.interfaces.ants import ApplyTransforms
+from pkg_resources import resource_filename as pkgrf
+from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from nipype.interfaces import utility as niu
 
 LOGGER = logging.getLogger('nipype.interface')
 
@@ -654,7 +657,7 @@ class qccbf(SimpleInterface):
 
         self.inputs.qc_file=os.path.abspath(self._results['qc_file'])
     
-        return runtime
+        
 
 def dc(input1, input2):
     r"""
@@ -804,9 +807,70 @@ def cbf_qei(gm,wm,csf,img,thresh=0.7):
     return gmean(Q)
 
 
+def get_atlas(atlasname):
+    if atlasname=='HarvardOxford':
+        atlasfile=pkgrf('aslprep', 'data/atlas/HarvardOxford/HarvardOxfordMNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/HarvardOxford/HarvardOxfordNodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/HarvardOxford/HarvardOxfordNodeIndex.1D')
+    elif atlasname=='schaefer200x7':
+        atlasfile=pkgrf('aslprep', 'data/atlas/schaefer200x7/schaefer200x7MNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/schaefer200x7/schaefer200x7NodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/schaefer200x7/schaefer200x7NodeIndex.1D')
+    elif atlasname=='schaefer200x17':
+        atlasfile=pkgrf('aslprep', 'data/atlas/schaefer200x17/schaefer200x17MNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/schaefer200x17/schaefer200x17NodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/schaefer200x17/schaefer200x17NodeIndex.1D')
+    elif atlasname=='schaefer400x7':
+        atlasfile=pkgrf('aslprep', 'data/atlas/schaefer400x7/schaefer400x7MNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/schaefer400x7/schaefer400x7NodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/schaefer200x17/schaefer200x17NodeIndex.1D')
+    elif atlasname=='schaefer400x17':
+        atlasfile=pkgrf('aslprep', 'data/atlas/schaefer400x17/schaefer400x17MNI.nii.gz')
+        atlasdata=pkgrf('aslprep', 'data/atlas/schaefer400x17/schaefer400x17NodeNames.txt')
+        atlaslabel=pkgrf('aslprep', 'data/atlas/schaefer400x17/schaefer400x17NodeIndex.1D')
+    else:
+         raise RuntimeError(' atlas not available')
+    return atlasfile,atlasdata,atlaslabel
+
+def cbfroiquant(roi_file,roi_label,cbfmap):
+    data = nb.load(cbfmap).get_data()
+    roi = nb.load(roi_file).get_data()
+    roi_labels=np.loadtxt(roi_label)
+    if (data.shape != roi.shape):
+        raise ValueError("Image-shapes do not match")
+    #if roi_labels is None:
+        #roi_labels = np.unique(roi)
+    mean_vals = []
+    for roi_label in roi_labels: 
+        mean_vals.append(np.mean(data[roi==roi_label]))
+
+    return mean_vals
 
 
-
-
-
+class _cbfroiquantInputSpec(BaseInterfaceInputSpec):
+    in_cbf=File(exists=True,mandatory=True,desc='cbf img')
+    atlasfile=File(exists=True, mandatory=True,desc='data')
+    atlasdata=File(exists=True, mandatory=True,desc='data')
+    atlaslabel=File(exists=True, mandatory=True,desc='data')
+    atlascsv=File(exists=False,mandatory=False,desc='harvard output csv')
  
+class _cbfroiquantOutputSpec(TraitedSpec):
+    atlascsv=File(exists=False,desc='harvard output csv')
+
+class cbfqroiquant(SimpleInterface):
+    input_spec = _cbfroiquantInputSpec
+    output_spec = _cbfroiquantOutputSpec
+    
+    def _run_interface(self, runtime):
+
+        self._results['atlascsv'] = fname_presuffix(self.inputs.in_cbf,
+                                                   suffix='atlas.csv', newpath=runtime.cwd,use_ext=False)
+        roiquant=cbfroiquant(roi_label=self.inputs.atlaslabel,
+             roi_file=self.inputs.atlasfile,cbfmap=self.inputs.in_cbf)
+        data1=pd.read_table(self.inputs.atlasdata,header=None,index_col=None,sep='\t')
+        bb=list(data1.values.tolist())
+        flattened = [val for sublist in bb for val in sublist]
+        datat=pd.DataFrame([flattened,roiquant])
+        datat.to_csv(self._results['atlascsv'],header=None,index=None)
+        return runtime
+           
