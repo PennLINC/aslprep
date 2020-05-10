@@ -17,9 +17,13 @@ from nilearn.plotting import plot_img
 from nilearn.signal import clean
 from nilearn._utils import check_niimg_4d
 from nilearn._utils.niimg import _safe_get_data
-
+from svgutils.transform import SVGFigure
+from nilearn.plotting import plot_stat_map
+from lxml import etree
+from .. import NIWORKFLOWS_LOG
 import seaborn as sns
 from seaborn import color_palette
+from .utils import extract_svg,robust_set_limits
 
 DINA4_LANDSCAPE = (11.69, 8.27)
 
@@ -108,15 +112,52 @@ class fMRIPlot(object):
 
 class CBFtsPlot(object):
     """
-    Generates the CBF  Summary Plot for cbf nd score ts
+    Generates the CBF Summary Plot
     """
-    __slots__ = ['cbf','score','tr', 'seg_data']
+    __slots__ = ['cbf_file','tr', 'seg_data', 'fd_file']
 
-    def __init__(self,cbf,score,seg_data,tr):
-        self.cbf = nb.load(cbf)
-        self.score=nb.load(score)
-        self.seg_data = np.asanyarray(nb.load(seg_data).dataobj)
-        self.tr=tr
+    def __init__(self,cbf_file,qc_file=None, seg_file=None,scoreindex=None,
+                 tr=None, usecols=None, units=None, vlines=None):
+        from nilearn.image import (load_img)
+        if scoreindex:
+            cbfts = load_img(cbf_file).get_fdata()
+            volindex = np.loadtxt(scoreindex)
+            cbfts[..., (volindex != 0)] = np.nan
+            cbfts1 = load_img(cbf_file)
+            img_in = nb.Nifti1Image(dataobj=cbfts, affine=cbfts1.affine, header=cbfts1.header)
+            self.cbf_file=img_in
+        else:
+            self.cbf_file=cbf_file
+        
+        func_nii = nb.load(cbf_file)
+        self.tr = tr if tr is not None else func_nii.header.get_zooms()[-1]
+
+        self.seg_data = None
+        if seg_file:
+            self.seg_data = np.asanyarray(nb.load(seg_file).dataobj)
+
+        if units is None:
+            units = {}
+
+        if vlines is None:
+            vlines = {}
+
+        self.fd_file = {}
+        if qc_file:
+            data = pd.read_csv(qc_file, sep='\t')
+            fdlist=data['framewise_displacement'].tolist()
+            fdlist=fdlist[::2]
+            fdlist=np.nan_to_num(fdlist)
+            self.fd_file['FD'] = {
+                    'values':fdlist,
+                    'units': '',
+                    'cutoff': ''
+                }
+        if scoreindex:
+            self.fd_file['Score Index'] = {
+                    'values': volindex,
+                    'units': '',
+                    'cutoff': ''}
 
     def plot(self, figure=None):
         """Main plotter"""
@@ -126,24 +167,38 @@ class CBFtsPlot(object):
         if figure is None:
             figure = plt.gcf()
 
+        nconfounds = len(self.fd_file)
+        nrows = 1 + nconfounds
+
         # Create grid
-        grid = mgs.GridSpec(2, 1, wspace=0.0, hspace=0.05,
-                            height_ratios=[2] * (2 - 1) + [2])
+        grid = mgs.GridSpec(nrows, 1, wspace=0.0, hspace=0.05,
+                            height_ratios=[1] * (nrows - 1) + [5])
 
-        plot_carpet(self.cbf,self.seg_data,subplot=grid[0], tr=self.tr,title='CBF')
-        plot_carpet(self.score,self.seg_data,subplot=grid[-1], tr=self.tr,title='SCORE')
+        grid_id = 0
 
+        if self.fd_file:
+            palette = color_palette("husl", nconfounds)
+
+        for i, (name, kwargs) in enumerate(self.fd_file.items()):
+            tseries = kwargs.pop('values')
+            confoundplot(
+                tseries, grid[grid_id], tr=self.tr, color=palette[i],
+                name=name, **kwargs)
+            grid_id += 1
+
+        plot_carpet(self.cbf_file, self.seg_data, subplot=grid[-1], tr=self.tr)
         # spikesplot_cb([0.7, 0.78, 0.2, 0.008])
         return figure
+
 
 
 class CBFPlot(object):
     """
     Generates the cbf Summary Plot
     """
-    __slots__ = ['cbf','score','scrub','basil','pvc','ref_vol']
+    __slots__ = ['cbf','ref_vol']
 
-    def __init__(self,cbf,score,scrub,basil,pvc,ref_vol):
+    def __init__(self,cbf,ref_vol):
         self.cbf = cbf
         self.score = score
         self.scrub = scrub
@@ -172,37 +227,54 @@ class CBFPlot(object):
         return ax
 
 
-def plotstatsimg(img, ref_vol,subplot=None, title=None, output_file=None):
+
+def plotstatsimg(cbf,ref_vol,div_id,plot_params=None,order=('z', 'x', 'y'), cuts=None,
+                      estimate_brightness=False, label=None,compress='auto'):
     """
+    plot zsts
     """
-    
-    if title is None:
-        title=''
-    # If subplot is not defined
-    if subplot is None:
-        subplot = mgs.GridSpec(1, 1)[0]
-    #wratios = [1, 100, 20]
-    gs = mgs.GridSpecFromSubplotSpec(1, 1,subplot_spec=subplot,
-                                     wspace=0.0)
+    plot_params = {} if plot_params is None else plot_params
 
-    # Segmentation colorbar
+    # Use default MNI cuts if none defined
+    if cuts is None:
+        raise NotImplementedError  # TODO
 
-    # Carpet plot
-  
-    ax1 = plt.subplot(gs[0])
+    out_files = []
+    if estimate_brightness:
+        plot_params = robust_set_limits(cbf.get_fdata().reshape(-1),
+                                        plot_params)
 
-    from nilearn.plotting import plot_stat_map 
-    plot_stat_map(stat_map_img=img,bg_img=ref_vol, axes=ax1,threshold=0,vmax=90,title=title,
-                       display_mode='z', cut_coords=5,draw_cross=False,symmetric_cbar=True,annotate=False)
+    # Plot each cut axis
+    for i, mode in enumerate(list(order)):
+        plot_params['display_mode'] = mode
+        plot_params['cut_coords'] = cuts[mode]
+        plot_params['draw_cross']=False
+        plot_params['symmetric_cbar']=True
+        plot_params['threshold']=0
+        plot_params['vmax']=90
+        if i == 0:
+            plot_params['title'] = label
+            plot_params['colorbar']= True
+        else:
+            plot_params['title'] = None
 
-    if output_file is not None:
-        figure = plt.gcf()
-        figure.savefig(output_file, bbox_inches='tight')
-        plt.close(figure)
-        figure = None
-        return output_file
+        # Generate nilearn figure
+        display = plot_stat_map(tat_map_img=cbf,bg_img=ref_vol, **plot_params)
+        svg = extract_svg(display, compress=compress)
+        display.close()
 
-    return ax1,gs
+        # Find and replace the figure_1 id.
+        try:
+            xml_data = etree.fromstring(svg)
+        except etree.XMLSyntaxError as e:
+            NIWORKFLOWS_LOG.info(e)
+            return
+
+        svg_fig = SVGFigure()
+        svg_fig.root = xml_data
+        out_files.append(svg_fig)
+
+    return out_files
 
 
 def plot_carpet(img, atlaslabels, detrend=True, nskip=0, size=(950, 800),
