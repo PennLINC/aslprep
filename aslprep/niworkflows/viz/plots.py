@@ -14,16 +14,18 @@ from matplotlib.colors import ListedColormap, Normalize
 from matplotlib.colorbar import ColorbarBase
 
 from nilearn.plotting import plot_img
+from nilearn.image import threshold_img
 from nilearn.signal import clean
 from nilearn._utils import check_niimg_4d
 from nilearn._utils.niimg import _safe_get_data
 from svgutils.transform import SVGFigure
 from nilearn.plotting import plot_stat_map
 from lxml import etree
-from .. import NIWORKFLOWS_LOG
+#from .. import NIWORKFLOWS_LOG
 import seaborn as sns
 from seaborn import color_palette
-from .utils import extract_svg,robust_set_limits
+from .utils import (extract_svg,robust_set_limits,_3d_in_file,cuts_from_bbox,compose_view)
+
 
 DINA4_LANDSCAPE = (11.69, 8.27)
 
@@ -116,7 +118,7 @@ class CBFtsPlot(object):
     """
     __slots__ = ['cbf_file','tr', 'seg_data', 'fd_file']
 
-    def __init__(self,cbf_file,qc_file=None, seg_file=None,scoreindex=None,
+    def __init__(self,cbf_file,conf_file=None, seg_file=None,scoreindex=None,
                  tr=None, usecols=None, units=None, vlines=None):
         from nilearn.image import (load_img)
         if scoreindex:
@@ -143,8 +145,8 @@ class CBFtsPlot(object):
             vlines = {}
 
         self.fd_file = {}
-        if qc_file:
-            data = pd.read_csv(qc_file, sep='\t')
+        if conf_file:
+            data = pd.read_csv(conf_file, sep='\t')
             fdlist=data['framewise_displacement'].tolist()
             fdlist=fdlist[::2]
             fdlist=np.nan_to_num(fdlist)
@@ -196,52 +198,39 @@ class CBFPlot(object):
     """
     Generates the cbf Summary Plot
     """
-    __slots__ = ['cbf','ref_vol']
+    __slots__ = ['cbf','ref_vol','label','outfile']
 
-    def __init__(self,cbf,ref_vol):
+    def __init__(self,cbf,ref_vol,label,outfile): 
         self.cbf = cbf
-        self.score = score
-        self.scrub = scrub
-        self.basil=basil
-        self.pvc=pvc
         self.ref_vol=ref_vol
+        self.label=label
+        self.outfile=outfile
 
     def plot(self, figure=None):
         """Main plotter"""
-        cbfmaps=[self.cbf,self.score,self.scrub,self.basil,self.pvc]
-        #cbfmapsnames=['cbf','score_cbf','scrub_cbf','basil_cbf','pvc_cbf']
-        import matplotlib.pyplot as plt
-        from matplotlib import gridspec as mgs
-        from nilearn.plotting import plot_stat_map 
+        statfile=plotstatsimg(cbf=self.cbf,ref_vol=self.ref_vol,label=self.label)
+        compose_view(bg_svgs=statfile,fg_svgs=None,out_file=self.outfile)
         
-        ax=plt.gcf()
-       
-        grid = mgs.GridSpec(5, 1)
-
-        plotstatsimg(cbfmaps[0],ref_vol=self.ref_vol,subplot=grid[0], output_file=None)
-        plotstatsimg(cbfmaps[1],ref_vol=self.ref_vol,subplot=grid[1], output_file=None)
-        plotstatsimg(cbfmaps[2],ref_vol=self.ref_vol,subplot=grid[2], output_file=None)
-        plotstatsimg(cbfmaps[3],ref_vol=self.ref_vol,subplot=grid[3], output_file=None)
-        plotstatsimg(cbfmaps[4],ref_vol=self.ref_vol,subplot=grid[4], output_file=None)
-     
-        return ax
 
 
 
-def plotstatsimg(cbf,ref_vol,div_id,plot_params=None,order=('z', 'x', 'y'), cuts=None,
+def plotstatsimg(cbf,ref_vol,plot_params=None,order=('z', 'x', 'y'),
                       estimate_brightness=False, label=None,compress='auto'):
     """
     plot zsts
     """
     plot_params = {} if plot_params is None else plot_params
 
-    # Use default MNI cuts if none defined
-    if cuts is None:
-        raise NotImplementedError  # TODO
+    image_nii = _3d_in_file(cbf)
+    data = image_nii.get_fdata()
+
+    bbox_nii = threshold_img(nb.load(cbf), 1)
+
+    cuts = cuts_from_bbox(bbox_nii, cuts=7)
 
     out_files = []
     if estimate_brightness:
-        plot_params = robust_set_limits(cbf.get_fdata().reshape(-1),
+        plot_params = robust_set_limits(data,
                                         plot_params)
 
     # Plot each cut axis
@@ -259,7 +248,7 @@ def plotstatsimg(cbf,ref_vol,div_id,plot_params=None,order=('z', 'x', 'y'), cuts
             plot_params['title'] = None
 
         # Generate nilearn figure
-        display = plot_stat_map(tat_map_img=cbf,bg_img=ref_vol, **plot_params)
+        display = plot_stat_map(stat_map_img=cbf,bg_img=ref_vol, **plot_params)
         svg = extract_svg(display, compress=compress)
         display.close()
 

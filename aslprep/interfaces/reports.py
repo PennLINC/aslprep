@@ -187,7 +187,7 @@ class FunctionalSummary(SummaryInterface):
         }[self.inputs.registration][self.inputs.fallback]
         import pandas as pd
         qcfile=pd.read_csv(self.inputs.qc_file)
-        motionparam={'FD' :[' %d mm ' ], 
+        motionparam={'FD' :[' %d ' ], 
             'relRMS':['%d mm'],}[round(qcfile['FD'][0],4),round(qcfile['relRMS'][0],4)]
         coregindex={'Dice Index':[' %d'],'Jaccard Index': [' %d'], 'Cross Cor.':[' %d'],
                'Coverage': [' %d ']}[round(qcfile['coregDC'][0],4),round(qcfile['coregJC'][0],4),
