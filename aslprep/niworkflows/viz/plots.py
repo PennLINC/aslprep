@@ -159,7 +159,7 @@ class CBFtsPlot(object):
             self.fd_file['Score Index'] = {
                     'values': volindex,
                     'units': '',
-                    'cutoff': ''}
+                    'cutoff': 0}
 
     def plot(self, figure=None):
         """Main plotter"""

@@ -210,10 +210,13 @@ def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
 
     inputnode = pe.Node(niu.IdentityInterface(
         fields=['cbf', 'cbf_ts','score_ts','score','scrub','bold_ref',
-            'basil','pvc','bold_mask','t1_bold_xform','std2anat_xfm']),
+            'basil','pvc','bold_mask','t1_bold_xform','std2anat_xfm',
+            'confounds_file','scoreindex']),
         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(
-        fields=['cbf_carpetplot','cbf_summary_plot']),
+        fields=['cbf_carpetplot','score_carpetplot','cbf_summary_plot',
+          'cbf_summary_plot','score_summary_plot','scrub_summary_plot',
+          'basil_summary_plot','pvc_summary_plot']),
         name='outputnode')
     mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
      
@@ -226,33 +229,86 @@ def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
         dimension=3, default_value=0, interpolation='MultiLabel'),
         name='resample_parc')
     
+    cbftssummary=pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),
+         name='cbf_ts_summary',mem_gb=0.2)
+    scoretssummary=pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),
+        name='score_ts_summary',mem_gb=0.2)
 
+    cbfsummary=pe.Node(CBFSummary(label='cbf'),name='cbf_summary',mem_gb=0.2)
+    scoresummary=pe.Node(CBFSummary(label='score'),name='score_summary',mem_gb=0.2)
+    scrubsummary=pe.Node(CBFSummary(label='scrub'),name='scrub_summary',mem_gb=0.2)
+    basilsummary=pe.Node(CBFSummary(label='basil'),name='basil_summary',mem_gb=0.2)
+    pvcsummary=pe.Node(CBFSummary(label='pvc'),name='pvc_summary',mem_gb=0.2)
+   
 
-    cbfsummary=pe.Node(CBFSummary(),name='cbf_summary',mem_gb=0.2)
-    cbftssummary=pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),name='cbf_ts_summary',mem_gb=0.2)
-
-    ds_report_cbfplot = pe.Node(
-        DerivativesDataSink(desc='cbfplot', keep_dtype=True),
-        name='ds_report_cbfplot', run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB)
     ds_report_cbftsplot = pe.Node(
         DerivativesDataSink(desc='cbftsplot', keep_dtype=True),
         name='ds_report_cbftsplot', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scoretsplot = pe.Node(
+        DerivativesDataSink(desc='scoretsplot', keep_dtype=True),
+        name='ds_report_scoretsplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+    
+    ds_report_cbfplot = pe.Node(
+        DerivativesDataSink(desc='cbfplot', keep_dtype=True),
+        name='ds_report_cbfplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scoreplot = pe.Node(
+        DerivativesDataSink(desc='scoreplot', keep_dtype=True),
+        name='ds_report_scoreplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scrubplot = pe.Node(
+        DerivativesDataSink(desc='scrubplot', keep_dtype=True),
+        name='ds_report_scrubplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_basilplot = pe.Node(
+        DerivativesDataSink(desc='basilplot', keep_dtype=True),
+        name='ds_report_basilplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_pvcplot = pe.Node(
+        DerivativesDataSink(desc='pvcplot', keep_dtype=True),
+        name='ds_report_pvcplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+        
 
     
     workflow.connect([(inputnode, mrg_xfms, [('t1_bold_xform', 'in1'),('std2anat_xfm', 'in2')]),
                       (inputnode, resample_parc, [('bold_mask', 'reference_image')]),
                       (mrg_xfms,resample_parc,[('out', 'transforms')]),
                       (resample_parc,cbftssummary,[('output_image','seg_file')]),
-                      (inputnode,cbftssummary,[('cbf_ts','cbf_ts'),('score_ts','score_ts')]),
+                      (inputnode,cbftssummary,[('cbf_ts','cbf_ts'),('confounds_file','conf_file')]),
                       (cbftssummary,ds_report_cbftsplot,[('out_file','in_file')]),
                       (cbftssummary,outputnode,[('out_file','cbf_carpetplot')]),
-                      (inputnode ,cbfsummary,[('cbf','cbf'),('score','score'),
-                                  ('scrub','scrub'),('basil','basil'),('pvc','pvc'),
-                                ('bold_ref','ref_vol')]),
+
+                      (resample_parc,scoretssummary,[('output_image','seg_file')]),
+                      (inputnode,scoretssummary,[('score_ts','cbf_ts'),('confounds_file','conf_file'),
+                         ('scoreindex','score_file')]),
+                      (scoretssummary,ds_report_scoretsplot,[('out_file','in_file')]),
+                      (scoretssummary,outputnode,[('out_file','score_carpetplot')]),
+                      
+                      (inputnode ,cbfsummary,[('cbf','cbf'),('bold_ref','ref_vol')]),
                       (cbfsummary,ds_report_cbfplot,[('out_file','in_file')]),
                       (cbfsummary,outputnode,[('out_file','cbf_summary_plot')]),
+
+                      (inputnode ,scoresummary,[('score','cbf'),('bold_ref','ref_vol')]),
+                      (scoresummary,ds_report_scoreplot,[('out_file','in_file')]),
+                      (scoresummary,outputnode,[('out_file','score_summary_plot')]),
+
+                      (inputnode ,scrubsummary,[('scrub','cbf'),('bold_ref','ref_vol')]),
+                      (scrubsummary,ds_report_scrubplot,[('out_file','in_file')]),
+                      (scrubsummary,outputnode,[('out_file','scrub_summary_plot')]),
+
+                      (inputnode ,basilsummary,[('basil','cbf'),('bold_ref','ref_vol')]),
+                      (basilsummary,ds_report_basilplot,[('out_file','in_file')]),
+                      (basilsummary,outputnode,[('out_file','basil_summary_plot')]),
+
+                      (inputnode ,pvcsummary,[('pvc','cbf'),('bold_ref','ref_vol')]),
+                      (pvcsummary,ds_report_pvcplot,[('out_file','in_file')]),
+                      (pvcsummary,outputnode,[('out_file','pvc_summary_plot')]),
+
                       ])
     return workflow
 

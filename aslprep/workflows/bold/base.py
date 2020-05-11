@@ -1042,6 +1042,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
       (bold_reg_wf,cbf_plot,[('outputnode.itk_t1_to_bold','inputnode.t1_bold_xform')]),
       (bold_bold_trans_wf,cbf_plot,[('outputnode.bold_mask','inputnode.bold_mask')]),
       (bold_reference_wf, cbf_plot, [('outputnode.ref_image', 'inputnode.bold_ref')]),
+      (bold_confounds_wf,cbf_plot,[('outputnode.confounds_file', 'inputnode.confounds_file')]),
+      (compt_cbf_wf,cbf_plot,[('outputnode.out_scoreindex','inputnode.scoreindex')]),
        ])
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         workflow.connect([
