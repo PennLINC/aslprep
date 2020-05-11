@@ -124,9 +124,11 @@ class CBFtsPlot(object):
         if scoreindex:
             cbfts = load_img(cbf_file).get_fdata()
             volindex = np.loadtxt(scoreindex)
-            cbfts[..., (volindex != 0)] = np.nan
+            cbftt=np.zeros([cbfts.shape[0],cbfts.shape[1],cbfts.shape[2],len(volindex)])
+            cbftt[..., (volindex != 0)] = np.nan
+            cbftt[..., (volindex == 0)] = cbfts
             cbfts1 = load_img(cbf_file)
-            img_in = nb.Nifti1Image(dataobj=cbfts, affine=cbfts1.affine, header=cbfts1.header)
+            img_in = nb.Nifti1Image(dataobj=cbftt, affine=cbfts1.affine, header=cbfts1.header)
             self.cbf_file=img_in
         else:
             self.cbf_file=cbf_file
@@ -146,20 +148,15 @@ class CBFtsPlot(object):
 
         self.fd_file = {}
         if conf_file:
-            data = pd.read_csv(conf_file, sep='\t')
+            data = pd.read_csv(conf_file, sep=r'[\t\s]+',index_col=False)
             fdlist=data['framewise_displacement'].tolist()
             fdlist=fdlist[::2]
             fdlist=np.nan_to_num(fdlist)
             self.fd_file['FD'] = {
-                    'values':fdlist,
-                    'units': '',
-                    'cutoff': ''
-                }
+                    'values':fdlist}
         if scoreindex:
             self.fd_file['Score Index'] = {
-                    'values': volindex,
-                    'units': '',
-                    'cutoff': 0}
+                    'values': volindex}
 
     def plot(self, figure=None):
         """Main plotter"""

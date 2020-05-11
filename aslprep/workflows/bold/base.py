@@ -1024,7 +1024,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ('outputnode.confounds_file', 'inputnode.confmat')]),
         (compt_qccbf_wf,outputnode,[('outputnode.qc_file','qc_file')]),
         (compt_qccbf_wf,func_derivatives_wf,[('outputnode.qc_file','inputnode.qc_file')]),
-        (compt_qccbf_wf,summary,[('outputnode.qc_file','inputnode.qc_file')]),
+        (compt_qccbf_wf,summary,[('outputnode.qc_file','qc_file')]),
         
     ])
     cbf_plot=init_cbfplot_wf(mem_gb=mem_gb,metadata=metadata,

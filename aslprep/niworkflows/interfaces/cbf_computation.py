@@ -656,6 +656,7 @@ class qccbf(SimpleInterface):
         df.to_csv (self._results['qc_file'], index = False, header=True)
 
         self.inputs.qc_file=os.path.abspath(self._results['qc_file'])
+        return runtime
     
         
 
