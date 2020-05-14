@@ -121,18 +121,18 @@ class CBFtsPlot(object):
     def __init__(self,cbf_file,conf_file=None, seg_file=None,scoreindex=None,
                  tr=None, usecols=None, units=None, vlines=None):
         from nilearn.image import (load_img)
-        if scoreindex:
-            cbfts = load_img(cbf_file).get_fdata()
-            volindex = np.loadtxt(scoreindex)
-            cbftt=np.zeros([cbfts.shape[0],cbfts.shape[1],cbfts.shape[2],len(volindex)])
-            cbftt[..., (volindex != 0)] = np.nan
-            cbftt[..., (volindex == 0)] = cbfts
-            cbfts1 = load_img(cbf_file)
-            img_in = nb.Nifti1Image(dataobj=cbftt, affine=cbfts1.affine, header=cbfts1.header)
-            self.cbf_file=img_in
-        else:
-            self.cbf_file=cbf_file
-        
+        #if scoreindex:
+        #    cbfts = load_img(cbf_file).get_fdata()
+            
+        #    cbftt=np.zeros([cbfts.shape[0],cbfts.shape[1],cbfts.shape[2],len(volindex)])
+        #    cbftt[..., (volindex != 0)] = np.nan
+        #    cbftt[..., (volindex == 0)] = cbfts
+        #    cbfts1 = load_img(cbf_file)
+        #   img_in = nb.Nifti1Image(dataobj=cbftt, affine=cbfts1.affine, header=cbfts1.header)
+        #    self.cbf_file=img_in
+        #else:
+        self.cbf_file=cbf_file
+        volindex = np.loadtxt(scoreindex)
         func_nii = nb.load(cbf_file)
         self.tr = tr if tr is not None else func_nii.header.get_zooms()[-1]
 
@@ -151,12 +151,12 @@ class CBFtsPlot(object):
             data = pd.read_csv(conf_file, sep=r'[\t\s]+',index_col=False)
             fdlist=data['framewise_displacement'].tolist()
             fdlist=fdlist[::2]
-            fdlist=np.nan_to_num(fdlist)
+            #fdlist=np.nan_to_num(fdlist)
             self.fd_file['FD'] = {
                     'values':fdlist}
         if scoreindex:
             self.fd_file['Score Index'] = {
-                    'values': volindex}
+                    'values':volindex}
 
     def plot(self, figure=None):
         """Main plotter"""
@@ -235,12 +235,14 @@ def plotstatsimg(cbf,ref_vol,plot_params=None,order=('z', 'x', 'y'),
         plot_params['display_mode'] = mode
         plot_params['cut_coords'] = cuts[mode]
         plot_params['draw_cross']=False
-        plot_params['symmetric_cbar']=True
-        plot_params['threshold']=0
+        plot_params['symmetric_cbar']=False
+        plot_params['threshold']=0.05
         plot_params['vmax']=90
+        plot_params['colorbar']=False
+        plot_params['cmap']='gray'
         if i == 0:
             plot_params['title'] = label
-            plot_params['colorbar']= True
+            plot_params['colorbar']= False
         else:
             plot_params['title'] = None
 

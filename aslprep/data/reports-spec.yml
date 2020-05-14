@@ -93,15 +93,32 @@ sections:
       side.
     subtitle: ASL Summary
   - bids: {datatype: asl, desc: cbftsplot, suffix: asl}
-    caption: Carpet plot above and below show the time series for all voxels within the brain mask for 
-      cbf and score respectively. Voxels are grouped into cortical (blue), and subcortical 
+    caption: Carpet plot show the time series for all voxels within the brain mask for 
+      cbf. Voxels are grouped into cortical (blue), and subcortical 
       (orange) gray matter, cerebellum (green)and white matter and CSF (red), indicated by the 
-      color map on the left-hand side.
+      color map on the left-hand side. The score Index with value greater than zeros indicated 
+      which volume(s) removed by SCORE. 
     subtitle: CBF Summary
   - bids: {datatype: asl, desc: cbfplot, suffix: asl}
-    caption: The  maps plots of cerebral blood flow (CBF) for basic cbf, score,scrub, basil and pvc
-     respectively.The units is in mL 100/g/min
+    caption: The  maps plots of cerebral blood flow (CBF) for  basic cbf. 
+       The units is in mL 100/g/min
     subtitle: CBF maps  
+  - bids: {datatype: asl, desc: scoreplot, suffix: asl}
+    caption: The  maps plots of cerebral blood flow (CBF) for score cbf. 
+       The units is in mL 100/g/min
+    subtitle: SCORE CBF maps  
+  - bids: {datatype: asl, desc: scrubplot, suffix: asl}
+    caption: The  maps plots of cerebral blood flow (CBF) for scrub cbf. 
+       The units is in mL 100/g/min
+    subtitle: SCRUB CBF maps 
+  - bids: {datatype: asl, desc: basilplot, suffix: asl}
+    caption: The  maps plots of cerebral blood flow (CBF) for basil cbf. 
+       The units is in mL 100/g/min
+    subtitle: BASIL CBF maps
+  - bids: {datatype: asl, desc: pvcplot, suffix: asl}
+    caption: The  maps plots of cerebral blood flow (CBF) for pvc cbf. 
+       The units is in mL 100/g/min
+    subtitle: PVC CBF maps   
 - name: About
   reportlets:
   - bids: {datatype: anat, desc: about, suffix: T1w}

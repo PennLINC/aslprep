@@ -69,6 +69,8 @@ class refinemask(SimpleInterface):
 class _extractCBFInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True,
                               desc='preprocessed file')
+    in_mask = File(exists=True, mandatory=True,
+                              desc='mask')
     in_ASLcontext = File(exists=True, mandatory=True,
               desc='ASL conext text tsv file with label and control')
     out_file=File(exists=False,mandatory=False,desc='cbf timeries data')
@@ -103,13 +105,14 @@ class extractCBF(SimpleInterface):
         
         # read the nifti image 
         allasl=nb.load(self.inputs.in_file)
+        mask=nb.load(self.inputs.in_mask).get_fdata()
         dataasl=allasl.get_fdata()
         if len(dataasl.shape) == 5:
                 raise RuntimeError('Input image (%s) is 5D.')
         control_img=dataasl[:,:,:,controllist]
         label_img=dataasl[:,:,:,labellist]
         cbf_data=np.subtract(control_img,label_img)
-        avg_control=np.mean(control_img,axis=3)
+        avg_control=mask*np.mean(control_img,axis=3)
 
         self._results['out_file'] = fname_presuffix(self.inputs.in_file,
                                                    suffix='_cbftimeseries', newpath=runtime.cwd)
@@ -226,7 +229,7 @@ class computeCBF(SimpleInterface):
         else:
             cbf=cbf1*perfusion_factor
         ## cbf is timeseries
-        meancbf=mask*(np.mean(cbf,axis=3))
+        meancbf=np.multiply(mask,np.mean(cbf,axis=3))
         self._results['out_cbf'] = fname_presuffix(self.inputs.in_cbf,
                                                    suffix='_cbf', newpath=runtime.cwd)
         self._results['out_mean'] = fname_presuffix(self.inputs.in_cbf,
@@ -291,7 +294,7 @@ class scorescrubCBF(SimpleInterface):
         greym=nb.load(self.inputs.in_greyM).get_fdata()
         whitem=nb.load(self.inputs.in_whiteM).get_fdata()
         csf=nb.load(self.inputs.in_csf).get_fdata()
-        cbf_scorets,index_score=_getcbfscore(cbfts=cbf_ts,wm=whitem,gm=greym,csf=csf,
+        cbf_scorets,index_score=_getcbfscore(cbfts=cbf_ts,wm=whitem,gm=greym,csf=csf,mask=mask,
                        thresh=self.inputs.in_thresh)
         cbfscrub=_scrubcbf(cbf_ts=cbf_scorets,gm=greym,wm=whitem,csf=csf,mask=mask,
                           wfun=self.inputs.in_wfun,thresh=self.inputs.in_thresh)
@@ -402,14 +405,14 @@ def _getchisquare(n):
       1.007770, 1.007932, 1.007819, 1.007063, 1.006712, 1.006752, 1.006703, 1.006650, 1.006743, 1.007087]
     return a[n-1],b[n-1]
 
-def _getcbfscore(cbfts,wm,gm,csf,thresh=0.7):
+def _getcbfscore(cbfts,wm,gm,csf,mask,thresh=0.7):
     gm[gm<thresh]=0; gm[gm>0]=1
     wm[wm<thresh]=0; wm[wm>0]=1
     csf[csf<thresh]=0;csf[csf>0]=1
 
     # get the total number of voxle within csf,gm and wm 
     nogm =np.sum(gm==1)-1;  nowm=np.sum(wm==1)-1;  nocf=np.sum(csf==0)-1  
-    mask=gm+wm+csf  
+    mask1=gm+wm+csf  
     #msk=sum(mask>0)
 
     # mean  of times series cbf within greymatter
@@ -427,13 +430,15 @@ def _getcbfscore(cbfts,wm,gm,csf,thresh=0.7):
                   break 
               else:
                   tmp1 = cbfts[:,:,:,s]
-                  CC[s]=np.corrcoef(R[mask>0],tmp1[mask>0])[0][1]
+                  CC[s]=np.corrcoef(R[mask1>0],tmp1[mask1>0])[0][1]
         inx=np.argmax(CC); indx[inx]=2
         R=np.mean(cbfts[:,:,:,indx==0],axis=3)
         V=nogm*np.var(R[gm==1]) + nowm*np.var(R[wm==1]) + nocf*np.var(R[csf==1])
     cbfts_recon=cbfts[:,:,:,indx==0]
-
-    return cbfts_recon,indx
+    cbfts_recon1=np.zeros_like(cbfts_recon)
+    for i in range(cbfts_recon.shape[3]):
+        cbfts_recon1[:,:,:,i]=cbfts_recon[:,:,:,i]*mask
+    return cbfts_recon1,indx
 
 
 def _roubustfit(Y,mu,Globalprior,modrobprior,lmd=0,localprior=0,wfun='huber',tune=1.345,flagstd=1,flagmodrobust=1,flagprior=1,thresh=0.7):

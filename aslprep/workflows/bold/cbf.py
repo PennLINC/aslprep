@@ -90,7 +90,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
     
     workflow.connect([
         # extract CBF data and compute cbf
-        (inputnode,  extractcbf, [('bold','in_file')]),
+        (inputnode,  extractcbf, [('bold','in_file'),('bold_mask','in_mask')]),
         (extractcbf, computecbf, [('out_file','in_cbf'),('out_avg','in_m0file')]),
         #(inputnode,computecbf,[('bold_mask','in_mask')]),
         (inputnode,refinemaskj,[('t1w_mask','in_t1mask'),('bold_mask','in_boldmask'),
@@ -279,15 +279,10 @@ def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
                       (inputnode, resample_parc, [('bold_mask', 'reference_image')]),
                       (mrg_xfms,resample_parc,[('out', 'transforms')]),
                       (resample_parc,cbftssummary,[('output_image','seg_file')]),
-                      (inputnode,cbftssummary,[('cbf_ts','cbf_ts'),('confounds_file','conf_file')]),
+                      (inputnode,cbftssummary,[('cbf_ts','cbf_ts'),('confounds_file','conf_file'),
+                          ('scoreindex','score_file')]),
                       (cbftssummary,ds_report_cbftsplot,[('out_file','in_file')]),
                       (cbftssummary,outputnode,[('out_file','cbf_carpetplot')]),
-
-                      (resample_parc,scoretssummary,[('output_image','seg_file')]),
-                      (inputnode,scoretssummary,[('score_ts','cbf_ts'),('confounds_file','conf_file'),
-                         ('scoreindex','score_file')]),
-                      (scoretssummary,ds_report_scoretsplot,[('out_file','in_file')]),
-                      (scoretssummary,outputnode,[('out_file','score_carpetplot')]),
                       
                       (inputnode ,cbfsummary,[('cbf','cbf'),('bold_ref','ref_vol')]),
                       (cbfsummary,ds_report_cbfplot,[('out_file','in_file')]),

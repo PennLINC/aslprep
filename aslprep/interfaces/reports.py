@@ -41,9 +41,9 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t\t<li>Registration: {registration}</li>
 \t\t\t<li>Confounds collected: {confounds}</li>
 \t\t\t<li>Non-steady-state volumes: {dummy_scan_desc}</li>
-\t\t\t<li>Motion parameters: {motionparam}</li>
-\t\t\t<li>Coregistration index: {coregindex}</li>
-\t\t\t<li>Normalization index: {normindex}</li>
+\t\t\t<li>Motion summary measures: {motionparam}</li>
+\t\t\t<li>Coregistration quality: {coregindex}</li>
+\t\t\t<li>Normalization quality: {normindex}</li>
 \t\t\t<li>Quality evaluation index : {qei}</li>
 \t\t</ul>
 """
@@ -192,7 +192,7 @@ class FunctionalSummary(SummaryInterface):
                     round(qcfile['coregJC'][0],4),round(qcfile['coregCC'][0],4),round(qcfile['coregCOV'][0],4) )
         normindex=" Dice Index: {}, Jaccard Index: {}, Cross Cor.: {}, Coverage: {} ".format(round(qcfile['normDC'][0],4),
                     round(qcfile['normJC'][0],4),round(qcfile['normCC'][0],4),round(qcfile['normCOV'][0],4) ) 
-        qei="cbf: {} ,score: {},scrub: {}, basil: {}, pvc: {} ".format(round(qcfile['cbfQEI'][0],4),round(qcfile['scoreQEI'][0],4),
+        qei="cbf: {},score: {},scrub: {}, basil: {}, pvc: {} ".format(round(qcfile['cbfQEI'][0],4),round(qcfile['scoreQEI'][0],4),
              round(qcfile['scrubQEI'][0],4),round(qcfile['basilQEI'][0],4),round(qcfile['pvcQEI'][0],4))
         if self.inputs.pe_direction is None:
             pedir = 'MISSING - Assuming Anterior-Posterior'
