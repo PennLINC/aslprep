@@ -15,7 +15,7 @@ import os,sys
 from ...config import DEFAULT_MEMORY_MIN_GB
 
 
-def init_cbf_compt_wf(mem_gb,metadata,aslcontext,pcasl,omp_nthreads, name='cbf_compt_wf'):
+def init_cbf_compt_wf(mem_gb,metadata,pcasl,omp_nthreads, name='cbf_compt_wf'):
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data using a relatively basic model 
@@ -32,7 +32,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
 
 
     inputnode = pe.Node(niu.IdentityInterface(
-        fields=['bold', 'bold_mask','t1w_tpms','t1w_mask','t1_bold_xform','itk_bold_to_t1']),
+        fields=['bold_file','bold','bold_mask','t1w_tpms','t1w_mask','t1_bold_xform','itk_bold_to_t1']),
         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(
         fields=['out_cbf', 'out_mean','out_score','out_avgscore','out_scrub',
@@ -59,7 +59,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
         print('unknown label type')
 
         
-    extractcbf = pe.Node(extractCBF(in_ASLcontext=aslcontext),mem_gb=0.2,run_without_submitting=True,name="extractcbf") 
+    extractcbf = pe.Node(extractCBF(fwhm=5),mem_gb=0.2,run_without_submitting=True,name="extractcbf") 
     computecbf = pe.Node(computeCBF(in_metadata=metadata),mem_gb=0.2,
               run_without_submitting=True,name="computecbf")
     scorescrub= pe.Node(scorescrubCBF(in_thresh=0.7,in_wfun='huber'),
@@ -90,14 +90,19 @@ of the estimated perfusion image. BASIL also included correction for partial vol
     
     workflow.connect([
         # extract CBF data and compute cbf
-        (inputnode,  extractcbf, [('bold','in_file'),('bold_mask','in_mask')]),
+        (inputnode,  extractcbf, [('bold','in_file'),('bold_mask','in_mask'),
+                              ('bold_file','bold_file')]),
         (extractcbf, computecbf, [('out_file','in_cbf'),('out_avg','in_m0file')]),
         #(inputnode,computecbf,[('bold_mask','in_mask')]),
         (inputnode,refinemaskj,[('t1w_mask','in_t1mask'),('bold_mask','in_boldmask'),
                                 ('t1_bold_xform','transforms')]),
-        (inputnode,computecbf,[('bold_mask','in_mask')]),
-        (inputnode,scorescrub,[('bold_mask','in_mask')]),
-        (inputnode,basilcbf,[('bold_mask','mask')]),
+        (refinemaskj,computecbf,[('out_mask','in_mask')]),
+        (refinemaskj,scorescrub,[('out_mask','in_mask')]),
+        (refinemaskj,basilcbf,[('out_mask','mask')]),
+
+        #(inputnode,computecbf,[('bold_mask','in_mask')]),
+        #(inputnode,scorescrub,[('bold_mask','in_mask')]),
+        #(inputnode,basilcbf,[('bold_mask','mask')]),
 
         # extract probability maps
         (inputnode, csf_tfm, [('bold_mask', 'reference_image'),

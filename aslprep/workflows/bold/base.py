@@ -515,8 +515,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                    mem_gb=mem_gb['filesize'],
                                    omp_nthreads=omp_nthreads,
                                    pcasl=pcasl,
-                                   metadata=metadata,
-                                   aslcontext=aslcontext)
+                                   metadata=metadata)
 
     # apply BOLD registration to T1w
     bold_t1_trans_wf = init_bold_t1_trans_wf(name='bold_t1_trans_wf',
@@ -679,7 +678,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     workflow.connect([
          (bold_bold_trans_wf,compt_cbf_wf,[('outputnode.bold','inputnode.bold'),
                                       ('outputnode.bold_mask','inputnode.bold_mask')]),
-         (inputnode,compt_cbf_wf,[('t1w_tpms','inputnode.t1w_tpms')]),
+         (inputnode,compt_cbf_wf,[('t1w_tpms','inputnode.t1w_tpms'),('bold_file','inputnode.bold_file')]),
          (bold_reg_wf,compt_cbf_wf,[('outputnode.itk_t1_to_bold','inputnode.t1_bold_xform')]),
          (bold_reg_wf,compt_cbf_wf,[('outputnode.itk_bold_to_t1','inputnode.itk_bold_to_t1')]),
          (inputnode,compt_cbf_wf,[('t1w_mask','inputnode.t1w_mask')]),

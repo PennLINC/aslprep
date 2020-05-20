@@ -69,10 +69,11 @@ class refinemask(SimpleInterface):
 class _extractCBFInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True,
                               desc='preprocessed file')
+    bold_file = File(exists=True, mandatory=True,
+                              desc='preprocessed file')
     in_mask = File(exists=True, mandatory=True,
                               desc='mask')
-    in_ASLcontext = File(exists=True, mandatory=True,
-              desc='ASL conext text tsv file with label and control')
+    fwhm=traits.Float(default_value=5,exists=True,mandatory=False,desc='fwhm')
     out_file=File(exists=False,mandatory=False,desc='cbf timeries data')
     out_avg=File(exists=False,mandatory=False,desc='average control')
 
@@ -80,9 +81,7 @@ class _extractCBFOutputSpec(TraitedSpec):
     out_file = File(exists=False, desc='cbf timeries data')
     out_avg = File(exists=False, desc='average control')
 
-    
-
-
+ 
 
 class extractCBF(SimpleInterface):
     """
@@ -96,11 +95,12 @@ class extractCBF(SimpleInterface):
     output_spec =_extractCBFOutputSpec
 
     def _run_interface(self, runtime):
-         
-        aslcontext=pd.read_csv(self.inputs.in_ASLcontext,header=None)
+        file1=os.path.abspath(self.inputs.bold_file)
+        aslcontext1=file1.replace('.nii.gz','_ASLContext.tsv')
+        aslcontext=pd.read_csv(aslcontext1,header=None)
         idasl=aslcontext[0].tolist()
-        controllist= [ i for i in range(len(idasl)) if idasl[i] == 'Control' ]
-        labellist=[ i for i in range(len(idasl)) if idasl[i] == 'Label' ]
+        controllist= [ i for i in range(0,len(idasl)) if idasl[i] == 'Control' ]
+        labellist=[ i for i in range(0,len(idasl)) if idasl[i] == 'Label' ]
         
         
         # read the nifti image 
@@ -110,6 +110,9 @@ class extractCBF(SimpleInterface):
         if len(dataasl.shape) == 5:
                 raise RuntimeError('Input image (%s) is 5D.')
         control_img=dataasl[:,:,:,controllist]
+        con=nb.Nifti1Image(
+            control_img, allasl.affine, allasl.header)
+        control_img=smooth_image(con,fwhm=self.inputs.fwhm).get_data()
         label_img=dataasl[:,:,:,labellist]
         cbf_data=np.subtract(control_img,label_img)
         avg_control=mask*np.mean(control_img,axis=3)
@@ -431,7 +434,11 @@ def _getcbfscore(cbfts,wm,gm,csf,mask,thresh=0.7):
               else:
                   tmp1 = cbfts[:,:,:,s]
                   CC[s]=np.corrcoef(R[mask1>0],tmp1[mask1>0])[0][1]
-        inx=np.argmax(CC); indx[inx]=2
+        inx=np.argmax(CC)
+        if inx == 0:
+            indx[inx]=0
+        else:
+            indx[inx]=1
         R=np.mean(cbfts[:,:,:,indx==0],axis=3)
         V=nogm*np.var(R[gm==1]) + nowm*np.var(R[wm==1]) + nocf*np.var(R[csf==1])
     cbfts_recon=cbfts[:,:,:,indx==0]
