@@ -112,17 +112,20 @@ class extractCBF(SimpleInterface):
         control_img=dataasl[:,:,:,controllist]
         con=nb.Nifti1Image(
             control_img, allasl.affine, allasl.header)
-        control_img=smooth_image(con,fwhm=self.inputs.fwhm).get_data()
+        control_img1=smooth_image(con,fwhm=self.inputs.fwhm).get_data()
         label_img=dataasl[:,:,:,labellist]
         cbf_data=np.subtract(control_img,label_img)
-        avg_control=mask*np.mean(control_img,axis=3)
+        avg_control=mask*np.mean(control_img1,axis=3)
+        cbf_data2=np.zeros(cbf_data.shape)
+        for i in range(cbf_data.shape[3]):
+            cbf_data2[:,:,:,i]=mask*cbf_data[:,:,:,i]
 
         self._results['out_file'] = fname_presuffix(self.inputs.in_file,
                                                    suffix='_cbftimeseries', newpath=runtime.cwd)
         self._results['out_avg'] = fname_presuffix(self.inputs.in_file,
                                                    suffix='_avg_control', newpath=runtime.cwd)
         nb.Nifti1Image(
-            cbf_data, allasl.affine, allasl.header).to_filename(
+            cbf_data2, allasl.affine, allasl.header).to_filename(
             self._results['out_file'])
         nb.Nifti1Image(
             avg_control, allasl.affine, allasl.header).to_filename(
@@ -162,82 +165,20 @@ class computeCBF(SimpleInterface):
 
     """
     compute cbf pASL or pCASL
-
     """
 
     input_spec = _computeCBFInputSpec
     output_spec =_computeCBFOutputSpec
     
     def _run_interface(self, runtime):
-
-        labeltype=self.inputs.in_metadata['LabelingType']
-        tau=self.inputs.in_metadata['LabelingDuration']
-        plds=np.array(self.inputs.in_metadata['InitialPostLabelDelay'])
-        m0scale=self.inputs.in_metadata['M0']
-        magstrength=self.inputs.in_metadata['MagneticFieldStrength']
-        mask=nb.load(self.inputs.in_mask).get_fdata()
-        t1blood=(110*int(magstrength[:-1])+1316)/1000
-        inverstiontime=np.add(tau,plds)
-        if self.inputs.in_metadata['LabelingEfficiency']:
-            labeleff=self.inputs.in_metadata['LabelingEfficiency']
-        elif 'CASL' in labeltype: 
-             labeleff=0.72
-        elif 'PASL' in labeltype:
-            labeleff=0.8
-        else:
-            print( 'no labelelling effiecieny')
-
-        part_coeff=0.9 # brain partition coefficient
-    
-        if 'CASL' in  labeltype:
-            pf1=(6000*part_coeff)/(2*labeleff*t1blood*(1-np.exp(-(tau/t1blood))))
-            perfusion_factor=pf1*np.exp(plds/t1blood)
-        elif 'PASL' in labeltype: 
-            pf1=(6000*part_coeff)/(2*labeleff)
-            perfusion_factor=(pf1*np.exp(inverstiontime/t1blood))/inverstiontime
-        perfusion_factor=np.array([perfusion_factor])
-        # get control  now 
-        avg_control=[]
-        
-        mzero=nb.load(self.inputs.in_m0file).get_fdata()
-        if len(mzero.shape) > 3:
-            avg_control=np.multiply(mask,np.mean(mzero,axis=3))
-        else:
-            avg_control=np.multiply(mzero,mask)   
-        if not m0scale:
-            m0scale=1
-
-
-        cbf_data=nb.load(self.inputs.in_cbf).get_fdata()
-        cbf1=np.zeros(cbf_data.shape)
-        for i in range(cbf_data.shape[3]):
-                cbf1[:,:,:,i]=mask*(np.divide(cbf_data[:,:,:,i],(m0scale*avg_control)))
-        #m1=m0scale*m0_data
-        #cbf1=np.divide(cbf_data,m1)
-        # for compute cbf for each PLD and TI 
-        att=None
-        if len(perfusion_factor) > 1: 
-            cbf_data_ts=np.zeros(np.concatenate(cbf.shape,len(perfusion_factor)))
-            dm1factor=(2*labeleff*1.5*(1-np.exp(tau/1.5)))*avg_control
-            deltaM=np.zeros(np.concatenate(avg_control.shape,len(perfusion_factor)))
-            for i in range(len(perfusion_factor)):
-                cbf_data_ts[:,:,:,:,i]=cbf1*perfusion_factor[i]
-                deltaM[:,:,:,i]=dm1factor*(np.exp(-plds[i]/t1blood))
-            cbf=np.mean(cbf_data_ts,axis=4)
-            # compute  arterial transisttime
-            deltaM2=np.zeros(np.concatenate(avg_control.shape,len(perfusion_factor)))
-            for i in range(len(perfusion_factor)):
-                deltaM2[:,:,:,i]=deltaM[:,:,:,i]*plds[i]
-            att=mask*(np.sum(deltaM2,axis=4)/np.sum(deltaM,axis=4))
-        else:
-            cbf=cbf1*perfusion_factor
-        ## cbf is timeseries
-        meancbf=np.multiply(mask,np.mean(cbf,axis=3))
+        cbf,meancbf,att=cbfcomputation(metadata=self.inputs.in_metadata,mask=self.inputs.in_mask,
+         m0file=self.inputs.in_m0file,cbffile=self.inputs.in_cbf)
         self._results['out_cbf'] = fname_presuffix(self.inputs.in_cbf,
                                                    suffix='_cbf', newpath=runtime.cwd)
         self._results['out_mean'] = fname_presuffix(self.inputs.in_cbf,
                                                    suffix='_meancbf', newpath=runtime.cwd)
-        samplecbf=nb.load(self.inputs.in_cbf)
+            
+        samplecbf=nb.load(self.inputs.in_m0file)
         nb.Nifti1Image(
             cbf, samplecbf.affine, samplecbf.header).to_filename(
             self._results['out_cbf'])
@@ -254,9 +195,90 @@ class computeCBF(SimpleInterface):
         
         self.inputs.out_cbf=os.path.abspath(self._results['out_cbf'])
         self.inputs.out_mean=os.path.abspath(self._results['out_mean'])
-       
-        
+          
+        ## we dont know why not zeros background $
+        from nipype.interfaces.fsl import MultiImageMaths
+        mat1 = MultiImageMaths()
+        mat1.inputs.in_file =self.inputs.out_mean
+        mat1.inputs.op_string = " -mul  %s "
+        mat1.inputs.operand_files=self.inputs.in_mask
+        mat1.inputs.out_file =self.inputs.out_mean
+        mat1.run()
+
+        mat1 = MultiImageMaths()
+        mat1.inputs.in_file =self.inputs.out_cbf
+        mat1.inputs.op_string = " -mul  %s "
+        mat1.inputs.operand_files=self.inputs.in_mask
+        mat1.inputs.out_file =self.inputs.out_cbf
+        mat1.run()
+
         return runtime
+
+def cbfcomputation(metadata,mask,m0file,cbffile):
+    labeltype=metadata['LabelingType']
+    tau=metadata['LabelingDuration']
+    plds=np.array(metadata['InitialPostLabelDelay'])
+    m0scale=metadata['M0']
+    magstrength=metadata['MagneticFieldStrength']
+    t1blood=(110*int(magstrength[:-1])+1316)/1000
+    inverstiontime=np.add(tau,plds)
+    mask=nb.load(mask).get_fdata()
+    if metadata['LabelingEfficiency']:
+        labeleff=metadata['LabelingEfficiency']
+    elif 'CASL' in labeltype: 
+        labeleff=0.72
+    elif 'PASL' in labeltype:
+        labeleff=0.8
+    else:
+        print( 'no labelelling effiecieny')
+
+    part_coeff=0.9 # brain partition coefficient
+    
+    if 'CASL' in  labeltype:
+        pf1=(6000*part_coeff)/(2*labeleff*t1blood*(1-np.exp(-(tau/t1blood))))
+        perfusion_factor=pf1*np.exp(plds/t1blood)
+    elif 'PASL' in labeltype: 
+        pf1=(6000*part_coeff)/(2*labeleff)
+        perfusion_factor=(pf1*np.exp(inverstiontime/t1blood))/inverstiontime
+    perfusion_factor=np.array([perfusion_factor])
+        # get control  now 
+    avg_control=[] 
+    mzero=nb.load(m0file).get_fdata()
+        #mzero=nb.load(self.inputs.in_m0file).get_fdata()
+    if len(mzero.shape) > 3:
+        avg_control=np.multiply(mask,np.mean(mzero,axis=3))
+    else:
+        avg_control=np.multiply(mzero,mask)   
+    if not m0scale:
+        m0scale=1
+
+
+    cbf_data=nb.load(cbffile).get_fdata()
+    cbf1=np.zeros(cbf_data.shape)
+    for i in range(cbf_data.shape[3]):
+        cbf1[:,:,:,i]=mask*(np.divide(cbf_data[:,:,:,i],(m0scale*avg_control)))
+        #m1=m0scale*m0_data
+        #cbf1=np.divide(cbf_data,m1)
+        # for compute cbf for each PLD and TI 
+    att=None
+    if len(perfusion_factor) > 1: 
+        cbf_data_ts=np.zeros(np.concatenate(cbf.shape,len(perfusion_factor)))
+        dm1factor=(2*labeleff*1.5*(1-np.exp(tau/1.5)))*avg_control
+        deltaM=np.zeros(np.concatenate(avg_control.shape,len(perfusion_factor)))
+        for i in range(len(perfusion_factor)):
+            cbf_data_ts[:,:,:,:,i]=cbf1*perfusion_factor[i]
+            deltaM[:,:,:,i]=dm1factor*(np.exp(-plds[i]/t1blood))
+        cbf=np.mean(cbf_data_ts,axis=4)
+            # compute  arterial transisttime
+        deltaM2=np.zeros(np.concatenate(avg_control.shape,len(perfusion_factor)))
+        for i in range(len(perfusion_factor)):
+            deltaM2[:,:,:,i]=deltaM[:,:,:,i]*plds[i]
+        att=mask*(np.sum(deltaM2,axis=4)/np.sum(deltaM,axis=4))
+    else:
+        cbf=cbf1*perfusion_factor
+        ## cbf is timeseries
+    meancbf=mask*(np.mean(cbf,axis=3))
+    return cbf,meancbf,att
 
 
 #score and scrub 
@@ -414,31 +436,29 @@ def _getcbfscore(cbfts,wm,gm,csf,mask,thresh=0.7):
     csf[csf<thresh]=0;csf[csf>0]=1
 
     # get the total number of voxle within csf,gm and wm 
-    nogm =np.sum(gm==1)-1;  nowm=np.sum(wm==1)-1;  nocf=np.sum(csf==0)-1  
+    nogm =np.sum(gm==1)-1;  nowm=np.sum(wm==1)-1;  nocf=np.sum(csf==1)-1  
     mask1=gm+wm+csf  
     #msk=sum(mask>0)
 
     # mean  of times series cbf within greymatter
     mgmts=np.squeeze(np.mean(cbfts[gm==1,:],axis=0))
     # robiust mean and meadian
-    medmngm = np.median(mgmts); sdmngm=np.mean(np.abs(mgmts - np.mean(mgmts)))/0.675
+    from scipy.stats import median_absolute_deviation
+    medmngm = np.median(mgmts); sdmngm=median_absolute_deviation(mgmts)/0.675
     indx=1*(np.abs(mgmts-medmngm)>(2.5*sdmngm))
     R=np.mean(cbfts[:,:,:,indx==0],axis=3)
     V=nogm*np.var(R[gm==1]) + nowm*np.var(R[wm==1]) + nocf*np.var(R[csf==1])
     V1=V+1
     while V < V1:
-        V1=V;CC =(-2*np.repeat(1,cbfts.shape[3]))*1
+        V1=V;CC =np.zeros(cbfts.shape[3])*(-2)
         for s in range(cbfts.shape[3]):
-              if indx[s] != 0 :
-                  break 
-              else:
-                  tmp1 = cbfts[:,:,:,s]
-                  CC[s]=np.corrcoef(R[mask1>0],tmp1[mask1>0])[0][1]
+            if indx[s] != 0 :
+                break
+            else:
+                tmp1 = cbfts[:,:,:,s]
+                CC[s]=np.corrcoef(R[mask1>0],tmp1[mask1>0])[0][1]
         inx=np.argmax(CC)
-        if inx == 0:
-            indx[inx]=0
-        else:
-            indx[inx]=1
+        indx[inx]=2
         R=np.mean(cbfts[:,:,:,indx==0],axis=3)
         V=nogm*np.var(R[gm==1]) + nowm*np.var(R[wm==1]) + nocf*np.var(R[csf==1])
     cbfts_recon=cbfts[:,:,:,indx==0]

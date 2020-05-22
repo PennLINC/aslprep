@@ -11,7 +11,7 @@ from ...niworkflows.interfaces.plotting import (CBFSummary,CBFtsSummary)
 from ...interfaces import  DerivativesDataSink
 import nibabel as nb 
 import numpy as np
-import os,sys
+import os,sys,tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
 
 
@@ -67,7 +67,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
     basilcbf= pe.Node(BASILCBF(m0scale=metadata["M0"],
                bolus=metadata["InitialPostLabelDelay"],m0tr=metadata['RepetitionTime'],pvc=True,
                tis=np.add(metadata["InitialPostLabelDelay"],metadata["LabelingDuration"]),
-               pcasl=pcasl,out_basename=os.getcwd()),
+               pcasl=pcasl,out_basename=tempfile.mkdtemp()),
               name='basilcbf',run_without_submitting=True,mem_gb=0.2) 
     
    
@@ -90,8 +90,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
     
     workflow.connect([
         # extract CBF data and compute cbf
-        (inputnode,  extractcbf, [('bold','in_file'),('bold_mask','in_mask'),
-                              ('bold_file','bold_file')]),
+        (inputnode,  extractcbf, [('bold','in_file'),('bold_file','bold_file')]),
         (extractcbf, computecbf, [('out_file','in_cbf'),('out_avg','in_m0file')]),
         #(inputnode,computecbf,[('bold_mask','in_mask')]),
         (inputnode,refinemaskj,[('t1w_mask','in_t1mask'),('bold_mask','in_boldmask'),
@@ -99,6 +98,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
         (refinemaskj,computecbf,[('out_mask','in_mask')]),
         (refinemaskj,scorescrub,[('out_mask','in_mask')]),
         (refinemaskj,basilcbf,[('out_mask','mask')]),
+        (refinemaskj,extractcbf,[('out_mask','in_mask')]),
 
         #(inputnode,computecbf,[('bold_mask','in_mask')]),
         #(inputnode,scorescrub,[('bold_mask','in_mask')]),
