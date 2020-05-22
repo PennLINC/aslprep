@@ -515,8 +515,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                    mem_gb=mem_gb['filesize'],
                                    omp_nthreads=omp_nthreads,
                                    pcasl=pcasl,
-                                   metadata=metadata,
-                                   aslcontext=aslcontext)
+                                   metadata=metadata)
 
     # apply BOLD registration to T1w
     bold_t1_trans_wf = init_bold_t1_trans_wf(name='bold_t1_trans_wf',
@@ -679,7 +678,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     workflow.connect([
          (bold_bold_trans_wf,compt_cbf_wf,[('outputnode.bold','inputnode.bold'),
                                       ('outputnode.bold_mask','inputnode.bold_mask')]),
-         (inputnode,compt_cbf_wf,[('t1w_tpms','inputnode.t1w_tpms')]),
+         (inputnode,compt_cbf_wf,[('t1w_tpms','inputnode.t1w_tpms'),('bold_file','inputnode.bold_file')]),
          (bold_reg_wf,compt_cbf_wf,[('outputnode.itk_t1_to_bold','inputnode.t1_bold_xform')]),
          (bold_reg_wf,compt_cbf_wf,[('outputnode.itk_bold_to_t1','inputnode.itk_bold_to_t1')]),
          (inputnode,compt_cbf_wf,[('t1w_mask','inputnode.t1w_mask')]),
@@ -1024,6 +1023,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ('outputnode.confounds_file', 'inputnode.confmat')]),
         (compt_qccbf_wf,outputnode,[('outputnode.qc_file','qc_file')]),
         (compt_qccbf_wf,func_derivatives_wf,[('outputnode.qc_file','inputnode.qc_file')]),
+        (compt_qccbf_wf,summary,[('outputnode.qc_file','qc_file')]),
         
     ])
     cbf_plot=init_cbfplot_wf(mem_gb=mem_gb,metadata=metadata,
@@ -1041,6 +1041,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
       (bold_reg_wf,cbf_plot,[('outputnode.itk_t1_to_bold','inputnode.t1_bold_xform')]),
       (bold_bold_trans_wf,cbf_plot,[('outputnode.bold_mask','inputnode.bold_mask')]),
       (bold_reference_wf, cbf_plot, [('outputnode.ref_image', 'inputnode.bold_ref')]),
+      (bold_confounds_wf,cbf_plot,[('outputnode.confounds_file', 'inputnode.confounds_file')]),
+      (compt_cbf_wf,cbf_plot,[('outputnode.out_scoreindex','inputnode.scoreindex')]),
        ])
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         workflow.connect([

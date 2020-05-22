@@ -69,10 +69,7 @@ class FMRISummary(SimpleInterface):
 
 class _CBFSummaryInputSpec(BaseInterfaceInputSpec):
     cbf = File(exists=True, mandatory=True, desc='')
-    score = File(exists=True, mandatory=True, desc='')
-    scrub = File(exists=True, mandatory=True, desc='')
-    basil = File(exists=True, mandatory=True, desc='')
-    pvc = File(exists=True, mandatory=True, desc='')
+    label= traits.Str(exists=True,mandatory=True,desc='label') 
     ref_vol = File(exists=True, mandatory=True, desc='')
 
 
@@ -91,23 +88,22 @@ class CBFSummary(SimpleInterface):
             suffix='_cbfplot.svg',
             use_ext=False,
             newpath=runtime.cwd)
-        fig = CBFPlot(
+        CBFPlot(
             cbf=self.inputs.cbf,
-            score=self.inputs.score,
-            scrub=self.inputs.scrub,
-            basil=self.inputs.basil,
-            pvc=self.inputs.pvc,
-            ref_vol=self.inputs.ref_vol
+            label=self.inputs.label,
+            ref_vol=self.inputs.ref_vol,
+            outfile=self._results['out_file']
         ).plot()
-        fig.savefig(self._results['out_file'], bbox_inches='tight')
+        #fig.savefig(self._results['out_file'], bbox_inches='tight')
         return runtime
 
 
 class _CBFtsSummaryInputSpec(BaseInterfaceInputSpec):
-    cbf_ts = File(exists=True, mandatory=True, desc='')
-    score_ts = File(exists=True, mandatory=True, desc='')
-    seg_file= File(exists=True, mandatory=True, desc='')
-    tr =traits.Float(desc='',mandatory=True)
+    cbf_ts = File(exists=True, mandatory=True, desc=' cbf time series')
+    conf_file=File(exists=True, mandatory=False, desc='confound file ')
+    score_file=File(exists=True, mandatory=False, desc='scorexindex file ')
+    seg_file= File(exists=True, mandatory=True, desc='seg_file')
+    tr =traits.Float(desc='TR',mandatory=True)
 
 class _CBFtsSummaryOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='written file path')
@@ -125,9 +121,9 @@ class CBFtsSummary(SimpleInterface):
             use_ext=False,
             newpath=runtime.cwd)
         fig = CBFtsPlot(
-            cbf=self.inputs.cbf_ts,
-            score=self.inputs.score_ts,
-            seg_data=self.inputs.seg_file,
+            cbf_file=self.inputs.cbf_ts,
+            seg_file=self.inputs.seg_file,
+            scoreindex=self.inputs.score_file,
             tr=self.inputs.tr
         ).plot()
         fig.savefig(self._results['out_file'], bbox_inches='tight')

@@ -92,7 +92,7 @@ def init_func_derivatives_wf(
     ])
 
     qcfile = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix='cbfqc', compress=False),
+            DerivativesDataSink(base_directory=output_dir,desc='quality_control',suffix='cbf', compress=False),
             name='qcfile', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
     workflow.connect([
@@ -460,7 +460,7 @@ def init_func_derivatives_wf(
             name='select_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         ds_bold_std = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='preproc', suffix='asl',
+            DerivativesDataSink(base_directory=output_dir, desc='preproc',
                                 keep_dtype=True, compress=True, SkullStripped=False,
                                 RepetitionTime=metadata.get('RepetitionTime'),
                                 TaskName=metadata.get('TaskName')),

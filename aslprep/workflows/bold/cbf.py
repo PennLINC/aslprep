@@ -11,11 +11,11 @@ from ...niworkflows.interfaces.plotting import (CBFSummary,CBFtsSummary)
 from ...interfaces import  DerivativesDataSink
 import nibabel as nb 
 import numpy as np
-import os,sys
+import os,sys,tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
 
 
-def init_cbf_compt_wf(mem_gb,metadata,aslcontext,pcasl,omp_nthreads, name='cbf_compt_wf'):
+def init_cbf_compt_wf(mem_gb,metadata,pcasl,omp_nthreads, name='cbf_compt_wf'):
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data using a relatively basic model 
@@ -32,7 +32,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
 
 
     inputnode = pe.Node(niu.IdentityInterface(
-        fields=['bold', 'bold_mask','t1w_tpms','t1w_mask','t1_bold_xform','itk_bold_to_t1']),
+        fields=['bold_file','bold','bold_mask','t1w_tpms','t1w_mask','t1_bold_xform','itk_bold_to_t1']),
         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(
         fields=['out_cbf', 'out_mean','out_score','out_avgscore','out_scrub',
@@ -59,7 +59,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
         print('unknown label type')
 
         
-    extractcbf = pe.Node(extractCBF(in_ASLcontext=aslcontext),mem_gb=0.2,run_without_submitting=True,name="extractcbf") 
+    extractcbf = pe.Node(extractCBF(fwhm=5),mem_gb=0.2,run_without_submitting=True,name="extractcbf") 
     computecbf = pe.Node(computeCBF(in_metadata=metadata),mem_gb=0.2,
               run_without_submitting=True,name="computecbf")
     scorescrub= pe.Node(scorescrubCBF(in_thresh=0.7,in_wfun='huber'),
@@ -67,7 +67,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
     basilcbf= pe.Node(BASILCBF(m0scale=metadata["M0"],
                bolus=metadata["InitialPostLabelDelay"],m0tr=metadata['RepetitionTime'],pvc=True,
                tis=np.add(metadata["InitialPostLabelDelay"],metadata["LabelingDuration"]),
-               pcasl=pcasl,out_basename=os.getcwd()),
+               pcasl=pcasl,out_basename=tempfile.mkdtemp()),
               name='basilcbf',run_without_submitting=True,mem_gb=0.2) 
     
    
@@ -90,14 +90,19 @@ of the estimated perfusion image. BASIL also included correction for partial vol
     
     workflow.connect([
         # extract CBF data and compute cbf
-        (inputnode,  extractcbf, [('bold','in_file')]),
+        (inputnode,  extractcbf, [('bold','in_file'),('bold_file','bold_file')]),
         (extractcbf, computecbf, [('out_file','in_cbf'),('out_avg','in_m0file')]),
         #(inputnode,computecbf,[('bold_mask','in_mask')]),
         (inputnode,refinemaskj,[('t1w_mask','in_t1mask'),('bold_mask','in_boldmask'),
                                 ('t1_bold_xform','transforms')]),
-        (inputnode,computecbf,[('bold_mask','in_mask')]),
-        (inputnode,scorescrub,[('bold_mask','in_mask')]),
-        (inputnode,basilcbf,[('bold_mask','mask')]),
+        (refinemaskj,computecbf,[('out_mask','in_mask')]),
+        (refinemaskj,scorescrub,[('out_mask','in_mask')]),
+        (refinemaskj,basilcbf,[('out_mask','mask')]),
+        (refinemaskj,extractcbf,[('out_mask','in_mask')]),
+
+        #(inputnode,computecbf,[('bold_mask','in_mask')]),
+        #(inputnode,scorescrub,[('bold_mask','in_mask')]),
+        #(inputnode,basilcbf,[('bold_mask','mask')]),
 
         # extract probability maps
         (inputnode, csf_tfm, [('bold_mask', 'reference_image'),
@@ -210,10 +215,13 @@ def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
 
     inputnode = pe.Node(niu.IdentityInterface(
         fields=['cbf', 'cbf_ts','score_ts','score','scrub','bold_ref',
-            'basil','pvc','bold_mask','t1_bold_xform','std2anat_xfm']),
+            'basil','pvc','bold_mask','t1_bold_xform','std2anat_xfm',
+            'confounds_file','scoreindex']),
         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(
-        fields=['cbf_carpetplot','cbf_summary_plot']),
+        fields=['cbf_carpetplot','score_carpetplot','cbf_summary_plot',
+          'cbf_summary_plot','score_summary_plot','scrub_summary_plot',
+          'basil_summary_plot','pvc_summary_plot']),
         name='outputnode')
     mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
      
@@ -226,33 +234,81 @@ def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
         dimension=3, default_value=0, interpolation='MultiLabel'),
         name='resample_parc')
     
+    cbftssummary=pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),
+         name='cbf_ts_summary',mem_gb=0.2)
+    scoretssummary=pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),
+        name='score_ts_summary',mem_gb=0.2)
 
+    cbfsummary=pe.Node(CBFSummary(label='cbf'),name='cbf_summary',mem_gb=0.2)
+    scoresummary=pe.Node(CBFSummary(label='score'),name='score_summary',mem_gb=0.2)
+    scrubsummary=pe.Node(CBFSummary(label='scrub'),name='scrub_summary',mem_gb=0.2)
+    basilsummary=pe.Node(CBFSummary(label='basil'),name='basil_summary',mem_gb=0.2)
+    pvcsummary=pe.Node(CBFSummary(label='pvc'),name='pvc_summary',mem_gb=0.2)
+   
 
-    cbfsummary=pe.Node(CBFSummary(),name='cbf_summary',mem_gb=0.2)
-    cbftssummary=pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),name='cbf_ts_summary',mem_gb=0.2)
-
-    ds_report_cbfplot = pe.Node(
-        DerivativesDataSink(desc='cbfplot', keep_dtype=True),
-        name='ds_report_cbfplot', run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB)
     ds_report_cbftsplot = pe.Node(
         DerivativesDataSink(desc='cbftsplot', keep_dtype=True),
         name='ds_report_cbftsplot', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scoretsplot = pe.Node(
+        DerivativesDataSink(desc='scoretsplot', keep_dtype=True),
+        name='ds_report_scoretsplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+    
+    ds_report_cbfplot = pe.Node(
+        DerivativesDataSink(desc='cbfplot', keep_dtype=True),
+        name='ds_report_cbfplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scoreplot = pe.Node(
+        DerivativesDataSink(desc='scoreplot', keep_dtype=True),
+        name='ds_report_scoreplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scrubplot = pe.Node(
+        DerivativesDataSink(desc='scrubplot', keep_dtype=True),
+        name='ds_report_scrubplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_basilplot = pe.Node(
+        DerivativesDataSink(desc='basilplot', keep_dtype=True),
+        name='ds_report_basilplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_pvcplot = pe.Node(
+        DerivativesDataSink(desc='pvcplot', keep_dtype=True),
+        name='ds_report_pvcplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+        
 
     
     workflow.connect([(inputnode, mrg_xfms, [('t1_bold_xform', 'in1'),('std2anat_xfm', 'in2')]),
                       (inputnode, resample_parc, [('bold_mask', 'reference_image')]),
                       (mrg_xfms,resample_parc,[('out', 'transforms')]),
                       (resample_parc,cbftssummary,[('output_image','seg_file')]),
-                      (inputnode,cbftssummary,[('cbf_ts','cbf_ts'),('score_ts','score_ts')]),
+                      (inputnode,cbftssummary,[('cbf_ts','cbf_ts'),('confounds_file','conf_file'),
+                          ('scoreindex','score_file')]),
                       (cbftssummary,ds_report_cbftsplot,[('out_file','in_file')]),
                       (cbftssummary,outputnode,[('out_file','cbf_carpetplot')]),
-                      (inputnode ,cbfsummary,[('cbf','cbf'),('score','score'),
-                                  ('scrub','scrub'),('basil','basil'),('pvc','pvc'),
-                                ('bold_ref','ref_vol')]),
+                      
+                      (inputnode ,cbfsummary,[('cbf','cbf'),('bold_ref','ref_vol')]),
                       (cbfsummary,ds_report_cbfplot,[('out_file','in_file')]),
                       (cbfsummary,outputnode,[('out_file','cbf_summary_plot')]),
+
+                      (inputnode ,scoresummary,[('score','cbf'),('bold_ref','ref_vol')]),
+                      (scoresummary,ds_report_scoreplot,[('out_file','in_file')]),
+                      (scoresummary,outputnode,[('out_file','score_summary_plot')]),
+
+                      (inputnode ,scrubsummary,[('scrub','cbf'),('bold_ref','ref_vol')]),
+                      (scrubsummary,ds_report_scrubplot,[('out_file','in_file')]),
+                      (scrubsummary,outputnode,[('out_file','scrub_summary_plot')]),
+
+                      (inputnode ,basilsummary,[('basil','cbf'),('bold_ref','ref_vol')]),
+                      (basilsummary,ds_report_basilplot,[('out_file','in_file')]),
+                      (basilsummary,outputnode,[('out_file','basil_summary_plot')]),
+
+                      (inputnode ,pvcsummary,[('pvc','cbf'),('bold_ref','ref_vol')]),
+                      (pvcsummary,ds_report_pvcplot,[('out_file','in_file')]),
+                      (pvcsummary,outputnode,[('out_file','pvc_summary_plot')]),
+
                       ])
     return workflow
 
