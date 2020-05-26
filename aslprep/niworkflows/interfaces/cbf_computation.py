@@ -73,6 +73,7 @@ class _extractCBFInputSpec(BaseInterfaceInputSpec):
                               desc='preprocessed file')
     in_mask = File(exists=True, mandatory=True,
                               desc='mask')
+    dummy_vols=traits.Int(default_value=0,exit=False,mandatory=False,desc='remove first n voluems')
     fwhm=traits.Float(default_value=5,exists=True,mandatory=False,desc='fwhm')
     out_file=File(exists=False,mandatory=False,desc='cbf timeries data')
     out_avg=File(exists=False,mandatory=False,desc='average control')
@@ -111,12 +112,12 @@ class extractCBF(SimpleInterface):
         if len(dataasl.shape) == 5:
                 raise RuntimeError('Input image (%s) is 5D.')
         control_img=dataasl[:,:,:,controllist]
-        con=nb.Nifti1Image(
-            control_img, allasl.affine, allasl.header)
-        control_img1=smooth_image(con,fwhm=self.inputs.fwhm).get_data()
         label_img=dataasl[:,:,:,labellist]
         cbf_data=np.subtract(control_img,label_img)
-         
+        if self.inputs.dummy_vols is not 0:
+            cbf_data=np.delete(cbf_data,range(0,self.inputs.dummy_vols),axis=3)
+            control_img=np.delete(control_img,range(0,self.inputs.dummy_vols),axis=3)
+  
         # MOfile 
         if os.path.isfile(m0file):
             #mfile=nb.load(m0file).get_fdata()

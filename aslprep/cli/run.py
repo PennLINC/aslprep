@@ -162,6 +162,9 @@ https://aslprep.readthedocs.io/en/%s/spaces.html""" % (currentv.base_version
         help='Number of non steady state volumes.')
     g_conf.add_argument('--smooth_kernel', action='store', default=5, type=int,
                         help='smoothing kernel for M0')
+    g_conf.add_argument(
+        '--dummy-vols', required=False, action='store', default=None, type=int,
+        help='Number of first n vol to ingnore.')
 
     #  ANTs options
     g_ants = parser.add_argument_group('Specific options for ANTs registrations')
@@ -634,6 +637,7 @@ def build_workflow(opts, retval):
         cifti_output=opts.cifti_output,
         debug=opts.sloppy,
         dummy_scans=opts.dummy_scans,
+        dummy_vols=opts.dummy_vols,
         echo_idx=opts.echo_idx,
         smooth_kernel=opts.smooth_kernel,
         #err_on_aroma_warn=opts.error_on_aroma_warnings,

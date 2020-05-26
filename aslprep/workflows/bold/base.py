@@ -75,6 +75,7 @@ def init_func_preproc_wf(
     spaces,
     t2s_coreg,
     smooth_kernel,
+    dummy_vols,
     #use_aroma,
     use_bbr,
     use_syn,
@@ -514,6 +515,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                    mem_gb=mem_gb['filesize'],
                                    omp_nthreads=omp_nthreads,
                                    pcasl=pcasl,
+                                   dummy_vols=dummy_vols,
                                    smooth_kernel=smooth_kernel,
                                    metadata=metadata)
 
