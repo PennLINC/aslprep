@@ -98,11 +98,12 @@ class extractCBF(SimpleInterface):
         file1=os.path.abspath(self.inputs.bold_file)
         aslcontext1=file1.replace('.nii.gz','_ASLContext.tsv')
         aslcontext=pd.read_csv(aslcontext1,header=None)
+        m0file=file1.replace('_asl.nii.gz','_MZeroScan.nii.gz')
         idasl=aslcontext[0].tolist()
         controllist= [ i for i in range(0,len(idasl)) if idasl[i] == 'Control' ]
         labellist=[ i for i in range(0,len(idasl)) if idasl[i] == 'Label' ]
-        
-        
+        m0list=[ i for i in range(0,len(idasl)) if idasl[i] == 'MZeroScan' ]
+          
         # read the nifti image 
         allasl=nb.load(self.inputs.in_file)
         mask=nb.load(self.inputs.in_mask).get_fdata()
@@ -115,17 +116,30 @@ class extractCBF(SimpleInterface):
         control_img1=smooth_image(con,fwhm=self.inputs.fwhm).get_data()
         label_img=dataasl[:,:,:,labellist]
         cbf_data=np.subtract(control_img,label_img)
-        avg_control=mask*np.mean(control_img1,axis=3)
-        cbf_data2=np.zeros(cbf_data.shape)
-        for i in range(cbf_data.shape[3]):
-            cbf_data2[:,:,:,i]=mask*cbf_data[:,:,:,i]
-
+         
+        # MOfile 
+        if os.path.isfile(m0file):
+            #mfile=nb.load(m0file).get_fdata()
+            m0data_smooth=smooth_image(nb.load(m0file),fwhm=self.inputs.fwhm).get_data()
+            avg_control=mask*np.mean(m0data_smooth,axis=3)
+        elif len(m0list) > 0 :
+            modata2=dataasl[:,:,:,m0list]
+            con2=nb.Nifti1Image(modata2, allasl.affine, allasl.header)
+            m0data_smooth=smooth_image(con2,fwhm=self.inputs.fwhm).get_data()
+            avg_control=mask*np.mean(m0data_smooth,axis=3)
+        else:
+            control_img=dataasl[:,:,:,controllist]
+            con=nb.Nifti1Image(control_img, allasl.affine, allasl.header)
+            control_img1=smooth_image(con,fwhm=self.inputs.fwhm).get_data()
+            avg_control=mask*np.mean(control_img1,axis=3)
+        
+        
         self._results['out_file'] = fname_presuffix(self.inputs.in_file,
                                                    suffix='_cbftimeseries', newpath=runtime.cwd)
         self._results['out_avg'] = fname_presuffix(self.inputs.in_file,
                                                    suffix='_avg_control', newpath=runtime.cwd)
         nb.Nifti1Image(
-            cbf_data2, allasl.affine, allasl.header).to_filename(
+            cbf_data, allasl.affine, allasl.header).to_filename(
             self._results['out_file'])
         nb.Nifti1Image(
             avg_control, allasl.affine, allasl.header).to_filename(
@@ -663,16 +677,20 @@ class qccbf(SimpleInterface):
                  csf=self.inputs.in_csf,img=self.inputs.in_pvc,thresh=0.7)
         scrub_qei=cbf_qei(gm=self.inputs.in_greyM,wm=self.inputs.in_whiteM,
                  csf=self.inputs.in_csf,img=self.inputs.in_scrub,thresh=0.7)
+        meancbf=globalcbf(gm=self.inputs.in_greyM,wm=self.inputs.in_whiteM,
+                 csf=self.inputs.in_csf,cbf=self.inputs.in_meancbf,thresh=0.7)
 
         if self.inputs.in_boldmaskstd and self.inputs.in_templatemask:
             dict1 = {'FD':[fd],'relRMS':[rms],'coregDC':[regDC],'coregJC':[regJC],'coregCC':[regCC],'coregCOV':[regCov],
             'normDC':[normDC],'normJC':[normJC],'normCC':[normCC],'normCOV':[normCov],
             'cbfQEI':[meancbf_qei],'scoreQEI':[scorecbf_qei],'scrubQEI':[scrub_qei],
-            'basilQEI':[basilcbf_qei],'pvcQEI':[pvcbf_qei] } 
+            'basilQEI':[basilcbf_qei],'pvcQEI':[pvcbf_qei],
+            'GMmeanCBF': [meancbf[0]],'WMmeanCBF': [meancbf[1]],'CSFmeanCBF': [meancbf[2]] } 
         else:
             dict1 = {'FD':[fd],'relRMS':[rms],'regDC':[regDC],'regJC':[regJC],'coregCC':[regCC],'coregCOV':[regCov],
             'cbfQei':[meancbf_qei],'scoreQEI':[scorecbf_qei],'scrubQEI':[scrub_qei],
-            'basilQEI':[basilcbf_qei],'pvcQEI':[pvcbf_qei] }   
+            'basilQEI':[basilcbf_qei],'pvcQEI':[pvcbf_qei],
+            'GMmeanCBF': [meancbf[0]],'WMmeanCBF': [meancbf[1]],'CSFmeanCBF': [meancbf[2]]  }   
         
         _,file1=os.path.split(self.inputs.in_file)
         bb=file1.split('_')
@@ -799,7 +817,15 @@ def coverage(input1,input2):
         smallv=np.sum(input1)
     cov=float(intsec)/float(smallv)
     return cov
-
+def globalcbf(cbf,gm,wm,csf,thresh=0.7):
+    cbf=nb.load(cbf).get_fdata()
+    gm=nb.load(gm).get_fdata()
+    wm=nb.load(wm).get_fdata()
+    csf=nb.load(csf).get_fdata()
+    b1=[gm<thresh];gm[b1]=0; bx=cbf[gm>0]
+    b2=[wm<thresh];wm[b2]=0; by=cbf[wm>0]
+    b3=[csf<thresh];csf[b3]=0; bz=cbf[csf>0]
+    return np.mean(bx),np.mean(by),np.mean(bz)
 
 def cbf_qei(gm,wm,csf,img,thresh=0.7):
     

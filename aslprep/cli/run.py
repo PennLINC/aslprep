@@ -160,6 +160,8 @@ https://aslprep.readthedocs.io/en/%s/spaces.html""" % (currentv.base_version
     g_conf.add_argument(
         '--dummy-scans', required=False, action='store', default=None, type=int,
         help='Number of non steady state volumes.')
+    g_conf.add_argument('--smooth_kernel', action='store', default=5, type=int,
+                        help='smoothing kernel for M0')
 
     #  ANTs options
     g_ants = parser.add_argument_group('Specific options for ANTs registrations')
@@ -633,6 +635,7 @@ def build_workflow(opts, retval):
         debug=opts.sloppy,
         dummy_scans=opts.dummy_scans,
         echo_idx=opts.echo_idx,
+        smooth_kernel=opts.smooth_kernel,
         #err_on_aroma_warn=opts.error_on_aroma_warnings,
         fmap_bspline=opts.fmap_bspline,
         fmap_demean=opts.fmap_no_demean,

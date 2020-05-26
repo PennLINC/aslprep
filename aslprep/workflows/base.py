@@ -68,6 +68,7 @@ def init_aslprep_wf(
     use_bbr,
     use_syn,
     work_dir,
+    smooth_kernel,
     bids_filters,
 ):
     """
@@ -270,6 +271,7 @@ def init_aslprep_wf(
             t2s_coreg=t2s_coreg,
             task_id=task_id,
             pcasl=pcasl,
+            smooth_kernel=smooth_kernel,
             #use_aroma=use_aroma,
             use_bbr=use_bbr,
             use_syn=use_syn,
@@ -312,6 +314,7 @@ def init_single_subject_wf(
     omp_nthreads,
     output_dir,
     reportlets_dir,
+    smooth_kernel,
     #regressors_all_comps,
     #regressors_dvars_th,
     #regressors_fd_th,
@@ -635,6 +638,7 @@ It is released under the [CC0]\
             output_dir=output_dir,
             reportlets_dir=reportlets_dir,
             pcasl=False,
+            smooth_kernel=smooth_kernel,
             #aslcontext=aslcontext,
             #regressors_all_comps=regressors_all_comps,
             #regressors_fd_th=regressors_fd_th,

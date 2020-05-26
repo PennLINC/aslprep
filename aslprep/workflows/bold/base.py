@@ -74,6 +74,7 @@ def init_func_preproc_wf(
     reportlets_dir,
     spaces,
     t2s_coreg,
+    smooth_kernel,
     #use_aroma,
     use_bbr,
     use_syn,
@@ -331,8 +332,6 @@ def init_func_preproc_wf(
     else:
         # Find associated sbref, if possible
         entities = layout.parse_file_entities(ref_file)
-        file1=os.path.abspath(bold_file)
-        aslcontext=file1.replace('.nii.gz','_ASLContext.tsv')
         entities['suffix'] = 'sbref'
         entities['extension'] = ['nii', 'nii.gz']  # Overwrite extensions
         files = layout.get(return_type='file', **entities)
@@ -515,6 +514,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                    mem_gb=mem_gb['filesize'],
                                    omp_nthreads=omp_nthreads,
                                    pcasl=pcasl,
+                                   smooth_kernel=smooth_kernel,
                                    metadata=metadata)
 
     # apply BOLD registration to T1w

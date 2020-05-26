@@ -45,6 +45,7 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t\t<li>Coregistration quality: {coregindex}</li>
 \t\t\t<li>Normalization quality: {normindex}</li>
 \t\t\t<li>Quality evaluation index : {qei}</li>
+\t\t\t<li>Mean CBF (mL 100/g/min) : {meancbf}</li>
 \t\t</ul>
 """
 
@@ -194,6 +195,8 @@ class FunctionalSummary(SummaryInterface):
                     round(qcfile['normJC'][0],4),round(qcfile['normCC'][0],4),round(qcfile['normCOV'][0],4) ) 
         qei="cbf: {},score: {},scrub: {}, basil: {}, pvc: {} ".format(round(qcfile['cbfQEI'][0],4),round(qcfile['scoreQEI'][0],4),
              round(qcfile['scrubQEI'][0],4),round(qcfile['basilQEI'][0],4),round(qcfile['pvcQEI'][0],4))
+        meancbf="GM CBF: {}, WM CBF: {}, CSF CBF: {}".format(round(qcfile['GMmeanCBF'][0],2),round(qcfile['WMmeanCBF'][0],2),
+             round(qcfile['CSFmeanCBF'][0],2))
         if self.inputs.pe_direction is None:
             pedir = 'MISSING - Assuming Anterior-Posterior'
         else:
@@ -224,7 +227,7 @@ class FunctionalSummary(SummaryInterface):
             pedir=pedir, stc=stc, sdc=self.inputs.distortion_correction, registration=reg,
             confounds=re.sub(r'[\t ]+', ', ', conflist), tr=self.inputs.tr,
             dummy_scan_desc=dummy_scan_msg,motionparam=motionparam,qei=qei,coregindex=coregindex, 
-            normindex=normindex )
+            normindex=normindex,meancbf=meancbf )
 
 
 class AboutSummaryInputSpec(BaseInterfaceInputSpec):
