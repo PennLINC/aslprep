@@ -10,7 +10,7 @@ About
 -----
 
 
-.. image:: docs/_static/aslprep-workflow.png
+.. image:: docs/_static/aslprepworkflow.png
 
 
 *ASLPrep* is a Arterial Spin Labeling  (ASL) data
