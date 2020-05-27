@@ -692,9 +692,10 @@ def confoundplot(tseries, gs_ts, gs_dist=None, name=None,
             textcoords='offset points', va='center', ha='right',
             color='dimgray', size=3)
 
-    ax_ts.plot(tseries, color=color, linewidth=.8)
+    #ax_ts.plot(tseries, color=color, linewidth=.8)
+    #ax_ts.set_xlim((0, ntsteps - 1))
+    ax_ts.step(range(0,ntsteps),tseries,color=color)
     ax_ts.set_xlim((0, ntsteps - 1))
-
     if gs_dist is not None:
         ax_dist = plt.subplot(gs_dist)
         sns.displot(tseries, vertical=True, ax=ax_dist)

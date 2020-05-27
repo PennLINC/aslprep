@@ -15,7 +15,7 @@ import os,sys,tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
 
 
-def init_cbf_compt_wf(mem_gb,metadata,pcasl,omp_nthreads, name='cbf_compt_wf'):
+def init_cbf_compt_wf(mem_gb,metadata,pcasl,dummy_vols,omp_nthreads,smooth_kernel=5,name='cbf_compt_wf'):
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data using a relatively basic model 
@@ -59,7 +59,7 @@ of the estimated perfusion image. BASIL also included correction for partial vol
         print('unknown label type')
 
         
-    extractcbf = pe.Node(extractCBF(fwhm=5),mem_gb=0.2,run_without_submitting=True,name="extractcbf") 
+    extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols,fwhm=smooth_kernel),mem_gb=0.2,run_without_submitting=True,name="extractcbf") 
     computecbf = pe.Node(computeCBF(in_metadata=metadata),mem_gb=0.2,
               run_without_submitting=True,name="computecbf")
     scorescrub= pe.Node(scorescrubCBF(in_thresh=0.7,in_wfun='huber'),
@@ -236,8 +236,7 @@ def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
     
     cbftssummary=pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),
          name='cbf_ts_summary',mem_gb=0.2)
-    scoretssummary=pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),
-        name='score_ts_summary',mem_gb=0.2)
+
 
     cbfsummary=pe.Node(CBFSummary(label='cbf'),name='cbf_summary',mem_gb=0.2)
     scoresummary=pe.Node(CBFSummary(label='score'),name='score_summary',mem_gb=0.2)
@@ -249,10 +248,6 @@ def init_cbfplot_wf(mem_gb,metadata,omp_nthreads, name='cbf_plot'):
     ds_report_cbftsplot = pe.Node(
         DerivativesDataSink(desc='cbftsplot', keep_dtype=True),
         name='ds_report_cbftsplot', run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB)
-    ds_report_scoretsplot = pe.Node(
-        DerivativesDataSink(desc='scoretsplot', keep_dtype=True),
-        name='ds_report_scoretsplot', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)
 
     
@@ -468,4 +463,3 @@ def init_cbfroiquant_wf(mem_gb,omp_nthreads,name='cbf_roiquant'):
                     (pvc417,outputnode,[('atlascsv','pvc_sc417')]), 
              ])
     return workflow
-
