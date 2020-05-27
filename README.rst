@@ -8,6 +8,11 @@ open-source software distribution.
 
 About
 -----
+
+
+.. image:: docs/_static/aslprep-workflow.png
+
+
 *ASLPrep* is a Arterial Spin Labeling  (ASL) data
 preprocessing  and Cerebral Blood FLow (CBF) computation pipeline 
 that is designed to provide an easily accessible,
