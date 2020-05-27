@@ -1,0 +1,381 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Defining standard and nonstandard spaces where data will be resampled &mdash; aslprep version documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script type="text/javascript" src="https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="FAQ, Tips, and Tricks" href="faq.html" />
+    <link rel="prev" title="Outputs of ASLPrep" href="outputs.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> aslprep
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                version
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Running <em>aslprep</em> via Docker containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="singularity.html">Running <em>ASLPrep</em> via Singularity containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows.html">Processing pipeline details</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdc.html">Susceptibility Distortion Correction (SDC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs of <em>ASLPrep</em></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Defining standard and nonstandard spaces where data will be resampled</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#templateflow"><em>TemplateFlow</em></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#standard-spaces">Standard spaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#custom-standard-spaces">Custom standard spaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#nonstandard-spaces">Nonstandard spaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#preprocessing-blocks-depending-on-standard-templates">Preprocessing blocks depending on standard templates</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ, Tips, and Tricks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributing to ASLPREP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Developers - API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aslprep</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Defining standard and nonstandard spaces where data will be resampled</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/spaces.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="defining-standard-and-nonstandard-spaces-where-data-will-be-resampled">
+<span id="output-spaces"></span><h1>Defining standard and nonstandard spaces where data will be resampled<a class="headerlink" href="#defining-standard-and-nonstandard-spaces-where-data-will-be-resampled" title="Permalink to this headline">¶</a></h1>
+<p>The command line interface of <em>ASLPPrep</em> allows resampling the preprocessed data
+onto other output spaces.
+That is achieved using the <code class="docutils literal notranslate"><span class="pre">--output-spaces</span></code> argument, where standard and
+nonstandard spaces can be inserted.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><em>ASLPrep</em> will reduce the amount of output spaces to just spaces listed in <code class="docutils literal notranslate"><span class="pre">--output-spaces</span></code>,
+even if other options require resampling the preprocessed data into intermediary spaces.</p>
+</div>
+<div class="section" id="templateflow">
+<span id="id1"></span><h2><em>TemplateFlow</em><a class="headerlink" href="#templateflow" title="Permalink to this headline">¶</a></h2>
+<p><em>TemplateFlow</em> is a software library and a repository of neuroimaging templates
+that allows end-user applications such as <em>fMRIPrep</em>,*QSIPrep* as well as <em>ASLPrep</em>,
+to flexibly query and pull template and atlas information.
+In other words, <em>TemplateFlow</em> enables <em>ASLPPrep</em> to access a wide range
+of templates (and also custom templates, see below).
+Therefore, <em>TemplateFlow</em> is central to define <em>ASLPPrep</em>’s interface regarding
+template and atlas prior-knowledge.
+For more general information about <em>TemplateFlow</em>, visit
+<a class="reference external" href="https://www.templateflow.org">TemplateFlow.org</a>.</p>
+</div>
+<div class="section" id="standard-spaces">
+<h2>Standard spaces<a class="headerlink" href="#standard-spaces" title="Permalink to this headline">¶</a></h2>
+<p>When using <em>ASLPrep</em> in a workflow that will investigate effects that span across
+analytical groupings, neuroimagers typically resample their data on to a standard,
+stereotactic coordinate system.
+The most extended standard space for functaional data analysis is generally referred to MNI.
+For instance, to instruct <em>ASLPrep</em> to use the MNI template brain distributed with
+FSL as coordinate reference the option will read as follows: <code class="docutils literal notranslate"><span class="pre">--output-spaces</span> <span class="pre">MNI152NLin6Asym</span></code>.
+By default, <em>ASLPrep</em> uses <code class="docutils literal notranslate"><span class="pre">MNI152NLin2009cAsym</span></code> as spatial-standardization reference.
+Valid template identifiers (<code class="docutils literal notranslate"><span class="pre">MNI152NLin6Asym</span></code>, <code class="docutils literal notranslate"><span class="pre">MNI152NLin2009cAsym</span></code>, etc.) come from
+the <a class="reference external" href="https://github.com/templateflow/templateflow">TemplateFlow repository</a>.</p>
+<p>Therefore, <em>ASLPrep</em> will run nonlinear registration processes against the template
+T1w image corresponding to all the standard spaces supplied with the argument
+<code class="docutils literal notranslate"><span class="pre">--output-spaces</span></code>.
+By default, <em>ASLPrep</em> will resample the preprocessed data on those spaces (labeling the
+corresponding outputs with the <cite>space-&lt;template-identifier&gt;</cite> BIDS entity) but keeping
+the original resolution of the BOLD data to produce smaller files, more consistent with
+the original data gridding.
+However, many users will be interested in utilizing a coarse gridding (typically 2mm isotropic)
+of the target template.
+Such a behavior can be achieved applying modifiers to the template identifier, separated by
+a <code class="docutils literal notranslate"><span class="pre">:</span></code> character.
+For instance, <code class="docutils literal notranslate"><span class="pre">--output-spaces</span> <span class="pre">MNI152NLin6Asym:res-2</span> <span class="pre">MNI152NLin2009cAsym</span></code> will generate
+preprocessed BOLD 4D files on two standard spaces (<code class="docutils literal notranslate"><span class="pre">MNI152NLin6Asym</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">MNI152NLin2009cAsym</span></code>) with the template’s 2mm isotropic resolution for
+the data on <code class="docutils literal notranslate"><span class="pre">MNI152NLin6Asym</span></code> space and the original BOLD resolution
+(say, e.g., 2x2x2.5 [mm]) for the case of <code class="docutils literal notranslate"><span class="pre">MNI152NLin2009cAsym</span></code>.
+This is equivalent to saying
+<code class="docutils literal notranslate"><span class="pre">--output-spaces</span> <span class="pre">MNI152NLin6Asym:res-2</span> <span class="pre">MNI152NLin2009cAsym:res-native</span></code>.</p>
+<p>Other possible modifiers are, for instance, the <code class="docutils literal notranslate"><span class="pre">cohort</span></code> selector.
+For instance, <code class="docutils literal notranslate"><span class="pre">--output-spaces</span> <span class="pre">MNIPediatricAsym:res-1:cohort-2</span></code> selects
+the resolution <code class="docutils literal notranslate"><span class="pre">1</span></code> of <code class="docutils literal notranslate"><span class="pre">cohort-2</span></code> which, for the <code class="docutils literal notranslate"><span class="pre">MNIPediatricAsym</span></code>
+template, corresponds to the <a class="reference external" href="https://github.com/templateflow/tpl-MNIPediatricAsym/blob/bcf77616f547f327ee53c01dadf689ab6518a097/template_description.json#L22-L26">prepuberty phase</a>
+(4.5–8.5 years old).</p>
+<p>Space modifiers such as <code class="docutils literal notranslate"><span class="pre">res</span></code> are combinatorial:
+<code class="docutils literal notranslate"><span class="pre">--output-spaces</span> <span class="pre">MNIPediatricAsym:cohort-1:cohort-2:res-native:res-1</span></code> will
+generate conversions for the following combinations:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>cohort <code class="docutils literal notranslate"><span class="pre">1</span></code> and “native” resolution (meaning, the original BOLD resolution),</p></li>
+<li><p>cohort <code class="docutils literal notranslate"><span class="pre">1</span></code> and resolution <code class="docutils literal notranslate"><span class="pre">1</span></code> of the template,</p></li>
+<li><p>cohort <code class="docutils literal notranslate"><span class="pre">2</span></code> and “native” resolution (meaning, the original BOLD resolution), and</p></li>
+<li><p>cohort <code class="docutils literal notranslate"><span class="pre">2</span></code> and resolution <code class="docutils literal notranslate"><span class="pre">1</span></code> of the template.</p></li>
+</ul>
+</div></blockquote>
+<p>Please mind that the selected resolutions specified must exist within TemplateFlow.</p>
+<p>When specifying surface spaces (e.g., <code class="docutils literal notranslate"><span class="pre">fsaverage</span></code>), the legacy identifiers from
+FreeSurfer will be supported (e.g., <code class="docutils literal notranslate"><span class="pre">fsaverage5</span></code>) although the use of the density
+modifier would be preferred (i.e., <code class="docutils literal notranslate"><span class="pre">fsaverage:den-10k</span></code> for <code class="docutils literal notranslate"><span class="pre">fsaverage5</span></code>).</p>
+</div>
+<div class="section" id="custom-standard-spaces">
+<h2>Custom standard spaces<a class="headerlink" href="#custom-standard-spaces" title="Permalink to this headline">¶</a></h2>
+<p>To make your custom templates visible by <em>ASLPrep</em>, and usable via
+the <code class="docutils literal notranslate"><span class="pre">--output-spaces</span></code> argument, please store your template under
+<em>TemplateFlow</em>’s home directory.
+The default <em>TemplateFlow</em>’s home directory is <code class="docutils literal notranslate"><span class="pre">$HOME/.cache/templateflow</span></code>
+and that can path can be arbitrarily changed by setting
+the <code class="docutils literal notranslate"><span class="pre">$TEMPLATEFLOW_HOME</span></code> environment variable.
+A minimal example of the necessary files for a template called
+<code class="docutils literal notranslate"><span class="pre">MyCustom</span></code> (and therefore callable via, e.g., <code class="docutils literal notranslate"><span class="pre">--output-spaces</span> <span class="pre">MyCustom</span></code>)
+follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$TEMPLATEFLOW_HOME/
+    tpl-MyCustom/
+        template_description.json
+        tpl-MyCustom_res-1_T1w.nii.gz
+        tpl-MyCustom_res-1_desc-brain_mask.nii.gz
+        tpl-MyCustom_res-2_T1w.nii.gz
+        tpl-MyCustom_res-2_desc-brain_mask.nii.gz
+</pre></div>
+</div>
+<p>For further information about how custom templates must be organized and
+corresponding naming, please check <a class="reference external" href="https://www.templateflow.org/python-client/tutorials.html">the TemplateFlow tutorials</a>.</p>
+</div>
+<div class="section" id="nonstandard-spaces">
+<h2>Nonstandard spaces<a class="headerlink" href="#nonstandard-spaces" title="Permalink to this headline">¶</a></h2>
+<p>Additionally, <code class="docutils literal notranslate"><span class="pre">--output-spaces</span></code> accepts identifiers of spatial references
+that do not generate <em>standardized</em> coordinate spaces:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">T1w</span></code> or <code class="docutils literal notranslate"><span class="pre">anat</span></code>: data are resampled into the individual’s anatomical
+reference generated with the T1w and T2w images available within the
+BIDS structure.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fsnative</span></code>: similarly to the <code class="docutils literal notranslate"><span class="pre">anat</span></code> space for volumetric references,
+including the <code class="docutils literal notranslate"><span class="pre">fsnative</span></code> space will instruct <em>fMRIPrep</em> to sample the
+original BOLD data onto FreeSurfer’s reconstructed surfaces for this
+individual.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">func</span></code>, <code class="docutils literal notranslate"><span class="pre">bold</span></code>, <code class="docutils literal notranslate"><span class="pre">run</span></code>, <code class="docutils literal notranslate"><span class="pre">boldref</span></code> or <code class="docutils literal notranslate"><span class="pre">sbref</span></code> can be used to
+generate BOLD data in their original grid, after slice-timing,
+head-motion, and susceptibility-distortion corrections.
+These keywords are experimental.</p></li>
+</ul>
+</div></blockquote>
+<p>Modifiers are not allowed when providing nonstandard spaces.</p>
+</div>
+<div class="section" id="preprocessing-blocks-depending-on-standard-templates">
+<h2>Preprocessing blocks depending on standard templates<a class="headerlink" href="#preprocessing-blocks-depending-on-standard-templates" title="Permalink to this headline">¶</a></h2>
+<p>Some modules of the pipeline (e.g. the generation ofHCP compatible <em>grayordinates</em>
+files, or the <em>fieldmap-less</em> distortion correction) operate in specific template spaces.
+When selecting those modules to be included (using any of the following flags:
+<code class="docutils literal notranslate"><span class="pre">--cifti-outputs</span></code>, <code class="docutils literal notranslate"><span class="pre">--use-syn-sdc</span></code>) will modify the list of
+output spaces to include the space identifiers they require, should the
+identifier not be found within the <code class="docutils literal notranslate"><span class="pre">--output-spaces</span></code> list already.
+In other words, running <em>ASLPrep</em> with <code class="docutils literal notranslate"><span class="pre">--output-spaces</span> <span class="pre">MNI152NLin6Asym:res-2</span>
+<span class="pre">--use-syn-sdc</span></code> will expand the list of output spaces to be
+<code class="docutils literal notranslate"><span class="pre">MNI152NLin6Asym:res-2</span> <span class="pre">MNI152NLin2009cAsym</span></code>.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="faq.html" class="btn btn-neutral float-right" title="FAQ, Tips, and Tricks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="outputs.html" class="btn btn-neutral float-left" title="Outputs of ASLPrep" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020-2020, The ASLPREP developers
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
