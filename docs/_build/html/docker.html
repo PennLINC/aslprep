@@ -1,0 +1,332 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Running aslprep via Docker containers &mdash; aslprep version documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script type="text/javascript" src="https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Running ASLPrep via Singularity containers" href="singularity.html" />
+    <link rel="prev" title="Usage Notes" href="usage.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> aslprep
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                version
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Notes</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Running <em>aslprep</em> via Docker containers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#running-aslprep-directly-interacting-with-the-docker-engine">Running <em>aslprep</em> directly interacting with the Docker Engine</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="singularity.html">Running <em>ASLPrep</em> via Singularity containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows.html">Processing pipeline details</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdc.html">Susceptibility Distortion Correction (SDC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs of <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="spaces.html">Defining standard and nonstandard spaces where data will be resampled</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ, Tips, and Tricks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributing to ASLPREP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Developers - API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aslprep</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Running <em>aslprep</em> via Docker containers</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/docker.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="running-aslprep-via-docker-containers">
+<span id="run-docker"></span><h1>Running <em>aslprep</em> via Docker containers<a class="headerlink" href="#running-aslprep-via-docker-containers" title="Permalink to this headline">¶</a></h1>
+<p>For every new version of <em>aslprep</em> that is released, a corresponding Docker
+image is generated.
+The Docker image <em>becomes</em> a container when the execution engine loads the
+image and adds an extra layer that makes it <em>runnable</em>.
+In order to run <em>aslprep</em> Docker images, the Docker Engine must be installed
+(see <span class="xref std std-ref">installation_docker</span>).</p>
+<p>If you used <em>aslprep</em> via Docker in the past, you might need to pull down a
+more recent version of the image:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker pull pennlinc/aslprep:&lt;latest-version&gt;
+</pre></div>
+</div>
+<p>You can run <em>aslprep</em> interacting directly with the Docker Engine via the <cite>docker run</cite>
+command line, or you can use a lightweight wrapper we created for convenience.</p>
+<p>ref:<cite>usage</cite>),
+automatically translating directories into Docker mount points.</p>
+<div class="section" id="running-aslprep-directly-interacting-with-the-docker-engine">
+<h2>Running <em>aslprep</em> directly interacting with the Docker Engine<a class="headerlink" href="#running-aslprep-directly-interacting-with-the-docker-engine" title="Permalink to this headline">¶</a></h2>
+<p>If you need a finer control over the container execution, or you feel comfortable
+with the Docker Engine, avoiding the extra software layer of the wrapper might be
+a good decision.</p>
+<p><strong>Accessing filesystems in the host within the container</strong>.
+Containers are confined in a sandbox, so they can’t access the host in any ways unless
+you explicitly prescribe acceptable accesses to the host.
+The Docker Engine provides mounting filesystems into the container with the <code class="docutils literal notranslate"><span class="pre">-v</span></code> argument
+and the following syntax: <code class="docutils literal notranslate"><span class="pre">-v</span> <span class="pre">some/path/in/host:/absolute/path/within/container:ro</span></code>,
+where the trailing <code class="docutils literal notranslate"><span class="pre">:ro</span></code> specifies that the mount is read-only.
+The mount permissions modifiers can be omitted, which means the mount will have read-write
+permissions.
+In general, you’ll want to at least provide two mount-points: one set in read-only mode
+for the input data and one read/write to store the outputs.
+Potentially, you’ll want to provide one or two more mount-points: one for the working
+directory, in case you need to debug some issue or reuse pre-cached results; and
+a <a class="reference internal" href="spaces.html#templateflow"><span class="std std-ref">TemplateFlow</span></a> folder to preempt the download of your favorite templates in every
+run.</p>
+<p><strong>Running containers as a user</strong>.
+By default, Docker will run the container as <strong>root</strong>.
+Some share systems my limit this feature and only allow running containers as a user.
+When the container is run as <strong>root</strong>, files written out to filesystems mounted from the
+host will have the user id <code class="docutils literal notranslate"><span class="pre">1000</span></code> by default.
+In other words, you’ll need to be able to run as root in the host to change permissions
+or manage these files.
+Alternatively, running as a user allows preempting these permissions issues.
+It is possible to run as a user with the <code class="docutils literal notranslate"><span class="pre">-u</span></code> argument.
+In general, we will want to use the same user ID as the running user in the host to
+ensure the ownership of files written during the container execution.
+Therefore, you will generally run the container with <code class="docutils literal notranslate"><span class="pre">-u</span> <span class="pre">$(</span> <span class="pre">id</span> <span class="pre">-u</span> <span class="pre">)</span></code>.</p>
+<p>You may also invoke <code class="docutils literal notranslate"><span class="pre">docker</span></code> directly:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker run -ti --rm \
+    -v path/to/data:/data:ro \
+    -v path/to/output:/out \
+    pennlinc/aslprep:&lt;latest-version&gt; \
+    /data /out/out \
+    participant
+</pre></div>
+</div>
+<p>For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker run -ti --rm \
+    -v $HOME/ds005:/data:ro \
+    -v $HOME/ds005/derivatives:/out \
+    -v $HOME/tmp/ds005-workdir:/work \
+    pennlinc/aslprep:&lt;latest-version&gt; \
+    /data /out/aslprep-&lt;latest-version&gt; \
+    participant \
+    -w /work
+</pre></div>
+</div>
+<p>Once the Docker Engine arguments are written, the remainder of the command line follows
+the <a class="reference internal" href="usage.html#usage"><span class="std std-ref">Usage Notes</span></a>.
+In other words, the first section of the command line is all equivalent to the <code class="docutils literal notranslate"><span class="pre">aslprep</span></code>
+executable in a bare-metal installation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker run -ti --rm \                      | These lines
+    -v $HOME/ds005:/data:ro \                | are equivalent
+    -v $HOME/ds005/derivatives:/out \        | to the aslprep
+    -v $HOME/tmp/ds005-workdir:/work \       | executable.
+    pennlinc/aslprep:&lt;latest-version&gt; \  |
+    \
+    /data /out/aslprep-&lt;latest-version&gt; \   | These lines
+    participant \                            | correspond to
+    -w /work                                 | aslprep arguments.
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="singularity.html" class="btn btn-neutral float-right" title="Running ASLPrep via Singularity containers" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="usage.html" class="btn btn-neutral float-left" title="Usage Notes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020-2020, The ASLPREP developers
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

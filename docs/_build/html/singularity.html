@@ -1,0 +1,543 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Running ASLPrep via Singularity containers &mdash; aslprep version documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script type="text/javascript" src="https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Processing pipeline details" href="workflows.html" />
+    <link rel="prev" title="Running aslprep via Docker containers" href="docker.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> aslprep
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                version
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Running <em>aslprep</em> via Docker containers</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Running <em>ASLPrep</em> via Singularity containers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#preparing-a-singularity-image">Preparing a Singularity image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-a-singularity-image">Running a Singularity Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#handling-environment-variables">Handling environment variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#accessing-the-host-s-filesystem">Accessing the host’s filesystem</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#templateflow-and-singularity"><em>TemplateFlow</em> and Singularity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#internet-access-problems">Internet access problems</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#running-singularity-on-a-slurm-system">Running Singularity on a SLURM system</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="workflows.html">Processing pipeline details</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdc.html">Susceptibility Distortion Correction (SDC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs of <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="spaces.html">Defining standard and nonstandard spaces where data will be resampled</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ, Tips, and Tricks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributing to ASLPREP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Developers - API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aslprep</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>Running <em>ASLPrep</em> via Singularity containers</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/singularity.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="running-aslprep-via-singularity-containers">
+<span id="run-singularity"></span><h1>Running <em>ASLPrep</em> via Singularity containers<a class="headerlink" href="#running-aslprep-via-singularity-containers" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="preparing-a-singularity-image">
+<h2>Preparing a Singularity image<a class="headerlink" href="#preparing-a-singularity-image" title="Permalink to this headline">¶</a></h2>
+<p><strong>Singularity version &gt;= 2.5</strong>.
+If the version of Singularity installed on your <abbr title="High-Performance Computing">HPC</abbr>
+system is modern enough you can create Singularity image directly on the system.
+This is as simple as:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ singularity build /my_images/aslprep-&lt;version&gt;.simg docker://pennlinc/aslprep:&lt;version&gt;
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">&lt;version&gt;</span></code> should be replaced with the desired version of <em>ASLPrep</em> that you
+want to download.</p>
+<p><strong>Singularity version &lt; 2.5</strong>.
+In this case, start with a machine (e.g., your personal computer) with Docker installed.
+Use <a class="reference external" href="https://github.com/singularityware/docker2singularity">docker2singularity</a> to
+create a singularity image.
+You will need an active internet connection and some time.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker run --privileged -t --rm \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v D:\host\path\where\to\output\singularity\image:/output \
+    singularityware/docker2singularity \
+    pennlinc/aslprep:&lt;version&gt;
+</pre></div>
+</div>
+<p>Where <code class="docutils literal notranslate"><span class="pre">&lt;version&gt;</span></code> should be replaced with the desired version of <em>ASLPrep</em> that you want
+to download.</p>
+<p>Beware of the back slashes, expected for Windows systems.
+For *nix users the command translates as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker run --privileged -t --rm \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /absolute/path/to/output/folder:/output \
+    singularityware/docker2singularity \
+    pennlinc/aslprep:&lt;version&gt;
+</pre></div>
+</div>
+<p>Transfer the resulting Singularity image to the HPC, for example, using <code class="docutils literal notranslate"><span class="pre">scp</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ scp pennlinc_aslprep*.img user@hcpserver.edu:/my_images
+</pre></div>
+</div>
+</div>
+<div class="section" id="running-a-singularity-image">
+<h2>Running a Singularity Image<a class="headerlink" href="#running-a-singularity-image" title="Permalink to this headline">¶</a></h2>
+<p>If the data to be preprocessed is also on the HPC, you are ready to run <em>ASLPrep</em>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ singularity run --cleanenv aslprep.simg \
+    path/to/data/dir path/to/output/dir \
+    participant \
+    --participant-label label
+</pre></div>
+</div>
+</div>
+<div class="section" id="handling-environment-variables">
+<h2>Handling environment variables<a class="headerlink" href="#handling-environment-variables" title="Permalink to this headline">¶</a></h2>
+<p>Singularity by default <a class="reference external" href="https://github.com/singularityware/singularity/issues/445">exposes all environment variables from the host inside
+the container</a>.
+Because of this, your host libraries (e.g., <a class="reference external" href="http://nipype.readthedocs.io/en/latest/">nipype</a> or a Python 2.7 environment)
+could be accidentally used instead of the ones inside the container.
+To avoid such a situation, we recommend using the <code class="docutils literal notranslate"><span class="pre">--cleanenv</span></code> argument in
+all scenarios. For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ singularity run --cleanenv aslprep.simg \
+  /work/04168/asdf/lonestar/ $WORK/lonestar/output \
+  participant \
+  --participant-label 387 --nthreads 16 -w $WORK/lonestar/work \
+  --omp-nthreads 16
+</pre></div>
+</div>
+<p>Alternatively, conflicts might be preempted and some problems mitigated by
+unsetting potentially problematic settings, such as the <code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code> variable,
+before running:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ unset PYTHONPATH; singularity run aslprep.simg \
+  /work/04168/asdf/lonestar/ $WORK/lonestar/output \
+  participant \
+  --participant-label 387 --nthreads 16 -w $WORK/lonestar/work \
+  --omp-nthreads 16
+</pre></div>
+</div>
+<p>It is possible to define environment variables scoped within the container by
+using the <code class="docutils literal notranslate"><span class="pre">SINGULARITYENV_*</span></code> magic, in combination with <code class="docutils literal notranslate"><span class="pre">--cleanenv</span></code>.
+For example, we can set the FreeSurfer license variable (see <a class="reference internal" href="usage.html#fs-license"><span class="std std-ref">The FreeSurfer license</span></a>)
+as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ export SINGULARITYENV_FS_LICENSE=$HOME/.freesurfer.txt
+$ singularity exec --cleanenv aslprep.simg env | grep FS_LICENSE
+FS_LICENSE=/home/users/oesteban/.freesurfer.txt
+</pre></div>
+</div>
+<p>As we can see, the export in the first line tells Singularity to set a
+corresponding environment variable of the same name after dropping the
+prefix <code class="docutils literal notranslate"><span class="pre">SINGULARITYENV_</span></code>.</p>
+</div>
+<div class="section" id="accessing-the-host-s-filesystem">
+<h2>Accessing the host’s filesystem<a class="headerlink" href="#accessing-the-host-s-filesystem" title="Permalink to this headline">¶</a></h2>
+<p>Depending on how Singularity is configured on your cluster it might or might not
+automatically bind (mount or expose) host’s folders to the container (e.g., <code class="docutils literal notranslate"><span class="pre">/scratch</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">$HOME</span></code>).
+This is particularly relevant because, <em>if you can’t run Singularity in privileged
+mode</em> (which is almost certainly true in all the scenarios), <strong>Singularity containers
+are read only</strong>.
+This is to say that you won’t be able to write <em>anything</em> unless Singularity can
+access the host’s filesystem in write mode.</p>
+<p>By default, Singularity automatically binds (mounts) the user’s <em>home</em> directory and
+a <em>scratch</em> directory.
+In addition, Singularity generally allows binding the necessary folders with
+the <code class="docutils literal notranslate"><span class="pre">-B</span> <span class="pre">&lt;host_folder&gt;:&lt;container_folder&gt;[:&lt;permissions&gt;]</span></code> Singularity argument.
+For example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ singularity run --cleanenv -B /work:/work aslprep.simg \
+  /work/my_dataset/ /work/my_dataset/derivatives/aslprep \
+  participant \
+  --participant-label 387 --nthreads 16 \
+  --omp-nthreads 16
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>If your Singularity installation doesn’t allow you to bind non-existent bind points,
+you’ll get an error saying <code class="docutils literal notranslate"><span class="pre">WARNING:</span> <span class="pre">Skipping</span> <span class="pre">user</span> <span class="pre">bind,</span> <span class="pre">non</span> <span class="pre">existent</span> <span class="pre">bind</span> <span class="pre">point</span>
+<span class="pre">(directory)</span> <span class="pre">in</span> <span class="pre">container</span></code>.
+In this scenario, you can either try to bind things onto some other bind point you
+know it exists in the image or rebuild your singularity image with <code class="docutils literal notranslate"><span class="pre">docker2singularity</span></code>
+as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker run --privileged -ti --rm -v /var/run/docker.sock:/var/run/docker.sock \
+         -v $PWD:/output singularityware/docker2singularity \
+         -m &quot;/gpfs /scratch /work /share /lscratch /opt/templateflow&quot;
+</pre></div>
+</div>
+<p>In the example above, the following bind points are created: <code class="docutils literal notranslate"><span class="pre">/gpfs</span></code>, <code class="docutils literal notranslate"><span class="pre">/scratch</span></code>,
+<code class="docutils literal notranslate"><span class="pre">/work</span></code>, <code class="docutils literal notranslate"><span class="pre">/share</span></code>, <code class="docutils literal notranslate"><span class="pre">/opt/templateflow</span></code>.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>One great feature of containers is their confinement or isolation from the host
+system.
+Binding mount points breaks this principle, as the container has now access to
+create changes in the host.
+Therefore, it is generally recommended to use binding scarcely and granting
+very limited access to the minimum necessary resources.</p>
+</div>
+<p><strong>Relevant aspects of the</strong> <code class="docutils literal notranslate"><span class="pre">$HOME</span></code> <strong>directory within the container</strong>.
+By default, Singularity will bind the user’s <code class="docutils literal notranslate"><span class="pre">$HOME</span></code> directory in the host
+into the <code class="docutils literal notranslate"><span class="pre">/home/$USER</span></code> (or equivalent) in the container.
+Most of the times, it will also redefine the <code class="docutils literal notranslate"><span class="pre">$HOME</span></code> environment variable and
+update it to point to the corresponding mount point in <code class="docutils literal notranslate"><span class="pre">/home/$USER</span></code>.
+However, these defaults can be overwritten in your system.
+It is recommended to check your settings with your system’s administrators.
+If your Singularity installation allows it, you can workaround the <code class="docutils literal notranslate"><span class="pre">$HOME</span></code>
+specification combining the bind mounts argument (<code class="docutils literal notranslate"><span class="pre">-B</span></code>) with the home overwrite
+argument (<code class="docutils literal notranslate"><span class="pre">--home</span></code>) as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ singularity run -B $HOME:/home/aslprep --home /home/aslprep \
+      --cleanenv aslprep.simg &lt;aslprep arguments&gt;
+</pre></div>
+</div>
+</div>
+<div class="section" id="templateflow-and-singularity">
+<span id="singularity-tf"></span><h2><em>TemplateFlow</em> and Singularity<a class="headerlink" href="#templateflow-and-singularity" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference internal" href="spaces.html#templateflow"><span class="std std-ref">TemplateFlow</span></a> is a helper tool that allows <em>fMRIPrep</em> (or any other neuroimaging workflow)
+to programmatically access a repository of standard neuroimaging templates.
+In other words, <em>TemplateFlow</em> allows <em>fMRIPrep</em> to dynamically change the templates that
+are used, e.g., in the atlas-based brain extraction step or spatial normalization.</p>
+<p>Default settings in the Singularity image should get along with the Singularity
+installation of your system.
+However, deviations from the default configurations of your installation may break
+this compatibility.
+A particularly problematic case arises when the home directory is mounted in the
+container, but the <code class="docutils literal notranslate"><span class="pre">$HOME</span></code> environment variable is not correspondingly updated.
+Typically, you will experience errors like <code class="docutils literal notranslate"><span class="pre">OSError:</span> <span class="pre">[Errno</span> <span class="pre">30]</span> <span class="pre">Read-only</span> <span class="pre">file</span> <span class="pre">system</span></code>
+or <code class="docutils literal notranslate"><span class="pre">FileNotFoundError:</span> <span class="pre">[Errno</span> <span class="pre">2]</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">file</span> <span class="pre">or</span> <span class="pre">directory:</span> <span class="pre">'/home/aslprep/.cache'</span></code>.</p>
+<p>If it is not explicitly forbidden in your installation, the first attempt to overcome this
+issue is manually setting the <code class="docutils literal notranslate"><span class="pre">$HOME</span></code> directory as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ singularity run --home $HOME --cleanenv aslprep.simg &lt;aslprep arguments&gt;
+</pre></div>
+</div>
+<p>If the user’s home directory is not automatically bound, then the second step would include
+manually binding it as in the section above:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ singularity run -B $HOME:/home/aslprep --home /home/aslprep \
+      --cleanenv aslprep.simg &lt;aslprep arguments&gt;
+</pre></div>
+</div>
+<p>Finally, if the <code class="docutils literal notranslate"><span class="pre">--home</span></code> argument cannot be used, you’ll need to provide the container with
+writable filesystems where <em>TemplateFlow</em>’s files can be downloaded.
+In addition, you will need to indicate <em>ASLPrep</em> to update the default paths with the new mount
+points setting the <code class="docutils literal notranslate"><span class="pre">SINGULARITYENV_TEMPLATEFLOW_HOME</span></code> variable.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ export SINGULARITYENV_TEMPLATEFLOW_HOME=/opt/templateflow  # Tell ASLPrep the mount point
+$ singularity run -B &lt;writable-path-on-host&gt;:/opt/templateflow \
+      --cleanenv aslprep.simg &lt;aslprep arguments&gt;
+</pre></div>
+</div>
+</div>
+<div class="section" id="internet-access-problems">
+<h2>Internet access problems<a class="headerlink" href="#internet-access-problems" title="Permalink to this headline">¶</a></h2>
+<p>We have identified several conditions in which running <em>ASLPrep</em> might fail because
+of spotty or impossible access to Internet.</p>
+<p>If your compute node cannot have access to Internet, then you’ll need to make sure
+you run <em>ASLPrep</em> with the <code class="docutils literal notranslate"><span class="pre">--notrack</span></code> argument and pull down from TemplateFlow
+all the resources that will be necessary.</p>
+<dl class="simple">
+<dt>With templateflow ::</dt><dd><p>$ export TEMPLATEFLOW_HOME=/path/to/keep/templateflow
+$ python -m pip install -U templateflow  # Install the client
+$ python
+&gt;&gt;&gt; import templateflow.api
+&gt;&gt;&gt; templateflow.api.TF_S3_ROOT = ‘<a class="reference external" href="http://templateflow.s3.amazonaws.com">http://templateflow.s3.amazonaws.com</a>’
+&gt;&gt;&gt; api.get(‘MNI152NLin6Asym’)</p>
+</dd>
+</dl>
+<p>Finally, run the singularity image binding the appropriate folder:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ export SINGULARITYENV_TEMPLATEFLOW_HOME=/templateflow
+$ singularity run -B ${TEMPLATEFLOW_HOME:-$HOME/.cache/templateflow}:/templateflow \
+      --cleanenv aslprep.simg &lt;aslprep  arguments&gt;
+</pre></div>
+</div>
+</div>
+<div class="section" id="running-singularity-on-a-slurm-system">
+<h2>Running Singularity on a SLURM system<a class="headerlink" href="#running-singularity-on-a-slurm-system" title="Permalink to this headline">¶</a></h2>
+<p>An example of <code class="docutils literal notranslate"><span class="pre">sbatch</span></code> script to run <em>ASLPrep</em> on a SLURM system <a class="footnote-reference brackets" href="#id2" id="id1">2</a> is given <a class="reference external" href="singularity.html#sbatch-slurm">below</a>.
+The submission script will generate one task per subject using a <em>job array</em>.
+Submission is as easy as:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ export STUDY=/path/to/some/folder
+$ sbatch --array=1-$(( $( wc -l $STUDY/data/participants.tsv | cut -f1 -d&#39; &#39; ) - 1 )) sbatch.slurm
+</pre></div>
+</div>
+<div class="literal-block-wrapper docutils container" id="sbatch-slurm">
+<div class="code-block-caption"><span class="caption-text"><strong>sbatch.slurm</strong>:</span><a class="headerlink" href="#sbatch-slurm" title="Permalink to this code">¶</a></div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="c1">#</span>
+<span class="c1">#SBATCH -J fmriprep</span>
+<span class="c1">#SBATCH --time=48:00:00</span>
+<span class="c1">#SBATCH -n 1</span>
+<span class="c1">#SBATCH --cpus-per-task=16</span>
+<span class="c1">#SBATCH --mem-per-cpu=4G</span>
+<span class="c1">#SBATCH -p normal,mygroup  # Queue names you can submit to</span>
+<span class="c1"># Outputs ----------------------------------</span>
+<span class="c1">#SBATCH -o log/%x-%A-%a.out</span>
+<span class="c1">#SBATCH -e log/%x-%A-%a.err</span>
+<span class="c1">#SBATCH --mail-user=%u@domain.tld</span>
+<span class="c1">#SBATCH --mail-type=ALL</span>
+<span class="c1"># ------------------------------------------</span>
+
+<span class="nv">BIDS_DIR</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$STUDY</span><span class="s2">/data&quot;</span>
+<span class="nv">DERIVS_DIR</span><span class="o">=</span><span class="s2">&quot;derivatives/fmriprep-1.5.0&quot;</span>
+
+<span class="c1"># Prepare some writeable bind-mount points.</span>
+<span class="nv">TEMPLATEFLOW_HOST_HOME</span><span class="o">=</span><span class="nv">$HOME</span>/.cache/templateflow
+<span class="nv">FMRIPREP_HOST_CACHE</span><span class="o">=</span><span class="nv">$HOME</span>/.cache/fmriprep
+mkdir -p <span class="si">${</span><span class="nv">TEMPLATEFLOW_HOST_HOME</span><span class="si">}</span>
+mkdir -p <span class="si">${</span><span class="nv">FMRIPREP_HOST_CACHE</span><span class="si">}</span>
+
+<span class="c1"># Prepare derivatives folder</span>
+mkdir -p <span class="si">${</span><span class="nv">BIDS_DIR</span><span class="si">}</span>/<span class="si">${</span><span class="nv">DERIVS_DIR</span><span class="si">}</span>
+
+<span class="c1"># This trick will help you reuse freesurfer results across pipelines and fMRIPrep versions</span>
+mkdir -p <span class="si">${</span><span class="nv">BIDS_DIR</span><span class="si">}</span>/derivatives/freesurfer-6.0.1
+<span class="k">if</span> <span class="o">[</span> ! -d <span class="si">${</span><span class="nv">BIDS_DIR</span><span class="si">}</span>/<span class="si">${</span><span class="nv">DERIVS_DIR</span><span class="si">}</span>/freesurfer <span class="o">]</span><span class="p">;</span> <span class="k">then</span>
+    ln -s <span class="si">${</span><span class="nv">BIDS_DIR</span><span class="si">}</span>/derivatives/freesurfer-6.0.1 <span class="si">${</span><span class="nv">BIDS_DIR</span><span class="si">}</span>/<span class="si">${</span><span class="nv">DERIVS_DIR</span><span class="si">}</span>/freesurfer
+<span class="k">fi</span>
+
+<span class="c1"># Make sure FS_LICENSE is defined in the container.</span>
+<span class="nb">export</span> <span class="nv">SINGULARITYENV_FS_LICENSE</span><span class="o">=</span><span class="nv">$HOME</span>/.freesurfer.txt
+
+<span class="c1"># Designate a templateflow bind-mount point</span>
+<span class="nb">export</span> <span class="nv">SINGULARITYENV_TEMPLATEFLOW_HOME</span><span class="o">=</span><span class="s2">&quot;/templateflow&quot;</span>
+<span class="nv">SINGULARITY_CMD</span><span class="o">=</span><span class="s2">&quot;singularity run --cleanenv -B </span><span class="nv">$BIDS_DIR</span><span class="s2">:/data -B </span><span class="si">${</span><span class="nv">TEMPLATEFLOW_HOST_HOME</span><span class="si">}</span><span class="s2">:</span><span class="si">${</span><span class="nv">SINGULARITYENV_TEMPLATEFLOW_HOME</span><span class="si">}</span><span class="s2"> -B </span><span class="nv">$L_SCRATCH</span><span class="s2">:/work </span><span class="nv">$STUDY</span><span class="s2">/images/poldracklab_fmriprep_1.5.0.simg&quot;</span>
+
+<span class="c1"># Parse the participants.tsv file and extract one subject ID from the line corresponding to this SLURM task.</span>
+<span class="nv">subject</span><span class="o">=</span><span class="k">$(</span> sed -n -E <span class="s2">&quot;</span><span class="k">$((</span><span class="si">${</span><span class="nv">SLURM_ARRAY_TASK_ID</span><span class="si">}</span> <span class="o">+</span> <span class="m">1</span><span class="k">))</span><span class="s2">s/sub-(\S*)\&gt;.*/\1/gp&quot;</span> <span class="si">${</span><span class="nv">BIDS_DIR</span><span class="si">}</span>/participants.tsv <span class="k">)</span>
+
+<span class="c1"># Remove IsRunning files from FreeSurfer</span>
+find <span class="si">${</span><span class="nv">BIDS_DIR</span><span class="si">}</span>/derivatives/freesurfer-6.0.1/sub-<span class="nv">$subject</span>/ -name <span class="s2">&quot;*IsRunning*&quot;</span> -type f -delete
+
+<span class="c1"># Compose the command line</span>
+<span class="nv">cmd</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">SINGULARITY_CMD</span><span class="si">}</span><span class="s2"> /data /data/</span><span class="si">${</span><span class="nv">DERIVS_DIR</span><span class="si">}</span><span class="s2"> participant --participant-label </span><span class="nv">$subject</span><span class="s2"> -w /work/ -vv --omp-nthreads 8 --nthreads 12 --mem_mb 30000 --output-spaces MNI152NLin2009cAsym:res-2 anat fsnative fsaverage5 --use-aroma&quot;</span>
+
+<span class="c1"># Setup done, run the command</span>
+<span class="nb">echo</span> Running task <span class="si">${</span><span class="nv">SLURM_ARRAY_TASK_ID</span><span class="si">}</span>
+<span class="nb">echo</span> Commandline: <span class="nv">$cmd</span>
+<span class="nb">eval</span> <span class="nv">$cmd</span>
+<span class="nv">exitcode</span><span class="o">=</span><span class="nv">$?</span>
+
+<span class="c1"># Output results to a table</span>
+<span class="nb">echo</span> <span class="s2">&quot;sub-</span><span class="nv">$subject</span><span class="s2">   </span><span class="si">${</span><span class="nv">SLURM_ARRAY_TASK_ID</span><span class="si">}</span><span class="s2">    </span><span class="nv">$exitcode</span><span class="s2">&quot;</span> <span class="se">\</span>
+      &gt;&gt; <span class="si">${</span><span class="nv">SLURM_JOB_NAME</span><span class="si">}</span>.<span class="si">${</span><span class="nv">SLURM_ARRAY_JOB_ID</span><span class="si">}</span>.tsv
+<span class="nb">echo</span> Finished tasks <span class="si">${</span><span class="nv">SLURM_ARRAY_TASK_ID</span><span class="si">}</span> with <span class="nb">exit</span> code <span class="nv">$exitcode</span>
+<span class="nb">exit</span> <span class="nv">$exitcode</span>
+</pre></div>
+</div>
+</div>
+<dl class="footnote brackets">
+<dt class="label" id="id2"><span class="brackets"><a class="fn-backref" href="#id1">2</a></span></dt>
+<dd><p>assuming that <em>job arrays</em> and Singularity are available</p>
+</dd>
+</dl>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="workflows.html" class="btn btn-neutral float-right" title="Processing pipeline details" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="docker.html" class="btn btn-neutral float-left" title="Running aslprep via Docker containers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020-2020, The ASLPREP developers
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
