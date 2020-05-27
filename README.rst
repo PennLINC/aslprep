@@ -10,7 +10,7 @@ About
 -----
 
 
-.. image:: https://github.com/a3sha2/aslprep/blob/master/docs/_static/aslprepworkflow.png
+.. image:: https://raw.githubusercontent.com/a3sha2/aslprep/4b24ab000d6736a99874b80e04f23fe9a64a0eba/docs/_static/aslprepworkflow.png
 
 
 *ASLPrep* is a Arterial Spin Labeling  (ASL) data
