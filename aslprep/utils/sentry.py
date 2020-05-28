@@ -63,7 +63,7 @@ def sentry_setup(opts, exec_env):
     elif int(os.getenv('aslprep_DEV', '0')) or ('+' in __version__):
         environment = "dev"
 
-    sentry_sdk.init("https://d1584dfcb1ade6@sentry.io/118997693",
+    sentry_sdk.init("https://301d1432c6a149eabcff8bbb341fd52d@o317280.ingest.sentry.io/5257228",
                     release=release,
                     environment=environment,
                     before_send=before_send)
