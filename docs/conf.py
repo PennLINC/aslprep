@@ -24,6 +24,7 @@ import sphinx
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.append(os.path.abspath("sphinxext")) 
 sys.path.insert(0, os.path.abspath("../wrapper"))
+sys.path.append(os.path.abspath('../aslprep'))
 
 from github_link import make_linkcode_resolve
 
