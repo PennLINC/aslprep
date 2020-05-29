@@ -17,6 +17,7 @@ import sys
 from datetime import datetime
 from sphinx import __version__ as sphinxversion
 from packaging import version as pver  # Avoid distutils.LooseVersion which is deprecated
+import sphinx
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -104,7 +105,7 @@ release = "version"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-#language = None
+language = None
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:

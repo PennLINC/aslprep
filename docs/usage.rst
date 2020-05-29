@@ -31,6 +31,7 @@ Example: ::
 
 Command-Line Arguments
 ----------------------
+
 .. argparse::
    :ref: aslprep.cli.run.get_parser
    :prog: aslprep
