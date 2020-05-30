@@ -18,11 +18,13 @@ from datetime import datetime
 from sphinx import __version__ as sphinxversion
 from packaging import version as pver  # Avoid distutils.LooseVersion which is deprecated
 
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.append(os.path.abspath("sphinxext")) 
 sys.path.insert(0, os.path.abspath("../wrapper"))
+sys.path.insert(0, os.path.abspath('../aslprep'))
 
 from github_link import make_linkcode_resolve
 
@@ -52,6 +54,7 @@ autodoc_mock_imports = [
     "numpy",
     "nitime",
     "matplotlib",
+    "aslprep"
 ]
 
 if pver.parse(sphinxversion) >= pver.parse("1.7.0"):
@@ -59,6 +62,7 @@ if pver.parse(sphinxversion) >= pver.parse("1.7.0"):
         "pandas",
         "nilearn",
         "seaborn",
+        "aslprep"
     ]
 
 # Add any paths that contain templates here, relative to this directory.
