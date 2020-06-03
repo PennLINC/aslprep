@@ -14,5 +14,5 @@ __credits__ = ('Contributors: please check the ``.zenodo.json`` file at the top-
 __url__ = 'https://github.com/pennlinc/aslprep'
 
 DOWNLOAD_URL = (
-    'https://github.com/pennlinc/aslprep/{name}/archive/{ver}.tar.gz'.format(
+    'https://github.com/pennlinc/{name}/archive/{ver}.tar.gz'.format(
         name=__packagename__, ver=__version__))
