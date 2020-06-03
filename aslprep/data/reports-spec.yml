@@ -31,7 +31,7 @@ sections:
   reportlets:
   - bids: {datatype: asl, desc: summary, suffix: asl}
   - bids: {datatype: asl, desc: validation, suffix: asl}
-  - bids: {datatype: asl, desc: fieldmap, suffix: asl}
+  - bids: {datatype: asl, desc: fieldmap, suffix: bold}
     caption: The estimated fieldmap was aligned to the corresponding ASL reference
       with a rigid-registration process of the magintude part of the fieldmap,
       using <code>antsRegistration</code>.
@@ -42,12 +42,12 @@ sections:
       orders of magnitude above or below the minimum of blue colors.)
     static: false
     subtitle: Estimated fieldmap and alignment to the corresponding ASL reference
-  - bids: {datatype: asl, desc: sdc, suffix: asl}
+  - bids: {datatype: asl, desc: sdc, suffix: bold}
     caption: Results of performing susceptibility distortion correction (SDC) on the
       ASL
     static: false
     subtitle: Susceptibility distortion correction
-  - bids: {datatype: asl, desc: forcedsyn, suffix: asl}
+  - bids: {datatype: asl, desc: forcedsyn, suffix: bold}
     caption: The dataset contained some fieldmap information, but the argument <code>--force-syn</code>
       was used. The higher-priority SDC method was used. Here, we show the results
       of performing SyN-based SDC on the EPI for comparison.

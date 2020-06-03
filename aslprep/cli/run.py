@@ -163,7 +163,7 @@ https://aslprep.readthedocs.io/en/%s/spaces.html""" % (currentv.base_version
     g_conf.add_argument('--smooth_kernel', action='store', default=5, type=int,
                         help='smoothing kernel for M0')
     g_conf.add_argument(
-        '--dummy-vols', required=False, action='store', default=None, type=int,
+        '--dummy-vols', required=False, action='store', default=0, type=int,
         help='Number of first n vol to ingnore.')
 
     #  ANTs options
