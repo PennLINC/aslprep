@@ -17,6 +17,7 @@ import sys
 from datetime import datetime
 from sphinx import __version__ as sphinxversion
 from packaging import version as pver  # Avoid distutils.LooseVersion which is deprecated
+import sphinx
 
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -24,14 +25,13 @@ from packaging import version as pver  # Avoid distutils.LooseVersion which is d
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.append(os.path.abspath("sphinxext")) 
 sys.path.insert(0, os.path.abspath("../wrapper"))
-sys.path.insert(0, os.path.abspath('../aslprep'))
 
 from github_link import make_linkcode_resolve
 
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = "1.5.3"
+#needs_sphinx = "2.4.4"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named "sphinx.ext.*") or your custom
