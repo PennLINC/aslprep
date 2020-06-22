@@ -10,7 +10,7 @@ ASLPrep automatically adapts a best-in-breed workflow to the idiosyncrasies of
 virtually any dataset, ensuring high-quality preprocessing without manual intervention.
 ASLPrep robustly produces high-quality results on diverse ASL data.
 Additionally, ASLPrep introduces less uncontrolled spatial smoothness than observed
-with commonly used preprocessing tools.
+with commonly used preprocxessing tools.
 ASLPrep equips neuroscientists with an easy-to-use and transparent preprocessing
 workflow, which can help ensure the validity of inference and the interpretability
 of results.

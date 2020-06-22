@@ -7,27 +7,24 @@ Generate T2* map from multi-echo BOLD images
 .. autofunction:: init_bold_t2s_wf
 
 """
-from nipype import logging
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.func.util import init_skullstrip_bold_wf
-
 from ...interfaces import T2SMap
+from ... import config
 
-LOGGER = logging.getLogger('nipype.workflow')
+
+LOGGER = config.loggers.workflow
 
 
 # pylint: disable=R0914
 def init_bold_t2s_wf(echo_times, mem_gb, omp_nthreads,
-                     t2s_coreg=False, name='bold_t2s_wf'):
+                     name='bold_t2s_wf'):
     """
     Combine multiple echos of :abbr:`ME-EPI (multi-echo echo-planar imaging)`.
 
     This workflow wraps the `tedana`_ `T2* workflow`_ to optimally
-    combine multiple echos and derive a T2* map for optional use as a
-    coregistration target.
+    combine multiple echos and derive a T2* map.
     The following steps are performed:
 
     #. :abbr:`HMC (head motion correction)` on individual echo files.
@@ -45,8 +42,6 @@ def init_bold_t2s_wf(echo_times, mem_gb, omp_nthreads,
         Size of BOLD file in GB
     omp_nthreads : :obj:`int`
         Maximum number of threads an individual process may use
-    t2s_coreg : :obj:`bool`
-        Use the calculated T2*-map for T2*-driven coregistration
     name : :obj:`str`
         Name of workflow (default: ``bold_t2s_wf``)
 
@@ -59,40 +54,33 @@ def init_bold_t2s_wf(echo_times, mem_gb, omp_nthreads,
     -------
     bold
         the optimally combined time series for all supplied echos
-    bold_mask
-        the binarized, skull-stripped adaptive T2* map
-    bold_ref_brain
-        the adaptive T2* map
 
     """
+    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
+
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-A T2* map was estimated from the preprocessed ASL by fitting to a monoexponential signal
-decay model with log-linear regression.
+A T2* map was estimated from the preprocessed BOLD by fitting to a monoexponential signal
+decay model with nonlinear regression, using T2*/S0 estimates from a log-linear
+regression fit as initial values.
 For each voxel, the maximal number of echoes with reliable signal in that voxel were
 used to fit the model.
-The calculated T2* map was then used to optimally combine preprocessed ASL across
+The calculated T2* map was then used to optimally combine preprocessed BOLD across
 echoes following the method described in [@posse_t2s].
-The optimally combined time series was carried forward as the *preprocessed ASL*{}.
-""".format('' if not t2s_coreg else ', and the T2* map was also retained as the ASL reference')
+The optimally combined time series was carried forward as the *preprocessed BOLD*.
+"""
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['bold_file']), name='inputnode')
 
-    outputnode = pe.Node(niu.IdentityInterface(fields=['bold', 'bold_mask', 'bold_ref_brain']),
-                         name='outputnode')
+    outputnode = pe.Node(niu.IdentityInterface(fields=['bold']), name='outputnode')
 
     LOGGER.log(25, 'Generating T2* map and optimally combined ME-EPI time series.')
 
     t2smap_node = pe.Node(T2SMap(echo_times=echo_times), name='t2smap_node')
-    skullstrip_t2smap_wf = init_skullstrip_bold_wf(name='skullstrip_t2smap_wf')
 
     workflow.connect([
         (inputnode, t2smap_node, [('bold_file', 'in_files')]),
         (t2smap_node, outputnode, [('optimal_comb', 'bold')]),
-        (t2smap_node, skullstrip_t2smap_wf, [('t2star_map', 'inputnode.in_file')]),
-        (skullstrip_t2smap_wf, outputnode, [
-            ('outputnode.mask_file', 'bold_mask'),
-            ('outputnode.skull_stripped_file', 'bold_ref_brain')]),
     ])
 
     return workflow

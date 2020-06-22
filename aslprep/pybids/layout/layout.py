@@ -193,7 +193,7 @@ class BIDSLayout(object):
     _default_ignore = ("code", "stimuli", "sourcedata", "models",
                        re.compile(r'^\.'))
 
-    def __init__(self, root, validate=True, absolute_paths=True,
+    def __init__(self, root, validate=False, absolute_paths=True,
                  derivatives=False, config=None, sources=None, ignore=None,
                  force_index=None, config_filename='layout_config.json',
                  regex_search=False, database_path=None, database_file=None,

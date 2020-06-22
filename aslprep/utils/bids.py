@@ -1,12 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-Utilities to handle BIDS inputs
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-"""
+"""Utilities to handle BIDS inputs."""
 import os
 import sys
 import json
@@ -28,6 +22,7 @@ def write_derivative_description(bids_dir, deriv_dir):
         },
         'CodeURL': __url__,
         'HowToAcknowledge':
+            'Please cite our paper (https://doi.org/10.1038/s41592-018-0235-4), '
             'and include the generated citation boilerplate within the Methods '
             'section of the text.',
     }
@@ -61,7 +56,7 @@ def write_derivative_description(bids_dir, deriv_dir):
 
 
 def validate_input_dir(exec_env, bids_dir, participant_label):
-    # Ignore issues and warnings that should not influence FMRIPREP
+    # Ignore issues and warnings that should not influence
     import tempfile
     import subprocess
     validator_config_dict = {

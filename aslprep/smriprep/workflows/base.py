@@ -3,6 +3,7 @@
 """*sMRIPrep* base processing workflows."""
 import sys
 import os
+from pathlib import Path
 from copy import deepcopy
 
 from nipype import __version__ as nipype_ver
@@ -24,6 +25,7 @@ from .anatomical import init_anat_preproc_wf
 
 def init_smriprep_wf(
     debug,
+    fast_track,
     freesurfer,
     fs_subjects_dir,
     hires,
@@ -33,6 +35,7 @@ def init_smriprep_wf(
     omp_nthreads,
     output_dir,
     run_uuid,
+    skull_strip_mode,
     skull_strip_fixed_seed,
     skull_strip_template,
     spaces,
@@ -59,6 +62,7 @@ def init_smriprep_wf(
             from niworkflows.utils.spaces import SpatialReferences, Reference
             wf = init_smriprep_wf(
                 debug=False,
+                fast_track=False,
                 freesurfer=True,
                 fs_subjects_dir=None,
                 hires=True,
@@ -69,6 +73,7 @@ def init_smriprep_wf(
                 output_dir='.',
                 run_uuid='testrun',
                 skull_strip_fixed_seed=False,
+                skull_strip_mode='force',
                 skull_strip_template=Reference('OASIS30ANTs'),
                 spaces=SpatialReferences(spaces=['MNI152NLin2009cAsym', 'fsaverage5']),
                 subject_list=['smripreptest'],
@@ -80,6 +85,8 @@ def init_smriprep_wf(
     ----------
     debug : :obj:`bool`
         Enable debugging outputs
+    fast_track : :obj:`bool`
+        Fast-track the workflow by searching for existing derivatives.
     freesurfer : :obj:`bool`
         Enable FreeSurfer surface reconstruction (may increase runtime)
     fs_subjects_dir : os.PathLike or None
@@ -102,6 +109,10 @@ def init_smriprep_wf(
     skull_strip_fixed_seed : :obj:`bool`
         Do not use a random seed for skull-stripping - will ensure
         run-to-run replicability when used with --omp-nthreads 1
+    skull_strip_mode : :obj:`str`
+        Determiner for T1-weighted skull stripping (`force` ensures skull stripping,
+        `skip` ignores skull stripping, and `auto` automatically ignores skull stripping
+        if pre-stripped brains are detected).
     skull_strip_template : :py:class:`~niworkflows.utils.spaces.Reference`
         Spatial reference to use in atlas-based brain extraction.
     spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
@@ -129,11 +140,11 @@ def init_smriprep_wf(
         if fs_subjects_dir is not None:
             fsdir.inputs.subjects_dir = str(fs_subjects_dir.absolute())
 
-    reportlets_dir = os.path.join(work_dir, 'reportlets')
     for subject_id in subject_list:
         single_subject_wf = init_single_subject_wf(
             debug=debug,
             freesurfer=freesurfer,
+            fast_track=fast_track,
             hires=hires,
             layout=layout,
             longitudinal=longitudinal,
@@ -141,8 +152,8 @@ def init_smriprep_wf(
             name="single_subject_%s_wf" % subject_id,
             omp_nthreads=omp_nthreads,
             output_dir=output_dir,
-            reportlets_dir=reportlets_dir,
             skull_strip_fixed_seed=skull_strip_fixed_seed,
+            skull_strip_mode=skull_strip_mode,
             skull_strip_template=skull_strip_template,
             spaces=spaces,
             subject_id=subject_id,
@@ -166,6 +177,7 @@ def init_smriprep_wf(
 def init_single_subject_wf(
     debug,
     freesurfer,
+    fast_track,
     hires,
     layout,
     longitudinal,
@@ -173,8 +185,8 @@ def init_single_subject_wf(
     name,
     omp_nthreads,
     output_dir,
-    reportlets_dir,
     skull_strip_fixed_seed,
+    skull_strip_mode,
     skull_strip_template,
     spaces,
     subject_id,
@@ -204,6 +216,7 @@ def init_single_subject_wf(
             wf = init_single_subject_wf(
                 debug=False,
                 freesurfer=True,
+                fast_track=False,
                 hires=True,
                 layout=BIDSLayout('.'),
                 longitudinal=False,
@@ -211,8 +224,8 @@ def init_single_subject_wf(
                 name='single_subject_wf',
                 omp_nthreads=1,
                 output_dir='.',
-                reportlets_dir='.',
                 skull_strip_fixed_seed=False,
+                skull_strip_mode='force',
                 skull_strip_template=Reference('OASIS30ANTs'),
                 spaces=SpatialReferences(spaces=['MNI152NLin2009cAsym', 'fsaverage5']),
                 subject_id='test',
@@ -225,6 +238,8 @@ def init_single_subject_wf(
         Enable debugging outputs
     freesurfer : :obj:`bool`
         Enable FreeSurfer surface reconstruction (may increase runtime)
+    fast_track : :obj:`bool`
+        If ``True``, attempt to collect previously run derivatives.
     hires : :obj:`bool`
         Enable sub-millimeter preprocessing in FreeSurfer
     layout : BIDSLayout object
@@ -240,11 +255,13 @@ def init_single_subject_wf(
         Maximum number of threads an individual process may use
     output_dir : :obj:`str`
         Directory in which to save derivatives
-    reportlets_dir : :obj:`str`
-        Directory in which to save reportlets
     skull_strip_fixed_seed : :obj:`bool`
         Do not use a random seed for skull-stripping - will ensure
         run-to-run replicability when used with --omp-nthreads 1
+    skull_strip_mode : :obj:`str`
+        Determiner for T1-weighted skull stripping (`force` ensures skull stripping,
+        `skip` ignores skull stripping, and `auto` automatically ignores skull stripping
+        if pre-stripped brains are detected).
     skull_strip_template : :py:class:`~niworkflows.utils.spaces.Reference`
         Spatial reference to use in atlas-based brain extraction.
     spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
@@ -295,6 +312,13 @@ to workflows in *sMRIPrep*'s documentation]\
 
 """
 
+    deriv_cache = None
+    if fast_track:
+        from ..utils.bids import collect_derivatives
+        std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
+        deriv_cache = collect_derivatives(
+            Path(output_dir) / 'smriprep', subject_id, std_spaces, freesurfer)
+
     inputnode = pe.Node(niu.IdentityInterface(fields=['subjects_dir']),
                         name='inputnode')
 
@@ -312,28 +336,29 @@ to workflows in *sMRIPrep*'s documentation]\
                     name='about', run_without_submitting=True)
 
     ds_report_summary = pe.Node(
-        DerivativesDataSink(base_directory=reportlets_dir,
-                            desc='summary', keep_dtype=True),
+        DerivativesDataSink(base_directory=output_dir, dismiss_entities=("session",),
+                            desc='summary', datatype="figures"),
         name='ds_report_summary', run_without_submitting=True)
 
     ds_report_about = pe.Node(
-        DerivativesDataSink(base_directory=reportlets_dir,
-                            desc='about', keep_dtype=True),
+        DerivativesDataSink(base_directory=output_dir, dismiss_entities=("session",),
+                            desc='about', datatype="figures"),
         name='ds_report_about', run_without_submitting=True)
 
     # Preprocessing of T1w (includes registration to MNI)
     anat_preproc_wf = init_anat_preproc_wf(
         bids_root=layout.root,
         debug=debug,
+        existing_derivatives=deriv_cache,
         freesurfer=freesurfer,
         hires=hires,
         longitudinal=longitudinal,
         name="anat_preproc_wf",
-        num_t1w=len(subject_data['t1w']),
+        t1w=subject_data['t1w'],
         omp_nthreads=omp_nthreads,
         output_dir=output_dir,
-        reportlets_dir=reportlets_dir,
         skull_strip_fixed_seed=skull_strip_fixed_seed,
+        skull_strip_mode=skull_strip_mode,
         skull_strip_template=skull_strip_template,
         spaces=spaces,
     )

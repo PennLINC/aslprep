@@ -1,11 +1,12 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""Stripped out routines for Sentry"""
+"""Stripped out routines for Sentry."""
 import os
-from pathlib import Path
 import re
 from ..niworkflows.utils.misc import read_crashfile
 import sentry_sdk
+
+from .. import config
 
 CHUNK_SIZE = 16384
 # Group common events with pre specified fingerprints
@@ -40,76 +41,25 @@ KNOWN_ERRORS = {
 }
 
 
-def start_ping(run_uuid, npart):
-    with sentry_sdk.configure_scope() as scope:
-        if run_uuid:
-            scope.set_tag('run_uuid', run_uuid)
-        scope.set_tag('npart', npart)
-    sentry_sdk.add_breadcrumb(message='aslprep started', level='info')
-    sentry_sdk.capture_message('aslprep started', level='info')
-
-
-def sentry_setup(opts, exec_env):
-    from os import cpu_count
-    import psutil
-    import hashlib
-    from ..__about__ import __version__
-
-    environment = "prod"
-    release = __version__
-    if not __version__:
-        environment = "dev"
-        release = "dev"
-    elif int(os.getenv('aslprep_DEV', '0')) or ('+' in __version__):
-        environment = "dev"
+def sentry_setup():
+    """Set-up sentry."""
+    release = config.environment.version or "dev"
+    environment = "dev" if (
+        os.getenv('ASLPREP_DEV', '').lower in ('1', 'on', 'yes', 'y', 'true')
+        or ('+' in release)
+    ) else "prod"
 
     sentry_sdk.init("https://301d1432c6a149eabcff8bbb341fd52d@o317280.ingest.sentry.io/5257228",
                     release=release,
                     environment=environment,
                     before_send=before_send)
     with sentry_sdk.configure_scope() as scope:
-        scope.set_tag('exec_env', exec_env)
-
-        if exec_env == 'aslprep-docker':
-            scope.set_tag('docker_version', os.getenv('DOCKER_VERSION_8395080871'))
-
-        dset_desc_path = opts.bids_dir / 'dataset_description.json'
-        if dset_desc_path.exists():
-            desc_content = dset_desc_path.read_bytes()
-            scope.set_tag('dset_desc_sha256', hashlib.sha256(desc_content).hexdigest())
-
-        free_mem_at_start = round(psutil.virtual_memory().free / 1024**3, 1)
-        scope.set_tag('free_mem_at_start', free_mem_at_start)
-        scope.set_tag('cpu_count', cpu_count())
-
-        # Memory policy may have a large effect on types of errors experienced
-        overcommit_memory = Path('/proc/sys/vm/overcommit_memory')
-        if overcommit_memory.exists():
-            policy = {'0': 'heuristic',
-                      '1': 'always',
-                      '2': 'never'}.get(overcommit_memory.read_text().strip(), 'unknown')
-            scope.set_tag('overcommit_memory', policy)
-            if policy == 'never':
-                overcommit_kbytes = Path('/proc/sys/vm/overcommit_memory')
-                kb = overcommit_kbytes.read_text().strip()
-                if kb != '0':
-                    limit = '{}kB'.format(kb)
-                else:
-                    overcommit_ratio = Path('/proc/sys/vm/overcommit_ratio')
-                    limit = '{}%'.format(overcommit_ratio.read_text().strip())
-                scope.set_tag('overcommit_limit', limit)
-            else:
-                scope.set_tag('overcommit_limit', 'n/a')
-        else:
-            scope.set_tag('overcommit_memory', 'n/a')
-            scope.set_tag('overcommit_limit', 'n/a')
-
-        for k, v in vars(opts).items():
+        for k, v in config.get(flat=True).items():
             scope.set_tag(k, v)
 
 
 def process_crashfile(crashfile):
-    """Parse the contents of a crashfile and submit sentry messages"""
+    """Parse the contents of a crashfile and submit sentry messages."""
     crash_info = read_crashfile(str(crashfile))
     with sentry_sdk.push_scope() as scope:
         scope.level = 'fatal'
@@ -176,7 +126,7 @@ def process_crashfile(crashfile):
 
 
 def before_send(event, hints):
-    # Filtering log messages about crashed nodes
+    """Filter log messages about crashed nodes."""
     if 'logentry' in event and 'message' in event['logentry']:
         msg = event['logentry']['message']
         if msg.startswith("could not run node:"):
@@ -200,7 +150,7 @@ def before_send(event, hints):
 
 def _chunks(string, length=CHUNK_SIZE):
     """
-    Splits a string into smaller chunks
+    Split a string into smaller chunks.
 
     >>> list(_chunks('some longer string.', length=3))
     ['som', 'e l', 'ong', 'er ', 'str', 'ing', '.']

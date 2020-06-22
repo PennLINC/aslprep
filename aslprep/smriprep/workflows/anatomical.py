@@ -3,6 +3,7 @@
 """Anatomical reference preprocessing workflows."""
 from pkg_resources import resource_filename as pkgr
 
+from nipype import logging
 from nipype.pipeline import engine as pe
 from nipype.interfaces import (
     utility as niu,
@@ -17,15 +18,20 @@ from nipype.interfaces.ants import N4BiasFieldCorrection
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from ...niworkflows.interfaces.freesurfer import (
     StructuralReference,
-    PatchedConcatenateLTA as ConcatenateLTA,
     PatchedLTAConvert as LTAConvert,
 )
 from ...niworkflows.interfaces.images import TemplateDimensions, Conform, ValidateImage
+from ...niworkflows.interfaces.nitransforms import ConcatenateXFMs
+from ...niworkflows.interfaces.utility import KeySelect
 from ...niworkflows.utils.misc import fix_multi_T1w_source_name, add_suffix
-from ...niworkflows.anat.ants import init_brain_extraction_wf
+from ...niworkflows.anat.ants import init_brain_extraction_wf, init_n4_only_wf
+from ..utils.bids import get_outputnode_spec
+from ..utils.misc import apply_lut as _apply_bids_lut
 from .norm import init_anat_norm_wf
 from .outputs import init_anat_reports_wf, init_anat_derivatives_wf
 from .surfaces import init_surface_recon_wf
+
+LOGGER = logging.getLogger('nipype.workflow')
 
 
 def init_anat_preproc_wf(
@@ -33,15 +39,16 @@ def init_anat_preproc_wf(
         freesurfer,
         hires,
         longitudinal,
-        num_t1w,
+        t1w,
         omp_nthreads,
         output_dir,
-        reportlets_dir,
+        skull_strip_mode,
         skull_strip_template,
         spaces,
         debug=False,
+        existing_derivatives=None,
         name='anat_preproc_wf',
-        skull_strip_fixed_seed=False
+        skull_strip_fixed_seed=False,
 ):
     """
     Stage the anatomical preprocessing steps of *sMRIPrep*.
@@ -68,18 +75,22 @@ def init_anat_preproc_wf(
                 freesurfer=True,
                 hires=True,
                 longitudinal=False,
-                num_t1w=1,
+                t1w=['t1w.nii.gz'],
                 omp_nthreads=1,
                 output_dir='.',
-                reportlets_dir='.',
+                skull_strip_mode='force',
                 skull_strip_template=Reference('OASIS30ANTs'),
                 spaces=SpatialReferences(spaces=['MNI152NLin2009cAsym', 'fsaverage5']),
             )
+
 
     Parameters
     ----------
     bids_root : :obj:`str`
         Path of the input BIDS dataset root
+    existing_derivatives : :obj:`dict` or None
+        Dictionary mapping output specification attribute names and
+        paths to corresponding derivatives.
     freesurfer : :obj:`bool`
         Enable FreeSurfer surface reconstruction (increases runtime by 6h,
         at the very least)
@@ -88,14 +99,12 @@ def init_anat_preproc_wf(
     longitudinal : :obj:`bool`
         Create unbiased structural template, regardless of number of inputs
         (may increase runtime)
-    num_t1w : :obj:`int`
-        Number of T1w that were averaged for the anatomical reference.
+    t1w : :obj:`list`
+        List of T1-weighted structural images.
     omp_nthreads : :obj:`int`
         Maximum number of threads an individual process may use
     output_dir : :obj:`str`
         Directory in which to save derivatives
-    reportlets_dir : :obj:`str`
-        Directory in which to save reportlets
     skull_strip_template : :py:class:`~niworkflows.utils.spaces.Reference`
         Spatial reference to use in atlas-based brain extraction.
     spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
@@ -104,6 +113,10 @@ def init_anat_preproc_wf(
         Enable debugging outputs
     name : :obj:`str`, optional
         Workflow name (default: anat_preproc_wf)
+    skull_strip_mode : :obj:`str`
+        Determiner for T1-weighted skull stripping (`force` ensures skull stripping,
+        `skip` ignores skull stripping, and `auto` automatically ignores skull stripping
+        if pre-stripped brains are detected).
     skull_strip_fixed_seed : :obj:`bool`
         Do not use a random seed for skull-stripping - will ensure
         run-to-run replicability when used with --omp-nthreads 1
@@ -134,7 +147,7 @@ def init_anat_preproc_wf(
         gray-matter (GM), white-matter (WM) and cerebrospinal fluid (CSF).
     t1w_tpms
         List of tissue probability maps corresponding to ``t1w_dseg``.
-    std_t1w
+    std_preproc
         T1w reference resampled in one or more standard spaces.
     std_mask
         Mask of skull-stripped template, in MNI space
@@ -167,12 +180,75 @@ def init_anat_preproc_wf(
 
     """
     workflow = Workflow(name=name)
+    num_t1w = len(t1w)
     desc = """Anatomical data preprocessing
 
 : """
     desc += """\
 A total of {num_t1w} T1-weighted (T1w) images were found within the input
-BIDS dataset.
+BIDS dataset.""".format(num_t1w=num_t1w)
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=['t1w', 't2w', 'roi', 'flair', 'subjects_dir', 'subject_id']),
+        name='inputnode')
+
+    outputnode = pe.Node(niu.IdentityInterface(
+        fields=['template', 'subjects_dir', 'subject_id'] + get_outputnode_spec()),
+        name='outputnode')
+
+    # Connect reportlets workflows
+    anat_reports_wf = init_anat_reports_wf(
+        freesurfer=freesurfer,
+        output_dir=output_dir,
+    )
+    workflow.connect([
+        (outputnode, anat_reports_wf, [
+            ('t1w_preproc', 'inputnode.t1w_preproc'),
+            ('t1w_mask', 'inputnode.t1w_mask'),
+            ('t1w_dseg', 'inputnode.t1w_dseg')]),
+    ])
+
+    if existing_derivatives is not None:
+        LOGGER.log(25, "Anatomical workflow will reuse prior derivatives found in the "
+                   "output folder (%s).", output_dir)
+        desc += """
+Anatomical preprocessing was reused from previously existing derivative objects.\n"""
+        workflow.__desc__ = desc
+
+        templates = existing_derivatives.pop('template')
+        templatesource = pe.Node(niu.IdentityInterface(
+            fields=['template']), name='templatesource')
+        templatesource.iterables = [('template', templates)]
+        outputnode.inputs.template = templates
+
+        for field, value in existing_derivatives.items():
+            setattr(outputnode.inputs, field, value)
+
+        anat_reports_wf.inputs.inputnode.source_file = fix_multi_T1w_source_name(
+            [existing_derivatives['t1w_preproc']])
+
+        stdselect = pe.Node(KeySelect(
+            fields=['std_preproc', 'std_mask'], keys=templates),
+            name='stdselect', run_without_submitting=True)
+        workflow.connect([
+            (inputnode, outputnode, [('subjects_dir', 'subjects_dir'),
+                                     ('subject_id', 'subject_id')]),
+            (inputnode, anat_reports_wf, [
+                ('subjects_dir', 'inputnode.subjects_dir'),
+                ('subject_id', 'inputnode.subject_id')]),
+            (templatesource, stdselect, [('template', 'key')]),
+            (outputnode, stdselect, [('std_preproc', 'std_preproc'),
+                                     ('std_mask', 'std_mask')]),
+            (stdselect, anat_reports_wf, [
+                ('key', 'inputnode.template'),
+                ('std_preproc', 'inputnode.std_t1w'),
+                ('std_mask', 'inputnode.std_mask'),
+            ]),
+        ])
+        return workflow
+
+    # The workflow is not cached.
+    desc += """
 All of them were corrected for intensity non-uniformity (INU)
 """ if num_t1w > 1 else """\
 The T1-weighted (T1w) image was corrected for intensity non-uniformity (INU)
@@ -199,18 +275,6 @@ the brain-extracted T1w using `fast` [FSL {fsl_ver}, RRID:SCR_002823,
         skullstrip_tpl=skull_strip_template.fullname,
     )
 
-    inputnode = pe.Node(
-        niu.IdentityInterface(fields=['t1w', 't2w', 'roi', 'flair', 'subjects_dir', 'subject_id']),
-        name='inputnode')
-    outputnode = pe.Node(niu.IdentityInterface(
-        fields=['t1w_preproc', 't1w_brain', 't1w_mask', 't1w_dseg', 't1w_tpms',
-                'template', 'std_t1w', 'anat2std_xfm', 'std2anat_xfm',
-                'joint_template', 'joint_anat2std_xfm', 'joint_std2anat_xfm',
-                'std_mask', 'std_dseg', 'std_tpms', 't1w_realign_xfm',
-                'subjects_dir', 'subject_id', 't1w2fsnative_xfm',
-                'fsnative2t1w_xfm', 'surfaces', 't1w_aseg', 't1w_aparc']),
-        name='outputnode')
-
     buffernode = pe.Node(niu.IdentityInterface(
         fields=['t1w_brain', 't1w_mask']), name='buffernode')
 
@@ -222,22 +286,35 @@ the brain-extracted T1w using `fast` [FSL {fsl_ver}, RRID:SCR_002823,
                             run_without_submitting=True)
 
     # 2. Brain-extraction and INU (bias field) correction.
-    brain_extraction_wf = init_brain_extraction_wf(
-        in_template=skull_strip_template.space,
-        template_spec=skull_strip_template.spec,
-        atropos_use_random_seed=not skull_strip_fixed_seed,
-        omp_nthreads=omp_nthreads,
-        normalization_quality='precise' if not debug else 'testing')
+    if skull_strip_mode == 'auto':
+        import numpy as np
+        import nibabel as nb
 
-    # 3. Brain tissue segmentation
-    t1w_dseg = pe.Node(fsl.FAST(segments=True, no_bias=True, probability_maps=True),
-                       name='t1w_dseg', mem_gb=3)
+        def _is_skull_stripped(imgs):
+            """Check if T1w images are skull-stripped."""
+            def _check_img(img):
+                data = np.abs(nb.load(img).get_fdata(dtype=np.float32))
+                sidevals = data[0, :, :].sum() + data[-1, :, :].sum() + \
+                    data[:, 0, :].sum() + data[:, -1, :].sum() + \
+                    data[:, :, 0].sum() + data[:, :, -1].sum()
+                return sidevals < 10
 
-    workflow.connect([
-        (buffernode, t1w_dseg, [('t1w_brain', 'in_files')]),
-        (t1w_dseg, outputnode, [('tissue_class_map', 't1w_dseg'),
-                                ('probability_maps', 't1w_tpms')]),
-    ])
+            return all(_check_img(img) for img in imgs)
+
+        skull_strip_mode = _is_skull_stripped(t1w)
+
+    if skull_strip_mode in (True, 'skip'):
+        brain_extraction_wf = init_n4_only_wf(
+            omp_nthreads=omp_nthreads,
+            atropos_use_random_seed=not skull_strip_fixed_seed,
+        )
+    else:
+        brain_extraction_wf = init_brain_extraction_wf(
+            in_template=skull_strip_template.space,
+            template_spec=skull_strip_template.spec,
+            atropos_use_random_seed=not skull_strip_fixed_seed,
+            omp_nthreads=omp_nthreads,
+            normalization_quality='precise' if not debug else 'testing')
 
     # 4. Spatial normalization
     anat_norm_wf = init_anat_norm_wf(
@@ -254,7 +331,7 @@ the brain-extracted T1w using `fast` [FSL {fsl_ver}, RRID:SCR_002823,
         (anat_validate, brain_extraction_wf, [
             ('out_file', 'inputnode.in_files')]),
         (brain_extraction_wf, outputnode, [
-            ('outputnode.bias_corrected', 't1w_preproc')]),
+            (('outputnode.bias_corrected', _pop), 't1w_preproc')]),
         (anat_template_wf, outputnode, [
             ('outputnode.t1w_realign_xfm', 't1w_ref_xfms')]),
         (buffernode, outputnode, [('t1w_brain', 't1w_brain'),
@@ -266,28 +343,42 @@ the brain-extracted T1w using `fast` [FSL {fsl_ver}, RRID:SCR_002823,
         (brain_extraction_wf, anat_norm_wf, [
             (('outputnode.bias_corrected', _pop), 'inputnode.moving_image')]),
         (buffernode, anat_norm_wf, [('t1w_mask', 'inputnode.moving_mask')]),
-        (t1w_dseg, anat_norm_wf, [
-            ('tissue_class_map', 'inputnode.moving_segmentation')]),
-        (t1w_dseg, anat_norm_wf, [
-            ('probability_maps', 'inputnode.moving_tpms')]),
         (anat_norm_wf, outputnode, [
-            ('poutputnode.standardized', 'std_t1w'),
-            ('poutputnode.template', 'template'),
-            ('poutputnode.anat2std_xfm', 'anat2std_xfm'),
-            ('poutputnode.std2anat_xfm', 'std2anat_xfm'),
+            ('poutputnode.standardized', 'std_preproc'),
             ('poutputnode.std_mask', 'std_mask'),
             ('poutputnode.std_dseg', 'std_dseg'),
             ('poutputnode.std_tpms', 'std_tpms'),
-            ('outputnode.template', 'joint_template'),
-            ('outputnode.anat2std_xfm', 'joint_anat2std_xfm'),
-            ('outputnode.std2anat_xfm', 'joint_std2anat_xfm'),
+            ('outputnode.template', 'template'),
+            ('outputnode.anat2std_xfm', 'anat2std_xfm'),
+            ('outputnode.std2anat_xfm', 'std2anat_xfm'),
         ]),
     ])
 
-    # Write outputs ############################################3
-    anat_reports_wf = init_anat_reports_wf(
-        reportlets_dir=reportlets_dir, freesurfer=freesurfer)
+    # Change LookUp Table - BIDS wants: 0 (bg), 1 (gm), 2 (wm), 3 (csf)
+    lut_t1w_dseg = pe.Node(niu.Function(function=_apply_bids_lut),
+                           name='lut_t1w_dseg')
 
+    workflow.connect([
+        (lut_t1w_dseg, anat_norm_wf, [
+            ('out', 'inputnode.moving_segmentation')]),
+        (lut_t1w_dseg, outputnode, [('out', 't1w_dseg')]),
+    ])
+
+    # Connect reportlets
+    workflow.connect([
+        (inputnode, anat_reports_wf, [
+            (('t1w', fix_multi_T1w_source_name), 'inputnode.source_file')]),
+        (outputnode, anat_reports_wf, [
+            ('std_preproc', 'inputnode.std_t1w'),
+            ('std_mask', 'inputnode.std_mask'),
+        ]),
+        (anat_template_wf, anat_reports_wf, [
+            ('outputnode.out_report', 'inputnode.t1w_conform_report')]),
+        (anat_norm_wf, anat_reports_wf, [
+            ('poutputnode.template', 'inputnode.template')]),
+    ])
+
+    # Write outputs ############################################3
     anat_derivatives_wf = init_anat_derivatives_wf(
         bids_root=bids_root,
         freesurfer=freesurfer,
@@ -296,29 +387,16 @@ the brain-extracted T1w using `fast` [FSL {fsl_ver}, RRID:SCR_002823,
     )
 
     workflow.connect([
-        # Connect reportlets
-        (inputnode, anat_reports_wf, [
-            (('t1w', fix_multi_T1w_source_name), 'inputnode.source_file')]),
-        (anat_template_wf, anat_reports_wf, [
-            ('outputnode.out_report', 'inputnode.t1w_conform_report')]),
-        (outputnode, anat_reports_wf, [
-            ('t1w_preproc', 'inputnode.t1w_preproc'),
-            ('t1w_dseg', 'inputnode.t1w_dseg'),
-            ('t1w_mask', 'inputnode.t1w_mask'),
-            ('std_t1w', 'inputnode.std_t1w'),
-            ('std_mask', 'inputnode.std_mask')]),
-        (anat_norm_wf, anat_reports_wf, [
-            ('poutputnode.template', 'inputnode.template'),
-            ('poutputnode.template_spec', 'inputnode.template_spec')]),
         # Connect derivatives
         (anat_template_wf, anat_derivatives_wf, [
             ('outputnode.t1w_valid_list', 'inputnode.source_files')]),
         (anat_norm_wf, anat_derivatives_wf, [
-            ('poutputnode.template', 'inputnode.template')]),
+            ('poutputnode.template', 'inputnode.template'),
+            ('poutputnode.anat2std_xfm', 'inputnode.anat2std_xfm'),
+            ('poutputnode.std2anat_xfm', 'inputnode.std2anat_xfm')
+        ]),
         (outputnode, anat_derivatives_wf, [
-            ('std_t1w', 'inputnode.std_t1w'),
-            ('anat2std_xfm', 'inputnode.anat2std_xfm'),
-            ('std2anat_xfm', 'inputnode.std2anat_xfm'),
+            ('std_preproc', 'inputnode.std_t1w'),
             ('t1w_ref_xfms', 'inputnode.t1w_ref_xfms'),
             ('t1w_preproc', 'inputnode.t1w_preproc'),
             ('t1w_mask', 'inputnode.t1w_mask'),
@@ -327,19 +405,33 @@ the brain-extracted T1w using `fast` [FSL {fsl_ver}, RRID:SCR_002823,
             ('std_mask', 'inputnode.std_mask'),
             ('std_dseg', 'inputnode.std_dseg'),
             ('std_tpms', 'inputnode.std_tpms'),
-            ('t1w2fsnative_xfm', 'inputnode.t1w2fsnative_xfm'),
-            ('fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm'),
-            ('surfaces', 'inputnode.surfaces'),
         ]),
     ])
 
     if not freesurfer:  # Flag --fs-no-reconall is set - return
+        # Brain tissue segmentation - FAST produces: 0 (bg), 1 (wm), 2 (csf), 3 (gm)
+        t1w_dseg = pe.Node(fsl.FAST(segments=True, no_bias=True, probability_maps=True),
+                           name='t1w_dseg', mem_gb=3)
+        lut_t1w_dseg.inputs.lut = (0, 3, 1, 2)  # Maps: 0 -> 0, 3 -> 1, 1 -> 2, 2 -> 3.
+        fast2bids = pe.Node(niu.Function(function=_probseg_fast2bids), name="fast2bids",
+                            run_without_submitting=True)
+
         workflow.connect([
             (brain_extraction_wf, buffernode, [
                 (('outputnode.out_file', _pop), 't1w_brain'),
                 ('outputnode.out_mask', 't1w_mask')]),
+            (buffernode, t1w_dseg, [('t1w_brain', 'in_files')]),
+            (t1w_dseg, lut_t1w_dseg, [('tissue_class_map', 'in_dseg')]),
+            (t1w_dseg, fast2bids, [('probability_maps', 'inlist')]),
+            (fast2bids, anat_norm_wf, [('out', 'inputnode.moving_tpms')]),
+            (fast2bids, outputnode, [('out', 't1w_tpms')]),
         ])
         return workflow
+
+    # Map FS' aseg labels onto three-tissue segmentation
+    lut_t1w_dseg.inputs.lut = _aseg_to_three()
+    split_seg = pe.Node(niu.Function(function=_split_segments),
+                        name='split_seg')
 
     # 5. Surface reconstruction (--fs-no-reconall not set)
     surface_recon_wf = init_surface_recon_wf(name='surface_recon_wf',
@@ -360,6 +452,12 @@ the brain-extracted T1w using `fast` [FSL {fsl_ver}, RRID:SCR_002823,
             (('outputnode.bias_corrected', _pop), 'in_file')]),
         (surface_recon_wf, applyrefined, [
             ('outputnode.out_brainmask', 'mask_file')]),
+        (surface_recon_wf, lut_t1w_dseg, [
+            ('outputnode.out_aseg', 'in_dseg')]),
+        (lut_t1w_dseg, split_seg, [('out', 'in_file')]),
+        (split_seg, anat_norm_wf, [
+            ('out', 'inputnode.moving_tpms')]),
+        (split_seg, outputnode, [('out', 't1w_tpms')]),
         (surface_recon_wf, outputnode, [
             ('outputnode.subjects_dir', 'subjects_dir'),
             ('outputnode.subject_id', 'subject_id'),
@@ -377,6 +475,11 @@ the brain-extracted T1w using `fast` [FSL {fsl_ver}, RRID:SCR_002823,
         (surface_recon_wf, anat_derivatives_wf, [
             ('outputnode.out_aseg', 'inputnode.t1w_fs_aseg'),
             ('outputnode.out_aparc', 'inputnode.t1w_fs_aparc'),
+        ]),
+        (outputnode, anat_derivatives_wf, [
+            ('t1w2fsnative_xfm', 'inputnode.t1w2fsnative_xfm'),
+            ('fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm'),
+            ('surfaces', 'inputnode.surfaces'),
         ]),
     ])
 
@@ -453,7 +556,7 @@ A T1w-reference map was computed after registration of
 
     if num_t1w == 1:
         get1st = pe.Node(niu.Select(index=[0]), name='get1st')
-        outputnode.inputs.t1w_realign_xfm = [pkgr('aslprep', 'smriprep/data/itkIdentityTransform.txt')]
+        outputnode.inputs.t1w_realign_xfm = [pkgr('smriprep', 'data/itkIdentityTransform.txt')]
 
         workflow.connect([
             (t1w_conform, get1st, [('out_file', 'inlist')]),
@@ -491,12 +594,10 @@ A T1w-reference map was computed after registration of
     # 2. Reorient template to RAS, if needed (mri_robust_template may set to LIA)
     t1w_reorient = pe.Node(image.Reorient(), name='t1w_reorient')
 
-    concat_affines = pe.MapNode(
-        ConcatenateLTA(out_type='RAS2RAS', invert_out=True),
-        iterfield=['in_lta1', 'in_lta2'],
-        name='concat_affines')
-
-    lta_to_itk = pe.MapNode(LTAConvert(out_itk=True), iterfield=['in_lta'], name='lta_to_itk')
+    merge_xfm = pe.MapNode(niu.Merge(2), name='merge_xfm',
+                           iterfield=['in1', 'in2'], run_without_submitting=True)
+    concat_xfms = pe.MapNode(ConcatenateXFMs(inverse=True), name="concat_xfms",
+                             iterfield=['in_xfms'], run_without_submitting=True)
 
     def _set_threads(in_list, maximum):
         return min(len(in_list), maximum)
@@ -511,12 +612,12 @@ A T1w-reference map was computed after registration of
         (n4_correct, t1w_merge, [('output_image', 'in_files')]),
         (t1w_merge, t1w_reorient, [('out_file', 'in_file')]),
         # Combine orientation and template transforms
-        (t1w_conform_xfm, concat_affines, [('out_lta', 'in_lta1')]),
-        (t1w_merge, concat_affines, [('transform_outputs', 'in_lta2')]),
-        (concat_affines, lta_to_itk, [('out_file', 'in_lta')]),
+        (t1w_conform_xfm, merge_xfm, [('out_lta', 'in1')]),
+        (t1w_merge, merge_xfm, [('transform_outputs', 'in2')]),
+        (merge_xfm, concat_xfms, [('out', 'in_xfms')]),
         # Output
         (t1w_reorient, outputnode, [('out_file', 't1w_ref')]),
-        (lta_to_itk, outputnode, [('out_itk', 't1w_realign_xfm')]),
+        (concat_xfms, outputnode, [('out_xfm', 't1w_realign_xfm')]),
     ])
 
     return workflow
@@ -526,3 +627,71 @@ def _pop(inlist):
     if isinstance(inlist, (list, tuple)):
         return inlist[0]
     return inlist
+
+
+def _aseg_to_three():
+    """
+    Map FreeSurfer's segmentation onto a brain (3-)tissue segmentation.
+
+    This function generates an index of 255+0 labels and maps them into zero (bg),
+    1 (GM), 2 (WM), or 3 (CSF). The new values are set according to BIDS-Derivatives.
+    Then the index is populated (e.g., label 3 in the original segmentation maps to label
+    1 in the output).
+    The `aseg lookup table
+    <https://github.com/freesurfer/freesurfer/blob/2beb96c6099d96508246c14a24136863124566a3/distribution/ASegStatsLUT.txt>`__
+    is available in the FreeSurfer source.
+
+    """
+    import numpy as np
+    # Base struct
+    aseg_lut = np.zeros((256,), dtype="int")
+    # GM
+    aseg_lut[3] = 1
+    aseg_lut[8:14] = 1
+    aseg_lut[17:21] = 1
+    aseg_lut[26:40] = 1
+    aseg_lut[42] = 1
+    aseg_lut[47:73] = 1
+
+    # CSF
+    aseg_lut[4:6] = 3
+    aseg_lut[14:16] = 3
+    aseg_lut[24] = 3
+    aseg_lut[43:45] = 3
+    aseg_lut[72] = 3
+
+    # WM
+    aseg_lut[2] = 2
+    aseg_lut[7] = 2
+    aseg_lut[16] = 2
+    aseg_lut[28] = 2
+    aseg_lut[41] = 2
+    aseg_lut[46] = 2
+    aseg_lut[60] = 2
+    aseg_lut[77:80] = 2
+    aseg_lut[250:256] = 2
+    return tuple(aseg_lut)
+
+
+def _split_segments(in_file):
+    from pathlib import Path
+    import numpy as np
+    import nibabel as nb
+
+    segimg = nb.load(in_file)
+    data = np.int16(segimg.dataobj)
+    hdr = segimg.header.copy()
+    hdr.set_data_dtype('uint8')
+
+    out_files = []
+    for i, label in enumerate(("GM", "WM", "CSF"), 1):
+        out_fname = str(Path.cwd() / f"aseg_label-{label}_mask.nii.gz")
+        segimg.__class__(data == i, segimg.affine, hdr).to_filename(out_fname)
+        out_files.append(out_fname)
+
+    return out_files
+
+
+def _probseg_fast2bids(inlist):
+    """Reorder a list of probseg maps from FAST (CSF, WM, GM) to BIDS (GM, WM, CSF)."""
+    return (inlist[1], inlist[2], inlist[0])
