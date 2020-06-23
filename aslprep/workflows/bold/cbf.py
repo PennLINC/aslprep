@@ -66,13 +66,13 @@ also included correction for partial volume effects [@chappell_pvc].
     refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
 
     def _pick_csf(files):
-        return files[0]
+        return files[-1]
 
     def _pick_gm(files):
-        return files[1]
+        return files[0]
 
     def _pick_wm(files):
-        return files[-1]
+        return files[1]
 
     workflow.connect([
         # extract CBF data and compute cbf
@@ -133,13 +133,13 @@ CBF within Grey matter
     outputnode = pe.Node(niu.IdentityInterface(fields=['qc_file']), name='outputnode')
 
     def _pick_csf(files):
-        return files[0]
+        return files[-1]
 
     def _pick_gm(files):
-        return files[1]
+        return files[0]
 
     def _pick_wm(files):
-        return files[-1]
+        return files[1]
 
     csf_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
                       name='csf_tfm', mem_gb=0.1)
