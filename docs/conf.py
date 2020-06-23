@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# aslprep documentation build configuration file, created by
+# fmriprep documentation build configuration file, created by
 # sphinx-quickstart on Mon May  9 09:04:25 2016.
 #
 # This file is execfile()d with the current directory set to its
@@ -17,13 +17,11 @@ import sys
 from datetime import datetime
 from sphinx import __version__ as sphinxversion
 from packaging import version as pver  # Avoid distutils.LooseVersion which is deprecated
-import sphinx
-
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.append(os.path.abspath("sphinxext")) 
+sys.path.append(os.path.abspath("sphinxext"))
 sys.path.insert(0, os.path.abspath("../wrapper"))
 
 from github_link import make_linkcode_resolve
@@ -31,7 +29,7 @@ from github_link import make_linkcode_resolve
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-#needs_sphinx = "2.4.4"
+needs_sphinx = "1.5.3"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named "sphinx.ext.*") or your custom
@@ -54,7 +52,6 @@ autodoc_mock_imports = [
     "numpy",
     "nitime",
     "matplotlib",
-    "aslprep"
 ]
 
 if pver.parse(sphinxversion) >= pver.parse("1.7.0"):
@@ -62,7 +59,6 @@ if pver.parse(sphinxversion) >= pver.parse("1.7.0"):
         "pandas",
         "nilearn",
         "seaborn",
-        "aslprep"
     ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -91,7 +87,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "aslprep"
-author = "The ASLPREP developers"
+author = "The aslprep developers"
 copyright = "2020-%s, %s" % (datetime.now().year, author)
 
 # The version info for the project you're documenting, acts as replacement for
@@ -165,7 +161,7 @@ html_theme = "sphinx_rtd_theme"
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
-# html_title = u'aslprep vversion'
+# html_title = u'fmriprep vversion'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 # html_short_title = None
@@ -346,7 +342,9 @@ intersphinx_mapping = {
     "bids": ("https://bids-standard.github.io/pybids/", None),
     "nibabel": ("https://nipy.org/nibabel/", None),
     "nipype": ("https://nipype.readthedocs.io/en/latest/", None),
+    "niworkflows": ("https://www.nipreps.org/niworkflows/", None),
     "sdcflows": ("https://www.nipreps.org/sdcflows/", None),
+    "smriprep": ("https://poldracklab.github.io/smriprep/", None),
     "templateflow": ("https://www.templateflow.org/python-client", None),
 }
 

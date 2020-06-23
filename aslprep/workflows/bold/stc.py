@@ -7,14 +7,13 @@ Slice-Timing Correction (STC) of BOLD images
 .. autofunction:: init_bold_stc_wf
 
 """
-from nipype import logging
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu, afni
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.utils import CopyXForm
+
+from ... import config
 
 
-LOGGER = logging.getLogger('nipype.workflow')
+LOGGER = config.loggers.workflow
 
 
 def init_bold_stc_wf(metadata, name='bold_stc_wf'):
@@ -29,7 +28,7 @@ def init_bold_stc_wf(metadata, name='bold_stc_wf'):
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.bold import init_bold_stc_wf
+            from fmriprep.workflows.bold import init_bold_stc_wf
             wf = init_bold_stc_wf(
                 metadata={"RepetitionTime": 2.0,
                           "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]},
@@ -55,9 +54,12 @@ def init_bold_stc_wf(metadata, name='bold_stc_wf'):
         Slice-timing corrected BOLD series NIfTI file
 
     """
+    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from ...niworkflows.interfaces.utils import CopyXForm
+
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-ASL runs were slice-time corrected using `3dTshift` from
+BOLD runs were slice-time corrected using `3dTshift` from
 AFNI {afni_ver} [@afni, RRID:SCR_005927].
 """.format(afni_ver=''.join(['%02d' % v for v in afni.Info().version() or []]))
     inputnode = pe.Node(niu.IdentityInterface(fields=['bold_file', 'skip_vols']), name='inputnode')

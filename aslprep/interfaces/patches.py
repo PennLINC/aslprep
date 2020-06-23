@@ -17,7 +17,8 @@ from nipype.algorithms import confounds as nac
 class RobustACompCor(nac.ACompCor):
     """
     Runs aCompCor several times if it suddenly fails with
-    
+    https://github.com/poldracklab/fmriprep/issues/776
+
     """
 
     def _run_interface(self, runtime):

@@ -1,11 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-Interfaces to generate reportlets
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-"""
+"""Interfaces to generate reportlets."""
 
 import os
 import time
@@ -16,8 +11,7 @@ from nipype.interfaces.base import (
     traits, TraitedSpec, BaseInterfaceInputSpec,
     File, Directory, InputMultiObject, Str, isdefined,
     SimpleInterface)
-from nipype.interfaces import freesurfer as fs
-from ..niworkflows.utils.bids import BIDS_NAME
+from ..smriprep.interfaces.freesurfer import ReconAll
 
 
 SUBJECT_TEMPLATE = """\
@@ -46,6 +40,8 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t\t<li>Normalization quality: {normindex}</li>
 \t\t\t<li>Quality evaluation index : {qei}</li>
 \t\t\t<li>Mean CBF (mL 100/g/min) : {meancbf}</li>
+\t\t\t<li>Percentage of negative voxel : {negvoxel}</li>
+
 \t\t</ul>
 """
 
@@ -105,13 +101,22 @@ class SubjectSummary(SummaryInterface):
         return super(SubjectSummary, self)._run_interface(runtime)
 
     def _generate_segment(self):
+        BIDS_NAME = re.compile(
+            r'^(.*\/)?'
+            '(?P<subject_id>sub-[a-zA-Z0-9]+)'
+            '(_(?P<session_id>ses-[a-zA-Z0-9]+))?'
+            '(_(?P<task_id>task-[a-zA-Z0-9]+))?'
+            '(_(?P<acq_id>acq-[a-zA-Z0-9]+))?'
+            '(_(?P<rec_id>rec-[a-zA-Z0-9]+))?'
+            '(_(?P<run_id>run-[a-zA-Z0-9]+))?')
+
         if not isdefined(self.inputs.subjects_dir):
             freesurfer_status = 'Not run'
         else:
-            recon = fs.ReconAll(subjects_dir=self.inputs.subjects_dir,
-                                subject_id=self.inputs.subject_id,
-                                T1_files=self.inputs.t1w,
-                                flags='-noskullstrip')
+            recon = ReconAll(subjects_dir=self.inputs.subjects_dir,
+                             subject_id='sub-' + self.inputs.subject_id,
+                             T1_files=self.inputs.t1w,
+                             flags='-noskullstrip')
             if recon.cmdline.startswith('echo'):
                 freesurfer_status = 'Pre-existing directory'
             else:
@@ -124,7 +129,6 @@ class SubjectSummary(SummaryInterface):
         # Add list of tasks with number of runs
         bold_series = self.inputs.bold if isdefined(self.inputs.bold) else []
         bold_series = [s[0] if isinstance(s, list) else s for s in bold_series]
-
 
         counts = Counter(BIDS_NAME.search(series).groupdict()['task_id'][5:]
                          for series in bold_series)
@@ -161,6 +165,9 @@ class FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     fallback = traits.Bool(desc='Boundary-based registration rejected')
     registration_dof = traits.Enum(6, 9, 12, desc='Registration degrees of freedom',
                                    mandatory=True)
+    registration_init = traits.Enum('register', 'header', mandatory=True,
+                                    desc='Whether to initialize registration with the "header"'
+                                         ' or by centering the volumes ("register")')
     confounds_file = File(exists=True, desc='Confounds file')
     qc_file = File(exists=True, desc='qc file')
     tr = traits.Float(desc='Repetition time', mandatory=True)
@@ -187,16 +194,26 @@ class FunctionalSummary(SummaryInterface):
                 'FreeSurfer <code>mri_coreg</code> - %d dof' % dof],
         }[self.inputs.registration][self.inputs.fallback]
         import pandas as pd
-        qcfile=pd.read_csv(self.inputs.qc_file)
-        motionparam="FD : {}, relRMS: {} ".format(round(qcfile['FD'][0],4) ,round(qcfile['relRMS'][0],4))
-        coregindex=" Dice Index: {}, Jaccard Index: {}, Cross Cor.: {}, Coverage: {} ".format(round(qcfile['coregDC'][0],4),
-                    round(qcfile['coregJC'][0],4),round(qcfile['coregCC'][0],4),round(qcfile['coregCOV'][0],4) )
-        normindex=" Dice Index: {}, Jaccard Index: {}, Cross Cor.: {}, Coverage: {} ".format(round(qcfile['normDC'][0],4),
-                    round(qcfile['normJC'][0],4),round(qcfile['normCC'][0],4),round(qcfile['normCOV'][0],4) ) 
-        qei="cbf: {},score: {},scrub: {}, basil: {}, pvc: {} ".format(round(qcfile['cbfQEI'][0],4),round(qcfile['scoreQEI'][0],4),
-             round(qcfile['scrubQEI'][0],4),round(qcfile['basilQEI'][0],4),round(qcfile['pvcQEI'][0],4))
-        meancbf="GM CBF: {}, WM CBF: {}, CSF CBF: {}".format(round(qcfile['GMmeanCBF'][0],2),round(qcfile['WMmeanCBF'][0],2),
-             round(qcfile['CSFmeanCBF'][0],2))
+        qcfile = pd.read_csv(self.inputs.qc_file)
+        motionparam = "FD : {}, relRMS: {} ".format(round(qcfile['FD'][0], 4),
+                                                    round(qcfile['relRMS'][0], 4))
+        coregindex = " Dice Index: {}, Jaccard Index: {}, Cross Cor.: {}, Coverage: {} ".format(
+                        round(qcfile['coregDC'][0], 4), round(qcfile['coregJC'][0], 4),
+                        round(qcfile['coregCC'][0], 4), round(qcfile['coregCOV'][0], 4))
+        normindex = " Dice Index: {}, Jaccard Index: {}, Cross Cor.: {}, Coverage: {} ".format(
+                        round(qcfile['normDC'][0], 4), round(qcfile['normJC'][0], 4),
+                        round(qcfile['normCC'][0], 4), round(qcfile['normCOV'][0], 4))
+        qei = "cbf: {},score: {},scrub: {}, basil: {}, pvc: {} ".format(
+                round(qcfile['cbfQEI'][0], 4), round(qcfile['scoreQEI'][0], 4),
+                round(qcfile['scrubQEI'][0], 4), round(qcfile['basilQEI'][0], 4),
+                round(qcfile['pvcQEI'][0], 4))
+        meancbf = "GM CBF: {}, WM CBF: {}, GM/WM CBF ratio: {} ".format(
+                    round(qcfile['GMmeanCBF'][0], 2), round(qcfile['WMmeanCBF'][0], 2),
+                    round(qcfile['Gm_Wm_CBF_ratio'][0], 2))
+        negvoxel = "cbf: {}, score: {}, scrub: {}, basil: {}, pvc: {} ".format(
+                round(qcfile['NEG_CBF_PERC'][0], 2), round(qcfile['NEG_SCORE_PERC'][0], 2),
+                round(qcfile['NEG_SCRUB_PERC'][0], 2), round(qcfile['NEG_BASIL_PERC'][0], 2),
+                round(qcfile['NEG_PVC_PERC'][0], 2))
         if self.inputs.pe_direction is None:
             pedir = 'MISSING - Assuming Anterior-Posterior'
         else:
@@ -226,8 +243,9 @@ class FunctionalSummary(SummaryInterface):
         return FUNCTIONAL_TEMPLATE.format(
             pedir=pedir, stc=stc, sdc=self.inputs.distortion_correction, registration=reg,
             confounds=re.sub(r'[\t ]+', ', ', conflist), tr=self.inputs.tr,
-            dummy_scan_desc=dummy_scan_msg,motionparam=motionparam,qei=qei,coregindex=coregindex, 
-            normindex=normindex,meancbf=meancbf )
+            dummy_scan_desc=dummy_scan_msg, motionparam=motionparam, qei=qei,
+            coregindex=coregindex, normindex=normindex, meancbf=meancbf,
+            negvoxel=negvoxel)
 
 
 class AboutSummaryInputSpec(BaseInterfaceInputSpec):

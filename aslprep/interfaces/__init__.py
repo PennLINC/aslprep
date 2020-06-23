@@ -7,7 +7,6 @@ from ..niworkflows.interfaces import (
 
 from .reports import SubjectSummary, FunctionalSummary, AboutSummary
 from .confounds import GatherConfounds, ICAConfounds, FMRISummary
-from ..niworkflows.interfaces.plotting import (CBFSummary,CBFtsSummary)
 from .multiecho import T2SMap
 
 
