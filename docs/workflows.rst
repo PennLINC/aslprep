@@ -91,7 +91,7 @@ single reference template (see `Longitudinal processing`_).
         skull_strip_fixed_seed=False,
     )
 
-See also *sMRIPrep*'s 
+See also *sMRIPrep*'s
 :py:func:`~smriprep.workflows.anatomical.init_anat_preproc_wf`.
 
 .. _t1preproc_steps:
@@ -213,7 +213,7 @@ would be processed by the following command::
         -autorecon1 \
         -noskullstrip
 
-The second phase imports the brainmask calculated in the 
+The second phase imports the brainmask calculated in the
 `Preprocessing of structural MRI`_ sub-workflow.
 The final phase resumes reconstruction, using the T2w image to assist
 in finding the pial surface, if available.
@@ -352,7 +352,7 @@ Head-motion estimation
     :graph2use: colored
     :simple_form: yes
 
-    from aslprep.workflows.bold import init_bold_hmc_wf
+    from aslprep.workflows.bold import init_bold_hmc_wf # Is this still what it's called?
     wf = init_bold_hmc_wf(
         mem_gb=1,
         omp_nthreads=1)
@@ -440,7 +440,7 @@ Interpolation uses a Lanczos kernel.
 
 .. _cbf_preproc:
 
-CBF Computation in native space 
+CBF Computation in native space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 :py:func:`~aslprep.workflows.bold.cbf.init_cbf_compt_wf`
 
@@ -450,10 +450,10 @@ CBF Computation in native space
 
     from aslprep.workflows.bold.cbf import init_cbf_compt_wf
     wf = init_bold_preproc_trans_wf(mem_gb=3, omp_nthreads=1)
-    
+
 ALl the CBF derivates are computed from preprocessed :ref:`ASL <asl_preproc>`.
-This inlude CBF computation by basic model and :abbr:`BASIL (Bayesian Inference for Arterial Spin Labeling )`. 
-The BASIL includes spatial regularization and partial volume correction. 
+This inlude CBF computation by basic model and :abbr:`BASIL (Bayesian Inference for Arterial Spin Labeling )`.
+The BASIL includes spatial regularization and partial volume correction.
 The computed CBF are further denoised by :abbr:`SCORE (Structural Correlation based Outlier Rejection)`
 and :abbr:`SCRUB (Structural Correlation withRobUst Bayesian)`
 
@@ -492,7 +492,7 @@ Excessive deviation will result in rejecting the BBR refinement and accepting th
 The computed :ref:`CBF <cbf_preproc>`  are regsitered to T1w using the transformation from ASL-T1w registration.
 
 Resampling ASL  and CBF runs onto standard spaces
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 :py:func:`~aslprep.workflows.bold.resampling.init_bold_std_trans_wf`
 
 .. workflow::
@@ -513,7 +513,7 @@ Resampling ASL  and CBF runs onto standard spaces
 This sub-workflow concatenates the transforms calculated upstream (see
 `Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_ --if
 fieldmaps are available--, `EPI to T1w registration`_, and an anatomical-to-standard
-transform from `Preprocessing of structural MRI`_) to map the 
+transform from `Preprocessing of structural MRI`_) to map the
 :abbr:`EPI (echo-planar imaging)`
 image to the standard spaces given by the ``--output-spaces`` argument
 (see :ref:`output-spaces`).
@@ -523,7 +523,7 @@ Transforms are concatenated and applied all at once, with one interpolation (Lan
 step, so as little information is lost as possible.
 
 The output space grid can be specified using modifiers to the ``--output-spaces``
-argument. 
+argument.
 
 ASL sampled to FreeSurfer surfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
