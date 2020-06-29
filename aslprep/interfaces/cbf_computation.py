@@ -88,13 +88,13 @@ class extractCBF(SimpleInterface):
 
     def _run_interface(self, runtime):
         file1 = os.path.abspath(self.inputs.bold_file)
-        aslcontext1 = file1.replace('.nii.gz', '_ASLContext.tsv')
+        aslcontext1 = file1.replace('_asl.nii.gz', '_aslContext.tsv')
         aslcontext = pd.read_csv(aslcontext1, header=None)
-        m0file = file1.replace('_asl.nii.gz', '_MZeroScan.nii.gz')
+        m0file = file1.replace('_asl.nii.gz', '_MoScan.nii.gz')
         idasl = aslcontext[0].tolist()
         controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'Control']
         labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'Label']
-        m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'MZeroScan']
+        m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'MoScan']
         allasl = nb.load(self.inputs.in_file)
         mask = nb.load(self.inputs.in_mask).get_fdata()
         dataasl = allasl.get_fdata()
@@ -205,7 +205,7 @@ class computeCBF(SimpleInterface):
 def cbfcomputation(metadata, mask, m0file, cbffile):
     labeltype = metadata['LabelingType']
     tau = metadata['LabelingDuration']
-    plds = np.array(metadata['InitialPostLabelDelay'])
+    plds = np.array(metadata['PostLabelingDelay'])
     m0scale = metadata['M0']
     magstrength = metadata['MagneticFieldStrength']
     t1blood = (110*int(magstrength[:-1])+1316)/1000

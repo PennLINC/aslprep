@@ -46,7 +46,7 @@
         },
         {
             "name": "modality",
-            "pattern": "\/(func|anat|fmap|dwi|asl)\/"
+            "pattern": "\/(func|anat|fmap|dwi|asl|perf)\/"
         }
     ]
 }

@@ -173,9 +173,9 @@ def collect_data(
         't2w': {'datatype': 'anat', 'suffix': 'T2w'},
         't1w': {'datatype': 'anat', 'suffix': 'T1w'},
         'roi': {'datatype': 'anat', 'suffix': 'roi'},
-        'asl': {'datatype': 'asl', 'suffix': 'asl'},
-        'cbf': {'datatype': 'asl', 'suffix': 'DELTAM'},
-        'm0z': {'datatype': 'asl', 'suffix': 'MZeroScan'},
+        'asl': {'datatype': 'perf', 'suffix': 'asl'},
+        'cbf': {'datatype': 'perf', 'suffix': 'DELTAM'},
+        'm0z': {'datatype': 'perf', 'suffix': 'MoScan'},
     }
 
     bids_filters = bids_filters or {}
