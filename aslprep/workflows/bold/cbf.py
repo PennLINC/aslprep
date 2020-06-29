@@ -56,9 +56,9 @@ also included correction for partial volume effects [@chappell_pvc].
                          run_without_submitting=True, name="computecbf")
     scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=0.2,
                          name='scorescrub', run_without_submitting=True)
-    basilcbf = pe.Node(BASILCBF(m0scale=metadata["M0"], bolus=metadata["InitialPostLabelDelay"],
+    basilcbf = pe.Node(BASILCBF(m0scale=metadata["M0"], bolus=metadata["PostLabelingDelay"],
                                 m0tr=metadata['RepetitionTime'], pvc=True,
-                                tis=np.add(metadata["InitialPostLabelDelay"],
+                                tis=np.add(metadata["PostLabelingDelay"],
                                            metadata["LabelingDuration"]),
                        pcasl=pcasl, out_basename=tempfile.mkdtemp()), name='basilcbf',
                        run_without_submitting=True, mem_gb=0.2)
