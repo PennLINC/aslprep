@@ -11,17 +11,17 @@ Usage Notes
 
 Execution and the BIDS format
 -----------------------------
-The *ASLPRep* workflow takes as principal input the path of the dataset
+The *ASLPrep* workflow takes as principal input the path of the dataset
 that is to be processed.
 The `ASL BIDS <shorturl.at/kqrRS>`_  are currently being proposed and in the final stage.
-We have created a simple way of converting `ASL into BIDS <https://github.com/PennLINC/aslbids>`_ 
+We have created a simple way of converting `ASL into BIDS <https://github.com/PennLINC/aslbids>`_
 
 The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data
-Structure)` format, and it must include at least one T1w structural image 
+Structure)` format, and it must include at least one T1w structural image
 We highly recommend that you validate your dataset with the free, online
 `BIDS Validator <http://bids-standard.github.io/bids-validator/>`_.
 
-The exact command to run *ASLRep* depends on the Installation_ method.
+The exact command to run *ASLPrep* depends on the Installation_ method.
 The common parts of the command follow the `BIDS-Apps
 <https://github.com/BIDS-Apps>`_ definition.
 Example: ::
@@ -49,11 +49,11 @@ The FreeSurfer license
 To obtain a FreeSurfer license, simply register for free at
 https://surfer.nmr.mgh.harvard.edu/registration.html.
 
-When using manually-prepared environments or singularity, FreeSurfer will search 
-for a license key file first using the ``$FS_LICENSE`` environment variable and then 
-in the default path to the license key file (``$FREESURFER_HOME/license.txt``). 
-If using the ``--cleanenv`` flag and ``$FS_LICENSE`` is set, use ``--fs-license-file $FS_LICENSE`` 
-to pass the license file location to *ASLPRep*.
+When using manually-prepared environments or singularity, FreeSurfer will search
+for a license key file first using the ``$FS_LICENSE`` environment variable and then
+in the default path to the license key file (``$FREESURFER_HOME/license.txt``).
+If using the ``--cleanenv`` flag and ``$FS_LICENSE`` is set, use ``--fs-license-file $FS_LICENSE``
+to pass the license file location to *ASLPrep*.
 
 It is possible to run the docker container pointing the image to a local path
 where a valid license file is stored.
@@ -83,8 +83,3 @@ The documentation of this project is found here: http://aslprep.readthedocs.org/
 
 All bugs, concerns and enhancement requests for this software can be submitted here:
 https://github.com/pennlinc/aslprep/issues.
-
-
-To participate in the *ASLPRep* development-related discussions please use the
-following mailing list: http://mail.python.org/mailman/listinfo/neuroimaging
-Please add *[aslprep]* to the subject line when posting on the mailing list.
