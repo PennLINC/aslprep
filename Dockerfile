@@ -91,23 +91,19 @@ RUN mkdir -p $ANTSPATH && \
     | tar -xzC $ANTSPATH --strip-components 1
 ENV PATH=$ANTSPATH:$PATH
 
-RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
-         bc dc libfontconfig1 libfreetype6 libgl1-mesa-dev libglu1-mesa-dev \
-         libgomp1 libice6  libxcursor1 libxft2 libxinerama1 libxrandr2 \
-         libxrender1 libxt6 \
+
+ENV FSLDIR=/opt/fsl \
+    PATH=/opt/fsl/bin:$PATH
+
+RUN apt-get update -qq && apt-get install -yq --no-install-recommends bc dc libfontconfig1 \
+     libfreetype6 libgl1-mesa-dev libglu1-mesa-dev libgomp1 libice6 \
+      libxcursor1 libxft2 libxinerama1 libxrandr2 libxrender1 libxt6 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && echo "Downloading FSL ..." \
     && curl -sSL --retry 5 https://fsl.fmrib.ox.ac.uk/fsldownloads/fsl-6.0.3-centos6_64.tar.gz \
     | tar zx -C /opt \
-    && /bin/bash /opt/fsl/etc/fslconf/fslpython_install.sh -q -f /opt/fsl \
-    && sed -i '$iecho Some packages in this Docker container are non-free' $ND_ENTRYPOINT \
-    && sed -i '$iecho If you are considering commercial use of this container, please consult the relevant license:' $ND_ENTRYPOINT \
-    && sed -i '$iecho https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Licence' $ND_ENTRYPOINT \
-    && sed -i '$isource $FSLDIR/etc/fslconf/fsl.sh' $ND_ENTRYPOINT
-
-ENV FSLDIR=/opt/fsl \
-    PATH=/opt/fsl/bin:$PATH
+    && /bin/bash /opt/fsl/etc/fslconf/fslpython_install.sh -q -f /opt/fsl 
 
 # Installing SVGO
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash -
