@@ -92,18 +92,26 @@ RUN mkdir -p $ANTSPATH && \
 ENV PATH=$ANTSPATH:$PATH
 
 
-ENV FSLDIR=/opt/fsl \
-    PATH=/opt/fsl/bin:$PATH
+ENV FSLDIR="/opt/fsl-6.0.3" \
+    PATH="/opt/fsl-6.0.3/bin:$PATH"
 
-RUN apt-get update -qq && apt-get install -yq --no-install-recommends bc dc libfontconfig1 \
-     libfreetype6 libgl1-mesa-dev libglu1-mesa-dev libgomp1 libice6 \
-      libxcursor1 libxft2 libxinerama1 libxrandr2 libxrender1 libxt6 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
-    && echo "Downloading FSL ..." \
-    && curl -sSL --retry 5 https://fsl.fmrib.ox.ac.uk/fsldownloads/fsl-6.0.3-centos6_64.tar.gz \
-    | tar zx -C /opt \
-    && /bin/bash /opt/fsl/etc/fslconf/fslpython_install.sh -q -f /opt/fsl 
+RUN echo "Downloading FSL ..." \
+      && mkdir -p /opt/fsl-6.0.3 \
+      && curl -fsSL --retry 5 https://fsl.fmrib.ox.ac.uk/fsldownloads/fsl-6.0.3-centos6_64.tar.gz \
+      | tar -xz -C /opt/fsl-6.0.3 --strip-components 1 \
+      --exclude='fsl/doc' \
+      --exclude='fsl/data/atlases' \
+      --exclude='fsl/data/possum' \
+      --exclude='fsl/src' \
+      --exclude='fsl/extras/src' \
+      --exclude='fsl/bin/fslview*' \
+      --exclude='fsl/bin/FSLeyes' \
+      && echo "Installing FSL conda environment ..." \
+      && sed -i -e "/fsleyes/d" -e "/wxpython/d" \
+         ${FSLDIR}/etc/fslconf/fslpython_environment.yml \
+      && bash /opt/fsl-6.0.3/etc/fslconf/fslpython_install.sh -f /opt/fsl-6.0.3 \
+      && find ${FSLDIR}/fslpython/envs/fslpython/lib/python3.7/site-packages/ -type d -name "tests"  -print0 | xargs -0 rm -r \
+      && ${FSLDIR}/fslpython/bin/conda clean --all
 
 # Installing SVGO
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash -
