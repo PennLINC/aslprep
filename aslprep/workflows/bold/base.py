@@ -40,6 +40,8 @@ from .cbf import (
     init_cbfroiquant_wf)
 from .outputs import init_func_derivatives_wf
 
+from ...interfaces.cbf_computation import refinemask
+
 
 def init_func_preproc_wf(bold_file):
     """
@@ -361,6 +363,10 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     )
     bold_bold_trans_wf.inputs.inputnode.name_source = ref_file
 
+    refine_mask = pe.Node(refinemask(), mem_gb=0.2, 
+                                        run_without_submitting=True,
+                                        name="refinemask")
+
     # SLICE-TIME CORRECTION (or bypass) #############################################
     if run_stc is True:  # bool('TooShort') == True, so check True explicitly
         bold_stc_wf = init_bold_stc_wf(name='bold_stc_wf', metadata=metadata)
@@ -430,6 +436,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ('outputnode.bold_file', 'inputnode.bold_file')]),
         (bold_reference_wf, summary, [
             ('outputnode.algo_dummy_scans', 'algo_dummy_scans')]),
+        (bold_reference_wf, refine_mask, [ ('outputnode.bold_mask','in_boldmask')]),
+        (inputnode, refine_mask, [ ('t1w_mask','in_t1mask')]),
         # EPI-T1 registration workflow
         (inputnode, bold_reg_wf, [
             ('t1w_dseg', 'inputnode.t1w_dseg'),
@@ -455,13 +463,16 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                         ('outputnode.bold_aseg_t1', 'bold_aseg_t1'),
                                         ('outputnode.bold_aparc_t1', 'bold_aparc_t1')]),
         (bold_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
+        (bold_reg_wf, refine_mask, [
+            ('outputnode.itk_t1_to_bold','transforms')]),
         # SDC (or pass-through workflow)
         (t1w_brain, bold_sdc_wf, [
             ('out_file', 'inputnode.t1w_brain')]),
         (bold_reference_wf, bold_sdc_wf, [
             ('outputnode.ref_image', 'inputnode.epi_file'),
-            ('outputnode.ref_image_brain', 'inputnode.epi_brain'),
-            ('outputnode.bold_mask', 'inputnode.epi_mask')]),
+            ('outputnode.ref_image_brain', 'inputnode.epi_brain')]),
+            #('outputnode.bold_mask', 'inputnode.epi_mask')]),
+        (refine_mask, bold_sdc_wf, [('out_mask', 'inputnode.epi_mask')]),
         (bold_sdc_wf, bold_t1_trans_wf, [
             ('outputnode.out_warp', 'inputnode.fieldwarp'),
             ('outputnode.epi_mask', 'inputnode.ref_bold_mask'),
