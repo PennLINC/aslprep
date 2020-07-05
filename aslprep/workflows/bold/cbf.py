@@ -207,11 +207,13 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
                          name='outputnode')
     mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
     from templateflow.api import get as get_template
+    seg = get_template(
+            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
+            suffix='dseg')
+    print(seg)
     resample_parc = pe.Node(ApplyTransforms(
         float=True,
-        input_image=str(get_template(
-            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
-            suffix='dseg', extension=['.nii', '.nii.gz'])),
+        input_image=str(seg),
         dimension=3, default_value=0, interpolation='MultiLabel'),
         name='resample_parc')
 
