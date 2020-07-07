@@ -7,6 +7,7 @@ from ...interfaces.cbf_computation import (extractCBF, computeCBF, scorescrubCBF
 from ...niworkflows.interfaces.plotting import (CBFSummary, CBFtsSummary)
 from ...interfaces import DerivativesDataSink
 import numpy as np
+import os
 import tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
 
@@ -60,7 +61,7 @@ also included correction for partial volume effects [@chappell_pvc].
                                 m0tr=metadata['RepetitionTime'], pvc=True,
                                 tis=np.add(metadata["PostLabelingDelay"],
                                            metadata["LabelingDuration"]),
-                       pcasl=pcasl, out_basename=tempfile.mkdtemp()), name='basilcbf',
+                       pcasl=pcasl), name='basilcbf',
                        run_without_submitting=True, mem_gb=0.2)
 
     refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
@@ -74,6 +75,10 @@ also included correction for partial volume effects [@chappell_pvc].
     def _pick_wm(files):
         return files[1]
 
+    def _getfiledir(file):
+        import os
+        return os.path.dirname(file)
+
     workflow.connect([
         # extract CBF data and compute cbf
         (inputnode,  extractcbf, [('bold', 'in_file'), ('bold_file', 'bold_file')]),
@@ -84,6 +89,7 @@ also included correction for partial volume effects [@chappell_pvc].
         (refinemaskj, computecbf, [('out_mask', 'in_mask')]),
         (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
         (refinemaskj, basilcbf, [('out_mask', 'mask')]),
+        (inputnode, basilcbf, [(('bold', _getfiledir), 'out_basename')]),
         (refinemaskj, extractcbf, [('out_mask', 'in_mask')]),
         # extract probability maps
         (inputnode, csf_tfm, [('bold_mask', 'reference_image'),
@@ -207,11 +213,13 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
                          name='outputnode')
     mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
     from templateflow.api import get as get_template
+    seg = get_template(
+            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
+            suffix='dseg')
+    print(seg)
     resample_parc = pe.Node(ApplyTransforms(
         float=True,
-        input_image=str(get_template(
-            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
-            suffix='dseg', extension=['.nii', '.nii.gz'])),
+        input_image=str(seg),
         dimension=3, default_value=0, interpolation='MultiLabel'),
         name='resample_parc')
 

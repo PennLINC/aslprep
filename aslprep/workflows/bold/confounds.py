@@ -235,11 +235,12 @@ def init_carpetplot_wf(mem_gb, metadata, name="bold_carpet_wf"):
     mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
 
     # Warp segmentation into EPI space
+    seg= get_template(
+            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
+            suffix='dseg')
     resample_parc = pe.Node(ApplyTransforms(
         float=True,
-        input_image=str(get_template(
-            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
-            suffix='dseg', extension=['.nii', '.nii.gz'])),
+        input_image=str(seg),
         dimension=3, default_value=0, interpolation='MultiLabel'),
         name='resample_parc')
 

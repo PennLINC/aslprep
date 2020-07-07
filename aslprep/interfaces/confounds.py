@@ -323,7 +323,7 @@ class FMRISummary(SimpleInterface):
     output_spec = FMRISummaryOutputSpec
 
     def _run_interface(self, runtime):
-        from niworkflows.viz.plots import fMRIPlot
+        from ..niworkflows.viz.plots import fMRIPlot
 
         self._results['out_file'] = fname_presuffix(
             self.inputs.in_func,

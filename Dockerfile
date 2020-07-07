@@ -64,23 +64,6 @@ RUN curl -o pandoc-2.2.2.1-1-amd64.deb -sSL "https://github.com/jgm/pandoc/relea
     dpkg -i pandoc-2.2.2.1-1-amd64.deb && \
     rm pandoc-2.2.2.1-1-amd64.deb
 
-# Install qt5.12.2
-RUN add-apt-repository ppa:beineri/opt-qt-5.12.2-xenial \
-    && apt-get update \
-    && apt install -y --no-install-recommends \
-    freetds-common libclang1-5.0 libllvm5.0 libodbc1 libsdl2-2.0-0 libsndio6.1 \
-    libsybdb5 libxcb-xinerama0 qt5123d qt512base qt512canvas3d \
-    qt512connectivity qt512declarative qt512graphicaleffects \
-    qt512imageformats qt512location qt512multimedia qt512scxml qt512svg \
-    qt512wayland qt512x11extras qt512xmlpatterns qt512charts-no-lgpl \
-    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-ENV QT_BASE_DIR="/opt/qt512"
-ENV QTDIR="$QT_BASE_DIR" \
-    PATH="$QT_BASE_DIR/bin:$PATH:/opt/dsi-studio/dsi_studio_64" \
-    LD_LIBRARY_PATH="$QT_BASE_DIR/lib/x86_64-linux-gnu:$QT_BASE_DIR/lib:$LD_LIBRARY_PATH" \
-    PKG_CONFIG_PATH="$QT_BASE_DIR/lib/pkgconfig:$PKG_CONFIG_PATH"
-
 # Installing freesurfer
 RUN curl -sSL https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/6.0.1/freesurfer-Linux-centos6_x86_64-stable-pub-v6.0.1.tar.gz | tar zxv --no-same-owner -C /opt \
     --exclude='freesurfer/trctrain' \
@@ -200,7 +183,7 @@ ENV AFNI_INSTALLDIR=/usr/lib/afni \
     MRTRIX_NTHREADS=1 \
     IS_DOCKER_8395080871=1
 
-RUN conda install -y python=3.7.1 \
+RUN conda install -y python=3.7.4 \
                      pip=19.1 \
                      mkl=2018.0.3 \
                      mkl-service \
@@ -240,8 +223,13 @@ RUN pip install --no-cache-dir "$( grep templateflow aslprep-setup.cfg | xargs )
                          desc=None, extension=['.nii', '.nii.gz']); \
                tfapi.get('MNI152NLin6Asym', atlas=None, resolution=[1, 2], \
                          desc='brain', extension=['.nii', '.nii.gz']); \
-               tfapi.get('MNI152NLin2009cAsym', atlas=None, extension=['.nii', '.nii.gz']); \
-               tfapi.get('OASIS30ANTs', extension=['.nii', '.nii.gz']);" && \
+               tfapi.get('MNI152NLin2009cAsym', atlas=None, resolution=[1, 2],\
+                                        extension=['.nii', '.nii.gz']); \
+               tfapi.get('OASIS30ANTs', extension=['.nii', '.nii.gz']); \
+               tfapi.get('fsaverage', density='164k', desc='std', suffix='sphere'); \
+               tfapi.get('fsaverage', density='164k', desc='vaavg', suffix='midthickness'); \
+               tfapi.get('fsLR', density='32k'); \
+               tfapi.get('MNI152NLin6Asym', resolution=2, atlas='HCP', suffix='dseg')" && \
     rm aslprep-setup.cfg && \
     find $HOME/.cache/templateflow -type d -exec chmod go=u {} + && \
     find $HOME/.cache/templateflow -type f -exec chmod go=u {} +
@@ -275,7 +263,6 @@ ARG VERSION
 LABEL org.label-schema.build-date=$BUILD_DATE \
       org.label-schema.name="ASLPrep" \
       org.label-schema.description="ASLPrep - robust ASL preprocessing tool" \
-      org.label-schema.url="http://aslprep.org" \
       org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vcs-url="https://github.com/PennLINC/aslprep" \
       org.label-schema.version=$VERSION \
