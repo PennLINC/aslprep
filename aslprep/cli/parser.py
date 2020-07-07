@@ -310,14 +310,14 @@ https://aslprep.readthedocs.io/en/%s/spaces.html"""
         action="store",
         default=0,
         type=int,
-        help="Number of first n vol to ingnore.",
+        help="Number of initial volumes to ignore",
         )
     g_conf.add_argument(
         "--smooth_kernel",
         action="store",
         default=5,
         type=int,
-        help="smoothing kernel for M0",
+        help="Smoothing kernel for the M0 image(s)",
     )
     # Confounds options
 
