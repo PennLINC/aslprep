@@ -107,12 +107,12 @@ sampled to those subject spaces.
 
 ASL derivatives
 ~~~~~~~~~~~~~~~~~~~~~~
-ASL derivatives are stored in the ``asl/`` subfolder.
+ASL derivatives are stored in the ``perf/`` subfolder.
 All derivatives contain ``task-<task_label>`` (mandatory) and ``run-<run_index>`` (optional), and
 these will be indicated with ``[specifiers]``::
 
   sub-<subject_label>/
-    asl/
+    perf/
       sub-<subject_label>_[specifiers]_space-<space_label>_aslref.nii.gz
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-brain_mask.nii.gz
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-preproc_asl.nii.gz
@@ -135,7 +135,7 @@ subject's T1w space and resampled to the BOLD grid, and the BOLD series are resa
 mid-thickness surface mesh::
 
   sub-<subject_label>/
-    asl/
+    perf/
       sub-<subject_label>_[specifiers]_space-T1w_desc-aparcaseg_dseg.nii.gz
       sub-<subject_label>_[specifiers]_space-T1w_desc-aseg_dseg.nii.gz
       sub-<subject_label>_[specifiers]_space-<space_label>_hemi-[LR].func.gii
@@ -154,7 +154,7 @@ If CIFTI outputs are requested (with the ``--cifti-outputs`` argument), the BOLD
 saved as ``dtseries.nii`` CIFTI2 files::
 
   sub-<subject_label>/
-    asl/
+    perf/
       sub-<subject_label>_[specifiers]_asl.dtseries.nii
 
 CIFTI output resolution can be specified as an optional parameter after ``--cifti-output``.
@@ -168,7 +168,7 @@ accompanying *confounds* file will be generated.
 Confounds_ are saved as a :abbr:`TSV (tab-separated value)` file::
 
   sub-<subject_label>/
-    asl/
+    perf/
       sub-<subject_label>_[specifiers]_desc-confounds_regressors.tsv
       sub-<subject_label>_[specifiers]_desc-confounds_regressors.json
 
@@ -188,7 +188,7 @@ CBF qulaity control
 *ASLPrep* produces a qc file for each asl run::
 
     sub-<subject_label>/
-      asl/
+      perf/
       sub-<subject_label>_[specifiers]_cbfqc.csv
 
 The following quality control (qc) measures were  estimated: framewise displacement 
