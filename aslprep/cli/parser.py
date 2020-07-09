@@ -298,7 +298,7 @@ https://aslprep.readthedocs.io/en/%s/spaces.html"""
         help="Number of non steady state volumes.",
     )
     g_conf.add_argument(
-        "--random-seed",
+        "--random-seed",dummy
         action="store",
         type=int,
         default=None,
