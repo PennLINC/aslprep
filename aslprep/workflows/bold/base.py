@@ -330,10 +330,16 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     )
 
     # apply BOLD registration to T1w
+    nonstd_spaces = set(spaces.get_nonstandard())
+    t1cbfspace=False
+    if nonstd_spaces.intersection(('T1w', 'anat')):
+        t1cbfspace=True
+    
     bold_t1_trans_wf = init_bold_t1_trans_wf(name='bold_t1_trans_wf',
                                              freesurfer=freesurfer,
                                              use_fieldwarp=bool(fmaps),
                                              multiecho=multiecho,
+                                             cbft1space=t1cbfspace,
                                              mem_gb=mem_gb['resampled'],
                                              omp_nthreads=omp_nthreads,
                                              use_compression=False)
