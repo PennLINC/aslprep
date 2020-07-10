@@ -88,13 +88,13 @@ class extractCBF(SimpleInterface):
 
     def _run_interface(self, runtime):
         file1 = os.path.abspath(self.inputs.bold_file)
-        aslcontext1 = file1.replace('_asl.nii.gz', '_aslContext.tsv')
+        aslcontext1 = file1.replace('_asl.nii.gz', '_aslcontext.tsv')
         aslcontext = pd.read_csv(aslcontext1, header=None)
-        #m0file = file1.replace('_asl.nii.gz', '_MoScan.nii.gz')
+        m0file = file1.replace('_asl.nii.gz', '_moscan.nii.gz')
         idasl = aslcontext[0].tolist()
-        controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'Control']
-        labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'Label']
-        #m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'MoScan']
+        controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
+        labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
+        m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'moscan']
         allasl = nb.load(self.inputs.in_file)
         mask = nb.load(self.inputs.in_mask).get_fdata()
         dataasl = allasl.get_fdata()
@@ -107,20 +107,20 @@ class extractCBF(SimpleInterface):
             cbf_data = np.delete(cbf_data, range(0, self.inputs.dummy_vols), axis=3)
             control_img = np.delete(control_img, range(0, self.inputs.dummy_vols), axis=3)
         # MO file
-        #if os.path.isfile(m0file):
-        # mfile=nb.load(m0file).get_fdata()
-        #m0data_smooth = smooth_image(nb.load(m0file), fwhm=self.inputs.fwhm).get_data()
-        #avg_control = mask*np.mean(m0data_smooth, axis=3)
-        #elif len(m0list) > 0:
-        #modata2 = dataasl[:, :, :, m0list]
-        #con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-        #m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_data()
-        #avg_control = mask*np.mean(m0data_smooth, axis=3)
-        #else:
-        control_img = dataasl[:, :, :, controllist]
-        con = nb.Nifti1Image(control_img, allasl.affine, allasl.header)
-        control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_data()
-        avg_control = mask*np.mean(control_img1, axis=3)
+        if os.path.isfile(m0file):
+            mfile=nb.load(m0file).get_fdata()
+            m0data_smooth = smooth_image(nb.load(m0file), fwhm=self.inputs.fwhm).get_data()
+            avg_control = mask*np.mean(m0data_smooth, axis=3)
+        elif len(m0list) > 0:
+            modata2 = dataasl[:, :, :, m0list]
+            con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
+            m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_data()
+            avg_control = mask*np.mean(m0data_smooth, axis=3)
+        else:
+            control_img = dataasl[:, :, :, controllist]
+            con = nb.Nifti1Image(control_img, allasl.affine, allasl.header)
+            control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_data()
+            avg_control = mask*np.mean(control_img1, axis=3)
         self._results['out_file'] = fname_presuffix(self.inputs.in_file,
                                                     suffix='_cbftimeseries', newpath=runtime.cwd)
         self._results['out_avg'] = fname_presuffix(self.inputs.in_file,
