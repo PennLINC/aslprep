@@ -175,7 +175,7 @@ def init_bold_reg_wf(
     return workflow
 
 
-def init_bold_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, multiecho=False, use_fieldwarp=False,
+def init_bold_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, multiecho=False, use_fieldwarp=False,
                           use_compression=True, name='bold_t1_trans_wf'):
     """
     Co-register the reference BOLD image to T1w-space.
@@ -316,40 +316,15 @@ def init_bold_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, multiecho=False, use
             (aseg_t1w_tfm, outputnode, [('output_image', 'bold_aseg_t1')]),
             (aparc_t1w_tfm, outputnode, [('output_image', 'bold_aparc_t1')]),
         ])
-
     bold_to_t1w_transform = pe.Node(
-        MultiApplyTransforms(interpolation="LanczosWindowedSinc", float=True, copy_dtype=True),
-        name='bold_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    cbf_to_t1w_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
-                        dimension=3),
-        name='cbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    meancbf_to_t1w_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='meancbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    score_to_t1w_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
-                        dimension=3),
-        name='score_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    avgscore_to_t1w_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='avgscore_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    scrub_to_t1w_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='scrub_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    basil_to_t1w_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='basil_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    pv_to_t1w_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='pv_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
+                  MultiApplyTransforms(interpolation="LanczosWindowedSinc", float=True, copy_dtype=True),
+                  name='bold_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
     # merge 3D volumes into 4D timeseries
     merge = pe.Node(Merge(compress=use_compression), name='merge', mem_gb=mem_gb)
 
     # Generate a reference on the target T1w space
     gen_final_ref = init_bold_reference_wf(omp_nthreads, pre_mask=True)
-
+    
     if not multiecho:
         # Merge transforms placing the head motion correction last
         nforms = 2 + int(use_fieldwarp)
@@ -367,6 +342,12 @@ def init_bold_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, multiecho=False, use
                 ('itk_bold_to_t1', 'in1')]),
             (merge_xforms, bold_to_t1w_transform, [('out', 'transforms')]),
             (inputnode, bold_to_t1w_transform, [('bold_split', 'input_image')]),
+            (inputnode, merge, [('name_source', 'header_source')]),
+            (gen_ref, bold_to_t1w_transform, [('out_file', 'reference_image')]),
+            (bold_to_t1w_transform, merge, [('out_files', 'in_files')]),
+            (merge, gen_final_ref, [('out_file', 'inputnode.bold_file')]),
+            (mask_t1w_tfm, gen_final_ref, [('output_image', 'inputnode.bold_mask')]),
+            (merge, outputnode, [('out_file', 'bold_t1')]),
         ])
 
     else:
@@ -378,15 +359,42 @@ def init_bold_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, multiecho=False, use
             (inputnode, bold_split, [('bold_split', 'in_file')]),
             (bold_split, bold_to_t1w_transform, [('out_files', 'input_image')]),
             (inputnode, bold_to_t1w_transform, [('itk_bold_to_t1', 'transforms')]),
+            (inputnode, merge, [('name_source', 'header_source')]),
+            (gen_ref, bold_to_t1w_transform, [('out_file', 'reference_image')]),
+            (bold_to_t1w_transform, merge, [('out_files', 'in_files')]),
+            (merge, gen_final_ref, [('out_file', 'inputnode.bold_file')]),
+            (mask_t1w_tfm, gen_final_ref, [('output_image', 'inputnode.bold_mask')]),
+            (merge, outputnode, [('out_file', 'bold_t1')]),
         ])
 
-    workflow.connect([
-        (inputnode, merge, [('name_source', 'header_source')]),
-        (gen_ref, bold_to_t1w_transform, [('out_file', 'reference_image')]),
-        (bold_to_t1w_transform, merge, [('out_files', 'in_files')]),
-        (merge, gen_final_ref, [('out_file', 'inputnode.bold_file')]),
-        (mask_t1w_tfm, gen_final_ref, [('output_image', 'inputnode.bold_mask')]),
-        (merge, outputnode, [('out_file', 'bold_t1')]),
+    if cbft1space:
+        
+        
+        cbf_to_t1w_transform = pe.Node(
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
+                        dimension=3),
+              name='cbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        meancbf_to_t1w_transform = pe.Node(
+                         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+                         name='meancbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        score_to_t1w_transform = pe.Node(
+             ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
+                        dimension=3),
+             name='score_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        avgscore_to_t1w_transform = pe.Node(
+            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+           name='avgscore_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        scrub_to_t1w_transform = pe.Node(
+              ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+              name='scrub_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        basil_to_t1w_transform = pe.Node(
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+            name='basil_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        pv_to_t1w_transform = pe.Node(
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+               name='pv_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        workflow.connect([
+         
         (gen_final_ref, outputnode, [('outputnode.ref_image', 'bold_t1_ref')]),
 
         (inputnode, cbf_to_t1w_transform, [('cbf', 'input_image')]),
@@ -423,7 +431,7 @@ def init_bold_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, multiecho=False, use
         (pv_to_t1w_transform, outputnode, [('output_image', 'pv_t1')]),
         (inputnode, pv_to_t1w_transform, [('itk_bold_to_t1', 'transforms')]),
         (gen_ref, pv_to_t1w_transform, [('out_file', 'reference_image')]),
-    ])
+         ])
 
     return workflow
 

@@ -296,13 +296,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ('cifti_metadata', 'inputnode.cifti_metadata'),
             ('cifti_density', 'inputnode.cifti_density'),
             ('confounds_metadata', 'inputnode.confounds_metadata'),
-            ('cbf_t1', 'inputnode.cbf_t1'),
-            ('meancbf_t1', 'inputnode.meancbf_t1'),
-            ('score_t1', 'inputnode.score_t1'),
-            ('avgscore_t1', 'inputnode.avgscore_t1'),
-            ('scrub_t1', 'inputnode.scrub_t1'),
-            ('basil_t1', 'inputnode.basil_t1'),
-            ('pv_t1', 'inputnode.pv_t1'),
         ]),
     ])
 
@@ -337,10 +330,16 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     )
 
     # apply BOLD registration to T1w
+    nonstd_spaces = set(spaces.get_nonstandard())
+    t1cbfspace=False
+    if nonstd_spaces.intersection(('T1w', 'anat')):
+        t1cbfspace=True
+    
     bold_t1_trans_wf = init_bold_t1_trans_wf(name='bold_t1_trans_wf',
                                              freesurfer=freesurfer,
                                              use_fieldwarp=bool(fmaps),
                                              multiecho=multiecho,
+                                             cbft1space=t1cbfspace,
                                              mem_gb=mem_gb['resampled'],
                                              omp_nthreads=omp_nthreads,
                                              use_compression=False)
@@ -646,13 +645,13 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                               ('outputnode.out_scrub', 'inputnode.scrub'),
                                               ('outputnode.out_cbfb', 'inputnode.basil'),
                                               ('outputnode.out_cbfpv', 'inputnode.pv')]),
-            (bold_t1_trans_wf, outputnode, [('outputnode.cbf_t1', 'cbf_t1'),
-                                            ('outputnode.meancbf_t1', 'meancbf_t1'),
-                                            ('outputnode.score_t1', 'score_t1'),
-                                            ('outputnode.avgscore_t1', 'avgscore_t1'),
-                                            ('outputnode.scrub_t1', 'scrub_t1'),
-                                            ('outputnode.basil_t1', 'basil_t1'),
-                                            ('outputnode.pv_t1', 'pv_t1')]),
+            (bold_t1_trans_wf, func_derivatives_wf, [('outputnode.cbf_t1', 'inputnode.cbf_t1'),
+                                            ('outputnode.meancbf_t1', 'inputnode.meancbf_t1'),
+                                            ('outputnode.score_t1', 'inputnode.score_t1'),
+                                            ('outputnode.avgscore_t1', 'inputnode.avgscore_t1'),
+                                            ('outputnode.scrub_t1', 'inputnode.scrub_t1'),
+                                            ('outputnode.basil_t1', 'inputnode.basil_t1'),
+                                            ('outputnode.pv_t1', 'inputnode.pv_t1')]),
                           ])
 
     if nonstd_spaces.intersection(('func', 'run', 'bold', 'boldref', 'sbref')):
