@@ -198,7 +198,6 @@ class computeCBF(SimpleInterface):
         mat1.inputs.operand_files = self.inputs.in_mask
         mat1.inputs.out_file = self.inputs.out_cbf
         mat1.run()
-
         return runtime
 
 
@@ -263,6 +262,9 @@ def cbfcomputation(metadata, mask, m0file, cbffile):
         cbf = cbf1*perfusion_factor
         # cbf is timeseries
     meancbf = mask*(np.mean(cbf, axis=3))
+    meancbf = np.nan_to_num(meancbf)
+    cbf = np.nan_to_num(cbf)
+    att = np.nan_to_num(att)
     return cbf, meancbf, att
 
 # score and scrub
@@ -466,6 +468,7 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     cbfts_recon1 = np.zeros_like(cbfts_recon)
     for i in range(cbfts_recon.shape[3]):
         cbfts_recon1[:, :, :, i] = cbfts_recon[:, :, :, i]*mask
+    cbfts_recon1 = np.nan_to_num(cbfts_recon1)
     return cbfts_recon1, indx
 
 
@@ -510,6 +513,7 @@ def _roubustfit(Y, mu, Globalprior, modrobprior, lmd=0, localprior=0, wfun='hube
         x = X*z
         yz = Y*z
         b = (np.sum(x*yz, axis=0)+mu*Globalprior+lmd*localprior)/(np.sum(x*x, axis=0)+mu+lmd)
+        b = np.nan_to_num(b)
     return b
 
 
@@ -561,6 +565,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber', thresh=0.7):
                      flagmodrobust=1, flagprior=1, thresh=0.7)
     newcbf = meancbf*mask
     newcbf[mask == 1] = bb
+    newcbf=np.nan_to_num(newcbf)
     return newcbf
 
 # basil and pvcorr
