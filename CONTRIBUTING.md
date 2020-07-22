@@ -95,7 +95,8 @@ We actively monitor both spaces and look forward to hearing from you in either v
 
 ## Contributing through GitHub
 
-[git][link_git] is a really useful tool for version control.
+[git][
+_git] is a really useful tool for version control.
 [GitHub][link_github] sits on top of git and supports collaborative and distributed working.
 
 If you're not yet familiar with `git`, there are lots of great resources to help you *git* started!
@@ -106,7 +107,7 @@ On GitHub, You'll use [Markdown](https://www.markdownguide.org) to chat in issue
 You can think of Markdown as a few little symbols around your text that will allow GitHub
 to render the text with a little bit of formatting.
 For example, you could write words as bold (`**bold**`), or in italics (`*italics*`),
-or as a [link][rick_roll] (`[link](https://youtu.be/dQw4w9WgXcQ)`) to another webpage.
+or as a [link](https://youtu.be/dQw4w9WgXcQ) (`[link](https://youtu.be/dQw4w9WgXcQ)`) to another webpage.
 
 GitHub has a really helpful page for getting started with
 [writing and formatting Markdown on GitHub](https://docs.github.com/en/github/writing-on-github/basic-writing-and-formatting-syntax).
@@ -126,7 +127,7 @@ is difficult to describe as one unit of work, please consider splitting it into 
 
 ### Issue Labels
 
-The current list of issue labels are [here][link_labels] and include:
+The current list of issue labels are [here](https://github.com/PennLINC/aslprep/labels) and include:
 
 * These issues contain a task that is amenable to new contributors because it doesn't entail a steep learning curve.*
 
@@ -158,15 +159,15 @@ but those accepted fastest will follow a workflow similar to the following:
   This allows other members of the *ASLPrep* development team to confirm that you aren't
   overlapping with work that's currently underway and that everyone is on the same page
   with the goal of the work you're going to carry out.<br />
-  [This blog][link_pushpullblog] is a nice explanation of why putting this work in up front
+  [This blog](http://alblue.bandlem.com/2011/03/git-tip-of-week-pushing-and-pulling.html) is a nice explanation of why putting this work in up front
   is so useful to everyone involved.
 
 ## Recognizing contributions
 
 We welcome and recognize all contributions regardless their size, content or scope:
 from documentation to testing and code development.
-You can see a list of current developers and contributors in our [zenodo file][link_zenodo].
-Before every release, a new [zenodo file][link_zenodo] will be generated.
+You can see a list of current developers and contributors in our [zenodo file](https://zenodo.org/record/3932697#.XxeLpC2z1wc).
+Before every release, a new [zenodo file](https://zenodo.org/record/3932697#.XxeLpC2z1wc) will be generated.
 The [update script][link_update_script] will also sort creators and contributors by
 the relative size of their contributions, as provided by the `git-line-summary` utility
 distributed with the `git-extras` package.
