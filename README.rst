@@ -27,7 +27,7 @@ volume-based statistics, etc.
 
 
 The *ASLPrep* pipeline uses a combination of tools from well-known software
-packages, including FSL_, ANTs_, FreeSurfer_ and AFNI_.
+packages, including `FSL <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/>`_, `ANTs <http://stnava.github.io/ANTs/>`_, `Freesurfer <https://surfer.nmr.mgh.harvard.edu>`_ and `AFNI <https://afni.nimh.nih.gov>`_.
 This pipeline was designed to provide the best software implementation for each
 state of preprocessing, and will be updated as newer and better neuroimaging
 software become available.
@@ -88,4 +88,4 @@ Acknowledgements
 ----------------
 
 Please acknowledge this work using the citation boilerplate that *ASLPrep* includes
-in the visual report generated for every subject processed.
+in the visual report generated for every subject processed. `(link) <https://aslprep.readthedocs.io/en/latest/citing.html>`_
