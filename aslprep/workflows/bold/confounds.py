@@ -282,8 +282,9 @@ def init_carpetplot_wf(mem_gb, metadata, name="bold_carpet_wf"):
             ('framewise_displacement', 'mm', 'FD')]),
         name='conf_plot', mem_gb=mem_gb)
     ds_report_bold_conf = pe.Node(
-        DerivativesDataSink(desc='carpetplot', keep_dtype=True),
-        name='ds_report_bold_conf', run_without_submitting=True,
+        DerivativesDataSink(desc='carpetplot',datatype="figures", 
+        keep_dtype=True),
+         name='ds_report_bold_conf', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)
 
     workflow = Workflow(name=name)
