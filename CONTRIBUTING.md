@@ -1,6 +1,6 @@
 # Contributing to *ASLPrep*
 
-Welcome to the *fMRIPrep* repository!
+Welcome to the *ASLPrep* repository!
 We're excited you're here and want to contribute.
 
 **Imposter's syndrome disclaimer**[^1]: We want your help. No, really.
@@ -48,9 +48,9 @@ seasoned contributors have glossed over.
 These principles distill some design and organizational foundations:
 
   1. The tool only and fully supports BIDS and BIDS-Derivatives for the input and output data.
-  1. The tool is packaged as a fully-compliant [BIDS-App][link_bidsapps], not just in its user
+  1. The tool is packaged as a fully-compliant [BIDS-App](https://bids-apps.neuroimaging.io), not just in its user
      interface, but also in the continuous integration, testing and delivery.
-  1. The ASL is not fully supported by BIDS as of now, it is in [progresss][https://docs.google.com/document/d/15tnn5F10KpgHypaQJNNGiNKsni9035GtDqJzWqkkP6c/edit#]. A simple step has been develop to convert ASL to BIDS [format][https://github.com/PennBBL/aslbids].
+  1. The ASL is not fully supported by BIDS as of now, it is in [progress](https://docs.google.com/document/d/15tnn5F10KpgHypaQJNNGiNKsni9035GtDqJzWqkkP6c/edit#). A simple tool has been developed to convert ASL to BIDS format, [aslbids](https://github.com/PennLINC/aslbids).
   1. The tool is rigorously restricted to ASL preprocessing and cbf computation, including (but not limited to):
      input/output metadata assessment, head-motion correction, susceptibility-distortion correction,
      co-registration with anatomical data, spatial normalization to neuroimaging templates.
@@ -67,10 +67,10 @@ These principles distill some design and organizational foundations:
 
 These guidelines are designed to make it as easy as possible to get involved.
 If you have any questions that aren't discussed below,
-please let us know by opening an [issue][link_issues]!
+please let us know by opening an [issue](https://github.com/PennLINC/aslprep/issues)!
 
-Before you start, you'll need to set up a free [GitHub][link_github] account and sign in.
-Here are some [instructions][link_signupinstructions].
+Before you start, you'll need to set up a free [GitHub](https://github.com) account and sign in.
+Here are some [instructions](https://docs.github.com/en/github/getting-started-with-github/signing-up-for-a-new-github-account).
 
 Already know what you're looking for in this guide? Jump to the following sections:
 
@@ -86,34 +86,35 @@ Already know what you're looking for in this guide? Jump to the following sectio
 
 *ASLPrep* is maintained by a growing group of enthusiastic developers&mdash;
 and we're excited to have you join!
-Most of our discussions will take place on open [issues][link_issues].
+Most of our discussions will take place on open [issues](https://github.com/PennLINC/aslprep/issues).
 
-We also encourage users to report any difficulties they encounter on [NeuroStars][link_neurostars],
+We also encourage users to report any difficulties they encounter on [NeuroStars](https://neurostars.org),
 a community platform for discussing neuroimaging.
 
 We actively monitor both spaces and look forward to hearing from you in either venue!
 
 ## Contributing through GitHub
 
-[git][link_git] is a really useful tool for version control.
+[git][
+_git] is a really useful tool for version control.
 [GitHub][link_github] sits on top of git and supports collaborative and distributed working.
 
 If you're not yet familiar with `git`, there are lots of great resources to help you *git* started!
-Some of our favorites include the [git Handbook][link_handbook] and
-the [Software Carpentry introduction to git][link_swc_intro].
+Some of our favorites include the [git Handbook](https://guides.github.com/introduction/git-handbook/) and
+the [Software Carpentry introduction to git](https://swcarpentry.github.io/git-novice/).
 
-On GitHub, You'll use [Markdown][markdown] to chat in issues and pull requests.
+On GitHub, You'll use [Markdown](https://www.markdownguide.org) to chat in issues and pull requests.
 You can think of Markdown as a few little symbols around your text that will allow GitHub
 to render the text with a little bit of formatting.
 For example, you could write words as bold (`**bold**`), or in italics (`*italics*`),
-or as a [link][rick_roll] (`[link](https://youtu.be/dQw4w9WgXcQ)`) to another webpage.
+or as a [link](https://youtu.be/dQw4w9WgXcQ) (`[link](https://youtu.be/dQw4w9WgXcQ)`) to another webpage.
 
 GitHub has a really helpful page for getting started with
-[writing and formatting Markdown on GitHub][writing_formatting_github].
+[writing and formatting Markdown on GitHub](https://docs.github.com/en/github/writing-on-github/basic-writing-and-formatting-syntax).
 
 ## Understanding issues
 
-Every project on GitHub uses [issues][link_issues] slightly differently.
+Every project on GitHub uses [issues](https://github.com/PennLINC/aslprep/issues) slightly differently.
 
 The following outlines how the *ASLPrep* developers think about these tools.
 
@@ -126,7 +127,7 @@ is difficult to describe as one unit of work, please consider splitting it into 
 
 ### Issue Labels
 
-The current list of issue labels are [here][link_labels] and include:
+The current list of issue labels are [here](https://github.com/PennLINC/aslprep/labels) and include:
 
 * These issues contain a task that is amenable to new contributors because it doesn't entail a steep learning curve.*
 
@@ -158,15 +159,15 @@ but those accepted fastest will follow a workflow similar to the following:
   This allows other members of the *ASLPrep* development team to confirm that you aren't
   overlapping with work that's currently underway and that everyone is on the same page
   with the goal of the work you're going to carry out.<br />
-  [This blog][link_pushpullblog] is a nice explanation of why putting this work in up front
+  [This blog](http://alblue.bandlem.com/2011/03/git-tip-of-week-pushing-and-pulling.html) is a nice explanation of why putting this work in up front
   is so useful to everyone involved.
 
 ## Recognizing contributions
 
 We welcome and recognize all contributions regardless their size, content or scope:
 from documentation to testing and code development.
-You can see a list of current developers and contributors in our [zenodo file][link_zenodo].
-Before every release, a new [zenodo file][link_zenodo] will be generated.
+You can see a list of current developers and contributors in our [zenodo file](https://zenodo.org/record/3932697#.XxeLpC2z1wc).
+Before every release, a new [zenodo file](https://zenodo.org/record/3932697#.XxeLpC2z1wc) will be generated.
 The [update script][link_update_script] will also sort creators and contributors by
 the relative size of their contributions, as provided by the `git-line-summary` utility
 distributed with the `git-extras` package.
@@ -222,5 +223,5 @@ you acknowledge that any contributions will be licensed under the same terms.
 ## Thank you!
 
 You're awesome. :wave::smiley:
-[link_github]: https://github.com/
-[link_ASLPrep]: https://github.com/pennlinc/aslprep
+[Github](https://github.com/): https://github.com/
+[ASLPrep](https://github.com/pennlinc/aslprep): https://github.com/pennlinc/aslprep
