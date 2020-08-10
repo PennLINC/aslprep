@@ -23,8 +23,6 @@ from ..interfaces.utils import CopyXForm
 from ..utils.connections import listify
 from ..utils.misc import pass_dummy_scans as _pass_dummy_scans
 
-from ...interfaces.cbf_computation import refinemask
-
 
 DEFAULT_MEMORY_MIN_GB = 0.01
 
@@ -342,7 +340,6 @@ def init_enhance_and_skullstrip_bold_wf(
         ),
         name="outputnode",
     )
-    
 
     # Dilate pre_mask
     pre_dilate = pe.Node(
@@ -494,9 +491,22 @@ def init_enhance_and_skullstrip_bold_wf(
         (pre_dilate, check_hdr, [("out_file", "in_file")]),
         (check_hdr, n4_correct, [("out_file", "mask_image")]),
         (inputnode, n4_correct, [("in_file", "input_image")]),
+        (inputnode, fixhdr_unifize, [("in_file", "hdr_file")]),
+        (inputnode, fixhdr_skullstrip2, [("in_file", "hdr_file")]),
         (n4_correct, skullstrip_first_pass, [("output_image", "in_file")]),
-        (skullstrip_first_pass, outputnode, [("mask_file", "mask_file")]),
-        (skullstrip_first_pass, outputnode, [("out_file", "skull_stripped_file")]),
+        (skullstrip_first_pass, bet_dilate, [("mask_file", "in_file")]),
+        (bet_dilate, bet_mask, [("out_file", "mask_file")]),
+        (skullstrip_first_pass, bet_mask, [("out_file", "in_file")]),
+        (bet_mask, unifize, [("out_file", "in_file")]),
+        (unifize, fixhdr_unifize, [("out_file", "in_file")]),
+        (fixhdr_unifize, skullstrip_second_pass, [("out_file", "in_file")]),
+        (skullstrip_first_pass, combine_masks, [("mask_file", "in_file")]),
+        (skullstrip_second_pass, fixhdr_skullstrip2, [("out_file", "in_file")]),
+        (fixhdr_skullstrip2, combine_masks, [("out_file", "operand_file")]),
+        (fixhdr_unifize, apply_mask, [("out_file", "in_file")]),
+        (combine_masks, apply_mask, [("out_file", "mask_file")]),
+        (combine_masks, outputnode, [("out_file", "mask_file")]),
+        (apply_mask, outputnode, [("out_file", "skull_stripped_file")]),
         (n4_correct, outputnode, [("output_image", "bias_corrected_file")]),
     ])
     # fmt: on
