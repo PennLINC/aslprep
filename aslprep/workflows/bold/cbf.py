@@ -86,12 +86,6 @@ also included correction for partial volume effects [@chappell_pvc].
     gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
                      name='gm_tfm', mem_gb=0.1)
 
- 
-    if 'CASL' in metadata["LabelingType"]:
-        pcasl = True
-    elif 'PASL' in metadata["LabelingType"]:
-        pcasl = False
-    
 
     extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols, fwhm=smooth_kernel), mem_gb=0.2,
                          run_without_submitting=True, name="extractcbf")
@@ -103,7 +97,7 @@ also included correction for partial volume effects [@chappell_pvc].
                                 m0tr=metadata['RepetitionTime'], pvc=True,
                                 tis=np.add(metadata["PostLabelingDelay"],
                                            metadata["LabelingDuration"]),
-                       pcasl=pcasl), name='basilcbf',
+                       pcasl=pcaslorasl(metadata)), name='basilcbf',
                        run_without_submitting=True, mem_gb=0.2)
 
     refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
@@ -160,6 +154,14 @@ also included correction for partial volume effects [@chappell_pvc].
                                   ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
         ])
     return workflow
+
+def pcaslorasl(metadata):
+    if 'CASL' in metadata["LabelingType"]:
+        pcasl = True
+    elif 'PASL' in metadata["LabelingType"]:
+        pcasl = False
+
+    return pcasl
 
 
 def init_cbfqc_compt_wf(mem_gb, bold_file, metadata, omp_nthreads, name='cbfqc_compt_wf'):

@@ -388,9 +388,12 @@ CBF Computation in native space
     from pathlib import Path
     from pkg_resources import resource_filename as pkgrf
     bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
-    metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
+    metadatafile = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
+    import json
+    with open(metadatafile) as f:
+        metadata = json.load(f)
     from aslprep.workflows.bold.cbf import init_cbf_compt_wf
-    wf = init_cbf_compt_wf(mem_gb=0.1,metadata=str(metadata), omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
+    wf = init_cbf_compt_wf(mem_gb=0.1,metadata=metadata, omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
 ALl the CBF derivates are computed from preprocessed :ref:`ASL <asl_preproc>`.
 This inlude CBF computation by basic model and :abbr:`BASIL (Bayesian Inference for Arterial Spin Labeling )`.
