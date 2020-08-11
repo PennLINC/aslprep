@@ -271,7 +271,7 @@ https://aslprep.readthedocs.io/en/%s/spaces.html"""
         "--force-bbr",
         action="store_true",
         dest="use_bbr",
-        default=None,
+        default=True,
         help="Always use boundary-based registration (no goodness-of-fit checks)",
     )
     g_conf.add_argument(
