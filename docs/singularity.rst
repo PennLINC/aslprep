@@ -83,7 +83,7 @@ before running: ::
 
 It is possible to define environment variables scoped within the container by
 using the ``SINGULARITYENV_*`` magic, in combination with ``--cleanenv``.
-For example, we can set the FreeSurfer license variable (see :ref:`fs_license`)
+For example, we can set the FreeSurfer license variable 
 as follows: ::
 
     $ export SINGULARITYENV_FS_LICENSE=$HOME/.freesurfer.txt
