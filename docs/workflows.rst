@@ -21,43 +21,7 @@ is presented below:
     from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
     from aslprep.workflows.base import init_single_subject_wf
     BIDSLayout = namedtuple('BIDSLayout', ('root'))
-    wf = init_single_subject_wf(
-        anat_only=False,
-        bold2t1w_dof=9,
-        cifti_output=False,
-        debug=False,
-        dummy_scans=None,
-        echo_idx=None,
-        fmap_bspline=False,
-        fmap_demean=True,
-        force_syn=True,
-        freesurfer=True,
-        hires=True,
-        ignore=[],
-        layout=BIDSLayout('.'),
-        longitudinal=False,
-        low_mem=False,
-        medial_surface_nan=False,
-        name='single_subject_wf',
-        omp_nthreads=1,
-        output_dir='.',
-        reportlets_dir='.',
-        skull_strip_fixed_seed=False,
-        skull_strip_template=Reference('OASIS30ANTs'),
-        spaces=SpatialReferences(
-            spaces=[('MNI152Lin', {}),
-                    ('fsaverage', {'density': '10k'}),
-                    ('T1w', {}),
-                    ('fsnative', {})],
-            checkpoint=True),
-        subject_id='test',
-        t2s_coreg=False,
-        task_id='',
-        use_bbr=True,
-        use_syn=True,
-        bids_filters=None,
-        pcasl=pcasl,
-    )
+    wf = init_single_subject_wf('01')
 
 Preprocessing of structural MRI
 -------------------------------
@@ -79,6 +43,7 @@ single reference template (see `Longitudinal processing`_).
         longitudinal=False,
         omp_nthreads=1,
         output_dir='.',
+        skull_strip_mode='force',
         skull_strip_template=Reference('MNI152NLin2009cAsym'),
         spaces=SpatialReferences([
             ('MNI152Lin', {}),
@@ -86,12 +51,12 @@ single reference template (see `Longitudinal processing`_).
             ('T1w', {}),
             ('fsnative', {})
         ]),
-        reportlets_dir='.',
         skull_strip_fixed_seed=False,
+        t1w=['sub-01/anat/sub-01_T1w.nii.gz'],
     )
 
 See also *sMRIPrep*'s
-:py:func:`~smriprep.workflows.anatomical.init_anat_preproc_wf`.
+:py:func:`~aslprep.smriprep.workflows.anatomical.init_anat_preproc_wf`.
 
 .. _t1preproc_steps:
 
@@ -247,12 +212,12 @@ packages, including FreeSurfer and the `Connectome Workbench`_.
     :graph2use: orig
     :simple_form: yes
 
-    from smriprep.workflows.surfaces import init_surface_recon_wf
+    from aslprep.smriprep.workflows.surfaces import init_surface_recon_wf
     wf = init_surface_recon_wf(omp_nthreads=1,
                                hires=True)
 
 See also *sMRIPrep*'s
-:py:func:`~smriprep.workflows.surfaces.init_surface_recon_wf`
+:py:func:`~aslprep.smriprep.workflows.surfaces.init_surface_recon_wf`
 
 Refinement of the brain mask
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -266,45 +231,19 @@ from the ``aseg.mgz`` file as described in
 :py:func:`~aslprep.interfaces.freesurfer.grow_mask`.
 
 ASLPrep preprocessing
-------------------
+----------------------
 :py:func:`~aslprep.workflows.bold.base.init_func_preproc_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
 
-    from collections import namedtuple
-    from aslprep.niworkflows.utils.spaces import SpatialReferences
+    from aslprep.workflows.tests import mock_config
+    from aslprep import config
     from aslprep.workflows.bold.base import init_func_preproc_wf
-    BIDSLayout = namedtuple('BIDSLayout', ['root'])
-    wf = init_func_preproc_wf(
-        bold_file='/completely/made/up/path/sub-01_task-rest_asl.nii.gz',
-        cifti_output=False,
-        debug=False,
-        dummy_scans=None,
-        err_on_aroma_warn=False,
-        fmap_bspline=True,
-        fmap_demean=True,
-        force_syn=True,
-        freesurfer=True,
-        ignore=[],
-        low_mem=False,
-        medial_surface_nan=False,
-        omp_nthreads=1,
-        output_dir='.',
-        reportlets_dir='.',
-        t2s_coreg=False,
-        spaces=SpatialReferences(
-            spaces=[('MNI152Lin', {}),
-                    ('fsaverage', {'density': '10k'}),
-                    ('T1w', {}),
-                    ('fsnative', {})],
-            checkpoint=True),
-        use_bbr=True,
-        use_syn=True,
-        layout=BIDSLayout('.'),
-        num_bold=1,
-    )
+    with mock_config():
+        bold_file = config.execution.bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
+        wf = init_func_preproc_wf(str(bold_file))
 
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.
@@ -445,9 +384,11 @@ CBF Computation in native space
 .. workflow::
     :graph2use: orig
     :simple_form: yes
-
+    from pathlib import Path
+    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
+    metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
     from aslprep.workflows.bold.cbf import init_cbf_compt_wf
-    wf = init_cbf_compt_wf(mem_gb=3, omp_nthreads=1)
+    wf = init_cbf_compt_wf(mem_gb=0.1,metadata='metadata', omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
 ALl the CBF derivates are computed from preprocessed :ref:`ASL <asl_preproc>`.
 This inlude CBF computation by basic model and :abbr:`BASIL (Bayesian Inference for Arterial Spin Labeling )`.
@@ -457,16 +398,19 @@ and :abbr:`SCRUB (Structural Correlation withRobUst Bayesian)`
 
 .. _cbf_qc:
 
-CBF Computation in native space
+Quality Controle measures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 :py:func:`~aslprep.workflows.bold.cbf.init_cbfqc_compt_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
-
+    from pathlib import Path
+    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
     from aslprep.workflows.bold.cbf import init_cbfqc_compt_wf
-    wf = init_cbfqc_compt_wf(mem_gb=3, omp_nthreads=1)
+    bold_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
+    metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
+    wf = init_cbfqc_compt_wf(mem_gb=0.1,bold_file=str(bold_file),metadata=str(metadata),omp_nthreads=1)
 
 The  quality control (qc) measures sich as FD, coregistration and nornmalizatiion index and 
 qulaity evaluation index (QEI) all CBF maps.
@@ -474,7 +418,7 @@ qulaity evaluation index (QEI) all CBF maps.
 .. _asl_reg:
 
 ASL and CBF to T1w registration
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 :py:func:`~aslprep.workflows.bold.registration.init_bold_reg_wf`
 
 .. workflow::
@@ -487,7 +431,8 @@ ASL and CBF to T1w registration
         mem_gb=1,
         omp_nthreads=1,
         use_bbr=True,
-        bold2t1w_dof=9)
+        bold2t1w_dof=9,
+        bold2t1w_init='register')
 
 The alignment between the reference :abbr:`ASL (arterial spin labelling)` image
 of each run and the reconstructed subject using the gray/white matter boundary
@@ -525,7 +470,7 @@ Resampling ASL  and CBF runs onto standard spaces
 
 This sub-workflow concatenates the transforms calculated upstream (see
 `Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_ --if
-fieldmaps are available--, `EPI to T1w registration`_, and an anatomical-to-standard
+fieldmaps are available--, and an anatomical-to-standard
 transform from `Preprocessing of structural MRI`_) to map the
 :abbr:`EPI (echo-planar imaging)`
 image to the standard spaces given by the ``--output-spaces`` argument
@@ -581,7 +526,7 @@ Confounds estimation
     :graph2use: colored
     :simple_form: yes
 
-    from aslpprep.workflows.bold.confounds import init_bold_confs_wf
+    from aslprep.workflows.bold.confounds import init_bold_confs_wf
     wf = init_bold_confs_wf(
         name="discover_wf",
         mem_gb=1,
