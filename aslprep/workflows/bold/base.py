@@ -56,8 +56,8 @@ def init_func_preproc_wf(bold_file):
             from aslprep import config
             from aslprep.workflows.bold.base import init_func_preproc_wf
             with mock_config():
-                bold_file = config.execution.bids_dir / 'sub-01' / 'func' \
-                    / 'sub-01_task-mixedgamblestask_run-01_bold.nii.gz'
+                bold_file = config.execution.bids_dir / 'sub-01' / 'perf' \
+                    / 'sub-01_task-restEyesOpen_asl.nii.gz'
                 wf = init_func_preproc_wf(str(bold_file))
 
     Parameters
@@ -111,19 +111,37 @@ def init_func_preproc_wf(bold_file):
         TSV of confounds
     surfaces
         BOLD series, resampled to FreeSurfer surfaces
-    aroma_noise_ics
-        Noise components identified by ICA-AROMA
-    melodic_mix
-        FSL MELODIC mixing matrix
     bold_cifti
         BOLD CIFTI image
     cifti_variant
         combination of target spaces for `bold_cifti`
+    cbf_t1
+        cbf times series in T1w space
+    meancbf_t1
+        mean cbf   in T1w space
+    scorecbf_t1
+        scorecbf times series in T1w space
+    avgscorecbf_t1
+        mean score cbf  in T1w space
+    scrub_t1, pv_t1, basil_t1
+        scrub, parital volume corrected and basil cbf   in T1w space
+    cbf_std
+        cbf times series in template space
+    meancbf_std
+        mean cbf   in template space
+    scorecbf_std
+        scorecbf times series in template space
+    avgscorecbf_std
+        mean score cbf  in template space
+    scrub_std, pv_std, basil_std
+        scrub, parital volume corrected and basil cbf   in template space
+    qc_file
+        quality control meausres 
 
     See Also
     --------
 
-    * :py:func:`~niworkflows.func.util.init_bold_reference_wf`
+    * :py:func:`~aslprep.niworkflows.func.util.init_bold_reference_wf`
     * :py:func:`~aslprep.workflows.bold.stc.init_bold_stc_wf`
     * :py:func:`~aslprep.workflows.bold.hmc.init_bold_hmc_wf`
     * :py:func:`~aslprep.workflows.bold.t2s.init_bold_t2s_wf`

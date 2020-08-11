@@ -42,9 +42,6 @@ from ...interfaces import (
 def init_bold_confs_wf(
     mem_gb,
     metadata,
-    #regressors_all_comps,
-    #regressors_dvars_th,
-    #regressors_fd_th,
     name="bold_confs_wf",
 ):
     """
@@ -55,15 +52,9 @@ def init_bold_confs_wf(
     regressors in a :abbr:`GLM (general linear model)`.
     The following confounds are calculated, with column headings in parentheses:
 
-    #. Region-wise average signal (``csf``, ``white_matter``, ``global_signal``)
     #. DVARS - original and standardized variants (``dvars``, ``std_dvars``)
     #. Framewise displacement, based on head-motion parameters
        (``framewise_displacement``)
-    #. Temporal CompCor (``t_comp_cor_XX``)
-    #. Anatomical CompCor (``a_comp_cor_XX``)
-    #. Cosine basis set for high-pass filtering w/ 0.008 Hz cut-off
-       (``cosine_XX``)
-    #. Non-steady-state volumes (``non_steady_state_XX``)
     #. Estimated head-motion parameters, in mm and rad
        (``trans_x``, ``trans_y``, ``trans_z``, ``rot_x``, ``rot_y``, ``rot_z``)
 
@@ -83,9 +74,6 @@ def init_bold_confs_wf(
             wf = init_bold_confs_wf(
                 mem_gb=1,
                 metadata={},
-                regressors_all_comps=False,
-                regressors_dvars_th=1.5,
-                regressors_fd_th=0.5,
             )
 
     Parameters

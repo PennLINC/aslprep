@@ -77,7 +77,6 @@ single reference template (see `Longitudinal processing`_).
         freesurfer=True,
         hires=True,
         longitudinal=False,
-        num_t1w=1,
         omp_nthreads=1,
         output_dir='.',
         skull_strip_template=Reference('MNI152NLin2009cAsym'),
@@ -146,11 +145,11 @@ in the same space and resolution as the T1 image, and follow the naming conventi
 `BIDS Extension Proposal 3: Common Derivatives <https://docs.google.com/document/d/1Wwc4A6Mow4ZPPszDIWfCUCRNstn7d_zzaWPcfcHmgI4/edit#heading=h.9146wuepclkt>`_
 (e.g., ``sub-001_T1w_label-lesion_roi.nii.gz``).
 This file should be placed in the ``sub-*/anat`` directory of the BIDS dataset
-to be run through *fMRIPrep*.
+to be run through *aslprep*.
 Because lesion masks are not currently part of the BIDS specification, it is also necessary to
 include a ``.bidsignore`` file in the root of your dataset directory. This will prevent
 `bids-validator <https://github.com/bids-standard/bids-validator#bidsignore>`_ from complaining
-that your dataset is not valid BIDS, which prevents *fMRIPrep* from running.
+that your dataset is not valid BIDS, which prevents *aslprep* from running.
 Your ``.bidsignore`` file should include the following line::
 
   *lesion_roi.nii.gz
@@ -279,7 +278,6 @@ ASLPrep preprocessing
     from aslprep.workflows.bold.base import init_func_preproc_wf
     BIDSLayout = namedtuple('BIDSLayout', ['root'])
     wf = init_func_preproc_wf(
-        bold2t1w_dof=9,
         bold_file='/completely/made/up/path/sub-01_task-rest_asl.nii.gz',
         cifti_output=False,
         debug=False,
@@ -449,7 +447,7 @@ CBF Computation in native space
     :simple_form: yes
 
     from aslprep.workflows.bold.cbf import init_cbf_compt_wf
-    wf = init_bold_preproc_trans_wf(mem_gb=3, omp_nthreads=1)
+    wf = init_cbf_compt_wf(mem_gb=3, omp_nthreads=1)
 
 ALl the CBF derivates are computed from preprocessed :ref:`ASL <asl_preproc>`.
 This inlude CBF computation by basic model and :abbr:`BASIL (Bayesian Inference for Arterial Spin Labeling )`.
@@ -457,6 +455,21 @@ The BASIL includes spatial regularization and partial volume correction.
 The computed CBF are further denoised by :abbr:`SCORE (Structural Correlation based Outlier Rejection)`
 and :abbr:`SCRUB (Structural Correlation withRobUst Bayesian)`
 
+.. _cbf_qc:
+
+CBF Computation in native space
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+:py:func:`~aslprep.workflows.bold.cbf.init_cbfqc_compt_wf`
+
+.. workflow::
+    :graph2use: orig
+    :simple_form: yes
+
+    from aslprep.workflows.bold.cbf import init_cbfqc_compt_wf
+    wf = init_cbfqc_compt_wf(mem_gb=3, omp_nthreads=1)
+
+The  quality control (qc) measures sich as FD, coregistration and nornmalizatiion index and 
+qulaity evaluation index (QEI) all CBF maps.
 
 .. _asl_reg:
 

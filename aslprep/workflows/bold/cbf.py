@@ -14,6 +14,48 @@ from ...config import DEFAULT_MEMORY_MIN_GB
 
 def init_cbf_compt_wf(mem_gb, metadata, dummy_vols, omp_nthreads, smooth_kernel=5,
                       name='cbf_compt_wf'):
+    """
+    Create a workflow for :abbr:`CCBF ( compute cbf)`.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.bold.cbf import init_cbf_compt_wf
+            wf = init_cbf_compt_wf(mem_gb=0.1,smooth_kernel=5,dummy_vols=0)
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        BIDS metadata for BOLD file
+    name : :obj:`str`
+        Name of workflow (default: ``cbf_compt_wf``)
+
+    Inputs
+    ------
+    bold_file
+        BOLD series NIfTI file
+    bold_mask
+        BOLD mask NIFTI file 
+    t1w_tpms
+        t1w probability maps 
+    t1w_mask
+        t1w mask Nifti
+    t1_bold_xform
+        t1w to bold transfromation file 
+    itk_bold_to_t1
+        bold to t1q transfromation file
+
+    Outputs
+    -------
+    *cbf
+       all cbf outputs
+       cbf,score, scrub, pv, and basil
+
+    """
+
+                    
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data using a relatively basic
@@ -121,6 +163,42 @@ also included correction for partial volume effects [@chappell_pvc].
 
 
 def init_cbfqc_compt_wf(mem_gb, bold_file, metadata, omp_nthreads, name='cbfqc_compt_wf'):
+    """
+    Create a workflow for :abbr:`cbfqc( compute cbf)`.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.bold.cbf import init_cbfqc_compt_wf
+            wf = init_cbfqc_compt_wf(mem_gb=0.1)
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        BIDS metadata for BOLD file
+    name : :obj:`str`
+        Name of workflow (default: ``cbfqc_compt_wf'``)
+
+    Inputs
+    ------
+    *cbf
+        all cbf 
+    bold_mask
+        BOLD mask NIFTI file 
+    t1w_tpms
+        t1w probability maps 
+    t1_bold_xform
+        t1w to bold transfromation file 
+
+    Outputs
+    -------
+    qc_file
+       qc measures in tsv
+
+    """
+
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The following quality control (qc) measures was estimated: framewise displacement and relative

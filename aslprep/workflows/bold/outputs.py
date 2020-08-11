@@ -41,8 +41,6 @@ def init_func_derivatives_wf(
         the TemplateFlow root directory. Each ``Reference`` may also contain a spec, which is a
         dictionary with template specifications (e.g., a specification of ``{'resolution': 2}``
         would lead to resampling on a 2mm resolution of the space).
-    use_aroma : :obj:`bool`
-        Whether ``--use-aroma`` flag was set.
     name : :obj:`str`
         This workflow's identifier (default: ``func_derivatives_wf``).
 

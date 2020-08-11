@@ -3,6 +3,11 @@
 ================
 Developers - API
 ================
+Internal configuration system
+-----------------------------
+
+.. automodule:: aslprep.config
+   :members: from_dict, load, get, dumps, to_filename, init_spaces
 
 Workflows
 ---------

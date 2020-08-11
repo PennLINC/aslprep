@@ -9,7 +9,7 @@ from .. import config
 
 def test_config_spaces():
     """Check that all necessary spaces are recorded in the config."""
-    filename = Path(pkgrf('fmriprep', 'data/tests/config.toml'))
+    filename = Path(pkgrf('aslprep', 'data/tests/config.toml'))
     settings = loads(filename.read_text())
     for sectionname, configs in settings.items():
         if sectionname != 'environment':
