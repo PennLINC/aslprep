@@ -85,13 +85,13 @@ also included correction for partial volume effects [@chappell_pvc].
                      name='wm_tfm', mem_gb=0.1)
     gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
                      name='gm_tfm', mem_gb=0.1)
-    labeltype = metadata["LabelingType"]
-    if 'CASL' in labeltype:
+
+ 
+    if 'CASL' in metadata["LabelingType"]:
         pcasl = True
-    elif 'PASL' in labeltype:
+    elif 'PASL' in metadata["LabelingType"]:
         pcasl = False
-    else:
-        print('unknown label type')
+    
 
     extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols, fwhm=smooth_kernel), mem_gb=0.2,
                          run_without_submitting=True, name="extractcbf")

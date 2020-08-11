@@ -384,11 +384,13 @@ CBF Computation in native space
 .. workflow::
     :graph2use: orig
     :simple_form: yes
+
     from pathlib import Path
+    from pkg_resources import resource_filename as pkgrf
     bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
     metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
     from aslprep.workflows.bold.cbf import init_cbf_compt_wf
-    wf = init_cbf_compt_wf(mem_gb=0.1,metadata='metadata', omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
+    wf = init_cbf_compt_wf(mem_gb=0.1,metadata=str(metadata), omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
 ALl the CBF derivates are computed from preprocessed :ref:`ASL <asl_preproc>`.
 This inlude CBF computation by basic model and :abbr:`BASIL (Bayesian Inference for Arterial Spin Labeling )`.
@@ -405,7 +407,9 @@ Quality Controle measures
 .. workflow::
     :graph2use: orig
     :simple_form: yes
+
     from pathlib import Path
+    from pkg_resources import resource_filename as pkgrf
     bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
     from aslprep.workflows.bold.cbf import init_cbfqc_compt_wf
     bold_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
