@@ -1,0 +1,532 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Outputs of ASLPrep &mdash; aslprep version documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script src="https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Defining standard and nonstandard spaces where data will be resampled" href="spaces.html" />
+    <link rel="prev" title="Susceptibility Distortion Correction (SDC)" href="sdc.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> aslprep
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                version
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Running <em>aslprep</em> via Docker containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="singularity.html">Running <em>ASLPrep</em> via Singularity containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows.html">Processing pipeline details</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdc.html">Susceptibility Distortion Correction (SDC)</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Outputs of <em>ASLPrep</em></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#visual-reports">Visual Reports</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#derivatives-of-aslprep-preprocessed-data">Derivatives of <em>ASLPrep</em> (preprocessed data)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#anatomical-derivatives">Anatomical derivatives</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#freesurfer-derivatives">FreeSurfer derivatives</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#asl-derivatives">ASL derivatives</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#cbf-qulaity-control">CBF qulaity control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#confounds">Confounds</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#confound-regressors-description">Confound regressors description</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#confounds-and-carpet-plot-on-the-visual-reports">Confounds and “carpet”-plot on the visual reports</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="spaces.html">Defining standard and nonstandard spaces where data will be resampled</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ, Tips, and Tricks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributing to ASLPREP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Developers - API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aslprep</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Outputs of <em>ASLPrep</em></li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/outputs.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="outputs-of-aslprep">
+<span id="outputs"></span><h1>Outputs of <em>ASLPrep</em><a class="headerlink" href="#outputs-of-aslprep" title="Permalink to this headline">¶</a></h1>
+<p><em>ASLPrep</em> generates three broad classes of outcomes:</p>
+<ol class="arabic simple">
+<li><p><strong>Visual QA (quality assessment) reports</strong>:
+one <abbr title="hypertext markup language">HTML</abbr> per subject,
+that allows the user a thorough visual assessment of the quality
+of processing and ensures the transparency of <em>ASLPrep</em> operation.</p></li>
+<li><p><strong>Derivatives (preprocessed data)</strong> the input ASL data ready for
+analysis, i.e., after the various preparation procedures
+have been applied.
+For example, <abbr title="intensity non-uniformity">INU</abbr>-corrected versions
+of the T1-weighted image (per subject), the brain mask or ASL data
+images after head-motion correction, slice-timing correction and aligned into
+the same-subject’s T1w space or in some standard space. Other include CBF derivatives
+and postpostpricessing data such s denoised and partial volume corrected CBF</p></li>
+<li><p><strong>Confounds</strong>: this is a special family of derivatives that can be utilized
+for subsequent quality controls.</p></li>
+</ol>
+<div class="section" id="visual-reports">
+<h2>Visual Reports<a class="headerlink" href="#visual-reports" title="Permalink to this headline">¶</a></h2>
+<p><em>ASLPrep</em> outputs summary reports, written to <code class="docutils literal notranslate"><span class="pre">&lt;output</span> <span class="pre">dir&gt;/aslprep/sub-&lt;subject_label&gt;.html</span></code>.
+These reports provide a quick way to make visual inspection of the results easy.
+Each report is self contained and thus can be easily shared with collaborators (for example via email).
+<a class="reference external" href="_static/sample_report.html">View a sample report.</a></p>
+</div>
+<div class="section" id="derivatives-of-aslprep-preprocessed-data">
+<h2>Derivatives of <em>ASLPrep</em> (preprocessed data)<a class="headerlink" href="#derivatives-of-aslprep-preprocessed-data" title="Permalink to this headline">¶</a></h2>
+<p>Preprocessed, or derivative, data are written to
+<code class="docutils literal notranslate"><span class="pre">&lt;output</span> <span class="pre">dir&gt;/aslprep/sub-&lt;subject_label&gt;/</span></code>.
+The <a class="reference external" href="https://docs.google.com/document/d/17ebopupQxuRwp7U7TFvS6BH03ALJOgGHufxK8ToAvyI">BIDS Derivatives RC1</a> specification describes the naming and metadata conventions we follow.</p>
+<div class="section" id="anatomical-derivatives">
+<h3>Anatomical derivatives<a class="headerlink" href="#anatomical-derivatives" title="Permalink to this headline">¶</a></h3>
+<p>Anatomical derivatives are placed in each subject’s <code class="docutils literal notranslate"><span class="pre">anat</span></code> subfolder:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+  <span class="n">anat</span><span class="o">/</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="p">[</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="p">]</span><span class="n">_desc</span><span class="o">-</span><span class="n">preproc_T1w</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="p">[</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="p">]</span><span class="n">_desc</span><span class="o">-</span><span class="n">brain_mask</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="p">[</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="p">]</span><span class="n">_dseg</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="p">[</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="p">]</span><span class="n">_label</span><span class="o">-</span><span class="n">CSF_probseg</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="p">[</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="p">]</span><span class="n">_label</span><span class="o">-</span><span class="n">GM_probseg</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="p">[</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="p">]</span><span class="n">_label</span><span class="o">-</span><span class="n">WM_probseg</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+</pre></div>
+</div>
+<p>Spatially-standardized derivatives are denoted with a space label,
+such as <code class="docutils literal notranslate"><span class="pre">MNI152NLin2009cAsym</span></code>, while derivatives in
+the original <code class="docutils literal notranslate"><span class="pre">T1w</span></code> space omit the <code class="docutils literal notranslate"><span class="pre">space-</span></code> keyword.</p>
+<p>Additionally, the following transforms are saved:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+  <span class="n">anat</span><span class="o">/</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_from</span><span class="o">-</span><span class="n">MNI152NLin2009cAsym_to</span><span class="o">-</span><span class="n">T1w_mode</span><span class="o">-</span><span class="n">image_xfm</span><span class="o">.</span><span class="n">h5</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_from</span><span class="o">-</span><span class="n">T1w_to</span><span class="o">-</span><span class="n">MNI152NLin2009cAsym_mode</span><span class="o">-</span><span class="n">image_xfm</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+<p>If FreeSurfer reconstructions are used, the following surface files are generated:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+  <span class="n">anat</span><span class="o">/</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_hemi</span><span class="o">-</span><span class="p">[</span><span class="n">LR</span><span class="p">]</span><span class="n">_smoothwm</span><span class="o">.</span><span class="n">surf</span><span class="o">.</span><span class="n">gii</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_hemi</span><span class="o">-</span><span class="p">[</span><span class="n">LR</span><span class="p">]</span><span class="n">_pial</span><span class="o">.</span><span class="n">surf</span><span class="o">.</span><span class="n">gii</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_hemi</span><span class="o">-</span><span class="p">[</span><span class="n">LR</span><span class="p">]</span><span class="n">_midthickness</span><span class="o">.</span><span class="n">surf</span><span class="o">.</span><span class="n">gii</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_hemi</span><span class="o">-</span><span class="p">[</span><span class="n">LR</span><span class="p">]</span><span class="n">_inflated</span><span class="o">.</span><span class="n">surf</span><span class="o">.</span><span class="n">gii</span>
+</pre></div>
+</div>
+<p>And the affine translation (and inverse) between the original T1w sampling and FreeSurfer’s
+conformed space for surface reconstruction (<code class="docutils literal notranslate"><span class="pre">fsnative</span></code>) is stored in:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+  <span class="n">anat</span><span class="o">/</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_from</span><span class="o">-</span><span class="n">fsnative_to</span><span class="o">-</span><span class="n">T1w_mode</span><span class="o">-</span><span class="n">image_xfm</span><span class="o">.</span><span class="n">txt</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_from</span><span class="o">-</span><span class="n">T1w_to</span><span class="o">-</span><span class="n">fsnative_mode</span><span class="o">-</span><span class="n">image_xfm</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="freesurfer-derivatives">
+<span id="fsderivs"></span><h3>FreeSurfer derivatives<a class="headerlink" href="#freesurfer-derivatives" title="Permalink to this headline">¶</a></h3>
+<p>A FreeSurfer subjects directory is created in <code class="docutils literal notranslate"><span class="pre">&lt;output</span> <span class="pre">dir&gt;/freesurfer</span></code>, or the
+directory indicated with the <code class="docutils literal notranslate"><span class="pre">--fs-subjects-dir</span></code> flag.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">output_dir</span><span class="o">&gt;/</span>
+    <span class="n">fmriprep</span><span class="o">/</span>
+        <span class="o">...</span>
+    <span class="n">freesurfer</span><span class="o">/</span>
+        <span class="n">fsaverage</span><span class="p">{,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">}</span><span class="o">/</span>
+            <span class="n">mri</span><span class="o">/</span>
+            <span class="n">surf</span><span class="o">/</span>
+            <span class="o">...</span>
+        <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+            <span class="n">mri</span><span class="o">/</span>
+            <span class="n">surf</span><span class="o">/</span>
+            <span class="o">...</span>
+        <span class="o">...</span>
+</pre></div>
+</div>
+<p>Copies of the <code class="docutils literal notranslate"><span class="pre">fsaverage</span></code> subjects distributed with the running version of
+FreeSurfer are copied into this subjects directory, if any functional data are
+sampled to those subject spaces.</p>
+</div>
+<div class="section" id="asl-derivatives">
+<h3>ASL derivatives<a class="headerlink" href="#asl-derivatives" title="Permalink to this headline">¶</a></h3>
+<p>ASL derivatives are stored in the <code class="docutils literal notranslate"><span class="pre">perf/</span></code> subfolder.
+All derivatives contain <code class="docutils literal notranslate"><span class="pre">task-&lt;task_label&gt;</span></code> (mandatory) and <code class="docutils literal notranslate"><span class="pre">run-&lt;run_index&gt;</span></code> (optional), and
+these will be indicated with <code class="docutils literal notranslate"><span class="pre">[specifiers]</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+  <span class="n">perf</span><span class="o">/</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_aslref</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_desc</span><span class="o">-</span><span class="n">brain_mask</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_desc</span><span class="o">-</span><span class="n">preproc_asl</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_cbf</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_mean_cbf</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_desc</span><span class="o">-</span><span class="n">score_cbf</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_desc</span><span class="o">-</span><span class="n">score_mean_cbf</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_desc</span><span class="o">-</span><span class="n">scrub_cbf</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_desc</span><span class="o">-</span><span class="n">basil_cbf</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_desc</span><span class="o">-</span><span class="n">pvc_cbf</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+</pre></div>
+</div>
+<p><strong>Regularly gridded outputs (images)</strong>.
+Volumetric output spaces labels (<code class="docutils literal notranslate"><span class="pre">&lt;space_label&gt;</span></code> above, and in the following) include
+<code class="docutils literal notranslate"><span class="pre">T1w</span></code> and <code class="docutils literal notranslate"><span class="pre">MNI152NLin2009cAsym</span></code> (default).</p>
+<p><strong>Surfaces, segmentations and parcellations from FreeSurfer</strong>.
+If FreeSurfer reconstructions are used, the <code class="docutils literal notranslate"><span class="pre">(aparc+)aseg</span></code> segmentations are aligned to the
+subject’s T1w space and resampled to the BOLD grid, and the BOLD series are resampled to the
+mid-thickness surface mesh:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+  <span class="n">perf</span><span class="o">/</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-</span><span class="n">T1w_desc</span><span class="o">-</span><span class="n">aparcaseg_dseg</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-</span><span class="n">T1w_desc</span><span class="o">-</span><span class="n">aseg_dseg</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">gz</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_space</span><span class="o">-&lt;</span><span class="n">space_label</span><span class="o">&gt;</span><span class="n">_hemi</span><span class="o">-</span><span class="p">[</span><span class="n">LR</span><span class="p">]</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">gii</span>
+</pre></div>
+</div>
+<p>Surface output spaces include <code class="docutils literal notranslate"><span class="pre">fsnative</span></code> (full density subject-specific mesh),
+<code class="docutils literal notranslate"><span class="pre">fsaverage</span></code> and the down-sampled meshes <code class="docutils literal notranslate"><span class="pre">fsaverage6</span></code> (41k vertices) and
+<code class="docutils literal notranslate"><span class="pre">fsaverage5</span></code> (10k vertices, default).</p>
+<p><strong>Grayordinates files</strong>.
+<a class="reference external" href="https://www.nitrc.org/forum/attachment.php?attachid=333&amp;group_id=454&amp;forum_id=1955">CIFTI</a> is
+a container format that holds both volumetric (regularly sampled in a grid) and surface
+(sampled on a triangular mesh) samples.
+Sub-cortical time series are sampled on a regular grid derived from one MNI template, while
+cortical time series are sampled on surfaces projected from the <a class="reference internal" href="#glasser2016" id="id1"><span>[Glasser2016]</span></a> template.
+If CIFTI outputs are requested (with the <code class="docutils literal notranslate"><span class="pre">--cifti-outputs</span></code> argument), the BOLD series are also
+saved as <code class="docutils literal notranslate"><span class="pre">dtseries.nii</span></code> CIFTI2 files:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+  <span class="n">perf</span><span class="o">/</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_asl</span><span class="o">.</span><span class="n">dtseries</span><span class="o">.</span><span class="n">nii</span>
+</pre></div>
+</div>
+<p>CIFTI output resolution can be specified as an optional parameter after <code class="docutils literal notranslate"><span class="pre">--cifti-output</span></code>.
+By default, ‘91k’ outputs are produced and match up to the standard <a class="reference external" href="https://humanconnectome.org/software/hcp-mr-pipelines/">HCP Pipelines</a> CIFTI
+output (91282 grayordinates &#64; 2mm). However, ‘170k’ outputs are also possible, and produce
+higher resolution CIFTI output (170494 grayordinates &#64; 1.6mm).</p>
+<p><strong>Extracted confounding time series</strong>.
+For each <abbr title="arterial spin labelling">ASL</abbr> run processed with <em>ASLPrep</em>, an
+accompanying <em>confounds</em> file will be generated.
+<a class="reference internal" href="#confounds">Confounds</a> are saved as a <abbr title="tab-separated value">TSV</abbr> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+  <span class="n">perf</span><span class="o">/</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_desc</span><span class="o">-</span><span class="n">confounds_regressors</span><span class="o">.</span><span class="n">tsv</span>
+    <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_desc</span><span class="o">-</span><span class="n">confounds_regressors</span><span class="o">.</span><span class="n">json</span>
+</pre></div>
+</div>
+<p>These <abbr title="tab-separated values">TSV</abbr> tables look like the example below,
+where each row of the file corresponds to one time point found in the
+corresponding <abbr title="arterial spin labelling">ASL</abbr> time series:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">std_dvars</span>  <span class="n">dvars</span>   <span class="n">framewise_displacement</span>  <span class="n">trans_x</span> <span class="n">trans_y</span> <span class="n">trans_z</span> <span class="n">rot_x</span>   <span class="n">rot_y</span>   <span class="n">rot_z</span>
+<span class="n">n</span><span class="o">/</span><span class="n">a</span>        <span class="n">n</span><span class="o">/</span><span class="n">a</span>     <span class="n">n</span><span class="o">/</span><span class="n">a</span>     <span class="mi">0</span>       <span class="mi">0</span>       <span class="mi">0</span>       <span class="o">-</span><span class="mf">0.00017029</span>     <span class="mi">0</span>       <span class="mi">0</span>
+<span class="mf">1.168398</span>   <span class="mf">17.575331</span>       <span class="mf">0.0721193</span>       <span class="mi">0</span>       <span class="mf">0.0207752</span>       <span class="mf">0.0463124</span>       <span class="o">-</span><span class="mf">0.000270924</span>    <span class="mi">0</span>       <span class="mi">0</span>
+<span class="mf">1.085204</span>   <span class="mf">16.323904</span>       <span class="mf">0.0348966</span>       <span class="mi">0</span>       <span class="mi">0</span>       <span class="mf">0.0457372</span>       <span class="mi">0</span>       <span class="mi">0</span>       <span class="mi">0</span>
+<span class="mf">1.01591</span>    <span class="mf">15.281561</span>       <span class="mf">0.0333937</span>       <span class="mf">0.010164</span>        <span class="o">-</span><span class="mf">0.0103568</span>      <span class="mf">0.0424513</span>       <span class="mi">0</span>       <span class="mi">0</span>       <span class="mf">0.00019174</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="cbf-qulaity-control">
+<h2>CBF qulaity control<a class="headerlink" href="#cbf-qulaity-control" title="Permalink to this headline">¶</a></h2>
+<p><em>ASLPrep</em> produces a qc file for each asl run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;/</span>
+  <span class="n">perf</span><span class="o">/</span>
+  <span class="n">sub</span><span class="o">-&lt;</span><span class="n">subject_label</span><span class="o">&gt;</span><span class="n">_</span><span class="p">[</span><span class="n">specifiers</span><span class="p">]</span><span class="n">_cbfqc</span><span class="o">.</span><span class="n">csv</span>
+</pre></div>
+</div>
+<p>The following quality control (qc) measures were  estimated: framewise displacement
+and and relative root mean square (relRMS).Other qc meaure include dice and jaccard indices,
+cross-correlation and coverage that estimate the coregistration quality of ASL and T1w images
+and normalization quality of ASL to the template. Quality evaluation index (QEI) was
+also computed for CBF [Sudipto Dolui 2016]. The QEI isautomated for objective quality
+evaluation of CBF maps and measured the CBF quality based  on structural similarity,
+spatial variability and the percentatge of voxels with negtaive CBF within Grey matter</p>
+</div>
+<div class="section" id="confounds">
+<h2>Confounds<a class="headerlink" href="#confounds" title="Permalink to this headline">¶</a></h2>
+<p>The <abbr title="arterial spin labelling">ASL</abbr> signal measured the cerebral blood flow (CBF) and noise .
+ASL like BOLD fMRI, is subjected to artifacts induced by head motion (spin history effects).
+These artifacts introduce noise, which corrupts the measurement and cannot be corrected by simple realignment.
+However, the calculation of CBF from ASL data involves subtracting subsequently acquired volumes.
+Thus, head motion over two frames contribute artifactual signal which exacerbates the confound.</p>
+<p><em>Confounds</em>  are variables (non-CBF fluctuations)  representing fluctuations with a potential
+for qulaity control or denoising.
+Such non-CBF fluctuations may drive spurious results in fMRI data analysis,</p>
+<p>The most well established confounding variables in neuroimaging are the six head-motion parameters
+(three rotations and three translations) - the common output of the head-motion correction
+(also known as <em>realignment</em>) of popular fMRI preprocessing software
+such as <a class="reference external" href="https://www.fil.ion.ucl.ac.uk/spm/software/spm12/">SPM</a> or <a class="reference external" href="https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/">FSL</a>.
+Beyond the standard head-motion parameters, the alsprep pipeline generates a framewise displacement,`DVARS and std_dvars`.
+Confounding variables calculated in <em>aslprep</em> are stored separately for each subject,
+session and run in <abbr title="tab-separated value">TSV</abbr> files - one column for each confound variable.</p>
+<div class="section" id="confound-regressors-description">
+<h3>Confound regressors description<a class="headerlink" href="#confound-regressors-description" title="Permalink to this headline">¶</a></h3>
+<p><strong>Basic confounds</strong>. The most commonly used confounding time series:</p>
+<ul class="simple">
+<li><p>Estimated head-motion parameters:
+<code class="docutils literal notranslate"><span class="pre">trans_x</span></code>, <code class="docutils literal notranslate"><span class="pre">trans_y</span></code>, <code class="docutils literal notranslate"><span class="pre">trans_z</span></code>, <code class="docutils literal notranslate"><span class="pre">rot_x</span></code>, <code class="docutils literal notranslate"><span class="pre">rot_y</span></code>, <code class="docutils literal notranslate"><span class="pre">rot_z</span></code> - the 6 rigid-body motion
+parameters (3 translations and 3 rotation), estimated relative to a reference image;</p></li>
+</ul>
+<p><strong>Outlier detection</strong>.
+These confounds can be used to detect potential outlier time points -
+frames with sudden and large motion or intensity spikes.
+- <code class="docutils literal notranslate"><span class="pre">framewise_displacement</span></code> - is a quantification of the estimated bulk-head motion calculated using
+formula proposed by <a class="reference internal" href="#power2012" id="id2"><span>[Power2012]</span></a>;
+- <code class="docutils literal notranslate"><span class="pre">dvars</span></code> - the derivative of RMS variance over voxels (or <abbr title="derivative of RMS variance over voxels">DVARS</abbr>) <a class="reference internal" href="#power2012" id="id3"><span>[Power2012]</span></a>;
+- <code class="docutils literal notranslate"><span class="pre">std_dvars</span></code> - standardized <abbr title="derivative of RMS variance over voxels">DVARS</abbr>;</p>
+</div>
+<div class="section" id="confounds-and-carpet-plot-on-the-visual-reports">
+<h3>Confounds and “carpet”-plot on the visual reports<a class="headerlink" href="#confounds-and-carpet-plot-on-the-visual-reports" title="Permalink to this headline">¶</a></h3>
+<p>The visual reports provide several sections per task and run to aid designing
+a denoising strategy for subsequent analysis.
+Some of the estimated confounds are plotted with a “carpet” visualization of the
+<abbr title="Areterial Spin labelling">ASL</abbr> time series <a class="reference internal" href="#power2016" id="id4"><span>[Power2016]</span></a>.
+An example of these plots follows:</p>
+<blockquote>
+<div><p>in progress</p>
+</div></blockquote>
+<p>See implementation on <a class="reference internal" href="api.html#aslprep.workflows.bold.confounds.init_bold_confs_wf" title="aslprep.workflows.bold.confounds.init_bold_confs_wf"><code class="xref py py-mod docutils literal notranslate"><span class="pre">init_bold_confs_wf</span></code></a>.</p>
+<div class="topic">
+<p class="topic-title">References</p>
+<dl class="citation">
+<dt class="label" id="friston1996"><span class="brackets">Friston1996</span></dt>
+<dd><p>Friston KJ1, Williams S, Howard R, Frackowiak RS, Turner R,
+Movement‐Related effects in fMRI time‐series. Magnetic Resonance in Medicine. 1996.
+doi:<a class="reference external" href="https://doi.org/10.1002/mrm.1910350312">10.1002/mrm.191035031</a></p>
+</dd>
+<dt class="label" id="glasser2016"><span class="brackets"><a class="fn-backref" href="#id1">Glasser2016</a></span></dt>
+<dd><p>Glasser MF, Coalson TS Robinson EC, Hacker CD, Harwell J, Yacoub E, Ugurbil K,
+Andersson J, Beckmann CF, Jenkinson M, Smith SM, Van Essen DC.
+A multi-modal parcellation of human cerebral cortex. Nature. 2016.
+doi:<a class="reference external" href="https://doi.org/10.1038/nature18933">10.1038/nature18933</a></p>
+</dd>
+<dt class="label" id="jenkinson2002"><span class="brackets">Jenkinson2002</span></dt>
+<dd><p>Jenkinson M, Bannister P, Brady M, Smith S. Improved optimization for the
+robust and accurate linear registration and motion correction of brain images. Neuroimage.
+2002. doi:<a class="reference external" href="https://doi.org/10.1016/s1053-8119(02)91132-8">10.1016/s1053-8119(02)91132-8</a>.</p>
+</dd>
+<dt class="label" id="power2012"><span class="brackets">Power2012</span><span class="fn-backref">(<a href="#id2">1</a>,<a href="#id3">2</a>)</span></dt>
+<dd><p>Power JD, Barnes KA, Snyder AZ, Schlaggar BL, Petersen, SA, Spurious but systematic
+correlations in functional connectivity MRI networks arise from subject motion. NeuroImage. 2012.
+doi:<a class="reference external" href="https://doi.org/10.1016/j.neuroimage.2011.10.018">10.1016/j.neuroimage.2011.10.018</a></p>
+</dd>
+<dt class="label" id="power2016"><span class="brackets"><a class="fn-backref" href="#id4">Power2016</a></span></dt>
+<dd><p>Power JD, A simple but useful way to assess fMRI scan qualities. NeuroImage. 2016.
+doi:<a class="reference external" href="http://doi.org/10.1016/j.neuroimage.2016.08.009">10.1016/j.neuroimage.2016.08.009</a></p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="spaces.html" class="btn btn-neutral float-right" title="Defining standard and nonstandard spaces where data will be resampled" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="sdc.html" class="btn btn-neutral float-left" title="Susceptibility Distortion Correction (SDC)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020-2020, The aslprep developers
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
