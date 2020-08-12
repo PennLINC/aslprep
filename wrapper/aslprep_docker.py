@@ -17,7 +17,7 @@ import re
 import subprocess
 
 __version__ = '99.99.99'
-__copyright__ = 'Copyright 2020, Center for Reproducible Neuroscience, Stanford University'
+__copyright__ = 'Copyright 2020,'
 __credits__ = ['wait']
 __bugreports__ = 'https://github.com/pennlinc/issues'
 

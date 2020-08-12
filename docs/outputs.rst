@@ -88,7 +88,7 @@ A FreeSurfer subjects directory is created in ``<output dir>/freesurfer``, or th
 directory indicated with the ``--fs-subjects-dir`` flag. ::
 
     <output_dir>/
-        fmriprep/
+        aslprep/
             ...
         freesurfer/
             fsaverage{,5,6}/
