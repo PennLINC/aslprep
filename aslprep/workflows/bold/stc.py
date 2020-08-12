@@ -28,7 +28,7 @@ def init_bold_stc_wf(metadata, name='bold_stc_wf'):
             :graph2use: orig
             :simple_form: yes
 
-            from fmriprep.workflows.bold import init_bold_stc_wf
+            from aslprep.workflows.bold import init_bold_stc_wf
             wf = init_bold_stc_wf(
                 metadata={"RepetitionTime": 2.0,
                           "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]},
@@ -59,7 +59,7 @@ def init_bold_stc_wf(metadata, name='bold_stc_wf'):
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-BOLD runs were slice-time corrected using `3dTshift` from
+ASL runs were slice-time corrected using `3dTshift` from
 AFNI {afni_ver} [@afni, RRID:SCR_005927].
 """.format(afni_ver=''.join(['%02d' % v for v in afni.Info().version() or []]))
     inputnode = pe.Node(niu.IdentityInterface(fields=['bold_file', 'skip_vols']), name='inputnode')

@@ -5,7 +5,7 @@ from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
-__packagename__ = 'aslpprep'
+__packagename__ = 'aslprep'
 __copyright__ = 'Copyright 2020, PENN LINC'
 __credits__ = ('Contributors: please check the ``.zenodo.json`` file at the top-level folder'
                'of the repository')

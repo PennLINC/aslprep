@@ -5,13 +5,14 @@
 Pre-processing fMRI - BOLD signal workflows
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: fmriprep.workflows.bold.base
-.. automodule:: fmriprep.workflows.bold.hmc
-.. automodule:: fmriprep.workflows.bold.stc
-.. automodule:: fmriprep.workflows.bold.t2s
-.. automodule:: fmriprep.workflows.bold.registration
-.. automodule:: fmriprep.workflows.bold.resampling
-.. automodule:: fmriprep.workflows.bold.confounds
+.. automodule:: aslprep.workflows.bold.base
+.. automodule:: aslprep.workflows.bold.hmc
+.. automodule:: aslprep.workflows.bold.stc
+.. automodule:: aslprep.workflows.bold.t2s
+.. automodule:: aslprep.workflows.bold.registration
+.. automodule:: aslprep.workflows.bold.resampling
+.. automodule:: aslprep.workflows.bold.confounds
+.. automodule:: aslprep.workflows.bold.cbf
 
 
 """

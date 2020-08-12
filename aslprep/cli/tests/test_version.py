@@ -39,7 +39,7 @@ def test_check_latest1(tmpdir, monkeypatch):
     monkeypatch.setattr(requests, "get", mock_get)
 
     # Initially, cache should not exist
-    cachefile = Path.home() / ".cache" / "fmriprep" / "latest"
+    cachefile = Path.home() / ".cache" / "aslprep" / "latest"
     assert not cachefile.exists()
 
     # First check actually fetches from pypi
@@ -133,7 +133,7 @@ def test_check_latest3(tmpdir, monkeypatch, bad_cache):
     monkeypatch.setattr(requests, "get", mock_get)
 
     # Initially, cache should not exist
-    cachefile = Path.home() / ".cache" / "fmriprep" / "latest"
+    cachefile = Path.home() / ".cache" / "aslprep" / "latest"
     cachefile.parent.mkdir(parents=True, exist_ok=True)
     assert not cachefile.exists()
 
@@ -177,7 +177,7 @@ def test_is_flagged(monkeypatch, result, version, code, json):
 
 
 def test_readonly(tmp_path, monkeypatch):
-    """Test behavior when $HOME/.cache/fmriprep/latest can't be written out."""
+    """Test behavior when $HOME/.cache/aslprep/latest can't be written out."""
     home_path = (
         Path("/home/readonly") if getenv("TEST_READONLY_FILESYSTEM") else tmp_path
     )
@@ -189,7 +189,7 @@ def test_readonly(tmp_path, monkeypatch):
 
     # Make sure creating the folder will raise the exception.
     with pytest.raises(OSError):
-        (cachedir / "fmriprep").mkdir(parents=True)
+        (cachedir / "aslprep").mkdir(parents=True)
 
     # Should not raise
     check_latest()

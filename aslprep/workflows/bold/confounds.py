@@ -15,11 +15,22 @@ from nipype.algorithms import confounds as nac
 
 from templateflow.api import get as get_template
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from ...niworkflows.interfaces.confounds import ExpandModel, SpikeRegressors
 from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from ...niworkflows.interfaces.images import SignalExtraction
+from ...niworkflows.interfaces.masks import ROIsPlot
 from ...niworkflows.interfaces.utility import KeySelect
-
+from ...niworkflows.interfaces.patches import (
+    RobustACompCor as ACompCor,
+    RobustTCompCor as TCompCor,
+)
+from ...niworkflows.interfaces.plotting import (
+    CompCorVariancePlot, ConfoundsCorrelationPlot
+)
 from ...niworkflows.interfaces.segmentation import ICA_AROMARPT
-from ...niworkflows.interfaces.utils import (AddTSVHeader, TSV2JSON)
+from ...niworkflows.interfaces.utils import (
+    TPM2ROI, AddTPMs, AddTSVHeader, TSV2JSON, DictMerge
+)
 
 from ...config import DEFAULT_MEMORY_MIN_GB
 from ...interfaces import (
@@ -41,15 +52,9 @@ def init_bold_confs_wf(
     regressors in a :abbr:`GLM (general linear model)`.
     The following confounds are calculated, with column headings in parentheses:
 
-    #. Region-wise average signal (``csf``, ``white_matter``, ``global_signal``)
     #. DVARS - original and standardized variants (``dvars``, ``std_dvars``)
     #. Framewise displacement, based on head-motion parameters
        (``framewise_displacement``)
-    #. Temporal CompCor (``t_comp_cor_XX``)
-    #. Anatomical CompCor (``a_comp_cor_XX``)
-    #. Cosine basis set for high-pass filtering w/ 0.008 Hz cut-off
-       (``cosine_XX``)
-    #. Non-steady-state volumes (``non_steady_state_XX``)
     #. Estimated head-motion parameters, in mm and rad
        (``trans_x``, ``trans_y``, ``trans_z``, ``rot_x``, ``rot_y``, ``rot_z``)
 
@@ -69,9 +74,6 @@ def init_bold_confs_wf(
             wf = init_bold_confs_wf(
                 mem_gb=1,
                 metadata={},
-                regressors_all_comps=False,
-                regressors_dvars_th=1.5,
-                regressors_fd_th=0.5,
             )
 
     Parameters
@@ -126,7 +128,7 @@ def init_bold_confs_wf(
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 Several confounding time-series were calculated based on the
-*preprocessed ASL*: framewise displacement (FD) and DVARS.
+*preprocessed ASL*: framewise displacement (FD) and DVARS. 
 FD and DVARS are calculated for each ASL run, both using their
 implementations in *Nipype* [following the definitions by @power_fd_dvars].
 The head-motion estimates calculated in the correction step were also
@@ -149,6 +151,10 @@ placed within the corresponding confounds file.
     fdisp = pe.Node(nac.FramewiseDisplacement(parameter_source="SPM"),
                     name="fdisp", mem_gb=mem_gb)
 
+
+    # Global and segment regressors
+    #signals_class_labels = ["csf", "white_matter", "global_signal"]
+
     # Arrange confounds
     add_dvars_header = pe.Node(
         AddTSVHeader(columns=["dvars"]),
@@ -160,6 +166,18 @@ placed within the corresponding confounds file.
         AddTSVHeader(columns=["trans_x", "trans_y", "trans_z", "rot_x", "rot_y", "rot_z"]),
         name="add_motion_headers", mem_gb=0.01, run_without_submitting=True)
     concat = pe.Node(GatherConfounds(), name="concat", mem_gb=0.01, run_without_submitting=True)
+
+    rois_plot = pe.Node(ROIsPlot(colors=['b', 'magenta'], generate_report=True),
+                        name='rois_plot', mem_gb=mem_gb)
+
+    ds_report_bold_rois = pe.Node(
+        DerivativesDataSink(desc='rois', keep_dtype=True),
+        name='ds_report_bold_rois', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+
+
+    # Expand model to include derivatives and quadratics
 
     workflow.connect([
         # connect inputnode to each non-anatomical confound node
@@ -179,6 +197,7 @@ placed within the corresponding confounds file.
 
         # Set outputs
         (concat, outputnode, [('confounds_file', 'confounds_file')]),
+    
     ])
 
     return workflow
@@ -235,12 +254,11 @@ def init_carpetplot_wf(mem_gb, metadata, name="bold_carpet_wf"):
     mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
 
     # Warp segmentation into EPI space
-    seg= get_template(
-            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
-            suffix='dseg')
     resample_parc = pe.Node(ApplyTransforms(
         float=True,
-        input_image=str(seg),
+        input_image=str(get_template(
+            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
+            suffix='dseg', extension=['.nii', '.nii.gz'])),
         dimension=3, default_value=0, interpolation='MultiLabel'),
         name='resample_parc')
 
@@ -252,8 +270,9 @@ def init_carpetplot_wf(mem_gb, metadata, name="bold_carpet_wf"):
             ('framewise_displacement', 'mm', 'FD')]),
         name='conf_plot', mem_gb=mem_gb)
     ds_report_bold_conf = pe.Node(
-        DerivativesDataSink(desc='carpetplot', datatype="figures", keep_dtype=True),
-        name='ds_report_bold_conf', run_without_submitting=True,
+        DerivativesDataSink(desc='carpetplot',datatype="figures", 
+        keep_dtype=True),
+         name='ds_report_bold_conf', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)
 
     workflow = Workflow(name=name)

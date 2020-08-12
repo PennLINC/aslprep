@@ -38,8 +38,14 @@ Command-Line Arguments
    :nodefault:
    :nodefaultconst:
 
+The command-line interface of the docker wrapper
+-------------------------------------------------
 
-.. _fs_license:
+.. argparse::
+   :ref: aslprep_docker.get_parser
+   :prog: aslprep-docker
+   :nodefault:
+   :nodefaultconst:
 
 The FreeSurfer license
 ----------------------

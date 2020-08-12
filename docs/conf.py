@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# fmriprep documentation build configuration file, created by
+# aslprep documentation build configuration file, created by
 # sphinx-quickstart on Mon May  9 09:04:25 2016.
 #
 # This file is execfile()d with the current directory set to its
@@ -52,6 +52,7 @@ autodoc_mock_imports = [
     "numpy",
     "nitime",
     "matplotlib",
+    "pygraphviz",
 ]
 
 if pver.parse(sphinxversion) >= pver.parse("1.7.0"):
@@ -59,6 +60,7 @@ if pver.parse(sphinxversion) >= pver.parse("1.7.0"):
         "pandas",
         "nilearn",
         "seaborn",
+        "pygraphviz",
     ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -161,7 +163,7 @@ html_theme = "sphinx_rtd_theme"
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
-# html_title = u'fmriprep vversion'
+# html_title = u'aslprep vversion'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 # html_short_title = None

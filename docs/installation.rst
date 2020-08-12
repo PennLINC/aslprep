@@ -6,8 +6,7 @@ Installation
 
 There are two ways to get *ASLPrep* installed:
 
-* within a `Manually Prepared Environment (Python 3.6+)`_, 
-  as
+* within a  `Manually Prepared Environment (Python 3.7+)`_, 
 
 * using container technologies (RECOMMENDED), such as :ref:`run_docker`
   or :ref:`run_singularity`.
@@ -29,7 +28,7 @@ The command-line structure above is then modified as follows:
        <input_bids_path> <derivatives_path> <analysis_level> <ASLPrep_named_options>
 
 
-Manually Prepared Environment (Python 3.5+)
+Manually Prepared Environment (Python 3.7+)
 ===========================================
 
 .. warning::

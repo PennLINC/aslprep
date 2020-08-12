@@ -54,7 +54,7 @@ def init_bold_reg_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from fmriprep.workflows.bold.registration import init_bold_reg_wf
+            from aslprep.workflows.bold.registration import init_bold_reg_wf
             wf = init_bold_reg_wf(freesurfer=True,
                                   mem_gb=3,
                                   omp_nthreads=1,
@@ -115,8 +115,8 @@ def init_bold_reg_wf(
 
     See Also
     --------
-      * :py:func:`~fmriprep.workflows.bold.registration.init_bbreg_wf`
-      * :py:func:`~fmriprep.workflows.bold.registration.init_fsl_bbr_wf`
+      * :py:func:`~aslprep.workflows.bold.registration.init_bbreg_wf`
+      * :py:func:`~aslprep.workflows.bold.registration.init_fsl_bbr_wf`
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -187,7 +187,7 @@ def init_bold_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mu
             :graph2use: orig
             :simple_form: yes
 
-            from fmriprep.workflows.bold.registration import init_bold_t1_trans_wf
+            from aslprep.workflows.bold.registration import init_bold_t1_trans_wf
             wf = init_bold_t1_trans_wf(freesurfer=True,
                                        mem_gb=3,
                                        omp_nthreads=1)
@@ -255,8 +255,8 @@ def init_bold_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mu
 
     See also
     --------
-      * :py:func:`~fmriprep.workflows.bold.registration.init_bbreg_wf`
-      * :py:func:`~fmriprep.workflows.bold.registration.init_fsl_bbr_wf`
+      * :py:func:`~aslprep.workflows.bold.registration.init_bbreg_wf`
+      * :py:func:`~aslprep.workflows.bold.registration.init_fsl_bbr_wf`
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -443,7 +443,7 @@ def init_bbreg_wf(use_bbr, bold2t1w_dof, bold2t1w_init, omp_nthreads, name='bbre
     This workflow uses FreeSurfer's ``bbregister`` to register a BOLD image to
     a T1-weighted structural image.
 
-    It is a counterpart to :py:func:`~fmriprep.workflows.bold.registration.init_fsl_bbr_wf`,
+    It is a counterpart to :py:func:`~aslprep.workflows.bold.registration.init_fsl_bbr_wf`,
     which performs the same task using FSL's FLIRT with a BBR cost function.
     The ``use_bbr`` option permits a high degree of control over registration.
     If ``False``, standard, affine coregistration will be performed using
@@ -460,7 +460,7 @@ def init_bbreg_wf(use_bbr, bold2t1w_dof, bold2t1w_init, omp_nthreads, name='bbre
             :graph2use: orig
             :simple_form: yes
 
-            from fmriprep.workflows.bold.registration import init_bbreg_wf
+            from aslprep.workflows.bold.registration import init_bbreg_wf
             wf = init_bbreg_wf(use_bbr=True, bold2t1w_dof=9,
                                bold2t1w_init='register', omp_nthreads=1)
 
@@ -489,9 +489,9 @@ def init_bbreg_wf(use_bbr, bold2t1w_dof, bold2t1w_init, omp_nthreads, name='bbre
     subject_id
         FreeSurfer subject ID (must have folder in SUBJECTS_DIR)
     t1w_brain
-        Unused (see :py:func:`~fmriprep.workflows.bold.registration.init_fsl_bbr_wf`)
+        Unused (see :py:func:`~aslprep.workflows.bold.registration.init_fsl_bbr_wf`)
     t1w_dseg
-        Unused (see :py:func:`~fmriprep.workflows.bold.registration.init_fsl_bbr_wf`)
+        Unused (see :py:func:`~aslprep.workflows.bold.registration.init_fsl_bbr_wf`)
 
     Outputs
     -------
@@ -506,7 +506,7 @@ def init_bbreg_wf(use_bbr, bold2t1w_dof, bold2t1w_init, omp_nthreads, name='bbre
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    # See https://github.com/poldracklab/fmriprep/issues/768
+    
     from ...niworkflows.interfaces.freesurfer import (
         PatchedBBRegisterRPT as BBRegisterRPT,
         PatchedMRICoregRPT as MRICoregRPT,
@@ -645,7 +645,7 @@ def init_fsl_bbr_wf(use_bbr, bold2t1w_dof, bold2t1w_init, sloppy=False, name='fs
 
     This workflow uses FSL FLIRT to register a BOLD image to a T1-weighted
     structural image, using a boundary-based registration (BBR) cost function.
-    It is a counterpart to :py:func:`~fmriprep.workflows.bold.registration.init_bbreg_wf`,
+    It is a counterpart to :py:func:`~aslprep.workflows.bold.registration.init_bbreg_wf`,
     which performs the same task using FreeSurfer's ``bbregister``.
 
     The ``use_bbr`` option permits a high degree of control over registration.
@@ -662,7 +662,7 @@ def init_fsl_bbr_wf(use_bbr, bold2t1w_dof, bold2t1w_init, sloppy=False, name='fs
             :graph2use: orig
             :simple_form: yes
 
-            from fmriprep.workflows.bold.registration import init_fsl_bbr_wf
+            from aslprep.workflows.bold.registration import init_fsl_bbr_wf
             wf = init_fsl_bbr_wf(use_bbr=True, bold2t1w_dof=9, bold2t1w_init='register')
 
 
@@ -688,11 +688,11 @@ def init_fsl_bbr_wf(use_bbr, bold2t1w_dof, bold2t1w_init, sloppy=False, name='fs
     t1w_dseg
         FAST segmentation of ``t1w_brain``
     fsnative2t1w_xfm
-        Unused (see :py:func:`~fmriprep.workflows.bold.registration.init_bbreg_wf`)
+        Unused (see :py:func:`~aslprep.workflows.bold.registration.init_bbreg_wf`)
     subjects_dir
-        Unused (see :py:func:`~fmriprep.workflows.bold.registration.init_bbreg_wf`)
+        Unused (see :py:func:`~aslprep.workflows.bold.registration.init_bbreg_wf`)
     subject_id
-        Unused (see :py:func:`~fmriprep.workflows.bold.registration.init_bbreg_wf`)
+        Unused (see :py:func:`~aslprep.workflows.bold.registration.init_bbreg_wf`)
 
     Outputs
     -------
@@ -783,7 +783,7 @@ for distortions remaining in the BOLD reference.
     else:
         # Should mostly be hit while building docs
         LOGGER.warning("FSLDIR unset - using packaged BBR schedule")
-        flt_bbr.inputs.schedule = pkgr.resource_filename('fmriprep', 'data/flirtsch/bbr.sch')
+        flt_bbr.inputs.schedule = pkgr.resource_filename('aslprep', 'data/flirtsch/bbr.sch')
 
     workflow.connect([
         (inputnode, wm_mask, [('t1w_dseg', 'in_seg')]),
@@ -821,7 +821,7 @@ for distortions remaining in the BOLD reference.
     transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
     reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
 
-    compare_transforms = pe.Node(niu.Function(function=compare_xforms), name='compare_transforms')
+    compare_transforms = pe.Node(niu.Function(function=compare_xforms,output_names="out"), name='compare_transforms')
 
     select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
     select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
@@ -871,7 +871,7 @@ def compare_xforms(lta_list, norm_threshold=15):
     This is open to revisiting in either direction.
 
     See discussion in
-    `GitHub issue #681`_ <https://github.com/poldracklab/fmriprep/issues/681>`_
+    `GitHub issue #681`_ <https://github.com/poldracklab/aslprep/issues/681>`_
     and the `underlying implementation
     <https://github.com/nipy/nipype/blob/56b7c81eedeeae884ba47c80096a5f66bd9f8116/nipype/algorithms/rapidart.py#L108-L159>`_.
 
