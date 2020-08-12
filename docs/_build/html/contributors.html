@@ -1,0 +1,373 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Contributing to ASLPREP &mdash; aslprep version documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script src="https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Citing ASLPrep" href="citing.html" />
+    <link rel="prev" title="FAQ, Tips, and Tricks" href="faq.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> aslprep
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                version
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Running <em>aslprep</em> via Docker containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="singularity.html">Running <em>ASLPrep</em> via Singularity containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows.html">Processing pipeline details</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdc.html">Susceptibility Distortion Correction (SDC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs of <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="spaces.html">Defining standard and nonstandard spaces where data will be resampled</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ, Tips, and Tricks</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Contributing to ASLPREP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#adding-dependencies">Adding dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#code-server-development-environment-experimental">Code-Server Development Environment (Experimental)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#build-the-docker-image">1. Build the Docker image</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#run-the-docker-image">2. Run the Docker image</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#copy-aslprep-egg-info-into-your-aslprep-directory">3. Copy aslprep.egg-info into your aslprep directory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#code-server-development-environment-features">Code-Server Development Environment Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#adding-new-features-to-the-citation-boilerplate">Adding new features to the citation boilerplate</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Developers - API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aslprep</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Contributing to ASLPREP</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/contributors.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="contributing-to-aslprep">
+<h1>Contributing to ASLPREP<a class="headerlink" href="#contributing-to-aslprep" title="Permalink to this headline">¶</a></h1>
+<p>This document explains how to prepare a new development environment and
+update an existing environment, as necessary.</p>
+<p>Development in Docker is encouraged, for the sake of consistency and
+portability.
+By default, work should be built off of <a class="reference external" href="https://hub.docker.com/r/pennlinc/aslprep/">pennlinc/aslprep:unstable</a>, which tracks the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch,
+or <code class="docutils literal notranslate"><span class="pre">pennlinc/aslprep:latest</span></code>, which tracks the latest release version (see the
+<a class="reference external" href="installation.html">installation</a> guide for the basic procedure for running).</p>
+<div class="section" id="adding-dependencies">
+<h2>Adding dependencies<a class="headerlink" href="#adding-dependencies" title="Permalink to this headline">¶</a></h2>
+<p>New dependencies to be inserted into the Docker image will either be
+Python or non-Python dependencies.
+Python dependencies may be added in three places, depending on whether
+the package is large or non-release versions are required.
+The image <a class="reference external" href="#rebuilding-docker-image">must be rebuilt</a> after any
+dependency changes.</p>
+<p>Python dependencies should generally be included in the <code class="docutils literal notranslate"><span class="pre">REQUIRES</span></code>
+list in <a class="reference external" href="https://github.com/pennlinc/aslprep/aslprep/__about__.py#L87-L107">aslprep/__about__.py</a>.
+If the latest version in <a class="reference external" href="https://pypi.org/">PyPI</a> is sufficient,
+then no further action is required.</p>
+</div>
+<div class="section" id="code-server-development-environment-experimental">
+<h2>Code-Server Development Environment (Experimental)<a class="headerlink" href="#code-server-development-environment-experimental" title="Permalink to this headline">¶</a></h2>
+<p>To get the best of working with containers and having an interactive
+development environment, we have an experimental setup with <a class="reference external" href="https://github.com/cdr/code-server">code-server</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>We have <a class="reference external" href="https://youtu.be/bkZ-NyUaTvg">a video walking through the process</a> if you want a visual guide.</p>
+</div>
+<div class="section" id="build-the-docker-image">
+<h3>1. Build the Docker image<a class="headerlink" href="#build-the-docker-image" title="Permalink to this headline">¶</a></h3>
+<p>We will use the <code class="docutils literal notranslate"><span class="pre">Dockerfile_devel</span></code> file to build
+our development docker image:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cd $HOME/projects/aslprep
+$ docker build -t aslprep_devel -f Dockerfile_devel .
+</pre></div>
+</div>
+</div>
+<div class="section" id="run-the-docker-image">
+<h3>2. Run the Docker image<a class="headerlink" href="#run-the-docker-image" title="Permalink to this headline">¶</a></h3>
+<p>We can start a docker container using the image we built (<code class="docutils literal notranslate"><span class="pre">aslprep_devel</span></code>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ docker run -it -p 127.0.0.1:8445:8080 -v ${PWD}:/src/aslprep aslprep_devel:latest
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you are using windows shell, ${PWD} may not be defined, instead use the absolute
+path to your aslprep directory.</p>
+</div>
+</div>
+<div class="section" id="copy-aslprep-egg-info-into-your-aslprep-directory">
+<h3>3. Copy aslprep.egg-info into your aslprep directory<a class="headerlink" href="#copy-aslprep-egg-info-into-your-aslprep-directory" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">aslprep.egg-info</span></code> makes the aslprep  package exacutable inside the docker container.
+Open a terminal in vscode and type the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cp -R /src/aslprep.egg-info /src/aslprep/
+</pre></div>
+</div>
+</div>
+<div class="section" id="code-server-development-environment-features">
+<h3>Code-Server Development Environment Features<a class="headerlink" href="#code-server-development-environment-features" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>The editor is <a class="reference external" href="https://code.visualstudio.com/docs">vscode</a></p></li>
+<li><p>There are several preconfigured debugging tests under
+the debugging icon in the activity bar</p>
+<ul>
+<li><p>see <a class="reference external" href="https://code.visualstudio.com/docs/python/debugging">vscode debugging python</a>
+for details.</p></li>
+</ul>
+</li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">gitlens</span></code> and <code class="docutils literal notranslate"><span class="pre">python</span></code> extensions are preinstalled to improve
+the development experience in vscode.</p></li>
+</ul>
+</div>
+</div>
+<div class="section" id="adding-new-features-to-the-citation-boilerplate">
+<h2>Adding new features to the citation boilerplate<a class="headerlink" href="#adding-new-features-to-the-citation-boilerplate" title="Permalink to this headline">¶</a></h2>
+<p>The citation boilerplate is built by adding two dunder attributes
+of workflow objects: <code class="docutils literal notranslate"><span class="pre">__desc__</span></code> and <code class="docutils literal notranslate"><span class="pre">__postdesc__</span></code>.
+Once the full <em>aslprep</em> workflow is built, starting from the
+outer workflow and visiting all sub-workflows in topological
+order, all defined <code class="docutils literal notranslate"><span class="pre">__desc__</span></code> are appended to the citation
+boilerplate before descending into sub-workflows.
+Once all the sub-workflows of a given workflow have
+been visited, then the <code class="docutils literal notranslate"><span class="pre">__postdesc__</span></code> attribute is appended
+and the execution pops out to higher level workflows.
+The dunder attributes are written in Markdown language, and may contain
+references.
+To add a reference, just add a new Bibtex entry to the references
+database (<code class="docutils literal notranslate"><span class="pre">/aslprep/data/boilerplate.bib</span></code>).
+You can then use the Bibtex handle within the Markdown text.
+For example, if the Bibtex handle is <code class="docutils literal notranslate"><span class="pre">myreference</span></code>, a citation
+will be generated in Markdown language with <code class="docutils literal notranslate"><span class="pre">&#64;myreference</span></code>.
+To generate citations with parenthesis and/or additional content,
+brackets should be used: e.g., <code class="docutils literal notranslate"><span class="pre">[see</span> <span class="pre">&#64;myreference]</span></code> will produce
+a citation like <em>(see Doe J. et al 2018)</em>.</p>
+<p>An example of how this works is shown here:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">workflow</span> <span class="o">=</span> <span class="n">Workflow</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+<span class="n">workflow</span><span class="o">.</span><span class="n">__desc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span><span class="se">\</span>
+<span class="s2">Head-motion parameters with respect to the BOLD reference</span>
+<span class="s2">(transformation matrices, and six corresponding rotation and translation</span>
+<span class="s2">parameters) are estimated before any spatiotemporal filtering using</span>
+<span class="s2">`mcflirt` [FSL </span><span class="si">{fsl_ver}</span><span class="s2">, @mcflirt].</span>
+<span class="s2">&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fsl_ver</span><span class="o">=</span><span class="n">fsl</span><span class="o">.</span><span class="n">Info</span><span class="p">()</span><span class="o">.</span><span class="n">version</span><span class="p">()</span> <span class="ow">or</span> <span class="s1">&#39;&lt;ver&gt;&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="citing.html" class="btn btn-neutral float-right" title="Citing ASLPrep" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="faq.html" class="btn btn-neutral float-left" title="FAQ, Tips, and Tricks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020-2020, The aslprep developers
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

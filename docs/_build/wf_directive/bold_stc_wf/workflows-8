@@ -1,0 +1,12 @@
+digraph bold_stc_wf{
+  label="bold_stc_wf";
+  bold_stc_wf_inputnode[label="inputnode (utility)", style=filled, fillcolor="#FFFFC8"];
+  bold_stc_wf_slice_timing_correction[label="slice_timing_correction (afni)", style=filled, fillcolor="#FFFFC8"];
+  bold_stc_wf_copy_xform[label="copy_xform (interfaces)", style=filled, fillcolor="#FFFFC8"];
+  bold_stc_wf_outputnode[label="outputnode (utility)", style=filled, fillcolor="#FFFFC8"];
+  bold_stc_wf_inputnode -> bold_stc_wf_slice_timing_correction;
+  bold_stc_wf_inputnode -> bold_stc_wf_slice_timing_correction;
+  bold_stc_wf_inputnode -> bold_stc_wf_copy_xform;
+  bold_stc_wf_slice_timing_correction -> bold_stc_wf_copy_xform;
+  bold_stc_wf_copy_xform -> bold_stc_wf_outputnode;
+}

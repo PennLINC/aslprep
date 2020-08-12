@@ -1,0 +1,1768 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Developers - API &mdash; aslprep version documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/theme_overrides.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script src="https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        <script type="text/x-mathjax-config">MathJax.Hub.Config({"tex2jax": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true, "ignoreClass": "document", "processClass": "math|output_area"}})</script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="What’s new" href="changes.html" />
+    <link rel="prev" title="Citing ASLPrep" href="citing.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> aslprep
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                version
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Running <em>aslprep</em> via Docker containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="singularity.html">Running <em>ASLPrep</em> via Singularity containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="workflows.html">Processing pipeline details</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sdc.html">Susceptibility Distortion Correction (SDC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs of <em>ASLPrep</em></a></li>
+<li class="toctree-l1"><a class="reference internal" href="spaces.html">Defining standard and nonstandard spaces where data will be resampled</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ, Tips, and Tricks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contributors.html">Contributing to ASLPREP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="citing.html">Citing <em>ASLPrep</em></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Developers - API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#module-aslprep.config">Internal configuration system</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#configuration-sections">Configuration sections</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#usage">Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#logging">Logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#other-responsibilities">Other responsibilities</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#id1">Workflows</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#aslprep-base-processing-workflows">aslprep base processing workflows</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-aslprep.workflows.bold.base">Pre-processing fMRI - BOLD signal workflows</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#orchestrating-the-bold-preprocessing-workflow">Orchestrating the BOLD-preprocessing workflow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#head-motion-estimation-and-correction-hmc-of-bold-images">Head-Motion Estimation and Correction (HMC) of BOLD images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#slice-timing-correction-stc-of-bold-images">Slice-Timing Correction (STC) of BOLD images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#generate-t2-map-from-multi-echo-bold-images">Generate T2* map from multi-echo BOLD images</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#registration-workflows">Registration workflows</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resampling-workflows">Resampling workflows</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#calculate-bold-confounds">Calculate BOLD confounds</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="changes.html">What’s new</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">aslprep</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Developers - API</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="developers-api">
+<h1>Developers - API<a class="headerlink" href="#developers-api" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-aslprep.config">
+<span id="internal-configuration-system"></span><h2>Internal configuration system<a class="headerlink" href="#module-aslprep.config" title="Permalink to this headline">¶</a></h2>
+<p>A Python module to maintain unique, run-wide <em>aslprep</em> settings.</p>
+<p>This module implements the memory structures to keep a consistent, singleton config.
+Settings are passed across processes via filesystem, and a copy of the settings for
+each run and subject is left under
+<code class="docutils literal notranslate"><span class="pre">&lt;output_dir&gt;/sub-&lt;participant_id&gt;/log/&lt;run_unique_id&gt;/aslprep.toml</span></code>.
+Settings are stored using <abbr title="Tom's Markup Language">ToML</abbr>.
+The module has a <a class="reference internal" href="#aslprep.config.to_filename" title="aslprep.config.to_filename"><code class="xref py py-func docutils literal notranslate"><span class="pre">to_filename()</span></code></a> function to allow writting out
+the settings to hard disk in <em>ToML</em> format, which looks like:</p>
+<div class="literal-block-wrapper docutils container" id="aslprep-toml">
+<div class="code-block-caption"><span class="caption-text"><strong>Example file representation of aslprep settings</strong>.</span><a class="headerlink" href="#aslprep-toml" title="Permalink to this code">¶</a></div>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[environment]</span>
+<span class="n">cpu_count</span> <span class="o">=</span> <span class="mi">8</span>
+<span class="n">exec_env</span> <span class="o">=</span> <span class="s">&quot;posix&quot;</span>
+<span class="n">free_mem</span> <span class="o">=</span> <span class="mf">2.3</span>
+<span class="n">overcommit_policy</span> <span class="o">=</span> <span class="s">&quot;heuristic&quot;</span>
+<span class="n">overcommit_limit</span> <span class="o">=</span> <span class="s">&quot;50%&quot;</span>
+<span class="n">nipype_version</span> <span class="o">=</span> <span class="s">&quot;1.5.0&quot;</span>
+<span class="n">templateflow_version</span> <span class="o">=</span> <span class="s">&quot;0.6.3&quot;</span>
+<span class="n">version</span> <span class="o">=</span> <span class="s">&quot;0.2.2+39.gaf10e8d.dirty&quot;</span>
+
+<span class="k">[execution]</span>
+<span class="n">bids_dir</span> <span class="o">=</span> <span class="s">&quot;ds000240/&quot;</span>
+<span class="n">bids_description_hash</span> <span class="o">=</span> <span class="s">&quot;d1cefcd38b7b3ab51fa1b78d5cf34a8efb1d07fc3208b8042fc105491bd9b2df&quot;</span>
+<span class="n">boilerplate_only</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">debug</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">fs_license_file</span> <span class="o">=</span> <span class="s">&quot;/opt/freesurfer/license.txt&quot;</span>
+<span class="n">fs_subjects_dir</span> <span class="o">=</span> <span class="s">&quot;/storage/testxcp/test/freesurfer&quot;</span>
+<span class="n">log_dir</span> <span class="o">=</span> <span class="s">&quot;/storage/testxcp/test/aslprep/logs&quot;</span>
+<span class="n">log_level</span> <span class="o">=</span> <span class="mi">25</span>
+<span class="n">low_mem</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">md_only_boilerplate</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">notrack</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">output_dir</span> <span class="o">=</span> <span class="s">&quot;/tmp&quot;</span>
+<span class="n">output_spaces</span> <span class="o">=</span> <span class="s">&quot;func&quot;</span>
+<span class="n">reports_only</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">run_uuid</span> <span class="o">=</span> <span class="s">&quot;20200811-002648_12faeae6-6667-482b-a7a7-1bae99e79aa0&quot;</span>
+<span class="n">participant_label</span> <span class="o">=</span> <span class="k">[ &quot;01&quot;,]</span>
+<span class="n">templateflow_home</span> <span class="o">=</span> <span class="s">&quot;~/.cache/templateflow&quot;</span>
+<span class="n">work_dir</span> <span class="o">=</span> <span class="s">&quot;/work/&quot;</span>
+<span class="n">write_graph</span> <span class="o">=</span> <span class="kc">false</span>
+
+<span class="k">[workflow]</span>
+<span class="n">anat_only</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">bold2t1w_dof</span> <span class="o">=</span> <span class="mi">6</span>
+<span class="n">bold2t1w_init</span> <span class="o">=</span> <span class="s">&quot;register&quot;</span>
+<span class="n">cifti_output</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">fmap_bspline</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">force_syn</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">hires</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="n">ignore</span> <span class="o">=</span> <span class="k">[]</span>
+<span class="n">longitudinal</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">medial_surface_nan</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">run_reconall</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="n">skull_strip_fixed_seed</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">skull_strip_template</span> <span class="o">=</span> <span class="s">&quot;OASIS30ANTs&quot;</span>
+<span class="n">skull_strip_t1w</span> <span class="o">=</span> <span class="s">&quot;force&quot;</span>
+<span class="n">spaces</span> <span class="o">=</span> <span class="s">&quot;func MNI152NLin2009cAsym&quot;</span>
+<span class="n">use_bbr</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="n">use_syn_sdc</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">dummy_vols</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">smooth_kernel</span> <span class="o">=</span> <span class="mi">5</span>
+
+<span class="k">[nipype]</span>
+<span class="n">crashfile_format</span> <span class="o">=</span> <span class="s">&quot;txt&quot;</span>
+<span class="n">get_linked_libs</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">nprocs</span> <span class="o">=</span> <span class="mi">24</span>
+<span class="n">omp_nthreads</span> <span class="o">=</span> <span class="mi">8</span>
+<span class="n">plugin</span> <span class="o">=</span> <span class="s">&quot;MultiProc&quot;</span>
+<span class="n">resource_monitor</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="n">stop_on_first_crash</span> <span class="o">=</span> <span class="kc">false</span>
+
+<span class="k">[seeds]</span>
+<span class="n">master</span> <span class="o">=</span> <span class="mi">23622</span>
+<span class="n">ants</span> <span class="o">=</span> <span class="mi">9945</span>
+
+<span class="k">[nipype.plugin_args]</span>
+<span class="n">maxtasksperchild</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">raise_insufficient</span> <span class="o">=</span> <span class="kc">false</span>
+</pre></div>
+</div>
+</div>
+<p>This config file is used to pass the settings across processes,
+using the <a class="reference internal" href="#aslprep.config.load" title="aslprep.config.load"><code class="xref py py-func docutils literal notranslate"><span class="pre">load()</span></code></a> function.</p>
+<div class="section" id="configuration-sections">
+<h3>Configuration sections<a class="headerlink" href="#configuration-sections" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="aslprep.config.environment">
+<em class="property">class </em><code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">environment</code><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L211"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.environment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read-only options regarding the platform and environment.</p>
+<p>Crawls runtime descriptive settings (e.g., default FreeSurfer license,
+execution environment, nipype and <em>aslprep</em> versions, etc.).
+The <code class="docutils literal notranslate"><span class="pre">environment</span></code> section is not loaded in from file,
+only written out when settings are exported.
+This config section is useful when reporting issues,
+and these variables are tracked whenever the user does not
+opt-out using the <code class="docutils literal notranslate"><span class="pre">--notrack</span></code> argument.</p>
+<dl class="py attribute">
+<dt id="aslprep.config.environment.cpu_count">
+<code class="sig-name descname">cpu_count</code><em class="property"> = 4</em><a class="headerlink" href="#aslprep.config.environment.cpu_count" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of available CPUs.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.environment.exec_docker_version">
+<code class="sig-name descname">exec_docker_version</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.environment.exec_docker_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Version of Docker Engine.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.environment.exec_env">
+<code class="sig-name descname">exec_env</code><em class="property"> = 'posix'</em><a class="headerlink" href="#aslprep.config.environment.exec_env" title="Permalink to this definition">¶</a></dt>
+<dd><p>A string representing the execution platform.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.environment.free_mem">
+<code class="sig-name descname">free_mem</code><em class="property"> = 0.0</em><a class="headerlink" href="#aslprep.config.environment.free_mem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Free memory at start.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.environment.nipype_version">
+<code class="sig-name descname">nipype_version</code><em class="property"> = '1.5.0'</em><a class="headerlink" href="#aslprep.config.environment.nipype_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Nipype’s current version.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.environment.overcommit_limit">
+<code class="sig-name descname">overcommit_limit</code><em class="property"> = 'n/a'</em><a class="headerlink" href="#aslprep.config.environment.overcommit_limit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Linux’s kernel virtual memory overcommit limits.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.environment.overcommit_policy">
+<code class="sig-name descname">overcommit_policy</code><em class="property"> = 'n/a'</em><a class="headerlink" href="#aslprep.config.environment.overcommit_policy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Linux’s kernel virtual memory overcommit policy.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.environment.templateflow_version">
+<code class="sig-name descname">templateflow_version</code><em class="property"> = '0.6.3'</em><a class="headerlink" href="#aslprep.config.environment.templateflow_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>The TemplateFlow client version installed.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.environment.version">
+<code class="sig-name descname">version</code><em class="property"> = '0.2.2+46.geece56b'</em><a class="headerlink" href="#aslprep.config.environment.version" title="Permalink to this definition">¶</a></dt>
+<dd><p><em>aslprep</em>’s version.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="aslprep.config.execution">
+<em class="property">class </em><code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">execution</code><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L313"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution" title="Permalink to this definition">¶</a></dt>
+<dd><p>Configure run-level settings.</p>
+<dl class="py attribute">
+<dt id="aslprep.config.execution.anat_derivatives">
+<code class="sig-name descname">anat_derivatives</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.execution.anat_derivatives" title="Permalink to this definition">¶</a></dt>
+<dd><p>A path where anatomical derivatives are found to fast-track <em>sMRIPrep</em>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.bids_description_hash">
+<code class="sig-name descname">bids_description_hash</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.execution.bids_description_hash" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checksum (SHA256) of the <code class="docutils literal notranslate"><span class="pre">dataset_description.json</span></code> of the BIDS dataset.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.bids_dir">
+<code class="sig-name descname">bids_dir</code><em class="property"> = None</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../pathlib.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution.bids_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>An existing path to the dataset, which must be BIDS-compliant.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.bids_filters">
+<code class="sig-name descname">bids_filters</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.execution.bids_filters" title="Permalink to this definition">¶</a></dt>
+<dd><p>A dictionary of BIDS selection filters.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.boilerplate_only">
+<code class="sig-name descname">boilerplate_only</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.execution.boilerplate_only" title="Permalink to this definition">¶</a></dt>
+<dd><p>Only generate a boilerplate.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.debug">
+<code class="sig-name descname">debug</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.execution.debug" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run in sloppy mode (meaning, suboptimal parameters that minimize run-time).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.echo_idx">
+<code class="sig-name descname">echo_idx</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.execution.echo_idx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select a particular echo for multi-echo EPI datasets.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.fs_license_file">
+<code class="sig-name descname">fs_license_file</code><em class="property"> = '/Applications/freesurfer/license.txt'</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../pathlib.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution.fs_license_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>An existing file containing a FreeSurfer license.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.fs_subjects_dir">
+<code class="sig-name descname">fs_subjects_dir</code><em class="property"> = None</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../pathlib.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution.fs_subjects_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>FreeSurfer’s subjects directory.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="aslprep.config.execution.init">
+<em class="property">classmethod </em><code class="sig-name descname">init</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L380"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution.init" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new BIDS Layout accessible with <a class="reference internal" href="#aslprep.config.execution.layout" title="aslprep.config.execution.layout"><code class="xref py py-attr docutils literal notranslate"><span class="pre">layout</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.layout">
+<code class="sig-name descname">layout</code><em class="property"> = None</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../pybids-0.12.0-py3.7.egg/bids/layout/layout.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution.layout" title="Permalink to this definition">¶</a></dt>
+<dd><p>A <a class="reference external" href="https://bids-standard.github.io/pybids/generated/bids.layout.BIDSLayout.html#bids.layout.BIDSLayout" title="(in PyBIDS v0.11.1)"><code class="xref py py-class docutils literal notranslate"><span class="pre">BIDSLayout</span></code></a> object, see <a class="reference internal" href="#aslprep.config.execution.init" title="aslprep.config.execution.init"><code class="xref py py-func docutils literal notranslate"><span class="pre">init()</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.log_dir">
+<code class="sig-name descname">log_dir</code><em class="property"> = None</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../pathlib.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution.log_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>The path to a directory that contains execution logs.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.log_level">
+<code class="sig-name descname">log_level</code><em class="property"> = 25</em><a class="headerlink" href="#aslprep.config.execution.log_level" title="Permalink to this definition">¶</a></dt>
+<dd><p>Output verbosity.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.low_mem">
+<code class="sig-name descname">low_mem</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.execution.low_mem" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utilize uncompressed NIfTIs and other tricks to minimize memory allocation.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.md_only_boilerplate">
+<code class="sig-name descname">md_only_boilerplate</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.execution.md_only_boilerplate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do not convert boilerplate from MarkDown to LaTex and HTML.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.notrack">
+<code class="sig-name descname">notrack</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.execution.notrack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Do not monitor <em>aslprep</em> using Sentry.io.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.output_dir">
+<code class="sig-name descname">output_dir</code><em class="property"> = None</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../pathlib.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution.output_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Folder where derivatives will be stored.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.output_spaces">
+<code class="sig-name descname">output_spaces</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.execution.output_spaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>List of (non)standard spaces designated (with the <code class="docutils literal notranslate"><span class="pre">--output-spaces</span></code> flag of
+the command line) as spatial references for outputs.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.participant_label">
+<code class="sig-name descname">participant_label</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.execution.participant_label" title="Permalink to this definition">¶</a></dt>
+<dd><p>List of participant identifiers that are to be preprocessed.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.reports_only">
+<code class="sig-name descname">reports_only</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.execution.reports_only" title="Permalink to this definition">¶</a></dt>
+<dd><p>Only build the reports, based on the reportlets found in a cached working directory.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.run_uuid">
+<code class="sig-name descname">run_uuid</code><em class="property"> = '20200812-092907_b17589d5-47fa-4239-9ebd-21ab742ee16b'</em><a class="headerlink" href="#aslprep.config.execution.run_uuid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unique identifier of this particular run.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.task_id">
+<code class="sig-name descname">task_id</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.execution.task_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select a particular task from all available in the dataset.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.templateflow_home">
+<code class="sig-name descname">templateflow_home</code><em class="property"> = PosixPath('/Users/adebimpe/.cache/templateflow')</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../pathlib.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution.templateflow_home" title="Permalink to this definition">¶</a></dt>
+<dd><p>The root folder of the TemplateFlow client.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.work_dir">
+<code class="sig-name descname">work_dir</code><em class="property"> = PosixPath('/Users/adebimpe/Documents/aslprep1/docs/work')</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../pathlib.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.execution.work_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to a working directory where intermediate results will be available.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.execution.write_graph">
+<code class="sig-name descname">write_graph</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.execution.write_graph" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write out the computational graph corresponding to the planned preprocessing.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="aslprep.config.workflow">
+<em class="property">class </em><code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">workflow</code><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L411"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.workflow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Configure the particular execution graph of this workflow.</p>
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.anat_only">
+<code class="sig-name descname">anat_only</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.workflow.anat_only" title="Permalink to this definition">¶</a></dt>
+<dd><p>Execute the anatomical preprocessing only.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.aroma_err_on_warn">
+<code class="sig-name descname">aroma_err_on_warn</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.aroma_err_on_warn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Cast AROMA warnings to errors.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.aroma_melodic_dim">
+<code class="sig-name descname">aroma_melodic_dim</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.aroma_melodic_dim" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of ICA components to be estimated by MELODIC
+(positive = exact, negative = maximum).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.bold2t1w_dof">
+<code class="sig-name descname">bold2t1w_dof</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.bold2t1w_dof" title="Permalink to this definition">¶</a></dt>
+<dd><p>Degrees of freedom of the BOLD-to-T1w registration steps.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.bold2t1w_init">
+<code class="sig-name descname">bold2t1w_init</code><em class="property"> = 'register'</em><a class="headerlink" href="#aslprep.config.workflow.bold2t1w_init" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether to use standard coregistration (‘register’) or to initialize coregistration from the
+BOLD image-header (‘header’).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.cifti_output">
+<code class="sig-name descname">cifti_output</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.cifti_output" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate HCP Grayordinates, accepts either <code class="docutils literal notranslate"><span class="pre">'91k'</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">'170k'</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.dummy_scans">
+<code class="sig-name descname">dummy_scans</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.dummy_scans" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set a number of initial scans to be considered nonsteady states.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.dummy_vols">
+<code class="sig-name descname">dummy_vols</code><em class="property"> = 0</em><a class="headerlink" href="#aslprep.config.workflow.dummy_vols" title="Permalink to this definition">¶</a></dt>
+<dd><p>pair for label-control volume to be deleted before cbf computation.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.fmap_bspline">
+<code class="sig-name descname">fmap_bspline</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.fmap_bspline" title="Permalink to this definition">¶</a></dt>
+<dd><p>Regularize fieldmaps with a field of B-Spline basis.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.fmap_demean">
+<code class="sig-name descname">fmap_demean</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.fmap_demean" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove the mean from fieldmaps.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.force_syn">
+<code class="sig-name descname">force_syn</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.force_syn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run <em>fieldmap-less</em> susceptibility-derived distortions estimation.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.hires">
+<code class="sig-name descname">hires</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.hires" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run FreeSurfer <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> with the <code class="docutils literal notranslate"><span class="pre">-hires</span></code> flag.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.ignore">
+<code class="sig-name descname">ignore</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.ignore" title="Permalink to this definition">¶</a></dt>
+<dd><p>Ignore particular steps for <em>aslprep</em>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.longitudinal">
+<code class="sig-name descname">longitudinal</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.workflow.longitudinal" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run FreeSurfer <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> with the <code class="docutils literal notranslate"><span class="pre">-logitudinal</span></code> flag.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.medial_surface_nan">
+<code class="sig-name descname">medial_surface_nan</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.medial_surface_nan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fill medial surface with <abbr title="not-a-number">NaNs</abbr> when sampling.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.random_seed">
+<code class="sig-name descname">random_seed</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.random_seed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Master random seed to initialize the Pseudorandom Number Generator (PRNG)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.regressors_all_comps">
+<code class="sig-name descname">regressors_all_comps</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.regressors_all_comps" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return all CompCor components.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.regressors_dvars_th">
+<code class="sig-name descname">regressors_dvars_th</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.regressors_dvars_th" title="Permalink to this definition">¶</a></dt>
+<dd><p>Threshold for DVARS.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.regressors_fd_th">
+<code class="sig-name descname">regressors_fd_th</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.regressors_fd_th" title="Permalink to this definition">¶</a></dt>
+<dd><p>Threshold for <abbr title="frame-wise displacement">FD</abbr>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.run_reconall">
+<code class="sig-name descname">run_reconall</code><em class="property"> = True</em><a class="headerlink" href="#aslprep.config.workflow.run_reconall" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run FreeSurfer’s surface reconstruction.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.skull_strip_fixed_seed">
+<code class="sig-name descname">skull_strip_fixed_seed</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.workflow.skull_strip_fixed_seed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fix a seed for skull-stripping.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.skull_strip_t1w">
+<code class="sig-name descname">skull_strip_t1w</code><em class="property"> = 'force'</em><a class="headerlink" href="#aslprep.config.workflow.skull_strip_t1w" title="Permalink to this definition">¶</a></dt>
+<dd><p>Skip brain extraction of the T1w image (default is <code class="docutils literal notranslate"><span class="pre">force</span></code>, meaning that
+<em>aslprep</em> will run brain extraction of the T1w).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.skull_strip_template">
+<code class="sig-name descname">skull_strip_template</code><em class="property"> = 'OASIS30ANTs'</em><a class="headerlink" href="#aslprep.config.workflow.skull_strip_template" title="Permalink to this definition">¶</a></dt>
+<dd><p>Change default brain extraction template.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.smooth_kernel">
+<code class="sig-name descname">smooth_kernel</code><em class="property"> = 5</em><a class="headerlink" href="#aslprep.config.workflow.smooth_kernel" title="Permalink to this definition">¶</a></dt>
+<dd><p>kernel size for smoothing M0.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.spaces">
+<code class="sig-name descname">spaces</code><em class="property"> = None</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/niworkflows/utils/spaces.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.workflow.spaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Keeps the <a class="reference external" href="https://www.nipreps.org/niworkflows/api/niworkflows.utils.spaces.html#niworkflows.utils.spaces.SpatialReferences" title="(in niworkflows v1.2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpatialReferences</span></code></a>
+instance keeping standard and nonstandard spaces.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.use_aroma">
+<code class="sig-name descname">use_aroma</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.use_aroma" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run ICA-<abbr title="automatic removal of motion artifacts">AROMA</abbr>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.use_bbr">
+<code class="sig-name descname">use_bbr</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.use_bbr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run boundary-based registration for BOLD-to-T1w registration.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.workflow.use_syn_sdc">
+<code class="sig-name descname">use_syn_sdc</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.workflow.use_syn_sdc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run <em>fieldmap-less</em> susceptibility-derived distortions estimation
+in the absence of any alternatives.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="aslprep.config.nipype">
+<em class="property">class </em><code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">nipype</code><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L245"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.nipype" title="Permalink to this definition">¶</a></dt>
+<dd><p>Nipype settings.</p>
+<dl class="py attribute">
+<dt id="aslprep.config.nipype.crashfile_format">
+<code class="sig-name descname">crashfile_format</code><em class="property"> = 'txt'</em><a class="headerlink" href="#aslprep.config.nipype.crashfile_format" title="Permalink to this definition">¶</a></dt>
+<dd><p>The file format for crashfiles, either text or pickle.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.nipype.get_linked_libs">
+<code class="sig-name descname">get_linked_libs</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.nipype.get_linked_libs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run NiPype’s tool to enlist linked libraries for every interface.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="aslprep.config.nipype.get_plugin">
+<em class="property">classmethod </em><code class="sig-name descname">get_plugin</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L270"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.nipype.get_plugin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Format a dictionary for Nipype consumption.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="aslprep.config.nipype.init">
+<em class="property">classmethod </em><code class="sig-name descname">init</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L283"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.nipype.init" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set NiPype configurations.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.nipype.memory_gb">
+<code class="sig-name descname">memory_gb</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.nipype.memory_gb" title="Permalink to this definition">¶</a></dt>
+<dd><p>Estimation in GB of the RAM this workflow can allocate at any given time.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.nipype.nprocs">
+<code class="sig-name descname">nprocs</code><em class="property"> = 4</em><a class="headerlink" href="#aslprep.config.nipype.nprocs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of processes (compute tasks) that can be run in parallel (multiprocessing only).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.nipype.omp_nthreads">
+<code class="sig-name descname">omp_nthreads</code><em class="property"> = None</em><a class="headerlink" href="#aslprep.config.nipype.omp_nthreads" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of CPUs a single process can access for multithreaded execution.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.nipype.plugin">
+<code class="sig-name descname">plugin</code><em class="property"> = 'MultiProc'</em><a class="headerlink" href="#aslprep.config.nipype.plugin" title="Permalink to this definition">¶</a></dt>
+<dd><p>NiPype’s execution plugin.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.nipype.plugin_args">
+<code class="sig-name descname">plugin_args</code><em class="property"> = {'maxtasksperchild': 1, 'raise_insufficient': False}</em><a class="headerlink" href="#aslprep.config.nipype.plugin_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Settings for NiPype’s execution plugin.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.nipype.resource_monitor">
+<code class="sig-name descname">resource_monitor</code><em class="property"> = False</em><a class="headerlink" href="#aslprep.config.nipype.resource_monitor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Enable resource monitor.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.nipype.stop_on_first_crash">
+<code class="sig-name descname">stop_on_first_crash</code><em class="property"> = True</em><a class="headerlink" href="#aslprep.config.nipype.stop_on_first_crash" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether the workflow should stop or continue after the first error.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="usage">
+<h3>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h3>
+<p>A config file is used to pass settings and collect information as the execution
+graph is built across processes.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">aslprep</span> <span class="kn">import</span> <span class="n">config</span>
+<span class="n">config_file</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">execution</span><span class="o">.</span><span class="n">work_dir</span> <span class="o">/</span> <span class="s1">&#39;.aslprep.toml&#39;</span>
+<span class="n">config</span><span class="o">.</span><span class="n">to_filename</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span>
+<span class="c1"># Call build_workflow(config_file, retval) in a subprocess</span>
+<span class="k">with</span> <span class="n">Manager</span><span class="p">()</span> <span class="k">as</span> <span class="n">mgr</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">.workflow</span> <span class="kn">import</span> <span class="n">build_workflow</span>
+    <span class="n">retval</span> <span class="o">=</span> <span class="n">mgr</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">build_workflow</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">config_file</span><span class="p">),</span> <span class="n">retval</span><span class="p">))</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+<span class="n">config</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">config_file</span><span class="p">)</span>
+<span class="c1"># Access configs from any code section as:</span>
+<span class="n">value</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">section</span><span class="o">.</span><span class="n">setting</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="logging">
+<h3>Logging<a class="headerlink" href="#logging" title="Permalink to this headline">¶</a></h3>
+<dl class="py class">
+<dt id="aslprep.config.loggers">
+<em class="property">class </em><code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">loggers</code><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L477"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.loggers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Keep loggers easily accessible (see <a class="reference internal" href="#aslprep.config.loggers.init" title="aslprep.config.loggers.init"><code class="xref py py-func docutils literal notranslate"><span class="pre">init()</span></code></a>).</p>
+<dl class="py attribute">
+<dt id="aslprep.config.loggers.cli">
+<code class="sig-name descname">cli</code><em class="property"> = &lt;Logger cli (WARNING)&gt;</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../logging/__init__.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.loggers.cli" title="Permalink to this definition">¶</a></dt>
+<dd><p>Command-line interface logging.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.loggers.default">
+<code class="sig-name descname">default</code><em class="property"> = &lt;RootLogger root (WARNING)&gt;</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../logging/__init__.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.loggers.default" title="Permalink to this definition">¶</a></dt>
+<dd><p>The root logger.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="aslprep.config.loggers.init">
+<em class="property">classmethod </em><code class="sig-name descname">init</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L494"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.loggers.init" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the log level, initialize all loggers into <a class="reference internal" href="#aslprep.config.loggers" title="aslprep.config.loggers"><code class="xref py py-class docutils literal notranslate"><span class="pre">loggers</span></code></a>.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Add new logger levels (25: IMPORTANT, and 15: VERBOSE).</p></li>
+<li><p>Add a new sub-logger (<code class="docutils literal notranslate"><span class="pre">cli</span></code>).</p></li>
+<li><p>Logger configuration.</p></li>
+</ul>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.loggers.interface">
+<code class="sig-name descname">interface</code><em class="property"> = &lt;Logger nipype.interface (INFO)&gt;</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../logging/__init__.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.loggers.interface" title="Permalink to this definition">¶</a></dt>
+<dd><p>NiPype’s interface logger.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.loggers.utils">
+<code class="sig-name descname">utils</code><em class="property"> = &lt;Logger nipype.utils (INFO)&gt;</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../logging/__init__.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.loggers.utils" title="Permalink to this definition">¶</a></dt>
+<dd><p>NiPype’s utils logger.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="aslprep.config.loggers.workflow">
+<code class="sig-name descname">workflow</code><em class="property"> = &lt;Logger nipype.workflow (INFO)&gt;</em><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/../../../logging/__init__.py#L"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.loggers.workflow" title="Permalink to this definition">¶</a></dt>
+<dd><p>NiPype’s workflow logger.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="other-responsibilities">
+<h3>Other responsibilities<a class="headerlink" href="#other-responsibilities" title="Permalink to this headline">¶</a></h3>
+<p>The <code class="xref py py-mod docutils literal notranslate"><span class="pre">config</span></code> is responsible for other conveniency actions.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Switching Python’s <a class="reference external" href="https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">multiprocessing</span></code></a> to <em>forkserver</em> mode.</p></li>
+<li><p>Set up a filter for warnings as early as possible.</p></li>
+<li><p>Automated I/O magic operations. Some conversions need to happen in the
+store/load processes (e.g., from/to <a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Path</span></code></a> &lt;-&gt; <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>,
+<a class="reference external" href="https://bids-standard.github.io/pybids/generated/bids.layout.BIDSLayout.html#bids.layout.BIDSLayout" title="(in PyBIDS v0.11.1)"><code class="xref py py-class docutils literal notranslate"><span class="pre">BIDSLayout</span></code></a>, etc.)</p></li>
+</ul>
+</div></blockquote>
+<dl class="py function">
+<dt id="aslprep.config.dumps">
+<code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">dumps</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L587"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.dumps" title="Permalink to this definition">¶</a></dt>
+<dd><p>Format config into toml.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.config.from_dict">
+<code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">from_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">settings</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L549"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read settings from a flat dictionary.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.config.get">
+<code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">get</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">flat</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L570"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get config as a dict.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.config.init_spaces">
+<code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">init_spaces</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">checkpoint</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L599"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.init_spaces" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialize the <a class="reference internal" href="#aslprep.config.workflow.spaces" title="aslprep.config.workflow.spaces"><code class="xref py py-attr docutils literal notranslate"><span class="pre">spaces</span></code></a> setting.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.config.load">
+<code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filename</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L558"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load settings from file.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.config.to_filename">
+<code class="sig-prename descclassname">aslprep.config.</code><code class="sig-name descname">to_filename</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filename</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/config.py#L593"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.config.to_filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>Write settings to file.</p>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="id1">
+<h2>Workflows<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="module-aslprep.workflows.base"></span><div class="section" id="aslprep-base-processing-workflows">
+<h3>aslprep base processing workflows<a class="headerlink" href="#aslprep-base-processing-workflows" title="Permalink to this headline">¶</a></h3>
+<dl class="py function">
+<dt id="aslprep.workflows.base.init_aslprep_wf">
+<code class="sig-prename descclassname">aslprep.workflows.base.</code><code class="sig-name descname">init_aslprep_wf</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/base.py#L24"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.base.init_aslprep_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build <em>aslprep</em>’s pipeline.</p>
+<p>This workflow organizes the execution of aslprep, with a sub-workflow for
+each subject.</p>
+<p>If FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> is to be run, a corresponding folder is created
+and populated with any needed template subjects under the derivatives folder.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-1.png" src="_images/api-1.png" />
+</div>
+<p>(<a class="reference external" href=".//api-1.py">Source code</a>, <a class="reference external" href=".//api-1.png">png</a>, <a class="reference external" href=".//api-1.svg">svg</a>, <a class="reference external" href=".//api-1.pdf">pdf</a>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.workflows.base.init_single_subject_wf">
+<code class="sig-prename descclassname">aslprep.workflows.base.</code><code class="sig-name descname">init_single_subject_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">subject_id</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/base.py#L86"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.base.init_single_subject_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Organize the preprocessing pipeline for a single subject.</p>
+<p>It collects and reports information about the subject, and prepares
+sub-workflows to perform anatomical and functional preprocessing.
+Anatomical preprocessing is performed in a single workflow, regardless of
+the number of sessions.
+Functional preprocessing is performed using a separate workflow for each
+individual BOLD series.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-2.png" src="_images/api-2.png" />
+</div>
+<p>(<a class="reference external" href=".//api-2.py">Source code</a>, <a class="reference external" href=".//api-2.png">png</a>, <a class="reference external" href=".//api-2.svg">svg</a>, <a class="reference external" href=".//api-2.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>subject_id</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Subject label for this single-subject workflow.</p>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>subjects_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">$SUBJECTS_DIR</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<span class="target" id="module-aslprep.workflows.bold"></span><div class="section" id="module-aslprep.workflows.bold.base">
+<span id="pre-processing-fmri-bold-signal-workflows"></span><h3>Pre-processing fMRI - BOLD signal workflows<a class="headerlink" href="#module-aslprep.workflows.bold.base" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="orchestrating-the-bold-preprocessing-workflow">
+<h4>Orchestrating the BOLD-preprocessing workflow<a class="headerlink" href="#orchestrating-the-bold-preprocessing-workflow" title="Permalink to this headline">¶</a></h4>
+<dl class="py function">
+<dt id="aslprep.workflows.bold.base.init_func_preproc_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.base.</code><code class="sig-name descname">init_func_preproc_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">bold_file</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/base.py#L46"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.base.init_func_preproc_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>This workflow controls the functional preprocessing stages of <em>aslprep</em>.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-3.png" src="_images/api-3.png" />
+</div>
+<p>(<a class="reference external" href=".//api-3.py">Source code</a>, <a class="reference external" href=".//api-3.png">png</a>, <a class="reference external" href=".//api-3.svg">svg</a>, <a class="reference external" href=".//api-3.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>bold_file</strong> – BOLD series NIfTI file</p>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>bold_file</strong> – BOLD series NIfTI file</p></li>
+<li><p><strong>t1w_preproc</strong> – Bias-corrected structural template image</p></li>
+<li><p><strong>t1w_mask</strong> – Mask of the skull-stripped template image</p></li>
+<li><p><strong>t1w_dseg</strong> – Segmentation of preprocessed structural image, including
+gray-matter (GM), white-matter (WM) and cerebrospinal fluid (CSF)</p></li>
+<li><p><strong>t1w_asec</strong> – Segmentation of structural image, done with FreeSurfer.</p></li>
+<li><p><strong>t1w_aparc</strong> – Parcellation of structural image, done with FreeSurfer.</p></li>
+<li><p><strong>t1w_tpms</strong> – List of tissue probability maps in T1w space</p></li>
+<li><p><strong>template</strong> – List of templates to target</p></li>
+<li><p><strong>anat2std_xfm</strong> – List of transform files, collated with templates</p></li>
+<li><p><strong>std2anat_xfm</strong> – List of inverse transform files, collated with templates</p></li>
+<li><p><strong>subjects_dir</strong> – FreeSurfer SUBJECTS_DIR</p></li>
+<li><p><strong>subject_id</strong> – FreeSurfer subject ID</p></li>
+<li><p><strong>t1w2fsnative_xfm</strong> – LTA-style affine matrix translating from T1w to FreeSurfer-conformed subject space</p></li>
+<li><p><strong>fsnative2t1w_xfm</strong> – LTA-style affine matrix translating from FreeSurfer-conformed subject space to T1w</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bold_t1</strong> – BOLD series, resampled to T1w space</p></li>
+<li><p><strong>bold_mask_t1</strong> – BOLD series mask in T1w space</p></li>
+<li><p><strong>bold_std</strong> – BOLD series, resampled to template space</p></li>
+<li><p><strong>bold_mask_std</strong> – BOLD series mask in template space</p></li>
+<li><p><strong>confounds</strong> – TSV of confounds</p></li>
+<li><p><strong>surfaces</strong> – BOLD series, resampled to FreeSurfer surfaces</p></li>
+<li><p><strong>bold_cifti</strong> – BOLD CIFTI image</p></li>
+<li><p><strong>cifti_variant</strong> – combination of target spaces for <cite>bold_cifti</cite></p></li>
+<li><p><strong>cbf_t1</strong> – cbf times series in T1w space</p></li>
+<li><p><strong>meancbf_t1</strong> – mean cbf   in T1w space</p></li>
+<li><p><strong>scorecbf_t1</strong> – scorecbf times series in T1w space</p></li>
+<li><p><strong>avgscorecbf_t1</strong> – mean score cbf  in T1w space</p></li>
+<li><p><strong>scrub_t1, pv_t1, basil_t1</strong> – scrub, parital volume corrected and basil cbf   in T1w space</p></li>
+<li><p><strong>cbf_std</strong> – cbf times series in template space</p></li>
+<li><p><strong>meancbf_std</strong> – mean cbf   in template space</p></li>
+<li><p><strong>scorecbf_std</strong> – scorecbf times series in template space</p></li>
+<li><p><strong>avgscorecbf_std</strong> – mean score cbf  in template space</p></li>
+<li><p><strong>scrub_std, pv_std, basil_std</strong> – scrub, parital volume corrected and basil cbf   in template space</p></li>
+<li><p><strong>qc_file</strong> – quality control meausres</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<ul class="simple">
+<li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_reference_wf()</span></code></p></li>
+<li><p><a class="reference internal" href="#aslprep.workflows.bold.stc.init_bold_stc_wf" title="aslprep.workflows.bold.stc.init_bold_stc_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_stc_wf()</span></code></a></p></li>
+<li><p><a class="reference internal" href="#aslprep.workflows.bold.hmc.init_bold_hmc_wf" title="aslprep.workflows.bold.hmc.init_bold_hmc_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_hmc_wf()</span></code></a></p></li>
+<li><p><a class="reference internal" href="#aslprep.workflows.bold.t2s.init_bold_t2s_wf" title="aslprep.workflows.bold.t2s.init_bold_t2s_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_t2s_wf()</span></code></a></p></li>
+<li><p><a class="reference internal" href="#aslprep.workflows.bold.registration.init_bold_t1_trans_wf" title="aslprep.workflows.bold.registration.init_bold_t1_trans_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_t1_trans_wf()</span></code></a></p></li>
+<li><p><a class="reference internal" href="#aslprep.workflows.bold.registration.init_bold_reg_wf" title="aslprep.workflows.bold.registration.init_bold_reg_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_reg_wf()</span></code></a></p></li>
+<li><p><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_confounds_wf()</span></code></p></li>
+<li><p><a class="reference internal" href="#aslprep.workflows.bold.confounds.init_ica_aroma_wf" title="aslprep.workflows.bold.confounds.init_ica_aroma_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_ica_aroma_wf()</span></code></a></p></li>
+<li><p><a class="reference internal" href="#aslprep.workflows.bold.resampling.init_bold_std_trans_wf" title="aslprep.workflows.bold.resampling.init_bold_std_trans_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_std_trans_wf()</span></code></a></p></li>
+<li><p><a class="reference internal" href="#aslprep.workflows.bold.resampling.init_bold_preproc_trans_wf" title="aslprep.workflows.bold.resampling.init_bold_preproc_trans_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_preproc_trans_wf()</span></code></a></p></li>
+<li><p><a class="reference internal" href="#aslprep.workflows.bold.resampling.init_bold_surf_wf" title="aslprep.workflows.bold.resampling.init_bold_surf_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bold_surf_wf()</span></code></a></p></li>
+<li><p><a class="reference external" href="https://www.nipreps.org/sdcflows/api/sdcflows.workflows.fmap.html#sdcflows.workflows.fmap.init_fmap_wf" title="(in sdcflows v1.3.2.dev2)"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_fmap_wf()</span></code></a></p></li>
+<li><p><a class="reference external" href="https://www.nipreps.org/sdcflows/api/sdcflows.workflows.pepolar.html#sdcflows.workflows.pepolar.init_pepolar_unwarp_wf" title="(in sdcflows v1.3.2.dev2)"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_pepolar_unwarp_wf()</span></code></a></p></li>
+<li><p><a class="reference external" href="https://www.nipreps.org/sdcflows/api/sdcflows.workflows.phdiff.html#sdcflows.workflows.phdiff.init_phdiff_wf" title="(in sdcflows v1.3.2.dev2)"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_phdiff_wf()</span></code></a></p></li>
+<li><p><a class="reference external" href="https://www.nipreps.org/sdcflows/api/sdcflows.workflows.syn.html#sdcflows.workflows.syn.init_syn_sdc_wf" title="(in sdcflows v1.3.2.dev2)"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_syn_sdc_wf()</span></code></a></p></li>
+<li><p><a class="reference external" href="https://www.nipreps.org/sdcflows/api/sdcflows.workflows.unwarp.html#sdcflows.workflows.unwarp.init_sdc_unwarp_wf" title="(in sdcflows v1.3.2.dev2)"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_sdc_unwarp_wf()</span></code></a></p></li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.workflows.bold.base.init_func_derivatives_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.base.</code><code class="sig-name descname">init_func_derivatives_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">bids_root</span></em>, <em class="sig-param"><span class="n">cifti_output</span></em>, <em class="sig-param"><span class="n">freesurfer</span></em>, <em class="sig-param"><span class="n">metadata</span></em>, <em class="sig-param"><span class="n">output_dir</span></em>, <em class="sig-param"><span class="n">spaces</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'func_derivatives_wf'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/outputs.py#L11"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.base.init_func_derivatives_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set up a battery of datasinks to store derivatives in the right location.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bids_root</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Original BIDS dataset path.</p></li>
+<li><p><strong>cifti_output</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether the <code class="docutils literal notranslate"><span class="pre">--cifti-output</span></code> flag was set.</p></li>
+<li><p><strong>freesurfer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether FreeSurfer anatomical processing was run.</p></li>
+<li><p><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>) – Metadata dictionary associated to the BOLD run.</p></li>
+<li><p><strong>output_dir</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Where derivatives should be written out to.</p></li>
+<li><p><strong>spaces</strong> (<a class="reference external" href="https://www.nipreps.org/niworkflows/api/niworkflows.utils.spaces.html#niworkflows.utils.spaces.SpatialReferences" title="(in niworkflows v1.2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpatialReferences</span></code></a>) – A container for storing, organizing, and parsing spatial normalizations. Composed of
+<a class="reference external" href="https://www.nipreps.org/niworkflows/api/niworkflows.utils.spaces.html#niworkflows.utils.spaces.Reference" title="(in niworkflows v1.2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Reference</span></code></a> objects representing spatial references.
+Each <code class="docutils literal notranslate"><span class="pre">Reference</span></code> contains a space, which is a string of either TemplateFlow template IDs
+(e.g., <code class="docutils literal notranslate"><span class="pre">MNI152Lin</span></code>, <code class="docutils literal notranslate"><span class="pre">MNI152NLin6Asym</span></code>, <code class="docutils literal notranslate"><span class="pre">MNIPediatricAsym</span></code>), nonstandard references
+(e.g., <code class="docutils literal notranslate"><span class="pre">T1w</span></code> or <code class="docutils literal notranslate"><span class="pre">anat</span></code>, <code class="docutils literal notranslate"><span class="pre">sbref</span></code>, <code class="docutils literal notranslate"><span class="pre">run</span></code>, etc.), or a custom template located in
+the TemplateFlow root directory. Each <code class="docutils literal notranslate"><span class="pre">Reference</span></code> may also contain a spec, which is a
+dictionary with template specifications (e.g., a specification of <code class="docutils literal notranslate"><span class="pre">{'resolution':</span> <span class="pre">2}</span></code>
+would lead to resampling on a 2mm resolution of the space).</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – This workflow’s identifier (default: <code class="docutils literal notranslate"><span class="pre">func_derivatives_wf</span></code>).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<span class="target" id="module-aslprep.workflows.bold.hmc"></span><div class="section" id="head-motion-estimation-and-correction-hmc-of-bold-images">
+<h4>Head-Motion Estimation and Correction (HMC) of BOLD images<a class="headerlink" href="#head-motion-estimation-and-correction-hmc-of-bold-images" title="Permalink to this headline">¶</a></h4>
+<dl class="py function">
+<dt id="aslprep.workflows.bold.hmc.init_bold_hmc_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.hmc.</code><code class="sig-name descname">init_bold_hmc_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">mem_gb</span></em>, <em class="sig-param"><span class="n">omp_nthreads</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bold_hmc_wf'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/hmc.py#L17"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.hmc.init_bold_hmc_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a workflow to estimate head-motion parameters.</p>
+<p>This workflow estimates the motion parameters to perform
+<abbr title="head motion correction">HMC</abbr> over the input
+<abbr title="blood-oxygen-level dependent">BOLD</abbr> image.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-4.png" src="_images/api-4.png" />
+</div>
+<p>(<a class="reference external" href=".//api-4.py">Source code</a>, <a class="reference external" href=".//api-4.png">png</a>, <a class="reference external" href=".//api-4.svg">svg</a>, <a class="reference external" href=".//api-4.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mem_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Size of BOLD file in GB</p></li>
+<li><p><strong>omp_nthreads</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>) – Maximum number of threads an individual process may use</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of workflow (default: <code class="docutils literal notranslate"><span class="pre">bold_hmc_wf</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>bold_file</strong> – BOLD series NIfTI file</p></li>
+<li><p><strong>raw_ref_image</strong> – Reference image to which BOLD series is motion corrected</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xforms</strong> – ITKTransform file aligning each volume to <code class="docutils literal notranslate"><span class="pre">ref_image</span></code></p></li>
+<li><p><strong>movpar_file</strong> – MCFLIRT motion parameters, normalized to SPM format (X, Y, Z, Rx, Ry, Rz)</p></li>
+<li><p><strong>rms_file</strong> – Framewise displacement as measured by <code class="docutils literal notranslate"><span class="pre">fsl_motion_outliers</span></code> <a class="reference internal" href="outputs.html#jenkinson2002" id="id2"><span>[Jenkinson2002]</span></a>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<span class="target" id="module-aslprep.workflows.bold.stc"></span><div class="section" id="slice-timing-correction-stc-of-bold-images">
+<h4>Slice-Timing Correction (STC) of BOLD images<a class="headerlink" href="#slice-timing-correction-stc-of-bold-images" title="Permalink to this headline">¶</a></h4>
+<dl class="py function">
+<dt id="aslprep.workflows.bold.stc.init_bold_stc_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.stc.</code><code class="sig-name descname">init_bold_stc_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">metadata</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bold_stc_wf'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/stc.py#L19"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.stc.init_bold_stc_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a workflow for <abbr title="slice-timing correction">STC</abbr>.</p>
+<p>This workflow performs <abbr title="slice-timing correction">STC</abbr> over the input
+<abbr title="blood-oxygen-level dependent">BOLD</abbr> image.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-5.png" src="_images/api-5.png" />
+</div>
+<p>(<a class="reference external" href=".//api-5.py">Source code</a>, <a class="reference external" href=".//api-5.png">png</a>, <a class="reference external" href=".//api-5.svg">svg</a>, <a class="reference external" href=".//api-5.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>) – BIDS metadata for BOLD file</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of workflow (default: <code class="docutils literal notranslate"><span class="pre">bold_stc_wf</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>bold_file</strong> – BOLD series NIfTI file</p></li>
+<li><p><strong>skip_vols</strong> – Number of non-steady-state volumes detected at beginning of <code class="docutils literal notranslate"><span class="pre">bold_file</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>stc_file</strong> – Slice-timing corrected BOLD series NIfTI file</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<span class="target" id="module-aslprep.workflows.bold.t2s"></span><div class="section" id="generate-t2-map-from-multi-echo-bold-images">
+<h4>Generate T2* map from multi-echo BOLD images<a class="headerlink" href="#generate-t2-map-from-multi-echo-bold-images" title="Permalink to this headline">¶</a></h4>
+<dl class="py function">
+<dt id="aslprep.workflows.bold.t2s.init_bold_t2s_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.t2s.</code><code class="sig-name descname">init_bold_t2s_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">echo_times</span></em>, <em class="sig-param"><span class="n">mem_gb</span></em>, <em class="sig-param"><span class="n">omp_nthreads</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bold_t2s_wf'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/t2s.py#L21"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.t2s.init_bold_t2s_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Combine multiple echos of <abbr title="multi-echo echo-planar imaging">ME-EPI</abbr>.</p>
+<p>This workflow wraps the <a class="reference external" href="https://github.com/me-ica/tedana">tedana</a> <a class="reference external" href="https://tedana.readthedocs.io/en/latest/generated/tedana.workflows.t2smap_workflow.html#tedana.workflows.t2smap_workflow#noqa">T2* workflow</a> to optimally
+combine multiple echos and derive a T2* map.
+The following steps are performed:</p>
+<ol class="arabic simple">
+<li><p><abbr title="head motion correction">HMC</abbr> on individual echo files.</p></li>
+<li><p>Compute the T2* map</p></li>
+<li><p>Create an optimally combined ME-EPI time series</p></li>
+</ol>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>echo_times</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code></a>) – list of TEs associated with each echo</p></li>
+<li><p><strong>mem_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Size of BOLD file in GB</p></li>
+<li><p><strong>omp_nthreads</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>) – Maximum number of threads an individual process may use</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of workflow (default: <code class="docutils literal notranslate"><span class="pre">bold_t2s_wf</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><p><strong>bold_file</strong> – list of individual echo files</p>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>bold</strong> – the optimally combined time series for all supplied echos</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<span class="target" id="module-aslprep.workflows.bold.registration"></span><div class="section" id="registration-workflows">
+<h4>Registration workflows<a class="headerlink" href="#registration-workflows" title="Permalink to this headline">¶</a></h4>
+<dl class="py function">
+<dt id="aslprep.workflows.bold.registration.init_bold_reg_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.registration.</code><code class="sig-name descname">init_bold_reg_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">freesurfer</span></em>, <em class="sig-param"><span class="n">use_bbr</span></em>, <em class="sig-param"><span class="n">bold2t1w_dof</span></em>, <em class="sig-param"><span class="n">bold2t1w_init</span></em>, <em class="sig-param"><span class="n">mem_gb</span></em>, <em class="sig-param"><span class="n">omp_nthreads</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bold_reg_wf'</span></em>, <em class="sig-param"><span class="n">sloppy</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">use_compression</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">write_report</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/registration.py#L29"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.registration.init_bold_reg_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a workflow to run same-subject, BOLD-to-T1w image-registration.</p>
+<p>Calculates the registration between a reference BOLD image and T1w-space
+using a boundary-based registration (BBR) cost function.
+If FreeSurfer-based preprocessing is enabled, the <code class="docutils literal notranslate"><span class="pre">bbregister</span></code> utility
+is used to align the BOLD images to the reconstructed subject, and the
+resulting transform is adjusted to target the T1 space.
+If FreeSurfer-based preprocessing is disabled, FSL FLIRT is used with the
+BBR cost function to directly target the T1 space.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-6.png" src="_images/api-6.png" />
+</div>
+<p>(<a class="reference external" href=".//api-6.py">Source code</a>, <a class="reference external" href=".//api-6.png">png</a>, <a class="reference external" href=".//api-6.svg">svg</a>, <a class="reference external" href=".//api-6.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>freesurfer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Enable FreeSurfer functional registration (bbregister)</p></li>
+<li><p><strong>use_bbr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a> or None) – Enable/disable boundary-based registration refinement.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, test BBR result for distortion before accepting.</p></li>
+<li><p><strong>bold2t1w_dof</strong> (<em>6, 9 or 12</em>) – Degrees-of-freedom for BOLD-T1w registration</p></li>
+<li><p><strong>bold2t1w_init</strong> (<em>str, ‘header’ or ‘register’</em>) – If <code class="docutils literal notranslate"><span class="pre">'header'</span></code>, use header information for initialization of BOLD and T1 images.
+If <code class="docutils literal notranslate"><span class="pre">'register'</span></code>, align volumes by their centers.</p></li>
+<li><p><strong>mem_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Size of BOLD file in GB</p></li>
+<li><p><strong>omp_nthreads</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>) – Maximum number of threads an individual process may use</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of workflow (default: <code class="docutils literal notranslate"><span class="pre">bold_reg_wf</span></code>)</p></li>
+<li><p><strong>use_compression</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Save registered BOLD series as <code class="docutils literal notranslate"><span class="pre">.nii.gz</span></code></p></li>
+<li><p><strong>use_fieldwarp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Include SDC warp in single-shot transform from BOLD to T1</p></li>
+<li><p><strong>write_report</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether a reportlet should be stored</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ref_bold_brain</strong> – Reference image to which BOLD series is aligned
+If <code class="docutils literal notranslate"><span class="pre">fieldwarp</span> <span class="pre">==</span> <span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">ref_bold_brain</span></code> should be unwarped</p></li>
+<li><p><strong>t1w_brain</strong> – Skull-stripped <code class="docutils literal notranslate"><span class="pre">t1w_preproc</span></code></p></li>
+<li><p><strong>t1w_dseg</strong> – Segmentation of preprocessed structural image, including
+gray-matter (GM), white-matter (WM) and cerebrospinal fluid (CSF)</p></li>
+<li><p><strong>subjects_dir</strong> – FreeSurfer SUBJECTS_DIR</p></li>
+<li><p><strong>subject_id</strong> – FreeSurfer subject ID</p></li>
+<li><p><strong>fsnative2t1w_xfm</strong> – LTA-style affine matrix translating from FreeSurfer-conformed subject space to T1w</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>itk_bold_to_t1</strong> – Affine transform from <code class="docutils literal notranslate"><span class="pre">ref_bold_brain</span></code> to T1 space (ITK format)</p></li>
+<li><p><strong>itk_t1_to_bold</strong> – Affine transform from T1 space to BOLD space (ITK format)</p></li>
+<li><p><strong>fallback</strong> – Boolean indicating whether BBR was rejected (mri_coreg registration returned)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.workflows.bold.registration.init_bold_t1_trans_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.registration.</code><code class="sig-name descname">init_bold_t1_trans_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">freesurfer</span></em>, <em class="sig-param"><span class="n">mem_gb</span></em>, <em class="sig-param"><span class="n">omp_nthreads</span></em>, <em class="sig-param"><span class="n">cbft1space</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">multiecho</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">use_fieldwarp</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">use_compression</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bold_t1_trans_wf'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/registration.py#L178"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.registration.init_bold_t1_trans_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Co-register the reference BOLD image to T1w-space.</p>
+<p>The workflow uses <abbr title="boundary-based registration">BBR</abbr>.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-7.png" src="_images/api-7.png" />
+</div>
+<p>(<a class="reference external" href=".//api-7.py">Source code</a>, <a class="reference external" href=".//api-7.png">png</a>, <a class="reference external" href=".//api-7.svg">svg</a>, <a class="reference external" href=".//api-7.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>freesurfer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Enable FreeSurfer functional registration (bbregister)</p></li>
+<li><p><strong>use_fieldwarp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Include SDC warp in single-shot transform from BOLD to T1</p></li>
+<li><p><strong>multiecho</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – If multiecho data was supplied, HMC already performed</p></li>
+<li><p><strong>mem_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Size of BOLD file in GB</p></li>
+<li><p><strong>omp_nthreads</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>) – Maximum number of threads an individual process may use</p></li>
+<li><p><strong>use_compression</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Save registered BOLD series as <code class="docutils literal notranslate"><span class="pre">.nii.gz</span></code></p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of workflow (default: <code class="docutils literal notranslate"><span class="pre">bold_reg_wf</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>name_source</strong> – BOLD series NIfTI file
+Used to recover original information lost during processing</p></li>
+<li><p><strong>ref_bold_brain</strong> – Reference image to which BOLD series is aligned
+If <code class="docutils literal notranslate"><span class="pre">fieldwarp</span> <span class="pre">==</span> <span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">ref_bold_brain</span></code> should be unwarped</p></li>
+<li><p><strong>ref_bold_mask</strong> – Skull-stripping mask of reference image</p></li>
+<li><p><strong>t1w_brain</strong> – Skull-stripped bias-corrected structural template image</p></li>
+<li><p><strong>t1w_mask</strong> – Mask of the skull-stripped template image</p></li>
+<li><p><strong>t1w_aseg</strong> – FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">aseg.mgz</span></code> atlas projected into the T1w reference
+(only if <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> was run).</p></li>
+<li><p><strong>t1w_aparc</strong> – FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">aparc+aseg.mgz</span></code> atlas projected into the T1w reference
+(only if <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> was run).</p></li>
+<li><p><strong>bold_split</strong> – Individual 3D BOLD volumes, not motion corrected</p></li>
+<li><p><strong>hmc_xforms</strong> – List of affine transforms aligning each volume to <code class="docutils literal notranslate"><span class="pre">ref_image</span></code> in ITK format</p></li>
+<li><p><strong>itk_bold_to_t1</strong> – Affine transform from <code class="docutils literal notranslate"><span class="pre">ref_bold_brain</span></code> to T1 space (ITK format)</p></li>
+<li><p><strong>fieldwarp</strong> – a <abbr title="displacements field map">DFM</abbr> in ITK format</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bold_t1</strong> – Motion-corrected BOLD series in T1 space</p></li>
+<li><p><strong>bold_t1_ref</strong> – Reference, contrast-enhanced summary of the motion-corrected BOLD series in T1w space</p></li>
+<li><p><strong>bold_mask_t1</strong> – BOLD mask in T1 space</p></li>
+<li><p><strong>bold_aseg_t1</strong> – FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">aseg.mgz</span></code> atlas, in T1w-space at the BOLD resolution
+(only if <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> was run).</p></li>
+<li><p><strong>bold_aparc_t1</strong> – FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">aparc+aseg.mgz</span></code> atlas, in T1w-space at the BOLD resolution
+(only if <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> was run).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.workflows.bold.registration.init_bbreg_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.registration.</code><code class="sig-name descname">init_bbreg_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">use_bbr</span></em>, <em class="sig-param"><span class="n">bold2t1w_dof</span></em>, <em class="sig-param"><span class="n">bold2t1w_init</span></em>, <em class="sig-param"><span class="n">omp_nthreads</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bbreg_wf'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/registration.py#L439"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.registration.init_bbreg_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a workflow to run FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">bbregister</span></code>.</p>
+<p>This workflow uses FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">bbregister</span></code> to register a BOLD image to
+a T1-weighted structural image.</p>
+<p>It is a counterpart to <a class="reference internal" href="#aslprep.workflows.bold.registration.init_fsl_bbr_wf" title="aslprep.workflows.bold.registration.init_fsl_bbr_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_fsl_bbr_wf()</span></code></a>,
+which performs the same task using FSL’s FLIRT with a BBR cost function.
+The <code class="docutils literal notranslate"><span class="pre">use_bbr</span></code> option permits a high degree of control over registration.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, standard, affine coregistration will be performed using
+FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">mri_coreg</span></code> tool.
+If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">bbregister</span></code> will be seeded with the initial transform found
+by <code class="docutils literal notranslate"><span class="pre">mri_coreg</span></code> (equivalent to running <code class="docutils literal notranslate"><span class="pre">bbregister</span> <span class="pre">--init-coreg</span></code>).
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, after <code class="docutils literal notranslate"><span class="pre">bbregister</span></code> is run, the resulting affine transform
+will be compared to the initial transform found by <code class="docutils literal notranslate"><span class="pre">mri_coreg</span></code>.
+Excessive deviation will result in rejecting the BBR refinement and
+accepting the original, affine registration.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-8.png" src="_images/api-8.png" />
+</div>
+<p>(<a class="reference external" href=".//api-8.py">Source code</a>, <a class="reference external" href=".//api-8.png">png</a>, <a class="reference external" href=".//api-8.svg">svg</a>, <a class="reference external" href=".//api-8.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>use_bbr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a> or None) – Enable/disable boundary-based registration refinement.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, test BBR result for distortion before accepting.</p></li>
+<li><p><strong>bold2t1w_dof</strong> (<em>6, 9 or 12</em>) – Degrees-of-freedom for BOLD-T1w registration</p></li>
+<li><p><strong>bold2t1w_init</strong> (<em>str, ‘header’ or ‘register’</em>) – If <code class="docutils literal notranslate"><span class="pre">'header'</span></code>, use header information for initialization of BOLD and T1 images.
+If <code class="docutils literal notranslate"><span class="pre">'register'</span></code>, align volumes by their centers.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – Workflow name (default: bbreg_wf)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>in_file</strong> – Reference BOLD image to be registered</p></li>
+<li><p><strong>fsnative2t1w_xfm</strong> – FSL-style affine matrix translating from FreeSurfer T1.mgz to T1w</p></li>
+<li><p><strong>subjects_dir</strong> – FreeSurfer SUBJECTS_DIR</p></li>
+<li><p><strong>subject_id</strong> – FreeSurfer subject ID (must have folder in SUBJECTS_DIR)</p></li>
+<li><p><strong>t1w_brain</strong> – Unused (see <a class="reference internal" href="#aslprep.workflows.bold.registration.init_fsl_bbr_wf" title="aslprep.workflows.bold.registration.init_fsl_bbr_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_fsl_bbr_wf()</span></code></a>)</p></li>
+<li><p><strong>t1w_dseg</strong> – Unused (see <a class="reference internal" href="#aslprep.workflows.bold.registration.init_fsl_bbr_wf" title="aslprep.workflows.bold.registration.init_fsl_bbr_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_fsl_bbr_wf()</span></code></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>itk_bold_to_t1</strong> – Affine transform from <code class="docutils literal notranslate"><span class="pre">ref_bold_brain</span></code> to T1 space (ITK format)</p></li>
+<li><p><strong>itk_t1_to_bold</strong> – Affine transform from T1 space to BOLD space (ITK format)</p></li>
+<li><p><strong>out_report</strong> – Reportlet for assessing registration quality</p></li>
+<li><p><strong>fallback</strong> – Boolean indicating whether BBR was rejected (mri_coreg registration returned)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.workflows.bold.registration.init_fsl_bbr_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.registration.</code><code class="sig-name descname">init_fsl_bbr_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">use_bbr</span></em>, <em class="sig-param"><span class="n">bold2t1w_dof</span></em>, <em class="sig-param"><span class="n">bold2t1w_init</span></em>, <em class="sig-param"><span class="n">sloppy</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'fsl_bbr_wf'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/registration.py#L642"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.registration.init_fsl_bbr_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a workflow to run FSL’s <code class="docutils literal notranslate"><span class="pre">flirt</span></code>.</p>
+<p>This workflow uses FSL FLIRT to register a BOLD image to a T1-weighted
+structural image, using a boundary-based registration (BBR) cost function.
+It is a counterpart to <a class="reference internal" href="#aslprep.workflows.bold.registration.init_bbreg_wf" title="aslprep.workflows.bold.registration.init_bbreg_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bbreg_wf()</span></code></a>,
+which performs the same task using FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">bbregister</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">use_bbr</span></code> option permits a high degree of control over registration.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, standard, rigid coregistration will be performed by FLIRT.
+If <code class="docutils literal notranslate"><span class="pre">True</span></code>, FLIRT-BBR will be seeded with the initial transform found by
+the rigid coregistration.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, after FLIRT-BBR is run, the resulting affine transform
+will be compared to the initial transform found by FLIRT.
+Excessive deviation will result in rejecting the BBR refinement and
+accepting the original, affine registration.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-9.png" src="_images/api-9.png" />
+</div>
+<p>(<a class="reference external" href=".//api-9.py">Source code</a>, <a class="reference external" href=".//api-9.png">png</a>, <a class="reference external" href=".//api-9.svg">svg</a>, <a class="reference external" href=".//api-9.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>use_bbr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a> or None) – Enable/disable boundary-based registration refinement.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, test BBR result for distortion before accepting.</p></li>
+<li><p><strong>bold2t1w_dof</strong> (<em>6, 9 or 12</em>) – Degrees-of-freedom for BOLD-T1w registration</p></li>
+<li><p><strong>bold2t1w_init</strong> (<em>str, ‘header’ or ‘register’</em>) – If <code class="docutils literal notranslate"><span class="pre">'header'</span></code>, use header information for initialization of BOLD and T1 images.
+If <code class="docutils literal notranslate"><span class="pre">'register'</span></code>, align volumes by their centers.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>, optional) – Workflow name (default: fsl_bbr_wf)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>in_file</strong> – Reference BOLD image to be registered</p></li>
+<li><p><strong>t1w_brain</strong> – Skull-stripped T1-weighted structural image</p></li>
+<li><p><strong>t1w_dseg</strong> – FAST segmentation of <code class="docutils literal notranslate"><span class="pre">t1w_brain</span></code></p></li>
+<li><p><strong>fsnative2t1w_xfm</strong> – Unused (see <a class="reference internal" href="#aslprep.workflows.bold.registration.init_bbreg_wf" title="aslprep.workflows.bold.registration.init_bbreg_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bbreg_wf()</span></code></a>)</p></li>
+<li><p><strong>subjects_dir</strong> – Unused (see <a class="reference internal" href="#aslprep.workflows.bold.registration.init_bbreg_wf" title="aslprep.workflows.bold.registration.init_bbreg_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bbreg_wf()</span></code></a>)</p></li>
+<li><p><strong>subject_id</strong> – Unused (see <a class="reference internal" href="#aslprep.workflows.bold.registration.init_bbreg_wf" title="aslprep.workflows.bold.registration.init_bbreg_wf"><code class="xref py py-func docutils literal notranslate"><span class="pre">init_bbreg_wf()</span></code></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>itk_bold_to_t1</strong> – Affine transform from <code class="docutils literal notranslate"><span class="pre">ref_bold_brain</span></code> to T1w space (ITK format)</p></li>
+<li><p><strong>itk_t1_to_bold</strong> – Affine transform from T1 space to BOLD space (ITK format)</p></li>
+<li><p><strong>out_report</strong> – Reportlet for assessing registration quality</p></li>
+<li><p><strong>fallback</strong> – Boolean indicating whether BBR was rejected (rigid FLIRT registration returned)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<span class="target" id="module-aslprep.workflows.bold.resampling"></span><div class="section" id="resampling-workflows">
+<h4>Resampling workflows<a class="headerlink" href="#resampling-workflows" title="Permalink to this headline">¶</a></h4>
+<dl class="py function">
+<dt id="aslprep.workflows.bold.resampling.init_bold_surf_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.resampling.</code><code class="sig-name descname">init_bold_surf_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">mem_gb</span></em>, <em class="sig-param"><span class="n">surface_spaces</span></em>, <em class="sig-param"><span class="n">medial_surface_nan</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bold_surf_wf'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/resampling.py#L20"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.resampling.init_bold_surf_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sample functional images to FreeSurfer surfaces.</p>
+<p>For each vertex, the cortical ribbon is sampled at six points (spaced 20% of thickness apart)
+and averaged.
+Outputs are in GIFTI format.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-10.png" src="_images/api-10.png" />
+</div>
+<p>(<a class="reference external" href=".//api-10.py">Source code</a>, <a class="reference external" href=".//api-10.png">png</a>, <a class="reference external" href=".//api-10.svg">svg</a>, <a class="reference external" href=".//api-10.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>surface_spaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list</span></code></a>) – List of FreeSurfer surface-spaces (either <code class="docutils literal notranslate"><span class="pre">fsaverage{3,4,5,6,}</span></code> or <code class="docutils literal notranslate"><span class="pre">fsnative</span></code>)
+the functional images are to be resampled to.
+For <code class="docutils literal notranslate"><span class="pre">fsnative</span></code>, images will be resampled to the individual subject’s
+native surface.</p></li>
+<li><p><strong>medial_surface_nan</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Replace medial wall values with NaNs on functional GIFTI files</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>source_file</strong> – Motion-corrected BOLD series in T1 space</p></li>
+<li><p><strong>t1w_preproc</strong> – Bias-corrected structural template image</p></li>
+<li><p><strong>subjects_dir</strong> – FreeSurfer SUBJECTS_DIR</p></li>
+<li><p><strong>subject_id</strong> – FreeSurfer subject ID</p></li>
+<li><p><strong>t1w2fsnative_xfm</strong> – LTA-style affine matrix translating from T1w to FreeSurfer-conformed subject space</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>surfaces</strong> – BOLD series, resampled to FreeSurfer surfaces</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.workflows.bold.resampling.init_bold_std_trans_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.resampling.</code><code class="sig-name descname">init_bold_std_trans_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">freesurfer</span></em>, <em class="sig-param"><span class="n">mem_gb</span></em>, <em class="sig-param"><span class="n">omp_nthreads</span></em>, <em class="sig-param"><span class="n">spaces</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bold_std_trans_wf'</span></em>, <em class="sig-param"><span class="n">use_compression</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">use_fieldwarp</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/resampling.py#L160"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.resampling.init_bold_std_trans_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sample fMRI into standard space with a single-step resampling of the original BOLD series.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>This workflow provides two outputnodes.
+One output node (with name <code class="docutils literal notranslate"><span class="pre">poutputnode</span></code>) will be parameterized in a Nipype sense
+(see <a class="reference external" href="https://miykael.github.io/nipype_tutorial/notebooks/basic_iteration.html">Nipype iterables</a>), and a
+second node (<code class="docutils literal notranslate"><span class="pre">outputnode</span></code>) will collapse the parameterized outputs into synchronous
+lists of the output fields listed below.</p>
+</div>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-11.png" src="_images/api-11.png" />
+</div>
+<p>(<a class="reference external" href=".//api-11.py">Source code</a>, <a class="reference external" href=".//api-11.png">png</a>, <a class="reference external" href=".//api-11.svg">svg</a>, <a class="reference external" href=".//api-11.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>freesurfer</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether to generate FreeSurfer’s aseg/aparc segmentations on BOLD space.</p></li>
+<li><p><strong>mem_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Size of BOLD file in GB</p></li>
+<li><p><strong>omp_nthreads</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>) – Maximum number of threads an individual process may use</p></li>
+<li><p><strong>spaces</strong> (<a class="reference external" href="https://www.nipreps.org/niworkflows/api/niworkflows.utils.spaces.html#niworkflows.utils.spaces.SpatialReferences" title="(in niworkflows v1.2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">SpatialReferences</span></code></a>) – A container for storing, organizing, and parsing spatial normalizations. Composed of
+<a class="reference external" href="https://www.nipreps.org/niworkflows/api/niworkflows.utils.spaces.html#niworkflows.utils.spaces.Reference" title="(in niworkflows v1.2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Reference</span></code></a> objects representing spatial references.
+Each <code class="docutils literal notranslate"><span class="pre">Reference</span></code> contains a space, which is a string of either TemplateFlow template IDs
+(e.g., <code class="docutils literal notranslate"><span class="pre">MNI152Lin</span></code>, <code class="docutils literal notranslate"><span class="pre">MNI152NLin6Asym</span></code>, <code class="docutils literal notranslate"><span class="pre">MNIPediatricAsym</span></code>), nonstandard references
+(e.g., <code class="docutils literal notranslate"><span class="pre">T1w</span></code> or <code class="docutils literal notranslate"><span class="pre">anat</span></code>, <code class="docutils literal notranslate"><span class="pre">sbref</span></code>, <code class="docutils literal notranslate"><span class="pre">run</span></code>, etc.), or a custom template located in
+the TemplateFlow root directory. Each <code class="docutils literal notranslate"><span class="pre">Reference</span></code> may also contain a spec, which is a
+dictionary with template specifications (e.g., a specification of <code class="docutils literal notranslate"><span class="pre">{'resolution':</span> <span class="pre">2}</span></code>
+would lead to resampling on a 2mm resolution of the space).</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of workflow (default: <code class="docutils literal notranslate"><span class="pre">bold_std_trans_wf</span></code>)</p></li>
+<li><p><strong>use_compression</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Save registered BOLD series as <code class="docutils literal notranslate"><span class="pre">.nii.gz</span></code></p></li>
+<li><p><strong>use_fieldwarp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Include SDC warp in single-shot transform from BOLD to MNI</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>anat2std_xfm</strong> – List of anatomical-to-standard space transforms generated during
+spatial normalization.</p></li>
+<li><p><strong>bold_aparc</strong> – FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">aparc+aseg.mgz</span></code> atlas projected into the T1w reference
+(only if <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> was run).</p></li>
+<li><p><strong>bold_aseg</strong> – FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">aseg.mgz</span></code> atlas projected into the T1w reference
+(only if <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> was run).</p></li>
+<li><p><strong>bold_mask</strong> – Skull-stripping mask of reference image</p></li>
+<li><p><strong>bold_split</strong> – Individual 3D volumes, not motion corrected</p></li>
+<li><p><strong>fieldwarp</strong> – a <abbr title="displacements field map">DFM</abbr> in ITK format</p></li>
+<li><p><strong>hmc_xforms</strong> – List of affine transforms aligning each volume to <code class="docutils literal notranslate"><span class="pre">ref_image</span></code> in ITK format</p></li>
+<li><p><strong>itk_bold_to_t1</strong> – Affine transform from <code class="docutils literal notranslate"><span class="pre">ref_bold_brain</span></code> to T1 space (ITK format)</p></li>
+<li><p><strong>name_source</strong> – BOLD series NIfTI file
+Used to recover original information lost during processing</p></li>
+<li><p><strong>templates</strong> – List of templates that were applied as targets during
+spatial normalization.</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bold_std</strong> – BOLD series, resampled to template space</p></li>
+<li><p><strong>cbf_std, *cbf</strong> – cbf series, resampled to template space</p></li>
+<li><p><strong>bold_std_ref</strong> – Reference, contrast-enhanced summary of the BOLD series, resampled to template space</p></li>
+<li><p><strong>bold_mask_std</strong> – BOLD series mask in template space</p></li>
+<li><p><strong>bold_aseg_std</strong> – FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">aseg.mgz</span></code> atlas, in template space at the BOLD resolution
+(only if <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> was run)</p></li>
+<li><p><strong>bold_aparc_std</strong> – FreeSurfer’s <code class="docutils literal notranslate"><span class="pre">aparc+aseg.mgz</span></code> atlas, in template space at the BOLD resolution
+(only if <code class="docutils literal notranslate"><span class="pre">recon-all</span></code> was run)</p></li>
+<li><p><strong>template</strong> – Template identifiers synchronized correspondingly to previously
+described outputs.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.workflows.bold.resampling.init_bold_preproc_trans_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.resampling.</code><code class="sig-name descname">init_bold_preproc_trans_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">mem_gb</span></em>, <em class="sig-param"><span class="n">omp_nthreads</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bold_preproc_trans_wf'</span></em>, <em class="sig-param"><span class="n">use_compression</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">use_fieldwarp</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">split_file</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">interpolation</span><span class="o">=</span><span class="default_value">'LanczosWindowedSinc'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/resampling.py#L512"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.resampling.init_bold_preproc_trans_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Resample in native (original) space.</p>
+<p>This workflow resamples the input fMRI in its native (original)
+space in a “single shot” from the original BOLD series.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-12.png" src="_images/api-12.png" />
+</div>
+<p>(<a class="reference external" href=".//api-12.py">Source code</a>, <a class="reference external" href=".//api-12.png">png</a>, <a class="reference external" href=".//api-12.svg">svg</a>, <a class="reference external" href=".//api-12.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mem_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Size of BOLD file in GB</p></li>
+<li><p><strong>omp_nthreads</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>) – Maximum number of threads an individual process may use</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of workflow (default: <code class="docutils literal notranslate"><span class="pre">bold_std_trans_wf</span></code>)</p></li>
+<li><p><strong>use_compression</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Save registered BOLD series as <code class="docutils literal notranslate"><span class="pre">.nii.gz</span></code></p></li>
+<li><p><strong>use_fieldwarp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Include SDC warp in single-shot transform from BOLD to MNI</p></li>
+<li><p><strong>split_file</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Whether the input file should be splitted (it is a 4D file)
+or it is a list of 3D files (default <code class="docutils literal notranslate"><span class="pre">False</span></code>, do not split)</p></li>
+<li><p><strong>interpolation</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Interpolation type to be used by ANTs’ <code class="docutils literal notranslate"><span class="pre">applyTransforms</span></code>
+(default <code class="docutils literal notranslate"><span class="pre">'LanczosWindowedSinc'</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>bold_file</strong> – Individual 3D volumes, not motion corrected</p></li>
+<li><p><strong>bold_mask</strong> – Skull-stripping mask of reference image</p></li>
+<li><p><strong>name_source</strong> – BOLD series NIfTI file
+Used to recover original information lost during processing</p></li>
+<li><p><strong>hmc_xforms</strong> – List of affine transforms aligning each volume to <code class="docutils literal notranslate"><span class="pre">ref_image</span></code> in ITK format</p></li>
+<li><p><strong>fieldwarp</strong> – a <abbr title="displacements field map">DFM</abbr> in ITK format</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>bold</strong> – BOLD series, resampled in native space, including all preprocessing</p></li>
+<li><p><strong>bold_mask</strong> – BOLD series mask calculated with the new time-series</p></li>
+<li><p><strong>bold_ref</strong> – BOLD reference image: an average-like 3D image of the time-series</p></li>
+<li><p><strong>bold_ref_brain</strong> – Same as <code class="docutils literal notranslate"><span class="pre">bold_ref</span></code>, but once the brain mask has been applied</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<span class="target" id="module-aslprep.workflows.bold.confounds"></span><div class="section" id="calculate-bold-confounds">
+<h4>Calculate BOLD confounds<a class="headerlink" href="#calculate-bold-confounds" title="Permalink to this headline">¶</a></h4>
+<dl class="py function">
+<dt id="aslprep.workflows.bold.confounds.init_bold_confs_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.confounds.</code><code class="sig-name descname">init_bold_confs_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">mem_gb</span></em>, <em class="sig-param"><span class="n">metadata</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'bold_confs_wf'</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/confounds.py#L42"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.confounds.init_bold_confs_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a workflow to generate and write out confounding signals.</p>
+<p>This workflow calculates confounds for a BOLD series, and aggregates them
+into a <abbr title="tab-separated value">TSV</abbr> file, for use as nuisance
+regressors in a <abbr title="general linear model">GLM</abbr>.
+The following confounds are calculated, with column headings in parentheses:</p>
+<ol class="arabic simple">
+<li><p>DVARS - original and standardized variants (<code class="docutils literal notranslate"><span class="pre">dvars</span></code>, <code class="docutils literal notranslate"><span class="pre">std_dvars</span></code>)</p></li>
+<li><p>Framewise displacement, based on head-motion parameters
+(<code class="docutils literal notranslate"><span class="pre">framewise_displacement</span></code>)</p></li>
+<li><p>Estimated head-motion parameters, in mm and rad
+(<code class="docutils literal notranslate"><span class="pre">trans_x</span></code>, <code class="docutils literal notranslate"><span class="pre">trans_y</span></code>, <code class="docutils literal notranslate"><span class="pre">trans_z</span></code>, <code class="docutils literal notranslate"><span class="pre">rot_x</span></code>, <code class="docutils literal notranslate"><span class="pre">rot_y</span></code>, <code class="docutils literal notranslate"><span class="pre">rot_z</span></code>)</p></li>
+</ol>
+<p>Prior to estimating aCompCor and tCompCor, non-steady-state volumes are
+censored and high-pass filtered using a <abbr title="discrete cosine transform">DCT</abbr> basis.
+The cosine basis, as well as one regressor per censored volume, are included
+for convenience.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-13.png" src="_images/api-13.png" />
+</div>
+<p>(<a class="reference external" href=".//api-13.py">Source code</a>, <a class="reference external" href=".//api-13.png">png</a>, <a class="reference external" href=".//api-13.svg">svg</a>, <a class="reference external" href=".//api-13.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mem_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Size of BOLD file in GB - please note that this size
+should be calculated after resamplings that may extend
+the FoV</p></li>
+<li><p><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>) – BIDS metadata for BOLD file</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of workflow (default: <code class="docutils literal notranslate"><span class="pre">bold_confs_wf</span></code>)</p></li>
+<li><p><strong>regressors_all_comps</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Indicates whether CompCor decompositions should return all
+components instead of the minimal number of components necessary
+to explain 50 percent of the variance in the decomposition mask.</p></li>
+<li><p><strong>regressors_dvars_th</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Criterion for flagging DVARS outliers</p></li>
+<li><p><strong>regressors_fd_th</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Criterion for flagging framewise displacement outliers</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>bold</strong> – BOLD image, after the prescribed corrections (STC, HMC and SDC)
+when available.</p></li>
+<li><p><strong>bold_mask</strong> – BOLD series mask</p></li>
+<li><p><strong>movpar_file</strong> – SPM-formatted motion parameters file</p></li>
+<li><p><strong>skip_vols</strong> – number of non steady state volumes</p></li>
+<li><p><strong>t1w_mask</strong> – Mask of the skull-stripped template image</p></li>
+<li><p><strong>t1w_tpms</strong> – List of tissue probability maps in T1w space</p></li>
+<li><p><strong>t1_bold_xform</strong> – Affine matrix that maps the T1w space into alignment with
+the native BOLD space</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>confounds_file</strong> – TSV of all aggregated confounds</p></li>
+<li><p><strong>rois_report</strong> – Reportlet visualizing white-matter/CSF mask used for aCompCor,
+the ROI for tCompCor and the BOLD brain mask.</p></li>
+<li><p><strong>confounds_metadata</strong> – Confounds metadata dictionary.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="aslprep.workflows.bold.confounds.init_ica_aroma_wf">
+<code class="sig-prename descclassname">aslprep.workflows.bold.confounds.</code><code class="sig-name descname">init_ica_aroma_wf</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">mem_gb</span></em>, <em class="sig-param"><span class="n">metadata</span></em>, <em class="sig-param"><span class="n">omp_nthreads</span></em>, <em class="sig-param"><span class="n">aroma_melodic_dim</span><span class="o">=</span><span class="default_value">- 200</span></em>, <em class="sig-param"><span class="n">err_on_aroma_warn</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'ica_aroma_wf'</span></em>, <em class="sig-param"><span class="n">susan_fwhm</span><span class="o">=</span><span class="default_value">6.0</span></em>, <em class="sig-param"><span class="n">use_fieldwarp</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/pennlinc/aslprep/blob/eece56b/aslprep/workflows/bold/confounds.py#L296"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#aslprep.workflows.bold.confounds.init_ica_aroma_wf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a workflow that runs <a class="reference external" href="https://github.com/maartenmennes/ICA-AROMA">ICA-AROMA</a>.</p>
+<p>This workflow wraps <a class="reference external" href="https://github.com/maartenmennes/ICA-AROMA">ICA-AROMA</a> to identify and remove motion-related
+independent components from a BOLD time series.</p>
+<p>The following steps are performed:</p>
+<ol class="arabic simple">
+<li><p>Remove non-steady state volumes from the bold series.</p></li>
+<li><p>Smooth data using FSL <cite>susan</cite>, with a kernel width FWHM=6.0mm.</p></li>
+<li><p>Run FSL <cite>melodic</cite> outside of ICA-AROMA to generate the report</p></li>
+<li><p>Run ICA-AROMA</p></li>
+<li><p>Aggregate identified motion components (aggressive) to TSV</p></li>
+<li><p>Return <code class="docutils literal notranslate"><span class="pre">classified_motion_ICs</span></code> and <code class="docutils literal notranslate"><span class="pre">melodic_mix</span></code> for user to complete
+non-aggressive denoising in T1w space</p></li>
+<li><p>Calculate ICA-AROMA-identified noise components
+(columns named <code class="docutils literal notranslate"><span class="pre">AROMAAggrCompXX</span></code>)</p></li>
+</ol>
+<p>Additionally, non-aggressive denoising is performed on the BOLD series
+resampled into MNI space.</p>
+<p>There is a current discussion on whether other confounds should be extracted
+before or after denoising <a class="reference external" href="http://nbviewer.jupyter.org/github/poldracklab/aslprep-notebooks/blob/922e436429b879271fa13e76767a6e73443e74d9/issue-817_aroma_confounds.ipynb">here</a>.</p>
+<dl>
+<dt>Workflow Graph</dt><dd><div class="figure align-default">
+<img alt="_images/api-14.png" src="_images/api-14.png" />
+</div>
+<p>(<a class="reference external" href=".//api-14.py">Source code</a>, <a class="reference external" href=".//api-14.png">png</a>, <a class="reference external" href=".//api-14.svg">svg</a>, <a class="reference external" href=".//api-14.pdf">pdf</a>)</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metadata</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dict</span></code></a>) – BIDS metadata for BOLD file</p></li>
+<li><p><strong>mem_gb</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Size of BOLD file in GB</p></li>
+<li><p><strong>omp_nthreads</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>) – Maximum number of threads an individual process may use</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">str</span></code></a>) – Name of workflow (default: <code class="docutils literal notranslate"><span class="pre">bold_tpl_trans_wf</span></code>)</p></li>
+<li><p><strong>susan_fwhm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">float</span></code></a>) – Kernel width (FWHM in mm) for the smoothing step with
+FSL <code class="docutils literal notranslate"><span class="pre">susan</span></code> (default: 6.0mm)</p></li>
+<li><p><strong>use_fieldwarp</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Include SDC warp in single-shot transform from BOLD to MNI</p></li>
+<li><p><strong>err_on_aroma_warn</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>) – Do not fail on ICA-AROMA errors</p></li>
+<li><p><strong>aroma_melodic_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.8)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">int</span></code></a>) – Set the dimensionality of the MELODIC ICA decomposition.
+Negative numbers set a maximum on automatic dimensionality estimation.
+Positive numbers set an exact number of components to extract.
+(default: -200, i.e., estimate &lt;=200 components)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>itk_bold_to_t1</strong> – Affine transform from <code class="docutils literal notranslate"><span class="pre">ref_bold_brain</span></code> to T1 space (ITK format)</p></li>
+<li><p><strong>anat2std_xfm</strong> – ANTs-compatible affine-and-warp transform file</p></li>
+<li><p><strong>name_source</strong> – BOLD series NIfTI file
+Used to recover original information lost during processing</p></li>
+<li><p><strong>skip_vols</strong> – number of non steady state volumes</p></li>
+<li><p><strong>bold_split</strong> – Individual 3D BOLD volumes, not motion corrected</p></li>
+<li><p><strong>bold_mask</strong> – BOLD series mask in template space</p></li>
+<li><p><strong>hmc_xforms</strong> – List of affine transforms aligning each volume to <code class="docutils literal notranslate"><span class="pre">ref_image</span></code> in ITK format</p></li>
+<li><p><strong>fieldwarp</strong> – a <abbr title="displacements field map">DFM</abbr> in ITK format</p></li>
+<li><p><strong>movpar_file</strong> – SPM-formatted motion parameters file</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>aroma_confounds</strong> – TSV of confounds identified as noise by ICA-AROMA</p></li>
+<li><p><strong>aroma_noise_ics</strong> – CSV of noise components identified by ICA-AROMA</p></li>
+<li><p><strong>melodic_mix</strong> – FSL MELODIC mixing matrix</p></li>
+<li><p><strong>nonaggr_denoised_file</strong> – BOLD series with non-aggressive ICA-AROMA denoising applied</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<span class="target" id="module-aslprep.workflows.bold.cbf"></span></div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="changes.html" class="btn btn-neutral float-right" title="What’s new" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="citing.html" class="btn btn-neutral float-left" title="Citing ASLPrep" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020-2020, The aslprep developers
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
