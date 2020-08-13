@@ -35,7 +35,7 @@ jobs:
             fi
       - run:
           name: Build Docker image
-          no_output_timeout: 4h
+          no_output_timeout: 5h
           command: |
             # Build docker image
             e=1 && for i in {1..5}; do
@@ -151,7 +151,7 @@ jobs:
             mv wuh30asf9hi4kcl6k0gxstog6gv257fu.txt licence.txt 
       - run:
           name: Run full aslprep on aslprep_ds bold
-          no_output_timeout: 2h
+          no_output_timeout: 5h
           command: |
             sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds/aslOutput && \
                 sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds/aslOutput
@@ -201,7 +201,7 @@ jobs:
           at: /tmp
       - run:
           name: Load Docker image layer cache
-          no_output_timeout: 1h
+          no_output_timeout: 2h
           command: |
             docker info
             set +o pipefail
@@ -212,7 +212,7 @@ jobs:
             fi
       - run:
           name: Deploy to Docker Hub
-          no_output_timeout: 40m
+          no_output_timeout: 1h
           command: |
             if [[ -n "$DOCKER_PASS" ]]; then
               docker login -u $DOCKER_USER -p $DOCKER_PASS
