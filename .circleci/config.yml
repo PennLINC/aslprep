@@ -142,7 +142,13 @@ jobs:
               pigz -d --stdout /tmp/cache/docker.tar.gz | docker load
               docker images
             fi
-
+      - run:
+          name: get freesurfer licence
+          no_output_timeout: 5m
+          command: |
+            cd /tmp 
+            wget  https://upenn.box.com/shared/static/wuh30asf9hi4kcl6k0gxstog6gv257fu.txt
+            mv wuh30asf9hi4kcl6k0gxstog6gv257fu.txt licence.txt 
       - run:
           name: Run full aslprep on aslprep_ds bold
           no_output_timeout: 2h
@@ -155,13 +161,16 @@ jobs:
 
             docker run --rm -it \
                 -v /tmp/data:/data \
+                -v /tmp:/scrth \
                 -v /tmp/aslprep_ds/:/out \
                 pennlinc/aslprep:latest \
                 /data/ds000240 \
                 /out/aslOutput \
                 participant --participant-label 01 \
                 --fs-no-reconall --clean-workdir \
-                --skip_bids_validation            
+                --skip_bids_validation  \
+                --fs-license-file /scrth/licence.txt
+
       - run:
           name: Checking outputs of aslprep_ds
           command: |
