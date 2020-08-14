@@ -84,7 +84,7 @@ jobs:
             mkdir -p /tmp/wkdir/
             if [[ ! -d /tmp/wkdir/wk_dir ]]; then
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-                -O wkdir.tar.xz "https://upenn.box.com/shared/static/zg7m1idayaldea1og2g0pl54ppw7ho3v.xz"
+                -O wkdir.tar.xz "https://upenn.box.com/shared/static/ysa31xq3qstpxpes8gga6e301tosncqg.xz"
               tar xvfJ wkdir.tar.xz -C /tmp/wkdir/
             else
               echo "wkdir  was cached"
@@ -187,13 +187,14 @@ jobs:
       - run:
           name: Checking outputs of aslprep_ds
           command: |
-            mkdir -p /tmp/aslprep_ds/test
-            ls /home/circleci/src/aslprep/testing/
-            find /tmp/aslprep_ds/aslOutput  -path /* -prune -o -name "*" -print | \
-              sed s+/tmp/aslprep_ds/aslOutput/++ | \
-              sort > /tmp/aslprep_ds/aslOutput
-            diff /home/circleci/src/aslprep/testing/aslprep_ds.txt /tmp/aslprep_ds/outputs.out
-            exit $?
+            cbfile=$(ls -f /tmp/aslprep_ds/aslprep/sub-01/perf/sub-01_task-restEyesOpen_desc-quality_control_cbf.csv)
+            if [[ -f ${cbfile} ]]; then 
+            echo "processing complete"
+               exit 0
+            else 
+            echo "there is error "
+                exit 1
+            fi
 
       - run:
           name: Clean working directory
