@@ -71,16 +71,26 @@ jobs:
             - data-v1-{{ epoch }}
             - data-v1-
       - run:
-          name: Get test data from box
+          name: Get test data and wkdir from box
           command: |
             mkdir -p /tmp/data
             if [[ ! -d /tmp/data/ds000240 ]]; then
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-                -O downsampled.tar.xz "https://upenn.box.com/shared/static/oc9oo4gj0i9adosxm139zqmvi387jr8e.xz"
+                -O downsampled.tar.xz "https://upenn.box.com/shared/static/2nqkd0477zaikm9tumyfw1b3wjp5gxhu.xz"
               tar xvfJ downsampled.tar.xz -C /tmp/data/
             else
-              echo "Dataset downsampled data was cached"
+              echo "Dataset  data was cached"
             fi
+            mkdir -p /tmp/wkdir/
+            if [[ ! -d /tmp/wkdir/wk_dir ]]; then
+              wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
+                -O wkdir.tar.xz "https://upenn.box.com/shared/static/zg7m1idayaldea1og2g0pl54ppw7ho3v.xz"
+              tar xvfJ wkdir.tar.xz -C /tmp/wkdir/
+            else
+              echo "wkdir  was cached"
+            fi
+
+
       - persist_to_workspace:
           root: /tmp
           paths:
@@ -161,6 +171,7 @@ jobs:
 
             docker run --rm -it \
                 -v /tmp/data:/data \
+                -v /tmp/wkdir:/wkdir \
                 -v /tmp:/scrth \
                 -v /tmp/aslprep_ds/:/out \
                 pennlinc/aslprep:latest \
@@ -169,6 +180,8 @@ jobs:
                 participant --participant-label 01 \
                 --fs-no-reconall --clean-workdir \
                 --skip_bids_validation  \
+                -w /wkdir/wk_dir \
+                --output-spaces func T1w MNI152NLin2009cAsym \
                 --fs-license-file /scrth/licence.txt
 
       - run:
@@ -186,8 +199,8 @@ jobs:
           name: Clean working directory
           when: always
           command: |
-            sudo chown $(id -un):$(id -gn) -R /tmp/aslprep_ds
-            rm -rf /tmp/aslprep_ds/work
+            sudo chown $(id -un):$(id -gn) -R /tmp/wkdir
+            rm -rf /tmp/wkdir
 
       - store_artifacts:
           path: /tmp/aslprep_ds
