@@ -76,7 +76,7 @@ jobs:
             mkdir -p /tmp/data
             if [[ ! -d /tmp/data/ds000240 ]]; then
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-                -O downsampled.tar.xz "https://upenn.box.com/shared/static/2nqkd0477zaikm9tumyfw1b3wjp5gxhu.xz"
+                -O downsampled.tar.xz "https://upenn.box.com/shared/static/c89i5cj6gpn792rja2tehscuaqsgqgqr.xz"
               tar xvfJ downsampled.tar.xz -C /tmp/data/
             else
               echo "Dataset  data was cached"
