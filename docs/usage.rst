@@ -14,7 +14,7 @@ Execution and the BIDS format
 The *ASLPrep* workflow takes as principal input the path of the dataset
 that is to be processed.
 
-...important:: 
+..important:: 
      The `ASL BIDS <shorturl.at/kqrRS>`_  are currently being proposed and in the final stage.
      We have created a simple way of converting `ASL into BIDS <https://github.com/PennLINC/aslbids>`_
      Some of the paramters of ASL cannot been obtained directly from the dicom header, 
