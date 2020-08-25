@@ -4,9 +4,9 @@
 FAQ, Tips, and Tricks
 ========================
 
-Should I run quality control of my images before running *ASLPrep*?
+Should I run quality control on my images before running *ASLPrep*?
 --------------------------------------------------------------------
-Yes. You should do so before any processing/analysis takes place.
+Yes, you should do so before any processing/analysis takes place.
 
 Oftentimes (more often than we would like), images have fatal artifacts and problems.
 
@@ -14,19 +14,18 @@ Some exclusion criteria for data quality should be pre-specified before QC and a
 of the original data.
 Those exclusion criteria must be designed in agreement with the goals and challenges of the
 experimental design.
-For instance, when it is planned to run some cortical thickness analysis, images should be excluded
-even when they present the most subtle ghosts or other artifacts that may introduce biases in surface
+For instance, when running cortical thickness analyses, images should be excluded when they present even the most subtle ghosts or other artifacts that may introduce biases in surface
 reconstruction.
-However, if the same artifactual data was planned to be used just as a reference for spatial
-normalization, some of those artifacts should be noted, but may not grant exclusion of the data.
+However, if the same data was planned to be used as a reference for spatial
+normalization, those artifacts should be noted, but may not call for exclusion of the data.
 
-When using publicly available datasets, an additional concern is that images may have gone through
+When using publicly available datasets, an additional concern is that images may have already gone through
 some kind of preprocessing (see next question).
 
 
 What if I find some images have undergone some pre-processing already (e.g., my T1w image is already skull-stripped)?
 ---------------------------------------------------------------------------------------------------------------------
-These images imply an unknown level of preprocessing (e.g. was it already bias-field corrected?),
+These images imply an unknown level of preprocessing (e.g., was it already bias-field corrected?),
 which makes it difficult to decide on best-practices for further processing.
 Hence, supporting such images was considered very low priority for *ASLPrep*.
 
@@ -34,10 +33,10 @@ Hence, supporting such images was considered very low priority for *ASLPrep*.
 My *ASLPrep* run is hanging...
 -------------------------------
 When running on Linux platforms (or containerized environments, because they are built around
-Ubuntu), there is a Python bug that affects *ASLPrep* that drives the Linux kernel to kill
+Ubuntu), there is a Python bug that affects *ASLPrep* and drives the Linux kernel to kill
 processes as a response to running out of memory.
 Depending on the process killed by the kernel, *ASLPrep* may crash with a ``BrokenProcessPool``
-error or hang indefinitely, depending on settings.
+error, or hang indefinitely, depending on settings.
 While we are working on finding a solution that does not run up against this bug, this may take some
 time.
 This can be most easily resolved by allocating more memory to the process, if possible.
@@ -52,7 +51,7 @@ to determine whether it is already executing ``recon-all`` on that particular su
 in another process, compute node, etc.
 If a FreeSurfer execution terminates abruptly, those files are not wiped out, and therefore,
 the next time you try to execute ``recon-all``, FreeSurfer *thinks* it is still running.
-The output you get from ASLPrep will contain something like: ::
+The output you get from *ASLPrep* will contain something like the following: ::
 
   RuntimeError: Command:
   recon-all -autorecon2-volonly -openmp 8 -subjid sub-020 -sd /outputs/freesurfer -nogcareg -nocanorm -nocareg -nonormalization2 -nomaskbfs -nosegmentation -nofill
@@ -95,14 +94,14 @@ The output you get from ASLPrep will contain something like: ::
 
 As suggested by the ``recon-all`` output message, deleting these files will enable
 FreeSurfer to execute ``recon-all`` again.
-In general, please be cautious of deleting files and mindful why a file may exist.
+In general, please be cautious of deleting files and mindful as to why a file exists.
 
 
 
-How much CPU time and RAM should I allocate for a typical ASLPrep run?
+How much CPU time and RAM should I allocate for a typical *ASLPrep* run?
 -----------------------------------------------------------------------
-The recommended way to run ASLPrep is to process one subject per container instance. A typical preprocessing run
-without surface processing with freesurfer can be completed in about less than 1 hours with 4 CPUs or in about 30 hour with 16 CPUs.
+We recommend  running *ASLPrep* by processing  one subject per container instance. A typical preprocessing run
+without surface processing with FreeSurfer can be completed in less than 1 hour with 4 CPUs or in about 30 hour with 16 CPUs.
 More than 16 CPUs do not translate into faster processing times for a single subject. About 8GB of memory should be
 available for a single subject preprocessing run.
 
@@ -110,44 +109,44 @@ available for a single subject preprocessing run.
 
 A new version of *ASLPrep* has been published, when should I upgrade?
 ----------------------------------------------------------------------
-We follow a philosophy of releasing very often, although the pace is slowing down
+We follow a philosophy of releasing updates very often, although the pace is slowing down
 with the maturation of the software.
 It is very likely that your version gets outdated over the extent of your study.
 If that is the case (an ongoing study), then we discourage changing versions.
-In other words, **the whole dataset should be processed with the same version (and
-same container build if they are being used) of *ASLPrep*.**
+In other words, **the whole dataset should be processed with the same version (and, if applicable, the 
+same container build) of *ASLPrep*.**
 
 On the other hand, if the project is about to start, then we strongly recommend
 using the latest version of the tool.
 
-In any case, if you can find your release listed as *flagged* in `this file
+In any case, if you find your release listed as *flagged* in `this file
 of our repo <https://github.com/pennlinc/ASLPrep/blob/master/.versions.json>`__,
 then please update as soon as possible.
 
 I'm running *ASLPrep* via Singularity containers - how can I troubleshoot problems?
 ------------------------------------------------------------------------------------
 We have extended `this documentation <singularity.html>`__ to cover some of the most
-frequent issues other Singularity users have been faced with.
-Generally, users have found it hard to `get TemplateFlow and Singularity to work
+frequent issues other Singularity users have faced.
+Generally, users have found it difficult to `get TemplateFlow and Singularity to work
 together <singularity.html#singularity-tf>`__.
 
 What is *TemplateFlow* for?
 ---------------------------
 *TemplateFlow* enables *ASLPrep* to generate preprocessed outputs spatially normalized to
-a number of different neuroimaging templates (e.g. MNI).
+a number of different neuroimaging templates (e.g., MNI).
 For further details, please check `its documentation section <spaces.html#templateflow>`__.
 
 .. _tf_no_internet:
 
 How do you use TemplateFlow in the absence of access to the Internet?
 ---------------------------------------------------------------------
-This is a fairly common situation in :abbr:`HPCs (high-performance computing)`
+This is a fairly common situation in :abbr:`HPC (high-performance computing)`
 systems, where the so-called login nodes have access to the Internet but
 compute nodes are isolated, or in PC/laptop enviroments if you are travelling.
 *TemplateFlow* will require Internet access the first time it receives a
 query for a template resource that has not been previously accessed.
-If you know what are the templates you are planning to use, you could
-prefetch them using the Python client.
+If you know which templates you are planning to use, you could
+pre-fetch them using the Python client.
 To do so, follow the next steps.
 
   1. By default, a mirror of *TemplateFlow* to store the resources will be
@@ -163,12 +162,12 @@ To do so, follow the next steps.
 
        $ python -m pip install -U templateflow
 
-  3. Use the ``get()`` utility of the client to pull down all the templates you'll
+  3. Use the ``get()`` utility of the client to pull down all the templates you will
      want to use. For example::
 
        $ python -c "from templateflow.api import get; get(['MNI152NLin2009cAsym', 'MNI152NLin6Asym', 'OASIS30ANTs', 'MNIPediatricAsym', 'MNIInfant'])"
 
-After getting the resources you'll need, you will just need to make sure your
+After getting the resources you need, you will just need to make sure your
 runtime environment is able to access the filesystem, at the location of your
 *TemplateFlow home* directory.
 If you are a Singularity user, please check out :ref:`singularity_tf`.
