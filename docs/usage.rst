@@ -13,8 +13,15 @@ Execution and the BIDS format
 -----------------------------
 The *ASLPrep* workflow takes as principal input the path of the dataset
 that is to be processed.
-The `ASL BIDS <shorturl.at/kqrRS>`_  are currently being proposed and in the final stage.
-We have created a simple way of converting `ASL into BIDS <https://github.com/PennLINC/aslbids>`_
+
+...important:: 
+     The `ASL BIDS <shorturl.at/kqrRS>`_  are currently being proposed and in the final stage.
+     We have created a simple way of converting `ASL into BIDS <https://github.com/PennLINC/aslbids>`_
+     Some of the paramters of ASL cannot been obtained directly from the dicom header, 
+     it is very  important to ask the MRI Physicists  or anyone that collect the data. 
+     The convertion of ASL to BIDS on `flywheel <https://flywheel.io/>`_ using `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_ 
+     as descirbed `here <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_
+
 
 The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data
 Structure)` format, and it must include at least one T1w structural image
@@ -27,6 +34,9 @@ The common parts of the command follow the `BIDS-Apps
 Example: ::
 
     aslprep data/bids_root/ out/ participant -w work/
+
+
+
 
 
 Command-Line Arguments
