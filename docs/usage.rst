@@ -15,12 +15,12 @@ The *ASLPrep* workflow takes as principal input the path of the dataset
 that is to be processed.
 
 .. note:: 
-     The `ASL BIDS <shorturl.at/kqrRS>`_  are currently being proposed and in the final stage.
-     We have created a simple way of converting `ASL into BIDS <https://github.com/PennLINC/aslbids>`_
-     Some of the paramters of ASL cannot been obtained directly from the dicom header, 
-     it is very  important to ask the MRI Physicists  or anyone that collect the data. 
-     The convertion of ASL to BIDS on `flywheel <https://flywheel.io/>`_ using `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_ 
-     as descirbed `here <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_
+     The official `BIDS Specification for ASL <shorturl.at/kqrRS>`_  is currently in its final stages of development.
+     We have created a simple tool for converting ASL data into currently valid BIDS, available `here <https://github.com/PennLINC/aslbids>`_.
+     Note that some of the parameters necessary for running *ASLPrep* cannot be extracted directly from the DICOM header —
+     to obtain these parameters, we recommend consulting the MRI physicist/technician at the scanner.
+     The conversion of ASL into BIDS on `Flywheel <https://flywheel.io/>`_ using `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_ 
+     is described `here <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_.
 
 
 The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data
