@@ -5,14 +5,14 @@
 Usage Notes
 ===========
 .. warning::
-   The software includes a tracking system to report usage statistics and errors.
-   Users can opt-out using the ``--notrack`` command line argument.
+   This software includes a tracking system to report usage statistics and errors.
+   Users can opt out using the ``--notrack`` command line argument.
 
 
 Execution and the BIDS format
 -----------------------------
-The *ASLPrep* workflow takes as principal input the path of the dataset
-that is to be processed.
+The *ASLPrep* workflow takes the path of the dataset
+that is to be processed as its principal input.
 
 .. note:: 
      The official `BIDS Specification for ASL <shorturl.at/kqrRS>`_  is currently in its final stages of development.
@@ -23,6 +23,7 @@ that is to be processed.
      is described `here <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_.
 
 
+
 The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data
 Structure)` format, and it must include at least one T1w structural image
 We highly recommend that you validate your dataset with the free, online
@@ -31,7 +32,7 @@ We highly recommend that you validate your dataset with the free, online
 The exact command to run *ASLPrep* depends on the Installation_ method.
 The common parts of the command follow the `BIDS-Apps
 <https://github.com/BIDS-Apps>`_ definition.
-Example: ::
+For example: ::
 
     aslprep data/bids_root/ out/ participant -w work/
 
@@ -88,7 +89,7 @@ file on the host system: ::
 Troubleshooting
 ---------------
 
-Logs and crashfiles are outputted into the
+Logs and crashfiles are written to the
 ``<output dir>/aslprep/sub-<participant_label>/log`` directory.
 Information on how to customize and understand these files can be found on the
 `nipype debugging <http://nipype.readthedocs.io/en/latest/users/debug.html>`_
