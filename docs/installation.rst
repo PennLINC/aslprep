@@ -6,13 +6,13 @@ Installation
 
 There are two ways to get *ASLPrep* installed:
 
-* within a  `Manually Prepared Environment (Python 3.7+)`_, 
+* within a  `Manually Prepared Environment (Python 3.7+)`_ 
 
 * using container technologies (RECOMMENDED), such as :ref:`run_docker`
   or :ref:`run_singularity`.
 
-Once you the  environment  is  set-up (first option above),
-the next step is executing the ``aslprep`` command-line.
+Once the  environment  is  set-up (first option above),
+the next step is executing ``aslprep`` in the command-line.
 The ``aslprep`` command-line options are documented in the :ref:`usage`
 section.::
 
@@ -33,17 +33,17 @@ Manually Prepared Environment (Python 3.7+)
 
 .. warning::
 
-   This method is not recommended! Please checkout container alternatives
+   This method is not recommended! Please check out container alternatives
    in :ref:`run_docker`, and :ref:`run_singularity`.
 
 Make sure all of *ASLPRep*'s `External Dependencies`_ are installed.
 These tools must be installed and their binaries available in the
 system's ``$PATH``.
-A relatively interpretable description of how your environment can be set-up
+A relatively interpretable description of how your environment can be set up
 is found in the `Dockerfile <https://github.com/pennlinc/aslprep/blob/master/Dockerfile>`_.
 As an additional installation setting, FreeSurfer requires a license file (see :ref:`fs_license`).
 
-On a functional Python 3.7 (or above) environment with ``pip`` installed,
+In a functional Python 3.7 (or above) environment with ``pip`` installed,
 *ASLPRep* can be installed using the habitual command ::
 
     $ python -m pip install aslprep
@@ -57,10 +57,10 @@ External Dependencies
 ---------------------
 
 *ASLPRep* is written using Python 3.7 (or above), and is based on
-nipype_. and simlar to running to ASLPrep
+nipype_.
 
 *ASLPRep* requires some other neuroimaging software tools that are
-not handled by the Python's packaging system (Pypi) used to deploy
+not handled by Python's packaging system (Pypi) used to deploy
 the ``ASLPrep`` package:
 
 - FSL_ (version 5.0.9)
