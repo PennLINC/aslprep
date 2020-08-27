@@ -5,12 +5,11 @@
 
 Running *ASLPrep* via Singularity containers
 =============================================
-Preparing a Singularity image
+Preparing a Singularity Image
 -----------------------------
-**Singularity version >= 2.5**.
+**Singularity version >= 2.5**:
 If the version of Singularity installed on your :abbr:`HPC (High-Performance Computing)`
-system is modern enough you can create Singularity image directly on the system.
-This is as simple as: ::
+system is modern enough you can create Singularity image directly on the system using the following command: ::
 
     $ singularity build /my_images/aslprep-<version>.simg docker://pennlinc/aslprep:<version>
 
@@ -42,7 +41,7 @@ For \*nix users the command translates as follows: ::
         pennlinc/aslprep:<version>
 
 
-Transfer the resulting Singularity image to the HPC, for example, using ``scp``. ::
+Transfer the resulting Singularity image to the HPC using ``scp``. ::
 
     $ scp pennlinc_aslprep*.img user@hcpserver.edu:/my_images
 
@@ -96,7 +95,7 @@ prefix ``SINGULARITYENV_``.
 
 Accessing the host's filesystem
 -------------------------------
-Depending on how Singularity is configured on your cluster it might or might not
+Depending on how Singularity is configured on your cluster it may or may not
 automatically bind (mount or expose) host's folders to the container (e.g., ``/scratch``,
 or ``$HOME``).
 This is particularly relevant because, *if you can't run Singularity in privileged
@@ -145,12 +144,12 @@ For example: ::
 
 **Relevant aspects of the** ``$HOME`` **directory within the container**.
 By default, Singularity will bind the user's ``$HOME`` directory in the host
-into the ``/home/$USER`` (or equivalent) in the container.
+into the ``/home/$USER`` directory (or equivalent) in the container.
 Most of the times, it will also redefine the ``$HOME`` environment variable and
 update it to point to the corresponding mount point in ``/home/$USER``.
 However, these defaults can be overwritten in your system.
 It is recommended to check your settings with your system's administrators.
-If your Singularity installation allows it, you can workaround the ``$HOME``
+If your Singularity installation allows it, you can work around the ``$HOME``
 specification combining the bind mounts argument (``-B``) with the home overwrite
 argument (``--home``) as follows: ::
 
@@ -198,12 +197,10 @@ points setting the ``SINGULARITYENV_TEMPLATEFLOW_HOME`` variable. ::
 
 Internet access problems
 ------------------------
-We have identified several conditions in which running *ASLPrep* might fail because
-of spotty or impossible access to Internet.
+We have identified several conditions in which running *ASLPrep* might fail due to spotty or impossible access to Internet.
 
-If your compute node cannot have access to Internet, then you'll need to make sure
-you run *ASLPrep* with the ``--notrack`` argument and pull down from TemplateFlow
-all the resources that will be necessary.
+If your compute node does not have access to Internet, then you'll need to make sure
+you run *ASLPrep* with the ``--notrack`` argument and pull down all the necessary resources from TemplateFlow.
 
 With templateflow :: 
    $ export TEMPLATEFLOW_HOME=/path/to/keep/templateflow
