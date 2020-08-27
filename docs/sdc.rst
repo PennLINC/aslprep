@@ -3,11 +3,10 @@
 Susceptibility Distortion Correction (SDC)
 ------------------------------------------
 Please note that all routines for susceptibility-derived distortion correction
-have been  used `fMRIPrep <https://www.nipreps.org/fmriprep>`_), `QSIPrep <https://github.com/PennBBL/qsiprep>`_),
-( `dMRIPrep <https://www.nipreps.org/dmriprep>`__) and other projects. 
+have been  used in `fMRIPrep <https://www.nipreps.org/fmriprep>`_, `QSIPrep <https://github.com/PennBBL/qsiprep>`_, `dMRIPrep <https://www.nipreps.org/dmriprep>`__, and other projects. 
 For more detailed documentation on
 :abbr:`SDC (susceptibility-derived distortion correction)`
-routines, check on `www.nipreps.org/sdcflows <https://www.nipreps.org/sdcflows>`__.
+routines, check  `www.nipreps.org/sdcflows <https://www.nipreps.org/sdcflows>`__.
 
 Introduction
 ~~~~~~~~~~~~
@@ -15,7 +14,7 @@ Introduction
 make a good estimate of the field inhomogeneity map.
 The inhomogeneity map is directly related to the displacement of
 a given pixel :math:`(x, y, z)` along the
-:abbr:`PE (phase-encoding)` direction (:math:`d_\text{PE}(x, y, z)`) is
+:abbr:`PE (phase-encoding)` direction (:math:`d_\text{PE}(x, y, z)`), and is
 proportional to the slice readout time (:math:`T_\text{ro}`)
 and the field inhomogeneity (:math:`\Delta B_0(x, y, z)`)
 as follows ([Jezzard1995]_, [Hutton2002]_):
@@ -28,8 +27,8 @@ as follows ([Jezzard1995]_, [Hutton2002]_):
 
 where :math:`\gamma` is the gyromagnetic ratio.
 Therefore, the displacements map :math:`d_\text{PE}(x, y, z)` can be estimated
-either via estimating the inhomogeneity map :math:`\Delta B_0(x, y, z)` or
-via image registration (see below).
+either using the inhomogeneity map :math:`\Delta B_0(x, y, z)` or
+image registration (see below).
 
 Correction methods
 ~~~~~~~~~~~~~~~~~~
@@ -37,9 +36,9 @@ The are five broad families of methodologies for mapping the field:
 
   1. **Phase Encoding POLARity** (*PEPOLAR*; also called *blip-up/blip-down*;
      :py:func:`~sdcflows.workflows.pepolar.init_pepolar_unwarp_wf`):
-     acquire at least two images with varying :abbr:`PE (phase-encoding)` directions.
-     Hence, the realization of distortion is different between the different
-     acquisitions. The displacements map :math:`d_\text{PE}(x, y, z)` is
+     acquire at least two images with varying :abbr:`PE (phase-encoding)` directions so 
+     the realization of distortion is different between each
+     acquisition. The displacements map :math:`d_\text{PE}(x, y, z)` is
      estimated with an image registration process between the different
      :abbr:`PE (phase-encoding)` acquisitions, regularized by the
      readout time :math:`T_\text{ro}`.
@@ -81,7 +80,7 @@ From the phase-difference map to a field map
 ............................................
 To solve :ref:`(1) <eq_fieldmap>` using a :ref:`phase-difference map <sdc_phasediff>`,
 the field map :math:`\Delta B_0(x, y, z)` can be derived from the phase-difference
-map (:py:func:`~sdcflows.interfaces.fmap.phdiff2fmap`)
+map (:py:func:`~sdcflows.interfaces.fmap.phdiff2fmap`).
 
 References
 ..........
