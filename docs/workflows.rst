@@ -25,7 +25,7 @@ is presented below:
 
 Preprocessing of structural MRI
 -------------------------------
-The anatomical sub-workflow begins by constructing an average image by
+The anatomical sub-workflow first constructs an average image by
 conforming all found T1w images to RAS orientation and
 a common voxel size, and, in the case of multiple images, averages them into a
 single reference template (see `Longitudinal processing`_).
@@ -62,7 +62,7 @@ See also *sMRIPrep*'s
 
 Brain extraction, brain tissue segmentation and spatial normalization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Then, the T1w reference is skull-stripped using a Nipype implementation of
+Next, the T1w reference is skull-stripped using a Nipype implementation of
 the ``antsBrainExtraction.sh`` tool (ANTs), which is an atlas-based
 brain extraction workflow:
 
@@ -85,7 +85,7 @@ Once the brain mask is computed, FSL ``fast`` is utilized for brain tissue segme
 
 .. figure:: _static/segmentation.svg
 
-    Brain tissue segmentation.
+    Brain tissue segmentation
 
 
 Finally, spatial normalization to standard spaces is performed using ANTs' ``antsRegistration``
@@ -96,7 +96,7 @@ be set to resample the preprocessed data onto the final output spaces.
 
 .. figure:: _static/T1MNINormalization.svg
 
-    Animation showing spatial normalization of T1w onto the ``MNI152NLin2009cAsym`` template.
+    Animation showing spatial normalization of T1w onto the ``MNI152NLin2009cAsym`` template
 
 Cost function masking during spatial normalization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -105,16 +105,16 @@ resection), it is possible to provide a lesion mask to be used during spatial
 normalization to standard space [Brett2001]_.
 ANTs will use this mask to minimize warping of healthy tissue into damaged
 areas (or vice-versa).
-Lesion masks should be binary NIfTI images (damaged areas = 1, everywhere else = 0)
+Lesion masks should be binary NIFTI images (damaged areas = 1, everywhere else = 0)
 in the same space and resolution as the T1 image, and follow the naming convention specified in
 `BIDS Extension Proposal 3: Common Derivatives <https://docs.google.com/document/d/1Wwc4A6Mow4ZPPszDIWfCUCRNstn7d_zzaWPcfcHmgI4/edit#heading=h.9146wuepclkt>`_
 (e.g., ``sub-001_T1w_label-lesion_roi.nii.gz``).
 This file should be placed in the ``sub-*/anat`` directory of the BIDS dataset
-to be run through *aslprep*.
+to be run through *ASLPrep*.
 Because lesion masks are not currently part of the BIDS specification, it is also necessary to
 include a ``.bidsignore`` file in the root of your dataset directory. This will prevent
 `bids-validator <https://github.com/bids-standard/bids-validator#bidsignore>`_ from complaining
-that your dataset is not valid BIDS, which prevents *aslprep* from running.
+that your dataset is not valid BIDS, which prevents *ASLPrep* from running.
 Your ``.bidsignore`` file should include the following line::
 
   *lesion_roi.nii.gz
@@ -126,11 +126,9 @@ merged into a single template image using FreeSurfer's `mri_robust_template`_.
 This template may be *unbiased*, or equidistant from all source images, or
 aligned to the first image (determined lexicographically by session label).
 For two images, the additional cost of estimating an unbiased template is
-trivial and is the default behavior, but, for greater than two images, the cost
-can be a slowdown of an order of magnitude.
-Therefore, in the case of three or more images, *ASLPrep* constructs
-templates aligned to the first image, unless passed the ``--longitudinal``
-flag, which forces the estimation of an unbiased template.
+trivial and is the default behavior, but three or more images may cause a significant slow-down.
+Therefore, if there are more than two images, *ASLPrep* constructs
+templates aligned to the first image, unless the ``--longitudinal`` flag is passed, which forces the estimation of an unbiased template.
 
 .. note::
 
@@ -167,7 +165,7 @@ The first phase initializes the subject with T1w and T2w (if available)
 structural images and performs basic reconstruction (``autorecon1``) with the
 exception of skull-stripping.
 Skull-stripping is skipped since the brain mask :ref:`calculated previously
-<t1preproc_steps>` is injected into the appropriate location for FreeSurfer.
+<t1preproc_steps>` is pulled into the appropriate location for FreeSurfer.
 For example, a subject with only one session with T1w and T2w images
 would be processed by the following command::
 
@@ -205,7 +203,7 @@ packages, including FreeSurfer and the `Connectome Workbench`_.
     GIFTI surface outputs are aligned to the FreeSurfer T1.mgz image, which
     may differ from the T1w space in some cases, to maintain compatibility
     with the FreeSurfer directory.
-    Any measures sampled to the surface take into account any difference in
+    Any measures sampled to the surface take into account any differences in
     these images.
 
 .. workflow::
@@ -261,7 +259,7 @@ ASL reference image estimation
     from aslprep.niworkflows.func.util import init_bold_reference_wf
     wf = init_bold_reference_wf(omp_nthreads=1)
 
-This workflow estimates a reference image for a
+This workflow estimates a reference image for an
 :abbr:`ASL (Arterial Spin Labelling)` series.
 When T1-saturation effects ("dummy scans" or non-steady state volumes) are
 detected, they are averaged and used as reference due to their
@@ -269,7 +267,7 @@ superior tissue contrast.
 Otherwise, a median of motion corrected subset of volumes is used.
 
 The reference image is then used to calculate a brain mask for the
-:abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflows*'
+:abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
 :py:func:`~aslprep.niworkflows.func.util.init_enhance_and_skullstrip_bold_wf`.
 Further, the reference is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow to map
@@ -330,7 +328,7 @@ All slices are realigned in time to the middle of each TR.
 
 Slice time correction can be disabled with the ``--ignore slicetiming``
 command line argument.
-If a :abbr:`ASL (Arterial Spin Labelling)` series has fewer than
+If an :abbr:`ASL (Arterial Spin Labelling)` series has fewer than
 5 usable (steady-state) volumes, slice time correction will be disabled
 for that run.
 
@@ -345,14 +343,14 @@ available workflows.
 .. figure:: _static/unwarping.svg
 
     Applying susceptibility-derived distortion correction, based on
-    fieldmap estimation.
+    fieldmap estimation
 
 See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 
 
 .. _asl_preproc:
 
-Pre-processed ASL in native space
+Preprocessed ASL in native space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 :py:func:`~aslprep.workflows.bold.resampling.init_bold_preproc_trans_wf`
 
@@ -370,7 +368,7 @@ original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
 resampled in their native space by concatenating the mappings found in previous
 correction workflows (:abbr:`HMC (head-motion correction)` and
-:abbr:`SDC (susceptibility-derived distortion correction)` if excecuted)
+:abbr:`SDC (susceptibility-derived distortion correction)`, if excecuted)
 for a one-shot interpolation process.
 Interpolation uses a Lanczos kernel.
 
@@ -395,7 +393,7 @@ CBF Computation in native space
     from aslprep.workflows.bold.cbf import init_cbf_compt_wf
     wf = init_cbf_compt_wf(mem_gb=0.1,metadata=metadata, omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
-ALl the CBF derivates are computed from preprocessed :ref:`ASL <asl_preproc>`.
+ALl the CBF derivates are computed from pre-processed :ref:`ASL <asl_preproc>`.
 This inlude CBF computation by basic model and :abbr:`BASIL (Bayesian Inference for Arterial Spin Labeling )`.
 The BASIL includes spatial regularization and partial volume correction.
 The computed CBF are further denoised by :abbr:`SCORE (Structural Correlation based Outlier Rejection)`
@@ -419,8 +417,8 @@ Quality Controle measures
     metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
     wf = init_cbfqc_compt_wf(mem_gb=0.1,bold_file=str(bold_file),metadata=str(metadata),omp_nthreads=1)
 
-The  quality control (qc) measures sich as FD, coregistration and nornmalizatiion index and 
-qulaity evaluation index (QEI) all CBF maps.
+The  quality control (QC) measures such as FD, coregistration and nornmalization index and 
+quality evaluation index (QEI) all CBF maps.
 
 .. _asl_reg:
 
@@ -453,8 +451,8 @@ If FreeSurfer processing is disabled, FSL ``flirt`` is run with the
 :abbr:`BBR (boundary-based registration)` cost function, using the
 ``fast`` segmentation to establish the gray/white matter boundary.
 After :abbr:`BBR (boundary-based registration)` is run, the resulting affine transform will be compared to the initial transform found by FLIRT.
-Excessive deviation will result in rejecting the BBR refinement and accepting the original, affine registration.
-The computed :ref:`CBF <cbf_preproc>`  are regsitered to T1w using the transformation from ASL-T1w registration.
+Excessive deviation will result in rejection of the BBR refinement and acceptance of the original affine registration.
+The computed :ref:`CBF <cbf_preproc>`  is regsitered to T1w using the transformation from ASL-T1w registration.
 
 Resampling ASL  and CBF runs onto standard spaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -476,9 +474,9 @@ Resampling ASL  and CBF runs onto standard spaces
     )
 
 This sub-workflow concatenates the transforms calculated upstream (see
-`Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_ --if
-fieldmaps are available--, and an anatomical-to-standard
-transform from `Preprocessing of structural MRI`_) to map the
+`Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_ if
+fieldmaps are available, and an anatomical-to-standard
+transform from `Preprocessing of structural MRI`_ to map the
 :abbr:`EPI (echo-planar imaging)`
 image to the standard spaces given by the ``--output-spaces`` argument
 (see :ref:`output-spaces`).
@@ -541,11 +539,9 @@ Confounds estimation
                   "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]},
     )
 
-Given a motion-corrected ASL, a brain mask, ``mcflirt`` movement parameters and a
-segmentation, the `discover_wf` sub-workflow calculates potential
-confounds per volume.
+The `discover_wf` sub-workflow calculates potential confounds per volume, if given motion-corrected ASL, a brain mask, ``mcflirt`` movement parameters, and segmentation. 
 
-Calculated confounds include Frame-wise Displacement, 6 motion parameters, DVARS.
+Calculated confounds include Frame-wise Displacement, 6 motion parameters, and DVARS.
 
 .. _asl_t2s:
 
