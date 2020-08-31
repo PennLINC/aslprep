@@ -14,7 +14,7 @@ Outputs of *ASLPrep*
 
 2. **Derivatives (preprocessed data):** the input ASL data ready for
    analysis, (e.g., after the various preparation procedures
-   have been applied).
+   have been applied.
    For example, :abbr:`INU (intensity non-uniformity)`-corrected versions
    of the T1-weighted image (per subject), the brain mask or ASL data  
    images after head-motion correction, slice-timing correction, and alignment into

@@ -33,12 +33,6 @@ then no further action is required.
 
 Code-Server Development Environment (Experimental)
 ==================================================
-For an improved experience working with containers, and to work in a interactive developmental environment, see our experimental setup with `code-server
-<https://github.com/cdr/code-server>`_. 
-
-.. Note::
-    `This video walkthrough
-    <https://youtu.be/bkZ-NyUaTvg>`_ provides visual guide to this process.
 
 1. Build the Docker image
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -109,7 +103,7 @@ See below  for an example: ::
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-    Head-motion parameters with respect to the BOLD reference
+    Head-motion parameters with respect to the ASL reference
     (transformation matrices, and six corresponding rotation and translation
     parameters) are estimated before any spatiotemporal filtering using
     `mcflirt` [FSL {fsl_ver}, @mcflirt].
