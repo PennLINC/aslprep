@@ -246,6 +246,7 @@ ASLPrep preprocessing
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.
 
+
 .. _asl_ref:
 
 ASL reference image estimation
@@ -358,12 +359,13 @@ Preprocessed ASL in native space
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.workflows.bold.base import init_func_preproc_wf
-    from pathlib import Path
-    from pkg_resources import resource_filename as pkgrf
-    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
-    aslfile = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz
-    wf = init_func_preproc_wf(bold_file=aslfile)
+    from aslprep.workflows.bold import init_bold_preproc_trans_wf
+    wf = init_bold_preproc_trans_wf(mem_gb=3, omp_nthreads=1)
+
+.. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
+
+    The preprocessed ASL with label and control.The signal plots above the carpetotplot 
+    are framewise diplacement (FD) and DVRAS. 
 
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
 from the slice-timing corrected or the original data (if
@@ -376,10 +378,6 @@ correction workflows (:abbr:`HMC (head-motion correction)` and
 for a one-shot interpolation process.
 Interpolation uses a Lanczos kernel.
 
-.. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
-
-    The preprocessed ASL with label and control.The signal plots above the carpetotplot 
-    are framewise diplacement (FD) and DVRAS. 
     
 
 .. _cbf_preproc:
