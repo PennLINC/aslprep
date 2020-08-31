@@ -359,7 +359,11 @@ Preprocessed ASL in native space
     :simple_form: yes
 
     from aslprep.workflows.bold.base import init_func_preproc_wf
-    wf = init_func_preproc_wf(mem_gb=3, omp_nthreads=1)
+    from pathlib import Path
+    from pkg_resources import resource_filename as pkgrf
+    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
+    aslfile = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz
+    wf = init_func_preproc_wf(bold_file=aslfile)
 
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
 from the slice-timing corrected or the original data (if
@@ -374,8 +378,8 @@ Interpolation uses a Lanczos kernel.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
 
-    The preprocessed ASL with label and control. There timeseries plot the carpetotplot 
-    are framewise diplacement (FD) and DVRAS for each volume. 
+    The preprocessed ASL with label and control.The signal plots above the carpetotplot 
+    are framewise diplacement (FD) and DVRAS. 
     
 
 .. _cbf_preproc:
@@ -406,7 +410,8 @@ and :abbr:`SCRUB (Structural Correlation withRobUst Bayesian)`
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbftsplot_asl.svg
 
-    The carpet plot of computed CBF. The step plot  above indicated the volume marked by SCORE algorithm. 
+    The carpet plot of computed CBF. The step plot  above indicated the volume(s) marked by SCORE algorithm  
+    to be contaminated by noise. 
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbfplot_asl.svg 
 
