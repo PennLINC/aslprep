@@ -20,7 +20,7 @@ Adding dependencies
 New dependencies to be inserted into the Docker image will either be
 Python or non-Python dependencies.
 Python dependencies may be added in three places, depending on whether
-the package is large or non-release versions are required.
+the package is large or if non-release versions are required.
 The image `must be rebuilt <#rebuilding-docker-image>`_ after any
 dependency changes.
 
@@ -33,13 +33,12 @@ then no further action is required.
 
 Code-Server Development Environment (Experimental)
 ==================================================
-To get the best of working with containers and having an interactive
-development environment, we have an experimental setup with `code-server
-<https://github.com/cdr/code-server>`_.
+For an improved experience working with containers, and to work in a interactive developmental environment, see our experimental setup with `code-server
+<https://github.com/cdr/code-server>`_. 
 
 .. Note::
-    We have `a video walking through the process
-    <https://youtu.be/bkZ-NyUaTvg>`_ if you want a visual guide.
+    `This video walkthrough
+    <https://youtu.be/bkZ-NyUaTvg>`_ provides visual guide to this process.
 
 1. Build the Docker image
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -57,7 +56,7 @@ We can start a docker container using the image we built (``aslprep_devel``)::
 
 .. Note::
     If you are using windows shell, ${PWD} may not be defined, instead use the absolute
-    path to your aslprep directory.
+    path to your *ASLPrep* directory.
 
 3. Copy aslprep.egg-info into your aslprep directory
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -87,15 +86,15 @@ Adding new features to the citation boilerplate
 
 The citation boilerplate is built by adding two dunder attributes
 of workflow objects: ``__desc__`` and ``__postdesc__``.
-Once the full *aslprep* workflow is built, starting from the
-outer workflow and visiting all sub-workflows in topological
-order, all defined ``__desc__`` are appended to the citation
-boilerplate before descending into sub-workflows.
-Once all the sub-workflows of a given workflow have
+Once the full *ASLPrep* workflow is built, all defined ``__desc__`` are appended to the citation
+boilerplate, starting from the
+outer workflow and descending into all sub-workflows in topological
+order. Once all the sub-workflows have
 been visited, then the ``__postdesc__`` attribute is appended
 and the execution pops out to higher level workflows.
 The dunder attributes are written in Markdown language, and may contain
 references.
+
 To add a reference, just add a new Bibtex entry to the references
 database (``/aslprep/data/boilerplate.bib``).
 You can then use the Bibtex handle within the Markdown text.
@@ -106,7 +105,7 @@ brackets should be used: e.g., ``[see @myreference]`` will produce
 a citation like *(see Doe J. et al 2018)*.
 
 
-An example of how this works is shown here: ::
+See below  for an example: ::
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\

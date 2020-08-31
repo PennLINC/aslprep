@@ -5,22 +5,23 @@
 Usage Notes
 ===========
 .. warning::
-   The software includes a tracking system to report usage statistics and errors.
-   Users can opt-out using the ``--notrack`` command line argument.
+   This software includes a tracking system to report usage statistics and errors.
+   Users can opt out using the ``--notrack`` command line argument.
 
 
 Execution and the BIDS format
 -----------------------------
-The *ASLPrep* workflow takes as principal input the path of the dataset
-that is to be processed.
+The *ASLPrep* workflow takes the path of the dataset
+that is to be processed as its principal input.
 
-...important:: 
-     The `ASL BIDS <shorturl.at/kqrRS>`_  are currently being proposed and in the final stage.
-     We have created a simple way of converting `ASL into BIDS <https://github.com/PennLINC/aslbids>`_
-     Some of the paramters of ASL cannot been obtained directly from the dicom header, 
-     it is very  important to ask the MRI Physicists  or anyone that collect the data. 
-     The convertion of ASL to BIDS on `flywheel <https://flywheel.io/>`_ using `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_ 
-     as descirbed `here <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_
+.. note:: 
+     The official `BIDS Specification for ASL <shorturl.at/kqrRS>`_  is currently in its final stages of development.
+     We have created a simple tool for converting ASL data into currently valid BIDS, available `here <https://github.com/PennLINC/aslbids>`_.
+     Note that some of the parameters necessary for running *ASLPrep* cannot be extracted directly from the DICOM header —
+     to obtain these parameters, we recommend consulting the MRI physicist/technician at the scanner.
+     The conversion of ASL into BIDS on `Flywheel <https://flywheel.io/>`_ using `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_ 
+     is described `here <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_.
+
 
 
 The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data
@@ -31,7 +32,7 @@ We highly recommend that you validate your dataset with the free, online
 The exact command to run *ASLPrep* depends on the Installation_ method.
 The common parts of the command follow the `BIDS-Apps
 <https://github.com/BIDS-Apps>`_ definition.
-Example: ::
+For example: ::
 
     aslprep data/bids_root/ out/ participant -w work/
 
@@ -88,7 +89,7 @@ file on the host system: ::
 Troubleshooting
 ---------------
 
-Logs and crashfiles are outputted into the
+Logs and crashfiles are written to the
 ``<output dir>/aslprep/sub-<participant_label>/log`` directory.
 Information on how to customize and understand these files can be found on the
 `nipype debugging <http://nipype.readthedocs.io/en/latest/users/debug.html>`_
