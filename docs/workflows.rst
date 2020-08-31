@@ -271,11 +271,11 @@ The reference image is then used to calculate a brain mask for the
 :py:func:`~aslprep.niworkflows.func.util.init_enhance_and_skullstrip_bold_wf`.
 Further, the reference is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow to map
-BOLD series into the T1w image of the same subject <asl_reg>`.
+ASL series into the T1w image of the same subject <asl_reg>`.
 
 .. figure:: _static/brainextraction.svg
 
-    Calculation of a brain mask from the BOLD series.
+    Calculation of a brain mask from the ASL series.
 
 .. _asl_hmc:
 
@@ -352,14 +352,14 @@ See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 
 Preprocessed ASL in native space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.resampling.init_bold_preproc_trans_wf`
+:py:func:`~aslprep.workflows.bold.base.init_func_preproc_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.workflows.bold import init_bold_preproc_trans_wf
-    wf = init_bold_preproc_trans_wf(mem_gb=3, omp_nthreads=1)
+    from aslprep.workflows.bold.base import init_func_preproc_wf
+    wf = init_func_preproc_wf(mem_gb=3, omp_nthreads=1)
 
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
 from the slice-timing corrected or the original data (if
@@ -372,6 +372,11 @@ correction workflows (:abbr:`HMC (head-motion correction)` and
 for a one-shot interpolation process.
 Interpolation uses a Lanczos kernel.
 
+.. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
+
+    The preprocessed ASL with label and control. There timeseries plot the carpetotplot 
+    are framewise diplacement (FD) and DVRAS for each volume. 
+    
 
 .. _cbf_preproc:
 
@@ -398,6 +403,32 @@ This inlude CBF computation by basic model and :abbr:`BASIL (Bayesian Inference 
 The BASIL includes spatial regularization and partial volume correction.
 The computed CBF are further denoised by :abbr:`SCORE (Structural Correlation based Outlier Rejection)`
 and :abbr:`SCRUB (Structural Correlation withRobUst Bayesian)`
+
+.. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbftsplot_asl.svg
+
+    The carpet plot of computed CBF. The step plot  above indicated the volume marked by SCORE algorithm. 
+
+.. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbfplot_asl.svg 
+
+   Computed CBF maps 
+
+.. figure:: _static/sub-20589_ses-11245_task-rest_desc-scoreplot_asl.svg
+
+   Computed CBF maps denoised by SCORE
+
+.. figure:: _static/sub-20589_ses-11245_task-rest_desc-scrubplot_asl.svg
+
+   Computed CBF maps denoised by SCRUB
+
+.. figure:: _static/sub-20589_ses-11245_task-rest_desc-basilplot_asl.svg
+
+   Computed CBF maps by BASIL 
+
+.. figure:: _static/sub-20589_ses-11245_task-rest_desc-pvcplot_asl.svg
+
+   Paritial volume corrected  CBF maps by BASIL 
+
+
 
 .. _cbf_qc:
 
@@ -488,39 +519,6 @@ step, so as little information is lost as possible.
 The output space grid can be specified using modifiers to the ``--output-spaces``
 argument.
 
-ASL sampled to FreeSurfer surfaces
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.resampling.init_bold_surf_wf`
-
-.. workflow::
-    :graph2use: colored
-    :simple_form: yes
-
-    from aslprep.workflows.bold import init_bold_surf_wf
-    wf = init_bold_surf_wf(
-        mem_gb=1,
-        surface_spaces=['fsnative', 'fsaverage5'],
-        medial_surface_nan=False)
-
-If FreeSurfer processing is enabled, the motion-corrected functional series
-(after single shot resampling to T1w space) is sampled to the
-surface by averaging across the cortical ribbon.
-Specifically, at each vertex, the segment normal to the white-matter surface, extending to the pial
-surface, is sampled at 6 intervals and averaged.
-
-Surfaces are generated for the "subject native" surface, as well as transformed to the
-``fsaverage`` template space.
-All surface outputs are in GIFTI format.
-
-HCP Grayordinates
-~~~~~~~~~~~~~~~~~
-If CIFTI output is enabled, the motion-corrected functional timeseries (in T1w space) is first
-sampled to the high resolution 164k vertex (per hemisphere) ``fsaverage``. Following that,
-the resampled timeseries is sampled to `HCP Pipelines_`'s ``fsLR`` mesh (with the left and
-right hemisphere aligned) using `Connectome Workbench`_'s ``-metric-resample`` to generate a
-surface timeseries for each hemisphere. These surfaces are then combined with corresponding
-volumetric timeseries to create a CIFTI2 file.
-
 .. _asl_confounds:
 
 Confounds estimation
@@ -542,18 +540,3 @@ Confounds estimation
 The `discover_wf` sub-workflow calculates potential confounds per volume, if given motion-corrected ASL, a brain mask, ``mcflirt`` movement parameters, and segmentation. 
 
 Calculated confounds include Frame-wise Displacement, 6 motion parameters, and DVARS.
-
-.. _asl_t2s:
-
-T2* Driven Coregistration
-~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.t2s.init_bold_t2s_wf`
-
-If multi-echo :abbr:`ASL (arterial spin labellin)` data is supplied,
-this workflow uses the `tedana`_ `T2* workflow`_ to generate an adaptive T2* map
-and optimally weighted combination of all supplied single echo time series.
-This optimaly combined time series is then carried forward for all subsequent
-preprocessing steps.
-Optionally, if the ``--t2s-coreg`` flag is supplied, the T2* map is then used
-in place of the :ref:`ASL reference image <asl_ref>` to
-:ref:`register the ASL series to the T1w image <asl_reg>` of the same subject.

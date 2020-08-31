@@ -14,8 +14,6 @@ Some exclusion criteria for data quality should be pre-specified before QC and a
 of the original data.
 Those exclusion criteria must be designed in agreement with the goals and challenges of the
 experimental design.
-For instance, when running cortical thickness analyses, images should be excluded when they present even the most subtle ghosts or other artifacts that may introduce biases in surface
-reconstruction.
 However, if the same data was planned to be used as a reference for spatial
 normalization, those artifacts should be noted, but may not call for exclusion of the data.
 
@@ -70,7 +68,7 @@ The output you get from *ASLPrep* will contain something like the following: ::
   is a process running, you can kill it and start over or
   just let it run. If the process has died, you should type:
 
-  rm /outputs/freesurfer/sub-020/scripts/IsRunning.lh+rh
+  rm /outputs/freesurfer/sub-02x /scripts/IsRunning.lh+rh
 
   and re-run. Or you can add -no-isrunning to the recon-all
   command-line. The contents of this file are:

@@ -60,52 +60,6 @@ the data on ``MNI152NLin6Asym`` space and the original BOLD resolution
 This is equivalent to saying
 ``--output-spaces MNI152NLin6Asym:res-2 MNI152NLin2009cAsym:res-native``.
 
-Other possible modifiers include the ``cohort`` selector.
-For instance, ``--output-spaces MNIPediatricAsym:res-1:cohort-2`` selects
-the resolution ``1`` of ``cohort-2`` which, for the ``MNIPediatricAsym``
-template, corresponds to the `pre-puberty phase
-<https://github.com/templateflow/tpl-MNIPediatricAsym/blob/bcf77616f547f327ee53c01dadf689ab6518a097/template_description.json#L22-L26>`__
-(4.5--8.5 years old).
-
-Space modifiers such as ``res`` are combinatorial. The argument
-``--output-spaces MNIPediatricAsym:cohort-1:cohort-2:res-native:res-1`` will
-generate conversions for the following combinations:
-
-  * cohort ``1`` and "native" resolution (meaning, the original BOLD resolution)
-  * cohort ``1`` and resolution ``1`` of the template
-  * cohort ``2`` and "native" resolution (meaning, the original BOLD resolution)
-  * cohort ``2`` and resolution ``1`` of the template
-
-Please note that the selected resolutions specified must exist within TemplateFlow.
-
-When specifying surface spaces (e.g., ``fsaverage``), the legacy identifiers from
-FreeSurfer will be supported (e.g., ``fsaverage5``) although the use of the density
-modifier would be preferred (e.g., ``fsaverage:den-10k`` for ``fsaverage5``).
-
-Custom standard spaces
-""""""""""""""""""""""
-To make your custom templates visible by *ASLPrep*, and usable via
-the ``--output-spaces`` argument, store your template under
-*TemplateFlow*'s home directory.
-The default *TemplateFlow* home directory is ``$HOME/.cache/templateflow``
-but the path can be arbitrarily changed by setting
-the ``$TEMPLATEFLOW_HOME`` environment variable.
-A minimal example of the necessary files for a template called
-``MyCustom`` (and therefore callable via ``--output-spaces MyCustom``)
-follows::
-
-  $TEMPLATEFLOW_HOME/
-      tpl-MyCustom/
-          template_description.json
-          tpl-MyCustom_res-1_T1w.nii.gz
-          tpl-MyCustom_res-1_desc-brain_mask.nii.gz
-          tpl-MyCustom_res-2_T1w.nii.gz
-          tpl-MyCustom_res-2_desc-brain_mask.nii.gz
-
-For further information about how custom templates must be organized and their
-corresponding naming conventions, please check `the TemplateFlow tutorials
-<https://www.templateflow.org/python-client/tutorials.html>`__.
-
 Nonstandard spaces
 """"""""""""""""""
 Additionally, ``--output-spaces`` accepts identifiers of spatial references

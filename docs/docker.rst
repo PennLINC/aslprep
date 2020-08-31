@@ -68,9 +68,9 @@ You may also invoke ``docker`` directly::
 For example: ::
 
     $ docker run -ti --rm \
-        -v $HOME/ds005:/data:ro \
-        -v $HOME/ds005/derivatives:/out \
-        -v $HOME/tmp/ds005-workdir:/work \
+        -v $HOME/ds000240:/data:ro \
+        -v $HOME/ds000240/derivatives:/out \
+        -v $HOME/tmp/ds000240-workdir:/work \
         pennlinc/aslprep:<latest-version> \
         /data /out/aslprep-<latest-version> \
         participant \
@@ -82,9 +82,9 @@ In other words, the first section of the command line is equivalent to the ``asl
 executable in a bare-metal installation: ::
 
     $ docker run -ti --rm \                      | These lines
-        -v $HOME/ds005:/data:ro \                | are equivalent
-        -v $HOME/ds005/derivatives:/out \        | to the aslprep
-        -v $HOME/tmp/ds005-workdir:/work \       | executable.
+        -v $HOME/ds000240:/data:ro \                | are equivalent
+        -v $HOME/ds000240/derivatives:/out \        | to the aslprep
+        -v $HOME/tmp/ds000240-workdir:/work \       | executable.
         pennlinc/aslprep:<latest-version> \  |
         \
         /data /out/aslprep-<latest-version> \   | These lines
