@@ -492,8 +492,6 @@ any spatial references."""
 You are using aslprep-%s, and a newer version of aslprep is available: %s.
 Please check out our documentation about how and when to upgrade:
 https://aslprep.readthedocs.io/en/latest/faq.html#upgrading"""
-            % (currentv, latest),
-            file=sys.stderr,
         )
 
     _blist = is_flagged()
