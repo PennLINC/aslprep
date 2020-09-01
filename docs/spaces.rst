@@ -45,7 +45,7 @@ T1w image corresponding to all the standard spaces supplied with the argument
 ``--output-spaces``.
 By default, *ASLPrep* will resample the preprocessed data on those spaces (labeling the
 corresponding outputs with the `space-<template-identifier>` BIDS entity) but keeping
-the original resolution of the BOLD data to produce smaller files which are more consistent with
+the original resolution of the ASL data to produce smaller files which are more consistent with
 the original data gridding.
 
 However, many users will be interested in utilizing a coarse gridding (typically 2mm isotropic)
@@ -53,9 +53,9 @@ of the target template.
 Such a behavior can be achieved applying modifiers to the template identifier, separated by
 a ``:`` character.
 For instance, ``--output-spaces MNI152NLin6Asym:res-2 MNI152NLin2009cAsym`` will generate
-pre-processed BOLD 4D files on two standard spaces (``MNI152NLin6Asym``,
+pre-processed ASL 4D files on two standard spaces (``MNI152NLin6Asym``,
 and ``MNI152NLin2009cAsym``) with the template's 2mm isotropic resolution for
-the data on ``MNI152NLin6Asym`` space and the original BOLD resolution
+the data on ``MNI152NLin6Asym`` space and the original ASL resolution
 (e.g., 2x2x2.5 [mm]) for the case of ``MNI152NLin2009cAsym``.
 This is equivalent to saying
 ``--output-spaces MNI152NLin6Asym:res-2 MNI152NLin2009cAsym:res-native``.
@@ -70,10 +70,10 @@ that do not generate *standardized* coordinate spaces:
     BIDS structure.
   * ``fsnative``: similarly to the ``anat`` space for volumetric references,
     including the ``fsnative`` space will instruct *fMRIPrep* to sample the
-    original BOLD data onto FreeSurfer's reconstructed surfaces for this
+    original ASL data onto FreeSurfer's reconstructed surfaces for this
     individual.
   * ``func``, ``bold``, ``run``, ``boldref`` or ``sbref`` can be used to
-    generate BOLD data in their original grid, after slice-timing,
+    generate ASL data in their original grid, after slice-timing,
     head-motion, and susceptibility-distortion corrections.
     These keywords are experimental.
 
