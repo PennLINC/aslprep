@@ -246,7 +246,6 @@ Non-standard spaces imply specific orientations and sampling grids. \
 Important to note, the ``res-*`` modifier does not define the resolution used for \
 the spatial normalization. To generate no ASL outputs, use this option without specifying \
 any spatial references."""
-        % (currentv.base_version if is_release else "latest"),
     )
 
     g_conf.add_argument(
@@ -492,6 +491,8 @@ any spatial references."""
 You are using aslprep-%s, and a newer version of aslprep is available: %s.
 Please check out our documentation about how and when to upgrade:
 https://aslprep.readthedocs.io/en/latest/faq.html#upgrading"""
+            % (currentv, latest),
+            file=sys.stderr,
         )
 
     _blist = is_flagged()
