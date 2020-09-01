@@ -353,7 +353,7 @@ See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 
 Preprocessed ASL in native space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.base.init_func_preproc_wf`
+:py:func:`~aslprep.workflows.bold.init_bold_preproc_trans_wf`
 
 .. workflow::
     :graph2use: orig
