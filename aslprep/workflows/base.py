@@ -18,7 +18,7 @@ from nipype.interfaces import utility as niu
 
 from .. import config
 from ..interfaces import SubjectSummary, AboutSummary, DerivativesDataSink
-from .bold import init_func_preproc_wf
+from .asl import init_asl_preproc_wf
 
 
 def init_aslprep_wf():
@@ -92,7 +92,7 @@ def init_single_subject_wf(subject_id):
     Anatomical preprocessing is performed in a single workflow, regardless of
     the number of sessions.
     Functional preprocessing is performed using a separate workflow for each
-    individual BOLD series.
+    individual ASL series.
 
     Workflow Graph
         .. workflow::
@@ -255,7 +255,7 @@ It is released under the [CC0]\
         (inputnode, summary, [('subjects_dir', 'subjects_dir')]),
         (bidssrc, summary, [('t1w', 't1w'),
                             ('t2w', 't2w'),
-                            ('asl', 'bold')]),
+                            ('asl', 'asl')]),
         (bids_info, summary, [('subject', 'subject_id')]),
         (bids_info, anat_preproc_wf, [(('subject', _prefix), 'inputnode.subject_id')]),
         (bidssrc, anat_preproc_wf, [('t1w', 'inputnode.t1w'),
@@ -277,20 +277,20 @@ It is released under the [CC0]\
         return workflow
 
     # Append the functional section to the existing anatomical exerpt
-    # That way we do not need to stream down the number of bold datasets
+    # That way we do not need to stream down the number of asl datasets
     anat_preproc_wf.__postdesc__ = (anat_preproc_wf.__postdesc__ or '') + """
 
 Functional data preprocessing
 
-: For each of the {num_bold} ASL runs found per subject (across all
+: For each of the {num_asl} ASL runs found per subject (across all
 tasks and sessions), the following preprocessing was performed.
-""".format(num_bold=len(subject_data['asl']))
+""".format(num_asl=len(subject_data['asl']))
 
-    for bold_file in subject_data['asl']:
-        func_preproc_wf = init_func_preproc_wf(bold_file)
+    for asl_file in subject_data['asl']:
+        asl_preproc_wf = init_asl_preproc_wf(asl_file)
 
         workflow.connect([
-            (anat_preproc_wf, func_preproc_wf,
+            (anat_preproc_wf, asl_preproc_wf,
              [('outputnode.t1w_preproc', 'inputnode.t1w_preproc'),
               ('outputnode.t1w_mask', 'inputnode.t1w_mask'),
               ('outputnode.t1w_dseg', 'inputnode.t1w_dseg'),

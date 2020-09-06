@@ -28,8 +28,8 @@ from .utils import (extract_svg,
 DINA4_LANDSCAPE = (11.69, 8.27)
 
 
-class fMRIPlot:
-    """Generates the fMRI Summary Plot."""
+class ASLPlot:
+    """Generates the ASL Summary Plot."""
 
     __slots__ = ("func_file", "mask_data", "tr", "seg_data", "confounds", "spikes")
 
@@ -295,7 +295,7 @@ def plot_carpet(
     ----------
 
         func : string
-            Path to NIfTI or CIFTI BOLD image
+            Path to NIfTI or CIFTI ASL image
         atlaslabels: ndarray, optional
             A 3D array of integer labels from an atlas, resampled into ``img`` space.
             Required if ``func`` is a NIfTI image.
@@ -688,8 +688,7 @@ def spikesplot(
     ax.spines["left"].set_color(None)
 
     # labels = [label for label in ax.yaxis.get_ticklabels()]
-    # labels[0].set_weight('bold')
-    # labels[-1].set_weight('bold')
+
     if title:
         ax.set_title(title)
     return ax
@@ -1291,10 +1290,10 @@ def _get_tr(img):
     Examples
     --------
     # >>> _get_tr(nb.load(Path(test_data) /
-    # ...    'sub-ds205s03_task-functionallocalizer_run-01_bold_volreg.nii.gz'))
+    # ...    'sub-ds205s03_task-functionallocalizer_run-01_asl_volreg.nii.gz'))
     2.2
     # >>> _get_tr(nb.load(Path(test_data) /
-    # ...    'sub-01_task-mixedgamblestask_run-02_space-fsLR_den-91k_bold.dtseries.nii'))
+    # ...    'sub-01_task-mixedgamblestask_run-02_space-fsLR_den-91k_asl.dtseries.nii'))
     2.0
     """
 

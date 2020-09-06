@@ -249,7 +249,7 @@ any spatial references."""
     )
 
     g_conf.add_argument(
-        "--bold2t1w-init",
+        "--asl2t1w-init",
         action="store",
         default="register",
         choices=["register", "header"],
@@ -257,7 +257,7 @@ any spatial references."""
         " to use the header information when coregistering ASL to T1w images.",
     )
     g_conf.add_argument(
-        "--bold2t1w-dof",
+        "--asl2t1w-dof",
         action="store",
         default=6,
         choices=[6, 9, 12],

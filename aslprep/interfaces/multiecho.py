@@ -5,7 +5,7 @@
 """
 Multi-echo EPI
 ~~~~~~~~~~~~~~
-
+directly from FMRIPREP
 For using multi-echo EPI data.
 
 Change directory to provide relative paths for doctests

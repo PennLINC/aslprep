@@ -8,14 +8,14 @@ from ...config import DEFAULT_MEMORY_MIN_GB
 from ...interfaces import DerivativesDataSink
 
 
-def init_func_derivatives_wf(
+def init_asl_derivatives_wf(
     bids_root,
     cifti_output,
     freesurfer,
     metadata,
     output_dir,
     spaces,
-    name='func_derivatives_wf',
+    name='asl_derivatives_wf',
 ):
     """
     Set up a battery of datasinks to store derivatives in the right location.
@@ -29,7 +29,7 @@ def init_func_derivatives_wf(
     freesurfer : :obj:`bool`
         Whether FreeSurfer anatomical processing was run.
     metadata : :obj:`dict`
-        Metadata dictionary associated to the BOLD run.
+        Metadata dictionary associated to the ASL run.
     output_dir : :obj:`str`
         Where derivatives should be written out to.
     spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
@@ -53,10 +53,10 @@ def init_func_derivatives_wf(
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(niu.IdentityInterface(fields=[
-        'bold_aparc_std', 'bold_aparc_t1', 'bold_aseg_std',
-        'bold_aseg_t1', 'bold_cifti', 'bold_mask_std', 'bold_mask_t1', 'bold_std',
-        'bold_std_ref', 'bold_t1', 'bold_t1_ref', 'bold_native', 'bold_native_ref',
-        'bold_mask_native', 'cifti_variant', 'cifti_metadata', 'cifti_density',
+        'asl_aparc_std', 'asl_aparc_t1', 'asl_aseg_std',
+        'asl_aseg_t1', 'asl_cifti', 'asl_mask_std', 'asl_mask_t1', 'asl_std',
+        'asl_std_ref', 'asl_t1', 'asl_t1_ref', 'asl_native', 'asl_native_ref',
+        'asl_mask_native', 'cifti_variant', 'cifti_metadata', 'cifti_density',
         'confounds', 'confounds_metadata', 'source_file', 'surf_files', 'surf_refs',
         'template', 'spatial_reference', 'cbf', 'meancbf', 'score', 'avgscore',
         'scrub', 'basil', 'pv', 'cbf_t1', 'meancbf_t1', 'att_t1', 'score_t1', 'avgscore_t1',
@@ -265,22 +265,22 @@ def init_func_derivatives_wf(
                                 ('pvc_sc417', 'in_file')]),
       ])
 
-    if nonstd_spaces.intersection(('func', 'run', 'bold', 'boldref', 'sbref')):
-        ds_bold_native = pe.Node(
+    if nonstd_spaces.intersection(('func', 'run', 'sbref')):
+        ds_asl_native = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir, desc='preproc', compress=True, SkullStripped=False,
                 RepetitionTime=metadata.get('RepetitionTime'), TaskName=metadata.get('TaskName')),
-            name='ds_bold_native', run_without_submitting=True,
+            name='ds_asl_native', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        ds_bold_native_ref = pe.Node(
+        ds_asl_native_ref = pe.Node(
             DerivativesDataSink(base_directory=output_dir, suffix='aslref', compress=True,
                                 dismiss_entities=("echo",)),
-            name='ds_bold_native_ref', run_without_submitting=True,
+            name='ds_asl_native_ref', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        ds_bold_mask_native = pe.Node(
+        ds_asl_mask_native = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='brain', suffix='mask',
                                 compress=True, dismiss_entities=("echo",)),
-            name='ds_bold_mask_native', run_without_submitting=True,
+            name='ds_asl_mask_native', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
         cbfnative = pe.Node(
             DerivativesDataSink(base_directory=output_dir, suffix='cbf', compress=True),
@@ -312,12 +312,12 @@ def init_func_derivatives_wf(
             name='pvcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         workflow.connect([
-            (inputnode, ds_bold_native, [('source_file', 'source_file'),
-                                         ('bold_native', 'in_file')]),
-            (inputnode, ds_bold_native_ref, [('source_file', 'source_file'),
-                                             ('bold_native_ref', 'in_file')]),
-            (inputnode, ds_bold_mask_native, [('source_file', 'source_file'),
-                                              ('bold_mask_native', 'in_file')]),
+            (inputnode, ds_asl_native, [('source_file', 'source_file'),
+                                         ('asl_native', 'in_file')]),
+            (inputnode, ds_asl_native_ref, [('source_file', 'source_file'),
+                                             ('asl_native_ref', 'in_file')]),
+            (inputnode, ds_asl_mask_native, [('source_file', 'source_file'),
+                                              ('asl_mask_native', 'in_file')]),
             (inputnode, cbfnative, [('source_file', 'source_file'),
                                     ('cbf', 'in_file')]),
             (inputnode, meancbfnative, [('source_file', 'source_file'),
@@ -332,28 +332,28 @@ def init_func_derivatives_wf(
                                       ('basil', 'in_file')]),
             (inputnode, pvnative, [('source_file', 'source_file'),
                                    ('pv', 'in_file')]),
-            (raw_sources, ds_bold_mask_native, [('out', 'RawSources')]),
+            (raw_sources, ds_asl_mask_native, [('out', 'RawSources')]),
         ])
 
     # Resample to T1w space
     if nonstd_spaces.intersection(('T1w', 'anat')):
-        ds_bold_t1 = pe.Node(
+        ds_asl_t1 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir, space='T1w', desc='preproc', compress=True,
                 SkullStripped=False, RepetitionTime=metadata.get('RepetitionTime'),
                 TaskName=metadata.get('TaskName'), dismiss_entities=("echo",)),
-            name='ds_bold_t1', run_without_submitting=True,
+            name='ds_asl_t1', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        ds_bold_t1_ref = pe.Node(
+        ds_asl_t1_ref = pe.Node(
             DerivativesDataSink(base_directory=output_dir, space='T1w', suffix='aslref',
                                 compress=True, dismiss_entities=("echo",)),
-            name='ds_bold_t1_ref', run_without_submitting=True,
+            name='ds_asl_t1_ref', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
 
-        ds_bold_mask_t1 = pe.Node(
+        ds_asl_mask_t1 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, space='T1w', desc='brain',
                                 suffix='mask', compress=True, dismiss_entities=("echo",)),
-            name='ds_bold_mask_t1', run_without_submitting=True,
+            name='ds_asl_mask_t1', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         cbfnativet1 = pe.Node(
@@ -386,12 +386,12 @@ def init_func_derivatives_wf(
             name='pvcnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         workflow.connect([
-            (inputnode, ds_bold_t1, [('source_file', 'source_file'),
-                                     ('bold_t1', 'in_file')]),
-            (inputnode, ds_bold_t1_ref, [('source_file', 'source_file'),
-                                         ('bold_t1_ref', 'in_file')]),
-            (inputnode, ds_bold_mask_t1, [('source_file', 'source_file'),
-                                          ('bold_mask_t1', 'in_file')]),
+            (inputnode, ds_asl_t1, [('source_file', 'source_file'),
+                                     ('asl_t1', 'in_file')]),
+            (inputnode, ds_asl_t1_ref, [('source_file', 'source_file'),
+                                         ('asl_t1_ref', 'in_file')]),
+            (inputnode, ds_asl_mask_t1, [('source_file', 'source_file'),
+                                          ('asl_mask_t1', 'in_file')]),
             (inputnode, cbfnativet1, [('source_file', 'source_file'),
                                       ('cbf_t1', 'in_file')]),
             (inputnode, meancbfnativet1, [('source_file', 'source_file'),
@@ -406,24 +406,24 @@ def init_func_derivatives_wf(
                                         ('basil_t1', 'in_file')]),
             (inputnode, pvnativet1, [('source_file', 'source_file'),
                                      ('pv_t1', 'in_file')]),
-            (raw_sources, ds_bold_mask_t1, [('out', 'RawSources')]),
+            (raw_sources, ds_asl_mask_t1, [('out', 'RawSources')]),
         ])
         if freesurfer:
-            ds_bold_aseg_t1 = pe.Node(DerivativesDataSink(
+            ds_asl_aseg_t1 = pe.Node(DerivativesDataSink(
                 base_directory=output_dir, space='T1w', desc='aseg', suffix='dseg',
                 compress=True, dismiss_entities=("echo",)),
-                name='ds_bold_aseg_t1', run_without_submitting=True,
+                name='ds_asl_aseg_t1', run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB)
-            ds_bold_aparc_t1 = pe.Node(DerivativesDataSink(
+            ds_asl_aparc_t1 = pe.Node(DerivativesDataSink(
                 base_directory=output_dir, space='T1w', desc='aparcaseg', suffix='dseg',
                 compress=True, dismiss_entities=("echo",)),
-                name='ds_bold_aparc_t1', run_without_submitting=True,
+                name='ds_asl_aparc_t1', run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB)
             workflow.connect([
-                (inputnode, ds_bold_aseg_t1, [('source_file', 'source_file'),
-                                              ('bold_aseg_t1', 'in_file')]),
-                (inputnode, ds_bold_aparc_t1, [('source_file', 'source_file'),
-                                               ('bold_aparc_t1', 'in_file')]),
+                (inputnode, ds_asl_aseg_t1, [('source_file', 'source_file'),
+                                              ('asl_aseg_t1', 'in_file')]),
+                (inputnode, ds_asl_aparc_t1, [('source_file', 'source_file'),
+                                               ('asl_aparc_t1', 'in_file')]),
             ])
 
     if getattr(spaces, '_cached') is None:
@@ -440,24 +440,24 @@ def init_func_derivatives_wf(
         ])
 
         select_std = pe.Node(KeySelect(
-            fields=['template', 'bold_std', 'bold_std_ref', 'bold_mask_std',
+            fields=['template', 'asl_std', 'asl_std_ref', 'asl_mask_std',
                     'cbf_std', 'meancbf_std', 'score_std', 'avgscore_std', 'scrub_std',
                     'basil_std', 'pv_std']),
             name='select_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        ds_bold_std = pe.Node(
+        ds_asl_std = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir, desc='preproc', compress=True, SkullStripped=False,
                 RepetitionTime=metadata.get('RepetitionTime'), TaskName=metadata.get('TaskName'),
                 dismiss_entities=("echo",)),
-            name='ds_bold_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        ds_bold_std_ref = pe.Node(
+            name='ds_asl_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        ds_asl_std_ref = pe.Node(
             DerivativesDataSink(base_directory=output_dir, suffix='aslref', compress=True,
                                 dismiss_entities=("echo",)),
-            name='ds_bold_std_ref', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        ds_bold_mask_std = pe.Node(
+            name='ds_asl_std_ref', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        ds_asl_mask_std = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='brain', suffix='mask',
                                 compress=True, dismiss_entities=("echo",)),
-            name='ds_bold_mask_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            name='ds_asl_mask_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         cbfstd = pe.Node(
             DerivativesDataSink(base_directory=output_dir, suffix='cbf', compress=True),
             name='cbfstd', run_without_submitting=True,
@@ -488,9 +488,9 @@ def init_func_derivatives_wf(
             name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         workflow.connect([
-            (inputnode, ds_bold_std, [('source_file', 'source_file')]),
-            (inputnode, ds_bold_std_ref, [('source_file', 'source_file')]),
-            (inputnode, ds_bold_mask_std, [('source_file', 'source_file')]),
+            (inputnode, ds_asl_std, [('source_file', 'source_file')]),
+            (inputnode, ds_asl_std_ref, [('source_file', 'source_file')]),
+            (inputnode, ds_asl_mask_std, [('source_file', 'source_file')]),
             (inputnode, cbfstd, [('source_file', 'source_file')]),
             (inputnode, meancbfstd, [('source_file', 'source_file')]),
             (inputnode, scorestd, [('source_file', 'source_file')]),
@@ -498,9 +498,9 @@ def init_func_derivatives_wf(
             (inputnode, scrubstd, [('source_file', 'source_file')]),
             (inputnode, basilstd, [('source_file', 'source_file')]),
             (inputnode, pvstd, [('source_file', 'source_file')]),
-            (inputnode, select_std, [('bold_std', 'bold_std'),
-                                     ('bold_std_ref', 'bold_std_ref'),
-                                     ('bold_mask_std', 'bold_mask_std'),
+            (inputnode, select_std, [('asl_std', 'asl_std'),
+                                     ('asl_std_ref', 'asl_std_ref'),
+                                     ('asl_mask_std', 'asl_mask_std'),
                                      ('cbf_std', 'cbf_std'),
                                      ('meancbf_std', 'meancbf_std'),
                                      ('score_std', 'score_std'),
@@ -511,18 +511,18 @@ def init_func_derivatives_wf(
                                      ('template', 'template'),
                                      ('spatial_reference', 'keys')]),
             (spacesource, select_std, [('uid', 'key')]),
-            (select_std, ds_bold_std, [('bold_std', 'in_file')]),
-            (spacesource, ds_bold_std, [('space', 'space'),
+            (select_std, ds_asl_std, [('asl_std', 'in_file')]),
+            (spacesource, ds_asl_std, [('space', 'space'),
                                         ('cohort', 'cohort'),
                                         ('resolution', 'resolution'),
                                         ('density', 'density')]),
-            (select_std, ds_bold_std_ref, [('bold_std_ref', 'in_file')]),
-            (spacesource, ds_bold_std_ref, [('space', 'space'),
+            (select_std, ds_asl_std_ref, [('asl_std_ref', 'in_file')]),
+            (spacesource, ds_asl_std_ref, [('space', 'space'),
                                             ('cohort', 'cohort'),
                                             ('resolution', 'resolution'),
                                             ('density', 'density')]),
-            (select_std, ds_bold_mask_std, [('bold_mask_std', 'in_file')]),
-            (spacesource, ds_bold_mask_std, [('space', 'space'),
+            (select_std, ds_asl_mask_std, [('asl_mask_std', 'in_file')]),
+            (spacesource, ds_asl_mask_std, [('space', 'space'),
                                              ('cohort', 'cohort'),
                                              ('resolution', 'resolution'),
                                              ('density', 'density')]),
@@ -561,41 +561,41 @@ def init_func_derivatives_wf(
                                   ('cohort', 'cohort'),
                                   ('resolution', 'resolution'),
                                   ('density', 'density')]),
-            (raw_sources, ds_bold_mask_std, [('out', 'RawSources')]),
+            (raw_sources, ds_asl_mask_std, [('out', 'RawSources')]),
         ])
 
         if freesurfer:
             select_fs_std = pe.Node(KeySelect(
-                fields=['bold_aseg_std', 'bold_aparc_std', 'template']),
+                fields=['asl_aseg_std', 'asl_aparc_std', 'template']),
                 name='select_fs_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            ds_bold_aseg_std = pe.Node(DerivativesDataSink(
+            ds_asl_aseg_std = pe.Node(DerivativesDataSink(
                 base_directory=output_dir, desc='aseg', suffix='dseg', compress=True,
                 dismiss_entities=("echo",)),
-                name='ds_bold_aseg_std', run_without_submitting=True,
+                name='ds_asl_aseg_std', run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB)
-            ds_bold_aparc_std = pe.Node(DerivativesDataSink(
+            ds_asl_aparc_std = pe.Node(DerivativesDataSink(
                 base_directory=output_dir, desc='aparcaseg', suffix='dseg', compress=True,
                 dismiss_entities=("echo",)),
-                name='ds_bold_aparc_std', run_without_submitting=True,
+                name='ds_asl_aparc_std', run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB)
             workflow.connect([
                 (spacesource, select_fs_std, [('uid', 'key')]),
-                (inputnode, select_fs_std, [('bold_aseg_std', 'bold_aseg_std'),
-                                            ('bold_aparc_std', 'bold_aparc_std'),
+                (inputnode, select_fs_std, [('asl_aseg_std', 'asl_aseg_std'),
+                                            ('asl_aparc_std', 'asl_aparc_std'),
                                             ('template', 'template'),
                                             ('spatial_reference', 'keys')]),
-                (select_fs_std, ds_bold_aseg_std, [('bold_aseg_std', 'in_file')]),
-                (spacesource, ds_bold_aseg_std, [('space', 'space'),
+                (select_fs_std, ds_asl_aseg_std, [('asl_aseg_std', 'in_file')]),
+                (spacesource, ds_asl_aseg_std, [('space', 'space'),
                                                  ('cohort', 'cohort'),
                                                  ('resolution', 'resolution'),
                                                  ('density', 'density')]),
-                (select_fs_std, ds_bold_aparc_std, [('bold_aparc_std', 'in_file')]),
-                (spacesource, ds_bold_aparc_std, [('space', 'space'),
+                (select_fs_std, ds_asl_aparc_std, [('asl_aparc_std', 'in_file')]),
+                (spacesource, ds_asl_aparc_std, [('space', 'space'),
                                                   ('cohort', 'cohort'),
                                                   ('resolution', 'resolution'),
                                                   ('density', 'density')]),
-                (inputnode, ds_bold_aseg_std, [('source_file', 'source_file')]),
-                (inputnode, ds_bold_aparc_std, [('source_file', 'source_file')])
+                (inputnode, ds_asl_aseg_std, [('source_file', 'source_file')]),
+                (inputnode, ds_asl_aparc_std, [('source_file', 'source_file')])
             ])
 
     fs_outputs = spaces.cached.get_fs_spaces()
@@ -612,9 +612,9 @@ def init_func_derivatives_wf(
                                 iterfield='in_file', name='name_surfs',
                                 run_without_submitting=True)
 
-        ds_bold_surfs = pe.MapNode(DerivativesDataSink(
+        ds_asl_surfs = pe.MapNode(DerivativesDataSink(
             base_directory=output_dir, extension="func.gii", dismiss_entities=("echo",)),
-            iterfield=['in_file', 'hemi'], name='ds_bold_surfs',
+            iterfield=['in_file', 'hemi'], name='ds_asl_surfs',
             run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         workflow.connect([
@@ -622,61 +622,60 @@ def init_func_derivatives_wf(
                 ('surf_files', 'surfaces'),
                 ('surf_refs', 'keys')]),
             (select_fs_surf, name_surfs, [('surfaces', 'in_file')]),
-            (inputnode, ds_bold_surfs, [('source_file', 'source_file')]),
-            (select_fs_surf, ds_bold_surfs, [('surfaces', 'in_file'),
+            (inputnode, ds_asl_surfs, [('source_file', 'source_file')]),
+            (select_fs_surf, ds_asl_surfs, [('surfaces', 'in_file'),
                                              ('key', 'space')]),
-            (name_surfs, ds_bold_surfs, [('hemi', 'hemi')]),
+            (name_surfs, ds_asl_surfs, [('hemi', 'hemi')]),
         ])
 
     # CIFTI output
     if cifti_output:
-        ds_bold_cifti = pe.Node(DerivativesDataSink(
-            base_directory=output_dir, suffix='bold', compress=False, dismiss_entities=("echo",)),
-            name='ds_bold_cifti', run_without_submitting=True,
+        ds_asl_cifti = pe.Node(DerivativesDataSink(
+            base_directory=output_dir, suffix='asl', compress=False, dismiss_entities=("echo",)),
+            name='ds_asl_cifti', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
         workflow.connect([
-            (inputnode, ds_bold_cifti, [(('bold_cifti', _unlist), 'in_file'),
+            (inputnode, ds_asl_cifti, [(('asl_cifti', _unlist), 'in_file'),
                                         ('source_file', 'source_file'),
                                         (('cifti_metadata', _get_surface), 'space'),
                                         ('cifti_density', 'density'),
                                         (('cifti_metadata', _read_json), 'meta_dict')])
         ])
-
     return workflow
 
 
-def init_bold_preproc_report_wf(mem_gb, reportlets_dir, name='bold_preproc_report_wf'):
+def init_asl_preproc_report_wf(mem_gb, reportlets_dir, name='asl_preproc_report_wf'):
     """
     Generate a visual report.
 
     This workflow generates and saves a reportlet showing the effect of resampling
-    the BOLD signal using the standard deviation maps.
+    the ASL signal using the standard deviation maps.
 
     Workflow Graph
         .. workflow::
             :graph2use: orig
             :simple_form: yes
 
-            from fmriprep.workflows.bold.resampling import init_bold_preproc_report_wf
-            wf = init_bold_preproc_report_wf(mem_gb=1, reportlets_dir='.')
+            from fmriprep.workflows.asl.resampling import init_asl_preproc_report_wf
+            wf = init_asl_preproc_report_wf(mem_gb=1, reportlets_dir='.')
 
     Parameters
     ----------
     mem_gb : :obj:`float`
-        Size of BOLD file in GB
+        Size of ASL file in GB
     reportlets_dir : :obj:`str`
         Directory in which to save reportlets
     name : :obj:`str`, optional
-        Workflow name (default: bold_preproc_report_wf)
+        Workflow name (default: asl_preproc_report_wf)
 
     Inputs
     ------
     in_pre
-        BOLD time-series, before resampling
+        ASL time-series, before resampling
     in_post
-        BOLD time-series, after resampling
+        ASL time-series, after resampling
     name_source
-        BOLD series NIfTI file
+        ASL series NIfTI file
         Used to recover original information lost during processing
 
     """
@@ -693,22 +692,22 @@ def init_bold_preproc_report_wf(mem_gb, reportlets_dir, name='bold_preproc_repor
     pre_tsnr = pe.Node(TSNR(), name='pre_tsnr', mem_gb=mem_gb * 4.5)
     pos_tsnr = pe.Node(TSNR(), name='pos_tsnr', mem_gb=mem_gb * 4.5)
 
-    bold_rpt = pe.Node(SimpleBeforeAfter(), name='bold_rpt',
+    asl_rpt = pe.Node(SimpleBeforeAfter(), name='asl_rpt',
                        mem_gb=0.1)
-    ds_report_bold = pe.Node(
+    ds_report_asl = pe.Node(
         DerivativesDataSink(base_directory=reportlets_dir, desc='preproc',
                             datatype="figures", dismiss_entities=("echo",)),
-        name='ds_report_bold', mem_gb=DEFAULT_MEMORY_MIN_GB,
+        name='ds_report_asl', mem_gb=DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True
     )
 
     workflow.connect([
-        (inputnode, ds_report_bold, [('name_source', 'source_file')]),
+        (inputnode, ds_report_asl, [('name_source', 'source_file')]),
         (inputnode, pre_tsnr, [('in_pre', 'in_file')]),
         (inputnode, pos_tsnr, [('in_post', 'in_file')]),
-        (pre_tsnr, bold_rpt, [('stddev_file', 'before')]),
-        (pos_tsnr, bold_rpt, [('stddev_file', 'after')]),
-        (bold_rpt, ds_report_bold, [('out_report', 'in_file')]),
+        (pre_tsnr, asl_rpt, [('stddev_file', 'before')]),
+        (pos_tsnr, asl_rpt, [('stddev_file', 'after')]),
+        (asl_rpt, ds_report_asl, [('out_report', 'in_file')]),
     ])
 
     return workflow

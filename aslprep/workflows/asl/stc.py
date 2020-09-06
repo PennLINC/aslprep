@@ -1,10 +1,10 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """
-Slice-Timing Correction (STC) of BOLD images
+Slice-Timing Correction (STC) of ASL images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autofunction:: init_bold_stc_wf
+.. autofunction:: init_asl_stc_wf
 
 """
 from nipype.pipeline import engine as pe
@@ -16,20 +16,20 @@ from ... import config
 LOGGER = config.loggers.workflow
 
 
-def init_bold_stc_wf(metadata, name='bold_stc_wf'):
+def init_asl_stc_wf(metadata, name='asl_stc_wf'):
     """
     Create a workflow for :abbr:`STC (slice-timing correction)`.
 
     This workflow performs :abbr:`STC (slice-timing correction)` over the input
-    :abbr:`BOLD (blood-oxygen-level dependent)` image.
+    :abbr:`ASL (arterial spin labeling)` image.
 
     Workflow Graph
         .. workflow::
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.bold import init_bold_stc_wf
-            wf = init_bold_stc_wf(
+            from aslprep.workflows.asl import init_asl_stc_wf
+            wf = init_asl_stc_wf(
                 metadata={"RepetitionTime": 2.0,
                           "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]},
                 )
@@ -37,21 +37,21 @@ def init_bold_stc_wf(metadata, name='bold_stc_wf'):
     Parameters
     ----------
     metadata : :obj:`dict`
-        BIDS metadata for BOLD file
+        BIDS metadata for ASL file
     name : :obj:`str`
-        Name of workflow (default: ``bold_stc_wf``)
+        Name of workflow (default: ``asl_stc_wf``)
 
     Inputs
     ------
-    bold_file
-        BOLD series NIfTI file
+    asl_file
+        ASL series NIfTI file
     skip_vols
-        Number of non-steady-state volumes detected at beginning of ``bold_file``
+        Number of non-steady-state volumes detected at beginning of ``asl_file``
 
     Outputs
     -------
     stc_file
-        Slice-timing corrected BOLD series NIfTI file
+        Slice-timing corrected ASL series NIfTI file
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -62,7 +62,7 @@ def init_bold_stc_wf(metadata, name='bold_stc_wf'):
 ASL runs were slice-time corrected using `3dTshift` from
 AFNI {afni_ver} [@afni, RRID:SCR_005927].
 """.format(afni_ver=''.join(['%02d' % v for v in afni.Info().version() or []]))
-    inputnode = pe.Node(niu.IdentityInterface(fields=['bold_file', 'skip_vols']), name='inputnode')
+    inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'skip_vols']), name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['stc_file']), name='outputnode')
 
     LOGGER.log(25, 'Slice-timing correction will be included.')
@@ -78,10 +78,10 @@ AFNI {afni_ver} [@afni, RRID:SCR_005927].
     copy_xform = pe.Node(CopyXForm(), name='copy_xform', mem_gb=0.1)
 
     workflow.connect([
-        (inputnode, slice_timing_correction, [('bold_file', 'in_file'),
+        (inputnode, slice_timing_correction, [('asl_file', 'in_file'),
                                               ('skip_vols', 'ignore')]),
         (slice_timing_correction, copy_xform, [('out_file', 'in_file')]),
-        (inputnode, copy_xform, [('bold_file', 'hdr_file')]),
+        (inputnode, copy_xform, [('asl_file', 'hdr_file')]),
         (copy_xform, outputnode, [('out_file', 'stc_file')]),
     ])
 

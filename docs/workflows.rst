@@ -98,27 +98,6 @@ be set to resample the preprocessed data onto the final output spaces.
 
     Animation showing spatial normalization of T1w onto the ``MNI152NLin2009cAsym`` template
 
-Cost function masking during spatial normalization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-When processing images from patients with focal brain lesions (e.g., stroke, tumor
-resection), it is possible to provide a lesion mask to be used during spatial
-normalization to standard space [Brett2001]_.
-ANTs will use this mask to minimize warping of healthy tissue into damaged
-areas (or vice-versa).
-Lesion masks should be binary NIFTI images (damaged areas = 1, everywhere else = 0)
-in the same space and resolution as the T1 image, and follow the naming convention specified in
-`BIDS Extension Proposal 3: Common Derivatives <https://docs.google.com/document/d/1Wwc4A6Mow4ZPPszDIWfCUCRNstn7d_zzaWPcfcHmgI4/edit#heading=h.9146wuepclkt>`_
-(e.g., ``sub-001_T1w_label-lesion_roi.nii.gz``).
-This file should be placed in the ``sub-*/anat`` directory of the BIDS dataset
-to be run through *ASLPrep*.
-Because lesion masks are not currently part of the BIDS specification, it is also necessary to
-include a ``.bidsignore`` file in the root of your dataset directory. This will prevent
-`bids-validator <https://github.com/bids-standard/bids-validator#bidsignore>`_ from complaining
-that your dataset is not valid BIDS, which prevents *ASLPrep* from running.
-Your ``.bidsignore`` file should include the following line::
-
-  *lesion_roi.nii.gz
-
 Longitudinal processing
 ~~~~~~~~~~~~~~~~~~~~~~~
 In the case of multiple T1w images (across sessions and/or runs), T1w images are
@@ -128,7 +107,8 @@ aligned to the first image (determined lexicographically by session label).
 For two images, the additional cost of estimating an unbiased template is
 trivial and is the default behavior, but three or more images may cause a significant slow-down.
 Therefore, if there are more than two images, *ASLPrep* constructs
-templates aligned to the first image, unless the ``--longitudinal`` flag is passed, which forces the estimation of an unbiased template.
+templates aligned to the first image, unless the ``--longitudinal`` flag is passed,
+ which forces the estimation of an unbiased template.
 
 .. note::
 
@@ -138,95 +118,6 @@ templates aligned to the first image, unless the ``--longitudinal`` flag is pass
     Reconstructed surfaces and functional datasets will be registered to the
     ``T1w`` space, and not to the input images.
 
-.. _workflows_surface:
-
-Surface preprocessing
-~~~~~~~~~~~~~~~~~~~~~
-*ASLPrep* uses FreeSurfer_ to reconstruct surfaces from T1w/T2w
-structural images.
-If enabled, several steps in the *ASLPrep* pipeline are added or replaced.
-All surface preprocessing may be disabled with the ``--fs-no-reconall`` flag.
-
-.. note::
-    Surface processing will be skipped if the outputs already exist.
-
-    In order to bypass reconstruction in *ASLPrep*, place existing reconstructed
-    subjects in ``<output dir>/freesurfer`` prior to the run, or specify an external
-    subjects directory with the ``--fs-subjects-dir`` flag.
-    *ASLPrep* will perform any missing ``recon-all`` steps, but will not perform
-    any steps whose outputs already exist.
-
-
-If FreeSurfer reconstruction is performed, the reconstructed subject is placed in
-``<output dir>/freesurfer/sub-<subject_label>/`` (see :ref:`fsderivs`).
-
-Surface reconstruction is performed in three phases.
-The first phase initializes the subject with T1w and T2w (if available)
-structural images and performs basic reconstruction (``autorecon1``) with the
-exception of skull-stripping.
-Skull-stripping is skipped since the brain mask :ref:`calculated previously
-<t1preproc_steps>` is pulled into the appropriate location for FreeSurfer.
-For example, a subject with only one session with T1w and T2w images
-would be processed by the following command::
-
-    $ recon-all -sd <output dir>/freesurfer -subjid sub-<subject_label> \
-        -i <bids-root>/sub-<subject_label>/anat/sub-<subject_label>_T1w.nii.gz \
-        -T2 <bids-root>/sub-<subject_label>/anat/sub-<subject_label>_T2w.nii.gz \
-        -autorecon1 \
-        -noskullstrip
-
-The second phase imports the brainmask calculated in the
-`Preprocessing of structural MRI`_ sub-workflow.
-The final phase resumes reconstruction, using the T2w image to assist
-in finding the pial surface, if available.
-See :py:func:`~smriprep.workflows.surfaces.init_autorecon_resume_wf` for
-details.
-
-Reconstructed white and pial surfaces are included in the report.
-
-.. figure:: _static/reconall.svg
-
-    Surface reconstruction (FreeSurfer)
-
-If T1w voxel sizes are less than 1mm in all dimensions (rounding to nearest
-.1mm), `submillimeter reconstruction`_ is used, unless disabled with
-``--no-submm-recon``.
-
-``lh.midthickness`` and ``rh.midthickness`` surfaces are created in the subject
-``surf/`` directory, corresponding to the surface half-way between the gray/white
-boundary and the pial surface.
-The ``smoothwm``, ``midthickness``, ``pial`` and ``inflated`` surfaces are also
-converted to GIFTI_ format and adjusted to be compatible with multiple software
-packages, including FreeSurfer and the `Connectome Workbench`_.
-
-.. note::
-    GIFTI surface outputs are aligned to the FreeSurfer T1.mgz image, which
-    may differ from the T1w space in some cases, to maintain compatibility
-    with the FreeSurfer directory.
-    Any measures sampled to the surface take into account any differences in
-    these images.
-
-.. workflow::
-    :graph2use: orig
-    :simple_form: yes
-
-    from aslprep.smriprep.workflows.surfaces import init_surface_recon_wf
-    wf = init_surface_recon_wf(omp_nthreads=1,
-                               hires=True)
-
-See also *sMRIPrep*'s
-:py:func:`~aslprep.smriprep.workflows.surfaces.init_surface_recon_wf`
-
-Refinement of the brain mask
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Typically, the original brain mask calculated with ``antsBrainExtraction.sh``
-will contain some innaccuracies including small amounts of MR signal from
-outside the brain.
-Based on the tissue segmentation of FreeSurfer (located in ``mri/aseg.mgz``)
-and only when the :ref:`Surface Processing <workflows_surface>` step has been
-executed, *ASLPrep* replaces the brain mask with a refined one that derives
-from the ``aseg.mgz`` file as described in
-:py:func:`~aslprep.interfaces.freesurfer.grow_mask`.
 
 ASLPrep preprocessing
 ----------------------
@@ -294,7 +185,7 @@ Head-motion estimation
         omp_nthreads=1)
 
 Using the previously :ref:`estimated reference scan <asl_ref>`,
-FSL ``mcflirt`` is used to estimate head-motion.
+FSL ``mcflirt`` or AFNI ``3dvolreg`` is used to estimate head-motion.
 As a result, one rigid-body transform with respect to
 the reference image is written for each :abbr:`ASL (Arterial Spin Labelling)`
 time-step.
@@ -329,9 +220,8 @@ All slices are realigned in time to the middle of each TR.
 
 Slice time correction can be disabled with the ``--ignore slicetiming``
 command line argument.
-If an :abbr:`ASL (Arterial Spin Labelling)` series has fewer than
-5 usable (steady-state) volumes, slice time correction will be disabled
-for that run.
+
+
 
 Susceptibility Distortion Correction (SDC)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
