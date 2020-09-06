@@ -244,10 +244,8 @@ a keyword designating a spatial reference, and may be followed by optional, \
 colon-separated parameters. \
 Non-standard spaces imply specific orientations and sampling grids. \
 Important to note, the ``res-*`` modifier does not define the resolution used for \
-the spatial normalization. To generate no BOLD outputs, use this option without specifying \
-any spatial references. For further details, please check out \
-https://aslprep.readthedocs.io/en/%s/spaces.html"""
-        % (currentv.base_version if is_release else "latest"),
+the spatial normalization. To generate no ASL outputs, use this option without specifying \
+any spatial references."""
     )
 
     g_conf.add_argument(
@@ -256,7 +254,7 @@ https://aslprep.readthedocs.io/en/%s/spaces.html"""
         default="register",
         choices=["register", "header"],
         help='Either "register" (the default) to initialize volumes at center or "header"'
-        " to use the header information when coregistering BOLD to T1w images.",
+        " to use the header information when coregistering ASL to T1w images.",
     )
     g_conf.add_argument(
         "--bold2t1w-dof",
@@ -264,7 +262,7 @@ https://aslprep.readthedocs.io/en/%s/spaces.html"""
         default=6,
         choices=[6, 9, 12],
         type=int,
-        help="Degrees of freedom when registering BOLD to T1w images. "
+        help="Degrees of freedom when registering ASL to T1w images. "
         "6 degrees (rotation and translation) are used by default.",
     )
     g_conf.add_argument(
@@ -410,7 +408,7 @@ https://aslprep.readthedocs.io/en/%s/spaces.html"""
         default=False,
         choices=("91k", "170k"),
         type=str,
-        help="output preprocessed BOLD as a CIFTI dense timeseries. "
+        help="output preprocessed ASL as a CIFTI dense timeseries. "
         "Optionally, the number of grayordinate can be specified "
         "(default is 91k, which equates to 2mm resolution)",
     )

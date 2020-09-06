@@ -15,7 +15,7 @@ The *ASLPrep* workflow takes the path of the dataset
 that is to be processed as its principal input.
 
 .. note:: 
-     The official `BIDS Specification for ASL <shorturl.at/kqrRS>`_  is currently in its final stages of development.
+     The official `BIDS Specification for ASL <https://docs.google.com/document/d/15tnn5F10KpgHypaQJNNGiNKsni9035GtDqJzWqkkP6c/edit>`_  is currently in its final stages of development.
      We have created a simple tool for converting ASL data into currently valid BIDS, available `here <https://github.com/PennLINC/aslbids>`_.
      Note that some of the parameters necessary for running *ASLPrep* cannot be extracted directly from the DICOM header —
      to obtain these parameters, we recommend consulting the MRI physicist/technician at the scanner.
