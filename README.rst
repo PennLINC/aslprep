@@ -49,19 +49,17 @@ https://aslprep.readthedocs.io/
 Principles
 ----------
 
-*ASLPrep* is built around three principles:
+*ASLPrep* is built on the following principles:
 
 1. **Robustness** - The pipeline adapts the preprocessing steps depending on
    the input dataset and should provide results as good as possible
-   independently of scanner make, scanning parameters or presence of additional
-   correction scans (such as fieldmaps).
-2. **Ease of use** - Thanks to dependence on the BIDS standard, manual
-   parameter input is reduced to a minimum, allowing the pipeline to run in an
-   automatic fashion.
-3. **"Glass box"** philosophy - Automation should not mean that one should not
-   visually inspect the results or understand the methods.
-   Thus, *ASLPrep* provides visual reports for each subject, detailing the
-   accuracy of the most important processing steps.
+   independently of scanner make, scanning parameters 
+
+2. **Ease of use** - With the BIDS input, little or no parameter are required  which 
+ allowing the pipeline to run in an automatic fashion
+
+3. **"Glass box"** Thus, *ASLPrep* provides visual reports for each subject, 
+   detailing theaccuracy of the most important processing steps.
    This, combined with the documentation, can help researchers to understand
    the process and decide which subjects should be kept for the group level
    analysis.
@@ -70,18 +68,8 @@ Principles
 Limitations and reasons not to use *ASLPrep*
 ---------------------------------------------
 
-1. Very narrow :abbr:`FoV (field-of-view)` images oftentimes do not contain
-   enough information for standard image registration methods to work correctly.
-   Also, problems may arise when extracting the brain from these data.
-   Supporting these particular images is already a future line of the development
-   road-map.
-2. *ASLPrep* may also underperform for particular populations (e.g., infants) and
-   non-human brains, although appropriate templates can be provided to overcome the
-   issue.
-3. If you really want unlimited flexibility (which is obviously a double-edged sword).
-4. If you want students to suffer through implementing each step for didactic purposes,
-   or to learn shell-scripting or Python along the way.
-5. If you are trying to reproduce some *in-house* lab pipeline.
+ *ASLPrep* may also not particularly suited to some scan (e.g., QUASSI) and
+   non-human brains, but researchers are welcome for contribution
 
 
 Acknowledgements
