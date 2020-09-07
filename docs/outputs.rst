@@ -128,10 +128,10 @@ Volumetric output space labels (``<space_label>`` above, and in the following) i
 
 **Surfaces, segmentations and parcellations from FreeSurfer:**
 If FreeSurfer reconstructions are used, the ``(aparc+)aseg`` segmentations are aligned to the
-subject's T1w space and resampled to the BOLD grid, and the BOLD series are resampled to the
+subject's T1w space and resampled to the asl grid, and the asl series are resampled to the
 mid-thickness surface mesh::
 
-  sub-<subject_label>/
+  sub-<subject_label>/``
     perf/
       sub-<subject_label>_[specifiers]_space-T1w_desc-aparcaseg_dseg.nii.gz
       sub-<subject_label>_[specifiers]_space-T1w_desc-aseg_dseg.nii.gz
@@ -181,7 +181,7 @@ spatial variability, and the percentatge of voxels with negtaive CBF within grey
 Confounds
 ---------
 The :abbr:`ASL (arterial spin labelling)` signal measures cerebral blood flow (CBF) and noise.
-ASL, like BOLD fMRI, is subjected to artifacts induced by head motion (spin history effects). 
+ASL, like asl fMRI, is subjected to artifacts induced by head motion (spin history effects). 
 These artifacts introduce noise, which corrupts the measurement and cannot be corrected by simple realignment.
 However, the calculation of CBF from ASL data involves subtracting subsequently acquired volumes. 
 Thus, head motion over two frames contribute artifactual signal which exacerbates the confound.
@@ -229,7 +229,7 @@ Some of the estimated confounds are plotted with a "carpet" visualization of the
 An example of these plots is in progress.
 
 
-See implementation on :mod:`~aslprep.workflows.bold.confounds.init_bold_confs_wf`.
+See implementation on :mod:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`.
 
 .. topic:: References
 

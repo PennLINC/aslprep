@@ -121,7 +121,7 @@ templates aligned to the first image, unless the ``--longitudinal`` flag is pass
 
 ASLPrep preprocessing
 ----------------------
-:py:func:`~aslprep.workflows.bold.base.init_func_preproc_wf`
+:py:func:`~aslprep.workflows.asl.base.init_func_preproc_wf`
 
 .. workflow::
     :graph2use: orig
@@ -129,10 +129,10 @@ ASLPrep preprocessing
 
     from aslprep.workflows.tests import mock_config
     from aslprep import config
-    from aslprep.workflows.bold.base import init_func_preproc_wf
+    from aslprep.workflows.asl.base import init_func_preproc_wf
     with mock_config():
-        bold_file = config.execution.bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
-        wf = init_func_preproc_wf(str(bold_file))
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
+        wf = init_func_preproc_wf(str(asl_file))
 
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.
@@ -142,14 +142,14 @@ split into multiple sub-workflows described below.
 
 ASL reference image estimation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslrep.niworkflows.func.util.init_bold_reference_wf`
+:py:func:`~aslrep.niworkflows.func.util.init_asl_reference_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.niworkflows.func.util import init_bold_reference_wf
-    wf = init_bold_reference_wf(omp_nthreads=1)
+    from aslprep.niworkflows.func.util import init_asl_reference_wf
+    wf = init_asl_reference_wf(omp_nthreads=1)
 
 This workflow estimates a reference image for an
 :abbr:`ASL (Arterial Spin Labelling)` series.
@@ -160,7 +160,7 @@ Otherwise, a median of motion corrected subset of volumes is used.
 
 The reference image is then used to calculate a brain mask for the
 :abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
-:py:func:`~aslprep.niworkflows.func.util.init_enhance_and_skullstrip_bold_wf`.
+:py:func:`~aslprep.niworkflows.func.util.init_enhance_and_skullstrip_asl_wf`.
 Further, the reference is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow to map
 ASL series into the T1w image of the same subject <asl_reg>`.
@@ -173,14 +173,14 @@ ASL series into the T1w image of the same subject <asl_reg>`.
 
 Head-motion estimation
 ~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.hmc.init_bold_hmc_wf`
+:py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
 
 .. workflow::
     :graph2use: colored
     :simple_form: yes
 
-    from aslprep.workflows.bold import init_bold_hmc_wf # Is this still what it's called?
-    wf = init_bold_hmc_wf(
+    from aslprep.workflows.asl import init_asl_hmc_wf # Is this still what it's called?
+    wf = init_asl_hmc_wf(
         mem_gb=1,
         omp_nthreads=1)
 
@@ -200,14 +200,14 @@ as recommended in [Power2017]_.
 
 Slice time correction
 ~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.stc.init_bold_stc_wf`
+:py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
 
 .. workflow::
     :graph2use: colored
     :simple_form: yes
 
-    from aslprep.workflows.bold import init_bold_stc_wf
-    wf = init_bold_stc_wf(
+    from aslprep.workflows.asl import init_asl_stc_wf
+    wf = init_asl_stc_wf(
         metadata={'RepetitionTime': 2.0,
                   'SliceTiming': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]},
         )
@@ -243,14 +243,14 @@ See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 
 Preprocessed ASL in native space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.init_bold_preproc_trans_wf`
+:py:func:`~aslprep.workflows.asl.init_asl_preproc_trans_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.workflows.bold import init_bold_preproc_trans_wf
-    wf = init_bold_preproc_trans_wf(mem_gb=3, omp_nthreads=1)
+    from aslprep.workflows.asl import init_asl_preproc_trans_wf
+    wf = init_asl_preproc_trans_wf(mem_gb=3, omp_nthreads=1)
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
 
@@ -274,7 +274,7 @@ Interpolation uses a Lanczos kernel.
 
 CBF Computation in native space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.cbf.init_cbf_compt_wf`
+:py:func:`~aslprep.workflows.asl.cbf.init_cbf_compt_wf`
 
 .. workflow::
     :graph2use: orig
@@ -287,7 +287,7 @@ CBF Computation in native space
     import json
     with open(metadatafile) as f:
         metadata = json.load(f)
-    from aslprep.workflows.bold.cbf import init_cbf_compt_wf
+    from aslprep.workflows.asl.cbf import init_cbf_compt_wf
     wf = init_cbf_compt_wf(mem_gb=0.1,metadata=metadata, omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
 ALl the CBF derivates are computed from pre-processed :ref:`ASL <asl_preproc>`.
@@ -327,7 +327,7 @@ and :abbr:`SCRUB (Structural Correlation withRobUst Bayesian)`
 
 Quality Controle measures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.cbf.init_cbfqc_compt_wf`
+:py:func:`~aslprep.workflows.asl.cbf.init_cbfqc_compt_wf`
 
 .. workflow::
     :graph2use: orig
@@ -336,10 +336,10 @@ Quality Controle measures
     from pathlib import Path
     from pkg_resources import resource_filename as pkgrf
     bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
-    from aslprep.workflows.bold.cbf import init_cbfqc_compt_wf
-    bold_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
+    from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
+    asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
     metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
-    wf = init_cbfqc_compt_wf(mem_gb=0.1,bold_file=str(bold_file),metadata=str(metadata),omp_nthreads=1)
+    wf = init_cbfqc_compt_wf(mem_gb=0.1,asl_file=str(asl_file),metadata=str(metadata),omp_nthreads=1)
 
 The  quality control (QC) measures such as FD, coregistration and nornmalization index and 
 quality evaluation index (QEI) all CBF maps.
@@ -348,20 +348,20 @@ quality evaluation index (QEI) all CBF maps.
 
 ASL and CBF to T1w registration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.registration.init_bold_reg_wf`
+:py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.workflows.bold import init_bold_reg_wf
-    wf = init_bold_reg_wf(
+    from aslprep.workflows.asl import init_asl_reg_wf
+    wf = init_asl_reg_wf(
         freesurfer=True,
         mem_gb=1,
         omp_nthreads=1,
         use_bbr=True,
-        bold2t1w_dof=9,
-        bold2t1w_init='register')
+        asl2t1w_dof=9,
+        asl2t1w_init='register')
 
 The alignment between the reference :abbr:`ASL (arterial spin labelling)` image
 of each run and the reconstructed subject using the gray/white matter boundary
@@ -380,20 +380,20 @@ The computed :ref:`CBF <cbf_preproc>`  is regsitered to T1w using the transforma
 
 Resampling ASL  and CBF runs onto standard spaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.resampling.init_bold_std_trans_wf`
+:py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
 
 .. workflow::
     :graph2use: colored
     :simple_form: yes
 
     from aslprep.niworkflows.utils.spaces import SpatialReferences
-    from aslprep.workflows.bold import init_bold_std_trans_wf
-    wf = init_bold_std_trans_wf(
+    from aslprep.workflows.asl import init_asl_std_trans_wf
+    wf = init_asl_std_trans_wf(
         freesurfer=True,
         mem_gb=3,
         omp_nthreads=1,
         spaces=SpatialReferences(
-            spaces=[('MNI152Lin', {}), ('MNIPediatricAsym', {'cohort': '6'})],
+            spaces=[('MNI152Lin', {}))],
             checkpoint=True),
     )
 
@@ -416,14 +416,14 @@ argument.
 
 Confounds estimation
 ~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.bold.confounds.init_bold_confs_wf`
+:py:func:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`
 
 .. workflow::
     :graph2use: colored
     :simple_form: yes
 
-    from aslprep.workflows.bold.confounds import init_bold_confs_wf
-    wf = init_bold_confs_wf(
+    from aslprep.workflows.asl.confounds import init_asl_confs_wf
+    wf = init_asl_confs_wf(
         name="discover_wf",
         mem_gb=1,
         metadata={"RepetitionTime": 2.0,

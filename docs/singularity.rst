@@ -34,7 +34,7 @@ To avoid such a situation, it is recommended using the ``--cleanenv or -e``.
  For example: ::
 
     $ singularity run --cleanenv aslprep.simg \
-      /work/04168/asdf/ $WORK/output \
+      /work/789/asdf/ $WORK/output \
       participant \
       --participant-label 01 
 

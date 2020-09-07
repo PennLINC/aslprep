@@ -51,7 +51,7 @@ that do not generate *standardized* coordinate spaces:
   * ``T1w`` or ``anat``: data are resampled into the individual's anatomical
     reference generated with the T1w and  available within the BIDS structure.
 
-  * ``func``, ``bold``, ``run``, ``aslref`` or ``sbref`` can be used to
+  * ``func``,``run``, ``aslref`` or ``sbref`` can be used to
     generate ASL/CBF data in their original grid, after slice-timing,
     head-motion, and susceptibility-distortion corrections as well as CBF
     computation. 
