@@ -27,18 +27,18 @@ from ..utils.misc import pass_dummy_scans as _pass_dummy_scans
 DEFAULT_MEMORY_MIN_GB = 0.01
 
 
-def init_bold_reference_wf(
+def init_asl_reference_wf(
     omp_nthreads,
-    bold_file=None,
+    asl_file=None,
     sbref_files=None,
-    brainmask_thresh=0.85,
+    brainmask_thresh=0.5,
     pre_mask=False,
     multiecho=False,
-    name="bold_reference_wf",
+    name="asl_reference_wf",
     gen_report=False,
 ):
     """
-    Build a workflow that generates reference BOLD images for a series.
+    Build a workflow that generates reference ASL images for a series.
 
     The raw reference image is the target of :abbr:`HMC (head motion correction)`, and a
     contrast-enhanced reference is the subject of distortion correction, as well as
@@ -49,22 +49,22 @@ def init_bold_reference_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.func.util import init_bold_reference_wf
-            wf = init_bold_reference_wf(omp_nthreads=1)
+            from niworkflows.func.util import init_asl_reference_wf
+            wf = init_asl_reference_wf(omp_nthreads=1)
 
     Parameters
     ----------
     omp_nthreads : :obj:`int`
         Maximum number of threads an individual process may use
-    bold_file : :obj:`str`
-        BOLD series NIfTI file
+    asl_file : :obj:`str`
+        ASL series NIfTI file
     sbref_files : :obj:`list` or :obj:`bool`
         Single band (as opposed to multi band) reference NIfTI file.
         If ``True`` is passed, the workflow is built to accommodate SBRefs,
         but the input is left undefined (i.e., it is left open for connection)
     brainmask_thresh: :obj:`float`
         Lower threshold for the probabilistic brainmask to obtain
-        the final binary mask (default: 0.85).
+        the final binary mask (default: 0.5).
     pre_mask : :obj:`bool`
         Indicates whether the ``pre_mask`` input will be set (and thus, step 1
         should be skipped).
@@ -72,41 +72,41 @@ def init_bold_reference_wf(
         If multiecho data was supplied, data from the first echo
         will be selected
     name : :obj:`str`
-        Name of workflow (default: ``bold_reference_wf``)
+        Name of workflow (default: ``asl_reference_wf``)
     gen_report : :obj:`bool`
         Whether a mask report node should be appended in the end
 
     Inputs
     ------
-    bold_file : str
-        BOLD series NIfTI file
-    bold_mask : bool
+    asl_file : str
+        ASL series NIfTI file
+    asl_mask : bool
         A tentative brain mask to initialize the workflow (requires ``pre_mask``
         parameter set ``True``).
     dummy_scans : int or None
-        Number of non-steady-state volumes specified by user at beginning of ``bold_file``
+        Number of non-steady-state volumes specified by user at beginning of ``asl_file``
     sbref_file : str
         single band (as opposed to multi band) reference NIfTI file
 
     Outputs
     -------
-    bold_file : str
-        Validated BOLD series NIfTI file
+    asl_file : str
+        Validated ASL series NIfTI file
     raw_ref_image : str
-        Reference image to which BOLD series is motion corrected
+        Reference image to which ASL series is motion corrected
     skip_vols : int
-        Number of non-steady-state volumes selected at beginning of ``bold_file``
+        Number of non-steady-state volumes selected at beginning of ``asl_file``
     algo_dummy_scans : int
         Number of non-steady-state volumes agorithmically detected at
-        beginning of ``bold_file``
+        beginning of ``asl_file``
     ref_image : str
         Contrast-enhanced reference image
     ref_image_brain : str
         Skull-stripped reference image
-    bold_mask : str
+    asl_mask : str
         Skull-stripping mask of reference image
     validation_report : str
-        HTML reportlet indicating whether ``bold_file`` had a valid affine
+        HTML reportlet indicating whether ``asl_file`` had a valid affine
 
 
     Subworkflows
@@ -116,26 +116,26 @@ def init_bold_reference_wf(
     workflow = Workflow(name=name)
     workflow.__desc__ = f"""\
 First, a reference volume and its skull-stripped version were generated
-{'from the shortest echo of the BOLD run' * multiecho} using a custom
+{'from the shortest echo of the ASL run' * multiecho} using a custom
 methodology of *fMRIPrep*.
 """
 
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=["bold_file", "bold_mask", "dummy_scans", "sbref_file"]
+            fields=["asl_file", "asl_mask", "dummy_scans", "sbref_file"]
         ),
         name="inputnode",
     )
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "bold_file",
+                "asl_file",
                 "raw_ref_image",
                 "skip_vols",
                 "algo_dummy_scans",
                 "ref_image",
                 "ref_image_brain",
-                "bold_mask",
+                "asl_mask",
                 "validation_report",
                 "mask_report",
             ]
@@ -144,12 +144,12 @@ methodology of *fMRIPrep*.
     )
 
     # Simplify manually setting input image
-    if bold_file is not None:
-        inputnode.inputs.bold_file = bold_file
+    if asl_file is not None:
+        inputnode.inputs.asl_file = asl_file
 
-    val_bold = pe.MapNode(
+    val_asl = pe.MapNode(
         ValidateImage(),
-        name="val_bold",
+        name="val_asl",
         mem_gb=DEFAULT_MEMORY_MIN_GB,
         iterfield=["in_file"],
     )
@@ -157,7 +157,7 @@ methodology of *fMRIPrep*.
     gen_ref = pe.Node(
         EstimateReferenceImage(multiecho=multiecho), name="gen_ref", mem_gb=1
     )  # OE: 128x128x128x50 * 64 / 8 ~ 900MB.
-    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_bold_wf(
+    enhance_and_skullstrip_asl_wf = init_enhance_and_skullstrip_asl_wf(
         brainmask_thresh=brainmask_thresh,
         omp_nthreads=omp_nthreads,
         pre_mask=pre_mask,
@@ -169,36 +169,36 @@ methodology of *fMRIPrep*.
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    bold_1st = pe.Node(niu.Select(index=[0]),
-                       name="bold_1st", run_without_submitting=True)
+    asl_1st = pe.Node(niu.Select(index=[0]),
+                       name="asl_1st", run_without_submitting=True)
     validate_1st = pe.Node(niu.Select(index=[0]),
                            name="validate_1st", run_without_submitting=True)
 
     # fmt: off
     workflow.connect([
-        (inputnode, val_bold, [(("bold_file", listify), "in_file")]),
-        (inputnode, enhance_and_skullstrip_bold_wf, [
-            ("bold_mask", "inputnode.pre_mask"),
+        (inputnode, val_asl, [(("asl_file", listify), "in_file")]),
+        (inputnode, enhance_and_skullstrip_asl_wf, [
+            ("asl_mask", "inputnode.pre_mask"),
         ]),
         (inputnode, calc_dummy_scans, [("dummy_scans", "dummy_scans")]),
-        (val_bold, gen_ref, [("out_file", "in_file")]),
-        (gen_ref, enhance_and_skullstrip_bold_wf, [
+        (val_asl, gen_ref, [("out_file", "in_file")]),
+        (gen_ref, enhance_and_skullstrip_asl_wf, [
             ("ref_image", "inputnode.in_file"),
         ]),
-        (val_bold, bold_1st, [(("out_file", listify), "inlist")]),
+        (val_asl, asl_1st, [(("out_file", listify), "inlist")]),
         (gen_ref, calc_dummy_scans, [("n_volumes_to_discard", "algo_dummy_scans")]),
         (calc_dummy_scans, outputnode, [("skip_vols_num", "skip_vols")]),
         (gen_ref, outputnode, [
             ("ref_image", "raw_ref_image"),
             ("n_volumes_to_discard", "algo_dummy_scans"),
         ]),
-        (enhance_and_skullstrip_bold_wf, outputnode, [
+        (enhance_and_skullstrip_asl_wf, outputnode, [
             ("outputnode.bias_corrected_file", "ref_image"),
-            ("outputnode.mask_file", "bold_mask"),
+            ("outputnode.mask_file", "asl_mask"),
             ("outputnode.skull_stripped_file", "ref_image_brain"),
         ]),
-        (val_bold, validate_1st, [(("out_report", listify), "inlist")]),
-        (bold_1st, outputnode, [("out", "bold_file")]),
+        (val_asl, validate_1st, [(("out_report", listify), "inlist")]),
+        (asl_1st, outputnode, [("out", "asl_file")]),
         (validate_1st, outputnode, [("out", "validation_report")]),
     ])
     # fmt: on
@@ -234,7 +234,7 @@ by aligning and averaging{' the first echo of' * multiecho}
         mask_reportlet = pe.Node(SimpleShowMaskRPT(), name="mask_reportlet")
         # fmt: off
         workflow.connect([
-            (enhance_and_skullstrip_bold_wf, mask_reportlet, [
+            (enhance_and_skullstrip_asl_wf, mask_reportlet, [
                 ("outputnode.bias_corrected_file", "background_file"),
                 ("outputnode.mask_file", "mask_file"),
             ]),
@@ -244,17 +244,17 @@ by aligning and averaging{' the first echo of' * multiecho}
     return workflow
 
 
-def init_enhance_and_skullstrip_bold_wf(
+def init_enhance_and_skullstrip_asl_wf(
     brainmask_thresh=0.5,
-    name="enhance_and_skullstrip_bold_wf",
+    name="enhance_and_skullstrip_asl_wf",
     omp_nthreads=1,
     pre_mask=False,
 ):
     """
-    Enhance and run brain extraction on a BOLD EPI image.
+    Enhance and run brain extraction on a ASL image.
 
-    This workflow takes in a :abbr:`BOLD (blood-oxygen level-dependant)`
-    :abbr:`fMRI (functional MRI)` average/summary (e.g., a reference image
+    This workflow takes in a :abbr:`ASL (Aretrrail Spin Labeling)`
+     average/summary (e.g., a reference image
     averaging non-steady-state timepoints), and sharpens the histogram
     with the application of the N4 algorithm for removing the
     :abbr:`INU (intensity non-uniformity)` bias field and calculates a signal
@@ -263,13 +263,13 @@ def init_enhance_and_skullstrip_bold_wf(
     Steps of this workflow are:
 
       1. Calculate a tentative mask by registering (9-parameters) to *fMRIPrep*'s
-         :abbr:`EPI (echo-planar imaging)` -*boldref* template, which
+         :abbr:`EPI (echo-planar imaging)` -*aslref* template, which
          is in MNI space.
          The tentative mask is obtained by resampling the MNI template's
-         brainmask into *boldref*-space.
+         brainmask into *aslref*-space.
       2. Binary dilation of the tentative mask with a sphere of 3mm diameter.
       3. Run ANTs' ``N4BiasFieldCorrection`` on the input
-         :abbr:`BOLD (blood-oxygen level-dependant)` average, using the
+         :abbr:`ASL (arterial spin labeling)` average, using the
          mask generated in 1) instead of the internal Otsu thresholding.
       4. Calculate a loose mask using FSL's ``bet``, with one mathematical morphology
          dilation of one iteration and a sphere of 6mm as structuring element.
@@ -291,8 +291,8 @@ def init_enhance_and_skullstrip_bold_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
-            wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=1)
+            from niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
+            wf = init_enhance_and_skullstrip_asl_wf(omp_nthreads=1)
 
     .. _N4BiasFieldCorrection: https://hdl.handle.net/10380/3053
 
@@ -302,7 +302,7 @@ def init_enhance_and_skullstrip_bold_wf(
         Lower threshold for the probabilistic brainmask to obtain
         the final binary mask (default: 0.5).
     name : str
-        Name of workflow (default: ``enhance_and_skullstrip_bold_wf``)
+        Name of workflow (default: ``enhance_and_skullstrip_asl_wf``)
     omp_nthreads : int
         number of threads available to parallel nodes
     pre_mask : bool
@@ -312,7 +312,7 @@ def init_enhance_and_skullstrip_bold_wf(
     Inputs
     ------
     in_file : str
-        BOLD image (single volume)
+        ASL image (single volume)
     pre_mask : bool
         A tentative brain mask to initialize the workflow (requires ``pre_mask``
         parameter set ``True``).
@@ -410,8 +410,8 @@ def init_enhance_and_skullstrip_bold_wf(
     if not pre_mask:
         from ..interfaces.nibabel import Binarize
 
-        bold_template = get_template(
-            "MNI152NLin2009cAsym", resolution=2, desc="fMRIPrep", suffix="boldref"
+        asl_template = get_template(
+            "MNI152NLin2009cAsym", resolution=2, desc="fMRIPrep", suffix="aslref"
         )
         brain_mask = get_template(
             "MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask"
@@ -420,7 +420,7 @@ def init_enhance_and_skullstrip_bold_wf(
         # Initialize transforms with antsAI
         init_aff = pe.Node(
             AI(
-                fixed_image=str(bold_template),
+                fixed_image=str(asl_template),
                 fixed_image_mask=str(brain_mask),
                 metric=("Mattes", 32, "Regular", 0.2),
                 transform=("Affine", 0.1),
@@ -445,7 +445,7 @@ def init_enhance_and_skullstrip_bold_wf(
             name="norm",
             n_procs=omp_nthreads,
         )
-        norm.inputs.fixed_image = str(bold_template)
+        norm.inputs.fixed_image = str(asl_template)
         map_brainmask = pe.Node(
             ApplyTransforms(
                 interpolation="BSpline",
@@ -514,27 +514,27 @@ def init_enhance_and_skullstrip_bold_wf(
     return workflow
 
 
-def init_skullstrip_bold_wf(name="skullstrip_bold_wf"):
+def init_skullstrip_asl_wf(name="skullstrip_asl_wf"):
     """
-    Apply skull-stripping to a BOLD image.
+    Apply skull-stripping to a ASL image.
 
     It is intended to be used on an image that has previously been
     bias-corrected with
-    :py:func:`~niworkflows.func.util.init_enhance_and_skullstrip_bold_wf`
+    :py:func:`~niworkflows.func.util.init_enhance_and_skullstrip_asl_wf`
 
     Workflow Graph
         .. workflow ::
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.func.util import init_skullstrip_bold_wf
-            wf = init_skullstrip_bold_wf()
+            from niworkflows.func.util import init_skullstrip_asl_wf
+            wf = init_skullstrip_asl_wf()
 
 
     Inputs
     ------
     in_file : str
-        BOLD image (single volume)
+        ASL image (single volume)
 
     Outputs
     -------

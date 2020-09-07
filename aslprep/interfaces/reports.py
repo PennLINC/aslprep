@@ -127,11 +127,11 @@ class SubjectSummary(SummaryInterface):
             t2w_seg = '(+ {:d} T2-weighted)'.format(len(self.inputs.t2w))
 
         # Add list of tasks with number of runs
-        bold_series = self.inputs.bold if isdefined(self.inputs.bold) else []
-        bold_series = [s[0] if isinstance(s, list) else s for s in bold_series]
+        asl_series = self.inputs.asl if isdefined(self.inputs.asl) else []
+        asl_series = [s[0] if isinstance(s, list) else s for s in asl_series]
 
         counts = Counter(BIDS_NAME.search(series).groupdict()['task_id'][5:]
-                         for series in bold_series)
+                         for series in asl_series)
 
         tasks = ''
         if counts:
@@ -146,7 +146,7 @@ class SubjectSummary(SummaryInterface):
             subject_id=self.inputs.subject_id,
             n_t1s=len(self.inputs.t1w),
             t2w=t2w_seg,
-            n_bold=len(bold_series),
+            n_asl=len(asl_series),
             tasks=tasks,
             std_spaces=', '.join(self.inputs.std_spaces),
             nstd_spaces=', '.join(self.inputs.nstd_spaces),

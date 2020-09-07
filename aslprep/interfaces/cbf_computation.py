@@ -17,7 +17,7 @@ LOGGER = logging.getLogger('nipype.interface')
 
 class _refinemaskInputSpec(BaseInterfaceInputSpec):
     in_t1mask = File(exists=True, mandatory=True, desc='t1 mask')
-    in_boldmask = File(exists=True, mandatory=True, desct='bold mask')
+    in_aslmask = File(exists=True, mandatory=True, desct='asl mask')
     transforms = File(exists=True, mandatory=True, desc='transfom')
     out_mask = File(exists=False, mandatory=False, desc='output mask')
     out_tmp = File(exists=False, mandatory=False, desc='tmp mask')
@@ -29,20 +29,25 @@ class _refinemaskOutputSpec(TraitedSpec):
 
 
 class refinemask(SimpleInterface):
+    r"""
+    the code refine the asl mask with t1w mask
+    the output is refined asl mask
+
+    """
     input_spec = _refinemaskInputSpec
     output_spec = _refinemaskOutputSpec
 
     def _run_interface(self, runtime):
-        self._results['out_tmp'] = fname_presuffix(self.inputs.in_boldmask,
+        self._results['out_tmp'] = fname_presuffix(self.inputs.in_aslmask,
                                                    suffix='_tempmask', newpath=runtime.cwd)
-        self._results['out_mask'] = fname_presuffix(self.inputs.in_boldmask,
+        self._results['out_mask'] = fname_presuffix(self.inputs.in_aslmask,
                                                     suffix='_refinemask', newpath=runtime.cwd)
         b1 = ApplyTransforms()
         b1.inputs.dimension = 3
         b1.inputs.float = True
         b1.inputs.input_image = self.inputs.in_t1mask
         b1.inputs.interpolation = 'NearestNeighbor'
-        b1.inputs.reference_image = self.inputs.in_boldmask
+        b1.inputs.reference_image = self.inputs.in_aslmask
         b1.inputs.transforms = self.inputs.transforms
         b1.inputs.input_image_type = 3
         b1.inputs.output_image = self._results['out_tmp']
@@ -52,7 +57,7 @@ class refinemask(SimpleInterface):
         mat1 = MultiImageMaths()
         mat1.inputs.in_file = self._results['out_tmp']
         mat1.inputs.op_string = " -mul  %s -bin"
-        mat1.inputs.operand_files = self.inputs.in_boldmask
+        mat1.inputs.operand_files = self.inputs.in_aslmask
         mat1.inputs.out_file = self._results['out_mask']
         mat1.run()
         self.inputs.out_mask = os.path.abspath(self._results['out_mask'])
@@ -60,8 +65,8 @@ class refinemask(SimpleInterface):
 
 
 class _extractCBFInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc='preprocessed file')
-    bold_file = File(exists=True, mandatory=True, desc='preprocessed file')
+    in_file = File(exists=True, mandatory=True, desc='preprocessed asl file')
+    asl_file = File(exists=True, mandatory=True, desc='preprocessed asl file')
     in_mask = File(exists=True, mandatory=True, desc='mask')
     dummy_vols = traits.Int(default_value=0, exit=False, mandatory=False,
                             desc='remove first n voluems')
@@ -81,16 +86,21 @@ class extractCBF(SimpleInterface):
     by substracting label from control
     or viceversa
 
+    it geenrate M0 maps for cbf computation
+
     """
 
     input_spec = _extractCBFInputSpec
     output_spec = _extractCBFOutputSpec
 
     def _run_interface(self, runtime):
-        file1 = os.path.abspath(self.inputs.bold_file)
+        file1 = os.path.abspath(self.inputs.asl_file)
+        # get the asl file and mo file
         aslcontext1 = file1.replace('_asl.nii.gz', '_aslcontext.tsv')
         aslcontext = pd.read_csv(aslcontext1, header=None)
-        m0file = file1.replace('_asl.nii.gz', '_moscan.nii.gz')
+        m0file = file1.replace('_asl.nii.gz', '_m0scan.nii.gz')
+
+        # get control and label asl
         idasl = aslcontext[0].tolist()
         controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
         labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
@@ -102,25 +112,33 @@ class extractCBF(SimpleInterface):
             raise RuntimeError('Input image (%s) is 5D.')
         control_img = dataasl[:, :, :, controllist]
         label_img = dataasl[:, :, :, labellist]
+
+        #generate cbf by substracting  label from control 
         cbf_data = np.subtract(control_img, label_img)
         if self.inputs.dummy_vols != 0:
             cbf_data = np.delete(cbf_data, range(0, self.inputs.dummy_vols), axis=3)
             control_img = np.delete(control_img, range(0, self.inputs.dummy_vols), axis=3)
+
         # MO file
         if os.path.isfile(m0file):
-            mfile=nb.load(m0file).get_fdata()
+            # get the raw m0 file
+            m0file=nb.load(m0file).get_fdata()
             m0data_smooth = smooth_image(nb.load(m0file), fwhm=self.inputs.fwhm).get_data()
             avg_control = mask*np.mean(m0data_smooth, axis=3)
         elif len(m0list) > 0:
+            # if no m0file, check from asl data
             modata2 = dataasl[:, :, :, m0list]
             con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
             m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_data()
             avg_control = mask*np.mean(m0data_smooth, axis=3)
         else:
+            # else use average control
             control_img = dataasl[:, :, :, controllist]
             con = nb.Nifti1Image(control_img, allasl.affine, allasl.header)
             control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_data()
             avg_control = mask*np.mean(control_img1, axis=3)
+
+
         self._results['out_file'] = fname_presuffix(self.inputs.in_file,
                                                     suffix='_cbftimeseries', newpath=runtime.cwd)
         self._results['out_avg'] = fname_presuffix(self.inputs.in_file,
@@ -611,6 +629,10 @@ class _BASILCBFOutputSpec(TraitedSpec):
 
 
 class BASILCBF(FSLCommand):
+    r"""
+    oxford asl 
+    https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL
+    """
     _cmd = " oxford_asl "
     input_spec = _BASILCBFInputSpec
     output_spec = _BASILCBFOutputSpec
@@ -668,6 +690,12 @@ class _qccbfOutputSpec(TraitedSpec):
 
 
 class qccbf(SimpleInterface):
+    r""""
+     compute qc from confound regressors 
+     and cbf maps, 
+     coregistration and regsitration indexes
+
+    """
 
     input_spec = _qccbfInputSpec
     output_spec = _qccbfOutputSpec

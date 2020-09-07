@@ -6,8 +6,9 @@ from ..niworkflows.interfaces import (
     bids, cifti, freesurfer, images, itk, surf, utils)
 
 from .reports import SubjectSummary, FunctionalSummary, AboutSummary
-from .confounds import GatherConfounds, ICAConfounds, FMRISummary
+from .confounds import GatherConfounds, ASLSummary
 from .multiecho import T2SMap
+from ..niworkflows.interfaces.plotting import (CBFSummary, CBFtsSummary)
 
 
 class DerivativesDataSink(bids.DerivativesDataSink):
@@ -26,8 +27,7 @@ __all__ = [
     'FunctionalSummary',
     'AboutSummary',
     'GatherConfounds',
-    'ICAConfounds',
-    'FMRISummary',
+    'ASLSummary',
     'CBFSummary',
     'CBFtsSummary',
     'T2SMap',

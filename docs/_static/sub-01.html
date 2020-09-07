@@ -1,0 +1,957 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.12: http://docutils.sourceforge.net/" />
+<title></title>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+<style type="text/css">
+.sub-report-title {}
+.run-title {}
+
+h1 { padding-top: 35px; }
+h2 { padding-top: 20px; }
+h3 { padding-top: 15px; }
+
+.elem-desc {}
+.elem-caption {
+    margin-top: 15px
+    margin-bottom: 0;
+}
+.elem-filename {}
+
+div.elem-image {
+  width: 100%;
+  page-break-before:always;
+}
+
+.elem-image object.svg-reportlet {
+    width: 100%;
+    padding-bottom: 5px;
+}
+body {
+    padding: 65px 10px 10px;
+}
+
+.boiler-html {
+    font-family: "Bitstream Charter", "Georgia", Times;
+    margin: 20px 25px;
+    padding: 10px;
+    background-color: #F8F9FA;
+}
+
+div#boilerplate pre {
+    margin: 20px 25px;
+    padding: 10px;
+    background-color: #F8F9FA;
+}
+
+#errors div, #errors p {
+    padding-left: 1em;
+}
+</style>
+</head>
+<body>
+
+
+<nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light">
+<div class="collapse navbar-collapse">
+    <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="#Summary">Summary</a></li>
+        <li class="nav-item"><a class="nav-link" href="#Anatomical">Anatomical</a></li>
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" id="navbarArterial Spin Labelling" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" href="#">Arterial Spin Labelling</a>
+            <div class="dropdown-menu" aria-labelledby="navbarArterial Spin Labelling">
+                    <a class="dropdown-item" href="#datatype-figures_desc-summary_suffix-asl_task-restEyesOpen">Reports for: task <span class="bids-entity">restEyesOpen</span>.</a>
+            </div>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="#About">About</a></li>
+        <li class="nav-item"><a class="nav-link" href="#boilerplate">Methods</a></li>
+        <li class="nav-item"><a class="nav-link" href="#errors">Errors</a></li>
+    </ul>
+</div>
+</nav>
+<noscript>
+    <h1 class="text-danger"> The navigation menu uses Javascript. Without it this report might not work as expected </h1>
+</noscript>
+
+    <div id="Summary">
+    <h1 class="sub-report-title">Summary</h1>
+        <div id="datatype-figures_desc-summary_suffix-T1w">
+                    <ul class="elem-desc">
+		<li>Subject ID: 01</li>
+		<li>Structural images: 1 T1-weighted </li>
+		<li>ASL series: 1</li>
+		<ul class="elem-desc">
+			<li>Task: restEyesOpen (1 run)</li>
+		</ul>
+		<li>Standard output spaces: MNI152NLin2009cAsym</li>
+		<li>Non-standard output spaces: func, anat</li>
+		<li>FreeSurfer reconstruction: Not run</li>
+	</ul>
+        </div>
+    </div>
+    <div id="Anatomical">
+    <h1 class="sub-report-title">Anatomical</h1>
+        <div id="datatype-figures_desc-conform_extension-['.html']_suffix-T1w">
+                    <h3 class="elem-title">Anatomical Conformation</h3>
+		<ul class="elem-desc">
+			<li>Input T1w images: 1</li>
+			<li>Output orientation: RAS</li>
+			<li>Output dimensions: 192x256x160</li>
+			<li>Output voxel size: 0.98mm x 0.98mm x 1mm</li>
+			<li>Discarded images: 0</li>
+
+		</ul>
+        </div>
+        <div id="datatype-figures_suffix-dseg">
+<h3 class="run-title">Brain mask and brain tissue segmentation of the T1w</h3><p class="elem-caption">This panel shows the template T1-weighted image (if several T1w images were found), with contours delineating the detected brain mask and brain tissue segmentations.</p>                    <img class="svg-reportlet" src="./sub-01/figures/sub-01_dseg.svg" style="width: 100%" />
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_dseg.svg" target="_blank">sub-01/figures/sub-01_dseg.svg</a>
+</div>
+
+        </div>
+        <div id="datatype-figures_regex_search-True_space-.*_suffix-T1w">
+<h3 class="run-title">Spatial normalization of the anatomical T1w reference</h3><p class="elem-desc">Results of nonlinear alignment of the T1w reference one or more template space(s). Hover on the panels with the mouse pointer to transition between both spaces.</p><p class="elem-caption">Spatial normalization of the T1w image to the <code>MNI152NLin2009cAsym</code> template.</p>                    <object class="svg-reportlet" type="image/svg+xml" data="./sub-01/figures/sub-01_space-MNI152NLin2009cAsym_T1w.svg">
+Problem loading figure sub-01/figures/sub-01_space-MNI152NLin2009cAsym_T1w.svg. If the link below works, please try reloading the report in your browser.</object>
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_space-MNI152NLin2009cAsym_T1w.svg" target="_blank">sub-01/figures/sub-01_space-MNI152NLin2009cAsym_T1w.svg</a>
+</div>
+
+        </div>
+    </div>
+    <div id="Arterial Spin Labelling">
+    <h1 class="sub-report-title">Arterial Spin Labelling</h1>
+        <div id="datatype-figures_desc-summary_suffix-asl_task-restEyesOpen">
+<h2 class="sub-report-group">Reports for: task <span class="bids-entity">restEyesOpen</span>.</h2>                    <h3 class="elem-title">Summary</h3>
+		<ul class="elem-desc">
+			<li>Repetition time (TR): 3.5s</li>
+			<li>Phase-encoding (PE) direction: MISSING - Assuming Anterior-Posterior</li>
+			<li>Slice timing correction: Not applied</li>
+			<li>Susceptibility distortion correction: None</li>
+			<li>Registration: FSL <code>flirt</code> with boundary-based registration (BBR) metric - 6 dof</li>
+			<li>Confounds collected: std_dvars, dvars, framewise_displacement, trans_x, trans_y, trans_z, rot_x, rot_y, rot_z</li>
+			<li>Non-steady-state volumes: 5</li>
+			<li>Motion summary measures: FD : 0.2649, relRMS: 0.0035 </li>
+			<li>Coregistration quality:  Dice Index: 0.9946, Jaccard Index: 0.9893, Cross Cor.: 0.993, Coverage: 1.0 </li>
+			<li>Normalization quality:  Dice Index: 0.9225, Jaccard Index: 0.8561, Cross Cor.: 0.9053, Coverage: 0.9717 </li>
+			<li>Quality evaluation index : cbf: 0.7728,score: 0.7707,scrub: 0.8812, basil: 0.8276, pvc: 0.7932 </li>
+			<li>Mean CBF (mL 100/g/min) : GM CBF: 49.56, WM CBF: 37.88, GM/WM CBF ratio: 1.31 </li>
+			<li>Percentage of negative voxel : cbf: 0.49, score: 0.57, scrub: 0.02, basil: 0.0, pvc: 0.0 </li>
+
+		</ul>
+        </div>
+        <div id="datatype-figures_desc-flirtbbr_suffix-asl_task-restEyesOpen">
+<h3 class="run-title">Alignment of asl and anatomical MRI data (surface driven)</h3><p class="elem-caption">FSL <code>flirt</code> was used to generate transformations from EPI-space to T1w-space - The white matter mask calculated with FSL <code>fast</code> (brain tissue segmentation) was used for BBR. Note that Nearest Neighbor interpolation is used in the reportlets in order to highlight potential spin-history and other artifacts, whereas final images are resampled using Lanczos interpolation.</p>                    <object class="svg-reportlet" type="image/svg+xml" data="./sub-01/figures/sub-01_task-restEyesOpen_desc-flirtbbr_asl.svg">
+Problem loading figure sub-01/figures/sub-01_task-restEyesOpen_desc-flirtbbr_asl.svg. If the link below works, please try reloading the report in your browser.</object>
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_task-restEyesOpen_desc-flirtbbr_asl.svg" target="_blank">sub-01/figures/sub-01_task-restEyesOpen_desc-flirtbbr_asl.svg</a>
+</div>
+
+        </div>
+        <div id="datatype-figures_desc-carpetplot_suffix-asl_task-restEyesOpen">
+<h3 class="run-title">ASL Summary</h3><p class="elem-caption">Summary statistics are plotted, which may reveal trends or artifacts in the asl data. DVARS and FD show the standardized DVARS and framewise-displacement measures for each time point. A carpet plot shows the time series for all voxels within the brain mask. Voxels are grouped into cortical (blue), and subcortical (orange) gray matter, cerebellum (green) and white matter and CSF (red), indicated by the color map on the left-hand side.</p>                    <img class="svg-reportlet" src="./sub-01/figures/sub-01_task-restEyesOpen_desc-carpetplot_asl.svg" style="width: 100%" />
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_task-restEyesOpen_desc-carpetplot_asl.svg" target="_blank">sub-01/figures/sub-01_task-restEyesOpen_desc-carpetplot_asl.svg</a>
+</div>
+
+        </div>
+        <div id="datatype-figures_desc-cbftsplot_suffix-asl_task-restEyesOpen">
+<h3 class="run-title">CBF Summary</h3><p class="elem-caption">This carpet plot shows the time series for all voxels within the brain mask for CBF. Voxels are grouped into cortical (blue), and subcortical (orange) gray matter, cerebellum (green), white matter and CSF (red), indicated by the color map on the left-hand side. The score Index with value greater than zero indicates which volume(s) are removed by SCORE.</p>                    <img class="svg-reportlet" src="./sub-01/figures/sub-01_task-restEyesOpen_desc-cbftsplot_asl.svg" style="width: 100%" />
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_task-restEyesOpen_desc-cbftsplot_asl.svg" target="_blank">sub-01/figures/sub-01_task-restEyesOpen_desc-cbftsplot_asl.svg</a>
+</div>
+
+        </div>
+        <div id="datatype-figures_desc-cbfplot_suffix-asl_task-restEyesOpen">
+<h3 class="run-title">CBF maps</h3><p class="elem-caption">The maps plot cerebral blood flow (CBF) for basic CBF. The unit is mL 100/g/min</p>                    <img class="svg-reportlet" src="./sub-01/figures/sub-01_task-restEyesOpen_desc-cbfplot_asl.svg" style="width: 100%" />
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_task-restEyesOpen_desc-cbfplot_asl.svg" target="_blank">sub-01/figures/sub-01_task-restEyesOpen_desc-cbfplot_asl.svg</a>
+</div>
+
+        </div>
+        <div id="datatype-figures_desc-scoreplot_suffix-asl_task-restEyesOpen">
+<h3 class="run-title">SCORE CBF maps</h3><p class="elem-caption">The maps plot cerebral blood flow (CBF) for SCORE-corrected CBF. The unit is mL 100/g/min</p>                    <img class="svg-reportlet" src="./sub-01/figures/sub-01_task-restEyesOpen_desc-scoreplot_asl.svg" style="width: 100%" />
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_task-restEyesOpen_desc-scoreplot_asl.svg" target="_blank">sub-01/figures/sub-01_task-restEyesOpen_desc-scoreplot_asl.svg</a>
+</div>
+
+        </div>
+        <div id="datatype-figures_desc-scrubplot_suffix-asl_task-restEyesOpen">
+<h3 class="run-title">SCRUB CBF maps</h3><p class="elem-caption">The maps plot cerebral blood flow (CBF) for SCRUB-corrected CBF. The unit is mL 100/g/min</p>                    <img class="svg-reportlet" src="./sub-01/figures/sub-01_task-restEyesOpen_desc-scrubplot_asl.svg" style="width: 100%" />
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_task-restEyesOpen_desc-scrubplot_asl.svg" target="_blank">sub-01/figures/sub-01_task-restEyesOpen_desc-scrubplot_asl.svg</a>
+</div>
+
+        </div>
+        <div id="datatype-figures_desc-basilplot_suffix-asl_task-restEyesOpen">
+<h3 class="run-title">BASIL CBF maps</h3><p class="elem-caption">The maps plot cerebral blood flow (CBF) for BASIL-estimated CBF. The unit is mL 100/g/min</p>                    <img class="svg-reportlet" src="./sub-01/figures/sub-01_task-restEyesOpen_desc-basilplot_asl.svg" style="width: 100%" />
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_task-restEyesOpen_desc-basilplot_asl.svg" target="_blank">sub-01/figures/sub-01_task-restEyesOpen_desc-basilplot_asl.svg</a>
+</div>
+
+        </div>
+        <div id="datatype-figures_desc-pvcplot_suffix-asl_task-restEyesOpen">
+<h3 class="run-title">PVC CBF maps</h3><p class="elem-caption">The maps plot cerebral blood flow (CBF) for partial volume-corrected CBF. The unit is mL 100/g/min</p>                    <img class="svg-reportlet" src="./sub-01/figures/sub-01_task-restEyesOpen_desc-pvcplot_asl.svg" style="width: 100%" />
+</div>
+<div class="elem-filename">
+    Get figure file: <a href="./sub-01/figures/sub-01_task-restEyesOpen_desc-pvcplot_asl.svg" target="_blank">sub-01/figures/sub-01_task-restEyesOpen_desc-pvcplot_asl.svg</a>
+</div>
+
+        </div>
+    </div>
+    <div id="About">
+    <h1 class="sub-report-title">About</h1>
+        <div id="datatype-figures_desc-about_suffix-T1w">
+                    <ul>
+		<li>ASLPrep version: 0.2.3</li>
+		<li>ASLPrep command: <code>/usr/local/miniconda/bin/aslprep /bidsdir /out participant -w /wk_dir --skip_bids_validation --output-spaces func anat MNI152NLin2009cAsym --participant-label 01 --fs-license-file /opt/freesurfer/license.txt --force-bbr --fs-no-reconall</code></li>
+		<li>Date preprocessed: 2020-08-14 13:16:12 +0000</li>
+	</ul>
+</div>
+        </div>
+    </div>
+
+<div id="boilerplate">
+    <h1 class="sub-report-title">Methods</h1>
+    <p>We kindly ask to report results preprocessed with this tool using the following
+       boilerplate.</p>
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="HTML-tab" data-toggle="tab" href="#HTML" role="tab" aria-controls="HTML" aria-selected="true">HTML</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " id="Markdown-tab" data-toggle="tab" href="#Markdown" role="tab" aria-controls="Markdown" aria-selected="false">Markdown</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link " id="LaTeX-tab" data-toggle="tab" href="#LaTeX" role="tab" aria-controls="LaTeX" aria-selected="false">LaTeX</a>
+        </li>
+    </ul>
+    <div class="tab-content" id="myTabContent">
+      <div class="tab-pane fade active show" id="HTML" role="tabpanel" aria-labelledby="HTML-tab"><div class="boiler-html"><p>Results included in this manuscript come from preprocessing performed using <em>aslprep</em> 0.2.3, which is based on <em>Nipype</em> 1.5.0 (<span class="citation" data-cites="nipype1">Gorgolewski et al. (2011)</span>; <span class="citation" data-cites="nipype2">Gorgolewski et al. (2018)</span>; RRID:SCR_002502).</p>
+<dl>
+<dt>Anatomical data preprocessing</dt>
+<dd><p>A total of 1 T1-weighted (T1w) images were found within the input BIDS dataset.The T1-weighted (T1w) image was corrected for intensity non-uniformity (INU) with <code>N4BiasFieldCorrection</code> <span class="citation" data-cites="n4">(Tustison et al. 2010)</span>, distributed with ANTs 2.3.1 <span class="citation" data-cites="ants">(Avants et al. 2008, RRID:SCR_004757)</span>, and used as T1w-reference throughout the workflow. The T1w-reference was then skull-stripped with a <em>Nipype</em> implementation of the <code>antsBrainExtraction.sh</code> workflow (from ANTs), using OASIS30ANTs as target template. Brain tissue segmentation of cerebrospinal fluid (CSF), white-matter (WM) and gray-matter (GM) was performed on the brain-extracted T1w using <code>fast</code> <span class="citation" data-cites="fsl_fast">(FSL 6.0.3:b862cdd5, RRID:SCR_002823, Zhang, Brady, and Smith 2001)</span>. Volume-based spatial normalization to one standard space (MNI152NLin2009cAsym) was performed through nonlinear registration with <code>antsRegistration</code> (ANTs 2.3.1), using brain-extracted versions of both T1w reference and the T1w template. The following template was selected for spatial normalization: <em>ICBM 152 Nonlinear Asymmetrical template version 2009c</em> [<span class="citation" data-cites="mni152nlin2009casym">Fonov et al. (2009)</span>, RRID:SCR_008796; TemplateFlow ID: MNI152NLin2009cAsym],</p>
+</dd>
+<dt>Functional data preprocessing</dt>
+<dd><p>For each of the 1 ASL runs found per subject (across all tasks and sessions), the following preprocessing was performed. First, a reference volume and its skull-stripped version were generated using a custom methodology of <em>fMRIPrep</em>. Head-motion parameters with respect to the BOLD reference (transformation matrices, and six corresponding rotation and translation parameters) are estimated before any spatiotemporal filtering using <code>mcflirt</code> <span class="citation" data-cites="mcflirt">(FSL 6.0.3:b862cdd5, Jenkinson et al. 2002)</span>. The BOLD reference was then co-registered to the T1w reference using <code>flirt</code> <span class="citation" data-cites="flirt">(FSL 6.0.3:b862cdd5, Jenkinson and Smith 2001)</span> with the boundary-based registration <span class="citation" data-cites="bbr">(Greve and Fischl 2009)</span> cost-function. Co-registration was configured with nine degrees of freedom to account for distortions remaining in the BOLD reference. The BOLD time-series (including slice-timing correction when applied) were resampled onto their original, native space by applying the transforms to correct for head-motion. These resampled BOLD time-series will be referred to as <em>preprocessed BOLD in original space</em>, or just <em>preprocessed BOLD</em>. The CBF was quantified from <em>preproccessed</em> ASL data using a relatively basic model <span class="citation" data-cites="detre_perfusion">(Detre et al. 1992)</span> <span class="citation" data-cites="alsop_recommended">(Alsop et al. 2015)</span>. CBF are susceptible to artifacts due to low signal to noise ratio and sensitivity to motion, Structural Correlation based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme outliers <span class="citation" data-cites="score_dolui">(Dolui et al. 2017)</span>. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB) algorithms was applied to the CBF by iteratively reweighted CBF with structural tissues probalility maps <span class="citation" data-cites="scrub_dolui">(Sudipto Dolui David A. Wolk and Detre 2016)</span>. Alternate method of CBF computation is Bayesian Inference for Arterial Spin Labeling (BASIL) as implmented in FSL which is based on Bayeisan inference principles <span class="citation" data-cites="chappell_basil">(Chappell et al. 2009)</span>. BASIL computed the CBF from ASL incoporating natural varaibility of other model parameters and spatial regularization of the estimated perfusion image. BASIL also included correction for partial volume effects <span class="citation" data-cites="chappell_pvc">(Chappell et al. 2011)</span>. The ASL and CBF dreivatives were resampled into standard space, generating a <em>preprocessed ASL and computed CBF in MNI152NLin2009cAsym space</em>. First, a reference volume and its skull-stripped version were generated using a custom methodology of <em>fMRIPrep</em>. Several confounding time-series were calculated based on the <em>preprocessed ASL</em>: framewise displacement (FD) and DVARS. FD and DVARS are calculated for each ASL run, both using their implementations in <em>Nipype</em> <span class="citation" data-cites="power_fd_dvars">(following the definitions by Power et al. 2014)</span>. The head-motion estimates calculated in the correction step were also placed within the corresponding confounds file.</p>
+</dd>
+</dl>
+<p>The following quality control (qc) measures was estimated: framewise displacement and relative root mean square dice index. Other qc meaure include dice and jaccard indices, cross-correlation and coverage that estimate the coregistration quality of ASL and T1W images and normalization quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF <span class="citation" data-cites="cbfqc">(S. A. N. Sudipto Dolui Ronald Wolf 2016)</span>. The QEI is automated for objective quality evaluation of CBF maps and measured the CBF quality based on structural similarity,spatial variability and the percentatge of voxels with negtaive CBF within Grey matter All resamplings can be performed with <em>a single interpolation step</em> by composing all the pertinent transformations (i.e. head-motion transform matrices, susceptibility distortion correction when available, and co-registrations to anatomical and output spaces). Gridded (volumetric) resamplings were performed using <code>antsApplyTransforms</code> (ANTs), configured with Lanczos interpolation to minimize the smoothing effects of other kernels <span class="citation" data-cites="lanczos">(Lanczos 1964)</span>. Non-gridded (surface) resamplings were performed using <code>mri_vol2surf</code> (FreeSurfer).</p>
+<p>Many internal operations of <em>aslprep</em> use <em>Nilearn</em> 0.6.2 <span class="citation" data-cites="nilearn">(Abraham et al. 2014, RRID:SCR_001362)</span>, mostly within the functional processing workflow. For more details of the pipeline, see <a href="https://aslprep.readthedocs.io/en/latest/workflows.html" title="aslprep&#39;s documentation">the section corresponding to workflows in <em>aslprep</em>’s documentation</a>.</p>
+<h3 id="copyright-waiver">Copyright Waiver</h3>
+<p>The above boilerplate text was automatically generated by aslprep with the express intention that users should copy and paste this text into their manuscripts <em>unchanged</em>. It is released under the <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a> license.</p>
+<h3 id="references" class="unnumbered">References</h3>
+<div id="refs" class="references">
+<div id="ref-nilearn">
+<p>Abraham, Alexandre, Fabian Pedregosa, Michael Eickenberg, Philippe Gervais, Andreas Mueller, Jean Kossaifi, Alexandre Gramfort, Bertrand Thirion, and Gael Varoquaux. 2014. “Machine Learning for Neuroimaging with Scikit-Learn.” <em>Frontiers in Neuroinformatics</em> 8. <a href="https://doi.org/10.3389/fninf.2014.00014" class="uri">https://doi.org/10.3389/fninf.2014.00014</a>.</p>
+</div>
+<div id="ref-alsop_recommended">
+<p>Alsop, David C., John A. Detre, Xavier Golay, Matthias Günther, Jeroen Hendrikse, Luis Hernandez-Garcia, Hanzhang Lu, et al. 2015. “Recommended Implementation of Arterial Spin Labeled Perfusion MRI for Clinical Applications: A Consensus of the ISMRM Perfusion Study Group and the European Consortium for Asl in Dementia.” <em>Magnetic Resonance in Medicine</em>, no. 1. <a href="https://doi.org/10.1002/mrm.25197" class="uri">https://doi.org/10.1002/mrm.25197</a>.</p>
+</div>
+<div id="ref-ants">
+<p>Avants, B.B., C.L. Epstein, M. Grossman, and J.C. Gee. 2008. “Symmetric Diffeomorphic Image Registration with Cross-Correlation: Evaluating Automated Labeling of Elderly and Neurodegenerative Brain.” <em>Medical Image Analysis</em> 12 (1): 26–41. <a href="https://doi.org/10.1016/j.media.2007.06.004" class="uri">https://doi.org/10.1016/j.media.2007.06.004</a>.</p>
+</div>
+<div id="ref-chappell_pvc">
+<p>Chappell, M. A., A. R. Groves, B. J. MacIntosh, M. J. Donahue, P. Jezzard, and M. W. Woolrich. 2011. “Partial Volume Correction of Multiple Inversion Time Arterial Spin Labeling MRI Data.” <em>Magnetic Resonance in Medicine</em> 65 (4). <a href="https://doi.org/10.1002/mrm.22641" class="uri">https://doi.org/10.1002/mrm.22641</a>.</p>
+</div>
+<div id="ref-chappell_basil">
+<p>Chappell, Michael A., Adrian R. Groves, Brandon Whitcher, and Mark W. Woolrich. 2009. “Variational Bayesian Inference for a Nonlinear Forward Model.” <em>IEEE Transactions on Signal Processing</em> 57 (1). <a href="https://doi.org/10.1109/TSP.2008.2005752" class="uri">https://doi.org/10.1109/TSP.2008.2005752</a>.</p>
+</div>
+<div id="ref-detre_perfusion">
+<p>Detre, John A., John S. Leigh, Donald S. Williams, and Alan P. Koretsky. 1992. “Perfusion Imaging.” <em>Magnetic Resonance in Medicine</em> 23 (1). <a href="https://doi.org/10.1002/mrm.1910230106" class="uri">https://doi.org/10.1002/mrm.1910230106</a>.</p>
+</div>
+<div id="ref-score_dolui">
+<p>Dolui, Sudipto, Ze Wang, Russell T. Shinohara, David A. Wolk, John A. Detre, and for the Alzheimer’s Disease Neuroimaging Initiative. 2017. “Structural Correlation-Based Outlier Rejection (SCORE) Algorithm for Arterial Spin Labeling Time Series: SCORE: Denoising Algorithm for ASL.” <em>Journal of Magnetic Resonance Imaging</em> 45 (6). <a href="https://doi.org/10.1002/jmri.25436" class="uri">https://doi.org/10.1002/jmri.25436</a>.</p>
+</div>
+<div id="ref-mni152nlin2009casym">
+<p>Fonov, VS, AC Evans, RC McKinstry, CR Almli, and DL Collins. 2009. “Unbiased Nonlinear Average Age-Appropriate Brain Templates from Birth to Adulthood.” <em>NeuroImage</em> 47, Supplement 1: S102. <a href="https://doi.org/10.1016/S1053-8119(09)70884-5" class="uri">https://doi.org/10.1016/S1053-8119(09)70884-5</a>.</p>
+</div>
+<div id="ref-nipype1">
+<p>Gorgolewski, K., C. D. Burns, C. Madison, D. Clark, Y. O. Halchenko, M. L. Waskom, and S. Ghosh. 2011. “Nipype: A Flexible, Lightweight and Extensible Neuroimaging Data Processing Framework in Python.” <em>Frontiers in Neuroinformatics</em> 5: 13. <a href="https://doi.org/10.3389/fninf.2011.00013" class="uri">https://doi.org/10.3389/fninf.2011.00013</a>.</p>
+</div>
+<div id="ref-nipype2">
+<p>Gorgolewski, Krzysztof J., Oscar Esteban, Christopher J. Markiewicz, Erik Ziegler, David Gage Ellis, Michael Philipp Notter, Dorota Jarecka, et al. 2018. “Nipype.” <em>Software</em>. Zenodo. <a href="https://doi.org/10.5281/zenodo.596855" class="uri">https://doi.org/10.5281/zenodo.596855</a>.</p>
+</div>
+<div id="ref-bbr">
+<p>Greve, Douglas N, and Bruce Fischl. 2009. “Accurate and Robust Brain Image Alignment Using Boundary-Based Registration.” <em>NeuroImage</em> 48 (1): 63–72. <a href="https://doi.org/10.1016/j.neuroimage.2009.06.060" class="uri">https://doi.org/10.1016/j.neuroimage.2009.06.060</a>.</p>
+</div>
+<div id="ref-mcflirt">
+<p>Jenkinson, Mark, Peter Bannister, Michael Brady, and Stephen Smith. 2002. “Improved Optimization for the Robust and Accurate Linear Registration and Motion Correction of Brain Images.” <em>NeuroImage</em> 17 (2): 825–41. <a href="https://doi.org/10.1006/nimg.2002.1132" class="uri">https://doi.org/10.1006/nimg.2002.1132</a>.</p>
+</div>
+<div id="ref-flirt">
+<p>Jenkinson, Mark, and Stephen Smith. 2001. “A Global Optimisation Method for Robust Affine Registration of Brain Images.” <em>Medical Image Analysis</em> 5 (2): 143–56. <a href="https://doi.org/10.1016/S1361-8415(01)00036-6" class="uri">https://doi.org/10.1016/S1361-8415(01)00036-6</a>.</p>
+</div>
+<div id="ref-lanczos">
+<p>Lanczos, C. 1964. “Evaluation of Noisy Data.” <em>Journal of the Society for Industrial and Applied Mathematics Series B Numerical Analysis</em> 1 (1): 76–85. <a href="https://doi.org/10.1137/0701007" class="uri">https://doi.org/10.1137/0701007</a>.</p>
+</div>
+<div id="ref-power_fd_dvars">
+<p>Power, Jonathan D., Anish Mitra, Timothy O. Laumann, Abraham Z. Snyder, Bradley L. Schlaggar, and Steven E. Petersen. 2014. “Methods to Detect, Characterize, and Remove Motion Artifact in Resting State fMRI.” <em>NeuroImage</em> 84 (Supplement C): 320–41. <a href="https://doi.org/10.1016/j.neuroimage.2013.08.048" class="uri">https://doi.org/10.1016/j.neuroimage.2013.08.048</a>.</p>
+</div>
+<div id="ref-scrub_dolui">
+<p>Sudipto Dolui, David A. Wolk, and John A. Detre. 2016. “SCRUB: A Structural Correlation and Empirical Robust Bayesian Method for Asl Data.” <em>International Society for Magnetic Resonance in Medicine</em>, no. 1. <a href="https://doi.org/http://archive.ismrm.org/2016/2880.html" class="uri">https://doi.org/http://archive.ismrm.org/2016/2880.html</a>.</p>
+</div>
+<div id="ref-cbfqc">
+<p>Sudipto Dolui, Seyed Ali Nabavizadeh, Ronald Wolf. 2016. “Automated Quality Evaluation Index for 2D Asl Cbf Maps.” <em>International Society for Magnetic Resonance in Medicine</em>, no. 1. <a href="https://doi.org/http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html" class="uri">https://doi.org/http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html</a>.</p>
+</div>
+<div id="ref-n4">
+<p>Tustison, N. J., B. B. Avants, P. A. Cook, Y. Zheng, A. Egan, P. A. Yushkevich, and J. C. Gee. 2010. “N4ITK: Improved N3 Bias Correction.” <em>IEEE Transactions on Medical Imaging</em> 29 (6): 1310–20. <a href="https://doi.org/10.1109/TMI.2010.2046908" class="uri">https://doi.org/10.1109/TMI.2010.2046908</a>.</p>
+</div>
+<div id="ref-fsl_fast">
+<p>Zhang, Y., M. Brady, and S. Smith. 2001. “Segmentation of Brain MR Images Through a Hidden Markov Random Field Model and the Expectation-Maximization Algorithm.” <em>IEEE Transactions on Medical Imaging</em> 20 (1): 45–57. <a href="https://doi.org/10.1109/42.906424" class="uri">https://doi.org/10.1109/42.906424</a>.</p>
+</div>
+</div></div></div>
+      <div class="tab-pane fade " id="Markdown" role="tabpanel" aria-labelledby="Markdown-tab"><pre>
+Results included in this manuscript come from preprocessing
+performed using *aslprep* 0.2.3,
+which is based on *Nipype* 1.5.0
+(@nipype1; @nipype2; RRID:SCR_002502).
+
+Anatomical data preprocessing
+
+: A total of 1 T1-weighted (T1w) images were found within the input
+BIDS dataset.The T1-weighted (T1w) image was corrected for intensity non-uniformity (INU)
+with `N4BiasFieldCorrection` [@n4], distributed with ANTs 2.3.1 [@ants, RRID:SCR_004757], and used as T1w-reference throughout the workflow.
+The T1w-reference was then skull-stripped with a *Nipype* implementation of
+the `antsBrainExtraction.sh` workflow (from ANTs), using OASIS30ANTs
+as target template.
+Brain tissue segmentation of cerebrospinal fluid (CSF),
+white-matter (WM) and gray-matter (GM) was performed on
+the brain-extracted T1w using `fast` [FSL 6.0.3:b862cdd5, RRID:SCR_002823,
+@fsl_fast].
+Volume-based spatial normalization to one standard space (MNI152NLin2009cAsym) was performed through
+nonlinear registration with `antsRegistration` (ANTs 2.3.1),
+using brain-extracted versions of both T1w reference and the T1w template.
+The following template was selected for spatial normalization:
+*ICBM 152 Nonlinear Asymmetrical template version 2009c* [@mni152nlin2009casym, RRID:SCR_008796; TemplateFlow ID: MNI152NLin2009cAsym], 
+
+Functional data preprocessing
+
+: For each of the 1 ASL runs found per subject (across all
+tasks and sessions), the following preprocessing was performed.
+First, a reference volume and its skull-stripped version were generated
+ using a custom
+methodology of *fMRIPrep*.
+Head-motion parameters with respect to the BOLD reference
+(transformation matrices, and six corresponding rotation and translation
+parameters) are estimated before any spatiotemporal filtering using
+`mcflirt` [FSL 6.0.3:b862cdd5, @mcflirt].
+The BOLD reference was then co-registered to the T1w reference using
+`flirt` [FSL 6.0.3:b862cdd5, @flirt] with the boundary-based registration [@bbr]
+cost-function.
+Co-registration was configured with nine degrees of freedom to account
+for distortions remaining in the BOLD reference.
+The BOLD time-series (including slice-timing correction when applied)
+were resampled onto their original, native space by applying
+the transforms to correct for head-motion.
+These resampled BOLD time-series will be referred to as *preprocessed
+BOLD in original space*, or just *preprocessed BOLD*.
+The CBF was quantified from  *preproccessed* ASL data using a relatively basic
+model [@detre_perfusion] [@alsop_recommended]. CBF are susceptible to artifacts
+due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
+based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
+outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
+algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
+probalility maps [@scrub_dolui].  Alternate method of CBF computation is Bayesian Inference
+for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
+principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
+of other model parameters and spatial regularization of the estimated perfusion image. BASIL
+also included correction for partial volume effects [@chappell_pvc].
+The ASL and CBF dreivatives  were resampled into standard space,
+generating a *preprocessed ASL and computed CBF in MNI152NLin2009cAsym space*.
+First, a reference volume and its skull-stripped version were generated
+ using a custom
+methodology of *fMRIPrep*.
+Several confounding time-series were calculated based on the
+*preprocessed ASL*: framewise displacement (FD) and DVARS. 
+FD and DVARS are calculated for each ASL run, both using their
+implementations in *Nipype* [following the definitions by @power_fd_dvars].
+The head-motion estimates calculated in the correction step were also
+placed within the corresponding confounds file.
+
+The following quality control (qc) measures was estimated: framewise displacement and relative
+root mean square dice index. Other qc meaure include dice and jaccard indices, cross-correlation
+and coverage that estimate the coregistration quality of  ASL and T1W images and  normalization
+quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF [@cbfqc].
+The  QEI is  automated for objective quality evaluation of CBF maps and measured the CBF quality
+based on structural similarity,spatial variability and the percentatge  of voxels with  negtaive
+CBF within Grey matter
+All resamplings can be performed with *a single interpolation
+step* by composing all the pertinent transformations (i.e. head-motion
+transform matrices, susceptibility distortion correction when available,
+and co-registrations to anatomical and output spaces).
+Gridded (volumetric) resamplings were performed using `antsApplyTransforms` (ANTs),
+configured with Lanczos interpolation to minimize the smoothing
+effects of other kernels [@lanczos].
+Non-gridded (surface) resamplings were performed using `mri_vol2surf`
+(FreeSurfer).
+
+
+
+Many internal operations of *aslprep* use
+*Nilearn* 0.6.2 [@nilearn, RRID:SCR_001362],
+mostly within the functional processing workflow.
+For more details of the pipeline, see [the section corresponding
+to workflows in *aslprep*'s documentation](https://aslprep.readthedocs.io/en/latest/workflows.html "aslprep's documentation").
+
+
+### Copyright Waiver
+
+The above boilerplate text was automatically generated by aslprep
+with the express intention that users should copy and paste this
+text into their manuscripts *unchanged*.
+It is released under the [CC0](https://creativecommons.org/publicdomain/zero/1.0/) license.
+
+### References
+
+</pre>
+</div>
+      <div class="tab-pane fade " id="LaTeX" role="tabpanel" aria-labelledby="LaTeX-tab"><pre>Results included in this manuscript come from preprocessing performed
+using \emph{aslprep} 0.2.3, which is based on \emph{Nipype} 1.5.0
+(\citet{nipype1}; \citet{nipype2}; RRID:SCR\_002502).
+
+\begin{description}
+\item[Anatomical data preprocessing]
+A total of 1 T1-weighted (T1w) images were found within the input BIDS
+dataset.The T1-weighted (T1w) image was corrected for intensity
+non-uniformity (INU) with \texttt{N4BiasFieldCorrection} \citep{n4},
+distributed with ANTs 2.3.1 \citep[RRID:SCR\_004757]{ants}, and used as
+T1w-reference throughout the workflow. The T1w-reference was then
+skull-stripped with a \emph{Nipype} implementation of the
+\texttt{antsBrainExtraction.sh} workflow (from ANTs), using OASIS30ANTs
+as target template. Brain tissue segmentation of cerebrospinal fluid
+(CSF), white-matter (WM) and gray-matter (GM) was performed on the
+brain-extracted T1w using \texttt{fast} \citep[FSL 6.0.3:b862cdd5,
+RRID:SCR\_002823,][]{fsl_fast}. Volume-based spatial normalization to
+one standard space (MNI152NLin2009cAsym) was performed through nonlinear
+registration with \texttt{antsRegistration} (ANTs 2.3.1), using
+brain-extracted versions of both T1w reference and the T1w template. The
+following template was selected for spatial normalization: \emph{ICBM
+152 Nonlinear Asymmetrical template version 2009c}
+{[}\citet{mni152nlin2009casym}, RRID:SCR\_008796; TemplateFlow ID:
+MNI152NLin2009cAsym{]},
+\item[Functional data preprocessing]
+For each of the 1 ASL runs found per subject (across all tasks and
+sessions), the following preprocessing was performed. First, a reference
+volume and its skull-stripped version were generated using a custom
+methodology of \emph{fMRIPrep}. Head-motion parameters with respect to
+the BOLD reference (transformation matrices, and six corresponding
+rotation and translation parameters) are estimated before any
+spatiotemporal filtering using \texttt{mcflirt} \citep[FSL
+6.0.3:b862cdd5,][]{mcflirt}. The BOLD reference was then co-registered
+to the T1w reference using \texttt{flirt} \citep[FSL
+6.0.3:b862cdd5,][]{flirt} with the boundary-based registration
+\citep{bbr} cost-function. Co-registration was configured with nine
+degrees of freedom to account for distortions remaining in the BOLD
+reference. The BOLD time-series (including slice-timing correction when
+applied) were resampled onto their original, native space by applying
+the transforms to correct for head-motion. These resampled BOLD
+time-series will be referred to as \emph{preprocessed BOLD in original
+space}, or just \emph{preprocessed BOLD}. The CBF was quantified from
+\emph{preproccessed} ASL data using a relatively basic model
+\citep{detre_perfusion} \citep{alsop_recommended}. CBF are susceptible
+to artifacts due to low signal to noise ratio and sensitivity to motion,
+Structural Correlation based Outlier Rejection (SCORE) algothim was
+applied to the CBF to discard few extreme outliers \citep{score_dolui}.
+Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
+algorithms was applied to the CBF by iteratively reweighted CBF with
+structural tissues probalility maps \citep{scrub_dolui}. Alternate
+method of CBF computation is Bayesian Inference for Arterial Spin
+Labeling (BASIL) as implmented in FSL which is based on Bayeisan
+inference principles \citep{chappell_basil}. BASIL computed the CBF from
+ASL incoporating natural varaibility of other model parameters and
+spatial regularization of the estimated perfusion image. BASIL also
+included correction for partial volume effects \citep{chappell_pvc}. The
+ASL and CBF dreivatives were resampled into standard space, generating a
+\emph{preprocessed ASL and computed CBF in MNI152NLin2009cAsym space}.
+First, a reference volume and its skull-stripped version were generated
+using a custom methodology of \emph{fMRIPrep}. Several confounding
+time-series were calculated based on the \emph{preprocessed ASL}:
+framewise displacement (FD) and DVARS. FD and DVARS are calculated for
+each ASL run, both using their implementations in \emph{Nipype}
+\citep[following the definitions by][]{power_fd_dvars}. The head-motion
+estimates calculated in the correction step were also placed within the
+corresponding confounds file.
+\end{description}
+
+The following quality control (qc) measures was estimated: framewise
+displacement and relative root mean square dice index. Other qc meaure
+include dice and jaccard indices, cross-correlation and coverage that
+estimate the coregistration quality of ASL and T1W images and
+normalization quality of ASL to template. Quality evaluation index (QEI)
+was also computed for CBF \citep{cbfqc}. The QEI is automated for
+objective quality evaluation of CBF maps and measured the CBF quality
+based on structural similarity,spatial variability and the percentatge
+of voxels with negtaive CBF within Grey matter All resamplings can be
+performed with \emph{a single interpolation step} by composing all the
+pertinent transformations (i.e.~head-motion transform matrices,
+susceptibility distortion correction when available, and
+co-registrations to anatomical and output spaces). Gridded (volumetric)
+resamplings were performed using \texttt{antsApplyTransforms} (ANTs),
+configured with Lanczos interpolation to minimize the smoothing effects
+of other kernels \citep{lanczos}. Non-gridded (surface) resamplings were
+performed using \texttt{mri\_vol2surf} (FreeSurfer).
+
+Many internal operations of \emph{aslprep} use \emph{Nilearn} 0.6.2
+\citep[RRID:SCR\_001362]{nilearn}, mostly within the functional
+processing workflow. For more details of the pipeline, see
+\href{https://aslprep.readthedocs.io/en/latest/workflows.html}{the
+section corresponding to workflows in \emph{aslprep}'s documentation}.
+
+\hypertarget{copyright-waiver}{%
+\subsubsection{Copyright Waiver}\label{copyright-waiver}}
+
+The above boilerplate text was automatically generated by aslprep with
+the express intention that users should copy and paste this text into
+their manuscripts \emph{unchanged}. It is released under the
+\href{https://creativecommons.org/publicdomain/zero/1.0/}{CC0} license.
+
+\hypertarget{references}{%
+\subsubsection{References}\label{references}}
+
+\bibliography{/usr/local/miniconda/lib/python3.7/site-packages/aslprep/data/boilerplate.bib}</pre>
+<h3>Bibliography</h3>
+<pre>@article{fmriprep1,
+    author = {Esteban, Oscar and Markiewicz, Christopher and Blair, Ross W and Moodie, Craig and Isik, Ayse Ilkay and Erramuzpe Aliaga, Asier and Kent, James and Goncalves, Mathias and DuPre, Elizabeth and Snyder, Madeleine and Oya, Hiroyuki and Ghosh, Satrajit and Wright, Jessey and Durnez, Joke and Poldrack, Russell and Gorgolewski, Krzysztof Jacek},
+    title = {{fMRIPrep}: a robust preprocessing pipeline for functional {MRI}},
+    year = {2018},
+    doi = {10.1038/s41592-018-0235-4},
+    journal = {Nature Methods}
+}
+
+@article{fmriprep2,
+    author = {Esteban, Oscar and Blair, Ross and Markiewicz, Christopher J. and Berleant, Shoshana L. and Moodie, Craig and Ma, Feilong and Isik, Ayse Ilkay and Erramuzpe, Asier and Kent, James D. andGoncalves, Mathias and DuPre, Elizabeth and Sitek, Kevin R. and Gomez, Daniel E. P. and Lurie, Daniel J. and Ye, Zhifang and Poldrack, Russell A. and Gorgolewski, Krzysztof J.},
+    title = {fMRIPrep},
+    year = 2018,
+    doi = {10.5281/zenodo.852659},
+    publisher = {Zenodo},
+    journal = {Software}
+}
+
+@article{nipype1,
+    author = {Gorgolewski, K. and Burns, C. D. and Madison, C. and Clark, D. and Halchenko, Y. O. and Waskom, M. L. and Ghosh, S.},
+    doi = {10.3389/fninf.2011.00013},
+    journal = {Frontiers in Neuroinformatics},
+    pages = 13,
+    shorttitle = {Nipype},
+    title = {Nipype: a flexible, lightweight and extensible neuroimaging data processing framework in Python},
+    volume = 5,
+    year = 2011
+}
+
+@article{nipype2,
+    author = {Gorgolewski, Krzysztof J. and Esteban, Oscar and Markiewicz, Christopher J. and Ziegler, Erik and Ellis, David Gage and Notter, Michael Philipp and Jarecka, Dorota and Johnson, Hans and Burns, Christopher and Manhães-Savio, Alexandre and Hamalainen, Carlo and Yvernault, Benjamin and Salo, Taylor and Jordan, Kesshi and Goncalves, Mathias and Waskom, Michael and Clark, Daniel and Wong, Jason and Loney, Fred and Modat, Marc and Dewey, Blake E and Madison, Cindee and Visconti di Oleggio Castello, Matteo and Clark, Michael G. and Dayan, Michael and Clark, Dav and Keshavan, Anisha and Pinsard, Basile and Gramfort, Alexandre and Berleant, Shoshana and Nielson, Dylan M. and Bougacha, Salma and Varoquaux, Gael and Cipollini, Ben and Markello, Ross and Rokem, Ariel and Moloney, Brendan and Halchenko, Yaroslav O. and Wassermann , Demian and Hanke, Michael and Horea, Christian and Kaczmarzyk, Jakub and Gilles de Hollander and DuPre, Elizabeth and Gillman, Ashley and Mordom, David and Buchanan, Colin and Tungaraza, Rosalia and Pauli, Wolfgang M. and Iqbal, Shariq and Sikka, Sharad and Mancini, Matteo and Schwartz, Yannick and Malone, Ian B. and Dubois, Mathieu and Frohlich, Caroline and Welch, David and Forbes, Jessica and Kent, James and Watanabe, Aimi and Cumba, Chad and Huntenburg, Julia M. and Kastman, Erik and Nichols, B. Nolan and Eshaghi, Arman and Ginsburg, Daniel and Schaefer, Alexander and Acland, Benjamin and Giavasis, Steven and Kleesiek, Jens and Erickson, Drew and Küttner, René and Haselgrove, Christian and Correa, Carlos and Ghayoor, Ali and Liem, Franz and Millman, Jarrod and Haehn, Daniel and Lai, Jeff and Zhou, Dale and Blair, Ross and Glatard, Tristan and Renfro, Mandy and Liu, Siqi and Kahn, Ari E. and Pérez-García, Fernando and Triplett, William and Lampe, Leonie and Stadler, Jörg and Kong, Xiang-Zhen and Hallquist, Michael and Chetverikov, Andrey and Salvatore, John and Park, Anne and Poldrack, Russell and Craddock, R. Cameron and Inati, Souheil and Hinds, Oliver and Cooper, Gavin and Perkins, L. Nathan and Marina, Ana and Mattfeld, Aaron and Noel, Maxime and Lukas Snoek and Matsubara, K and Cheung, Brian and Rothmei, Simon and Urchs, Sebastian and Durnez, Joke and Mertz, Fred and Geisler, Daniel and Floren, Andrew and Gerhard, Stephan and Sharp, Paul and Molina-Romero, Miguel and Weinstein, Alejandro and Broderick, William and Saase, Victor and Andberg, Sami Kristian and Harms, Robbert and Schlamp, Kai and Arias, Jaime and Papadopoulos Orfanos, Dimitri and Tarbert, Claire and Tambini, Arielle and De La Vega, Alejandro and Nickson, Thomas and Brett, Matthew and Falkiewicz, Marcel and Podranski, Kornelius and Linkersdörfer, Janosch and Flandin, Guillaume and Ort, Eduard and Shachnev, Dmitry and McNamee, Daniel and Davison, Andrew and Varada, Jan and Schwabacher, Isaac and Pellman, John and Perez-Guevara, Martin and Khanuja, Ranjeet and Pannetier, Nicolas and McDermottroe, Conor and Ghosh, Satrajit},
+    title = {Nipype},
+    year = 2018,
+    doi = {10.5281/zenodo.596855},
+    publisher = {Zenodo},
+    journal = {Software}
+}
+
+@article{n4,
+    author = {Tustison, N. J. and Avants, B. B. and Cook, P. A. and Zheng, Y. and Egan, A. and Yushkevich, P. A. and Gee, J. C.},
+    doi = {10.1109/TMI.2010.2046908},
+    issn = {0278-0062},
+    journal = {IEEE Transactions on Medical Imaging},
+    number = 6,
+    pages = {1310-1320},
+    shorttitle = {N4ITK},
+    title = {N4ITK: Improved N3 Bias Correction},
+    volume = 29,
+    year = 2010
+}
+
+@article{fs_reconall,
+    author = {Dale, Anders M. and Fischl, Bruce and Sereno, Martin I.},
+    doi = {10.1006/nimg.1998.0395},
+    issn = {1053-8119},
+    journal = {NeuroImage},
+    number = 2,
+    pages = {179-194},
+    shorttitle = {Cortical Surface-Based Analysis},
+    title = {Cortical Surface-Based Analysis: I. Segmentation and Surface Reconstruction},
+    url = {http://www.sciencedirect.com/science/article/pii/S1053811998903950},
+    volume = 9,
+    year = 1999
+}
+
+
+
+@article{mindboggle,
+    author = {Klein, Arno and Ghosh, Satrajit S. and Bao, Forrest S. and Giard, Joachim and Häme, Yrjö and Stavsky, Eliezer and Lee, Noah and Rossa, Brian and Reuter, Martin and Neto, Elias Chaibub and Keshavan, Anisha},
+    doi = {10.1371/journal.pcbi.1005350},
+    issn = {1553-7358},
+    journal = {PLOS Computational Biology},
+    number = 2,
+    pages = {e1005350},
+    title = {Mindboggling morphometry of human brains},
+    url = {http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005350},
+    volume = 13,
+    year = 2017
+}
+
+@article{mni152lin,
+    title = {A {Probabilistic} {Atlas} of the {Human} {Brain}: {Theory} and {Rationale} for {Its} {Development}: {The} {International} {Consortium} for {Brain} {Mapping} ({ICBM})},
+    author = {Mazziotta, John C. and Toga, Arthur W. and Evans, Alan and Fox, Peter and Lancaster, Jack},
+    volume = {2},
+    issn = {1053-8119},
+    shorttitle = {A {Probabilistic} {Atlas} of the {Human} {Brain}},
+    doi = {10.1006/nimg.1995.1012},
+    number = {2, Part A},
+    journal = {NeuroImage},
+    year = {1995},
+    pages = {89--101}
+}
+
+@article{mni152nlin2009casym,
+    title = {Unbiased nonlinear average age-appropriate brain templates from birth to adulthood},
+    author = {Fonov, VS and Evans, AC and McKinstry, RC and Almli, CR and Collins, DL},
+    doi = {10.1016/S1053-8119(09)70884-5},
+    journal = {NeuroImage},
+    pages = {S102},
+    volume = {47, Supplement 1},
+    year = 2009
+}
+
+@article{mni152nlin6asym,
+    author = {Evans, AC and Janke, AL and Collins, DL and Baillet, S},
+    title = {Brain templates and atlases},
+    doi = {10.1016/j.neuroimage.2012.01.024},
+    journal = {NeuroImage},
+    volume = {62},
+    number = {2},
+    pages = {911--922},
+    year = 2012
+}
+
+@article{ants,
+    author = {Avants, B.B. and Epstein, C.L. and Grossman, M. and Gee, J.C.},
+    doi = {10.1016/j.media.2007.06.004},
+    issn = {1361-8415},
+    journal = {Medical Image Analysis},
+    number = 1,
+    pages = {26-41},
+    shorttitle = {Symmetric diffeomorphic image registration with cross-correlation},
+    title = {Symmetric diffeomorphic image registration with cross-correlation: Evaluating automated labeling of elderly and neurodegenerative brain},
+    url = {http://www.sciencedirect.com/science/article/pii/S1361841507000606},
+    volume = 12,
+    year = 2008
+}
+
+@article{fsl_fast,
+    author = {Zhang, Y. and Brady, M. and Smith, S.},
+    doi = {10.1109/42.906424},
+    issn = {0278-0062},
+    journal = {IEEE Transactions on Medical Imaging},
+    number = 1,
+    pages = {45-57},
+    title = {Segmentation of brain {MR} images through a hidden Markov random field model and the expectation-maximization algorithm},
+    volume = 20,
+    year = 2001
+}
+
+
+@article{fieldmapless1,
+    author = {Wang, Sijia and Peterson, Daniel J. and Gatenby, J. C. and Li, Wenbin and Grabowski, Thomas J. and Madhyastha, Tara M.},
+    doi = {10.3389/fninf.2017.00017},
+    issn = {1662-5196},
+    journal = {Frontiers in Neuroinformatics},
+    language = {English},
+    title = {Evaluation of Field Map and Nonlinear Registration Methods for Correction of Susceptibility Artifacts in Diffusion {MRI}},
+    url = {http://journal.frontiersin.org/article/10.3389/fninf.2017.00017/full},
+    volume = 11,
+    year = 2017
+}
+
+@phdthesis{fieldmapless2,
+    address = {Berlin},
+    author = {Huntenburg, Julia M.},
+    language = {eng},
+    school = {Freie Universität},
+    title = {Evaluating nonlinear coregistration of {BOLD} {EPI} and T1w images},
+    type = {Master's Thesis},
+    url = {http://hdl.handle.net/11858/00-001M-0000-002B-1CB5-A},
+    year = 2014
+}
+
+@article{fieldmapless3,
+    author = {Treiber, Jeffrey Mark and White, Nathan S. and Steed, Tyler Christian and Bartsch, Hauke and Holland, Dominic and Farid, Nikdokht and McDonald, Carrie R. and Carter, Bob S. and Dale, Anders Martin and Chen, Clark C.},
+    doi = {10.1371/journal.pone.0152472},
+    issn = {1932-6203},
+    journal = {PLOS ONE},
+    number = 3,
+    pages = {e0152472},
+    title = {Characterization and Correction of Geometric Distortions in 814 Diffusion Weighted Images},
+    url = {http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0152472},
+    volume = 11,
+    year = 2016
+}
+
+@article{flirt,
+    title = {A global optimisation method for robust affine registration of brain images},
+    volume = {5},
+    issn = {1361-8415},
+    url = {http://www.sciencedirect.com/science/article/pii/S1361841501000366},
+    doi = {10.1016/S1361-8415(01)00036-6},
+    number = {2},
+    urldate = {2018-07-27},
+    journal = {Medical Image Analysis},
+    author = {Jenkinson, Mark and Smith, Stephen},
+    year = {2001},
+    keywords = {Affine transformation, flirt, fsl, Global optimisation, Multi-resolution search, Multimodal registration, Robustness},
+    pages = {143--156}
+}
+
+@article{mcflirt,
+    author = {Jenkinson, Mark and Bannister, Peter and Brady, Michael and Smith, Stephen},
+    doi = {10.1006/nimg.2002.1132},
+    issn = {1053-8119},
+    journal = {NeuroImage},
+    number = 2,
+    pages = {825-841},
+    title = {Improved Optimization for the Robust and Accurate Linear Registration and Motion Correction of Brain Images},
+    url = {http://www.sciencedirect.com/science/article/pii/S1053811902911328},
+    volume = 17,
+    year = 2002
+}
+
+@article{bbr,
+    author = {Greve, Douglas N and Fischl, Bruce},
+    doi = {10.1016/j.neuroimage.2009.06.060},
+    issn = {1095-9572},
+    journal = {NeuroImage},
+    number = 1,
+    pages = {63-72},
+    title = {Accurate and robust brain image alignment using boundary-based registration},
+    volume = 48,
+    year = 2009
+}
+
+@article{aroma,
+    author = {Pruim, Raimon H. R. and Mennes, Maarten and van Rooij, Daan and Llera, Alberto and Buitelaar, Jan K. and Beckmann, Christian F.},
+    doi = {10.1016/j.neuroimage.2015.02.064},
+    issn = {1053-8119},
+    journal = {NeuroImage},
+    number = {Supplement C},
+    pages = {267-277},
+    shorttitle = {ICA-AROMA},
+    title = {ICA-{AROMA}: A robust {ICA}-based strategy for removing motion artifacts from fMRI data},
+    url = {http://www.sciencedirect.com/science/article/pii/S1053811915001822},
+    volume = 112,
+    year = 2015
+}
+
+@article{power_fd_dvars,
+    author = {Power, Jonathan D. and Mitra, Anish and Laumann, Timothy O. and Snyder, Abraham Z. and Schlaggar, Bradley L. and Petersen, Steven E.},
+    doi = {10.1016/j.neuroimage.2013.08.048},
+    issn = {1053-8119},
+    journal = {NeuroImage},
+    number = {Supplement C},
+    pages = {320-341},
+    title = {Methods to detect, characterize, and remove motion artifact in resting state fMRI},
+    url = {http://www.sciencedirect.com/science/article/pii/S1053811913009117},
+    volume = 84,
+    year = 2014
+}
+
+@article{confounds_satterthwaite_2013,
+    author = {Satterthwaite, Theodore D. and Elliott, Mark A. and Gerraty, Raphael T. and Ruparel, Kosha and Loughead, James and Calkins, Monica E. and Eickhoff, Simon B. and Hakonarson, Hakon and Gur, Ruben C. and Gur, Raquel E. and Wolf, Daniel H.},
+    doi = {10.1016/j.neuroimage.2012.08.052},
+    issn = {10538119},
+    journal = {NeuroImage},
+    number = 1,
+    pages = {240--256},
+    title = {{An improved framework for confound regression and filtering for control of motion artifact in the preprocessing of resting-state functional connectivity data}},
+    url = {http://linkinghub.elsevier.com/retrieve/pii/S1053811912008609},
+    volume = 64,
+    year = 2013
+}
+
+
+@article{nilearn,
+    author = {Abraham, Alexandre and Pedregosa, Fabian and Eickenberg, Michael and Gervais, Philippe and Mueller, Andreas and Kossaifi, Jean and Gramfort, Alexandre and Thirion, Bertrand and Varoquaux, Gael},
+    doi = {10.3389/fninf.2014.00014},
+    issn = {1662-5196},
+    journal = {Frontiers in Neuroinformatics},
+    language = {English},
+    title = {Machine learning for neuroimaging with scikit-learn},
+    url = {https://www.frontiersin.org/articles/10.3389/fninf.2014.00014/full},
+    volume = 8,
+    year = 2014
+}
+
+@article{lanczos,
+    author = {Lanczos, C.},
+    doi = {10.1137/0701007},
+    issn = {0887-459X},
+    journal = {Journal of the Society for Industrial and Applied Mathematics Series B Numerical Analysis},
+    number = 1,
+    pages = {76-85},
+    title = {Evaluation of Noisy Data},
+    url = {http://epubs.siam.org/doi/10.1137/0701007},
+    volume = 1,
+    year = 1964
+}
+
+@article{compcor,
+    author = {Behzadi, Yashar and Restom, Khaled and Liau, Joy and Liu, Thomas T.},
+    doi = {10.1016/j.neuroimage.2007.04.042},
+    issn = {1053-8119},
+    journal = {NeuroImage},
+    number = 1,
+    pages = {90-101},
+    title = {A component based noise correction method ({CompCor}) for {BOLD} and perfusion based fMRI},
+    url = {http://www.sciencedirect.com/science/article/pii/S1053811907003837},
+    volume = 37,
+    year = 2007
+}
+
+@article{hcppipelines,
+    author = {Glasser, Matthew F. and Sotiropoulos, Stamatios N. and Wilson, J. Anthony and Coalson, Timothy S. and Fischl, Bruce and Andersson, Jesper L. and Xu, Junqian and Jbabdi, Saad and Webster, Matthew and Polimeni, Jonathan R. and Van Essen, David C. and Jenkinson, Mark},
+    doi = {10.1016/j.neuroimage.2013.04.127},
+    issn = {1053-8119},
+    journal = {NeuroImage},
+    pages = {105-124},
+    series = {Mapping the Connectome},
+    title = {The minimal preprocessing pipelines for the Human Connectome Project},
+    url = {http://www.sciencedirect.com/science/article/pii/S1053811913005053},
+    volume = 80,
+    year = 2013
+}
+
+@article{fs_template,
+    author = {Reuter, Martin and Rosas, Herminia Diana and Fischl, Bruce},
+    doi = {10.1016/j.neuroimage.2010.07.020},
+    journal = {NeuroImage},
+    number = 4,
+    pages = {1181-1196},
+    title = {Highly accurate inverse consistent registration: A robust approach},
+    volume = 53,
+    year = 2010
+}
+
+@article{afni,
+    author = {Cox, Robert W. and Hyde, James S.},
+    doi = {10.1002/(SICI)1099-1492(199706/08)10:4/5<171::AID-NBM453>3.0.CO;2-L},
+    journal = {NMR in Biomedicine},
+    number = {4-5},
+    pages = {171-178},
+    title = {Software tools for analysis and visualization of fMRI data},
+    volume = 10,
+    year = 1997
+}
+
+@article{posse_t2s,
+    author = {Posse, Stefan and Wiese, Stefan and Gembris, Daniel and Mathiak, Klaus and Kessler, Christoph and Grosse-Ruyken, Maria-Liisa and Elghahwagi, Barbara and Richards, Todd and Dager, Stephen R. and Kiselev, Valerij G.},
+    doi = {10.1002/(SICI)1522-2594(199907)42:1<87::AID-MRM13>3.0.CO;2-O},
+    journal = {Magnetic Resonance in Medicine},
+    number = 1,
+    pages = {87-97},
+    title = {Enhancement of {BOLD}-contrast sensitivity by single-shot multi-echo functional {MR} imaging},
+    volume = 42,
+    year = 1999
+}
+
+
+@article{cbfqc,
+    author = {Sudipto Dolui, Ronald Wolf, Seyed Ali Nabavizadeh, David A. Wolk, John A. Detre},
+    doi = {http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html},
+    journal = {International Society for Magnetic Resonance in Medicine},
+    number = 1,
+    title = {Automated Quality Evaluation Index for 2D ASL CBF Maps},
+    year = 2016
+}
+
+
+@article{score_dolui,
+	title = {Structural {Correlation}-based {Outlier} {Rejection} ({SCORE}) algorithm for arterial spin labeling time series: {SCORE}: {Denoising} {Algorithm} for {ASL}},
+	volume = 45,
+	doi = {10.1002/jmri.25436},
+	number = 6,
+	journal = {Journal of Magnetic Resonance Imaging},
+	author = {Dolui, Sudipto and Wang, Ze and Shinohara, Russell T. and Wolk, David A. and Detre, John A. and {for the Alzheimer's Disease Neuroimaging Initiative}},
+	year = 2017
+}
+
+
+@article{scrub_dolui,
+    title = {SCRUB: A Structural Correlation and Empirical Robust Bayesian Method for ASL Data},
+    doi = {http://archive.ismrm.org/2016/2880.html},
+    journal = {International Society for Magnetic Resonance in Medicine},
+    number = 1,
+    author = {Sudipto Dolui, David A. Wolk, and John A. Detre},
+    year = 2016
+}
+
+@article{chappell_basil,
+	title = {Variational Bayesian Inference for a Nonlinear Forward Model},
+	volume = 57,
+	doi = {10.1109/TSP.2008.2005752},
+	number=1,
+	journal = {IEEE Transactions on Signal Processing},
+	author = {Chappell, Michael A. and Groves, Adrian R. and Whitcher, Brandon and Woolrich, Mark W.},
+	year = 2009,
+}
+
+@article{chappell_pvc,
+	title = {Partial volume correction of multiple inversion time arterial spin labeling {MRI} data},
+	volume = 65,
+	doi = {10.1002/mrm.22641},
+	number = 4,
+	journal = {Magnetic Resonance in Medicine},
+	author = {Chappell, M. A. and Groves, A. R. and MacIntosh, B. J. and Donahue, M. J. and Jezzard, P. and Woolrich, M. W.},
+	year = 2011
+}
+
+
+@article{detre_perfusion,
+	title = {Perfusion imaging},
+	volume = 23,
+	doi = {10.1002/mrm.1910230106},
+	number = 1,
+	journal = {Magnetic Resonance in Medicine},
+	author = {Detre, John A. and Leigh, John S. and Williams, Donald S. and Koretsky, Alan P.},
+	year = 1992
+}
+
+@article{alsop_recommended,
+	title = {Recommended Implementation of Arterial Spin Labeled Perfusion {MRI} for Clinical Applications: A consensus of the {ISMRM} Perfusion Study Group and the European Consortium for ASL in Dementia},
+	doi = {10.1002/mrm.25197},
+	number=1,
+	journal = {Magnetic resonance in medicine},
+	author = {Alsop, David C. and Detre, John A. and Golay, Xavier and Günther, Matthias and Hendrikse, Jeroen and Hernandez-Garcia, Luis and Lu, Hanzhang and MacIntosh, Bradley J. and Parkes, Laura M. and Smits, Marion and van Osch, Matthias J. P. and Wang, Danny JJ and Wong, Eric C. and Zaharchuk, Greg},
+	year = 2015
+}</pre>
+</div>
+    </div>
+</div>
+
+<div id="errors">
+    <h1 class="sub-report-title">Errors</h1>
+    <p>No errors to report!</p>
+</div>
+
+
+<script type="text/javascript">
+    function toggle(id) {
+        var element = document.getElementById(id);
+        if(element.style.display == 'block')
+            element.style.display = 'none';
+        else
+            element.style.display = 'block';
+    }
+</script>
+</body>
+</html>
