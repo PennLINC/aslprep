@@ -13,4 +13,4 @@ Workflows
 ---------
 
 .. automodule:: aslprep.workflows.base
-.. automodule:: aslprep.workflows.bold
+.. automodule:: aslprep.workflows.asl

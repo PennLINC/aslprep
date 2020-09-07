@@ -8,11 +8,11 @@ Outputs of *ASLPrep*
 *ASLPrep* generates three broad classes of outcomes:
 
 1. **Visual QA (quality assessment) reports**:
-   one :abbr:`HTML (hypertext markup language)` per subject,
+   one :abbr:`HTML (hypertext markup language)` per subject and per session( if applicable),
    that allows the user a thorough visual assessment of the quality
    of processing and ensures the transparency of *ASLPrep* operation.
 
-2. **Derivatives (preprocessed data):** the input ASL data ready for
+2. **Derivatives (preprocessed data and computed CBF):** the input ASL data ready for
    analysis, (e.g., after the various preparation procedures
    have been applied.
    For example, :abbr:`INU (intensity non-uniformity)`-corrected versions
@@ -21,28 +21,25 @@ Outputs of *ASLPrep*
    the same-subject's T1w space or other standard space. Other output includes CBF derivatives 
    and post-processing data such as denoised and partial volume-corrected CBF. 
    
-
-3. **Confounds**: a special family of derivatives that can be utilized
-   for subsequent quality controls. 
+3. **Confounds and quality controls**: confounds matrixs inlcuding framewise displacement, 
+motion parameters, coregistration and registration quality indexes and cbf quality controls. 
 
 
 Visual Reports
 --------------
 *ASLPrep* outputs summary reports, written to ``<output dir>/aslprep/sub-<subject_label>.html``.
 These reports provide a quick way to make visual inspection of the results easy.
-Each report is self contained and thus can be easily shared with collaborators (for example via email).
-`View a sample report. <_static/sample_report.html>`_
+`View a sample report. <_static/sub-01.html>`_
 
 Derivatives of *ASLPrep* (preprocessed data)
 ---------------------------------------------
 Preprocessed, or derivative, data are written to
 ``<output dir>/aslprep/sub-<subject_label>/``.
-The `BIDS Derivatives RC1`_ specification describes the naming and metadata conventions we follow.
-
+The `BIDS Derivatives RC1`_ specification describes the naming and metadata conventions we follow
 Anatomical derivatives
 ~~~~~~~~~~~~~~~~~~~~~~
 Anatomical derivatives are placed in each subject's ``anat`` subfolder::
-
+These derivatives are the same as smriprep output
   sub-<subject_label>/
     anat/
       sub-<subject_label>[_space-<space_label>]_desc-preproc_T1w.nii.gz
@@ -131,10 +128,10 @@ Volumetric output space labels (``<space_label>`` above, and in the following) i
 
 **Surfaces, segmentations and parcellations from FreeSurfer:**
 If FreeSurfer reconstructions are used, the ``(aparc+)aseg`` segmentations are aligned to the
-subject's T1w space and resampled to the BOLD grid, and the BOLD series are resampled to the
+subject's T1w space and resampled to the asl grid, and the asl series are resampled to the
 mid-thickness surface mesh::
 
-  sub-<subject_label>/
+  sub-<subject_label>/``
     perf/
       sub-<subject_label>_[specifiers]_space-T1w_desc-aparcaseg_dseg.nii.gz
       sub-<subject_label>_[specifiers]_space-T1w_desc-aseg_dseg.nii.gz
@@ -143,24 +140,6 @@ mid-thickness surface mesh::
 Surface output spaces include ``fsnative`` (full density subject-specific mesh),
 ``fsaverage``, and the down-sampled meshes ``fsaverage6`` (41k vertices) and
 ``fsaverage5`` (10k vertices, default).
-
-**Grayordinates files:**
-`CIFTI <https://www.nitrc.org/forum/attachment.php?attachid=333&group_id=454&forum_id=1955>`_ is
-a container format that holds both volumetric (regularly sampled in a grid) and surface
-(sampled on a triangular mesh) samples.
-Sub-cortical time series are sampled on a regular grid derived from one MNI template, while
-cortical time series are sampled on surfaces projected from the [Glasser2016]_ template.
-If CIFTI outputs are requested (with the ``--cifti-outputs`` argument), the BOLD series are also
-saved as ``dtseries.nii`` CIFTI2 files::
-
-  sub-<subject_label>/
-    perf/
-      sub-<subject_label>_[specifiers]_asl.dtseries.nii
-
-CIFTI output resolution can be specified as an optional parameter after ``--cifti-output``.
-By default, '91k' outputs are produced and match up to the standard `HCP Pipelines`_ CIFTI
-output (91282 grayordinates @ 2mm). However, '170k' outputs are also possible, and produce
-higher resolution CIFTI output (170494 grayordinates @ 1.6mm).
 
 **Extracted confounding time series:**
 For each :abbr:`ASL (arterial spin labelling)` run processed with *ASLPrep*, an
@@ -193,7 +172,8 @@ CBF quality control
 
 The following QC measures were  estimated: framewise displacement 
 and relative root mean square (relRMS). Other QC measurers include dice and jaccard indices, 
-cross-correlation, coverage estimates of the coregistration quality of :abbr:`ASL (arterial spin labelling)` and T1w images, and normalization quality of ASL to the template. Quality evaluation index (QEI) was 
+cross-correlation, coverage estimates of the coregistration quality of :abbr:`ASL (arterial spin labelling)` 
+and T1w images, and normalization quality of ASL to the template. Quality evaluation index (QEI) was 
 also computed for CBF [Sudipto Dolui 2016]. The QEI is automated for objective quality 
 evaluation of CBF maps and measured the CBF quality based  on structural similarity,
 spatial variability, and the percentatge of voxels with negtaive CBF within grey matter
@@ -201,7 +181,7 @@ spatial variability, and the percentatge of voxels with negtaive CBF within grey
 Confounds
 ---------
 The :abbr:`ASL (arterial spin labelling)` signal measures cerebral blood flow (CBF) and noise.
-ASL, like BOLD fMRI, is subjected to artifacts induced by head motion (spin history effects). 
+ASL, like asl fMRI, is subjected to artifacts induced by head motion (spin history effects). 
 These artifacts introduce noise, which corrupts the measurement and cannot be corrected by simple realignment.
 However, the calculation of CBF from ASL data involves subtracting subsequently acquired volumes. 
 Thus, head motion over two frames contribute artifactual signal which exacerbates the confound.
@@ -249,7 +229,7 @@ Some of the estimated confounds are plotted with a "carpet" visualization of the
 An example of these plots is in progress.
 
 
-See implementation on :mod:`~aslprep.workflows.bold.confounds.init_bold_confs_wf`.
+See implementation on :mod:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`.
 
 .. topic:: References
 
