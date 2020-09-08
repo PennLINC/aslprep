@@ -27,7 +27,7 @@ volume-based statistics, etc.
 
 
 The *ASLPrep* pipeline uses a combination of tools from well-known software
-packages, including FSL_, ANTs_,FreeSurfer_ and AFNI_ .
+packages, including FSL_, ANTs_, FreeSurfer_ and AFNI_ .
 This pipeline was designed to provide the best software implementation for each
 state of preprocessing, and will be updated as newer and better neuroimaging
 software become available.
@@ -55,11 +55,6 @@ With the BIDS input, little or no parameter are required allowing ease of operat
 *ASLPrep*  also provides visual reports for each subject,
 detailing the the most important processing steps.
 
-Limitations and reasons not to use *ASLPrep*
----------------------------------------------
-
- *ASLPrep* may also not particularly suited to some scan (e.g., QUASSI) and
-   non-human brains, but researchers are welcome for contribution
 
 
 Acknowledgements
