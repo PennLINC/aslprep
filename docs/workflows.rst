@@ -260,7 +260,7 @@ After :ref:`preprocessing <_cbf_preproc>`, the pairs of labeled and control imag
 substracted from each other: 
 
 .. math::
-   ASL_{signal}= M_C - M_L 
+   ASL_{signal}= M_{C} - M_{L} 
 
 The ASL signals is shown in carpet plot below
 
