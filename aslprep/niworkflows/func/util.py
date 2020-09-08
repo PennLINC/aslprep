@@ -31,7 +31,7 @@ def init_asl_reference_wf(
     omp_nthreads,
     asl_file=None,
     sbref_files=None,
-    brainmask_thresh=0.5,
+    brainmask_thresh=0.85,
     pre_mask=False,
     multiecho=False,
     name="asl_reference_wf",
@@ -248,7 +248,7 @@ def init_enhance_and_skullstrip_asl_wf(
     brainmask_thresh=0.5,
     name="enhance_and_skullstrip_asl_wf",
     omp_nthreads=1,
-    pre_mask=False,
+    pre_mask=True,
 ):
     """
     Enhance and run brain extraction on a ASL image.
