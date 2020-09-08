@@ -380,8 +380,6 @@ The CBF map  shown below is ouput of patial volume corrected CBF computed by BAS
 
    Paritial volume corrected  CBF maps by BASIL 
 
-
-
 .. _cbf_qc:
 
 Quality Controle measures
@@ -401,7 +399,9 @@ Quality Controle measures
     wf = init_cbfqc_compt_wf(mem_gb=0.1,asl_file=str(asl_file),metadata=str(metadata),omp_nthreads=1)
 
 The  quality control (QC) measures such as FD, coregistration and nornmalization index and 
-quality evaluation index (QEI) all CBF maps.
+quality evaluation index (QEI) all CBF maps. The QEI [referece] evaulated the quality of the computed 
+CBF maps conisdering three factors: structrual similarity, spatial vairbility and percentage  of voxels in GM 
+with negative CBF. See Dolui for more information. 
 
 .. _asl_reg:
 
