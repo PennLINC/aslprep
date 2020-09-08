@@ -251,6 +251,19 @@ Preprocessed ASL in native space
     from aslprep.workflows.asl import init_asl_preproc_trans_wf
     wf = init_asl_preproc_trans_wf(mem_gb=3, omp_nthreads=1)
 
+
+ASL data consist of muiltple pairs of labeled and control images. ASLPrep first check for
+reference ASL volumes (M0,sub-task_xxxx-acq-YYY_m0scan.nii.gz). In absence of reference M0 in the 
+the scan or pair with ASL data, the average control images is used as reference. 
+
+After :ref:`preprocessing <_cbf_preproc>`, the pairs of labeled and control images are 
+substracted from each other: 
+
+.. math::
+   ASL_{signal}= M_C - M_L 
+
+The ASL signals is shown in carpet plot below
+
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
 
     The preprocessed ASL with label and control.The signal plots above the carpetotplot 
@@ -290,32 +303,79 @@ CBF Computation in native space
     wf = init_cbf_compt_wf(mem_gb=0.1,metadata=metadata, omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
 ALl the CBF derivates are computed from pre-processed :ref:`ASL <asl_preproc>`.
-This inlude CBF computation by basic model and :abbr:`BASIL (Bayesian Inference for Arterial Spin Labeling )`.
+This inlude CBF computation by basic model and (Bayesian Inference for Arterial Spin Labeling ).
 The BASIL includes spatial regularization and partial volume correction.
-The computed CBF are further denoised by :abbr:`SCORE (Structural Correlation based Outlier Rejection)`
-and :abbr:`SCRUB (Structural Correlation withRobUst Bayesian)`
+The computed CBF are further denoised by SCORE (Structural Correlation based Outlier Rejection)
+and SCRUB (Structural Correlation withRobUst Bayesian)
+
+The quantification of CBF from either single or muiltple PLD (post labelling delay) is by  relatively simple model. 
+For P/CASL(full meaning), the CBF is calculated by using general kinetic model (reference): 
+
+.. math::
+   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} \
+        {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{- \tau / T1_{blood} }) }
+
+PASL( full meaning) is also computed by the QUIPSS model (reference): 
+
+.. math::
+   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}} \
+        {2 * \alpha * TI  * M_{0}}
+
+:math:`\tau, \lambda and \alpha` are label duration,  brain-blood partition coefficient 
+and labelling efficiency respectively. In the absence of these parameters in the sidecar
+of ASL data, standard values are used base on the scan type and scanning parameters 
+(including magnetic strength)
+
+The computed CBF timeseries is shown in carpet plot below.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbftsplot_asl.svg
 
     The carpet plot of computed CBF. The step plot  above indicated the volume(s) marked by SCORE algorithm  
     to be contaminated by noise. 
 
+
+Mean CBF is computed from the average of CBF timeseries
+
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbfplot_asl.svg 
 
    Computed CBF maps 
+
+Structural Correlation based Outlier Rejection (SCORE) detects and discards few extreme outliers 
+oultier CBF volumes from the CBF timeseries. SCORE first discards CBF volumes, whose CBF within grey matter (GM) 
+means are 2.5 standard deviation away from the median of the CBF within GM means. 
+Thereafter it iteratively removes volumes that are most structurally correlated to the intermediate 
+mean CBF map unless the variance within each tissue type starts increasing (which implies an effect of 
+white noise removal as opposed to outlier rejection). 
+The mean CBF  after denoised by SCORE is plot below
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-scoreplot_asl.svg
 
    Computed CBF maps denoised by SCORE
 
+After discarding outlier CBF volumes by SCORE, SCRUB( Structural Correlation with RobUst Bayesian) uses robust Bayesian estimation 
+of CBF using iterative reweighte least square method. The SCRUB algorithm is described below: 
+
+.. math::
+   CBF_{SCRUB} =  \arg\max_{\theta} \sum_{t=1}^N \rho(CBF_{t} -\theta)  + \lambda(\theta -\mu)^2
+   \mu =\sum_{i \in Tissue type} p *\mu_{i} 
+
+:math:`CBF_{t}, \mu, \theta, and p` are CBF timeseries (after SCORE discarded extreme oultiers), 
+mean CBF, ratio temporal vairance at each voxel to overall vairance of all voxels and probability tissue maps 
+respectively. Other inlude :math:`\lambda and \rho` that represent weighting parameter and Turke's bisuare function respetively. 
+The example of CBF denoised by SCORE is shown below. 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-scrubplot_asl.svg
 
    Computed CBF maps denoised by SCRUB
 
+ASLPrep also include computation of CBF by Bayesian Inference for Arterial Spin Labeling (BASIL). BASIL also use simple kinetic model as 
+described above but used Bayesian Inference principles (refereces). BASIL mostly suitable for multi-PLD and inlude bolus arrival time estimation
+with spatial regularization [reference] and the correction of partial volume effects [reference]. 
+The sample of BASIL CBF with spatial regularization is shwon below:
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-basilplot_asl.svg
 
    Computed CBF maps by BASIL 
 
+The CBF map  shown below is ouput of patial volume corrected CBF computed by BASIL.
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-pvcplot_asl.svg
 
    Paritial volume corrected  CBF maps by BASIL 
