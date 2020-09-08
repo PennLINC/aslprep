@@ -108,7 +108,7 @@ For two images, the additional cost of estimating an unbiased template is
 trivial and is the default behavior, but three or more images may cause a significant slow-down.
 Therefore, if there are more than two images, *ASLPrep* constructs
 templates aligned to the first image, unless the ``--longitudinal`` flag is passed,
- which forces the estimation of an unbiased template.
+which forces the estimation of an unbiased template.
 
 .. note::
 
@@ -121,7 +121,7 @@ templates aligned to the first image, unless the ``--longitudinal`` flag is pass
 
 ASLPrep preprocessing
 ----------------------
-:py:func:`~aslprep.workflows.asl.base.init_func_preproc_wf`
+:py:func:`~aslprep.workflows.asl.base.init_asl_preproc_wf`
 
 .. workflow::
     :graph2use: orig
@@ -129,10 +129,10 @@ ASLPrep preprocessing
 
     from aslprep.workflows.tests import mock_config
     from aslprep import config
-    from aslprep.workflows.asl.base import init_func_preproc_wf
+    from aslprep.workflows.asl.base import init_asl_preproc_wf
     with mock_config():
         asl_file = config.execution.bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
-        wf = init_func_preproc_wf(str(asl_file))
+        wf = init_asl_preproc_wf(str(asl_file))
 
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.
@@ -193,8 +193,7 @@ Additionally, a list of 6-parameters (three rotations,
 three translations) per time-step is written and fed to the
 :ref:`confounds workflow <asl_confounds>`.
 For a more accurate estimation of head-motion, we calculate its parameters
-before any time-domain filtering (i.e., :ref:`slice-timing correction <asl_stc>`),
-as recommended in [Power2017]_.
+before any time-domain filtering (i.e., :ref:`slice-timing correction <asl_stc>`).
 
 .. _asl_stc:
 
@@ -393,9 +392,8 @@ Resampling ASL  and CBF runs onto standard spaces
         mem_gb=3,
         omp_nthreads=1,
         spaces=SpatialReferences(
-            spaces=[('MNI152Lin', {}))],
-            checkpoint=True),
-    )
+        spaces=[('MNI152Lin', {})],
+        checkpoint=True))
 
 This sub-workflow concatenates the transforms calculated upstream (see
 `Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_ if

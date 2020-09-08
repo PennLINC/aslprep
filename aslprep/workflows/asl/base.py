@@ -379,9 +379,9 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     )
     asl_asl_trans_wf.inputs.inputnode.name_source = ref_file
 
-    refinemaskj = pe.Node(refinemask(),mem_gb=0.2, 
-                                       run_without_submitting=True, 
-                                       name="refinemask")
+    #refinemaskj = pe.Node(refinemask(),mem_gb=0.2, 
+                                       #run_without_submitting=True, 
+                                       #name="refinemask")
 
     # SLICE-TIME CORRECTION (or bypass) #############################################
     if run_stc is True:  # bool('TooShort') == True, so check True explicitly

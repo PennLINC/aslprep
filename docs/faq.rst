@@ -6,7 +6,7 @@ FAQ, Tips, and Tricks
 
 
 How much CPU time and RAM should I allocate for a typical *ASLPrep* run?
------------------------------------------------------------------------
+-------------------------------------------------------------------------
 We recommend  running *ASLPrep* by processing  one subject per container instance. A typical preprocessing run
 without surface processing with FreeSurfer can be completed in less than 1 hour with 4 CPUs or in about 30 hour with 16 CPUs.
 More than 16 CPUs do not translate into faster processing times for a single subject. About 8GB of memory should be

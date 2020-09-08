@@ -31,8 +31,8 @@ write_graph = false
 
 [workflow]
 anat_only = false
-bold2t1w_dof = 6
-bold2t1w_init = "register"
+asl2t1w_dof = 6
+asl2t1w_init = "register"
 cifti_output = false
 fmap_bspline = false
 force_syn = false

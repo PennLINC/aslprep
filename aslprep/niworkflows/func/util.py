@@ -411,7 +411,7 @@ def init_enhance_and_skullstrip_asl_wf(
         from ..interfaces.nibabel import Binarize
 
         asl_template = get_template(
-            "MNI152NLin2009cAsym", resolution=2, desc="fMRIPrep", suffix="aslref"
+            "MNI152NLin2009cAsym", resolution=2, desc="fMRIPrep", suffix="boldref"
         )
         brain_mask = get_template(
             "MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask"

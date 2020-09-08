@@ -40,6 +40,7 @@ Anatomical derivatives
 ~~~~~~~~~~~~~~~~~~~~~~
 Anatomical derivatives are placed in each subject's ``anat`` subfolder::
 These derivatives are the same as smriprep output
+
   sub-<subject_label>/
     anat/
       sub-<subject_label>[_space-<space_label>]_desc-preproc_T1w.nii.gz
@@ -232,18 +233,6 @@ An example of these plots is in progress.
 See implementation on :mod:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`.
 
 .. topic:: References
-
-  
-
-  .. [Friston1996] Friston KJ1, Williams S, Howard R, Frackowiak RS, Turner R,
-     Movement‐Related effects in fMRI time‐series. Magnetic Resonance in Medicine. 1996.
-     doi:`10.1002/mrm.191035031 <https://doi.org/10.1002/mrm.1910350312>`_
-
-  .. [Glasser2016] Glasser MF, Coalson TS Robinson EC, Hacker CD, Harwell J, Yacoub E, Ugurbil K,
-     Andersson J, Beckmann CF, Jenkinson M, Smith SM, Van Essen DC.
-     A multi-modal parcellation of human cerebral cortex. Nature. 2016.
-     doi:`10.1038/nature18933 <https://doi.org/10.1038/nature18933>`_
-
   .. [Jenkinson2002] Jenkinson M, Bannister P, Brady M, Smith S. Improved optimization for the
      robust and accurate linear registration and motion correction of brain images. Neuroimage.
      2002. doi:`10.1016/s1053-8119(02)91132-8 <https://doi.org/10.1016/s1053-8119(02)91132-8>`__.

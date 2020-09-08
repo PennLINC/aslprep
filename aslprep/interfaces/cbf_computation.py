@@ -678,9 +678,9 @@ class _qccbfInputSpec(BaseInterfaceInputSpec):
     in_whiteM = File(exists=True, mandatory=True, desc='white  matter')
     in_csf = File(exists=True, mandatory=True, desc='csf')
     in_confmat = File(exists=True, mandatory=True, desc=' cofnound matrix')
-    in_boldmask = File(exists=True, mandatory=True, desc='bold mask in native space')
+    in_aslmask = File(exists=True, mandatory=True, desc='asl mask in native space')
     in_t1mask = File(exists=True, mandatory=True, desc='t1wmask in native space ')
-    in_boldmaskstd = File(exists=True, mandatory=False, desc='bold mask in native space')
+    in_aslmaskstd = File(exists=True, mandatory=False, desc='asl mask in native space')
     in_templatemask = File(exists=True, mandatory=False, desc='template mask or image')
     qc_file = File(exists=False, mandatory=False, desc='qc file ')
 
@@ -708,16 +708,16 @@ class qccbf(SimpleInterface):
         rms = time1[['rot_x', 'rot_y', 'rot_z']]
         rms1 = rms.pow(2)
         rms = np.mean(np.sqrt(rms1.sum(axis=1)/3))
-        regDC = dc(self.inputs.in_boldmask, self.inputs.in_t1mask)
-        regJC = jc(self.inputs.in_boldmask, self.inputs.in_t1mask)
-        regCC = crosscorr(self.inputs.in_boldmask, self.inputs.in_t1mask)
-        regCov = coverage(self.inputs.in_boldmask, self.inputs.in_t1mask)
+        regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regJC = jc(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regCC = crosscorr(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regCov = coverage(self.inputs.in_aslmask, self.inputs.in_t1mask)
 
-        if self.inputs.in_boldmaskstd and self.inputs.in_templatemask:
-            normDC = dc(self.inputs.in_boldmaskstd, self.inputs.in_templatemask)
-            normJC = jc(self.inputs.in_boldmaskstd, self.inputs.in_templatemask)
-            normCC = crosscorr(self.inputs.in_boldmaskstd, self.inputs.in_templatemask)
-            normCov = coverage(self.inputs.in_boldmaskstd, self.inputs.in_templatemask)
+        if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
+            normDC = dc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normJC = jc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normCC = crosscorr(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normCov = coverage(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
 
         meancbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                               csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.7)

@@ -22,30 +22,30 @@ def init_cbf_compt_wf(mem_gb, metadata, dummy_vols, omp_nthreads, smooth_kernel=
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.bold.cbf import init_cbf_compt_wf
+            from aslprep.workflows.asl.cbf import init_cbf_compt_wf
             wf = init_cbf_compt_wf(mem_gb=0.1,smooth_kernel=5,dummy_vols=0)
 
     Parameters
     ----------
     metadata : :obj:`dict`
-        BIDS metadata for BOLD file
+        BIDS metadata for asl file
     name : :obj:`str`
         Name of workflow (default: ``cbf_compt_wf``)
 
     Inputs
     ------
-    bold_file
-        BOLD series NIfTI file
-    bold_mask
-        BOLD mask NIFTI file 
+    asl_file
+        asl series NIfTI file
+    asl_mask
+        asl mask NIFTI file 
     t1w_tpms
         t1w probability maps 
     t1w_mask
         t1w mask Nifti
-    t1_bold_xform
-        t1w to bold transfromation file 
-    itk_bold_to_t1
-        bold to t1q transfromation file
+    t1_asl_xform
+        t1w to asl transfromation file 
+    itk_asl_to_t1
+        asl to t1q transfromation file
 
     Outputs
     -------
@@ -70,15 +70,15 @@ principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natur
 of other model parameters and spatial regularization of the estimated perfusion image. BASIL
 also included correction for partial volume effects [@chappell_pvc].
 """
-    inputnode = pe.Node(niu.IdentityInterface(fields=['bold_file', 'bold', 'bold_mask',
-                                                      't1w_tpms', 't1w_mask', 't1_bold_xform',
-                                                      'itk_bold_to_t1']),
+    inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'asl', 'asl_mask',
+                                                      't1w_tpms', 't1w_mask', 't1_asl_xform',
+                                                      'itk_asl_to_t1']),
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['out_cbf', 'out_mean', 'out_score',
                                                        'out_avgscore', 'out_scrub', 'out_cbfb',
                                                        'out_scoreindex', 'out_cbfpv']),
                          name='outputnode')
-    # convert tmps to bold_space
+    # convert tmps to asl_space
     csf_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
                       name='csf_tfm', mem_gb=0.1)
     wm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
@@ -117,25 +117,25 @@ also included correction for partial volume effects [@chappell_pvc].
 
     workflow.connect([
         # extract CBF data and compute cbf
-        (inputnode,  extractcbf, [('bold', 'in_file'), ('bold_file', 'bold_file')]),
+        (inputnode,  extractcbf, [('asl', 'in_file'), ('asl_file', 'asl_file')]),
         (extractcbf, computecbf, [('out_file', 'in_cbf'), ('out_avg', 'in_m0file')]),
-        # (inputnode,computecbf,[('bold_mask','in_mask')]),
-        (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('bold_mask', 'in_boldmask'),
-                                  ('t1_bold_xform', 'transforms')]),
+        # (inputnode,computecbf,[('asl_mask','in_mask')]),
+        (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
+                                  ('t1_asl_xform', 'transforms')]),
         (refinemaskj, computecbf, [('out_mask', 'in_mask')]),
         (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
         (refinemaskj, basilcbf, [('out_mask', 'mask')]),
-        (inputnode, basilcbf, [(('bold', _getfiledir), 'out_basename')]),
+        (inputnode, basilcbf, [(('asl', _getfiledir), 'out_basename')]),
         (refinemaskj, extractcbf, [('out_mask', 'in_mask')]),
         # extract probability maps
-        (inputnode, csf_tfm, [('bold_mask', 'reference_image'),
-                              ('t1_bold_xform', 'transforms')]),
+        (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+                              ('t1_asl_xform', 'transforms')]),
         (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
-        (inputnode, wm_tfm, [('bold_mask', 'reference_image'),
-                             ('t1_bold_xform', 'transforms')]),
+        (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
         (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
-        (inputnode, gm_tfm, [('bold_mask', 'reference_image'),
-                             ('t1_bold_xform', 'transforms')]),
+        (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
         (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
         (computecbf, scorescrub, [('out_cbf', 'in_file')]),
         (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
@@ -144,7 +144,7 @@ also included correction for partial volume effects [@chappell_pvc].
         (extractcbf, basilcbf, [('out_file', 'in_file')]),
         (gm_tfm, basilcbf, [('output_image', 'pvgm')]),
         (wm_tfm, basilcbf, [('output_image', 'pvwm')]),
-        # (inputnode,basilcbf,[('bold_mask','mask')]),
+        # (inputnode,basilcbf,[('asl_mask','mask')]),
         (extractcbf, basilcbf, [('out_avg', 'mzero')]),
         (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
                                 ('out_cbfpv', 'out_cbfpv')]),
@@ -164,7 +164,7 @@ def pcaslorasl(metadata):
     return pcasl
 
 
-def init_cbfqc_compt_wf(mem_gb, bold_file, metadata, omp_nthreads, name='cbfqc_compt_wf'):
+def init_cbfqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads, name='cbfqc_compt_wf'):
     """
     Create a workflow for :abbr:`cbfqc( compute cbf)`.
 
@@ -173,13 +173,13 @@ def init_cbfqc_compt_wf(mem_gb, bold_file, metadata, omp_nthreads, name='cbfqc_c
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.bold.cbf import init_cbfqc_compt_wf
+            from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
             wf = init_cbfqc_compt_wf(mem_gb=0.1)
 
     Parameters
     ----------
     metadata : :obj:`dict`
-        BIDS metadata for BOLD file
+        BIDS metadata for asl file
     name : :obj:`str`
         Name of workflow (default: ``cbfqc_compt_wf'``)
 
@@ -187,12 +187,12 @@ def init_cbfqc_compt_wf(mem_gb, bold_file, metadata, omp_nthreads, name='cbfqc_c
     ------
     *cbf
         all cbf 
-    bold_mask
-        BOLD mask NIFTI file 
+    asl_mask
+        asl mask NIFTI file 
     t1w_tpms
         t1w probability maps 
-    t1_bold_xform
-        t1w to bold transfromation file 
+    t1_asl_xform
+        t1w to asl transfromation file 
 
     Outputs
     -------
@@ -212,8 +212,8 @@ based on structural similarity,spatial variability and the percentatge  of voxel
 CBF within Grey matter
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
-                                                      'bold_mask', 't1w_tpms',  'confmat',
-                                                      'bold_mask_std', 't1_bold_xform', 'pv',
+                                                      'asl_mask', 't1w_tpms',  'confmat',
+                                                      'asl_mask_std', 't1_asl_xform', 'pv',
                                                       't1w_mask']),
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['qc_file']), name='outputnode')
@@ -245,26 +245,26 @@ CBF within Grey matter
     resample = pe.Node(Resample(in_file=brain_mask, outputtype='NIFTI_GZ'),
                        name='resample', mem_gb=0.1)
 
-    qccompute = pe.Node(qccbf(in_file=bold_file), name='qccompute',
+    qccompute = pe.Node(qccbf(in_file=asl_file), name='qccompute',
                         run_without_submitting=True, mem_gb=0.2)
 
-    workflow.connect([(inputnode, csf_tfm, [('bold_mask', 'reference_image'),
-                                            ('t1_bold_xform', 'transforms')]),
+    workflow.connect([(inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+                                            ('t1_asl_xform', 'transforms')]),
                       (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
-                      (inputnode, wm_tfm, [('bold_mask', 'reference_image'),
-                                           ('t1_bold_xform', 'transforms')]),
+                      (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+                                           ('t1_asl_xform', 'transforms')]),
                       (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
-                      (inputnode, gm_tfm, [('bold_mask', 'reference_image'),
-                                           ('t1_bold_xform', 'transforms')]),
+                      (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+                                           ('t1_asl_xform', 'transforms')]),
                       (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
-                      (inputnode, mask_tfm, [('bold_mask', 'reference_image'),
-                                             ('t1_bold_xform', 'transforms'),
+                      (inputnode, mask_tfm, [('asl_mask', 'reference_image'),
+                                             ('t1_asl_xform', 'transforms'),
                                              ('t1w_mask', 'input_image')]),
                       (mask_tfm, qccompute, [('output_image', 'in_t1mask')]),
-                      (inputnode, qccompute, [('bold_mask', 'in_boldmask'),
+                      (inputnode, qccompute, [('asl_mask', 'in_aslmask'),
                                               ('confmat', 'in_confmat')]),
-                      (inputnode, qccompute, [(('bold_mask_std', _pick_csf), 'in_boldmaskstd')]),
-                      (inputnode, resample, [(('bold_mask_std', _pick_csf), 'master')]),
+                      (inputnode, qccompute, [(('asl_mask_std', _pick_csf), 'in_aslmaskstd')]),
+                      (inputnode, resample, [(('asl_mask_std', _pick_csf), 'master')]),
                       (resample, qccompute, [('out_file', 'in_templatemask')]),
                       (gm_tfm, qccompute, [('output_image', 'in_greyM')]),
                       (wm_tfm, qccompute, [('output_image', 'in_whiteM')]),
@@ -282,8 +282,8 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['cbf', 'cbf_ts', 'score_ts', 'score',
-                                                      'scrub', 'bold_ref', 'basil', 'pvc',
-                                                      'bold_mask', 't1_bold_xform', 'std2anat_xfm',
+                                                      'scrub', 'asl_ref', 'basil', 'pvc',
+                                                      'asl_mask', 't1_asl_xform', 'std2anat_xfm',
                                                       'confounds_file', 'scoreindex']),
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['cbf_carpetplot', 'score_carpetplot',
@@ -336,8 +336,8 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
         name='ds_report_pvcplot', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)
 
-    workflow.connect([(inputnode, mrg_xfms, [('t1_bold_xform', 'in1'), ('std2anat_xfm', 'in2')]),
-                      (inputnode, resample_parc, [('bold_mask', 'reference_image')]),
+    workflow.connect([(inputnode, mrg_xfms, [('t1_asl_xform', 'in1'), ('std2anat_xfm', 'in2')]),
+                      (inputnode, resample_parc, [('asl_mask', 'reference_image')]),
                       (mrg_xfms, resample_parc, [('out', 'transforms')]),
                       (resample_parc, cbftssummary, [('output_image', 'seg_file')]),
                       (inputnode, cbftssummary, [('cbf_ts', 'cbf_ts'),
@@ -345,19 +345,19 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
                                                  ('scoreindex', 'score_file')]),
                       (cbftssummary, ds_report_cbftsplot, [('out_file', 'in_file')]),
                       (cbftssummary, outputnode, [('out_file', 'cbf_carpetplot')]),
-                      (inputnode, cbfsummary, [('cbf', 'cbf'), ('bold_ref', 'ref_vol')]),
+                      (inputnode, cbfsummary, [('cbf', 'cbf'), ('asl_ref', 'ref_vol')]),
                       (cbfsummary, ds_report_cbfplot, [('out_file', 'in_file')]),
                       (cbfsummary, outputnode, [('out_file', 'cbf_summary_plot')]),
-                      (inputnode, scoresummary, [('score', 'cbf'), ('bold_ref', 'ref_vol')]),
+                      (inputnode, scoresummary, [('score', 'cbf'), ('asl_ref', 'ref_vol')]),
                       (scoresummary, ds_report_scoreplot, [('out_file', 'in_file')]),
                       (scoresummary, outputnode, [('out_file', 'score_summary_plot')]),
-                      (inputnode, scrubsummary, [('scrub', 'cbf'), ('bold_ref', 'ref_vol')]),
+                      (inputnode, scrubsummary, [('scrub', 'cbf'), ('asl_ref', 'ref_vol')]),
                       (scrubsummary, ds_report_scrubplot, [('out_file', 'in_file')]),
                       (scrubsummary, outputnode, [('out_file', 'scrub_summary_plot')]),
-                      (inputnode, basilsummary, [('basil', 'cbf'), ('bold_ref', 'ref_vol')]),
+                      (inputnode, basilsummary, [('basil', 'cbf'), ('asl_ref', 'ref_vol')]),
                       (basilsummary, ds_report_basilplot, [('out_file', 'in_file')]),
                       (basilsummary, outputnode, [('out_file', 'basil_summary_plot')]),
-                      (inputnode, pvcsummary, [('pvc', 'cbf'), ('bold_ref', 'ref_vol')]),
+                      (inputnode, pvcsummary, [('pvc', 'cbf'), ('asl_ref', 'ref_vol')]),
                       (pvcsummary, ds_report_pvcplot, [('out_file', 'in_file')]),
                       (pvcsummary, outputnode, [('out_file', 'pvc_summary_plot')]),
 
@@ -368,7 +368,7 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
 def init_cbfroiquant_wf(mem_gb, omp_nthreads, name='cbf_roiquant'):
     workflow = Workflow(name=name)
     inputnode = pe.Node(niu.IdentityInterface(fields=['cbf', 'score', 'scrub', 'basil', 'pvc',
-                                                      'boldmask', 't1_bold_xform',
+                                                      'aslmask', 't1_asl_xform',
                                                       'std2anat_xfm']),
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(
@@ -433,17 +433,17 @@ def init_cbfroiquant_wf(mem_gb, omp_nthreads, name='cbf_roiquant'):
     pvc407 = pe.Node(cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name='pvc407')
     pvc417 = pe.Node(cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name='pvc417')
 
-    workflow.connect([(inputnode, mrg_xfms, [('t1_bold_xform', 'in1'),
+    workflow.connect([(inputnode, mrg_xfms, [('t1_asl_xform', 'in1'),
                                              ('std2anat_xfm', 'in2')]),
-                      (inputnode, hvoftrans, [('boldmask', 'reference_image')]),
+                      (inputnode, hvoftrans, [('aslmask', 'reference_image')]),
                       (mrg_xfms, hvoftrans, [('out', 'transforms')]),
-                      (inputnode, sc207trans, [('boldmask', 'reference_image')]),
+                      (inputnode, sc207trans, [('aslmask', 'reference_image')]),
                       (mrg_xfms, sc207trans, [('out', 'transforms')]),
-                      (inputnode, sc217trans, [('boldmask', 'reference_image')]),
+                      (inputnode, sc217trans, [('aslmask', 'reference_image')]),
                       (mrg_xfms, sc217trans, [('out', 'transforms')]),
-                      (inputnode, sc407trans, [('boldmask', 'reference_image')]),
+                      (inputnode, sc407trans, [('aslmask', 'reference_image')]),
                       (mrg_xfms, sc407trans, [('out', 'transforms')]),
-                      (inputnode, sc417trans, [('boldmask', 'reference_image')]),
+                      (inputnode, sc417trans, [('aslmask', 'reference_image')]),
                       (mrg_xfms, sc417trans, [('out', 'transforms')]),
                       (hvoftrans, cbfroihv, [('output_image', 'atlasfile')]),
                       (hvoftrans, scorehv, [('output_image', 'atlasfile')]),

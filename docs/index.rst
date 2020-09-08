@@ -27,6 +27,5 @@ Contents
    spaces
    faq
    contributors
-   citing
    api
    changes

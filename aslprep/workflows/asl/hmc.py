@@ -1,10 +1,10 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """
-Head-Motion Estimation and Correction (HMC) of BOLD images
+Head-Motion Estimation and Correction (HMC) of ASL images
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autofunction:: init_bold_hmc_wf
+.. autofunction:: init_asl_hmc_wf
 
 """
 
@@ -55,7 +55,7 @@ def init_asl_hmc_wf(mem_gb, omp_nthreads, name='asl_hmc_wf'):
     movpar_file
         MCFLIRT motion parameters, normalized to SPM format (X, Y, Z, Rx, Ry, Rz)
     rms_file
-        Framewise displacement as measured by ``fsl_motion_outliers`` [Jenkinson2002]_.
+        Framewise displacement as measured by ``fsl_motion_outliers``
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow

@@ -41,7 +41,7 @@ These tools must be installed and their binaries available in the
 system's ``$PATH``.
 A relatively interpretable description of how your environment can be set up
 is found in the `Dockerfile <https://github.com/pennlinc/aslprep/blob/master/Dockerfile>`_.
-As an additional installation setting, FreeSurfer requires a license file (see :ref:`fs_license`).
+As an additional installation setting, FreeSurfer requires a license file.
 
 In a functional Python 3.7 (or above) environment with ``pip`` installed,
 *ASLPRep* can be installed using the habitual command ::

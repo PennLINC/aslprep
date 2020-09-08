@@ -36,7 +36,7 @@ as output space. Valid template identifiers can be used from the
 
 However, many users will be interested in utilizing a coarse gridding (typically 2mm isotropic)
 of the target template.Such a behavior can be achieved applying modifiers to the template identifier,
- separated by a ``:`` character.
+separated by a ``:`` character.
 
 For instance, ``--output-spaces MNI152NLin6Asym:res-2` will generate
 ASL and CBF on standard space (``MNI152NLin6Asym``) with the template's 2mm 

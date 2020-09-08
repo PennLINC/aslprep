@@ -31,7 +31,7 @@ Handling environment variables
 Singularity by default  interacts with all environment variables from the host.  
 The host libraries could be accidentally conflict with singularity vairables.
 To avoid such a situation, it is recommended using the ``--cleanenv or -e``.
- For example: ::
+For example: ::
 
     $ singularity run --cleanenv aslprep.simg \
       /work/789/asdf/ $WORK/output \
