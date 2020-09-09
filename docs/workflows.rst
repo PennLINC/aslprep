@@ -5,7 +5,7 @@ ASL processing pipeline details
 ===============================
 *ASLPrep* adapts its pipeline depending on what data and metadata are
 available and are used as the input. It requires the input data to be 
-bids validated. 
+bids validated with necessary ASL parameters. 
 
 
 .. workflow::
@@ -18,11 +18,13 @@ bids validated.
     BIDSLayout = namedtuple('BIDSLayout', ('root'))
     wf = init_single_subject_wf('01')
 
-Preprocessing of structural MRI
--------------------------------
-The anatomical sub-workflow is from :ref:`sMRIPrep`. It  first constructs an average image by
-conforming all found T1w images to a common voxel size, and, in the case of 
-multiple images, averages them into a single reference template.
+
+Structural Preprocessing
+------------------------
+The anatomical sub-workflow is from `sMRIPrep <https://github.com/nipreps/smriprep>`_. 
+It  first constructs an average image byconforming all found T1w images 
+to a common voxel size, and, in the case of multiple images, 
+averages them into a single reference template.
 
 .. workflow::
     :graph2use: orig
@@ -94,7 +96,7 @@ be set to resample the preprocessed data onto the final output spaces.
 
 
 
-ASLPrep preprocessing
+ASL preprocessing
 ----------------------
 :py:func:`~aslprep.workflows.asl.base.init_asl_preproc_wf`
 
@@ -189,6 +191,27 @@ All slices are realigned in time to the middle of each TR.
 Slice time correction can be disabled with the ``--ignore slicetiming``
 command line argument.
 
+.. _asl_confounds:
+
+Confounds estimation
+~~~~~~~~~~~~~~~~~~~~
+:py:func:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`
+
+.. workflow::
+    :graph2use: colored
+    :simple_form: yes
+
+    from aslprep.workflows.asl.confounds import init_asl_confs_wf
+    wf = init_asl_confs_wf(
+        name="confound_wf",
+        mem_gb=1,
+        metadata={"RepetitionTime": 2.0,
+                  "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.9, 0.5, 0.6, 0.7]},
+    )
+
+
+Calculated confounds include Frame-wise Displacement, 6 motion parameters, and DVARS.
+
 
 
 Susceptibility Distortion Correction (SDC)
@@ -241,7 +264,7 @@ Interpolation uses a Lanczos kernel.
 .. _cbf_preproc:
 
 CBF Computation in native space
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
 :py:func:`~aslprep.workflows.asl.cbf.init_cbf_compt_wf`
 
 .. workflow::
@@ -259,30 +282,32 @@ CBF Computation in native space
     wf = init_cbf_compt_wf(mem_gb=0.1,metadata=metadata, omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
 ASL data consist of multiple pairs of labeled and control images. ASLPrep first checks for
-the  reference ASL volume(s) (M0,``sub-task_xxxx-acq-YYY_m0scan.nii.gz```). In the absence of M0, 
+the  reference ASL volume(s) (M0,``sub-task_xxxx-acq-YYY_m0scan.nii.gz``). In the absence of M0, 
 the average of control images is used as reference image. 
 
-After :ref:`preprocessing <_asl_preproc>`, the pairs of labeled and control images are 
+After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are 
 substracted: 
+
 .. math::
    ASL_{signal}= M_{C} - M_{L} 
 
 The  CBF computation of  either single or muiltple PLD (post labelling delay) 
-is by  relatively simple model. For P/CASL(pseudio continuous ASL), the CBF 
-is calculated by using general kinetic model([Buxton1998]_): 
+is by  relatively simple model. For P/CASL(pseudo continuous ASL), the CBF 
+is calculated by using general kinetic model [Buxton1998]_: 
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} \
-        {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{- \tau / T1_{blood} }) }
+   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{- \tau / T1_{blood} }) }
 
-PASL(Paused ASL) is also computed by the QUIPSS model ([Wong1998]_): 
+
+PASL(Pulsed ASL) is also computed by the QUIPSS model [Wong1998]_: 
+
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}} \
-        {2 * \alpha * TI  * M_{0}}
+   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * TI  * M_{0}}
+
 
 :math:`\tau, \lambda and \alpha` are label duration,  brain-blood partition coefficient 
-and labelling efficiency respectively. In the absence of any of  these parameters, 
+and labeling efficiency respectively. In the absence of any of  these parameters, 
 standard values are used base on the scan type and scanning parameters. 
 
 The computed CBF timeseries is shown in carpet plot below.
@@ -303,56 +328,62 @@ Mean CBF is computed from the average of CBF timeseries
 Structural Correlation based Outlier Rejection(SCORE) ([Dolui2017]_)detects and discards 
 few extreme outliers CBF volume(s) from the CBF timeseries. 
 SCORE first discards CBF volumes, whose CBF within grey matter (GM) 
-means are 2.5 standard deviation away from the median of the CBF within GM. 
+means are 2.5 of standard deviation away from the median of the CBF within GM. 
 Thereafter, it iteratively removes volumes that are most structurally correlated 
 to the intermediate mean CBF map unless the variance within each 
 tissue type starts increasing (which implies an effect of white noise removal 
 as opposed to outlier rejection). 
 
 The mean CBF  after denoised by SCORE is plot below
+
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-scoreplot_asl.svg
 
    Computed CBF maps denoised by SCORE
 
+
 After discarding extreme outlier (if present) CBF volume(s) by SCORE, 
 SCRUB (Structural Correlation with RobUst Bayesian) uses robust Bayesian estimation 
-of CBF using iterative reweighted least square method [Dolui2016]_. 
+of CBF using iterative reweighted least square method [Dolui2016]_ to denoised CBF . 
 The SCRUB algorithm is described below: 
 
 .. math::
    CBF_{SCRUB} =  \arg\max_{\theta} \sum_{t=1}^N \rho(CBF_{t} -\theta)  + \lambda(\theta -\mu)^2
+
    \mu =\sum_{i \in Tissue type} p *\mu_{i} 
 
-:math:`CBF_{t}, \mu, \theta, and p` are CBF timeseries (after SCORE discarded extreme oultiers, if there is any), 
+:math:`CBF_{t},  \mu,  \theta,  and  p` are CBF timeseries (after SCORE discarded extreme oultiers, if there is any), 
 mean CBF, ratio temporal vairance at each voxel to overall vairance of all voxels and probability tissue maps 
 respectively. Other include :math:`\lambda and \rho` that represent weighting parameter 
 and Turkey's bisquare function respetively.
 
-The example of CBF denoised by SCORE is shown below. 
+The example of CBF denoised by SCRUB is shown below. 
+
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-scrubplot_asl.svg
 
    Computed CBF maps denoised by SCRUB
 
-ASLPrep also include computation of CBF by Bayesian Inference for Arterial Spin Labeling 
+ASLPrep also includes computation of CBF by Bayesian Inference for Arterial Spin Labeling 
 `(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_. BASIL also use simple kinetic model as 
-described above but use Bayesian Inference principles ([Chappell2009]_). 
+described above but uses Bayesian Inference principles ([Chappell2009]_). 
 BASIL mostly suitable for multi-PLD and include bolus arrival time estimation
 with spatial regularization [Groves2009]_ and the correction of partial volume effects [Chappell2011]_. 
 
 The sample of BASIL CBF with spatial regularization is shwon below:
+
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-basilplot_asl.svg
 
    Computed CBF maps by BASIL 
 
-The CBF map  shown below is ouput of patial volume corrected CBF computed by BASIL.
+The CBF map  shown below is output of patial volume corrected CBF computed by BASIL.
+
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-pvcplot_asl.svg
 
    Paritial volume corrected  CBF maps by BASIL 
 
 .. _cbf_qc:
 
-Quality Controle measures
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Quality control measures
+-------------------------
 :py:func:`~aslprep.workflows.asl.cbf.init_cbfqc_compt_wf`
 
 .. workflow::
@@ -375,7 +406,7 @@ with negative CBF.
 .. _asl_reg:
 
 ASL and CBF to T1w registration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
 :py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
 
 .. workflow::
@@ -429,7 +460,7 @@ Resampling ASL  and CBF runs onto standard spaces
 This sub-workflow concatenates the transforms calculated upstream (see
 `Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_ if
 fieldmaps are available, and an anatomical-to-standard
-transform from `Preprocessing of structural MRI`_ to map the
+transform from `Structural Preprocessing`_ to map the
 ASL and CBF images to the standard spaces given by the ``--output-spaces`` argument
 (see :ref:`output-spaces`).
 It also maps the T1w-based mask to each of those standard spaces.
@@ -437,29 +468,9 @@ It also maps the T1w-based mask to each of those standard spaces.
 Transforms are concatenated and applied all at once, with one interpolation (Lanczos)
 step, so as little information is lost as possible.
 
-.. _asl_confounds:
-
-Confounds estimation
-~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`
-
-.. workflow::
-    :graph2use: colored
-    :simple_form: yes
-
-    from aslprep.workflows.asl.confounds import init_asl_confs_wf
-    wf = init_asl_confs_wf(
-        name="confound_wf",
-        mem_gb=1,
-        metadata={"RepetitionTime": 2.0,
-                  "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.9, 0.5, 0.6, 0.7]},
-    )
-
-
-Calculated confounds include Frame-wise Displacement, 6 motion parameters, and DVARS.
-
 
 .. topic:: References
+
   .. [Buxton1998] Buxton R.B., Frank L.R., Wong E.C., Siewert B, Warach S, Edelman R.R. 
       A general kinetic model for quantitative perfusion imaging with arterial spin
       labeling. Magn Reson Med. 1998;40(3):383-396. 
@@ -493,8 +504,3 @@ Calculated confounds include Frame-wise Displacement, 6 motion parameters, and D
 
   .. [Dolui2017b] Dolui S.,  Wolf R. & Nabavizadeh S., David W., Detre, J. (2017). 
      Automated Quality Evaluation Index for 2D ASL CBF Maps. ISMR 2017
-     doi:` indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html 
-     <http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html>`_
-
- 
-

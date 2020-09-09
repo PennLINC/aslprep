@@ -39,8 +39,6 @@ For example: ::
 
 
 
-
-
 Command-Line Arguments
 ----------------------
 
