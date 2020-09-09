@@ -2,7 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """
 
-Pre-processing fASL - ASl signal workflows
+Pre-processing ASL - ASL signal workflows
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: aslprep.workflows.asl.base
@@ -51,7 +51,7 @@ __all__ = [
     'init_asl_surf_wf',
     'init_asl_t1_trans_wf',
     'init_asl_t2s_wf',
-    'init_func_preproc_wf',
+    'init_asl_preproc_wf',
     'init_cbf_compt_wf',
     'init_cbfqc_compt_wf',
     'init_cbfplot_wf',

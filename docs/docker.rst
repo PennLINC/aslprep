@@ -7,8 +7,7 @@ Running *ASLPrep* via Docker containers
 For every new version of *ASLPrep* that is released, a corresponding Docker
 image is generated.
 
-In order to run *ASLPrep* Docker images, the Docker Engine must be installed
-(see :ref:`installation_docker`).
+In order to run *ASLPrep* Docker images, the Docker Engine must be installed.
 
 If you have used *ASLPrep* via Docker in the past, you might need to pull down a
 more recent version of the image: ::
@@ -18,7 +17,7 @@ more recent version of the image: ::
 The *ASLPrep* can be run interacting directly with the Docker Engine via the `docker run`
 command line, or through a lightweight wrapper that was created for convenience.
 
-ref:`usage`),
+ref:`Usage`),
 automatically translating directories into Docker mount points.
 
 

@@ -18,7 +18,7 @@ SUBJECT_TEMPLATE = """\
 \t<ul class="elem-desc">
 \t\t<li>Subject ID: {subject_id}</li>
 \t\t<li>Structural images: {n_t1s:d} T1-weighted {t2w}</li>
-\t\t<li>ASL series: {n_bold:d}</li>
+\t\t<li>ASL series: {n_asl:d}</li>
 {tasks}
 \t\t<li>Standard output spaces: {std_spaces}</li>
 \t\t<li>Non-standard output spaces: {nstd_spaces}</li>
@@ -78,9 +78,9 @@ class SubjectSummaryInputSpec(BaseInterfaceInputSpec):
     t2w = InputMultiObject(File(exists=True), desc='T2w structural images')
     subjects_dir = Directory(desc='FreeSurfer subjects directory')
     subject_id = Str(desc='Subject ID')
-    bold = InputMultiObject(traits.Either(
+    asl = InputMultiObject(traits.Either(
         File(exists=True), traits.List(File(exists=True))),
-        desc='BOLD functional series')
+        desc='ASL functional series')
     std_spaces = traits.List(Str, desc='list of standard spaces')
     nstd_spaces = traits.List(Str, desc='list of non-standard spaces')
 

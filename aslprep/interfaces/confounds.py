@@ -169,7 +169,7 @@ def _gather_confounds(signals=None, dvars=None, std_dvars=None, fdisp=None,
 
 
 class ASLSummaryInputSpec(BaseInterfaceInputSpec):
-    in_asl = File(exists=True, mandatory=True,
+    in_func = File(exists=True, mandatory=True,
                    desc='input ASL time-series (4D file)')
     in_mask = File(exists=True,
                    desc='3D brain mask')

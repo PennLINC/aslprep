@@ -100,7 +100,6 @@ if not any((
     os.environ["PYTHONWARNINGS"] = "ignore"
 elif os.getenv("aslprep_WARNINGS", "0").lower() in ("1", "on", "true", "y", "yes"):
     # allow disabling warnings on development versions
-    # https://github.com/poldracklab/aslprep/pull/2080#discussion_r409118765
     from ._warnings import logging
 else:
     import logging
@@ -413,16 +412,12 @@ class workflow(_Config):
 
     anat_only = False
     """Execute the anatomical preprocessing only."""
-    aroma_err_on_warn = None
-    """Cast AROMA warnings to errors."""
-    aroma_melodic_dim = None
-    """Number of ICA components to be estimated by MELODIC
-    (positive = exact, negative = maximum)."""
-    bold2t1w_dof = None
-    """Degrees of freedom of the BOLD-to-T1w registration steps."""
-    bold2t1w_init = 'register'
+
+    asl2t1w_dof = 6
+    """Degrees of freedom of the ASL-to-T1w registration steps."""
+    asl2t1w_init = 'register'
     """Whether to use standard coregistration ('register') or to initialize coregistration from the
-    BOLD image-header ('header')."""
+    ASL image-header ('header')."""
     cifti_output = None
     """Generate HCP Grayordinates, accepts either ``'91k'`` (default) or ``'170k'``."""
     dummy_scans = None
@@ -443,12 +438,6 @@ class workflow(_Config):
     """Master random seed to initialize the Pseudorandom Number Generator (PRNG)"""
     medial_surface_nan = None
     """Fill medial surface with :abbr:`NaNs (not-a-number)` when sampling."""
-    regressors_all_comps = None
-    """Return all CompCor components."""
-    regressors_dvars_th = None
-    """Threshold for DVARS."""
-    regressors_fd_th = None
-    """Threshold for :abbr:`FD (frame-wise displacement)`."""
     run_reconall = True
     """Run FreeSurfer's surface reconstruction."""
     skull_strip_fixed_seed = False
@@ -461,10 +450,8 @@ class workflow(_Config):
     spaces = None
     """Keeps the :py:class:`~.niworkflows.utils.spaces.SpatialReferences`
     instance keeping standard and nonstandard spaces."""
-    use_aroma = None
-    """Run ICA-:abbr:`AROMA (automatic removal of motion artifacts)`."""
     use_bbr = None
-    """Run boundary-based registration for BOLD-to-T1w registration."""
+    """Run boundary-based registration for ASL-to-T1w registration."""
     use_syn_sdc = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation
     in the absence of any alternatives."""
@@ -614,15 +601,7 @@ def init_spaces(checkpoint=True):
         spaces.add(
             Reference("MNI152NLin2009cAsym", {})
         )
-
-    # Ensure user-defined spatial references for outputs are correctly parsed.
-    # Certain options require normalization to a space not explicitly defined by users.
-    # These spaces will not be included in the final outputs.
-    if workflow.use_aroma:
-        # Make sure there's a normalization to FSL for AROMA to use.
-        spaces.add(
-            Reference("MNI152NLin6Asym", {"res": "2"})
-        )
+    
 
     cifti_output = workflow.cifti_output
     if cifti_output:

@@ -7,5 +7,5 @@ in the *ASLPrep* distribution.
 
 All trademarks referenced herein are property of their respective holders.
 
-Copyright (c) 2019-2020, the *ASLPrep* developers and the PENN LINC.
+Copyright (c) 2019-2020, Azeez Adebimpe
 All rights reserved.

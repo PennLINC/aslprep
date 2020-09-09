@@ -269,7 +269,7 @@ any spatial references."""
         "--force-bbr",
         action="store_true",
         dest="use_bbr",
-        default=True,
+        default=False,
         help="Always use boundary-based registration (no goodness-of-fit checks)",
     )
     g_conf.add_argument(

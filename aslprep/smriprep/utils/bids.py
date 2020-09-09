@@ -23,7 +23,7 @@ def get_outputnode_spec():
     'surfaces']
 
     """
-    spec = loads(Path(pkgrf('smriprep', 'data/io_spec.json')).read_text())["queries"]
+    spec = loads(Path(pkgrf('aslprep', 'smriprep/data/io_spec.json')).read_text())["queries"]
     fields = ['_'.join((m, s)) for m in ('t1w', 'std') for s in spec["baseline"].keys()]
     fields += [s for s in spec["std_xfms"].keys()]
     fields += [s for s in spec["surfaces"].keys()]
@@ -68,7 +68,7 @@ def predict_derivatives(subject_id, output_spaces, freesurfer):
      'sub-01/anat/sub-01_space-MNI152NLin2009cAsym_label-WM_probseg.nii.gz']
 
     """
-    spec = loads(Path(pkgrf('smriprep', 'data/io_spec.json')).read_text())
+    spec = loads(Path(pkgrf('aslprep', 'smriprep/data/io_spec.json')).read_text())
 
     def _normalize_q(query, space=None):
         query = query.copy()

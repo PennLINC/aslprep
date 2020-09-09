@@ -6,7 +6,7 @@ Installation
 
 There are two ways to get *ASLPrep* installed:
 
-* within a  `Manually Prepared Environment (Python 3.7+)`_ 
+* within a  `Computer or HPC installation`_ 
 
 * using container technologies (RECOMMENDED), such as :ref:`run_docker`
   or :ref:`run_singularity`.
@@ -28,8 +28,8 @@ The command-line structure above is then modified as follows:
        <input_bids_path> <derivatives_path> <analysis_level> <ASLPrep_named_options>
 
 
-Manually Prepared Environment (Python 3.7+)
-===========================================
+Computer or HPC installation
+============================
 
 .. warning::
 
@@ -41,7 +41,7 @@ These tools must be installed and their binaries available in the
 system's ``$PATH``.
 A relatively interpretable description of how your environment can be set up
 is found in the `Dockerfile <https://github.com/pennlinc/aslprep/blob/master/Dockerfile>`_.
-As an additional installation setting, FreeSurfer requires a license file (see :ref:`fs_license`).
+As an additional installation setting, FreeSurfer requires a license file.
 
 In a functional Python 3.7 (or above) environment with ``pip`` installed,
 *ASLPRep* can be installed using the habitual command ::

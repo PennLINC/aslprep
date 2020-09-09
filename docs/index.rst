@@ -25,8 +25,6 @@ Contents
    sdc
    outputs
    spaces
-   faq
    contributors
-   citing
    api
    changes

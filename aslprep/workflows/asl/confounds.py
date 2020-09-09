@@ -5,7 +5,7 @@ Calculate asl confounds
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autofunction:: init_asl_confs_wf
-.. autofunction:: init_ica_aroma_wf
+
 
 """
 from os import getenv

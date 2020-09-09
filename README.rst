@@ -27,7 +27,7 @@ volume-based statistics, etc.
 
 
 The *ASLPrep* pipeline uses a combination of tools from well-known software
-packages, including `FSL <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/>`_, `ANTs <http://stnava.github.io/ANTs/>`_, `Freesurfer <https://surfer.nmr.mgh.harvard.edu>`_ and `AFNI <https://afni.nimh.nih.gov>`_.
+packages, including FSL_, ANTs_, FreeSurfer_ and AFNI_ .
 This pipeline was designed to provide the best software implementation for each
 state of preprocessing, and will be updated as newer and better neuroimaging
 software become available.
@@ -46,30 +46,15 @@ This tool allows you to easily do the following:
 More information and documentation can be found at
 https://aslprep.readthedocs.io/
 
-Principles
-----------
+ASLPrep
+--------
 
-*ASLPrep* is built on the following principles:
+*ASLPrep* adapts the preprocessing steps depending on the input dataset 
+and provide results as good as possible independently of scanner make and scanning parameters 
+With the BIDS input, little or no parameter are required allowing ease of operation. 
+*ASLPrep*  also provides visual reports for each subject,
+detailing the the most important processing steps.
 
-1. **Robustness** - The pipeline adapts the preprocessing steps depending on
-   the input dataset and should provide results as good as possible
-   independently of scanner make, scanning parameters 
-
-2. **Ease of use** - With the BIDS input, little or no parameter are required  which 
- allowing the pipeline to run in an automatic fashion
-
-3. **"Glass box"** Thus, *ASLPrep* provides visual reports for each subject, 
-   detailing theaccuracy of the most important processing steps.
-   This, combined with the documentation, can help researchers to understand
-   the process and decide which subjects should be kept for the group level
-   analysis.
-
-
-Limitations and reasons not to use *ASLPrep*
----------------------------------------------
-
- *ASLPrep* may also not particularly suited to some scan (e.g., QUASSI) and
-   non-human brains, but researchers are welcome for contribution
 
 
 Acknowledgements
