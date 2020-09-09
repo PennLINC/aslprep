@@ -28,11 +28,15 @@ Visual Reports
 These reports provide a quick way to make visual inspection of the results easy.
 `View a sample report. <_static/sub-01.html>`_
 
+
 Derivatives of *ASLPrep* 
 ------------------------
 Preprocessed, or derivative, data are written to
 ``<output dir>/aslprep/sub-<subject_label>/``.
 The `BIDS Derivatives RC1`_ specification describes the naming and metadata conventions we follow
+
+
+
 Anatomical derivatives
 ~~~~~~~~~~~~~~~~~~~~~~
 Anatomical derivatives are placed in each subject's ``anat`` subfolder::
