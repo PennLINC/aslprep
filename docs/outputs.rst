@@ -237,7 +237,6 @@ See implementation on :mod:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`.
      robust and accurate linear registration and motion correction of brain images. Neuroimage.
      2002. doi:`10.1016/s1053-8119(02)91132-8 <https://doi.org/10.1016/s1053-8119(02)91132-8>`__.
 
-
   .. [Power2012] Power JD, Barnes KA, Snyder AZ, Schlaggar BL, Petersen, SA, Spurious but systematic
      correlations in functional connectivity MRI networks arise from subject motion. NeuroImage. 2012.
      doi:`10.1016/j.neuroimage.2011.10.018 <https://doi.org/10.1016/j.neuroimage.2011.10.018>`_
