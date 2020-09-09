@@ -14,7 +14,7 @@ more recent version of the image: ::
 
     $ docker pull pennlinc/aslprep:<latest-version>
 
-The *ASLPrep* can be run interacting directly with the Docker Engine via the `docker run`
+*ASLPrep* can be run interacting directly with the Docker Engine via the `docker run`
 command line, or through a lightweight wrapper that was created for convenience.
 
 ref:`Usage`),
@@ -25,11 +25,11 @@ Running *ASLPrep* directly interacting with the Docker Engine
 --------------------------------------------------------------
 **Running containers as a user**.
 
-The best option to run  docker smoothly is to prevent permissions issues 
-associated with root file system.Running the docker as user on the host  is to
-ensure the ownership of files written during the container execution. it i
+In order to run docker smoothly, it is best to prevent permissions issues
+associated with the root file system. Running docker as user on the host is to
+ensure the ownership of files written during the container execution.
 
-The ``docker`` can be invoke directly::
+A ``docker`` container can be created using the following command::
 
     $ docker run -ti --rm \
         -v path/to/data:/data:ro \

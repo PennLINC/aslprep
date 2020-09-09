@@ -4,24 +4,26 @@
 Installation
 ------------
 
-There are two ways to get *ASLPrep* installed:
+There are two ways to install *ASLPrep*:
 
-* within a  `Computer or HPC installation`_ 
+* within a  `Computer or HPC installation`_
 
 * using container technologies (RECOMMENDED), such as :ref:`run_docker`
   or :ref:`run_singularity`.
 
-Once the  environment  is  set-up (first option above),
-the next step is executing ``aslprep`` in the command-line.
+Once the environment is set up (first option above),
+the next step is to execute ``aslprep`` on the command-line.
 The ``aslprep`` command-line options are documented in the :ref:`usage`
-section.::
+section.:
 
   $ aslprep  <input_bids_path> <derivatives_path> <analysis_level> <named_options>
 
-For a docker  or singularity image, then the command-line will include binding configurations
-and options. The container execution followed by the ``aslprep`` command-line options
-as if you were running it on a normal installation.
-The command-line structure above is then modified as follows:
+If you are using a docker or singularity image, the command-line call to ASLPrep
+will require binding configurations and options. The call to the docker or
+singularity image follows a similar format to standard installations, except that
+the binding configurations must be specified before the ``aslprep`` argument.
+
+The command-line structure is as follows:
 ::
 
   $ <container_command_and_options> <container_image> \
@@ -41,10 +43,10 @@ These tools must be installed and their binaries available in the
 system's ``$PATH``.
 A relatively interpretable description of how your environment can be set up
 is found in the `Dockerfile <https://github.com/pennlinc/aslprep/blob/master/Dockerfile>`_.
-As an additional installation setting, FreeSurfer requires a license file.
+Note that FreeSurfer requires a license file, which can be requested `here https://surfer.nmr.mgh.harvard.edu/fswiki/License`_.
 
-In a functional Python 3.7 (or above) environment with ``pip`` installed,
-*ASLPRep* can be installed using the habitual command ::
+If Python 3.7 (or above) is installed, along with the ``pip`` command,
+*ASLPRep* can be installed using the following command ::
 
     $ python -m pip install aslprep
 
@@ -70,4 +72,3 @@ the ``ASLPrep`` package:
 - FreeSurfer_ (version 6.0.1)
 - `bids-validator <https://github.com/bids-standard/bids-validator>`_ (version 1.1.0)
 - `connectome-workbench <https://www.humanconnectome.org/software/connectome-workbench>`_ (version Debian-1.3.2)
-

@@ -5,21 +5,22 @@
 ---------------------
 Outputs of *ASLPrep*
 ---------------------
-*ASLPrep* generates three broad classes of outcomes:
+*ASLPrep* generates three broad classes of outputs:
 
 1. **Visual QA (quality assessment) reports**:
-   one :abbr:`HTML (hypertext markup language)` per subject and per session( if applicable),
-   that allows the user a thorough visual assessment of the quality
-   of processing and ensures the transparency of *ASLPrep* operation.
-   This also includes quality conrol measures. 
+   one :abbr:`HTML (hypertext markup language)` per subject, per session (if applicable),
+   that allows the user to conduct a thorough visual assessment of the raw and
+   processed data.
+   This also includes quality control measures.
 
 2. **Derivatives (preprocessed data and computed CBF):** the input ASL data ready for
-   analysis, (e.g., after the various preparation procedures have been applied.
+   analysis, (e.g., after the various preparation procedures have been applied).
    the brain mask or ASL data  images afte. Other output includes comouted CBF maps
-   and post-processing data such as denoised and partial volume-corrected CBF. 
-   
-3. **Confounds and quality controls**: confounds matrixs inlcuding framewise displacement, 
-motion parameters, coregistration and registration quality indexes and cbf quality controls. 
+   and post-processing data such as denoised and partial volume-corrected CBF.
+
+3. **Confounds and quality controls**: confounds matrixs inlcuding framewise
+   displacement, motion parameters, coregistration and registration quality indexes
+   and cbf quality controls.
 
 
 Visual Reports
@@ -29,7 +30,7 @@ These reports provide a quick way to make visual inspection of the results easy.
 `View a sample report. <_static/sub-01.html>`_
 
 
-Derivatives of *ASLPrep* 
+Derivatives of *ASLPrep*
 ------------------------
 Preprocessed, or derivative, data are written to
 ``<output dir>/aslprep/sub-<subject_label>/``.
@@ -149,7 +150,7 @@ corresponding :abbr:`ASL (arterial spin labelling)` time series::
      1.01591	15.281561	0.0333937	0.010164	-0.0103568	0.0424513	0	0	0.00019174
 
 
-CBF quality control 
+CBF quality control
 --------------------
 *ASLPrep* produces a quality control (QC) file for each ASL run::
 
@@ -157,19 +158,19 @@ CBF quality control
       perf/
       sub-<subject_label>_[specifiers]_cbfqc.csv
 
-The following QC measures were  estimated: framewise displacement 
-and relative root mean square (relRMS). Other QC measurers include dice and jaccard indices, 
-cross-correlation, coverage estimates of the coregistration quality of :abbr:`ASL (arterial spin labelling)` 
-and T1w images, and normalization quality of ASL to the template. Quality evaluation index (QEI) was 
-also computed for CBF [Sudipto Dolui 2016]. The QEI is automated for objective quality 
+The following QC measures were  estimated: framewise displacement
+and relative root mean square (relRMS). Other QC measurers include dice and jaccard indices,
+cross-correlation, coverage estimates of the coregistration quality of :abbr:`ASL (arterial spin labelling)`
+and T1w images, and normalization quality of ASL to the template. Quality evaluation index (QEI) was
+also computed for CBF [Sudipto Dolui 2016]. The QEI is automated for objective quality
 evaluation of CBF maps and measured the CBF quality based  on structural similarity,
 spatial variability, and the percentatge of voxels with negtaive CBF within grey matter
 
 CBF Confounds
 --------------
-The six head-motion parameters (three rotations and three translations) - 
+The six head-motion parameters (three rotations and three translations) -
 the common output of the head-motion correction (also known as *realignment*)
 *ASLPrep* also generates a framewise displacement,`DVARS` and `std_dvars`.
 Confounding variables calculated in *Aslprep* are stored separately for each subject,
-session and run in :abbr:`TSV (tab-separated value)` files with one column for 
+session and run in :abbr:`TSV (tab-separated value)` files with one column for
 each confound variable.
