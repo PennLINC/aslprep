@@ -40,7 +40,7 @@ The `BIDS Derivatives RC1`_ specification describes the naming and metadata conv
 Anatomical derivatives
 ~~~~~~~~~~~~~~~~~~~~~~
 Anatomical derivatives are placed in each subject's ``anat`` subfolder::
-These derivatives are the same as smriprep output
+These derivatives are the same as smriprep output::
 
   sub-<subject_label>/
     anat/
