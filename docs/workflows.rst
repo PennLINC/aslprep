@@ -4,8 +4,8 @@
 ASL processing pipeline details
 ===============================
 *ASLPrep* adapts its pipeline depending on what data and metadata are
-available and are used as the input. It requires the input data to be 
-bids validated with necessary ASL parameters. 
+available and are used as the input. It requires the input data to be
+valid BIDS with necessary ASL parameters.
 
 
 .. workflow::
@@ -21,9 +21,9 @@ bids validated with necessary ASL parameters.
 
 Structural Preprocessing
 ------------------------
-The anatomical sub-workflow is from `sMRIPrep <https://github.com/nipreps/smriprep>`_. 
-It  first constructs an average image byconforming all found T1w images 
-to a common voxel size, and, in the case of multiple images, 
+The anatomical sub-workflow is from `sMRIPrep <https://github.com/nipreps/smriprep>`_.
+It  first constructs an average image by conforming all found T1w images
+to a common voxel size, and, in the case of multiple images,
 averages them into a single reference template.
 
 .. workflow::
@@ -210,7 +210,7 @@ Confounds estimation
     )
 
 
-Calculated confounds include Frame-wise Displacement, 6 motion parameters, and DVARS.
+Calculated confounds include frame-wise Displacement, 6 motion parameters, and DVARS.
 
 
 
@@ -250,14 +250,14 @@ original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
 resampled in their native space by concatenating the mappings found in previous
 correction workflows (:abbr:`HMC (head-motion correction)` and
-:abbr:`SDC (susceptibility-derived distortion correction)`, if excecuted)
+:abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
 for a one-shot interpolation process.
 Interpolation uses a Lanczos kernel.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
 
-    The preprocessed ASL with label and control.The signal plots above the carpetotplot 
-    are framewise diplacement (FD) and DVRAS. 
+    The preprocessed ASL with label and control. The signal plots above the carpet plot
+    are framewise diplacement (FD) and DVRAS.
 
 
 
@@ -282,103 +282,103 @@ CBF Computation in native space
     wf = init_cbf_compt_wf(mem_gb=0.1,metadata=metadata, omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
 ASL data consist of multiple pairs of labeled and control images. ASLPrep first checks for
-the  reference ASL volume(s) (M0,``sub-task_xxxx-acq-YYY_m0scan.nii.gz``). In the absence of M0, 
-the average of control images is used as reference image. 
+the reference ASL volume(s) (M0,``sub-task_xxxx-acq-YYY_m0scan.nii.gz``). In the absence of M0,
+the average of control images is used as the reference image.
 
-After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are 
-substracted: 
+After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are
+subtracted:
 
 .. math::
-   ASL_{signal}= M_{C} - M_{L} 
+   ASL_{signal}= M_{C} - M_{L}
 
-The  CBF computation of  either single or muiltple PLD (post labelling delay) 
-is by  relatively simple model. For P/CASL(pseudo continuous ASL), the CBF 
-is calculated by using general kinetic model [Buxton1998]_: 
+The CBF computation of either single or multiple PLD (post labelling delay)
+is done using a relatively simple model. For P/CASL (pseudo continuous ASL), CBF
+is calculated by using a general kinetic model [Buxton1998]_:
 
 .. math::
    CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{- \tau / T1_{blood} }) }
 
 
-PASL(Pulsed ASL) is also computed by the QUIPSS model [Wong1998]_: 
+PASL (Pulsed ASL) is also computed by the QUIPSS model [Wong1998]_:
 
 
 .. math::
    CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * TI  * M_{0}}
 
 
-:math:`\tau, \lambda and \alpha` are label duration,  brain-blood partition coefficient 
-and labeling efficiency respectively. In the absence of any of  these parameters, 
-standard values are used base on the scan type and scanning parameters. 
+:math:`\tau, \lambda and \alpha` are label duration, brain-blood partition coefficient
+and labeling efficiency, respectively. In the absence of any of these parameters,
+standard values are used based on the scan type and scanning parameters.
 
-The computed CBF timeseries is shown in carpet plot below.
+The computed CBF time series is shown in carpet plot below.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbftsplot_asl.svg
 
-    The carpet plot of computed CBF. The step plot  above indicated the volume(s) marked by SCORE algorithm  
-    to be contaminated by noise. 
+    The carpet plot of computed CBF. The step plot above indicated the volume(s) marked by SCORE algorithm
+    to be contaminated by noise.
 
 
 Mean CBF is computed from the average of CBF timeseries
 
-.. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbfplot_asl.svg 
+.. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbfplot_asl.svg
 
-   Computed CBF maps 
+   Computed CBF maps
 
 
-Structural Correlation based Outlier Rejection(SCORE) ([Dolui2017]_)detects and discards 
-few extreme outliers CBF volume(s) from the CBF timeseries. 
-SCORE first discards CBF volumes, whose CBF within grey matter (GM) 
-means are 2.5 of standard deviation away from the median of the CBF within GM. 
-Thereafter, it iteratively removes volumes that are most structurally correlated 
-to the intermediate mean CBF map unless the variance within each 
-tissue type starts increasing (which implies an effect of white noise removal 
-as opposed to outlier rejection). 
+Structural Correlation based Outlier Rejection (SCORE) ([Dolui2017]_) detects and discards
+extreme outliers in the CBF volume(s) from the CBF time series.
+SCORE first discards CBF volumes whose CBF within grey matter (GM)
+means are 2.5 standard deviations away from the median of the CBF within GM.
+Thereafter, it iteratively removes volumes that are most structurally correlated
+to the intermediate mean CBF map unless the variance within each
+tissue type starts increasing (which implies an effect of white noise removal
+as opposed to outlier rejection).
 
-The mean CBF  after denoised by SCORE is plot below
+The mean CBF after denoising by SCORE is plotted below
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-scoreplot_asl.svg
 
    Computed CBF maps denoised by SCORE
 
 
-After discarding extreme outlier (if present) CBF volume(s) by SCORE, 
-SCRUB (Structural Correlation with RobUst Bayesian) uses robust Bayesian estimation 
-of CBF using iterative reweighted least square method [Dolui2016]_ to denoised CBF . 
-The SCRUB algorithm is described below: 
+After discarding extreme outliers (if present) CBF volume(s) by SCORE,
+SCRUB (Structural Correlation with RobUst Bayesian) uses robust Bayesian estimation
+of CBF using iterative reweighted least square method [Dolui2016]_ to denoised CBF.
+The SCRUB algorithm is described below:
 
 .. math::
    CBF_{SCRUB} =  \arg\max_{\theta} \sum_{t=1}^N \rho(CBF_{t} -\theta)  + \lambda(\theta -\mu)^2
 
-   \mu =\sum_{i \in Tissue type} p *\mu_{i} 
+   \mu =\sum_{i \in Tissue type} p *\mu_{i}
 
-:math:`CBF_{t},  \mu,  \theta,  and  p` are CBF timeseries (after SCORE discarded extreme oultiers, if there is any), 
-mean CBF, ratio temporal vairance at each voxel to overall vairance of all voxels and probability tissue maps 
-respectively. Other include :math:`\lambda and \rho` that represent weighting parameter 
-and Turkey's bisquare function respetively.
+:math:`CBF_{t},  \mu,  \theta,  and  p` are CBF time series (after SCORE discarded extreme outliers, if there is any),
+mean CBF, ratio temporal variance at each voxel to overall variance of all voxels and probability tissue maps,
+respectively. Other include :math:`\lambda and \rho` that represent weighting parameter
+and Turkey's bisquare function, respectively.
 
-The example of CBF denoised by SCRUB is shown below. 
+An example of CBF denoised by SCRUB is shown below.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-scrubplot_asl.svg
 
    Computed CBF maps denoised by SCRUB
 
-ASLPrep also includes computation of CBF by Bayesian Inference for Arterial Spin Labeling 
-`(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_. BASIL also use simple kinetic model as 
-described above but uses Bayesian Inference principles ([Chappell2009]_). 
-BASIL mostly suitable for multi-PLD and include bolus arrival time estimation
-with spatial regularization [Groves2009]_ and the correction of partial volume effects [Chappell2011]_. 
+ASLPrep also includes computation of CBF by Bayesian Inference for Arterial Spin Labeling
+`(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_. BASIL also use a simple kinetic model as
+described above but uses Bayesian Inference principles ([Chappell2009]_).
+BASIL is mostly suitable for multi-PLD. It includes bolus arrival time estimation
+with spatial regularization [Groves2009]_ and the correction of partial volume effects [Chappell2011]_.
 
-The sample of BASIL CBF with spatial regularization is shwon below:
+The sample of BASIL CBF with spatial regularization is shown below:
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-basilplot_asl.svg
 
-   Computed CBF maps by BASIL 
+   Computed CBF maps by BASIL
 
-The CBF map  shown below is output of patial volume corrected CBF computed by BASIL.
+The CBF map shown below is the result of partial volume corrected CBF computed by BASIL.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-pvcplot_asl.svg
 
-   Paritial volume corrected  CBF maps by BASIL 
+   Partial volume corrected CBF maps by BASIL
 
 .. _cbf_qc:
 
@@ -398,10 +398,10 @@ Quality control measures
     metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
     wf = init_cbfqc_compt_wf(mem_gb=0.1,asl_file=str(asl_file),metadata=str(metadata),omp_nthreads=1)
 
-The  quality control (QC) measures such as FD, coregistration and nornmalization index and 
-quality evaluation index (QEI) all CBF maps. The QEI [Dolui2017b]_ evaulated the quality of the computed 
-CBF maps conisdering three factors: structrual similarity, spatial vairbility and percentage  of voxels in GM 
-with negative CBF. 
+The  quality control (QC) measures such as FD, coregistration, normalization index and
+quality evaluation index (QEI) are included for all CBF maps. The QEI [Dolui2017b]_ evaluates the quality of the computed
+CBF maps considering three factors: structural similarity, spatial variability and percentage of voxels in GM
+with negative CBF.
 
 .. _asl_reg:
 
@@ -433,11 +433,11 @@ of each run and the reconstructed subject using the gray/white matter boundary
 If FreeSurfer processing is disabled, FSL ``flirt`` is run with the
 :abbr:`BBR (boundary-based registration)` cost function, using the
 ``fast`` segmentation to establish the gray/white matter boundary.
-After :abbr:`BBR (boundary-based registration)` is run, 
+After :abbr:`BBR (boundary-based registration)` is run,
 the resulting affine transform will be compared to the initial transform found by FLIRT.
-Excessive deviation will result in rejection of the BBR refinement and acceptance 
-of the original affine registration. The computed :ref:`CBF <cbf_preproc>`  
-is regsitered to T1w using the transformation from ASL-T1w registration.
+Excessive deviation will result in rejection of the BBR refinement and acceptance
+of the original affine registration. The computed :ref:`CBF <cbf_preproc>`
+is registered to T1w using the transformation from ASL-T1w registration.
 
 Resampling ASL  and CBF runs onto standard spaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -461,7 +461,7 @@ This sub-workflow concatenates the transforms calculated upstream (see
 `Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_ if
 fieldmaps are available, and an anatomical-to-standard
 transform from `Structural Preprocessing`_ to map the
-ASL and CBF images to the standard spaces given by the ``--output-spaces`` argument
+ASL and CBF images to the standard spaces is given by the ``--output-spaces`` argument
 (see :ref:`output-spaces`).
 It also maps the T1w-based mask to each of those standard spaces.
 
@@ -471,36 +471,36 @@ step, so as little information is lost as possible.
 
 .. topic:: References
 
-  .. [Buxton1998] Buxton R.B., Frank L.R., Wong E.C., Siewert B, Warach S, Edelman R.R. 
+  .. [Buxton1998] Buxton R.B., Frank L.R., Wong E.C., Siewert B, Warach S, Edelman R.R.
       A general kinetic model for quantitative perfusion imaging with arterial spin
-      labeling. Magn Reson Med. 1998;40(3):383-396. 
+      labeling. Magn Reson Med. 1998;40(3):383-396.
       doi:`10.1002/mrm.1910400308 <https://doi.org/10.1002/mrm.1910400308>`_.
 
-  .. [Wong1998] Wong E.C., Buxton R.B., Frank L.R. Quantitative imaging of perfusion using a single subtraction 
-     (QUIPSS and QUIPSS II). Magn Reson Med. 1998;39(5):702-708. 
+  .. [Wong1998] Wong E.C., Buxton R.B., Frank L.R. Quantitative imaging of perfusion using a single subtraction
+     (QUIPSS and QUIPSS II). Magn Reson Med. 1998;39(5):702-708.
      doi:`10.1002/mrm.1910390506 <https://doi.org/10.1002/mrm.1910390506>`_
-  
-  .. [Dolui2017] Dolui S, Wang Z, Shinohara R.T., Wolk D.A., Detre J.A.; Alzheimer's Disease 
-     Neuroimaging Initiative. Structural Correlation-based Outlier Rejection (SCORE) 
-     algorithm for arterial spin labeling time series. J Magn Reson Imaging. 2017;45(6):1786-1797. 
+
+  .. [Dolui2017] Dolui S, Wang Z, Shinohara R.T., Wolk D.A., Detre J.A.; Alzheimer's Disease
+     Neuroimaging Initiative. Structural Correlation-based Outlier Rejection (SCORE)
+     algorithm for arterial spin labeling time series. J Magn Reson Imaging. 2017;45(6):1786-1797.
      doi:`10.1002/jmri.25436 <https://doi.org/10.1002/jmri.25436>`_
 
-  .. [Dolui2016] Dolui S., Wolk D.A., Detre J.A. SCRUB: a structural correlation and empirical 
-     robust bayesian method for ASL data. Proceedings of the International Society 
+  .. [Dolui2016] Dolui S., Wolk D.A., Detre J.A. SCRUB: a structural correlation and empirical
+     robust bayesian method for ASL data. Proceedings of the International Society
      of Magnetic Resonance in Medicine; Singapore; 2016
 
-  .. [Chappell2009] Chappell M.A., Groves R.B, Whitcher B., and  Woolrich M. W., 
-    "Variational Bayesian Inference for a Nonlinear Forward Model," 
-    in IEEE Transactions on Signal Processing, vol. 57, no. 1, pp. 223-236, 
+  .. [Chappell2009] Chappell M.A., Groves R.B, Whitcher B., and  Woolrich M. W.,
+    "Variational Bayesian Inference for a Nonlinear Forward Model,"
+    in IEEE Transactions on Signal Processing, vol. 57, no. 1, pp. 223-236,
     Jan. 2009, doi:`10.1109/TSP.2008.2005752 <https://doi.org/10.1109/TSP.2008.2005752>`_.
 
-  .. [Groves2009] Groves A.R., Chappell M.A., Woolrich M.W., Combined spatial and non-spatial prior for 
-     inference on MRI time-series. Neuroimage. 2009;45(3):795-809. 
+  .. [Groves2009] Groves A.R., Chappell M.A., Woolrich M.W., Combined spatial and non-spatial prior for
+     inference on MRI time-series. Neuroimage. 2009;45(3):795-809.
      doi:`10.1016/j.neuroimage.2008.12.027 <https://doi.org/10.1016/j.neuroimage.2008.12.027>`_.
 
   .. [Chappell2011] Chappell M.A., Groves A.R., MacIntosh B.J., Donahue M.J., Jezzard P., Woolrich M.W.,
-     Partial volume correction of multiple inversion time arterial spin labeling MRI data. 
+     Partial volume correction of multiple inversion time arterial spin labeling MRI data.
      Magn Reson Med. 2011;65(4):1173-1183. doi:`10.1002/mrm.22641 <https://doi.org/10.1002/mrm.22641>`_
 
-  .. [Dolui2017b] Dolui S.,  Wolf R. & Nabavizadeh S., David W., Detre, J. (2017). 
+  .. [Dolui2017b] Dolui S.,  Wolf R. & Nabavizadeh S., David W., Detre, J. (2017).
      Automated Quality Evaluation Index for 2D ASL CBF Maps. ISMR 2017
