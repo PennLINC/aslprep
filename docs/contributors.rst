@@ -7,8 +7,7 @@ Contributing to ASLPREP
 This document explains how to prepare a new development environment and
 update an existing environment, as necessary.
 
-Development in Docker is encouraged, for the sake of consistency and
-portability.
+Development in Docker is encouraged, for the sake of consistency and portability.
 By default, work should be built off of `pennlinc/aslprep:unstable
 <https://hub.docker.com/r/pennlinc/aslprep/>`_, which tracks the ``master`` branch,
 or ``pennlinc/aslprep:latest``, which tracks the latest release version (see the
