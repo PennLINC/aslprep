@@ -12,21 +12,21 @@ Usage Notes
 
 Execution and the BIDS format
 -----------------------------
-The *ASLPrep* workflow takes the path of the dataset
-that is to be processed as its principal input.
+The main input to *ASLPREP* is the path of the dataset
+that needs processing.
 
-.. note:: 
+.. note::
      The official `BIDS Specification for ASL <https://docs.google.com/document/d/15tnn5F10KpgHypaQJNNGiNKsni9035GtDqJzWqkkP6c/edit>`_  is currently in its final stages of development.
      We have created a simple tool for converting ASL data into currently valid BIDS, available `at PennLINC <https://github.com/PennLINC/aslbids>`_.
      Note that some of the parameters necessary for running *ASLPrep* cannot be extracted directly from the DICOM header —
      to obtain these parameters, we recommend consulting the MRI physicist/technician at the scanner.
-     The conversion of ASL into BIDS on `Flywheel <https://flywheel.io/>`_ using `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_ 
+     The conversion of ASL into BIDS on `Flywheel <https://flywheel.io/>`_ using `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_
      is described `here at fw-heudiconv <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_.
 
 
 
 The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data
-Structure)` format, and it must include at least one T1w structural image
+Structure)` format, and it must include at least one T1w structural image.
 We highly recommend that you validate your dataset with the free, online
 `BIDS Validator <http://bids-standard.github.io/bids-validator/>`_.
 
