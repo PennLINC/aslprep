@@ -17,9 +17,6 @@ more recent version of the image: ::
 *ASLPrep* can be run interacting directly with the Docker Engine via the `docker run`
 command line, or through a lightweight wrapper that was created for convenience.
 
-ref:`Usage`),
-automatically translating directories into Docker mount points.
-
 
 Running *ASLPrep* directly interacting with the Docker Engine
 --------------------------------------------------------------
