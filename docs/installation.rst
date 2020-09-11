@@ -1,8 +1,10 @@
 .. include:: links.rst
 
-------------
+.. _installation:
+
+-------------
 Installation
-------------
+-------------
 
 There are two ways to install *ASLPrep*:
 
