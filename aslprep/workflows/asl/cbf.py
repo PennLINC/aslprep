@@ -91,13 +91,14 @@ also included correction for partial volume effects [@chappell_pvc].
                      name='gm_tfm', mem_gb=0.1)
 
 
-    extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols,bids_dir=bids_dir,fwhm=smooth_kernel), mem_gb=0.2,
+    extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols,bids_dir=bids_dir,
+                  fwhm=smooth_kernel,in_metadata=metadata), mem_gb=0.2,
                          run_without_submitting=True, name="extractcbf")
     computecbf = pe.Node(computeCBF(in_metadata=metadata,in_m0scale=M0Scale), mem_gb=0.2,
                          run_without_submitting=True, name="computecbf")
     scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=0.2,
                          name='scorescrub', run_without_submitting=True)
-    basilcbf = pe.Node(BASILCBF(m0scale=metadata["M0"], bolus=metadata["PostLabelingDelay"],
+    basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=metadata["PostLabelingDelay"],
                                 m0tr=metadata['RepetitionTime'], pvc=True,
                                 tis=np.add(metadata["PostLabelingDelay"],
                                            metadata["LabelingDuration"]),

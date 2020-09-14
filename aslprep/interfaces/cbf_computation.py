@@ -100,7 +100,7 @@ class extractCBF(SimpleInterface):
         file1 = os.path.abspath(self.inputs.in_file)
         # check if there is m0 file
         m0num=1
-        if [self.inputs.in_metadata['M0'] is not False] or [not str.isdigit(self.inputs.in_metadata['M0'])]:
+        if self.inputs.in_metadata['M0'] == "True":
             m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
             m0file_metadata=readjson(m0file.replace('nii.gz','json'))
             aslfile_linkedM0=os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
@@ -639,7 +639,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     )
     mask = File(exists=True, argstr=" -m %s ", desc="mask in the same space as in_infile",
                 mandatory=True,)
-    mzero = File(exists=True, argstr=" -c %s ", desc='m0 scan', mandatory=True)
+    mzero = File(exists=True, argstr=" -c %s ", desc='m0 scan', mandatory=False)
     m0scale = traits.Float(desc='calibration of asl', argstr=" --cgain %.2f ", mandatory=True)
     m0tr = traits.Float(desc='Mzero TR', argstr=" --tr %.2f ", mandatory=True,)
     tis = traits.Float(desc='ecovery time =plds+bolus', argstr=" --tis %.2f ", mandatory=True,)

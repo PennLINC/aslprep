@@ -259,7 +259,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 't1w2fsnative_xfm', 'fsnative2t1w_xfm']),
         name='inputnode')
     inputnode.inputs.asl_file = asl_file
-    subj_dir=str(config.execution.bids_dir) + '/' + str(inputnode.subject_id))
+    subj_dir=str(config.execution.bids_dir) + '/sub-' + str(config.execution.participant_label[0])
     if sbref_file is not None:
         from ...niworkflows.interfaces.images import ValidateImage
         val_sbref = pe.Node(ValidateImage(in_file=sbref_file), name='val_sbref')
