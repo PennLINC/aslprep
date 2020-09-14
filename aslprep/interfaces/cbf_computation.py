@@ -100,6 +100,7 @@ class extractCBF(SimpleInterface):
         file1 = os.path.abspath(self.inputs.in_file)
         # check if there is m0 file
         m0num=1
+        m0file=[]
         if self.inputs.in_metadata['M0'] == "True":
             m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
             m0file_metadata=readjson(m0file.replace('nii.gz','json'))
@@ -141,7 +142,7 @@ class extractCBF(SimpleInterface):
             #control_img = np.delete(control_img, range(0, self.inputs.dummy_vols), axis=3)
 
         # MO file
-        if aslfile_linkedM0 == self.inputs.in_file:
+        if os.path.exists(m0file):
             # get the raw m0 file also check intended for
             #m0file=nb.load(m0file).get_fdata()
             #regsiter m0file to aslfile here
