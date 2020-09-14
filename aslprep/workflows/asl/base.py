@@ -177,6 +177,9 @@ def init_asl_preproc_wf(asl_file):
     output_dir = str(config.execution.output_dir)
     dummyvols = config.workflow.dummy_vols
     smoothkernel = config.workflow.smooth_kernel
+    M0Scale = config.workflow.m0_scale
+    subj_dir=str(config.execution.bids_dir + '/' \
+             str(config.execution.participant_label)
 
     if multiecho:
         tes = [layout.get_metadata(echo)['EchoTime'] for echo in asl_file]
@@ -549,6 +552,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                      mem_gb=mem_gb['filesize'],
                                      omp_nthreads=omp_nthreads,
                                      dummy_vols=dummyvols,
+                                     M0Scale=M0scale,
+                                     bids_dir=subj_dir,
                                      smooth_kernel=smoothkernel,
                                      metadata=metadata)
 

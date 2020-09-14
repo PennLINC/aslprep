@@ -295,6 +295,15 @@ any spatial references."""
         type=int,
         help="Number of non steady state volumes.",
     )
+
+    g_conf.add_argument(
+        "--m0-scale",
+        required=False,
+        action="store",
+        default=1,
+        type=int,
+        help="relative scale between asl and M0.",
+    )
     g_conf.add_argument(
         "--random-seed",
         action="store",

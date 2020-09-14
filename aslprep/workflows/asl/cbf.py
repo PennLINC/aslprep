@@ -12,7 +12,7 @@ import tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
 
 
-def init_cbf_compt_wf(mem_gb, metadata, dummy_vols, omp_nthreads, smooth_kernel=5,
+def init_cbf_compt_wf(mem_gb, metadata, dummy_vols, omp_nthreads,M0Scale=1,smooth_kernel=5,
                       name='cbf_compt_wf'):
     """
     Create a workflow for :abbr:`CCBF ( compute cbf)`.
@@ -34,6 +34,10 @@ def init_cbf_compt_wf(mem_gb, metadata, dummy_vols, omp_nthreads, smooth_kernel=
 
     Inputs
     ------
+    in_file
+        raw asl file 
+    bids_dir
+        bids dir of the subject
     asl_file
         asl series NIfTI file
     asl_mask
@@ -70,9 +74,9 @@ principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natur
 of other model parameters and spatial regularization of the estimated perfusion image. BASIL
 also included correction for partial volume effects [@chappell_pvc].
 """
-    inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'asl', 'asl_mask',
+    inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
                                                       't1w_tpms', 't1w_mask', 't1_asl_xform',
-                                                      'itk_asl_to_t1']),
+                                                      'itk_asl_to_t1','bids_dir']),
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['out_cbf', 'out_mean', 'out_score',
                                                        'out_avgscore', 'out_scrub', 'out_cbfb',
@@ -89,7 +93,7 @@ also included correction for partial volume effects [@chappell_pvc].
 
     extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols, fwhm=smooth_kernel), mem_gb=0.2,
                          run_without_submitting=True, name="extractcbf")
-    computecbf = pe.Node(computeCBF(in_metadata=metadata), mem_gb=0.2,
+    computecbf = pe.Node(computeCBF(in_metadata=metadata,in_m0scale=M0Scale), mem_gb=0.2,
                          run_without_submitting=True, name="computecbf")
     scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=0.2,
                          name='scorescrub', run_without_submitting=True)
@@ -117,7 +121,8 @@ also included correction for partial volume effects [@chappell_pvc].
 
     workflow.connect([
         # extract CBF data and compute cbf
-        (inputnode,  extractcbf, [('asl', 'in_file'), ('asl_file', 'asl_file')]),
+        (inputnode,  extractcbf, [('in_file', 'asl_file'), ('in_file', 'asl_file'),
+                                    ('bids_dir','bids_dir')]),
         (extractcbf, computecbf, [('out_file', 'in_cbf'), ('out_avg', 'in_m0file')]),
         # (inputnode,computecbf,[('asl_mask','in_mask')]),
         (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
