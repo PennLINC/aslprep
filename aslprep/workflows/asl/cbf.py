@@ -12,7 +12,7 @@ import tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
 
 
-def init_cbf_compt_wf(mem_gb, metadata, dummy_vols, omp_nthreads,M0Scale=1,smooth_kernel=5,
+def init_cbf_compt_wf(mem_gb, metadata,bids_dir, dummy_vols, omp_nthreads,M0Scale=1,smooth_kernel=5,
                       name='cbf_compt_wf'):
     """
     Create a workflow for :abbr:`CCBF ( compute cbf)`.
@@ -76,7 +76,7 @@ also included correction for partial volume effects [@chappell_pvc].
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
                                                       't1w_tpms', 't1w_mask', 't1_asl_xform',
-                                                      'itk_asl_to_t1','bids_dir']),
+                                                      'itk_asl_to_t1']),
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['out_cbf', 'out_mean', 'out_score',
                                                        'out_avgscore', 'out_scrub', 'out_cbfb',
@@ -91,7 +91,7 @@ also included correction for partial volume effects [@chappell_pvc].
                      name='gm_tfm', mem_gb=0.1)
 
 
-    extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols, fwhm=smooth_kernel), mem_gb=0.2,
+    extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols,bids_dir=bids_dir,fwhm=smooth_kernel), mem_gb=0.2,
                          run_without_submitting=True, name="extractcbf")
     computecbf = pe.Node(computeCBF(in_metadata=metadata,in_m0scale=M0Scale), mem_gb=0.2,
                          run_without_submitting=True, name="computecbf")
@@ -121,8 +121,7 @@ also included correction for partial volume effects [@chappell_pvc].
 
     workflow.connect([
         # extract CBF data and compute cbf
-        (inputnode,  extractcbf, [('in_file', 'asl_file'), ('in_file', 'asl_file'),
-                                    ('bids_dir','bids_dir')]),
+        (inputnode,  extractcbf, [('in_file', 'in_file'), ('asl_file', 'asl_file')]),
         (extractcbf, computecbf, [('out_file', 'in_cbf'), ('out_avg', 'in_m0file')]),
         # (inputnode,computecbf,[('asl_mask','in_mask')]),
         (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
@@ -130,7 +129,7 @@ also included correction for partial volume effects [@chappell_pvc].
         (refinemaskj, computecbf, [('out_mask', 'in_mask')]),
         (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
         (refinemaskj, basilcbf, [('out_mask', 'mask')]),
-        (inputnode, basilcbf, [(('asl', _getfiledir), 'out_basename')]),
+        (inputnode, basilcbf, [(('asl_file', _getfiledir), 'out_basename')]),
         (refinemaskj, extractcbf, [('out_mask', 'in_mask')]),
         # extract probability maps
         (inputnode, csf_tfm, [('asl_mask', 'reference_image'),

@@ -301,20 +301,19 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
     att = None #atterial time will be implemented later 
     if len(perfusion_factor) > 1:
         permfactor = np.tile(perfusion_factor ,int(cbf_data.shape[3]/len(perfusion_factor)))
-        cbf_data_ts = np.zeros(cbf_data.shape))
+        cbf_data_ts = np.zeros(cbf_data.shape)
         for i in range(cbf_data.shape[3]):
-            cbf_data_ts[:, :, :, i] =np.multiply(cbf1[:, :, :, i],permfactor[i]))
+            cbf_data_ts[:, :, :, i] =np.multiply(cbf1[:, :, :, i],permfactor[i])
 
-        cbf = np.zeros([cbf_data_ts.shape[0],cbf_data_ts[1],[cbf_data_ts[2],
-                int(cbf_data.shape[3]/len(perfusion_factor)))
-        cbf_xx=np.split(cbf_data_ts,int(cbf_data.shape[3]/len(perfusion_factor))
-        for i in cbf.shape[3]:
-            cbf_plds=cbf_xx[i]
-            pldx=np.zeros(cbf_data_ts.shape[0],cbf_data_ts[1],[cbf_data_ts[2],len(cbf_plds))
-            for j in len(cbf_plds):
-                pldx[:,:,:,i] = np.array(np.multiply(cbf_plds[j],plds[j])])
-            cbf[:, :, :, i]=np.divide(np.sum(pldx,axis=3),np.sum(plds))
+        cbf = np.zeros([cbf_data_ts.shape[0],cbf_data_ts[1],cbf_data_ts[2], int(cbf_data.shape[3]/len(perfusion_factor))])
+        cbf_xx=np.split(cbf_data_ts,int(cbf_data.shape[3]/len(perfusion_factor)))
         
+        for k in range(cbf.shape[3]):
+            cbf_plds = cbf_xx[k]
+            pldx = np.zeros([cbf_data_ts.shape[0],cbf_data_ts[1],cbf_data_ts[2],len(cbf_plds)])
+            for j in len(cbf_plds):
+                pldx[:,:,:,j] = np.array(np.multiply(cbf_plds[j],plds[j]))
+            cbf[:, :, :, k]=np.divide(np.sum(pldx,axis=3),np.sum(plds))
     else:
         cbf = cbf1*perfusion_factor
         # cbf is timeseries

@@ -177,9 +177,8 @@ def init_asl_preproc_wf(asl_file):
     output_dir = str(config.execution.output_dir)
     dummyvols = config.workflow.dummy_vols
     smoothkernel = config.workflow.smooth_kernel
-    M0Scale = config.workflow.m0_scale
-    subj_dir=str(config.execution.bids_dir + '/' \
-             str(config.execution.participant_label)
+    mscale = config.workflow.m0_scale
+    
 
     if multiecho:
         tes = [layout.get_metadata(echo)['EchoTime'] for echo in asl_file]
@@ -260,6 +259,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 't1w2fsnative_xfm', 'fsnative2t1w_xfm']),
         name='inputnode')
     inputnode.inputs.asl_file = asl_file
+    subj_dir=str(config.execution.bids_dir) + '/' + str(inputnode.subject_id))
     if sbref_file is not None:
         from ...niworkflows.interfaces.images import ValidateImage
         val_sbref = pe.Node(ValidateImage(in_file=sbref_file), name='val_sbref')
@@ -273,7 +273,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 'pv_native', 'surfaces',
                 'confounds', 'confounds_metadata', 'qc_file']),
         name='outputnode')
-
+      
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name='t1w_brain')
 
@@ -552,17 +552,17 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                      mem_gb=mem_gb['filesize'],
                                      omp_nthreads=omp_nthreads,
                                      dummy_vols=dummyvols,
-                                     M0Scale=M0scale,
+                                     M0Scale=mscale,
                                      bids_dir=subj_dir,
                                      smooth_kernel=smoothkernel,
                                      metadata=metadata)
 
     # cbf computation workflow
     workflow.connect([
-         (asl_asl_trans_wf, compt_cbf_wf, [('outputnode.asl', 'inputnode.asl'),
+         (asl_asl_trans_wf, compt_cbf_wf, [('outputnode.asl', 'inputnode.asl_file'),
                                              ('outputnode.asl_mask', 'inputnode.asl_mask')]),
          (inputnode, compt_cbf_wf, [('t1w_tpms', 'inputnode.t1w_tpms'),
-                                    ('asl_file', 'inputnode.asl_file')]),
+                                    ('asl_file', 'inputnode.in_file')]),
          (asl_reg_wf, compt_cbf_wf, [('outputnode.itk_t1_to_asl', 'inputnode.t1_asl_xform')]),
          (asl_reg_wf, compt_cbf_wf, [('outputnode.itk_asl_to_t1', 'inputnode.itk_asl_to_t1')]),
          (inputnode, compt_cbf_wf, [('t1w_mask', 'inputnode.t1w_mask')]),

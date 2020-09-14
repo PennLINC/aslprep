@@ -422,7 +422,7 @@ class workflow(_Config):
     """Generate HCP Grayordinates, accepts either ``'91k'`` (default) or ``'170k'``."""
     dummy_scans = None
     """Set a number of initial scans to be considered nonsteady states."""
-    m0_scale = 1
+    m0_scale = int(1)
     """relative scale between asl and M0."""
     fmap_bspline = None
     """Regularize fieldmaps with a field of B-Spline basis."""
