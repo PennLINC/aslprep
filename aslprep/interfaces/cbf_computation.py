@@ -101,11 +101,11 @@ class extractCBF(SimpleInterface):
         # check if there is m0 file
         m0num=1
         m0file=[]
-        if self.inputs.in_metadata['M0'] == "True":
+        if self.inputs.in_metadata['M0'] != "True" and self.inputs.in_metadata['M0'] != "False" and type(self.inputs.in_metadata['M0']) != int :
             m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
             m0file_metadata=readjson(m0file.replace('nii.gz','json'))
             aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
-        elif str.isdigit(self.inputs.in_metadata['M0']):
+        elif type(self.inputs.in_metadata['M0']) == int :
             m0num=int(self.inputs.in_metadata['M0'])
         else:
             print('no M0 file or numerical M0, the average control will be used \
@@ -156,7 +156,7 @@ class extractCBF(SimpleInterface):
             newm0 = regmotoasl(asl=self.inputs.asl_file,m0file=m0file,m02asl=newm0)
             m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_data()
             avg_control = mask*np.mean(m0data_smooth, axis=3)
-        elif len(m0list) > 0:
+        elif len(m0list) > 0 and self.inputs.in_metadata['M0'] == "True" :
             # if no m0file, check from asl data
             modata2 = dataasl[:, :, :, m0list]
             con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
