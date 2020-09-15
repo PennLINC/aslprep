@@ -138,7 +138,7 @@
                 3.75
             ],
             "ProtocolName": "ASL_3DSPIRAL_V20_GE",
-            "RepetitionTime": 4000.0,
+            "RepetitionTime": 4.0,
             "Rows": 64,
             "SAR": 0.37223568573257,
             "SamplesPerPixel": 1,
