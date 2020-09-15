@@ -104,7 +104,7 @@ class extractCBF(SimpleInterface):
         if self.inputs.in_metadata['M0'] == "True":
             m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
             m0file_metadata=readjson(m0file.replace('nii.gz','json'))
-            aslfile_linkedM0=os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
+            aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
         elif str.isdigit(self.inputs.in_metadata['M0']):
             m0num=int(self.inputs.in_metadata['M0'])
         else:
@@ -142,11 +142,15 @@ class extractCBF(SimpleInterface):
             #control_img = np.delete(control_img, range(0, self.inputs.dummy_vols), axis=3)
 
         # MO file
-        if os.path.exists(m0file):
+        if m0file or aslfile_linkedM0 :
             # get the raw m0 file also check intended for
             #m0file=nb.load(m0file).get_fdata()
             #regsiter m0file to aslfile here
-           
+            if m0file:
+                m0file = m0file
+            else:
+                m0file = aslfile_linkedM0
+
             newm0 = fname_presuffix(self.inputs.asl_file,
                                                     suffix='_m0file') 
             newm0 = regmotoasl(asl=self.inputs.asl_file,m0file=m0file,m02asl=newm0)
@@ -166,7 +170,8 @@ class extractCBF(SimpleInterface):
             avg_control = mask*np.mean(control_img1, axis=3)
         else: 
             'precomputed m0 number will be used'
-            m0num = m0num
+            avg_control = mask*(np.mean(np.ones_like(cbf_data),axis=3))
+            avg_control = m0num*avg_control
 
 
         self._results['out_file'] = fname_presuffix(self.inputs.in_file,
@@ -255,7 +260,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
     labeltype = metadata['LabelingType']
     tau = metadata['LabelingDuration']
     plds = np.array(metadata['PostLabelingDelay'])
-    m0scale = metadata['M0']
+    #m0scale = metadata['M0']
     magstrength = metadata['MagneticFieldStrength']
     t1blood = (110*int(magstrength)+1316)/1000
     inverstiontime = np.add(tau, plds)
@@ -289,8 +294,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
         avg_control = np.multiply(mask, np.mean(mzero, axis=3))
     else:
         avg_control = np.multiply(mzero, mask)
-    if not m0scale:
-        m0scale = 1
+
     # compute cbf
     cbf_data = nb.load(cbffile).get_fdata()
     cbf1 = np.zeros(cbf_data.shape)
@@ -777,7 +781,7 @@ class qccbf(SimpleInterface):
         negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
         negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
 
-        if self.inputs.in_boldmaskstd and self.inputs.in_templatemask:
+        if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
             dict1 = {'FD': [fd], 'relRMS': [rms], 'coregDC': [regDC], 'coregJC': [regJC],
                      'coregCC': [regCC], 'coregCOV': [regCov], 'normDC': [normDC],
                      'normJC': [normJC], 'normCC': [normCC], 'normCOV': [normCov],
