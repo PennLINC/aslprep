@@ -116,8 +116,7 @@ def init_asl_reference_wf(
     workflow = Workflow(name=name)
     workflow.__desc__ = f"""\
 First, a reference volume and its skull-stripped version were generated
-{'from the shortest echo of the ASL run' * multiecho} using a custom
-methodology of *fMRIPrep*.
+{'from the shortest echo of the ASL run' * multiecho}.
 """
 
     inputnode = pe.Node(
