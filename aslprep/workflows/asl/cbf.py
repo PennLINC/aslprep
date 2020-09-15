@@ -90,7 +90,15 @@ also included correction for partial volume effects [@chappell_pvc].
     gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
                      name='gm_tfm', mem_gb=0.1)
 
-
+    tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
+    boluscbf=metadata["PostLabelingDelay"]
+    if float(boluscbf):
+        tisasl=tiscbf
+        bolusasl=boluscbf
+    else:
+        tisasl=list(tiscbf)
+        bolusasl=list(boluscbf)
+  
     extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols,bids_dir=bids_dir,
                   fwhm=smooth_kernel,in_metadata=metadata), mem_gb=0.2,
                          run_without_submitting=True, name="extractcbf")
@@ -98,11 +106,9 @@ also included correction for partial volume effects [@chappell_pvc].
                          run_without_submitting=True, name="computecbf")
     scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=0.2,
                          name='scorescrub', run_without_submitting=True)
-    basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=metadata["PostLabelingDelay"],
-                                m0tr=metadata['RepetitionTime'], pvc=True,
-                                tis=np.add(metadata["PostLabelingDelay"],
-                                           metadata["LabelingDuration"]),
-                       pcasl=pcaslorasl(metadata)), name='basilcbf',
+    basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=bolusasl,
+                                m0tr=metadata['RepetitionTime'], pvc=True,tis =tisasl,
+                                pcasl = pcaslorasl(metadata = metadata)), name='basilcbf',
                        run_without_submitting=True, mem_gb=0.2)
 
     refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
@@ -162,11 +168,11 @@ also included correction for partial volume effects [@chappell_pvc].
 
 def pcaslorasl(metadata):
     if 'CASL' in metadata["LabelingType"]:
-        pcasl = True
+        pcasl1 = True
     elif 'PASL' in metadata["LabelingType"]:
-        pcasl = False
+        pcasl1 = False
 
-    return pcasl
+    return pcasl1
 
 
 def init_cbfqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads, name='cbfqc_compt_wf'):

@@ -101,6 +101,8 @@ class extractCBF(SimpleInterface):
         # check if there is m0 file
         m0num=1
         m0file=[]
+        aslfile_linkedM0=[]
+
         if self.inputs.in_metadata['M0'] != "True" and self.inputs.in_metadata['M0'] != "False" and type(self.inputs.in_metadata['M0']) != int :
             m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
             m0file_metadata=readjson(m0file.replace('nii.gz','json'))
@@ -647,10 +649,10 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     mzero = File(exists=True, argstr=" -c %s ", desc='m0 scan', mandatory=False)
     m0scale = traits.Float(desc='calibration of asl', argstr=" --cgain %.2f ", mandatory=True)
     m0tr = traits.Float(desc='Mzero TR', argstr=" --tr %.2f ", mandatory=True,)
-    tis = traits.Float(desc='ecovery time =plds+bolus', argstr=" --tis %.2f ", mandatory=True,)
+    tis = traits.List(desc='ecovery time =plds+bolus', argstr=" --tis %.2s ", mandatory=True,)
     pcasl = traits.Bool(desc='label type:defualt is PASL', argstr=" --casl ",
                         mandatory=False, default_value=False)
-    bolus = traits.Float(desc='bolus or tau: label duration', argstr=" --bolus %.2f ",
+    bolus = traits.List(desc='bolus or tau: label duration', argstr=" --bolus %.2s ",
                          mandatory=True)
     pvc = traits.Bool(desc='calibration of asl', mandatory=False, argstr=" --pvcorr ",
                       default_value=True)

@@ -247,7 +247,7 @@ def init_enhance_and_skullstrip_asl_wf(
     brainmask_thresh=0.5,
     name="enhance_and_skullstrip_asl_wf",
     omp_nthreads=1,
-    pre_mask=True,
+    pre_mask=False,
 ):
     """
     Enhance and run brain extraction on a ASL image.
@@ -340,19 +340,10 @@ def init_enhance_and_skullstrip_asl_wf(
         name="outputnode",
     )
 
-    # Dilate pre_mask
-    pre_dilate = pe.Node(
-        fsl.DilateImage(
-            operation="max",
-            kernel_shape="sphere",
-            kernel_size=3.0,
-            internal_datatype="char",
-        ),
-        name="pre_mask_dilate",
-    )
+    pre_mask=pre_mask
 
     # Ensure mask's header matches reference's
-    check_hdr = pe.Node(MatchHeader(), name="check_hdr", run_without_submitting=True)
+    #check_hdr = pe.Node(MatchHeader(), name="check_hdr", run_without_submitting=True)
 
     # Run N4 normally, force num_threads=1 for stability (images are small, no need for >1)
     n4_correct = pe.Node(
@@ -406,89 +397,12 @@ def init_enhance_and_skullstrip_asl_wf(
     # Compute masked brain
     apply_mask = pe.Node(fsl.ApplyMask(), name="apply_mask")
 
-    if not pre_mask:
-        from ..interfaces.nibabel import Binarize
 
-        asl_template = get_template(
-            "MNI152NLin2009cAsym", resolution=2, desc="fMRIPrep", suffix="boldref"
-        )
-        brain_mask = get_template(
-            "MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask"
-        )
-
-        # Initialize transforms with antsAI
-        init_aff = pe.Node(
-            AI(
-                fixed_image=str(asl_template),
-                fixed_image_mask=str(brain_mask),
-                metric=("Mattes", 32, "Regular", 0.2),
-                transform=("Affine", 0.1),
-                search_factor=(10, 0.15),
-                principal_axes=False,
-                convergence=(10, 1e-6, 10),
-                verbose=True,
-            ),
-            name="init_aff",
-            n_procs=omp_nthreads,
-        )
-
-        # Registration().version may be None
-        if parseversion(Registration().version or "0.0.0") > Version("2.2.0"):
-            init_aff.inputs.search_grid = (40, (0, 40, 40))
-
-        # Set up spatial normalization
-        norm = pe.Node(
-            Registration(
-                from_file=pkgr_fn("niworkflows.data", "epi_atlasbased_brainmask.json")
-            ),
-            name="norm",
-            n_procs=omp_nthreads,
-        )
-        norm.inputs.fixed_image = str(asl_template)
-        map_brainmask = pe.Node(
-            ApplyTransforms(
-                interpolation="BSpline",
-                float=True,
-                # Use the higher resolution and probseg for numerical stability in rounding
-                input_image=str(
-                    get_template(
-                        "MNI152NLin2009cAsym",
-                        resolution=1,
-                        label="brain",
-                        suffix="probseg",
-                    )
-                ),
-            ),
-            name="map_brainmask",
-        )
-        binarize_mask = pe.Node(Binarize(thresh_low=brainmask_thresh), name="binarize_mask")
-
-        # fmt: off
-        workflow.connect([
-            (inputnode, init_aff, [("in_file", "moving_image")]),
-            (inputnode, map_brainmask, [("in_file", "reference_image")]),
-            (inputnode, norm, [("in_file", "moving_image")]),
-            (init_aff, norm, [("output_transform", "initial_moving_transform")]),
-            (norm, map_brainmask, [
-                ("reverse_invert_flags", "invert_transform_flags"),
-                ("reverse_transforms", "transforms"),
-            ]),
-            (map_brainmask, binarize_mask, [("output_image", "in_file")]),
-            (binarize_mask, pre_dilate, [("out_mask", "in_file")]),
-        ])
-        # fmt: on
-    else:
-        # fmt: off
-        workflow.connect([
-            (inputnode, pre_dilate, [("pre_mask", "in_file")]),
-        ])
-        # fmt: on
+    #binarize_mask = pe.Node(Binarize(thresh_low=brainmask_thresh), name="binarize_mask")
 
     # fmt: off
     workflow.connect([
-        (inputnode, check_hdr, [("in_file", "reference")]),
-        (pre_dilate, check_hdr, [("out_file", "in_file")]),
-        (check_hdr, n4_correct, [("out_file", "mask_image")]),
+        (inputnode, n4_correct, [("in_file", "mask_image")]),
         (inputnode, n4_correct, [("in_file", "input_image")]),
         (inputnode, fixhdr_unifize, [("in_file", "hdr_file")]),
         (inputnode, fixhdr_skullstrip2, [("in_file", "hdr_file")]),
