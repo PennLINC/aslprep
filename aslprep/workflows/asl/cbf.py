@@ -92,12 +92,19 @@ also included correction for partial volume effects [@chappell_pvc].
 
     tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
     boluscbf=metadata["PostLabelingDelay"]
-    if float(boluscbf):
-        tisasl=tiscbf
-        bolusasl=boluscbf
+    if type(boluscbf) is list:
+        tisasl = ",".join([str(i) for i in list(tiscbf)]) 
+        bolusasl = ",".join([str(i) for i in list(boluscbf)])
     else:
-        tisasl=list(tiscbf)
-        bolusasl=list(boluscbf)
+        tisasl = str(tiscbf)
+        bolusasl = str(boluscbf)
+
+    def pcaslorasl(metadata):
+        if 'CASL' in metadata["LabelingType"]:
+            pcasl1 = True
+        elif 'PASL' in metadata["LabelingType"]:
+            pcasl1 = False
+        return pcasl1
   
     extractcbf = pe.Node(extractCBF(dummy_vols=dummy_vols,bids_dir=bids_dir,
                   fwhm=smooth_kernel,in_metadata=metadata), mem_gb=0.2,
@@ -166,13 +173,7 @@ also included correction for partial volume effects [@chappell_pvc].
         ])
     return workflow
 
-def pcaslorasl(metadata):
-    if 'CASL' in metadata["LabelingType"]:
-        pcasl1 = True
-    elif 'PASL' in metadata["LabelingType"]:
-        pcasl1 = False
 
-    return pcasl1
 
 
 def init_cbfqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads, name='cbfqc_compt_wf'):
