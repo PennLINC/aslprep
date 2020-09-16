@@ -124,20 +124,17 @@ class extractCBF(SimpleInterface):
         controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
         labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
         m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
-        deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+        
         allasl = nb.load(self.inputs.asl_file)
         mask = nb.load(self.inputs.in_mask).get_fdata()
         dataasl = allasl.get_fdata()
 
         if len(dataasl.shape) == 5:
             raise RuntimeError('Input image (%s) is 5D.')
-        
-        if controllist and labellist:
-           control_img = dataasl[:, :, :, controllist]
-           label_img = dataasl[:, :, :, labellist] 
-           cbf_data = np.subtract(control_img, label_img)
-        else:
-            cbf_data = dataasl[:, :, :, deltamlist]
+        control_img = dataasl[:, :, :, controllist]
+        label_img = dataasl[:, :, :, labellist] 
+        cbf_data = np.subtract(control_img, label_img)
+      
         
         if self.inputs.dummy_vols != 0:
             cbf_data = np.delete(cbf_data, range(0, self.inputs.dummy_vols), axis=3)
@@ -157,13 +154,20 @@ class extractCBF(SimpleInterface):
                                                     suffix='_m0file') 
             newm0 = regmotoasl(asl=self.inputs.asl_file,m0file=m0file,m02asl=newm0)
             m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_data()
-            avg_control = mask*np.mean(m0data_smooth, axis=3)
+            if len(m0data_smooth.shape) > 3 :
+                avg_control = mask*np.mean(m0data_smooth, axis=3)
+            else:
+                avg_control = mask*m0data_smooth
+
         elif len(m0list) > 0 and self.inputs.in_metadata['M0'] == "True" :
             # if no m0file, check from asl data
             modata2 = dataasl[:, :, :, m0list]
             con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
             m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_data()
-            avg_control = mask*np.mean(m0data_smooth, axis=3)
+            if len(m0data_smooth.shape) > 3 :
+                avg_control = mask*np.mean(m0data_smooth, axis=3)
+            else:
+                avg_control = mask*m0data_smooth
         elif len(controllist) > 0:
             # else use average control
             control_img = dataasl[:, :, :, controllist]
@@ -184,7 +188,7 @@ class extractCBF(SimpleInterface):
             np.divide(cbf_data,m0num), allasl.affine, allasl.header).to_filename(
             self._results['out_file'])
         nb.Nifti1Image(
-            avg_control, allasl.affine, allasl.header).to_filename(
+            avg_control,allasl.affine, allasl.header).to_filename(
             self._results['out_avg'])
 
         self.inputs.out_file = os.path.abspath(self._results['out_file'])
@@ -267,7 +271,9 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
     t1blood = (110*int(magstrength)+1316)/1000
     inverstiontime = np.add(tau, plds)
     mask = nb.load(mask).get_fdata()
-    if metadata['LabelingEfficiency']: 
+
+        
+    if 'LabelingEfficiency' in metadata.keys():
         labeleff = metadata['LabelingEfficiency']
     elif 'CASL' in labeltype:
         labeleff = 0.72
@@ -285,7 +291,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
     elif 'PASL' in labeltype:
         pf1 = (6000*part_coeff)/(2*labeleff)
         perfusion_factor = (pf1*np.exp(inverstiontime/t1blood))/inverstiontime
-    perfusion_factor = np.array([perfusion_factor])
+    perfusion_factor = np.array(perfusion_factor)
 
 
     # get control now
@@ -322,7 +328,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
                 pldx[:,:,:,j] = np.array(np.multiply(cbf_plds[j],plds[j]))
             cbf[:, :, :, k]=np.divide(np.sum(pldx,axis=3),np.sum(plds))
     else:
-        cbf = cbf1*perfusion_factor
+        cbf = cbf1*np.array(perfusion_factor)
         # cbf is timeseries
     meancbf = mask*(np.mean(cbf, axis=3))
     meancbf = np.nan_to_num(meancbf)
@@ -652,7 +658,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     tis = traits.Str(desc='ecovery time =plds+bolus', argstr=" --tis %s ", mandatory=True,)
     pcasl = traits.Bool(desc='label type:defualt is PASL', argstr=" --casl ",
                         mandatory=False, default_value=False)
-    bolus = traits.Str(desc='bolus or tau: label duration', argstr=" --bolus %s ",
+    bolus = traits.Float(desc='bolus or tau: label duration', argstr=" --bolus %.2f ",
                          mandatory=True)
     pvc = traits.Bool(desc='calibration of asl', mandatory=False, argstr=" --pvcorr ",
                       default_value=True)

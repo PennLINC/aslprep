@@ -91,13 +91,10 @@ also included correction for partial volume effects [@chappell_pvc].
                      name='gm_tfm', mem_gb=0.1)
 
     tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
-    boluscbf=metadata["PostLabelingDelay"]
-    if type(boluscbf) is list:
-        tisasl = ",".join([str(i) for i in list(tiscbf)]) 
-        bolusasl = ",".join([str(i) for i in list(boluscbf)])
+    if hasattr(tiscbf, '__len__'):
+        tisasl = ",".join([str(i) for i in tiscbf])
     else:
         tisasl = str(tiscbf)
-        bolusasl = str(boluscbf)
 
     def pcaslorasl(metadata):
         if 'CASL' in metadata["LabelingType"]:
@@ -113,8 +110,8 @@ also included correction for partial volume effects [@chappell_pvc].
                          run_without_submitting=True, name="computecbf")
     scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=0.2,
                          name='scorescrub', run_without_submitting=True)
-    basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=bolusasl,
-                                m0tr=metadata['RepetitionTime'], pvc=True,tis =tisasl,
+    basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=metadata["LabelingDuration"],
+                                m0tr=metadata['RepetitionTime'], pvc=True,tis = tisasl,
                                 pcasl = pcaslorasl(metadata = metadata)), name='basilcbf',
                        run_without_submitting=True, mem_gb=0.2)
 
