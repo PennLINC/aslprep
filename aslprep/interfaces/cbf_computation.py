@@ -261,7 +261,6 @@ class computeCBF(SimpleInterface):
         mat1.run()
         return runtime
 
-
 def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
     labeltype = metadata['LabelingType']
     tau = metadata['LabelingDuration']
@@ -291,9 +290,8 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
     elif 'PASL' in labeltype:
         pf1 = (6000*part_coeff)/(2*labeleff)
         perfusion_factor = (pf1*np.exp(inverstiontime/t1blood))/inverstiontime
-    perfusion_factor = np.array(perfusion_factor)
-
-
+    #perfusion_factor = np.array(perfusion_factor)
+    #print(perfusion_factor)
     # get control now
     avg_control = []
     mzero = nb.load(m0file).get_fdata()
@@ -312,20 +310,20 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
         # cbf1=np.divide(cbf_data,m1)
         # for compute cbf for each PLD and TI
     att = None #atterial time will be implemented later 
-    if len(perfusion_factor) > 1:
+    if hasattr(perfusion_factor, '__len__'):
         permfactor = np.tile(perfusion_factor ,int(cbf_data.shape[3]/len(perfusion_factor)))
         cbf_data_ts = np.zeros(cbf_data.shape)
         for i in range(cbf_data.shape[3]):
             cbf_data_ts[:, :, :, i] =np.multiply(cbf1[:, :, :, i],permfactor[i])
 
-        cbf = np.zeros([cbf_data_ts.shape[0],cbf_data_ts[1],cbf_data_ts[2], int(cbf_data.shape[3]/len(perfusion_factor))])
-        cbf_xx=np.split(cbf_data_ts,int(cbf_data.shape[3]/len(perfusion_factor)))
+        cbf = np.zeros([cbf_data_ts.shape[0],cbf_data_ts.shape[1],cbf_data_ts.shape[2], int(cbf_data.shape[3]/len(perfusion_factor))])
+        cbf_xx=np.split(cbf_data_ts,int(cbf_data_ts.shape[3]/len(perfusion_factor)),axis=3)
         
-        for k in range(cbf.shape[3]):
+        for k in range(len(cbf_xx)):
             cbf_plds = cbf_xx[k]
-            pldx = np.zeros([cbf_data_ts.shape[0],cbf_data_ts[1],cbf_data_ts[2],len(cbf_plds)])
-            for j in len(cbf_plds):
-                pldx[:,:,:,j] = np.array(np.multiply(cbf_plds[j],plds[j]))
+            pldx = np.zeros([cbf_data_ts.shape[0],cbf_data_ts.shape[1],cbf_data_ts.shape[2],len(cbf_plds)])
+            for j in range(cbf_plds.shape[3]):
+                pldx[:,:,:,j] = np.array(np.multiply(cbf_plds[:,:,:,j],plds[j]))
             cbf[:, :, :, k]=np.divide(np.sum(pldx,axis=3),np.sum(plds))
     else:
         cbf = cbf1*np.array(perfusion_factor)
