@@ -279,7 +279,7 @@ CBF Computation in native space
     with open(metadatafile) as f:
         metadata = json.load(f)
     from aslprep.workflows.asl.cbf import init_cbf_compt_wf
-    wf = init_cbf_compt_wf(mem_gb=0.1,metadata=metadata, omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
+    wf = init_cbf_compt_wf(bids_dir=str(bids_dir),mem_gb=0.1,metadata=metadata,M0Scale=1,omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
 ASL data consist of multiple pairs of labeled and control images. ASLPrep first checks for
 the reference ASL volume(s) (M0,``sub-task_xxxx-acq-YYY_m0scan.nii.gz``). In the absence of M0,
