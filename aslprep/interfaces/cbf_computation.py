@@ -667,14 +667,14 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     out_basename = File(desc="base name of output files", argstr=" -o %s ", mandatory=True)
     out_cbfb = File(exists=False, desc='cbf with spatial correction')
     out_cbfpv = File(exists=False, desc='cbf with spatial correction')
-    out_attb = File(exists=False, desc='aretrial transist time')
+    out_att = File(exists=False, desc='aretrial transist time')
     # environ=traits.Str('FSLOUTPUTTYPE': 'NIFTI_GZ'}
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
     out_cbfb = File(exists=False, desc='cbf with spatial correction')
     out_cbfpv = File(exists=False, desc='cbf with spatial correction')
-    out_attb = File(exists=False, desc='aretrial transist time')
+    out_att = File(exists=False, desc='aretrial transist time')
 
 
 class BASILCBF(FSLCommand):

@@ -80,7 +80,7 @@ also included correction for partial volume effects [@chappell_pvc].
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['out_cbf', 'out_mean', 'out_score',
                                                        'out_avgscore', 'out_scrub', 'out_cbfb',
-                                                       'out_scoreindex', 'out_cbfpv']),
+                                                       'out_scoreindex', 'out_cbfpv','out_att']),
                          name='outputnode')
     # convert tmps to asl_space
     csf_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),

@@ -311,7 +311,7 @@ def init_asl_derivatives_wf(
                                 compress=True),
             name='pvcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         attnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='bolus_arrival', suffix='time',
+            DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 compress=True),
             name='attcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
@@ -391,7 +391,7 @@ def init_asl_derivatives_wf(
                                 space='T1w', compress=True),
             name='pvcnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         attnativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='bolus_arrival', suffix='time',
+            DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 space='T1w', compress=True),
             name='attnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
@@ -454,7 +454,7 @@ def init_asl_derivatives_wf(
         select_std = pe.Node(KeySelect(
             fields=['template', 'asl_std', 'asl_std_ref', 'asl_mask_std',
                     'cbf_std', 'meancbf_std', 'score_std', 'avgscore_std', 'scrub_std',
-                    'basil_std', 'pv_std']),
+                    'basil_std', 'pv_std','att_std']),
             name='select_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         ds_asl_std = pe.Node(
             DerivativesDataSink(
@@ -500,7 +500,7 @@ def init_asl_derivatives_wf(
             name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         
         attstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='bolus_arrival', suffix='time',
+            DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 compress=True),
             name='attstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
