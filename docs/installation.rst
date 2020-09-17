@@ -1,10 +1,8 @@
 .. include:: links.rst
 
-.. _installation:
-
--------------
-Installation
--------------
+---------------------
+ASLPrep Installation
+---------------------
 
 There are two ways to install *ASLPrep*:
 
@@ -45,7 +43,7 @@ These tools must be installed and their binaries available in the
 system's ``$PATH``.
 A relatively interpretable description of how your environment can be set up
 is found in the `Dockerfile <https://github.com/pennlinc/aslprep/blob/master/Dockerfile>`_.
-Note that FreeSurfer requires a license file, which can be requested `here https://surfer.nmr.mgh.harvard.edu/fswiki/License`_.
+Note that FreeSurfer requires a license file, which can be requested `here <https://surfer.nmr.mgh.harvard.edu/fswiki/License>`_.
 
 If Python 3.7 (or above) is installed, along with the ``pip`` command,
 *ASLPRep* can be installed using the following command ::
