@@ -270,7 +270,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 'asl_native', 'asl_cifti', 'cifti_variant', 'cifti_metadata', 'cifti_density',
                 'cbf_t1', 'cbf_std', 'meancbf_t1', 'meancbf_std', 'score_t1', 'score_std',
                 'avgscore_t1', 'avgscore_std', 'avgscore_cifti', ' scrub_t1', 'scrub_std',
-                'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 'pv_native', 'surfaces',
+                'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 'pv_native','att','att_t1','att_std','surfaces',
                 'confounds', 'confounds_metadata', 'qc_file']),
         name='outputnode')
       
@@ -666,14 +666,16 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                               ('outputnode.out_avgscore', 'inputnode.avgscore'),
                                               ('outputnode.out_scrub', 'inputnode.scrub'),
                                               ('outputnode.out_cbfb', 'inputnode.basil'),
-                                              ('outputnode.out_cbfpv', 'inputnode.pv')]),
+                                              ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                              ('outputnode.out_att', 'inputnode.att')]),
             (asl_t1_trans_wf, asl_derivatives_wf, [('outputnode.cbf_t1', 'inputnode.cbf_t1'),
                                             ('outputnode.meancbf_t1', 'inputnode.meancbf_t1'),
                                             ('outputnode.score_t1', 'inputnode.score_t1'),
                                             ('outputnode.avgscore_t1', 'inputnode.avgscore_t1'),
                                             ('outputnode.scrub_t1', 'inputnode.scrub_t1'),
                                             ('outputnode.basil_t1', 'inputnode.basil_t1'),
-                                            ('outputnode.pv_t1', 'inputnode.pv_t1')]),
+                                            ('outputnode.pv_t1', 'inputnode.pv_t1'),
+                                            ('outputnode.att_t1', 'inputnode.att_t1')]),
                           ])
 
     if nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')):
@@ -691,7 +693,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ('outputnode.out_avgscore', 'inputnode.avgscore'),
                 ('outputnode.out_scrub', 'inputnode.scrub'),
                 ('outputnode.out_cbfb', 'inputnode.basil'),
-                ('outputnode.out_cbfpv', 'inputnode.pv')]),
+                ('outputnode.out_cbfpv', 'inputnode.pv'),
+                ('outputnode.out_att', 'inputnode.att')]),
         ])
 
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
@@ -730,7 +733,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                                ('outputnode.out_avgscore', 'inputnode.avgscore'),
                                                ('outputnode.out_scrub', 'inputnode.scrub'),
                                                ('outputnode.out_cbfb', 'inputnode.basil'),
-                                               ('outputnode.out_cbfpv', 'inputnode.pv')]),
+                                               ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                               ('outputnode.out_att', 'inputnode.att')]),
             ])
 
         if freesurfer:
@@ -774,7 +778,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ('outputnode.avgscore_std', 'inputnode.avgscore_std'),
                 ('outputnode.scrub_std', 'inputnode.scrub_std'),
                 ('outputnode.basil_std', 'inputnode.basil_std'),
-                ('outputnode.pv_std', 'inputnode.pv_std')]),
+                ('outputnode.pv_std', 'inputnode.pv_std'),
+                ('outputnode.att_std', 'inputnode.att_std')]),
         ])
 
     # SURFACES ##################################################################################

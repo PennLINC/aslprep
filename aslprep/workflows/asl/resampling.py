@@ -300,7 +300,6 @@ preprocessed ASL runs*: {tpl}.
             'scrub',
             'basil',
             'pv',
-            'attb',
             'asl_aparc',
             'asl_aseg',
             'asl_mask',
@@ -381,6 +380,9 @@ preprocessed ASL runs*: {tpl}.
     pv_to_std_transform = pe.Node(
         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
         name='pv_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+    att_to_std_transform = pe.Node(
+        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+        name='att_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
 
     merge = pe.Node(Merge(compress=use_compression), name='merge',
                     mem_gb=mem_gb * 3)
@@ -428,6 +430,7 @@ preprocessed ASL runs*: {tpl}.
         'scrub_std',
         'basil_std',
         'pv_std',
+        'att_std',
     ] + freesurfer * ['asl_aseg_std', 'asl_aparc_std']
 
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names),
@@ -475,6 +478,11 @@ preprocessed ASL runs*: {tpl}.
         (gen_ref, pv_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, pv_to_std_transform, [('pv', 'input_image')]),
         (pv_to_std_transform, poutputnode, [('output_image', 'pv_std')]),
+
+        (mask_merge_tfms, att_to_std_transform, [('out', 'transforms')]),
+        (gen_ref, att_to_std_transform, [('out_file', 'reference_image')]),
+        (inputnode, att_to_std_transform, [('att', 'input_image')]),
+        (att_to_std_transform, poutputnode, [('output_image', 'att_std')]),
     ])
 
     if freesurfer:

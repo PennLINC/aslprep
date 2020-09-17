@@ -702,11 +702,13 @@ class BASILCBF(FSLCommand):
         from shutil import copyfile
         copyfile(self.inputs.out_basename+'/native_space/perfusion_calib.nii.gz',
                  outputs["out_cbfb"])
-        if len(np.array([self.inputs.tis])) > 1:
+        
+        
             # outputs["out_att"]=self.inputs.out_basename+'/arrivaltime.nii.gz'
-            outputs["out_att"] = fname_presuffix(self.inputs.in_file, suffix='_arrivaltime')
-            copyfile(self.inputs.out_basename+'/native_space/arrival.nii.gz', outputs["out_att"])
-            self.inputs.out_att = os.path.abspath(outputs["out_att"])
+        outputs["out_att"] = fname_presuffix(self.inputs.in_file, suffix='_arrivaltime')
+        copyfile(self.inputs.out_basename+'/native_space/arrival.nii.gz', outputs["out_att"])
+        self.inputs.out_att = os.path.abspath(outputs["out_att"])
+        
         # outputs["out_cbfpv"]=self.inputs.out_basename+'/basilcbfpv.nii.gz'
         outputs["out_cbfpv"] = fname_presuffix(self.inputs.in_file, suffix='_cbfbasilpv')
         copyfile(self.inputs.out_basename+'/native_space/pvcorr/perfusion_calib.nii.gz',

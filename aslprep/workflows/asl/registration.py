@@ -271,14 +271,14 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         niu.IdentityInterface(
             fields=['name_source', 'ref_asl_brain', 'ref_asl_mask',
                     't1w_brain', 't1w_mask', 't1w_aseg', 't1w_aparc',
-                    'asl_split', 'fieldwarp', 'hmc_xforms', 'cbf', 'meancbf',
+                    'asl_split', 'fieldwarp', 'hmc_xforms', 'cbf', 'meancbf','att',
                     'score', 'avgscore', 'scrub', 'basil', 'pv', 'itk_asl_to_t1']),
         name='inputnode'
     )
 
     outputnode = pe.Node(
         niu.IdentityInterface(fields=[
-            'asl_t1', 'asl_t1_ref', 'asl_mask_t1', 'asl_aseg_t1', 'asl_aparc_t1',
+            'asl_t1', 'asl_t1_ref', 'asl_mask_t1', 'asl_aseg_t1', 'asl_aparc_t1','att_t1',
             'cbf_t1', 'meancbf_t1', 'score_t1', 'avgscore_t1', 'scrub_t1', 'basil_t1', 'pv_t1']),
         name='outputnode'
     )
@@ -393,6 +393,9 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         pv_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
                name='pv_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        att_to_t1w_transform = pe.Node(
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+               name='att_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         workflow.connect([
          
         (gen_final_ref, outputnode, [('outputnode.ref_image', 'asl_t1_ref')]),
@@ -431,6 +434,11 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         (pv_to_t1w_transform, outputnode, [('output_image', 'pv_t1')]),
         (inputnode, pv_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
         (gen_ref, pv_to_t1w_transform, [('out_file', 'reference_image')]),
+
+        (inputnode, att_to_t1w_transform, [('att', 'input_image')]),
+        (att_to_t1w_transform, outputnode, [('output_image', 'att_t1')]),
+        (inputnode, att_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+        (gen_ref, att_to_t1w_transform, [('out_file', 'reference_image')]),
          ])
 
     return workflow

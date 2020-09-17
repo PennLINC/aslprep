@@ -61,7 +61,7 @@ def init_asl_derivatives_wf(
         'template', 'spatial_reference', 'cbf', 'meancbf', 'score', 'avgscore',
         'scrub', 'basil', 'pv', 'cbf_t1', 'meancbf_t1', 'att_t1', 'score_t1', 'avgscore_t1',
         'scrub_t1', 'basil_t1', 'pv_t1', 'cbf_std', 'meancbf_std', 'score_std',
-        'avgscore_std', 'scrub_std', 'basil_std', 'pv_std', 'qc_file',
+        'avgscore_std', 'scrub_std', 'basil_std', 'pv_std','att','att_std','qc_file',
         'cbf_hvoxf', 'score_hvoxf', 'scrub_hvoxf', 'basil_hvoxf', 'pvc_hvoxf',
         'cbf_sc207', 'score_sc207', 'scrub_sc207', 'basil_sc207', 'pvc_sc207',
         'cbf_sc217', 'score_sc217', 'scrub_sc217', 'basil_sc217', 'pvc_sc217',
@@ -310,6 +310,10 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
                                 compress=True),
             name='pvcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        attnative = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='bolus_arrival', suffix='time',
+                                compress=True),
+            name='attcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         workflow.connect([
             (inputnode, ds_asl_native, [('source_file', 'source_file'),
@@ -332,6 +336,8 @@ def init_asl_derivatives_wf(
                                       ('basil', 'in_file')]),
             (inputnode, pvnative, [('source_file', 'source_file'),
                                    ('pv', 'in_file')]),
+            (inputnode, attnative, [('source_file', 'source_file'),
+                                   ('att', 'in_file')]),
             (raw_sources, ds_asl_mask_native, [('out', 'RawSources')]),
         ])
 
@@ -384,6 +390,10 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
                                 space='T1w', compress=True),
             name='pvcnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        attnativet1 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='bolus_arrival', suffix='time',
+                                space='T1w', compress=True),
+            name='attnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         workflow.connect([
             (inputnode, ds_asl_t1, [('source_file', 'source_file'),
@@ -406,6 +416,8 @@ def init_asl_derivatives_wf(
                                         ('basil_t1', 'in_file')]),
             (inputnode, pvnativet1, [('source_file', 'source_file'),
                                      ('pv_t1', 'in_file')]),
+            (inputnode, attnativet1, [('source_file', 'source_file'),
+                                     ('att_t1', 'in_file')]),
             (raw_sources, ds_asl_mask_t1, [('out', 'RawSources')]),
         ])
         if freesurfer:
@@ -486,6 +498,12 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
                                 compress=True),
             name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        
+        attstd = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='bolus_arrival', suffix='time',
+                                compress=True),
+            name='attstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+
 
         workflow.connect([
             (inputnode, ds_asl_std, [('source_file', 'source_file')]),
@@ -508,6 +526,7 @@ def init_asl_derivatives_wf(
                                      ('scrub_std', 'scrub_std'),
                                      ('basil_std', 'basil_std'),
                                      ('pv_std', 'pv_std'),
+                                     ('att_std', 'att_std'),
                                      ('template', 'template'),
                                      ('spatial_reference', 'keys')]),
             (spacesource, select_std, [('uid', 'key')]),
@@ -558,6 +577,11 @@ def init_asl_derivatives_wf(
                                      ('density', 'density')]),
             (select_std, pvstd, [('pv_std', 'in_file')]),
             (spacesource, pvstd, [('space', 'space'),
+                                  ('cohort', 'cohort'),
+                                  ('resolution', 'resolution'),
+                                  ('density', 'density')]),
+            (select_std, attstd, [('att_std', 'in_file')]),
+            (spacesource, attstd, [('space', 'space'),
                                   ('cohort', 'cohort'),
                                   ('resolution', 'resolution'),
                                   ('density', 'density')]),
