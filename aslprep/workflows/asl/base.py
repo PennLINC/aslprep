@@ -177,6 +177,8 @@ def init_asl_preproc_wf(asl_file):
     output_dir = str(config.execution.output_dir)
     dummyvols = config.workflow.dummy_vols
     smoothkernel = config.workflow.smooth_kernel
+    mscale = config.workflow.m0_scale
+    
 
     if multiecho:
         tes = [layout.get_metadata(echo)['EchoTime'] for echo in asl_file]
@@ -257,6 +259,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 't1w2fsnative_xfm', 'fsnative2t1w_xfm']),
         name='inputnode')
     inputnode.inputs.asl_file = asl_file
+    subj_dir=str(config.execution.bids_dir) + '/sub-' + str(config.execution.participant_label[0])
     if sbref_file is not None:
         from ...niworkflows.interfaces.images import ValidateImage
         val_sbref = pe.Node(ValidateImage(in_file=sbref_file), name='val_sbref')
@@ -267,10 +270,10 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 'asl_native', 'asl_cifti', 'cifti_variant', 'cifti_metadata', 'cifti_density',
                 'cbf_t1', 'cbf_std', 'meancbf_t1', 'meancbf_std', 'score_t1', 'score_std',
                 'avgscore_t1', 'avgscore_std', 'avgscore_cifti', ' scrub_t1', 'scrub_std',
-                'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 'pv_native', 'surfaces',
+                'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 'pv_native','att','att_t1','att_std','surfaces',
                 'confounds', 'confounds_metadata', 'qc_file']),
         name='outputnode')
-
+      
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name='t1w_brain')
 
@@ -549,15 +552,17 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                      mem_gb=mem_gb['filesize'],
                                      omp_nthreads=omp_nthreads,
                                      dummy_vols=dummyvols,
+                                     M0Scale=mscale,
+                                     bids_dir=subj_dir,
                                      smooth_kernel=smoothkernel,
                                      metadata=metadata)
 
     # cbf computation workflow
     workflow.connect([
-         (asl_asl_trans_wf, compt_cbf_wf, [('outputnode.asl', 'inputnode.asl'),
+         (asl_asl_trans_wf, compt_cbf_wf, [('outputnode.asl', 'inputnode.asl_file'),
                                              ('outputnode.asl_mask', 'inputnode.asl_mask')]),
          (inputnode, compt_cbf_wf, [('t1w_tpms', 'inputnode.t1w_tpms'),
-                                    ('asl_file', 'inputnode.asl_file')]),
+                                    ('asl_file', 'inputnode.in_file')]),
          (asl_reg_wf, compt_cbf_wf, [('outputnode.itk_t1_to_asl', 'inputnode.t1_asl_xform')]),
          (asl_reg_wf, compt_cbf_wf, [('outputnode.itk_asl_to_t1', 'inputnode.itk_asl_to_t1')]),
          (inputnode, compt_cbf_wf, [('t1w_mask', 'inputnode.t1w_mask')]),
@@ -661,14 +666,16 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                               ('outputnode.out_avgscore', 'inputnode.avgscore'),
                                               ('outputnode.out_scrub', 'inputnode.scrub'),
                                               ('outputnode.out_cbfb', 'inputnode.basil'),
-                                              ('outputnode.out_cbfpv', 'inputnode.pv')]),
+                                              ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                              ('outputnode.out_att', 'inputnode.att')]),
             (asl_t1_trans_wf, asl_derivatives_wf, [('outputnode.cbf_t1', 'inputnode.cbf_t1'),
                                             ('outputnode.meancbf_t1', 'inputnode.meancbf_t1'),
                                             ('outputnode.score_t1', 'inputnode.score_t1'),
                                             ('outputnode.avgscore_t1', 'inputnode.avgscore_t1'),
                                             ('outputnode.scrub_t1', 'inputnode.scrub_t1'),
                                             ('outputnode.basil_t1', 'inputnode.basil_t1'),
-                                            ('outputnode.pv_t1', 'inputnode.pv_t1')]),
+                                            ('outputnode.pv_t1', 'inputnode.pv_t1'),
+                                            ('outputnode.att_t1', 'inputnode.att_t1')]),
                           ])
 
     if nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')):
@@ -686,7 +693,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ('outputnode.out_avgscore', 'inputnode.avgscore'),
                 ('outputnode.out_scrub', 'inputnode.scrub'),
                 ('outputnode.out_cbfb', 'inputnode.basil'),
-                ('outputnode.out_cbfpv', 'inputnode.pv')]),
+                ('outputnode.out_cbfpv', 'inputnode.pv'),
+                ('outputnode.out_att', 'inputnode.att')]),
         ])
 
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
@@ -725,7 +733,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                                ('outputnode.out_avgscore', 'inputnode.avgscore'),
                                                ('outputnode.out_scrub', 'inputnode.scrub'),
                                                ('outputnode.out_cbfb', 'inputnode.basil'),
-                                               ('outputnode.out_cbfpv', 'inputnode.pv')]),
+                                               ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                               ('outputnode.out_att', 'inputnode.att')]),
             ])
 
         if freesurfer:
@@ -769,7 +778,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ('outputnode.avgscore_std', 'inputnode.avgscore_std'),
                 ('outputnode.scrub_std', 'inputnode.scrub_std'),
                 ('outputnode.basil_std', 'inputnode.basil_std'),
-                ('outputnode.pv_std', 'inputnode.pv_std')]),
+                ('outputnode.pv_std', 'inputnode.pv_std'),
+                ('outputnode.att_std', 'inputnode.att_std')]),
         ])
 
     # SURFACES ##################################################################################

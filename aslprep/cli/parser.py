@@ -288,12 +288,20 @@ any spatial references."""
         "performed for GIFTI files mapped to a freesurfer subject (fsaverage or fsnative).",
     )
     g_conf.add_argument(
-        "--dummy-scans",
+        "--dummy_scans",
         required=False,
         action="store",
         default=None,
         type=int,
         help="Number of non steady state volumes.",
+    )
+    g_conf.add_argument(
+        "--m0_scale",
+        required=False,
+        action="store",
+        default=1,
+        type=int,
+        help="relative scale between asl and M0.",
     )
     g_conf.add_argument(
         "--random-seed",
