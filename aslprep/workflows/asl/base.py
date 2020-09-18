@@ -869,7 +869,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
        (inputnode, cbf_plot, [('std2anat_xfm', 'inputnode.std2anat_xfm')]),
        (asl_reg_wf, cbf_plot, [('outputnode.itk_t1_to_asl', 'inputnode.t1_asl_xform')]),
        (refine_mask, cbf_plot, [('out_mask', 'inputnode.asl_mask')]),
-       (asl_reference_wf, cbf_plot, [('outputnode.ref_image', 'inputnode.asl_ref')]),
+       (asl_reference_wf, cbf_plot, [('outputnode.ref_image_brain', 'inputnode.asl_ref')]),
        (asl_confounds_wf, cbf_plot, [('outputnode.confounds_file', 'inputnode.confounds_file')]),
        (compt_cbf_wf, cbf_plot, [('outputnode.out_scoreindex', 'inputnode.scoreindex')]),
        ])
