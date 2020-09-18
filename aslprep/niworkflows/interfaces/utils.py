@@ -222,7 +222,7 @@ def _copyxform(ref_image, out_image, message=None):
     if not np.allclose(orig.affine, resampled.affine):
         LOG.debug(
             "Affines of input and reference images do not match, "
-            "FMRIPREP will set the reference image headers. "
+            "ASLPREP will set the reference image headers. "
             "Please, check that the x-form matrices of the input dataset"
             "are correct and manually verify the alignment of results."
         )

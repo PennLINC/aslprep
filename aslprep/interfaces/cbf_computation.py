@@ -124,6 +124,8 @@ class extractCBF(SimpleInterface):
         controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
         labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
         m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
+
+        deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
         
         allasl = nb.load(self.inputs.asl_file)
         mask = nb.load(self.inputs.in_mask).get_fdata()
@@ -131,9 +133,13 @@ class extractCBF(SimpleInterface):
 
         if len(dataasl.shape) == 5:
             raise RuntimeError('Input image (%s) is 5D.')
-        control_img = dataasl[:, :, :, controllist]
-        label_img = dataasl[:, :, :, labellist] 
-        cbf_data = np.subtract(control_img, label_img)
+
+        if len(deltamlist) > 0 : 
+            cbf_data = dataasl[:, :, :, deltamlist]
+        else:
+            control_img = dataasl[:, :, :, controllist]
+            label_img = dataasl[:, :, :, labellist] 
+            cbf_data = np.subtract(control_img, label_img)
       
         
         if self.inputs.dummy_vols != 0:
@@ -261,7 +267,21 @@ class computeCBF(SimpleInterface):
         mat1.run()
         return runtime
 
-def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
+def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
+    
+    """
+    compute cbf with pld and multi pld
+    metadata
+      cbf metadata
+    mask
+      asl mask in native space
+    m0file
+      m0scan
+    cbffile
+      already processed cbf  after tag-control substraction
+    m0scale
+      relative scale between m0scan and asl, default is 1
+    """
     labeltype = metadata['LabelingType']
     tau = metadata['LabelingDuration']
     plds = np.array(metadata['PostLabelingDelay'])
@@ -293,46 +313,53 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale):
     #perfusion_factor = np.array(perfusion_factor)
     #print(perfusion_factor)
     # get control now
-    avg_control = []
-    mzero = nb.load(m0file).get_fdata()
-    # mzero=nb.load(self.inputs.in_m0file).get_fdata()
-    if len(mzero.shape) > 3:
-        avg_control = np.multiply(mask, np.mean(mzero, axis=3))
-    else:
-        avg_control = np.multiply(mzero, mask)
+
+    m0data = nb.load(m0file).get_fdata()
+    maskx=nb.load(mask).get_fdata()
 
     # compute cbf
-    cbf_data = nb.load(cbffile).get_fdata()
+    cbf_data = nb.load(cbffile).get_fdata()[maskx==1]
     cbf1 = np.zeros(cbf_data.shape)
-    for i in range(cbf_data.shape[3]):
-        cbf1[:, :, :, i] = mask*(np.divide(cbf_data[:, :, :, i], (m0scale*avg_control)))
+    for i in range(cbf1.shape[1]):
+        cbf1[:, i] = np.divide(cbf_data[:,i], (m0scale*m0data))
         # m1=m0scale*m0_data
         # cbf1=np.divide(cbf_data,m1)
         # for compute cbf for each PLD and TI
-    att = None #atterial time will be implemented later 
+    att = None  
     if hasattr(perfusion_factor, '__len__'):
-        permfactor = np.tile(perfusion_factor ,int(cbf_data.shape[3]/len(perfusion_factor)))
+        permfactor = np.tile(perfusion_factor ,int(cbf_data.shape[1]/len(perfusion_factor)))
         cbf_data_ts = np.zeros(cbf_data.shape)
-        for i in range(cbf_data.shape[3]):
-            cbf_data_ts[:, :, :, i] =np.multiply(cbf1[:, :, :, i],permfactor[i])
 
-        cbf = np.zeros([cbf_data_ts.shape[0],cbf_data_ts.shape[1],cbf_data_ts.shape[2], int(cbf_data.shape[3]/len(perfusion_factor))])
-        cbf_xx=np.split(cbf_data_ts,int(cbf_data_ts.shape[3]/len(perfusion_factor)),axis=3)
+        #calculate  cbf with multiple plds 
+        for i in range(cbf_data.shape[1]):
+            cbf_data_ts[:, i] =np.multiply(cbf1[:, i],permfactor[i])
+        cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1]/len(perfusion_factor))])
+        cbf_xx=np.split(cbf_data_ts,int(cbf_data_ts.shape[1]/len(perfusion_factor)),axis=1)
         
+        # calculate weighted cbf with multiplds
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3791289/
         for k in range(len(cbf_xx)):
             cbf_plds = cbf_xx[k]
-            pldx = np.zeros([cbf_data_ts.shape[0],cbf_data_ts.shape[1],cbf_data_ts.shape[2],len(cbf_plds)])
-            for j in range(cbf_plds.shape[3]):
-                pldx[:,:,:,j] = np.array(np.multiply(cbf_plds[:,:,:,j],plds[j]))
-            cbf[:, :, :, k]=np.divide(np.sum(pldx,axis=3),np.sum(plds))
+            pldx = np.zeros([cbf_plds.shape[0],len(cbf_plds)])
+            for j in range(cbf_plds.shape[1]):
+                pldx[:,j] = np.array(np.multiply(cbf_plds[:,j],plds[j]))
+            cbf[:, k]=np.divide(np.sum(pldx,axis=1),np.sum(plds))
     else:
         cbf = cbf1*np.array(perfusion_factor)
         # cbf is timeseries
-    meancbf = mask*(np.mean(cbf, axis=3))
+     
+     
+     # return cbf to nifti shape
+    tcbf=np.zeros([mask.shape[0],mask.shape[1],mask.shape[2],cbf.shape[1]])
+    for i in range(cbf.shape[1]):
+        tcbfx=np.zeros(mask.shape); tcbfx[mask==1]=cbf[:,i]
+        tcbf[:,:,:,i]=tcbfx
+    
+    meancbf = np.mean(tcbf, axis=3)
     meancbf = np.nan_to_num(meancbf)
-    cbf = np.nan_to_num(cbf)
+    tcbf = np.nan_to_num(tcbf)
     att = np.nan_to_num(att)
-    return cbf, meancbf, att
+    return tcbf, meancbf, att
 
 # score and scrub
 
