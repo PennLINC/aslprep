@@ -287,7 +287,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     plds = np.array(metadata['PostLabelingDelay'])
     #m0scale = metadata['M0']
     magstrength = metadata['MagneticFieldStrength']
-    t1blood = (110*int(magstrength)+1316)/1000
+    t1blood = (110*int(magstrength)+1316)/1000 # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550 
     inverstiontime = np.add(tau, plds)
     mask = nb.load(mask).get_fdata()
 
