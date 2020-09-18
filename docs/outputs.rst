@@ -115,16 +115,22 @@ these will be indicated with ``[specifiers]``::
 
   sub-<subject_label>/
     perf/
-      sub-<subject_label>_[specifiers]_space-<space_label>_aslref.nii.gz
-      sub-<subject_label>_[specifiers]_space-<space_label>_desc-brain_mask.nii.gz
-      sub-<subject_label>_[specifiers]_space-<space_label>_desc-preproc_asl.nii.gz
-      sub-<subject_label>_[specifiers]_space-<space_label>_cbf.nii.gz
-      sub-<subject_label>_[specifiers]_space-<space_label>_mean_cbf.nii.gz
-      sub-<subject_label>_[specifiers]_space-<space_label>_desc-score_cbf.nii.gz
-      sub-<subject_label>_[specifiers]_space-<space_label>_desc-score_mean_cbf.nii.gz
-      sub-<subject_label>_[specifiers]_space-<space_label>_desc-scrub_cbf.nii.gz
-      sub-<subject_label>_[specifiers]_space-<space_label>_desc-basil_cbf.nii.gz
-      sub-<subject_label>_[specifiers]_space-<space_label>_desc-pvc_cbf.nii.gz
+      sub-<subject_label>_[specifiers]_space-<space_label>_aslref.nii.gz # asl reference image
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-brain_mask.nii.gz # asl brain mask 
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-preproc_asl.nii.gz # preprocessed asl timeseries 
+      sub-<subject_label>_[specifiers]_space-<space_label>_cbf.nii.gz  # computed cbf timeseries
+      sub-<subject_label>_[specifiers]_space-<space_label>_mean_cbf.nii.gz # mean cbf 
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-score_cbf.nii.gz # cbf timeseries denoised with  SCORE
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-score_mean_cbf.nii.gz # mean cbf denoised with SCORE 
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-scrub_cbf.nii.gz # mean CBF denoised with SCRUB 
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-basil_cbf.nii.gz # cbf computed with BASIL 
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-pvc_cbf.nii.gz #  partial volume corrected cbf with BASIL
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-bat_cbf.nii.gz # bolus arrivsl time (in seconds)
+
+
+
+
+
 
 
 **Regularly gridded outputs (images):**
