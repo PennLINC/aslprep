@@ -338,6 +338,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
         
         # calculate weighted cbf with multiplds
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3791289/
+        # https://pubmed.ncbi.nlm.nih.gov/22084006/
         for k in range(len(cbf_xx)):
             cbf_plds = cbf_xx[k]
             pldx = np.zeros([cbf_plds.shape[0],len(cbf_plds)])

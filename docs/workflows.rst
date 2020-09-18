@@ -324,6 +324,12 @@ Mean CBF is computed from the average of CBF timeseries
 
    Computed CBF maps
 
+For muilti-PLDs(Post labeling delay) ASL data, the CBF were first computed for each PLD and  the weighted average CBF was computed 
+over all PLDs([Daiw2012]_).
+
+.. math::
+   CBF =\frac {\sum_{i}^{N_PLDs} PLD_{i} * CBF_{i}} { \sum_{i}^{N_PLDs} PLD_{i} }
+
 
 Structural Correlation based Outlier Rejection (SCORE) ([Dolui2017]_) detects and discards
 extreme outliers in the CBF volume(s) from the CBF time series.
@@ -344,7 +350,7 @@ The mean CBF after denoising by SCORE is plotted below
 After discarding extreme outliers (if present) CBF volume(s) by SCORE,
 SCRUB (Structural Correlation with RobUst Bayesian) uses robust Bayesian estimation
 of CBF using iterative reweighted least square method [Dolui2016]_ to denoised CBF.
-The SCRUB algorithm is described below:
+The SCRUB algorithm is described below: 
 
 .. math::
    CBF_{SCRUB} =  \arg\max_{\theta} \sum_{t=1}^N \rho(CBF_{t} -\theta)  + \lambda(\theta -\mu)^2
@@ -504,3 +510,8 @@ step, so as little information is lost as possible.
 
   .. [Dolui2017b] Dolui S.,  Wolf R. & Nabavizadeh S., David W., Detre, J. (2017).
      Automated Quality Evaluation Index for 2D ASL CBF Maps. ISMR 2017
+
+  .. [Daiw2012] Dai W., Robson P.M., Shankaranarayanan A., Alsop D.C. 
+      Reduced resolution transit delay prescan for quantitative continuous arterial spin 
+      labeling perfusion imaging. Magn Reson Med. 2012;67(5):1252-1265. 
+      doi:`10.1002/mrm.23103 <https://doi.org/10.1002/mrm.23103>`_
