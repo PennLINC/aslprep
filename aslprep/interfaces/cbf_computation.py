@@ -126,6 +126,7 @@ class extractCBF(SimpleInterface):
         m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
 
         deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+
         
         allasl = nb.load(self.inputs.asl_file)
         mask = nb.load(self.inputs.in_mask).get_fdata()
@@ -136,10 +137,12 @@ class extractCBF(SimpleInterface):
 
         if len(deltamlist) > 0 : 
             cbf_data = dataasl[:, :, :, deltamlist]
-        else:
+        elif len(labellist) > 0 :
             control_img = dataasl[:, :, :, controllist]
             label_img = dataasl[:, :, :, labellist] 
             cbf_data = np.subtract(control_img, label_img)
+        else: 
+            raise RuntimeError('no valid asl or cbf image.')
       
         
         if self.inputs.dummy_vols != 0:
