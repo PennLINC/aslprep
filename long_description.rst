@@ -33,6 +33,7 @@ CBF, graph theory measures, surface or volume-based statistics, etc.
 ASLPrep allows you to easily do the following:
 
   * Take ASL data from *unprocessed* (only reconstructed) to ready for analysis.
+  * Compute Cerebral Blood Flow(CBF), denoising and partial volume correction
   * Implement tools from different software packages.
   * Achieve optimal data processing quality by using the best tools available.
   * Generate preprocessing-assessment reports, with which the user can easily identify problems.

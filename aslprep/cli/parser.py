@@ -513,8 +513,7 @@ WARNING: Version %s of aslprep (current) has been FLAGGED
 That means some severe flaw was found in it and we strongly
 discourage its usage."""
             % (config.environment.version, _reason),
-            file=sys.stderr,
-        )
+            file=sys.stderr,)
 
     return parser
 

@@ -26,27 +26,6 @@ most valuable to the project as a whole, because you're coming to the
 project with fresh eyes, so you can see the errors and assumptions that
 seasoned contributors have glossed over.
 
-## Driving principles
-
-*ASLPrep* is built around three overarching principles:
-
-1. **Robustness** - The pipeline adapts the preprocessing steps depending on
-   the input dataset and should provide results as good as possible
-   independently of scanner make, scanning parameters or presence of additional
-   correction scans (such as fieldmaps).
-1. **Ease of use** - Thanks to dependence on the BIDS standard, manual
-   parameter input is reduced to a minimum, allowing the pipeline to run in an
-   automatic fashion.
-1. **"Glass box"** philosophy - Automation should not mean that one should not
-   visually inspect the results or understand the methods.
-   Thus, *ASLPrep* provides visual reports for each subject, detailing the
-   accuracy of the most important processing steps.
-   This, combined with the documentation, can help researchers to understand
-   the process and decide which subjects should be kept for the group level
-   analysis.
-
-These principles distill some design and organizational foundations:
-
   1. The tool only and fully supports BIDS and BIDS-Derivatives for the input and output data.
   1. The tool is packaged as a fully-compliant [BIDS-App](https://bids-apps.neuroimaging.io), not just in its user
      interface, but also in the continuous integration, testing and delivery.
