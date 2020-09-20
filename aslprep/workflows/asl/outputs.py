@@ -516,6 +516,7 @@ def init_asl_derivatives_wf(
             (inputnode, scrubstd, [('source_file', 'source_file')]),
             (inputnode, basilstd, [('source_file', 'source_file')]),
             (inputnode, pvstd, [('source_file', 'source_file')]),
+            (inputnode, attstd, [('source_file', 'source_file')]),
             (inputnode, select_std, [('asl_std', 'asl_std'),
                                      ('asl_std_ref', 'asl_std_ref'),
                                      ('asl_mask_std', 'asl_mask_std'),

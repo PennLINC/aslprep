@@ -20,7 +20,8 @@ state-of-the-art interface that is robust to variations in scan acquisition
 protocols and that requires minimal user input, while providing easily
 interpretable and comprehensive error and output reporting.
 It performs basic processing steps (coregistration, normalization, unwarping,
-noise component extraction, segmentation, skullstripping etc.) providing
+noise component extraction, segmentation, skullstripping etc.), CBF computation,
+denoising CBF, CBF partial volume correction and providing
 outputs that can be easily submitted to a variety of group level analyses,
 including task-based or resting-state CBF, graph theory measures, surface or
 volume-based statistics, etc.
@@ -35,13 +36,14 @@ software become available.
 This tool allows you to easily do the following:
 
 - Take ASL data from raw to fully preprocessed form.
+- Compute Cerebral Blood Flow(CBF), denoising and partial volume correction
 - Implement tools from different software packages.
 - Achieve optimal data processing quality by using the best tools available.
 - Receive verbose output concerning the stage of preprocessing for each
   subject, including meaningful errors.
 - Automate and parallelize processing steps, which provides a significant
   speed-up from typical linear, manual processing.
-- compute Cerebral Blood Flow(CBF), denoising and partial volume correction
+- 
 
 More information and documentation can be found at
 https://aslprep.readthedocs.io/

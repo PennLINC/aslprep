@@ -5,11 +5,6 @@
 Usage Notes
 ===========
 
-.. warning::
-   This software includes a tracking system to report usage statistics and errors.
-   Users can opt out using the ``--notrack`` command line argument.
-
-
 Execution and the BIDS format
 -----------------------------
 The main input to *ASLPREP* is the path of the dataset
@@ -45,15 +40,6 @@ Command-Line Arguments
 .. argparse::
    :ref: aslprep.cli.parser._build_parser
    :prog: aslprep
-   :nodefault:
-   :nodefaultconst:
-
-The command-line interface of the docker wrapper
--------------------------------------------------
-
-.. argparse::
-   :ref: aslprep_docker.get_parser
-   :prog: aslprep-docker
    :nodefault:
    :nodefaultconst:
 
@@ -95,6 +81,7 @@ Information on how to customize and understand these files can be found on the
 page.
 
 **Support and communication**.
+
 The documentation of this project is found here: http://aslprep.readthedocs.org/en/latest/.
 
 All bugs, concerns and enhancement requests for this software can be submitted here:

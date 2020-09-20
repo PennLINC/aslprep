@@ -65,7 +65,7 @@ nipype_.
 not handled by Python's packaging system (Pypi) used to deploy
 the ``ASLPrep`` package:
 
-- FSL_ (version 5.0.9)
+- FSL_ (version 6.0.2)
 - ANTs_ (version 2.2.0 - NeuroDocker build)
 - AFNI_ (version Debian-16.2.07)
 - `C3D <https://sourceforge.net/projects/c3d/>`_ (version 1.0.0)

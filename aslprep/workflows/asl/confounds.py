@@ -58,13 +58,6 @@ def init_asl_confs_wf(
     #. Estimated head-motion parameters, in mm and rad
        (``trans_x``, ``trans_y``, ``trans_z``, ``rot_x``, ``rot_y``, ``rot_z``)
 
-
-    Prior to estimating aCompCor and tCompCor, non-steady-state volumes are
-    censored and high-pass filtered using a :abbr:`DCT (discrete cosine
-    transform)` basis.
-    The cosine basis, as well as one regressor per censored volume, are included
-    for convenience.
-
     Workflow Graph
         .. workflow::
             :graph2use: orig
@@ -86,14 +79,7 @@ def init_asl_confs_wf(
         BIDS metadata for asl file
     name : :obj:`str`
         Name of workflow (default: ``asl_confs_wf``)
-    regressors_all_comps : :obj:`bool`
-        Indicates whether CompCor decompositions should return all
-        components instead of the minimal number of components necessary
-        to explain 50 percent of the variance in the decomposition mask.
-    regressors_dvars_th : :obj:`float`
-        Criterion for flagging DVARS outliers
-    regressors_fd_th : :obj:`float`
-        Criterion for flagging framewise displacement outliers
+
 
     Inputs
     ------
@@ -118,9 +104,6 @@ def init_asl_confs_wf(
     -------
     confounds_file
         TSV of all aggregated confounds
-    rois_report
-        Reportlet visualizing white-matter/CSF mask used for aCompCor,
-        the ROI for tCompCor and the asl brain mask.
     confounds_metadata
         Confounds metadata dictionary.
 

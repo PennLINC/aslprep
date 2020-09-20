@@ -90,7 +90,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "aslprep"
-author = "The aslprep developers"
+author = "Azeez Adebimpe"
 copyright = "2020-%s, %s" % (datetime.now().year, author)
 
 # The version info for the project you're documenting, acts as replacement for

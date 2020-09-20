@@ -68,7 +68,7 @@ def check_latest():
 
 def is_flagged():
     """Check whether current version is flagged."""
-    # https://raw.githubusercontent.com/pennlinc/aslprep/master/.versions.json
+    #https://raw.githubusercontent.com/pennlinc/aslprep/master/.versions.json
     flagged = tuple()
     try:
         response = requests.get(
