@@ -292,7 +292,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     magstrength = metadata['MagneticFieldStrength']
     t1blood = (110*int(magstrength)+1316)/1000 # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550 
     inverstiontime = np.add(tau, plds)
-    mask = nb.load(mask).get_fdata()
+    #mask = nb.load(mask).get_fdata()
 
         
     if 'LabelingEfficiency' in metadata.keys():
@@ -317,9 +317,9 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     #print(perfusion_factor)
     # get control now
 
-    m0data = nb.load(m0file).get_fdata()
-    maskx=nb.load(mask).get_fdata()
-
+    
+    maskx = nb.load(mask).get_fdata()
+    m0data = nb.load(m0file).get_fdata()[maskx==1]
     # compute cbf
     cbf_data = nb.load(cbffile).get_fdata()[maskx==1]
     cbf1 = np.zeros(cbf_data.shape)
@@ -354,9 +354,9 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
      
      
      # return cbf to nifti shape
-    tcbf=np.zeros([mask.shape[0],mask.shape[1],mask.shape[2],cbf.shape[1]])
+    tcbf=np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
     for i in range(cbf.shape[1]):
-        tcbfx=np.zeros(mask.shape); tcbfx[mask==1]=cbf[:,i]
+        tcbfx=np.zeros(maskx.shape); tcbfx[maskx==1]=cbf[:,i]
         tcbf[:,:,:,i]=tcbfx
     
     meancbf = np.mean(tcbf, axis=3)
@@ -982,6 +982,12 @@ def globalcbf(cbf, gm, wm, csf, thresh=0.7):
 
 
 def cbf_qei(gm, wm, csf, img, thresh=0.7):
+    """
+    Quality evaluation index of CBF base on Sudipto Dolui work 
+    Dolui S., Wolf R. & Nabavizadeh S., David W., Detre, J. (2017). 
+    Automated Quality Evaluation Index for 2D ASL CBF Maps. ISMR 2017
+
+    """
     def fun1(x, xdata):
         d1 = np.exp(-(x[0])*np.power(xdata, x[1]))
         return(d1)

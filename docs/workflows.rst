@@ -306,7 +306,7 @@ PASL (Pulsed ASL) is also computed by the QUIPSS model [Wong1998]_:
    CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * TI  * M_{0}}
 
 
-:math:`\tau,\quad \lambda,\quad and \alpha\quad` are label duration, brain-blood partition coefficient
+:math:`\tau,\quad \lambda,\quad and\quad \alpha\quad` are label duration, brain-blood partition coefficient
 and labeling efficiency, respectively. In the absence of any of these parameters,
 standard values are used based on the scan type and scanning parameters.
 
@@ -328,7 +328,7 @@ For muilti-PLDs(Post Labeling Delay) ASL data, the CBF were first computed for e
 over all PLDs at the time, t,([Daiw2012]_).
 
 .. math::
-   CBF_{t} =\frac {\sum_{i}^{N_PLDs} PLD_{i} * CBF_{i}} { \sum_{i}^{N_PLDs} PLD_{i} }
+   CBF_{t} =\frac {\sum_{i}^{NPLDs} PLD_{i} * CBF_{i}} { \sum_{i}^{NPLDs} PLD_{i} }
 
 
 
@@ -358,9 +358,9 @@ The SCRUB algorithm is described below:
 
    \mu =\sum_{i \in Tissue type} p *\mu_{i}
 
-:math:`CBF_{t},  \mu,  \theta,  and  p` are CBF time series (after SCORE discarded extreme outliers, if there is any),
+:math:`CBF_{t},\quad  \mu,\quad  \theta,\quad  and\quad  p` are CBF time series (after SCORE discarded extreme outliers, if there is any),
 mean CBF, ratio temporal variance at each voxel to overall variance of all voxels and probability tissue maps,
-respectively. Other include :math:`\lambda and \rho` that represent weighting parameter
+respectively. Other include :math:`\lambda\quad and\quad \rho` that represent weighting parameter
 and Turkey's bisquare function, respectively.
 
 An example of CBF denoised by SCRUB is shown below.
