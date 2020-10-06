@@ -37,13 +37,16 @@ A ``docker`` container can be created using the following command::
 
 For example: ::
 
-    $ docker run -ti --rm \
+    $ docker run -ti -m 12GB --rm \
         -v $HOME/ds000240:/data:ro \
         -v $HOME/ds000240/derivatives:/out \
         -v $HOME/tmp/ds000240-workdir:/work \
+        -v ${FREESURFER_HOME}:/fs \
         pennlinc/aslprep:<latest-version> \
         /data /out/aslprep-<latest-version> \
         participant \
+        --participant-label '01'
+        --fs-license-file /fs/license.txt
         -w /work
 
 See :ref:`usage` for more information.
