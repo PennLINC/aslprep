@@ -388,10 +388,10 @@ class _scorescrubCBFInputSpec(BaseInterfaceInputSpec):
 
 
 class _scorescrubCBFOutputSpec(TraitedSpec):
-    out_score = File(exists=True, mandatory=True, desc='score timeseries data')
-    out_avgscore = File(exists=True, mandatory=True, desc='average score')
-    out_scrub = File(exists=True, mandatory=True, desc='average scrub')
-    out_scoreindex = File(exists=True, mandatory=True, desc='index of volume remove ')
+    out_score = File(exists=False, mandatory=False, desc='score timeseries data')
+    out_avgscore = File(exists=False, mandatory=False, desc='average score')
+    out_scrub = File(exists=False, mandatory=False, desc='average scrub')
+    out_scoreindex = File(exists=False, mandatory=False, desc='index of volume remove ')
 
 
 class scorescrubCBF(SimpleInterface):
@@ -407,9 +407,15 @@ class scorescrubCBF(SimpleInterface):
         greym = nb.load(self.inputs.in_greyM).get_fdata()
         whitem = nb.load(self.inputs.in_whiteM).get_fdata()
         csf = nb.load(self.inputs.in_csf).get_fdata()
-        cbf_scorets, index_score = _getcbfscore(cbfts=cbf_ts, wm=whitem,
+        if len(cbf_ts.shape) > 3:
+            cbf_scorets, index_score = _getcbfscore(cbfts=cbf_ts, wm=whitem,
                                                 gm=greym, csf=csf, mask=mask,
                                                 thresh=self.inputs.in_thresh)
+        elif len(cbf_ts.shape) == 3:
+            cbf_scorets = cbf_ts
+            index_score = 0
+    
+
         cbfscrub = _scrubcbf(cbf_ts=cbf_scorets, gm=greym, wm=whitem, csf=csf,
                              mask=mask, wfun=self.inputs.in_wfun, thresh=self.inputs.in_thresh)
         self._results['out_score'] = fname_presuffix(self.inputs.in_file,
@@ -432,6 +438,7 @@ class scorescrubCBF(SimpleInterface):
         nb.Nifti1Image(
             cbfscrub, samplecbf.affine, samplecbf.header).to_filename(
             self._results['out_scrub'])
+
         np.savetxt(self._results['out_scoreindex'], index_score, delimiter=',')
 
         self.inputs.out_score = os.path.abspath(self._results['out_score'])
@@ -1137,3 +1144,7 @@ def readjson(jsonfile):
     with open(jsonfile) as f:
         data = json.load(f)
     return data
+
+
+
+

@@ -1,3 +1,6 @@
+# emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+# vi: set ft=python sts=4 ts=4 sw=4 et:
+
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -7,6 +10,7 @@ from ...interfaces.cbf_computation import (extractCBF, computeCBF, scorescrubCBF
 from ...niworkflows.interfaces.plotting import (CBFSummary, CBFtsSummary)
 from ...interfaces import DerivativesDataSink
 import numpy as np
+import pandas as pd
 import os
 import tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
@@ -532,4 +536,150 @@ def init_cbfroiquant_wf(mem_gb, omp_nthreads, name='cbf_roiquant'):
                       (pvc407, outputnode, [('atlascsv', 'pvc_sc407')]),
                       (pvc417, outputnode, [('atlascsv', 'pvc_sc417')]),
                       ])
+    return workflow
+
+
+def init_gecbf_compt_wf(mem_gb, metadata,bids_dir,omp_nthreads,M0Scale=1,smooth_kernel=5,
+                      name='cbf_compt_wf'):
+    """
+    be back
+    """
+
+                    
+    workflow = Workflow(name=name)
+    workflow.__desc__ = """\
+The CBF was quantified from  *preproccessed* ASL data using a relatively basic
+model [@detre_perfusion] [@alsop_recommended]. CBF are susceptible to artifacts
+due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
+based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
+outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
+algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
+probalility maps [@scrub_dolui].  Alternate method of CBF computation is Bayesian Inference
+for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
+principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
+of other model parameters and spatial regularization of the estimated perfusion image. BASIL
+also included correction for partial volume effects [@chappell_pvc].
+"""
+    inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
+                                                      't1w_tpms', 't1w_mask', 't1_asl_xform',
+                                                      'itk_asl_to_t1','m0_file']),
+                        name='inputnode')
+    outputnode = pe.Node(niu.IdentityInterface(fields=['out_cbf', 'out_mean', 'out_score',
+                                                       'out_avgscore', 'out_scrub', 'out_cbfb',
+                                                       'out_scoreindex', 'out_cbfpv','out_att']),
+                         name='outputnode')
+    # convert tmps to asl_space
+    csf_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                      name='csf_tfm', mem_gb=0.1)
+    wm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                     name='wm_tfm', mem_gb=0.1)
+    gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                     name='gm_tfm', mem_gb=0.1)
+
+    filex = os.path.abspath(inputnode.inputs.in_file)
+    aslcontext1 = filex.replace('_asl.nii.gz', '_aslcontext.tsv')
+    aslcontext = pd.read_csv(aslcontext1)
+    idasl = aslcontext['volume_type'].tolist()
+    deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+    cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+    tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
+    def pcaslorasl(metadata):
+        if 'CASL' in metadata["LabelingType"]:
+            pcasl1 = True
+        elif 'PASL' in metadata["LabelingType"]:
+            pcasl1 = False
+        return pcasl1
+
+    computecbf = pe.Node(computeCBF(in_metadata=metadata,in_m0scale=M0Scale), mem_gb=0.2,
+                         run_without_submitting=True, name="computecbf")
+    
+    scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=0.2,
+                         name='scorescrub', run_without_submitting=True)
+    
+    basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=metadata["LabelingDuration"],
+                                m0tr=metadata['RepetitionTime'], pvc=True,tis = tisasl,
+                                pcasl = pcaslorasl(metadata = metadata)), name='basilcbf',
+                       run_without_submitting=True, mem_gb=0.2)
+
+
+    if hasattr(tiscbf, '__len__'):
+        tisasl = ",".join([str(i) for i in tiscbf])
+    else:
+        tisasl = str(tiscbf)
+    refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
+
+    def _pick_csf(files):
+        return files[-1]
+
+    def _pick_gm(files):
+        return files[0]
+
+    def _pick_wm(files):
+        return files[1]
+
+    def _getfiledir(file):
+        import os
+        return os.path.dirname(file)
+
+    if deltamlist > 0 :
+        workflow.connect([
+        # extract CBF data and compute cbf
+        (inputnode, computecbf, [('asl_file', 'in_cbf'), ('out_avg', 'in_m0file')]),
+        # (inputnode,computecbf,[('asl_mask','in_mask')]),
+        (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
+                                  ('t1_asl_xform', 'transforms')]),
+        (refinemaskj, computecbf, [('out_mask', 'in_mask')]),
+        (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
+        (refinemaskj, basilcbf, [('out_mask', 'mask')]),
+        (inputnode, basilcbf, [(('asl_file', _getfiledir), 'out_basename')]),
+        # extract probability maps
+        (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+                              ('t1_asl_xform', 'transforms')]),
+        (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
+        (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+        (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
+        (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+        (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
+        (computecbf, scorescrub, [('out_cbf', 'in_file')]),
+        (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
+        (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
+        (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
+        (inputnode, basilcbf, [('asl_file', 'in_file')]),
+        (gm_tfm, basilcbf, [('output_image', 'pvgm')]),
+        (wm_tfm, basilcbf, [('output_image', 'pvwm')]),
+        # (inputnode,basilcbf,[('asl_mask','mask')]),
+        (inputnode, basilcbf, [('m0_file', 'mzero')]),
+        (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
+                                ('out_cbfpv', 'out_cbfpv'),
+                                ('out_att', 'out_att')]),
+        (computecbf, outputnode, [('out_cbf', 'out_cbf'),
+                                  ('out_mean', 'out_mean')]),
+        (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
+                                  ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
+        ])
+    elif cbflist > 0: 
+        workflow.connect([
+        (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
+                                  ('t1_asl_xform', 'transforms')]),
+        # extract probability maps
+        (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+                              ('t1_asl_xform', 'transforms')]),
+        (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
+        (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+        (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
+        (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+        (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
+        (inputnode, scorescrub, [('asl_file', 'in_file')]),
+        (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
+        (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
+        (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
+        (inputnode, outputnode, [('asl_file', 'out_cbf'),
+                                  ('asl_file', 'out_mean')]),
+        (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
+                                  ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
+        ])
     return workflow
