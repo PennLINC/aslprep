@@ -30,10 +30,13 @@ from .cbf import (
     init_cbf_compt_wf,
     init_cbfqc_compt_wf,
     init_cbfplot_wf,
-    init_cbfroiquant_wf)
+    init_cbfroiquant_wf,
+    init_gecbf_compt_wf)
 from .outputs import init_asl_derivatives_wf
 
 from ...interfaces.cbf_computation import refinemask
+from .ge_utils import ( init_asl_geref_wf, init_asl_gereg_wf,
+             init_asl_t1_getrans_wf,init_asl_gestd_trans_wf) 
 
 
 def init_asl_gepreproc_wf(asl_file):
@@ -250,9 +253,38 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     ])
      
      # begin workflow 
+    gen_ref_wf = init_asl_geref_wf(omp_nthreads=omp_nthreads,mem_gb=mem_gb['filesize'],
+                              metadata=metadata,bids_dir=subj_dir,brainmask_thresh=0.5,
+                              pre_mask=False, name="asl_gereference_wf",gen_report=False)
+    
+    reg_ge_wf = init_asl_gereg_wf(use_bbr=config,
+                asl2t1w_dof=config.workflow.asl2t1w_dof,
+                asl2t1w_init=config.workflow.asl2t1w_init,
+                mem_gb=2, omp_nthreads=omp_nthreads, name='asl_reg_wf',
+                sloppy=False, use_compression=True, write_report=True)
+
+    t1w_gereg_wf = init_asl_t1_getrans_wf(mem_gb=3, omp_nthreads=omp_nthreads, cbft1space=True,
+                          use_compression=True, name='asl_t1_trans_wf')
+
+    std_gereg_wf = init_asl_gestd_trans_wf(mem_gb=4,omp_nthreads=omp_nthreads,spaces=spaces,
+                            name='asl_gestd_trans_wf', use_compression=True)
+
+    cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb, metadata=3,bids_dir=subj_dir,omp_nthreads=omp_nthreads,
+                                M0Scale=1,smooth_kernel=5,name='cbf_compt_wf')
+    
+    
+    workflow.connect([
+         (inputnode, gen_ref_wf,[('asl_file','inputnode.asl_file')]),
+         (gen_ref_wf, reg_ge_wf,[('ref_image_brain','ref_asl_brain')]),
+         (inputnode, t1w_brain,[('t1w_preproc', 'in_file'),
+                                ('t1w_mask', 'in_mask')]),
+         (t1w_brain,reg_ge_wf,[('out_file','inputnode.t1w_brain')]),
+         (inputnode,reg_ge_wf,[('t1w_dseg','inputnode.t1w_dseg')]),
+    
+     ])
+    
     
 
-   
     
 
 def _get_series_len(asl_fname):

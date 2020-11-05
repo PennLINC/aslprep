@@ -39,8 +39,10 @@ from .cbf import (
       init_cbf_compt_wf,
       init_cbfqc_compt_wf,
       init_cbfplot_wf,
-      init_cbfroiquant_wf)
-
+      init_cbfroiquant_wf,
+      init_gecbf_compt_wf)
+from .ge_utils import (init_asl_geref_wf, init_asl_gereg_wf,
+             init_asl_t1_getrans_wf,init_asl_gestd_trans_wf)
 __all__ = [
     'init_asl_confs_wf',
     'init_asl_hmc_wf',
