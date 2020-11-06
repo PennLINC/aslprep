@@ -158,7 +158,6 @@ def init_asl_gepreproc_wf(asl_file):
     from ...niworkflows.func.util import init_asl_reference_wf
     from ...niworkflows.interfaces.nibabel import ApplyMask
     from ...niworkflows.interfaces.utility import KeySelect
-    from sdcflows.workflows.base import init_sdc_estimate_wf, fieldmap_wrangler
 
     ref_file = asl_file
     mem_gb = {'filesize': 1, 'resampled': 1, 'largemem': 1}
