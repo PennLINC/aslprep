@@ -18,6 +18,7 @@ Pre-processing ASL - ASL signal workflows
 """
 
 from .base import init_asl_preproc_wf
+from .gecbf import init_asl_gepreproc_wf
 from .hmc import init_asl_hmc_wf
 from .stc import init_asl_stc_wf
 from .t2s import init_asl_t2s_wf
