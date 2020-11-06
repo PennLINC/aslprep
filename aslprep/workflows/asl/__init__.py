@@ -45,6 +45,7 @@ from .ge_utils import (init_asl_geref_wf, init_asl_gereg_wf,
              init_asl_t1_getrans_wf,init_asl_gestd_trans_wf)
 __all__ = [
     'init_asl_confs_wf',
+    'init_gecbf_compt_wf'
     'init_asl_hmc_wf',
     'init_asl_std_trans_wf',
     'init_asl_preproc_trans_wf',

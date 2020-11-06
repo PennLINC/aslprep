@@ -280,12 +280,158 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                 ('t1w_mask', 'in_mask')]),
          (t1w_brain,reg_ge_wf,[('out_file','inputnode.t1w_brain')]),
          (inputnode,reg_ge_wf,[('t1w_dseg','inputnode.t1w_dseg')]),
+         (inputnode,cbf_compt_wf,[('asl_file','in_file'),('asl_file','in_file')]),
+         (gen_ref_wf,cbf_compt_wf,[('outputnode.asl_mask','inputnode.asl_mask')]),
+         (inputnode, cbf_compt_wf, [('t1w_tpms','inputnode.t1w_tpms'),
+                                     ('t1w_mask','inputnode.t1w_mask')]),
+         (reg_ge_wf,cbf_compt_wf,[('outputnode.itk_asl_to_t1','inputnode.itk_asl_to_t1'),
+                               ('outputnode.itk_t1_to_asl','inputnode.t1_asl_xform')]),
+         (inputnode, t1w_gereg_wf, [
+            ('asl_file', 'inputnode.name_source'),
+            ('t1w_mask', 'inputnode.t1w_mask'),]),
+        (t1w_brain, t1w_gereg_wf, [
+            ('out_file', 'inputnode.t1w_brain')]),
+        # unused if multiecho, but this is safe
+        (reg_ge_wf, t1w_gereg_wf, [
+            ('outputnode.itk_asl_to_t1', 'inputnode.itk_asl_to_t1')]),
+        (t1w_gereg_wf, outputnode, [('outputnode.asl_t1', 'asl_t1'),
+                                        ('outputnode.asl_t1_ref', 'asl_t1_ref'),]),
+        (reg_ge_wf, summary, [('outputnode.fallback', 'fallback')]),
     
-     ])
+     ]) 
     
-    
+    nonstd_spaces = set(spaces.get_nonstandard())
+    if nonstd_spaces.intersection(('T1w', 'anat')):
+        from ...niworkflows.interfaces.fixes import (
+            FixHeaderApplyTransforms as ApplyTransforms
+        )
+
+        aslmask_to_t1w = pe.Node(ApplyTransforms(interpolation='MultiLabel'),
+                                  name='aslmask_to_t1w', mem_gb=0.1)
+        workflow.connect([
+            (reg_ge_wf, aslmask_to_t1w, [
+                ('outputnode.itk_asl_to_t1', 'transforms')]),
+            (t1w_gereg_wf, aslmask_to_t1w, [
+                ('outputnode.asl_mask_t1', 'reference_image')]),
+            (gen_ref_wf, aslmask_to_t1w, [
+                ('inputnode.asl_mask', 'input_image')]),
+            (aslmask_to_t1w, outputnode, [
+                ('output_image', 'asl_mask_t1')]),
+        ])
+        workflow.connect([
+            (cbf_compt_wf, t1w_gereg_wf, [('outputnode.out_cbf', 'inputnode.cbf'),
+                                              ('outputnode.out_mean', 'inputnode.meancbf'),
+                                              ('outputnode.out_score', 'inputnode.score'),
+                                              ('outputnode.out_avgscore', 'inputnode.avgscore'),
+                                              ('outputnode.out_scrub', 'inputnode.scrub'),
+                                              ('outputnode.out_cbfb', 'inputnode.basil'),
+                                              ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                              ('outputnode.out_att', 'inputnode.att')]),
+            (t1w_gereg_wf, asl_derivatives_wf, [('outputnode.cbf_t1', 'inputnode.cbf_t1'),
+                                            ('outputnode.meancbf_t1', 'inputnode.meancbf_t1'),
+                                            ('outputnode.score_t1', 'inputnode.score_t1'),
+                                            ('outputnode.avgscore_t1', 'inputnode.avgscore_t1'),
+                                            ('outputnode.scrub_t1', 'inputnode.scrub_t1'),
+                                            ('outputnode.basil_t1', 'inputnode.basil_t1'),
+                                            ('outputnode.pv_t1', 'inputnode.pv_t1'),
+                                            ('outputnode.att_t1', 'inputnode.att_t1')]),
+                          ])
+
+    if nonstd_spaces.intersection(('func', 'run', 'asl')):
+        workflow.connect([
+            (inputnode, outputnode, [
+                ('asl_file', 'asl_native')]),
+            (gen_ref_wf, asl_derivatives_wf, [
+                ('outputnode.raw_ref_image', 'inputnode.asl_native_ref')]),
+            (gen_ref_wf, asl_derivatives_wf, [
+                ('inputnode.asl_mask', 'inputnode.asl_mask_native' )]),
+            (cbf_compt_wf, asl_derivatives_wf, [
+                ('outputnode.out_cbf', 'inputnode.cbf'),
+                ('outputnode.out_mean', 'inputnode.meancbf'),
+                ('outputnode.out_score', 'inputnode.score'),
+                ('outputnode.out_avgscore', 'inputnode.avgscore'),
+                ('outputnode.out_scrub', 'inputnode.scrub'),
+                ('outputnode.out_cbfb', 'inputnode.basil'),
+                ('outputnode.out_cbfpv', 'inputnode.pv'),
+                ('outputnode.out_att', 'inputnode.att')]),
+        ])
 
     
+    if spaces.get_spaces(nonstandard=False, dim=(3,)):
+        # Apply transforms in 1 shot
+        workflow.connect([
+            (inputnode, std_gereg_wf, [
+                ('template', 'inputnode.templates'),
+                ('anat2std_xfm', 'inputnode.anat2std_xfm'),
+                ('asl_file', 'inputnode.name_source'),
+                ('t1w_aseg', 'inputnode.asl_aseg'),
+                ('t1w_aparc', 'inputnode.asl_aparc')]),
+            (asl_hmc_wf, std_gereg_wf, [
+                ('outputnode.xforms', 'inputnode.hmc_xforms')]),
+            (asl_reg_wf, std_gereg_wf, [
+                ('outputnode.itk_asl_to_t1', 'inputnode.itk_asl_to_t1')]),
+            (refine_mask, std_gereg_wf, [
+                ('out_mask', 'inputnode.asl_mask')]),
+            (asl_sdc_wf, std_gereg_wf, [
+                ('outputnode.out_warp', 'inputnode.fieldwarp')]),
+            (std_gereg_wf, outputnode, [('outputnode.asl_std', 'asl_std'),
+                                             ('outputnode.asl_std_ref', 'asl_std_ref'),
+                                             ('outputnode.asl_mask_std', 'asl_mask_std')]),
+            (cbf_compt_wf, std_gereg_wf, [('outputnode.out_cbf', 'inputnode.cbf'),
+                                               ('outputnode.out_mean', 'inputnode.meancbf'),
+                                               ('outputnode.out_score', 'inputnode.score'),
+                                               ('outputnode.out_avgscore', 'inputnode.avgscore'),
+                                               ('outputnode.out_scrub', 'inputnode.scrub'),
+                                               ('outputnode.out_cbfb', 'inputnode.basil'),
+                                               ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                               ('outputnode.out_att', 'inputnode.att')]),
+            ])
+
+        
+
+        # asl_derivatives_wf internally parametrizes over snapshotted spaces.
+        # asl_derivatives_wf internally parametrizes over snapshotted spaces.
+        workflow.connect([
+            (std_gereg_wf, asl_derivatives_wf, [
+                ('outputnode.template', 'inputnode.template'),
+                ('outputnode.spatial_reference', 'inputnode.spatial_reference'),
+                ('outputnode.asl_std_ref', 'inputnode.asl_std_ref'),
+                ('outputnode.asl_std', 'inputnode.asl_std'),
+                ('outputnode.asl_mask_std', 'inputnode.asl_mask_std'),
+                ('outputnode.cbf_std', 'inputnode.cbf_std'),
+                ('outputnode.meancbf_std', 'inputnode.meancbf_std'),
+                ('outputnode.score_std', 'inputnode.score_std'),
+                ('outputnode.avgscore_std', 'inputnode.avgscore_std'),
+                ('outputnode.scrub_std', 'inputnode.scrub_std'),
+                ('outputnode.basil_std', 'inputnode.basil_std'),
+                ('outputnode.pv_std', 'inputnode.pv_std'),
+                ('outputnode.att_std', 'inputnode.att_std')]),
+        ])
+# REPORTING ############################################################
+    ds_report_summary = pe.Node(
+        DerivativesDataSink(desc='summary', datatype="figures", dismiss_entities=("echo",)),
+        name='ds_report_summary', run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB)
+
+    ds_report_validation = pe.Node(
+        DerivativesDataSink(base_directory=output_dir, desc='validation', datatype="figures",
+                            dismiss_entities=("echo",)),
+        name='ds_report_validation', run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB)
+
+    workflow.connect([
+        (summary, ds_report_summary, [('out_report', 'in_file')]),
+        (asl_reference_wf, ds_report_validation, [
+            ('outputnode.validation_report', 'in_file')]),
+    ])
+
+    # Fill-in datasinks of reportlets seen so far
+    for node in workflow.list_node_names():
+        if node.split('.')[-1].startswith('ds_report'):
+            workflow.get_node(node).inputs.base_directory = output_dir
+            workflow.get_node(node).inputs.source_file = ref_file
+
+    return workflow
 
 def _get_series_len(asl_fname):
     from ...niworkflows.interfaces.registration import _get_vols_to_discard
