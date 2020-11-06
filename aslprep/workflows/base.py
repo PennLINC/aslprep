@@ -335,6 +335,7 @@ def _pop(inlist):
 def check_img(img):
     # get the 4th dimension
     import numpy as np 
+    import nibabel as nb 
     ss=nb.load(img).get_fdata().shape
     if len(ss) == 3:
         ss=np.hstack([ss,0])
