@@ -279,7 +279,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                 ('t1w_mask', 'in_mask')]),
          (t1w_brain,reg_ge_wf,[('out_file','inputnode.t1w_brain')]),
          (inputnode,reg_ge_wf,[('t1w_dseg','inputnode.t1w_dseg')]),
-         (inputnode,cbf_compt_wf,[('asl_file','in_file'),('asl_file','in_file')]),
+         (inputnode,cbf_compt_wf,[('asl_file','inputnode.in_file'),('asl_file','inputnode.asl_file')]),
          (gen_ref_wf,cbf_compt_wf,[('outputnode.asl_mask','inputnode.asl_mask')]),
          (inputnode, cbf_compt_wf, [('t1w_tpms','inputnode.t1w_tpms'),
                                      ('t1w_mask','inputnode.t1w_mask')]),
@@ -362,17 +362,11 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             (inputnode, std_gereg_wf, [
                 ('template', 'inputnode.templates'),
                 ('anat2std_xfm', 'inputnode.anat2std_xfm'),
-                ('asl_file', 'inputnode.name_source'),
-                ('t1w_aseg', 'inputnode.asl_aseg'),
-                ('t1w_aparc', 'inputnode.asl_aparc')]),
-            (asl_hmc_wf, std_gereg_wf, [
-                ('outputnode.xforms', 'inputnode.hmc_xforms')]),
-            (asl_reg_wf, std_gereg_wf, [
+                ('asl_file', 'inputnode.name_source'),]),
+            (reg_ge_wf, std_gereg_wf, [
                 ('outputnode.itk_asl_to_t1', 'inputnode.itk_asl_to_t1')]),
-            (refine_mask, std_gereg_wf, [
-                ('out_mask', 'inputnode.asl_mask')]),
-            (asl_sdc_wf, std_gereg_wf, [
-                ('outputnode.out_warp', 'inputnode.fieldwarp')]),
+            (gen_ref_wf, std_gereg_wf, [
+                ('outputnode.asl_mask', 'inputnode.asl_mask')]),
             (std_gereg_wf, outputnode, [('outputnode.asl_std', 'asl_std'),
                                              ('outputnode.asl_std_ref', 'asl_std_ref'),
                                              ('outputnode.asl_mask_std', 'asl_mask_std')]),
@@ -412,16 +406,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         name='ds_report_summary', run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB)
 
-    ds_report_validation = pe.Node(
-        DerivativesDataSink(base_directory=output_dir, desc='validation', datatype="figures",
-                            dismiss_entities=("echo",)),
-        name='ds_report_validation', run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB)
+    #ds_report_validation = pe.Node(
+       # DerivativesDataSink(base_directory=output_dir, desc='validation', datatype="figures",
+                            #dismiss_entities=("echo",)),
+        #name='ds_report_validation', run_without_submitting=True,
+        #mem_gb=config.DEFAULT_MEMORY_MIN_GB)
 
     workflow.connect([
         (summary, ds_report_summary, [('out_report', 'in_file')]),
-        (asl_reference_wf, ds_report_validation, [
-            ('outputnode.validation_report', 'in_file')]),
     ])
 
     # Fill-in datasinks of reportlets seen so far
@@ -487,7 +479,8 @@ def _to_join(in_file, join_file):
 
 def check_img(img):
     # get the 4th dimension
-    import numpy as np 
+    import numpy as np
+    import nibabel as nb 
     ss=nb.load(img).get_fdata().shape
     if len(ss) == 3:
         ss=np.hstack([ss,0])
