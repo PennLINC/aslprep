@@ -43,7 +43,6 @@ def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,brainmask_thresh=0.5
         niu.IdentityInterface(
             fields=[
                 "raw_ref_image",
-                "ref_image",
                 "ref_image_brain",
                 "asl_mask",
                 "mask_report",
@@ -84,8 +83,8 @@ def init_asl_gereg_wf(use_bbr,asl2t1w_dof,asl2t1w_init,
             fields=['ref_asl_brain', 't1w_brain', 't1w_dseg']),name='inputnode')
     outputnode = pe.Node(
         niu.IdentityInterface(fields=[
-            'itk_asl_to_t1', 'itk_t1_to_asl', 'fallback']),name='outputnode')
-    from .asl.registration import init_fsl_bbr_wf
+             'fallback']),name='outputnode')
+    from .registration import init_fsl_bbr_wf
 
     bbr_wf = init_fsl_bbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
                                  asl2t1w_init=asl2t1w_init, sloppy=sloppy)
@@ -140,7 +139,7 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=['name_source', 'ref_asl_brain', 'ref_asl_mask','asl_file',
-                    't1w_brain', 't1w_mask', 't1w_aseg','cbf', 'meancbf','att',
+                    't1w_brain', 't1w_mask','cbf', 'meancbf','att',
                     'score', 'avgscore', 'scrub', 'basil', 'pv', 'itk_asl_to_t1']),
         name='inputnode'
     )
