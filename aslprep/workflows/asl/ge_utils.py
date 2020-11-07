@@ -58,7 +58,7 @@ def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,brainmask_thresh=0.5
     mask_reportlet = pe.Node(SimpleShowMaskRPT(), name="mask_reportlet")
 
     workflow.connect([
-         (inputnode,gen_ref,[('asl_file','input_image')]),
+         (inputnode,gen_ref,[('asl_file','in_file')]),
          (gen_ref,skull_strip_wf,[('out_file','inputnode.in_file')]),
          (gen_ref, outputnode, [
             ("out_file", "raw_ref_image"),]),
@@ -82,7 +82,7 @@ def init_asl_gereg_wf(use_bbr,asl2t1w_dof,asl2t1w_init,
         niu.IdentityInterface(
             fields=['ref_asl_brain', 't1w_brain', 't1w_dseg']),name='inputnode')
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=[
+        niu.IdentityInterface(fields=['itk_asl_to_t1','itk_t1_to_asl',
              'fallback']),name='outputnode')
     from .registration import init_fsl_bbr_wf
 
@@ -535,7 +535,7 @@ def gen_reference(in_img, newpath=None):
     
     new_file = nb.Nifti1Image(dataobj=ref_data,header=nb.load(in_img).header,
              affine=nb.load(in_img).affine)
-    out_file = fname_presuffix('aslref', suffix="_reference", newpath=str(newpath.absolute()))
+    out_file = fname_presuffix('aslref', suffix="_reference.nii.gz", newpath=str(newpath.absolute()))
     new_file.to_filename(out_file)
     return out_file
 
@@ -576,16 +576,19 @@ def _is_native(in_value):
 
 
 class _GeReferenceFileInputSpec(BaseInterfaceInputSpec):
-    input_image = File(
+    in_file = File(
         exists=True, mandatory=True, desc="asl_file"
     )
     in_metadata = traits.Dict(exists=True, mandatory=True,
                               desc='metadata for asl or deltam ')
     bids_dir=traits.Str(exits=True,mandatory=True,desc=' bids directory')
+    ref_file = File(exists=False, desc="ref file")
+    m0_file = File(exists=False, desc="m0 file")
     
 
 class _GeReferenceFileOutputSpec(TraitedSpec):
-    out_file = File(exists=True, desc="one file with all inputs flattened")
+    ref_file = File(exists=True, desc="ref file")
+    m0_file = File(exists=False, desc="m0 file")
 
 
 class GeReferenceFile(SimpleInterface):
@@ -601,49 +604,42 @@ class GeReferenceFile(SimpleInterface):
     def _run_interface(self, runtime):
         import os 
         filex = os.path.abspath(self.inputs.in_file)
-        if self.inputs.in_metadata['M0'] != "True" and self.inputs.in_metadata['M0'] != "False" and type(self.inputs.in_metadata['M0']) != int :
-           m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
-           #m0file_metadata=readjson(m0file.replace('nii.gz','json'))
-           #aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
-           aslcontext1 = filex.replace('_asl.nii.gz', '_aslcontext.tsv')
-           aslcontext = pd.read_csv(aslcontext1)
-           idasl = aslcontext['volume_type'].tolist()
-           m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
-           deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
-           cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+        aslcontext1 = filex.replace('_asl.nii.gz', '_aslcontext.tsv')
+        aslcontext = pd.read_csv(aslcontext1)
+        idasl = aslcontext['volume_type'].tolist()
+        m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
+        deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+        cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+        allasl = nb.load(self.inputs.in_file)
+        dataasl = allasl.get_fdata()
 
-           allasl = nb.load(self.inputs.asl_file)
-           dataasl = allasl.get_fdata()
-    #get reference file from m0 or mean of delta or CBF 
-    
-
-        if m0file: 
+        if self.inputs.in_metadata['M0'] != "True" and type(self.inputs.in_metadata['M0']) != int :
+            m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
             reffile = gen_reference(m0file)
-        elif len(dataasl.shape) > 3:
-            if m0list > 0:
-                modata2 = dataasl[:, :, :, m0list]
-                m0filename=fname_presuffix(self.inputs.in_file,
+            m0file = reffile
+
+        elif type(self.inputs.in_metadata['M0']) == int or  type(self.inputs.in_metadata['M0']) == float :
+            m0num=np.float(self.inputs.in_metadata['M0'])
+            modata2 = dataasl[:, :, :, deltamlist]
+            modata2 = dataasl[:, :, :, m0list]
+            m0filename=fname_presuffix(self.inputs.in_file,
                                                     suffix='_mofile', newpath=os.get_cwd())
-                m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-                m0obj.to_filename(m0filename)
-                reffile = gen_reference(m0filename)
-            elif deltamlist > 0 :
-                modata2 = dataasl[:, :, :, deltamlist]
-                m0filename=fname_presuffix(self.inputs.in_file,
+            m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
+            m0obj.to_filename(m0filename)
+            reffile = gen_reference(m0filename)
+            m0file_data=m0num * np.ones_like(nb.load(reffile).get_fdata())
+
+            m0filename1=fname_presuffix(self.inputs.in_file,
                                                     suffix='_mofile', newpath=os.get_cwd())
-                m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-                m0obj.to_filename(m0filename)
-                reffile = gen_reference(m0filename)
-            elif cbflist > 0 : 
-                modata2 = dataasl[:, :, :, cbflist]
-                m0filename=fname_presuffix(self.inputs.in_file,
-                                                    suffix='_mofile', newpath=os.get_cwd())
-                m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-                m0obj.to_filename(m0filename)
-                reffile = gen_reference(m0filename)
-        else:
+            m0obj1 = nb.Nifti1Image(m0file_data, allasl.affine, allasl.header)
+            m0obj1.to_filename(m0filename1)
+            m0file = gen_reference(m0filename1)
+
+        elif len(cbflist) > 0 :
             reffile=gen_reference(self.inputs.in_file)
-        self.inputs.out_file = os.path.abspath(reffile)
+        
+        self.inputs.ref_file = os.path.abspath(reffile)
+        self.inputs.m0_file = os.path.abspath(m0file)
         return runtime
 
 

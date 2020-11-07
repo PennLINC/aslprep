@@ -629,7 +629,7 @@ also included correction for partial volume effects [@chappell_pvc].
     if len(deltamlist) > 0 :
         workflow.connect([
         # extract CBF data and compute cbf
-        (inputnode, computecbf, [('asl_file', 'in_cbf'), ('out_avg', 'in_m0file')]),
+        (inputnode, computecbf, [('asl_file', 'in_cbf'), ('m0_file', 'in_m0file')]),
         # (inputnode,computecbf,[('asl_mask','in_mask')]),
         (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
                                   ('t1_asl_xform', 'transforms')]),
