@@ -16,7 +16,8 @@ from ...niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from ...niworkflows.interfaces.masks import SimpleShowMaskRPT 
 from nipype.pipeline import engine as pe
-from nipype.interfaces import utility as niu
+from nipype.interfaces import utility as niu, fsl, c3
+from nipype.interfaces import fsl
 from ... import config
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -45,6 +46,7 @@ def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,brainmask_thresh=0.5
                 "raw_ref_image",
                 "ref_image_brain",
                 "asl_mask",
+                "m0_file",
                 "mask_report",
             ]
         ),
@@ -52,22 +54,29 @@ def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,brainmask_thresh=0.5
     )
 
     gen_ref = pe.Node(GeReferenceFile(bids_dir=bids_dir, in_metadata=metadata),
-               omp_nthreads=omp_nthreads,mem_gb=mem_gb,name='gen_ge_ref',
-                     run_without_submitting=False)
-    skull_strip_wf = init_enhance_and_skullstrip_asl_wf(brainmask_thresh=0.5,name='skul_strip',pre_mask=False)
+               omp_nthreads=1,mem_gb=mem_gb,name='gen_ge_ref')
+    gen_ref.base_dir=os.getcwd()
+    skull_strip_wf =  pe.Node(
+        fsl.BET(frac=0.5, mask=True), name="fslbet")
+    apply_mask = pe.Node(fsl.ApplyMask(), name="apply_mask")
     mask_reportlet = pe.Node(SimpleShowMaskRPT(), name="mask_reportlet")
 
     workflow.connect([
          (inputnode,gen_ref,[('asl_file','in_file')]),
-         (gen_ref,skull_strip_wf,[('out_file','inputnode.in_file')]),
+         (gen_ref,skull_strip_wf,[('ref_file','in_file')]),
          (gen_ref, outputnode, [
-            ("out_file", "raw_ref_image"),]),
+            ("ref_file", "raw_ref_image")]),
+        (gen_ref, apply_mask, [
+                ("ref_file", "in_file")]),
         (skull_strip_wf, outputnode, [
-            ("outputnode.mask_file", "asl_mask"),
-            ("outputnode.skull_stripped_file", "ref_image_brain")]),
-         (skull_strip_wf, mask_reportlet, [
-                ("outputnode.mask_file", "mask_file")]),
-         (gen_ref,mask_reportlet,[("out_file", "background_file")]),
+            ("mask_file", "asl_mask")]),
+        (skull_strip_wf, apply_mask, [
+            ("mask_file", "mask_file")]),
+        (apply_mask,outputnode, [
+                ("out_file", "ref_image_brain")]),
+         (gen_ref,mask_reportlet,[("ref_file", "background_file")]),
+         (skull_strip_wf,mask_reportlet,[('mask_file','mask_file')]),
+         (gen_ref,outputnode,[("m0_file", "m0_file")]),
          ])
     return workflow
 
@@ -84,9 +93,9 @@ def init_asl_gereg_wf(use_bbr,asl2t1w_dof,asl2t1w_init,
     outputnode = pe.Node(
         niu.IdentityInterface(fields=['itk_asl_to_t1','itk_t1_to_asl',
              'fallback']),name='outputnode')
-    from .registration import init_fsl_bbr_wf
+    #from .registration import init_fsl_bbr_wf
 
-    bbr_wf = init_fsl_bbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
+    bbr_wf = init_fsl_gebbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
                                  asl2t1w_init=asl2t1w_init, sloppy=sloppy)
     from ...interfaces import DerivativesDataSink
 
@@ -524,7 +533,6 @@ def gen_reference(in_img, newpath=None):
     import nibabel as nb 
     import numpy as np
     import os 
-    newpath=os.getcwd()
     newpath = Path(newpath or ".")
     ss=check_img(in_img)
     if ss == 0: 
@@ -582,13 +590,13 @@ class _GeReferenceFileInputSpec(BaseInterfaceInputSpec):
     in_metadata = traits.Dict(exists=True, mandatory=True,
                               desc='metadata for asl or deltam ')
     bids_dir=traits.Str(exits=True,mandatory=True,desc=' bids directory')
-    ref_file = File(exists=False, desc="ref file")
-    m0_file = File(exists=False, desc="m0 file")
+    ref_file = File(exists=False,mandatory=False, desc="ref file")
+    m0_file = File(exists=False,mandatory=False, desc="m0 file")
     
 
 class _GeReferenceFileOutputSpec(TraitedSpec):
-    ref_file = File(exists=True, desc="ref file")
-    m0_file = File(exists=False, desc="m0 file")
+    ref_file = File(exists=True,mandatory=True,desc="ref file")
+    m0_file = File(exists=True,mandatory=True, desc="m0 file")
 
 
 class GeReferenceFile(SimpleInterface):
@@ -615,7 +623,7 @@ class GeReferenceFile(SimpleInterface):
 
         if self.inputs.in_metadata['M0'] != "True" and type(self.inputs.in_metadata['M0']) != int :
             m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
-            reffile = gen_reference(m0file)
+            reffile = gen_reference(m0file,newpath=runtime.cwd)
             m0file = reffile
 
         elif type(self.inputs.in_metadata['M0']) == int or  type(self.inputs.in_metadata['M0']) == float :
@@ -623,23 +631,24 @@ class GeReferenceFile(SimpleInterface):
             modata2 = dataasl[:, :, :, deltamlist]
             modata2 = dataasl[:, :, :, m0list]
             m0filename=fname_presuffix(self.inputs.in_file,
-                                                    suffix='_mofile', newpath=os.get_cwd())
+                                                    suffix='_mofile', newpath=os.getcwd())
             m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
             m0obj.to_filename(m0filename)
-            reffile = gen_reference(m0filename)
+            reffile = gen_reference(m0filename,newpath=runtime.cwd)
             m0file_data=m0num * np.ones_like(nb.load(reffile).get_fdata())
 
             m0filename1=fname_presuffix(self.inputs.in_file,
-                                                    suffix='_mofile', newpath=os.get_cwd())
+                                                    suffix='_mofile', newpath=os.getcwd())
             m0obj1 = nb.Nifti1Image(m0file_data, allasl.affine, allasl.header)
             m0obj1.to_filename(m0filename1)
-            m0file = gen_reference(m0filename1)
+            m0file = gen_reference(m0filename1,newpath=runtime.cwd)
 
         elif len(cbflist) > 0 :
-            reffile=gen_reference(self.inputs.in_file)
-        
-        self.inputs.ref_file = os.path.abspath(reffile)
-        self.inputs.m0_file = os.path.abspath(m0file)
+            reffile=gen_reference(self.inputs.in_file,newpath=runtime.cwd)
+        self._results['ref_file']=reffile
+        self._results['m0_file']=m0file
+        self.inputs.ref_file = os.path.abspath(self._results['ref_file'])
+        self.inputs.m0_file = os.path.abspath(self._results['m0_file'])
         return runtime
 
 
@@ -648,3 +657,120 @@ def readjson(jsonfile):
     with open(jsonfile) as f:
         data = json.load(f)
     return data
+
+
+def init_fsl_gebbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_bbr_wf'):
+    """
+    
+
+    """
+    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from ...niworkflows.utils.images import dseg_label as _dseg_label
+    from ...niworkflows.interfaces.freesurfer import PatchedLTAConvert as LTAConvert
+    from ...niworkflows.interfaces.registration import FLIRTRPT
+    workflow = Workflow(name=name)
+    workflow.__desc__ = """\
+The ASL reference was then co-registered to the T1w reference using
+`flirt` [FSL {fsl_ver}, @flirt] with the boundary-based registration [@bbr]
+cost-function.
+Co-registration was configured with nine degrees of freedom to account
+for distortions remaining in the ASL reference.
+""".format(fsl_ver=FLIRTRPT().version or '<ver>')
+
+    inputnode = pe.Node(
+        niu.IdentityInterface([
+            'in_file',
+            't1w_dseg', 't1w_brain']),  # FLIRT BBR
+        name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(['itk_asl_to_t1', 'itk_t1_to_asl', 'out_report', 'fallback']),
+        name='outputnode')
+
+    wm_mask = pe.Node(niu.Function(function=_dseg_label), name='wm_mask')
+    wm_mask.inputs.label = 2  # BIDS default is WM=2
+    flt_bbr_init = pe.Node(FLIRTRPT(dof=6, generate_report=not use_bbr,
+                                    uses_qform=True), name='flt_bbr_init')
+
+    if asl2t1w_init not in ("register", "header"):
+        raise ValueError(f"Unknown ASL-T1w initialization option: {asl2t1w_init}")
+
+    if asl2t1w_init == "header":
+        raise NotImplementedError("Header-based registration initialization not supported for FSL")
+
+    invt_bbr = pe.Node(fsl.ConvertXFM(invert_xfm=True), name='invt_bbr',
+                       mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+    # ASL to T1 transform matrix is from fsl, using c3 tools to convert to
+    # something ANTs will like.
+    fsl2itk_fwd = pe.Node(c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
+                          name='fsl2itk_fwd', mem_gb=DEFAULT_MEMORY_MIN_GB)
+    fsl2itk_inv = pe.Node(c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
+                          name='fsl2itk_inv', mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+    workflow.connect([
+        (inputnode, flt_bbr_init, [('in_file', 'in_file'),
+                                   ('t1w_brain', 'reference')]),
+        (inputnode, fsl2itk_fwd, [('t1w_brain', 'reference_file'),
+                                  ('in_file', 'source_file')]),
+        (inputnode, fsl2itk_inv, [('in_file', 'reference_file'),
+                                  ('t1w_brain', 'source_file')]),
+        (invt_bbr, fsl2itk_inv, [('out_file', 'transform_file')]),
+        (fsl2itk_fwd, outputnode, [('itk_transform', 'itk_asl_to_t1')]),
+        (fsl2itk_inv, outputnode, [('itk_transform', 'itk_t1_to_asl')]),
+    ])
+
+    # Short-circuit workflow building, use rigid registration
+    if use_bbr is False:
+        workflow.connect([
+            (flt_bbr_init, invt_bbr, [('out_matrix_file', 'in_file')]),
+            (flt_bbr_init, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
+            (flt_bbr_init, outputnode, [('out_report', 'out_report')]),
+        ])
+        outputnode.inputs.fallback = True
+
+        return workflow
+
+    flt_bbr = pe.Node(
+        FLIRTRPT(cost_func='bbr', dof=asl2t1w_dof, generate_report=True),
+        name='flt_bbr')
+
+    FSLDIR = os.getenv('FSLDIR')
+    if FSLDIR:
+        flt_bbr.inputs.schedule = op.join(FSLDIR, 'etc/flirtsch/bbr.sch')
+    else:
+        # Should mostly be hit while building docs
+        LOGGER.warning("FSLDIR unset - using packaged BBR schedule")
+        flt_bbr.inputs.schedule = pkgr.resource_filename('aslprep', 'data/flirtsch/bbr.sch')
+
+    workflow.connect([
+        (inputnode, wm_mask, [('t1w_dseg', 'in_seg')]),
+        (inputnode, flt_bbr, [('in_file', 'in_file')]),
+        (flt_bbr_init, flt_bbr, [('out_matrix_file', 'in_matrix_file')]),
+    ])
+
+    if sloppy is True:
+        downsample = pe.Node(niu.Function(
+            function=_conditional_downsampling, output_names=["out_file", "out_mask"]),
+            name='downsample')
+        workflow.connect([
+            (inputnode, downsample, [("t1w_brain", "in_file")]),
+            (wm_mask, downsample, [("out", "in_mask")]),
+            (downsample, flt_bbr, [('out_file', 'reference'),
+                                   ('out_mask', 'wm_seg')]),
+        ])
+    else:
+        workflow.connect([
+            (inputnode, flt_bbr, [('t1w_brain', 'reference')]),
+            (wm_mask, flt_bbr, [('out', 'wm_seg')]),
+        ])
+
+    # Short-circuit workflow building, use boundary-based registration
+    if use_bbr is True:
+        workflow.connect([
+            (flt_bbr, invt_bbr, [('out_matrix_file', 'in_file')]),
+            (flt_bbr, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
+            (flt_bbr, outputnode, [('out_report', 'out_report')]),
+        ])
+        outputnode.inputs.fallback = False
+
+        return workflow

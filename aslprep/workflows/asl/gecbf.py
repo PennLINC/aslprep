@@ -280,7 +280,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                 ('t1w_mask', 'in_mask')]),
          (t1w_brain,reg_ge_wf,[('out_file','inputnode.t1w_brain')]),
          (inputnode,reg_ge_wf,[('t1w_dseg','inputnode.t1w_dseg')]),
-         (gen_ref_wf,cbf_compt_wf,[('outputnode.raw_ref_image','inputnode.m0_file')]),
+         (gen_ref_wf,cbf_compt_wf,[('outputnode.m0_file','inputnode.m0_file')]),
          (inputnode,cbf_compt_wf,[('asl_file','inputnode.in_file'),('asl_file','inputnode.asl_file')]),
          (gen_ref_wf,cbf_compt_wf,[('outputnode.asl_mask','inputnode.asl_mask')]),
          (inputnode, cbf_compt_wf, [('t1w_tpms','inputnode.t1w_tpms'),
