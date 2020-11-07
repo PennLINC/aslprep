@@ -541,7 +541,7 @@ def init_cbfroiquant_wf(mem_gb, omp_nthreads, name='cbf_roiquant'):
     return workflow
 
 
-def init_gecbf_compt_wf(mem_gb,asl_file,metadata,bids_dir,omp_nthreads,M0Scale=1,smooth_kernel=5,
+def init_gecbf_compt_wf(metadata, asl_file,mem_gb, bids_dir,omp_nthreads,M0Scale=1,smooth_kernel=5,
                       name='cbf_compt_wf'):
     """
     be back
@@ -586,8 +586,8 @@ also included correction for partial volume effects [@chappell_pvc].
     idasl = aslcontext['volume_type'].tolist()
     deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
     cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
-    tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
-
+    
+    tiscbf = np.add(metadata['PostLabelingDelay'],metadata['LabelingDuration'])
 
     if hasattr(tiscbf, '__len__'):
         tisasl = ",".join([str(i) for i in tiscbf])
@@ -611,11 +611,6 @@ also included correction for partial volume effects [@chappell_pvc].
                                 pcasl = pcaslorasl(metadata = metadata)), name='basilcbf',
                        run_without_submitting=True, mem_gb=0.2)
 
-
-    if hasattr(tiscbf, '__len__'):
-        tisasl = ",".join([str(i) for i in tiscbf])
-    else:
-        tisasl = str(tiscbf)
     refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
 
     def _pick_csf(files):
@@ -631,7 +626,7 @@ also included correction for partial volume effects [@chappell_pvc].
         import os
         return os.path.dirname(file)
 
-    if deltamlist > 0 :
+    if len(deltamlist) > 0 :
         workflow.connect([
         # extract CBF data and compute cbf
         (inputnode, computecbf, [('asl_file', 'in_cbf'), ('out_avg', 'in_m0file')]),
@@ -669,7 +664,7 @@ also included correction for partial volume effects [@chappell_pvc].
         (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
                                   ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
         ])
-    elif cbflist > 0: 
+    elif len(cbflist) > 0: 
         workflow.connect([
         (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
                                   ('t1_asl_xform', 'transforms')]),

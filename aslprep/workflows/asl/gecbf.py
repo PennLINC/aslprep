@@ -186,6 +186,7 @@ def init_asl_gepreproc_wf(asl_file):
     config.loggers.workflow.info("No single-band-reference found for %s.",
                                      refbase)
     metadata = layout.get_metadata(ref_file)
+    
     # Build workflow
     workflow = Workflow(name=wf_name)
     workflow.__postdesc__ = """\
@@ -268,7 +269,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     std_gereg_wf = init_asl_gestd_trans_wf(mem_gb=4,omp_nthreads=omp_nthreads,spaces=spaces,
                             name='asl_gestd_trans_wf', use_compression=True)
 
-    cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb, metadata=3,bids_dir=subj_dir,omp_nthreads=omp_nthreads,
+    cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb, asl_file=asl_file, metadata=metadata,bids_dir=subj_dir,omp_nthreads=omp_nthreads,
                                 M0Scale=1,smooth_kernel=5,name='cbf_compt_wf')
     
     
