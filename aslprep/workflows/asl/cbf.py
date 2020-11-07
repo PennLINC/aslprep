@@ -93,6 +93,8 @@ also included correction for partial volume effects [@chappell_pvc].
                      name='wm_tfm', mem_gb=0.1)
     gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
                      name='gm_tfm', mem_gb=0.1)
+    
+    
 
     tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
     if hasattr(tiscbf, '__len__'):
@@ -539,7 +541,7 @@ def init_cbfroiquant_wf(mem_gb, omp_nthreads, name='cbf_roiquant'):
     return workflow
 
 
-def init_gecbf_compt_wf(mem_gb, metadata,bids_dir,omp_nthreads,M0Scale=1,smooth_kernel=5,
+def init_gecbf_compt_wf(mem_gb,asl_file,metadata,bids_dir,omp_nthreads,M0Scale=1,smooth_kernel=5,
                       name='cbf_compt_wf'):
     """
     be back
@@ -575,14 +577,22 @@ also included correction for partial volume effects [@chappell_pvc].
                      name='wm_tfm', mem_gb=0.1)
     gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
                      name='gm_tfm', mem_gb=0.1)
+    
 
-    filex = os.path.abspath(inputnode.inputs.in_file)
+
+    filex = os.path.abspath(asl_file)
     aslcontext1 = filex.replace('_asl.nii.gz', '_aslcontext.tsv')
     aslcontext = pd.read_csv(aslcontext1)
     idasl = aslcontext['volume_type'].tolist()
     deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
     cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
     tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
+
+
+    if hasattr(tiscbf, '__len__'):
+        tisasl = ",".join([str(i) for i in tiscbf])
+    else:
+        tisasl = str(tiscbf)
     def pcaslorasl(metadata):
         if 'CASL' in metadata["LabelingType"]:
             pcasl1 = True
