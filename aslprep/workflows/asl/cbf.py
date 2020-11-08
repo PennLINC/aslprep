@@ -624,9 +624,9 @@ also included correction for partial volume effects [@chappell_pvc].
 
     def _getfiledir(file):
         import os
-        return os.path.dirname(file)
+        return os.getcwd()
 
-    if len(deltamlist) > 0 :
+    if  len(deltamlist) > 0 :
         workflow.connect([
         # extract CBF data and compute cbf
         (inputnode, computecbf, [('asl_file', 'in_cbf'), ('m0_file', 'in_m0file')]),

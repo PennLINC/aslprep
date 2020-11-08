@@ -11,6 +11,9 @@ import nibabel as nb
 import numpy as np
 import os 
 import pandas as pd
+import os
+import os.path as op
+import pkg_resources as pkgr
 from nipype.utils.filemanip import fname_presuffix
 from ...niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -93,10 +96,12 @@ def init_asl_gereg_wf(use_bbr,asl2t1w_dof,asl2t1w_init,
     outputnode = pe.Node(
         niu.IdentityInterface(fields=['itk_asl_to_t1','itk_t1_to_asl',
              'fallback']),name='outputnode')
-    #from .registration import init_fsl_bbr_wf
+    
+    from .registration import init_fsl_bbr_wf
 
-    bbr_wf = init_fsl_gebbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
+    bbr_wf = init_fsl_bbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
                                  asl2t1w_init=asl2t1w_init, sloppy=sloppy)
+    #bbr_wf.base_dir=os.getcwd()
     from ...interfaces import DerivativesDataSink
 
     workflow.connect([
@@ -719,6 +724,8 @@ for distortions remaining in the ASL reference.
         (fsl2itk_inv, outputnode, [('itk_transform', 'itk_t1_to_asl')]),
     ])
 
+    outputnode.inputs.fallback = True
+
     # Short-circuit workflow building, use rigid registration
     if use_bbr is False:
         workflow.connect([
@@ -774,3 +781,43 @@ for distortions remaining in the ASL reference.
         outputnode.inputs.fallback = False
 
         return workflow
+
+def _conditional_downsampling(in_file, in_mask, zoom_th=4.0):
+    """Downsamples the input dataset for sloppy mode."""
+    from pathlib import Path
+    import numpy as np
+    import nibabel as nb
+    import nitransforms as nt
+    from scipy.ndimage.filters import gaussian_filter
+
+    img = nb.load(in_file)
+
+    zooms = np.array(img.header.get_zooms()[:3])
+    if not np.any(zooms < zoom_th):
+        return in_file, in_mask
+
+    out_file = Path('desc-resampled_input.nii.gz').absolute()
+    out_mask = Path('desc-resampled_mask.nii.gz').absolute()
+
+    shape = np.array(img.shape[:3])
+    scaling = zoom_th / zooms
+    newrot = np.diag(scaling).dot(img.affine[:3, :3])
+    newshape = np.ceil(shape / scaling).astype(int)
+    old_center = img.affine.dot(np.hstack((0.5 * (shape - 1), 1.0)))[:3]
+    offset = old_center - newrot.dot((newshape - 1) * 0.5)
+    newaffine = nb.affines.from_matvec(newrot, offset)
+
+    newref = nb.Nifti1Image(np.zeros(newshape, dtype=np.uint8), newaffine)
+    nt.Affine(reference=newref).apply(img).to_filename(out_file)
+
+    mask = nb.load(in_mask)
+    mask.set_data_dtype(float)
+    mdata = gaussian_filter(mask.get_fdata(dtype=float), scaling)
+    floatmask = nb.Nifti1Image(mdata, mask.affine, mask.header)
+    newmask = nt.Affine(reference=newref).apply(floatmask)
+    hdr = newmask.header.copy()
+    hdr.set_data_dtype(np.uint8)
+    newmaskdata = (newmask.get_fdata(dtype=float) > 0.5).astype(np.uint8)
+    nb.Nifti1Image(newmaskdata, newmask.affine, hdr).to_filename(out_mask)
+
+    return str(out_file), str(out_mask)

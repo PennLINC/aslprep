@@ -290,6 +290,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
          (inputnode, t1w_gereg_wf, [
             ('asl_file', 'inputnode.name_source'),
             ('t1w_mask', 'inputnode.t1w_mask'),]),
+        (gen_ref_wf,t1w_gereg_wf,[('outputnode.ref_image_brain','inputnode.ref_asl_brain')]),
         (t1w_brain, t1w_gereg_wf, [
             ('out_file', 'inputnode.t1w_brain')]),
         # unused if multiecho, but this is safe
@@ -408,14 +409,16 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         name='ds_report_summary', run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB)
 
-    #ds_report_validation = pe.Node(
-       # DerivativesDataSink(base_directory=output_dir, desc='validation', datatype="figures",
-                            #dismiss_entities=("echo",)),
-        #name='ds_report_validation', run_without_submitting=True,
-        #mem_gb=config.DEFAULT_MEMORY_MIN_GB)
+    ds_report_validation = pe.Node(
+       DerivativesDataSink(base_directory=output_dir, desc='validation', datatype="figures",
+                            dismiss_entities=("echo",)),
+        name='ds_report_validation', run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB)
 
     workflow.connect([
         (summary, ds_report_summary, [('out_report', 'in_file')]),
+       # (gen_ref_wf, ds_report_validation, [
+            #('outputnode.validation_report', 'in_file')]),
     ])
 
     # Fill-in datasinks of reportlets seen so far
