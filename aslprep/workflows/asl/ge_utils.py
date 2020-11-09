@@ -11,12 +11,16 @@ import nibabel as nb
 import numpy as np
 import os 
 import pandas as pd
+import os
+import os.path as op
+import pkg_resources as pkgr
 from nipype.utils.filemanip import fname_presuffix
 from ...niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from ...niworkflows.interfaces.masks import SimpleShowMaskRPT 
 from nipype.pipeline import engine as pe
-from nipype.interfaces import utility as niu
+from nipype.interfaces import utility as niu, fsl, c3
+from nipype.interfaces import fsl
 from ... import config
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -45,6 +49,7 @@ def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,brainmask_thresh=0.5
                 "raw_ref_image",
                 "ref_image_brain",
                 "asl_mask",
+                "m0_file",
                 "mask_report",
             ]
         ),
@@ -52,22 +57,29 @@ def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,brainmask_thresh=0.5
     )
 
     gen_ref = pe.Node(GeReferenceFile(bids_dir=bids_dir, in_metadata=metadata),
-               omp_nthreads=omp_nthreads,mem_gb=mem_gb,name='gen_ge_ref',
-                     run_without_submitting=False)
-    skull_strip_wf = init_enhance_and_skullstrip_asl_wf(brainmask_thresh=0.5,name='skul_strip',pre_mask=False)
+               omp_nthreads=1,mem_gb=mem_gb,name='gen_ge_ref')
+    gen_ref.base_dir=os.getcwd()
+    skull_strip_wf =  pe.Node(
+        fsl.BET(frac=0.5, mask=True), name="fslbet")
+    apply_mask = pe.Node(fsl.ApplyMask(), name="apply_mask")
     mask_reportlet = pe.Node(SimpleShowMaskRPT(), name="mask_reportlet")
 
     workflow.connect([
-         (inputnode,gen_ref,[('asl_file','input_image')]),
-         (gen_ref,skull_strip_wf,[('out_file','inputnode.in_file')]),
+         (inputnode,gen_ref,[('asl_file','in_file')]),
+         (gen_ref,skull_strip_wf,[('ref_file','in_file')]),
          (gen_ref, outputnode, [
-            ("out_file", "raw_ref_image"),]),
+            ("ref_file", "raw_ref_image")]),
+        (gen_ref, apply_mask, [
+                ("ref_file", "in_file")]),
         (skull_strip_wf, outputnode, [
-            ("outputnode.mask_file", "asl_mask"),
-            ("outputnode.skull_stripped_file", "ref_image_brain")]),
-         (skull_strip_wf, mask_reportlet, [
-                ("outputnode.mask_file", "mask_file")]),
-         (gen_ref,mask_reportlet,[("out_file", "background_file")]),
+            ("mask_file", "asl_mask")]),
+        (skull_strip_wf, apply_mask, [
+            ("mask_file", "mask_file")]),
+        (apply_mask,outputnode, [
+                ("out_file", "ref_image_brain")]),
+         (gen_ref,mask_reportlet,[("ref_file", "background_file")]),
+         (skull_strip_wf,mask_reportlet,[('mask_file','mask_file')]),
+         (gen_ref,outputnode,[("m0_file", "m0_file")]),
          ])
     return workflow
 
@@ -82,12 +94,14 @@ def init_asl_gereg_wf(use_bbr,asl2t1w_dof,asl2t1w_init,
         niu.IdentityInterface(
             fields=['ref_asl_brain', 't1w_brain', 't1w_dseg']),name='inputnode')
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=[
+        niu.IdentityInterface(fields=['itk_asl_to_t1','itk_t1_to_asl',
              'fallback']),name='outputnode')
+    
     from .registration import init_fsl_bbr_wf
 
     bbr_wf = init_fsl_bbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
                                  asl2t1w_init=asl2t1w_init, sloppy=sloppy)
+    #bbr_wf.base_dir=os.getcwd()
     from ...interfaces import DerivativesDataSink
 
     workflow.connect([
@@ -524,7 +538,6 @@ def gen_reference(in_img, newpath=None):
     import nibabel as nb 
     import numpy as np
     import os 
-    newpath=os.getcwd()
     newpath = Path(newpath or ".")
     ss=check_img(in_img)
     if ss == 0: 
@@ -535,7 +548,7 @@ def gen_reference(in_img, newpath=None):
     
     new_file = nb.Nifti1Image(dataobj=ref_data,header=nb.load(in_img).header,
              affine=nb.load(in_img).affine)
-    out_file = fname_presuffix('aslref', suffix="_reference", newpath=str(newpath.absolute()))
+    out_file = fname_presuffix('aslref', suffix="_reference.nii.gz", newpath=str(newpath.absolute()))
     new_file.to_filename(out_file)
     return out_file
 
@@ -576,16 +589,19 @@ def _is_native(in_value):
 
 
 class _GeReferenceFileInputSpec(BaseInterfaceInputSpec):
-    input_image = File(
+    in_file = File(
         exists=True, mandatory=True, desc="asl_file"
     )
     in_metadata = traits.Dict(exists=True, mandatory=True,
                               desc='metadata for asl or deltam ')
     bids_dir=traits.Str(exits=True,mandatory=True,desc=' bids directory')
+    ref_file = File(exists=False,mandatory=False, desc="ref file")
+    m0_file = File(exists=False,mandatory=False, desc="m0 file")
     
 
 class _GeReferenceFileOutputSpec(TraitedSpec):
-    out_file = File(exists=True, desc="one file with all inputs flattened")
+    ref_file = File(exists=True,mandatory=True,desc="ref file")
+    m0_file = File(exists=True,mandatory=True, desc="m0 file")
 
 
 class GeReferenceFile(SimpleInterface):
@@ -601,49 +617,43 @@ class GeReferenceFile(SimpleInterface):
     def _run_interface(self, runtime):
         import os 
         filex = os.path.abspath(self.inputs.in_file)
-        if self.inputs.in_metadata['M0'] != "True" and self.inputs.in_metadata['M0'] != "False" and type(self.inputs.in_metadata['M0']) != int :
-           m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
-           #m0file_metadata=readjson(m0file.replace('nii.gz','json'))
-           #aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
-           aslcontext1 = filex.replace('_asl.nii.gz', '_aslcontext.tsv')
-           aslcontext = pd.read_csv(aslcontext1)
-           idasl = aslcontext['volume_type'].tolist()
-           m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
-           deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
-           cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+        aslcontext1 = filex.replace('_asl.nii.gz', '_aslcontext.tsv')
+        aslcontext = pd.read_csv(aslcontext1)
+        idasl = aslcontext['volume_type'].tolist()
+        m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
+        deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+        cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+        allasl = nb.load(self.inputs.in_file)
+        dataasl = allasl.get_fdata()
 
-           allasl = nb.load(self.inputs.asl_file)
-           dataasl = allasl.get_fdata()
-    #get reference file from m0 or mean of delta or CBF 
-    
+        if self.inputs.in_metadata['M0'] != "True" and type(self.inputs.in_metadata['M0']) != int :
+            m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
+            reffile = gen_reference(m0file,newpath=runtime.cwd)
+            m0file = reffile
 
-        if m0file: 
-            reffile = gen_reference(m0file)
-        elif len(dataasl.shape) > 3:
-            if m0list > 0:
-                modata2 = dataasl[:, :, :, m0list]
-                m0filename=fname_presuffix(self.inputs.in_file,
-                                                    suffix='_mofile', newpath=os.get_cwd())
-                m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-                m0obj.to_filename(m0filename)
-                reffile = gen_reference(m0filename)
-            elif deltamlist > 0 :
-                modata2 = dataasl[:, :, :, deltamlist]
-                m0filename=fname_presuffix(self.inputs.in_file,
-                                                    suffix='_mofile', newpath=os.get_cwd())
-                m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-                m0obj.to_filename(m0filename)
-                reffile = gen_reference(m0filename)
-            elif cbflist > 0 : 
-                modata2 = dataasl[:, :, :, cbflist]
-                m0filename=fname_presuffix(self.inputs.in_file,
-                                                    suffix='_mofile', newpath=os.get_cwd())
-                m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-                m0obj.to_filename(m0filename)
-                reffile = gen_reference(m0filename)
-        else:
-            reffile=gen_reference(self.inputs.in_file)
-        self.inputs.out_file = os.path.abspath(reffile)
+        elif type(self.inputs.in_metadata['M0']) == int or  type(self.inputs.in_metadata['M0']) == float :
+            m0num=np.float(self.inputs.in_metadata['M0'])
+            modata2 = dataasl[:, :, :, deltamlist]
+            modata2 = dataasl[:, :, :, m0list]
+            m0filename=fname_presuffix(self.inputs.in_file,
+                                                    suffix='_mofile', newpath=os.getcwd())
+            m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
+            m0obj.to_filename(m0filename)
+            reffile = gen_reference(m0filename,newpath=runtime.cwd)
+            m0file_data=m0num * np.ones_like(nb.load(reffile).get_fdata())
+
+            m0filename1=fname_presuffix(self.inputs.in_file,
+                                                    suffix='_mofile', newpath=os.getcwd())
+            m0obj1 = nb.Nifti1Image(m0file_data, allasl.affine, allasl.header)
+            m0obj1.to_filename(m0filename1)
+            m0file = gen_reference(m0filename1,newpath=runtime.cwd)
+
+        elif len(cbflist) > 0 :
+            reffile=gen_reference(self.inputs.in_file,newpath=runtime.cwd)
+        self._results['ref_file']=reffile
+        self._results['m0_file']=m0file
+        self.inputs.ref_file = os.path.abspath(self._results['ref_file'])
+        self.inputs.m0_file = os.path.abspath(self._results['m0_file'])
         return runtime
 
 
@@ -652,3 +662,162 @@ def readjson(jsonfile):
     with open(jsonfile) as f:
         data = json.load(f)
     return data
+
+
+def init_fsl_gebbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_bbr_wf'):
+    """
+    
+
+    """
+    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from ...niworkflows.utils.images import dseg_label as _dseg_label
+    from ...niworkflows.interfaces.freesurfer import PatchedLTAConvert as LTAConvert
+    from ...niworkflows.interfaces.registration import FLIRTRPT
+    workflow = Workflow(name=name)
+    workflow.__desc__ = """\
+The ASL reference was then co-registered to the T1w reference using
+`flirt` [FSL {fsl_ver}, @flirt] with the boundary-based registration [@bbr]
+cost-function.
+Co-registration was configured with nine degrees of freedom to account
+for distortions remaining in the ASL reference.
+""".format(fsl_ver=FLIRTRPT().version or '<ver>')
+
+    inputnode = pe.Node(
+        niu.IdentityInterface([
+            'in_file',
+            't1w_dseg', 't1w_brain']),  # FLIRT BBR
+        name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(['itk_asl_to_t1', 'itk_t1_to_asl', 'out_report', 'fallback']),
+        name='outputnode')
+
+    wm_mask = pe.Node(niu.Function(function=_dseg_label), name='wm_mask')
+    wm_mask.inputs.label = 2  # BIDS default is WM=2
+    flt_bbr_init = pe.Node(FLIRTRPT(dof=6, generate_report=not use_bbr,
+                                    uses_qform=True), name='flt_bbr_init')
+
+    if asl2t1w_init not in ("register", "header"):
+        raise ValueError(f"Unknown ASL-T1w initialization option: {asl2t1w_init}")
+
+    if asl2t1w_init == "header":
+        raise NotImplementedError("Header-based registration initialization not supported for FSL")
+
+    invt_bbr = pe.Node(fsl.ConvertXFM(invert_xfm=True), name='invt_bbr',
+                       mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+    # ASL to T1 transform matrix is from fsl, using c3 tools to convert to
+    # something ANTs will like.
+    fsl2itk_fwd = pe.Node(c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
+                          name='fsl2itk_fwd', mem_gb=DEFAULT_MEMORY_MIN_GB)
+    fsl2itk_inv = pe.Node(c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
+                          name='fsl2itk_inv', mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+    workflow.connect([
+        (inputnode, flt_bbr_init, [('in_file', 'in_file'),
+                                   ('t1w_brain', 'reference')]),
+        (inputnode, fsl2itk_fwd, [('t1w_brain', 'reference_file'),
+                                  ('in_file', 'source_file')]),
+        (inputnode, fsl2itk_inv, [('in_file', 'reference_file'),
+                                  ('t1w_brain', 'source_file')]),
+        (invt_bbr, fsl2itk_inv, [('out_file', 'transform_file')]),
+        (fsl2itk_fwd, outputnode, [('itk_transform', 'itk_asl_to_t1')]),
+        (fsl2itk_inv, outputnode, [('itk_transform', 'itk_t1_to_asl')]),
+    ])
+
+    outputnode.inputs.fallback = True
+
+    # Short-circuit workflow building, use rigid registration
+    if use_bbr is False:
+        workflow.connect([
+            (flt_bbr_init, invt_bbr, [('out_matrix_file', 'in_file')]),
+            (flt_bbr_init, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
+            (flt_bbr_init, outputnode, [('out_report', 'out_report')]),
+        ])
+        outputnode.inputs.fallback = True
+
+        return workflow
+
+    flt_bbr = pe.Node(
+        FLIRTRPT(cost_func='bbr', dof=asl2t1w_dof, generate_report=True),
+        name='flt_bbr')
+
+    FSLDIR = os.getenv('FSLDIR')
+    if FSLDIR:
+        flt_bbr.inputs.schedule = op.join(FSLDIR, 'etc/flirtsch/bbr.sch')
+    else:
+        # Should mostly be hit while building docs
+        LOGGER.warning("FSLDIR unset - using packaged BBR schedule")
+        flt_bbr.inputs.schedule = pkgr.resource_filename('aslprep', 'data/flirtsch/bbr.sch')
+
+    workflow.connect([
+        (inputnode, wm_mask, [('t1w_dseg', 'in_seg')]),
+        (inputnode, flt_bbr, [('in_file', 'in_file')]),
+        (flt_bbr_init, flt_bbr, [('out_matrix_file', 'in_matrix_file')]),
+    ])
+
+    if sloppy is True:
+        downsample = pe.Node(niu.Function(
+            function=_conditional_downsampling, output_names=["out_file", "out_mask"]),
+            name='downsample')
+        workflow.connect([
+            (inputnode, downsample, [("t1w_brain", "in_file")]),
+            (wm_mask, downsample, [("out", "in_mask")]),
+            (downsample, flt_bbr, [('out_file', 'reference'),
+                                   ('out_mask', 'wm_seg')]),
+        ])
+    else:
+        workflow.connect([
+            (inputnode, flt_bbr, [('t1w_brain', 'reference')]),
+            (wm_mask, flt_bbr, [('out', 'wm_seg')]),
+        ])
+
+    # Short-circuit workflow building, use boundary-based registration
+    if use_bbr is True:
+        workflow.connect([
+            (flt_bbr, invt_bbr, [('out_matrix_file', 'in_file')]),
+            (flt_bbr, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
+            (flt_bbr, outputnode, [('out_report', 'out_report')]),
+        ])
+        outputnode.inputs.fallback = False
+
+        return workflow
+
+def _conditional_downsampling(in_file, in_mask, zoom_th=4.0):
+    """Downsamples the input dataset for sloppy mode."""
+    from pathlib import Path
+    import numpy as np
+    import nibabel as nb
+    import nitransforms as nt
+    from scipy.ndimage.filters import gaussian_filter
+
+    img = nb.load(in_file)
+
+    zooms = np.array(img.header.get_zooms()[:3])
+    if not np.any(zooms < zoom_th):
+        return in_file, in_mask
+
+    out_file = Path('desc-resampled_input.nii.gz').absolute()
+    out_mask = Path('desc-resampled_mask.nii.gz').absolute()
+
+    shape = np.array(img.shape[:3])
+    scaling = zoom_th / zooms
+    newrot = np.diag(scaling).dot(img.affine[:3, :3])
+    newshape = np.ceil(shape / scaling).astype(int)
+    old_center = img.affine.dot(np.hstack((0.5 * (shape - 1), 1.0)))[:3]
+    offset = old_center - newrot.dot((newshape - 1) * 0.5)
+    newaffine = nb.affines.from_matvec(newrot, offset)
+
+    newref = nb.Nifti1Image(np.zeros(newshape, dtype=np.uint8), newaffine)
+    nt.Affine(reference=newref).apply(img).to_filename(out_file)
+
+    mask = nb.load(in_mask)
+    mask.set_data_dtype(float)
+    mdata = gaussian_filter(mask.get_fdata(dtype=float), scaling)
+    floatmask = nb.Nifti1Image(mdata, mask.affine, mask.header)
+    newmask = nt.Affine(reference=newref).apply(floatmask)
+    hdr = newmask.header.copy()
+    hdr.set_data_dtype(np.uint8)
+    newmaskdata = (newmask.get_fdata(dtype=float) > 0.5).astype(np.uint8)
+    nb.Nifti1Image(newmaskdata, newmask.affine, hdr).to_filename(out_mask)
+
+    return str(out_file), str(out_mask)

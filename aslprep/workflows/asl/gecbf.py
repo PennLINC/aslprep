@@ -186,6 +186,7 @@ def init_asl_gepreproc_wf(asl_file):
     config.loggers.workflow.info("No single-band-reference found for %s.",
                                      refbase)
     metadata = layout.get_metadata(ref_file)
+    
     # Build workflow
     workflow = Workflow(name=wf_name)
     workflow.__postdesc__ = """\
@@ -268,17 +269,18 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     std_gereg_wf = init_asl_gestd_trans_wf(mem_gb=4,omp_nthreads=omp_nthreads,spaces=spaces,
                             name='asl_gestd_trans_wf', use_compression=True)
 
-    cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb, metadata=3,bids_dir=subj_dir,omp_nthreads=omp_nthreads,
+    cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb, asl_file=asl_file, metadata=metadata,bids_dir=subj_dir,omp_nthreads=omp_nthreads,
                                 M0Scale=1,smooth_kernel=5,name='cbf_compt_wf')
     
     
     workflow.connect([
          (inputnode, gen_ref_wf,[('asl_file','inputnode.asl_file')]),
-         (gen_ref_wf, reg_ge_wf,[('ref_image_brain','ref_asl_brain')]),
+         (gen_ref_wf, reg_ge_wf,[('outputnode.ref_image_brain','inputnode.ref_asl_brain')]),
          (inputnode, t1w_brain,[('t1w_preproc', 'in_file'),
                                 ('t1w_mask', 'in_mask')]),
          (t1w_brain,reg_ge_wf,[('out_file','inputnode.t1w_brain')]),
          (inputnode,reg_ge_wf,[('t1w_dseg','inputnode.t1w_dseg')]),
+         (gen_ref_wf,cbf_compt_wf,[('outputnode.m0_file','inputnode.m0_file')]),
          (inputnode,cbf_compt_wf,[('asl_file','inputnode.in_file'),('asl_file','inputnode.asl_file')]),
          (gen_ref_wf,cbf_compt_wf,[('outputnode.asl_mask','inputnode.asl_mask')]),
          (inputnode, cbf_compt_wf, [('t1w_tpms','inputnode.t1w_tpms'),
@@ -288,6 +290,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
          (inputnode, t1w_gereg_wf, [
             ('asl_file', 'inputnode.name_source'),
             ('t1w_mask', 'inputnode.t1w_mask'),]),
+        (gen_ref_wf,t1w_gereg_wf,[('outputnode.ref_image_brain','inputnode.ref_asl_brain')]),
         (t1w_brain, t1w_gereg_wf, [
             ('out_file', 'inputnode.t1w_brain')]),
         # unused if multiecho, but this is safe
@@ -296,6 +299,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         (t1w_gereg_wf, outputnode, [('outputnode.asl_t1', 'asl_t1'),
                                         ('outputnode.asl_t1_ref', 'asl_t1_ref'),]),
         (reg_ge_wf, summary, [('outputnode.fallback', 'fallback')]),
+        (inputnode, asl_derivatives_wf, [
+                ('asl_file', 'inputnode.source_file')]),
     
      ]) 
     
@@ -313,7 +318,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             (t1w_gereg_wf, aslmask_to_t1w, [
                 ('outputnode.asl_mask_t1', 'reference_image')]),
             (gen_ref_wf, aslmask_to_t1w, [
-                ('inputnode.asl_mask', 'input_image')]),
+                ('outputnode.asl_mask', 'input_image')]),
             (aslmask_to_t1w, outputnode, [
                 ('output_image', 'asl_mask_t1')]),
         ])
@@ -343,7 +348,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             (gen_ref_wf, asl_derivatives_wf, [
                 ('outputnode.raw_ref_image', 'inputnode.asl_native_ref')]),
             (gen_ref_wf, asl_derivatives_wf, [
-                ('inputnode.asl_mask', 'inputnode.asl_mask_native' )]),
+                ('outputnode.asl_mask', 'inputnode.asl_mask_native' )]),
             (cbf_compt_wf, asl_derivatives_wf, [
                 ('outputnode.out_cbf', 'inputnode.cbf'),
                 ('outputnode.out_mean', 'inputnode.meancbf'),
@@ -406,14 +411,16 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         name='ds_report_summary', run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB)
 
-    #ds_report_validation = pe.Node(
-       # DerivativesDataSink(base_directory=output_dir, desc='validation', datatype="figures",
-                            #dismiss_entities=("echo",)),
-        #name='ds_report_validation', run_without_submitting=True,
-        #mem_gb=config.DEFAULT_MEMORY_MIN_GB)
+    ds_report_validation = pe.Node(
+       DerivativesDataSink(base_directory=output_dir, desc='validation', datatype="figures",
+                            dismiss_entities=("echo",)),
+        name='ds_report_validation', run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB)
 
     workflow.connect([
         (summary, ds_report_summary, [('out_report', 'in_file')]),
+       # (gen_ref_wf, ds_report_validation, [
+            #('outputnode.validation_report', 'in_file')]),
     ])
 
     # Fill-in datasinks of reportlets seen so far

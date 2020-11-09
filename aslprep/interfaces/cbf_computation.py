@@ -209,7 +209,7 @@ class _computeCBFInputSpec(BaseInterfaceInputSpec):
     in_cbf = File(exists=True, mandatory=True, desc='cbf nifti')
     in_metadata = traits.Dict(exists=True, mandatory=True,
                               desc='metadata for CBF ')
-    in_m0scale=traits.Int(exists=True, mandatory=True,
+    in_m0scale=traits.Float(exists=True, mandatory=True,
                               desc='relative scale between asl and m0')
     in_m0file = File(exists=True, mandatory=False, desc='M0 nifti file')
     in_mask = File(exists=True, mandatory=False, desc='mask')
@@ -315,16 +315,19 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
         perfusion_factor = (pf1*np.exp(inverstiontime/t1blood))/inverstiontime
     #perfusion_factor = np.array(perfusion_factor)
     #print(perfusion_factor)
-    # get control now
 
-    
     maskx = nb.load(mask).get_fdata()
-    m0data = nb.load(m0file).get_fdata()[maskx==1]
+    m0data = nb.load(m0file).get_fdata()
+    m0data=m0data[maskx==1]
     # compute cbf
-    cbf_data = nb.load(cbffile).get_fdata()[maskx==1]
+    cbf_data = nb.load(cbffile).get_fdata()
+    cbf_data=cbf_data[maskx==1]
     cbf1 = np.zeros(cbf_data.shape)
-    for i in range(cbf1.shape[1]):
-        cbf1[:, i] = np.divide(cbf_data[:,i], (m0scale*m0data))
+    if len(cbf_data.shape) < 2: 
+        cbf1 = np.divide(cbf_data,(m0scale*m0data))
+    else: 
+        for i in range(cbf1.shape[1]):
+            cbf1[:, i] = np.divide(cbf_data[:,i], (m0scale*m0data))
         # m1=m0scale*m0_data
         # cbf1=np.divide(cbf_data,m1)
         # for compute cbf for each PLD and TI
@@ -351,15 +354,20 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     else:
         cbf = cbf1*np.array(perfusion_factor)
         # cbf is timeseries
-     
-     
-     # return cbf to nifti shape
-    tcbf=np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
-    for i in range(cbf.shape[1]):
-        tcbfx=np.zeros(maskx.shape); tcbfx[maskx==1]=cbf[:,i]
-        tcbf[:,:,:,i]=tcbfx
-    
-    meancbf = np.mean(tcbf, axis=3)
+    # return cbf to nifti shape
+    print(cbf.shape)
+    if len(cbf.shape) < 2:
+        tcbf=np.zeros(maskx.shape)
+        tcbf[maskx==1]=cbf
+    else:
+        tcbf=np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
+        for i in range(cbf.shape[1]):
+            tcbfx=np.zeros(maskx.shape); tcbfx[maskx==1]=cbf[:,i]
+            tcbf[:,:,:,i]=tcbfx
+    if len(tcbf.shape) < 4:
+        meancbf = tcbf
+    else:
+        meancbf = np.mean(tcbf, axis=3)
     meancbf = np.nan_to_num(meancbf)
     tcbf = np.nan_to_num(tcbf)
     att = np.nan_to_num(att)
@@ -411,13 +419,15 @@ class scorescrubCBF(SimpleInterface):
             cbf_scorets, index_score = _getcbfscore(cbfts=cbf_ts, wm=whitem,
                                                 gm=greym, csf=csf, mask=mask,
                                                 thresh=self.inputs.in_thresh)
-        elif len(cbf_ts.shape) == 3:
-            cbf_scorets = cbf_ts
-            index_score = 0
-    
-
-        cbfscrub = _scrubcbf(cbf_ts=cbf_scorets, gm=greym, wm=whitem, csf=csf,
+            cbfscrub = _scrubcbf(cbf_ts=cbf_scorets, gm=greym, wm=whitem, csf=csf,
                              mask=mask, wfun=self.inputs.in_wfun, thresh=self.inputs.in_thresh)
+            avgscore = np.mean(cbf_scorets, axis=3)
+        else:
+            cbf_scorets = cbf_ts
+            index_score = np.array([0])
+            cbfscrub = cbf_ts
+            avgscore = cbf_ts
+        
         self._results['out_score'] = fname_presuffix(self.inputs.in_file,
                                                      suffix='_cbfscorets', newpath=runtime.cwd)
         self._results['out_avgscore'] = fname_presuffix(self.inputs.in_file,
@@ -429,17 +439,16 @@ class scorescrubCBF(SimpleInterface):
                                                           suffix='_scoreindex.txt',
                                                           newpath=runtime.cwd, use_ext=False)
         samplecbf = nb.load(self.inputs.in_mask)
+
+        nb.Nifti1Image(dataobj=cbf_scorets, affine=samplecbf.affine, header=samplecbf.header).to_filename(self._results['out_score'])
         nb.Nifti1Image(
-            cbf_scorets, samplecbf.affine, samplecbf.header).to_filename(
-            self._results['out_score'])
+             dataobj=avgscore, affine=samplecbf.affine, header=samplecbf.header).to_filename(
+                self._results['out_avgscore'])
         nb.Nifti1Image(
-            np.mean(cbf_scorets, axis=3), samplecbf.affine, samplecbf.header).to_filename(
-            self._results['out_avgscore'])
-        nb.Nifti1Image(
-            cbfscrub, samplecbf.affine, samplecbf.header).to_filename(
+            dataobj=cbfscrub, affine=samplecbf.affine, header=samplecbf.header).to_filename(
             self._results['out_scrub'])
 
-        np.savetxt(self._results['out_scoreindex'], index_score, delimiter=',')
+        np.savetxt(self._results['out_scoreindex'],index_score, delimiter=',')
 
         self.inputs.out_score = os.path.abspath(self._results['out_score'])
         self.inputs.out_avgscore = os.path.abspath(self._results['out_avgscore'])
