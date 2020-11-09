@@ -257,7 +257,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                               metadata=metadata,bids_dir=subj_dir,brainmask_thresh=0.5,
                               pre_mask=False, name="asl_gereference_wf",gen_report=False)
     
-    reg_ge_wf = init_asl_gereg_wf(use_bbr=config,
+    reg_ge_wf = init_asl_gereg_wf(use_bbr=config.workflow.use_bbr,
                 asl2t1w_dof=config.workflow.asl2t1w_dof,
                 asl2t1w_init=config.workflow.asl2t1w_init,
                 mem_gb=2, omp_nthreads=omp_nthreads, name='asl_reg_wf',
@@ -291,6 +291,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ('asl_file', 'inputnode.name_source'),
             ('t1w_mask', 'inputnode.t1w_mask'),]),
         (gen_ref_wf,t1w_gereg_wf,[('outputnode.ref_image_brain','inputnode.ref_asl_brain')]),
+        (gen_ref_wf,t1w_gereg_wf,[('outputnode.asl_mask','inputnode.ref_asl_mask')]),
         (t1w_brain, t1w_gereg_wf, [
             ('out_file', 'inputnode.t1w_brain')]),
         # unused if multiecho, but this is safe

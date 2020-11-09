@@ -165,18 +165,15 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,
         name='outputnode'
     )
 
-    gen_ref = pe.Node(GenerateSamplingReference(), name='gen_ref',
-                      mem_gb=0.3)  # 256x256x256 * 64 / 8 ~ 150MB
+    #gen_ref = pe.Node(GenerateSamplingReference(), name='gen_ref',
+                      #mem_gb=0.3)  # 256x256x256 * 64 / 8 ~ 150MB
 
     mask_t1w_tfm = pe.Node(ApplyTransforms(interpolation='MultiLabel'),
                            name='mask_t1w_tfm', mem_gb=0.1)
 
     workflow.connect([
-        (inputnode, gen_ref, [('ref_asl_brain', 'moving_image'),
-                              ('t1w_brain', 'fixed_image'),
-                              ('t1w_mask', 'fov_mask')]),
         (inputnode, mask_t1w_tfm, [('ref_asl_mask', 'input_image')]),
-        (gen_ref, mask_t1w_tfm, [('out_file', 'reference_image')]),
+        (inputnode, mask_t1w_tfm, [('t1w_brain', 'reference_image')]),
         (inputnode, mask_t1w_tfm, [('itk_asl_to_t1', 'transforms')]),
         (mask_t1w_tfm, outputnode, [('output_image', 'asl_mask_t1')]),
     ])
@@ -190,9 +187,9 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,
    
     
     workflow.connect([
-            (inputnode, asl_to_t1w_transform, [('asl_file', 'input_image')]),
+            (inputnode, asl_to_t1w_transform, [('ref_asl_brain', 'input_image')]),
             (inputnode, asl_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-            (inputnode, asl_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+            (inputnode, asl_to_t1w_transform, [('t1w_brain', 'reference_image')]),
             (asl_to_t1w_transform, outputnode, [('output_image', 'asl_t1')]),
         ])
 
@@ -232,42 +229,42 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,
         (inputnode, cbf_to_t1w_transform, [('cbf', 'input_image')]),
         (cbf_to_t1w_transform, outputnode, [('output_image', 'cbf_t1')]),
         (inputnode, cbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, cbf_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, cbf_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, score_to_t1w_transform, [('score', 'input_image')]),
         (score_to_t1w_transform, outputnode, [('output_image', 'score_t1')]),
         (inputnode, score_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, score_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, score_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, meancbf_to_t1w_transform, [('meancbf', 'input_image')]),
         (meancbf_to_t1w_transform, outputnode, [('output_image', 'meancbf_t1')]),
         (inputnode, meancbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, meancbf_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, meancbf_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, avgscore_to_t1w_transform, [('avgscore', 'input_image')]),
         (avgscore_to_t1w_transform, outputnode, [('output_image', 'avgscore_t1')]),
         (inputnode, avgscore_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, avgscore_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, avgscore_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, scrub_to_t1w_transform, [('scrub', 'input_image')]),
         (scrub_to_t1w_transform, outputnode, [('output_image', 'scrub_t1')]),
         (inputnode, scrub_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, scrub_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, scrub_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, basil_to_t1w_transform, [('basil', 'input_image')]),
         (basil_to_t1w_transform, outputnode, [('output_image', 'basil_t1')]),
         (inputnode, basil_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, basil_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, basil_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, pv_to_t1w_transform, [('pv', 'input_image')]),
         (pv_to_t1w_transform, outputnode, [('output_image', 'pv_t1')]),
         (inputnode, pv_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, pv_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, pv_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, att_to_t1w_transform, [('att', 'input_image')]),
         (att_to_t1w_transform, outputnode, [('output_image', 'att_t1')]),
         (inputnode, att_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, att_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, att_to_t1w_transform, [('t1w_brain', 'reference_image')]),
          ])
 
     return workflow
