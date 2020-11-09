@@ -299,6 +299,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         (t1w_gereg_wf, outputnode, [('outputnode.asl_t1', 'asl_t1'),
                                         ('outputnode.asl_t1_ref', 'asl_t1_ref'),]),
         (reg_ge_wf, summary, [('outputnode.fallback', 'fallback')]),
+        (inputnode, asl_derivatives_wf, [
+                ('asl_file', 'inputnode.source_file')]),
     
      ]) 
     
@@ -316,7 +318,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             (t1w_gereg_wf, aslmask_to_t1w, [
                 ('outputnode.asl_mask_t1', 'reference_image')]),
             (gen_ref_wf, aslmask_to_t1w, [
-                ('inputnode.asl_mask', 'input_image')]),
+                ('outputnode.asl_mask', 'input_image')]),
             (aslmask_to_t1w, outputnode, [
                 ('output_image', 'asl_mask_t1')]),
         ])
@@ -346,7 +348,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             (gen_ref_wf, asl_derivatives_wf, [
                 ('outputnode.raw_ref_image', 'inputnode.asl_native_ref')]),
             (gen_ref_wf, asl_derivatives_wf, [
-                ('inputnode.asl_mask', 'inputnode.asl_mask_native' )]),
+                ('outputnode.asl_mask', 'inputnode.asl_mask_native' )]),
             (cbf_compt_wf, asl_derivatives_wf, [
                 ('outputnode.out_cbf', 'inputnode.cbf'),
                 ('outputnode.out_mean', 'inputnode.meancbf'),

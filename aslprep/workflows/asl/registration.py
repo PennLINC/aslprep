@@ -829,39 +829,40 @@ for distortions remaining in the ASL reference.
     transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
     reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
 
-    compare_transforms = pe.Node(niu.Function(function=compare_xforms,output_names="out"), name='compare_transforms')
+    #compare_transforms = pe.Node(niu.Function(function=compare_xforms,output_names="out"), name='compare_transforms')
 
-    select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
+    #select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
     select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
 
-    fsl_to_lta = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_fsl'],
-                            name='fsl_to_lta')
+    #fsl_to_lta = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_fsl'],
+                            #name='fsl_to_lta')
+    #select_transform.inputs.out= 1
 
     workflow.connect([
         (flt_bbr, transforms, [('out_matrix_file', 'in1')]),
         (flt_bbr_init, transforms, [('out_matrix_file', 'in2')]),
         #Convert FSL transforms to LTA (RAS2RAS) transforms and compare
-        (inputnode, fsl_to_lta, [('in_file', 'source_file'),
-                                 ('t1w_brain', 'target_file')]),
-        (transforms, fsl_to_lta, [('out', 'in_fsl')]),
-        (fsl_to_lta, compare_transforms, [('out_lta', 'lta_list')]),
-        (compare_transforms, outputnode, [('out', 'fallback')]),
+        #(inputnode, fsl_to_lta, [('in_file', 'source_file'),
+                                 #('t1w_brain', 'target_file')]),
+        #(transforms, fsl_to_lta, [('out', 'in_fsl')]),
+        #(fsl_to_lta, compare_transforms, [('out_lta', 'lta_list')]),
+        #(compare_transforms, outputnode, [('out', 'fallback')]),
         # Select output transform
-        (transforms, select_transform, [('out', 'inlist')]),
-        (compare_transforms, select_transform, [('out', 'index')]),
-        (select_transform, invt_bbr, [('out', 'in_file')]),
-        (select_transform, fsl2itk_fwd, [('out', 'transform_file')]),
+        #(transforms, select_transform, [('out', 'inlist')]),
+        #(compare_transforms, select_transform, [('out', 'index')]),
+        (flt_bbr, invt_bbr, [('out_matrix_file', 'in_file')]),
+        (flt_bbr, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
         (flt_bbr, reports, [('out_report', 'in1')]),
         (flt_bbr_init, reports, [('out_report', 'in2')]),
         (reports, select_report, [('out', 'inlist')]),
-        (compare_transforms, select_report, [('out', 'index')]),
+        #(compare_transforms, select_report, [('out', 'index')]),
         (select_report, outputnode, [('out', 'out_report')]),
     ])
 
     return workflow
 
 
-def compare_xforms(lta_list, norm_threshold=10):
+def compare_xforms(lta_list, norm_threshold=1):
     """
     Computes a normalized displacement between two affine transforms as the
     maximum overall displacement of the midpoints of the faces of a cube, when

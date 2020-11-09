@@ -421,11 +421,13 @@ class scorescrubCBF(SimpleInterface):
                                                 thresh=self.inputs.in_thresh)
             cbfscrub = _scrubcbf(cbf_ts=cbf_scorets, gm=greym, wm=whitem, csf=csf,
                              mask=mask, wfun=self.inputs.in_wfun, thresh=self.inputs.in_thresh)
-        elif len(cbf_ts.shape) == 3:
+            avgscore = np.mean(cbf_scorets, axis=3)
+        else:
             cbf_scorets = cbf_ts
-            index_score = 0
+            index_score = np.array([0])
             cbfscrub = cbf_ts
-    
+            avgscore = cbf_ts
+        
         self._results['out_score'] = fname_presuffix(self.inputs.in_file,
                                                      suffix='_cbfscorets', newpath=runtime.cwd)
         self._results['out_avgscore'] = fname_presuffix(self.inputs.in_file,
@@ -437,17 +439,16 @@ class scorescrubCBF(SimpleInterface):
                                                           suffix='_scoreindex.txt',
                                                           newpath=runtime.cwd, use_ext=False)
         samplecbf = nb.load(self.inputs.in_mask)
+
+        nb.Nifti1Image(dataobj=cbf_scorets, affine=samplecbf.affine, header=samplecbf.header).to_filename(self._results['out_score'])
         nb.Nifti1Image(
-            cbf_scorets, samplecbf.affine, samplecbf.header).to_filename(
-            self._results['out_score'])
+             dataobj=avgscore, affine=samplecbf.affine, header=samplecbf.header).to_filename(
+                self._results['out_avgscore'])
         nb.Nifti1Image(
-            np.mean(cbf_scorets, axis=3), samplecbf.affine, samplecbf.header).to_filename(
-            self._results['out_avgscore'])
-        nb.Nifti1Image(
-            cbfscrub, samplecbf.affine, samplecbf.header).to_filename(
+            dataobj=cbfscrub, affine=samplecbf.affine, header=samplecbf.header).to_filename(
             self._results['out_scrub'])
 
-        np.savetxt(self._results['out_scoreindex'], index_score, delimiter=',')
+        np.savetxt(self._results['out_scoreindex'],index_score, delimiter=',')
 
         self.inputs.out_score = os.path.abspath(self._results['out_score'])
         self.inputs.out_avgscore = os.path.abspath(self._results['out_avgscore'])
