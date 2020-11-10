@@ -290,7 +290,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             pe_direction=metadata.get("PhaseEncodingDirection"),
             tr=metadata.get("RepetitionTime")),
         name='summary', mem_gb=config.DEFAULT_MEMORY_MIN_GB, run_without_submitting=True)
-    summary.inputs.dummy_scans = config.workflow.dummy_scans
+    #summary.inputs.dummy_scans = config.workflow.dummy_scans
 
     asl_derivatives_wf = init_asl_derivatives_wf(
         bids_root=layout.root,

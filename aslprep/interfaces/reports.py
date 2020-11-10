@@ -34,7 +34,6 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t\t<li>Susceptibility distortion correction: {sdc}</li>
 \t\t\t<li>Registration: {registration}</li>
 \t\t\t<li>Confounds collected: {confounds}</li>
-\t\t\t<li>Non-steady-state volumes: {dummy_scan_desc}</li>
 \t\t\t<li>Motion summary measures: {motionparam}</li>
 \t\t\t<li>Coregistration quality: {coregindex}</li>
 \t\t\t<li>Normalization quality: {normindex}</li>
@@ -168,11 +167,11 @@ class FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     registration_init = traits.Enum('register', 'header', mandatory=True,
                                     desc='Whether to initialize registration with the "header"'
                                          ' or by centering the volumes ("register")')
-    confounds_file = File(exists=True, desc='Confounds file')
+    confounds_file = File(exists=True, mandatory=False, desc='Confounds file')
     qc_file = File(exists=True, desc='qc file')
     tr = traits.Float(desc='Repetition time', mandatory=True)
-    dummy_scans = traits.Either(traits.Int(), None, desc='number of dummy scans specified by user')
-    algo_dummy_scans = traits.Int(desc='number of dummy scans determined by algorithm')
+    #dummy_scans = traits.Either(traits.Int(), None, desc='number of dummy scans specified by user')
+    #algo_dummy_scans = traits.Int(desc='number of dummy scans determined by algorithm')
 
 
 class FunctionalSummary(SummaryInterface):
@@ -222,28 +221,17 @@ class FunctionalSummary(SummaryInterface):
         if isdefined(self.inputs.confounds_file):
             with open(self.inputs.confounds_file) as cfh:
                 conflist = cfh.readline().strip('\n').strip()
-
-        dummy_scan_tmp = "{n_dum}"
-        if self.inputs.dummy_scans == self.inputs.algo_dummy_scans:
-            dummy_scan_msg = (
-                ' '.join([dummy_scan_tmp, "(Confirmed: {n_alg} automatically detected)"])
-                .format(n_dum=self.inputs.dummy_scans, n_alg=self.inputs.algo_dummy_scans)
-            )
+        else:
+            conflist = 'None'
         # the number of dummy scans was specified by the user and
         # it is not equal to the number detected by the algorithm
-        elif self.inputs.dummy_scans is not None:
-            dummy_scan_msg = (
-                ' '.join([dummy_scan_tmp, "(Warning: {n_alg} automatically detected)"])
-                .format(n_dum=self.inputs.dummy_scans, n_alg=self.inputs.algo_dummy_scans)
-            )
+        
         # the number of dummy scans was not specified by the user
-        else:
-            dummy_scan_msg = dummy_scan_tmp.format(n_dum=self.inputs.algo_dummy_scans)
-
+       
         return FUNCTIONAL_TEMPLATE.format(
             pedir=pedir, stc=stc, sdc=self.inputs.distortion_correction, registration=reg,
             confounds=re.sub(r'[\t ]+', ', ', conflist), tr=self.inputs.tr,
-            dummy_scan_desc=dummy_scan_msg, motionparam=motionparam, qei=qei,
+            motionparam=motionparam, qei=qei,
             coregindex=coregindex, normindex=normindex, meancbf=meancbf,
             negvoxel=negvoxel)
 
