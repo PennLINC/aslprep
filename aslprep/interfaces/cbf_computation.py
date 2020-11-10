@@ -775,7 +775,7 @@ class _qccbfInputSpec(BaseInterfaceInputSpec):
     in_greyM = File(exists=True, mandatory=True, desc='grey  matter')
     in_whiteM = File(exists=True, mandatory=True, desc='white  matter')
     in_csf = File(exists=True, mandatory=True, desc='csf')
-    in_confmat = File(exists=True, mandatory=True, desc=' cofnound matrix')
+    in_confmat = File(exists=True, mandatory=False, desc=' cofnound matrix')
     in_aslmask = File(exists=True, mandatory=True, desc='asl mask in native space')
     in_t1mask = File(exists=True, mandatory=True, desc='t1wmask in native space ')
     in_aslmaskstd = File(exists=True, mandatory=False, desc='asl mask in native space')
@@ -870,7 +870,105 @@ class qccbf(SimpleInterface):
 
         self.inputs.qc_file = os.path.abspath(self._results['qc_file'])
         return runtime
+        
 
+class _qccbfgeInputSpec(BaseInterfaceInputSpec):
+    in_file = File(exists=True, mandatory=True, desc='original asl_file')
+    in_meancbf = File(exists=True, mandatory=True, desc='cbf img')
+    in_avgscore = File(exists=True, mandatory=True, desc='cbf img')
+    in_scrub = File(exists=True, mandatory=True, desc='cbf img')
+    in_basil = File(exists=True, mandatory=True, desc='cbf img')
+    in_pvc = File(exists=True, mandatory=True, desc='cbf img')
+    in_greyM = File(exists=True, mandatory=True, desc='grey  matter')
+    in_whiteM = File(exists=True, mandatory=True, desc='white  matter')
+    in_csf = File(exists=True, mandatory=True, desc='csf')
+    in_aslmask = File(exists=True, mandatory=True, desc='asl mask in native space')
+    in_t1mask = File(exists=True, mandatory=True, desc='t1wmask in native space ')
+    in_aslmaskstd = File(exists=True, mandatory=False, desc='asl mask in native space')
+    in_templatemask = File(exists=True, mandatory=False, desc='template mask or image')
+    qc_file = File(exists=False, mandatory=False, desc='qc file ')
+
+
+class _qccbfgeOutputSpec(TraitedSpec):
+    qc_file = File(exists=False, desc='qc file ')
+
+
+class qccbfge(SimpleInterface):
+    r""""
+     compute qc from confound regressors 
+     and cbf maps, 
+     coregistration and regsitration indexes
+
+    """
+
+    input_spec = _qccbfInputSpec
+    output_spec = _qccbfOutputSpec
+
+    def _run_interface(self, runtime):
+        regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regJC = jc(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regCC = crosscorr(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regCov = coverage(self.inputs.in_aslmask, self.inputs.in_t1mask)
+
+        if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
+            normDC = dc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normJC = jc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normCC = crosscorr(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normCov = coverage(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+
+        meancbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                              csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.7)
+        scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
+        basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
+        pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
+        scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
+        meancbf = globalcbf(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.7)
+        gwratio = np.divide(meancbf[0], meancbf[1])
+        negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.7)
+        negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
+        negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
+        negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
+        negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+
+        if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
+            dict1 = {'FD': 0, 'relRMS': 0, 'coregDC': [regDC], 'coregJC': [regJC],
+                     'coregCC': [regCC], 'coregCOV': [regCov], 'normDC': [normDC],
+                     'normJC': [normJC], 'normCC': [normCC], 'normCOV': [normCov],
+                     'cbfQEI': [meancbf_qei], 'scoreQEI': [scorecbf_qei], 'scrubQEI': [scrub_qei],
+                     'basilQEI': [basilcbf_qei], 'pvcQEI': [pvcbf_qei], 'GMmeanCBF': [meancbf[0]],
+                     'WMmeanCBF': [meancbf[1]], 'Gm_Wm_CBF_ratio': [gwratio],
+                     'NEG_CBF_PERC': [negcbf], 'NEG_SCORE_PERC': [negscore],
+                     'NEG_SCRUB_PERC': [negscrub], 'NEG_BASIL_PERC': [negbasil],
+                     'NEG_PVC_PERC': [negpvc]}
+        else:
+            dict1 = {'FD': 0, 'relRMS': 0, 'coregDC': [regDC], 'coregJC': [regJC],
+                     'coregCC': [regCC], 'coregCOV': [regCov],
+                     'cbfQEI': [meancbf_qei], 'scoreQEI': [scorecbf_qei], 'scrubQEI': [scrub_qei],
+                     'basilQEI': [basilcbf_qei], 'pvcQEI': [pvcbf_qei], 'GMmeanCBF': [meancbf[0]],
+                     'WMmeanCBF': [meancbf[1]], 'Gm_Wm_CBF_ratio': [gwratio],
+                     'NEG_CBF_PERC': [negcbf], 'NEG_SCORE_PERC': [negscore],
+                     'NEG_SCRUB_PERC': [negscrub], 'NEG_BASIL_PERC': [negbasil],
+                     'NEG_PVC_PERC': [negpvc]}
+        _, file1 = os.path.split(self.inputs.in_file)
+        bb = file1.split('_')
+        dict2 = {}
+        for i in range(len(bb)-1):
+            dict2.update({bb[i].split('-')[0]: bb[i].split('-')[1]})
+        dict2.update(dict1)
+
+        df = pd.DataFrame(dict2)
+
+        self._results['qc_file'] = fname_presuffix(self.inputs.in_meancbf, suffix='qc_cbf.csv',
+                                                   newpath=runtime.cwd, use_ext=False)
+        df.to_csv(self._results['qc_file'], index=False, header=True)
+
+        self.inputs.qc_file = os.path.abspath(self._results['qc_file'])
+        return runtime
 
 def dc(input1, input2):
     r"""

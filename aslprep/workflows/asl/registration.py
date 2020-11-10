@@ -826,21 +826,21 @@ for distortions remaining in the ASL reference.
 
         return workflow
 
-    transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
-    reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
+    #transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
+    #reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
 
     #compare_transforms = pe.Node(niu.Function(function=compare_xforms,output_names="out"), name='compare_transforms')
 
     #select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
-    select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
+    #select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
 
     #fsl_to_lta = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_fsl'],
                             #name='fsl_to_lta')
-    #select_transform.inputs.out= 1
+    #select_transform.inputs.index= 0
 
     workflow.connect([
-        (flt_bbr, transforms, [('out_matrix_file', 'in1')]),
-        (flt_bbr_init, transforms, [('out_matrix_file', 'in2')]),
+        #(flt_bbr, transforms, [('out_matrix_file', 'in1')]),
+        #(flt_bbr_init, transforms, [('out_matrix_file', 'in2')]),
         #Convert FSL transforms to LTA (RAS2RAS) transforms and compare
         #(inputnode, fsl_to_lta, [('in_file', 'source_file'),
                                  #('t1w_brain', 'target_file')]),
@@ -852,11 +852,11 @@ for distortions remaining in the ASL reference.
         #(compare_transforms, select_transform, [('out', 'index')]),
         (flt_bbr, invt_bbr, [('out_matrix_file', 'in_file')]),
         (flt_bbr, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
-        (flt_bbr, reports, [('out_report', 'in1')]),
-        (flt_bbr_init, reports, [('out_report', 'in2')]),
-        (reports, select_report, [('out', 'inlist')]),
+        #(flt_bbr, reports, [('out_report', 'in1')]),
+        #(flt_bbr_init, reports, [('out_report', 'in2')]),
+        #(reports, select_report, [('out', 'inlist')]),
         #(compare_transforms, select_report, [('out', 'index')]),
-        (select_report, outputnode, [('out', 'out_report')]),
+        (flt_bbr, outputnode, [('out_report', 'out_report')]),
     ])
 
     return workflow

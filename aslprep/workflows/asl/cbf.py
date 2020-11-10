@@ -6,7 +6,7 @@ from nipype.interfaces import utility as niu
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from ...interfaces.cbf_computation import (extractCBF, computeCBF, scorescrubCBF, BASILCBF,
-                                           refinemask, qccbf, cbfqroiquant)
+                                           refinemask, qccbf, cbfqroiquant,qccbfge)
 from ...niworkflows.interfaces.plotting import (CBFSummary, CBFtsSummary)
 from ...interfaces import DerivativesDataSink
 import numpy as np
@@ -293,7 +293,117 @@ CBF within Grey matter
                       ])
     return workflow
 
+def init_cbfgeqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads, name='cbfqc_compt_wf'):
+    """
+    Create a workflow for :abbr:`cbfqc( compute cbf)`.
 
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
+            wf = init_cbfqc_compt_wf(mem_gb=0.1)
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        BIDS metadata for asl file
+    name : :obj:`str`
+        Name of workflow (default: ``cbfqc_compt_wf'``)
+
+    Inputs
+    ------
+    *cbf
+        all cbf 
+    asl_mask
+        asl mask NIFTI file 
+    t1w_tpms
+        t1w probability maps 
+    t1_asl_xform
+        t1w to asl transfromation file 
+
+    Outputs
+    -------
+    qc_file
+       qc measures in tsv
+
+    """
+
+    workflow = Workflow(name=name)
+    workflow.__desc__ = """\
+The following quality control (qc) measures was estimated: framewise displacement and relative
+root mean square dice index. Other qc meaure include dice and jaccard indices, cross-correlation
+and coverage that estimate the coregistration quality of  ASL and T1W images and  normalization
+quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF [@cbfqc].
+The  QEI is  automated for objective quality evaluation of CBF maps and measured the CBF quality
+based on structural similarity,spatial variability and the percentatge  of voxels with  negtaive
+CBF within Grey matter
+"""
+    inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
+                                                      'asl_mask', 't1w_tpms',
+                                                      'asl_mask_std', 't1_asl_xform', 'pv',
+                                                      't1w_mask']),
+                        name='inputnode')
+    outputnode = pe.Node(niu.IdentityInterface(fields=['qc_file']), name='outputnode')
+
+    def _pick_csf(files):
+        return files[-1]
+
+    def _pick_gm(files):
+        return files[0]
+
+    def _pick_wm(files):
+        return files[1]
+
+    csf_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                      name='csf_tfm', mem_gb=0.1)
+    wm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                     name='wm_tfm', mem_gb=0.1)
+    gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                     name='gm_tfm', mem_gb=0.1)
+
+    mask_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                       name='masktonative', mem_gb=0.1)
+
+    from templateflow.api import get as get_template
+    brain_mask = str(get_template('MNI152NLin2009cAsym', resolution=2, desc='brain',
+                                  suffix='mask'))
+
+    from nipype.interfaces.afni import Resample
+    resample = pe.Node(Resample(in_file=brain_mask, outputtype='NIFTI_GZ'),
+                       name='resample', mem_gb=0.1)
+
+    qccompute = pe.Node(qccbfge(in_file=asl_file), name='qccompute',
+                        run_without_submitting=True, mem_gb=0.2)
+
+    workflow.connect([(inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+                                            ('t1_asl_xform', 'transforms')]),
+                      (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
+                      (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+                                           ('t1_asl_xform', 'transforms')]),
+                      (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
+                      (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+                                           ('t1_asl_xform', 'transforms')]),
+                      (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
+                      (inputnode, mask_tfm, [('asl_mask', 'reference_image'),
+                                             ('t1_asl_xform', 'transforms'),
+                                             ('t1w_mask', 'input_image')]),
+                      (mask_tfm, qccompute, [('output_image', 'in_t1mask')]),
+                      (inputnode, qccompute, [('asl_mask', 'in_aslmask'),]),
+                      (inputnode, qccompute, [(('asl_mask_std', _pick_csf), 'in_aslmaskstd')]),
+                      (inputnode, resample, [(('asl_mask_std', _pick_csf), 'master')]),
+                      (resample, qccompute, [('out_file', 'in_templatemask')]),
+                      (gm_tfm, qccompute, [('output_image', 'in_greyM')]),
+                      (wm_tfm, qccompute, [('output_image', 'in_whiteM')]),
+                      (csf_tfm, qccompute, [('output_image', 'in_csf')]),
+                      (inputnode, qccompute, [('scrub', 'in_scrub'),
+                                              ('meancbf', 'in_meancbf'),
+                                              ('avgscore', 'in_avgscore'),
+                                              ('basil', 'in_basil'), ('pv', 'in_pvc')]),
+                     (qccompute, outputnode, [('qc_file', 'qc_file')]),
+                      ])
+    return workflow
 def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
     workflow = Workflow(name=name)
 

@@ -165,18 +165,15 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,
         name='outputnode'
     )
 
-    gen_ref = pe.Node(GenerateSamplingReference(), name='gen_ref',
-                      mem_gb=0.3)  # 256x256x256 * 64 / 8 ~ 150MB
+    #gen_ref = pe.Node(GenerateSamplingReference(), name='gen_ref',
+                      #mem_gb=0.3)  # 256x256x256 * 64 / 8 ~ 150MB
 
     mask_t1w_tfm = pe.Node(ApplyTransforms(interpolation='MultiLabel'),
                            name='mask_t1w_tfm', mem_gb=0.1)
 
     workflow.connect([
-        (inputnode, gen_ref, [('ref_asl_brain', 'moving_image'),
-                              ('t1w_brain', 'fixed_image'),
-                              ('t1w_mask', 'fov_mask')]),
         (inputnode, mask_t1w_tfm, [('ref_asl_mask', 'input_image')]),
-        (gen_ref, mask_t1w_tfm, [('out_file', 'reference_image')]),
+        (inputnode, mask_t1w_tfm, [('t1w_brain', 'reference_image')]),
         (inputnode, mask_t1w_tfm, [('itk_asl_to_t1', 'transforms')]),
         (mask_t1w_tfm, outputnode, [('output_image', 'asl_mask_t1')]),
     ])
@@ -190,9 +187,9 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,
    
     
     workflow.connect([
-            (inputnode, asl_to_t1w_transform, [('asl_file', 'input_image')]),
+            (inputnode, asl_to_t1w_transform, [('ref_asl_brain', 'input_image')]),
             (inputnode, asl_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-            (inputnode, asl_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+            (inputnode, asl_to_t1w_transform, [('t1w_brain', 'reference_image')]),
             (asl_to_t1w_transform, outputnode, [('output_image', 'asl_t1')]),
         ])
 
@@ -232,42 +229,42 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,
         (inputnode, cbf_to_t1w_transform, [('cbf', 'input_image')]),
         (cbf_to_t1w_transform, outputnode, [('output_image', 'cbf_t1')]),
         (inputnode, cbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, cbf_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, cbf_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, score_to_t1w_transform, [('score', 'input_image')]),
         (score_to_t1w_transform, outputnode, [('output_image', 'score_t1')]),
         (inputnode, score_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, score_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, score_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, meancbf_to_t1w_transform, [('meancbf', 'input_image')]),
         (meancbf_to_t1w_transform, outputnode, [('output_image', 'meancbf_t1')]),
         (inputnode, meancbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, meancbf_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, meancbf_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, avgscore_to_t1w_transform, [('avgscore', 'input_image')]),
         (avgscore_to_t1w_transform, outputnode, [('output_image', 'avgscore_t1')]),
         (inputnode, avgscore_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, avgscore_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, avgscore_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, scrub_to_t1w_transform, [('scrub', 'input_image')]),
         (scrub_to_t1w_transform, outputnode, [('output_image', 'scrub_t1')]),
         (inputnode, scrub_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, scrub_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, scrub_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, basil_to_t1w_transform, [('basil', 'input_image')]),
         (basil_to_t1w_transform, outputnode, [('output_image', 'basil_t1')]),
         (inputnode, basil_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, basil_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, basil_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, pv_to_t1w_transform, [('pv', 'input_image')]),
         (pv_to_t1w_transform, outputnode, [('output_image', 'pv_t1')]),
         (inputnode, pv_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, pv_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, pv_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
         (inputnode, att_to_t1w_transform, [('att', 'input_image')]),
         (att_to_t1w_transform, outputnode, [('output_image', 'att_t1')]),
         (inputnode, att_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, att_to_t1w_transform, [('ref_asl_brain', 'reference_image')]),
+        (inputnode, att_to_t1w_transform, [('t1w_brain', 'reference_image')]),
          ])
 
     return workflow
@@ -312,7 +309,7 @@ preprocessed ASL runs*: {tpl}.
 
     inputnode = pe.Node(
         niu.IdentityInterface(fields=[
-            'anat2std_xfm','raw_ref_asl',
+            'anat2std_xfm',
             'cbf','meancbf','att','asl_file',
             'score','avgscore','scrub',
             'basil','pv','asl_mask',
@@ -395,6 +392,7 @@ preprocessed ASL runs*: {tpl}.
     # Generate a reference on the target standard space
     gen_ref = pe.Node(GenerateSamplingReference(), name='gen_ref',
                       mem_gb=0.3) 
+    #gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
 
     workflow.connect([
         (iterablesource, split_target, [('std_target', 'in_target')]),
@@ -405,6 +403,7 @@ preprocessed ASL runs*: {tpl}.
         (inputnode, gen_ref, [('asl_file', 'moving_image')]),
         (inputnode, merge_xforms, [
             (('itk_asl_to_t1', _aslist), 'in2')]),
+        #(inputnode, merge, [('name_source', 'header_source')]),
         (inputnode, mask_merge_tfms, [(('itk_asl_to_t1', _aslist), 'in2')]),
         (inputnode, asl_to_std_transform, [('asl_file', 'input_image')]),
         (split_target, select_std, [('space', 'key')]),
@@ -415,8 +414,12 @@ preprocessed ASL runs*: {tpl}.
         (merge_xforms, asl_to_std_transform, [('out', 'transforms')]),
         (gen_ref, asl_to_std_transform, [('out_file', 'reference_image')]),
         (gen_ref, mask_std_tfm, [('out_file', 'reference_image')]),
-        (mask_merge_tfms, mask_std_tfm, [('out', 'transforms')])
+        (mask_merge_tfms, mask_std_tfm, [('out', 'transforms')]),
+        #(mask_std_tfm, gen_final_ref, [('output_image', 'inputnode.asl_mask')]),
+        #(asl_to_std_transform, merge, [('output_image', 'in_files')]),
+        #(inputnode, gen_final_ref, [('asl_file', 'inputnode.asl_file')]),
     ])
+
 
     output_names = [
         'asl_mask_std',
@@ -436,6 +439,8 @@ preprocessed ASL runs*: {tpl}.
 
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names),
                           name='poutputnode')
+
+
     workflow.connect([
         # Connecting outputnode
         (iterablesource, poutputnode, [
@@ -446,45 +451,46 @@ preprocessed ASL runs*: {tpl}.
         (select_std, poutputnode, [('key', 'template')]),
 
         (mask_merge_tfms, cbf_to_std_transform, [('out', 'transforms')]),
-        (inputnode, cbf_to_std_transform, [('raw_ref_asl', 'reference_image')]),
+        (gen_ref, cbf_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, cbf_to_std_transform, [('cbf', 'input_image')]),
         (cbf_to_std_transform, poutputnode, [('output_image', 'cbf_std')]),
 
         (mask_merge_tfms, score_to_std_transform, [('out', 'transforms')]),
-        (inputnode, score_to_std_transform, [('raw_ref_asl', 'reference_image')]),
+        (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, score_to_std_transform, [('score', 'input_image')]),
         (score_to_std_transform, poutputnode, [('output_image', 'score_std')]),
 
         (mask_merge_tfms, meancbf_to_std_transform, [('out', 'transforms')]),
-        (inputnode, meancbf_to_std_transform, [('raw_ref_asl', 'reference_image')]),
+        (gen_ref, meancbf_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, meancbf_to_std_transform, [('cbf', 'input_image')]),
         (meancbf_to_std_transform, poutputnode, [('output_image', 'meancbf_std')]),
 
         (mask_merge_tfms, avgscore_to_std_transform, [('out', 'transforms')]),
-        (inputnode, avgscore_to_std_transform, [('raw_ref_asl', 'reference_image')]),
+        (gen_ref, avgscore_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, avgscore_to_std_transform, [('avgscore', 'input_image')]),
         (avgscore_to_std_transform, poutputnode, [('output_image', 'avgscore_std')]),
 
         (mask_merge_tfms, scrub_to_std_transform, [('out', 'transforms')]),
-        (inputnode, scrub_to_std_transform, [('raw_ref_asl', 'reference_image')]),
+        (gen_ref, scrub_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, scrub_to_std_transform, [('scrub', 'input_image')]),
         (scrub_to_std_transform, poutputnode, [('output_image', 'scrub_std')]),
 
         (mask_merge_tfms, basil_to_std_transform, [('out', 'transforms')]),
-        (inputnode, basil_to_std_transform, [('raw_ref_asl', 'reference_image')]),
+        (gen_ref, basil_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, basil_to_std_transform, [('basil', 'input_image')]),
         (basil_to_std_transform, poutputnode, [('output_image', 'basil_std')]),
 
         (mask_merge_tfms, pv_to_std_transform, [('out', 'transforms')]),
-        (inputnode, pv_to_std_transform, [('raw_ref_asl', 'reference_image')]),
+        (gen_ref, pv_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, pv_to_std_transform, [('pv', 'input_image')]),
         (pv_to_std_transform, poutputnode, [('output_image', 'pv_std')]),
 
         (mask_merge_tfms, att_to_std_transform, [('out', 'transforms')]),
-        (inputnode, att_to_std_transform, [('raw_ref_asl', 'reference_image')]),
+        (gen_ref, att_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, att_to_std_transform, [('att', 'input_image')]),
         (att_to_std_transform, poutputnode, [('output_image', 'att_std')]),
     ])
+    
     # Connect parametric outputs to a Join outputnode
     outputnode = pe.JoinNode(niu.IdentityInterface(fields=output_names),
                              name='outputnode', joinsource='iterablesource')
@@ -566,11 +572,28 @@ def _split_spec(in_target):
 
 
 def _select_template(template):
-    from ...niworkflows.utils.misc import get_template_specs
+    from niworkflows.utils.misc import get_template_specs
     template, specs = template
     template = template.split(':')[0]  # Drop any cohort modifier if present
     specs = specs.copy()
     specs['suffix'] = specs.get('suffix', 'T1w')
+
+    # Sanitize resolution
+    res = specs.pop('res', None) or specs.pop('resolution', None) or 'native'
+    if res != 'native':
+        specs['resolution'] = res
+        return get_template_specs(template, template_spec=specs)[0]
+
+    # Map nonstandard resolutions to existing resolutions
+    specs['resolution'] = 2
+    try:
+        out = get_template_specs(template, template_spec=specs)
+    except RuntimeError:
+        specs['resolution'] = 1
+        out = get_template_specs(template, template_spec=specs)
+
+    return out[0]
+
 def _first(inlist):
     return inlist[0]
 

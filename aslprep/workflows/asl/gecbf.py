@@ -31,8 +31,8 @@ from .cbf import (
     init_cbfqc_compt_wf,
     init_cbfplot_wf,
     init_cbfroiquant_wf,
-    init_gecbf_compt_wf)
-from .outputs import init_asl_derivatives_wf
+    init_gecbf_compt_wf,init_cbfgeqc_compt_wf)
+from .outputs import init_asl_derivatives_wf,init_geasl_derivatives_wf
 
 from ...interfaces.cbf_computation import refinemask
 from .ge_utils import ( init_asl_geref_wf, init_asl_gereg_wf,
@@ -212,7 +212,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     outputnode = pe.Node(niu.IdentityInterface(
         fields=['asl_t1', 'asl_t1_ref', 'asl_mask_t1','asl_std', 'asl_std_ref', 'asl_mask_std',
                 'asl_native','cbf_t1', 'cbf_std', 'meancbf_t1', 'meancbf_std', 'score_t1', 'score_std',
-                'avgscore_t1', 'avgscore_std', 'avgscore_cifti', ' scrub_t1', 'scrub_std',
+                'avgscore_t1', 'avgscore_std', ' scrub_t1', 'scrub_std',
                 'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 'pv_native','att','att_t1','att_std',
                 'qc_file']),
         name='outputnode')
@@ -229,15 +229,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             registration=('FSL'),
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
+            distortion_correction="No distortion correction",
             pe_direction=metadata.get("PhaseEncodingDirection"),
             tr=metadata.get("RepetitionTime")),
         name='summary', mem_gb=config.DEFAULT_MEMORY_MIN_GB, run_without_submitting=True)
     summary.inputs.dummy_scans = 0
 
-    asl_derivatives_wf = init_asl_derivatives_wf(
+    asl_derivatives_wf = init_geasl_derivatives_wf(
         bids_root=layout.root,
-        cifti_output=None,
-        freesurfer=None,
         metadata=metadata,
         output_dir=output_dir,
         spaces=spaces,
@@ -257,17 +256,21 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                               metadata=metadata,bids_dir=subj_dir,brainmask_thresh=0.5,
                               pre_mask=False, name="asl_gereference_wf",gen_report=False)
     
-    reg_ge_wf = init_asl_gereg_wf(use_bbr=config,
+    asl_reg_wf = init_asl_gereg_wf(use_bbr=config.workflow.use_bbr,
                 asl2t1w_dof=config.workflow.asl2t1w_dof,
                 asl2t1w_init=config.workflow.asl2t1w_init,
                 mem_gb=2, omp_nthreads=omp_nthreads, name='asl_reg_wf',
                 sloppy=False, use_compression=True, write_report=True)
-
-    t1w_gereg_wf = init_asl_t1_getrans_wf(mem_gb=3, omp_nthreads=omp_nthreads, cbft1space=True,
+    
+    nonstd_spaces = set(spaces.get_nonstandard())
+    t1cbfspace=False
+    if nonstd_spaces.intersection(('T1w', 'anat')):
+        t1cbfspace=True
+    t1w_gereg_wf = init_asl_t1_getrans_wf(mem_gb=3, omp_nthreads=omp_nthreads, cbft1space=t1cbfspace,
                           use_compression=True, name='asl_t1_trans_wf')
 
-    std_gereg_wf = init_asl_gestd_trans_wf(mem_gb=4,omp_nthreads=omp_nthreads,spaces=spaces,
-                            name='asl_gestd_trans_wf', use_compression=True)
+    
+   
 
     cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb, asl_file=asl_file, metadata=metadata,bids_dir=subj_dir,omp_nthreads=omp_nthreads,
                                 M0Scale=1,smooth_kernel=5,name='cbf_compt_wf')
@@ -275,37 +278,39 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     
     workflow.connect([
          (inputnode, gen_ref_wf,[('asl_file','inputnode.asl_file')]),
-         (gen_ref_wf, reg_ge_wf,[('outputnode.ref_image_brain','inputnode.ref_asl_brain')]),
+         (gen_ref_wf, asl_reg_wf,[('outputnode.ref_image_brain','inputnode.ref_asl_brain')]),
          (inputnode, t1w_brain,[('t1w_preproc', 'in_file'),
                                 ('t1w_mask', 'in_mask')]),
-         (t1w_brain,reg_ge_wf,[('out_file','inputnode.t1w_brain')]),
-         (inputnode,reg_ge_wf,[('t1w_dseg','inputnode.t1w_dseg')]),
+         (t1w_brain,asl_reg_wf,[('out_file','inputnode.t1w_brain')]),
+         (inputnode,asl_reg_wf,[('t1w_dseg','inputnode.t1w_dseg')]),
          (gen_ref_wf,cbf_compt_wf,[('outputnode.m0_file','inputnode.m0_file')]),
          (inputnode,cbf_compt_wf,[('asl_file','inputnode.in_file'),('asl_file','inputnode.asl_file')]),
          (gen_ref_wf,cbf_compt_wf,[('outputnode.asl_mask','inputnode.asl_mask')]),
          (inputnode, cbf_compt_wf, [('t1w_tpms','inputnode.t1w_tpms'),
                                      ('t1w_mask','inputnode.t1w_mask')]),
-         (reg_ge_wf,cbf_compt_wf,[('outputnode.itk_asl_to_t1','inputnode.itk_asl_to_t1'),
+         (asl_reg_wf,cbf_compt_wf,[('outputnode.itk_asl_to_t1','inputnode.itk_asl_to_t1'),
                                ('outputnode.itk_t1_to_asl','inputnode.t1_asl_xform')]),
          (inputnode, t1w_gereg_wf, [
             ('asl_file', 'inputnode.name_source'),
             ('t1w_mask', 'inputnode.t1w_mask'),]),
         (gen_ref_wf,t1w_gereg_wf,[('outputnode.ref_image_brain','inputnode.ref_asl_brain')]),
+        (gen_ref_wf,t1w_gereg_wf,[('outputnode.asl_mask','inputnode.ref_asl_mask')]),
         (t1w_brain, t1w_gereg_wf, [
             ('out_file', 'inputnode.t1w_brain')]),
         # unused if multiecho, but this is safe
-        (reg_ge_wf, t1w_gereg_wf, [
+        (asl_reg_wf, t1w_gereg_wf, [
             ('outputnode.itk_asl_to_t1', 'inputnode.itk_asl_to_t1')]),
         (t1w_gereg_wf, outputnode, [('outputnode.asl_t1', 'asl_t1'),
                                         ('outputnode.asl_t1_ref', 'asl_t1_ref'),]),
-        (reg_ge_wf, summary, [('outputnode.fallback', 'fallback')]),
+        (asl_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
         (inputnode, asl_derivatives_wf, [
                 ('asl_file', 'inputnode.source_file')]),
     
      ]) 
     
-    nonstd_spaces = set(spaces.get_nonstandard())
+
     if nonstd_spaces.intersection(('T1w', 'anat')):
+        t1cbfspace=True
         from ...niworkflows.interfaces.fixes import (
             FixHeaderApplyTransforms as ApplyTransforms
         )
@@ -313,7 +318,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         aslmask_to_t1w = pe.Node(ApplyTransforms(interpolation='MultiLabel'),
                                   name='aslmask_to_t1w', mem_gb=0.1)
         workflow.connect([
-            (reg_ge_wf, aslmask_to_t1w, [
+            (asl_reg_wf, aslmask_to_t1w, [
                 ('outputnode.itk_asl_to_t1', 'transforms')]),
             (t1w_gereg_wf, aslmask_to_t1w, [
                 ('outputnode.asl_mask_t1', 'reference_image')]),
@@ -341,6 +346,29 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                             ('outputnode.att_t1', 'inputnode.att_t1')]),
                           ])
 
+
+    compt_qccbf_wf = init_cbfgeqc_compt_wf(name='compt_qccbf_wf',
+                                         mem_gb=mem_gb['filesize'],
+                                         omp_nthreads=omp_nthreads,
+                                         asl_file=asl_file,
+                                         metadata=metadata)
+    workflow.connect([
+         (gen_ref_wf, compt_qccbf_wf, [('outputnode.asl_mask', 'inputnode.asl_mask')]),
+         (inputnode, compt_qccbf_wf, [('t1w_tpms', 'inputnode.t1w_tpms')]),
+         (asl_reg_wf, compt_qccbf_wf, [('outputnode.itk_t1_to_asl', 'inputnode.t1_asl_xform')]),
+         (inputnode, compt_qccbf_wf, [('t1w_mask', 'inputnode.t1w_mask')]),
+         (cbf_compt_wf, compt_qccbf_wf, [('outputnode.out_mean', 'inputnode.meancbf'),
+                                         ('outputnode.out_avgscore', 'inputnode.avgscore'),
+                                         ('outputnode.out_scrub', 'inputnode.scrub'),
+                                         ('outputnode.out_cbfb', 'inputnode.basil'),
+                                         ('outputnode.out_cbfpv', 'inputnode.pv')]),
+         (compt_qccbf_wf, outputnode, [('outputnode.qc_file', 'qc_file')]),
+         (compt_qccbf_wf, asl_derivatives_wf, [('outputnode.qc_file', 'inputnode.qc_file')]),
+         (compt_qccbf_wf, summary, [('outputnode.qc_file', 'qc_file')]),
+    ])
+
+    
+
     if nonstd_spaces.intersection(('func', 'run', 'asl')):
         workflow.connect([
             (inputnode, outputnode, [
@@ -363,12 +391,15 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         # Apply transforms in 1 shot
+        std_gereg_wf = init_asl_gestd_trans_wf(mem_gb=4,omp_nthreads=omp_nthreads,spaces=spaces,
+                            name='asl_gestd_trans_wf', use_compression=True)
         workflow.connect([
             (inputnode, std_gereg_wf, [
                 ('template', 'inputnode.templates'),
                 ('anat2std_xfm', 'inputnode.anat2std_xfm'),
-                ('asl_file', 'inputnode.name_source'),]),
-            (reg_ge_wf, std_gereg_wf, [
+                ('asl_file', 'inputnode.name_source'),
+                ('asl_file', 'inputnode.asl_file'),]),
+            (asl_reg_wf, std_gereg_wf, [
                 ('outputnode.itk_asl_to_t1', 'inputnode.itk_asl_to_t1')]),
             (gen_ref_wf, std_gereg_wf, [
                 ('outputnode.asl_mask', 'inputnode.asl_mask')]),
@@ -385,7 +416,11 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                                                ('outputnode.out_att', 'inputnode.att')]),
             ])
 
-        
+    if spaces.get_spaces(nonstandard=False, dim=(3,)):
+        workflow.connect([
+                (std_gereg_wf, compt_qccbf_wf, [('outputnode.asl_mask_std',
+                                                      'inputnode.asl_mask_std')]),
+            ])
 
         # asl_derivatives_wf internally parametrizes over snapshotted spaces.
         # asl_derivatives_wf internally parametrizes over snapshotted spaces.
@@ -405,6 +440,47 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ('outputnode.pv_std', 'inputnode.pv_std'),
                 ('outputnode.att_std', 'inputnode.att_std')]),
         ])
+
+    cbfroiqu = init_cbfroiquant_wf(mem_gb=mem_gb,
+                                   omp_nthreads=omp_nthreads,
+                                   name='cbf_roiquant')
+    workflow.connect([
+            (gen_ref_wf, cbfroiqu, [('outputnode.asl_mask', 'inputnode.aslmask')]),
+            (inputnode, cbfroiqu, [('std2anat_xfm', 'inputnode.std2anat_xfm')]),
+            (asl_reg_wf, cbfroiqu, [('outputnode.itk_t1_to_asl', 'inputnode.t1_asl_xform')]),
+            (cbf_compt_wf, cbfroiqu, [('outputnode.out_mean', 'inputnode.cbf'),
+                                      ('outputnode.out_avgscore', 'inputnode.score'),
+                                      ('outputnode.out_scrub', 'inputnode.scrub'),
+                                      ('outputnode.out_cbfb', 'inputnode.basil'),
+                                      ('outputnode.out_cbfpv', 'inputnode.pvc')]),
+            (cbfroiqu, asl_derivatives_wf, [
+                ('outputnode.cbf_hvoxf', 'inputnode.cbf_hvoxf'),
+                ('outputnode.cbf_sc207', 'inputnode.cbf_sc207'),
+                ('outputnode.cbf_sc217', 'inputnode.cbf_sc217'),
+                ('outputnode.cbf_sc407', 'inputnode.cbf_sc407'),
+                ('outputnode.cbf_sc417', 'inputnode.cbf_sc417'),
+                ('outputnode.score_hvoxf', 'inputnode.score_hvoxf'),
+                ('outputnode.score_sc207', 'inputnode.score_sc207'),
+                ('outputnode.score_sc217', 'inputnode.score_sc217'),
+                ('outputnode.score_sc407', 'inputnode.score_sc407'),
+                ('outputnode.score_sc417', 'inputnode.score_sc417'),
+                ('outputnode.scrub_hvoxf', 'inputnode.scrub_hvoxf'),
+                ('outputnode.scrub_sc207', 'inputnode.scrub_sc207'),
+                ('outputnode.scrub_sc217', 'inputnode.scrub_sc217'),
+                ('outputnode.scrub_sc407', 'inputnode.scrub_sc407'),
+                ('outputnode.scrub_sc417', 'inputnode.scrub_sc417'),
+                ('outputnode.basil_hvoxf', 'inputnode.basil_hvoxf'),
+                ('outputnode.basil_sc207', 'inputnode.basil_sc207'),
+                ('outputnode.basil_sc217', 'inputnode.basil_sc217'),
+                ('outputnode.basil_sc407', 'inputnode.basil_sc407'),
+                ('outputnode.basil_sc417', 'inputnode.basil_sc417'),
+                ('outputnode.pvc_hvoxf', 'inputnode.pvc_hvoxf'),
+                ('outputnode.pvc_sc207', 'inputnode.pvc_sc207'),
+                ('outputnode.pvc_sc217', 'inputnode.pvc_sc217'),
+                ('outputnode.pvc_sc407', 'inputnode.pvc_sc407'),
+                ('outputnode.pvc_sc417', 'inputnode.pvc_sc417')]),
+    ])
+
 # REPORTING ############################################################
     ds_report_summary = pe.Node(
         DerivativesDataSink(desc='summary', datatype="figures", dismiss_entities=("echo",)),
