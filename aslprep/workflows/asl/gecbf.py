@@ -307,7 +307,17 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ('asl_file', 'inputnode.source_file')]),
     
      ]) 
-    
+      
+     cbf_plot = init_cbfplot_wf(mem_gb=mem_gb, metadata=metadata,
+                               omp_nthreads=omp_nthreads, name='cbf_plot')
+    workflow.connect([
+       (cbf_compt_wf, cbf_plot, [('outputnode.out_mean', 'inputnode.cbf'),
+                                 ('outputnode.out_avgscore', 'inputnode.score'),
+                                 ('outputnode.out_scrub', 'inputnode.scrub'),
+                                 ('outputnode.out_cbfb', 'inputnode.basil'),
+                                 ('outputnode.out_cbfpv', 'inputnode.pvc'),]),
+       (gen_ref_wf, cbf_plot, [('outputnode.ref_image_brain', 'inputnode.asl_ref')]),
+       ])
 
     if nonstd_spaces.intersection(('T1w', 'anat')):
         t1cbfspace=True
