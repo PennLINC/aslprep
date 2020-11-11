@@ -615,36 +615,36 @@ Co-registration was configured with {dof} degrees of freedom{reason}.
 
     # Only reach this point if asl2t1w_init is "register" and use_bbr is None
 
-    transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
-    reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
+    #transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
+    #reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
 
-    lta_ras2ras = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_lta'],
-                             name='lta_ras2ras', mem_gb=2)
-    compare_transforms = pe.Node(niu.Function(function=compare_xforms), name='compare_transforms')
+    #lta_ras2ras = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_lta'],
+                             #name='lta_ras2ras', mem_gb=2)
+    #compare_transforms = pe.Node(niu.Function(function=compare_xforms), name='compare_transforms')
 
-    select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
-    select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
+    #select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
+    #select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
 
-    workflow.connect([
-        (bbregister, transforms, [('out_lta_file', 'in1')]),
-        (mri_coreg, transforms, [('out_lta_file', 'in2')]),
+    #workflow.connect([
+        #(bbregister, transforms, [('out_lta_file', 'in1')]),
+        #(mri_coreg, transforms, [('out_lta_file', 'in2')]),
         # Normalize LTA transforms to RAS2RAS (inputs are VOX2VOX) and compare
-        (transforms, lta_ras2ras, [('out', 'in_lta')]),
-        (lta_ras2ras, compare_transforms, [('out_lta', 'lta_list')]),
-        (compare_transforms, outputnode, [('out', 'fallback')]),
+        #(transforms, lta_ras2ras, [('out', 'in_lta')]),
+        #(lta_ras2ras, compare_transforms, [('out_lta', 'lta_list')]),
+        #(compare_transforms, outputnode, [('out', 'fallback')]),
         # Select output transform
-        (transforms, select_transform, [('out', 'inlist')]),
-        (compare_transforms, select_transform, [('out', 'index')]),
-        (select_transform, merge_ltas, [('out', 'in1')]),
+        #(transforms, select_transform, [('out', 'inlist')]),
+        #(compare_transforms, select_transform, [('out', 'index')]),
+        #(select_transform, merge_ltas, [('out', 'in1')]),
         # Select output report
-        (bbregister, reports, [('out_report', 'in1')]),
-        (mri_coreg, reports, [('out_report', 'in2')]),
-        (reports, select_report, [('out', 'inlist')]),
-        (compare_transforms, select_report, [('out', 'index')]),
-        (select_report, outputnode, [('out', 'out_report')]),
-    ])
+        #(bbregister, reports, [('out_report', 'in1')]),
+        #(mri_coreg, reports, [('out_report', 'in2')]),
+        #(reports, select_report, [('out', 'inlist')]),
+        #(compare_transforms, select_report, [('out', 'index')]),
+        #(select_report, outputnode, [('out', 'out_report')]),
+    #])
 
-    return workflow
+    #return workflow
 
 
 def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_bbr_wf'):
@@ -720,11 +720,8 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_
     from ...niworkflows.interfaces.registration import FLIRTRPT
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The ASL reference was then co-registered to the T1w reference using
-`flirt` [FSL {fsl_ver}, @flirt] with the boundary-based registration [@bbr]
-cost-function.
-Co-registration was configured with nine degrees of freedom to account
-for distortions remaining in the ASL reference.
+The ASL reference was then co-registered to the T1w reference using `flirt` [FSL {fsl_ver}, @flirt] with the boundary-based registration [@bbr]
+cost-function. Co-registration was configured with nine degrees of freedom to account for distortions remaining in the ASL reference.
 """.format(fsl_ver=FLIRTRPT().version or '<ver>')
 
     inputnode = pe.Node(
@@ -826,42 +823,43 @@ for distortions remaining in the ASL reference.
 
         return workflow
 
-    transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
-    reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
+    #transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
+    #reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
 
-    compare_transforms = pe.Node(niu.Function(function=compare_xforms,output_names="out"), name='compare_transforms')
+    #compare_transforms = pe.Node(niu.Function(function=compare_xforms,output_names="out"), name='compare_transforms')
 
-    select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
-    select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
+    #select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
+    #select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
 
-    fsl_to_lta = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_fsl'],
-                            name='fsl_to_lta')
+    #fsl_to_lta = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_fsl'],
+                            #name='fsl_to_lta')
+    #select_transform.inputs.index= 0
 
     workflow.connect([
-        (flt_bbr, transforms, [('out_matrix_file', 'in1')]),
-        (flt_bbr_init, transforms, [('out_matrix_file', 'in2')]),
-        # Convert FSL transforms to LTA (RAS2RAS) transforms and compare
-        (inputnode, fsl_to_lta, [('in_file', 'source_file'),
-                                 ('t1w_brain', 'target_file')]),
-        (transforms, fsl_to_lta, [('out', 'in_fsl')]),
-        (fsl_to_lta, compare_transforms, [('out_lta', 'lta_list')]),
-        (compare_transforms, outputnode, [('out', 'fallback')]),
+        #(flt_bbr, transforms, [('out_matrix_file', 'in1')]),
+        #(flt_bbr_init, transforms, [('out_matrix_file', 'in2')]),
+        #Convert FSL transforms to LTA (RAS2RAS) transforms and compare
+        #(inputnode, fsl_to_lta, [('in_file', 'source_file'),
+                                 #('t1w_brain', 'target_file')]),
+        #(transforms, fsl_to_lta, [('out', 'in_fsl')]),
+        #(fsl_to_lta, compare_transforms, [('out_lta', 'lta_list')]),
+        #(compare_transforms, outputnode, [('out', 'fallback')]),
         # Select output transform
-        (transforms, select_transform, [('out', 'inlist')]),
-        (compare_transforms, select_transform, [('out', 'index')]),
-        (select_transform, invt_bbr, [('out', 'in_file')]),
-        (select_transform, fsl2itk_fwd, [('out', 'transform_file')]),
-        (flt_bbr, reports, [('out_report', 'in1')]),
-        (flt_bbr_init, reports, [('out_report', 'in2')]),
-        (reports, select_report, [('out', 'inlist')]),
-        (compare_transforms, select_report, [('out', 'index')]),
-        (select_report, outputnode, [('out', 'out_report')]),
+        #(transforms, select_transform, [('out', 'inlist')]),
+        #(compare_transforms, select_transform, [('out', 'index')]),
+        (flt_bbr, invt_bbr, [('out_matrix_file', 'in_file')]),
+        (flt_bbr, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
+        #(flt_bbr, reports, [('out_report', 'in1')]),
+        #(flt_bbr_init, reports, [('out_report', 'in2')]),
+        #(reports, select_report, [('out', 'inlist')]),
+        #(compare_transforms, select_report, [('out', 'index')]),
+        (flt_bbr, outputnode, [('out_report', 'out_report')]),
     ])
 
     return workflow
 
 
-def compare_xforms(lta_list, norm_threshold=15):
+def compare_xforms(lta_list, norm_threshold=10):
     """
     Computes a normalized displacement between two affine transforms as the
     maximum overall displacement of the midpoints of the faces of a cube, when

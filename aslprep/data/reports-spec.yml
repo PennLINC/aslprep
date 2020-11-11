@@ -67,7 +67,7 @@ sections:
       potential spin-history and other artifacts, whereas final images are resampled
       using Lanczos interpolation.
     static: false
-    subtitle: Alignment of asland anatomical MRI data (volume based)
+    subtitle: Alignment of asl and anatomical MRI data (volume based)
   - bids: {datatype: figures, desc: flirtbbr, suffix: asl}
     caption: FSL <code>flirt</code> was used to generate transformations from EPI-space
       to T1w-space - The white matter mask calculated with FSL <code>fast</code> (brain
