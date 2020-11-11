@@ -1,12 +1,16 @@
+# emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+# vi: set ft=python sts=4 ts=4 sw=4 et:
+
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from ...interfaces.cbf_computation import (extractCBF, computeCBF, scorescrubCBF, BASILCBF,
-                                           refinemask, qccbf, cbfqroiquant)
+                                           refinemask, qccbf, cbfqroiquant,qccbfge)
 from ...niworkflows.interfaces.plotting import (CBFSummary, CBFtsSummary)
 from ...interfaces import DerivativesDataSink
 import numpy as np
+import pandas as pd
 import os
 import tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
@@ -89,6 +93,8 @@ also included correction for partial volume effects [@chappell_pvc].
                      name='wm_tfm', mem_gb=0.1)
     gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
                      name='gm_tfm', mem_gb=0.1)
+    
+    
 
     tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
     if hasattr(tiscbf, '__len__'):
@@ -287,7 +293,116 @@ CBF within Grey matter
                       ])
     return workflow
 
+def init_cbfgeqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads, name='cbfqc_compt_wf'):
+    """
+    Create a workflow for :abbr:`cbfqc( compute cbf)`.
 
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
+            wf = init_cbfqc_compt_wf(mem_gb=0.1)
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        BIDS metadata for asl file
+    name : :obj:`str`
+        Name of workflow (default: ``cbfqc_compt_wf'``)
+
+    Inputs
+    ------
+    *cbf
+        all cbf 
+    asl_mask
+        asl mask NIFTI file 
+    t1w_tpms
+        t1w probability maps 
+    t1_asl_xform
+        t1w to asl transfromation file 
+
+    Outputs
+    -------
+    qc_file
+       qc measures in tsv
+
+    """
+
+    workflow = Workflow(name=name)
+    workflow.__desc__ = """\
+The following quality control (qc) measures was estimated: dice and jaccard indices, cross-correlation
+and coverage that estimate the coregistration quality of  ASL and T1W images and  normalization
+quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF [@cbfqc].
+The  QEI is  automated for objective quality evaluation of CBF maps and measured the CBF quality
+based on structural similarity,spatial variability and the percentatge  of voxels with  negtaive
+CBF within Grey matter
+"""
+    inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
+                                                      'asl_mask', 't1w_tpms',
+                                                      'asl_mask_std', 't1_asl_xform', 'pv',
+                                                      't1w_mask']),
+                        name='inputnode')
+    outputnode = pe.Node(niu.IdentityInterface(fields=['qc_file']), name='outputnode')
+
+    def _pick_csf(files):
+        return files[-1]
+
+    def _pick_gm(files):
+        return files[0]
+
+    def _pick_wm(files):
+        return files[1]
+
+    csf_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                      name='csf_tfm', mem_gb=0.1)
+    wm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                     name='wm_tfm', mem_gb=0.1)
+    gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                     name='gm_tfm', mem_gb=0.1)
+
+    mask_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                       name='masktonative', mem_gb=0.1)
+
+    from templateflow.api import get as get_template
+    brain_mask = str(get_template('MNI152NLin2009cAsym', resolution=2, desc='brain',
+                                  suffix='mask'))
+
+    from nipype.interfaces.afni import Resample
+    resample = pe.Node(Resample(in_file=brain_mask, outputtype='NIFTI_GZ'),
+                       name='resample', mem_gb=0.1)
+
+    qccompute = pe.Node(qccbfge(in_file=asl_file), name='qccompute',
+                        run_without_submitting=True, mem_gb=0.2)
+
+    workflow.connect([(inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+                                            ('t1_asl_xform', 'transforms')]),
+                      (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
+                      (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+                                           ('t1_asl_xform', 'transforms')]),
+                      (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
+                      (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+                                           ('t1_asl_xform', 'transforms')]),
+                      (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
+                      (inputnode, mask_tfm, [('asl_mask', 'reference_image'),
+                                             ('t1_asl_xform', 'transforms'),
+                                             ('t1w_mask', 'input_image')]),
+                      (mask_tfm, qccompute, [('output_image', 'in_t1mask')]),
+                      (inputnode, qccompute, [('asl_mask', 'in_aslmask'),]),
+                      (inputnode, qccompute, [(('asl_mask_std', _pick_csf), 'in_aslmaskstd')]),
+                      (inputnode, resample, [(('asl_mask_std', _pick_csf), 'master')]),
+                      (resample, qccompute, [('out_file', 'in_templatemask')]),
+                      (gm_tfm, qccompute, [('output_image', 'in_greyM')]),
+                      (wm_tfm, qccompute, [('output_image', 'in_whiteM')]),
+                      (csf_tfm, qccompute, [('output_image', 'in_csf')]),
+                      (inputnode, qccompute, [('scrub', 'in_scrub'),
+                                              ('meancbf', 'in_meancbf'),
+                                              ('avgscore', 'in_avgscore'),
+                                              ('basil', 'in_basil'), ('pv', 'in_pvc')]),
+                     (qccompute, outputnode, [('qc_file', 'qc_file')]),
+                      ])
+    return workflow
 def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
     workflow = Workflow(name=name)
 
@@ -356,6 +471,78 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
                       (cbftssummary, ds_report_cbftsplot, [('out_file', 'in_file')]),
                       (cbftssummary, outputnode, [('out_file', 'cbf_carpetplot')]),
                       (inputnode, cbfsummary, [('cbf', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (cbfsummary, ds_report_cbfplot, [('out_file', 'in_file')]),
+                      (cbfsummary, outputnode, [('out_file', 'cbf_summary_plot')]),
+                      (inputnode, scoresummary, [('score', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (scoresummary, ds_report_scoreplot, [('out_file', 'in_file')]),
+                      (scoresummary, outputnode, [('out_file', 'score_summary_plot')]),
+                      (inputnode, scrubsummary, [('scrub', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (scrubsummary, ds_report_scrubplot, [('out_file', 'in_file')]),
+                      (scrubsummary, outputnode, [('out_file', 'scrub_summary_plot')]),
+                      (inputnode, basilsummary, [('basil', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (basilsummary, ds_report_basilplot, [('out_file', 'in_file')]),
+                      (basilsummary, outputnode, [('out_file', 'basil_summary_plot')]),
+                      (inputnode, pvcsummary, [('pvc', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (pvcsummary, ds_report_pvcplot, [('out_file', 'in_file')]),
+                      (pvcsummary, outputnode, [('out_file', 'pvc_summary_plot')]),
+
+                      ])
+    return workflow
+
+def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
+    workflow = Workflow(name=name)
+
+    inputnode = pe.Node(niu.IdentityInterface(fields=['cbf', 'score',
+                                                      'scrub', 'asl_ref', 'basil', 'pvc'
+                                                      ]),
+                        name='inputnode')
+    outputnode = pe.Node(niu.IdentityInterface(fields=[
+                                                       'cbf_summary_plot', 
+                                                       'score_summary_plot', 'scrub_summary_plot',
+                                                       'basil_summary_plot', 'pvc_summary_plot']),
+                         name='outputnode')
+    mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
+    from templateflow.api import get as get_template
+    seg = get_template(
+            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
+            suffix='dseg')
+    print(seg)
+    resample_parc = pe.Node(ApplyTransforms(
+        float=True,
+        input_image=str(seg),
+        dimension=3, default_value=0, interpolation='MultiLabel'),
+        name='resample_parc')
+
+
+    cbfsummary = pe.Node(CBFSummary(label='cbf'), name='cbf_summary', mem_gb=0.2)
+    scoresummary = pe.Node(CBFSummary(label='score'), name='score_summary', mem_gb=0.2)
+    scrubsummary = pe.Node(CBFSummary(label='scrub'), name='scrub_summary', mem_gb=0.2)
+    basilsummary = pe.Node(CBFSummary(label='basil'), name='basil_summary', mem_gb=0.2)
+    pvcsummary = pe.Node(CBFSummary(label='pvc'), name='pvc_summary', mem_gb=0.2)
+
+
+    ds_report_cbfplot = pe.Node(
+        DerivativesDataSink(desc='cbfplot', datatype="figures", keep_dtype=True),
+        name='ds_report_cbfplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scoreplot = pe.Node(
+        DerivativesDataSink(desc='scoreplot', datatype="figures",  keep_dtype=True),
+        name='ds_report_scoreplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scrubplot = pe.Node(
+        DerivativesDataSink(desc='scrubplot', datatype="figures",  keep_dtype=True),
+        name='ds_report_scrubplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_basilplot = pe.Node(
+        DerivativesDataSink(desc='basilplot', datatype="figures",  keep_dtype=True),
+        name='ds_report_basilplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_pvcplot = pe.Node(
+        DerivativesDataSink(desc='pvcplot', datatype="figures", keep_dtype=True),
+        name='ds_report_pvcplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+    workflow.connect([(inputnode, cbfsummary, [('cbf', 'cbf'), ('asl_ref', 'ref_vol')]),
                       (cbfsummary, ds_report_cbfplot, [('out_file', 'in_file')]),
                       (cbfsummary, outputnode, [('out_file', 'cbf_summary_plot')]),
                       (inputnode, scoresummary, [('score', 'cbf'), ('asl_ref', 'ref_vol')]),
@@ -532,4 +719,153 @@ def init_cbfroiquant_wf(mem_gb, omp_nthreads, name='cbf_roiquant'):
                       (pvc407, outputnode, [('atlascsv', 'pvc_sc407')]),
                       (pvc417, outputnode, [('atlascsv', 'pvc_sc417')]),
                       ])
+    return workflow
+
+
+def init_gecbf_compt_wf(metadata, asl_file,mem_gb, bids_dir,omp_nthreads,M0Scale=1,smooth_kernel=5,
+                      name='cbf_compt_wf'):
+    """
+    be back
+    """
+
+                    
+    workflow = Workflow(name=name)
+    workflow.__desc__ = """\
+The CBF was quantified from  *preproccessed* ASL data  using a relatively basic
+model [@detre_perfusion] [@alsop_recommended]. CBF are susceptible to artifacts
+due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
+based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
+outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
+algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
+probalility maps [@scrub_dolui].  Alternate method of CBF computation is Bayesian Inference
+for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
+principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
+of other model parameters and spatial regularization of the estimated perfusion image. BASIL
+also included correction for partial volume effects [@chappell_pvc].
+"""
+    inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
+                                                      't1w_tpms', 't1w_mask', 't1_asl_xform',
+                                                      'itk_asl_to_t1','m0_file']),
+                        name='inputnode')
+    outputnode = pe.Node(niu.IdentityInterface(fields=['out_cbf', 'out_mean', 'out_score',
+                                                       'out_avgscore', 'out_scrub', 'out_cbfb',
+                                                       'out_scoreindex', 'out_cbfpv','out_att']),
+                         name='outputnode')
+    # convert tmps to asl_space
+    csf_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                      name='csf_tfm', mem_gb=0.1)
+    wm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                     name='wm_tfm', mem_gb=0.1)
+    gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
+                     name='gm_tfm', mem_gb=0.1)
+    
+
+
+    filex = os.path.abspath(asl_file)
+    aslcontext1 = filex.replace('_asl.nii.gz', '_aslcontext.tsv')
+    aslcontext = pd.read_csv(aslcontext1)
+    idasl = aslcontext['volume_type'].tolist()
+    deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+    cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+    
+    tiscbf = np.add(metadata['PostLabelingDelay'],metadata['LabelingDuration'])
+
+    if hasattr(tiscbf, '__len__'):
+        tisasl = ",".join([str(i) for i in tiscbf])
+    else:
+        tisasl = str(tiscbf)
+    def pcaslorasl(metadata):
+        if 'CASL' in metadata["LabelingType"]:
+            pcasl1 = True
+        elif 'PASL' in metadata["LabelingType"]:
+            pcasl1 = False
+        return pcasl1
+
+    computecbf = pe.Node(computeCBF(in_metadata=metadata,in_m0scale=M0Scale), mem_gb=0.2,
+                         run_without_submitting=True, name="computecbf")
+    
+    scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=0.2,
+                         name='scorescrub', run_without_submitting=True)
+    
+    basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=metadata["LabelingDuration"],
+                                m0tr=metadata['RepetitionTime'], pvc=True,tis = tisasl,
+                                pcasl = pcaslorasl(metadata = metadata)), name='basilcbf',
+                       run_without_submitting=True, mem_gb=0.2)
+
+    refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
+
+    def _pick_csf(files):
+        return files[-1]
+
+    def _pick_gm(files):
+        return files[0]
+
+    def _pick_wm(files):
+        return files[1]
+
+    def _getfiledir(file):
+        import os
+        return os.getcwd()
+
+    if  len(deltamlist) > 0 :
+        workflow.connect([
+        # extract CBF data and compute cbf
+        (inputnode, computecbf, [('asl_file', 'in_cbf'), ('m0_file', 'in_m0file')]),
+        # (inputnode,computecbf,[('asl_mask','in_mask')]),
+        (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
+                                  ('t1_asl_xform', 'transforms')]),
+        (refinemaskj, computecbf, [('out_mask', 'in_mask')]),
+        (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
+        (refinemaskj, basilcbf, [('out_mask', 'mask')]),
+        (inputnode, basilcbf, [(('asl_file', _getfiledir), 'out_basename')]),
+        # extract probability maps
+        (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+                              ('t1_asl_xform', 'transforms')]),
+        (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
+        (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+        (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
+        (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+        (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
+        (computecbf, scorescrub, [('out_cbf', 'in_file')]),
+        (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
+        (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
+        (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
+        (inputnode, basilcbf, [('asl_file', 'in_file')]),
+        (gm_tfm, basilcbf, [('output_image', 'pvgm')]),
+        (wm_tfm, basilcbf, [('output_image', 'pvwm')]),
+        # (inputnode,basilcbf,[('asl_mask','mask')]),
+        (inputnode, basilcbf, [('m0_file', 'mzero')]),
+        (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
+                                ('out_cbfpv', 'out_cbfpv'),
+                                ('out_att', 'out_att')]),
+        (computecbf, outputnode, [('out_cbf', 'out_cbf'),
+                                  ('out_mean', 'out_mean')]),
+        (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
+                                  ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
+        ])
+    elif len(cbflist) > 0: 
+        workflow.connect([
+        (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
+                                  ('t1_asl_xform', 'transforms')]),
+        # extract probability maps
+        (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+                              ('t1_asl_xform', 'transforms')]),
+        (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
+        (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+        (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
+        (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+        (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
+        (inputnode, scorescrub, [('asl_file', 'in_file')]),
+        (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
+        (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
+        (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
+        (inputnode, outputnode, [('asl_file', 'out_cbf'),
+                                  ('asl_file', 'out_mean')]),
+        (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
+                                  ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
+        ])
     return workflow

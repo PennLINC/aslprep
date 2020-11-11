@@ -209,7 +209,7 @@ class _computeCBFInputSpec(BaseInterfaceInputSpec):
     in_cbf = File(exists=True, mandatory=True, desc='cbf nifti')
     in_metadata = traits.Dict(exists=True, mandatory=True,
                               desc='metadata for CBF ')
-    in_m0scale=traits.Int(exists=True, mandatory=True,
+    in_m0scale=traits.Float(exists=True, mandatory=True,
                               desc='relative scale between asl and m0')
     in_m0file = File(exists=True, mandatory=False, desc='M0 nifti file')
     in_mask = File(exists=True, mandatory=False, desc='mask')
@@ -315,16 +315,19 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
         perfusion_factor = (pf1*np.exp(inverstiontime/t1blood))/inverstiontime
     #perfusion_factor = np.array(perfusion_factor)
     #print(perfusion_factor)
-    # get control now
 
-    
     maskx = nb.load(mask).get_fdata()
-    m0data = nb.load(m0file).get_fdata()[maskx==1]
+    m0data = nb.load(m0file).get_fdata()
+    m0data=m0data[maskx==1]
     # compute cbf
-    cbf_data = nb.load(cbffile).get_fdata()[maskx==1]
+    cbf_data = nb.load(cbffile).get_fdata()
+    cbf_data=cbf_data[maskx==1]
     cbf1 = np.zeros(cbf_data.shape)
-    for i in range(cbf1.shape[1]):
-        cbf1[:, i] = np.divide(cbf_data[:,i], (m0scale*m0data))
+    if len(cbf_data.shape) < 2: 
+        cbf1 = np.divide(cbf_data,(m0scale*m0data))
+    else: 
+        for i in range(cbf1.shape[1]):
+            cbf1[:, i] = np.divide(cbf_data[:,i], (m0scale*m0data))
         # m1=m0scale*m0_data
         # cbf1=np.divide(cbf_data,m1)
         # for compute cbf for each PLD and TI
@@ -351,15 +354,20 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     else:
         cbf = cbf1*np.array(perfusion_factor)
         # cbf is timeseries
-     
-     
-     # return cbf to nifti shape
-    tcbf=np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
-    for i in range(cbf.shape[1]):
-        tcbfx=np.zeros(maskx.shape); tcbfx[maskx==1]=cbf[:,i]
-        tcbf[:,:,:,i]=tcbfx
-    
-    meancbf = np.mean(tcbf, axis=3)
+    # return cbf to nifti shape
+    print(cbf.shape)
+    if len(cbf.shape) < 2:
+        tcbf=np.zeros(maskx.shape)
+        tcbf[maskx==1]=cbf
+    else:
+        tcbf=np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
+        for i in range(cbf.shape[1]):
+            tcbfx=np.zeros(maskx.shape); tcbfx[maskx==1]=cbf[:,i]
+            tcbf[:,:,:,i]=tcbfx
+    if len(tcbf.shape) < 4:
+        meancbf = tcbf
+    else:
+        meancbf = np.mean(tcbf, axis=3)
     meancbf = np.nan_to_num(meancbf)
     tcbf = np.nan_to_num(tcbf)
     att = np.nan_to_num(att)
@@ -388,10 +396,10 @@ class _scorescrubCBFInputSpec(BaseInterfaceInputSpec):
 
 
 class _scorescrubCBFOutputSpec(TraitedSpec):
-    out_score = File(exists=True, mandatory=True, desc='score timeseries data')
-    out_avgscore = File(exists=True, mandatory=True, desc='average score')
-    out_scrub = File(exists=True, mandatory=True, desc='average scrub')
-    out_scoreindex = File(exists=True, mandatory=True, desc='index of volume remove ')
+    out_score = File(exists=False, mandatory=False, desc='score timeseries data')
+    out_avgscore = File(exists=False, mandatory=False, desc='average score')
+    out_scrub = File(exists=False, mandatory=False, desc='average scrub')
+    out_scoreindex = File(exists=False, mandatory=False, desc='index of volume remove ')
 
 
 class scorescrubCBF(SimpleInterface):
@@ -407,11 +415,19 @@ class scorescrubCBF(SimpleInterface):
         greym = nb.load(self.inputs.in_greyM).get_fdata()
         whitem = nb.load(self.inputs.in_whiteM).get_fdata()
         csf = nb.load(self.inputs.in_csf).get_fdata()
-        cbf_scorets, index_score = _getcbfscore(cbfts=cbf_ts, wm=whitem,
+        if len(cbf_ts.shape) > 3:
+            cbf_scorets, index_score = _getcbfscore(cbfts=cbf_ts, wm=whitem,
                                                 gm=greym, csf=csf, mask=mask,
                                                 thresh=self.inputs.in_thresh)
-        cbfscrub = _scrubcbf(cbf_ts=cbf_scorets, gm=greym, wm=whitem, csf=csf,
+            cbfscrub = _scrubcbf(cbf_ts=cbf_scorets, gm=greym, wm=whitem, csf=csf,
                              mask=mask, wfun=self.inputs.in_wfun, thresh=self.inputs.in_thresh)
+            avgscore = np.mean(cbf_scorets, axis=3)
+        else:
+            cbf_scorets = cbf_ts
+            index_score = np.array([0])
+            cbfscrub = cbf_ts
+            avgscore = cbf_ts
+        
         self._results['out_score'] = fname_presuffix(self.inputs.in_file,
                                                      suffix='_cbfscorets', newpath=runtime.cwd)
         self._results['out_avgscore'] = fname_presuffix(self.inputs.in_file,
@@ -423,16 +439,16 @@ class scorescrubCBF(SimpleInterface):
                                                           suffix='_scoreindex.txt',
                                                           newpath=runtime.cwd, use_ext=False)
         samplecbf = nb.load(self.inputs.in_mask)
+
+        nb.Nifti1Image(dataobj=cbf_scorets, affine=samplecbf.affine, header=samplecbf.header).to_filename(self._results['out_score'])
         nb.Nifti1Image(
-            cbf_scorets, samplecbf.affine, samplecbf.header).to_filename(
-            self._results['out_score'])
+             dataobj=avgscore, affine=samplecbf.affine, header=samplecbf.header).to_filename(
+                self._results['out_avgscore'])
         nb.Nifti1Image(
-            np.mean(cbf_scorets, axis=3), samplecbf.affine, samplecbf.header).to_filename(
-            self._results['out_avgscore'])
-        nb.Nifti1Image(
-            cbfscrub, samplecbf.affine, samplecbf.header).to_filename(
+            dataobj=cbfscrub, affine=samplecbf.affine, header=samplecbf.header).to_filename(
             self._results['out_scrub'])
-        np.savetxt(self._results['out_scoreindex'], index_score, delimiter=',')
+
+        np.savetxt(self._results['out_scoreindex'],index_score, delimiter=',')
 
         self.inputs.out_score = os.path.abspath(self._results['out_score'])
         self.inputs.out_avgscore = os.path.abspath(self._results['out_avgscore'])
@@ -759,7 +775,7 @@ class _qccbfInputSpec(BaseInterfaceInputSpec):
     in_greyM = File(exists=True, mandatory=True, desc='grey  matter')
     in_whiteM = File(exists=True, mandatory=True, desc='white  matter')
     in_csf = File(exists=True, mandatory=True, desc='csf')
-    in_confmat = File(exists=True, mandatory=True, desc=' cofnound matrix')
+    in_confmat = File(exists=True, mandatory=False, desc=' cofnound matrix')
     in_aslmask = File(exists=True, mandatory=True, desc='asl mask in native space')
     in_t1mask = File(exists=True, mandatory=True, desc='t1wmask in native space ')
     in_aslmaskstd = File(exists=True, mandatory=False, desc='asl mask in native space')
@@ -854,7 +870,105 @@ class qccbf(SimpleInterface):
 
         self.inputs.qc_file = os.path.abspath(self._results['qc_file'])
         return runtime
+        
 
+class _qccbfgeInputSpec(BaseInterfaceInputSpec):
+    in_file = File(exists=True, mandatory=True, desc='original asl_file')
+    in_meancbf = File(exists=True, mandatory=True, desc='cbf img')
+    in_avgscore = File(exists=True, mandatory=True, desc='cbf img')
+    in_scrub = File(exists=True, mandatory=True, desc='cbf img')
+    in_basil = File(exists=True, mandatory=True, desc='cbf img')
+    in_pvc = File(exists=True, mandatory=True, desc='cbf img')
+    in_greyM = File(exists=True, mandatory=True, desc='grey  matter')
+    in_whiteM = File(exists=True, mandatory=True, desc='white  matter')
+    in_csf = File(exists=True, mandatory=True, desc='csf')
+    in_aslmask = File(exists=True, mandatory=True, desc='asl mask in native space')
+    in_t1mask = File(exists=True, mandatory=True, desc='t1wmask in native space ')
+    in_aslmaskstd = File(exists=True, mandatory=False, desc='asl mask in native space')
+    in_templatemask = File(exists=True, mandatory=False, desc='template mask or image')
+    qc_file = File(exists=False, mandatory=False, desc='qc file ')
+
+
+class _qccbfgeOutputSpec(TraitedSpec):
+    qc_file = File(exists=False, desc='qc file ')
+
+
+class qccbfge(SimpleInterface):
+    r""""
+     compute qc from confound regressors 
+     and cbf maps, 
+     coregistration and regsitration indexes
+
+    """
+
+    input_spec = _qccbfInputSpec
+    output_spec = _qccbfOutputSpec
+
+    def _run_interface(self, runtime):
+        regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regJC = jc(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regCC = crosscorr(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regCov = coverage(self.inputs.in_aslmask, self.inputs.in_t1mask)
+
+        if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
+            normDC = dc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normJC = jc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normCC = crosscorr(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normCov = coverage(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+
+        meancbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                              csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.7)
+        scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
+        basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
+        pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
+        scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
+        meancbf = globalcbf(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.7)
+        gwratio = np.divide(meancbf[0], meancbf[1])
+        negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.7)
+        negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
+        negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
+        negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
+        negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+
+        if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
+            dict1 = {'FD': 0, 'relRMS': 0, 'coregDC': [regDC], 'coregJC': [regJC],
+                     'coregCC': [regCC], 'coregCOV': [regCov], 'normDC': [normDC],
+                     'normJC': [normJC], 'normCC': [normCC], 'normCOV': [normCov],
+                     'cbfQEI': [meancbf_qei], 'scoreQEI': [scorecbf_qei], 'scrubQEI': [scrub_qei],
+                     'basilQEI': [basilcbf_qei], 'pvcQEI': [pvcbf_qei], 'GMmeanCBF': [meancbf[0]],
+                     'WMmeanCBF': [meancbf[1]], 'Gm_Wm_CBF_ratio': [gwratio],
+                     'NEG_CBF_PERC': [negcbf], 'NEG_SCORE_PERC': [negscore],
+                     'NEG_SCRUB_PERC': [negscrub], 'NEG_BASIL_PERC': [negbasil],
+                     'NEG_PVC_PERC': [negpvc]}
+        else:
+            dict1 = {'FD': 0, 'relRMS': 0, 'coregDC': [regDC], 'coregJC': [regJC],
+                     'coregCC': [regCC], 'coregCOV': [regCov],
+                     'cbfQEI': [meancbf_qei], 'scoreQEI': [scorecbf_qei], 'scrubQEI': [scrub_qei],
+                     'basilQEI': [basilcbf_qei], 'pvcQEI': [pvcbf_qei], 'GMmeanCBF': [meancbf[0]],
+                     'WMmeanCBF': [meancbf[1]], 'Gm_Wm_CBF_ratio': [gwratio],
+                     'NEG_CBF_PERC': [negcbf], 'NEG_SCORE_PERC': [negscore],
+                     'NEG_SCRUB_PERC': [negscrub], 'NEG_BASIL_PERC': [negbasil],
+                     'NEG_PVC_PERC': [negpvc]}
+        _, file1 = os.path.split(self.inputs.in_file)
+        bb = file1.split('_')
+        dict2 = {}
+        for i in range(len(bb)-1):
+            dict2.update({bb[i].split('-')[0]: bb[i].split('-')[1]})
+        dict2.update(dict1)
+
+        df = pd.DataFrame(dict2)
+
+        self._results['qc_file'] = fname_presuffix(self.inputs.in_meancbf, suffix='qc_cbf.csv',
+                                                   newpath=runtime.cwd, use_ext=False)
+        df.to_csv(self._results['qc_file'], index=False, header=True)
+
+        self.inputs.qc_file = os.path.abspath(self._results['qc_file'])
+        return runtime
 
 def dc(input1, input2):
     r"""
@@ -1137,3 +1251,7 @@ def readjson(jsonfile):
     with open(jsonfile) as f:
         data = json.load(f)
     return data
+
+
+
+

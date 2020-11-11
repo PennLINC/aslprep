@@ -19,6 +19,7 @@ from nipype.interfaces import utility as niu
 from .. import config
 from ..interfaces import SubjectSummary, AboutSummary, DerivativesDataSink
 from .asl import init_asl_preproc_wf
+from .asl import init_asl_gepreproc_wf
 
 
 def init_aslprep_wf():
@@ -287,10 +288,10 @@ tasks and sessions), the following preprocessing was performed.
 """.format(num_asl=len(subject_data['asl']))
 
     for asl_file in subject_data['asl']:
-        asl_preproc_wf = init_asl_preproc_wf(asl_file)
-
-        workflow.connect([
-            (anat_preproc_wf, asl_preproc_wf,
+        if check_img(img=asl_file) > 5: 
+            asl_preproc_wf = init_asl_preproc_wf(asl_file)
+            workflow.connect([
+             (anat_preproc_wf, asl_preproc_wf,
              [('outputnode.t1w_preproc', 'inputnode.t1w_preproc'),
               ('outputnode.t1w_mask', 'inputnode.t1w_mask'),
               ('outputnode.t1w_dseg', 'inputnode.t1w_dseg'),
@@ -305,7 +306,20 @@ tasks and sessions), the following preprocessing was performed.
               ('outputnode.subject_id', 'inputnode.subject_id'),
               ('outputnode.t1w2fsnative_xfm', 'inputnode.t1w2fsnative_xfm'),
               ('outputnode.fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm')]),
-        ])
+            ])
+        else:
+            asl_preproc_wf = init_asl_gepreproc_wf(asl_file)
+            workflow.connect([
+             (anat_preproc_wf, asl_preproc_wf,
+             [('outputnode.t1w_preproc', 'inputnode.t1w_preproc'),
+              ('outputnode.t1w_mask', 'inputnode.t1w_mask'),
+              ('outputnode.t1w_dseg', 'inputnode.t1w_dseg'),
+              ('outputnode.t1w_tpms', 'inputnode.t1w_tpms'),
+              ('outputnode.template', 'inputnode.template'),
+              ('outputnode.anat2std_xfm', 'inputnode.anat2std_xfm'),
+              ('outputnode.std2anat_xfm', 'inputnode.std2anat_xfm')]),
+            ])
+
     return workflow
 
 
@@ -317,3 +331,12 @@ def _pop(inlist):
     if isinstance(inlist, (list, tuple)):
         return inlist[0]
     return inlist
+
+def check_img(img):
+    # get the 4th dimension
+    import numpy as np 
+    import nibabel as nb 
+    ss=nb.load(img).get_fdata().shape
+    if len(ss) == 3:
+        ss=np.hstack([ss,0])
+    return ss[3]
