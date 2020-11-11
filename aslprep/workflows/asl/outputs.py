@@ -13,6 +13,8 @@ def init_asl_derivatives_wf(
     metadata,
     output_dir,
     spaces,
+    scoresrub=False,
+    basil=False,
     name='asl_derivatives_wf',
 ):
     """
@@ -91,173 +93,171 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='HavardOxford', suffix='mean_cbf',
                                 compress=False),
             name='cbf_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_hvoxf = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
-                                suffix='mean_score', compress=False),
-            name='score_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_hvoxf = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
-                                suffix='mean_scrub', compress=False),
-            name='scrub_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_hvoxf = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
-                                suffix='mean_basil', compress=False),
-            name='basil_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_hvoxf = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford', suffix='mean_pvc',
-                                compress=False),
-            name='pvc_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-    workflow.connect([
-        (inputnode, cbf_hvoxf, [('source_file', 'source_file'),
-                                ('cbf_hvoxf', 'in_file')]),
-        (inputnode, score_hvoxf, [('source_file', 'source_file'),
-                                  ('score_hvoxf', 'in_file')]),
-        (inputnode, scrub_hvoxf, [('source_file', 'source_file'),
-                                  ('scrub_hvoxf', 'in_file')]),
-        (inputnode, basil_hvoxf, [('source_file', 'source_file'),
-                                  ('basil_hvoxf', 'in_file')]),
-        (inputnode, pvc_hvoxf, [('source_file', 'source_file'),
-                                ('pvc_hvoxf', 'in_file')]),
-      ])
-
     cbf_sc207 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
                                 suffix='mean_cbf', compress=False),
             name='cbf_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_sc207 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
-                                suffix='mean_score', compress=False),
-            name='score_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_sc207 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
-                                suffix='mean_scrub', compress=False),
-            name='scrub_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_sc207 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
-                                suffix='mean_basil', compress=False),
-            name='basil_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_sc207 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7', suffix='mean_pvc',
-                                compress=False),
-            name='pvc_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-    workflow.connect([
-        (inputnode, cbf_sc207, [('source_file', 'source_file'),
-                                ('cbf_sc207', 'in_file')]),
-        (inputnode, score_sc207, [('source_file', 'source_file'),
-                                  ('score_sc207', 'in_file')]),
-        (inputnode, scrub_sc207, [('source_file', 'source_file'),
-                                  ('scrub_sc207', 'in_file')]),
-        (inputnode, basil_sc207, [('source_file', 'source_file'),
-                                  ('basil_sc207', 'in_file')]),
-        (inputnode, pvc_sc207, [('source_file', 'source_file'),
-                                ('pvc_sc207', 'in_file')]),
-      ])
-
     cbf_sc217 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
                                 suffix='mean_cbf', compress=False),
             name='cbf_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_sc217 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
-                                suffix='mean_score', compress=False),
-            name='score_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_sc217 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
-                                suffix='mean_scrub', compress=False),
-            name='scrub_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_sc217 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
-                                suffix='mean_basil', compress=False),
-            name='basil_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_sc217 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
-                                suffix='mean_pvc', compress=False),
-            name='pvc_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-    workflow.connect([
-        (inputnode, cbf_sc217, [('source_file', 'source_file'),
-                                ('cbf_sc217', 'in_file')]),
-        (inputnode, score_sc217, [('source_file', 'source_file'),
-                                  ('score_sc217', 'in_file')]),
-        (inputnode, scrub_sc217, [('source_file', 'source_file'),
-                                  ('scrub_sc217', 'in_file')]),
-        (inputnode, basil_sc217, [('source_file', 'source_file'),
-                                  ('basil_sc217', 'in_file')]),
-        (inputnode, pvc_sc217, [('source_file', 'source_file'),
-                                ('pvc_sc217', 'in_file')]),
-      ])
-
     cbf_sc407 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7', suffix='mean_cbf',
                                 compress=False),
             name='cbf_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_sc407 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
-                                suffix='mean_score', compress=False),
-            name='score_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_sc407 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
-                                suffix='mean_scrub', compress=False),
-            name='scrub_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_sc407 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
-                                suffix='mean_basil', compress=False),
-            name='basil_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_sc407 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7', suffix='mean_pvc',
-                                compress=False),
-            name='pvc_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-    workflow.connect([
-        (inputnode, cbf_sc407, [('source_file', 'source_file'),
-                                ('cbf_sc407', 'in_file')]),
-        (inputnode, score_sc407, [('source_file', 'source_file'),
-                                  ('score_sc407', 'in_file')]),
-        (inputnode, scrub_sc407, [('source_file', 'source_file'),
-                                  ('scrub_sc407', 'in_file')]),
-        (inputnode, basil_sc407, [('source_file', 'source_file'),
-                                  ('basil_sc407', 'in_file')]),
-        (inputnode, pvc_sc407, [('source_file', 'source_file'),
-                                ('pvc_sc407', 'in_file')]),
-      ])
-
     cbf_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_cbf', compress=False),
             name='cbf_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_sc417 = pe.Node(
+
+    workflow.connect([
+        (inputnode, cbf_hvoxf, [('source_file', 'source_file'),
+                                ('cbf_hvoxf', 'in_file')]),
+        (inputnode, cbf_sc207, [('source_file', 'source_file'),
+                                ('cbf_sc207', 'in_file')]),
+        (inputnode, cbf_sc217, [('source_file', 'source_file'),
+                                ('cbf_sc217', 'in_file')]),
+        (inputnode, cbf_sc407, [('source_file', 'source_file'),
+                                ('cbf_sc407', 'in_file')]),
+        (inputnode, cbf_sc417, [('source_file', 'source_file'),
+                                ('cbf_sc417', 'in_file')]),
+      ])
+    
+    
+    if scoresrub:
+        score_hvoxf = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
+                                suffix='mean_score', compress=False),
+              name='score_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        scrub_hvoxf = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
+                                suffix='mean_scrub', compress=False),
+              name='scrub_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        score_sc207 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
+                                suffix='mean_score', compress=False),
+            name='score_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        scrub_sc207 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
+                                suffix='mean_scrub', compress=False),
+            name='scrub_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        
+        score_sc217 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
+                                suffix='mean_score', compress=False),
+            name='score_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        scrub_sc217 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
+                                suffix='mean_scrub', compress=False),
+            name='scrub_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        score_sc407 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
+                                suffix='mean_score', compress=False),
+            name='score_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        scrub_sc407 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
+                                suffix='mean_scrub', compress=False),
+            name='scrub_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        score_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_score', compress=False),
             name='score_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_sc417 = pe.Node(
+        scrub_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_scrub', compress=False),
             name='scrub_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_sc417 = pe.Node(
+            
+        workflow.connect([ (inputnode, score_hvoxf, [('source_file', 'source_file'),
+                                  ('score_hvoxf', 'in_file')]),
+                                (inputnode, scrub_hvoxf, [('source_file', 'source_file'),
+                                  ('scrub_hvoxf', 'in_file')]),
+                                  (inputnode, score_sc217, [('source_file', 'source_file'),
+                                  ('score_sc217', 'in_file')]),
+                                  (inputnode, score_sc207, [('source_file', 'source_file'),
+                                  ('score_sc207', 'in_file')]),
+                                 (inputnode, scrub_sc207, [('source_file', 'source_file'),
+                                  ('scrub_sc207', 'in_file')]),
+                                  (inputnode, scrub_sc217, [('source_file', 'source_file'),
+                                  ('scrub_sc217', 'in_file')]),
+                                  (inputnode, score_sc417, [('source_file', 'source_file'),
+                                  ('score_sc417', 'in_file')]),
+                                  (inputnode, scrub_sc417, [('source_file', 'source_file'),
+                                  ('scrub_sc417', 'in_file')]),
+                                  (inputnode, score_sc407, [('source_file', 'source_file'),
+                                  ('score_sc407', 'in_file')]),
+                                  (inputnode, scrub_sc407, [('source_file', 'source_file'),
+                                  ('scrub_sc407', 'in_file')]),
+               ])
+    if basil:
+        basil_hvoxf = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
+                                suffix='mean_basil', compress=False),
+            name='basil_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        pvc_hvoxf = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford', suffix='mean_pvc',
+                                compress=False),
+            name='pvc_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        basil_sc207 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
+                                suffix='mean_basil', compress=False),
+            name='basil_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        pvc_sc207 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7', suffix='mean_pvc',
+                                compress=False),
+            name='pvc_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        
+        basil_sc217 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
+                                suffix='mean_basil', compress=False),
+            name='basil_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        pvc_sc217 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
+                                suffix='mean_pvc', compress=False),
+            name='pvc_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        basil_sc407 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
+                                suffix='mean_basil', compress=False),
+            name='basil_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        pvc_sc407 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7', suffix='mean_pvc',
+                                compress=False),
+            name='pvc_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        basil_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_basil', compress=False),
             name='basil_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_sc417 = pe.Node(
+        pvc_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_pvc', compress=False),
             name='pvc_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
-    workflow.connect([
-        (inputnode, cbf_sc417, [('source_file', 'source_file'),
-                                ('cbf_sc417', 'in_file')]),
-        (inputnode, score_sc417, [('source_file', 'source_file'),
-                                  ('score_sc417', 'in_file')]),
-        (inputnode, scrub_sc417, [('source_file', 'source_file'),
-                                  ('scrub_sc417', 'in_file')]),
-        (inputnode, basil_sc417, [('source_file', 'source_file'),
+        workflow.connect([ 
+            (inputnode, basil_hvoxf, [('source_file', 'source_file'),
+                                  ('basil_hvoxf', 'in_file')]),
+           (inputnode, pvc_hvoxf, [('source_file', 'source_file'),
+                                ('pvc_hvoxf', 'in_file')]),
+          
+            (inputnode, basil_sc207, [('source_file', 'source_file'),
+                                  ('basil_sc207', 'in_file')]),
+            (inputnode, pvc_sc207, [('source_file', 'source_file'),
+                                ('pvc_sc207', 'in_file')]),
+
+            (inputnode, basil_sc217, [('source_file', 'source_file'),
+                                  ('basil_sc217', 'in_file')]),
+            (inputnode, pvc_sc217, [('source_file', 'source_file'),
+                                ('pvc_sc217', 'in_file')]),
+        
+            (inputnode, basil_sc407, [('source_file', 'source_file'),
+                                  ('basil_sc407', 'in_file')]),
+            (inputnode, pvc_sc407, [('source_file', 'source_file')]),
+    
+            (inputnode, basil_sc417, [('source_file', 'source_file'),
                                   ('basil_sc417', 'in_file')]),
-        (inputnode, pvc_sc417, [('source_file', 'source_file'),
+            (inputnode, pvc_sc417, [('source_file', 'source_file'),
                                 ('pvc_sc417', 'in_file')]),
       ])
 
-    if nonstd_spaces.intersection(('func', 'run', 'sbref')):
+    if nonstd_spaces.intersection(('func', 'run', 'asl','sbref')):
         ds_asl_native = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir, desc='preproc', compress=True, SkullStripped=False,
@@ -282,31 +282,7 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', compress=True),
             name='meancbfnative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scorenative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
-                                compress=True),
-            name='scorenative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        meanscorenative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
-                                compress=True),
-            name='meanscorenative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scrubnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
-                                compress=True),
-            name='scrubnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        basilnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
-                                compress=True),
-            name='basilnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        pvnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
-                                compress=True),
-            name='pvcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        attnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
-                                compress=True),
-            name='attcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
+        
         workflow.connect([
             (inputnode, ds_asl_native, [('source_file', 'source_file'),
                                          ('asl_native', 'in_file')]),
@@ -318,12 +294,47 @@ def init_asl_derivatives_wf(
                                     ('cbf', 'in_file')]),
             (inputnode, meancbfnative, [('source_file', 'source_file'),
                                         ('meancbf', 'in_file')]),
-            (inputnode, scorenative, [('source_file', 'source_file'),
+         ])
+
+        if scoresrub:
+            scorenative = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
+                                compress=True),
+             name='scorenative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            meanscorenative = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
+                                compress=True),
+              name='meanscorenative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+            scrubnative = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
+                                compress=True),
+              name='scrubnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+             
+            workflow.connect([
+                (inputnode, scorenative, [('source_file', 'source_file'),
                                       ('score', 'in_file')]),
-            (inputnode, meanscorenative, [('source_file', 'source_file'),
+                (inputnode, meanscorenative, [('source_file', 'source_file'),
                                           ('avgscore', 'in_file')]),
-            (inputnode, scrubnative, [('source_file', 'source_file'),
+                 (inputnode, scrubnative, [('source_file', 'source_file'),
                                       ('scrub', 'in_file')]),
+             ])
+        
+        if basil:
+            basilnative = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
+                                compress=True),
+             name='basilnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvnative = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+                                compress=True),
+              name='pvcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            attnative = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
+                                compress=True),
+              name='attcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+            workflow.connect([
             (inputnode, basilnative, [('source_file', 'source_file'),
                                       ('basil', 'in_file')]),
             (inputnode, pvnative, [('source_file', 'source_file'),
@@ -331,7 +342,8 @@ def init_asl_derivatives_wf(
             (inputnode, attnative, [('source_file', 'source_file'),
                                    ('att', 'in_file')]),
             (raw_sources, ds_asl_mask_native, [('out', 'RawSources')]),
-        ])
+             ])
+
 
     # Resample to T1w space
     if nonstd_spaces.intersection(('T1w', 'anat')):
@@ -353,7 +365,7 @@ def init_asl_derivatives_wf(
                                 suffix='mask', compress=True, dismiss_entities=("echo",)),
             name='ds_asl_mask_t1', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-
+       
         cbfnativet1 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, suffix='cbf', space='T1w',
                                 compress=True),
@@ -362,31 +374,7 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', space='T1w',
                                 compress=True),
             name='meancbfnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scorenativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
-                                space='T1w', compress=True),
-            name='scorenativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        meanscorenativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', desc='score',
-                                space='T1w', compress=True),
-            name='meanscorenativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scrubnativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
-                                space='T1w', compress=True),
-            name='scrubnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        basilnativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
-                                space='T1w', compress=True),
-            name='basilnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        pvnativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
-                                space='T1w', compress=True),
-            name='pvcnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        attnativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
-                                space='T1w', compress=True),
-            name='attnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
+        
         workflow.connect([
             (inputnode, ds_asl_t1, [('source_file', 'source_file'),
                                      ('asl_t1', 'in_file')]),
@@ -398,20 +386,56 @@ def init_asl_derivatives_wf(
                                       ('cbf_t1', 'in_file')]),
             (inputnode, meancbfnativet1, [('source_file', 'source_file'),
                                           ('meancbf_t1', 'in_file')]),
+         ])
+
+        if scoresrub:
+            scorenativet1 = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
+                                space='T1w', compress=True),
+              name='scorenativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            meanscorenativet1 = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', desc='score',
+                                space='T1w', compress=True),
+              name='meanscorenativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            scrubnativet1 = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
+                                space='T1w', compress=True),
+               name='scrubnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            workflow.connect([
             (inputnode, scorenativet1, [('source_file', 'source_file'),
                                         ('score_t1', 'in_file')]),
             (inputnode, meanscorenativet1, [('source_file', 'source_file'),
                                             ('avgscore_t1', 'in_file')]),
             (inputnode, scrubnativet1, [('source_file', 'source_file'),
                                         ('scrub_t1', 'in_file')]),
-            (inputnode, basilnativet1, [('source_file', 'source_file'),
+            ])
+        
+        if basil:
+            basilnativet1 = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
+                                space='T1w', compress=True),
+             name='basilnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvnativet1 = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+                                space='T1w', compress=True),
+             name='pvcnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            attnativet1 = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
+                                space='T1w', compress=True),
+             name='attnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            
+            workflow.connect([
+             (inputnode, basilnativet1, [('source_file', 'source_file'),
                                         ('basil_t1', 'in_file')]),
-            (inputnode, pvnativet1, [('source_file', 'source_file'),
+             (inputnode, pvnativet1, [('source_file', 'source_file'),
                                      ('pv_t1', 'in_file')]),
-            (inputnode, attnativet1, [('source_file', 'source_file'),
+             (inputnode, attnativet1, [('source_file', 'source_file'),
                                      ('att_t1', 'in_file')]),
-            (raw_sources, ds_asl_mask_t1, [('out', 'RawSources')]),
-        ])
+             ])
+
+        workflow.connect([
+             (raw_sources, ds_asl_mask_t1, [('out', 'RawSources')]),
+             ])
 
     if getattr(spaces, '_cached') is None:
         return workflow
@@ -453,56 +477,18 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', compress=True),
             name='meancbfstd', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scorestd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
-                                compress=True),
-            name='scorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        meanscorestd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
-                                compress=True),
-            name='meanscorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scrubstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
-                                compress=True),
-            name='scrubstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        basilstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
-                                compress=True),
-            name='basilstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        pvstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
-                                compress=True),
-            name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         
-        attstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
-                                compress=True),
-            name='attstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-
         workflow.connect([
             (inputnode, ds_asl_std, [('source_file', 'source_file')]),
             (inputnode, ds_asl_std_ref, [('source_file', 'source_file')]),
             (inputnode, ds_asl_mask_std, [('source_file', 'source_file')]),
             (inputnode, cbfstd, [('source_file', 'source_file')]),
             (inputnode, meancbfstd, [('source_file', 'source_file')]),
-            (inputnode, scorestd, [('source_file', 'source_file')]),
-            (inputnode, meanscorestd, [('source_file', 'source_file')]),
-            (inputnode, scrubstd, [('source_file', 'source_file')]),
-            (inputnode, basilstd, [('source_file', 'source_file')]),
-            (inputnode, pvstd, [('source_file', 'source_file')]),
-            (inputnode, attstd, [('source_file', 'source_file')]),
             (inputnode, select_std, [('asl_std', 'asl_std'),
                                      ('asl_std_ref', 'asl_std_ref'),
                                      ('asl_mask_std', 'asl_mask_std'),
                                      ('cbf_std', 'cbf_std'),
                                      ('meancbf_std', 'meancbf_std'),
-                                     ('score_std', 'score_std'),
-                                     ('avgscore_std', 'avgscore_std'),
-                                     ('scrub_std', 'scrub_std'),
-                                     ('basil_std', 'basil_std'),
-                                     ('pv_std', 'pv_std'),
-                                     ('att_std', 'att_std'),
                                      ('template', 'template'),
                                      ('spatial_reference', 'keys')]),
             (spacesource, select_std, [('uid', 'key')]),
@@ -531,21 +517,74 @@ def init_asl_derivatives_wf(
                                        ('cohort', 'cohort'),
                                        ('resolution', 'resolution'),
                                        ('density', 'density')]),
-            (select_std, scorestd, [('score_std', 'in_file')]),
-            (spacesource, scorestd, [('space', 'space'),
+            (raw_sources, ds_asl_mask_std, [('out', 'RawSources')]),
+         ])
+        
+        if scoresrub:
+            scorestd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
+                                compress=True),
+            name='scorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            
+            meanscorestd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
+                                compress=True),
+              name='meanscorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            scrubstd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
+                                compress=True),
+             name='scrubstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            
+            workflow.connect([
+             (inputnode, scorestd, [('source_file', 'source_file')]),
+             (inputnode, meanscorestd, [('source_file', 'source_file')]),
+             (inputnode, scrubstd, [('source_file', 'source_file')]),
+             (inputnode, select_std, [
+                                     ('score_std', 'score_std'),
+                                     ('avgscore_std', 'avgscore_std'),
+                                     ('scrub_std', 'scrub_std')]),
+             (select_std, scorestd, [('score_std', 'in_file')]),
+             (spacesource, scorestd, [('space', 'space'),
                                      ('cohort', 'cohort'),
                                      ('resolution', 'resolution'),
                                      ('density', 'density')]),
-            (select_std, meanscorestd, [('avgscore_std', 'in_file')]),
-            (spacesource, meanscorestd, [('space', 'space'),
+             (select_std, meanscorestd, [('avgscore_std', 'in_file')]),
+             (spacesource, meanscorestd, [('space', 'space'),
                                          ('cohort', 'cohort'),
                                          ('resolution', 'resolution'),
                                          ('density', 'density')]),
-            (select_std, scrubstd, [('scrub_std', 'in_file')]),
-            (spacesource, scrubstd, [('space', 'space'),
+             (select_std, scrubstd, [('scrub_std', 'in_file')]),
+             (spacesource, scrubstd, [('space', 'space'),
                                      ('cohort', 'cohort'),
                                      ('resolution', 'resolution'),
                                      ('density', 'density')]),
+             ])
+        
+        if basil:
+            basilstd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
+                                compress=True),
+              name='basilstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvstd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+                                compress=True),
+              name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        
+            attstd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
+                                compress=True),
+               name='attstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        
+            workflow.connect([ 
+            (inputnode, basilstd, [('source_file', 'source_file')]),
+            (inputnode, pvstd, [('source_file', 'source_file')]),
+            (inputnode, attstd, [('source_file', 'source_file')]),
+            (inputnode, select_std, [
+                                     ('scrub_std', 'scrub_std'),
+                                     ('basil_std', 'basil_std'),
+                                     ('pv_std', 'pv_std'),
+                                     ('att_std', 'att_std')]),
+                                     
             (select_std, basilstd, [('basil_std', 'in_file')]),
             (spacesource, basilstd, [('space', 'space'),
                                      ('cohort', 'cohort'),
@@ -561,8 +600,7 @@ def init_asl_derivatives_wf(
                                   ('cohort', 'cohort'),
                                   ('resolution', 'resolution'),
                                   ('density', 'density')]),
-            (raw_sources, ds_asl_mask_std, [('out', 'RawSources')]),
-        ])
+             ])
 
     return workflow
 
@@ -572,6 +610,8 @@ def init_geasl_derivatives_wf(
     metadata,
     output_dir,
     spaces,
+    scorescrub=False,
+    basil=False,
     name='asl_derivatives_wf',
 ):
     """
@@ -647,173 +687,171 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='HavardOxford', suffix='mean_cbf',
                                 compress=False),
             name='cbf_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_hvoxf = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
-                                suffix='mean_score', compress=False),
-            name='score_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_hvoxf = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
-                                suffix='mean_scrub', compress=False),
-            name='scrub_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_hvoxf = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
-                                suffix='mean_basil', compress=False),
-            name='basil_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_hvoxf = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford', suffix='mean_pvc',
-                                compress=False),
-            name='pvc_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-    workflow.connect([
-        (inputnode, cbf_hvoxf, [('source_file', 'source_file'),
-                                ('cbf_hvoxf', 'in_file')]),
-        (inputnode, score_hvoxf, [('source_file', 'source_file'),
-                                  ('score_hvoxf', 'in_file')]),
-        (inputnode, scrub_hvoxf, [('source_file', 'source_file'),
-                                  ('scrub_hvoxf', 'in_file')]),
-        (inputnode, basil_hvoxf, [('source_file', 'source_file'),
-                                  ('basil_hvoxf', 'in_file')]),
-        (inputnode, pvc_hvoxf, [('source_file', 'source_file'),
-                                ('pvc_hvoxf', 'in_file')]),
-      ])
-
     cbf_sc207 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
                                 suffix='mean_cbf', compress=False),
             name='cbf_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_sc207 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
-                                suffix='mean_score', compress=False),
-            name='score_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_sc207 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
-                                suffix='mean_scrub', compress=False),
-            name='scrub_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_sc207 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
-                                suffix='mean_basil', compress=False),
-            name='basil_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_sc207 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7', suffix='mean_pvc',
-                                compress=False),
-            name='pvc_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-    workflow.connect([
-        (inputnode, cbf_sc207, [('source_file', 'source_file'),
-                                ('cbf_sc207', 'in_file')]),
-        (inputnode, score_sc207, [('source_file', 'source_file'),
-                                  ('score_sc207', 'in_file')]),
-        (inputnode, scrub_sc207, [('source_file', 'source_file'),
-                                  ('scrub_sc207', 'in_file')]),
-        (inputnode, basil_sc207, [('source_file', 'source_file'),
-                                  ('basil_sc207', 'in_file')]),
-        (inputnode, pvc_sc207, [('source_file', 'source_file'),
-                                ('pvc_sc207', 'in_file')]),
-      ])
-
     cbf_sc217 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
                                 suffix='mean_cbf', compress=False),
             name='cbf_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_sc217 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
-                                suffix='mean_score', compress=False),
-            name='score_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_sc217 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
-                                suffix='mean_scrub', compress=False),
-            name='scrub_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_sc217 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
-                                suffix='mean_basil', compress=False),
-            name='basil_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_sc217 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
-                                suffix='mean_pvc', compress=False),
-            name='pvc_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-    workflow.connect([
-        (inputnode, cbf_sc217, [('source_file', 'source_file'),
-                                ('cbf_sc217', 'in_file')]),
-        (inputnode, score_sc217, [('source_file', 'source_file'),
-                                  ('score_sc217', 'in_file')]),
-        (inputnode, scrub_sc217, [('source_file', 'source_file'),
-                                  ('scrub_sc217', 'in_file')]),
-        (inputnode, basil_sc217, [('source_file', 'source_file'),
-                                  ('basil_sc217', 'in_file')]),
-        (inputnode, pvc_sc217, [('source_file', 'source_file'),
-                                ('pvc_sc217', 'in_file')]),
-      ])
-
     cbf_sc407 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7', suffix='mean_cbf',
                                 compress=False),
             name='cbf_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_sc407 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
-                                suffix='mean_score', compress=False),
-            name='score_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_sc407 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
-                                suffix='mean_scrub', compress=False),
-            name='scrub_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_sc407 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
-                                suffix='mean_basil', compress=False),
-            name='basil_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_sc407 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7', suffix='mean_pvc',
-                                compress=False),
-            name='pvc_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-    workflow.connect([
-        (inputnode, cbf_sc407, [('source_file', 'source_file'),
-                                ('cbf_sc407', 'in_file')]),
-        (inputnode, score_sc407, [('source_file', 'source_file'),
-                                  ('score_sc407', 'in_file')]),
-        (inputnode, scrub_sc407, [('source_file', 'source_file'),
-                                  ('scrub_sc407', 'in_file')]),
-        (inputnode, basil_sc407, [('source_file', 'source_file'),
-                                  ('basil_sc407', 'in_file')]),
-        (inputnode, pvc_sc407, [('source_file', 'source_file'),
-                                ('pvc_sc407', 'in_file')]),
-      ])
-
     cbf_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_cbf', compress=False),
             name='cbf_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    score_sc417 = pe.Node(
+
+    workflow.connect([
+        (inputnode, cbf_hvoxf, [('source_file', 'source_file'),
+                                ('cbf_hvoxf', 'in_file')]),
+        (inputnode, cbf_sc207, [('source_file', 'source_file'),
+                                ('cbf_sc207', 'in_file')]),
+        (inputnode, cbf_sc217, [('source_file', 'source_file'),
+                                ('cbf_sc217', 'in_file')]),
+        (inputnode, cbf_sc407, [('source_file', 'source_file'),
+                                ('cbf_sc407', 'in_file')]),
+        (inputnode, cbf_sc417, [('source_file', 'source_file'),
+                                ('cbf_sc417', 'in_file')]),
+      ])
+    
+    
+    if scoresrub:
+        score_hvoxf = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
+                                suffix='mean_score', compress=False),
+              name='score_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        scrub_hvoxf = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
+                                suffix='mean_scrub', compress=False),
+              name='scrub_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        score_sc207 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
+                                suffix='mean_score', compress=False),
+            name='score_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        scrub_sc207 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
+                                suffix='mean_scrub', compress=False),
+            name='scrub_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        
+        score_sc217 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
+                                suffix='mean_score', compress=False),
+            name='score_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        scrub_sc217 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
+                                suffix='mean_scrub', compress=False),
+            name='scrub_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        score_sc407 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
+                                suffix='mean_score', compress=False),
+            name='score_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        scrub_sc407 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
+                                suffix='mean_scrub', compress=False),
+            name='scrub_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        score_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_score', compress=False),
             name='score_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    scrub_sc417 = pe.Node(
+        scrub_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_scrub', compress=False),
             name='scrub_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    basil_sc417 = pe.Node(
+            
+        workflow.connect([ (inputnode, score_hvoxf, [('source_file', 'source_file'),
+                                  ('score_hvoxf', 'in_file')]),
+                                (inputnode, scrub_hvoxf, [('source_file', 'source_file'),
+                                  ('scrub_hvoxf', 'in_file')]),
+                                  (inputnode, score_sc217, [('source_file', 'source_file'),
+                                  ('score_sc217', 'in_file')]),
+                                  (inputnode, score_sc207, [('source_file', 'source_file'),
+                                  ('score_sc207', 'in_file')]),
+                                 (inputnode, scrub_sc207, [('source_file', 'source_file'),
+                                  ('scrub_sc207', 'in_file')]),
+                                  (inputnode, scrub_sc217, [('source_file', 'source_file'),
+                                  ('scrub_sc217', 'in_file')]),
+                                  (inputnode, score_sc417, [('source_file', 'source_file'),
+                                  ('score_sc417', 'in_file')]),
+                                  (inputnode, scrub_sc417, [('source_file', 'source_file'),
+                                  ('scrub_sc417', 'in_file')]),
+                                  (inputnode, score_sc407, [('source_file', 'source_file'),
+                                  ('score_sc407', 'in_file')]),
+                                  (inputnode, scrub_sc407, [('source_file', 'source_file'),
+                                  ('scrub_sc407', 'in_file')]),
+               ])
+    if basil:
+        basil_hvoxf = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
+                                suffix='mean_basil', compress=False),
+            name='basil_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        pvc_hvoxf = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='HavardOxford', suffix='mean_pvc',
+                                compress=False),
+            name='pvc_hvoxf', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        basil_sc207 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
+                                suffix='mean_basil', compress=False),
+            name='basil_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        pvc_sc207 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7', suffix='mean_pvc',
+                                compress=False),
+            name='pvc_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        
+        basil_sc217 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
+                                suffix='mean_basil', compress=False),
+            name='basil_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        pvc_sc217 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
+                                suffix='mean_pvc', compress=False),
+            name='pvc_sc217', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        basil_sc407 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7',
+                                suffix='mean_basil', compress=False),
+            name='basil_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        pvc_sc407 = pe.Node(
+            DerivativesDataSink(base_directory=output_dir, desc='schaefer400x7', suffix='mean_pvc',
+                                compress=False),
+            name='pvc_sc407', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        basil_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_basil', compress=False),
             name='basil_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-    pvc_sc417 = pe.Node(
+        pvc_sc417 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_pvc', compress=False),
             name='pvc_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
-    workflow.connect([
-        (inputnode, cbf_sc417, [('source_file', 'source_file'),
-                                ('cbf_sc417', 'in_file')]),
-        (inputnode, score_sc417, [('source_file', 'source_file'),
-                                  ('score_sc417', 'in_file')]),
-        (inputnode, scrub_sc417, [('source_file', 'source_file'),
-                                  ('scrub_sc417', 'in_file')]),
-        (inputnode, basil_sc417, [('source_file', 'source_file'),
+        workflow.connect([ 
+            (inputnode, basil_hvoxf, [('source_file', 'source_file'),
+                                  ('basil_hvoxf', 'in_file')]),
+           (inputnode, pvc_hvoxf, [('source_file', 'source_file'),
+                                ('pvc_hvoxf', 'in_file')]),
+          
+            (inputnode, basil_sc207, [('source_file', 'source_file'),
+                                  ('basil_sc207', 'in_file')]),
+            (inputnode, pvc_sc207, [('source_file', 'source_file'),
+                                ('pvc_sc207', 'in_file')]),
+
+            (inputnode, basil_sc217, [('source_file', 'source_file'),
+                                  ('basil_sc217', 'in_file')]),
+            (inputnode, pvc_sc217, [('source_file', 'source_file'),
+                                ('pvc_sc217', 'in_file')]),
+        
+            (inputnode, basil_sc407, [('source_file', 'source_file'),
+                                  ('basil_sc407', 'in_file')]),
+            (inputnode, pvc_sc407, [('source_file', 'source_file')]),
+    
+            (inputnode, basil_sc417, [('source_file', 'source_file'),
                                   ('basil_sc417', 'in_file')]),
-        (inputnode, pvc_sc417, [('source_file', 'source_file'),
+            (inputnode, pvc_sc417, [('source_file', 'source_file'),
                                 ('pvc_sc417', 'in_file')]),
       ])
 
-    if nonstd_spaces.intersection(('func', 'run', 'sbref')):
+    if nonstd_spaces.intersection(('func', 'run', 'asl','sbref')):
         ds_asl_native = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir, desc='preproc', compress=True, SkullStripped=False,
@@ -838,31 +876,7 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', compress=True),
             name='meancbfnative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scorenative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
-                                compress=True),
-            name='scorenative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        meanscorenative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
-                                compress=True),
-            name='meanscorenative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scrubnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
-                                compress=True),
-            name='scrubnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        basilnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
-                                compress=True),
-            name='basilnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        pvnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
-                                compress=True),
-            name='pvcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        attnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
-                                compress=True),
-            name='attcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
+        
         workflow.connect([
             (inputnode, ds_asl_native, [('source_file', 'source_file'),
                                          ('asl_native', 'in_file')]),
@@ -874,12 +888,47 @@ def init_geasl_derivatives_wf(
                                     ('cbf', 'in_file')]),
             (inputnode, meancbfnative, [('source_file', 'source_file'),
                                         ('meancbf', 'in_file')]),
-            (inputnode, scorenative, [('source_file', 'source_file'),
+         ])
+
+        if scoresrub:
+            scorenative = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
+                                compress=True),
+             name='scorenative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            meanscorenative = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
+                                compress=True),
+              name='meanscorenative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+            scrubnative = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
+                                compress=True),
+              name='scrubnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+             
+            workflow.connect([
+                (inputnode, scorenative, [('source_file', 'source_file'),
                                       ('score', 'in_file')]),
-            (inputnode, meanscorenative, [('source_file', 'source_file'),
+                (inputnode, meanscorenative, [('source_file', 'source_file'),
                                           ('avgscore', 'in_file')]),
-            (inputnode, scrubnative, [('source_file', 'source_file'),
+                 (inputnode, scrubnative, [('source_file', 'source_file'),
                                       ('scrub', 'in_file')]),
+             ])
+        
+        if basil:
+            basilnative = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
+                                compress=True),
+             name='basilnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvnative = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+                                compress=True),
+              name='pvcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            attnative = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
+                                compress=True),
+              name='attcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+            workflow.connect([
             (inputnode, basilnative, [('source_file', 'source_file'),
                                       ('basil', 'in_file')]),
             (inputnode, pvnative, [('source_file', 'source_file'),
@@ -887,7 +936,8 @@ def init_geasl_derivatives_wf(
             (inputnode, attnative, [('source_file', 'source_file'),
                                    ('att', 'in_file')]),
             (raw_sources, ds_asl_mask_native, [('out', 'RawSources')]),
-        ])
+             ])
+
 
     # Resample to T1w space
     if nonstd_spaces.intersection(('T1w', 'anat')):
@@ -909,7 +959,7 @@ def init_geasl_derivatives_wf(
                                 suffix='mask', compress=True, dismiss_entities=("echo",)),
             name='ds_asl_mask_t1', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-
+       
         cbfnativet1 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, suffix='cbf', space='T1w',
                                 compress=True),
@@ -918,31 +968,7 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', space='T1w',
                                 compress=True),
             name='meancbfnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scorenativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
-                                space='T1w', compress=True),
-            name='scorenativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        meanscorenativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', desc='score',
-                                space='T1w', compress=True),
-            name='meanscorenativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scrubnativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
-                                space='T1w', compress=True),
-            name='scrubnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        basilnativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
-                                space='T1w', compress=True),
-            name='basilnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        pvnativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
-                                space='T1w', compress=True),
-            name='pvcnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        attnativet1 = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
-                                space='T1w', compress=True),
-            name='attnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
+        
         workflow.connect([
             (inputnode, ds_asl_t1, [('source_file', 'source_file'),
                                      ('asl_t1', 'in_file')]),
@@ -954,20 +980,56 @@ def init_geasl_derivatives_wf(
                                       ('cbf_t1', 'in_file')]),
             (inputnode, meancbfnativet1, [('source_file', 'source_file'),
                                           ('meancbf_t1', 'in_file')]),
+         ])
+
+        if scoresrub:
+            scorenativet1 = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
+                                space='T1w', compress=True),
+              name='scorenativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            meanscorenativet1 = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', desc='score',
+                                space='T1w', compress=True),
+              name='meanscorenativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            scrubnativet1 = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
+                                space='T1w', compress=True),
+               name='scrubnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            workflow.connect([
             (inputnode, scorenativet1, [('source_file', 'source_file'),
                                         ('score_t1', 'in_file')]),
             (inputnode, meanscorenativet1, [('source_file', 'source_file'),
                                             ('avgscore_t1', 'in_file')]),
             (inputnode, scrubnativet1, [('source_file', 'source_file'),
                                         ('scrub_t1', 'in_file')]),
+            ])
+        
+        if basil:
+            basilnativet1 = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
+                                space='T1w', compress=True),
+             name='basilnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvnativet1 = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+                                space='T1w', compress=True),
+             name='pvcnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            attnativet1 = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
+                                space='T1w', compress=True),
+             name='attnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            
+            workflow.connect([
             (inputnode, basilnativet1, [('source_file', 'source_file'),
                                         ('basil_t1', 'in_file')]),
             (inputnode, pvnativet1, [('source_file', 'source_file'),
                                      ('pv_t1', 'in_file')]),
             (inputnode, attnativet1, [('source_file', 'source_file'),
                                      ('att_t1', 'in_file')]),
-            (raw_sources, ds_asl_mask_t1, [('out', 'RawSources')]),
-        ])
+            ])
+
+        workflow.connect([
+             (raw_sources, ds_asl_mask_t1, [('out', 'RawSources')]),
+             ])
 
     if getattr(spaces, '_cached') is None:
         return workflow
@@ -1009,56 +1071,18 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', compress=True),
             name='meancbfstd', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scorestd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
-                                compress=True),
-            name='scorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        meanscorestd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
-                                compress=True),
-            name='meanscorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        scrubstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
-                                compress=True),
-            name='scrubstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        basilstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
-                                compress=True),
-            name='basilstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        pvstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
-                                compress=True),
-            name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         
-        attstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
-                                compress=True),
-            name='attstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-
-
         workflow.connect([
             (inputnode, ds_asl_std, [('source_file', 'source_file')]),
             (inputnode, ds_asl_std_ref, [('source_file', 'source_file')]),
             (inputnode, ds_asl_mask_std, [('source_file', 'source_file')]),
             (inputnode, cbfstd, [('source_file', 'source_file')]),
             (inputnode, meancbfstd, [('source_file', 'source_file')]),
-            (inputnode, scorestd, [('source_file', 'source_file')]),
-            (inputnode, meanscorestd, [('source_file', 'source_file')]),
-            (inputnode, scrubstd, [('source_file', 'source_file')]),
-            (inputnode, basilstd, [('source_file', 'source_file')]),
-            (inputnode, pvstd, [('source_file', 'source_file')]),
-            (inputnode, attstd, [('source_file', 'source_file')]),
             (inputnode, select_std, [('asl_std', 'asl_std'),
                                      ('asl_std_ref', 'asl_std_ref'),
                                      ('asl_mask_std', 'asl_mask_std'),
                                      ('cbf_std', 'cbf_std'),
                                      ('meancbf_std', 'meancbf_std'),
-                                     ('score_std', 'score_std'),
-                                     ('avgscore_std', 'avgscore_std'),
-                                     ('scrub_std', 'scrub_std'),
-                                     ('basil_std', 'basil_std'),
-                                     ('pv_std', 'pv_std'),
-                                     ('att_std', 'att_std'),
                                      ('template', 'template'),
                                      ('spatial_reference', 'keys')]),
             (spacesource, select_std, [('uid', 'key')]),
@@ -1087,21 +1111,74 @@ def init_geasl_derivatives_wf(
                                        ('cohort', 'cohort'),
                                        ('resolution', 'resolution'),
                                        ('density', 'density')]),
-            (select_std, scorestd, [('score_std', 'in_file')]),
-            (spacesource, scorestd, [('space', 'space'),
+            (raw_sources, ds_asl_mask_std, [('out', 'RawSources')]),
+         ])
+        
+        if scoresrub:
+            scorestd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
+                                compress=True),
+            name='scorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            
+            meanscorestd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
+                                compress=True),
+              name='meanscorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            scrubstd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
+                                compress=True),
+             name='scrubstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            
+            workflow.connect([
+             (inputnode, scorestd, [('source_file', 'source_file')]),
+             (inputnode, meanscorestd, [('source_file', 'source_file')]),
+             (inputnode, scrubstd, [('source_file', 'source_file')]),
+             (inputnode, select_std, [
+                                     ('score_std', 'score_std'),
+                                     ('avgscore_std', 'avgscore_std'),
+                                     ('scrub_std', 'scrub_std')]),
+             (select_std, scorestd, [('score_std', 'in_file')]),
+             (spacesource, scorestd, [('space', 'space'),
                                      ('cohort', 'cohort'),
                                      ('resolution', 'resolution'),
                                      ('density', 'density')]),
-            (select_std, meanscorestd, [('avgscore_std', 'in_file')]),
-            (spacesource, meanscorestd, [('space', 'space'),
+             (select_std, meanscorestd, [('avgscore_std', 'in_file')]),
+             (spacesource, meanscorestd, [('space', 'space'),
                                          ('cohort', 'cohort'),
                                          ('resolution', 'resolution'),
                                          ('density', 'density')]),
-            (select_std, scrubstd, [('scrub_std', 'in_file')]),
-            (spacesource, scrubstd, [('space', 'space'),
+             (select_std, scrubstd, [('scrub_std', 'in_file')]),
+             (spacesource, scrubstd, [('space', 'space'),
                                      ('cohort', 'cohort'),
                                      ('resolution', 'resolution'),
                                      ('density', 'density')]),
+             ])
+        
+        if basil:
+            basilstd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
+                                compress=True),
+              name='basilstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvstd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+                                compress=True),
+              name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        
+            attstd = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
+                                compress=True),
+               name='attstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        
+            workflow.connect([ 
+            (inputnode, basilstd, [('source_file', 'source_file')]),
+            (inputnode, pvstd, [('source_file', 'source_file')]),
+            (inputnode, attstd, [('source_file', 'source_file')]),
+            (inputnode, select_std, [
+                                     ('scrub_std', 'scrub_std'),
+                                     ('basil_std', 'basil_std'),
+                                     ('pv_std', 'pv_std'),
+                                     ('att_std', 'att_std')]),
+                                     
             (select_std, basilstd, [('basil_std', 'in_file')]),
             (spacesource, basilstd, [('space', 'space'),
                                      ('cohort', 'cohort'),
@@ -1117,8 +1194,7 @@ def init_geasl_derivatives_wf(
                                   ('cohort', 'cohort'),
                                   ('resolution', 'resolution'),
                                   ('density', 'density')]),
-            (raw_sources, ds_asl_mask_std, [('out', 'RawSources')]),
-        ])
+             ])
     return workflow
 
 

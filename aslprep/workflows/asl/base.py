@@ -633,10 +633,7 @@ effects of other kernels [@lanczos].
         workflow.connect([
             (compt_cbf_wf, asl_t1_trans_wf, [('outputnode.out_cbf', 'inputnode.cbf'),
                                               ('outputnode.out_mean', 'inputnode.meancbf'),
-                                              
-                                              ('outputnode.out_cbfb', 'inputnode.basil'),
-                                              ('outputnode.out_cbfpv', 'inputnode.pv'),
-                                              ('outputnode.out_att', 'inputnode.att')]),
+                                              ]),
             (asl_t1_trans_wf, asl_derivatives_wf, [('outputnode.cbf_t1', 'inputnode.cbf_t1'),
                                             ('outputnode.meancbf_t1', 'inputnode.meancbf_t1'),
                                 
@@ -721,11 +718,8 @@ effects of other kernels [@lanczos].
                 ('out_mask', 'inputnode.asl_mask')]),
             (asl_sdc_wf, asl_std_trans_wf, [
                 ('outputnode.out_warp', 'inputnode.fieldwarp')]),
-            (asl_std_trans_wf, outputnode, [('outputnode.asl_std', 'asl_std'),
-                                             ('outputnode.asl_std_ref', 'asl_std_ref'),
-                                             ('outputnode.asl_mask_std', 'asl_mask_std')]),
             (compt_cbf_wf, asl_std_trans_wf, [('outputnode.out_cbf', 'inputnode.cbf'),
-                                               ('outputnode.out_mean', 'inputnode.meancbf'),
+                                              ('outputnode.out_mean', 'inputnode.meancbf'),
                                                ]),
             ])
 
@@ -768,7 +762,8 @@ effects of other kernels [@lanczos].
                 ('outputnode.asl_std_ref', 'inputnode.asl_std_ref'),
                 ('outputnode.asl_std', 'inputnode.asl_std'),
                 ('outputnode.asl_mask_std', 'inputnode.asl_mask_std'),
-                ('outputnode.cbf_std', 'inputnode.cbf_std')]),
+                ('outputnode.cbf_std', 'inputnode.cbf_std'),
+                ('outputnode.meancbf_std','inputnode.meancbf_std')]),
         ])
         if scorescrub:
             workflow.connect([
@@ -850,17 +845,12 @@ effects of other kernels [@lanczos].
             # cifti_output=config.workflow.cifti_output,
             name='carpetplot_wf')
 
-        if config.workflow.cifti_output:
-            workflow.connect(
-                asl_grayords_wf, 'outputnode.cifti_asl', carpetplot_wf, 'inputnode.cifti_asl'
-            )
-        else:
             # Xform to 'MNI152NLin2009cAsym' is always computed.
-            carpetplot_select_std = pe.Node(
+        carpetplot_select_std = pe.Node(
                 KeySelect(fields=['std2anat_xfm'], key='MNI152NLin2009cAsym'),
                 name='carpetplot_select_std', run_without_submitting=True)
 
-            workflow.connect([
+        workflow.connect([
                 (inputnode, carpetplot_select_std, [
                     ('std2anat_xfm', 'std2anat_xfm'),
                     ('template', 'keys')]),

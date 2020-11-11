@@ -328,8 +328,7 @@ effects of other kernels [@lanczos].
                                 scorescrub=scorescrub, basil=basil,
                                 omp_nthreads=omp_nthreads, name='cbf_plot')
     workflow.connect([
-       (cbf_compt_wf, cbf_plot, [('outputnode.out_mean', 'inputnode.cbf'),
-                                 ,]),
+       (cbf_compt_wf, cbf_plot, [('outputnode.out_mean', 'inputnode.cbf')]),
        (gen_ref_wf, cbf_plot, [('outputnode.ref_image_brain', 'inputnode.asl_ref')]),
        ])
     if scorescrub:
@@ -369,8 +368,8 @@ effects of other kernels [@lanczos].
             (t1w_gereg_wf, asl_derivatives_wf, [('outputnode.cbf_t1', 'inputnode.cbf_t1'),
                                             ('outputnode.meancbf_t1', 'inputnode.meancbf_t1'),]),
                           ])
-            if scorescrub:
-                workflow.connect([
+        if scorescrub:
+            workflow.connect([
                   (cbf_compt_wf, t1w_gereg_wf, [('outputnode.out_score', 'inputnode.score'),
                                               ('outputnode.out_avgscore', 'inputnode.avgscore'),
                                               ('outputnode.out_scrub', 'inputnode.scrub'),]),
@@ -379,8 +378,8 @@ effects of other kernels [@lanczos].
                                             ('outputnode.avgscore_t1', 'inputnode.avgscore_t1'),
                                          ('outputnode.scrub_t1', 'inputnode.scrub_t1'),]),
                 ])
-            if basil:
-                workflow.connect([
+        if basil:
+            workflow.connect([
                  (cbf_compt_wf, t1w_gereg_wf, [
                                               ('outputnode.out_cbfb', 'inputnode.basil'),
                                               ('outputnode.out_cbfpv', 'inputnode.pv'),
@@ -456,6 +455,7 @@ effects of other kernels [@lanczos].
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         # Apply transforms in 1 shot
         std_gereg_wf = init_asl_gestd_trans_wf(mem_gb=4,omp_nthreads=omp_nthreads,spaces=spaces,
+                        scorescrub=scorescrub,basil=basil,
                             name='asl_gestd_trans_wf', use_compression=True)
         workflow.connect([
             (inputnode, std_gereg_wf, [
@@ -475,15 +475,15 @@ effects of other kernels [@lanczos].
                                                ]),
             ])
 
-            if scorescrub:
-                workflow.connect([
+        if scorescrub:
+            workflow.connect([
                     (cbf_compt_wf, std_gereg_wf, [
                                                ('outputnode.out_score', 'inputnode.score'),
                                                ('outputnode.out_avgscore', 'inputnode.avgscore'),
                                                ('outputnode.out_scrub', 'inputnode.scrub'),]),
                  ])
-            if basil:
-                workflow.connect([
+        if basil:
+            workflow.connect([
                     (cbf_compt_wf, std_gereg_wf, [
                                                ('outputnode.out_cbfb', 'inputnode.basil'),
                                                ('outputnode.out_cbfpv', 'inputnode.pv'),
@@ -547,9 +547,9 @@ effects of other kernels [@lanczos].
 
     if scorescrub:
         workflow.connect([
-            (cbf_compt_wf, cbfroiqu, [(
+            (cbf_compt_wf, cbfroiqu, [
                                       ('outputnode.out_avgscore', 'inputnode.score'),
-                                      ('outputnode.out_scrub', 'inputnode.scrub'),]),
+                                      ('outputnode.out_scrub', 'inputnode.scrub')]),
             (cbfroiqu, asl_derivatives_wf, [
                 ('outputnode.score_hvoxf', 'inputnode.score_hvoxf'),
                 ('outputnode.score_sc207', 'inputnode.score_sc207'),

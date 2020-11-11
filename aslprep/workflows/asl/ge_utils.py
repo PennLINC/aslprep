@@ -243,17 +243,18 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
          (inputnode, score_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
          (inputnode, score_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
-        (inputnode, avgscore_to_t1w_transform, [('avgscore', 'input_image')]),
-        (avgscore_to_t1w_transform, outputnode, [('output_image', 'avgscore_t1')]),
-        (inputnode, avgscore_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, avgscore_to_t1w_transform, [('t1w_brain', 'reference_image')]),
+         (inputnode, avgscore_to_t1w_transform, [('avgscore', 'input_image')]),
+         (avgscore_to_t1w_transform, outputnode, [('output_image', 'avgscore_t1')]),
+         (inputnode, avgscore_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (inputnode, avgscore_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
-        (inputnode, scrub_to_t1w_transform, [('scrub', 'input_image')]),
-        (scrub_to_t1w_transform, outputnode, [('output_image', 'scrub_t1')]),
-        (inputnode, scrub_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (inputnode, scrub_to_t1w_transform, [('t1w_brain', 'reference_image')]),
-        ])
-       workflow.connect([
+         (inputnode, scrub_to_t1w_transform, [('scrub', 'input_image')]),
+         (scrub_to_t1w_transform, outputnode, [('output_image', 'scrub_t1')]),
+         (inputnode, scrub_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (inputnode, scrub_to_t1w_transform, [('t1w_brain', 'reference_image')]),
+          ])
+        
+        workflow.connect([
          (inputnode, basil_to_t1w_transform, [('basil', 'input_image')]),
          (basil_to_t1w_transform, outputnode, [('output_image', 'basil_t1')]),
          (inputnode, basil_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
@@ -382,7 +383,7 @@ preprocessed ASL runs*: {tpl}.
           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
           name='basil_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
 
-       pv_to_std_transform = pe.Node(
+        pv_to_std_transform = pe.Node(
           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
           name='pv_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         att_to_std_transform = pe.Node(
@@ -467,6 +468,7 @@ preprocessed ASL runs*: {tpl}.
         (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, score_to_std_transform, [('score', 'input_image')]),
         (score_to_std_transform, poutputnode, [('output_image', 'score_std')]),
+      ])
 
     if scorescrub:
         workflow.connect([
@@ -480,8 +482,7 @@ preprocessed ASL runs*: {tpl}.
          (inputnode, scrub_to_std_transform, [('scrub', 'input_image')]),
          (scrub_to_std_transform, poutputnode, [('output_image', 'scrub_std')]),
 
-         
-        ])
+         ])
     if basil:
         workflow.connect([
         (mask_merge_tfms, basil_to_std_transform, [('out', 'transforms')]),

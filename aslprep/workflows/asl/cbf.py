@@ -16,7 +16,8 @@ import tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
 
 
-def init_cbf_compt_wf(mem_gb, metadata,bids_dir,,dummy_vols, omp_nthreads,scorescrub=False,basil=False,M0Scale=1,smooth_kernel=5,
+def init_cbf_compt_wf(mem_gb, metadata,bids_dir,dummy_vols, omp_nthreads,
+                     scorescrub=False,basil=False,M0Scale=1,smooth_kernel=5,
                       name='cbf_compt_wf'):
     """
     Create a workflow for :abbr:`CCBF ( compute cbf)`.
@@ -411,7 +412,8 @@ CBF within Grey matter
     qccompute = pe.Node(qccbfge(in_file=asl_file), name='qccompute',
                         run_without_submitting=True, mem_gb=0.2)
 
-    workflow.connect([(inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+    workflow.connect([
+                    (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
                                             ('t1_asl_xform', 'transforms')]),
                       (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
                       (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
@@ -432,7 +434,7 @@ CBF within Grey matter
                       (wm_tfm, qccompute, [('output_image', 'in_whiteM')]),
                       (csf_tfm, qccompute, [('output_image', 'in_csf')]),
                       (inputnode, qccompute, [('meancbf', 'in_meancbf')]),
-                     (
+                     
                       ])
     if scorescrub:
         workflow.connect([ 
@@ -445,7 +447,8 @@ CBF within Grey matter
                       (inputnode, qccompute, [('basil', 'in_basil'), ('pv', 'in_pvc')]),
         ]),
                                               
-    workflow.connect([(qccompute, outputnode, [('qc_file', 'qc_file')]),
+    workflow.connect([
+          (qccompute, outputnode, [('qc_file', 'qc_file')]),
                       ])
     return workflow
 
@@ -576,7 +579,7 @@ def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads,scorescrub=False,basil=Fals
         DerivativesDataSink(desc='cbfplot', datatype="figures", keep_dtype=True),
         name='ds_report_cbfplot', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)
-    workflow.connect(
+    workflow.connect([
                       (inputnode, cbfsummary, [('cbf', 'cbf'), ('asl_ref', 'ref_vol')]),
                       (cbfsummary, ds_report_cbfplot, [('out_file', 'in_file')]),
                       (cbfsummary, outputnode, [('out_file', 'cbf_summary_plot')]),
@@ -943,22 +946,24 @@ based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few e
 outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
 algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
 probalility maps [@scrub_dolui]. 
-"""         workflow.connect([
+"""         
             
-            (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+            workflow.connect([
+            
+             (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
                               ('t1_asl_xform', 'transforms')]),
-            (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
-            (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+             (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
+             (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
                              ('t1_asl_xform', 'transforms')]),
-            (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
-            (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+             (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
+             (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
                              ('t1_asl_xform', 'transforms')]),
-            (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
-            (inputnode, scorescrub, [('asl_file', 'in_file')]),
-            (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
-            (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
-            (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
-            (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
+             (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
+             (inputnode, scorescrub, [('asl_file', 'in_file')]),
+             (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
+             (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
+             (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
+             (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
                                   ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
              ])
     return workflow
