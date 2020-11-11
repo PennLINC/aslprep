@@ -27,7 +27,6 @@ LOGGER = config.loggers.workflow
 
 
 def init_asl_reg_wf(
-        freesurfer,
         use_bbr,
         asl2t1w_dof,
         asl2t1w_init,
@@ -43,11 +42,6 @@ def init_asl_reg_wf(
 
     Calculates the registration between a reference ASL image and T1w-space
     using a boundary-based registration (BBR) cost function.
-    If FreeSurfer-based preprocessing is enabled, the ``bbregister`` utility
-    is used to align the ASL images to the reconstructed subject, and the
-    resulting transform is adjusted to target the T1 space.
-    If FreeSurfer-based preprocessing is disabled, FSL FLIRT is used with the
-    BBR cost function to directly target the T1 space.
 
     Workflow Graph
         .. workflow::
@@ -55,8 +49,7 @@ def init_asl_reg_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.registration import init_asl_reg_wf
-            wf = init_asl_reg_wf(freesurfer=True,
-                                  mem_gb=3,
+            wf = init_asl_reg_wf( mem_gb=3,
                                   omp_nthreads=1,
                                   use_bbr=True,
                                   asl2t1w_dof=9,
@@ -64,8 +57,6 @@ def init_asl_reg_wf(
 
     Parameters
     ----------
-    freesurfer : :obj:`bool`
-        Enable FreeSurfer functional registration (bbregister)
     use_bbr : :obj:`bool` or None
         Enable/disable boundary-based registration refinement.
         If ``None``, test BBR result for distortion before accepting.
@@ -97,12 +88,6 @@ def init_asl_reg_wf(
     t1w_dseg
         Segmentation of preprocessed structural image, including
         gray-matter (GM), white-matter (WM) and cerebrospinal fluid (CSF)
-    subjects_dir
-        FreeSurfer SUBJECTS_DIR
-    subject_id
-        FreeSurfer subject ID
-    fsnative2t1w_xfm
-        LTA-style affine matrix translating from FreeSurfer-conformed subject space to T1w
 
     Outputs
     -------
@@ -125,7 +110,7 @@ def init_asl_reg_wf(
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=['ref_asl_brain', 't1w_brain', 't1w_dseg',
-                    'subjects_dir', 'subject_id', 'fsnative2t1w_xfm']),
+                    ]),
         name='inputnode'
     )
 
@@ -135,19 +120,14 @@ def init_asl_reg_wf(
         name='outputnode'
     )
 
-    if freesurfer:
-        bbr_wf = init_bbreg_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
-                               asl2t1w_init=asl2t1w_init, omp_nthreads=omp_nthreads)
-    else:
-        bbr_wf = init_fsl_bbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
+   
+   
+    bbr_wf = init_fsl_bbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
                                  asl2t1w_init=asl2t1w_init, sloppy=sloppy)
 
     workflow.connect([
         (inputnode, bbr_wf, [
             ('ref_asl_brain', 'inputnode.in_file'),
-            ('fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm'),
-            ('subjects_dir', 'inputnode.subjects_dir'),
-            ('subject_id', 'inputnode.subject_id'),
             ('t1w_dseg', 'inputnode.t1w_dseg'),
             ('t1w_brain', 'inputnode.t1w_brain')]),
         (bbr_wf, outputnode, [('outputnode.itk_asl_to_t1', 'itk_asl_to_t1'),
@@ -161,21 +141,19 @@ def init_asl_reg_wf(
             name='ds_report_reg', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
 
-        def _asl_reg_suffix(fallback, freesurfer):
-            if fallback:
-                return 'coreg' if freesurfer else 'flirtnobbr'
-            return 'bbregister' if freesurfer else 'flirtbbr'
+        def _asl_reg_suffix(fallback):
+            return 'flirtbbr'
 
         workflow.connect([
             (bbr_wf, ds_report_reg, [
                 ('outputnode.out_report', 'in_file'),
-                (('outputnode.fallback', _asl_reg_suffix, freesurfer), 'desc')]),
+                (('outputnode.fallback', _asl_reg_suffix), 'desc')]),
         ])
 
     return workflow
 
 
-def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, multiecho=False, use_fieldwarp=False,
+def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbft1space=False, multiecho=False, use_fieldwarp=False,
                           use_compression=True, name='asl_t1_trans_wf'):
     """
     Co-register the reference ASL image to T1w-space.
@@ -188,14 +166,12 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
             :simple_form: yes
 
             from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
-            wf = init_asl_t1_trans_wf(freesurfer=True,
+            wf = init_asl_t1_trans_wf(
                                        mem_gb=3,
                                        omp_nthreads=1)
 
     Parameters
     ----------
-    freesurfer : :obj:`bool`
-        Enable FreeSurfer functional registration (bbregister)
     use_fieldwarp : :obj:`bool`
         Include SDC warp in single-shot transform from ASLto T1
     multiecho : :obj:`bool`
@@ -223,12 +199,6 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         Skull-stripped bias-corrected structural template image
     t1w_mask
         Mask of the skull-stripped template image
-    t1w_aseg
-        FreeSurfer's ``aseg.mgz`` atlas projected into the T1w reference
-        (only if ``recon-all`` was run).
-    t1w_aparc
-        FreeSurfer's ``aparc+aseg.mgz`` atlas projected into the T1w reference
-        (only if ``recon-all`` was run).
     asl_split
         Individual 3D ASL volumes, not motion corrected
     hmc_xforms
@@ -246,12 +216,6 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         Reference, contrast-enhanced summary of the motion-corrected ASL series in T1w space
     asl_mask_t1
         ASL mask in T1 space
-    asl_aseg_t1
-        FreeSurfer's ``aseg.mgz`` atlas, in T1w-space at the ASL resolution
-        (only if ``recon-all`` was run).
-    asl_aparc_t1
-        FreeSurfer's ``aparc+aseg.mgz`` atlas, in T1w-space at the ASL resolution
-        (only if ``recon-all`` was run).
 
     See also
     --------
@@ -269,8 +233,7 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=['name_source', 'ref_asl_brain', 'ref_asl_mask',
-                    't1w_brain', 't1w_mask', 't1w_aseg', 't1w_aparc',
+            fields=['name_source', 'ref_asl_brain', 'ref_asl_mask','t1w_brain', 't1w_mask', 
                     'asl_split', 'fieldwarp', 'hmc_xforms', 'cbf', 'meancbf','att',
                     'score', 'avgscore', 'scrub', 'basil', 'pv', 'itk_asl_to_t1']),
         name='inputnode'
@@ -278,8 +241,9 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
 
     outputnode = pe.Node(
         niu.IdentityInterface(fields=[
-            'asl_t1', 'asl_t1_ref', 'asl_mask_t1', 'asl_aseg_t1', 'asl_aparc_t1','att_t1',
-            'cbf_t1', 'meancbf_t1', 'score_t1', 'avgscore_t1', 'scrub_t1', 'basil_t1', 'pv_t1']),
+            'asl_t1', 'asl_t1_ref', 'asl_mask_t1','att_t1',
+            'cbf_t1', 'meancbf_t1', 'score_t1', 'avgscore_t1', 
+            'scrub_t1', 'basil_t1', 'pv_t1']),
         name='outputnode'
     )
 
@@ -299,23 +263,6 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         (mask_t1w_tfm, outputnode, [('output_image', 'asl_mask_t1')]),
     ])
 
-    if freesurfer:
-        # Resample aseg and aparc in T1w space (no transforms needed)
-        aseg_t1w_tfm = pe.Node(
-            ApplyTransforms(interpolation='MultiLabel', transforms='identity'),
-            name='aseg_t1w_tfm', mem_gb=0.1)
-        aparc_t1w_tfm = pe.Node(
-            ApplyTransforms(interpolation='MultiLabel', transforms='identity'),
-            name='aparc_t1w_tfm', mem_gb=0.1)
-
-        workflow.connect([
-            (inputnode, aseg_t1w_tfm, [('t1w_aseg', 'input_image')]),
-            (inputnode, aparc_t1w_tfm, [('t1w_aparc', 'input_image')]),
-            (gen_ref, aseg_t1w_tfm, [('out_file', 'reference_image')]),
-            (gen_ref, aparc_t1w_tfm, [('out_file', 'reference_image')]),
-            (aseg_t1w_tfm, outputnode, [('output_image', 'asl_aseg_t1')]),
-            (aparc_t1w_tfm, outputnode, [('output_image', 'asl_aparc_t1')]),
-        ])
     asl_to_t1w_transform = pe.Node(
                   MultiApplyTransforms(interpolation="LanczosWindowedSinc", float=True, copy_dtype=True),
                   name='asl_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
@@ -368,8 +315,6 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         ])
 
     if cbft1space:
-        
-        
         cbf_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
                         dimension=3),
@@ -377,6 +322,22 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         meancbf_to_t1w_transform = pe.Node(
                          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
                          name='meancbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+
+        workflow.connect([
+         
+         (gen_final_ref, outputnode, [('outputnode.ref_image', 'asl_t1_ref')]),
+         (inputnode, cbf_to_t1w_transform, [('cbf', 'input_image')]),
+         (cbf_to_t1w_transform, outputnode, [('output_image', 'cbf_t1')]),
+         (inputnode, cbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (gen_ref, cbf_to_t1w_transform, [('out_file', 'reference_image')]),
+         (inputnode, meancbf_to_t1w_transform, [('meancbf', 'input_image')]),
+         (meancbf_to_t1w_transform, outputnode, [('output_image', 'meancbf_t1')]),
+         (inputnode, meancbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (gen_ref, meancbf_to_t1w_transform, [('out_file', 'reference_image')]),
+
+        ])
+    if cbft1space and scorescrub:
+
         score_to_t1w_transform = pe.Node(
              ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
                         dimension=3),
@@ -387,6 +348,27 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         scrub_to_t1w_transform = pe.Node(
               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
               name='scrub_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+
+        workflow.connect([
+
+         (inputnode, score_to_t1w_transform, [('score', 'input_image')]),
+         (score_to_t1w_transform, outputnode, [('output_image', 'score_t1')]),
+         (inputnode, score_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (gen_ref, score_to_t1w_transform, [('out_file', 'reference_image')]),
+
+         (inputnode, avgscore_to_t1w_transform, [('avgscore', 'input_image')]),
+         (avgscore_to_t1w_transform, outputnode, [('output_image', 'avgscore_t1')]),
+         (inputnode, avgscore_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (gen_ref, avgscore_to_t1w_transform, [('out_file', 'reference_image')]),
+
+         (inputnode, scrub_to_t1w_transform, [('scrub', 'input_image')]),
+         (scrub_to_t1w_transform, outputnode, [('output_image', 'scrub_t1')]),
+         (inputnode, scrub_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (gen_ref, scrub_to_t1w_transform, [('out_file', 'reference_image')]),
+
+         ])
+    
+    if cbft1space and basil:
         basil_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
             name='basil_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
@@ -396,49 +378,23 @@ def init_asl_t1_trans_wf(freesurfer, mem_gb, omp_nthreads, cbft1space=False, mul
         att_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
                name='att_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-        workflow.connect([
-         
-        (gen_final_ref, outputnode, [('outputnode.ref_image', 'asl_t1_ref')]),
+        
+        
+        workflow.connect[(
+         (inputnode, basil_to_t1w_transform, [('basil', 'input_image')]),
+         (basil_to_t1w_transform, outputnode, [('output_image', 'basil_t1')]),
+         (inputnode, basil_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (gen_ref, basil_to_t1w_transform, [('out_file', 'reference_image')]),
 
-        (inputnode, cbf_to_t1w_transform, [('cbf', 'input_image')]),
-        (cbf_to_t1w_transform, outputnode, [('output_image', 'cbf_t1')]),
-        (inputnode, cbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (gen_ref, cbf_to_t1w_transform, [('out_file', 'reference_image')]),
+         (inputnode, pv_to_t1w_transform, [('pv', 'input_image')]),
+         (pv_to_t1w_transform, outputnode, [('output_image', 'pv_t1')]),
+         (inputnode, pv_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (gen_ref, pv_to_t1w_transform, [('out_file', 'reference_image')]),
 
-        (inputnode, score_to_t1w_transform, [('score', 'input_image')]),
-        (score_to_t1w_transform, outputnode, [('output_image', 'score_t1')]),
-        (inputnode, score_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (gen_ref, score_to_t1w_transform, [('out_file', 'reference_image')]),
-
-        (inputnode, meancbf_to_t1w_transform, [('meancbf', 'input_image')]),
-        (meancbf_to_t1w_transform, outputnode, [('output_image', 'meancbf_t1')]),
-        (inputnode, meancbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (gen_ref, meancbf_to_t1w_transform, [('out_file', 'reference_image')]),
-
-        (inputnode, avgscore_to_t1w_transform, [('avgscore', 'input_image')]),
-        (avgscore_to_t1w_transform, outputnode, [('output_image', 'avgscore_t1')]),
-        (inputnode, avgscore_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (gen_ref, avgscore_to_t1w_transform, [('out_file', 'reference_image')]),
-
-        (inputnode, scrub_to_t1w_transform, [('scrub', 'input_image')]),
-        (scrub_to_t1w_transform, outputnode, [('output_image', 'scrub_t1')]),
-        (inputnode, scrub_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (gen_ref, scrub_to_t1w_transform, [('out_file', 'reference_image')]),
-
-        (inputnode, basil_to_t1w_transform, [('basil', 'input_image')]),
-        (basil_to_t1w_transform, outputnode, [('output_image', 'basil_t1')]),
-        (inputnode, basil_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (gen_ref, basil_to_t1w_transform, [('out_file', 'reference_image')]),
-
-        (inputnode, pv_to_t1w_transform, [('pv', 'input_image')]),
-        (pv_to_t1w_transform, outputnode, [('output_image', 'pv_t1')]),
-        (inputnode, pv_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (gen_ref, pv_to_t1w_transform, [('out_file', 'reference_image')]),
-
-        (inputnode, att_to_t1w_transform, [('att', 'input_image')]),
-        (att_to_t1w_transform, outputnode, [('output_image', 'att_t1')]),
-        (inputnode, att_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-        (gen_ref, att_to_t1w_transform, [('out_file', 'reference_image')]),
+         (inputnode, att_to_t1w_transform, [('att', 'input_image')]),
+         (att_to_t1w_transform, outputnode, [('output_image', 'att_t1')]),
+         (inputnode, att_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (gen_ref, att_to_t1w_transform, [('out_file', 'reference_image')]),
          ])
 
     return workflow
@@ -695,12 +651,7 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_
         Skull-stripped T1-weighted structural image
     t1w_dseg
         FAST segmentation of ``t1w_brain``
-    fsnative2t1w_xfm
-        Unused (see :py:func:`~aslprep.workflows.asl.registration.init_bbreg_wf`)
-    subjects_dir
-        Unused (see :py:func:`~aslprep.workflows.asl.registration.init_bbreg_wf`)
-    subject_id
-        Unused (see :py:func:`~aslprep.workflows.asl.registration.init_bbreg_wf`)
+    
 
     Outputs
     -------
@@ -726,9 +677,7 @@ cost-function. Co-registration was configured with nine degrees of freedom to ac
 
     inputnode = pe.Node(
         niu.IdentityInterface([
-            'in_file',
-            'fsnative2t1w_xfm', 'subjects_dir', 'subject_id',  # BBRegister
-            't1w_dseg', 't1w_brain']),  # FLIRT BBR
+            'in_file', 't1w_dseg', 't1w_brain']),  # FLIRT BBR
         name='inputnode')
     outputnode = pe.Node(
         niu.IdentityInterface(['itk_asl_to_t1', 'itk_t1_to_asl', 'out_report', 'fallback']),

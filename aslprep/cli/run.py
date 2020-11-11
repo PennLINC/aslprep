@@ -133,22 +133,6 @@ def main():
                 "Works derived from this ASLPrep execution should include the "
                 f"boilerplate text found in {boiler_file}.",
             )
-
-        if config.workflow.run_reconall:
-            from templateflow import api
-            from ..niworkflows.utils.misc import _copy_any
-
-            dseg_tsv = str(api.get("fsaverage", suffix="dseg", extension=[".tsv"]))
-            _copy_any(
-                dseg_tsv,
-                str(config.execution.output_dir / "aslprep" / "desc-aseg_dseg.tsv"),
-            )
-            _copy_any(
-                dseg_tsv,
-                str(
-                    config.execution.output_dir / "aslprep" / "desc-aparcaseg_dseg.tsv"
-                ),
-            )
         errno = 0
     finally:
         from ..niworkflows.reports import generate_reports

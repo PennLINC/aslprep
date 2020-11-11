@@ -412,16 +412,11 @@ class workflow(_Config):
 
     anat_only = False
     """Execute the anatomical preprocessing only."""
-
     asl2t1w_dof = 6
     """Degrees of freedom of the ASL-to-T1w registration steps."""
     asl2t1w_init = 'register'
     """Whether to use standard coregistration ('register') or to initialize coregistration from the
     ASL image-header ('header')."""
-    cifti_output = None
-    """Generate HCP Grayordinates, accepts either ``'91k'`` (default) or ``'170k'``."""
-    dummy_scans = None
-    """Set a number of initial scans to be considered nonsteady states."""
     m0_scale = int(1)
     """relative scale between asl and M0."""
     fmap_bspline = None
@@ -438,10 +433,6 @@ class workflow(_Config):
     """Run FreeSurfer ``recon-all`` with the ``-logitudinal`` flag."""
     random_seed = None
     """Master random seed to initialize the Pseudorandom Number Generator (PRNG)"""
-    medial_surface_nan = None
-    """Fill medial surface with :abbr:`NaNs (not-a-number)` when sampling."""
-    run_reconall = True
-    """Run FreeSurfer's surface reconstruction."""
     skull_strip_fixed_seed = False
     """Fix a seed for skull-stripping."""
     skull_strip_template = "OASIS30ANTs"
@@ -461,6 +452,11 @@ class workflow(_Config):
     """ pair for label-control volume to be deleted before cbf computation."""
     smooth_kernel = int(5)
     """ kernel size for smoothing M0."""
+    scorescrub = False
+    """ run scorescrub, Sudipto's alogrothims for denoisng CBF """
+    basil = False
+    """ run BASIL, FSL utils to compute CBF with spatial regularilization and 
+       partial volume correction """
 
 
 class loggers:

@@ -768,10 +768,10 @@ class BASILCBF(FSLCommand):
 class _qccbfInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc='original asl_file')
     in_meancbf = File(exists=True, mandatory=True, desc='cbf img')
-    in_avgscore = File(exists=True, mandatory=True, desc='cbf img')
-    in_scrub = File(exists=True, mandatory=True, desc='cbf img')
-    in_basil = File(exists=True, mandatory=True, desc='cbf img')
-    in_pvc = File(exists=True, mandatory=True, desc='cbf img')
+    in_avgscore = File(exists=True, mandatory=False, desc='cbf img')
+    in_scrub = File(exists=True, mandatory=False, desc='cbf img')
+    in_basil = File(exists=True, mandatory=False, desc='cbf img')
+    in_pvc = File(exists=True, mandatory=False, desc='cbf img')
     in_greyM = File(exists=True, mandatory=True, desc='grey  matter')
     in_whiteM = File(exists=True, mandatory=True, desc='white  matter')
     in_csf = File(exists=True, mandatory=True, desc='csf')
@@ -819,22 +819,40 @@ class qccbf(SimpleInterface):
 
         meancbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                               csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.7)
-        scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
-        basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
-        pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
-        scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
         meancbf = globalcbf(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                             csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.7)
+
+        if self.inputs.in_avgscore:
+            scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
+            scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
+            negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
+            negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
+        else:
+            scorecbf_qei = 0
+            scrub_qei = 0 
+            negscore = 0
+            negscrub = 0
+
+        if self.inputs.in_basil:
+            basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
+            pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
+            negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
+            negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+        else:
+            basilcbf_qei = 0
+            pvcbf_qei = 0 
+            negbasil = 0
+            negpvc = 0
+        
+        
         gwratio = np.divide(meancbf[0], meancbf[1])
         negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.7)
-        negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
-        negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
-        negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
-        negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+        
+        
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
             dict1 = {'FD': [fd], 'relRMS': [rms], 'coregDC': [regDC], 'coregJC': [regJC],
@@ -875,10 +893,10 @@ class qccbf(SimpleInterface):
 class _qccbfgeInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc='original asl_file')
     in_meancbf = File(exists=True, mandatory=True, desc='cbf img')
-    in_avgscore = File(exists=True, mandatory=True, desc='cbf img')
-    in_scrub = File(exists=True, mandatory=True, desc='cbf img')
-    in_basil = File(exists=True, mandatory=True, desc='cbf img')
-    in_pvc = File(exists=True, mandatory=True, desc='cbf img')
+    in_avgscore = File(exists=True, mandatory=False, desc='cbf img')
+    in_scrub = File(exists=True, mandatory=False, desc='cbf img')
+    in_basil = File(exists=True, mandatory=False, desc='cbf img')
+    in_pvc = File(exists=True, mandatory=False, desc='cbf img')
     in_greyM = File(exists=True, mandatory=True, desc='grey  matter')
     in_whiteM = File(exists=True, mandatory=True, desc='white  matter')
     in_csf = File(exists=True, mandatory=True, desc='csf')
@@ -918,22 +936,34 @@ class qccbfge(SimpleInterface):
 
         meancbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                               csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.7)
-        scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
-        basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
-        pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
-        scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
         meancbf = globalcbf(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                             csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.7)
-        gwratio = np.divide(meancbf[0], meancbf[1])
-        negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.7)
-        negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
-        negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
-        negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
-        negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+
+        if self.inputs.in_avgscore:
+            scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
+            scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
+            negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
+            negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
+        else:
+            scorecbf_qei = 0
+            scrub_qei = 0 
+            negscore = 0
+            negscrub = 0
+
+        if self.inputs.in_basil:
+            basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
+            pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
+            negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
+            negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+        else:
+            basilcbf_qei = 0
+            pvcbf_qei = 0 
+            negbasil = 0
+            negpvc = 0
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
             dict1 = {'FD': 0, 'relRMS': 0, 'coregDC': [regDC], 'coregJC': [regJC],
