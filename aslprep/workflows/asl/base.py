@@ -878,7 +878,7 @@ effects of other kernels [@lanczos].
             (asl_confounds_wf, carpetplot_wf, [
                         ('outputnode.confounds_file', 'inputnode.confounds_file')])
         ])
-    cbfroiqu = init_cbfroiquant_wf(mem_gb=mem_gb,
+    cbfroiqu = init_cbfroiquant_wf(mem_gb=mem_gb,basil=basil,scorescrub=scorescrub,
                                    omp_nthreads=omp_nthreads,
                                    name='cbf_roiquant')
     workflow.connect([
@@ -886,16 +886,22 @@ effects of other kernels [@lanczos].
             (inputnode, cbfroiqu, [('std2anat_xfm', 'inputnode.std2anat_xfm')]),
             (asl_reg_wf, cbfroiqu, [('outputnode.itk_t1_to_asl', 'inputnode.t1_asl_xform')]),
             (compt_cbf_wf, cbfroiqu, [('outputnode.out_mean', 'inputnode.cbf'),
-                                      ('outputnode.out_avgscore', 'inputnode.score'),
-                                      ('outputnode.out_scrub', 'inputnode.scrub'),
-                                      ('outputnode.out_cbfb', 'inputnode.basil'),
-                                      ('outputnode.out_cbfpv', 'inputnode.pvc')]),
+                                      ]),
             (cbfroiqu, asl_derivatives_wf, [
                 ('outputnode.cbf_hvoxf', 'inputnode.cbf_hvoxf'),
                 ('outputnode.cbf_sc207', 'inputnode.cbf_sc207'),
                 ('outputnode.cbf_sc217', 'inputnode.cbf_sc217'),
                 ('outputnode.cbf_sc407', 'inputnode.cbf_sc407'),
                 ('outputnode.cbf_sc417', 'inputnode.cbf_sc417'),
+                
+                ]),
+    ])
+
+    if scorescrub:
+        workflow.connect([
+            (compt_cbf_wf, cbfroiqu, [('outputnode.out_cbfb', 'inputnode.basil'),
+                                      ('outputnode.out_cbfpv', 'inputnode.pvc'),]),
+            (cbfroiqu, asl_derivatives_wf, [
                 ('outputnode.score_hvoxf', 'inputnode.score_hvoxf'),
                 ('outputnode.score_sc207', 'inputnode.score_sc207'),
                 ('outputnode.score_sc217', 'inputnode.score_sc217'),
@@ -905,7 +911,13 @@ effects of other kernels [@lanczos].
                 ('outputnode.scrub_sc207', 'inputnode.scrub_sc207'),
                 ('outputnode.scrub_sc217', 'inputnode.scrub_sc217'),
                 ('outputnode.scrub_sc407', 'inputnode.scrub_sc407'),
-                ('outputnode.scrub_sc417', 'inputnode.scrub_sc417'),
+                ('outputnode.scrub_sc417', 'inputnode.scrub_sc417'),]),
+        ])
+    if basil:
+        workflow.connect([
+            (compt_cbf_wf, cbfroiqu, [('outputnode.out_avgscore', 'inputnode.score'),
+                                      ('outputnode.out_scrub', 'inputnode.scrub'),]),
+            (cbfroiqu, asl_derivatives_wf, [
                 ('outputnode.basil_hvoxf', 'inputnode.basil_hvoxf'),
                 ('outputnode.basil_sc207', 'inputnode.basil_sc207'),
                 ('outputnode.basil_sc217', 'inputnode.basil_sc217'),
@@ -915,8 +927,10 @@ effects of other kernels [@lanczos].
                 ('outputnode.pvc_sc207', 'inputnode.pvc_sc207'),
                 ('outputnode.pvc_sc217', 'inputnode.pvc_sc217'),
                 ('outputnode.pvc_sc407', 'inputnode.pvc_sc407'),
-                ('outputnode.pvc_sc417', 'inputnode.pvc_sc417')]),
-    ])
+                ('outputnode.pvc_sc417', 'inputnode.pvc_sc417'),]),
+        ])
+
+        
 
 
 
