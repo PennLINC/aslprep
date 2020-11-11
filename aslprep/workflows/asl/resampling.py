@@ -161,6 +161,8 @@ def init_asl_std_trans_wf(
     mem_gb,
     omp_nthreads,
     spaces,
+    scorescrub=False,
+    basil=False,
     name='asl_std_trans_wf',
     use_compression=True,
     use_fieldwarp=False,
@@ -337,34 +339,32 @@ preprocessed ASL runs*: {tpl}.
         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
                         dimension=3),
         name='cbf_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    score_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
-                        dimension=3),
-        name='score_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
     meancbf_to_std_transform = pe.Node(
         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
         name='meancbf_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    avgscore_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='avgscore_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    scrub_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='scrub_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    basil_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='basil_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    pv_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='pv_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    att_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='att_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+    if scorescrub:
+        score_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
+                        dimension=3),
+          name='score_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        avgscore_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+           name='avgscore_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        scrub_to_std_transform = pe.Node(
+           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+           name='scrub_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+    
+    if basil:
+        basil_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+          name='basil_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        pv_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+          name='pv_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        att_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+          name='att_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+    
 
     merge = pe.Node(Merge(compress=use_compression), name='merge',
                     mem_gb=mem_gb * 3)
@@ -430,27 +430,30 @@ preprocessed ASL runs*: {tpl}.
         (gen_ref, cbf_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, cbf_to_std_transform, [('cbf', 'input_image')]),
         (cbf_to_std_transform, poutputnode, [('output_image', 'cbf_std')]),
-
-        (mask_merge_tfms, score_to_std_transform, [('out', 'transforms')]),
-        (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
-        (inputnode, score_to_std_transform, [('score', 'input_image')]),
-        (score_to_std_transform, poutputnode, [('output_image', 'score_std')]),
-
         (mask_merge_tfms, meancbf_to_std_transform, [('out', 'transforms')]),
         (gen_ref, meancbf_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, meancbf_to_std_transform, [('cbf', 'input_image')]),
         (meancbf_to_std_transform, poutputnode, [('output_image', 'meancbf_std')]),
+       ])
 
-        (mask_merge_tfms, avgscore_to_std_transform, [('out', 'transforms')]),
-        (gen_ref, avgscore_to_std_transform, [('out_file', 'reference_image')]),
-        (inputnode, avgscore_to_std_transform, [('avgscore', 'input_image')]),
-        (avgscore_to_std_transform, poutputnode, [('output_image', 'avgscore_std')]),
+    if scorescrub:
+        workflow.connect([ 
+          (mask_merge_tfms, score_to_std_transform, [('out', 'transforms')]),
+          (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
+          (inputnode, score_to_std_transform, [('score', 'input_image')]),
+          (score_to_std_transform, poutputnode, [('output_image', 'score_std')]),
+          (mask_merge_tfms, avgscore_to_std_transform, [('out', 'transforms')]),
+          (gen_ref, avgscore_to_std_transform, [('out_file', 'reference_image')]),
+          (inputnode, avgscore_to_std_transform, [('avgscore', 'input_image')]),
+          (avgscore_to_std_transform, poutputnode, [('output_image', 'avgscore_std')]),
+          (mask_merge_tfms, scrub_to_std_transform, [('out', 'transforms')]),
+          (gen_ref, scrub_to_std_transform, [('out_file', 'reference_image')]),
+          (inputnode, scrub_to_std_transform, [('scrub', 'input_image')]),
+          (scrub_to_std_transform, poutputnode, [('output_image', 'scrub_std')]),
+        ])
 
-        (mask_merge_tfms, scrub_to_std_transform, [('out', 'transforms')]),
-        (gen_ref, scrub_to_std_transform, [('out_file', 'reference_image')]),
-        (inputnode, scrub_to_std_transform, [('scrub', 'input_image')]),
-        (scrub_to_std_transform, poutputnode, [('output_image', 'scrub_std')]),
-
+    if basil:
+        workflow.connect([
         (mask_merge_tfms, basil_to_std_transform, [('out', 'transforms')]),
         (gen_ref, basil_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, basil_to_std_transform, [('basil', 'input_image')]),
@@ -465,7 +468,7 @@ preprocessed ASL runs*: {tpl}.
         (gen_ref, att_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, att_to_std_transform, [('att', 'input_image')]),
         (att_to_std_transform, poutputnode, [('output_image', 'att_std')]),
-    ])
+         ])
 
     # Connect parametric outputs to a Join outputnode
     outputnode = pe.JoinNode(niu.IdentityInterface(fields=output_names),
