@@ -29,7 +29,7 @@ from .resampling import (
 from .cbf import (
     init_cbf_compt_wf,
     init_cbfqc_compt_wf,
-    init_cbfplot_wf,
+    init_cbfplot_wf,init_gecbfplot_wf,
     init_cbfroiquant_wf,
     init_gecbf_compt_wf,init_cbfgeqc_compt_wf)
 from .outputs import init_asl_derivatives_wf,init_geasl_derivatives_wf
@@ -197,8 +197,6 @@ and co-registrations to anatomical and output spaces).
 Gridded (volumetric) resamplings were performed using `antsApplyTransforms` (ANTs),
 configured with Lanczos interpolation to minimize the smoothing
 effects of other kernels [@lanczos].
-Non-gridded (surface) resamplings were performed using `mri_vol2surf`
-(FreeSurfer).
 """
 
     inputnode = pe.Node(niu.IdentityInterface(
@@ -307,7 +305,17 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ('asl_file', 'inputnode.source_file')]),
     
      ]) 
-    
+      
+    cbf_plot = init_gecbfplot_wf(mem_gb=mem_gb, metadata=metadata,
+                               omp_nthreads=omp_nthreads, name='cbf_plot')
+    workflow.connect([
+       (cbf_compt_wf, cbf_plot, [('outputnode.out_mean', 'inputnode.cbf'),
+                                 ('outputnode.out_avgscore', 'inputnode.score'),
+                                 ('outputnode.out_scrub', 'inputnode.scrub'),
+                                 ('outputnode.out_cbfb', 'inputnode.basil'),
+                                 ('outputnode.out_cbfpv', 'inputnode.pvc'),]),
+       (gen_ref_wf, cbf_plot, [('outputnode.ref_image_brain', 'inputnode.asl_ref')]),
+       ])
 
     if nonstd_spaces.intersection(('T1w', 'anat')):
         t1cbfspace=True

@@ -332,8 +332,7 @@ def init_cbfgeqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads, name='cbfqc_
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The following quality control (qc) measures was estimated: framewise displacement and relative
-root mean square dice index. Other qc meaure include dice and jaccard indices, cross-correlation
+The following quality control (qc) measures was estimated: dice and jaccard indices, cross-correlation
 and coverage that estimate the coregistration quality of  ASL and T1W images and  normalization
 quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF [@cbfqc].
 The  QEI is  automated for objective quality evaluation of CBF maps and measured the CBF quality
@@ -472,6 +471,78 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
                       (cbftssummary, ds_report_cbftsplot, [('out_file', 'in_file')]),
                       (cbftssummary, outputnode, [('out_file', 'cbf_carpetplot')]),
                       (inputnode, cbfsummary, [('cbf', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (cbfsummary, ds_report_cbfplot, [('out_file', 'in_file')]),
+                      (cbfsummary, outputnode, [('out_file', 'cbf_summary_plot')]),
+                      (inputnode, scoresummary, [('score', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (scoresummary, ds_report_scoreplot, [('out_file', 'in_file')]),
+                      (scoresummary, outputnode, [('out_file', 'score_summary_plot')]),
+                      (inputnode, scrubsummary, [('scrub', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (scrubsummary, ds_report_scrubplot, [('out_file', 'in_file')]),
+                      (scrubsummary, outputnode, [('out_file', 'scrub_summary_plot')]),
+                      (inputnode, basilsummary, [('basil', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (basilsummary, ds_report_basilplot, [('out_file', 'in_file')]),
+                      (basilsummary, outputnode, [('out_file', 'basil_summary_plot')]),
+                      (inputnode, pvcsummary, [('pvc', 'cbf'), ('asl_ref', 'ref_vol')]),
+                      (pvcsummary, ds_report_pvcplot, [('out_file', 'in_file')]),
+                      (pvcsummary, outputnode, [('out_file', 'pvc_summary_plot')]),
+
+                      ])
+    return workflow
+
+def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
+    workflow = Workflow(name=name)
+
+    inputnode = pe.Node(niu.IdentityInterface(fields=['cbf', 'score',
+                                                      'scrub', 'asl_ref', 'basil', 'pvc'
+                                                      ]),
+                        name='inputnode')
+    outputnode = pe.Node(niu.IdentityInterface(fields=[
+                                                       'cbf_summary_plot', 
+                                                       'score_summary_plot', 'scrub_summary_plot',
+                                                       'basil_summary_plot', 'pvc_summary_plot']),
+                         name='outputnode')
+    mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
+    from templateflow.api import get as get_template
+    seg = get_template(
+            'MNI152NLin2009cAsym', resolution=1, desc='carpet',
+            suffix='dseg')
+    print(seg)
+    resample_parc = pe.Node(ApplyTransforms(
+        float=True,
+        input_image=str(seg),
+        dimension=3, default_value=0, interpolation='MultiLabel'),
+        name='resample_parc')
+
+
+    cbfsummary = pe.Node(CBFSummary(label='cbf'), name='cbf_summary', mem_gb=0.2)
+    scoresummary = pe.Node(CBFSummary(label='score'), name='score_summary', mem_gb=0.2)
+    scrubsummary = pe.Node(CBFSummary(label='scrub'), name='scrub_summary', mem_gb=0.2)
+    basilsummary = pe.Node(CBFSummary(label='basil'), name='basil_summary', mem_gb=0.2)
+    pvcsummary = pe.Node(CBFSummary(label='pvc'), name='pvc_summary', mem_gb=0.2)
+
+
+    ds_report_cbfplot = pe.Node(
+        DerivativesDataSink(desc='cbfplot', datatype="figures", keep_dtype=True),
+        name='ds_report_cbfplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scoreplot = pe.Node(
+        DerivativesDataSink(desc='scoreplot', datatype="figures",  keep_dtype=True),
+        name='ds_report_scoreplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_scrubplot = pe.Node(
+        DerivativesDataSink(desc='scrubplot', datatype="figures",  keep_dtype=True),
+        name='ds_report_scrubplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_basilplot = pe.Node(
+        DerivativesDataSink(desc='basilplot', datatype="figures",  keep_dtype=True),
+        name='ds_report_basilplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+    ds_report_pvcplot = pe.Node(
+        DerivativesDataSink(desc='pvcplot', datatype="figures", keep_dtype=True),
+        name='ds_report_pvcplot', run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB)
+
+    workflow.connect([(inputnode, cbfsummary, [('cbf', 'cbf'), ('asl_ref', 'ref_vol')]),
                       (cbfsummary, ds_report_cbfplot, [('out_file', 'in_file')]),
                       (cbfsummary, outputnode, [('out_file', 'cbf_summary_plot')]),
                       (inputnode, scoresummary, [('score', 'cbf'), ('asl_ref', 'ref_vol')]),
@@ -660,7 +731,7 @@ def init_gecbf_compt_wf(metadata, asl_file,mem_gb, bids_dir,omp_nthreads,M0Scale
                     
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The CBF was quantified from  *preproccessed* ASL data using a relatively basic
+The CBF was quantified from  *preproccessed* ASL data  using a relatively basic
 model [@detre_perfusion] [@alsop_recommended]. CBF are susceptible to artifacts
 due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
 based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme

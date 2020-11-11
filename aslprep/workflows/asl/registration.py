@@ -720,11 +720,8 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_
     from ...niworkflows.interfaces.registration import FLIRTRPT
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The ASL reference was then co-registered to the T1w reference using
-`flirt` [FSL {fsl_ver}, @flirt] with the boundary-based registration [@bbr]
-cost-function.
-Co-registration was configured with nine degrees of freedom to account
-for distortions remaining in the ASL reference.
+The ASL reference was then co-registered to the T1w reference using `flirt` [FSL {fsl_ver}, @flirt] with the boundary-based registration [@bbr]
+cost-function. Co-registration was configured with nine degrees of freedom to account for distortions remaining in the ASL reference.
 """.format(fsl_ver=FLIRTRPT().version or '<ver>')
 
     inputnode = pe.Node(
@@ -862,7 +859,7 @@ for distortions remaining in the ASL reference.
     return workflow
 
 
-def compare_xforms(lta_list, norm_threshold=1):
+def compare_xforms(lta_list, norm_threshold=10):
     """
     Computes a normalized displacement between two affine transforms as the
     maximum overall displacement of the midpoints of the faces of a cube, when
