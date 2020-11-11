@@ -599,18 +599,7 @@ def init_spaces(checkpoint=True):
         spaces.add(
             Reference("MNI152NLin2009cAsym", {})
         )
-    
 
-    cifti_output = workflow.cifti_output
-    if cifti_output:
-        # CIFTI grayordinates to corresponding FSL-MNI resolutions.
-        vol_res = '2' if cifti_output == '91k' else '1'
-        spaces.add(
-            Reference("fsaverage", {"den": "164k"})
-        )
-        spaces.add(
-            Reference("MNI152NLin6Asym", {"res": vol_res})
-        )
 
     # Make the SpatialReferences object available
     workflow.spaces = spaces
