@@ -30,8 +30,8 @@ def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,brainmask_thresh=0.5
     gen_report=False):
 
     workflow = Workflow(name=name)
-    workflow.__desc__ = """
-         First, a reference volume and its skull-stripped version were generated.
+    workflow.__desc__ = """\
+First, a reference volume and its skull-stripped version were generated.
         """
     
     inputnode = pe.Node(
@@ -121,8 +121,7 @@ def init_asl_gereg_wf(use_bbr,asl2t1w_dof,asl2t1w_init,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         def _asl_reg_suffix(fallback):
-            if fallback:
-                return 'coreg' 
+            return 'flirtbbr' 
 
         workflow.connect([
             (bbr_wf, ds_report_reg, [

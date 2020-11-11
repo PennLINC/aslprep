@@ -40,6 +40,7 @@ from .cbf import (
       init_cbf_compt_wf,
       init_cbfqc_compt_wf,
       init_cbfplot_wf,
+      init_gecbfplot_wf,
       init_cbfroiquant_wf,
       init_gecbf_compt_wf,
       init_cbfgeqc_compt_wf)

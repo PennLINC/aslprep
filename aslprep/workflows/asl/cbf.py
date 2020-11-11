@@ -332,8 +332,7 @@ def init_cbfgeqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads, name='cbfqc_
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The following quality control (qc) measures was estimated: framewise displacement and relative
-root mean square dice index. Other qc meaure include dice and jaccard indices, cross-correlation
+The following quality control (qc) measures was estimated: dice and jaccard indices, cross-correlation
 and coverage that estimate the coregistration quality of  ASL and T1W images and  normalization
 quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF [@cbfqc].
 The  QEI is  automated for objective quality evaluation of CBF maps and measured the CBF quality
@@ -494,7 +493,7 @@ def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads, name='cbf_plot'):
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['cbf', 'score',
-                                                      'scrub', 'asl_ref', 'basil', 'pvc')
+                                                      'scrub', 'asl_ref', 'basil', 'pvc'
                                                       ]),
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=[
@@ -732,7 +731,7 @@ def init_gecbf_compt_wf(metadata, asl_file,mem_gb, bids_dir,omp_nthreads,M0Scale
                     
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The CBF was quantified from  *preproccessed* ASL data using a relatively basic
+The CBF was quantified from  *preproccessed* ASL data  using a relatively basic
 model [@detre_perfusion] [@alsop_recommended]. CBF are susceptible to artifacts
 due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
 based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme

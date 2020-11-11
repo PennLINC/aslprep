@@ -247,8 +247,6 @@ and co-registrations to anatomical and output spaces).
 Gridded (volumetric) resamplings were performed using `antsApplyTransforms` (ANTs),
 configured with Lanczos interpolation to minimize the smoothing
 effects of other kernels [@lanczos].
-Non-gridded (surface) resamplings were performed using `mri_vol2surf`
-(FreeSurfer).
 """
 
     inputnode = pe.Node(niu.IdentityInterface(
@@ -453,8 +451,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         (asl_reference_wf, asl_hmc_wf, [
             ('outputnode.raw_ref_image', 'inputnode.raw_ref_image'),
             ('outputnode.asl_file', 'inputnode.asl_file')]),
-        (asl_reference_wf, summary, [
-            ('outputnode.algo_dummy_scans', 'algo_dummy_scans')]),
+        #(asl_reference_wf, summary, [
+            #('outputnode.algo_dummy_scans', 'algo_dummy_scans')]),
         # EPI-T1 registration workflow
         (inputnode, asl_reg_wf, [
             ('t1w_dseg', 'inputnode.t1w_dseg'),
