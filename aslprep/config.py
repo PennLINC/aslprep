@@ -426,11 +426,11 @@ class workflow(_Config):
     force_syn = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation."""
     hires = None
-    """Run FreeSurfer ``recon-all`` with the ``-hires`` flag."""
+    """Run with the ``-hires`` flag."""
     ignore = None
     """Ignore particular steps for *aslprep*."""
     longitudinal = False
-    """Run FreeSurfer ``recon-all`` with the ``-logitudinal`` flag."""
+    """Run  with the ``-logitudinal`` flag."""
     random_seed = None
     """Master random seed to initialize the Pseudorandom Number Generator (PRNG)"""
     skull_strip_fixed_seed = False

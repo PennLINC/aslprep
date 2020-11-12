@@ -425,11 +425,10 @@ ASL and CBF to T1w registration
 
     from aslprep.workflows.asl import init_asl_reg_wf
     wf = init_asl_reg_wf(
-        freesurfer=True,
         mem_gb=1,
         omp_nthreads=1,
         use_bbr=True,
-        asl2t1w_dof=9,
+        asl2t1w_dof=6,
         asl2t1w_init='register')
 
 *ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's :abbr:`ASL (arterial spin labelling)` reference image
@@ -440,9 +439,9 @@ and the reconstructed subject using the gray/white matter boundary
 
     Animation showing :abbr:`ASL (arterial spin labelling)` to T1w registration.
 
- FSL ``flirt`` is run with the :abbr:`BBR (boundary-based registration)` cost function, using the
-``fast`` segmentation to establish the gray/white matter boundary.
-After :abbr:`BBR (boundary-based registration)` is run,
+ 
+FSL ``flirt`` is run with the :abbr:`BBR (boundary-based registration)` cost function, using the
+``fast`` segmentation to establish the gray/white matter boundary. After :abbr:`BBR (boundary-based registration)` is run,
 the resulting affine transform will be compared to the initial transform found by ``flirt``.
 Excessive deviation will result in rejection of the BBR refinement and acceptance
 of the original affine registration. The computed :ref:`CBF <cbf_preproc>`
