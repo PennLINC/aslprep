@@ -848,7 +848,8 @@ def init_geasl_derivatives_wf(
         
             (inputnode, basil_sc407, [('source_file', 'source_file'),
                                   ('basil_sc407', 'in_file')]),
-            (inputnode, pvc_sc407, [('source_file', 'source_file')]),
+            (inputnode, pvc_sc407, [('source_file', 'source_file'),
+                                    ('pvc_sc217', 'in_file')]),
     
             (inputnode, basil_sc417, [('source_file', 'source_file'),
                                   ('basil_sc417', 'in_file')]),
@@ -1184,7 +1185,6 @@ def init_geasl_derivatives_wf(
             (inputnode, pvstd, [('source_file', 'source_file')]),
             (inputnode, attstd, [('source_file', 'source_file')]),
             (inputnode, select_std, [
-                                     ('scrub_std', 'scrub_std'),
                                      ('basil_std', 'basil_std'),
                                      ('pv_std', 'pv_std'),
                                      ('att_std', 'att_std')]),

@@ -852,7 +852,7 @@ def _conditional_downsampling(in_file, in_mask, zoom_th=4.0):
     newmask = nt.Affine(reference=newref).apply(floatmask)
     hdr = newmask.header.copy()
     hdr.set_data_dtype(np.uint8)
-    newmaskdata = (newmask.get_fdata(dtype=float) > 0.5).astype(np.uint8)
+    newmaskdata = (newmask.get_fdata(dtype=float) > 1.5).astype(np.uint8)
     nb.Nifti1Image(newmaskdata, newmask.affine, hdr).to_filename(out_mask)
 
     return str(out_file), str(out_mask)

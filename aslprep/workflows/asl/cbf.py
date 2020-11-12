@@ -72,11 +72,7 @@ def init_cbf_compt_wf(mem_gb, metadata,bids_dir,dummy_vols, omp_nthreads,
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data using a relatively basic
-model [@detre_perfusion] [@alsop_recommended].  Alternate method of CBF computation is Bayesian Inference
-for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
-principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
-of other model parameters and spatial regularization of the estimated perfusion image. BASIL
-also included correction for partial volume effects [@chappell_pvc].
+model [@detre_perfusion] [@alsop_recommended].
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
                                                       't1w_tpms', 't1w_mask', 't1_asl_xform',
@@ -159,7 +155,7 @@ also included correction for partial volume effects [@chappell_pvc].
     ])
 
     if scorescrub:
-        workflow.__desc__ = """\
+        workflow.__desc__ = workflow.__desc__ +  """\
 CBF are susceptible to artifactsdue to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
 based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme outliers [@score_dolui]. 
 Furthermore,Structural Correlation with RobUst Bayesian (SCRUB) algorithms was applied to the CBF by iteratively 
@@ -177,7 +173,7 @@ reweighted  CBF  with structural tissues probalility maps [@scrub_dolui].
                                   ('out_scrub', 'out_scrub')]),
         ])
     if basil:
-        workflow.__desc__ = """\
+        workflow.__desc__ = workflow.__desc__ +  """\
 Alternate method of CBF computation is Bayesian Inference
 for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
 principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
@@ -186,7 +182,7 @@ also included correction for partial volume effects [@chappell_pvc].
 """
         workflow.connect([
          (refinemaskj, basilcbf, [('out_mask', 'mask')]),
-         (inputnode, basilcbf, [(('asl_file', _getfiledir), 'out_basename')]),
+         (extractcbf, basilcbf, [(('out_avg', _getfiledir), 'out_basename')]),
          (extractcbf, basilcbf, [('out_file', 'in_file')]),
          (gm_tfm, basilcbf, [('output_image', 'pvgm')]),
          (wm_tfm, basilcbf, [('output_image', 'pvwm')]),
@@ -894,14 +890,13 @@ model [@detre_perfusion] [@alsop_recommended].
                                   ('out_mean', 'out_mean')]),
         ])
         if scorescrub:
-            workflow.__desc__ = """\
+            workflow.__desc__ = workflow.__desc__ +  """\
 CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
 based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
 outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
 algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
 probalility maps [@scrub_dolui]. 
 """
-
             workflow.connect([
             (computecbf, scorescrub, [('out_cbf', 'in_file')]),
             (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
@@ -912,7 +907,7 @@ probalility maps [@scrub_dolui].
                                   ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
             ])
         if basil:
-            workflow.__desc__ = """\
+            workflow.__desc__ = workflow.__desc__ + """\
 Alternate method of CBF computation is Bayesian Inference
 for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
 principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
@@ -923,7 +918,7 @@ also included correction for partial volume effects [@chappell_pvc].
              (inputnode, basilcbf, [('asl_file', 'in_file')]),
              (gm_tfm, basilcbf, [('output_image', 'pvgm')]),
              (wm_tfm, basilcbf, [('output_image', 'pvwm')]),
-             (inputnode, basilcbf, [(('asl_file', _getfiledir), 'out_basename')]),
+             (inputnode, basilcbf, [(('m0_file', _getfiledir), 'out_basename')]),
              (inputnode, basilcbf, [('m0_file', 'mzero')]),
              (refinemaskj, basilcbf, [('out_mask', 'mask')]),
              (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
@@ -945,7 +940,7 @@ also included correction for partial volume effects [@chappell_pvc].
         ])
 
         if scorescrub:
-            workflow.__desc__ = """\
+            workflow.__desc__ = workflow.__desc__ + """\
 CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
 based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
 outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)

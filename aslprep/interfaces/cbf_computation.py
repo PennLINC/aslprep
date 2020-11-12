@@ -543,6 +543,19 @@ def _getchisquare(n):
 
 
 def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
+    """ 
+    score algorithm by Sudipto
+    removing noisy cbf volume
+    cbf_ts
+       nd array of 3D or 4D computed cbf
+    gm,wm,csf 
+       numpy array of grey matter, whitematter, and csf
+    mask 
+       numpy array of mask 
+
+    reference:
+
+    """
     gm[gm < thresh] = 0
     gm[gm > 0] = 1
     wm[wm < thresh] = 0
@@ -588,6 +601,9 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
 
 def _roubustfit(Y, mu, Globalprior, modrobprior, lmd=0, localprior=0, wfun='huber', tune=1.345,
                 flagstd=1, flagmodrobust=1, flagprior=1, thresh=0.7):
+    """
+    robust fit 
+    """
     dimcbf = Y.shape
     priow = np.ones([dimcbf[0], dimcbf[1]])
     sw = 1
@@ -632,6 +648,23 @@ def _roubustfit(Y, mu, Globalprior, modrobprior, lmd=0, localprior=0, wfun='hube
 
 
 def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber', thresh=0.7):
+    
+    """ 
+    scrub algorithms by Sudipto
+    cbf_ts
+       nd array of 3D or 4D computed cbf
+    gm,wm,csf 
+       numpy array of grey matter, whitematter, and csf
+    mask 
+       numpy array of mask 
+    
+    wf 
+      wave function
+
+    reference:
+
+    """
+
     gm = mask*gm
     wm = mask*wm
     csf = csf*mask

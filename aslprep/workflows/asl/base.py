@@ -655,9 +655,9 @@ effects of other kernels [@lanczos].
             ])
         if basil:
             workflow.connect([
-                (compt_cbf_wf, asl_t1_trans_wf, [('outputnode.basil_t1', 'inputnode.basil_t1'),
-                                            ('outputnode.pv_t1', 'inputnode.pv_t1'),
-                                            ('outputnode.att_t1', 'inputnode.att_t1'),]),
+                (compt_cbf_wf, asl_t1_trans_wf, [('outputnode.out_cbfb', 'inputnode.basil'),
+                                            ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                            ('outputnode.out_att', 'inputnode.att'),]),
                (asl_t1_trans_wf, asl_derivatives_wf,[
                                             ('outputnode.basil_t1', 'inputnode.basil_t1'),
                                             ('outputnode.pv_t1', 'inputnode.pv_t1'),

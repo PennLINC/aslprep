@@ -239,6 +239,8 @@ effects of other kernels [@lanczos].
         bids_root=layout.root,
         metadata=metadata,
         output_dir=output_dir,
+        scorescrub=scorescrub,
+        basil=basil,
         spaces=spaces,
     )
 
