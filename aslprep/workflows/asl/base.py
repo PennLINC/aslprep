@@ -282,6 +282,8 @@ effects of other kernels [@lanczos].
         metadata=metadata,
         output_dir=output_dir,
         spaces=spaces,
+        scorescrub=scorescrub,
+        basil=basil
     )
 
     workflow.connect([
@@ -633,10 +635,7 @@ effects of other kernels [@lanczos].
         workflow.connect([
             (compt_cbf_wf, asl_t1_trans_wf, [('outputnode.out_cbf', 'inputnode.cbf'),
                                               ('outputnode.out_mean', 'inputnode.meancbf'),
-                                              
-                                              ('outputnode.out_cbfb', 'inputnode.basil'),
-                                              ('outputnode.out_cbfpv', 'inputnode.pv'),
-                                              ('outputnode.out_att', 'inputnode.att')]),
+                                              ]),
             (asl_t1_trans_wf, asl_derivatives_wf, [('outputnode.cbf_t1', 'inputnode.cbf_t1'),
                                             ('outputnode.meancbf_t1', 'inputnode.meancbf_t1'),
                                 
@@ -656,9 +655,9 @@ effects of other kernels [@lanczos].
             ])
         if basil:
             workflow.connect([
-                (compt_cbf_wf, asl_t1_trans_wf, [('outputnode.basil_t1', 'inputnode.basil_t1'),
-                                            ('outputnode.pv_t1', 'inputnode.pv_t1'),
-                                            ('outputnode.att_t1', 'inputnode.att_t1'),]),
+                (compt_cbf_wf, asl_t1_trans_wf, [('outputnode.out_cbfb', 'inputnode.basil'),
+                                            ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                            ('outputnode.out_att', 'inputnode.att'),]),
                (asl_t1_trans_wf, asl_derivatives_wf,[
                                             ('outputnode.basil_t1', 'inputnode.basil_t1'),
                                             ('outputnode.pv_t1', 'inputnode.pv_t1'),
@@ -721,11 +720,8 @@ effects of other kernels [@lanczos].
                 ('out_mask', 'inputnode.asl_mask')]),
             (asl_sdc_wf, asl_std_trans_wf, [
                 ('outputnode.out_warp', 'inputnode.fieldwarp')]),
-            (asl_std_trans_wf, outputnode, [('outputnode.asl_std', 'asl_std'),
-                                             ('outputnode.asl_std_ref', 'asl_std_ref'),
-                                             ('outputnode.asl_mask_std', 'asl_mask_std')]),
             (compt_cbf_wf, asl_std_trans_wf, [('outputnode.out_cbf', 'inputnode.cbf'),
-                                               ('outputnode.out_mean', 'inputnode.meancbf'),
+                                              ('outputnode.out_mean', 'inputnode.meancbf'),
                                                ]),
             ])
 
@@ -768,7 +764,8 @@ effects of other kernels [@lanczos].
                 ('outputnode.asl_std_ref', 'inputnode.asl_std_ref'),
                 ('outputnode.asl_std', 'inputnode.asl_std'),
                 ('outputnode.asl_mask_std', 'inputnode.asl_mask_std'),
-                ('outputnode.cbf_std', 'inputnode.cbf_std')]),
+                ('outputnode.cbf_std', 'inputnode.cbf_std'),
+                ('outputnode.meancbf_std','inputnode.meancbf_std')]),
         ])
         if scorescrub:
             workflow.connect([
@@ -825,7 +822,7 @@ effects of other kernels [@lanczos].
                                                       'inputnode.asl_mask_std')]),
             ])
 
-    cbf_plot = init_cbfplot_wf(mem_gb=mem_gb, metadata=metadata,scorescrub=scorescrub,
+    cbf_plot = init_cbfplot_wf(mem_gb=mem_gb['filesize'], metadata=metadata,scorescrub=scorescrub,
                                basil=basil,omp_nthreads=omp_nthreads, name='cbf_plot')
     workflow.connect([
        (compt_cbf_wf, cbf_plot, [('outputnode.out_mean', 'inputnode.cbf'),
@@ -850,17 +847,12 @@ effects of other kernels [@lanczos].
             # cifti_output=config.workflow.cifti_output,
             name='carpetplot_wf')
 
-        if config.workflow.cifti_output:
-            workflow.connect(
-                asl_grayords_wf, 'outputnode.cifti_asl', carpetplot_wf, 'inputnode.cifti_asl'
-            )
-        else:
             # Xform to 'MNI152NLin2009cAsym' is always computed.
-            carpetplot_select_std = pe.Node(
+        carpetplot_select_std = pe.Node(
                 KeySelect(fields=['std2anat_xfm'], key='MNI152NLin2009cAsym'),
                 name='carpetplot_select_std', run_without_submitting=True)
 
-            workflow.connect([
+        workflow.connect([
                 (inputnode, carpetplot_select_std, [
                     ('std2anat_xfm', 'std2anat_xfm'),
                     ('template', 'keys')]),
@@ -878,7 +870,7 @@ effects of other kernels [@lanczos].
             (asl_confounds_wf, carpetplot_wf, [
                         ('outputnode.confounds_file', 'inputnode.confounds_file')])
         ])
-    cbfroiqu = init_cbfroiquant_wf(mem_gb=mem_gb,basil=basil,scorescrub=scorescrub,
+    cbfroiqu = init_cbfroiquant_wf(mem_gb=mem_gb['filesize'],basil=basil,scorescrub=scorescrub,
                                    omp_nthreads=omp_nthreads,
                                    name='cbf_roiquant')
     workflow.connect([
@@ -896,11 +888,11 @@ effects of other kernels [@lanczos].
                 
                 ]),
     ])
-
+     
     if scorescrub:
         workflow.connect([
-            (compt_cbf_wf, cbfroiqu, [('outputnode.out_cbfb', 'inputnode.basil'),
-                                      ('outputnode.out_cbfpv', 'inputnode.pvc'),]),
+            (compt_cbf_wf, cbfroiqu, [('outputnode.out_avgscore', 'inputnode.score'),
+                                      ('outputnode.out_scrub', 'inputnode.scrub')]),
             (cbfroiqu, asl_derivatives_wf, [
                 ('outputnode.score_hvoxf', 'inputnode.score_hvoxf'),
                 ('outputnode.score_sc207', 'inputnode.score_sc207'),
@@ -915,8 +907,8 @@ effects of other kernels [@lanczos].
         ])
     if basil:
         workflow.connect([
-            (compt_cbf_wf, cbfroiqu, [('outputnode.out_avgscore', 'inputnode.score'),
-                                      ('outputnode.out_scrub', 'inputnode.scrub'),]),
+            (compt_cbf_wf, cbfroiqu, [('outputnode.out_cbfb', 'inputnode.basil'),
+                                      ('outputnode.out_cbfpv', 'inputnode.pvc')]),
             (cbfroiqu, asl_derivatives_wf, [
                 ('outputnode.basil_hvoxf', 'inputnode.basil_hvoxf'),
                 ('outputnode.basil_sc207', 'inputnode.basil_sc207'),

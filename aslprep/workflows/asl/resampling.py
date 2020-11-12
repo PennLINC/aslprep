@@ -407,14 +407,13 @@ preprocessed ASL runs*: {tpl}.
         'template',
         'cbf_std',
         'meancbf_std',
-        'score_std',
-        'avgscore_std',
-        'scrub_std',
-        'basil_std',
-        'pv_std',
-        'att_std',
-    ] 
+      ] 
 
+    if scorescrub:
+        output_names = output_names +['score_std','avgscore_std','scrub_std']
+    if basil:
+        output_names = output_names + ['basil_std', 'pv_std','att_std']
+      
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names),
                           name='poutputnode')
     workflow.connect([

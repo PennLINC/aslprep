@@ -16,7 +16,8 @@ import tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
 
 
-def init_cbf_compt_wf(mem_gb, metadata,bids_dir,,dummy_vols, omp_nthreads,scorescrub=False,basil=False,M0Scale=1,smooth_kernel=5,
+def init_cbf_compt_wf(mem_gb, metadata,bids_dir,dummy_vols, omp_nthreads,
+                     scorescrub=False,basil=False,M0Scale=1,smooth_kernel=5,
                       name='cbf_compt_wf'):
     """
     Create a workflow for :abbr:`CCBF ( compute cbf)`.
@@ -71,11 +72,7 @@ def init_cbf_compt_wf(mem_gb, metadata,bids_dir,,dummy_vols, omp_nthreads,scores
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data using a relatively basic
-model [@detre_perfusion] [@alsop_recommended].  Alternate method of CBF computation is Bayesian Inference
-for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
-principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
-of other model parameters and spatial regularization of the estimated perfusion image. BASIL
-also included correction for partial volume effects [@chappell_pvc].
+model [@detre_perfusion] [@alsop_recommended].
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
                                                       't1w_tpms', 't1w_mask', 't1_asl_xform',
@@ -158,7 +155,7 @@ also included correction for partial volume effects [@chappell_pvc].
     ])
 
     if scorescrub:
-        workflow.__desc__ = """\
+        workflow.__desc__ = workflow.__desc__ +  """\
 CBF are susceptible to artifactsdue to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
 based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme outliers [@score_dolui]. 
 Furthermore,Structural Correlation with RobUst Bayesian (SCRUB) algorithms was applied to the CBF by iteratively 
@@ -176,7 +173,7 @@ reweighted  CBF  with structural tissues probalility maps [@scrub_dolui].
                                   ('out_scrub', 'out_scrub')]),
         ])
     if basil:
-        workflow.__desc__ = """\
+        workflow.__desc__ = workflow.__desc__ +  """\
 Alternate method of CBF computation is Bayesian Inference
 for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
 principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
@@ -185,13 +182,10 @@ also included correction for partial volume effects [@chappell_pvc].
 """
         workflow.connect([
          (refinemaskj, basilcbf, [('out_mask', 'mask')]),
-         (inputnode, basilcbf, [(('asl_file', _getfiledir), 'out_basename')]),
+         (extractcbf, basilcbf, [(('out_avg', _getfiledir), 'out_basename')]),
          (extractcbf, basilcbf, [('out_file', 'in_file')]),
          (gm_tfm, basilcbf, [('output_image', 'pvgm')]),
          (wm_tfm, basilcbf, [('output_image', 'pvwm')]),
-        
-         (inputnode,basilcbf,[('asl_mask','mask')]),
-        
          (extractcbf, basilcbf, [('out_avg', 'mzero')]),
          (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
                                 ('out_cbfpv', 'out_cbfpv'),
@@ -411,7 +405,8 @@ CBF within Grey matter
     qccompute = pe.Node(qccbfge(in_file=asl_file), name='qccompute',
                         run_without_submitting=True, mem_gb=0.2)
 
-    workflow.connect([(inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+    workflow.connect([
+                    (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
                                             ('t1_asl_xform', 'transforms')]),
                       (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
                       (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
@@ -432,7 +427,7 @@ CBF within Grey matter
                       (wm_tfm, qccompute, [('output_image', 'in_whiteM')]),
                       (csf_tfm, qccompute, [('output_image', 'in_csf')]),
                       (inputnode, qccompute, [('meancbf', 'in_meancbf')]),
-                     (
+                     
                       ])
     if scorescrub:
         workflow.connect([ 
@@ -445,9 +440,13 @@ CBF within Grey matter
                       (inputnode, qccompute, [('basil', 'in_basil'), ('pv', 'in_pvc')]),
         ]),
                                               
-    workflow.connect([(qccompute, outputnode, [('qc_file', 'qc_file')]),
+    workflow.connect([
+          (qccompute, outputnode, [('qc_file', 'qc_file')]),
                       ])
     return workflow
+
+
+
 def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, scorescrub=False,basil=False,name='cbf_plot'):
     workflow = Workflow(name=name)
 
@@ -573,7 +572,7 @@ def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads,scorescrub=False,basil=Fals
         DerivativesDataSink(desc='cbfplot', datatype="figures", keep_dtype=True),
         name='ds_report_cbfplot', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)
-    workflow.connect(
+    workflow.connect([
                       (inputnode, cbfsummary, [('cbf', 'cbf'), ('asl_ref', 'ref_vol')]),
                       (cbfsummary, ds_report_cbfplot, [('out_file', 'in_file')]),
                       (cbfsummary, outputnode, [('out_file', 'cbf_summary_plot')]),
@@ -707,17 +706,9 @@ def init_cbfroiquant_wf(mem_gb, omp_nthreads,scorescrub=False,basil=False,name='
                       (mrg_xfms, sc417trans, [('out', 'transforms')]),
                       (hvoftrans, cbfroihv, [('output_image', 'atlasfile')]),
                       (sc207trans, cbfroi207, [('output_image', 'atlasfile')]),
-                      (sc207trans, basil207, [('output_image', 'atlasfile')]),
-                      (sc207trans, pvc207, [('output_image', 'atlasfile')]),
                       (sc217trans, cbfroi217, [('output_image', 'atlasfile')]),
-                      (sc217trans, basil217, [('output_image', 'atlasfile')]),
-                      (sc217trans, pvc217, [('output_image', 'atlasfile')]),
                       (sc407trans, cbfroi407, [('output_image', 'atlasfile')]),
-                      (sc407trans, basil407,  [('output_image', 'atlasfile')]),
-                      (sc407trans, pvc407, [('output_image', 'atlasfile')]),
                       (sc417trans, cbfroi417, [('output_image', 'atlasfile')]),
-                      (sc417trans, basil417, [('output_image', 'atlasfile')]),
-                      (sc417trans, pvc417, [('output_image', 'atlasfile')]),
                       (inputnode, cbfroihv, [('cbf', 'in_cbf')]),
                       (inputnode, cbfroi207, [('cbf', 'in_cbf')]),
                       (inputnode, cbfroi217, [('cbf', 'in_cbf')]),
@@ -768,6 +759,14 @@ def init_cbfroiquant_wf(mem_gb, omp_nthreads,scorescrub=False,basil=False,name='
         workflow.connect([
            (hvoftrans, basilhv, [('output_image', 'atlasfile')]),
            (hvoftrans, pvchv, [('output_image', 'atlasfile')]),
+           (sc207trans, pvc207, [('output_image', 'atlasfile')]),
+            (sc207trans, basil207, [('output_image', 'atlasfile')]),
+            (sc217trans, pvc217, [('output_image', 'atlasfile')]),
+            (sc217trans, basil217, [('output_image', 'atlasfile')]),
+            (sc407trans, pvc407, [('output_image', 'atlasfile')]),
+            (sc407trans, basil407, [('output_image', 'atlasfile')]),
+            (sc417trans, pvc417, [('output_image', 'atlasfile')]),
+            (sc417trans, basil417, [('output_image', 'atlasfile')]),
            (inputnode, basilhv, [('basil', 'in_cbf')]),
            (inputnode, pvchv, [('pvc', 'in_cbf')]),
            (inputnode, basil207, [('basil', 'in_cbf')]),
@@ -842,18 +841,18 @@ model [@detre_perfusion] [@alsop_recommended].
             pcasl1 = False
         return pcasl1
 
-    computecbf = pe.Node(computeCBF(in_metadata=metadata,in_m0scale=M0Scale), mem_gb=0.2,
+    computecbf = pe.Node(computeCBF(in_metadata=metadata,in_m0scale=M0Scale), mem_gb=mem_gb,
                          run_without_submitting=True, name="computecbf")
     
-    scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=0.2,
+    scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=mem_gb,
                          name='scorescrub', run_without_submitting=True)
     
     basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=metadata["LabelingDuration"],
                                 m0tr=metadata['RepetitionTime'], pvc=True,tis = tisasl,
                                 pcasl = pcaslorasl(metadata = metadata)), name='basilcbf',
-                       run_without_submitting=True, mem_gb=0.2)
+                       run_without_submitting=True, mem_gb=mem_gb)
 
-    refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
+    refinemaskj = pe.Node(refinemask(), mem_gb=1, run_without_submitting=True, name="refinemask")
 
     def _pick_csf(files):
         return files[-1]
@@ -876,9 +875,7 @@ model [@detre_perfusion] [@alsop_recommended].
         (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
                                   ('t1_asl_xform', 'transforms')]),
         (refinemaskj, computecbf, [('out_mask', 'in_mask')]),
-        (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
-        (refinemaskj, basilcbf, [('out_mask', 'mask')]),
-        (inputnode, basilcbf, [(('asl_file', _getfiledir), 'out_basename')]),
+        
         # extract probability maps
         (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
                               ('t1_asl_xform', 'transforms')]),
@@ -893,24 +890,24 @@ model [@detre_perfusion] [@alsop_recommended].
                                   ('out_mean', 'out_mean')]),
         ])
         if scorescrub:
-            workflow.__desc__ = """\
+            workflow.__desc__ = workflow.__desc__ +  """\
 CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
 based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
 outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
 algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
 probalility maps [@scrub_dolui]. 
 """
-
             workflow.connect([
             (computecbf, scorescrub, [('out_cbf', 'in_file')]),
             (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
+            (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
             (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
             (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
             (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
                                   ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
             ])
         if basil:
-            workflow.__desc__ = """\
+            workflow.__desc__ = workflow.__desc__ + """\
 Alternate method of CBF computation is Bayesian Inference
 for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
 principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
@@ -921,44 +918,52 @@ also included correction for partial volume effects [@chappell_pvc].
              (inputnode, basilcbf, [('asl_file', 'in_file')]),
              (gm_tfm, basilcbf, [('output_image', 'pvgm')]),
              (wm_tfm, basilcbf, [('output_image', 'pvwm')]),
-        # (inputnode,basilcbf,[('asl_mask','mask')]),
+             (inputnode, basilcbf, [(('m0_file', _getfiledir), 'out_basename')]),
              (inputnode, basilcbf, [('m0_file', 'mzero')]),
+             (refinemaskj, basilcbf, [('out_mask', 'mask')]),
              (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
                                 ('out_cbfpv', 'out_cbfpv'),
                                 ('out_att', 'out_att')]),
              ])
     elif len(cbflist) > 0: 
         basil = False
+        from nipype.interfaces.fsl import MultiImageMaths
+        mask_cbf = pe.Node(MultiImageMaths(op_string=" -mul  %s "),mem_gb=1, run_without_submitting=True, name="mask_cbf")
+        
         workflow.connect([
         (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
                                   ('t1_asl_xform', 'transforms')]),
-        # extract probability maps
-        (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
-                              ('t1_asl_xform', 'transforms')]),
-        (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
-        (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
-                             ('t1_asl_xform', 'transforms')]),
-        (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
-        (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
-                             ('t1_asl_xform', 'transforms')]),
-        (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
-        (inputnode, outputnode, [('asl_file', 'out_cbf'),
-                                  ('asl_file', 'out_mean')]),
+        (refinemaskj, mask_cbf,[('out_mask','in_file')]),
+        (inputnode, mask_cbf,[('asl_file','operand_files')]),
+        (mask_cbf, outputnode, [('out_file', 'out_cbf'),
+                                  ('out_file', 'out_mean')]),
         ])
 
         if scorescrub:
-            workflow.__desc__ = """\
+            workflow.__desc__ = workflow.__desc__ + """\
 CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
 based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
 outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
 algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
 probalility maps [@scrub_dolui]. 
-"""         workflow.connect([
-            (inputnode, scorescrub, [('asl_file', 'in_file')]),
-            (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
-            (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
-            (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
-            (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
+"""         
+            
+            workflow.connect([
+            
+             (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
+                              ('t1_asl_xform', 'transforms')]),
+             (inputnode, csf_tfm, [(('t1w_tpms', _pick_csf), 'input_image')]),
+             (inputnode, wm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+             (inputnode, wm_tfm, [(('t1w_tpms', _pick_wm), 'input_image')]),
+             (inputnode, gm_tfm, [('asl_mask', 'reference_image'),
+                             ('t1_asl_xform', 'transforms')]),
+             (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
+             (inputnode, scorescrub, [('asl_file', 'in_file')]),
+             (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
+             (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
+             (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
+             (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
                                   ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
              ])
     return workflow
