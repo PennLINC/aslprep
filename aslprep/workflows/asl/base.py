@@ -282,6 +282,8 @@ effects of other kernels [@lanczos].
         metadata=metadata,
         output_dir=output_dir,
         spaces=spaces,
+        scorescrub=scorescrub,
+        basil=basil
     )
 
     workflow.connect([
@@ -820,7 +822,7 @@ effects of other kernels [@lanczos].
                                                       'inputnode.asl_mask_std')]),
             ])
 
-    cbf_plot = init_cbfplot_wf(mem_gb=mem_gb, metadata=metadata,scorescrub=scorescrub,
+    cbf_plot = init_cbfplot_wf(mem_gb=mem_gb['filesize'], metadata=metadata,scorescrub=scorescrub,
                                basil=basil,omp_nthreads=omp_nthreads, name='cbf_plot')
     workflow.connect([
        (compt_cbf_wf, cbf_plot, [('outputnode.out_mean', 'inputnode.cbf'),
@@ -868,7 +870,7 @@ effects of other kernels [@lanczos].
             (asl_confounds_wf, carpetplot_wf, [
                         ('outputnode.confounds_file', 'inputnode.confounds_file')])
         ])
-    cbfroiqu = init_cbfroiquant_wf(mem_gb=mem_gb,basil=basil,scorescrub=scorescrub,
+    cbfroiqu = init_cbfroiquant_wf(mem_gb=mem_gb['filesize'],basil=basil,scorescrub=scorescrub,
                                    omp_nthreads=omp_nthreads,
                                    name='cbf_roiquant')
     workflow.connect([
@@ -886,11 +888,11 @@ effects of other kernels [@lanczos].
                 
                 ]),
     ])
-
+     
     if scorescrub:
         workflow.connect([
-            (compt_cbf_wf, cbfroiqu, [('outputnode.out_cbfb', 'inputnode.basil'),
-                                      ('outputnode.out_cbfpv', 'inputnode.pvc'),]),
+            (compt_cbf_wf, cbfroiqu, [('outputnode.out_avgscore', 'inputnode.score'),
+                                      ('outputnode.out_scrub', 'inputnode.scrub')]),
             (cbfroiqu, asl_derivatives_wf, [
                 ('outputnode.score_hvoxf', 'inputnode.score_hvoxf'),
                 ('outputnode.score_sc207', 'inputnode.score_sc207'),
@@ -905,8 +907,8 @@ effects of other kernels [@lanczos].
         ])
     if basil:
         workflow.connect([
-            (compt_cbf_wf, cbfroiqu, [('outputnode.out_avgscore', 'inputnode.score'),
-                                      ('outputnode.out_scrub', 'inputnode.scrub'),]),
+            (compt_cbf_wf, cbfroiqu, [('outputnode.out_cbfb', 'inputnode.basil'),
+                                      ('outputnode.out_cbfpv', 'inputnode.pvc')]),
             (cbfroiqu, asl_derivatives_wf, [
                 ('outputnode.basil_hvoxf', 'inputnode.basil_hvoxf'),
                 ('outputnode.basil_sc207', 'inputnode.basil_sc207'),

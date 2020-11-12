@@ -313,15 +313,15 @@ any spatial references."""
     )
 
     g_conf.add_argument(
-         "--scorecrub",
-         action='store',
+         "--scorescrub",
+         action="store_true",
          default=False,
          help=" Sudipto algoritms for denoising CBF"
     )
 
     g_conf.add_argument(
          "--basil",
-         action='store',
+         action="store_true",
          default=False,
          help=" FSL's CBF computation with spatial regularization and \
           partial volume correction"

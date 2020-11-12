@@ -13,7 +13,7 @@ def init_asl_derivatives_wf(
     metadata,
     output_dir,
     spaces,
-    scoresrub=False,
+    scorescrub=False,
     basil=False,
     name='asl_derivatives_wf',
 ):
@@ -124,7 +124,7 @@ def init_asl_derivatives_wf(
       ])
     
     
-    if scoresrub:
+    if scorescrub:
         score_hvoxf = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
                                 suffix='mean_score', compress=False),
@@ -249,7 +249,8 @@ def init_asl_derivatives_wf(
         
             (inputnode, basil_sc407, [('source_file', 'source_file'),
                                   ('basil_sc407', 'in_file')]),
-            (inputnode, pvc_sc407, [('source_file', 'source_file')]),
+            (inputnode, pvc_sc407, [('source_file', 'source_file'),
+                                       ('pvc_sc217', 'in_file')]),
     
             (inputnode, basil_sc417, [('source_file', 'source_file'),
                                   ('basil_sc417', 'in_file')]),
@@ -296,7 +297,7 @@ def init_asl_derivatives_wf(
                                         ('meancbf', 'in_file')]),
          ])
 
-        if scoresrub:
+        if scorescrub:
             scorenative = pe.Node(
              DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
                                 compress=True),
@@ -388,7 +389,7 @@ def init_asl_derivatives_wf(
                                           ('meancbf_t1', 'in_file')]),
          ])
 
-        if scoresrub:
+        if scorescrub:
             scorenativet1 = pe.Node(
              DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
                                 space='T1w', compress=True),
@@ -449,11 +450,15 @@ def init_asl_derivatives_wf(
         spacesource.iterables = ('in_tuple', [
             (s.fullname, s.spec) for s in spaces.cached.get_standard(dim=(3,))
         ])
+        out_names = ['template', 'asl_std', 'asl_std_ref', 'asl_mask_std',
+                    'cbf_std', 'meancbf_std']
+        if scorescrub:
+            out_names = out_names + ['score_std', 'avgscore_std', 'scrub_std']
+        if basil:
+            out_names = out_names + ['basil_std', 'pv_std','att_std']
 
         select_std = pe.Node(KeySelect(
-            fields=['template', 'asl_std', 'asl_std_ref', 'asl_mask_std',
-                    'cbf_std', 'meancbf_std', 'score_std', 'avgscore_std', 'scrub_std',
-                    'basil_std', 'pv_std','att_std']),
+            fields=out_names),
             name='select_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         ds_asl_std = pe.Node(
             DerivativesDataSink(
@@ -520,7 +525,7 @@ def init_asl_derivatives_wf(
             (raw_sources, ds_asl_mask_std, [('out', 'RawSources')]),
          ])
         
-        if scoresrub:
+        if scorescrub:
             scorestd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
                                 compress=True),
@@ -580,7 +585,7 @@ def init_asl_derivatives_wf(
             (inputnode, pvstd, [('source_file', 'source_file')]),
             (inputnode, attstd, [('source_file', 'source_file')]),
             (inputnode, select_std, [
-                                     ('scrub_std', 'scrub_std'),
+                                     
                                      ('basil_std', 'basil_std'),
                                      ('pv_std', 'pv_std'),
                                      ('att_std', 'att_std')]),
@@ -718,7 +723,7 @@ def init_geasl_derivatives_wf(
       ])
     
     
-    if scoresrub:
+    if scorescrub:
         score_hvoxf = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
                                 suffix='mean_score', compress=False),
@@ -890,7 +895,7 @@ def init_geasl_derivatives_wf(
                                         ('meancbf', 'in_file')]),
          ])
 
-        if scoresrub:
+        if scorescrub:
             scorenative = pe.Node(
              DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
                                 compress=True),
@@ -982,7 +987,7 @@ def init_geasl_derivatives_wf(
                                           ('meancbf_t1', 'in_file')]),
          ])
 
-        if scoresrub:
+        if scorescrub:
             scorenativet1 = pe.Node(
              DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
                                 space='T1w', compress=True),
@@ -1044,10 +1049,15 @@ def init_geasl_derivatives_wf(
             (s.fullname, s.spec) for s in spaces.cached.get_standard(dim=(3,))
         ])
 
+        out_names = ['template', 'asl_std', 'asl_std_ref', 'asl_mask_std',
+                    'cbf_std', 'meancbf_std']
+        if scorescrub:
+            out_names = out_names + ['score_std', 'avgscore_std', 'scrub_std']
+        if basil:
+            out_names = out_names + ['basil_std', 'pv_std','att_std']
+
         select_std = pe.Node(KeySelect(
-            fields=['template', 'asl_std', 'asl_std_ref', 'asl_mask_std',
-                    'cbf_std', 'meancbf_std', 'score_std', 'avgscore_std', 'scrub_std',
-                    'basil_std', 'pv_std','att_std']),
+            fields=out_names),
             name='select_std', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         ds_asl_std = pe.Node(
             DerivativesDataSink(
@@ -1114,7 +1124,7 @@ def init_geasl_derivatives_wf(
             (raw_sources, ds_asl_mask_std, [('out', 'RawSources')]),
          ])
         
-        if scoresrub:
+        if scorescrub:
             scorestd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
                                 compress=True),

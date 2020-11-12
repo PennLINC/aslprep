@@ -190,9 +190,6 @@ also included correction for partial volume effects [@chappell_pvc].
          (extractcbf, basilcbf, [('out_file', 'in_file')]),
          (gm_tfm, basilcbf, [('output_image', 'pvgm')]),
          (wm_tfm, basilcbf, [('output_image', 'pvwm')]),
-        
-         (inputnode,basilcbf,[('asl_mask','mask')]),
-        
          (extractcbf, basilcbf, [('out_avg', 'mzero')]),
          (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
                                 ('out_cbfpv', 'out_cbfpv'),
@@ -766,6 +763,14 @@ def init_cbfroiquant_wf(mem_gb, omp_nthreads,scorescrub=False,basil=False,name='
         workflow.connect([
            (hvoftrans, basilhv, [('output_image', 'atlasfile')]),
            (hvoftrans, pvchv, [('output_image', 'atlasfile')]),
+           (sc207trans, pvc207, [('output_image', 'atlasfile')]),
+            (sc207trans, basil207, [('output_image', 'atlasfile')]),
+            (sc217trans, pvc217, [('output_image', 'atlasfile')]),
+            (sc217trans, basil217, [('output_image', 'atlasfile')]),
+            (sc407trans, pvc407, [('output_image', 'atlasfile')]),
+            (sc407trans, basil407, [('output_image', 'atlasfile')]),
+            (sc417trans, pvc417, [('output_image', 'atlasfile')]),
+            (sc417trans, basil417, [('output_image', 'atlasfile')]),
            (inputnode, basilhv, [('basil', 'in_cbf')]),
            (inputnode, pvchv, [('pvc', 'in_cbf')]),
            (inputnode, basil207, [('basil', 'in_cbf')]),
@@ -874,9 +879,7 @@ model [@detre_perfusion] [@alsop_recommended].
         (inputnode, refinemaskj, [('t1w_mask', 'in_t1mask'), ('asl_mask', 'in_aslmask'),
                                   ('t1_asl_xform', 'transforms')]),
         (refinemaskj, computecbf, [('out_mask', 'in_mask')]),
-        (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
-        (refinemaskj, basilcbf, [('out_mask', 'mask')]),
-        (inputnode, basilcbf, [(('asl_file', _getfiledir), 'out_basename')]),
+        
         # extract probability maps
         (inputnode, csf_tfm, [('asl_mask', 'reference_image'),
                               ('t1_asl_xform', 'transforms')]),
@@ -902,6 +905,7 @@ probalility maps [@scrub_dolui].
             workflow.connect([
             (computecbf, scorescrub, [('out_cbf', 'in_file')]),
             (gm_tfm, scorescrub, [('output_image', 'in_greyM')]),
+            (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
             (wm_tfm, scorescrub, [('output_image', 'in_whiteM')]),
             (csf_tfm, scorescrub, [('output_image', 'in_csf')]),
             (scorescrub, outputnode, [('out_score', 'out_score'), ('out_scoreindex', 'out_scoreindex'),
@@ -919,8 +923,9 @@ also included correction for partial volume effects [@chappell_pvc].
              (inputnode, basilcbf, [('asl_file', 'in_file')]),
              (gm_tfm, basilcbf, [('output_image', 'pvgm')]),
              (wm_tfm, basilcbf, [('output_image', 'pvwm')]),
-        # (inputnode,basilcbf,[('asl_mask','mask')]),
+             (inputnode, basilcbf, [(('asl_file', _getfiledir), 'out_basename')]),
              (inputnode, basilcbf, [('m0_file', 'mzero')]),
+             (refinemaskj, basilcbf, [('out_mask', 'mask')]),
              (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
                                 ('out_cbfpv', 'out_cbfpv'),
                                 ('out_att', 'out_att')]),

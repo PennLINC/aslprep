@@ -938,6 +938,7 @@ class qccbfge(SimpleInterface):
                               csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.7)
         meancbf = globalcbf(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                             csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.7)
+        
 
         if self.inputs.in_avgscore:
             scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
@@ -964,6 +965,8 @@ class qccbfge(SimpleInterface):
             pvcbf_qei = 0 
             negbasil = 0
             negpvc = 0
+        gwratio = np.divide(meancbf[0], meancbf[1])
+        negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.7)
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
             dict1 = {'FD': 0, 'relRMS': 0, 'coregDC': [regDC], 'coregJC': [regJC],

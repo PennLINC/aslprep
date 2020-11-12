@@ -269,13 +269,11 @@ effects of other kernels [@lanczos].
     t1w_gereg_wf = init_asl_t1_getrans_wf(mem_gb=3, omp_nthreads=omp_nthreads, cbft1space=t1cbfspace,
                           use_compression=True,scorescrub=scorescrub,basil=basil,name='asl_t1_trans_wf')
 
-    
    
-
-    cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb, asl_file=asl_file, 
+    cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb['filesize'], asl_file=asl_file, 
                                metadata=metadata,bids_dir=subj_dir,omp_nthreads=omp_nthreads,
                                scorescrub=scorescrub,basil=basil,
-                                M0Scale=1,smooth_kernel=5,name='cbf_compt_wf')
+                                M0Scale=mscale,smooth_kernel=5,name='cbf_compt_wf')
     
     
     workflow.connect([
@@ -324,7 +322,7 @@ effects of other kernels [@lanczos].
     ])
 
       
-    cbf_plot = init_gecbfplot_wf(mem_gb=mem_gb, metadata=metadata,
+    cbf_plot = init_gecbfplot_wf(mem_gb=mem_gb['filesize'], metadata=metadata,
                                 scorescrub=scorescrub, basil=basil,
                                 omp_nthreads=omp_nthreads, name='cbf_plot')
     workflow.connect([

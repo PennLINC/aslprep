@@ -58,7 +58,7 @@ First, a reference volume and its skull-stripped version were generated.
     )
 
     gen_ref = pe.Node(GeReferenceFile(bids_dir=bids_dir, in_metadata=metadata),
-               omp_nthreads=1,mem_gb=mem_gb,name='gen_ge_ref')
+               omp_nthreads=1,mem_gb=1,name='gen_ge_ref')
     gen_ref.base_dir=os.getcwd()
     skull_strip_wf =  pe.Node(
         fsl.BET(frac=0.5, mask=True), name="fslbet")
@@ -433,13 +433,12 @@ preprocessed ASL runs*: {tpl}.
         'template',
         'cbf_std',
         'meancbf_std',
-        'score_std',
-        'avgscore_std',
-        'scrub_std',
-        'basil_std',
-        'pv_std',
-        'att_std',
     ] 
+
+    if scorescrub:
+        output_names = output_names +['score_std','avgscore_std','scrub_std']
+    if basil:
+        output_names = output_names + ['basil_std', 'pv_std','att_std']
 
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names),
                           name='poutputnode')
@@ -464,10 +463,7 @@ preprocessed ASL runs*: {tpl}.
         (inputnode, meancbf_to_std_transform, [('cbf', 'input_image')]),
         (meancbf_to_std_transform, poutputnode, [('output_image', 'meancbf_std')]),
     
-        (mask_merge_tfms, score_to_std_transform, [('out', 'transforms')]),
-        (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
-        (inputnode, score_to_std_transform, [('score', 'input_image')]),
-        (score_to_std_transform, poutputnode, [('output_image', 'score_std')]),
+        
       ])
 
     if scorescrub:
@@ -476,6 +472,11 @@ preprocessed ASL runs*: {tpl}.
          (gen_ref, avgscore_to_std_transform, [('out_file', 'reference_image')]),
          (inputnode, avgscore_to_std_transform, [('avgscore', 'input_image')]),
          (avgscore_to_std_transform, poutputnode, [('output_image', 'avgscore_std')]),
+
+        (mask_merge_tfms, score_to_std_transform, [('out', 'transforms')]),
+        (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
+        (inputnode, score_to_std_transform, [('score', 'input_image')]),
+        (score_to_std_transform, poutputnode, [('output_image', 'score_std')]),
 
          (mask_merge_tfms, scrub_to_std_transform, [('out', 'transforms')]),
          (gen_ref, scrub_to_std_transform, [('out_file', 'reference_image')]),
@@ -683,6 +684,7 @@ class GeReferenceFile(SimpleInterface):
 
         elif len(cbflist) > 0 :
             reffile=gen_reference(self.inputs.in_file,newpath=runtime.cwd)
+        
         self._results['ref_file']=reffile
         self._results['m0_file']=m0file
         self.inputs.ref_file = os.path.abspath(self._results['ref_file'])
