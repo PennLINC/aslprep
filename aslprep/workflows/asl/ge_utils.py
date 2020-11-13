@@ -664,11 +664,18 @@ class GeReferenceFile(SimpleInterface):
             m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
             reffile = gen_reference(m0file,newpath=runtime.cwd)
             m0file = reffile
+        if self.inputs.in_metadata['M0'] == "True":
+            modata2 = dataasl[:, :, :, m0list]
+            m0filename=fname_presuffix(self.inputs.in_file,
+                                                    suffix='_mofile', newpath=os.getcwd())
+            m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
+            m0obj.to_filename(m0filename)
+            reffile = gen_reference(m0filename,newpath=runtime.cwd)
+            m0file = reffile
 
         elif type(self.inputs.in_metadata['M0']) == int or  type(self.inputs.in_metadata['M0']) == float :
             m0num=np.float(self.inputs.in_metadata['M0'])
             modata2 = dataasl[:, :, :, deltamlist]
-            modata2 = dataasl[:, :, :, m0list]
             m0filename=fname_presuffix(self.inputs.in_file,
                                                     suffix='_mofile', newpath=os.getcwd())
             m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
@@ -681,9 +688,11 @@ class GeReferenceFile(SimpleInterface):
             m0obj1 = nb.Nifti1Image(m0file_data, allasl.affine, allasl.header)
             m0obj1.to_filename(m0filename1)
             m0file = gen_reference(m0filename1,newpath=runtime.cwd)
+            reffile = m0file
 
         elif len(cbflist) > 0 :
             reffile=gen_reference(self.inputs.in_file,newpath=runtime.cwd)
+            m0file = reffile 
         
         self._results['ref_file']=reffile
         self._results['m0_file']=m0file

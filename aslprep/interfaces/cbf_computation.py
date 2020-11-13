@@ -115,9 +115,6 @@ class extractCBF(SimpleInterface):
         
         aslcontext1 = file1.replace('_asl.nii.gz', '_aslcontext.tsv')
         aslcontext = pd.read_csv(aslcontext1)
-        
-        
-
         idasl = aslcontext['volume_type'].tolist()
 
         # get the control,tag,moscan or label 
@@ -733,7 +730,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     mzero = File(exists=True, argstr=" -c %s ", desc='m0 scan', mandatory=False)
     m0scale = traits.Float(desc='calibration of asl', argstr=" --cgain %.2f ", mandatory=True)
     m0tr = traits.Float(desc='Mzero TR', argstr=" --tr %.2f ", mandatory=True,)
-    tis = traits.Str(desc='ecovery time =plds+bolus', argstr=" --tis %s ", mandatory=True,)
+    tis = traits.Str(desc='recovery time =plds+bolus', argstr=" --tis %s ", mandatory=True,)
     pcasl = traits.Bool(desc='label type:defualt is PASL', argstr=" --casl ",
                         mandatory=False, default_value=False)
     bolus = traits.Float(desc='bolus or tau: label duration', argstr=" --bolus %.2f ",
@@ -1318,6 +1315,47 @@ def readjson(jsonfile):
         data = json.load(f)
     return data
 
+class _extractCBInputSpec(BaseInterfaceInputSpec):
+    in_asl = File(exists=True, mandatory=True, desc='raw asl file')
+    in_aslmask = File(exists=True, mandatory=True, desct='asl mask')
+    file_type = traits.Str(desc='file type, c for cbf, d for deltam',mandatory=True)
+    out_file = File(exists=False, mandatory=False, desc='cbf or deltam')
 
 
+class _extractCBOutputSpec(TraitedSpec):
+    out_file= File(exists=False, desc='cbf or deltalm')
+    
 
+
+class extractCB(SimpleInterface):
+    r"""
+    the code refine the asl mask with t1w mask
+    the output is refined asl mask
+
+    """
+    input_spec = _extractCBInputSpec
+    output_spec = _extractCBOutputSpec
+
+    def _run_interface(self, runtime):
+        self._results['out_file'] = fname_presuffix(self.inputs.in_aslmask,
+                                                   suffix='_cbfdeltam', newpath=runtime.cwd)
+        filex=self.inputs.in_asl
+        aslcontext = pd.read_csv(filex.replace('_asl.nii.gz', '_aslcontext.tsv'))
+        idasl = aslcontext['volume_type'].tolist()
+        
+        fdata=nb.load(filex).get_fdata()
+        img=nb.load(filex)
+        if self.inputs.file_type == 'd':
+            dlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+        elif self.inputs.file_type == 'c':
+            dlist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+        
+        if len(fdata.shape) < 4:
+            newdata = nb.Nifti1Image(dataobj=fdata,affine=img.affine,header=img.header)
+        else:
+            ffdata=fdata[:, :, :, dlist]
+            newdata = nb.Nifti1Image(dataobj=ffdata,affine=img.affine,header=img.header)
+        
+        newdata.to_filename(self._results['out_file'])
+
+        return runtime
