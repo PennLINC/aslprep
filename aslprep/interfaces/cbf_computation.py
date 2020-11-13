@@ -115,9 +115,6 @@ class extractCBF(SimpleInterface):
         
         aslcontext1 = file1.replace('_asl.nii.gz', '_aslcontext.tsv')
         aslcontext = pd.read_csv(aslcontext1)
-        
-        
-
         idasl = aslcontext['volume_type'].tolist()
 
         # get the control,tag,moscan or label 
@@ -543,6 +540,19 @@ def _getchisquare(n):
 
 
 def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
+    """ 
+    score algorithm by Sudipto
+    removing noisy cbf volume
+    cbf_ts
+       nd array of 3D or 4D computed cbf
+    gm,wm,csf 
+       numpy array of grey matter, whitematter, and csf
+    mask 
+       numpy array of mask 
+
+    reference:
+
+    """
     gm[gm < thresh] = 0
     gm[gm > 0] = 1
     wm[wm < thresh] = 0
@@ -588,6 +598,9 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
 
 def _roubustfit(Y, mu, Globalprior, modrobprior, lmd=0, localprior=0, wfun='huber', tune=1.345,
                 flagstd=1, flagmodrobust=1, flagprior=1, thresh=0.7):
+    """
+    robust fit 
+    """
     dimcbf = Y.shape
     priow = np.ones([dimcbf[0], dimcbf[1]])
     sw = 1
@@ -632,6 +645,23 @@ def _roubustfit(Y, mu, Globalprior, modrobprior, lmd=0, localprior=0, wfun='hube
 
 
 def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber', thresh=0.7):
+    
+    """ 
+    scrub algorithms by Sudipto
+    cbf_ts
+       nd array of 3D or 4D computed cbf
+    gm,wm,csf 
+       numpy array of grey matter, whitematter, and csf
+    mask 
+       numpy array of mask 
+    
+    wf 
+      wave function
+
+    reference:
+
+    """
+
     gm = mask*gm
     wm = mask*wm
     csf = csf*mask
@@ -700,7 +730,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     mzero = File(exists=True, argstr=" -c %s ", desc='m0 scan', mandatory=False)
     m0scale = traits.Float(desc='calibration of asl', argstr=" --cgain %.2f ", mandatory=True)
     m0tr = traits.Float(desc='Mzero TR', argstr=" --tr %.2f ", mandatory=True,)
-    tis = traits.Str(desc='ecovery time =plds+bolus', argstr=" --tis %s ", mandatory=True,)
+    tis = traits.Str(desc='recovery time =plds+bolus', argstr=" --tis %s ", mandatory=True,)
     pcasl = traits.Bool(desc='label type:defualt is PASL', argstr=" --casl ",
                         mandatory=False, default_value=False)
     bolus = traits.Float(desc='bolus or tau: label duration', argstr=" --bolus %.2f ",
@@ -768,10 +798,10 @@ class BASILCBF(FSLCommand):
 class _qccbfInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc='original asl_file')
     in_meancbf = File(exists=True, mandatory=True, desc='cbf img')
-    in_avgscore = File(exists=True, mandatory=True, desc='cbf img')
-    in_scrub = File(exists=True, mandatory=True, desc='cbf img')
-    in_basil = File(exists=True, mandatory=True, desc='cbf img')
-    in_pvc = File(exists=True, mandatory=True, desc='cbf img')
+    in_avgscore = File(exists=True, mandatory=False, desc='cbf img')
+    in_scrub = File(exists=True, mandatory=False, desc='cbf img')
+    in_basil = File(exists=True, mandatory=False, desc='cbf img')
+    in_pvc = File(exists=True, mandatory=False, desc='cbf img')
     in_greyM = File(exists=True, mandatory=True, desc='grey  matter')
     in_whiteM = File(exists=True, mandatory=True, desc='white  matter')
     in_csf = File(exists=True, mandatory=True, desc='csf')
@@ -819,22 +849,40 @@ class qccbf(SimpleInterface):
 
         meancbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                               csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.7)
-        scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
-        basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
-        pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
-        scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
         meancbf = globalcbf(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                             csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.7)
+
+        if self.inputs.in_avgscore:
+            scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
+            scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
+            negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
+            negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
+        else:
+            scorecbf_qei = 0
+            scrub_qei = 0 
+            negscore = 0
+            negscrub = 0
+
+        if self.inputs.in_basil:
+            basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
+            pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
+            negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
+            negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+        else:
+            basilcbf_qei = 0
+            pvcbf_qei = 0 
+            negbasil = 0
+            negpvc = 0
+        
+        
         gwratio = np.divide(meancbf[0], meancbf[1])
         negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.7)
-        negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
-        negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
-        negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
-        negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+        
+        
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
             dict1 = {'FD': [fd], 'relRMS': [rms], 'coregDC': [regDC], 'coregJC': [regJC],
@@ -875,10 +923,10 @@ class qccbf(SimpleInterface):
 class _qccbfgeInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc='original asl_file')
     in_meancbf = File(exists=True, mandatory=True, desc='cbf img')
-    in_avgscore = File(exists=True, mandatory=True, desc='cbf img')
-    in_scrub = File(exists=True, mandatory=True, desc='cbf img')
-    in_basil = File(exists=True, mandatory=True, desc='cbf img')
-    in_pvc = File(exists=True, mandatory=True, desc='cbf img')
+    in_avgscore = File(exists=True, mandatory=False, desc='cbf img')
+    in_scrub = File(exists=True, mandatory=False, desc='cbf img')
+    in_basil = File(exists=True, mandatory=False, desc='cbf img')
+    in_pvc = File(exists=True, mandatory=False, desc='cbf img')
     in_greyM = File(exists=True, mandatory=True, desc='grey  matter')
     in_whiteM = File(exists=True, mandatory=True, desc='white  matter')
     in_csf = File(exists=True, mandatory=True, desc='csf')
@@ -918,22 +966,37 @@ class qccbfge(SimpleInterface):
 
         meancbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                               csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.7)
-        scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
-        basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
-        pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
-        scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
         meancbf = globalcbf(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                             csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.7)
+        
+
+        if self.inputs.in_avgscore:
+            scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
+            scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
+            negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
+            negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
+        else:
+            scorecbf_qei = 0
+            scrub_qei = 0 
+            negscore = 0
+            negscrub = 0
+
+        if self.inputs.in_basil:
+            basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
+            pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
+                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
+            negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
+            negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+        else:
+            basilcbf_qei = 0
+            pvcbf_qei = 0 
+            negbasil = 0
+            negpvc = 0
         gwratio = np.divide(meancbf[0], meancbf[1])
         negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.7)
-        negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
-        negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
-        negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
-        negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
             dict1 = {'FD': 0, 'relRMS': 0, 'coregDC': [regDC], 'coregJC': [regJC],
@@ -1252,6 +1315,47 @@ def readjson(jsonfile):
         data = json.load(f)
     return data
 
+class _extractCBInputSpec(BaseInterfaceInputSpec):
+    in_asl = File(exists=True, mandatory=True, desc='raw asl file')
+    in_aslmask = File(exists=True, mandatory=True, desct='asl mask')
+    file_type = traits.Str(desc='file type, c for cbf, d for deltam',mandatory=True)
+    out_file = File(exists=False, mandatory=False, desc='cbf or deltam')
 
 
+class _extractCBOutputSpec(TraitedSpec):
+    out_file= File(exists=False, desc='cbf or deltalm')
+    
 
+
+class extractCB(SimpleInterface):
+    r"""
+    the code refine the asl mask with t1w mask
+    the output is refined asl mask
+
+    """
+    input_spec = _extractCBInputSpec
+    output_spec = _extractCBOutputSpec
+
+    def _run_interface(self, runtime):
+        self._results['out_file'] = fname_presuffix(self.inputs.in_aslmask,
+                                                   suffix='_cbfdeltam', newpath=runtime.cwd)
+        filex=self.inputs.in_asl
+        aslcontext = pd.read_csv(filex.replace('_asl.nii.gz', '_aslcontext.tsv'))
+        idasl = aslcontext['volume_type'].tolist()
+        
+        fdata=nb.load(filex).get_fdata()
+        img=nb.load(filex)
+        if self.inputs.file_type == 'd':
+            dlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+        elif self.inputs.file_type == 'c':
+            dlist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+        
+        if len(fdata.shape) < 4:
+            newdata = nb.Nifti1Image(dataobj=fdata,affine=img.affine,header=img.header)
+        else:
+            ffdata=fdata[:, :, :, dlist]
+            newdata = nb.Nifti1Image(dataobj=ffdata,affine=img.affine,header=img.header)
+        
+        newdata.to_filename(self._results['out_file'])
+
+        return runtime

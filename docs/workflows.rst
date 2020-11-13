@@ -34,7 +34,7 @@ averages them into a single reference template.
     from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
     wf = init_anat_preproc_wf(
         bids_root='.',
-        freesurfer=True,
+        freesurfer=False,
         hires=True,
         longitudinal=False,
         omp_nthreads=1,
@@ -43,7 +43,7 @@ averages them into a single reference template.
         skull_strip_template=Reference('MNI152NLin2009cAsym'),
         spaces=SpatialReferences([
             ('MNI152Lin', {}),
-            ('fsaverage', {'density': '10k'}),
+
             ('T1w', {}),
             ('fsnative', {})
         ]),
@@ -279,11 +279,13 @@ CBF Computation in native space
     with open(metadatafile) as f:
         metadata = json.load(f)
     from aslprep.workflows.asl.cbf import init_cbf_compt_wf
-    wf = init_cbf_compt_wf(bids_dir=str(bids_dir),mem_gb=0.1,metadata=metadata,M0Scale=1,omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
+    wf = init_cbf_compt_wf(bids_dir=str(bids_dir),mem_gb=0.1,
+            scorescrub=False,basil=False,metadata=metadata,M0Scale=1,omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
 
 ASL data consist of multiple pairs of labeled and control images. *ASLPrep* first checks for
 the reference ASL volume(s) (M0,``sub-task_xxxx-acq-YYY_m0scan.nii.gz``). In the absence of M0 images,
 the average of control images is used as the reference image.
+
 
 After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are
 subtracted:
@@ -332,6 +334,7 @@ over all PLDs at time = t,([Daiw2012]_).
 
 
 
+ASLPrep includes option of CBF denoising  by  SCORE and SCRUB. 
 Structural Correlation based Outlier Rejection (SCORE) ([Dolui2017]_) detects and discards
 extreme outliers in the CBF volume(s) from the CBF time series.
 SCORE first discards CBF volumes whose CBF within grey matter (GM)
@@ -369,7 +372,7 @@ An example of CBF denoised by SCRUB is shown below.
 
    Computed CBF maps denoised by SCRUB
 
-*ASLPrep* also includes computation of CBF by Bayesian Inference for Arterial Spin Labeling
+*ASLPrep* also includes option of CBF computation by Bayesian Inference for Arterial Spin Labeling
 `(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_. BASIL also implements a simple kinetic model as
 described above, but using Bayesian Inference principles ([Chappell2009]_).
 BASIL is mostly suitable for multi-PLD. It includes bolus arrival time estimation
@@ -422,25 +425,23 @@ ASL and CBF to T1w registration
 
     from aslprep.workflows.asl import init_asl_reg_wf
     wf = init_asl_reg_wf(
-        freesurfer=True,
         mem_gb=1,
         omp_nthreads=1,
         use_bbr=True,
-        asl2t1w_dof=9,
+        asl2t1w_dof=6,
         asl2t1w_init='register')
 
-*ASLPrep* uses the ``bbregister`` routine to calculate the alignment between each run's :abbr:`ASL (arterial spin labelling)` reference image
+*ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's :abbr:`ASL (arterial spin labelling)` reference image
 and the reconstructed subject using the gray/white matter boundary
-(FreeSurfer's ``?h.white`` surfaces).
+
 
 .. figure:: _static/EPIT1Normalization.svg
 
-    Animation showing :abbr:`ASL (arterial spin labelling)` to T1w registration (FreeSurfer ``bbregister``)
+    Animation showing :abbr:`ASL (arterial spin labelling)` to T1w registration.
 
-If FreeSurfer processing is disabled, FSL ``flirt`` is run with the
-:abbr:`BBR (boundary-based registration)` cost function, using the
-``fast`` segmentation to establish the gray/white matter boundary.
-After :abbr:`BBR (boundary-based registration)` is run,
+ 
+FSL ``flirt`` is run with the :abbr:`BBR (boundary-based registration)` cost function, using the
+``fast`` segmentation to establish the gray/white matter boundary. After :abbr:`BBR (boundary-based registration)` is run,
 the resulting affine transform will be compared to the initial transform found by ``flirt``.
 Excessive deviation will result in rejection of the BBR refinement and acceptance
 of the original affine registration. The computed :ref:`CBF <cbf_preproc>`
@@ -457,7 +458,6 @@ Resampling ASL  and CBF runs onto standard spaces
     from aslprep.niworkflows.utils.spaces import SpatialReferences
     from aslprep.workflows.asl import init_asl_std_trans_wf
     wf = init_asl_std_trans_wf(
-        freesurfer=True,
         mem_gb=3,
         omp_nthreads=1,
         spaces=SpatialReferences(

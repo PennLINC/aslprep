@@ -75,10 +75,6 @@ def build_workflow(config_file, retval):
     if config.execution.anat_derivatives:
         init_msg += f"""
       * Anatomical derivatives: {config.execution.anat_derivatives}."""
-
-    if config.execution.fs_subjects_dir:
-        init_msg += f"""
-      * Pre-run FreeSurfer's SUBJECTS_DIR: {config.execution.fs_subjects_dir}."""
     build_log.log(25, init_msg)
 
     retval["workflow"] = init_aslprep_wf()
