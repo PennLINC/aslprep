@@ -158,16 +158,17 @@ The ASL time-series were resampled onto the following surfaces
 
 
 def init_asl_std_trans_wf(
-    freesurfer,
     mem_gb,
     omp_nthreads,
     spaces,
+    scorescrub=False,
+    basil=False,
     name='asl_std_trans_wf',
     use_compression=True,
     use_fieldwarp=False,
 ):
     """
-    Sample fMRI into standard space with a single-step resampling of the original ASL series.
+    Sample ASL into standard space with a single-step resampling of the original ASL series.
 
     .. important::
         This workflow provides two outputnodes.
@@ -185,7 +186,6 @@ def init_asl_std_trans_wf(
             from niworkflows.utils.spaces import SpatialReferences
             from aslprep.workflows.asl import init_asl_std_trans_wf
             wf = init_asl_std_trans_wf(
-                freesurfer=True,
                 mem_gb=3,
                 omp_nthreads=1,
                 spaces=SpatialReferences(
@@ -196,8 +196,6 @@ def init_asl_std_trans_wf(
 
     Parameters
     ----------
-    freesurfer : :obj:`bool`
-        Whether to generate FreeSurfer's aseg/aparc segmentations on ASLspace.
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
@@ -218,12 +216,6 @@ def init_asl_std_trans_wf(
     anat2std_xfm
         List of anatomical-to-standard space transforms generated during
         spatial normalization.
-    asl_aparc
-        FreeSurfer's ``aparc+aseg.mgz`` atlas projected into the T1w reference
-        (only if ``recon-all`` was run).
-    asl_aseg
-        FreeSurfer's ``aseg.mgz`` atlas projected into the T1w reference
-        (only if ``recon-all`` was run).
     asl_mask
         Skull-stripping mask of reference image
     asl_split
@@ -251,12 +243,6 @@ def init_asl_std_trans_wf(
         Reference, contrast-enhanced summary of the ASL series, resampled to template space
     asl_mask_std
         ASL series mask in template space
-    asl_aseg_std
-        FreeSurfer's ``aseg.mgz`` atlas, in template space at the ASL resolution
-        (only if ``recon-all`` was run)
-    asl_aparc_std
-        FreeSurfer's ``aparc+aseg.mgz`` atlas, in template space at the ASL resolution
-        (only if ``recon-all`` was run)
     template
         Template identifiers synchronized correspondingly to previously
         described outputs.
@@ -300,8 +286,6 @@ preprocessed ASL runs*: {tpl}.
             'scrub',
             'basil',
             'pv',
-            'asl_aparc',
-            'asl_aseg',
             'asl_mask',
             'asl_split',
             'fieldwarp',
@@ -355,34 +339,32 @@ preprocessed ASL runs*: {tpl}.
         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
                         dimension=3),
         name='cbf_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    score_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
-                        dimension=3),
-        name='score_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
     meancbf_to_std_transform = pe.Node(
         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
         name='meancbf_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    avgscore_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='avgscore_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    scrub_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='scrub_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    basil_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='basil_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-
-    pv_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='pv_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    att_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
-        name='att_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+    if scorescrub:
+        score_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
+                        dimension=3),
+          name='score_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        avgscore_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+           name='avgscore_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        scrub_to_std_transform = pe.Node(
+           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+           name='scrub_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+    
+    if basil:
+        basil_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+          name='basil_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        pv_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+          name='pv_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        att_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+          name='att_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+    
 
     merge = pe.Node(Merge(compress=use_compression), name='merge',
                     mem_gb=mem_gb * 3)
@@ -425,14 +407,13 @@ preprocessed ASL runs*: {tpl}.
         'template',
         'cbf_std',
         'meancbf_std',
-        'score_std',
-        'avgscore_std',
-        'scrub_std',
-        'basil_std',
-        'pv_std',
-        'att_std',
-    ] + freesurfer * ['asl_aseg_std', 'asl_aparc_std']
+      ] 
 
+    if scorescrub:
+        output_names = output_names +['score_std','avgscore_std','scrub_std']
+    if basil:
+        output_names = output_names + ['basil_std', 'pv_std','att_std']
+      
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names),
                           name='poutputnode')
     workflow.connect([
@@ -448,27 +429,30 @@ preprocessed ASL runs*: {tpl}.
         (gen_ref, cbf_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, cbf_to_std_transform, [('cbf', 'input_image')]),
         (cbf_to_std_transform, poutputnode, [('output_image', 'cbf_std')]),
-
-        (mask_merge_tfms, score_to_std_transform, [('out', 'transforms')]),
-        (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
-        (inputnode, score_to_std_transform, [('score', 'input_image')]),
-        (score_to_std_transform, poutputnode, [('output_image', 'score_std')]),
-
         (mask_merge_tfms, meancbf_to_std_transform, [('out', 'transforms')]),
         (gen_ref, meancbf_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, meancbf_to_std_transform, [('cbf', 'input_image')]),
         (meancbf_to_std_transform, poutputnode, [('output_image', 'meancbf_std')]),
+       ])
 
-        (mask_merge_tfms, avgscore_to_std_transform, [('out', 'transforms')]),
-        (gen_ref, avgscore_to_std_transform, [('out_file', 'reference_image')]),
-        (inputnode, avgscore_to_std_transform, [('avgscore', 'input_image')]),
-        (avgscore_to_std_transform, poutputnode, [('output_image', 'avgscore_std')]),
+    if scorescrub:
+        workflow.connect([ 
+          (mask_merge_tfms, score_to_std_transform, [('out', 'transforms')]),
+          (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
+          (inputnode, score_to_std_transform, [('score', 'input_image')]),
+          (score_to_std_transform, poutputnode, [('output_image', 'score_std')]),
+          (mask_merge_tfms, avgscore_to_std_transform, [('out', 'transforms')]),
+          (gen_ref, avgscore_to_std_transform, [('out_file', 'reference_image')]),
+          (inputnode, avgscore_to_std_transform, [('avgscore', 'input_image')]),
+          (avgscore_to_std_transform, poutputnode, [('output_image', 'avgscore_std')]),
+          (mask_merge_tfms, scrub_to_std_transform, [('out', 'transforms')]),
+          (gen_ref, scrub_to_std_transform, [('out_file', 'reference_image')]),
+          (inputnode, scrub_to_std_transform, [('scrub', 'input_image')]),
+          (scrub_to_std_transform, poutputnode, [('output_image', 'scrub_std')]),
+        ])
 
-        (mask_merge_tfms, scrub_to_std_transform, [('out', 'transforms')]),
-        (gen_ref, scrub_to_std_transform, [('out_file', 'reference_image')]),
-        (inputnode, scrub_to_std_transform, [('scrub', 'input_image')]),
-        (scrub_to_std_transform, poutputnode, [('output_image', 'scrub_std')]),
-
+    if basil:
+        workflow.connect([
         (mask_merge_tfms, basil_to_std_transform, [('out', 'transforms')]),
         (gen_ref, basil_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, basil_to_std_transform, [('basil', 'input_image')]),
@@ -483,25 +467,7 @@ preprocessed ASL runs*: {tpl}.
         (gen_ref, att_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, att_to_std_transform, [('att', 'input_image')]),
         (att_to_std_transform, poutputnode, [('output_image', 'att_std')]),
-    ])
-
-    if freesurfer:
-        # Sample the parcellation files to functional space
-        aseg_std_tfm = pe.Node(ApplyTransforms(interpolation='MultiLabel'),
-                               name='aseg_std_tfm', mem_gb=1)
-        aparc_std_tfm = pe.Node(ApplyTransforms(interpolation='MultiLabel'),
-                                name='aparc_std_tfm', mem_gb=1)
-
-        workflow.connect([
-            (inputnode, aseg_std_tfm, [('asl_aseg', 'input_image')]),
-            (inputnode, aparc_std_tfm, [('asl_aparc', 'input_image')]),
-            (select_std, aseg_std_tfm, [('anat2std_xfm', 'transforms')]),
-            (select_std, aparc_std_tfm, [('anat2std_xfm', 'transforms')]),
-            (gen_ref, aseg_std_tfm, [('out_file', 'reference_image')]),
-            (gen_ref, aparc_std_tfm, [('out_file', 'reference_image')]),
-            (aseg_std_tfm, poutputnode, [('output_image', 'asl_aseg_std')]),
-            (aparc_std_tfm, poutputnode, [('output_image', 'asl_aparc_std')]),
-        ])
+         ])
 
     # Connect parametric outputs to a Join outputnode
     outputnode = pe.JoinNode(niu.IdentityInterface(fields=output_names),

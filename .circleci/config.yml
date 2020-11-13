@@ -178,7 +178,7 @@ jobs:
                 /data/ds000240 \
                 /out/aslOutput \
                 participant --participant-label 01 \
-                --fs-no-reconall --clean-workdir \
+                --clean-workdir \
                 --skip_bids_validation  \
                 -w /wkdir/wk_dir \
                 --output-spaces func T1w MNI152NLin2009cAsym \

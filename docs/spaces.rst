@@ -36,7 +36,7 @@ that do not generate *standardized* coordinate spaces:
   * ``T1w`` or ``anat``: can be used to resample data into the individual's anatomical
     reference (e.g., the T1w image).
 
-  * ``func``,``run``, ``aslref`` or ``sbref`` can be used to
+  * ``func``,``run``, ``asl`` or ``sbref`` can be used to
     generate ASL/CBF data in their original grid, after slice-timing,
     head-motion, and susceptibility-distortion corrections as well as CBF
     computation.

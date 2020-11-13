@@ -65,47 +65,8 @@ Additionally, the following transforms are saved::
       sub-<subject_label>_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5
       sub-<subject_label>_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5
 
-If FreeSurfer reconstructions are used, the following surface files are generated::
-
-  sub-<subject_label>/
-    anat/
-      sub-<subject_label>_hemi-[LR]_smoothwm.surf.gii
-      sub-<subject_label>_hemi-[LR]_pial.surf.gii
-      sub-<subject_label>_hemi-[LR]_midthickness.surf.gii
-      sub-<subject_label>_hemi-[LR]_inflated.surf.gii
-
-The affine translation (and inverse) between the original T1w sampling and FreeSurfer's
-conformed space for surface reconstruction (``fsnative``) is stored in::
-
-  sub-<subject_label>/
-    anat/
-      sub-<subject_label>_from-fsnative_to-T1w_mode-image_xfm.txt
-      sub-<subject_label>_from-T1w_to-fsnative_mode-image_xfm.txt
-
 .. _fsderivs:
 
-FreeSurfer derivatives
-~~~~~~~~~~~~~~~~~~~~~~
-A FreeSurfer subjects directory is created in ``<output dir>/freesurfer``, or the
-directory indicated with the ``--fs-subjects-dir`` flag. ::
-
-    <output_dir>/
-        aslprep/
-            ...
-        freesurfer/
-            fsaverage{,5,6}/
-                mri/
-                surf/
-                ...
-            sub-<subject_label>/
-                mri/
-                surf/
-                ...
-            ...
-
-Copies of the ``fsaverage`` subjects distributed with the running version of
-FreeSurfer are copied into this subjects directory, if any functional data are
-sampled to those subject spaces.
 
 ASL and CBF derivatives
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -120,17 +81,18 @@ these will be indicated with ``[specifiers]``::
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-preproc_asl.nii.gz # preprocessed asl timeseries 
       sub-<subject_label>_[specifiers]_space-<space_label>_cbf.nii.gz  # computed cbf timeseries
       sub-<subject_label>_[specifiers]_space-<space_label>_mean_cbf.nii.gz # mean cbf 
+
+SCORE and SCRUB Outputs::
+
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-score_cbf.nii.gz # cbf timeseries denoised with  SCORE
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-score_mean_cbf.nii.gz # mean cbf denoised with SCORE 
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-scrub_cbf.nii.gz # mean CBF denoised with SCRUB 
+
+BASIL outputs::
+
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-basil_cbf.nii.gz # cbf computed with BASIL 
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-pvc_cbf.nii.gz #  partial volume corrected cbf with BASIL
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-bat_cbf.nii.gz # bolus arrivsl time (in seconds)
-
-
-
-
-
 
 
 **Regularly gridded outputs (images):**
