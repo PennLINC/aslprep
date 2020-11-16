@@ -775,19 +775,19 @@ class BASILCBF(FSLCommand):
     def _list_outputs(self):
         outputs = self.output_spec().get()
         # outputs["out_cbfb"]=self.inputs.out_basename+'/basilcbf.nii.gz'
-        outputs["out_cbfb"] = fname_presuffix(self.inputs.in_file, suffix='_cbfbasil')
+        outputs["out_cbfb"] = fname_presuffix(self.inputs.mask, suffix='_cbfbasil')
         from shutil import copyfile
         copyfile(self.inputs.out_basename+'/native_space/perfusion_calib.nii.gz',
                  outputs["out_cbfb"])
         
         
             # outputs["out_att"]=self.inputs.out_basename+'/arrivaltime.nii.gz'
-        outputs["out_att"] = fname_presuffix(self.inputs.in_file, suffix='_arrivaltime')
+        outputs["out_att"] = fname_presuffix(self.inputs.mask, suffix='_arrivaltime')
         copyfile(self.inputs.out_basename+'/native_space/arrival.nii.gz', outputs["out_att"])
         self.inputs.out_att = os.path.abspath(outputs["out_att"])
         
         # outputs["out_cbfpv"]=self.inputs.out_basename+'/basilcbfpv.nii.gz'
-        outputs["out_cbfpv"] = fname_presuffix(self.inputs.in_file, suffix='_cbfbasilpv')
+        outputs["out_cbfpv"] = fname_presuffix(self.inputs.mask, suffix='_cbfbasilpv')
         copyfile(self.inputs.out_basename+'/native_space/pvcorr/perfusion_calib.nii.gz',
                  outputs["out_cbfpv"])
         self.inputs.out_cbfb = os.path.abspath(outputs["out_cbfb"])
