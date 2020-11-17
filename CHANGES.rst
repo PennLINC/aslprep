@@ -4,6 +4,6 @@ v0.2.6
 
 Add  GE SCAN processing with deltam or cbf
 
-supressed freesurfer processing, FSL FLIRT with BBR for registration
+suppressed freesurfer processing, FSL FLIRT with BBR for registration
 
 basil and scorescrub as options, cbf computation is only default
