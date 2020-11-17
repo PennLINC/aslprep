@@ -352,7 +352,6 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
         cbf = cbf1*np.array(perfusion_factor)
         # cbf is timeseries
     # return cbf to nifti shape
-    print(cbf.shape)
     if len(cbf.shape) < 2:
         tcbf=np.zeros(maskx.shape)
         tcbf[maskx==1]=cbf
@@ -364,7 +363,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     if len(tcbf.shape) < 4:
         meancbf = tcbf
     else:
-        meancbf = np.mean(tcbf, axis=3)
+        meancbf = np.nanmean(tcbf, axis=3)
     meancbf = np.nan_to_num(meancbf)
     tcbf = np.nan_to_num(tcbf)
     att = np.nan_to_num(att)
