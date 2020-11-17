@@ -358,7 +358,8 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     else:
         tcbf=np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
         for i in range(cbf.shape[1]):
-            tcbfx=np.zeros(maskx.shape); tcbfx[maskx==1]=cbf[:,i]
+            tcbfx=np.zeros(maskx.shape); 
+            tcbfx[maskx==1]=cbf[:,i]
             tcbf[:,:,:,i]=tcbfx
     if len(tcbf.shape) < 4:
         meancbf = tcbf
