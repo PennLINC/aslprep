@@ -199,7 +199,7 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
                         dimension=3),
               name='cbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         meancbf_to_t1w_transform = pe.Node(
-                         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+                         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
                          name='meancbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         workflow.connect([
          
@@ -221,20 +221,20 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
                         dimension=3),
              name='score_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         avgscore_to_t1w_transform = pe.Node(
-            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
            name='avgscore_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         scrub_to_t1w_transform = pe.Node(
-              ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+              ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
               name='scrub_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
     if cbft1space and basil:
         basil_to_t1w_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
             name='basil_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         pv_to_t1w_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
                name='pv_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         att_to_t1w_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
                name='att_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         
         workflow.connect([
@@ -361,7 +361,7 @@ preprocessed ASL runs*: {tpl}.
                         dimension=3),
         name='cbf_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
     meancbf_to_std_transform = pe.Node(
-        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+        ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
         name='meancbf_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
     
     if scorescrub:
@@ -371,23 +371,23 @@ preprocessed ASL runs*: {tpl}.
             name='score_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
 
         avgscore_to_std_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
             name='avgscore_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
 
         scrub_to_std_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
             name='scrub_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
 
     if basil:
         basil_to_std_transform = pe.Node(
-          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
           name='basil_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
 
         pv_to_std_transform = pe.Node(
-          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
           name='pv_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         att_to_std_transform = pe.Node(
-           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True),
+           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
            name='att_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
     #merge = pe.Node(Merge(compress=use_compression), name='merge',
                     #mem_gb=mem_gb * 3)
