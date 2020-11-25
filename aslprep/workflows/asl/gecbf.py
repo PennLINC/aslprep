@@ -171,6 +171,7 @@ def init_asl_gepreproc_wf(asl_file):
     mscale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
+    smoothkernel = config.workflow.smooth_kernel
 
 
     if os.path.isfile(ref_file):
@@ -254,7 +255,7 @@ effects of other kernels [@lanczos].
     ])
      
      # begin workflow 
-    gen_ref_wf = init_asl_geref_wf(omp_nthreads=omp_nthreads,mem_gb=mem_gb['filesize'],
+    gen_ref_wf = init_asl_geref_wf(omp_nthreads=omp_nthreads,smooth_kernel=smoothkernel,mem_gb=mem_gb['filesize'],
                               metadata=metadata,bids_dir=subj_dir,brainmask_thresh=0.5,
                               pre_mask=False, name="asl_gereference_wf",gen_report=False)
     

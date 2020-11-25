@@ -431,7 +431,7 @@ preprocessed ASL runs*: {tpl}.
         (cbf_to_std_transform, poutputnode, [('output_image', 'cbf_std')]),
         (mask_merge_tfms, meancbf_to_std_transform, [('out', 'transforms')]),
         (gen_ref, meancbf_to_std_transform, [('out_file', 'reference_image')]),
-        (inputnode, meancbf_to_std_transform, [('cbf', 'input_image')]),
+        (inputnode, meancbf_to_std_transform, [('meancbf', 'input_image')]),
         (meancbf_to_std_transform, poutputnode, [('output_image', 'meancbf_std')]),
        ])
 
