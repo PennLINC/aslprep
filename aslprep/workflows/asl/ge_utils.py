@@ -27,7 +27,7 @@ DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
 
 
-def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,brainmask_thresh=0.5,pre_mask=False, name="asl_gereference_wf",
+def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,smooth_kernel=5,brainmask_thresh=0.5,pre_mask=False, name="asl_gereference_wf",
     gen_report=False):
 
     workflow = Workflow(name=name)
@@ -57,7 +57,7 @@ First, a reference volume and its skull-stripped version were generated.
         name="outputnode",
     )
 
-    gen_ref = pe.Node(GeReferenceFile(bids_dir=bids_dir, in_metadata=metadata),
+    gen_ref = pe.Node(GeReferenceFile(bids_dir=bids_dir,fwhm=smooth_kernel,in_metadata=metadata),
                omp_nthreads=1,mem_gb=1,name='gen_ge_ref')
     gen_ref.base_dir=os.getcwd()
     skull_strip_wf =  pe.Node(
@@ -525,6 +525,8 @@ class _GenerateReferenceInputSpec(BaseInterfaceInputSpec):
     input_image = File(
         exists=True, mandatory=True, desc="input images"
     )
+    fwhm =traits.Float(exists=False, mandatory=False,default_value=0,
+                              desc='smoothing kernel for m0')
     
 
 class _GenerateReferenceOutputSpec(TraitedSpec):
@@ -543,18 +545,19 @@ class GenerateReference(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results["out_file"] = gen_reference(
-            in_img=self.inputs.input_image)
+            in_img=self.inputs.input_image,fwhm=self.inputs.fwhm)
         return runtime
 
 
 
 
-def gen_reference(in_img, newpath=None):
+def gen_reference(in_img,fwhm=5,newpath=None):
 
     """generate reference for a GE scan with few volumes."""
     import nibabel as nb 
     import numpy as np
     import os 
+    from nibabel.processing import smooth_image
     newpath = Path(newpath or ".")
     ss=check_img(in_img)
     if ss == 0: 
@@ -562,9 +565,10 @@ def gen_reference(in_img, newpath=None):
     else: 
         nii = nb.load(in_img).get_fdata()
         ref_data=np.mean(nii,axis=3)
-    
     new_file = nb.Nifti1Image(dataobj=ref_data,header=nb.load(in_img).header,
              affine=nb.load(in_img).affine)
+
+    new_file = smooth_image(new_file,fwhm=fwhm)
     out_file = fname_presuffix('aslref', suffix="_reference.nii.gz", newpath=str(newpath.absolute()))
     new_file.to_filename(out_file)
     return out_file
@@ -631,6 +635,7 @@ class _GeReferenceFileInputSpec(BaseInterfaceInputSpec):
     bids_dir=traits.Str(exits=True,mandatory=True,desc=' bids directory')
     ref_file = File(exists=False,mandatory=False, desc="ref file")
     m0_file = File(exists=False,mandatory=False, desc="m0 file")
+    fwhm  = traits.Float(exits=False,mandatory=False,default_value=5,desc="smoothing kernel for M0")
     
 
 class _GeReferenceFileOutputSpec(TraitedSpec):
@@ -662,7 +667,7 @@ class GeReferenceFile(SimpleInterface):
 
         if self.inputs.in_metadata['M0'] != "True" and type(self.inputs.in_metadata['M0']) != int :
             m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
-            reffile = gen_reference(m0file,newpath=runtime.cwd)
+            reffile = gen_reference(m0file,fwhm=self.inputs.fwhm, newpath=runtime.cwd)
             m0file = reffile
         if self.inputs.in_metadata['M0'] == "True":
             modata2 = dataasl[:, :, :, m0list]
@@ -670,7 +675,7 @@ class GeReferenceFile(SimpleInterface):
                                                     suffix='_mofile', newpath=os.getcwd())
             m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
             m0obj.to_filename(m0filename)
-            reffile = gen_reference(m0filename,newpath=runtime.cwd)
+            reffile = gen_reference(m0filename,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
             m0file = reffile
 
         elif type(self.inputs.in_metadata['M0']) == int or  type(self.inputs.in_metadata['M0']) == float :
@@ -687,11 +692,11 @@ class GeReferenceFile(SimpleInterface):
                                                     suffix='_mofile', newpath=os.getcwd())
             m0obj1 = nb.Nifti1Image(m0file_data, allasl.affine, allasl.header)
             m0obj1.to_filename(m0filename1)
-            m0file = gen_reference(m0filename1,newpath=runtime.cwd)
+            m0file = gen_reference(m0filename1,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
             reffile = m0file
 
         elif len(cbflist) > 0 :
-            reffile=gen_reference(self.inputs.in_file,newpath=runtime.cwd)
+            reffile=gen_reference(self.inputs.in_file,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
             m0file = reffile 
         
         self._results['ref_file']=reffile
