@@ -42,6 +42,6 @@ ASLPrep allows you to easily do the following:
   * Automate and parallelize processing steps, which provides a significant speed-up from
     typical linear, manual processing.
 
-[Documentation `aslprep.org <https://aslprep.readthedocs.io>`_]
+[Documentation  `aslprep.org <https://aslprep.readthedocs.io>`_ ]
 
 
