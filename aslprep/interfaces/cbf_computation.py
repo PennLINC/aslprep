@@ -99,16 +99,16 @@ class extractCBF(SimpleInterface):
     def _run_interface(self, runtime):
         file1 = os.path.abspath(self.inputs.in_file)
         # check if there is m0 file
-        m0num=1
-        m0file=[]
+        m0num = 0
+        m0file = []
         aslfile_linkedM0=[]
 
         if self.inputs.in_metadata['M0'] != "True" and self.inputs.in_metadata['M0'] != "False" and type(self.inputs.in_metadata['M0']) != int :
             m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
             m0file_metadata=readjson(m0file.replace('nii.gz','json'))
             aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
-        elif type(self.inputs.in_metadata['M0']) == int :
-            m0num=int(self.inputs.in_metadata['M0'])
+        elif type(self.inputs.in_metadata['M0']) == float or  type(self.inputs.in_metadata['M0']) == int:
+            m0num=float(self.inputs.in_metadata['M0'])
         else:
             print('no M0 file or numerical M0, the average control will be used \
              in the case of deltam, M0 is required for cbf quantifcation') 
@@ -174,16 +174,17 @@ class extractCBF(SimpleInterface):
                 avg_control = mask*np.mean(m0data_smooth, axis=3)
             else:
                 avg_control = mask*m0data_smooth
+        elif m0num > 0: 
+            'precomputed m0 number will be used'
+            avg_control = mask*(np.mean(np.ones_like(cbf_data),axis=3))
+            avg_control = m0num*avg_control
         elif len(controllist) > 0:
             # else use average control
             control_img = dataasl[:, :, :, controllist]
             con = nb.Nifti1Image(control_img, allasl.affine, allasl.header)
             control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_data()
             avg_control = mask*np.mean(control_img1, axis=3)
-        else: 
-            'precomputed m0 number will be used'
-            avg_control = mask*(np.mean(np.ones_like(cbf_data),axis=3))
-            avg_control = m0num*avg_control
+        
 
 
         self._results['out_file'] = fname_presuffix(self.inputs.in_file,
