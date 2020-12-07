@@ -417,7 +417,7 @@ class workflow(_Config):
     asl2t1w_init = 'register'
     """Whether to use standard coregistration ('register') or to initialize coregistration from the
     ASL image-header ('header')."""
-    m0_scale = int(1)
+    m0_scale = float(1)
     """relative scale between asl and M0."""
     fmap_bspline = None
     """Regularize fieldmaps with a field of B-Spline basis."""
@@ -450,7 +450,7 @@ class workflow(_Config):
     in the absence of any alternatives."""
     dummy_vols = int(0)
     """ pair for label-control volume to be deleted before cbf computation."""
-    smooth_kernel = int(5)
+    smooth_kernel = float(5)
     """ kernel size for smoothing M0."""
     scorescrub = False
     """ run scorescrub, Sudipto's alogrothims for denoisng CBF """

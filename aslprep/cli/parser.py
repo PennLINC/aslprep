@@ -286,7 +286,7 @@ any spatial references."""
         required=False,
         action="store",
         default=1,
-        type=int,
+        type=float,
         help="relative scale between asl and M0.",
     )
     g_conf.add_argument(
@@ -308,7 +308,7 @@ any spatial references."""
         "--smooth_kernel",
         action="store",
         default=5,
-        type=int,
+        type=float,
         help="Smoothing kernel for the M0 image(s)",
     )
 

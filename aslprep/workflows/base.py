@@ -174,7 +174,7 @@ def init_single_subject_wf(subject_id):
         from ..smriprep.utils.bids import collect_derivatives
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         anat_derivatives = collect_derivatives(
-            derivative_dir=anat_derivatives.absolute(),
+            derivatives_dir=anat_derivatives.absolute(),
             subject_id=subject_id,
             std_spaces=std_spaces,
             freesurfer=None

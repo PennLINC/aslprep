@@ -124,6 +124,8 @@ class extractCBF(SimpleInterface):
 
         deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
 
+        cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+
         
         allasl = nb.load(self.inputs.asl_file)
         mask = nb.load(self.inputs.in_mask).get_fdata()
@@ -134,6 +136,8 @@ class extractCBF(SimpleInterface):
 
         if len(deltamlist) > 0 : 
             cbf_data = dataasl[:, :, :, deltamlist]
+        if len(cbflist) > 0 : 
+            cbf_data = dataasl[:, :, :, cbflist]
         elif len(labellist) > 0 :
             control_img = dataasl[:, :, :, controllist]
             label_img = dataasl[:, :, :, labellist] 
@@ -161,9 +165,9 @@ class extractCBF(SimpleInterface):
             newm0 = regmotoasl(asl=self.inputs.asl_file,m0file=m0file,m02asl=newm0)
             m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_data()
             if len(m0data_smooth.shape) > 3 :
-                avg_control = mask*np.mean(m0data_smooth, axis=3)
+                m0dataf = mask*np.mean(m0data_smooth, axis=3)
             else:
-                avg_control = mask*m0data_smooth
+                m0dataf = mask*m0data_smooth
 
         elif len(m0list) > 0 and self.inputs.in_metadata['M0'] == "True" :
             # if no m0file, check from asl data
@@ -171,31 +175,35 @@ class extractCBF(SimpleInterface):
             con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
             m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_data()
             if len(m0data_smooth.shape) > 3 :
-                avg_control = mask*np.mean(m0data_smooth, axis=3)
+                m0dataf = mask*np.mean(m0data_smooth, axis=3)
             else:
-                avg_control = mask*m0data_smooth
+                m0dataf = mask*m0data_smooth
         elif m0num > 0: 
             'precomputed m0 number will be used'
-            avg_control = mask*(np.mean(np.ones_like(cbf_data),axis=3))
-            avg_control = m0num*avg_control
+            m0dataf = mask*(np.mean(np.ones_like(cbf_data),axis=3))
+            m0dataf = m0num*m0dataf
         elif len(controllist) > 0:
             # else use average control
             control_img = dataasl[:, :, :, controllist]
             con = nb.Nifti1Image(control_img, allasl.affine, allasl.header)
             control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_data()
-            avg_control = mask*np.mean(control_img1, axis=3)
+            m0dataf = mask*np.mean(control_img1, axis=3)
+        elif len(cbflist) > 0:
+            m0num = 1
+            m0dataf = mask*(np.mean(np.ones_like(cbf_data),axis=3))
+            m0dataf = m0num*m0dataf
         
 
 
         self._results['out_file'] = fname_presuffix(self.inputs.in_file,
                                                     suffix='_cbftimeseries', newpath=runtime.cwd)
         self._results['out_avg'] = fname_presuffix(self.inputs.in_file,
-                                                   suffix='_avg_control', newpath=runtime.cwd)
+                                                   suffix='_m0file', newpath=runtime.cwd)
         nb.Nifti1Image(
-            np.divide(cbf_data,m0num), allasl.affine, allasl.header).to_filename(
+            cbf_data, allasl.affine, allasl.header).to_filename(
             self._results['out_file'])
         nb.Nifti1Image(
-            avg_control,allasl.affine, allasl.header).to_filename(
+            m0dataf,allasl.affine, allasl.header).to_filename(
             self._results['out_avg'])
 
         self.inputs.out_file = os.path.abspath(self._results['out_file'])
@@ -1324,7 +1332,7 @@ class _extractCBInputSpec(BaseInterfaceInputSpec):
 
 
 class _extractCBOutputSpec(TraitedSpec):
-    out_file= File(exists=False, desc='cbf or deltalm')
+    out_file= File(exists=False, desc='cbf or deltam')
     
 
 
@@ -1343,19 +1351,31 @@ class extractCB(SimpleInterface):
         filex=self.inputs.in_asl
         aslcontext = pd.read_csv(filex.replace('_asl.nii.gz', '_aslcontext.tsv'))
         idasl = aslcontext['volume_type'].tolist()
-        
         fdata=nb.load(filex).get_fdata()
         img=nb.load(filex)
+
+        controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
+        labelist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
+        
+
         if self.inputs.file_type == 'd':
-            dlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+            if len(controllist) > 0 :
+                ffdata=fdata[:, :, :, controllist]-fdata[:, :, :, labelist]
+                newdata = nb.Nifti1Image(dataobj=ffdata,affine=img.affine,header=img.header)
+            else:
+                dlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+                if len(fdata.shape) < 4:
+                    newdata = nb.Nifti1Image(dataobj=fdata,affine=img.affine,header=img.header)
+                else:
+                    ffdata=fdata[:, :, :, dlist]
+                    newdata = nb.Nifti1Image(dataobj=ffdata,affine=img.affine,header=img.header)
         elif self.inputs.file_type == 'c':
             dlist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
-        
-        if len(fdata.shape) < 4:
-            newdata = nb.Nifti1Image(dataobj=fdata,affine=img.affine,header=img.header)
-        else:
-            ffdata=fdata[:, :, :, dlist]
-            newdata = nb.Nifti1Image(dataobj=ffdata,affine=img.affine,header=img.header)
+            if len(fdata.shape) < 4:
+                newdata = nb.Nifti1Image(dataobj=fdata,affine=img.affine,header=img.header)
+            else:
+                ffdata=fdata[:, :, :, dlist]
+                newdata = nb.Nifti1Image(dataobj=ffdata,affine=img.affine,header=img.header)
         
         newdata.to_filename(self._results['out_file'])
 
