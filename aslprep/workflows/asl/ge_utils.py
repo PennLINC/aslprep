@@ -683,20 +683,30 @@ class GeReferenceFile(SimpleInterface):
 
         elif type(self.inputs.in_metadata['M0']) == int or  type(self.inputs.in_metadata['M0']) == float :
             m0num=np.float(self.inputs.in_metadata['M0'])
-            modata2 = dataasl[:, :, :, deltamlist]
-            m0filename=fname_presuffix(self.inputs.in_file,
-                                                    suffix='_mofile', newpath=os.getcwd())
-            m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-            m0obj.to_filename(m0filename)
-            reffile = gen_reference(m0filename,newpath=runtime.cwd)
-            m0file_data=m0num * np.ones_like(nb.load(reffile).get_fdata())
+            if len(deltamlist) > 0:
+                modata2 = dataasl[:, :, :, deltamlist]
+            elif len(controllist) > 0 :
+                modata2 = dataasl[:, :, :, controllist]
 
-            m0filename1=fname_presuffix(self.inputs.in_file,
-                                                    suffix='_mofile', newpath=os.getcwd())
-            m0obj1 = nb.Nifti1Image(m0file_data, allasl.affine, allasl.header)
-            m0obj1.to_filename(m0filename1)
-            m0file = gen_reference(m0filename1,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
-            reffile = m0file
+            m0filename = fname_presuffix(self.inputs.in_file,
+                                                    suffix='_m0file', newpath=os.getcwd())
+            if len(modata2.shape) > 3:
+                mdata = np.mean(modata2,axis=3)
+            else: 
+                mdata = modata2
+
+            m0file_data=m0num * np.ones_like(mdata)
+
+            m0obj = nb.Nifti1Image(m0file_data, allasl.affine, allasl.header)
+            m0obj.to_filename(m0filename)
+            m0file = m0filename
+
+            reffilename = fname_presuffix(self.inputs.in_file,
+                                                    suffix='_refile', newpath=os.getcwd())
+            refobj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
+
+            refobj.to_filename(reffilename)
+            reffile = gen_reference(reffilename,fwhm=0,newpath=runtime.cwd)
 
         elif len(cbflist) > 0 :
             reffile=gen_reference(self.inputs.in_file,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
