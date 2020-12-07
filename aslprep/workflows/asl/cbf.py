@@ -827,6 +827,8 @@ model [@detre_perfusion] [@alsop_recommended].
     idasl = aslcontext['volume_type'].tolist()
     deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
     cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+    controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
+    labelist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
     
     tiscbf = np.add(metadata['PostLabelingDelay'],metadata['LabelingDuration'])
 
@@ -844,10 +846,6 @@ model [@detre_perfusion] [@alsop_recommended].
     computecbf = pe.Node(computeCBF(in_metadata=metadata,in_m0scale=M0Scale), mem_gb=mem_gb,
                          run_without_submitting=True, name="computecbf")
     
-    
-    
-    
-
     refinemaskj = pe.Node(refinemask(), mem_gb=1, run_without_submitting=True, name="refinemask")
 
     def _pick_csf(files):
@@ -863,7 +861,7 @@ model [@detre_perfusion] [@alsop_recommended].
         import os
         return os.path.dirname(file)
 
-    if  len(deltamlist) > 0 :
+    if  len(deltamlist) > 0 or len(controllist) > 0 :
         extractcbf1 = pe.Node(extractCB(file_type='d'),mem_gb=1,
                          run_without_submitting=True, name="extract_d")
         

@@ -661,7 +661,10 @@ class GeReferenceFile(SimpleInterface):
         idasl = aslcontext['volume_type'].tolist()
         m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
         deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
+        controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
+        labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
         cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
+
         allasl = nb.load(self.inputs.in_file)
         dataasl = allasl.get_fdata()
 
