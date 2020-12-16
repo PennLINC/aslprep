@@ -659,7 +659,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber', thresh=0.7):
     scrub algorithms by Sudipto
     cbf_ts
        nd array of 3D or 4D computed cbf
-3    gm,wm,csf 
+       gm,wm,csf 
        numpy array of grey matter, whitematter, and csf
     mask 
        numpy array of mask 
