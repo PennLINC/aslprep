@@ -974,18 +974,18 @@ class qccbfge(SimpleInterface):
             normCov = coverage(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
 
         meancbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                              csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.7)
+                              csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.8)
         meancbf = globalcbf(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.7)
+                            csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.8)
         
 
         if self.inputs.in_avgscore:
             scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.7)
+                               csf=self.inputs.in_csf, img=self.inputs.in_avgscore, thresh=0.8)
             scrub_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.7)
-            negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
-            negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
+                            csf=self.inputs.in_csf, img=self.inputs.in_scrub, thresh=0.8)
+            negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.8)
+            negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.8)
         else:
             scorecbf_qei = 0
             scrub_qei = 0 
@@ -994,18 +994,18 @@ class qccbfge(SimpleInterface):
 
         if self.inputs.in_basil:
             basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.7)
+                               csf=self.inputs.in_csf, img=self.inputs.in_basil, thresh=0.8)
             pvcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
-                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.7)
-            negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
-            negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
+                            csf=self.inputs.in_csf, img=self.inputs.in_pvc, thresh=0.8)
+            negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.8)
+            negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.8)
         else:
             basilcbf_qei = 0
             pvcbf_qei = 0 
             negbasil = 0
             negpvc = 0
         gwratio = np.divide(meancbf[0], meancbf[1])
-        negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.7)
+        negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.8)
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
             dict1 = {'FD': 0, 'relRMS': 0, 'coregDC': [regDC], 'coregJC': [regJC],
@@ -1167,7 +1167,7 @@ def globalcbf(cbf, gm, wm, csf, thresh=0.7):
     return np.mean(bx), np.mean(by), np.mean(bz)
 
 
-def cbf_qei(gm, wm, csf, img, thresh=0.7):
+def cbf_qei(gm, wm, csf, img, thresh=0.8):
     """
     Quality evaluation index of CBF base on Sudipto Dolui work 
     Dolui S., Wolf R. & Nabavizadeh S., David W., Detre, J. (2017). 
