@@ -327,7 +327,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     m0data=m0data[maskx==1]
     # compute cbf
     cbf_data = nb.load(cbffile).get_fdata()
-    cbf_data=cbf_data[maskx==1]
+    cbf_data = cbf_data[maskx==1]
     cbf1 = np.zeros(cbf_data.shape)
     if len(cbf_data.shape) < 2: 
         cbf1 = np.divide(cbf_data,(m0scale*m0data))
@@ -338,7 +338,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
         # cbf1=np.divide(cbf_data,m1)
         # for compute cbf for each PLD and TI
     att = None  
-    if hasattr(perfusion_factor, '__len__'):
+    if hasattr(perfusion_factor, '__len__') and cbf_data.shape[1] > 1 :
         permfactor = np.tile(perfusion_factor ,int(cbf_data.shape[1]/len(perfusion_factor)))
         cbf_data_ts = np.zeros(cbf_data.shape)
 
@@ -356,7 +356,13 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
             pldx = np.zeros([cbf_plds.shape[0],len(cbf_plds)])
             for j in range(cbf_plds.shape[1]):
                 pldx[:,j] = np.array(np.multiply(cbf_plds[:,j],plds[j]))
-            cbf[:, k]=np.divide(np.sum(pldx,axis=1),np.sum(plds))
+            cbf[:, k] = np.divide(np.sum(pldx,axis=1),np.sum(plds))
+
+    elif hasattr(perfusion_factor, '__len__') and len(cbf_data.shape) < 2 :
+        cbf_ts = np.zeros(cbf.shape,len(perfusion_factor))
+        for i in len(perfusion_factor):
+            cbf_ts[:,i] = np.multiply(cbf1,perfusion_factor[i])
+        cbf = np.divide(np.sum(cbf_ts,axis=1),np.sum(perfusion_factor))
     else:
         cbf = cbf1*np.array(perfusion_factor)
         # cbf is timeseries

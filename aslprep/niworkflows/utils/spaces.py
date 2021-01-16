@@ -8,6 +8,7 @@ from templateflow import api as _tfapi
 NONSTANDARD_REFERENCES = [
     "T1w",
     "T2w",
+    "asl"
     "anat",
     "fsnative",
     "func",
