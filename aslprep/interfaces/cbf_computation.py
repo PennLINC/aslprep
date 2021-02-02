@@ -179,7 +179,7 @@ class extractCBF(SimpleInterface):
             else:
                 m0dataf = mask*m0data_smooth
         elif m0num > 0: 
-            'precomputed m0 number will be used'
+            print('precomputed m0 number will be used')
             m0dataf = mask*(np.mean(np.ones_like(cbf_data),axis=3))
             m0dataf = m0num*m0dataf
         elif len(controllist) > 0:

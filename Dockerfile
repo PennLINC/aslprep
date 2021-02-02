@@ -187,7 +187,7 @@ RUN conda install -y python=3.7.4 \
                      pip=19.1 \
                      mkl=2018.0.3 \
                      mkl-service \
-                     numpy=1.15.4 \
+                     numpy=1.16.5 \
                      scipy=1.3.0 \
                      scikit-learn \
                      matplotlib \
