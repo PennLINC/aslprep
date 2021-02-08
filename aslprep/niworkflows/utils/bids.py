@@ -182,8 +182,8 @@ def collect_data(
     for acq, entities in bids_filters.items():
         queries[acq].update(entities)
 
-    if task:
-        queries["asl"]["task"] = task
+    #if task:
+        #queries["asl"]["task"] = task
 
     if echo:
         queries["asl"]["echo"] = echo

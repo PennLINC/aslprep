@@ -27,8 +27,9 @@ DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
 
 
-def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,smooth_kernel=5,brainmask_thresh=0.5,pre_mask=False, name="asl_gereference_wf",
-    gen_report=False):
+def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,
+               smooth_kernel=5,brainmask_thresh=0.5,pre_mask=False, 
+               name="asl_gereference_wf",gen_report=False):
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -667,12 +668,18 @@ class GeReferenceFile(SimpleInterface):
 
         allasl = nb.load(self.inputs.in_file)
         dataasl = allasl.get_fdata()
-
-        if self.inputs.in_metadata['M0'] != "True" and type(self.inputs.in_metadata['M0']) != int :
-            m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
+         
+        if self.inputs.in_metadata['M0Type'] == 'Separate':
+            m0file = self.inputs.in_file.replace("asl.nii.gz","m0scan.nii.gz")
+            m0file_metadata=readjson(m0file.replace('nii.gz','json'))
+            aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
+            if self.inputs.in_file not aslfile_linkedM0:
+                 raise RuntimeError("there is no separate m0scan for the asl data")
+            
             reffile = gen_reference(m0file,fwhm=self.inputs.fwhm, newpath=runtime.cwd)
             m0file = reffile
-        if self.inputs.in_metadata['M0'] == "True":
+        
+        elif self.inputs.in_metadata['M0Type'] == "Included":
             modata2 = dataasl[:, :, :, m0list]
             m0filename=fname_presuffix(self.inputs.in_file,
                                                     suffix='_mofile', newpath=os.getcwd())
@@ -681,12 +688,14 @@ class GeReferenceFile(SimpleInterface):
             reffile = gen_reference(m0filename,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
             m0file = reffile
 
-        elif type(self.inputs.in_metadata['M0']) == int or  type(self.inputs.in_metadata['M0']) == float :
-            m0num=np.float(self.inputs.in_metadata['M0'])
+        elif self.inputs.in_metadata["M0Type"] == "Estimate":
+            m0num = np.float(self.inputs.in_metadata['M0Estimate'])
             if len(deltamlist) > 0:
                 modata2 = dataasl[:, :, :, deltamlist]
             elif len(controllist) > 0 :
                 modata2 = dataasl[:, :, :, controllist]
+            elif len(cbflist) > 0 :
+                modata2 = dataasl[:, :, :, cbflist]
 
             m0filename = fname_presuffix(self.inputs.in_file,
                                                     suffix='_m0file', newpath=os.getcwd())
@@ -708,10 +717,30 @@ class GeReferenceFile(SimpleInterface):
             refobj.to_filename(reffilename)
             reffile = gen_reference(reffilename,fwhm=0,newpath=runtime.cwd)
 
-        elif len(cbflist) > 0 :
-            reffile=gen_reference(self.inputs.in_file,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
-            m0file = reffile 
-        
+        elif self.inputs.in_metadata["M0Type"] == "Absent":
+            if len(controllist) > 0 :
+                modata2 = dataasl[:, :, :, controllist]
+            m0filename = fname_presuffix(self.inputs.in_file,
+                                                    suffix='_m0file', newpath=os.getcwd())
+            if len(modata2.shape) > 3:
+                mdata = np.mean(modata2,axis=3)
+            else: 
+                mdata = modata2
+
+            m0obj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
+            m0obj.to_filename(m0filename)
+            m0file = m0filename
+            m0file  = gen_reference(reffilename,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
+
+            reffilename = fname_presuffix(self.inputs.in_file,
+                                                    suffix='_refile', newpath=os.getcwd())
+            refobj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
+
+            refobj.to_filename(reffilename)
+            reffile = gen_reference(reffilename,fwhm=0,newpath=runtime.cwd)
+
+        else:
+            raise RuntimeError("no path way to obtain real m0scan")
         self._results['ref_file']=reffile
         self._results['m0_file']=m0file
         self.inputs.ref_file = os.path.abspath(self._results['ref_file'])
