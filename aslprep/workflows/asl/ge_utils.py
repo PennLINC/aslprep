@@ -673,9 +673,6 @@ class GeReferenceFile(SimpleInterface):
             m0file = self.inputs.in_file.replace("asl.nii.gz","m0scan.nii.gz")
             m0file_metadata=readjson(m0file.replace('nii.gz','json'))
             aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
-            if self.inputs.in_file is not aslfile_linkedM0:
-                 raise RuntimeError("there is no separate m0scan for the asl data")
-            
             reffile = gen_reference(m0file,fwhm=self.inputs.fwhm, newpath=runtime.cwd)
             m0file = reffile
         

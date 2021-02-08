@@ -88,12 +88,16 @@ class extractCBF(SimpleInterface):
     def _run_interface(self, runtime):
         file1 = os.path.abspath(self.inputs.in_file)
         # check if there is m0 file
-        m0num = 0
+        #m0num = 0
         m0file = []
         aslfile_linkedM0=[]
         mask = nb.load(self.inputs.in_mask).get_fdata()
         aslcontext1 = file1.replace('_asl.nii.gz', '_aslcontext.tsv')
         idasl = pd.read_csv(aslcontext1)['volume_type'].tolist()
+
+        #read the data
+        allasl = nb.load(self.inputs.asl_file)
+        dataasl = allasl.get_fdata()
 
         # get the control,tag,moscan or label 
         controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
@@ -145,9 +149,6 @@ class extractCBF(SimpleInterface):
         else:
             raise RuntimeError("no pathway to m0scan")
         
-        
-        allasl = nb.load(self.inputs.asl_file)
-        dataasl = allasl.get_fdata()
 
         if len(dataasl.shape) == 5:
             raise RuntimeError('Input image (%s) is 5D.')
@@ -345,7 +346,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     else:
         tcbf=np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
         for i in range(cbf.shape[1]):
-            tcbfx=np.zeros(maskx.shape); 
+            tcbfx=np.zeros(maskx.shape) 
             tcbfx[maskx==1]=cbf[:,i]
             tcbf[:,:,:,i]=tcbfx
     if len(tcbf.shape) < 4:

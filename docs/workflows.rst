@@ -108,7 +108,7 @@ ASL preprocessing
     from aslprep import config
     from aslprep.workflows.asl.base import init_asl_preproc_wf
     with mock_config():
-        asl_file = config.execution.bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
         wf = init_asl_preproc_wf(str(asl_file))
 
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
@@ -274,7 +274,7 @@ CBF Computation in native space
     from pathlib import Path
     from pkg_resources import resource_filename as pkgrf
     bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
-    metadatafile = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
+    metadatafile = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
     import json
     with open(metadatafile) as f:
         metadata = json.load(f)
@@ -404,8 +404,8 @@ Quality control measures
     from pkg_resources import resource_filename as pkgrf
     bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
     from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
-    asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.nii.gz'
-    metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_task-restEyesOpen_asl.json'
+    asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
+    metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
     wf = init_cbfqc_compt_wf(mem_gb=0.1,asl_file=str(asl_file),metadata=str(metadata),omp_nthreads=1)
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index, and

@@ -1,4 +1,4 @@
 {
     "restructuredtext.confPath": "${workspaceFolder}/docs",
-    "python.pythonPath": "/usr/local/fsl/fslpython/envs/fslpython/bin/python",
+    "python.pythonPath": "/Users/adebimpe/anaconda3/bin/python",
 }
