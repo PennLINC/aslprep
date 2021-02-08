@@ -11,7 +11,7 @@ from nipype.interfaces.base import (traits, TraitedSpec, BaseInterfaceInputSpec,
 from nipype.interfaces.fsl.base import (FSLCommand, FSLCommandInputSpec)
 from nipype.interfaces.ants import ApplyTransforms
 from pkg_resources import resource_filename as pkgrf
- from nipype.interfaces.fsl import MultiImageMaths
+from nipype.interfaces.fsl import MultiImageMaths
 
 LOGGER = logging.getLogger('nipype.interface')
 
@@ -107,7 +107,7 @@ class extractCBF(SimpleInterface):
             m0file = self.inputs.in_file.replace("asl.nii.gz","m0scan.nii.gz")
             m0file_metadata=readjson(m0file.replace('nii.gz','json'))
             aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
-            if self.inputs.in_file not aslfile_linkedM0:
+            if self.inputs.in_file not in aslfile_linkedM0:
                  raise RuntimeError("there is no separate m0scan for the asl data")
             
             newm0 = fname_presuffix(self.inputs.asl_file,
