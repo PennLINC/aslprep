@@ -83,7 +83,7 @@ jobs:
             else
               echo "Dataset  data was cached"
             fi
-            mkdir -p /tmp/data/smriprep
+            
             cd /tmp/data
             if [[ ! -d /tmp/data/smriprep  ]]; then
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
