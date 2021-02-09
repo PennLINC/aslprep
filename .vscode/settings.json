@@ -1,4 +1,4 @@
 {
     "restructuredtext.confPath": "${workspaceFolder}/docs",
-    "python.pythonPath": "/Users/adebimpe/anaconda3/envs/aslenv/bin/python",
+    "python.pythonPath": "/Users/adebimpe/anaconda3/bin/python",
 }

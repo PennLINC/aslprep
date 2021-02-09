@@ -114,8 +114,8 @@ def init_single_subject_wf(subject_id):
     subject_data = collect_data(
         config.execution.bids_dir,
         subject_id,
-        config.execution.task_id,
-        config.execution.echo_idx,
+        task=None,
+        echo=config.execution.echo_idx,
         bids_filters=config.execution.bids_filters)[0]
 
     if 'flair' in config.workflow.ignore:
@@ -126,11 +126,11 @@ def init_single_subject_wf(subject_id):
     anat_only = config.workflow.anat_only
     # Make sure we always go through these two checks
     if not anat_only and not subject_data['asl']:
-        task_id = config.execution.task_id
+        #task_id = config.execution.task_id
         raise RuntimeError(
-            "No ASL images found for participant {} and task {}. "
+            "No ASL images found for participant {}. "
             "All workflows require ASL images.".format(
-                subject_id, task_id if task_id else '<all>')
+                subject_id)
         )
 
     if not subject_data['t1w']:

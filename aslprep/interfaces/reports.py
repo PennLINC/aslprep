@@ -19,7 +19,6 @@ SUBJECT_TEMPLATE = """\
 \t\t<li>Subject ID: {subject_id}</li>
 \t\t<li>Structural images: {n_t1s:d} T1-weighted {t2w}</li>
 \t\t<li>ASL series: {n_asl:d}</li>
-{tasks}
 \t\t<li>Standard output spaces: {std_spaces}</li>
 \t\t<li>Non-standard output spaces: {nstd_spaces}</li>
 \t\t<li>FreeSurfer reconstruction: {freesurfer_status}</li>
@@ -104,7 +103,7 @@ class SubjectSummary(SummaryInterface):
             r'^(.*\/)?'
             '(?P<subject_id>sub-[a-zA-Z0-9]+)'
             '(_(?P<session_id>ses-[a-zA-Z0-9]+))?'
-            '(_(?P<task_id>task-[a-zA-Z0-9]+))?'
+            #'(_(?P<task_id>task-[a-zA-Z0-9]+))?'
             '(_(?P<acq_id>acq-[a-zA-Z0-9]+))?'
             '(_(?P<rec_id>rec-[a-zA-Z0-9]+))?'
             '(_(?P<run_id>run-[a-zA-Z0-9]+))?')
@@ -128,25 +127,26 @@ class SubjectSummary(SummaryInterface):
         # Add list of tasks with number of runs
         asl_series = self.inputs.asl if isdefined(self.inputs.asl) else []
         asl_series = [s[0] if isinstance(s, list) else s for s in asl_series]
+        
+        # [task-id]
+        #counts = Counter(BIDS_NAME.search(series).groupdict()[5:]
+                         #for series in asl_series)
 
-        counts = Counter(BIDS_NAME.search(series).groupdict()['task_id'][5:]
-                         for series in asl_series)
-
-        tasks = ''
-        if counts:
-            header = '\t\t<ul class="elem-desc">'
-            footer = '\t\t</ul>'
-            lines = ['\t\t\t<li>Task: {task_id} ({n_runs:d} run{s})</li>'.format(
-                     task_id=task_id, n_runs=n_runs, s='' if n_runs == 1 else 's')
-                     for task_id, n_runs in sorted(counts.items())]
-            tasks = '\n'.join([header] + lines + [footer])
+        #tasks = ''
+        #if counts:
+            #header = '\t\t<ul class="elem-desc">'
+            #footer = '\t\t</ul>'
+            #lines = ['\t\t\t<li> ({n_runs:d} run{s})</li>'.format(
+                     #n_runs=n_runs, s='' if n_runs == 1 else 's')
+                     #for n_runs in sorted(counts.items())]
+            #tasks = '\n'.join([header] + lines + [footer])
 
         return SUBJECT_TEMPLATE.format(
             subject_id=self.inputs.subject_id,
             n_t1s=len(self.inputs.t1w),
             t2w=t2w_seg,
             n_asl=len(asl_series),
-            tasks=tasks,
+            #tasks=tasks,
             std_spaces=', '.join(self.inputs.std_spaces),
             nstd_spaces=', '.join(self.inputs.nstd_spaces),
             freesurfer_status=freesurfer_status)

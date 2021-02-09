@@ -11,6 +11,7 @@ from nipype.interfaces.base import (traits, TraitedSpec, BaseInterfaceInputSpec,
 from nipype.interfaces.fsl.base import (FSLCommand, FSLCommandInputSpec)
 from nipype.interfaces.ants import ApplyTransforms
 from pkg_resources import resource_filename as pkgrf
+from nipype.interfaces.fsl import MultiImageMaths
 
 LOGGER = logging.getLogger('nipype.interface')
 
@@ -42,25 +43,13 @@ class refinemask(SimpleInterface):
                                                    suffix='_tempmask', newpath=runtime.cwd)
         self._results['out_mask'] = fname_presuffix(self.inputs.in_aslmask,
                                                     suffix='_refinemask', newpath=runtime.cwd)
-        b1 = ApplyTransforms()
-        b1.inputs.dimension = 3
-        b1.inputs.float = True
-        b1.inputs.input_image = self.inputs.in_t1mask
-        b1.inputs.interpolation = 'NearestNeighbor'
-        b1.inputs.reference_image = self.inputs.in_aslmask
-        b1.inputs.transforms = self.inputs.transforms
-        b1.inputs.input_image_type = 3
-        b1.inputs.output_image = self._results['out_tmp']
-        b1.run()
 
-        from nipype.interfaces.fsl import MultiImageMaths
-        mat1 = MultiImageMaths()
-        mat1.inputs.in_file = self._results['out_tmp']
-        mat1.inputs.op_string = " -mul  %s -bin"
-        mat1.inputs.operand_files = self.inputs.in_aslmask
-        mat1.inputs.out_file = self._results['out_mask']
-        mat1.run()
-        self.inputs.out_mask = os.path.abspath(self._results['out_mask'])
+        refine_ref_mask(t1w_mask = self.inputs.in_t1mask,
+                                         ref_asl_mask = self.inputs.in_aslmask,
+                                         t12ref_transform = self.inputs.transforms,
+                                         tmp_mask = self._results['out_tmp'],
+                                         refined_mask = self._results['out_mask'])
+        
         return runtime
 
 
@@ -99,41 +88,70 @@ class extractCBF(SimpleInterface):
     def _run_interface(self, runtime):
         file1 = os.path.abspath(self.inputs.in_file)
         # check if there is m0 file
-        m0num = 0
+        #m0num = 0
         m0file = []
         aslfile_linkedM0=[]
-
-        if self.inputs.in_metadata['M0'] != "True" and self.inputs.in_metadata['M0'] != "False" and type(self.inputs.in_metadata['M0']) != int :
-            m0file=os.path.abspath(self.inputs.bids_dir+'/'+self.inputs.in_metadata['M0'])
-            m0file_metadata=readjson(m0file.replace('nii.gz','json'))
-            aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
-        elif type(self.inputs.in_metadata['M0']) == float or  type(self.inputs.in_metadata['M0']) == int:
-            m0num=float(self.inputs.in_metadata['M0'])
-        else:
-            print('no M0 file or numerical M0, the average control will be used \
-             in the case of deltam, M0 is required for cbf quantifcation') 
-        
+        mask = nb.load(self.inputs.in_mask).get_fdata()
         aslcontext1 = file1.replace('_asl.nii.gz', '_aslcontext.tsv')
-        aslcontext = pd.read_csv(aslcontext1)
-        idasl = aslcontext['volume_type'].tolist()
+        idasl = pd.read_csv(aslcontext1)['volume_type'].tolist()
+
+        #read the data
+        allasl = nb.load(self.inputs.asl_file)
+        dataasl = allasl.get_fdata()
 
         # get the control,tag,moscan or label 
         controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
         labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
         m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
-
         deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
-
         cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
-
+         
+        # extcract m0 file and register it to ASL if separate
+        if self.inputs.in_metadata['M0Type'] == 'Separate':
+            m0file = self.inputs.in_file.replace("asl.nii.gz","m0scan.nii.gz")
+            m0file_metadata=readjson(m0file.replace('nii.gz','json'))
+            aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
+            if self.inputs.in_file not in aslfile_linkedM0:
+                 raise RuntimeError("there is no separate m0scan for the asl data")
+            
+            newm0 = fname_presuffix(self.inputs.asl_file,
+                                                    suffix='_m0file') 
+            newm0 = regmotoasl(asl=self.inputs.asl_file,m0file=m0file,m02asl=newm0)
+            m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_data()
+            if len(m0data_smooth.shape) > 3 :
+                m0dataf = mask*np.mean(m0data_smooth, axis=3)
+            else:
+                m0dataf = mask*m0data_smooth
         
-        allasl = nb.load(self.inputs.asl_file)
-        mask = nb.load(self.inputs.in_mask).get_fdata()
-        dataasl = allasl.get_fdata()
+        elif self.inputs.in_metadata['M0Type'] == "Included":
+            modata2 = dataasl[:, :, :, m0list]
+            con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
+            m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_data()
+            if len(m0data_smooth.shape) > 3 :
+                m0dataf = mask*np.mean(m0data_smooth, axis=3)
+            else:
+                m0dataf = mask*m0data_smooth
+
+        elif self.inputs.in_metadata["M0Type"] == "Estimate":
+            moestimate=self.inputs.in_metadata['M0Estimate']
+            m0dataf = moestimate*mask
+
+        elif self.inputs.in_metadata["M0Type"] == "Absent":
+            if len(controllist) > 0:
+                control_img = dataasl[:, :, :, controllist]
+                con = nb.Nifti1Image(control_img, allasl.affine, allasl.header)
+                control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_data()
+                m0dataf = mask*np.mean(control_img1, axis=3)
+            elif len(cbflist) > 0:
+                m0dataf = mask
+            else: 
+                raise RuntimeError("m0scan is absent")
+        else:
+            raise RuntimeError("no pathway to m0scan")
+        
 
         if len(dataasl.shape) == 5:
             raise RuntimeError('Input image (%s) is 5D.')
-
         if len(deltamlist) > 0 : 
             cbf_data = dataasl[:, :, :, deltamlist]
         if len(cbflist) > 0 : 
@@ -149,51 +167,6 @@ class extractCBF(SimpleInterface):
         if self.inputs.dummy_vols != 0:
             cbf_data = np.delete(cbf_data, range(0, self.inputs.dummy_vols), axis=3)
             #control_img = np.delete(control_img, range(0, self.inputs.dummy_vols), axis=3)
-
-        # MO file
-        if m0file or aslfile_linkedM0 :
-            # get the raw m0 file also check intended for
-            #m0file=nb.load(m0file).get_fdata()
-            #regsiter m0file to aslfile here
-            if m0file:
-                m0file = m0file
-            else:
-                m0file = aslfile_linkedM0
-
-            newm0 = fname_presuffix(self.inputs.asl_file,
-                                                    suffix='_m0file') 
-            newm0 = regmotoasl(asl=self.inputs.asl_file,m0file=m0file,m02asl=newm0)
-            m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_data()
-            if len(m0data_smooth.shape) > 3 :
-                m0dataf = mask*np.mean(m0data_smooth, axis=3)
-            else:
-                m0dataf = mask*m0data_smooth
-
-        elif len(m0list) > 0 and self.inputs.in_metadata['M0'] == "True" :
-            # if no m0file, check from asl data
-            modata2 = dataasl[:, :, :, m0list]
-            con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-            m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_data()
-            if len(m0data_smooth.shape) > 3 :
-                m0dataf = mask*np.mean(m0data_smooth, axis=3)
-            else:
-                m0dataf = mask*m0data_smooth
-        elif m0num > 0: 
-            'precomputed m0 number will be used'
-            m0dataf = mask*(np.mean(np.ones_like(cbf_data),axis=3))
-            m0dataf = m0num*m0dataf
-        elif len(controllist) > 0:
-            # else use average control
-            control_img = dataasl[:, :, :, controllist]
-            con = nb.Nifti1Image(control_img, allasl.affine, allasl.header)
-            control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_data()
-            m0dataf = mask*np.mean(control_img1, axis=3)
-        elif len(cbflist) > 0:
-            m0num = 1
-            m0dataf = mask*(np.mean(np.ones_like(cbf_data),axis=3))
-            m0dataf = m0num*m0dataf
-        
-
 
         self._results['out_file'] = fname_presuffix(self.inputs.in_file,
                                                     suffix='_cbftimeseries', newpath=runtime.cwd)
@@ -291,7 +264,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     m0scale
       relative scale between m0scan and asl, default is 1
     """
-    labeltype = metadata['LabelingType']
+    labeltype = metadata['ArterialLabelingType']
     tau = metadata['LabelingDuration']
     plds = np.array(metadata['PostLabelingDelay'])
     #m0scale = metadata['M0']
@@ -327,7 +300,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     m0data=m0data[maskx==1]
     # compute cbf
     cbf_data = nb.load(cbffile).get_fdata()
-    cbf_data=cbf_data[maskx==1]
+    cbf_data = cbf_data[maskx==1]
     cbf1 = np.zeros(cbf_data.shape)
     if len(cbf_data.shape) < 2: 
         cbf1 = np.divide(cbf_data,(m0scale*m0data))
@@ -338,7 +311,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
         # cbf1=np.divide(cbf_data,m1)
         # for compute cbf for each PLD and TI
     att = None  
-    if hasattr(perfusion_factor, '__len__'):
+    if hasattr(perfusion_factor, '__len__') and cbf_data.shape[1] > 1 :
         permfactor = np.tile(perfusion_factor ,int(cbf_data.shape[1]/len(perfusion_factor)))
         cbf_data_ts = np.zeros(cbf_data.shape)
 
@@ -356,7 +329,13 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
             pldx = np.zeros([cbf_plds.shape[0],len(cbf_plds)])
             for j in range(cbf_plds.shape[1]):
                 pldx[:,j] = np.array(np.multiply(cbf_plds[:,j],plds[j]))
-            cbf[:, k]=np.divide(np.sum(pldx,axis=1),np.sum(plds))
+            cbf[:, k] = np.divide(np.sum(pldx,axis=1),np.sum(plds))
+
+    elif hasattr(perfusion_factor, '__len__') and len(cbf_data.shape) < 2 :
+        cbf_ts = np.zeros(cbf.shape,len(perfusion_factor))
+        for i in len(perfusion_factor):
+            cbf_ts[:,i] = np.multiply(cbf1,perfusion_factor[i])
+        cbf = np.divide(np.sum(cbf_ts,axis=1),np.sum(perfusion_factor))
     else:
         cbf = cbf1*np.array(perfusion_factor)
         # cbf is timeseries
@@ -367,7 +346,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     else:
         tcbf=np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
         for i in range(cbf.shape[1]):
-            tcbfx=np.zeros(maskx.shape); 
+            tcbfx=np.zeros(maskx.shape) 
             tcbfx[maskx==1]=cbf[:,i]
             tcbf[:,:,:,i]=tcbfx
     if len(tcbf.shape) < 4:
@@ -1302,27 +1281,7 @@ class cbfqroiquant(SimpleInterface):
         return runtime
 
 
-def regmotoasl(asl,m0file,m02asl):
-    from nipype.interfaces import fsl
-    meanasl = fsl.MeanImage(); meanasl.inputs.in_file = asl
-    meanasl.inputs.out_file = fname_presuffix(asl,suffix='_meanasl')
-    meanasl.run()
-    meanm0 = fsl.MeanImage(); meanm0.inputs.in_file = m0file
-    meanm0.inputs.out_file = fname_presuffix(asl,suffix='_meanm0')
-    meanm0.run()
-    flt = fsl.FLIRT(bins=640, cost_func='mutualinfo')
-    flt.inputs.in_file = meanm0.inputs.out_file 
-    flt.inputs.reference = meanasl.inputs.out_file
-    flt.inputs.out_file = m02asl
-    flt.run()
-    return m02asl    
 
-
-def readjson(jsonfile):
-    import json
-    with open(jsonfile) as f:
-        data = json.load(f)
-    return data
 
 class _extractCBInputSpec(BaseInterfaceInputSpec):
     in_asl = File(exists=True, mandatory=True, desc='raw asl file')
@@ -1380,3 +1339,45 @@ class extractCB(SimpleInterface):
         newdata.to_filename(self._results['out_file'])
 
         return runtime
+
+
+def regmotoasl(asl,m0file,m02asl):
+    from nipype.interfaces import fsl
+    meanasl = fsl.MeanImage(); meanasl.inputs.in_file = asl
+    meanasl.inputs.out_file = fname_presuffix(asl,suffix='_meanasl')
+    meanasl.run()
+    meanm0 = fsl.MeanImage(); meanm0.inputs.in_file = m0file
+    meanm0.inputs.out_file = fname_presuffix(asl,suffix='_meanm0')
+    meanm0.run()
+    flt = fsl.FLIRT(bins=640, cost_func='mutualinfo')
+    flt.inputs.in_file = meanm0.inputs.out_file 
+    flt.inputs.reference = meanasl.inputs.out_file
+    flt.inputs.out_file = m02asl
+    flt.run()
+    return m02asl    
+
+
+def readjson(jsonfile):
+    import json
+    with open(jsonfile) as f:
+        data = json.load(f)
+    return data
+
+def refine_ref_mask(t1w_mask,ref_asl_mask,
+                    t12ref_transform,tmp_mask,
+                    refined_mask):
+
+    b1 = ApplyTransforms(); b1.inputs.dimension = 3
+    b1.inputs.float = True; b1.inputs.input_image = t1w_mask
+    b1.inputs.interpolation = 'NearestNeighbor'; b1.inputs.reference_image = ref_asl_mask
+    b1.inputs.transforms = t12ref_transform; b1.inputs.input_image_type = 3
+    b1.inputs.output_image = tmp_mask; b1.run()
+    
+    mat1 = MultiImageMaths(); mat1.inputs.in_file = tmp_mask
+    mat1.inputs.op_string = " -mul  %s -bin"; mat1.inputs.operand_files = ref_asl_mask
+    mat1.inputs.out_file = refined_mask; mat1.run()
+  
+    return refined_mask
+
+
+
