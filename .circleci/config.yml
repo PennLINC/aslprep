@@ -1,6 +1,5 @@
 version: 2
 jobs:
-
   build:
     environment:
       TZ: "/usr/share/zoneinfo/America/New_York"
@@ -45,7 +44,6 @@ jobs:
                 -t pennlinc/aslprep:latest . \
               && e=0 && break || sleep 15
             done && [ "$e" -eq "0" ]
-
       - run:
           name: Docker save
           no_output_timeout: 40m
@@ -53,13 +51,10 @@ jobs:
             mkdir -p /tmp/cache
             docker save  pennlinc/aslprep:latest \
             | pigz -8 -p 3 > /tmp/cache/docker.tar.gz
-
-
       - persist_to_workspace:
           root: /tmp
           paths:
             - cache/docker.tar.gz
-
 
   get_data:
     machine:
@@ -446,7 +441,30 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_ds:
+      - aslprep_sub01:
+          requires:
+            - get_data
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+      - aslprep_sub10R01383:
+          requires:
+            - get_data
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - aslprep_subA00086748:
           requires:
             - get_data
             - build
@@ -461,7 +479,9 @@ workflows:
       - deploy_docker:
           requires:
             - build
-            - aslprep_ds
+            - aslprep_subA00086748
+            - aslprep_sub10R01383
+            - aslprep_sub01
           filters:
             branches:
               only: master
