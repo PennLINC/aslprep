@@ -130,18 +130,18 @@ jobs:
           name: Check whether build should be skipped
           command: |
             cd /home/circleci/src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_ds\]' )" != "" ]]; then
-              echo "Skipping aslprep_ds build"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_sub01\]' )" != "" ]]; then
+              echo "Skipping aslprep_sub01 build"
               circleci step halt
             fi
       - attach_workspace:
           at: /tmp
       - restore_cache:
           keys:
-            - aslprep_ds-v2-{{ .Branch }}-{{ epoch }}
-            - aslprep_ds-v2-{{ .Branch }}
-            - aslprep_ds-v2-master
-            - aslprep_ds-v2-
+            - aslprep_sub01-v2-{{ .Branch }}-{{ epoch }}
+            - aslprep_sub01-v2-{{ .Branch }}
+            - aslprep_sub01-v2-master
+            - aslprep_sub01-v2-
       - run:
           name: Setting up test
           command: |
@@ -166,7 +166,7 @@ jobs:
             wget  https://upenn.box.com/shared/static/nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt
             mv nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt licence.txt 
       - run:
-          name: Run full aslprep on aslprep_ds bold
+          name: Run full aslprep on aslprep_sub01 bold
           no_output_timeout: 5h
           command: |
             sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds && \
@@ -188,7 +188,7 @@ jobs:
                 --anat-derivatives /data/smriprep
 
       - run:
-          name: Checking outputs of aslprep_ds
+          name: Checking outputs of aslprep_sub01
           command: |
             cbfile=$(ls -f /tmp/aslprep_ds/aslprep/sub-01/perf/sub-01_desc-quality_control_cbf.csv)
             if [[ -f ${cbfile} ]]; then 
@@ -220,18 +220,18 @@ jobs:
           name: Check whether build should be skipped
           command: |
             cd /home/circleci/src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_ds\]' )" != "" ]]; then
-              echo "Skipping aslprep_ds build"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_sub10R01383\]' )" != "" ]]; then
+              echo "Skipping aslprep_sub10R01383 build"
               circleci step halt
             fi
       - attach_workspace:
           at: /tmp
       - restore_cache:
           keys:
-            - aslprep_ds-v2-{{ .Branch }}-{{ epoch }}
-            - aslprep_ds-v2-{{ .Branch }}
-            - aslprep_ds-v2-master
-            - aslprep_ds-v2-
+            - aslprep_sub10R01383-v2-{{ .Branch }}-{{ epoch }}
+            - aslprep_sub10R01383-v2-{{ .Branch }}
+            - aslprep_sub10R01383-v2-master
+            - aslprep_sub10R01383-v2-
       - run:
           name: Setting up test
           command: |
@@ -256,7 +256,7 @@ jobs:
             wget  https://upenn.box.com/shared/static/nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt
             mv nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt licence.txt 
       - run:
-          name: Run full aslprep on aslprep_ds bold
+          name: Run full aslprep on aslprep_sub10R01383 bold
           no_output_timeout: 5h
           command: |
             sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds && \
@@ -310,18 +310,18 @@ jobs:
           name: Check whether build should be skipped
           command: |
             cd /home/circleci/src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_ds\]' )" != "" ]]; then
-              echo "Skipping aslprep_ds build"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_subA00086748\]' )" != "" ]]; then
+              echo "Skipping aslprep_subA00086748 build"
               circleci step halt
             fi
       - attach_workspace:
           at: /tmp
       - restore_cache:
           keys:
-            - aslprep_ds-v2-{{ .Branch }}-{{ epoch }}
-            - aslprep_ds-v2-{{ .Branch }}
-            - aslprep_ds-v2-master
-            - aslprep_ds-v2-
+            - aslprep_subA00086748-v2-{{ .Branch }}-{{ epoch }}
+            - aslprep_subA00086748-v2-{{ .Branch }}
+            - aslprep_subA00086748-v2-master
+            - aslprep_subA00086748-v2-
       - run:
           name: Setting up test
           command: |
