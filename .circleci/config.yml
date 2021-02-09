@@ -71,24 +71,29 @@ jobs:
             - data-v1-{{ epoch }}
             - data-v1-
       - run:
-          name: Get test data and wkdir from box
+          name: Get test data and smriprep from box
           command: |
             mkdir -p /tmp/data
-            if [[ ! -d /tmp/data/ds000240 ]]; then
+            cd /tmp/data
+            if [[ ! -d /tmp/data/testingbids ]]; then
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-                -O downsampled.tar.xz "https://upenn.box.com/shared/static/c89i5cj6gpn792rja2tehscuaqsgqgqr.xz"
-              tar xvfJ downsampled.tar.xz -C /tmp/data/
+                -O downsampled.tar.xz "https://upenn.box.com/shared/static/oafbxshj41aeu8biucz2nmc5q3rikygz.xz"
+              tar xvfJ downsampled.tar.xz 
+              rm -rf downsampled.tar.xz  
             else
               echo "Dataset  data was cached"
             fi
-            mkdir -p /tmp/wkdir/
-            if [[ ! -d /tmp/wkdir/wk_dir ]]; then
+            mkdir -p /tmp/data/smriprep
+            cd /tmp/data
+            if [[ ! -d /tmp/data/smriprep  ]]; then
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-                -O wkdir.tar.xz "https://upenn.box.com/shared/static/ysa31xq3qstpxpes8gga6e301tosncqg.xz"
-              tar xvfJ wkdir.tar.xz -C /tmp/wkdir/
+                -O smriprepx.tar.xz "https://upenn.box.com/shared/static/5et51dy8t5pqoe16sddzmy76co4y64ep.xz"
+              tar xvfJ smriprepx.tar.xz 
+              rm -rf smriprepx.tar.xz 
             else
-              echo "wkdir  was cached"
+              echo "smriprep data was cached"
             fi
+            mkdir -p /tmp/wkdir
 
 
       - persist_to_workspace:
@@ -114,7 +119,7 @@ jobs:
            - /tmp/cache/docker.tar.gz
 
 
-  aslprep_ds:
+  aslprep_sub01:
     machine:
       image: circleci/classic:201711-01
     working_directory: /tmp/data
@@ -140,7 +145,8 @@ jobs:
       - run:
           name: Setting up test
           command: |
-            mkdir -p /tmp/aslprep_ds/aslOutput && sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds/aslOutput  && sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds/aslOutput
+            mkdir -p /tmp/aslprep_ds && sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds  && sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds
+
       - run:
           name: Load Docker image layer cache
           no_output_timeout: 1h
@@ -157,38 +163,34 @@ jobs:
           no_output_timeout: 5m
           command: |
             cd /tmp 
-            wget  https://upenn.box.com/shared/static/wuh30asf9hi4kcl6k0gxstog6gv257fu.txt
-            mv wuh30asf9hi4kcl6k0gxstog6gv257fu.txt licence.txt 
+            wget  https://upenn.box.com/shared/static/nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt
+            mv nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt licence.txt 
       - run:
           name: Run full aslprep on aslprep_ds bold
           no_output_timeout: 5h
           command: |
-            sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds/aslOutput && \
-                sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds/aslOutput
-            mkdir -p /tmp/aslprep_ds/work
-            sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds/work && \
-                sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds/work
+            sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds && \
+                sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds
+        
 
             docker run --rm -it \
-                -v /tmp/data:/data \
+                -v /tmp/data:/data/ \
                 -v /tmp/wkdir:/wkdir \
                 -v /tmp:/scrth \
                 -v /tmp/aslprep_ds/:/out \
                 pennlinc/aslprep:latest \
-                /data/ds000240 \
-                /out/aslOutput \
-                participant --participant-label 01 \
-                --clean-workdir \
-                --skip_bids_validation  \
-                -w /wkdir/wk_dir \
-                --output-spaces func T1w MNI152NLin2009cAsym \
+                /data/testingbids  \
+                /out  participant --participant-label 01 \
+                 --skip_bids_validation  \
+                -w /scrth/wkdir_sub01 --output-spaces asl \
                 --fs-license-file /scrth/licence.txt \
-                --scorescrub --basil
+                --scorescrub --basil  \
+                --anat-derivatives /data/smriprep
 
       - run:
           name: Checking outputs of aslprep_ds
           command: |
-            cbfile=$(ls -f /tmp/aslprep_ds/aslprep/sub-01/perf/sub-01_task-restEyesOpen_desc-quality_control_cbf.csv)
+            cbfile=$(ls -f /tmp/aslprep_ds/aslprep/sub-01/perf/sub-01_desc-quality_control_cbf.csv)
             if [[ -f ${cbfile} ]]; then 
             echo "processing complete"
                exit 0
@@ -201,12 +203,192 @@ jobs:
           name: Clean working directory
           when: always
           command: |
-            sudo chown $(id -un):$(id -gn) -R /tmp/wkdir
-            rm -rf /tmp/wkdir
+            sudo chown $(id -un):$(id -gn) -R /tmp/wkdir_sub01
+            rm -rf /tmp/wkdir_sub01
 
       - store_artifacts:
           path: /tmp/aslprep_ds
 
+  aslprep_sub10R01383:
+    machine:
+      image: circleci/classic:201711-01
+    working_directory: /tmp/data
+    steps:
+      - checkout:
+          path: /home/circleci/src/aslprep
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /home/circleci/src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_ds\]' )" != "" ]]; then
+              echo "Skipping aslprep_ds build"
+              circleci step halt
+            fi
+      - attach_workspace:
+          at: /tmp
+      - restore_cache:
+          keys:
+            - aslprep_ds-v2-{{ .Branch }}-{{ epoch }}
+            - aslprep_ds-v2-{{ .Branch }}
+            - aslprep_ds-v2-master
+            - aslprep_ds-v2-
+      - run:
+          name: Setting up test
+          command: |
+            mkdir -p /tmp/aslprep_ds && sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds  && sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds
+
+      - run:
+          name: Load Docker image layer cache
+          no_output_timeout: 1h
+          command: |
+            docker info
+            set +o pipefail
+            if [ -f /tmp/cache/docker.tar.gz ]; then
+              sudo apt update && sudo apt -y install pigz
+              pigz -d --stdout /tmp/cache/docker.tar.gz | docker load
+              docker images
+            fi
+      - run:
+          name: get freesurfer licence
+          no_output_timeout: 5m
+          command: |
+            cd /tmp 
+            wget  https://upenn.box.com/shared/static/nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt
+            mv nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt licence.txt 
+      - run:
+          name: Run full aslprep on aslprep_ds bold
+          no_output_timeout: 5h
+          command: |
+            sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds && \
+                sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds
+        
+
+            docker run --rm -it \
+                -v /tmp/data:/data/ \
+                -v /tmp/wkdir:/wkdir \
+                -v /tmp:/scrth \
+                -v /tmp/aslprep_ds/:/out \
+                pennlinc/aslprep:latest \
+                /data/testingbids  \
+                /out  participant --participant-label 10R01383 \
+                 --skip_bids_validation  \
+                -w /scrth/wkdir_sub10R01383 --output-spaces asl \
+                --fs-license-file /scrth/licence.txt \
+                --scorescrub --basil  \
+                --anat-derivatives /data/smriprep
+
+      - run:
+          name: Checking outputs of aslprep_ds
+          command: |
+            cbfile=$(ls -f /tmp/aslprep_ds/aslprep/sub-10R01383/perf/sub-10R01383_desc-quality_control_cbf.csv)
+            if [[ -f ${cbfile} ]]; then 
+            echo "processing complete"
+               exit 0
+            else 
+            echo "there is error "
+                exit 1
+            fi
+
+      - run:
+          name: Clean working directory
+          when: always
+          command: |
+            sudo chown $(id -un):$(id -gn) -R /tmp/wkdir_sub10R01383
+            rm -rf /tmp/wkdir_sub10R01383
+
+      - store_artifacts:
+          path: /tmp/aslprep_ds
+
+  aslprep_subA00086748:
+    machine:
+      image: circleci/classic:201711-01
+    working_directory: /tmp/data
+    steps:
+      - checkout:
+          path: /home/circleci/src/aslprep
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /home/circleci/src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_ds\]' )" != "" ]]; then
+              echo "Skipping aslprep_ds build"
+              circleci step halt
+            fi
+      - attach_workspace:
+          at: /tmp
+      - restore_cache:
+          keys:
+            - aslprep_ds-v2-{{ .Branch }}-{{ epoch }}
+            - aslprep_ds-v2-{{ .Branch }}
+            - aslprep_ds-v2-master
+            - aslprep_ds-v2-
+      - run:
+          name: Setting up test
+          command: |
+            mkdir -p /tmp/aslprep_ds && sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds  && sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds
+
+      - run:
+          name: Load Docker image layer cache
+          no_output_timeout: 1h
+          command: |
+            docker info
+            set +o pipefail
+            if [ -f /tmp/cache/docker.tar.gz ]; then
+              sudo apt update && sudo apt -y install pigz
+              pigz -d --stdout /tmp/cache/docker.tar.gz | docker load
+              docker images
+            fi
+      - run:
+          name: get freesurfer licence
+          no_output_timeout: 5m
+          command: |
+            cd /tmp 
+            wget  https://upenn.box.com/shared/static/nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt
+            mv nlrtmp3vqif3t1q5v8yxpz9q4ow9mybj.txt licence.txt 
+      - run:
+          name: Run full aslprep on aslprep_ds bold
+          no_output_timeout: 5h
+          command: |
+            sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds && \
+                sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds
+        
+
+            docker run --rm -it \
+                -v /tmp/data:/data/ \
+                -v /tmp/wkdir:/wkdir \
+                -v /tmp:/scrth \
+                -v /tmp/aslprep_ds/:/out \
+                pennlinc/aslprep:latest \
+                /data/testingbids  \
+                /out  participant --participant-label A00086748 \
+                 --skip_bids_validation  \
+                -w /scrth/wkdir_subA00086748--output-spaces asl \
+                --fs-license-file /scrth/licence.txt \
+                --scorescrub --basil  \
+                --anat-derivatives /data/smriprep
+
+      - run:
+          name: Checking outputs of aslprep_ds
+          command: |
+            cbfile=$(ls -f /tmp/aslprep_ds/aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-quality_control_cbf.csv)
+            if [[ -f ${cbfile} ]]; then 
+            echo "processing complete"
+               exit 0
+            else 
+            echo "there is error "
+                exit 1
+            fi
+
+      - run:
+          name: Clean working directory
+          when: always
+          command: |
+            sudo chown $(id -un):$(id -gn) -R /tmp/wkdir_subA00086748
+            rm -rf /tmp/wkdir_subA00086748
+
+      - store_artifacts:
+          path: /tmp/aslprep_ds
+  
   deploy_docker:
     machine:
       image: circleci/classic:201711-01
