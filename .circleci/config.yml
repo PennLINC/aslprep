@@ -357,7 +357,7 @@ jobs:
                 /data/testingbids  \
                 /out  participant --participant-label A00086748 \
                  --skip_bids_validation  \
-                -w /scrth/wkdir_subA00086748--output-spaces asl \
+                -w /scrth/wkdir_subA00086748 --output-spaces asl \
                 --fs-license-file /scrth/licence.txt \
                 --scorescrub --basil  \
                 --anat-derivatives /data/smriprep
