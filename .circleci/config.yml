@@ -82,7 +82,7 @@ jobs:
             cd /tmp/data
             if [[ ! -d /tmp/data/smriprep/sub-01  ]]; then
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-                -O smriprepx.tar.xz "https://upenn.box.com/shared/static/5et51dy8t5pqoe16sddzmy76co4y64ep.xz"
+                -O smriprepx.tar.xz "https://upenn.box.com/shared/static/i64rbrpzfinpej0vct96mjw6ve7yycov.xz"
               tar xvfJ smriprepx.tar.xz 
               rm -rf smriprepx.tar.xz 
             else
