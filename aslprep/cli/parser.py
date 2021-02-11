@@ -122,11 +122,11 @@ def _build_parser():
     # Re-enable when option is actually implemented
     # g_bids.add_argument('-r', '--run-id', action='store', default='single_run',
     #                     help='select a specific run to be processed')
+    #g_bids.add_argument(
+       # "-t", "--task-id", action="store", help="select a specific task to be processed"
+   #)
     g_bids.add_argument(
-        "-t", "--task-id", action="store", help="select a specific task to be processed"
-    )
-    g_bids.add_argument(
-        "--echo-idx",
+       "--echo-idx",
         action="store",
         type=int,
         help="select a specific echo to be processed in a multiecho series",
