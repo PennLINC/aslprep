@@ -1,3 +1,7 @@
+.. image:: https://zenodo.org/badge/256420694.svg
+   :target: https://zenodo.org/badge/latestdoi/256420694
+   
+   
 *ASLPrep*: A Robust Preprocessing Pipeline for ASL Data
 =========================================================
 
