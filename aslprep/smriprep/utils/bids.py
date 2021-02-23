@@ -107,7 +107,7 @@ def collect_derivatives(derivatives_dir, subject_id, std_spaces, freesurfer,
     """Gather existing derivatives and compose a cache."""
     if spec is None or patterns is None:
         _spec, _patterns = tuple(
-            loads(Path(pkgrf('smriprep', 'data/io_spec.json')).read_text()).values())
+            loads(Path(pkgrf('aslprep', 'smriprep/data/io_spec.json')).read_text()).values())
 
         if spec is None:
             spec = _spec

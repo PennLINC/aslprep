@@ -1,3 +1,7 @@
+.. image:: https://zenodo.org/badge/256420694.svg
+   :target: https://zenodo.org/badge/latestdoi/256420694
+   
+   
 *ASLPrep*: A Robust Preprocessing Pipeline for ASL Data
 =========================================================
 
@@ -10,7 +14,7 @@ About
 -----
 
 
-.. image:: https://raw.githubusercontent.com/a3sha2/aslprep/4b24ab000d6736a99874b80e04f23fe9a64a0eba/docs/_static/aslprepworkflow.png
+.. image:: https://raw.githubusercontent.com/a3sha2/aslprep/master/docs/_static/aslprepworkflow.png
 
 
 *ASLPrep* is a Arterial Spin Labeling  (ASL) data

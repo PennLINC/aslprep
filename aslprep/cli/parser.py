@@ -104,7 +104,7 @@ def _build_parser():
         "--skip_bids_validation",
         "--skip-bids-validation",
         action="store_true",
-        default=False,
+        default=True,
         help="assume the input dataset is BIDS compliant and skip the validation",
     )
     g_bids.add_argument(
@@ -122,11 +122,11 @@ def _build_parser():
     # Re-enable when option is actually implemented
     # g_bids.add_argument('-r', '--run-id', action='store', default='single_run',
     #                     help='select a specific run to be processed')
+    #g_bids.add_argument(
+       # "-t", "--task-id", action="store", help="select a specific task to be processed"
+   #)
     g_bids.add_argument(
-        "-t", "--task-id", action="store", help="select a specific task to be processed"
-    )
-    g_bids.add_argument(
-        "--echo-idx",
+       "--echo-idx",
         action="store",
         type=int,
         help="select a specific echo to be processed in a multiecho series",
@@ -279,28 +279,14 @@ any spatial references."""
         default=None,
         help="Do not use boundary-based registration (no goodness-of-fit checks)",
     )
-    g_conf.add_argument(
-        "--medial-surface-nan",
-        required=False,
-        action="store_true",
-        default=False,
-        help="Replace medial wall values with NaNs on functional GIFTI files. Only "
-        "performed for GIFTI files mapped to a freesurfer subject (fsaverage or fsnative).",
-    )
-    g_conf.add_argument(
-        "--dummy_scans",
-        required=False,
-        action="store",
-        default=None,
-        type=int,
-        help="Number of non steady state volumes.",
-    )
+   
+
     g_conf.add_argument(
         "--m0_scale",
         required=False,
         action="store",
         default=1,
-        type=int,
+        type=float,
         help="relative scale between asl and M0.",
     )
     g_conf.add_argument(
@@ -322,8 +308,23 @@ any spatial references."""
         "--smooth_kernel",
         action="store",
         default=5,
-        type=int,
+        type=float,
         help="Smoothing kernel for the M0 image(s)",
+    )
+
+    g_conf.add_argument(
+         "--scorescrub",
+         action="store_true",
+         default=False,
+         help=" Sudipto algoritms for denoising CBF"
+    )
+
+    g_conf.add_argument(
+         "--basil",
+         action="store_true",
+         default=False,
+         help=" FSL's CBF computation with spatial regularization and \
+          partial volume correction"
     )
     # Confounds options
 
@@ -391,40 +392,6 @@ any spatial references."""
         type=IsFile,
         help="Path to FreeSurfer license key file. Get it (for free) by registering"
         " at https://surfer.nmr.mgh.harvard.edu/registration.html",
-    )
-    g_fs.add_argument(
-        "--fs-subjects-dir",
-        metavar="PATH",
-        type=Path,
-        help="Path to existing FreeSurfer subjects directory to reuse. "
-        "(default: OUTPUT_DIR/freesurfer)",
-    )
-
-    # Surface generation xor
-    g_surfs = parser.add_argument_group("Surface preprocessing options")
-    g_surfs.add_argument(
-        "--no-submm-recon",
-        action="store_false",
-        dest="hires",
-        help="disable sub-millimeter (hires) reconstruction",
-    )
-    g_surfs_xor = g_surfs.add_mutually_exclusive_group()
-    g_surfs_xor.add_argument(
-        "--cifti-output",
-        nargs="?",
-        const="91k",
-        default=False,
-        choices=("91k", "170k"),
-        type=str,
-        help="output preprocessed ASL as a CIFTI dense timeseries. "
-        "Optionally, the number of grayordinate can be specified "
-        "(default is 91k, which equates to 2mm resolution)",
-    )
-    g_surfs_xor.add_argument(
-        "--fs-no-reconall",
-        action="store_false",
-        dest="run_reconall",
-        help="disable FreeSurfer surface preprocessing.",
     )
 
     g_other = parser.add_argument_group("Other options")

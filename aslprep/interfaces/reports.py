@@ -19,7 +19,6 @@ SUBJECT_TEMPLATE = """\
 \t\t<li>Subject ID: {subject_id}</li>
 \t\t<li>Structural images: {n_t1s:d} T1-weighted {t2w}</li>
 \t\t<li>ASL series: {n_asl:d}</li>
-{tasks}
 \t\t<li>Standard output spaces: {std_spaces}</li>
 \t\t<li>Non-standard output spaces: {nstd_spaces}</li>
 \t\t<li>FreeSurfer reconstruction: {freesurfer_status}</li>
@@ -34,7 +33,6 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t\t<li>Susceptibility distortion correction: {sdc}</li>
 \t\t\t<li>Registration: {registration}</li>
 \t\t\t<li>Confounds collected: {confounds}</li>
-\t\t\t<li>Non-steady-state volumes: {dummy_scan_desc}</li>
 \t\t\t<li>Motion summary measures: {motionparam}</li>
 \t\t\t<li>Coregistration quality: {coregindex}</li>
 \t\t\t<li>Normalization quality: {normindex}</li>
@@ -105,7 +103,7 @@ class SubjectSummary(SummaryInterface):
             r'^(.*\/)?'
             '(?P<subject_id>sub-[a-zA-Z0-9]+)'
             '(_(?P<session_id>ses-[a-zA-Z0-9]+))?'
-            '(_(?P<task_id>task-[a-zA-Z0-9]+))?'
+            #'(_(?P<task_id>task-[a-zA-Z0-9]+))?'
             '(_(?P<acq_id>acq-[a-zA-Z0-9]+))?'
             '(_(?P<rec_id>rec-[a-zA-Z0-9]+))?'
             '(_(?P<run_id>run-[a-zA-Z0-9]+))?')
@@ -129,25 +127,26 @@ class SubjectSummary(SummaryInterface):
         # Add list of tasks with number of runs
         asl_series = self.inputs.asl if isdefined(self.inputs.asl) else []
         asl_series = [s[0] if isinstance(s, list) else s for s in asl_series]
+        
+        # [task-id]
+        #counts = Counter(BIDS_NAME.search(series).groupdict()[5:]
+                         #for series in asl_series)
 
-        counts = Counter(BIDS_NAME.search(series).groupdict()['task_id'][5:]
-                         for series in asl_series)
-
-        tasks = ''
-        if counts:
-            header = '\t\t<ul class="elem-desc">'
-            footer = '\t\t</ul>'
-            lines = ['\t\t\t<li>Task: {task_id} ({n_runs:d} run{s})</li>'.format(
-                     task_id=task_id, n_runs=n_runs, s='' if n_runs == 1 else 's')
-                     for task_id, n_runs in sorted(counts.items())]
-            tasks = '\n'.join([header] + lines + [footer])
+        #tasks = ''
+        #if counts:
+            #header = '\t\t<ul class="elem-desc">'
+            #footer = '\t\t</ul>'
+            #lines = ['\t\t\t<li> ({n_runs:d} run{s})</li>'.format(
+                     #n_runs=n_runs, s='' if n_runs == 1 else 's')
+                     #for n_runs in sorted(counts.items())]
+            #tasks = '\n'.join([header] + lines + [footer])
 
         return SUBJECT_TEMPLATE.format(
             subject_id=self.inputs.subject_id,
             n_t1s=len(self.inputs.t1w),
             t2w=t2w_seg,
             n_asl=len(asl_series),
-            tasks=tasks,
+            #tasks=tasks,
             std_spaces=', '.join(self.inputs.std_spaces),
             nstd_spaces=', '.join(self.inputs.nstd_spaces),
             freesurfer_status=freesurfer_status)
@@ -168,11 +167,11 @@ class FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     registration_init = traits.Enum('register', 'header', mandatory=True,
                                     desc='Whether to initialize registration with the "header"'
                                          ' or by centering the volumes ("register")')
-    confounds_file = File(exists=True, desc='Confounds file')
+    confounds_file = File(exists=True, mandatory=False, desc='Confounds file')
     qc_file = File(exists=True, desc='qc file')
     tr = traits.Float(desc='Repetition time', mandatory=True)
-    dummy_scans = traits.Either(traits.Int(), None, desc='number of dummy scans specified by user')
-    algo_dummy_scans = traits.Int(desc='number of dummy scans determined by algorithm')
+    #dummy_scans = traits.Either(traits.Int(), None, desc='number of dummy scans specified by user')
+    #algo_dummy_scans = traits.Int(desc='number of dummy scans determined by algorithm')
 
 
 class FunctionalSummary(SummaryInterface):
@@ -222,28 +221,17 @@ class FunctionalSummary(SummaryInterface):
         if isdefined(self.inputs.confounds_file):
             with open(self.inputs.confounds_file) as cfh:
                 conflist = cfh.readline().strip('\n').strip()
-
-        dummy_scan_tmp = "{n_dum}"
-        if self.inputs.dummy_scans == self.inputs.algo_dummy_scans:
-            dummy_scan_msg = (
-                ' '.join([dummy_scan_tmp, "(Confirmed: {n_alg} automatically detected)"])
-                .format(n_dum=self.inputs.dummy_scans, n_alg=self.inputs.algo_dummy_scans)
-            )
+        else:
+            conflist = 'None'
         # the number of dummy scans was specified by the user and
         # it is not equal to the number detected by the algorithm
-        elif self.inputs.dummy_scans is not None:
-            dummy_scan_msg = (
-                ' '.join([dummy_scan_tmp, "(Warning: {n_alg} automatically detected)"])
-                .format(n_dum=self.inputs.dummy_scans, n_alg=self.inputs.algo_dummy_scans)
-            )
+        
         # the number of dummy scans was not specified by the user
-        else:
-            dummy_scan_msg = dummy_scan_tmp.format(n_dum=self.inputs.algo_dummy_scans)
-
+       
         return FUNCTIONAL_TEMPLATE.format(
             pedir=pedir, stc=stc, sdc=self.inputs.distortion_correction, registration=reg,
             confounds=re.sub(r'[\t ]+', ', ', conflist), tr=self.inputs.tr,
-            dummy_scan_desc=dummy_scan_msg, motionparam=motionparam, qei=qei,
+            motionparam=motionparam, qei=qei,
             coregindex=coregindex, normindex=normindex, meancbf=meancbf,
             negvoxel=negvoxel)
 

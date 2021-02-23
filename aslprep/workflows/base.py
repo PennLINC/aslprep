@@ -19,6 +19,7 @@ from nipype.interfaces import utility as niu
 from .. import config
 from ..interfaces import SubjectSummary, AboutSummary, DerivativesDataSink
 from .asl import init_asl_preproc_wf
+from .asl import init_asl_gepreproc_wf
 
 
 def init_aslprep_wf():
@@ -43,22 +44,10 @@ def init_aslprep_wf():
 
     """
     from ..niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ..niworkflows.interfaces.bids import BIDSFreeSurferDir
+    #from ..niworkflows.interfaces.bids import BIDSFreeSurferDir
 
     aslprep_wf = Workflow(name='aslprep_wf')
     aslprep_wf.base_dir = config.execution.work_dir
-
-    freesurfer = config.workflow.run_reconall
-    if freesurfer:
-        fsdir = pe.Node(
-            BIDSFreeSurferDir(
-                derivatives=config.execution.output_dir,
-                freesurfer_home=os.getenv('FREESURFER_HOME'),
-                spaces=config.workflow.spaces.get_fs_spaces()),
-            name='fsdir_run_%s' % config.execution.run_uuid.replace('-', '_'),
-            run_without_submitting=True)
-        if config.execution.fs_subjects_dir is not None:
-            fsdir.inputs.subjects_dir = str(config.execution.fs_subjects_dir.absolute())
 
     for subject_id in config.execution.participant_label:
         single_subject_wf = init_single_subject_wf(subject_id)
@@ -69,10 +58,8 @@ def init_aslprep_wf():
         )
         for node in single_subject_wf._get_all_nodes():
             node.config = deepcopy(single_subject_wf.config)
-        if freesurfer:
-            aslprep_wf.connect(fsdir, 'subjects_dir', single_subject_wf, 'inputnode.subjects_dir')
-        else:
-            aslprep_wf.add_nodes([single_subject_wf])
+        
+        aslprep_wf.add_nodes([single_subject_wf])
 
         # Dump a copy of the config file into the log directory
         log_dir = config.execution.output_dir / 'aslprep' / 'sub-{}'.format(subject_id) \
@@ -127,8 +114,8 @@ def init_single_subject_wf(subject_id):
     subject_data = collect_data(
         config.execution.bids_dir,
         subject_id,
-        config.execution.task_id,
-        config.execution.echo_idx,
+        task=None,
+        echo=config.execution.echo_idx,
         bids_filters=config.execution.bids_filters)[0]
 
     if 'flair' in config.workflow.ignore:
@@ -139,11 +126,11 @@ def init_single_subject_wf(subject_id):
     anat_only = config.workflow.anat_only
     # Make sure we always go through these two checks
     if not anat_only and not subject_data['asl']:
-        task_id = config.execution.task_id
+        #task_id = config.execution.task_id
         raise RuntimeError(
-            "No ASL images found for participant {} and task {}. "
+            "No ASL images found for participant {}. "
             "All workflows require ASL images.".format(
-                subject_id, task_id if task_id else '<all>')
+                subject_id)
         )
 
     if not subject_data['t1w']:
@@ -187,17 +174,17 @@ def init_single_subject_wf(subject_id):
         from ..smriprep.utils.bids import collect_derivatives
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         anat_derivatives = collect_derivatives(
-            anat_derivatives.absolute(),
-            subject_id,
-            std_spaces,
-            config.workflow.run_reconall,
+            derivatives_dir=anat_derivatives.absolute(),
+            subject_id=subject_id,
+            std_spaces=std_spaces,
+            freesurfer=None
         )
         if anat_derivatives is None:
             config.loggers.workflow.warning(f"""\
 Attempted to access pre-existing anatomical derivatives at \
 <{config.execution.anat_derivatives}>, however not all expectations of aslprep \
 were met (for participant <{subject_id}>, spaces <{', '.join(std_spaces)}>, \
-reconall <{config.workflow.run_reconall}>).""")
+""")
 
     workflow.__desc__ = """
 Results included in this manuscript come from preprocessing
@@ -234,9 +221,9 @@ It is released under the [CC0]\
     # Preprocessing of T1w (includes registration to MNI)
     anat_preproc_wf = init_anat_preproc_wf(
         bids_root=str(config.execution.bids_dir),
+        freesurfer=None,
         debug=config.execution.debug is True,
         existing_derivatives=anat_derivatives,
-        freesurfer=config.workflow.run_reconall,
         hires=config.workflow.hires,
         longitudinal=config.workflow.longitudinal,
         omp_nthreads=config.nipype.omp_nthreads,
@@ -287,25 +274,32 @@ tasks and sessions), the following preprocessing was performed.
 """.format(num_asl=len(subject_data['asl']))
 
     for asl_file in subject_data['asl']:
-        asl_preproc_wf = init_asl_preproc_wf(asl_file)
-
-        workflow.connect([
-            (anat_preproc_wf, asl_preproc_wf,
+        if check_img(img=asl_file) > 5: # if number of volume of ASL is less than 5. motion slicetiming etc will be skipped
+            asl_preproc_wf = init_asl_preproc_wf(asl_file)
+            workflow.connect([
+             (anat_preproc_wf, asl_preproc_wf,
              [('outputnode.t1w_preproc', 'inputnode.t1w_preproc'),
               ('outputnode.t1w_mask', 'inputnode.t1w_mask'),
               ('outputnode.t1w_dseg', 'inputnode.t1w_dseg'),
-              ('outputnode.t1w_aseg', 'inputnode.t1w_aseg'),
-              ('outputnode.t1w_aparc', 'inputnode.t1w_aparc'),
               ('outputnode.t1w_tpms', 'inputnode.t1w_tpms'),
               ('outputnode.template', 'inputnode.template'),
               ('outputnode.anat2std_xfm', 'inputnode.anat2std_xfm'),
               ('outputnode.std2anat_xfm', 'inputnode.std2anat_xfm'),
-              # Undefined if --fs-no-reconall, but this is safe
-              ('outputnode.subjects_dir', 'inputnode.subjects_dir'),
-              ('outputnode.subject_id', 'inputnode.subject_id'),
-              ('outputnode.t1w2fsnative_xfm', 'inputnode.t1w2fsnative_xfm'),
-              ('outputnode.fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm')]),
-        ])
+              ]),
+            ])
+        else:
+            asl_preproc_wf = init_asl_gepreproc_wf(asl_file)
+            workflow.connect([
+             (anat_preproc_wf, asl_preproc_wf,
+             [('outputnode.t1w_preproc', 'inputnode.t1w_preproc'),
+              ('outputnode.t1w_mask', 'inputnode.t1w_mask'),
+              ('outputnode.t1w_dseg', 'inputnode.t1w_dseg'),
+              ('outputnode.t1w_tpms', 'inputnode.t1w_tpms'),
+              ('outputnode.template', 'inputnode.template'),
+              ('outputnode.anat2std_xfm', 'inputnode.anat2std_xfm'),
+              ('outputnode.std2anat_xfm', 'inputnode.std2anat_xfm')]),
+            ])
+
     return workflow
 
 
@@ -317,3 +311,12 @@ def _pop(inlist):
     if isinstance(inlist, (list, tuple)):
         return inlist[0]
     return inlist
+
+def check_img(img):
+    # get the 4th dimension
+    import numpy as np 
+    import nibabel as nb 
+    ss=nb.load(img).get_fdata().shape
+    if len(ss) == 3:
+        ss=np.hstack([ss,0])
+    return ss[3]

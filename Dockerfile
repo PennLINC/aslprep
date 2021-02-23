@@ -187,7 +187,7 @@ RUN conda install -y python=3.7.4 \
                      pip=19.1 \
                      mkl=2018.0.3 \
                      mkl-service \
-                     numpy=1.15.4 \
+                     numpy=1.16.5 \
                      scipy=1.3.0 \
                      scikit-learn \
                      matplotlib \
@@ -237,7 +237,7 @@ RUN pip install --no-cache-dir "$( grep templateflow aslprep-setup.cfg | xargs )
 # Installing ASLPREP
 COPY . /src/aslprep
 
-ARG VERSION=0.2.3
+ARG VERSION=0.2.6
 # Force static versioning within container
 RUN echo "${VERSION}" > /src/aslprep/aslprep/VERSION && \
     echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in && \
