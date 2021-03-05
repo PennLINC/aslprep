@@ -70,12 +70,14 @@ jobs:
           command: |
             mkdir -p /tmp/data
             cd /tmp/data
-           
+            if [[ ! -d /tmp/data/testingbids ]]; then
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-                -O downsampled.tar.xz "https://upenn.box.com/shared/static/og1ixccv5v8eir76emii6rrgnwu4thad.xz"
+                -O downsampled.tar.xz "https://upenn.box.com/shared/static/oafbxshj41aeu8biucz2nmc5q3rikygz.xz"
               tar xvfJ downsampled.tar.xz 
               rm -rf downsampled.tar.xz  
-            
+            else
+              echo "Dataset  data was cached"
+            fi
             
             cd /tmp/data
             if [[ ! -d /tmp/data/smriprep/sub-01  ]]; then
@@ -173,6 +175,7 @@ jobs:
                 pennlinc/aslprep:latest \
                 /data/testingbids  \
                 /out  participant --participant-label 01 \
+                 --skip_bids_validation  \
                 -w /scrth/wkdir_sub01 --output-spaces asl \
                 --fs-license-file /scrth/licence.txt \
                 --scorescrub --basil  \
@@ -262,6 +265,7 @@ jobs:
                 pennlinc/aslprep:latest \
                 /data/testingbids  \
                 /out  participant --participant-label 10R01383 \
+                 --skip_bids_validation  \
                 -w /scrth/wkdir_sub10R01383 --output-spaces asl \
                 --fs-license-file /scrth/licence.txt \
                 --scorescrub --basil  \
@@ -351,6 +355,7 @@ jobs:
                 pennlinc/aslprep:latest \
                 /data/testingbids  \
                 /out  participant --participant-label A00086748 \
+                 --skip_bids_validation  \
                 -w /scrth/wkdir_subA00086748 --output-spaces asl \
                 --fs-license-file /scrth/licence.txt \
                 --scorescrub --basil  \

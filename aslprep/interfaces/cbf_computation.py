@@ -264,7 +264,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     m0scale
       relative scale between m0scan and asl, default is 1
     """
-    labeltype = metadata['ArterialSpinLabelingType']
+    labeltype = metadata['ArterialLabelingType']
     tau = metadata['LabelingDuration']
     plds = np.array(metadata['PostLabelingDelay'])
     #m0scale = metadata['M0']
