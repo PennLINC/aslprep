@@ -104,7 +104,7 @@ def _build_parser():
         "--skip_bids_validation",
         "--skip-bids-validation",
         action="store_true",
-        default=True,
+        default=False,
         help="assume the input dataset is BIDS compliant and skip the validation",
     )
     g_bids.add_argument(
