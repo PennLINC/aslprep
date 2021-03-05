@@ -104,7 +104,7 @@ class extractCBF(SimpleInterface):
         labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
         m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
         deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
-        cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'cbf']
+        cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
          
         # extcract m0 file and register it to ASL if separate
         if self.inputs.in_metadata['M0Type'] == 'Separate':
@@ -264,7 +264,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     m0scale
       relative scale between m0scan and asl, default is 1
     """
-    labeltype = metadata['ArterialSpinLabelingType']
+    labeltype = metadata['ArterialLabelingType']
     tau = metadata['LabelingDuration']
     plds = np.array(metadata['PostLabelingDelay'])
     #m0scale = metadata['M0']
@@ -1329,7 +1329,7 @@ class extractCB(SimpleInterface):
                     ffdata=fdata[:, :, :, dlist]
                     newdata = nb.Nifti1Image(dataobj=ffdata,affine=img.affine,header=img.header)
         elif self.inputs.file_type == 'c':
-            dlist = [i for i in range(0, len(idasl)) if idasl[i] == 'cbf']
+            dlist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
             if len(fdata.shape) < 4:
                 newdata = nb.Nifti1Image(dataobj=fdata,affine=img.affine,header=img.header)
             else:

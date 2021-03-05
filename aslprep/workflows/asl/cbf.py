@@ -99,9 +99,9 @@ model [@detre_perfusion] [@alsop_recommended].
         tisasl = str(tiscbf)
 
     def pcaslorasl(metadata):
-        if 'CASL' in metadata["ArterialSpinLabelingType"]:
+        if 'CASL' in metadata["ArterialLabelingType"]:
             pcasl1 = True
-        elif 'PASL' in metadata["ArterialSpinLabelingType"]:
+        elif 'PASL' in metadata["ArterialLabelingType"]:
             pcasl1 = False
         return pcasl1
   

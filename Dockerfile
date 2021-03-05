@@ -154,7 +154,7 @@ RUN apt-get install -y nodejs
 RUN npm install -g svgo
 
 # Installing bids-validator
-RUN npm install -g bids-validator@1.6.2
+RUN npm install -g bids-validator@1.4.0
 
 ENV C3DPATH="/opt/convert3d-nightly" \
     PATH="/opt/convert3d-nightly/bin:$PATH"
