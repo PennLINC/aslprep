@@ -53,6 +53,7 @@ def sentry_setup():
                     release=release,
                     environment=environment,
                     before_send=before_send)
+    
     with sentry_sdk.configure_scope() as scope:
         for k, v in config.get(flat=True).items():
             scope.set_tag(k, v)
