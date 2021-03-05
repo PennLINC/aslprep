@@ -167,7 +167,6 @@ jobs:
             sudo setfacl -d -m group:$(id -gn):rwx /tmp/aslprep_ds && \
                 sudo setfacl -m group:$(id -gn):rwx /tmp/aslprep_ds
         
-
             docker run --rm -it \
                 -v /tmp/data:/data/ \
                 -v /tmp/wkdir:/wkdir \
