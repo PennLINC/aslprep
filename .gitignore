@@ -4,4 +4,5 @@ aslprep/.DS_Store
 .DS_Store
 .DS_Store
 .trash
-docs/sphinxext/__pycache__/github_link.cpython-37.pyc
+docs/sphinxext/__pycache__
+aslprep/__pycache__
