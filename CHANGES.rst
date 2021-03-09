@@ -1,3 +1,6 @@
+v0.2.7 
+- Bids validation
+
 v0.2.6
 
 11/12/2020
