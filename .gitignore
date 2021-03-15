@@ -5,3 +5,5 @@ aslprep/.DS_Store
 .DS_Store
 .trash
 docs/sphinxext/__pycache__/github_link.cpython-37.pyc
+aslprep/pybids/__pycache__/__init__.cpython-38.pyc
+*.pyc
