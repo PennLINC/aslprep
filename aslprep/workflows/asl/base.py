@@ -256,7 +256,8 @@ effects of other kernels [@lanczos].
                 'avgscore_t1', 'avgscore_std', ' scrub_t1', 'scrub_std',
                 'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 
                 'pv_native','att','att_t1','att_std',
-                'confounds', 'confounds_metadata', 'qc_file']),
+                'confounds', 'confounds_metadata', 'qc_file',
+                'itk_asl_to_t1','itk_t1_to_asl']),
         name='outputnode')
       
     # Generate a brain-masked conversion of the t1w
@@ -539,6 +540,11 @@ effects of other kernels [@lanczos].
          (asl_reg_wf, compt_cbf_wf, [('outputnode.itk_t1_to_asl', 'inputnode.t1_asl_xform')]),
          (asl_reg_wf, compt_cbf_wf, [('outputnode.itk_asl_to_t1', 'inputnode.itk_asl_to_t1')]),
          (inputnode, compt_cbf_wf, [('t1w_mask', 'inputnode.t1w_mask')]),
+         (asl_reg_wf,outputnode,[('outputnode.itk_t1_to_asl','itk_t1_to_asl'),
+                                ('outputnode.itk_asl_to_t1','itk_asl_to_t1')]),
+         (asl_reg_wf,asl_derivatives_wf,[('outputnode.itk_t1_to_asl','inputnode.itk_t1_to_asl'),
+                                ('outputnode.itk_asl_to_t1','inputnode.itk_asl_to_t1')]),
+        
      ])
 
 

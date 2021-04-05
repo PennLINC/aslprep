@@ -49,7 +49,7 @@ def init_asl_derivatives_wf(
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(niu.IdentityInterface(fields=[
-        'asl_mask_std', 'asl_mask_t1', 'asl_std',
+        'asl_mask_std', 'asl_mask_t1', 'asl_std','itk_asl_to_t1','itk_t1_to_asl',
         'asl_std_ref', 'asl_t1', 'asl_t1_ref', 'asl_native', 'asl_native_ref',
         'asl_mask_native','confounds', 'confounds_metadata', 'source_file', 
         'template', 'spatial_reference', 'cbf', 'meancbf', 'score', 'avgscore',
@@ -88,6 +88,36 @@ def init_asl_derivatives_wf(
         (inputnode, qcfile, [('source_file', 'source_file'),
                              ('qc_file', 'in_file')]),
     ])
+
+    ## wtite transform matrix file between asl native space and T1w
+
+    itkt12asl = pe.Node( 
+              DerivativesDataSink(base_directory=output_dir, to='T1w',
+                            mode='image', suffix='xfm',
+                            extension='.txt',
+                            dismiss_entities=('echo',),
+                            **{'from': 'scanner'}),name='itk2asl',
+              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)  
+
+    workflow.connect([
+        (inputnode, itkt12asl, [('source_file', 'source_file'),
+                             ('itk_asl_to_t1', 'in_file')]),
+    ])
+
+    itkasl2t1 = pe.Node( 
+              DerivativesDataSink(base_directory=output_dir, to='scanner',
+                            mode='image', suffix='xfm',
+                            extension='.txt',
+                            dismiss_entities=('echo',),
+                            **{'from': 'T1w'}),name='itkasl2t1',
+              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)  
+  
+    workflow.connect([
+        (inputnode, itkasl2t1, [('source_file', 'source_file'),
+                             ('itk_t1_to_asl', 'in_file')]),
+    ])
+
+
 
     cbf_hvoxf = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='HavardOxford', suffix='mean_cbf',
@@ -657,7 +687,7 @@ def init_geasl_derivatives_wf(
     inputnode = pe.Node(niu.IdentityInterface(fields=[
         'asl_mask_std', 'asl_mask_t1', 'asl_std',
         'asl_std_ref', 'asl_t1', 'asl_t1_ref', 'asl_native', 'asl_native_ref',
-        'asl_mask_native','source_file', 
+        'asl_mask_native','source_file', 'itk_asl_to_t1','itk_t1_to_asl',
         'template', 'spatial_reference', 'cbf', 'meancbf', 'score', 'avgscore',
         'scrub', 'basil', 'pv', 'cbf_t1', 'meancbf_t1', 'att_t1', 'score_t1', 'avgscore_t1',
         'scrub_t1', 'basil_t1', 'pv_t1', 'cbf_std', 'meancbf_std', 'score_std',
@@ -686,6 +716,35 @@ def init_geasl_derivatives_wf(
     workflow.connect([
         (inputnode, qcfile, [('source_file', 'source_file'),
                              ('qc_file', 'in_file')]),
+    ])
+
+    ## wtite transform matrix file between asl native space and T1w
+
+    
+    itkt12asl = pe.Node( 
+              DerivativesDataSink(base_directory=output_dir, to='scanner',
+                            mode='image', suffix='xfm',
+                            extension='.txt',
+                            dismiss_entities=('echo',),
+                            **{'from': 'T1w'}),name='itk2asl',
+              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)  
+
+    workflow.connect([
+        (inputnode, itkt12asl, [('source_file', 'source_file'),
+                             ('itk_asl_to_t1', 'in_file')]),
+    ])
+
+    itkasl2t1 = pe.Node( 
+              DerivativesDataSink(base_directory=output_dir, to='T1w',
+                            mode='image', suffix='xfm',
+                            extension='.txt',
+                            dismiss_entities=('echo',),
+                            **{'from': 'scanner'}),name='itkasl2t1',
+              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)  
+  
+    workflow.connect([
+        (inputnode, itkasl2t1, [('source_file', 'source_file'),
+                             ('itk_t1_to_asl', 'in_file')]),
     ])
 
     cbf_hvoxf = pe.Node(

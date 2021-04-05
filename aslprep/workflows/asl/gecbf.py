@@ -213,11 +213,11 @@ effects of other kernels [@lanczos].
     outputnode = pe.Node(niu.IdentityInterface(
         fields=['asl_t1', 'asl_t1_ref', 'asl_mask_t1','asl_std', 'asl_std_ref', 'asl_mask_std',
                 'asl_native','cbf_t1', 'cbf_std', 'meancbf_t1', 'meancbf_std', 'score_t1', 'score_std',
-                'avgscore_t1', 'avgscore_std', ' scrub_t1', 'scrub_std',
+                'avgscore_t1', 'avgscore_std', ' scrub_t1', 'scrub_std','itk_asl_to_t1','itk_t1_to_asl',
                 'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 'pv_native','att','att_t1','att_std',
                 'qc_file']),
         name='outputnode')
-      
+    
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name='t1w_brain')
 
@@ -293,6 +293,10 @@ effects of other kernels [@lanczos].
                                      ('t1w_mask','inputnode.t1w_mask')]),
          (asl_reg_wf,cbf_compt_wf,[('outputnode.itk_asl_to_t1','inputnode.itk_asl_to_t1'),
                                ('outputnode.itk_t1_to_asl','inputnode.t1_asl_xform')]),
+         (asl_reg_wf,outputnode,[('outputnode.itk_asl_to_t1','itk_asl_to_t1'),
+                                  ('outputnode.itk_t1_to_asl','itk_t1_to_asl')]),
+         (asl_reg_wf,asl_derivatives_wf,[('outputnode.itk_t1_to_asl','inputnode.itk_t1_to_asl'),
+                                ('outputnode.itk_asl_to_t1','inputnode.itk_asl_to_t1')]),
          (inputnode, t1w_gereg_wf, [
             ('asl_file', 'inputnode.name_source'),
             ('t1w_mask', 'inputnode.t1w_mask'),]),
