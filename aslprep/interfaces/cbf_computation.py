@@ -319,7 +319,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
         for i in range(cbf_data.shape[1]):
             cbf_data_ts[:, i] =np.multiply(cbf1[:, i],permfactor[i])
         cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1]/len(perfusion_factor))])
-        cbf_xx=np.split(cbf_data_ts,int(cbf_data_ts.shape[1]/len(perfusion_factor)),axis=1)
+        cbf_xx = np.split(cbf_data_ts,int(cbf_data_ts.shape[1]/len(perfusion_factor)),axis=1)
         
         # calculate weighted cbf with multiplds
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3791289/
@@ -344,9 +344,9 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
         tcbf=np.zeros(maskx.shape)
         tcbf[maskx==1]=cbf
     else:
-        tcbf=np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
+        tcbf = np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
         for i in range(cbf.shape[1]):
-            tcbfx=np.zeros(maskx.shape) 
+            tcbfx = np.zeros(maskx.shape) 
             tcbfx[maskx==1]=cbf[:,i]
             tcbf[:,:,:,i]=tcbfx
     if len(tcbf.shape) < 4:
@@ -458,7 +458,7 @@ def _weightfun(x, wfun='huber'):
         weight = 1/(1+np.power(x, 2))
     elif wfun == 'logistic':
         tuner = 1.205
-        weight == np.tanh(x)/x
+        weight = np.tanh(x)/x
     elif wfun == 'ols':
         tuner = 1
         weight = np.repeat(1, len(x))
