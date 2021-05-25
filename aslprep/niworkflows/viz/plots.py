@@ -243,7 +243,7 @@ def plotstatsimg(cbf, ref_vol, plot_params=None, order=('z', 'x', 'y'),
         plot_params['draw_cross'] = False
         plot_params['symmetric_cbar'] = True
         plot_params['vmax'] = 90
-        plot_params['threshold'] = 0.05
+        plot_params['threshold'] = 0.02
         plot_params['colorbar'] = False
         plot_params['cmap'] = 'gray'
         if i == 0:
