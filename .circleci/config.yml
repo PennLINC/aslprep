@@ -175,7 +175,7 @@ jobs:
                 /out  participant --participant-label 01 \
                 -w /scrth/wkdir_sub01 --output-spaces asl \
                 --fs-license-file /scrth/licence.txt \
-                --scorescrub --basil  \
+                --scorescrub --basil --use-syn-sdc \
                 --anat-derivatives /data/smriprep
 
       - run:
@@ -264,7 +264,7 @@ jobs:
                 /out  participant --participant-label A00086748 \
                 -w /scrth/wkdir_subA00086748 --output-spaces asl \
                 --fs-license-file /scrth/licence.txt \
-                --scorescrub --basil  \
+                --scorescrub --basil --use-syn-sdc \
                 --anat-derivatives /data/smriprep
 
       - run:

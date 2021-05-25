@@ -135,10 +135,10 @@ template [@fieldmapless3].
 
     # Collect predefined data
     # Atlas image and registration affine
-    atlas_img = resource_filename('sdcflows', 'data/fmap_atlas.nii.gz')
+    atlas_img = resource_filename('aslprep', 'sdcflows/data/fmap_atlas.nii.gz')
     # Registration specifications
-    affine_transform = resource_filename('sdcflows', 'data/affine.json')
-    syn_transform = resource_filename('sdcflows', 'data/susceptibility_syn.json')
+    affine_transform = resource_filename('aslprep', 'sdcflows/data/affine.json')
+    syn_transform = resource_filename('aslprep', 'sdcflows/data/susceptibility_syn.json')
 
     invert_t1w = pe.Node(Rescale(invert=True), name='invert_t1w',
                          mem_gb=0.3)
@@ -152,7 +152,7 @@ template [@fieldmapless3].
     transform_list = pe.Node(niu.Merge(3), name='transform_list',
                              mem_gb=DEFAULT_MEMORY_MIN_GB)
     transform_list.inputs.in3 = resource_filename(
-        'sdcflows', 'data/fmap_atlas_2_MNI152NLin2009cAsym_affine.mat')
+        'aslprep', 'sdcflows/data/fmap_atlas_2_MNI152NLin2009cAsym_affine.mat')
 
     # Inverting (1), then applying in reverse order:
     #

@@ -148,7 +148,7 @@ def init_asl_preproc_wf(asl_file):
     from ...niworkflows.func.util import init_asl_reference_wf
     from ...niworkflows.interfaces.nibabel import ApplyMask
     from ...niworkflows.interfaces.utility import KeySelect
-    from sdcflows.workflows.base import init_sdc_estimate_wf, fieldmap_wrangler
+    from ...sdcflows.workflows.base import init_sdc_estimate_wf, fieldmap_wrangler
 
     ref_file = asl_file
     mem_gb = {'filesize': 1, 'resampled': 1, 'largemem': 1}
@@ -561,7 +561,7 @@ effects of other kernels [@lanczos].
     ])
 
     if fmaps:
-        from sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
+        from ...sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
         # Report on asl correction
         fmap_unwarp_report_wf = init_sdc_unwarp_report_wf()
         workflow.connect([

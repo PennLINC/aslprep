@@ -19,7 +19,7 @@ This corresponds to `this section of the BIDS specification
 
 from nipype.interfaces import fsl, utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from ..interfaces.fmap import Phasediff2Fieldmap, PhaseMap2rads, SubtractPhases
 from .gre import init_fmap_postproc_wf, init_magnitude_wf
