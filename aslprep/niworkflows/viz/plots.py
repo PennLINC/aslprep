@@ -241,9 +241,9 @@ def plotstatsimg(cbf, ref_vol, plot_params=None, order=('z', 'x', 'y'),
         plot_params['display_mode'] = mode
         plot_params['cut_coords'] = cuts[mode]
         plot_params['draw_cross'] = False
-        plot_params['symmetric_cbar'] = False
-        plot_params['threshold'] = 0.05
+        plot_params['symmetric_cbar'] = True
         plot_params['vmax'] = 90
+        plot_params['threshold'] = 0.02
         plot_params['colorbar'] = False
         plot_params['cmap'] = 'gray'
         if i == 0:
@@ -254,7 +254,8 @@ def plotstatsimg(cbf, ref_vol, plot_params=None, order=('z', 'x', 'y'),
 
         # Generate nilearn figure
         from nilearn.plotting import plot_stat_map
-        display = plot_stat_map(stat_map_img=cbf, bg_img=ref_vol, **plot_params)
+        display = plot_stat_map(stat_map_img=cbf, bg_img=ref_vol,
+                     resampling_interpolation='nearest',**plot_params)
         svg = extract_svg(display, compress=compress)
         display.close()
         from lxml import etree
