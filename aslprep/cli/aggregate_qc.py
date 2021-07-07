@@ -42,5 +42,5 @@ def main():
     datax.to_csv(outputfile,index=None)
 
 if __name__ == '__main__':
-    raise RuntimeError("aslprep/cli/run.py should not be run directly;\n"
-                       "Please `pip install` aslprep and use the `aslprep` command")
+    raise RuntimeError("this should be run after running aslprep;\n"
+                       "it required installation of  aslprep")
