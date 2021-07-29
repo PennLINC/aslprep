@@ -332,7 +332,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
             cbf[:, k] = np.divide(np.sum(pldx,axis=1),np.sum(plds))
 
     elif hasattr(perfusion_factor, '__len__') and len(cbf_data.shape) < 2 :
-        cbf_ts = np.zeros(cbf.shape,len(perfusion_factor))
+        cbf_ts = np.zeros(cbf_data.shape,len(perfusion_factor))
         for i in len(perfusion_factor):
             cbf_ts[:,i] = np.multiply(cbf1,perfusion_factor[i])
         cbf = np.divide(np.sum(cbf_ts,axis=1),np.sum(perfusion_factor))
