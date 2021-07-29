@@ -236,7 +236,7 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
         niu.IdentityInterface(
             fields=['name_source', 'ref_asl_brain', 'ref_asl_mask','t1w_brain', 't1w_mask', 
                     'asl_split', 'fieldwarp', 'hmc_xforms', 'cbf', 'meancbf','att',
-                    'score', 'avgscore', 'scrub', 'basil', 'pv', 'itk_asl_to_t1']),
+                    'score', 'avgscore', 'scrub', 'basil', 'pv', 'pvwm','itk_asl_to_t1']),
         name='inputnode'
     )
 
@@ -244,7 +244,7 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
         niu.IdentityInterface(fields=[
             'asl_t1', 'asl_t1_ref', 'asl_mask_t1','att_t1',
             'cbf_t1', 'meancbf_t1', 'score_t1', 'avgscore_t1', 
-            'scrub_t1', 'basil_t1', 'pv_t1']),
+            'scrub_t1', 'basil_t1', 'pv_t1','pvwm_t1']),
         name='outputnode'
     )
 
@@ -374,6 +374,9 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
         pv_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
                name='pv_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        pvwm_to_t1w_transform = pe.Node(
+               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
+               name='pv_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         att_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
                name='att_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
@@ -389,6 +392,11 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
          (pv_to_t1w_transform, outputnode, [('output_image', 'pv_t1')]),
          (inputnode, pv_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
          (gen_ref, pv_to_t1w_transform, [('out_file', 'reference_image')]),
+
+         (inputnode, pvwm_to_t1w_transform, [('pvwm', 'input_image')]),
+         (pvwm_to_t1w_transform, outputnode, [('output_image', 'pvwm_t1')]),
+         (inputnode, pvwm_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
+         (gen_ref, pvwm_to_t1w_transform, [('out_file', 'reference_image')]),
 
          (inputnode, att_to_t1w_transform, [('att', 'input_image')]),
          (att_to_t1w_transform, outputnode, [('output_image', 'att_t1')]),

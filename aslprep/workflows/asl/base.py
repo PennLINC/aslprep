@@ -254,8 +254,8 @@ effects of other kernels [@lanczos].
                 'asl_native','cbf_t1', 'cbf_std', 'meancbf_t1', 
                 'meancbf_std', 'score_t1', 'score_std',
                 'avgscore_t1', 'avgscore_std', ' scrub_t1', 'scrub_std',
-                'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 
-                'pv_native','att','att_t1','att_std',
+                'basil_t1', 'basil_std', 'pv_t1', 'pv_std',
+                'pv_native','att','att_t1','att_std','pvwm_t1', 'pvwm_std', 
                 'confounds', 'confounds_metadata', 'qc_file',
                 'itk_asl_to_t1','itk_t1_to_asl']),
         name='outputnode')
@@ -663,10 +663,12 @@ effects of other kernels [@lanczos].
             workflow.connect([
                 (compt_cbf_wf, asl_t1_trans_wf, [('outputnode.out_cbfb', 'inputnode.basil'),
                                             ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                            ('outputnode.out_cbfpvwm', 'inputnode.pvwm'),
                                             ('outputnode.out_att', 'inputnode.att'),]),
                (asl_t1_trans_wf, asl_derivatives_wf,[
                                             ('outputnode.basil_t1', 'inputnode.basil_t1'),
                                             ('outputnode.pv_t1', 'inputnode.pv_t1'),
+                                            ('outputnode.pvwm_t1', 'inputnode.pvwm_t1'),
                                             ('outputnode.att_t1', 'inputnode.att_t1'),])
             ])
 
@@ -743,6 +745,7 @@ effects of other kernels [@lanczos].
                   (compt_cbf_wf, asl_std_trans_wf, [
                                                ('outputnode.out_cbfb', 'inputnode.basil'),
                                                ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                               ('outputnode.out_cbfpvwm', 'inputnode.pvwm'),
                                                ('outputnode.out_att', 'inputnode.att'),]),  
                 ])
 
@@ -786,6 +789,7 @@ effects of other kernels [@lanczos].
             (asl_std_trans_wf, asl_derivatives_wf, [
                 ('outputnode.basil_std', 'inputnode.basil_std'),
                 ('outputnode.pv_std', 'inputnode.pv_std'),
+                ('outputnode.pvwm_std', 'inputnode.pvwm_std'),
                 ('outputnode.att_std', 'inputnode.att_std')]),
             ])
 

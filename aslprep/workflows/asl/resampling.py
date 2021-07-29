@@ -286,6 +286,7 @@ preprocessed ASL runs*: {tpl}.
             'scrub',
             'basil',
             'pv',
+            'pvwm',
             'asl_mask',
             'asl_split',
             'fieldwarp',
@@ -361,6 +362,9 @@ preprocessed ASL runs*: {tpl}.
         pv_to_std_transform = pe.Node(
           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
           name='pv_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        pvwm_to_std_transform = pe.Node(
+          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
+          name='pv_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         att_to_std_transform = pe.Node(
           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
           name='att_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
@@ -412,7 +416,7 @@ preprocessed ASL runs*: {tpl}.
     if scorescrub:
         output_names = output_names +['score_std','avgscore_std','scrub_std']
     if basil:
-        output_names = output_names + ['basil_std', 'pv_std','att_std']
+        output_names = output_names + ['basil_std', 'pv_std','att_std', 'pvwm_std']
       
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names),
                           name='poutputnode')
@@ -462,6 +466,11 @@ preprocessed ASL runs*: {tpl}.
         (gen_ref, pv_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, pv_to_std_transform, [('pv', 'input_image')]),
         (pv_to_std_transform, poutputnode, [('output_image', 'pv_std')]),
+
+        (mask_merge_tfms, pvwm_to_std_transform, [('out', 'transforms')]),
+        (gen_ref, pvwm_to_std_transform, [('out_file', 'reference_image')]),
+        (inputnode, pvwm_to_std_transform, [('pvwm', 'input_image')]),
+        (pvwm_to_std_transform, poutputnode, [('output_image', 'pvwm_std')]),
 
         (mask_merge_tfms, att_to_std_transform, [('out', 'transforms')]),
         (gen_ref, att_to_std_transform, [('out_file', 'reference_image')]),

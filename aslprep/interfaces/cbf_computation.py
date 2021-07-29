@@ -731,7 +731,8 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
                 argstr=" --pvwm %s ")
     out_basename = File(desc="base name of output files", argstr=" -o %s ", mandatory=True)
     out_cbfb = File(exists=False, desc='cbf with spatial correction')
-    out_cbfpv = File(exists=False, desc='cbf with spatial correction')
+    out_cbfpv = File(exists=False, desc='cbf with spatial partial volume correction')
+    out_cbfpvwm = File(exists=False, desc='cbf with spatial partial volume white matter correction')
     out_att = File(exists=False, desc='aretrial transist time')
     # environ=traits.Str('FSLOUTPUTTYPE': 'NIFTI_GZ'}
 
@@ -739,6 +740,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
 class _BASILCBFOutputSpec(TraitedSpec):
     out_cbfb = File(exists=False, desc='cbf with spatial correction')
     out_cbfpv = File(exists=False, desc='cbf with spatial correction')
+    out_cbfpvwm = File(exists=False, desc='cbf with spatial partial volume white matter correction')
     out_att = File(exists=False, desc='aretrial transist time')
 
 
@@ -778,8 +780,13 @@ class BASILCBF(FSLCommand):
         outputs["out_cbfpv"] = fname_presuffix(self.inputs.mask, suffix='_cbfbasilpv')
         copyfile(self.inputs.out_basename+'/native_space/pvcorr/perfusion_calib.nii.gz',
                  outputs["out_cbfpv"])
+
+        outputs["out_cbfpvwm"] = fname_presuffix(self.inputs.mask, suffix='_cbfbasilpvwm')
+        copyfile(self.inputs.out_basename+'/native_space/pvcorr/perfusion_wm_calib.nii.gz',
+                 outputs["out_cbfpvwm"])
         self.inputs.out_cbfb = os.path.abspath(outputs["out_cbfb"])
         self.inputs.out_cbfpv = os.path.abspath(outputs["out_cbfpv"])
+        self.inputs.out_cbfpvwm = os.path.abspath(outputs["out_cbfpvwm"])
         return outputs
 
 

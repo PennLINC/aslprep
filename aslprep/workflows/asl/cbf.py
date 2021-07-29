@@ -78,7 +78,7 @@ model [@detre_perfusion] [@alsop_recommended].
                                                       't1w_tpms', 't1w_mask', 't1_asl_xform',
                                                       'itk_asl_to_t1']),
                         name='inputnode')
-    outputnode = pe.Node(niu.IdentityInterface(fields=['out_cbf', 'out_mean', 'out_score',
+    outputnode = pe.Node(niu.IdentityInterface(fields=['out_cbf', 'out_mean', 'out_score','out_cbfpvwm',
                                                        'out_avgscore', 'out_scrub', 'out_cbfb',
                                                        'out_scoreindex', 'out_cbfpv','out_att']),
                          name='outputnode')
@@ -189,6 +189,7 @@ also included correction for partial volume effects [@chappell_pvc].
          (extractcbf, basilcbf, [('out_avg', 'mzero')]),
          (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
                                 ('out_cbfpv', 'out_cbfpv'),
+                                ('out_cbfpvwm', 'out_cbfpvwm')
                                 ('out_att', 'out_att')]),
         ])
             
