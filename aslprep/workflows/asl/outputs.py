@@ -619,7 +619,7 @@ def init_asl_derivatives_wf(
             pvstdwm = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='pvWM', suffix='cbf',
                                 compress=True),
-              name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+              name='pvcstdwm', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             attstd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 compress=True),
