@@ -189,7 +189,7 @@ also included correction for partial volume effects [@chappell_pvc].
          (extractcbf, basilcbf, [('out_avg', 'mzero')]),
          (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
                                 ('out_cbfpv', 'out_cbfpv'),
-                                ('out_cbfpvwm', 'out_cbfpvwm')
+                                ('out_cbfpvwm', 'out_cbfpvwm'),
                                 ('out_att', 'out_att')]),
         ])
             
