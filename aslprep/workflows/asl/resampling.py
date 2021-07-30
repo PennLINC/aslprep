@@ -559,15 +559,10 @@ def init_asl_preproc_trans_wf(mem_gb, omp_nthreads,
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The asl time-series (including slice-timing correction when applied)
-were resampled onto their original, native space by applying
-{transforms}.
-These resampled asl time-series will be referred to as *preprocessed
-asl in original space*, or just *preprocessed asl*.
-""".format(transforms="""\
-a single, composite transform to correct for head-motion and
-susceptibility distortions""" if use_fieldwarp else """\
-the transforms to correct for head-motion""")
+The ASL timeseries were resampled onto their original, 
+native space by applying the transforms to correct for head-motion. 
+These resampled ASL timeseries are referred to as preprocessed ASL
+"""
 
     inputnode = pe.Node(niu.IdentityInterface(fields=[
         'name_source', 'asl_file', 'asl_mask', 'hmc_xforms', 'fieldwarp']),

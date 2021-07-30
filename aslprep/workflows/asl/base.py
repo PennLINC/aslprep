@@ -226,14 +226,11 @@ def init_asl_preproc_wf(asl_file):
 
     # Build workflow
     workflow = Workflow(name=wf_name)
-    workflow.__postdesc__ = """\
-All resamplings can be performed with *a single interpolation
-step* by composing all the pertinent transformations (i.e. head-motion
-transform matrices, susceptibility distortion correction when available,
-and co-registrations to anatomical and output spaces).
-Gridded (volumetric) resamplings were performed using `antsApplyTransforms` (ANTs),
-configured with Lanczos interpolation to minimize the smoothing
-effects of other kernels [@lanczos].
+    workflow.__postdesc__ = """
+All resampling of ASL and CBF to T1w or standard space were done with a single interpolation
+step by composing all pertinent transformations. Gridded (volumetric) resampling was performed
+using antsApplyTransforms (ANTs), configured with Lanczos interpolation to minimize the 
+smoothing effects of other kernels [@lanczos].
 """
 
     inputnode = pe.Node(niu.IdentityInterface(

@@ -187,11 +187,11 @@ were met (for participant <{subject_id}>, spaces <{', '.join(std_spaces)}>, \
 """)
 
     workflow.__desc__ = """
-### Arterial Spin Labeling Processing and Cerebral Blood Flow Computation
+### Arterial Spin Labeling PreProcessing and Cerebral Blood Flow Computation
 
 Results included in this manuscript come from preprocessing
 performed using *aslprep* {aslprep_ver},
-which is based on *Nipype* {nipype_ver} [@nipype1].
+which is based on *Nipype* {nipype_ver} [@nipype].
 
 """.format(aslprep_ver=config.environment.version,
            nipype_ver=config.environment.nipype_version)  
@@ -265,9 +265,9 @@ their manuscripts unchanged. It is released under the *unchanged*. [CC0]\
     # That way we do not need to stream down the number of asl datasets
     anat_preproc_wf.__postdesc__ = (anat_preproc_wf.__postdesc__ or '') + """
 
-Functional data preprocessing
+### ASL data preprocessing
 
-: For each of the {num_asl} ASL runs found per subject (across all
+For each of the {num_asl} ASL runs found per subject (across all
 tasks and sessions), the following preprocessing was performed.
 """.format(num_asl=len(subject_data['asl']))
 

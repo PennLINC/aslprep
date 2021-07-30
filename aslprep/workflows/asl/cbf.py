@@ -70,9 +70,11 @@ def init_cbf_compt_wf(mem_gb, metadata,bids_dir,dummy_vols, omp_nthreads,
 
                     
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
-The CBF was quantified from  *preproccessed* ASL data using a relatively basic
-model [@detre_perfusion] [@alsop_recommended].
+    workflow.__desc__ = """
+### CBF computation and denoising 
+
+The cerebral blood flow (CBF) was quantified from  *preproccessed* ASL data using a standard
+model [@detre_perfusion; @alsop_recommended].
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
                                                       't1w_tpms', 't1w_mask', 't1_asl_xform',
@@ -156,10 +158,10 @@ model [@detre_perfusion] [@alsop_recommended].
 
     if scorescrub:
         workflow.__desc__ = workflow.__desc__ +  """\
-CBF are susceptible to artifactsdue to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
-based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme outliers [@score_dolui]. 
-Furthermore,Structural Correlation with RobUst Bayesian (SCRUB) algorithms was applied to the CBF by iteratively 
-reweighted  CBF  with structural tissues probalility maps [@scrub_dolui].
+CBF is susceptible to artifacts due to low signal to noise ratio  and  high sensitivity to  motion. 
+Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF 
+timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean CBF with 
+structural tissues probability maps[@score_dolui;@scrub_dolui]. 
 """      
         workflow.connect([
         (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
@@ -174,11 +176,12 @@ reweighted  CBF  with structural tissues probalility maps [@scrub_dolui].
         ])
     if basil:
         workflow.__desc__ = workflow.__desc__ +  """\
+In addition, CBF was also computed by Bayesian Inference for Arterial Spin Labeling 
+(BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
+ [@chappell_basil], and computed CBF from ASL by incorporating natural 
+ variability of other model parameters and spatial regularization of the estimated 
+ perfusion image, including correction of partial volume effects [@chappell_pvc]. 
 Alternate method of CBF computation is Bayesian Inference
-for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
-principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
-of other model parameters and spatial regularization of the estimated perfusion image. BASIL
-also included correction for partial volume effects [@chappell_pvc].
 """
         workflow.connect([
          (refinemaskj, basilcbf, [('out_mask', 'mask')]),
@@ -236,14 +239,14 @@ def init_cbfqc_compt_wf(mem_gb,asl_file, metadata,omp_nthreads,scorescrub=False,
     """
 
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
-The following quality control (qc) measures was estimated: framewise displacement and relative
-root mean square dice index. Other qc meaure include dice and jaccard indices, cross-correlation
-and coverage that estimate the coregistration quality of  ASL and T1W images and  normalization
-quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF [@cbfqc].
-The  QEI is  automated for objective quality evaluation of CBF maps and measured the CBF quality
-based on structural similarity,spatial variability and the percentatge  of voxels with  negtaive
-CBF within Grey matter
+    workflow.__desc__ = """
+Quality control (qc) measures estimated from each ASL acquisition are mean framewise-displacement 
+and relative root-mean square motion displacement. Other qc measures include Dice and Jaccard indices, 
+cross-correlation and coverage that estimate the co-registration quality of ASL and T1W images and 
+spatial normalization quality of ASL to template. Quality evaluation index (QEI) was computed for each
+CBF maps [@cbfqc]. QEI functions as automated and objective quality evaluation of CBF maps and 
+measures the CBF quality based on structural similarity, spatial variability, and the percentage of voxels
+with negative CBF within grey matter.  
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
                                                       'asl_mask', 't1w_tpms',  'confmat',
@@ -362,12 +365,13 @@ def init_cbfgeqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads,scorescrub=Fa
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The following quality control (qc) measures was estimated: dice and jaccard indices, cross-correlation
-and coverage that estimate the coregistration quality of  ASL and T1W images and  normalization
-quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF [@cbfqc].
-The  QEI is  automated for objective quality evaluation of CBF maps and measured the CBF quality
-based on structural similarity,spatial variability and the percentatge  of voxels with  negtaive
-CBF within Grey matter
+Quality control (qc) measures estimated from each ASL acquisition are mean framewise-displacement 
+and relative root-mean square motion displacement. Other qc measures include Dice and Jaccard indices, 
+cross-correlation and coverage that estimate the co-registration quality of ASL and T1W images and 
+spatial normalization quality of ASL to template. Quality evaluation index (QEI) was computed for each
+CBF maps [@cbfqc]. QEI functions as automated and objective quality evaluation of CBF maps and 
+measures the CBF quality based on structural similarity, spatial variability, and the percentage of voxels
+with negative CBF within grey matter. 
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
                                                       'asl_mask', 't1w_tpms',

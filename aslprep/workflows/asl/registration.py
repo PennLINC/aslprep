@@ -678,9 +678,11 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_
     from ...niworkflows.interfaces.registration import FLIRTRPT
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The ASL reference was then co-registered to the T1w reference using `flirt` [FSL {fsl_ver}, @flirt] with the boundary-based registration [@bbr]
-cost-function. Co-registration was configured with nine degrees of freedom to account for distortions remaining in the ASL reference.
-""".format(fsl_ver=FLIRTRPT().version or '<ver>')
+The ASL reference was then co-registered to the T1w reference using `flirt`
+[FSL version {fsl_ver}, @flirt] with the boundary-based registration [@bbr]
+cost-function. Co-registration was configured with {dof} of freedom 
+to account for distortions remaining in the ASL reference.
+""".format(dof=asl2t1w_dof,fsl_ver=FLIRTRPT().version or '<ver>')
 
     inputnode = pe.Node(
         niu.IdentityInterface([
