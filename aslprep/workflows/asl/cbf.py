@@ -180,8 +180,7 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
 (BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
  [@chappell_basil], and computed CBF from ASL by incorporating natural 
  variability of other model parameters and spatial regularization of the estimated 
- perfusion image, including correction of partial volume effects [@chappell_pvc]. 
-Alternate method of CBF computation is Bayesian Inference
+ perfusion image, including correction of partial volume effects [@chappell_pvc].
 """
         workflow.connect([
          (refinemaskj, basilcbf, [('out_mask', 'mask')]),
@@ -805,8 +804,8 @@ def init_gecbf_compt_wf(metadata, asl_file,mem_gb, bids_dir,omp_nthreads,M0Scale
                     
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The CBF was quantified from  *preproccessed* ASL data  using a relatively basic
-model [@detre_perfusion] [@alsop_recommended]. 
+The CBF was quantified from  *preproccessed* ASL data  using a standard
+model [@detre_perfusion;@alsop_recommended]. 
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
                                                       't1w_tpms', 't1w_mask', 't1_asl_xform',
@@ -896,11 +895,10 @@ model [@detre_perfusion] [@alsop_recommended].
         ])
         if scorescrub:
             workflow.__desc__ = workflow.__desc__ +  """\
-CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
-based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
-outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
-algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
-probalility maps [@scrub_dolui].i 
+CBF is susceptible to artifacts due to low signal to noise ratio  and  high sensitivity to  motion. 
+Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF 
+timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean CBF with 
+structural tissues probability maps[@score_dolui;@scrub_dolui]. 
 """
             scorescrub1 = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=mem_gb,
                          name='scorescrub', run_without_submitting=True)
@@ -915,11 +913,11 @@ probalility maps [@scrub_dolui].i
             ])
         if basil:
             workflow.__desc__ = workflow.__desc__ + """\
-Alternate method of CBF computation is Bayesian Inference
-for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
-principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
-of other model parameters and spatial regularization of the estimated perfusion image. BASIL
-also included correction for partial volume effects [@chappell_pvc].
+In addition, CBF was also computed by Bayesian Inference for Arterial Spin Labeling 
+(BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
+ [@chappell_basil], and computed CBF from ASL by incorporating natural 
+ variability of other model parameters and spatial regularization of the estimated 
+ perfusion image, including correction of partial volume effects [@chappell_pvc].
 """         
             basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=metadata["LabelingDuration"],
                                 m0tr=metadata['RepetitionTime'], pvc=True,tis = tisasl,
@@ -956,11 +954,10 @@ also included correction for partial volume effects [@chappell_pvc].
 
         if scorescrub:
             workflow.__desc__ = workflow.__desc__ + """\
-CBF are susceptible to artifacts due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
-based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
-outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
-algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
-probalility maps [@scrub_dolui]. 
+CBF is susceptible to artifacts due to low signal to noise ratio  and  high sensitivity to  motion. 
+Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF 
+timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean CBF with 
+structural tissues probability maps[@score_dolui;@scrub_dolui]. 
 """         
             scorescrub1 = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=mem_gb,
                          name='scorescrub', run_without_submitting=True)
@@ -983,5 +980,3 @@ probalility maps [@scrub_dolui].
                                   ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
              ])
     return workflow
-
-
