@@ -270,7 +270,7 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
          (inputnode, pv_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
          (inputnode, pvwm_to_t1w_transform, [('pvwm', 'input_image')]),
-         (pvwm_to_t1w_transform, outputnode, [('output_image', 'pv_t1')]),
+         (pvwm_to_t1w_transform, outputnode, [('output_image', 'pvwm_t1')]),
          (inputnode, pvwm_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
          (inputnode, pvwm_to_t1w_transform, [('t1w_brain', 'reference_image')]),
 
