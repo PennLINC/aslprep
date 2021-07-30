@@ -371,7 +371,7 @@ cross-correlation and coverage that estimate the co-registration quality of ASL 
 spatial normalization quality of ASL to template. Quality evaluation index (QEI) was computed for each
 CBF maps [@cbfqc]. QEI functions as automated and objective quality evaluation of CBF maps and 
 measures the CBF quality based on structural similarity, spatial variability, and the percentage of voxels
-with negative CBF within grey matter. 
+with negative CBF within grey matter.
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
                                                       'asl_mask', 't1w_tpms',
