@@ -53,9 +53,9 @@ def init_asl_derivatives_wf(
         'asl_std_ref', 'asl_t1', 'asl_t1_ref', 'asl_native', 'asl_native_ref',
         'asl_mask_native','confounds', 'confounds_metadata', 'source_file', 
         'template', 'spatial_reference', 'cbf', 'meancbf', 'score', 'avgscore',
-        'scrub', 'basil', 'pv', 'cbf_t1', 'meancbf_t1', 'att_t1', 'score_t1', 'avgscore_t1',
-        'scrub_t1', 'basil_t1', 'pv_t1', 'cbf_std', 'meancbf_std', 'score_std',
-        'avgscore_std', 'scrub_std', 'basil_std', 'pv_std','att','att_std','qc_file',
+        'scrub', 'basil', 'pv', 'pvwm', 'cbf_t1', 'meancbf_t1', 'att_t1', 'score_t1', 'avgscore_t1',
+        'scrub_t1', 'basil_t1', 'pv_t1', 'pvwm_t1', 'cbf_std', 'meancbf_std', 'score_std',
+        'avgscore_std', 'scrub_std', 'basil_std', 'pv_std','pvwm_std','att','att_std','qc_file',
         'cbf_hvoxf', 'score_hvoxf', 'scrub_hvoxf', 'basil_hvoxf', 'pvc_hvoxf',
         'cbf_sc207', 'score_sc207', 'scrub_sc207', 'basil_sc207', 'pvc_sc207',
         'cbf_sc217', 'score_sc217', 'scrub_sc217', 'basil_sc217', 'pvc_sc217',
@@ -357,9 +357,13 @@ def init_asl_derivatives_wf(
                                 compress=True),
              name='basilnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             pvnative = pe.Node(
-              DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+              DerivativesDataSink(base_directory=output_dir, desc='pvGM', suffix='cbf',
                                 compress=True),
               name='pvcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvnativewm = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='pvWM', suffix='cbf',
+                                compress=True),
+              name='pvcwmnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             attnative = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 compress=True),
@@ -370,6 +374,8 @@ def init_asl_derivatives_wf(
                                       ('basil', 'in_file')]),
             (inputnode, pvnative, [('source_file', 'source_file'),
                                    ('pv', 'in_file')]),
+            (inputnode, pvnativewm, [('source_file', 'source_file'),
+                                   ('pvwm', 'in_file')]),
             (inputnode, attnative, [('source_file', 'source_file'),
                                    ('att', 'in_file')]),
             (raw_sources, ds_asl_mask_native, [('out', 'RawSources')]),
@@ -447,9 +453,13 @@ def init_asl_derivatives_wf(
                                 space='T1w', compress=True),
              name='basilnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             pvnativet1 = pe.Node(
-             DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+             DerivativesDataSink(base_directory=output_dir, desc='pvGM', suffix='cbf',
                                 space='T1w', compress=True),
              name='pvcnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvnativetwm1 = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='pvWM', suffix='cbf',
+                                space='T1w', compress=True),
+             name='pvcnativet1wm', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             attnativet1 = pe.Node(
              DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 space='T1w', compress=True),
@@ -460,6 +470,8 @@ def init_asl_derivatives_wf(
                                         ('basil_t1', 'in_file')]),
              (inputnode, pvnativet1, [('source_file', 'source_file'),
                                      ('pv_t1', 'in_file')]),
+             (inputnode, pvnativetwm1, [('source_file', 'source_file'),
+                                       ('pvwm_t1', 'in_file')]),
              (inputnode, attnativet1, [('source_file', 'source_file'),
                                      ('att_t1', 'in_file')]),
              ])
@@ -485,7 +497,7 @@ def init_asl_derivatives_wf(
         if scorescrub:
             out_names = out_names + ['score_std', 'avgscore_std', 'scrub_std']
         if basil:
-            out_names = out_names + ['basil_std', 'pv_std','att_std']
+            out_names = out_names + ['basil_std', 'pv_std','pvwm_std','att_std']
 
         select_std = pe.Node(KeySelect(
             fields=out_names),
@@ -601,10 +613,13 @@ def init_asl_derivatives_wf(
                                 compress=True),
               name='basilstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             pvstd = pe.Node(
-              DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+              DerivativesDataSink(base_directory=output_dir, desc='pvGM', suffix='cbf',
                                 compress=True),
               name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+            pvstdwm = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='pvWM', suffix='cbf',
+                                compress=True),
+              name='pvcstdwm', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             attstd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 compress=True),
@@ -613,11 +628,13 @@ def init_asl_derivatives_wf(
             workflow.connect([ 
             (inputnode, basilstd, [('source_file', 'source_file')]),
             (inputnode, pvstd, [('source_file', 'source_file')]),
+            (inputnode, pvstdwm, [('source_file', 'source_file')]),
             (inputnode, attstd, [('source_file', 'source_file')]),
             (inputnode, select_std, [
                                      
                                      ('basil_std', 'basil_std'),
                                      ('pv_std', 'pv_std'),
+                                     ('pvwm_std', 'pvwm_std'),
                                      ('att_std', 'att_std')]),
                                      
             (select_std, basilstd, [('basil_std', 'in_file')]),
@@ -627,6 +644,11 @@ def init_asl_derivatives_wf(
                                      ('density', 'density')]),
             (select_std, pvstd, [('pv_std', 'in_file')]),
             (spacesource, pvstd, [('space', 'space'),
+                                  ('cohort', 'cohort'),
+                                  ('resolution', 'resolution'),
+                                  ('density', 'density')]),
+            (select_std, pvstdwm, [('pvwm_std', 'in_file')]),
+            (spacesource, pvstdwm, [('space', 'space'),
                                   ('cohort', 'cohort'),
                                   ('resolution', 'resolution'),
                                   ('density', 'density')]),
@@ -689,9 +711,9 @@ def init_geasl_derivatives_wf(
         'asl_std_ref', 'asl_t1', 'asl_t1_ref', 'asl_native', 'asl_native_ref',
         'asl_mask_native','source_file', 'itk_asl_to_t1','itk_t1_to_asl',
         'template', 'spatial_reference', 'cbf', 'meancbf', 'score', 'avgscore',
-        'scrub', 'basil', 'pv', 'cbf_t1', 'meancbf_t1', 'att_t1', 'score_t1', 'avgscore_t1',
-        'scrub_t1', 'basil_t1', 'pv_t1', 'cbf_std', 'meancbf_std', 'score_std',
-        'avgscore_std', 'scrub_std', 'basil_std', 'pv_std','att','att_std','qc_file',
+        'scrub', 'basil', 'pv', 'pvwm','cbf_t1', 'meancbf_t1', 'att_t1', 'score_t1', 'avgscore_t1',
+        'scrub_t1', 'basil_t1', 'pv_t1','pvwm_t1', 'cbf_std', 'meancbf_std', 'score_std',
+        'avgscore_std', 'scrub_std', 'basil_std', 'pv_std', 'pvwm_std','att','att_std','qc_file',
         'cbf_hvoxf', 'score_hvoxf', 'scrub_hvoxf', 'basil_hvoxf', 'pvc_hvoxf',
         'cbf_sc207', 'score_sc207', 'scrub_sc207', 'basil_sc207', 'pvc_sc207',
         'cbf_sc217', 'score_sc217', 'scrub_sc217', 'basil_sc217', 'pvc_sc217',
@@ -985,9 +1007,13 @@ def init_geasl_derivatives_wf(
                                 compress=True),
              name='basilnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             pvnative = pe.Node(
-              DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+              DerivativesDataSink(base_directory=output_dir, desc='pvGM', suffix='cbf',
                                 compress=True),
               name='pvcnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvnativewm  = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='pvWM', suffix='cbf',
+                                compress=True),
+              name='pvcnativewm', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             attnative = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 compress=True),
@@ -998,6 +1024,8 @@ def init_geasl_derivatives_wf(
                                       ('basil', 'in_file')]),
             (inputnode, pvnative, [('source_file', 'source_file'),
                                    ('pv', 'in_file')]),
+            (inputnode, pvnativewm, [('source_file', 'source_file'),
+                                   ('pvwm', 'in_file')]),
             (inputnode, attnative, [('source_file', 'source_file'),
                                    ('att', 'in_file')]),
             (raw_sources, ds_asl_mask_native, [('out', 'RawSources')]),
@@ -1075,9 +1103,13 @@ def init_geasl_derivatives_wf(
                                 space='T1w', compress=True),
              name='basilnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             pvnativet1 = pe.Node(
-             DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+             DerivativesDataSink(base_directory=output_dir, desc='pvGM', suffix='cbf',
                                 space='T1w', compress=True),
              name='pvcnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            pvnativet1wm = pe.Node(
+             DerivativesDataSink(base_directory=output_dir, desc='pvWM', suffix='cbf',
+                                space='T1w', compress=True),
+             name='pvcnativet1wm', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             attnativet1 = pe.Node(
              DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 space='T1w', compress=True),
@@ -1088,6 +1120,8 @@ def init_geasl_derivatives_wf(
                                         ('basil_t1', 'in_file')]),
             (inputnode, pvnativet1, [('source_file', 'source_file'),
                                      ('pv_t1', 'in_file')]),
+            (inputnode, pvnativet1wm, [('source_file', 'source_file'),
+                                     ('pvwm_t1', 'in_file')]),
             (inputnode, attnativet1, [('source_file', 'source_file'),
                                      ('att_t1', 'in_file')]),
             ])
@@ -1114,7 +1148,7 @@ def init_geasl_derivatives_wf(
         if scorescrub:
             out_names = out_names + ['score_std', 'avgscore_std', 'scrub_std']
         if basil:
-            out_names = out_names + ['basil_std', 'pv_std','att_std']
+            out_names = out_names + ['basil_std', 'pv_std','pvwm_std','att_std']
 
         select_std = pe.Node(KeySelect(
             fields=out_names),
@@ -1230,9 +1264,14 @@ def init_geasl_derivatives_wf(
                                 compress=True),
               name='basilstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
             pvstd = pe.Node(
-              DerivativesDataSink(base_directory=output_dir, desc='pvc', suffix='cbf',
+              DerivativesDataSink(base_directory=output_dir, desc='pvGM', suffix='cbf',
                                 compress=True),
               name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+            
+            pvstdwm = pe.Node(
+              DerivativesDataSink(base_directory=output_dir, desc='pvWM', suffix='cbf',
+                                compress=True),
+              name='pvcstdwm', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
         
             attstd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
@@ -1242,10 +1281,12 @@ def init_geasl_derivatives_wf(
             workflow.connect([ 
             (inputnode, basilstd, [('source_file', 'source_file')]),
             (inputnode, pvstd, [('source_file', 'source_file')]),
+            (inputnode, pvstdwm, [('source_file', 'source_file')]),
             (inputnode, attstd, [('source_file', 'source_file')]),
             (inputnode, select_std, [
                                      ('basil_std', 'basil_std'),
                                      ('pv_std', 'pv_std'),
+                                     ('pvwm_std', 'pvwm_std'),
                                      ('att_std', 'att_std')]),
                                      
             (select_std, basilstd, [('basil_std', 'in_file')]),
@@ -1255,6 +1296,11 @@ def init_geasl_derivatives_wf(
                                      ('density', 'density')]),
             (select_std, pvstd, [('pv_std', 'in_file')]),
             (spacesource, pvstd, [('space', 'space'),
+                                  ('cohort', 'cohort'),
+                                  ('resolution', 'resolution'),
+                                  ('density', 'density')]),
+            (select_std, pvstdwm, [('pvwm_std', 'in_file')]),
+            (spacesource, pvstdwm, [('space', 'space'),
                                   ('cohort', 'cohort'),
                                   ('resolution', 'resolution'),
                                   ('density', 'density')]),

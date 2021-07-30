@@ -214,8 +214,8 @@ effects of other kernels [@lanczos].
         fields=['asl_t1', 'asl_t1_ref', 'asl_mask_t1','asl_std', 'asl_std_ref', 'asl_mask_std',
                 'asl_native','cbf_t1', 'cbf_std', 'meancbf_t1', 'meancbf_std', 'score_t1', 'score_std',
                 'avgscore_t1', 'avgscore_std', ' scrub_t1', 'scrub_std','itk_asl_to_t1','itk_t1_to_asl',
-                'basil_t1', 'basil_std', 'pv_t1', 'pv_std', 'pv_native','att','att_t1','att_std',
-                'qc_file']),
+                'basil_t1', 'basil_std', 'pv_t1','pvwm_t1', 'pv_std', 'pvwm_std','pvwm_native', 'pv_native',
+                'att','att_t1','att_std','qc_file']),
         name='outputnode')
     
     # Generate a brain-masked conversion of the t1w
@@ -388,10 +388,12 @@ effects of other kernels [@lanczos].
                  (cbf_compt_wf, t1w_gereg_wf, [
                                               ('outputnode.out_cbfb', 'inputnode.basil'),
                                               ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                              ('outputnode.out_cbfpvwm', 'inputnode.pvwm'),
                                               ('outputnode.out_att', 'inputnode.att')]),
                  (t1w_gereg_wf, asl_derivatives_wf, [
                                             ('outputnode.basil_t1', 'inputnode.basil_t1'),
                                             ('outputnode.pv_t1', 'inputnode.pv_t1'),
+                                            ('outputnode.pvwm_t1', 'inputnode.pvwm_t1'),
                                             ('outputnode.att_t1', 'inputnode.att_t1')]),
                   ])
 
@@ -492,6 +494,7 @@ effects of other kernels [@lanczos].
                     (cbf_compt_wf, std_gereg_wf, [
                                                ('outputnode.out_cbfb', 'inputnode.basil'),
                                                ('outputnode.out_cbfpv', 'inputnode.pv'),
+                                               ('outputnode.out_cbfpvwm', 'inputnode.pvwm'),
                                                ('outputnode.out_att', 'inputnode.att'),]),
                  ])
   
@@ -526,6 +529,7 @@ effects of other kernels [@lanczos].
             (std_gereg_wf, asl_derivatives_wf, [
                 ('outputnode.basil_std', 'inputnode.basil_std'),
                 ('outputnode.pv_std', 'inputnode.pv_std'),
+                ('outputnode.pvwm_std', 'inputnode.pvwm_std'),
                 ('outputnode.att_std', 'inputnode.att_std')]),
             ]) 
             
