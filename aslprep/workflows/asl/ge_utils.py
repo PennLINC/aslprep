@@ -511,7 +511,7 @@ preprocessed ASL runs*: {tpl}.
         (mask_merge_tfms, pvwm_to_std_transform, [('out', 'transforms')]),
         (gen_ref, pvwm_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, pvwm_to_std_transform, [('pvwm', 'input_image')]),
-        (pvwm_to_std_transform, poutputnode, [('output_image', 'pv_std')]),
+        (pvwm_to_std_transform, poutputnode, [('output_image', 'pvwm_std')]),
 
         (mask_merge_tfms, att_to_std_transform, [('out', 'transforms')]),
         (gen_ref, att_to_std_transform, [('out_file', 'reference_image')]),
