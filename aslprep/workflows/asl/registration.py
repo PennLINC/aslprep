@@ -376,7 +376,7 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
                name='pv_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         pvwm_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
-               name='pv_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+               name='pv_to_t1w_transformwm', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         att_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
                name='att_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
