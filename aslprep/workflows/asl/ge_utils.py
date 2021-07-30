@@ -494,8 +494,8 @@ preprocessed ASL runs*: {tpl}.
          (gen_ref, scrub_to_std_transform, [('out_file', 'reference_image')]),
          (inputnode, scrub_to_std_transform, [('scrub', 'input_image')]),
          (scrub_to_std_transform, poutputnode, [('output_image', 'scrub_std')]),
-
          ])
+         
     if basil:
         workflow.connect([
         (mask_merge_tfms, basil_to_std_transform, [('out', 'transforms')]),
