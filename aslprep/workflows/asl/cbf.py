@@ -810,7 +810,8 @@ model [@detre_perfusion] [@alsop_recommended].
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['out_cbf', 'out_mean', 'out_score',
                                                        'out_avgscore', 'out_scrub', 'out_cbfb',
-                                                       'out_scoreindex', 'out_cbfpv','out_att']),
+                                                       'out_scoreindex', 'out_cbfpv','out_att',
+                                                       'out_cbfpvwm']),
                          name='outputnode')
     # convert tmps to asl_space
     csf_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
@@ -887,7 +888,7 @@ model [@detre_perfusion] [@alsop_recommended].
                              ('t1_asl_xform', 'transforms')]),
         (inputnode, gm_tfm, [(('t1w_tpms', _pick_gm), 'input_image')]),
         (computecbf, outputnode, [('out_cbf', 'out_cbf'),
-                                  ('out_mean', 'out_mean')]),
+                                ('out_mean', 'out_mean')]),
         ])
         if scorescrub:
             workflow.__desc__ = workflow.__desc__ +  """\
@@ -929,6 +930,7 @@ also included correction for partial volume effects [@chappell_pvc].
              (refinemaskj, basilcbf, [('out_mask', 'mask')]),
              (basilcbf, outputnode, [('out_cbfb', 'out_cbfb'),
                                 ('out_cbfpv', 'out_cbfpv'),
+                                ('out_cbfpvwm', 'out_cbfpvwm'),
                                 ('out_att', 'out_att')]),
              ])
     elif len(cbflist) > 0: 
