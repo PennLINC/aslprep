@@ -145,7 +145,7 @@ def build_boilerplate(config_file, workflow):
             "--bibliography",
             pkgrf("aslprep", "data/boilerplate.bib"),
             "--filter",
-            "--pandoc-citeproc",
+            "pandoc-citeproc",
             "--metadata",
             'pagetitle="ASLPrep citation boilerplate"',
             str(citation_files["md"]),
