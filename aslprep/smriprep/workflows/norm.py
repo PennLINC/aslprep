@@ -105,7 +105,7 @@ def init_anat_norm_wf(
         workflow.__desc__ = """\
 Volume-based spatial normalization to {targets} ({targets_id}) was performed through
 nonlinear registration with `antsRegistration` (ANTs {ants_ver}),
-using brain-extracted versions of both T1w reference and the T1w template.
+using skull-stripped  versions of both T1w reference and the T1w template.
 The following template{tpls} selected for spatial normalization:
 """.format(
             ants_ver=ANTsInfo.version() or '(version unknown)',

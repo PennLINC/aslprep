@@ -181,10 +181,9 @@ def init_anat_preproc_wf(
     """
     workflow = Workflow(name=name)
     num_t1w = len(t1w)
-    desc = """Anatomical data preprocessing
+    desc = """
 
-: """
-    desc += """\
+### Anatomical data preprocessing
 A total of {num_t1w} T1-weighted (T1w) images were found within the input
 BIDS dataset.""".format(num_t1w=num_t1w)
 
@@ -255,7 +254,7 @@ The T1-weighted (T1w) image was corrected for intensity non-uniformity (INU)
 """
     desc += """\
 with `N4BiasFieldCorrection` [@n4], distributed with ANTs {ants_ver} \
-[@ants, RRID:SCR_004757]"""
+[@ants]"""
     desc += '.\n' if num_t1w > 1 else ", and used as T1w-reference throughout the workflow.\n"
 
     desc += """\
@@ -264,8 +263,7 @@ the `antsBrainExtraction.sh` workflow (from ANTs), using {skullstrip_tpl}
 as target template.
 Brain tissue segmentation of cerebrospinal fluid (CSF),
 white-matter (WM) and gray-matter (GM) was performed on
-the brain-extracted T1w using `fast` [FSL {fsl_ver}, RRID:SCR_002823,
-@fsl_fast].
+the skull-stripped T1w using FSL's fast version {fsl_ver},[@fsl_fast].
 """
 
     workflow.__desc__ = desc.format(
