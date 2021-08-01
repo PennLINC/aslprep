@@ -456,6 +456,7 @@ effects of other kernels [@lanczos].
              (cbf_compt_wf, asl_derivatives_wf, [
                 ('outputnode.out_cbfb', 'inputnode.basil'),
                 ('outputnode.out_cbfpv', 'inputnode.pv'),
+                ('outputnode.out_cbfpvwm', 'inputnode.pvwm'),
                 ('outputnode.out_att', 'inputnode.att'),]),
              ])
     
