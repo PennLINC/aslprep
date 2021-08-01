@@ -181,10 +181,10 @@ tools such as ANTs) with FSL's `fugue` and other *SDCflows* tools.
 
     # Register the reference of the fieldmap to the reference
     # of the target image (the one that shall be corrected)
-    ants_settings = pkgr.resource_filename('sdcflows', 'data/fmap-any_registration.json')
+    ants_settings = pkgr.resource_filename('aslprep', 'sdcflows/data/fmap-any_registration.json')
     if debug:
         ants_settings = pkgr.resource_filename(
-            'sdcflows', 'data/fmap-any_registration_testing.json')
+            'aslprep', 'sdcflows/data/fmap-any_registration_testing.json')
 
     fmap2ref_reg = pe.Node(
         ANTSRegistrationRPT(generate_report=False, from_file=ants_settings,

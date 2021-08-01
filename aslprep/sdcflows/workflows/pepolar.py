@@ -221,8 +221,8 @@ def init_prepare_epi_wf(omp_nthreads, matched_pe=False,
     outputnode = pe.Node(niu.IdentityInterface(fields=['opposed_pe', 'matched_pe']),
                          name='outputnode')
 
-    ants_settings = pkgr.resource_filename('sdcflows',
-                                           'data/translation_rigid.json')
+    ants_settings = pkgr.resource_filename('aslprep',
+                                           'sdcflows/data/translation_rigid.json')
 
     split = pe.Node(niu.Function(function=_split_epi_lists), name='split')
 
