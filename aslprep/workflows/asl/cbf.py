@@ -488,7 +488,7 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, scorescrub=False,basil=False
         name='ds_report_cbfplot', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)
     workflow.connect(
-        [(inputnode, mrg_xfms, [('t1_asl_xform', 'in1'), ('std2anat_xfm', 'in2')]),
+        [(inputnode, mrg_xfms, [('t1_asl_xform', 'in2'), ('std2anat_xfm', 'in1')]),
                       (inputnode, resample_parc, [('asl_mask', 'reference_image')]),
                       (mrg_xfms, resample_parc, [('out', 'transforms')]),
                       (resample_parc, cbftssummary, [('output_image', 'seg_file')]),
@@ -696,8 +696,8 @@ def init_cbfroiquant_wf(mem_gb, omp_nthreads,scorescrub=False,basil=False,name='
 
     
     
-    workflow.connect([(inputnode, mrg_xfms, [('t1_asl_xform', 'in1'),
-                                             ('std2anat_xfm', 'in2')]),
+    workflow.connect([(inputnode, mrg_xfms, [('t1_asl_xform', 'in2'),
+                                             ('std2anat_xfm', 'in1')]),
                       (inputnode, hvoftrans, [('aslmask', 'reference_image')]),
                       (mrg_xfms, hvoftrans, [('out', 'transforms')]),
                       (inputnode, sc207trans, [('aslmask', 'reference_image')]),
