@@ -25,11 +25,13 @@ There are two ways to install *ASLPrep*:
 1. Installation through `pip`::
     
      pip install aslprep 
-  
+     
+     
 This method is recommended for users who are familiar with Python,have Python packages  and all dependencies installed. 
-see :ref:`Installtation`.  Python 3.7 (or above) is required
+Python 3.7 (or above) is required
 
 2. Installation through Docker/ Singularity
+
 For every new version of *ASLPrep* that is released, a corresponding Docker
 image is generated. In order to run *ASLPrep* Docker images, the Docker Engine must be installed.
 
