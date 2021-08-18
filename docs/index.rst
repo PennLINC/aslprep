@@ -21,6 +21,7 @@ Contents
    usage
    docker
    singularity
+   quickstart
    workflows
    sdc
    outputs
