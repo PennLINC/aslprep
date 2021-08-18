@@ -57,6 +57,7 @@ One way to process these data would be to call *ASLprep*  like this::
        --fs-license-file /path/to/license.txt \
        --participant_label sub-01  # for subject label sub-01
 
+
 For any other options see the usage notes >  :ref:`Usage`
 
 With a docker container, the follwoing command can be called::
