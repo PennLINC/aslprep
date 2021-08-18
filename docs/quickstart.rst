@@ -98,15 +98,7 @@ ASLPrep outputs
 ---------------
 
  After suscessful run, *ASLPrep* generates outputs with  HTML report per subject that provide visual assessment of the 
- processed data. The outputs include preprocessed ASL data, computed CBF maps, cofound quality metrics, preprocessed 
- structural images, and other outputs. 
+ processed data. The outputs include preprocessed ASL data, computed CBF maps, preprocessed 
+ structural images by sMRIPrep, and other outputs. 
 
  
-
-
-
-
-
-
-
-
