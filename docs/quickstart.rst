@@ -4,52 +4,26 @@
 Quick Start Tutorial
 ---------------------
 
-There are two ways to install *ASLPrep*:
+There are many to run *ASLPrep* for running but most have sensible defaults and don’t need to be changed. 
+This page describes basic steps to run  *ASLPrep*. ASLPrep requires valid BIDS datasets and this is example of BIDS dataset in 
+`openneuro <https://openneuro.org/datasets/ds000240/versions/2.0.0>`_.
 
-* within a  `Computer or HPC installation`_
+Suppose the following data is available in the BIDS input:
 
-* using container technologies (RECOMMENDED), such as :ref:`run_docker`
-  or :ref:`run_singularity`.
-
-Once the environment is set up (first option above),
-the next step is to execute ``aslprep`` on the command-line.
-The ``aslprep`` command-line options are documented in the :ref:`usage`
-section.:
-
-  $ aslprep  <input_bids_path> <derivatives_path> <analysis_level> <named_options>
-
-If you are using a docker or singularity image, the command-line call to ASLPrep
-will require binding configurations and options. The call to the docker or
-singularity image follows a similar format to standard installations, except that
-the binding configurations must be specified before the ``aslprep`` argument.
-
-The command-line structure is as follows:
-::
-
-  $ <container_command_and_options> <container_image> \
-       <input_bids_path> <derivatives_path> <analysis_level> <ASLPrep_named_options>
+sub-01
+├── anat
+│   ├── sub-01_T1w.json
+│   └── sub-01_T1w.nii.gz
+└── perf
+    ├── sub-01_asl.json
+    ├── sub-01_asl.nii.gz
+    └── sub-01_aslcontext.tsv
 
 
-Computer or HPC installation
-============================
+One way to process these data would be to call *ASLprep*  like this:
+aslprep  \
+  /path/to/inputs /path/to/outputs participant  \
+  --fs-license-file /path/to/license.txt
 
-.. warning::
 
-   This method is not recommended! Please check out container alternatives
-   in :ref:`run_docker`, and :ref:`run_singularity`.
-
-Make sure all of *ASLPRep*'s `External Dependencies`_ are installed.
-These tools must be installed and their binaries available in the
-system's ``$PATH``.
-A relatively interpretable description of how your environment can be set up
-is found in the `Dockerfile <https://github.com/pennlinc/aslprep/blob/master/Dockerfile>`_.
-Note that FreeSurfer requires a license file, which can be requested `here <https://surfer.nmr.mgh.harvard.edu/fswiki/License>`_.
-
-If Python 3.7 (or above) is installed, along with the ``pip`` command,
-*ASLPRep* can be installed using the following command ::
-
-    $ python -m pip install aslprep
-
-Check your installation with the ``--version`` argument ::
-
-    $ aslprep --version
+It can be run with  docker  :ref:`run_docker` or singularity image :ref:`run_singularity`.
