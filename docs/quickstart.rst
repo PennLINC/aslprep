@@ -19,9 +19,10 @@ Suppose the following data is available in the BIDS input::
 
 
 One way to process these data would be to call *ASLprep*  like this::
-     $aslprep  \
-          /path/to/inputs /path/to/outputs participant  \
-            --fs-license-file /path/to/license.txt
+
+    aslprep  \
+    /path/to/inputs /path/to/outputs participant  \
+    --fs-license-file /path/to/license.txt
 
 For any other options see the usage notes >  :ref:`Usage`
 
