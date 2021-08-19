@@ -5,8 +5,18 @@ Quick Start Tutorial
 ---------------------
 
 There are many to run *ASLPrep* for running but most have sensible defaults and don’t need to be changed. 
-This page describes basic steps to run  *ASLPrep*. ASLPrep requires valid BIDS datasets and this is example of BIDS dataset in 
-`openneuro <https://openneuro.org/datasets/ds000240/versions/2.0.0>`_.
+This page describes basic steps to run  *ASLPrep*. ASLPrep requires valid BIDS datasets and this is example of BIDS dataset on 
+`openneuro <https://openneuro.org/datasets/ds000240/versions/2.0.0>`_. The datasets can be downloaded from openneuro either using 
+command line or using GUI. With suscessful installation of `openneuro-cli <https://docs.openneuro.org/packages-openneuro-cli-readme>`_, 
+the dataset can be downloaded using command line::    
+
+    openneuro download <accession number> <destination directory>
+
+For example, to download dataset with accession number ``ds000240``, the command is::
+     
+    openneuro download ds000240  /home/user/data
+
+    
 
 Suppose the following data is available in the BIDS input:: 
 
@@ -22,18 +32,13 @@ ASLPrep installation
 ---------------------
 There are two ways to install *ASLPrep*:
 
-1. Installation through `pip`::
-    
-     pip install aslprep 
-     
-     
-This method is recommended for users who are familiar with Python,have Python packages  and all dependencies installed. 
-Python 3.7 (or above) is required
+1. Installation with ``pip`` but this method is recommended because it requires a lot of external dependencies to be installed. 
+
 
 2. Installation through Docker/ Singularity
-
 For every new version of *ASLPrep* that is released, a corresponding Docker
-image is generated. In order to run *ASLPrep* Docker images, the Docker Engine must be installed.
+image is generated and pushed to `DockerHub <https://hub.docker.com/r/pennlinc/aslprep>`_. 
+In order to run *ASLPrep* Docker images, the Docker Engine must be `installed <https://docs.docker.com/engine/install/>`_.
 
 The docker image can be pull down as below:: 
 
@@ -100,7 +105,15 @@ ASLPrep outputs
 ---------------
 
  After suscessful run, *ASLPrep* generates outputs with  HTML report per subject that provide visual assessment of the 
- processed data. The outputs include preprocessed ASL data, computed CBF maps, preprocessed 
- structural images by sMRIPrep, and other outputs. 
+ processed data. The outputs include preprocessed ASL data, computed CBF maps, cofound quality metrics, preprocessed 
+ structural images, and other outputs. See :ref:`Outputs` for more information. 
 
  
+
+
+
+
+
+
+
+
