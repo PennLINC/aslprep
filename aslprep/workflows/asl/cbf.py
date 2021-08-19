@@ -71,10 +71,12 @@ def init_cbf_compt_wf(mem_gb, metadata,bids_dir,dummy_vols, omp_nthreads,
                     
     workflow = Workflow(name=name)
     workflow.__desc__ = """
-### CBF computation and denoising 
+### Cerebral blood flow computation and denoising
 
-The cerebral blood flow (CBF) was quantified from  *preproccessed* ASL data using a standard
-model [@detre_perfusion; @alsop_recommended].
+*ASLPrep* was configured to calculate cerebral blood flow (CBF) using the following methods. 
+
+The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a general  model
+[@detre_perfusion; @alsop_recommended].
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
                                                       't1w_tpms', 't1w_mask', 't1_asl_xform',
@@ -157,11 +159,12 @@ model [@detre_perfusion; @alsop_recommended].
     ])
 
     if scorescrub:
-        workflow.__desc__ = workflow.__desc__ +  """\
-CBF is susceptible to artifacts due to low signal to noise ratio  and  high sensitivity to  motion. 
-Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF 
-timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean CBF with 
-structural tissues probability maps[@score_dolui;@scrub_dolui]. 
+        workflow.__desc__ = workflow.__desc__ +  """
+
+Structural Correlation based Outlier Rejection (SCORE) algorithm was applied to the CBF timeseries
+to discard CBF volumes with outlying values [@score_dolui] before computing the mean CBF. 
+Following SCORE, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to CBF
+using structural tissue probability maps to reweight the mean CBF [@score_dolui;@scrub_dolui]. 
 """      
         workflow.connect([
         (refinemaskj, scorescrub, [('out_mask', 'in_mask')]),
@@ -175,12 +178,11 @@ structural tissues probability maps[@score_dolui;@scrub_dolui].
                                   ('out_scrub', 'out_scrub')]),
         ])
     if basil:
-        workflow.__desc__ = workflow.__desc__ +  """\
-In addition, CBF was also computed by Bayesian Inference for Arterial Spin Labeling 
-(BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
- [@chappell_basil], and computed CBF from ASL by incorporating natural 
- variability of other model parameters and spatial regularization of the estimated 
- perfusion image, including correction of partial volume effects [@chappell_pvc].
+        workflow.__desc__ = workflow.__desc__ +  """
+
+CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL) [@chappell_basil], 
+as implemented in *FSL*. BASIL computes CBF using a spatial regularization of the estimated 
+perfusion image and performs partial volume correction on CBF images  [@chappell_pvc].
 """
         workflow.connect([
          (refinemaskj, basilcbf, [('out_mask', 'mask')]),
