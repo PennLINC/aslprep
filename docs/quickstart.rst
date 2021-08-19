@@ -25,11 +25,13 @@ There are two ways to install *ASLPrep*:
 1. Installation through `pip`::
     
      pip install aslprep 
-  
+     
+     
 This method is recommended for users who are familiar with Python,have Python packages  and all dependencies installed. 
-see :ref:`Installtation`.  Python 3.7 (or above) is required
+Python 3.7 (or above) is required
 
 2. Installation through Docker/ Singularity
+
 For every new version of *ASLPrep* that is released, a corresponding Docker
 image is generated. In order to run *ASLPrep* Docker images, the Docker Engine must be installed.
 
@@ -98,15 +100,7 @@ ASLPrep outputs
 ---------------
 
  After suscessful run, *ASLPrep* generates outputs with  HTML report per subject that provide visual assessment of the 
- processed data. The outputs include preprocessed ASL data, computed CBF maps, cofound quality metrics, preprocessed 
- structural images, and other outputs. 
+ processed data. The outputs include preprocessed ASL data, computed CBF maps, preprocessed 
+ structural images by sMRIPrep, and other outputs. 
 
  
-
-
-
-
-
-
-
-
