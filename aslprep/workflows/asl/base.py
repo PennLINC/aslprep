@@ -227,10 +227,9 @@ def init_asl_preproc_wf(asl_file):
     # Build workflow
     workflow = Workflow(name=wf_name)
     workflow.__postdesc__ = """
-All resampling of ASL and CBF to T1w or standard space were done with a single interpolation
-step by composing all pertinent transformations. Gridded (volumetric) resampling was performed
-using antsApplyTransforms (ANTs), configured with Lanczos interpolation to minimize the 
-smoothing effects of other kernels [@lanczos].
+All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations. 
+Gridded (volumetric) resampling was performed using `antsApplyTransforms`, configured with *Lanczos*
+interpolation to minimize the smoothing effects of other kernels [@lanczos].
 """
 
     inputnode = pe.Node(niu.IdentityInterface(
