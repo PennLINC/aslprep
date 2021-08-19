@@ -64,12 +64,9 @@ def init_asl_hmc_wf(mem_gb, omp_nthreads, name='asl_hmc_wf'):
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-Head-motion parameters with respect to the ASL reference
-are estimated  using `mcflirt` [FSL version {fsl_ver}, @mcflirt]. 
-Then, head-motion parameters with respect to the ASL reference volume, 
-including transformation matrices, and six corresponding rotation and
-translation parameters, were calculated and placed within the 
-corresponding confounds file.
+Head-motion parameters were estimated using *FSL*’s `mcflirt` [ @mcflirt]. 
+Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file. 
+
 """.format(fsl_ver=fsl.Info().version() or '<ver>')
 
     inputnode = pe.Node(

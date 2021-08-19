@@ -678,10 +678,11 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_
     from ...niworkflows.interfaces.registration import FLIRTRPT
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The ASL reference was then co-registered to the T1w reference using `flirt`
-[FSL version {fsl_ver}, @flirt] with the boundary-based registration [@bbr]
-cost-function. Co-registration was configured with {dof} of freedom 
-to account for distortions remaining in the ASL reference.
+ASLPrep co-registered the ASL reference to the T1w reference using *FSL*’s `flirt` [@flirt], which 
+implemented the boundary-based registration cost-function [@bbr]. Co-registration was configured with 
+{dof} degrees of freedom. The quality of co-registration and normalization to template  
+was quantified using the Dice and Jaccard indices, the cross-correlation with the reference image, and 
+the overlap between the ASL and reference images (e.g., image coverage). 
 """.format(dof=asl2t1w_dof,fsl_ver=FLIRTRPT().version or '<ver>')
 
     inputnode = pe.Node(

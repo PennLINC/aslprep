@@ -241,13 +241,11 @@ def init_cbfqc_compt_wf(mem_gb,asl_file, metadata,omp_nthreads,scorescrub=False,
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """
-Quality control (qc) measures estimated from each ASL acquisition are mean framewise-displacement 
-and relative root-mean square motion displacement. Other qc measures include Dice and Jaccard indices, 
-cross-correlation and coverage that estimate the co-registration quality of ASL and T1W images and 
-spatial normalization quality of ASL to template. Quality evaluation index (QEI) was computed for each
-CBF maps [@cbfqc]. QEI functions as automated and objective quality evaluation of CBF maps and 
-measures the CBF quality based on structural similarity, spatial variability, and the percentage of voxels
-with negative CBF within grey matter.  
+
+The Quality evaluation index (QEI) was computed for each CBF map [@cbfqc]. 
+QEI is based on the similarity between the CBF and the structural images, the spatial 
+variability of the CBF image, and the percentage of grey matter voxels containing 
+negative CBF values.  
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
                                                       'asl_mask', 't1w_tpms',  'confmat',
@@ -365,15 +363,9 @@ def init_cbfgeqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads,scorescrub=Fa
     """
 
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
-Quality control (qc) measures estimated from each ASL acquisition are mean framewise-displacement 
-and relative root-mean square motion displacement. Other qc measures include Dice and Jaccard indices, 
-cross-correlation and coverage that estimate the co-registration quality of ASL and T1W images and 
-spatial normalization quality of ASL to template. Quality evaluation index (QEI) was computed for each
-CBF maps [@cbfqc]. QEI functions as automated and objective quality evaluation of CBF maps and 
-measures the CBF quality based on structural similarity, spatial variability, and the percentage of voxels
-with negative CBF within grey matter.
-"""
+    #workflow.__desc__ = """\
+
+    #"""
     inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
                                                       'asl_mask', 't1w_tpms',
                                                       'asl_mask_std', 't1_asl_xform', 'pv',

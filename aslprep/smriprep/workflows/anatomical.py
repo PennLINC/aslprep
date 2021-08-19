@@ -183,14 +183,14 @@ def init_anat_preproc_wf(
     workflow = Workflow(name=name)
     num_t1w = len(t1w)
     if num_t1w > 1:
-        imagesize = 'images'
+        imagesize = 'images were'
     else:
-        imagesize = 'image'
+        imagesize = 'image was'
     desc = """
 
 ### Anatomical data preprocessing
 *sMRIPrep* {smriprep_ver} was used to process the anatomical data.
-A total of {num_t1w} T1-weighted (T1w) {imx} were found within the input
+A total of {num_t1w} T1-weighted (T1w) {imx} found within the input
 BIDS dataset.""".format(num_t1w=num_t1w,smriprep_ver=__version__,imx=imagesize)
 
     inputnode = pe.Node(
