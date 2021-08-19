@@ -57,20 +57,13 @@ See  :ref:`run_docker`  and  :ref:`run_singularity` for more information.
 Running ASLPrep
 ----------------
 
-One way to process these data would be to call *ASLprep*  like this::
-
-       aslprep  \
-       /path/to/inputs /path/to/outputs participant  \
-       --fs-license-file /path/to/license.txt \
-       --participant_label sub-01  # for subject label sub-01
 
 
-For any other options see the usage notes >  :ref:`Usage`
 
 With a docker container, the follwoing command can be called::
 
    docker run -ti --rm \
-        -v path/to/data:/data:ro \
+        -v path/to/data:/data:ro \ 
         -v path/to/output:/out \
         pennlinc/aslprep  \
         /data /out/out \
@@ -79,27 +72,27 @@ With a docker container, the follwoing command can be called::
 For example: ::
 
     docker run -ti -m 12GB --rm \
-        -v $HOME/ds000240:/data:ro \   # ds000240 is the BIDS dataset directory 
-        -v $HOME/ds000240/derivatives:/out \
-        -v $HOME/tmp/ds000240-workdir:/work \
-        -v ${FREESURFER_HOME}:/fs \
-        pennlinc/aslprep \
-        /data /out/aslprep \
-        participant \
-        --participant-label 01
-        --fs-license-file /fs/license.txt
-        -w /work
+        -v $HOME/ds000240:/data:ro \             # mount BIDS dataset directory 
+        -v $HOME/ds000240/derivatives:/out \     # mount output directory
+        -v $HOME/tmp/ds000240-workdir:/work \    # mount working directory
+        -v ${FREESURFER_HOME}:/fs \              # mount freesurfer home to get freesurfer license 
+        pennlinc/aslprep \                       # the dcoker image 
+        /data /out/aslprep \                     # the BIDS dataset directory and output directory 
+        participant \                            # analysis  type by participant 
+        --participant-label 01                   # select participant 01
+        --fs-license-file /fs/license.txt        # setting freesurfer license file 
+        -w /work                                 # setting working directory
 
 
 With singularity image, the following command can be called::
 
-   singularity run --cleanenv aslprep.sif \
-        path/to/data/dir path/to/output/dir \
-        participant \
-        --participant-label label
+   singularity run --cleanenv aslprep.sif \       # run with singularity image  and clean environment  
+        path/to/data/dir path/to/output/dir \     # the BIDS dataset directory and output directory 
+        participant \                             # analysis  type by participant
+        --participant-label label                 # select participant label eg, sub-01 or 01
 
 
-
+For any other options see the usage notes >  :ref:`Usage`
 
 ASLPrep outputs
 ---------------
