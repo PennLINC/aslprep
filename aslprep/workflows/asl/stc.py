@@ -59,7 +59,7 @@ def init_asl_stc_wf(metadata, name='asl_stc_wf'):
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-ASL runs were slice-time corrected using `3dTshift` from AFNI {afni_ver} [@afni].
+ASL runs were slice-time corrected using `3dTshift` from AFNI [@afni].
 """.format(afni_ver=''.join(['%02d' % v for v in afni.Info().version() or []]))
     inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'skip_vols']), name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['stc_file']), name='outputnode')

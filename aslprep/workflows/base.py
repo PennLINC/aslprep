@@ -260,13 +260,18 @@ their manuscripts unchanged. It is released under the *unchanged* [CC0]\
 
     # Append the functional section to the existing anatomical exerpt
     # That way we do not need to stream down the number of asl datasets
+
+    if len(subject_data['asl']) > 1:
+        runx = "runs"
+    else:
+        runx = "run"
     anat_preproc_wf.__postdesc__ = (anat_preproc_wf.__postdesc__ or '') + """
 
 ### ASL data preprocessing
 
-For each of the {num_asl} ASL runs found per subject (across all
+For each of the {num_asl} ASL {runx} found per subject (across all
 tasks and sessions), the following preprocessing was performed.
-""".format(num_asl=len(subject_data['asl']))
+""".format(num_asl=len(subject_data['asl']), runx=runx)
 
     for asl_file in subject_data['asl']:
         if check_img(img=asl_file) > 5: # if number of volume of ASL is less than 5. motion slicetiming etc will be skipped

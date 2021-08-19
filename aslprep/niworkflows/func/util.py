@@ -115,7 +115,8 @@ def init_asl_reference_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = f"""\
-First, a reference volume and its skull-stripped version were generated.
+First, a reference volume was selected as the middle volume of the ASL timeseries 
+and was brain extracted using *Nipype*’s custom brain extraction workflow.
 """
 
     inputnode = pe.Node(
