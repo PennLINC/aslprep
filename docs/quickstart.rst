@@ -40,9 +40,9 @@ For every new version of *ASLPrep* that is released, a corresponding Docker
 image is generated and pushed to `DockerHub <https://hub.docker.com/r/pennlinc/aslprep>`_. 
 In order to run *ASLPrep* Docker images, the Docker Engine must be `installed <https://docs.docker.com/engine/install/>`_.
 
-The docker image can be pull down as below:: 
+The docker image can be pull down from ASLPrep Docker Hub  as below:: 
 
-    docker pull pennlinc/aslprep:latest 
+    docker pull pennlinc/aslprep:latest    
 
 For singularity image,  a singularity image directly on the system
 using the following command::
@@ -62,12 +62,12 @@ Running ASLPrep
 
 With a docker container, the follwoing command can be called::
 
-   docker run -ti --rm \
-        -v path/to/data:/data:ro \ 
-        -v path/to/output:/out \
-        pennlinc/aslprep  \
-        /data /out/out \
-        participant
+   docker run -ti --rm \                       # -ti: attach to the container interactively 
+        -v path/to/data:/data:ro \             #  -v: mount the data directory to the container directory
+        -v path/to/output:/out \               # -v: mount the output directory to the container directory
+        pennlinc/aslprep  \                    # the container name: aslprep
+        /data /out/out \                       # the data and output directories
+        participant                            # analysis type: participant
 
 For example: ::
 
