@@ -558,11 +558,11 @@ def init_asl_preproc_trans_wf(mem_gb, omp_nthreads,
     from ...niworkflows.interfaces.nilearn import Merge
 
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
-The ASL timeseries were resampled onto their original, 
-native space by applying the transforms to correct for head-motion. 
-These resampled ASL timeseries are referred to as preprocessed ASL
-"""
+    # workflow.__desc__ = """\
+    #The ASL timeseries were resampled onto their original, 
+    #native space by applying the transforms to correct for head-motion. 
+    #These resampled ASL timeseries are referred to as preprocessed ASL
+    #"""
 
     inputnode = pe.Node(niu.IdentityInterface(fields=[
         'name_source', 'asl_file', 'asl_mask', 'hmc_xforms', 'fieldwarp']),
