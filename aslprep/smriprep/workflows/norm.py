@@ -105,7 +105,7 @@ def init_anat_norm_wf(
         workflow.__desc__ = """\
 Nonlinear registration of  the brain-extracted T1w reference image to the 
 brain-extracted template was accomplished using  `antsRegistration`.
-The following template{tpls} selected for spatial normalization:
+The following template {tpls} selected for spatial normalization:
 """.format(
             ants_ver=ANTsInfo.version() or '(version unknown)',
             targets='%s standard space%s' % (defaultdict(
@@ -120,11 +120,11 @@ The following template{tpls} selected for spatial normalization:
             template_meta = get_metadata(template.split(':')[0])
             template_refs = ['@%s' % template.split(':')[0].lower()]
 
-            if template_meta.get('RRID', None):
-                template_refs += ['RRID:%s' % template_meta['RRID']]
+            #if template_meta.get('RRID', None):
+                #template_refs += ['RRID:%s' % template_meta['RRID']]
 
             workflow.__desc__ += """\
-*{template_name}* [{template_refs}; TemplateFlow ID: {template}]""".format(
+*{template_name}* [{template_refs}]""".format(
                 template=template,
                 template_name=template_meta['Name'],
                 template_refs=', '.join(template_refs)

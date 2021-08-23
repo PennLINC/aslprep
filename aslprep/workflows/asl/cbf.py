@@ -2,6 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 from nipype.pipeline import engine as pe
+from nipype.interfaces.fsl import Info
 from nipype.interfaces import utility as niu
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
@@ -12,7 +13,6 @@ from ...interfaces import DerivativesDataSink
 import numpy as np
 import pandas as pd
 import os
-import tempfile
 from ...config import DEFAULT_MEMORY_MIN_GB
 
 
@@ -75,7 +75,7 @@ def init_cbf_compt_wf(mem_gb, metadata,bids_dir,dummy_vols, omp_nthreads,
 
 *ASLPrep* was configured to calculate cerebral blood flow (CBF) using the following methods. 
 
-The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a general  model
+The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a general kinetic model
 [@detre_perfusion; @alsop_recommended].
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
@@ -181,9 +181,9 @@ using structural tissue probability maps to reweight the mean CBF [@score_dolui;
         workflow.__desc__ = workflow.__desc__ +  """
 
 CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL) [@chappell_basil], 
-as implemented in *FSL*. BASIL computes CBF using a spatial regularization of the estimated 
-perfusion image and performs partial volume correction on CBF images  [@chappell_pvc].
-"""
+as implemented in *FSL* {fslversion}. BASIL computes CBF using a spatial regularization of the estimated 
+perfusion image and additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
+""".format(fslversion=Info.version().split(':')[0])
         workflow.connect([
          (refinemaskj, basilcbf, [('out_mask', 'mask')]),
          (extractcbf, basilcbf, [(('out_avg', _getfiledir), 'out_basename')]),
@@ -241,7 +241,6 @@ def init_cbfqc_compt_wf(mem_gb,asl_file, metadata,omp_nthreads,scorescrub=False,
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """
-
 The Quality evaluation index (QEI) was computed for each CBF map [@cbfqc]. 
 QEI is based on the similarity between the CBF and the structural images, the spatial 
 variability of the CBF image, and the percentage of grey matter voxels containing 

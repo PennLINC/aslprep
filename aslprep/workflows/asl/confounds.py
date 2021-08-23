@@ -111,7 +111,7 @@ def init_asl_confs_wf(
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 Several confounding timeseries were calculated, including both framewise displacement 
-(FD) and DVARS. FD and DVARS are calculated using the implementations in in Nipype 
+(FD) and DVARS. FD and DVARS are calculated using the implementations in in *Nipype*
 (following the definition by [@power_fd_dvars] for each ASL run.  ASLPrep summarizes 
 in-scanner motion as the mean framewise-displacement and relative root-mean square displacement.
 """
