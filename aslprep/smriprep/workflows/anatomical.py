@@ -191,7 +191,7 @@ def init_anat_preproc_wf(
 ### Anatomical data preprocessing
 *sMRIPrep* {smriprep_ver} was used to process the anatomical data.
 A total of {num_t1w} T1-weighted (T1w) {imx} found within the input
-BIDS dataset.""".format(num_t1w=num_t1w,smriprep_ver=__version__,imx=imagesize)
+BIDS dataset. """.format(num_t1w=num_t1w,smriprep_ver=__version__,imx=imagesize)
 
     inputnode = pe.Node(
         niu.IdentityInterface(fields=['t1w', 't2w', 'roi', 'flair', 'subjects_dir', 'subject_id']),
@@ -259,7 +259,7 @@ All  the T1-weighted (T1w) images were corrected for intensity non-uniformity (I
 The T1-weighted (T1w) image was corrected for intensity non-uniformity (INU)
 """
     desc += """\
-with `N4BiasFieldCorrection` [@n4], which is distributed with ANTs {ants_ver} \
+with `N4BiasFieldCorrection` [@n4], which is distributed with *ANTs*  {ants_ver} \
 [@ants]. *sMRIPrep* uses this T1w reference throughout the workflow.
 The T1w-reference was then skull-stripped with a *Nipype* implementation of
 the `antsBrainExtraction.sh` workflow  using {skullstrip_tpl}
