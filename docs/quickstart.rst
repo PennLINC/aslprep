@@ -28,12 +28,12 @@ In order to run *ASLPrep* Docker images, the Docker Engine must be `installed <h
 
 We recommend usind Docker. The docker image can be pulled from the ASLPrep DockerHub using the command line:: 
 
-docker pull pennlinc/aslprep:latest    
+    docker pull pennlinc/aslprep:latest    
 
 To use singularity,  a singularity image must be installed directly on the system
 using the following command::
 
-singularity build aslprep.sif docker://pennlinc/aslprep:latest
+    singularity build aslprep.sif docker://pennlinc/aslprep:latest
 
 This requires instalation of Singularity version >= 2.5
 
@@ -41,7 +41,7 @@ See  :ref:`run_docker`  and  :ref:`run_singularity` for more information.
 
 2. Installation is available via ``pip``::
 
-python -m pip install aslprep
+    python -m pip install aslprep
     
 This method is not recommended, because it requires external dependencies to be installed. 
 
@@ -56,7 +56,7 @@ Move the data directory to your home directory (to find this location out, run t
 
 The following command can be called for a single participant::
 
-docker run -ti -m 12GB --rm -v $HOME/license.txt:/license/license.txt -v $HOME/ds000240-download:/data:ro -v $HOME/ds000240-results:/out:rw -v $HOME/tmp/ds000240-workdir:/work:rw pennlinc/aslprep /data /out participant --participant-label 01 --fs-license-file /license/license.txt -w /work
+    docker run -ti -m 12GB --rm -v $HOME/license.txt:/license/license.txt -v $HOME/ds000240-download:/data:ro -v $HOME/ds000240-results:/out:rw -v $HOME/tmp/ds000240-workdir:/work:rw pennlinc/aslprep /data /out participant --participant-label 01 --fs-license-file /license/license.txt -w /work
 
 Here is a breakdown of this command
 
