@@ -56,22 +56,22 @@ Move the data directory to your home directory (to find this location out, run t
 
 The following command can be called for a single participant::
 
-    docker run -ti -m 12GB --rm -v $HOME/license.txt:/license/license.txt -v $HOME/ds000240-download:/data:ro -v $HOME/ds000240-results:/out:rw -v $HOME/tmp/ds000240-workdir:/work:rw pennlinc/aslprep /data /out participant --participant-label 01 --fs-license-file /license/license.txt -w /work
+    docker run -ti -m 12GB --rm -v $HOME/license.txt:/license/license.txt -v $HOME/ds000240-download:/data:ro -v $HOME/ds000240-results:/out:rw -v                      $HOME/tmp/ds000240-workdir:/work:rw pennlinc/aslprep /data /out participant --participant-label 01 --fs-license-file /license/license.txt -w /work
 
-Here is a breakdown of this command
+Here is a breakdown of this command::
 
-docker run -ti -m 12GB --rm                         # attach to the container interactively 
--v $HOME/license.txt:/license/license.txt           # mount the freesurfer lisense directory
--v $HOME/ds000240:/data:ro                          # mount the data directory to the container directory
--v $HOME/ds000240-results:/out:rw                   # mount the output directory to the container directory
--v $HOME/tmp/ds000240-workdir:/work                 # mount working directory
-pennlinc/aslprep                                    # the container name: aslprep
-/data                                               # the data directory
-/out/aslprep                                        # the output directory
-participant                                         # analysis type: participant
---participant-label 01                              # select participant 01
---fs-license-file /license/license.txt              # setting freesurfer license file 
--w /work                                            # setting working directory
+    docker run -ti -m 12GB --rm                         # attach to the container interactively 
+    -v $HOME/license.txt:/license/license.txt           # mount the freesurfer lisense directory
+    -v $HOME/ds000240:/data:ro                          # mount the data directory to the container directory
+    -v $HOME/ds000240-results:/out:rw                   # mount the output directory to the container directory
+    -v $HOME/tmp/ds000240-workdir:/work                 # mount working directory
+    pennlinc/aslprep                                    # the container name: aslprep
+    /data                                               # the data directory
+    /out/aslprep                                        # the output directory
+    participant                                         # analysis type: participant
+    --participant-label 01                              # select participant 01
+    --fs-license-file /license/license.txt              # setting freesurfer license file 
+    -w /work                                            # setting working directory
 
 For additional options, see usage notes >  :ref:`Usage`
 
