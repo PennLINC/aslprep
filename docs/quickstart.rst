@@ -1,3 +1,9 @@
+---
+layout: default
+title: Quick Start Tutorial
+has_toc: true
+---
+
 .. include:: links.rst
 
 ---------------------
