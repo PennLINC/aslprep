@@ -27,6 +27,7 @@ ASLPrep installation
 There are two ways to install *ASLPrep*:
 
 1. Installation through Docker/ Singularity (**recommended**)
+
 For every new version of *ASLPrep* that is released, a corresponding Docker image is generated and pushed to `DockerHub <https://hub.docker.com/r/pennlinc/aslprep>`_. In order to run *ASLPrep* Docker images, the Docker Engine must be `installed <https://docs.docker.com/engine/install/>`_.
 
 We recommend usind Docker. The docker image can be pulled from the ASLPrep DockerHub using the command line:: 
