@@ -51,13 +51,13 @@ This method is not recommended, because it requires external dependencies to be 
 Running ASLPrep
 ----------------
 
-Running *ASLPrep* will require a freesurfer license file, which can be requested `here <https://surfer.nmr.mgh.harvard.edu/registration.htm>`_. Move this license to a folder in your ``$HOME`` directory (to find this location out, run this in the terminal: echo $HOME) called **license**.
+Running *ASLPrep* will require a freesurfer license file (you do not actually need Freesurfer, though), which can be requested `here <https://surfer.nmr.mgh.harvard.edu/registration.htm>`_. Move this license to a folder in your ``$HOME`` directory (to find this location out, run this in the terminal: echo $HOME) called **license**.
 
 In the Docker desktop application, please select Preferences > Resources > Advanced and select at least 12GB for RAM. Restart Docker.
 
 Move the data directory to your ``$HOME`` directory (again, to find this location out, run this in the terminal: echo $HOME). Make sure it is called **ds000240**.
 
-The following command can be called for a single participant::
+The following command, which should run in about 8 hours, can be called for a single participant::
 
     docker run -ti -m 12GB --rm -v $HOME/license.txt:/license/license.txt -v $HOME/ds000240:/data:ro -v $HOME/ds000240-results:/out:rw -v                      $HOME/tmp/ds000240-workdir:/work:rw pennlinc/aslprep /data /out participant --participant-label 01 --fs-license-file /license/license.txt -w /work
 
