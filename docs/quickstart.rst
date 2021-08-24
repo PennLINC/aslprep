@@ -4,7 +4,7 @@
 Quick Start Tutorial
 ---------------------
 
-This page describes the basic steps to run  *ASLPrep*. *ASLPrep* is containerized and available via *pip*, and thus can be run in a variety of ways. Here, we provide the most basic / user friendly workflow on a public dataset.
+This page describes the basic steps to run  *ASLPrep*. *ASLPrep* is containerized and available via ``pip``, and thus can be run in a variety of ways. Here, we provide the most basic / user friendly workflow on a public dataset.
 
 *ASLPrep* requires a valid BIDS dataset, like this example of BIDS dataset on `openneuro <https://openneuro.org/datasets/ds000240/versions/2.0.0/download>`_. Using Chrome, you can download the data via the browser. Note that you might have to create a new folder to download the data to.
     
@@ -48,15 +48,15 @@ This method is not recommended, because it requires external dependencies to be 
 Running ASLPrep
 ----------------
 
-Running *ASLPrep* will require a freesurfer license file, which can be requested `here <https://surfer.nmr.mgh.harvard.edu/registration.htm>`_. Move this licesnse to your a folder in your home directory (to find this location out, run this in the terminal: echo $HOME) called *license*.
+Running *ASLPrep* will require a freesurfer license file, which can be requested `here <https://surfer.nmr.mgh.harvard.edu/registration.htm>`_. Move this licesnse to your a folder in your home directory (to find this location out, run this in the terminal: echo $HOME) called **license**.
 
 In the GUI for Docker, please select Preferences > Resources > Advanced and select at least 12GB for RAM. Restart Docker.
 
-Move the data directory to your home directory (again, to find this location out, run this in the terminal: echo $HOME).
+Move the data directory to your home directory (again, to find this location out, run this in the terminal: echo $HOME). Make sure it is called **ds000240**.
 
 The following command can be called for a single participant::
 
-    docker run -ti -m 12GB --rm -v $HOME/license.txt:/license/license.txt -v $HOME/ds000240-download:/data:ro -v $HOME/ds000240-results:/out:rw -v                      $HOME/tmp/ds000240-workdir:/work:rw pennlinc/aslprep /data /out participant --participant-label 01 --fs-license-file /license/license.txt -w /work
+    docker run -ti -m 12GB --rm -v $HOME/license.txt:/license/license.txt -v $HOME/ds000240:/data:ro -v $HOME/ds000240-results:/out:rw -v                      $HOME/tmp/ds000240-workdir:/work:rw pennlinc/aslprep /data /out participant --participant-label 01 --fs-license-file /license/license.txt -w /work
 
 Here is a breakdown of this command::
 
