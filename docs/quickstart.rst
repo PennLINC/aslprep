@@ -10,9 +10,9 @@ has_toc: true
 Quick Start Tutorial
 ---------------------
 
-This page describes the basic steps to run *ASLPrep* on an open source dataset. *ASLPrep* is containerized and available via ``pip``, and thus can be run in a variety of ways. Here, we provide the most basic and user friendly workflow.
+This page describes the basic steps to run ``ASLPrep`` on an open source dataset. ``ASLPrep`` is containerized and available via ``pip``, and thus can be run in a variety of ways. Here, we provide the most basic and user friendly workflow.
 
-*ASLPrep* requires a valid BIDS dataset, like this example of BIDS dataset on `openneuro <https://openneuro.org/datasets/ds000240/versions/2.0.0/download>`_. Using Chrome, you can download the data via the browser. Note that you might have to create a new folder to download the data to. You can also download it via datalad or aws.
+*ASLPrep* requires a valid BIDS dataset, like this example of BIDS dataset on `openneuro <https://openneuro.org/datasets/ds000240/versions/2.0.0/download>`_. Using Chrome, you can download the data via the browser. Note that you might have to create a new folder to download the data to. You can also download it via ``datalad`` or ``aws``.
     
 The BIDS dataset should include the following datatypes in order to run *ASLPrep*::
 
@@ -28,7 +28,7 @@ There are two ways to install *ASLPrep*:
 
 1. Installation through Docker/ Singularity (**recommended**)
 
-For every new version of *ASLPrep* that is released, a corresponding Docker image is generated and pushed to `DockerHub <https://hub.docker.com/r/pennlinc/aslprep>`_. In order to run *ASLPrep* Docker images, the Docker Engine must be `installed <https://docs.docker.com/engine/install/>`_.
+For every new version of ``ASLPrep`` that is released, a corresponding Docker image is generated and pushed to `DockerHub <https://hub.docker.com/r/pennlinc/aslprep>`_. In order to run *ASLPrep* Docker images, the Docker Engine must be `installed <https://docs.docker.com/engine/install/>`_.
 
 We recommend usind Docker. The docker image can be pulled from the ASLPrep DockerHub using the command line:: 
 
@@ -52,7 +52,7 @@ This method is not recommended, because it requires external dependencies to be 
 Running ASLPrep
 ----------------
 
-Running *ASLPrep* will require a freesurfer license file (you do not actually need Freesurfer, though), which can be requested `here <https://surfer.nmr.mgh.harvard.edu/registration.htm>`_. Move this license to a folder in your ``$HOME`` directory (to find this location out, run this in the terminal: echo $HOME) called **license**.
+Running ``ASLPrep`` will require a freesurfer license file (you do not actually need Freesurfer, though), which can be requested `here <https://surfer.nmr.mgh.harvard.edu/registration.htm>`_. Move this license to a folder in your ``$HOME`` directory (to find this location out, run this in the terminal: echo $HOME) called **license**.
 
 In the Docker desktop application, please select Preferences > Resources > Advanced and select at least 12GB for RAM. Restart Docker.
 
