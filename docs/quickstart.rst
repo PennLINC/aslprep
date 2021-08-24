@@ -16,11 +16,11 @@ This page describes the basic steps to run *ASLPrep* on an open source dataset. 
     
 The BIDS dataset should include the following datatypes in order to run *ASLPrep*::
 
-sub-01/anat/sub-01_T1w.nii.gz
-sub-01/anat/sub-01_T1w.json
-sub-01/perf/sub-01_asl.jnii.gz
-sub-01/perf/sub-01_asl.json
-sub-01/perf/sub-01_aslcontext.tsv
+    sub-01/anat/sub-01_T1w.nii.gz
+    sub-01/anat/sub-01_T1w.json
+    sub-01/perf/sub-01_asl.jnii.gz
+    sub-01/perf/sub-01_asl.json
+    sub-01/perf/sub-01_aslcontext.tsv
 
 ASLPrep installation
 ---------------------
