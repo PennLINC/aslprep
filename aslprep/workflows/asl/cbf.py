@@ -620,7 +620,13 @@ def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads,scorescrub=False,basil=Fals
 
 
 def init_cbfroiquant_wf(mem_gb, omp_nthreads,scorescrub=False,basil=False,name='cbf_roiquant'):
+
     workflow = Workflow(name=name)
+
+    workflow.__desc__ = """\
+For each CBF map, the ROIs for the following atlases were extracted: the  Harvard-Oxford  and the Schaefer 200 and 400-parcel resolution atlases.
+"""
+
     inputnode = pe.Node(niu.IdentityInterface(fields=['cbf', 'score', 'scrub', 'basil', 'pvc',
                                                       'aslmask', 't1_asl_xform',
                                                       'std2anat_xfm']),
