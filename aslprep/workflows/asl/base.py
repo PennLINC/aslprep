@@ -226,7 +226,7 @@ def init_asl_preproc_wf(asl_file):
 
     # Build workflow
     workflow = Workflow(name=wf_name)
-    workflow.__postdesc__ = """ \  
+    workflow.__postdesc__ = """\
 All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations. 
 Gridded (volumetric) resampling was performed using `antsApplyTransforms`, configured with *Lanczos*
 interpolation to minimize the smoothing effects of other kernels [@lanczos].

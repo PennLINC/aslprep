@@ -163,7 +163,7 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
 
 Structural Correlation based Outlier Rejection (SCORE) algorithm was applied to the CBF timeseries
 to discard CBF volumes with outlying values [@score_dolui] before computing the mean CBF. 
-Following SCORE, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to CBF
+Following SCORE, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF maps
 using structural tissue probability maps to reweight the mean CBF [@score_dolui;@scrub_dolui]. 
 """      
         workflow.connect([
