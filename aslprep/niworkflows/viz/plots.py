@@ -164,7 +164,7 @@ class CBFtsPlot(object):
             self.fd_file['FD'] = {
                     'values': fdlist}
         if scoreindex:
-            self.fd_file['Score Index'] = {
+            self.fd_file['The Score Index'] = {
                     'values': volindex}
 
     def plot(self, figure=None):
@@ -203,21 +203,22 @@ class CBFPlot(object):
     """
     Generates the cbf Summary Plot
     """
-    __slots__ = ['cbf', 'ref_vol', 'label', 'outfile']
+    __slots__ = ['cbf', 'ref_vol', 'label', 'outfile','vmax']
 
-    def __init__(self, cbf, ref_vol, label, outfile):
+    def __init__(self, cbf, ref_vol, label, outfile,vmax):
         self.cbf = cbf
         self.ref_vol = ref_vol
         self.label = label
         self.outfile = outfile
+        self.vmax = vmax
 
     def plot(self, figure=None):
         """Main plotter"""
-        statfile = plotstatsimg(cbf=self.cbf, ref_vol=self.ref_vol, label=self.label)
+        statfile = plotstatsimg(cbf=self.cbf, ref_vol=self.ref_vol, vamx= self.vmax,label=self.label)
         compose_view(bg_svgs=statfile, fg_svgs=None, out_file=self.outfile)
 
 
-def plotstatsimg(cbf, ref_vol, plot_params=None, order=('z', 'x', 'y'),
+def plotstatsimg(cbf, ref_vol, plot_params=None, order=('z', 'x', 'y'),vmax=90,
                  estimate_brightness=False, label=None, compress='auto'):
     """
     plot zsts
@@ -242,13 +243,13 @@ def plotstatsimg(cbf, ref_vol, plot_params=None, order=('z', 'x', 'y'),
         plot_params['cut_coords'] = cuts[mode]
         plot_params['draw_cross'] = False
         plot_params['symmetric_cbar'] = True
-        plot_params['vmax'] = 90
+        plot_params['vmax'] = vmax
         plot_params['threshold'] = 0.02
-        plot_params['colorbar'] = False
-        plot_params['cmap'] = 'gray'
+        plot_params['colorbar'] = True
+        plot_params['cmap'] = 'coolwarm'
         if i == 0:
             plot_params['title'] = label
-            plot_params['colorbar'] = False
+            plot_params['colorbar'] =True
         else:
             plot_params['title'] = None
 

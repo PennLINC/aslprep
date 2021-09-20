@@ -67,7 +67,7 @@ sections:
       potential spin-history and other artifacts, whereas final images are resampled
       using Lanczos interpolation.
     static: false
-    subtitle: Alignment of asland anatomical MRI data (volume based)
+    subtitle: Alignment of asl and anatomical MRI data (volume based)
   - bids: {datatype: figures, desc: flirtbbr, suffix: asl}
     caption: FSL <code>flirt</code> was used to generate transformations from EPI-space
       to T1w-space - The white matter mask calculated with FSL <code>fast</code> (brain
@@ -101,23 +101,23 @@ sections:
     subtitle: CBF Summary
   - bids: {datatype: figures, desc: cbfplot, suffix: asl}
     caption: The maps plot cerebral blood flow (CBF) for basic CBF.
-       The unit is mL 100/g/min
+       The unit is mL/100 g/min
     subtitle: CBF maps
   - bids: {datatype: figures, desc: scoreplot, suffix: asl}
     caption: The maps plot cerebral blood flow (CBF) for SCORE-corrected CBF.
-       The unit is mL 100/g/min
+       The unit is  mL/100 g/min
     subtitle: SCORE CBF maps
   - bids: {datatype: figures, desc: scrubplot, suffix: asl}
     caption: The maps plot cerebral blood flow (CBF) for SCRUB-corrected CBF.
-       The unit is mL 100/g/min
+       The unit is  mL/100 g/min
     subtitle: SCRUB CBF maps
   - bids: {datatype: figures, desc: basilplot, suffix: asl}
     caption: The maps plot cerebral blood flow (CBF) for BASIL-estimated CBF.
-       The unit is mL 100/g/min
+       The unit is  mL/100 g/min
     subtitle: BASIL CBF maps
   - bids: {datatype: figures, desc: pvcplot, suffix: asl}
     caption: The maps plot cerebral blood flow (CBF) for partial volume-corrected CBF.
-       The unit is mL 100/g/min
+       The unit is  mL/100 g/min
     subtitle: PVC CBF maps
 - name: About
   reportlets:

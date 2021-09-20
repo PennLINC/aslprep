@@ -76,7 +76,7 @@ def init_cbf_compt_wf(mem_gb, metadata,bids_dir,dummy_vols, omp_nthreads,
 *ASLPrep* was configured to calculate cerebral blood flow (CBF) using the following methods. 
 
 The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a general kinetic model
-[@detre_perfusion; @alsop_recommended].
+[@kinetic].
 """
     inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'in_file', 'asl_mask',
                                                       't1w_tpms', 't1w_mask', 't1_asl_xform',
@@ -598,7 +598,7 @@ def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads,scorescrub=False,basil=Fals
 
     if basil:
         basilsummary = pe.Node(CBFSummary(label='basil'), name='basil_summary', mem_gb=1)
-        pvcsummary = pe.Node(CBFSummary(label='pvc'), name='pvc_summary', mem_gb=1)
+        pvcsummary = pe.Node(CBFSummary(label='pvc',vmax=120), name='pvc_summary', mem_gb=1)
         ds_report_basilplot = pe.Node(
            DerivativesDataSink(desc='basilplot', datatype="figures",  keep_dtype=True),
             name='ds_report_basilplot', run_without_submitting=True,

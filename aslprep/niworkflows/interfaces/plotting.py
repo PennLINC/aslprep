@@ -77,6 +77,7 @@ class FMRISummary(SimpleInterface):
 class _CBFSummaryInputSpec(BaseInterfaceInputSpec):
     cbf = File(exists=True, mandatory=True, desc='')
     label = traits.Str(exists=True, mandatory=True, desc='label')
+    vmax = traits.Int(exists=True, default_value=90,mandatory=True, desc='max value of asl')
     ref_vol = File(exists=True, mandatory=True, desc='')
 
 
@@ -99,6 +100,7 @@ class CBFSummary(SimpleInterface):
             cbf=self.inputs.cbf,
             label=self.inputs.label,
             ref_vol=self.inputs.ref_vol,
+            vmax = self.inputs.vmax,
             outfile=self._results['out_file']
         ).plot()
         # fig.savefig(self._results['out_file'], bbox_inches='tight')
