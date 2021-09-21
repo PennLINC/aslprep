@@ -471,7 +471,7 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, scorescrub=False,basil=False
 
     cbftssummary = pe.Node(CBFtsSummary(tr=metadata['RepetitionTime']),
                            name='cbf_ts_summary', mem_gb=2)
-    cbfsummary = pe.Node(CBFSummary(label='cbf'), name='cbf_summary', mem_gb=1)
+    cbfsummary = pe.Node(CBFSummary(label='cbf',vmax=90), name='cbf_summary', mem_gb=1)
     ds_report_cbftsplot = pe.Node(
         DerivativesDataSink(desc='cbftsplot', datatype="figures",  keep_dtype=True),
         name='ds_report_cbftsplot', run_without_submitting=True,
@@ -496,8 +496,8 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, scorescrub=False,basil=False
        ])
 
     if scorescrub:
-        scoresummary = pe.Node(CBFSummary(label='score'), name='score_summary', mem_gb=1)
-        scrubsummary = pe.Node(CBFSummary(label='scrub'), name='scrub_summary', mem_gb=1)
+        scoresummary = pe.Node(CBFSummary(label='score',vmax=90), name='score_summary', mem_gb=1)
+        scrubsummary = pe.Node(CBFSummary(label='scrub',vmax=90), name='scrub_summary', mem_gb=1)
         ds_report_scoreplot = pe.Node(
            DerivativesDataSink(desc='scoreplot', datatype="figures",  keep_dtype=True),
           name='ds_report_scoreplot', run_without_submitting=True,
@@ -517,8 +517,8 @@ def init_cbfplot_wf(mem_gb, metadata, omp_nthreads, scorescrub=False,basil=False
         ])
 
     if basil:
-        basilsummary = pe.Node(CBFSummary(label='basil'), name='basil_summary', mem_gb=1)
-        pvcsummary = pe.Node(CBFSummary(label='pvc'), name='pvc_summary', mem_gb=1)
+        basilsummary = pe.Node(CBFSummary(label='basil',vmax=100), name='basil_summary', mem_gb=1)
+        pvcsummary = pe.Node(CBFSummary(label='pvc',vmax=120), name='pvc_summary', mem_gb=1)
         ds_report_basilplot = pe.Node(
            DerivativesDataSink(desc='basilplot', datatype="figures",  keep_dtype=True),
             name='ds_report_basilplot', run_without_submitting=True,
@@ -564,7 +564,7 @@ def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads,scorescrub=False,basil=Fals
 
 
 
-    cbfsummary = pe.Node(CBFSummary(label='cbf'), name='cbf_summary', mem_gb=1)
+    cbfsummary = pe.Node(CBFSummary(label='cbf',vmax=90), name='cbf_summary', mem_gb=1)
     ds_report_cbfplot = pe.Node(
         DerivativesDataSink(desc='cbfplot', datatype="figures", keep_dtype=True),
         name='ds_report_cbfplot', run_without_submitting=True,
@@ -576,8 +576,8 @@ def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads,scorescrub=False,basil=Fals
        ])
 
     if scorescrub:
-        scoresummary = pe.Node(CBFSummary(label='score'), name='score_summary', mem_gb=1)
-        scrubsummary = pe.Node(CBFSummary(label='scrub'), name='scrub_summary', mem_gb=1)
+        scoresummary = pe.Node(CBFSummary(label='score',vmax=90), name='score_summary', mem_gb=1)
+        scrubsummary = pe.Node(CBFSummary(label='scrub',vmax=90), name='scrub_summary', mem_gb=1)
         ds_report_scoreplot = pe.Node(
            DerivativesDataSink(desc='scoreplot', datatype="figures",  keep_dtype=True),
           name='ds_report_scoreplot', run_without_submitting=True,
@@ -597,7 +597,7 @@ def init_gecbfplot_wf(mem_gb, metadata, omp_nthreads,scorescrub=False,basil=Fals
         ])
 
     if basil:
-        basilsummary = pe.Node(CBFSummary(label='basil'), name='basil_summary', mem_gb=1)
+        basilsummary = pe.Node(CBFSummary(label='basil',vmax=100), name='basil_summary', mem_gb=1)
         pvcsummary = pe.Node(CBFSummary(label='pvc',vmax=120), name='pvc_summary', mem_gb=1)
         ds_report_basilplot = pe.Node(
            DerivativesDataSink(desc='basilplot', datatype="figures",  keep_dtype=True),

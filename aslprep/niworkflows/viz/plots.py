@@ -214,7 +214,7 @@ class CBFPlot(object):
 
     def plot(self, figure=None):
         """Main plotter"""
-        statfile = plotstatsimg(cbf=self.cbf, ref_vol=self.ref_vol, vamx= self.vmax,label=self.label)
+        statfile = plotstatsimg(cbf=self.cbf, ref_vol=self.ref_vol,vmax= self.vmax,label=self.label)
         compose_view(bg_svgs=statfile, fg_svgs=None, out_file=self.outfile)
 
 
