@@ -147,7 +147,8 @@ RUN mkdir /opt/cmake \
     && make -j2 \
     && cd ANTS-build \
     && make install \
-    && rm -rf /tmp/ants \
+    && rm -rf /tmp/ants 
+    
 # Installing SVGO
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash -
 RUN apt-get install -y nodejs
