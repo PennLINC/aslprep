@@ -164,7 +164,7 @@ class CBFtsPlot(object):
             self.fd_file['FD'] = {
                     'values': fdlist}
         if scoreindex:
-            self.fd_file['The Score Index'] = {
+            self.fd_file['The SCORE index'] = {
                     'values': volindex}
 
     def plot(self, figure=None):
