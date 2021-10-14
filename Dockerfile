@@ -1,5 +1,5 @@
 # Use Ubuntu 16.04 LTS
-FROM nvidia/cuda:9.1-runtime-ubuntu16.04
+FROM ubuntu:xenial-20200706
 
 # Pre-cache neurodebian key
 COPY docker/files/neurodebian.gpg /usr/local/etc/neurodebian.gpg
