@@ -36,6 +36,15 @@ jobs:
           name: Build Docker image
           no_output_timeout: 5h
           command: |
+            # Get version, update files.
+            THISVERSION=$( python3 get_version.py )
+            if [[ ${THISVERSION:0:5} == "0" ]] ; then
+              echo "WARNING: latest git tag could not be found"
+              echo "Please, make sure you fetch all tags from upstream with"
+              echo "the command ``git fetch --tags --verbose`` and push"
+              echo "them to your fork with ``git push origin --tags``"
+            fi
+            sed -i "s/title = {aslprep}/title = {aslprep ${CIRCLE_TAG:-$THISVERSION}}/" aslprep/data/boilerplate.bib
             # Build docker image
             e=1 && for i in {1..5}; do
               docker build \
@@ -312,10 +321,16 @@ jobs:
           no_output_timeout: 1h
           command: |
             if [[ -n "$DOCKER_PASS" ]]; then
-              docker login -u $DOCKER_USER -p $DOCKER_PASS
-              docker push pennlinc/aslprep:latest
+                docker login -u $DOCKER_USER -p $DOCKER_PASS
+                docker tag pennlinc/aslprep pennlinc/aslprep:unstable
+                docker push pennlinc/aslprep:unstable
             fi
 
+            if [[ -n "$CIRCLE_TAG" ]]; then
+                docker push pennlinc/aslprep:latest
+                docker tag pennlinc/aslprep pennlinc/aslprep:$CIRCLE_TAG
+                docker push pennlinc/aslprep:$CIRCLE_TAG
+            fi
 
 workflows:
   version: 2

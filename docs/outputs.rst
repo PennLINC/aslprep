@@ -91,7 +91,8 @@ SCORE and SCRUB Outputs::
 BASIL outputs::
 
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-basil_cbf.nii.gz # cbf computed with BASIL 
-      sub-<subject_label>_[specifiers]_space-<space_label>_desc-pvc_cbf.nii.gz #  partial volume corrected cbf with BASIL
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-pvGM_cbf.nii.gz #  GM partial volume corrected cbf with BASIL
+      sub-<subject_label>_[specifiers]_space-<space_label>_desc-pvWM_cbf.nii.gz #  WM partial volume corrected cbf with BASIL
       sub-<subject_label>_[specifiers]_space-<space_label>_desc-bat_cbf.nii.gz # bolus arrivsl time (in seconds)
 
 
