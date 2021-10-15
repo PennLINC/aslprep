@@ -210,7 +210,7 @@ RUN conda install -y python=3.7.4 \
 
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash -
 RUN apt-get install -y nodejs
-RUN npm install -g npm@latest
+
 RUN npm install -g svgo
 
 # Installing bids-validator
