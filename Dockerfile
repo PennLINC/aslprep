@@ -150,12 +150,9 @@ RUN mkdir /opt/cmake \
     && rm -rf /tmp/ants 
     
 # Installing SVGO
-RUN curl -sL https://deb.nodesource.com/setup_10.x | bash -
-RUN apt-get install -y nodejs
-RUN npm install -g svgo
 
-# Installing bids-validator
-RUN npm install -g bids-validator@1.8.4
+
+
 
 ENV C3DPATH="/opt/convert3d-nightly" \
     PATH="/opt/convert3d-nightly/bin:$PATH"
@@ -184,6 +181,14 @@ ENV AFNI_INSTALLDIR=/usr/lib/afni \
     MRTRIX_NTHREADS=1 \
     IS_DOCKER_8395080871=1
 
+RUN curl -sL https://deb.nodesource.com/setup_10.x | bash -
+RUN apt-get install -y nodejs
+RUN npm install -g npm@latest
+RUN npm install -g svgo
+
+# Installing bids-validator
+RUN npm install -g bids-validator@1.8.4
+
 RUN conda install -y python=3.7.4 \
                      pip=19.1 \
                      mkl=2018.0.3 \
@@ -202,6 +207,14 @@ RUN conda install -y python=3.7.4 \
     chmod +x /usr/local/miniconda/bin/*; sync && \
     conda build purge-all; sync && \
     conda clean -tipsy && sync
+
+RUN curl -sL https://deb.nodesource.com/setup_10.x | bash -
+RUN apt-get install -y nodejs
+RUN npm install -g npm@latest
+RUN npm install -g svgo
+
+# Installing bids-validator
+RUN npm install -g bids-validator@1.8.4 
 
 # Unless otherwise specified each process should only use one thread - nipype
 # will handle parallelization
