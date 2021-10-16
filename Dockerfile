@@ -1,8 +1,8 @@
 # Use Ubuntu 16.04 LTS
-FROM ubuntu:focal-20210416
+FROM ubuntu:xenial-20200706
 
 # Pre-cache neurodebian key
-COPY docker/files/neurodebian.gpg /usr/local/etc/neurodebian.gpg
+#COPY docker/files/neurodebian.gpg /usr/local/etc/neurodebian.gpg
 
 # Prepare environment
 RUN apt-get update && \
@@ -187,8 +187,8 @@ ENV AFNI_INSTALLDIR=/usr/lib/afni \
 #RUN npm install -g svgo
 RUN curl -sL https://deb.nodesource.com/setup_12.x  | bash -
 RUN apt-get -y install nodejs
-RUN npm install
 RUN npm install -g svgo
+
 # Installing bids-validator
 RUN npm install -g bids-validator@1.8.4
 
