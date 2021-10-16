@@ -2,7 +2,7 @@
 FROM ubuntu:xenial-20200706
 
 # Pre-cache neurodebian key
-#COPY docker/files/neurodebian.gpg /usr/local/etc/neurodebian.gpg
+COPY docker/files/neurodebian.gpg /usr/local/etc/neurodebian.gpg
 
 # Prepare environment
 RUN apt-get update && \
