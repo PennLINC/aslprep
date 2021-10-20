@@ -94,9 +94,10 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
     gm_tfm = pe.Node(ApplyTransforms(interpolation='NearestNeighbor', float=True),
                      name='gm_tfm', mem_gb=0.1)
     
-    
+    tiscbf = get_tis(metadata)
 
-    tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
+    #tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
+
     if hasattr(tiscbf, '__len__'):
         tisasl = ",".join([str(i) for i in tiscbf])
     else:
@@ -973,3 +974,13 @@ structural tissues probability maps[@score_dolui;@scrub_dolui].
                                   ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
              ])
     return workflow
+
+
+
+
+
+def get_tis(metadata):
+    if "CASL" in metadata["ArterialSpinLabelingType"]:
+        return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"])
+    else:
+        return np.array(metadata["PostLabelingDelay"])
