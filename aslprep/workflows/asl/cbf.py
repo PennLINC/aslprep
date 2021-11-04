@@ -7,7 +7,8 @@ from nipype.interfaces import utility as niu
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from ...interfaces.cbf_computation import (extractCBF, computeCBF, scorescrubCBF, BASILCBF,
-                                           refinemask, qccbf, cbfqroiquant,qccbfge,extractCB)
+                                           refinemask, qccbf, cbfqroiquant,qccbfge,extractCB,
+                                           get_tis)
 from ...niworkflows.interfaces.plotting import (CBFSummary, CBFtsSummary)
 from ...interfaces import DerivativesDataSink
 import numpy as np
@@ -835,7 +836,7 @@ model [@detre_perfusion;@alsop_recommended].
     controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
     labelist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
     
-    tiscbf = np.add(metadata['PostLabelingDelay'],metadata['LabelingDuration'])
+    tiscbf = get_tis(metadata)
 
     if hasattr(tiscbf, '__len__'):
         tisasl = ",".join([str(i) for i in tiscbf])
@@ -980,13 +981,3 @@ structural tissues probability maps[@score_dolui;@scrub_dolui].
                                   ('out_avgscore', 'out_avgscore'), ('out_scrub', 'out_scrub')]),
              ])
     return workflow
-
-
-
-
-
-def get_tis(metadata):
-    if "CASL" in metadata["ArterialSpinLabelingType"]:
-        return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"])
-    else:
-        return np.array(metadata["PostLabelingDelay"])

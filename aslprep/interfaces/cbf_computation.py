@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import os
+from typing import Any
 import numpy as np
 import pandas as pd
 import nibabel as nb
@@ -1386,5 +1389,8 @@ def refine_ref_mask(t1w_mask,ref_asl_mask,
   
     return refined_mask
 
-
-
+def get_tis(metadata: dict[str, Any]):
+    if "CASL" in metadata["ArterialSpinLabelingType"]:
+        return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"])
+    else:
+        return np.array(metadata["PostLabelingDelay"])
