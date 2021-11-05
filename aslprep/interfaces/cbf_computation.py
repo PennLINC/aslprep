@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import os
+from typing import Any
 import numpy as np
 import pandas as pd
 import nibabel as nb
@@ -270,7 +273,6 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     #m0scale = metadata['M0']
     magstrength = metadata['MagneticFieldStrength']
     t1blood = (110*int(magstrength)+1316)/1000 # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550 
-    inverstiontime = np.add(tau, plds)
     #mask = nb.load(mask).get_fdata()
 
         
@@ -281,7 +283,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     elif 'PASL' in labeltype:
         labeleff = 0.8
     else:
-        print('no labelelling effiecieny')
+        raise LabelingEfficiencyNotFound('No labeling efficiency')
     part_coeff = 0.9   # brain partition coefficient
 
 
@@ -290,6 +292,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
         pf1 = (6000*part_coeff)/(2*labeleff*t1blood*(1-np.exp(-(tau/t1blood))))
         perfusion_factor = pf1*np.exp(plds/t1blood)
     elif 'PASL' in labeltype:
+        inverstiontime = plds # As per BIDS: inversiontime for PASL == PostLabelingDelay
         pf1 = (6000*part_coeff)/(2*labeleff)
         perfusion_factor = (pf1*np.exp(inverstiontime/t1blood))/inverstiontime
     #perfusion_factor = np.array(perfusion_factor)
@@ -1386,5 +1389,11 @@ def refine_ref_mask(t1w_mask,ref_asl_mask,
   
     return refined_mask
 
+def get_tis(metadata: dict[str, Any]):
+    if "CASL" in metadata["ArterialSpinLabelingType"]:
+        return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"])
+    else:
+        return np.array(metadata["PostLabelingDelay"])
 
-
+class LabelingEfficiencyNotFound(Exception):
+    """LabelingEfficiency was not specified and no value could be derived."""
