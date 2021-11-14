@@ -721,11 +721,24 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     mzero = File(exists=True, argstr=" -c %s ", desc='m0 scan', mandatory=False)
     m0scale = traits.Float(desc='calibration of asl', argstr=" --cgain %.2f ", mandatory=True)
     m0tr = traits.Float(desc='Mzero TR', argstr=" --tr %.2f ", mandatory=True,)
-    tis = traits.Str(desc='recovery time =plds+bolus', argstr=" --tis %s ", mandatory=True,)
+    tis = traits.Either(
+        traits.Float(),
+        traits.List(traits.Float()),
+        desc='recovery time =plds+bolus',
+        argstr=" --tis %s ",
+        mandatory=True,
+        sep=',',
+    )
     pcasl = traits.Bool(desc='label type:defualt is PASL', argstr=" --casl ",
                         mandatory=False, default_value=False)
-    bolus = traits.Float(desc='bolus or tau: label duration', argstr=" --bolus %.2f ",
-                         mandatory=True)
+    bolus = traits.Either(
+        traits.Float(),
+        traits.List(traits.Float()),
+        desc='bolus or tau: label duration',
+        argstr="--bolus %s",
+        mandatory=True,
+        sep=',',
+    )
     pvc = traits.Bool(desc='calibration of asl', mandatory=False, argstr=" --pvcorr ",
                       default_value=True)
     pvgm = File(exists=True, mandatory=False, desc='grey matter probablity matter ',

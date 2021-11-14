@@ -97,13 +97,6 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
     
     tiscbf = get_tis(metadata)
 
-    #tiscbf=np.add(metadata["PostLabelingDelay"],metadata["LabelingDuration"])
-
-    if hasattr(tiscbf, '__len__'):
-        tisasl = ",".join([str(i) for i in tiscbf])
-    else:
-        tisasl = str(tiscbf)
-
     def pcaslorasl(metadata):
         if 'CASL' in metadata["ArterialSpinLabelingType"]:
             pcasl1 = True
@@ -119,7 +112,7 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
     scorescrub = pe.Node(scorescrubCBF(in_thresh=0.7, in_wfun='huber'), mem_gb=0.2,
                          name='scorescrub', run_without_submitting=True)
     basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=metadata["LabelingDuration"],
-                                m0tr=metadata['RepetitionTime'], pvc=True,tis = tisasl,
+                                m0tr=metadata['RepetitionTime'], pvc=True, tis=tiscbf,
                                 pcasl = pcaslorasl(metadata = metadata)), name='basilcbf',
                        run_without_submitting=True, mem_gb=0.2)
 
@@ -838,10 +831,6 @@ model [@detre_perfusion;@alsop_recommended].
     
     tiscbf = get_tis(metadata)
 
-    if hasattr(tiscbf, '__len__'):
-        tisasl = ",".join([str(i) for i in tiscbf])
-    else:
-        tisasl = str(tiscbf)
     def pcaslorasl(metadata):
         if 'CASL' in metadata["ArterialSpinLabelingType"]:
             pcasl1 = True
@@ -921,7 +910,7 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
  perfusion image, including correction of partial volume effects [@chappell_pvc].
 """         
             basilcbf = pe.Node(BASILCBF(m0scale=M0Scale, bolus=metadata["LabelingDuration"],
-                                m0tr=metadata['RepetitionTime'], pvc=True,tis = tisasl,
+                                m0tr=metadata['RepetitionTime'], pvc=True, tis=tiscbf,
                                 pcasl = pcaslorasl(metadata = metadata)), name='basilcbf',
                        run_without_submitting=True, mem_gb=mem_gb)
             workflow.connect([
