@@ -18,7 +18,7 @@ from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from ...niworkflows.interfaces import CopyHeader
 from ...niworkflows.interfaces.freesurfer import StructuralReference
 from ...niworkflows.interfaces.registration import ANTSApplyTransformsRPT
-from ...niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
+from ...niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
 
 from nipype.pipeline import engine as pe
 from nipype.interfaces import afni, ants, utility as niu
@@ -136,7 +136,7 @@ directions, with `3dQwarp` @afni (AFNI {afni_ver}).
                                                       interpolation='LanczosWindowedSinc'),
                                name='unwarp_reference')
 
-    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_bold_wf(
+    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_asl_wf(
         omp_nthreads=omp_nthreads)
 
     workflow.connect([
@@ -237,7 +237,7 @@ def init_prepare_epi_wf(omp_nthreads, matched_pe=False,
                             out_file='template.nii.gz'),
         name='merge_op')
 
-    ref_op_wf = init_enhance_and_skullstrip_bold_wf(
+    ref_op_wf = init_enhance_and_skullstrip_asl_wf(
         omp_nthreads=omp_nthreads, name='ref_op_wf')
 
     op2ref_reg = pe.Node(ants.Registration(
@@ -273,7 +273,7 @@ def init_prepare_epi_wf(omp_nthreads, matched_pe=False,
                             out_file='template.nii.gz'),
         name='merge_ma')
 
-    ref_ma_wf = init_enhance_and_skullstrip_bold_wf(
+    ref_ma_wf = init_enhance_and_skullstrip_asl_wf(
         omp_nthreads=omp_nthreads, name='ref_ma_wf')
 
     ma2ref_reg = pe.Node(ants.Registration(

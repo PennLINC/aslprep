@@ -5,7 +5,7 @@ from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.registration import ANTSApplyTransformsRPT
-from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
+from ...niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
 
 
 def init_sdc_unwarp_wf(omp_nthreads, debug, name='sdc_unwarp_wf'):
@@ -75,7 +75,7 @@ def init_sdc_unwarp_wf(omp_nthreads, debug, name='sdc_unwarp_wf'):
         dimension=3, generate_report=False, float=True,
         interpolation='NearestNeighbor'), name='unwarp_mask')
 
-    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=omp_nthreads,
+    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_asl_wf(omp_nthreads=omp_nthreads,
                                                                          pre_mask=True)
     workflow.connect([
         (inputnode, unwarp_reference, [
