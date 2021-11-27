@@ -31,7 +31,7 @@ def init_asl_reference_wf(
     omp_nthreads,
     asl_file=None,
     sbref_files=None,
-    brainmask_thresh=0.85,
+    brainmask_thresh=0.1,
     pre_mask=False,
     multiecho=False,
     name="asl_reference_wf",
