@@ -250,7 +250,8 @@ RUN pip install --no-cache-dir "$( grep templateflow aslprep-setup.cfg | xargs )
 # Installing ASLPREP
 COPY . /src/aslprep
 
-ARG VERSION=0.2.7
+ARG VERSION
+
 # Force static versioning within container
 RUN echo "${VERSION}" > /src/aslprep/aslprep/VERSION && \
     echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in && \
