@@ -250,12 +250,12 @@ RUN pip install --no-cache-dir "$( grep templateflow aslprep-setup.cfg | xargs )
 # Installing ASLPREP
 COPY . /src/aslprep
 
-ARG VERSION
+#ARG VERSION
 
 # Force static versioning within container
-RUN echo "${VERSION}" > /src/aslprep/aslprep/VERSION && \
-    echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in && \
-    pip install --no-cache-dir "/src/aslprep[all]"
+#RUN echo "${VERSION}" > /src/aslprep/aslprep/VERSION && \
+    #echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in && \
+RUN pip install --no-cache-dir "/src/aslprep[all]"
 
 RUN install -m 0755 \
     /src/aslprep/scripts/generate_reference_mask.py \
