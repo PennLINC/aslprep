@@ -145,6 +145,9 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     add_motion_headers = pe.Node(
         AddTSVHeader(columns=["trans_x", "trans_y", "trans_z", "rot_x", "rot_y", "rot_z"]),
         name="add_motion_headers", mem_gb=0.01, run_without_submitting=True)
+    add_rmsd_header = pe.Node(
+        AddTSVHeader(columns=["rmsd"]),
+        name="add_rmsd_header", mem_gb=0.01, run_without_submitting=True)
     concat = pe.Node(GatherConfounds(), name="concat", mem_gb=0.01, run_without_submitting=True)
 
 
