@@ -116,8 +116,8 @@ Several confounding timeseries were calculated, including both framewise displac
 in-scanner motion as the mean framewise displacement and relative root-mean square displacement.
 """
     inputnode = pe.Node(niu.IdentityInterface(
-        fields=['asl', 'asl_mask', 'movpar_file', 'skip_vols',
-                't1w_mask', 't1w_tpms', 't1_asl_xform']),
+        fields=['asl', 'asl_mask', 'movpar_file', 'rmsd_file',
+                'skip_vols', 't1w_mask', 't1w_tpms', 't1_asl_xform']),
         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(
         fields=['confounds_file', 'confounds_metadata']),
