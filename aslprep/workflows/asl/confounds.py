@@ -90,6 +90,8 @@ def init_asl_confs_wf(
         asl series mask
     movpar_file
         SPM-formatted motion parameters file
+    rmsd_file
+        Framewise displacement as measured by ``fsl_motion_outliers``. 
     skip_vols
         number of non steady state volumes
     t1w_mask
