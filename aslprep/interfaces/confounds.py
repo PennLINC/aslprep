@@ -28,9 +28,9 @@ LOGGER = logging.getLogger('nipype.interface')
 class GatherConfoundsInputSpec(BaseInterfaceInputSpec):
     signals = File(exists=True, desc='input signals')
     dvars = File(exists=True, desc='file containing DVARS')
+    rmsd = File(exists=True, desc='input RMS framewise displacement')
     std_dvars = File(exists=True, desc='file containing standardized DVARS')
     fd = File(exists=True, desc='input framewise displacement')
-    rmsd = File(exists=True, desc='input RMS framewise displacement')
     motion = File(exists=True, desc='input motion parameters')
 
 
@@ -78,9 +78,9 @@ class GatherConfounds(SimpleInterface):
         combined_out, confounds_list = _gather_confounds(
             signals=self.inputs.signals,
             dvars=self.inputs.dvars,
+            rmsd=self.inputs.rmsd,
             std_dvars=self.inputs.std_dvars,
             fdisp=self.inputs.fd,
-            rmsd=self.inputs.rmsd,
             motion=self.inputs.motion,
             newpath=runtime.cwd,
         )
