@@ -149,7 +149,9 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         name="add_motion_headers", mem_gb=0.01, run_without_submitting=True)
     add_rmsd_header = pe.Node(
         AddTSVHeader(columns=["rmsd"]),
-        name="add_rmsd_header", mem_gb=0.01, run_without_submitting=True)
+        name="add_rmsd_header",
+        mem_gb=0.01,
+        run_without_submitting=True)
     concat = pe.Node(GatherConfounds(), name="concat", mem_gb=0.01, run_without_submitting=True)
 
 
@@ -157,23 +159,21 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     # Expand model to include derivatives and quadratics
 
     workflow.connect([
+
         # connect inputnode to each non-anatomical confound node
         (inputnode, dvars, [('asl', 'in_file'),
                             ('asl_mask', 'in_mask')]),
         (inputnode, fdisp, [('movpar_file', 'in_file')]),
         # Collate computed confounds together
-        (inputnode, add_motion_headers, [('movpar_file', 'in_file')]),
-        (inputnode, add_rmsd_header, [('rmsd_file', 'in_file')]),
-        (dvars, add_dvars_header, [('out_nstd', 'in_file')]),
-        (dvars, add_std_dvars_header, [('out_std', 'in_file')]),
-        (fdisp, concat, [('out_file', 'fd')]),
-        (add_motion_headers, concat, [('out_file', 'motion')]),
-        (add_rmsd_header, concat, [('out_file', 'rmsd')]),
-        (add_dvars_header, concat, [('out_file', 'dvars')]),
-        (add_std_dvars_header, concat, [('out_file', 'std_dvars')]),
-
-        # Expand the model with derivatives, quadratics, and spikes
-
+        (inputnode, add_motion_headers, [("movpar_file", "in_file")]),
+        (inputnode, add_rmsd_header, [("rmsd_file", "in_file")]),
+        (dvars, add_dvars_header, [("out_nstd", "in_file")]),
+        (dvars, add_std_dvars_header, [("out_std", "in_file")]),
+        (fdisp, concat, [("out_file", "fd")]),
+        (add_motion_headers, concat, [("out_file", "motion")]),
+        (add_rmsd_header, concat, [("out_file", "rmsd")]),
+        (add_dvars_header, concat, [("out_file", "dvars")]),
+        (add_std_dvars_header, concat, [("out_file", "std_dvars")]),
         # Set outputs
         (concat, outputnode, [('confounds_file', 'confounds_file')]),
     

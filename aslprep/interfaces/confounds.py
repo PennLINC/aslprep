@@ -142,7 +142,7 @@ def _gather_confounds(signals=None, dvars=None, std_dvars=None, fdisp=None,
                            (std_dvars, 'Standardized DVARS'),
                            (dvars, 'DVARS'),
                            (fdisp, 'Framewise displacement'),
-                           (rmsd, 'Framewise displacement (RMS)'),
+                           (rmsd, 'RMSD'),
                            (motion, 'Motion parameters')):
         if confound is not None and isdefined(confound):
             confounds_list.append(name)

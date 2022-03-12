@@ -469,7 +469,8 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
         (inputnode, asl_confounds_wf, [('t1w_tpms', 'inputnode.t1w_tpms'),
                                         ('t1w_mask', 'inputnode.t1w_mask')]),
         (asl_hmc_wf, asl_confounds_wf, [
-            ('outputnode.movpar_file', 'inputnode.movpar_file')]),
+            ("outputnode.movpar_file", "inputnode.movpar_file"),
+            ("outputnode.rmsd_file", "inputnode.rmsd_file")]),
         (asl_reg_wf, asl_confounds_wf, [
             ('outputnode.itk_t1_to_asl', 'inputnode.t1_asl_xform')]),
         (asl_reference_wf, asl_confounds_wf, [
