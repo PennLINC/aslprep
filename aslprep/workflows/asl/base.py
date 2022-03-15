@@ -811,7 +811,10 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
          (compt_qccbf_wf, outputnode, [('outputnode.qc_file', 'qc_file')]),
          (compt_qccbf_wf, asl_derivatives_wf, [('outputnode.qc_file', 'inputnode.qc_file')]),
          (compt_qccbf_wf, summary, [('outputnode.qc_file', 'qc_file')]),
+         (asl_hmc_wf, compt_qccbf_wf, [("outputnode.rmsd_file", "inputnode.rmsd_file")]),
     ])
+        
+
 
     if scorescrub:
         workflow.connect([

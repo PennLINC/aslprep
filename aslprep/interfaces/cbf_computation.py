@@ -822,6 +822,7 @@ class _qccbfInputSpec(BaseInterfaceInputSpec):
     in_aslmaskstd = File(exists=True, mandatory=False, desc='asl mask in native space')
     in_templatemask = File(exists=True, mandatory=False, desc='template mask or image')
     qc_file = File(exists=False, mandatory=False, desc='qc file ')
+    rmsd_file = File(exists=True, mandatory=True, desc='rmsd file')
 
 
 class _qccbfOutputSpec(TraitedSpec):
@@ -844,9 +845,11 @@ class qccbf(SimpleInterface):
         time1 = pd.read_csv(self.inputs.in_confmat, sep='\t')
         time1.fillna(0, inplace=True)
         fd = np.mean(time1['framewise_displacement'])
-        rms = time1[['rot_x', 'rot_y', 'rot_z']]
-        rms1 = rms.pow(2)
-        rms = np.mean(np.sqrt(rms1.sum(axis=1)/3))
+        # rms = time1[['rot_x', 'rot_y', 'rot_z']]
+        # rms1 = rms.pow(2)
+        # rms = np.mean(np.sqrt(rms1.sum(axis=1)/3))
+        print (self.inputs.rmsd_file)
+        rms = pd.read_csv(self.inputs.rmsd_file,sep='\t').mean()
         regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regJC = jc(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regCC = crosscorr(self.inputs.in_aslmask, self.inputs.in_t1mask)

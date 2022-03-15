@@ -244,7 +244,7 @@ negative CBF values.
     inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
                                                       'asl_mask', 't1w_tpms',  'confmat',
                                                       'asl_mask_std', 't1_asl_xform', 'pv',
-                                                      't1w_mask']),
+                                                      't1w_mask','rmsd_file']),
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['qc_file']), name='outputnode')
 
@@ -294,9 +294,11 @@ negative CBF values.
                       (inputnode, qccompute, [('asl_mask', 'in_aslmask'),
                                               ('confmat', 'in_confmat')]),
                       (inputnode, qccompute, [(('asl_mask_std', _pick_csf), 'in_aslmaskstd')]),
+                      (inputnode, qccompute, [('rmsd_file', 'rmsd_file')]),
                       (inputnode, resample, [(('asl_mask_std', _pick_csf), 'master')]),
                       (resample, qccompute, [('out_file', 'in_templatemask')]),
                       (gm_tfm, qccompute, [('output_image', 'in_greyM')]),
+
                       (wm_tfm, qccompute, [('output_image', 'in_whiteM')]),
                       (csf_tfm, qccompute, [('output_image', 'in_csf')]),
                       (inputnode, qccompute, [('meancbf', 'in_meancbf')],)
@@ -363,7 +365,7 @@ def init_cbfgeqc_compt_wf(mem_gb, asl_file, metadata, omp_nthreads,scorescrub=Fa
     inputnode = pe.Node(niu.IdentityInterface(fields=['meancbf', 'avgscore', 'scrub', 'basil',
                                                       'asl_mask', 't1w_tpms',
                                                       'asl_mask_std', 't1_asl_xform', 'pv',
-                                                      't1w_mask']),
+                                                      't1w_mask','rmsd_file']),
                         name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=['qc_file']), name='outputnode')
 
