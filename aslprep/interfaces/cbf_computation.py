@@ -849,7 +849,7 @@ class qccbf(SimpleInterface):
         # rms1 = rms.pow(2)
         # rms = np.mean(np.sqrt(rms1.sum(axis=1)/3))
         print (self.inputs.rmsd_file)
-        rms = pd.read_csv(self.inputs.rmsd_file,sep='\t').mean()
+        rms = pd.read_csv(self.inputs.rmsd_file,header=None).mean().values[0]
         regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regJC = jc(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regCC = crosscorr(self.inputs.in_aslmask, self.inputs.in_t1mask)
@@ -899,7 +899,7 @@ class qccbf(SimpleInterface):
         
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
-            dict1 = {'FD': [fd], 'relRMS': [rms], 'coregDC': [regDC], 'coregJC': [regJC],
+            dict1 = {'FD': [fd], 'rmsd': [rms], 'coregDC': [regDC], 'coregJC': [regJC],
                      'coregCC': [regCC], 'coregCOV': [regCov], 'normDC': [normDC],
                      'normJC': [normJC], 'normCC': [normCC], 'normCOV': [normCov],
                      'cbfQEI': [meancbf_qei], 'scoreQEI': [scorecbf_qei], 'scrubQEI': [scrub_qei],
@@ -909,7 +909,7 @@ class qccbf(SimpleInterface):
                      'NEG_SCRUB_PERC': [negscrub], 'NEG_BASIL_PERC': [negbasil],
                      'NEG_PVC_PERC': [negpvc]}
         else:
-            dict1 = {'FD': [fd], 'relRMS': [rms], 'coregDC': [regDC], 'coregJC': [regJC],
+            dict1 = {'FD': [fd], 'rmsd': [rms], 'coregDC': [regDC], 'coregJC': [regJC],
                      'coregCC': [regCC], 'coregCOV': [regCov],
                      'cbfQEI': [meancbf_qei], 'scoreQEI': [scorecbf_qei], 'scrubQEI': [scrub_qei],
                      'basilQEI': [basilcbf_qei], 'pvcQEI': [pvcbf_qei], 'GMmeanCBF': [meancbf[0]],
