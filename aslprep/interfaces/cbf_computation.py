@@ -874,10 +874,11 @@ class qccbf(SimpleInterface):
             negscore = negativevoxel(cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.7)
             negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.7)
         else:
-            scorecbf_qei = 0
-            scrub_qei = 0 
-            negscore = 0
-            negscrub = 0
+            print ('no score inputs, setting to np.nan')
+            scorecbf_qei = np.nan
+            scrub_qei = np.nan 
+            negscore = np.nan
+            negscrub = np.nan
 
         if self.inputs.in_basil:
             basilcbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
@@ -887,10 +888,11 @@ class qccbf(SimpleInterface):
             negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.7)
             negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.7)
         else:
-            basilcbf_qei = 0
-            pvcbf_qei = 0 
-            negbasil = 0
-            negpvc = 0
+            print ('no basil inputs, setting to np.nan')
+            basilcbf_qei = np.nan
+            pvcbf_qei = np.nan
+            negbasil = np.nan
+            negpvc = np.nan
         
         
         gwratio = np.divide(meancbf[0], meancbf[1])
