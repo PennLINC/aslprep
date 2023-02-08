@@ -79,7 +79,7 @@ get_bids_data() {
         "https://upenn.box.com/shared/static/i64rbrpzfinpej0vct96mjw6ve7yycov.xz"
         tar xvfJ smriprepx.tar.xz -C $TEST_DATA_DIR
         mkdir dset/derivatives
-        mv smriprepx dset/derivatives/smriprep
+        mv smriprep dset/derivatives/smriprep
         rm smriprepx.tar.xz
 
       else
