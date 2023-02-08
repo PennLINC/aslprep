@@ -70,7 +70,7 @@ get_bids_data() {
         "https://upenn.box.com/shared/static/og1ixccv5v8eir76emii6rrgnwu4thad.xz"
         tar xvfJ downsampled.tar.xz -C $TEST_DATA_DIR
         mkdir dset
-        mv downsampled dset
+        mv testingbids dset
         rm downsampled.tar.xz
 
         # Download the pre-generated smriprep derivatives
