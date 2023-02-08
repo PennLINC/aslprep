@@ -182,30 +182,7 @@ workflows:
             tags:
               only: /.*/
 
-      - update_cache:
-          requires:
-            - build
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
-
       - aslprep_sub01:
-          requires:
-            - download_data
-            - build
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
-
-      - aslprep_subA00086748:
           requires:
             - download_data
             - build
@@ -219,7 +196,6 @@ workflows:
 
       - merge_coverage:
           requires:
-            - aslprep_subA00086748
             - aslprep_sub01
           filters:
             branches:
@@ -232,7 +208,6 @@ workflows:
       - deployable:
           requires:
             - build
-            - aslprep_subA00086748
             - aslprep_sub01
           filters:
             branches:
