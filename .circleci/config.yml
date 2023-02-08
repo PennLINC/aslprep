@@ -216,9 +216,22 @@ workflows:
             tags:
               only: /.*/
 
+      - aslprep_subA00086748:
+          requires:
+            - download_data
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
       - merge_coverage:
           requires:
             - aslprep_sub01
+            - aslprep_subA00086748
           filters:
             branches:
               ignore:
@@ -231,6 +244,7 @@ workflows:
           requires:
             - build
             - aslprep_sub01
+            - aslprep_subA00086748
           filters:
             branches:
               only: main
