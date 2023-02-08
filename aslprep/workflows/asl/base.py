@@ -8,42 +8,30 @@ Orchestrating the ASL-preprocessing workflow
 .. autofunction:: init_asl_derivatives_wf
 
 """
-from ... import config
-
 import os
 
 import nibabel as nb
+from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
-from nipype.interfaces import utility as niu
 
-from ...utils.meepi import combine_meepi_source
-
+from ... import config
 from ...interfaces import DerivativesDataSink
+from ...interfaces.cbf_computation import refinemask
 from ...interfaces.reports import FunctionalSummary
-
+from ...utils.meepi import combine_meepi_source
+# cbf workflows
+from .cbf import (init_cbf_compt_wf, init_cbfplot_wf, init_cbfqc_compt_wf,
+                  init_cbfroiquant_wf)
 # asl workflows
 from .confounds import init_asl_confs_wf, init_carpetplot_wf
 from .hmc import init_asl_hmc_wf
+from .outputs import init_asl_derivatives_wf
+from .registration import init_asl_reg_wf, init_asl_t1_trans_wf
+from .resampling import (init_asl_preproc_trans_wf, init_asl_std_trans_wf,
+                         init_asl_surf_wf)
 from .stc import init_asl_stc_wf
 from .t2s import init_asl_t2s_wf
-from .registration import init_asl_t1_trans_wf, init_asl_reg_wf
-from .resampling import (
-    init_asl_surf_wf,
-    init_asl_std_trans_wf,
-    init_asl_preproc_trans_wf,
-)
-
-# cbf workflows
-from .cbf import (
-    init_cbf_compt_wf,
-    init_cbfqc_compt_wf,
-    init_cbfplot_wf,
-    init_cbfroiquant_wf)
-from .outputs import init_asl_derivatives_wf
-
-
-from ...interfaces.cbf_computation import refinemask
 
 
 def init_asl_preproc_wf(asl_file):
@@ -86,7 +74,7 @@ def init_asl_preproc_wf(asl_file):
         List of transform files, collated with templates
     std2anat_xfm
         List of inverse transform files, collated with templates
-    
+
 
     Outputs
     -------
@@ -121,7 +109,7 @@ def init_asl_preproc_wf(asl_file):
     scrub_std, pv_std, basil_std
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
-        quality control meausres 
+        quality control meausres
 
     See Also
     --------
@@ -144,11 +132,11 @@ def init_asl_preproc_wf(asl_file):
     * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
-    from ...niworkflows.interfaces.nibabel import ApplyMask
-    from ...niworkflows.interfaces.utility import KeySelect
-    from ...sdcflows.workflows.base import init_sdc_estimate_wf, fieldmap_wrangler
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.func.util import init_asl_reference_wf
+    from niworkflows.interfaces.nibabel import ApplyMask
+    from niworkflows.interfaces.utility import KeySelect
+    from sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 
     ref_file = asl_file
     mem_gb = {'filesize': 1, 'resampled': 1, 'largemem': 1}
@@ -165,7 +153,7 @@ def init_asl_preproc_wf(asl_file):
     mscale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
-    
+
 
     if multiecho:
         tes = [layout.get_metadata(echo)['EchoTime'] for echo in asl_file]
@@ -227,7 +215,7 @@ def init_asl_preproc_wf(asl_file):
     # Build workflow
     workflow = Workflow(name=wf_name)
     workflow.__postdesc__ = """\
-All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations. 
+All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations.
 Gridded (volumetric) resampling was performed using `antsApplyTransforms`, configured with *Lanczos*
 interpolation to minimize the smoothing effects of other kernels [@lanczos].
 """
@@ -241,21 +229,21 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
     inputnode.inputs.asl_file = asl_file
     subj_dir=str(config.execution.bids_dir) + '/sub-' + str(config.execution.participant_label[0])
     if sbref_file is not None:
-        from ...niworkflows.interfaces.images import ValidateImage
+        from niworkflows.interfaces.images import ValidateImage
         val_sbref = pe.Node(ValidateImage(in_file=sbref_file), name='val_sbref')
 
     outputnode = pe.Node(niu.IdentityInterface(
         fields=['asl_t1', 'asl_t1_ref', 'asl_mask_t1',
-                'asl_std', 'asl_std_ref', 'asl_mask_std', 
-                'asl_native','cbf_t1', 'cbf_std', 'meancbf_t1', 
+                'asl_std', 'asl_std_ref', 'asl_mask_std',
+                'asl_native','cbf_t1', 'cbf_std', 'meancbf_t1',
                 'meancbf_std', 'score_t1', 'score_std',
                 'avgscore_t1', 'avgscore_std', ' scrub_t1', 'scrub_std',
                 'basil_t1', 'basil_std', 'pv_t1', 'pv_std',
-                'pv_native','att','att_t1','att_std','pvwm_t1', 'pvwm_std', 
+                'pv_native','att','att_t1','att_std','pvwm_t1', 'pvwm_std',
                 'confounds', 'confounds_metadata', 'qc_file',
                 'itk_asl_to_t1','itk_t1_to_asl']),
         name='outputnode')
-      
+
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name='t1w_brain')
 
@@ -328,7 +316,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
     t1cbfspace=False
     if nonstd_spaces.intersection(('T1w', 'anat')):
         t1cbfspace=True
-    
+
     asl_t1_trans_wf = init_asl_t1_trans_wf(name='asl_t1_trans_wf',
                                              use_fieldwarp=bool(fmaps),
                                              multiecho=multiecho,
@@ -357,8 +345,8 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
     )
     asl_asl_trans_wf.inputs.inputnode.name_source = ref_file
 
-    #refinemaskj = pe.Node(refinemask(),mem_gb=0.2, 
-                                       #run_without_submitting=True, 
+    #refinemaskj = pe.Node(refinemask(),mem_gb=0.2,
+                                       #run_without_submitting=True,
                                        #name="refinemask")
 
     # SLICE-TIME CORRECTION (or bypass) #############################################
@@ -393,7 +381,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
 
     # MULTI-ECHO EPI DATA #############################################
     if multiecho:
-        from ...niworkflows.func.util import init_skullstrip_asl_wf
+        from niworkflows.func.util import init_skullstrip_asl_wf
         skullstrip_asl_wf = init_skullstrip_asl_wf(name='skullstrip_asl_wf')
 
         inputnode.inputs.asl_file = ref_file  # Replace reference w first echo
@@ -541,24 +529,25 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                                 ('outputnode.itk_asl_to_t1','itk_asl_to_t1')]),
          (asl_reg_wf,asl_derivatives_wf,[('outputnode.itk_t1_to_asl','inputnode.itk_t1_to_asl'),
                                 ('outputnode.itk_asl_to_t1','inputnode.itk_asl_to_t1')]),
-        
+
      ])
 
 
-    refine_mask = pe.Node(refinemask(), mem_gb=1.0, 
-                                        run_without_submitting=True, 
+    refine_mask = pe.Node(refinemask(), mem_gb=1.0,
+                                        run_without_submitting=True,
                                         name="refinemask")
     workflow.connect([
-        (asl_asl_trans_wf, refine_mask, 
+        (asl_asl_trans_wf, refine_mask,
                            [('outputnode.asl_mask', 'in_aslmask')]),
-        (asl_reg_wf, refine_mask, 
+        (asl_reg_wf, refine_mask,
                         [('outputnode.itk_t1_to_asl', 'transforms')]),
-        (inputnode, refine_mask, 
+        (inputnode, refine_mask,
                         [('t1w_mask', 'in_t1mask')]),
     ])
 
     if fmaps:
-        from ...sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
+        from sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
+
         # Report on asl correction
         fmap_unwarp_report_wf = init_sdc_unwarp_report_wf()
         workflow.connect([
@@ -619,9 +608,8 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
     # Map final asl mask into T1w space (if required)
     nonstd_spaces = set(spaces.get_nonstandard())
     if nonstd_spaces.intersection(('T1w', 'anat')):
-        from ...niworkflows.interfaces.fixes import (
+        from niworkflows.interfaces.fixes import \
             FixHeaderApplyTransforms as ApplyTransforms
-        )
 
         aslmask_to_t1w = pe.Node(ApplyTransforms(interpolation='MultiLabel'),
                                   name='aslmask_to_t1w', mem_gb=0.1)
@@ -641,12 +629,12 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                                               ]),
             (asl_t1_trans_wf, asl_derivatives_wf, [('outputnode.cbf_t1', 'inputnode.cbf_t1'),
                                             ('outputnode.meancbf_t1', 'inputnode.meancbf_t1'),
-                                
-                                            
+
+
                                             ]),
                           ])
 
-        if scorescrub: 
+        if scorescrub:
             workflow.connect([
                 (compt_cbf_wf, asl_t1_trans_wf, [('outputnode.out_score', 'inputnode.score'),
                                               ('outputnode.out_avgscore', 'inputnode.avgscore'),
@@ -736,7 +724,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                   (compt_cbf_wf, asl_std_trans_wf, [
                                                ('outputnode.out_score', 'inputnode.score'),
                                                ('outputnode.out_avgscore', 'inputnode.avgscore'),
-                                               ('outputnode.out_scrub', 'inputnode.scrub'),]),  
+                                               ('outputnode.out_scrub', 'inputnode.scrub'),]),
                 ])
         if basil:
             workflow.connect([
@@ -744,7 +732,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                                                ('outputnode.out_cbfb', 'inputnode.basil'),
                                                ('outputnode.out_cbfpv', 'inputnode.pv'),
                                                ('outputnode.out_cbfpvwm', 'inputnode.pvwm'),
-                                               ('outputnode.out_att', 'inputnode.att'),]),  
+                                               ('outputnode.out_att', 'inputnode.att'),]),
                 ])
 
         if not multiecho:
@@ -791,7 +779,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                 ('outputnode.att_std', 'inputnode.att_std')]),
             ])
 
-    
+
 
     compt_qccbf_wf = init_cbfqc_compt_wf(name='compt_qccbf_wf',
                                          mem_gb=mem_gb['filesize'],
@@ -813,7 +801,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
          (compt_qccbf_wf, summary, [('outputnode.qc_file', 'qc_file')]),
          (asl_hmc_wf, compt_qccbf_wf, [("outputnode.rmsd_file", "inputnode.rmsd_file")]),
     ])
-        
+
 
 
     if scorescrub:
@@ -896,10 +884,10 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                 ('outputnode.cbf_sc217', 'inputnode.cbf_sc217'),
                 ('outputnode.cbf_sc407', 'inputnode.cbf_sc407'),
                 ('outputnode.cbf_sc417', 'inputnode.cbf_sc417'),
-                
+
                 ]),
     ])
-     
+
     if scorescrub:
         workflow.connect([
             (compt_cbf_wf, cbfroiqu, [('outputnode.out_avgscore', 'inputnode.score'),
@@ -933,7 +921,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                 ('outputnode.pvc_sc417', 'inputnode.pvc_sc417'),]),
         ])
 
-        
+
 
 
 
@@ -967,7 +955,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
 
 
 def _get_series_len(asl_fname):
-    from ...niworkflows.interfaces.registration import _get_vols_to_discard
+    from niworkflows.interfaces.registration import _get_vols_to_discard
     img = nb.load(asl_fname)
     if len(img.shape) < 4:
         return 1
@@ -1012,7 +1000,7 @@ def _get_wf_name(asl_fname):
 
 def _to_join(in_file, join_file):
     """Join two tsv files if the join_file is not ``None``."""
-    from ...niworkflows.interfaces.utils import JoinTSVColumns
+    from niworkflows.interfaces.utils import JoinTSVColumns
     if join_file is None:
         return in_file
     res = JoinTSVColumns(in_file=in_file, join_file=join_file).run()

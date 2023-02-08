@@ -2,13 +2,13 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 # Load modules for compatibility
-from ..niworkflows.interfaces import (
-    bids, cifti, freesurfer, images, itk, surf, utils)
+from niworkflows.interfaces import (bids, cifti, freesurfer, images, itk, surf,
+                                    utils)
+from niworkflows.interfaces.plotting import CBFSummary, CBFtsSummary
 
-from .reports import SubjectSummary, FunctionalSummary, AboutSummary
-from .confounds import GatherConfounds, ASLSummary
+from .confounds import ASLSummary, GatherConfounds
 from .multiecho import T2SMap
-from ..niworkflows.interfaces.plotting import (CBFSummary, CBFtsSummary)
+from .reports import AboutSummary, FunctionalSummary, SubjectSummary
 
 
 class DerivativesDataSink(bids.DerivativesDataSink):

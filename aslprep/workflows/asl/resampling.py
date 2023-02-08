@@ -9,12 +9,13 @@ Resampling workflows
 .. autofunction:: init_asl_preproc_trans_wf
 
 """
-from ...config import DEFAULT_MEMORY_MIN_GB
-
-from nipype.pipeline import engine as pe
-from nipype.interfaces import utility as niu, freesurfer as fs
-from nipype.interfaces.fsl import Split as FSLSplit
 import nipype.interfaces.workbench as wb
+from nipype.interfaces import freesurfer as fs
+from nipype.interfaces import utility as niu
+from nipype.interfaces.fsl import Split as FSLSplit
+from nipype.pipeline import engine as pe
+
+from ...config import DEFAULT_MEMORY_MIN_GB
 
 
 def init_asl_surf_wf(
@@ -70,8 +71,8 @@ def init_asl_surf_wf(
 
     """
     from nipype.interfaces.io import FreeSurferSource
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -144,7 +145,8 @@ The ASL time-series were resampled onto the following surfaces
         workflow.connect(sampler, 'out_file', update_metadata, 'in_file')
         return workflow
 
-    from ...niworkflows.interfaces.freesurfer import MedialNaNs
+    from niworkflows.interfaces.freesurfer import MedialNaNs
+
     # Refine if medial vertices should be NaNs
     medial_nans = pe.MapNode(MedialNaNs(), iterfield=['in_file'],
                              name='medial_nans', mem_gb=DEFAULT_MEMORY_MIN_GB)
@@ -248,14 +250,15 @@ def init_asl_std_trans_wf(
         described outputs.
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
-    from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-    from ...niworkflows.interfaces.itk import MultiApplyTransforms
-    from ...niworkflows.interfaces.utility import KeySelect
-    from ...niworkflows.interfaces.utils import GenerateSamplingReference
-    from ...niworkflows.interfaces.nilearn import Merge
-    from ...niworkflows.utils.spaces import format_reference
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.func.util import init_asl_reference_wf
+    from niworkflows.interfaces.fixes import \
+        FixHeaderApplyTransforms as ApplyTransforms
+    from niworkflows.interfaces.itk import MultiApplyTransforms
+    from niworkflows.interfaces.nilearn import Merge
+    from niworkflows.interfaces.utility import KeySelect
+    from niworkflows.interfaces.utils import GenerateSamplingReference
+    from niworkflows.utils.spaces import format_reference
 
     workflow = Workflow(name=name)
     output_references = spaces.cached.get_spaces(nonstandard=False, dim=(3,))
@@ -354,7 +357,7 @@ def init_asl_std_trans_wf(
         scrub_to_std_transform = pe.Node(
            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
            name='scrub_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    
+
     if basil:
         basil_to_std_transform = pe.Node(
           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
@@ -368,7 +371,7 @@ def init_asl_std_trans_wf(
         att_to_std_transform = pe.Node(
           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
           name='att_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    
+
 
     merge = pe.Node(Merge(compress=use_compression), name='merge',
                     mem_gb=mem_gb * 3)
@@ -411,13 +414,13 @@ def init_asl_std_trans_wf(
         'template',
         'cbf_std',
         'meancbf_std',
-      ] 
+      ]
 
     if scorescrub:
         output_names = output_names +['score_std','avgscore_std','scrub_std']
     if basil:
         output_names = output_names + ['basil_std', 'pv_std','att_std', 'pvwm_std']
-      
+
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names),
                           name='poutputnode')
     workflow.connect([
@@ -440,7 +443,7 @@ def init_asl_std_trans_wf(
        ])
 
     if scorescrub:
-        workflow.connect([ 
+        workflow.connect([
           (mask_merge_tfms, score_to_std_transform, [('out', 'transforms')]),
           (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
           (inputnode, score_to_std_transform, [('score', 'input_image')]),
@@ -552,15 +555,15 @@ def init_asl_preproc_trans_wf(mem_gb, omp_nthreads,
         Same as ``asl_ref``, but once the brain mask has been applied
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
-    from ...niworkflows.interfaces.itk import MultiApplyTransforms
-    from ...niworkflows.interfaces.nilearn import Merge
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.func.util import init_asl_reference_wf
+    from niworkflows.interfaces.itk import MultiApplyTransforms
+    from niworkflows.interfaces.nilearn import Merge
 
     workflow = Workflow(name=name)
     # workflow.__desc__ = """\
-    #The ASL timeseries were resampled onto their original, 
-    #native space by applying the transforms to correct for head-motion. 
+    #The ASL timeseries were resampled onto their original,
+    #native space by applying the transforms to correct for head-motion.
     #These resampled ASL timeseries are referred to as preprocessed ASL
     #"""
 
@@ -683,9 +686,9 @@ def init_asl_grayords_wf(
 
     """
     import templateflow.api as tf
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.cifti import GenerateCifti
-    from ...niworkflows.interfaces.utility import KeySelect
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.cifti import GenerateCifti
+    from niworkflows.interfaces.utility import KeySelect
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -820,8 +823,9 @@ def _is_native(in_value):
 
 
 def _itk2lta(in_file, src_file, dst_file):
-    import nitransforms as nt
     from pathlib import Path
+
+    import nitransforms as nt
     out_file = Path("out.lta").absolute()
     nt.linear.load(
         in_file,

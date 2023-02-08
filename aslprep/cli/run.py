@@ -6,19 +6,21 @@ from .. import config
 
 def main():
     """Entry point."""
+    import gc
+    import sys
+    from multiprocessing import Manager, Process
     from os import EX_SOFTWARE
     from pathlib import Path
-    import sys
-    import gc
-    from multiprocessing import Process, Manager
-    from .parser import parse_args
+
     from ..utils.bids import write_derivative_description
+    from .parser import parse_args
 
     parse_args()
 
     sentry_sdk = None
     if not config.execution.notrack:
         import sentry_sdk
+
         from ..utils.sentry import sentry_setup
 
         sentry_setup()
@@ -135,7 +137,7 @@ def main():
             )
         errno = 0
     finally:
-        from ..niworkflows.reports import generate_reports
+        from niworkflows.reports import generate_reports
         from pkg_resources import resource_filename as pkgrf
 
         # Generate reports phase

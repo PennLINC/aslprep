@@ -13,14 +13,14 @@ Handling confounds.
 import os
 import re
 import shutil
+
 import numpy as np
 import pandas as pd
 from nipype import logging
+from nipype.interfaces.base import (BaseInterfaceInputSpec, Directory, File,
+                                    SimpleInterface, TraitedSpec, isdefined,
+                                    traits)
 from nipype.utils.filemanip import fname_presuffix
-from nipype.interfaces.base import (
-    traits, TraitedSpec, BaseInterfaceInputSpec, File, Directory, isdefined,
-    SimpleInterface
-)
 
 LOGGER = logging.getLogger('nipype.interface')
 
@@ -201,7 +201,7 @@ class ASLSummary(SimpleInterface):
     output_spec = ASLSummaryOutputSpec
 
     def _run_interface(self, runtime):
-        from ..niworkflows.viz.plots import ASLPlot
+        from niworkflows.viz.plots import ASLPlot
 
         self._results['out_file'] = fname_presuffix(
             self.inputs.in_func,

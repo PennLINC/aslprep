@@ -1,9 +1,10 @@
 """Test parser."""
-from packaging.version import Version
 import pytest
-from ..parser import _build_parser
-from .. import version as _version
+from packaging.version import Version
+
 from ... import config
+from .. import version as _version
+from ..parser import _build_parser
 
 MIN_ARGS = ["data/", "out/", "participant"]
 

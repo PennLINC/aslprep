@@ -8,8 +8,9 @@ Head-Motion Estimation and Correction (HMC) of ASL images
 
 """
 
+from nipype.interfaces import fsl
+from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from nipype.interfaces import utility as niu, fsl
 
 from ...config import DEFAULT_MEMORY_MIN_GB
 
@@ -58,14 +59,14 @@ def init_asl_hmc_wf(mem_gb, omp_nthreads, name='asl_hmc_wf'):
         Framewise displacement as measured by ``fsl_motion_outliers``
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces import NormalizeMotionParams
-    from ...niworkflows.interfaces.itk import MCFLIRT2ITK
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces import NormalizeMotionParams
+    from niworkflows.interfaces.itk import MCFLIRT2ITK
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-Head-motion parameters were estimated using *FSL*’s `mcflirt` [ @mcflirt]. 
-Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file. 
+Head-motion parameters were estimated using *FSL*’s `mcflirt` [ @mcflirt].
+Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file.
 
 """.format(fsl_ver=fsl.Info().version() or '<ver>')
 

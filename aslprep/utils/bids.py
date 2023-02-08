@@ -1,14 +1,14 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Utilities to handle BIDS inputs."""
+import json
 import os
 import sys
-import json
 from pathlib import Path
 
 
 def write_derivative_description(bids_dir, deriv_dir):
-    from ..__about__ import __version__, __url__, DOWNLOAD_URL
+    from ..__about__ import DOWNLOAD_URL, __url__, __version__
 
     bids_dir = Path(bids_dir)
     deriv_dir = Path(deriv_dir)
@@ -57,8 +57,8 @@ def write_derivative_description(bids_dir, deriv_dir):
 
 def validate_input_dir(exec_env, bids_dir, participant_label):
     # Ignore issues and warnings that should not influence
-    import tempfile
     import subprocess
+    import tempfile
     validator_config_dict = {
         "ignore": [
             "EVENTS_COLUMN_ONSET",

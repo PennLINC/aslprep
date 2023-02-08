@@ -6,13 +6,13 @@ Class and utilities for testing the workflows module
 
 """
 
-import unittest
 import logging
-from networkx.exception import NetworkXUnfeasible
+import unittest
 
-from nipype.pipeline import engine as pe
-from nipype.interfaces.base import isdefined
+from networkx.exception import NetworkXUnfeasible
 from nipype.interfaces import utility as niu
+from nipype.interfaces.base import isdefined
+from nipype.pipeline import engine as pe
 
 logging.disable(logging.INFO)  # <- do we really want to do this?
 

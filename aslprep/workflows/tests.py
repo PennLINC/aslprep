@@ -2,9 +2,10 @@
 import os
 from contextlib import contextmanager
 from pathlib import Path
+from tempfile import mkdtemp
+
 from pkg_resources import resource_filename as pkgrf
 from toml import loads
-from tempfile import mkdtemp
 
 
 @contextmanager

@@ -2,19 +2,21 @@ from __future__ import annotations
 
 import os
 from typing import Any
+
+import nibabel as nb
 import numpy as np
 import pandas as pd
-import nibabel as nb
 from nibabel.processing import smooth_image
-from scipy.stats import gmean
 from nipype import logging
-from nipype.utils.filemanip import fname_presuffix
-from nipype.interfaces.base import (traits, TraitedSpec, BaseInterfaceInputSpec, SimpleInterface,
-                                    File, isdefined)
-from nipype.interfaces.fsl.base import (FSLCommand, FSLCommandInputSpec)
 from nipype.interfaces.ants import ApplyTransforms
-from pkg_resources import resource_filename as pkgrf
+from nipype.interfaces.base import (BaseInterfaceInputSpec, File,
+                                    SimpleInterface, TraitedSpec, isdefined,
+                                    traits)
 from nipype.interfaces.fsl import MultiImageMaths
+from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
+from nipype.utils.filemanip import fname_presuffix
+from pkg_resources import resource_filename as pkgrf
+from scipy.stats import gmean
 
 LOGGER = logging.getLogger('nipype.interface')
 

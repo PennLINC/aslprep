@@ -69,7 +69,6 @@ The :py:mod:`config` is responsible for other conveniency actions.
 """
 from multiprocessing import set_start_method
 
-
 try:
     set_start_method('forkserver')
 except RuntimeError:
@@ -78,14 +77,16 @@ finally:
     # Defer all custom import for after initializing the forkserver and
     # ignoring the most annoying warnings
     import os
-    import sys
     import random
-
-    from uuid import uuid4
+    import sys
     from pathlib import Path
     from time import strftime
-    from nipype import logging as nlogging, __version__ as _nipype_ver
+    from uuid import uuid4
+
+    from nipype import __version__ as _nipype_ver
+    from nipype import logging as nlogging
     from templateflow import __version__ as _tf_ver
+
     from . import __version__
 
 if not hasattr(sys, "_is_pytest_session"):
@@ -189,7 +190,7 @@ class _Config:
     @classmethod
     def get(cls):
         """Return defined settings."""
-        from .niworkflows.utils.spaces import SpatialReferences, Reference
+        from niworkflows.utils.spaces import Reference, SpatialReferences
 
         out = {}
         for k, v in cls.__dict__.items():
@@ -384,6 +385,7 @@ class execution(_Config):
 
         if cls._layout is None:
             import re
+
             from bids.layout import BIDSLayout
             work_dir = cls.work_dir / 'bids.db'
             work_dir.mkdir(exist_ok=True, parents=True)
@@ -455,7 +457,7 @@ class workflow(_Config):
     scorescrub = False
     """ run scorescrub, Sudipto's alogrothims for denoisng CBF """
     basil = False
-    """ run BASIL, FSL utils to compute CBF with spatial regularilization and 
+    """ run BASIL, FSL utils to compute CBF with spatial regularilization and
        partial volume correction """
 
 
@@ -583,7 +585,8 @@ def to_filename(filename):
 
 def init_spaces(checkpoint=True):
     """Initialize the :attr:`~workflow.spaces` setting."""
-    from .niworkflows.utils.spaces import Reference, SpatialReferences
+    from niworkflows.utils.spaces import Reference, SpatialReferences
+
     spaces = execution.output_spaces or SpatialReferences()
     if not isinstance(spaces, SpatialReferences):
         spaces = SpatialReferences(

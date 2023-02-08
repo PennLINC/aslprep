@@ -3,16 +3,14 @@
 """Interfaces to generate reportlets."""
 
 import os
-import time
 import re
-
+import time
 from collections import Counter
-from nipype.interfaces.base import (
-    traits, TraitedSpec, BaseInterfaceInputSpec,
-    File, Directory, InputMultiObject, Str, isdefined,
-    SimpleInterface)
-from ..smriprep.interfaces.freesurfer import ReconAll
 
+from nipype.interfaces.base import (BaseInterfaceInputSpec, Directory, File,
+                                    InputMultiObject, SimpleInterface, Str,
+                                    TraitedSpec, isdefined, traits)
+from smriprep.interfaces.freesurfer import ReconAll
 
 SUBJECT_TEMPLATE = """\
 \t<ul class="elem-desc">
@@ -127,7 +125,7 @@ class SubjectSummary(SummaryInterface):
         # Add list of tasks with number of runs
         asl_series = self.inputs.asl if isdefined(self.inputs.asl) else []
         asl_series = [s[0] if isinstance(s, list) else s for s in asl_series]
-        
+
         # [task-id]
         #counts = Counter(BIDS_NAME.search(series).groupdict()[5:]
                          #for series in asl_series)
@@ -225,9 +223,9 @@ class FunctionalSummary(SummaryInterface):
             conflist = 'None'
         # the number of dummy scans was specified by the user and
         # it is not equal to the number detected by the algorithm
-        
+
         # the number of dummy scans was not specified by the user
-       
+
         return FUNCTIONAL_TEMPLATE.format(
             pedir=pedir, stc=stc, sdc=self.inputs.distortion_correction, registration=reg,
             confounds=re.sub(r'[\t ]+', ', ', conflist), tr=self.inputs.tr,

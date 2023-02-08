@@ -1,8 +1,8 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Writing out derivative files."""
-from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
+from nipype.pipeline import engine as pe
 
 from ...config import DEFAULT_MEMORY_MIN_GB
 from ...interfaces import DerivativesDataSink
@@ -41,9 +41,9 @@ def init_asl_derivatives_wf(
         This workflow's identifier (default: ``func_derivatives_wf``).
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.utility import KeySelect
-    from ...smriprep.workflows.outputs import _bids_relative
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.utility import KeySelect
+    from smriprep.workflows.outputs import _bids_relative
 
     nonstd_spaces = set(spaces.get_nonstandard())
     workflow = Workflow(name=name)
@@ -51,7 +51,7 @@ def init_asl_derivatives_wf(
     inputnode = pe.Node(niu.IdentityInterface(fields=[
         'asl_mask_std', 'asl_mask_t1', 'asl_std','itk_asl_to_t1','itk_t1_to_asl',
         'asl_std_ref', 'asl_t1', 'asl_t1_ref', 'asl_native', 'asl_native_ref',
-        'asl_mask_native','confounds', 'confounds_metadata', 'source_file', 
+        'asl_mask_native','confounds', 'confounds_metadata', 'source_file',
         'template', 'spatial_reference', 'cbf', 'meancbf', 'score', 'avgscore',
         'scrub', 'basil', 'pv', 'pvwm', 'cbf_t1', 'meancbf_t1', 'att_t1', 'score_t1', 'avgscore_t1',
         'scrub_t1', 'basil_t1', 'pv_t1', 'pvwm_t1', 'cbf_std', 'meancbf_std', 'score_std',
@@ -91,27 +91,27 @@ def init_asl_derivatives_wf(
 
     ## wtite transform matrix file between asl native space and T1w
 
-    itkt12asl = pe.Node( 
+    itkt12asl = pe.Node(
               DerivativesDataSink(base_directory=output_dir, to='T1w',
                             mode='image', suffix='xfm',
                             extension='.txt',
                             dismiss_entities=('echo',),
                             **{'from': 'scanner'}),name='itk2asl',
-              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)  
+              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)
 
     workflow.connect([
         (inputnode, itkt12asl, [('source_file', 'source_file'),
                              ('itk_asl_to_t1', 'in_file')]),
     ])
 
-    itkasl2t1 = pe.Node( 
+    itkasl2t1 = pe.Node(
               DerivativesDataSink(base_directory=output_dir, to='scanner',
                             mode='image', suffix='xfm',
                             extension='.txt',
                             dismiss_entities=('echo',),
                             **{'from': 'T1w'}),name='itkasl2t1',
-              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)  
-  
+              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)
+
     workflow.connect([
         (inputnode, itkasl2t1, [('source_file', 'source_file'),
                              ('itk_t1_to_asl', 'in_file')]),
@@ -152,8 +152,8 @@ def init_asl_derivatives_wf(
         (inputnode, cbf_sc417, [('source_file', 'source_file'),
                                 ('cbf_sc417', 'in_file')]),
       ])
-    
-    
+
+
     if scorescrub:
         score_hvoxf = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
@@ -171,7 +171,7 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
                                 suffix='mean_scrub', compress=False),
             name='scrub_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         score_sc217 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
                                 suffix='mean_score', compress=False),
@@ -196,7 +196,7 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_scrub', compress=False),
             name='scrub_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            
+
         workflow.connect([ (inputnode, score_hvoxf, [('source_file', 'source_file'),
                                   ('score_hvoxf', 'in_file')]),
                                 (inputnode, scrub_hvoxf, [('source_file', 'source_file'),
@@ -235,7 +235,7 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7', suffix='mean_pvc',
                                 compress=False),
             name='pvc_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         basil_sc217 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
                                 suffix='mean_basil', compress=False),
@@ -261,12 +261,12 @@ def init_asl_derivatives_wf(
                                 suffix='mean_pvc', compress=False),
             name='pvc_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
-        workflow.connect([ 
+        workflow.connect([
             (inputnode, basil_hvoxf, [('source_file', 'source_file'),
                                   ('basil_hvoxf', 'in_file')]),
            (inputnode, pvc_hvoxf, [('source_file', 'source_file'),
                                 ('pvc_hvoxf', 'in_file')]),
-          
+
             (inputnode, basil_sc207, [('source_file', 'source_file'),
                                   ('basil_sc207', 'in_file')]),
             (inputnode, pvc_sc207, [('source_file', 'source_file'),
@@ -276,12 +276,12 @@ def init_asl_derivatives_wf(
                                   ('basil_sc217', 'in_file')]),
             (inputnode, pvc_sc217, [('source_file', 'source_file'),
                                 ('pvc_sc217', 'in_file')]),
-        
+
             (inputnode, basil_sc407, [('source_file', 'source_file'),
                                   ('basil_sc407', 'in_file')]),
             (inputnode, pvc_sc407, [('source_file', 'source_file'),
                                        ('pvc_sc217', 'in_file')]),
-    
+
             (inputnode, basil_sc417, [('source_file', 'source_file'),
                                   ('basil_sc417', 'in_file')]),
             (inputnode, pvc_sc417, [('source_file', 'source_file'),
@@ -313,7 +313,7 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', compress=True),
             name='meancbfnative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         workflow.connect([
             (inputnode, ds_asl_native, [('source_file', 'source_file'),
                                          ('asl_native', 'in_file')]),
@@ -341,7 +341,7 @@ def init_asl_derivatives_wf(
               DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
                                 compress=True),
               name='scrubnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-             
+
             workflow.connect([
                 (inputnode, scorenative, [('source_file', 'source_file'),
                                       ('score', 'in_file')]),
@@ -350,7 +350,7 @@ def init_asl_derivatives_wf(
                  (inputnode, scrubnative, [('source_file', 'source_file'),
                                       ('scrub', 'in_file')]),
              ])
-        
+
         if basil:
             basilnative = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
@@ -402,7 +402,7 @@ def init_asl_derivatives_wf(
                                 suffix='mask', compress=True, dismiss_entities=("echo",)),
             name='ds_asl_mask_t1', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-       
+
         cbfnativet1 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, suffix='cbf', space='T1w',
                                 compress=True),
@@ -411,7 +411,7 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', space='T1w',
                                 compress=True),
             name='meancbfnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         workflow.connect([
             (inputnode, ds_asl_t1, [('source_file', 'source_file'),
                                      ('asl_t1', 'in_file')]),
@@ -446,7 +446,7 @@ def init_asl_derivatives_wf(
             (inputnode, scrubnativet1, [('source_file', 'source_file'),
                                         ('scrub_t1', 'in_file')]),
             ])
-        
+
         if basil:
             basilnativet1 = pe.Node(
              DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
@@ -464,7 +464,7 @@ def init_asl_derivatives_wf(
              DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 space='T1w', compress=True),
              name='attnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            
+
             workflow.connect([
              (inputnode, basilnativet1, [('source_file', 'source_file'),
                                         ('basil_t1', 'in_file')]),
@@ -485,7 +485,7 @@ def init_asl_derivatives_wf(
 
     # Store resamplings in standard spaces when listed in --output-spaces
     if spaces.cached.references:
-        from ...niworkflows.interfaces.space import SpaceDataSource
+        from niworkflows.interfaces.space import SpaceDataSource
 
         spacesource = pe.Node(SpaceDataSource(),
                               name='spacesource', run_without_submitting=True)
@@ -524,7 +524,7 @@ def init_asl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', compress=True),
             name='meancbfstd', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         workflow.connect([
             (inputnode, ds_asl_std, [('source_file', 'source_file')]),
             (inputnode, ds_asl_std_ref, [('source_file', 'source_file')]),
@@ -566,13 +566,13 @@ def init_asl_derivatives_wf(
                                        ('density', 'density')]),
             (raw_sources, ds_asl_mask_std, [('out', 'RawSources')]),
          ])
-        
+
         if scorescrub:
             scorestd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
                                 compress=True),
             name='scorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            
+
             meanscorestd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
                                 compress=True),
@@ -581,7 +581,7 @@ def init_asl_derivatives_wf(
               DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
                                 compress=True),
              name='scrubstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            
+
             workflow.connect([
              (inputnode, scorestd, [('source_file', 'source_file')]),
              (inputnode, meanscorestd, [('source_file', 'source_file')]),
@@ -606,7 +606,7 @@ def init_asl_derivatives_wf(
                                      ('resolution', 'resolution'),
                                      ('density', 'density')]),
              ])
-        
+
         if basil:
             basilstd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
@@ -624,19 +624,19 @@ def init_asl_derivatives_wf(
               DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 compress=True),
                name='attstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
-            workflow.connect([ 
+
+            workflow.connect([
             (inputnode, basilstd, [('source_file', 'source_file')]),
             (inputnode, pvstd, [('source_file', 'source_file')]),
             (inputnode, pvstdwm, [('source_file', 'source_file')]),
             (inputnode, attstd, [('source_file', 'source_file')]),
             (inputnode, select_std, [
-                                     
+
                                      ('basil_std', 'basil_std'),
                                      ('pv_std', 'pv_std'),
                                      ('pvwm_std', 'pvwm_std'),
                                      ('att_std', 'att_std')]),
-                                     
+
             (select_std, basilstd, [('basil_std', 'in_file')]),
             (spacesource, basilstd, [('space', 'space'),
                                      ('cohort', 'cohort'),
@@ -699,9 +699,9 @@ def init_geasl_derivatives_wf(
         This workflow's identifier (default: ``func_derivatives_wf``).
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.utility import KeySelect
-    from ...smriprep.workflows.outputs import _bids_relative
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.utility import KeySelect
+    from smriprep.workflows.outputs import _bids_relative
 
     nonstd_spaces = set(spaces.get_nonstandard())
     workflow = Workflow(name=name)
@@ -742,28 +742,28 @@ def init_geasl_derivatives_wf(
 
     ## wtite transform matrix file between asl native space and T1w
 
-    
-    itkt12asl = pe.Node( 
+
+    itkt12asl = pe.Node(
               DerivativesDataSink(base_directory=output_dir, to='scanner',
                             mode='image', suffix='xfm',
                             extension='.txt',
                             dismiss_entities=('echo',),
                             **{'from': 'T1w'}),name='itk2asl',
-              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)  
+              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)
 
     workflow.connect([
         (inputnode, itkt12asl, [('source_file', 'source_file'),
                              ('itk_asl_to_t1', 'in_file')]),
     ])
 
-    itkasl2t1 = pe.Node( 
+    itkasl2t1 = pe.Node(
               DerivativesDataSink(base_directory=output_dir, to='T1w',
                             mode='image', suffix='xfm',
                             extension='.txt',
                             dismiss_entities=('echo',),
                             **{'from': 'scanner'}),name='itkasl2t1',
-              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)  
-  
+              run_without_submitting=True,mem_gb=DEFAULT_MEMORY_MIN_GB)
+
     workflow.connect([
         (inputnode, itkasl2t1, [('source_file', 'source_file'),
                              ('itk_t1_to_asl', 'in_file')]),
@@ -802,8 +802,8 @@ def init_geasl_derivatives_wf(
         (inputnode, cbf_sc417, [('source_file', 'source_file'),
                                 ('cbf_sc417', 'in_file')]),
       ])
-    
-    
+
+
     if scorescrub:
         score_hvoxf = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='HavardOxford',
@@ -821,7 +821,7 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7',
                                 suffix='mean_scrub', compress=False),
             name='scrub_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         score_sc217 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
                                 suffix='mean_score', compress=False),
@@ -846,7 +846,7 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer400x17',
                                 suffix='mean_scrub', compress=False),
             name='scrub_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            
+
         workflow.connect([ (inputnode, score_hvoxf, [('source_file', 'source_file'),
                                   ('score_hvoxf', 'in_file')]),
                                 (inputnode, scrub_hvoxf, [('source_file', 'source_file'),
@@ -885,7 +885,7 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x7', suffix='mean_pvc',
                                 compress=False),
             name='pvc_sc207', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         basil_sc217 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, desc='schaefer200x17',
                                 suffix='mean_basil', compress=False),
@@ -911,12 +911,12 @@ def init_geasl_derivatives_wf(
                                 suffix='mean_pvc', compress=False),
             name='pvc_sc417', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
-        workflow.connect([ 
+        workflow.connect([
             (inputnode, basil_hvoxf, [('source_file', 'source_file'),
                                   ('basil_hvoxf', 'in_file')]),
            (inputnode, pvc_hvoxf, [('source_file', 'source_file'),
                                 ('pvc_hvoxf', 'in_file')]),
-          
+
             (inputnode, basil_sc207, [('source_file', 'source_file'),
                                   ('basil_sc207', 'in_file')]),
             (inputnode, pvc_sc207, [('source_file', 'source_file'),
@@ -926,12 +926,12 @@ def init_geasl_derivatives_wf(
                                   ('basil_sc217', 'in_file')]),
             (inputnode, pvc_sc217, [('source_file', 'source_file'),
                                 ('pvc_sc217', 'in_file')]),
-        
+
             (inputnode, basil_sc407, [('source_file', 'source_file'),
                                   ('basil_sc407', 'in_file')]),
             (inputnode, pvc_sc407, [('source_file', 'source_file'),
                                     ('pvc_sc217', 'in_file')]),
-    
+
             (inputnode, basil_sc417, [('source_file', 'source_file'),
                                   ('basil_sc417', 'in_file')]),
             (inputnode, pvc_sc417, [('source_file', 'source_file'),
@@ -963,7 +963,7 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', compress=True),
             name='meancbfnative', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         workflow.connect([
             (inputnode, ds_asl_native, [('source_file', 'source_file'),
                                          ('asl_native', 'in_file')]),
@@ -991,7 +991,7 @@ def init_geasl_derivatives_wf(
               DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
                                 compress=True),
               name='scrubnative', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-             
+
             workflow.connect([
                 (inputnode, scorenative, [('source_file', 'source_file'),
                                       ('score', 'in_file')]),
@@ -1000,7 +1000,7 @@ def init_geasl_derivatives_wf(
                  (inputnode, scrubnative, [('source_file', 'source_file'),
                                       ('scrub', 'in_file')]),
              ])
-        
+
         if basil:
             basilnative = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
@@ -1052,7 +1052,7 @@ def init_geasl_derivatives_wf(
                                 suffix='mask', compress=True, dismiss_entities=("echo",)),
             name='ds_asl_mask_t1', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-       
+
         cbfnativet1 = pe.Node(
             DerivativesDataSink(base_directory=output_dir, suffix='cbf', space='T1w',
                                 compress=True),
@@ -1061,7 +1061,7 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', space='T1w',
                                 compress=True),
             name='meancbfnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         workflow.connect([
             (inputnode, ds_asl_t1, [('source_file', 'source_file'),
                                      ('asl_t1', 'in_file')]),
@@ -1096,7 +1096,7 @@ def init_geasl_derivatives_wf(
             (inputnode, scrubnativet1, [('source_file', 'source_file'),
                                         ('scrub_t1', 'in_file')]),
             ])
-        
+
         if basil:
             basilnativet1 = pe.Node(
              DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
@@ -1114,7 +1114,7 @@ def init_geasl_derivatives_wf(
              DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 space='T1w', compress=True),
              name='attnativet1', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            
+
             workflow.connect([
             (inputnode, basilnativet1, [('source_file', 'source_file'),
                                         ('basil_t1', 'in_file')]),
@@ -1135,7 +1135,7 @@ def init_geasl_derivatives_wf(
 
     # Store resamplings in standard spaces when listed in --output-spaces
     if spaces.cached.references:
-        from ...niworkflows.interfaces.space import SpaceDataSource
+        from niworkflows.interfaces.space import SpaceDataSource
 
         spacesource = pe.Node(SpaceDataSource(),
                               name='spacesource', run_without_submitting=True)
@@ -1175,7 +1175,7 @@ def init_geasl_derivatives_wf(
             DerivativesDataSink(base_directory=output_dir, suffix='mean_cbf', compress=True),
             name='meancbfstd', run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
         workflow.connect([
             (inputnode, ds_asl_std, [('source_file', 'source_file')]),
             (inputnode, ds_asl_std_ref, [('source_file', 'source_file')]),
@@ -1217,13 +1217,13 @@ def init_geasl_derivatives_wf(
                                        ('density', 'density')]),
             (raw_sources, ds_asl_mask_std, [('out', 'RawSources')]),
          ])
-        
+
         if scorescrub:
             scorestd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='score', suffix='cbf',
                                 compress=True),
             name='scorestd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            
+
             meanscorestd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='score', suffix='mean_cbf',
                                 compress=True),
@@ -1232,7 +1232,7 @@ def init_geasl_derivatives_wf(
               DerivativesDataSink(base_directory=output_dir, desc='scrub', suffix='cbf',
                                 compress=True),
              name='scrubstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            
+
             workflow.connect([
              (inputnode, scorestd, [('source_file', 'source_file')]),
              (inputnode, meanscorestd, [('source_file', 'source_file')]),
@@ -1257,7 +1257,7 @@ def init_geasl_derivatives_wf(
                                      ('resolution', 'resolution'),
                                      ('density', 'density')]),
              ])
-        
+
         if basil:
             basilstd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='basil', suffix='cbf',
@@ -1267,18 +1267,18 @@ def init_geasl_derivatives_wf(
               DerivativesDataSink(base_directory=output_dir, desc='pvGM', suffix='cbf',
                                 compress=True),
               name='pvcstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-            
+
             pvstdwm = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='pvWM', suffix='cbf',
                                 compress=True),
               name='pvcstdwm', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
+
             attstd = pe.Node(
               DerivativesDataSink(base_directory=output_dir, desc='bat', suffix='cbf',
                                 compress=True),
                name='attstd', run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
-        
-            workflow.connect([ 
+
+            workflow.connect([
             (inputnode, basilstd, [('source_file', 'source_file')]),
             (inputnode, pvstd, [('source_file', 'source_file')]),
             (inputnode, pvstdwm, [('source_file', 'source_file')]),
@@ -1288,7 +1288,7 @@ def init_geasl_derivatives_wf(
                                      ('pv_std', 'pv_std'),
                                      ('pvwm_std', 'pvwm_std'),
                                      ('att_std', 'att_std')]),
-                                     
+
             (select_std, basilstd, [('basil_std', 'in_file')]),
             (spacesource, basilstd, [('space', 'space'),
                                      ('cohort', 'cohort'),
@@ -1350,8 +1350,9 @@ def init_asl_preproc_report_wf(mem_gb, reportlets_dir, name='asl_preproc_report_
 
     """
     from nipype.algorithms.confounds import TSNR
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces import SimpleBeforeAfter
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces import SimpleBeforeAfter
+
     from ...interfaces import DerivativesDataSink
 
     workflow = Workflow(name=name)
@@ -1390,12 +1391,12 @@ def _unlist(in_file):
 
 
 def _get_surface(in_file):
-    from pathlib import Path
     from json import loads
+    from pathlib import Path
     return loads(Path(in_file).read_text())["surface"]
 
 
 def _read_json(in_file):
-    from pathlib import Path
     from json import loads
+    from pathlib import Path
     return loads(Path(in_file).read_text())

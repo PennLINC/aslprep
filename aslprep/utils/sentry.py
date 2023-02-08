@@ -3,8 +3,9 @@
 """Stripped out routines for Sentry."""
 import os
 import re
-from ..niworkflows.utils.misc import read_crashfile
+
 import sentry_sdk
+from niworkflows.utils.misc import read_crashfile
 
 from .. import config
 

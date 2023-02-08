@@ -18,9 +18,8 @@ Change directory to provide relative paths for doctests
 import os
 
 from nipype import logging
-from nipype.interfaces.base import (
-    traits, TraitedSpec, File,
-    CommandLine, CommandLineInputSpec)
+from nipype.interfaces.base import (CommandLine, CommandLineInputSpec, File,
+                                    TraitedSpec, traits)
 
 LOGGER = logging.getLogger('nipype.interface')
 
