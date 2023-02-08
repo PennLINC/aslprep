@@ -11,12 +11,12 @@ from nipype.interfaces import afni
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
-from ... import config
+from aslprep import config
 
 LOGGER = config.loggers.workflow
 
 
-def init_asl_stc_wf(metadata, name='asl_stc_wf'):
+def init_asl_stc_wf(metadata, name="asl_stc_wf"):
     """
     Create a workflow for :abbr:`STC (slice-timing correction)`.
 
@@ -55,33 +55,41 @@ def init_asl_stc_wf(metadata, name='asl_stc_wf'):
 
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.interfaces.utils import CopyXForm
+    from niworkflows.interfaces.header import CopyXForm
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 ASL runs were slice-time corrected using `3dTshift` from AFNI [@afni].
-""".format(afni_ver=''.join(['%02d' % v for v in afni.Info().version() or []]))
-    inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file', 'skip_vols']), name='inputnode')
-    outputnode = pe.Node(niu.IdentityInterface(fields=['stc_file']), name='outputnode')
+"""
+    inputnode = pe.Node(niu.IdentityInterface(fields=["asl_file", "skip_vols"]), name="inputnode")
+    outputnode = pe.Node(niu.IdentityInterface(fields=["stc_file"]), name="outputnode")
 
-    LOGGER.log(25, 'Slice-timing correction will be included.')
+    LOGGER.log(25, "Slice-timing correction will be included.")
 
     # It would be good to fingerprint memory use of afni.TShift
     slice_timing_correction = pe.Node(
-        afni.TShift(outputtype='NIFTI_GZ',
-                    tr='{}s'.format(metadata["RepetitionTime"]),
-                    slice_timing=metadata['SliceTiming'],
-                    slice_encoding_direction=metadata.get('SliceEncodingDirection', 'k')),
-        name='slice_timing_correction')
+        afni.TShift(
+            outputtype="NIFTI_GZ",
+            tr="{}s".format(metadata["RepetitionTime"]),
+            slice_timing=metadata["SliceTiming"],
+            slice_encoding_direction=metadata.get("SliceEncodingDirection", "k"),
+        ),
+        name="slice_timing_correction",
+    )
 
-    copy_xform = pe.Node(CopyXForm(), name='copy_xform', mem_gb=0.1)
+    copy_xform = pe.Node(CopyXForm(), name="copy_xform", mem_gb=0.1)
 
-    workflow.connect([
-        (inputnode, slice_timing_correction, [('asl_file', 'in_file'),
-                                              ('skip_vols', 'ignore')]),
-        (slice_timing_correction, copy_xform, [('out_file', 'in_file')]),
-        (inputnode, copy_xform, [('asl_file', 'hdr_file')]),
-        (copy_xform, outputnode, [('out_file', 'stc_file')]),
-    ])
+    workflow.connect(
+        [
+            (
+                inputnode,
+                slice_timing_correction,
+                [("asl_file", "in_file"), ("skip_vols", "ignore")],
+            ),
+            (slice_timing_correction, copy_xform, [("out_file", "in_file")]),
+            (inputnode, copy_xform, [("asl_file", "hdr_file")]),
+            (copy_xform, outputnode, [("out_file", "stc_file")]),
+        ]
+    )
 
     return workflow

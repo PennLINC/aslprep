@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ASL preprocessing workflow."""
-from .. import config
+from aslprep import config
 
 
 def main():
@@ -12,8 +12,8 @@ def main():
     from os import EX_SOFTWARE
     from pathlib import Path
 
-    from ..utils.bids import write_derivative_description
-    from .parser import parse_args
+    from aslprep.utils.bids import write_derivative_description
+    from aslprep.cli.parser import parse_args
 
     parse_args()
 
@@ -21,7 +21,7 @@ def main():
     if not config.execution.notrack:
         import sentry_sdk
 
-        from ..utils.sentry import sentry_setup
+        from aslprep.utils.sentry import sentry_setup
 
         sentry_setup()
 
@@ -35,7 +35,7 @@ def main():
     # Because Python on Linux does not ever free virtual memory (VM), running the
     # workflow construction jailed within a process preempts excessive VM buildup.
     with Manager() as mgr:
-        from .workflow import build_workflow
+        from aslprep.cli.workflow import build_workflow
 
         retval = mgr.dict()
         p = Process(target=build_workflow, args=(str(config_file), retval))
@@ -62,7 +62,7 @@ def main():
 
     # Generate boilerplate
     with Manager() as mgr:
-        from .workflow import build_boilerplate
+        from aslprep.cli.workflow import build_boilerplate
 
         p = Process(target=build_boilerplate, args=(str(config_file), aslprep_wf))
         p.start()
@@ -84,9 +84,7 @@ def main():
 
     config.loggers.workflow.log(
         15,
-        "\n".join(
-            ["ASLPrep config:"] + ["\t\t%s" % s for s in config.dumps().splitlines()]
-        ),
+        "\n".join(["ASLPrep config:"] + ["\t\t%s" % s for s in config.dumps().splitlines()]),
     )
     config.loggers.workflow.log(25, "ASLPrep started!")
     errno = 1  # Default is error exit unless otherwise set
@@ -94,7 +92,7 @@ def main():
         aslprep_wf.run(**config.nipype.get_plugin())
     except Exception as e:
         if not config.execution.notrack:
-            from ..utils.sentry import process_crashfile
+            from aslprep.utils.sentry import process_crashfile
 
             crashfolders = [
                 config.execution.output_dir

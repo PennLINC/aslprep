@@ -3,7 +3,7 @@
 """Parser."""
 import sys
 
-from .. import config
+from aslprep import config
 
 
 def _build_parser():
@@ -15,7 +15,7 @@ def _build_parser():
     from niworkflows.utils.spaces import OutputReferencesAction, Reference
     from packaging.version import Version
 
-    from .version import check_latest, is_flagged
+    from aslprep.cli.version import check_latest, is_flagged
 
     def _path_exists(path, parser):
         """Ensure a given path exists."""
@@ -38,18 +38,18 @@ def _build_parser():
         return value
 
     def _to_gb(value):
-        scale = {"G": 1, "T": 10 ** 3, "M": 1e-3, "K": 1e-6, "B": 1e-9}
+        scale = {"G": 1, "T": 10**3, "M": 1e-3, "K": 1e-6, "B": 1e-9}
         digits = "".join([c for c in value if c.isdigit()])
-        units = value[len(digits):] or "M"
+        units = value[len(digits) :] or "M"
         return int(digits) * scale[units[0]]
 
     def _drop_sub(value):
         return value[4:] if value.startswith("sub-") else value
 
     def _filter_pybids_none_any(dct):
-        from ..pybids import layout
-        return {k: layout.Query.ANY if v == "*" else v
-                for k, v in dct.items()}
+        from bids import layout
+
+        return {k: layout.Query.ANY if v == "*" else v for k, v in dct.items()}
 
     def _bids_filter(value):
         from json import loads
@@ -59,14 +59,10 @@ def _build_parser():
 
     verstr = f"ASLPrep v{config.environment.version}"
     currentv = Version(config.environment.version)
-    is_release = not any(
-        (currentv.is_devrelease, currentv.is_prerelease, currentv.is_postrelease)
-    )
+    is_release = not any((currentv.is_devrelease, currentv.is_prerelease, currentv.is_postrelease))
 
     parser = ArgumentParser(
-        description="ASLPrep: ASL PREProcessing workflows v{}".format(
-            config.environment.version
-        ),
+        description="ASLPrep: ASL PREProcessing workflows v{}".format(config.environment.version),
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
     PathExists = partial(_path_exists, parser=parser)
@@ -122,11 +118,11 @@ def _build_parser():
     # Re-enable when option is actually implemented
     # g_bids.add_argument('-r', '--run-id', action='store', default='single_run',
     #                     help='select a specific run to be processed')
-    #g_bids.add_argument(
-       # "-t", "--task-id", action="store", help="select a specific task to be processed"
-   #)
+    # g_bids.add_argument(
+    # "-t", "--task-id", action="store", help="select a specific task to be processed"
+    # )
     g_bids.add_argument(
-       "--echo-idx",
+        "--echo-idx",
         action="store",
         type=int,
         help="select a specific echo to be processed in a multiecho series",
@@ -158,7 +154,7 @@ def _build_parser():
         "--nthreads",
         "--n_cpus",
         "--n-cpus",
-        dest='nprocs',
+        dest="nprocs",
         action="store",
         type=PositiveInt,
         help="maximum number of threads across all processes",
@@ -181,8 +177,7 @@ def _build_parser():
     g_perfm.add_argument(
         "--low-mem",
         action="store_true",
-        help="attempt to reduce memory usage (will increase disk usage "
-        "in working directory)",
+        help="attempt to reduce memory usage (will increase disk usage " "in working directory)",
     )
     g_perfm.add_argument(
         "--use-plugin",
@@ -192,9 +187,7 @@ def _build_parser():
         type=IsFile,
         help="nipype plugin configuration file",
     )
-    g_perfm.add_argument(
-        "--anat-only", action="store_true", help="run anatomical workflows only"
-    )
+    g_perfm.add_argument("--anat-only", action="store_true", help="run anatomical workflows only")
     g_perfm.add_argument(
         "--boilerplate_only",
         action="store_true",
@@ -245,7 +238,7 @@ colon-separated parameters. \
 Non-standard spaces imply specific orientations and sampling grids. \
 Important to note, the ``res-*`` modifier does not define the resolution used for \
 the spatial normalization. To generate no ASL outputs, use this option without specifying \
-any spatial references."""
+any spatial references.""",
     )
 
     g_conf.add_argument(
@@ -280,7 +273,6 @@ any spatial references."""
         help="Do not use boundary-based registration (no goodness-of-fit checks)",
     )
 
-
     g_conf.add_argument(
         "--m0_scale",
         required=False,
@@ -303,7 +295,7 @@ any spatial references."""
         default=0,
         type=int,
         help="Number of initial volumes to ignore",
-        )
+    )
     g_conf.add_argument(
         "--smooth_kernel",
         action="store",
@@ -313,18 +305,18 @@ any spatial references."""
     )
 
     g_conf.add_argument(
-         "--scorescrub",
-         action="store_true",
-         default=False,
-         help=" Sudipto algoritms for denoising CBF"
+        "--scorescrub",
+        action="store_true",
+        default=False,
+        help=" Sudipto algoritms for denoising CBF",
     )
 
     g_conf.add_argument(
-         "--basil",
-         action="store_true",
-         default=False,
-         help=" FSL's CBF computation with spatial regularization and \
-          partial volume correction"
+        "--basil",
+        action="store_true",
+        default=False,
+        help=" FSL's CBF computation with spatial regularization and \
+          partial volume correction",
     )
     # Confounds options
 
@@ -440,8 +432,7 @@ any spatial references."""
         "--stop-on-first-crash",
         action="store_true",
         default=False,
-        help="Force stopping on first crash, even if a work directory"
-        " was specified.",
+        help="Force stopping on first crash, even if a work directory" " was specified.",
     )
     g_other.add_argument(
         "--notrack",
@@ -480,7 +471,8 @@ WARNING: Version %s of aslprep (current) has been FLAGGED
 That means some severe flaw was found in it and we strongly
 discourage its usage."""
             % (config.environment.version, _reason),
-            file=sys.stderr,)
+            file=sys.stderr,
+        )
 
     return parser
 
@@ -557,9 +549,7 @@ applied."""
 
         build_log.info(f"Clearing previous aslprep working directory: {work_dir}")
         if not clean_directory(work_dir):
-            build_log.warning(
-                f"Could not clear all contents of working directory: {work_dir}"
-            )
+            build_log.warning(f"Could not clear all contents of working directory: {work_dir}")
 
     # Ensure input and output folders are not the same
     if output_dir == bids_dir:
@@ -579,15 +569,13 @@ applied."""
 
     # Validate inputs
     if not opts.skip_bids_validation:
-        from ..utils.bids import validate_input_dir
+        from aslprep.utils.bids import validate_input_dir
 
         build_log.info(
             "Making sure the input data is BIDS compliant (warnings can be ignored in most "
             "cases)."
         )
-        validate_input_dir(
-            config.environment.exec_env, opts.bids_dir, opts.participant_label
-        )
+        validate_input_dir(config.environment.exec_env, opts.bids_dir, opts.participant_label)
 
     # Setup directories
     config.execution.log_dir = output_dir / "aslprep" / "logs"

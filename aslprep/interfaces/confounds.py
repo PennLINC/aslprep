@@ -17,26 +17,32 @@ import shutil
 import numpy as np
 import pandas as pd
 from nipype import logging
-from nipype.interfaces.base import (BaseInterfaceInputSpec, Directory, File,
-                                    SimpleInterface, TraitedSpec, isdefined,
-                                    traits)
+from nipype.interfaces.base import (
+    BaseInterfaceInputSpec,
+    Directory,
+    File,
+    SimpleInterface,
+    TraitedSpec,
+    isdefined,
+    traits,
+)
 from nipype.utils.filemanip import fname_presuffix
 
-LOGGER = logging.getLogger('nipype.interface')
+LOGGER = logging.getLogger("nipype.interface")
 
 
 class GatherConfoundsInputSpec(BaseInterfaceInputSpec):
-    signals = File(exists=True, desc='input signals')
-    dvars = File(exists=True, desc='file containing DVARS')
-    rmsd = File(exists=True, desc='input RMS framewise displacement')
-    std_dvars = File(exists=True, desc='file containing standardized DVARS')
-    fd = File(exists=True, desc='input framewise displacement')
-    motion = File(exists=True, desc='input motion parameters')
+    signals = File(exists=True, desc="input signals")
+    dvars = File(exists=True, desc="file containing DVARS")
+    rmsd = File(exists=True, desc="input RMS framewise displacement")
+    std_dvars = File(exists=True, desc="file containing standardized DVARS")
+    fd = File(exists=True, desc="input framewise displacement")
+    motion = File(exists=True, desc="input motion parameters")
 
 
 class GatherConfoundsOutputSpec(TraitedSpec):
-    confounds_file = File(exists=True, desc='output confounds file')
-    confounds_list = traits.List(traits.Str, desc='list of headers')
+    confounds_file = File(exists=True, desc="output confounds file")
+    confounds_list = traits.List(traits.Str, desc="list of headers")
 
 
 class GatherConfounds(SimpleInterface):
@@ -84,15 +90,14 @@ class GatherConfounds(SimpleInterface):
             motion=self.inputs.motion,
             newpath=runtime.cwd,
         )
-        self._results['confounds_file'] = combined_out
-        self._results['confounds_list'] = confounds_list
+        self._results["confounds_file"] = combined_out
+        self._results["confounds_list"] = confounds_list
         return runtime
 
 
-
-
-def _gather_confounds(signals=None, dvars=None, std_dvars=None, fdisp=None,
-                      rmsd=None, motion=None, newpath=None):
+def _gather_confounds(
+    signals=None, dvars=None, std_dvars=None, fdisp=None, rmsd=None, motion=None, newpath=None
+):
     r"""
     Load confounds from the filenames, concatenate together horizontally
     and save new file.
@@ -116,34 +121,34 @@ def _gather_confounds(signals=None, dvars=None, std_dvars=None, fdisp=None,
     """
 
     def less_breakable(a_string):
-        ''' hardens the string to different envs (i.e., case insensitive, no whitespace, '#' '''
-        return ''.join(a_string.split()).strip('#')
+        """hardens the string to different envs (i.e., case insensitive, no whitespace, '#'"""
+        return "".join(a_string.split()).strip("#")
 
     # Taken from https://stackoverflow.com/questions/1175208/
     # If we end up using it more than just here, probably worth pulling in a well-tested package
     def camel_to_snake(name):
-        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+        s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+        return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
     def _adjust_indices(left_df, right_df):
         # This forces missing values to appear at the beggining of the DataFrame
         # instead of the end
         index_diff = len(left_df.index) - len(right_df.index)
         if index_diff > 0:
-            right_df.index = range(index_diff,
-                                   len(right_df.index) + index_diff)
+            right_df.index = range(index_diff, len(right_df.index) + index_diff)
         elif index_diff < 0:
-            left_df.index = range(-index_diff,
-                                  len(left_df.index) - index_diff)
+            left_df.index = range(-index_diff, len(left_df.index) - index_diff)
 
     all_files = []
     confounds_list = []
-    for confound, name in ((signals, 'Global signals'),
-                           (std_dvars, 'Standardized DVARS'),
-                           (dvars, 'DVARS'),
-                           (fdisp, 'Framewise displacement'),
-                           (rmsd, 'RMSD'),
-                           (motion, 'Motion parameters')):
+    for confound, name in (
+        (signals, "Global signals"),
+        (std_dvars, "Standardized DVARS"),
+        (dvars, "DVARS"),
+        (fdisp, "Framewise displacement"),
+        (rmsd, "RMSD"),
+        (motion, "Motion parameters"),
+    ):
         if confound is not None and isdefined(confound):
             confounds_list.append(name)
             if os.path.exists(confound) and os.stat(confound).st_size > 0:
@@ -153,8 +158,9 @@ def _gather_confounds(signals=None, dvars=None, std_dvars=None, fdisp=None,
     for file_name in all_files:  # assumes they all have headings already
         new = pd.read_csv(file_name, sep="\t")
         for column_name in new.columns:
-            new.rename(columns={column_name: camel_to_snake(less_breakable(column_name))},
-                       inplace=True)
+            new.rename(
+                columns={column_name: camel_to_snake(less_breakable(column_name))}, inplace=True
+            )
 
         _adjust_indices(confounds_data, new)
         confounds_data = pd.concat((confounds_data, new), axis=1)
@@ -162,57 +168,56 @@ def _gather_confounds(signals=None, dvars=None, std_dvars=None, fdisp=None,
     if newpath is None:
         newpath = os.getcwd()
 
-    combined_out = os.path.join(newpath, 'confounds.tsv')
-    confounds_data.to_csv(combined_out, sep='\t', index=False,
-                          na_rep='n/a')
+    combined_out = os.path.join(newpath, "confounds.tsv")
+    confounds_data.to_csv(combined_out, sep="\t", index=False, na_rep="n/a")
 
     return combined_out, confounds_list
 
 
 class ASLSummaryInputSpec(BaseInterfaceInputSpec):
-    in_func = File(exists=True, mandatory=True,
-                   desc='input ASL time-series (4D file)')
-    in_mask = File(exists=True,
-                   desc='3D brain mask')
-    in_segm = File(exists=True, desc='resampled segmentation')
-    confounds_file = File(exists=True,
-                          desc="BIDS' _confounds.tsv file")
+    in_func = File(exists=True, mandatory=True, desc="input ASL time-series (4D file)")
+    in_mask = File(exists=True, desc="3D brain mask")
+    in_segm = File(exists=True, desc="resampled segmentation")
+    confounds_file = File(exists=True, desc="BIDS' _confounds.tsv file")
 
     str_or_tuple = traits.Either(
         traits.Str,
         traits.Tuple(traits.Str, traits.Either(None, traits.Str)),
-        traits.Tuple(traits.Str, traits.Either(None, traits.Str), traits.Either(None, traits.Str)))
+        traits.Tuple(traits.Str, traits.Either(None, traits.Str), traits.Either(None, traits.Str)),
+    )
     confounds_list = traits.List(
-        str_or_tuple, minlen=1,
-        desc='list of headers to extract from the confounds_file')
-    tr = traits.Either(None, traits.Float, usedefault=True,
-                       desc='the repetition time')
+        str_or_tuple, minlen=1, desc="list of headers to extract from the confounds_file"
+    )
+    tr = traits.Either(None, traits.Float, usedefault=True, desc="the repetition time")
 
 
 class ASLSummaryOutputSpec(TraitedSpec):
-    out_file = File(exists=True, desc='written file path')
+    out_file = File(exists=True, desc="written file path")
 
 
 class ASLSummary(SimpleInterface):
     """
     Copy the x-form matrices from `hdr_file` to `out_file`.
     """
+
     input_spec = ASLSummaryInputSpec
     output_spec = ASLSummaryOutputSpec
 
     def _run_interface(self, runtime):
         from niworkflows.viz.plots import ASLPlot
 
-        self._results['out_file'] = fname_presuffix(
-            self.inputs.in_func,
-            suffix='_aslplot.svg',
-            use_ext=False,
-            newpath=runtime.cwd)
+        self._results["out_file"] = fname_presuffix(
+            self.inputs.in_func, suffix="_aslplot.svg", use_ext=False, newpath=runtime.cwd
+        )
 
         dataframe = pd.read_csv(
             self.inputs.confounds_file,
-            sep="\t", index_col=None, dtype='float32',
-            na_filter=True, na_values='n/a')
+            sep="\t",
+            index_col=None,
+            dtype="float32",
+            na_filter=True,
+            na_values="n/a",
+        )
 
         headers = []
         units = {}
@@ -245,11 +250,10 @@ class ASLSummary(SimpleInterface):
         fig = ASLPlot(
             self.inputs.in_func,
             mask_file=self.inputs.in_mask if isdefined(self.inputs.in_mask) else None,
-            seg_file=(self.inputs.in_segm
-                      if isdefined(self.inputs.in_segm) else None),
+            seg_file=(self.inputs.in_segm if isdefined(self.inputs.in_segm) else None),
             tr=self.inputs.tr,
             data=data,
             units=units,
         ).plot()
-        fig.savefig(self._results['out_file'], bbox_inches='tight')
+        fig.savefig(self._results["out_file"], bbox_inches="tight")
         return runtime

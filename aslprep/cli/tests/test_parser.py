@@ -98,9 +98,7 @@ https://aslprep.readthedocs.io/en/latest/faq.html#upgrading""" % (
     assert (msg in captured) is expectation
 
 
-@pytest.mark.parametrize(
-    "flagged", [(True, None), (True, "random reason"), (False, None)]
-)
+@pytest.mark.parametrize("flagged", [(True, None), (True, "random reason"), (False, None)])
 def test_get_parser_blacklist(monkeypatch, capsys, flagged):
     """Make sure the blacklisting banner is shown."""
 

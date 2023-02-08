@@ -13,45 +13,43 @@ def write_derivative_description(bids_dir, deriv_dir):
     bids_dir = Path(bids_dir)
     deriv_dir = Path(deriv_dir)
     desc = {
-        'Name': 'ASLPrep - ASL PREProcessing workflow',
-        'BIDSVersion': '1.1.1',
-        'PipelineDescription': {
-            'Name': 'ASLPrep',
-            'Version': __version__,
-            'CodeURL': DOWNLOAD_URL,
+        "Name": "ASLPrep - ASL PREProcessing workflow",
+        "BIDSVersion": "1.1.1",
+        "PipelineDescription": {
+            "Name": "ASLPrep",
+            "Version": __version__,
+            "CodeURL": DOWNLOAD_URL,
         },
-        'CodeURL': __url__,
-        'HowToAcknowledge':
-            'Please cite our paper coming :), '
-            'and include the generated citation boilerplate within the Methods '
-            'section of the text.',
+        "CodeURL": __url__,
+        "HowToAcknowledge": "Please cite our paper coming :), "
+        "and include the generated citation boilerplate within the Methods "
+        "section of the text.",
     }
 
     # Keys that can only be set by environment
-    if 'ASLPREP_DOCKER_TAG' in os.environ:
-        desc['DockerHubContainerTag'] = os.environ['ASLPREP_DOCKER_TAG']
-    if 'ASLPREP_SINGULARITY_URL' in os.environ:
-        singularity_url = os.environ['ASLPREP_SINGULARITY_URL']
-        desc['SingularityContainerURL'] = singularity_url
+    if "ASLPREP_DOCKER_TAG" in os.environ:
+        desc["DockerHubContainerTag"] = os.environ["ASLPREP_DOCKER_TAG"]
+    if "ASLPREP_SINGULARITY_URL" in os.environ:
+        singularity_url = os.environ["ASLPREP_SINGULARITY_URL"]
+        desc["SingularityContainerURL"] = singularity_url
 
         singularity_md5 = _get_shub_version(singularity_url)
         if singularity_md5 and singularity_md5 is not NotImplemented:
-            desc['SingularityContainerMD5'] = _get_shub_version(singularity_url)
+            desc["SingularityContainerMD5"] = _get_shub_version(singularity_url)
 
     # Keys deriving from source dataset
     orig_desc = {}
-    fname = bids_dir / 'dataset_description.json'
+    fname = bids_dir / "dataset_description.json"
     if fname.exists():
         with fname.open() as fobj:
             orig_desc = json.load(fobj)
 
-    if 'DatasetDOI' in orig_desc:
-        desc['SourceDatasetsURLs'] = ['https://doi.org/{}'.format(
-            orig_desc['DatasetDOI'])]
-    if 'License' in orig_desc:
-        desc['License'] = orig_desc['License']
+    if "DatasetDOI" in orig_desc:
+        desc["SourceDatasetsURLs"] = ["https://doi.org/{}".format(orig_desc["DatasetDOI"])]
+    if "License" in orig_desc:
+        desc["License"] = orig_desc["License"]
 
-    with (deriv_dir / 'dataset_description.json').open('w') as fobj:
+    with (deriv_dir / "dataset_description.json").open("w") as fobj:
         json.dump(desc, fobj, indent=4)
 
 
@@ -59,6 +57,7 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
     # Ignore issues and warnings that should not influence
     import subprocess
     import tempfile
+
     validator_config_dict = {
         "ignore": [
             "EVENTS_COLUMN_ONSET",
@@ -102,42 +101,47 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
             "MALFORMED_BVEC",
             "MALFORMED_BVAL",
             "MISSING_TSV_COLUMN_EEG_ELECTRODES",
-            "MISSING_SESSION"
+            "MISSING_SESSION",
         ],
         "error": ["NO_T1W"],
-        "ignoredFiles": ['/dataset_description.json', '/participants.tsv']
+        "ignoredFiles": ["/dataset_description.json", "/participants.tsv"],
     }
     # Limit validation only to data from requested participants
     if participant_label:
-        all_subs = set([s.name[4:] for s in bids_dir.glob('sub-*')])
-        selected_subs = set([s[4:] if s.startswith('sub-') else s
-                             for s in participant_label])
+        all_subs = set([s.name[4:] for s in bids_dir.glob("sub-*")])
+        selected_subs = set([s[4:] if s.startswith("sub-") else s for s in participant_label])
         bad_labels = selected_subs.difference(all_subs)
         if bad_labels:
-            error_msg = 'Data for requested participant(s) label(s) not found. Could ' \
-                        'not find data for participant(s): %s. Please verify the requested ' \
-                        'participant labels.'
-            if exec_env == 'docker':
-                error_msg += ' This error can be caused by the input data not being ' \
-                             'accessible inside the docker container. Please make sure all ' \
-                             'volumes are mounted properly (see https://docs.docker.com/' \
-                             'engine/reference/commandline/run/#mount-volume--v---read-only)'
-            if exec_env == 'singularity':
-                error_msg += ' This error can be caused by the input data not being ' \
-                             'accessible inside the singularity container. Please make sure ' \
-                             'all paths are mapped properly (see https://www.sylabs.io/' \
-                             'guides/3.0/user-guide/bind_paths_and_mounts.html)'
-            raise RuntimeError(error_msg % ','.join(bad_labels))
+            error_msg = (
+                "Data for requested participant(s) label(s) not found. Could "
+                "not find data for participant(s): %s. Please verify the requested "
+                "participant labels."
+            )
+            if exec_env == "docker":
+                error_msg += (
+                    " This error can be caused by the input data not being "
+                    "accessible inside the docker container. Please make sure all "
+                    "volumes are mounted properly (see https://docs.docker.com/"
+                    "engine/reference/commandline/run/#mount-volume--v---read-only)"
+                )
+            if exec_env == "singularity":
+                error_msg += (
+                    " This error can be caused by the input data not being "
+                    "accessible inside the singularity container. Please make sure "
+                    "all paths are mapped properly (see https://www.sylabs.io/"
+                    "guides/3.0/user-guide/bind_paths_and_mounts.html)"
+                )
+            raise RuntimeError(error_msg % ",".join(bad_labels))
 
         ignored_subs = all_subs.difference(selected_subs)
         if ignored_subs:
             for sub in ignored_subs:
                 validator_config_dict["ignoredFiles"].append("/sub-%s/**" % sub)
-    with tempfile.NamedTemporaryFile('w+') as temp:
+    with tempfile.NamedTemporaryFile("w+") as temp:
         temp.write(json.dumps(validator_config_dict))
         temp.flush()
         try:
-            subprocess.check_call(['bids-validator', bids_dir, '-c', temp.name])
+            subprocess.check_call(["bids-validator", bids_dir, "-c", temp.name])
         except FileNotFoundError:
             print("bids-validator does not appear to be installed", file=sys.stderr)
 

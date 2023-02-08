@@ -7,7 +7,7 @@ from pathlib import Path
 
 import requests
 
-from .. import __version__
+from aslprep import __version__
 
 RELEASE_EXPIRY_DAYS = 14
 DATE_FMT = "%Y%m%d"
@@ -43,9 +43,7 @@ def check_latest():
 
     if latest is None or outdated is True:
         try:
-            response = requests.get(
-                url="https://pypi.org/pypi/alprep/json", timeout=1.0
-            )
+            response = requests.get(url="https://pypi.org/pypi/alprep/json", timeout=1.0)
         except Exception:
             response = None
 
@@ -59,9 +57,7 @@ def check_latest():
 
     if cachefile is not None and latest is not None:
         try:
-            cachefile.write_text(
-                "|".join(("%s" % latest, datetime.now().strftime(DATE_FMT)))
-            )
+            cachefile.write_text("|".join(("%s" % latest, datetime.now().strftime(DATE_FMT))))
         except Exception:
             pass
 
@@ -70,7 +66,7 @@ def check_latest():
 
 def is_flagged():
     """Check whether current version is flagged."""
-    #https://raw.githubusercontent.com/pennlinc/aslprep/master/.versions.json
+    # https://raw.githubusercontent.com/pennlinc/aslprep/master/.versions.json
     flagged = tuple()
     try:
         response = requests.get(

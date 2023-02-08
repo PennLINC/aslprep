@@ -17,40 +17,55 @@ Pre-processing ASL - ASL signal workflows
 
 """
 
-from .base import init_asl_preproc_wf
-from .cbf import (init_cbf_compt_wf, init_cbfgeqc_compt_wf, init_cbfplot_wf,
-                  init_cbfqc_compt_wf, init_cbfroiquant_wf,
-                  init_gecbf_compt_wf, init_gecbfplot_wf)
-from .confounds import init_asl_confs_wf
-from .ge_utils import (init_asl_geref_wf, init_asl_gereg_wf,
-                       init_asl_gestd_trans_wf, init_asl_t1_getrans_wf)
-from .gecbf import init_asl_gepreproc_wf
-from .hmc import init_asl_hmc_wf
-from .registration import init_asl_reg_wf, init_asl_t1_trans_wf
-from .resampling import (init_asl_preproc_trans_wf, init_asl_std_trans_wf,
-                         init_asl_surf_wf)
-from .stc import init_asl_stc_wf
-from .t2s import init_asl_t2s_wf
+from aslprep.workflows.asl.base import init_asl_preproc_wf
+from aslprep.workflows.asl.cbf import (
+    init_cbf_compt_wf,
+    init_cbfgeqc_compt_wf,
+    init_cbfplot_wf,
+    init_cbfqc_compt_wf,
+    init_cbfroiquant_wf,
+    init_gecbf_compt_wf,
+    init_gecbfplot_wf,
+)
+from aslprep.workflows.asl.confounds import init_asl_confs_wf
+from aslprep.workflows.asl.ge_utils import (
+    init_asl_geref_wf,
+    init_asl_gereg_wf,
+    init_asl_gestd_trans_wf,
+    init_asl_t1_getrans_wf,
+)
+from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
+from aslprep.workflows.asl.hmc import init_asl_hmc_wf
+from aslprep.workflows.asl.registration import init_asl_reg_wf, init_asl_t1_trans_wf
+from aslprep.workflows.asl.resampling import (
+    init_asl_preproc_trans_wf,
+    init_asl_std_trans_wf,
+    init_asl_surf_wf,
+)
+from aslprep.workflows.asl.stc import init_asl_stc_wf
+from aslprep.workflows.asl.t2s import init_asl_t2s_wf
 
 __all__ = [
-    'init_asl_confs_wf',
-    'init_gecbf_compt_wf',
-    'init_asl_t1_getrans_wf',
-    'init_asl_geref_wf',
-    'init_asl_gereg_wf',
-    'init_asl_gestd_trans_wf',
-    'init_asl_hmc_wf',
-    'init_asl_std_trans_wf',
-    'init_asl_preproc_trans_wf',
-    'init_asl_reg_wf',
-    'init_asl_stc_wf',
-    'init_asl_surf_wf',
-    'init_asl_t1_trans_wf',
-    'init_asl_t2s_wf',
-    'init_asl_preproc_wf',
-    'init_cbf_compt_wf',
-    'init_cbfqc_compt_wf',
-    'init_cbfplot_wf',
-    'init_cbfroiquant_wf',
-    'init_cbfgeqc_compt_wf'
+    "init_asl_confs_wf",
+    "init_gecbf_compt_wf",
+    "init_asl_t1_getrans_wf",
+    "init_asl_gepreproc_wf",
+    "init_gecbfplot_wf",
+    "init_asl_geref_wf",
+    "init_asl_gereg_wf",
+    "init_asl_gestd_trans_wf",
+    "init_asl_hmc_wf",
+    "init_asl_std_trans_wf",
+    "init_asl_preproc_trans_wf",
+    "init_asl_reg_wf",
+    "init_asl_stc_wf",
+    "init_asl_surf_wf",
+    "init_asl_t1_trans_wf",
+    "init_asl_t2s_wf",
+    "init_asl_preproc_wf",
+    "init_cbf_compt_wf",
+    "init_cbfqc_compt_wf",
+    "init_cbfplot_wf",
+    "init_cbfroiquant_wf",
+    "init_cbfgeqc_compt_wf",
 ]

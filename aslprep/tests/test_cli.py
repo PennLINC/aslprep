@@ -4,8 +4,7 @@ import os
 import pytest
 
 from aslprep.cli.run import build_workflow, get_parser
-from aslprep.tests.utils import (check_affines, check_generated_files,
-                                 get_test_data_path)
+from aslprep.tests.utils import check_affines, check_generated_files, get_test_data_path
 
 
 @pytest.mark.sub01

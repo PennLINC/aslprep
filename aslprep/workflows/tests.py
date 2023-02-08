@@ -12,14 +12,15 @@ from toml import loads
 def mock_config():
     """Create a mock config for documentation and testing purposes."""
     from .. import config
-    _old_fs = os.getenv('FREESURFER_HOME')
-    if not _old_fs:
-        os.environ['FREESURFER_HOME'] = mkdtemp()
 
-    filename = Path(pkgrf('aslprep', 'data/tests/config.toml'))
+    _old_fs = os.getenv("FREESURFER_HOME")
+    if not _old_fs:
+        os.environ["FREESURFER_HOME"] = mkdtemp()
+
+    filename = Path(pkgrf("aslprep", "data/tests/config.toml"))
     settings = loads(filename.read_text())
     for sectionname, configs in settings.items():
-        if sectionname != 'environment':
+        if sectionname != "environment":
             section = getattr(config, sectionname)
             section.load(configs, init=False)
     config.nipype.init()
@@ -27,7 +28,7 @@ def mock_config():
     config.init_spaces()
 
     config.execution.work_dir = Path(mkdtemp())
-    config.execution.bids_dir = Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
+    config.execution.bids_dir = Path(pkgrf("aslprep", "data/tests/ds000240")).absolute()
     config.execution.init()
 
     yield
