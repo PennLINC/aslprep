@@ -1,4 +1,6 @@
 version: 2.1
+orbs:
+  codecov: codecov/codecov@1.0.5
 
 .dockersetup: &dockersetup
   docker:
@@ -69,26 +71,15 @@ jobs:
           command: |
             pytest -rP -o log_cli=true -m "dset" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
-            mv /src/xcp_d/.coverage /src/coverage/.coverage.ds001419_nifti
-      - run:
-          name: Checking outputs of aslprep_sub01
-          command: |
-            cbfile=$(ls -f /tmp/aslprep_ds/aslprep/sub-01/perf/sub-01_desc-quality_control_cbf.csv)
-            if [[ -f ${cbfile} ]]; then
-            echo "processing complete"
-               exit 0
-            else
-            echo "there is error "
-                exit 1
-            fi
+            mv /src/aslprep/.coverage /src/coverage/.coverage.ds001419_nifti
       - store_artifacts:
-          path: /tmp/aslprep_ds
+          path: /src/aslprep/.circleci/out
       - persist_to_workspace:
           root: /src/coverage
           paths:
-              - .coverage.pytests
+              - .coverage.dset
       - store_artifacts:
-          path: /src/xcp_d/.circleci/out/
+          path: /src/aslprep/.circleci/out/
 
   merge_coverage:
     <<: *dockersetup
@@ -119,7 +110,7 @@ jobs:
       TZ: "/usr/share/zoneinfo/America/New_York"
     docker:
       - image: cimg/base:2020.09
-    working_directory: /tmp/src/xcpd_build
+    working_directory: /tmp/src/aslprep_build
     steps:
       - checkout
       - setup_remote_docker:
@@ -137,13 +128,13 @@ jobs:
               echo "the command ``git fetch --tags --verbose`` and push"
               echo "them to your fork with ``git push origin --tags``"
             fi
-            sed -i "s/title = {xcp_d}/title = {xcp_d ${CIRCLE_TAG:-$THISVERSION}}/" xcp_d/data/boilerplate.bib
+            sed -i "s/title = {aslprep}/title = {aslprep ${CIRCLE_TAG:-$THISVERSION}}/" aslprep/data/boilerplate.bib
             # Build docker image
             e=1 && for i in {1..5}; do
               docker build \
-                --cache-from=pennlinc/xcp_d \
+                --cache-from=pennlinc/aslprep \
                 --rm=false \
-                -t pennlinc/xcp_d:latest \
+                -t pennlinc/aslprep:latest \
                 --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
                 --build-arg VCS_REF=`git rev-parse --short HEAD` \
                 --build-arg VERSION="${CIRCLE_TAG:-$THISVERSION}" . \
@@ -155,12 +146,12 @@ jobs:
           command: |
             if [[ -n "$DOCKERHUB_TOKEN" ]]; then
               docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
-              docker tag pennlinc/xcp_d pennlinc/xcp_d:unstable
-              docker push pennlinc/xcp_d:unstable
+              docker tag pennlinc/aslprep pennlinc/aslprep:unstable
+              docker push pennlinc/aslprep:unstable
               if [[ -n "$CIRCLE_TAG" ]]; then
-                docker push pennlinc/xcp_d:latest
-                docker tag pennlinc/xcp_d pennlinc/xcp_d:$CIRCLE_TAG
-                docker push pennlinc/xcp_d:$CIRCLE_TAG
+                docker push pennlinc/aslprep:latest
+                docker tag pennlinc/aslprep pennlinc/aslprep:$CIRCLE_TAG
+                docker push pennlinc/aslprep:$CIRCLE_TAG
               fi
             fi
 
