@@ -69,7 +69,7 @@ jobs:
           name: Run full aslprep on aslprep_sub01 bold
           no_output_timeout: 5h
           command: |
-            pytest -rP -o log_cli=true -m "dset" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            pytest -rP -o log_cli=true -m "sub01" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.ds001419_nifti
       - store_artifacts:
@@ -77,7 +77,38 @@ jobs:
       - persist_to_workspace:
           root: /src/coverage
           paths:
-              - .coverage.dset
+              - .coverage.sub01
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out/
+
+  aslprep_subA00086748:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_sub01\]' )" != "" ]]; then
+              echo "Skipping aslprep_sub01 build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: data-v2
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on aslprep_subA00086748 bold
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "subA00086748" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.ds001419_nifti
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.subA00086748
       - store_artifacts:
           path: /src/aslprep/.circleci/out/
 
