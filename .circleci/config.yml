@@ -31,55 +31,22 @@ jobs:
       - checkout
       - run: *runinstall
 
-  get_data:
+  download_data:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          keys:
-            - data-v1-{{ epoch }}
-            - data-v1-
+          key: data-v2
       - run:
           name: Get test data and smriprep from box
           command: |
-            mkdir -p /tmp/data
-            cd /tmp/data
-
-            wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-              -O downsampled.tar.xz "https://upenn.box.com/shared/static/og1ixccv5v8eir76emii6rrgnwu4thad.xz"
-            tar xvfJ downsampled.tar.xz
-            rm -rf downsampled.tar.xz
-
-            cd /tmp/data
-            if [[ ! -d /tmp/data/smriprep/sub-01  ]]; then
-              wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
-                -O smriprepx.tar.xz "https://upenn.box.com/shared/static/i64rbrpzfinpej0vct96mjw6ve7yycov.xz"
-              tar xvfJ smriprepx.tar.xz
-              rm -rf smriprepx.tar.xz
-            else
-              echo "smriprep data was cached"
-            fi
-            mkdir -p /tmp/wkdir
-      - persist_to_workspace:
-          root: /tmp
+            cd /src/aslprep/.circleci
+            source get_data.sh
+            get_bids_data $PWD downsampled
+      - save_cache:
+          key: data-v2
           paths:
-            - data
-      - save_cache:
-         key: data-v1-{{ epoch }}
-         paths:
-            - /tmp/data
-
-  update_cache:
-    machine:
-      image: circleci/classic:201711-01
-    working_directory: /tmp/src/aslprep
-    steps:
-      - attach_workspace:
-          at: /tmp
-      - save_cache:
-         key: docker-v2-{{ .Branch }}-{{ epoch }}
-         paths:
-           - /tmp/cache/docker.tar.gz
+              - /src/aslprep/.circleci/data/downsampled
 
   aslprep_sub01:
     <<: *dockersetup
@@ -94,28 +61,23 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          keys:
-            - aslprep_sub01-v2-{{ .Branch }}-{{ epoch }}
-            - aslprep_sub01-v2-{{ .Branch }}
-            - aslprep_sub01-v2-main
-            - aslprep_sub01-v2-
+          key: data-v2
       - run: *runinstall
       - run:
           name: Run full aslprep on aslprep_sub01 bold
           no_output_timeout: 5h
           command: |
-            docker run --rm -it \
-                -v /tmp/data:/data/ \
-                -v /tmp/wkdir:/wkdir \
-                -v /tmp:/scrth \
-                -v /tmp/aslprep_ds/:/out \
-                pennlinc/aslprep:latest \
-                /data/testingbids  \
-                /out  participant --participant-label 01 \
-                -w /scrth/wkdir_sub01 --output-spaces asl \
-                --fs-license-file /scrth/licence.txt \
-                --scorescrub --basil --use-syn-sdc \
-                --anat-derivatives /data/smriprep
+            aslprep \
+                /src/aslprep/data/downsampled/dset  \
+                /src/aslprep/data/downsampled/derivatives \
+                participant --participant-label 01 \
+                -w /tmp \
+                --output-spaces asl \
+                --fs-license-file /tmp/licence.txt \
+                --scorescrub \
+                --basil \
+                --use-syn-sdc \
+                --anat-derivatives /src/aslprep/data/downsampled/derivatives/smriprep
       - run:
           name: Checking outputs of aslprep_sub01
           command: |
@@ -312,7 +274,7 @@ workflows:
             tags:
               only: /.*/
 
-      - get_data:
+      - download_data:
           filters:
             branches:
               ignore:
@@ -334,7 +296,7 @@ workflows:
 
       - aslprep_sub01:
           requires:
-            - get_data
+            - download_data
             - build
           filters:
             branches:
@@ -346,7 +308,7 @@ workflows:
 
       - aslprep_subA00086748:
           requires:
-            - get_data
+            - download_data
             - build
           filters:
             branches:
