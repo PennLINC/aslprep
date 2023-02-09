@@ -116,7 +116,6 @@ def init_single_subject_wf(subject_id):
     subject_data = collect_data(
         config.execution.bids_dir,
         subject_id,
-        task=None,
         echo=config.execution.echo_idx,
         bids_filters=config.execution.bids_filters,
     )[0]
