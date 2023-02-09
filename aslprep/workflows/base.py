@@ -13,10 +13,17 @@ from copy import deepcopy
 
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
+from niworkflows.interfaces.nilearn import NILEARN_VERSION
+from niworkflows.utils.misc import fix_multi_T1w_source_name
+from niworkflows.utils.spaces import Reference
+from smriprep.workflows.anatomical import init_anat_preproc_wf
 
 from aslprep import config
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.reports import AboutSummary, SubjectSummary
+from aslprep.utils.bids import collect_data
 from aslprep.workflows.asl import init_asl_gepreproc_wf, init_asl_preproc_wf
 
 
@@ -41,8 +48,6 @@ def init_aslprep_wf():
                 wf = init_aslprep_wf()
 
     """
-    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-
     aslprep_wf = Workflow(name="aslprep_wf")
     aslprep_wf.base_dir = config.execution.work_dir
 
@@ -107,14 +112,6 @@ def init_single_subject_wf(subject_id):
         FreeSurfer's ``$SUBJECTS_DIR``.
 
     """
-    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
-    from niworkflows.interfaces.nilearn import NILEARN_VERSION
-    from niworkflows.utils.bids import collect_data
-    from niworkflows.utils.misc import fix_multi_T1w_source_name
-    from niworkflows.utils.spaces import Reference
-    from smriprep.workflows.anatomical import init_anat_preproc_wf
-
     name = "single_subject_%s_wf" % subject_id
     subject_data = collect_data(
         config.execution.bids_dir,
@@ -358,12 +355,6 @@ tasks and sessions), the following preprocessing was performed.
 
 def _prefix(subid):
     return subid if subid.startswith("sub-") else f"sub-{subid}"
-
-
-def _pop(inlist):
-    if isinstance(inlist, (list, tuple)):
-        return inlist[0]
-    return inlist
 
 
 def check_img(img):

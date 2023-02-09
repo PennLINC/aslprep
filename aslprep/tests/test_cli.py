@@ -37,7 +37,7 @@ def test_sub01(datasets, output_dir, working_dir):
         "--use-syn-sdc",
         f"--anat-derivatives={smriprep_dir}",
     ]
-    config = parse_args(parameters)
+    parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.to_filename(config_file)
 
