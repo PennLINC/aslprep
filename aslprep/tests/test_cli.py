@@ -11,6 +11,8 @@ from aslprep.tests.utils import check_affines, check_generated_files, get_test_d
 @pytest.mark.sub01
 def test_sub01(datasets, output_dir, working_dir):
     """Run aslprep on sub-01 data."""
+    from aslprep import config
+
     test_name = "test_sub01"
 
     data_dir = datasets["dset"]
@@ -55,6 +57,8 @@ def test_sub01(datasets, output_dir, working_dir):
 @pytest.mark.subA00086748
 def test_subA00086748(datasets, output_dir, working_dir):
     """Run aslprep on sub-A00086748."""
+    from aslprep import config
+
     test_name = "test_subA00086748"
 
     data_dir = datasets["dset"]
@@ -79,7 +83,7 @@ def test_subA00086748(datasets, output_dir, working_dir):
         "--use-syn-sdc",
         f"--anat-derivatives={smriprep_dir}",
     ]
-    config = parse_args(parameters)
+    parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.to_filename(config_file)
 
