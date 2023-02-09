@@ -12,14 +12,11 @@ Handling confounds.
 
 import os
 import re
-import shutil
 
-import numpy as np
 import pandas as pd
 from nipype import logging
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
-    Directory,
     File,
     SimpleInterface,
     TraitedSpec,
