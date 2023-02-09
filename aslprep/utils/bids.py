@@ -3,12 +3,157 @@
 """Utilities to handle BIDS inputs."""
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
+from bids.layout import BIDSLayout
+
+
+def collect_data(
+    bids_dir,
+    participant_label,
+    echo=None,
+    bids_validate=False,
+    bids_filters=None,
+):
+    """Uses pybids to retrieve the input data for a given participant"""
+    if isinstance(bids_dir, BIDSLayout):
+        layout = bids_dir
+    else:
+        layout = BIDSLayout(str(bids_dir), validate=bids_validate)
+
+    queries = {
+        "fmap": {"datatype": "fmap"},
+        "bold": {"datatype": "func", "suffix": "bold"},
+        "sbref": {"datatype": "func", "suffix": "sbref"},
+        "flair": {"datatype": "anat", "suffix": "FLAIR"},
+        "t2w": {"datatype": "anat", "suffix": "T2w"},
+        "t1w": {"datatype": "anat", "suffix": "T1w"},
+        "roi": {"datatype": "anat", "suffix": "roi"},
+        "asl": {"datatype": "perf", "suffix": "asl"},
+        "cbf": {"datatype": "perf", "suffix": "DELTAM"},
+        "m0z": {"datatype": "perf", "suffix": "MoScan"},
+    }
+
+    bids_filters = bids_filters or {}
+    for acq, entities in bids_filters.items():
+        queries[acq].update(entities)
+
+    if echo:
+        queries["asl"]["echo"] = echo
+
+    subj_data = {
+        dtype: sorted(
+            layout.get(
+                return_type="file",
+                subject=participant_label,
+                extension=["nii", "nii.gz"],
+                **query,
+            )
+        )
+        for dtype, query in queries.items()
+    }
+
+    # Special case: multi-echo BOLD, grouping echos
+    if any(["_echo-" in bold for bold in subj_data["asl"]]):
+        subj_data["asl"] = group_multiecho(subj_data["asl"])
+
+    return subj_data, layout
+
+
+def group_multiecho(bold_sess):
+    """Multiplexes multi-echo EPIs into arrays.
+
+    Dual-echo is a special case of multi-echo, which is treated as single-echo data.
+
+    >>> bold_sess = ["sub-01_task-rest_echo-1_run-01_bold.nii.gz",
+    ...              "sub-01_task-rest_echo-2_run-01_bold.nii.gz",
+    ...              "sub-01_task-rest_echo-1_run-02_bold.nii.gz",
+    ...              "sub-01_task-rest_echo-2_run-02_bold.nii.gz",
+    ...              "sub-01_task-rest_echo-3_run-02_bold.nii.gz",
+    ...              "sub-01_task-rest_run-03_bold.nii.gz"]
+    >>> group_multiecho(bold_sess)
+    ['sub-01_task-rest_echo-1_run-01_bold.nii.gz',
+     'sub-01_task-rest_echo-2_run-01_bold.nii.gz',
+    ['sub-01_task-rest_echo-1_run-02_bold.nii.gz',
+     'sub-01_task-rest_echo-2_run-02_bold.nii.gz',
+     'sub-01_task-rest_echo-3_run-02_bold.nii.gz'],
+     'sub-01_task-rest_run-03_bold.nii.gz']
+
+    >>> bold_sess.insert(2, "sub-01_task-rest_echo-3_run-01_bold.nii.gz")
+    >>> group_multiecho(bold_sess)
+    [['sub-01_task-rest_echo-1_run-01_bold.nii.gz',
+      'sub-01_task-rest_echo-2_run-01_bold.nii.gz',
+      'sub-01_task-rest_echo-3_run-01_bold.nii.gz'],
+     ['sub-01_task-rest_echo-1_run-02_bold.nii.gz',
+      'sub-01_task-rest_echo-2_run-02_bold.nii.gz',
+      'sub-01_task-rest_echo-3_run-02_bold.nii.gz'],
+      'sub-01_task-rest_run-03_bold.nii.gz']
+
+    >>> bold_sess += ["sub-01_task-beh_echo-1_run-01_bold.nii.gz",
+    ...               "sub-01_task-beh_echo-2_run-01_bold.nii.gz",
+    ...               "sub-01_task-beh_echo-1_run-02_bold.nii.gz",
+    ...               "sub-01_task-beh_echo-2_run-02_bold.nii.gz",
+    ...               "sub-01_task-beh_echo-3_run-02_bold.nii.gz",
+    ...               "sub-01_task-beh_run-03_bold.nii.gz"]
+    >>> group_multiecho(bold_sess)
+    [['sub-01_task-rest_echo-1_run-01_bold.nii.gz',
+      'sub-01_task-rest_echo-2_run-01_bold.nii.gz',
+      'sub-01_task-rest_echo-3_run-01_bold.nii.gz'],
+     ['sub-01_task-rest_echo-1_run-02_bold.nii.gz',
+      'sub-01_task-rest_echo-2_run-02_bold.nii.gz',
+      'sub-01_task-rest_echo-3_run-02_bold.nii.gz'],
+      'sub-01_task-rest_run-03_bold.nii.gz',
+      'sub-01_task-beh_echo-1_run-01_bold.nii.gz',
+      'sub-01_task-beh_echo-2_run-01_bold.nii.gz',
+     ['sub-01_task-beh_echo-1_run-02_bold.nii.gz',
+      'sub-01_task-beh_echo-2_run-02_bold.nii.gz',
+      'sub-01_task-beh_echo-3_run-02_bold.nii.gz'],
+      'sub-01_task-beh_run-03_bold.nii.gz']
+
+    Some tests from https://neurostars.org/t/fmriprep-from\
+-singularity-unboundlocalerror/3299/7
+
+    >>> bold_sess = ['sub-01_task-AudLoc_echo-1_bold.nii',
+    ...              'sub-01_task-AudLoc_echo-2_bold.nii',
+    ...              'sub-01_task-FJT_echo-1_bold.nii',
+    ...              'sub-01_task-FJT_echo-2_bold.nii',
+    ...              'sub-01_task-LDT_echo-1_bold.nii',
+    ...              'sub-01_task-LDT_echo-2_bold.nii',
+    ...              'sub-01_task-MotLoc_echo-1_bold.nii',
+    ...              'sub-01_task-MotLoc_echo-2_bold.nii']
+    >>> group_multiecho(bold_sess) == bold_sess
+    True
+
+    >>> bold_sess += ['sub-01_task-MotLoc_echo-3_bold.nii']
+    >>> groups = group_multiecho(bold_sess)
+    >>> len(groups[:-1])
+    6
+    >>> [isinstance(g, list) for g in groups]
+    [False, False, False, False, False, False, True]
+    >>> len(groups[-1])
+    3
+    """
+    from itertools import groupby
+
+    def _grp_echos(x):
+        if "_echo-" not in x:
+            return x
+        echo = re.search("_echo-\\d*", x).group(0)
+        return x.replace(echo, "_echo-?")
+
+    ses_uids = []
+    for _, bold in groupby(bold_sess, key=_grp_echos):
+        bold = list(bold)
+        # If single- or dual-echo, flatten list; keep list otherwise.
+        action = getattr(ses_uids, "append" if len(bold) > 2 else "extend")
+        action(bold)
+    return ses_uids
+
 
 def write_derivative_description(bids_dir, deriv_dir):
-    from ..__about__ import DOWNLOAD_URL, __url__, __version__
+    from aslprep.__about__ import DOWNLOAD_URL, __url__, __version__
 
     bids_dir = Path(bids_dir)
     deriv_dir = Path(deriv_dir)
