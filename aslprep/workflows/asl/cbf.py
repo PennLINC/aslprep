@@ -9,7 +9,6 @@ from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-from niworkflows.interfaces.plotting import CBFSummary, CBFtsSummary
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import DerivativesDataSink
@@ -25,6 +24,7 @@ from aslprep.interfaces.cbf_computation import (
     refinemask,
     scorescrubCBF,
 )
+from aslprep.interfaces.plotting import CBFSummary, CBFtsSummary
 
 
 def init_cbf_compt_wf(

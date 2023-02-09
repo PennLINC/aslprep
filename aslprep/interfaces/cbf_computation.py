@@ -255,7 +255,7 @@ class computeCBF(SimpleInterface):
             self.inputs.out_att = os.path.abspath(self._results["out_att"])
         self.inputs.out_cbf = os.path.abspath(self._results["out_cbf"])
         self.inputs.out_mean = os.path.abspath(self._results["out_mean"])
-        ## we dont know why not zeros background $
+        # we dont know why not zeros background $
         from nipype.interfaces.fsl import MultiImageMaths
 
         mat1 = MultiImageMaths()
@@ -379,9 +379,6 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     tcbf = np.nan_to_num(tcbf)
     att = np.nan_to_num(att)
     return tcbf, meancbf, att
-
-
-# score and scrub
 
 
 class _scorescrubCBFInputSpec(BaseInterfaceInputSpec):
