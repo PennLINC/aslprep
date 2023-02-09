@@ -5,7 +5,7 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.bids import DerivativesDataSink
 
 
 def init_asl_derivatives_wf(
@@ -2570,7 +2570,7 @@ def init_asl_preproc_report_wf(mem_gb, reportlets_dir, name="asl_preproc_report_
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces import SimpleBeforeAfter
 
-    from aslprep.interfaces import DerivativesDataSink
+    from aslprep.interfaces.bids import DerivativesDataSink
 
     workflow = Workflow(name=name)
 

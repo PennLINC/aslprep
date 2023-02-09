@@ -8,7 +8,7 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep import config
-from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import refinemask
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.workflows.asl.cbf import (

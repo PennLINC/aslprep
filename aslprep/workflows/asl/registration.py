@@ -19,7 +19,7 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep import config
-from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.bids import DerivativesDataSink
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow

@@ -122,7 +122,7 @@ def init_asl_gereg_wf(
         use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof, asl2t1w_init=asl2t1w_init, sloppy=sloppy
     )
     # bbr_wf.base_dir=os.getcwd()
-    from aslprep.interfaces import DerivativesDataSink
+    from aslprep.interfaces.bids import DerivativesDataSink
 
     workflow.connect(
         [

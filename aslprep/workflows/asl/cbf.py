@@ -11,7 +11,7 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import (
     BASILCBF,
     cbfqroiquant,
