@@ -58,7 +58,7 @@ get_bids_data() {
     # without freesurfer, sub-01
     if [[ ${DS} = downsampled ]]
     then
-      dataset_dir="$TEST_DATA_DIR/$DS"
+      dataset_dir="$TEST_DATA_DIR/dset"
       # Do not re-download if the folder exists
       if [ ! -d $dataset_dir ]
       then
