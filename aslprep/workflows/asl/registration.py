@@ -256,11 +256,12 @@ def init_asl_t1_trans_wf(
 
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.func.util import init_asl_reference_wf
     from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
     from niworkflows.interfaces.itk import MultiApplyTransforms
-    from niworkflows.interfaces.nilearn import Merge
     from niworkflows.interfaces.nibabel import GenerateSamplingReference
+    from niworkflows.interfaces.nilearn import Merge
+
+    from aslprep.workflows.asl.util import init_asl_reference_wf
 
     workflow = Workflow(name=name)
     inputnode = pe.Node(
@@ -802,7 +803,9 @@ implemented the boundary-based registration cost-function [@bbr]. Co-registratio
 {dof} degrees of freedom. The quality of co-registration and normalization to template was
 quantified using the Dice and Jaccard indices, the cross-correlation with the reference image,
 and the overlap between the ASL and reference images (e.g., image coverage).
-""".format(dof=asl2t1w_dof)
+""".format(
+        dof=asl2t1w_dof
+    )
 
     inputnode = pe.Node(
         niu.IdentityInterface(["in_file", "t1w_dseg", "t1w_brain"]), name="inputnode"  # FLIRT BBR

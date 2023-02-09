@@ -7,6 +7,10 @@ import nibabel as nb
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
+from aslprep import config
+from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.cbf_computation import refinemask
+from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.workflows.asl.cbf import (
     init_cbfgeqc_compt_wf,
     init_cbfroiquant_wf,
@@ -20,10 +24,6 @@ from aslprep.workflows.asl.ge_utils import (
     init_asl_t1_getrans_wf,
 )
 from aslprep.workflows.asl.outputs import init_geasl_derivatives_wf
-from aslprep import config
-from aslprep.interfaces import DerivativesDataSink
-from aslprep.interfaces.cbf_computation import refinemask
-from aslprep.interfaces.reports import FunctionalSummary
 
 
 def init_asl_gepreproc_wf(asl_file):
@@ -124,7 +124,7 @@ def init_asl_gepreproc_wf(asl_file):
     See Also
     --------
 
-    * :py:func:`~aslprep.niworkflows.func.util.init_asl_reference_wf`
+    * :py:func:`~aslprep.workflows.asl.util.init_asl_reference_wf`
     * :py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
     * :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
     * :py:func:`~aslprep.workflows.asl.t2s.init_asl_t2s_wf`
@@ -933,7 +933,7 @@ effects of other kernels [@lanczos].
 
 
 def _get_series_len(asl_fname):
-    from niworkflows.interfaces.registration import _get_vols_to_discard
+    from aslprep.interfaces.niworkflows import _get_vols_to_discard
 
     img = nb.load(asl_fname)
     if len(img.shape) < 4:

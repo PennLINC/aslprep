@@ -403,8 +403,8 @@ def init_asl_gestd_trans_wf(
     """ """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-    from niworkflows.interfaces.utility import KeySelect
     from niworkflows.interfaces.nibabel import GenerateSamplingReference
+    from niworkflows.interfaces.utility import KeySelect
     from niworkflows.utils.spaces import format_reference
 
     workflow = Workflow(name=name)
@@ -576,7 +576,6 @@ preprocessed ASL runs*: {tpl}.
     )
     # Generate a reference on the target standard space
     gen_ref = pe.Node(GenerateSamplingReference(), name="gen_ref", mem_gb=0.3)
-    # gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
 
     workflow.connect(
         [

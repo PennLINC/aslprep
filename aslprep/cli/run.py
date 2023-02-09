@@ -12,8 +12,8 @@ def main():
     from os import EX_SOFTWARE
     from pathlib import Path
 
-    from aslprep.utils.bids import write_derivative_description
     from aslprep.cli.parser import parse_args
+    from aslprep.utils.bids import write_derivative_description
 
     parse_args()
 

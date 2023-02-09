@@ -271,12 +271,12 @@ def init_asl_std_trans_wf(
 
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.func.util import init_asl_reference_wf
+    from aslprep.workflows.asl.util import init_asl_reference_wf
     from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
     from niworkflows.interfaces.itk import MultiApplyTransforms
+    from niworkflows.interfaces.nibabel import GenerateSamplingReference
     from niworkflows.interfaces.nilearn import Merge
     from niworkflows.interfaces.utility import KeySelect
-    from niworkflows.interfaces.nibabel import GenerateSamplingReference
     from niworkflows.utils.spaces import format_reference
 
     workflow = Workflow(name=name)
@@ -631,7 +631,7 @@ def init_asl_preproc_trans_wf(
 
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.func.util import init_asl_reference_wf
+    from aslprep.workflows.asl.util import init_asl_reference_wf
     from niworkflows.interfaces.itk import MultiApplyTransforms
     from niworkflows.interfaces.nilearn import Merge
 

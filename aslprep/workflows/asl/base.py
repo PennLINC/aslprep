@@ -20,7 +20,6 @@ from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import refinemask
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.utils.meepi import combine_meepi_source
-
 from aslprep.workflows.asl.cbf import (
     init_cbf_compt_wf,
     init_cbfplot_wf,
@@ -122,7 +121,7 @@ def init_asl_preproc_wf(asl_file):
     See Also
     --------
 
-    * :py:func:`~aslprep.niworkflows.func.util.init_asl_reference_wf`
+    * :py:func:`~aslprep.workflows.asl.func.util.init_asl_reference_wf`
     * :py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
     * :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
     * :py:func:`~aslprep.workflows.asl.t2s.init_asl_t2s_wf`
@@ -141,10 +140,11 @@ def init_asl_preproc_wf(asl_file):
 
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.func.util import init_asl_reference_wf
     from niworkflows.interfaces.nibabel import ApplyMask
     from niworkflows.interfaces.utility import KeySelect
     from sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
+
+    from aslprep.workflows.asl.util import init_asl_reference_wf
 
     ref_file = asl_file
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
@@ -450,7 +450,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # MULTI-ECHO EPI DATA #############################################
     if multiecho:
-        from niworkflows.func.util import init_skullstrip_asl_wf
+        from aslprep.workflows.asl.util import init_skullstrip_asl_wf
 
         skullstrip_asl_wf = init_skullstrip_asl_wf(name="skullstrip_asl_wf")
 
@@ -1347,7 +1347,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
 
 def _get_series_len(asl_fname):
-    from niworkflows.interfaces.registration import _get_vols_to_discard
+    from aslprep.interfaces.niworkflows import _get_vols_to_discard
 
     img = nb.load(asl_fname)
     if len(img.shape) < 4:
