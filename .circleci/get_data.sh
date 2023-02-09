@@ -23,7 +23,7 @@ else
   NTHREADS=2
   OMP_NTHREADS=2
 
-  LOCAL_PATCH_FILE="local_xcpd_path.txt"
+  LOCAL_PATCH_FILE="local_aslprep_path.txt"
 
   # check that the patch file exists
   if [ ! -f $LOCAL_PATCH_FILE ]
@@ -34,7 +34,7 @@ else
 
   LOCAL_PATCH="$( cat ${LOCAL_PATCH_FILE} )"  # Load path from file
 
-  # check that the local xcp_d path exists
+  # check that the local aslprep path exists
   if [ ! -d $LOCAL_PATCH ]
   then
     echo "Path $LOCAL_PATCH DNE"
@@ -69,7 +69,6 @@ get_bids_data() {
           -O downsampled.tar.xz \
         "https://upenn.box.com/shared/static/og1ixccv5v8eir76emii6rrgnwu4thad.xz"
         tar xvfJ downsampled.tar.xz -C $TEST_DATA_DIR
-        mkdir dset
         mv testingbids dset
         rm downsampled.tar.xz
 

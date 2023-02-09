@@ -1,3 +1,5 @@
+.circleci/local_aslprep_path.txt
+
 aslprep/data/atlas/.DS_Store
 aslprep/data/.DS_Store
 aslprep/.DS_Store
