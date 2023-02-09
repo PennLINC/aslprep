@@ -3,7 +3,8 @@ import os
 
 import pytest
 
-from aslprep.cli.run import build_workflow, get_parser
+from aslprep.cli.parser import parse_args
+from aslprep.cli.workflow import build_workflow
 from aslprep.tests.utils import check_affines, check_generated_files, get_test_data_path
 
 
@@ -34,10 +35,12 @@ def test_sub01(datasets, output_dir, working_dir):
         "--use-syn-sdc",
         f"--anat-derivatives={smriprep_dir}",
     ]
-    opts = get_parser().parse_args(parameters)
+    config = parse_args(parameters)
+    config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
+    config.to_filename(config_file)
 
     retval = {}
-    retval = build_workflow(opts, retval=retval)
+    retval = build_workflow(config_file, retval=retval)
     # run_uuid = retval.get("run_uuid", None)
     aslprep_wf = retval.get("workflow", None)
     plugin_settings = retval["plugin_settings"]
@@ -76,10 +79,12 @@ def test_subA00086748(datasets, output_dir, working_dir):
         "--use-syn-sdc",
         f"--anat-derivatives={smriprep_dir}",
     ]
-    opts = get_parser().parse_args(parameters)
+    config = parse_args(parameters)
+    config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
+    config.to_filename(config_file)
 
     retval = {}
-    retval = build_workflow(opts, retval=retval)
+    retval = build_workflow(config_file, retval=retval)
     # run_uuid = retval.get("run_uuid", None)
     aslprep_wf = retval.get("workflow", None)
     plugin_settings = retval["plugin_settings"]
