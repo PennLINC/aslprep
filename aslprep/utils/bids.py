@@ -293,3 +293,58 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
 
 def _get_shub_version(singularity_url):
     return NotImplemented
+
+
+def fieldmap_wrangler(layout, target_image, use_syn=False, force_syn=False):
+    """Query the BIDSLayout for fieldmaps, and arrange them for the orchestration workflow."""
+    from collections import defaultdict
+
+    fmap_bids = layout.get_fieldmap(target_image, return_list=True)
+    fieldmaps = defaultdict(list)
+    for fmap in fmap_bids:
+        if fmap["suffix"] == "epi":
+            fieldmaps["epi"].append((fmap["epi"], layout.get_metadata(fmap["epi"])))
+
+        if fmap["suffix"] == "fieldmap":
+            fieldmaps["fieldmap"].append(
+                {
+                    "magnitude": [(fmap["magnitude"], layout.get_metadata(fmap["magnitude"]))],
+                    "fieldmap": [(fmap["fieldmap"], layout.get_metadata(fmap["fieldmap"]))],
+                }
+            )
+
+        if fmap["suffix"] == "phasediff":
+            fieldmaps["phasediff"].append(
+                {
+                    "magnitude": [
+                        (fmap[k], layout.get_metadata(fmap[k]))
+                        for k in sorted(fmap.keys())
+                        if k.startswith("magnitude")
+                    ],
+                    "phases": [(fmap["phasediff"], layout.get_metadata(fmap["phasediff"]))],
+                }
+            )
+
+        if fmap["suffix"] == "phase":
+            fieldmaps["phasediff"].append(
+                {
+                    "magnitude": [
+                        (fmap[k], layout.get_metadata(fmap[k]))
+                        for k in sorted(fmap.keys())
+                        if k.startswith("magnitude")
+                    ],
+                    "phases": [
+                        (fmap[k], layout.get_metadata(fmap[k]))
+                        for k in sorted(fmap.keys())
+                        if k.startswith("phase")
+                    ],
+                }
+            )
+
+    if fieldmaps and force_syn:
+        # syn: True -> Run SyN in addition to fieldmap-based SDC
+        fieldmaps["syn"] = True
+    elif not fieldmaps and (force_syn or use_syn):
+        # syn: False -> Run SyN as only SDC
+        fieldmaps["syn"] = False
+    return fieldmaps

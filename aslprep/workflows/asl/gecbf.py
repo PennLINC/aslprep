@@ -120,27 +120,6 @@ def init_asl_gepreproc_wf(asl_file):
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
         quality control meausres
-
-    See Also
-    --------
-
-    * :py:func:`~aslprep.workflows.asl.util.init_asl_reference_wf`
-    * :py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
-    * :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
-    * :py:func:`~aslprep.workflows.asl.t2s.init_asl_t2s_wf`
-    * :py:func:`~aslprep.workflows.asl.registration.init_asl_t1_trans_wf`
-    * :py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
-    * :py:func:`~aslprep.workflows.asl.confounds.init_asl_confounds_wf`
-    * :py:func:`~aslprep.workflows.asl.confounds.init_ica_aroma_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_preproc_trans_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_surf_wf`
-    * :py:func:`~sdcflows.workflows.fmap.init_fmap_wf`
-    * :py:func:`~sdcflows.workflows.pepolar.init_pepolar_unwarp_wf`
-    * :py:func:`~sdcflows.workflows.phdiff.init_phdiff_wf`
-    * :py:func:`~sdcflows.workflows.syn.init_syn_sdc_wf`
-    * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
-
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.nibabel import ApplyMask

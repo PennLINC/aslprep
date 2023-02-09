@@ -117,33 +117,13 @@ def init_asl_preproc_wf(asl_file):
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
         quality control meausres
-
-    See Also
-    --------
-
-    * :py:func:`~aslprep.workflows.asl.func.util.init_asl_reference_wf`
-    * :py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
-    * :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
-    * :py:func:`~aslprep.workflows.asl.t2s.init_asl_t2s_wf`
-    * :py:func:`~aslprep.workflows.asl.registration.init_asl_t1_trans_wf`
-    * :py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
-    * :py:func:`~aslprep.workflows.asl.confounds.init_asl_confounds_wf`
-    * :py:func:`~aslprep.workflows.asl.confounds.init_ica_aroma_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_preproc_trans_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_surf_wf`
-    * :py:func:`~sdcflows.workflows.fmap.init_fmap_wf`
-    * :py:func:`~sdcflows.workflows.pepolar.init_pepolar_unwarp_wf`
-    * :py:func:`~sdcflows.workflows.phdiff.init_phdiff_wf`
-    * :py:func:`~sdcflows.workflows.syn.init_syn_sdc_wf`
-    * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
-
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.nibabel import ApplyMask
     from niworkflows.interfaces.utility import KeySelect
-    from sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
+    from sdcflows.workflows.base import init_sdc_estimate_wf
 
+    from aslprep.utils.bids import fieldmap_wrangler
     from aslprep.workflows.asl.util import init_asl_reference_wf
 
     ref_file = asl_file
@@ -700,30 +680,26 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
 
     if fmaps:
-        from sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
+        from aslprep.workflows.asl.fmap import init_sdc_unwarp_report_wf
 
         # Report on asl correction
         fmap_unwarp_report_wf = init_sdc_unwarp_report_wf()
-        workflow.connect(
-            [
-                (inputnode, fmap_unwarp_report_wf, [("t1w_dseg", "inputnode.in_seg")]),
-                (
-                    asl_reference_wf,
-                    fmap_unwarp_report_wf,
-                    [("outputnode.ref_image", "inputnode.in_pre")],
-                ),
-                (
-                    asl_reg_wf,
-                    fmap_unwarp_report_wf,
-                    [("outputnode.itk_t1_to_asl", "inputnode.in_xfm")],
-                ),
-                (
-                    asl_sdc_wf,
-                    fmap_unwarp_report_wf,
-                    [("outputnode.epi_corrected", "inputnode.in_post")],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, fmap_unwarp_report_wf, [
+                ("t1w_dseg", "inputnode.in_seg"),
+            ]),
+            (asl_reference_wf, fmap_unwarp_report_wf, [
+                ("outputnode.ref_image", "inputnode.in_pre"),
+            ]),
+            (asl_reg_wf, fmap_unwarp_report_wf, [
+                ("outputnode.itk_t1_to_asl", "inputnode.in_xfm"),
+            ]),
+            (asl_sdc_wf, fmap_unwarp_report_wf, [
+                ("outputnode.epi_corrected", "inputnode.in_post"),
+            ]),
+        ])
+        # fmt:on
 
         # Overwrite ``out_path_base`` of unwarping DataSinks
         # And ensure echo is dropped from report

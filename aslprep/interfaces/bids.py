@@ -36,9 +36,9 @@ class _BIDSDataGrabberOutputSpec(TraitedSpec):
     roi = OutputMultiObject(desc="output ROI images")
     t2w = OutputMultiObject(desc="output T2w images")
     flair = OutputMultiObject(desc="output FLAIR images")
-    asl = OutputMultiObject(desc='output ASL images')
-    m0z = OutputMultiObject(desc='output MZeros images')
-    cbf = OutputMultiObject(desc='output CBF images')
+    asl = OutputMultiObject(desc="output ASL images")
+    m0z = OutputMultiObject(desc="output MZeros images")
+    cbf = OutputMultiObject(desc="output CBF images")
 
 
 class BIDSDataGrabber(SimpleInterface):
@@ -79,15 +79,11 @@ class BIDSDataGrabber(SimpleInterface):
 
         if self._require_funcs and not bids_dict["asl"]:
             raise FileNotFoundError(
-                "No functional images found for subject sub-{}".format(
-                    self.inputs.subject_id
-                )
+                "No functional images found for subject sub-{}".format(self.inputs.subject_id)
             )
 
-        for imtype in ["bold", "t2w", "flair", "fmap", "sbref", "roi", 'asl', 'm0z', 'cbf']:
+        for imtype in ["bold", "t2w", "flair", "fmap", "sbref", "roi", "asl", "m0z", "cbf"]:
             if not bids_dict[imtype]:
-                LOGGER.info(
-                    'No "%s" images found for sub-%s', imtype, self.inputs.subject_id
-                )
+                LOGGER.info('No "%s" images found for sub-%s', imtype, self.inputs.subject_id)
 
         return runtime
