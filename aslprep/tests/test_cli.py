@@ -13,7 +13,7 @@ def test_sub01(datasets, output_dir, working_dir):
     """Run aslprep on sub-01 data."""
     test_name = "test_sub01"
 
-    data_dir = datasets["sub01"]
+    data_dir = datasets["dset"]
     smriprep_dir = datasets["smriprep"]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)

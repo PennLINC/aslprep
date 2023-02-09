@@ -48,7 +48,7 @@ jobs:
       - save_cache:
           key: data-v2
           paths:
-              - /src/aslprep/.circleci/data/downsampled
+              - /src/aslprep/.circleci/data
 
   aslprep_sub01:
     <<: *dockersetup
