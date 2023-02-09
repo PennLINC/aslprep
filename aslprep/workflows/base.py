@@ -14,14 +14,14 @@ from copy import deepcopy
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
+from niworkflows.interfaces.bids import BIDSInfo
 from niworkflows.interfaces.nilearn import NILEARN_VERSION
 from niworkflows.utils.misc import fix_multi_T1w_source_name
 from niworkflows.utils.spaces import Reference
 from smriprep.workflows.anatomical import init_anat_preproc_wf
 
 from aslprep import config
-from aslprep.interfaces.bids import DerivativesDataSink
+from aslprep.interfaces.bids import BIDSDataGrabber, DerivativesDataSink
 from aslprep.interfaces.reports import AboutSummary, SubjectSummary
 from aslprep.utils.bids import collect_data
 from aslprep.workflows.asl import init_asl_gepreproc_wf, init_asl_preproc_wf
