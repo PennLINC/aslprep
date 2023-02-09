@@ -15,7 +15,8 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep import config
-from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
+from aslprep.interfaces.bids import DerivativesDataSink
+from aslprep.interfaces.reports import AboutSummary, SubjectSummary
 from aslprep.workflows.asl import init_asl_gepreproc_wf, init_asl_preproc_wf
 
 

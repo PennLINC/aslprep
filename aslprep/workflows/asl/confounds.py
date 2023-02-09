@@ -17,7 +17,8 @@ from niworkflows.interfaces.utility import AddTSVHeader
 from templateflow.api import get as get_template
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces import ASLSummary, DerivativesDataSink, GatherConfounds
+from aslprep.interfaces.bids import DerivativesDataSink
+from aslprep.interfaces.confounds import ASLSummary, GatherConfounds
 
 
 def init_asl_confs_wf(

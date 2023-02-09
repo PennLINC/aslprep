@@ -8,8 +8,7 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.fixes import (
     FixN4BiasFieldCorrection as N4BiasFieldCorrection,
 )
-from niworkflows.interfaces.header import CopyXForm
-from niworkflows.interfaces.images import ValidateImage
+from niworkflows.interfaces.header import CopyXForm, ValidateImage
 from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
 from niworkflows.utils.connections import listify
 from niworkflows.utils.misc import pass_dummy_scans as _pass_dummy_scans

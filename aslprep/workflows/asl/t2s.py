@@ -11,7 +11,7 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep import config
-from aslprep.interfaces import T2SMap
+from aslprep.interfaces.multiecho import T2SMap
 
 LOGGER = config.loggers.workflow
 

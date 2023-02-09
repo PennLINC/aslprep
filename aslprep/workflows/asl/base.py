@@ -258,7 +258,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         str(config.execution.bids_dir) + "/sub-" + str(config.execution.participant_label[0])
     )
     if sbref_file is not None:
-        from niworkflows.interfaces.images import ValidateImage
+        from niworkflows.interfaces.header import ValidateImage
 
         val_sbref = pe.Node(ValidateImage(in_file=sbref_file), name="val_sbref")
 
