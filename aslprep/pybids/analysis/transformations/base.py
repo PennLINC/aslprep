@@ -10,8 +10,8 @@ import inspect
 import numpy as np
 import pandas as pd
 
-from bids.utils import listify
-from bids.variables import SparseRunVariable
+from aslprep.pybids.utils import listify
+from aslprep.pybids.variables import SparseRunVariable
 
 
 class Transformation(metaclass=ABCMeta):

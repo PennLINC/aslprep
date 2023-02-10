@@ -1,22 +1,14 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Utility workflows."""
-from packaging.version import parse as parseversion, Version
-from pkg_resources import resource_filename as pkgr_fn
-
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu, fsl, afni
 
-from templateflow.api import get as get_template
-
 from ..engine.workflows import LiterateWorkflow as Workflow
-from ..interfaces.ants import AI
 from ..interfaces.fixes import (
-    FixHeaderRegistration as Registration,
-    FixHeaderApplyTransforms as ApplyTransforms,
     FixN4BiasFieldCorrection as N4BiasFieldCorrection,
 )
-from ..interfaces.images import ValidateImage, MatchHeader
+from ..interfaces.images import ValidateImage
 from ..interfaces.masks import SimpleShowMaskRPT
 from ..interfaces.registration import EstimateReferenceImage
 from ..interfaces.utils import CopyXForm
@@ -114,8 +106,8 @@ def init_asl_reference_wf(
 
     """
     workflow = Workflow(name=name)
-    workflow.__desc__ = f"""\
-First, the middle volume of the ASL timeseries was selected as the refernce volume and 
+    workflow.__desc__ = """\
+First, the middle volume of the ASL timeseries was selected as the refernce volume and
 brain extracted using *Nipype*'s custom brain extraction workflow.
 """
 

@@ -1,7 +1,7 @@
 import pytest
-from bids.layout import BIDSLayout
-from os.path import join, abspath, sep
-from bids.tests import get_test_data_path
+from aslprep.pybids.layout import BIDSLayout
+from os.path import join
+from aslprep.pybids.tests import get_test_data_path
 
 
 @pytest.fixture(scope='module')

@@ -53,6 +53,8 @@ __all__ = [
     'init_asl_t1_getrans_wf',
     'init_asl_geref_wf',
     'init_asl_gereg_wf',
+    "init_gecbfplot_wf",
+    "init_asl_gepreproc_wf",
     'init_asl_gestd_trans_wf',
     'init_asl_hmc_wf',
     'init_asl_std_trans_wf',

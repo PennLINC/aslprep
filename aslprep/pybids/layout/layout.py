@@ -1109,7 +1109,7 @@ class BIDSLayout(object):
             if merge=True.
 
         """
-        from bids.variables import load_variables
+        from aslprep.pybids.variables import load_variables
         index = load_variables(self, types=types, levels=level,
                                skip_empty=skip_empty, **kwargs)
         return index.get_collections(level, variables, merge,

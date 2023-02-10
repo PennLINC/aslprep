@@ -6,37 +6,21 @@ from ... import config
 import os
 
 import nibabel as nb
-from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
-
-from ...utils.meepi import combine_meepi_source
 
 from ...interfaces import DerivativesDataSink
 from ...interfaces.reports import FunctionalSummary
 
-# asl workflows
-from .confounds import init_asl_confs_wf, init_carpetplot_wf
-from .hmc import init_asl_hmc_wf
-from .stc import init_asl_stc_wf
-from .t2s import init_asl_t2s_wf
-from .registration import init_asl_t1_trans_wf, init_asl_reg_wf
-from .resampling import (
-    init_asl_surf_wf,
-    init_asl_std_trans_wf,
-    init_asl_preproc_trans_wf,
-)
 from .cbf import (
-    init_cbf_compt_wf,
-    init_cbfqc_compt_wf,
-    init_cbfplot_wf,init_gecbfplot_wf,
+    init_gecbfplot_wf,
     init_cbfroiquant_wf,
-    init_gecbf_compt_wf,init_cbfgeqc_compt_wf)
-from .outputs import init_asl_derivatives_wf,init_geasl_derivatives_wf
+    init_gecbf_compt_wf, init_cbfgeqc_compt_wf)
+from .outputs import init_geasl_derivatives_wf
 
 from ...interfaces.cbf_computation import refinemask
 from .ge_utils import ( init_asl_geref_wf, init_asl_gereg_wf,
-             init_asl_t1_getrans_wf,init_asl_gestd_trans_wf) 
+             init_asl_t1_getrans_wf, init_asl_gestd_trans_wf)
 
 
 def init_asl_gepreproc_wf(asl_file):
@@ -131,7 +115,7 @@ def init_asl_gepreproc_wf(asl_file):
     scrub_std, pv_std, basil_std
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
-        quality control meausres 
+        quality control meausres
 
     See Also
     --------
@@ -155,9 +139,7 @@ def init_asl_gepreproc_wf(asl_file):
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
     from ...niworkflows.interfaces.nibabel import ApplyMask
-    from ...niworkflows.interfaces.utility import KeySelect
 
     ref_file = asl_file
     mem_gb = {'filesize': 1, 'resampled': 1, 'largemem': 1}
@@ -183,13 +165,13 @@ def init_asl_gepreproc_wf(asl_file):
         'Memory resampled/largemem=%.2f/%.2f GB.',
         ref_file, mem_gb['filesize'], asl_tlen, mem_gb['resampled'], mem_gb['largemem'])
 
-    
+
     # Find associated sbref, if possible
     refbase = os.path.basename(ref_file)
     config.loggers.workflow.info("No single-band-reference found for %s.",
                                      refbase)
     metadata = layout.get_metadata(ref_file)
-    
+
     # Build workflow
     workflow = Workflow(name=wf_name)
     workflow.__postdesc__ = """\
@@ -208,7 +190,7 @@ effects of other kernels [@lanczos].
         name='inputnode')
     inputnode.inputs.asl_file = asl_file
     subj_dir=str(config.execution.bids_dir) + '/sub-' + str(config.execution.participant_label[0])
-    
+
 
     outputnode = pe.Node(niu.IdentityInterface(
         fields=['asl_t1', 'asl_t1_ref', 'asl_mask_t1','asl_std', 'asl_std_ref', 'asl_mask_std',
@@ -217,7 +199,7 @@ effects of other kernels [@lanczos].
                 'basil_t1', 'basil_std', 'pv_t1','pvwm_t1', 'pv_std', 'pvwm_std','pvwm_native', 'pv_native',
                 'att','att_t1','att_std','qc_file']),
         name='outputnode')
-    
+
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name='t1w_brain')
 
@@ -253,18 +235,18 @@ effects of other kernels [@lanczos].
             ('asl_native', 'inputnode.asl_native'),
         ]),
     ])
-     
-     # begin workflow 
+
+     # begin workflow
     gen_ref_wf = init_asl_geref_wf(omp_nthreads=omp_nthreads,smooth_kernel=smoothkernel,mem_gb=mem_gb['filesize'],
                               metadata=metadata,bids_dir=subj_dir,brainmask_thresh=0.5,
                               pre_mask=False, name="asl_gereference_wf",gen_report=False)
-    
+
     asl_reg_wf = init_asl_gereg_wf(use_bbr=config.workflow.use_bbr,
                 asl2t1w_dof=config.workflow.asl2t1w_dof,
                 asl2t1w_init=config.workflow.asl2t1w_init,
                 mem_gb=2, omp_nthreads=omp_nthreads, name='asl_reg_wf',
                 sloppy=False, use_compression=True, write_report=True)
-    
+
     nonstd_spaces = set(spaces.get_nonstandard())
     t1cbfspace=False
     if nonstd_spaces.intersection(('T1w', 'anat')):
@@ -272,13 +254,13 @@ effects of other kernels [@lanczos].
     t1w_gereg_wf = init_asl_t1_getrans_wf(mem_gb=3, omp_nthreads=omp_nthreads, cbft1space=t1cbfspace,
                           use_compression=True,scorescrub=scorescrub,basil=basil,name='asl_t1_trans_wf')
 
-   
-    cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb['filesize'], asl_file=asl_file, 
+
+    cbf_compt_wf = init_gecbf_compt_wf(mem_gb=mem_gb['filesize'], asl_file=asl_file,
                                metadata=metadata,bids_dir=subj_dir,omp_nthreads=omp_nthreads,
                                scorescrub=scorescrub,basil=basil,
                                 M0Scale=mscale,smooth_kernel=5,name='cbf_compt_wf')
-    
-    
+
+
     workflow.connect([
          (inputnode, gen_ref_wf,[('asl_file','inputnode.asl_file')]),
          (gen_ref_wf, asl_reg_wf,[('outputnode.ref_image_brain','inputnode.ref_asl_brain')]),
@@ -312,23 +294,23 @@ effects of other kernels [@lanczos].
         (asl_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
         (inputnode, asl_derivatives_wf, [
                 ('asl_file', 'inputnode.source_file')]),
-    
-     ]) 
 
-    refine_mask = pe.Node(refinemask(), mem_gb=1.0, 
-                                        run_without_submitting=True, 
+     ])
+
+    refine_mask = pe.Node(refinemask(), mem_gb=1.0,
+                                        run_without_submitting=True,
                                         name="refinemask")
-    
+
     workflow.connect([
-        (gen_ref_wf, refine_mask, 
+        (gen_ref_wf, refine_mask,
                            [('outputnode.asl_mask', 'in_aslmask')]),
-        (asl_reg_wf, refine_mask, 
+        (asl_reg_wf, refine_mask,
                         [('outputnode.itk_t1_to_asl', 'transforms')]),
-        (inputnode, refine_mask, 
+        (inputnode, refine_mask,
                         [('t1w_mask', 'in_t1mask')]),
     ])
 
-      
+
     cbf_plot = init_gecbfplot_wf(mem_gb=mem_gb['filesize'], metadata=metadata,
                                 scorescrub=scorescrub, basil=basil,
                                 omp_nthreads=omp_nthreads, name='cbf_plot')
@@ -429,7 +411,7 @@ effects of other kernels [@lanczos].
                                        ('outputnode.out_cbfpv', 'inputnode.pv')]),
          ])
 
-    
+
 
     if nonstd_spaces.intersection(('func', 'run', 'asl')):
         workflow.connect([
@@ -459,7 +441,7 @@ effects of other kernels [@lanczos].
                 ('outputnode.out_cbfpvwm', 'inputnode.pvwm'),
                 ('outputnode.out_att', 'inputnode.att'),]),
              ])
-    
+
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         # Apply transforms in 1 shot
         std_gereg_wf = init_asl_gestd_trans_wf(mem_gb=4,omp_nthreads=omp_nthreads,spaces=spaces,
@@ -498,7 +480,7 @@ effects of other kernels [@lanczos].
                                                ('outputnode.out_cbfpvwm', 'inputnode.pvwm'),
                                                ('outputnode.out_att', 'inputnode.att'),]),
                  ])
-  
+
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         workflow.connect([
                 (std_gereg_wf, compt_qccbf_wf, [('outputnode.asl_mask_std',
@@ -532,8 +514,8 @@ effects of other kernels [@lanczos].
                 ('outputnode.pv_std', 'inputnode.pv_std'),
                 ('outputnode.pvwm_std', 'inputnode.pvwm_std'),
                 ('outputnode.att_std', 'inputnode.att_std')]),
-            ]) 
-            
+            ])
+
 
     cbfroiqu = init_cbfroiquant_wf(mem_gb=mem_gb,
                                    scorescrub=scorescrub,
@@ -674,7 +656,7 @@ def _to_join(in_file, join_file):
 def check_img(img):
     # get the 4th dimension
     import numpy as np
-    import nibabel as nb 
+    import nibabel as nb
     ss=nb.load(img).get_fdata().shape
     if len(ss) == 3:
         ss=np.hstack([ss,0])

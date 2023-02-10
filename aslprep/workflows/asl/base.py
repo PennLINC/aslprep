@@ -29,7 +29,6 @@ from .stc import init_asl_stc_wf
 from .t2s import init_asl_t2s_wf
 from .registration import init_asl_t1_trans_wf, init_asl_reg_wf
 from .resampling import (
-    init_asl_surf_wf,
     init_asl_std_trans_wf,
     init_asl_preproc_trans_wf,
 )
@@ -86,7 +85,7 @@ def init_asl_preproc_wf(asl_file):
         List of transform files, collated with templates
     std2anat_xfm
         List of inverse transform files, collated with templates
-    
+
 
     Outputs
     -------
@@ -121,7 +120,7 @@ def init_asl_preproc_wf(asl_file):
     scrub_std, pv_std, basil_std
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
-        quality control meausres 
+        quality control meausres
 
     See Also
     --------
@@ -165,7 +164,7 @@ def init_asl_preproc_wf(asl_file):
     mscale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
-    
+
 
     if multiecho:
         tes = [layout.get_metadata(echo)['EchoTime'] for echo in asl_file]
@@ -227,7 +226,7 @@ def init_asl_preproc_wf(asl_file):
     # Build workflow
     workflow = Workflow(name=wf_name)
     workflow.__postdesc__ = """\
-All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations. 
+All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations.
 Gridded (volumetric) resampling was performed using `antsApplyTransforms`, configured with *Lanczos*
 interpolation to minimize the smoothing effects of other kernels [@lanczos].
 """
@@ -246,16 +245,16 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
 
     outputnode = pe.Node(niu.IdentityInterface(
         fields=['asl_t1', 'asl_t1_ref', 'asl_mask_t1',
-                'asl_std', 'asl_std_ref', 'asl_mask_std', 
-                'asl_native','cbf_t1', 'cbf_std', 'meancbf_t1', 
+                'asl_std', 'asl_std_ref', 'asl_mask_std',
+                'asl_native','cbf_t1', 'cbf_std', 'meancbf_t1',
                 'meancbf_std', 'score_t1', 'score_std',
                 'avgscore_t1', 'avgscore_std', ' scrub_t1', 'scrub_std',
                 'basil_t1', 'basil_std', 'pv_t1', 'pv_std',
-                'pv_native','att','att_t1','att_std','pvwm_t1', 'pvwm_std', 
+                'pv_native','att','att_t1','att_std','pvwm_t1', 'pvwm_std',
                 'confounds', 'confounds_metadata', 'qc_file',
                 'itk_asl_to_t1','itk_t1_to_asl']),
         name='outputnode')
-      
+
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name='t1w_brain')
 
@@ -328,7 +327,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
     t1cbfspace=False
     if nonstd_spaces.intersection(('T1w', 'anat')):
         t1cbfspace=True
-    
+
     asl_t1_trans_wf = init_asl_t1_trans_wf(name='asl_t1_trans_wf',
                                              use_fieldwarp=bool(fmaps),
                                              multiecho=multiecho,
@@ -357,8 +356,8 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
     )
     asl_asl_trans_wf.inputs.inputnode.name_source = ref_file
 
-    #refinemaskj = pe.Node(refinemask(),mem_gb=0.2, 
-                                       #run_without_submitting=True, 
+    #refinemaskj = pe.Node(refinemask(),mem_gb=0.2,
+                                       #run_without_submitting=True,
                                        #name="refinemask")
 
     # SLICE-TIME CORRECTION (or bypass) #############################################
@@ -541,19 +540,19 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                                 ('outputnode.itk_asl_to_t1','itk_asl_to_t1')]),
          (asl_reg_wf,asl_derivatives_wf,[('outputnode.itk_t1_to_asl','inputnode.itk_t1_to_asl'),
                                 ('outputnode.itk_asl_to_t1','inputnode.itk_asl_to_t1')]),
-        
+
      ])
 
 
-    refine_mask = pe.Node(refinemask(), mem_gb=1.0, 
-                                        run_without_submitting=True, 
+    refine_mask = pe.Node(refinemask(), mem_gb=1.0,
+                                        run_without_submitting=True,
                                         name="refinemask")
     workflow.connect([
-        (asl_asl_trans_wf, refine_mask, 
+        (asl_asl_trans_wf, refine_mask,
                            [('outputnode.asl_mask', 'in_aslmask')]),
-        (asl_reg_wf, refine_mask, 
+        (asl_reg_wf, refine_mask,
                         [('outputnode.itk_t1_to_asl', 'transforms')]),
-        (inputnode, refine_mask, 
+        (inputnode, refine_mask,
                         [('t1w_mask', 'in_t1mask')]),
     ])
 
@@ -641,12 +640,12 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                                               ]),
             (asl_t1_trans_wf, asl_derivatives_wf, [('outputnode.cbf_t1', 'inputnode.cbf_t1'),
                                             ('outputnode.meancbf_t1', 'inputnode.meancbf_t1'),
-                                
-                                            
+
+
                                             ]),
                           ])
 
-        if scorescrub: 
+        if scorescrub:
             workflow.connect([
                 (compt_cbf_wf, asl_t1_trans_wf, [('outputnode.out_score', 'inputnode.score'),
                                               ('outputnode.out_avgscore', 'inputnode.avgscore'),
@@ -736,7 +735,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                   (compt_cbf_wf, asl_std_trans_wf, [
                                                ('outputnode.out_score', 'inputnode.score'),
                                                ('outputnode.out_avgscore', 'inputnode.avgscore'),
-                                               ('outputnode.out_scrub', 'inputnode.scrub'),]),  
+                                               ('outputnode.out_scrub', 'inputnode.scrub'),]),
                 ])
         if basil:
             workflow.connect([
@@ -744,7 +743,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                                                ('outputnode.out_cbfb', 'inputnode.basil'),
                                                ('outputnode.out_cbfpv', 'inputnode.pv'),
                                                ('outputnode.out_cbfpvwm', 'inputnode.pvwm'),
-                                               ('outputnode.out_att', 'inputnode.att'),]),  
+                                               ('outputnode.out_att', 'inputnode.att'),]),
                 ])
 
         if not multiecho:
@@ -791,7 +790,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                 ('outputnode.att_std', 'inputnode.att_std')]),
             ])
 
-    
+
 
     compt_qccbf_wf = init_cbfqc_compt_wf(name='compt_qccbf_wf',
                                          mem_gb=mem_gb['filesize'],
@@ -813,7 +812,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
          (compt_qccbf_wf, summary, [('outputnode.qc_file', 'qc_file')]),
          (asl_hmc_wf, compt_qccbf_wf, [("outputnode.rmsd_file", "inputnode.rmsd_file")]),
     ])
-        
+
 
 
     if scorescrub:
@@ -896,10 +895,10 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                 ('outputnode.cbf_sc217', 'inputnode.cbf_sc217'),
                 ('outputnode.cbf_sc407', 'inputnode.cbf_sc407'),
                 ('outputnode.cbf_sc417', 'inputnode.cbf_sc417'),
-                
+
                 ]),
     ])
-     
+
     if scorescrub:
         workflow.connect([
             (compt_cbf_wf, cbfroiqu, [('outputnode.out_avgscore', 'inputnode.score'),
@@ -933,7 +932,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
                 ('outputnode.pvc_sc417', 'inputnode.pvc_sc417'),]),
         ])
 
-        
+
 
 
 

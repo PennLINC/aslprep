@@ -120,8 +120,8 @@ def init_asl_reg_wf(
         name='outputnode'
     )
 
-   
-   
+
+
     bbr_wf = init_fsl_bbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
                                  asl2t1w_init=asl2t1w_init, sloppy=sloppy)
 
@@ -153,7 +153,7 @@ def init_asl_reg_wf(
     return workflow
 
 
-def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbft1space=False, 
+def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbft1space=False,
                         multiecho=False, use_fieldwarp=False,
                           use_compression=True, name='asl_t1_trans_wf'):
     """
@@ -234,7 +234,7 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=['name_source', 'ref_asl_brain', 'ref_asl_mask','t1w_brain', 't1w_mask', 
+            fields=['name_source', 'ref_asl_brain', 'ref_asl_mask','t1w_brain', 't1w_mask',
                     'asl_split', 'fieldwarp', 'hmc_xforms', 'cbf', 'meancbf','att',
                     'score', 'avgscore', 'scrub', 'basil', 'pv', 'pvwm','itk_asl_to_t1']),
         name='inputnode'
@@ -243,7 +243,7 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
     outputnode = pe.Node(
         niu.IdentityInterface(fields=[
             'asl_t1', 'asl_t1_ref', 'asl_mask_t1','att_t1',
-            'cbf_t1', 'meancbf_t1', 'score_t1', 'avgscore_t1', 
+            'cbf_t1', 'meancbf_t1', 'score_t1', 'avgscore_t1',
             'scrub_t1', 'basil_t1', 'pv_t1','pvwm_t1']),
         name='outputnode'
     )
@@ -272,7 +272,7 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
 
     # Generate a reference on the target T1w space
     gen_final_ref = init_asl_reference_wf(omp_nthreads, pre_mask=True)
-    
+
     if not multiecho:
         # Merge transforms placing the head motion correction last
         nforms = 2 + int(use_fieldwarp)
@@ -325,7 +325,7 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
                          name='meancbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
 
         workflow.connect([
-         
+
          (gen_final_ref, outputnode, [('outputnode.ref_image', 'asl_t1_ref')]),
          (inputnode, cbf_to_t1w_transform, [('cbf', 'input_image')]),
          (cbf_to_t1w_transform, outputnode, [('output_image', 'cbf_t1')]),
@@ -366,7 +366,7 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
          (gen_ref, scrub_to_t1w_transform, [('out_file', 'reference_image')]),
 
          ])
-    
+
     if cbft1space and basil:
         basil_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
@@ -380,8 +380,8 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
         att_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
                name='att_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-        
-        
+
+
         workflow.connect([
          (inputnode, basil_to_t1w_transform, [('basil', 'input_image')]),
          (basil_to_t1w_transform, outputnode, [('output_image', 'basil_t1')]),
@@ -477,11 +477,10 @@ def init_bbreg_wf(use_bbr, asl2t1w_dof, asl2t1w_init, omp_nthreads, name='bbreg_
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    
+
     from ...niworkflows.interfaces.freesurfer import (
         PatchedBBRegisterRPT as BBRegisterRPT,
         PatchedMRICoregRPT as MRICoregRPT,
-        PatchedLTAConvert as LTAConvert
     )
     from ...niworkflows.interfaces.nitransforms import ConcatenateXFMs
 
@@ -658,7 +657,7 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_
         Skull-stripped T1-weighted structural image
     t1w_dseg
         FAST segmentation of ``t1w_brain``
-    
+
 
     Outputs
     -------
@@ -674,16 +673,15 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from ...niworkflows.utils.images import dseg_label as _dseg_label
-    from ...niworkflows.interfaces.freesurfer import PatchedLTAConvert as LTAConvert
     from ...niworkflows.interfaces.registration import FLIRTRPT
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-ASLPrep co-registered the ASL reference to the T1w reference using *FSL*’s `flirt` [@flirt], which 
+ASLPrep co-registered the ASL reference to the T1w reference using *FSL*’s `flirt` [@flirt], which
 implemented the boundary-based registration cost-function [@bbr]. Co-registration used
-{dof} degrees of freedom. The quality of co-registration and normalization to template was quantified 
-using the Dice and Jaccard indices, the cross-correlation with the reference image, and the overlap between 
-the ASL and reference images (e.g., image coverage). 
-""".format(dof=asl2t1w_dof,fsl_ver=FLIRTRPT().version or '<ver>')
+{dof} degrees of freedom. The quality of co-registration and normalization to template was quantified
+using the Dice and Jaccard indices, the cross-correlation with the reference image, and the overlap between
+the ASL and reference images (e.g., image coverage).
+""".format(dof=asl2t1w_dof)
 
     inputnode = pe.Node(
         niu.IdentityInterface([
@@ -835,7 +833,7 @@ def compare_xforms(lta_list, norm_threshold=10):
     The 10-20mm range was more ambiguous, and 15mm chosen as a compromise.
     This is open to revisiting in either direction.
 
-    
+
 
     Parameters
     ----------

@@ -1,5 +1,5 @@
 from os.path import split
-from bids.variables import load_variables
+from aslprep.pybids.variables import load_variables
 from collections import OrderedDict
 import numpy as np
 

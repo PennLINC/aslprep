@@ -9,7 +9,7 @@ Note that, at present, pybids.analysis does *not* provide a one-stop model-fitti
 A simple example of standard usage follows. We assume that we have a root folder containing a BIDS-compliant project in `/bidsproject`, as well as a BIDS-Models JSON specification in `model.json`.
 
 ```python
-from bids.analysis import Analysis
+from aslprep.pybids.analysis import Analysis
 
 # Initialize the Analysis
 analysis = Analysis('/bidsproject', 'model1.json')

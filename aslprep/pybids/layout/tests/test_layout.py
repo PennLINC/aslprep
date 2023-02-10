@@ -3,19 +3,18 @@ functionality should go in the grabbit package. """
 
 import os
 import re
-import tempfile
 from os.path import join, abspath, basename, dirname
 
 import numpy as np
 import pytest
 
-import bids
-from bids.layout import (BIDSLayout, parse_file_entities, add_config_paths,
+import aslprep.pybids
+from aslprep.pybids.layout import (BIDSLayout, parse_file_entities, add_config_paths,
                          Query)
-from bids.layout.index import BIDSLayoutIndexer
-from bids.layout.models import Entity, Config
-from bids.tests import get_test_data_path
-from bids.utils import natural_sort
+from aslprep.pybids.layout.index import BIDSLayoutIndexer
+from aslprep.pybids.layout.models import Entity, Config
+from aslprep.pybids.tests import get_test_data_path
+from aslprep.pybids.utils import natural_sort
 
 
 def test_layout_init(layout_7t_trt):
@@ -454,14 +453,14 @@ def test_to_df(layout_ds117):
 def test_parse_file_entities():
     filename = '/sub-03_ses-07_run-4_desc-bleargh_sekret.nii.gz'
 
-    # Test with entities taken from bids config
+    # Test with entities taken from aslprep.pybids config
     target = {'subject': '03', 'session': '07', 'run': 4, 'suffix': 'sekret',
               'extension': 'nii.gz'}
     assert target == parse_file_entities(filename, config='bids')
     config = Config.load('bids')
     assert target == parse_file_entities(filename, config=[config])
 
-    # Test with entities taken from bids and derivatives config
+    # Test with entities taken from aslprep.pybids and derivatives config
     target = {'subject': '03', 'session': '07', 'run': 4, 'suffix': 'sekret',
               'desc': 'bleargh', 'extension': 'nii.gz'}
     assert target == parse_file_entities(filename)
@@ -484,7 +483,7 @@ def test_parse_file_entities_from_layout(layout_synthetic):
     layout = layout_synthetic
     filename = '/sub-03_ses-07_run-4_desc-bleargh_sekret.nii.gz'
 
-    # Test with entities taken from bids config
+    # Test with entities taken from aslprep.pybids config
     target = {'subject': '03', 'session': '07', 'run': 4, 'suffix': 'sekret',
               'extension': 'nii.gz'}
     assert target == layout.parse_file_entities(filename, config='bids')

@@ -1,11 +1,8 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Spatial normalization workflows."""
-from collections import defaultdict
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
-
-from nipype.interfaces.ants.base import Info as ANTsInfo
 
 from templateflow.api import get_metadata
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -103,17 +100,10 @@ def init_anat_norm_wf(
 
     if templates:
         workflow.__desc__ = """\
-Nonlinear registration of  the brain-extracted T1w reference image to the 
+Nonlinear registration of  the brain-extracted T1w reference image to the
 brain-extracted template was accomplished using  `antsRegistration`.
 The following template {tpls} selected for spatial normalization:
-""".format(
-            ants_ver=ANTsInfo.version() or '(version unknown)',
-            targets='%s standard space%s' % (defaultdict(
-                'several'.format, {1: 'one', 2: 'two', 3: 'three', 4: 'four'})[ntpls],
-                's' * (ntpls != 1)),
-            targets_id=', '.join(templates),
-            tpls=(' was', 's were')[ntpls != 1]
-        )
+""".format(tpls=(' was', 's were')[ntpls != 1])
 
         # Append template citations to description
         for template in templates:
@@ -125,7 +115,6 @@ The following template {tpls} selected for spatial normalization:
 
             workflow.__desc__ += """\
 *{template_name}* [{template_refs}]""".format(
-                template=template,
                 template_name=template_meta['Name'],
                 template_refs=', '.join(template_refs)
             )

@@ -13,3 +13,23 @@ from .registration import (
 )
 from .utils import CopyXForm, CopyHeader, NormalizeMotionParams, SanitizeImage
 from .plotting import FMRISummary, CompCorVariancePlot, ConfoundsCorrelationPlot
+
+__all__ = [
+    "ExpandModel",
+    "SpikeRegressors",
+    "BET",
+    "FAST",
+    "FLIRT",
+    "ApplyXFM",
+    "RobustMNINormalization",
+    "Registration",
+    "ApplyTransforms",
+    "SimpleBeforeAfter",
+    "CopyXForm",
+    "CopyHeader",
+    "NormalizeMotionParams",
+    "SanitizeImage",
+    "FMRISummary",
+    "CompCorVariancePlot",
+    "ConfoundsCorrelationPlot",
+]
