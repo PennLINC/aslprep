@@ -1,8 +1,6 @@
 aslprep/logs
 aslprep/sub-01
 aslprep/sub-01/log
-aslprep/sub-01/log/20230210-213900_7c57f876-bf18-400d-9555-16b28fe57105
-aslprep/sub-01/log/20230210-213900_7c57f876-bf18-400d-9555-16b28fe57105/aslprep.toml
 aslprep/sub-01/perf
 aslprep/sub-01/perf/sub-01_aslref.nii.gz
 aslprep/sub-01/perf/sub-01_cbf.nii.gz

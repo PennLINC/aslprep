@@ -1,8 +1,6 @@
 aslprep/logs
 aslprep/sub-A00086748
 aslprep/sub-A00086748/log
-aslprep/sub-A00086748/log/20230210-213919_d7a7d693-a22a-4673-86c8-a6d24364aa7c
-aslprep/sub-A00086748/log/20230210-213919_d7a7d693-a22a-4673-86c8-a6d24364aa7c/aslprep.toml
 aslprep/sub-A00086748/ses-BAS1
 aslprep/sub-A00086748/ses-BAS1/perf
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_aslref.nii.gz
