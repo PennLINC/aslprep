@@ -121,9 +121,9 @@ def init_asl_preproc_wf(asl_file):
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.nibabel import ApplyMask
     from niworkflows.interfaces.utility import KeySelect
-    from sdcflows.workflows.base import init_sdc_estimate_wf
 
     from aslprep.utils.bids import fieldmap_wrangler
+    from aslprep.workflows.asl.fmap import init_sdc_estimate_wf
     from aslprep.workflows.asl.util import init_asl_reference_wf
 
     ref_file = asl_file
