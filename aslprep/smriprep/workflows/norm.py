@@ -25,7 +25,7 @@ def init_anat_norm_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from smriprep.workflows.norm import init_anat_norm_wf
+            from aslprep.smriprep.workflows.norm import init_anat_norm_wf
             wf = init_anat_norm_wf(
                 debug=False,
                 omp_nthreads=1,

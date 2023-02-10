@@ -69,8 +69,8 @@ def init_anat_preproc_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.utils.spaces import SpatialReferences, Reference
-            from smriprep.workflows.anatomical import init_anat_preproc_wf
+            from aslprep.niworkflows.utils.spaces import SpatialReferences, Reference
+            from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
             wf = init_anat_preproc_wf(
                 bids_root='.',
                 freesurfer=True,
@@ -495,7 +495,7 @@ def init_anat_template_wf(longitudinal, omp_nthreads, num_t1w, name='anat_templa
             :graph2use: orig
             :simple_form: yes
 
-            from smriprep.workflows.anatomical import init_anat_template_wf
+            from aslprep.smriprep.workflows.anatomical import init_anat_template_wf
             wf = init_anat_template_wf(
                 longitudinal=False, omp_nthreads=1, num_t1w=1)
 

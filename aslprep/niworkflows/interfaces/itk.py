@@ -218,7 +218,7 @@ def _applytfms(args):
     """
     import nibabel as nb
     from nipype.utils.filemanip import fname_presuffix
-    from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+    from aslprep.niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 
     in_file, in_xform, ifargs, index, newpath = args
     out_file = fname_presuffix(

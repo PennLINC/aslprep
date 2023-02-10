@@ -6,7 +6,7 @@ from glob import glob
 
 import nibabel as nb
 import numpy as np
-from bids.layout import BIDSLayout
+from aslprep.pybids.layout import BIDSLayout
 
 
 def get_test_data_path():

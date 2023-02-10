@@ -62,7 +62,7 @@ def main():
     """Entry point"""
     from os import cpu_count
     from multiprocessing import set_start_method
-    # from bids.layout import BIDSLayout
+    # from aslprep.pybids.layout import BIDSLayout
     from nipype import logging as nlogging
     set_start_method('forkserver')
 

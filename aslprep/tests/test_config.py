@@ -2,7 +2,7 @@
 from pathlib import Path
 from pkg_resources import resource_filename as pkgrf
 from toml import loads
-from niworkflows.utils.spaces import format_reference
+from aslprep.niworkflows.utils.spaces import format_reference
 
 from .. import config
 

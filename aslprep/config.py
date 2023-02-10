@@ -384,7 +384,7 @@ class execution(_Config):
 
         if cls._layout is None:
             import re
-            from bids.layout import BIDSLayout
+            from aslprep.pybids.layout import BIDSLayout
             work_dir = cls.work_dir / 'bids.db'
             work_dir.mkdir(exist_ok=True, parents=True)
             cls._layout = BIDSLayout(
@@ -455,7 +455,7 @@ class workflow(_Config):
     scorescrub = False
     """ run scorescrub, Sudipto's alogrothims for denoisng CBF """
     basil = False
-    """ run BASIL, FSL utils to compute CBF with spatial regularilization and 
+    """ run BASIL, FSL utils to compute CBF with spatial regularilization and
        partial volume correction """
 
 

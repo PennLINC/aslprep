@@ -183,7 +183,7 @@ def init_asl_std_trans_wf(
             :graph2use: colored
             :simple_form: yes
 
-            from niworkflows.utils.spaces import SpatialReferences
+            from aslprep.niworkflows.utils.spaces import SpatialReferences
             from aslprep.workflows.asl import init_asl_std_trans_wf
             wf = init_asl_std_trans_wf(
                 mem_gb=3,
@@ -354,7 +354,7 @@ def init_asl_std_trans_wf(
         scrub_to_std_transform = pe.Node(
            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
            name='scrub_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    
+
     if basil:
         basil_to_std_transform = pe.Node(
           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
@@ -368,7 +368,7 @@ def init_asl_std_trans_wf(
         att_to_std_transform = pe.Node(
           ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
           name='att_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    
+
 
     merge = pe.Node(Merge(compress=use_compression), name='merge',
                     mem_gb=mem_gb * 3)
@@ -411,13 +411,13 @@ def init_asl_std_trans_wf(
         'template',
         'cbf_std',
         'meancbf_std',
-      ] 
+      ]
 
     if scorescrub:
         output_names = output_names +['score_std','avgscore_std','scrub_std']
     if basil:
         output_names = output_names + ['basil_std', 'pv_std','att_std', 'pvwm_std']
-      
+
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names),
                           name='poutputnode')
     workflow.connect([
@@ -440,7 +440,7 @@ def init_asl_std_trans_wf(
        ])
 
     if scorescrub:
-        workflow.connect([ 
+        workflow.connect([
           (mask_merge_tfms, score_to_std_transform, [('out', 'transforms')]),
           (gen_ref, score_to_std_transform, [('out_file', 'reference_image')]),
           (inputnode, score_to_std_transform, [('score', 'input_image')]),
@@ -559,8 +559,8 @@ def init_asl_preproc_trans_wf(mem_gb, omp_nthreads,
 
     workflow = Workflow(name=name)
     # workflow.__desc__ = """\
-    #The ASL timeseries were resampled onto their original, 
-    #native space by applying the transforms to correct for head-motion. 
+    #The ASL timeseries were resampled onto their original,
+    #native space by applying the transforms to correct for head-motion.
     #These resampled ASL timeseries are referred to as preprocessed ASL
     #"""
 
@@ -779,7 +779,7 @@ def _split_spec(in_target):
 
 
 def _select_template(template):
-    from niworkflows.utils.misc import get_template_specs
+    from aslprep.niworkflows.utils.misc import get_template_specs
     template, specs = template
     template = template.split(':')[0]  # Drop any cohort modifier if present
     specs = specs.copy()

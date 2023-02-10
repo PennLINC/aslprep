@@ -30,10 +30,10 @@ from nipype.pipeline import engine as pe
 from nipype.interfaces import fsl, utility as niu
 from nipype.interfaces.image import Rescale
 
-from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.fixes import (FixHeaderApplyTransforms as ApplyTransforms,
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces.fixes import (FixHeaderApplyTransforms as ApplyTransforms,
                                           FixHeaderRegistration as Registration)
-from niworkflows.func.util import init_skullstrip_bold_wf
+from aslprep.niworkflows.func.util import init_skullstrip_bold_wf
 
 DEFAULT_MEMORY_MIN_GB = 0.01
 LOGGER = logging.getLogger('nipype.workflow')
@@ -63,7 +63,7 @@ def init_syn_sdc_wf(omp_nthreads, epi_pe=None,
             :graph2use: orig
             :simple_form: yes
 
-            from sdcflows.workflows.syn import init_syn_sdc_wf
+            from aslprep.sdcflows.workflows.syn import init_syn_sdc_wf
             wf = init_syn_sdc_wf(
                 epi_pe='j',
                 omp_nthreads=8)

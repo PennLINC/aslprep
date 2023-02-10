@@ -58,8 +58,8 @@ def init_smriprep_wf(
             from collections import namedtuple
             BIDSLayout = namedtuple('BIDSLayout', ['root'])
             os.environ['FREESURFER_HOME'] = os.getcwd()
-            from smriprep.workflows.base import init_smriprep_wf
-            from niworkflows.utils.spaces import SpatialReferences, Reference
+            from aslprep.smriprep.workflows.base import init_smriprep_wf
+            from aslprep.niworkflows.utils.spaces import SpatialReferences, Reference
             wf = init_smriprep_wf(
                 debug=False,
                 fast_track=False,
@@ -210,8 +210,8 @@ def init_single_subject_wf(
             :simple_form: yes
 
             from collections import namedtuple
-            from niworkflows.utils.spaces import SpatialReferences, Reference
-            from smriprep.workflows.base import init_single_subject_wf
+            from aslprep.niworkflows.utils.spaces import SpatialReferences, Reference
+            from aslprep.smriprep.workflows.base import init_single_subject_wf
             BIDSLayout = namedtuple('BIDSLayout', ['root'])
             wf = init_single_subject_wf(
                 debug=False,

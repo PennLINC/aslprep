@@ -41,7 +41,7 @@ def init_asl_reference_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.func.util import init_asl_reference_wf
+            from aslprep.niworkflows.func.util import init_asl_reference_wf
             wf = init_asl_reference_wf(omp_nthreads=1)
 
     Parameters
@@ -282,7 +282,7 @@ def init_enhance_and_skullstrip_asl_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
+            from aslprep.niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
             wf = init_enhance_and_skullstrip_asl_wf(omp_nthreads=1)
 
     .. _N4BiasFieldCorrection: https://hdl.handle.net/10380/3053
@@ -432,7 +432,7 @@ def init_skullstrip_asl_wf(name="skullstrip_asl_wf"):
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.func.util import init_skullstrip_asl_wf
+            from aslprep.niworkflows.func.util import init_skullstrip_asl_wf
             wf = init_skullstrip_asl_wf()
 
 

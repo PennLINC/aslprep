@@ -1,7 +1,7 @@
 """Test pepolar type of fieldmaps."""
 from os import cpu_count
 import pytest
-from niworkflows.interfaces.bids import DerivativesDataSink
+from aslprep.niworkflows.interfaces.bids import DerivativesDataSink
 from nipype.pipeline import engine as pe
 
 from ..pepolar import (
@@ -144,7 +144,7 @@ def test_pepolar_wf1(bids_layouts, output_path, dataset, workdir):
         split_field = pe.Node(niu.Function(function=_split_field), name='split_field')
 
         if dataset == 'ds001600':
-            from niworkflows.func.util import init_bold_reference_wf
+            from aslprep.niworkflows.func.util import init_bold_reference_wf
             gen_ref = init_bold_reference_wf(
                 omp_nthreads=cpu_count(),
                 bold_file=bold.path)

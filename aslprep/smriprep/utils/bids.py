@@ -5,7 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from json import loads
 from pkg_resources import resource_filename as pkgrf
-from bids.layout.writing import build_path
+from aslprep.pybids.layout.writing import build_path
 
 
 def get_outputnode_spec():
