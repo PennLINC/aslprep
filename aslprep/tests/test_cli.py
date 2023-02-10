@@ -43,10 +43,8 @@ def test_sub01(datasets, output_dir, working_dir):
 
     retval = {}
     retval = build_workflow(config_file, retval=retval)
-    # run_uuid = retval.get("run_uuid", None)
     aslprep_wf = retval.get("workflow", None)
-    plugin_settings = retval["plugin_settings"]
-    aslprep_wf.run(**plugin_settings)
+    aslprep_wf.run()
 
     output_list_file = os.path.join(test_data_dir, "test_outputs_sub01.txt")
     check_generated_files(out_dir, output_list_file)
@@ -89,10 +87,8 @@ def test_subA00086748(datasets, output_dir, working_dir):
 
     retval = {}
     retval = build_workflow(config_file, retval=retval)
-    # run_uuid = retval.get("run_uuid", None)
     aslprep_wf = retval.get("workflow", None)
-    plugin_settings = retval["plugin_settings"]
-    aslprep_wf.run(**plugin_settings)
+    aslprep_wf.run()
 
     output_list_file = os.path.join(test_data_dir, "test_outputs_subA00086748.txt")
     check_generated_files(out_dir, output_list_file)
