@@ -38,7 +38,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: data-v2
+          key: data-v4
       - run:
           name: Get test data and smriprep from box
           command: |
@@ -46,9 +46,9 @@ jobs:
             source get_data.sh
             get_bids_data $PWD downsampled
       - save_cache:
-          key: data-v2
+          key: data-v4
           paths:
-              - /src/aslprep/.circleci/data/downsampled
+              - /src/aslprep/.circleci/data
 
   aslprep_sub01:
     <<: *dockersetup
@@ -63,7 +63,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: data-v2
+          key: data-v4
       - run: *runinstall
       - run:
           name: Run full aslprep on aslprep_sub01 bold
@@ -94,7 +94,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: data-v2
+          key: data-v4
       - run: *runinstall
       - run:
           name: Run full aslprep on aslprep_subA00086748 bold
