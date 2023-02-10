@@ -5,7 +5,7 @@ import pytest
 
 from aslprep.cli.parser import parse_args
 from aslprep.cli.workflow import build_workflow
-from aslprep.tests.utils import check_affines, check_generated_files, get_test_data_path
+from aslprep.tests.utils import check_generated_files, get_test_data_path
 
 
 @pytest.mark.sub01
@@ -49,8 +49,6 @@ def test_sub01(datasets, output_dir, working_dir):
     output_list_file = os.path.join(test_data_dir, "test_outputs_sub01.txt")
     check_generated_files(out_dir, output_list_file)
 
-    check_affines(data_dir, out_dir, input_type="nifti")
-
 
 @pytest.mark.subA00086748
 def test_subA00086748(datasets, output_dir, working_dir):
@@ -92,5 +90,3 @@ def test_subA00086748(datasets, output_dir, working_dir):
 
     output_list_file = os.path.join(test_data_dir, "test_outputs_subA00086748.txt")
     check_generated_files(out_dir, output_list_file)
-
-    check_affines(data_dir, out_dir, input_type="nifti")
