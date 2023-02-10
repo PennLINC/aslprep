@@ -667,4 +667,4 @@ def _getTR(img):
     import numpy as np
     asl_img = nib.load(img)
     tr = asl_img.header.get_zooms()[-1]
-    return np.float(tr)
+    return float(tr)

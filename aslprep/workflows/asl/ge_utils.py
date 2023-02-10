@@ -688,7 +688,7 @@ class GeReferenceFile(SimpleInterface):
             m0file = reffile
 
         elif self.inputs.in_metadata["M0Type"] == "Estimate":
-            m0num = np.float(self.inputs.in_metadata['M0Estimate'])
+            m0num = float(self.inputs.in_metadata['M0Estimate'])
             if len(deltamlist) > 0:
                 modata2 = dataasl[:, :, :, deltamlist]
             elif len(controllist) > 0 :
