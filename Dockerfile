@@ -5,8 +5,6 @@ COPY . /src/aslprep
 
 ARG VERSION=0.0.1
 
-ENV FSLOUTPUTTYPE="NIFTI_GZ"
-
 # Force static versioning within container
 RUN echo "${VERSION}" > /src/aslprep/aslprep/VERSION && \
     echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in && \

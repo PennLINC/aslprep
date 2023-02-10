@@ -127,10 +127,6 @@ if not _fs_license and os.getenv('FREESURFER_HOME'):
         _fs_license = str(Path(_fs_home) / "license.txt")
     del _fs_home
 
-_fsl_outtype = os.getenv("FSLOUTPUTTYPE")
-if not _fsl_outtype:
-    raise ValueError("FSLOUTPUTTYPE not set!")
-
 _templateflow_home = Path(os.getenv(
     'TEMPLATEFLOW_HOME',
     os.path.join(os.getenv('HOME'), '.cache', 'templateflow'))
