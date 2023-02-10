@@ -1162,13 +1162,13 @@ def globalcbf(cbf, gm, wm, csf, thresh=0.7):
     gm = nb.load(gm).get_fdata()
     wm = nb.load(wm).get_fdata()
     csf = nb.load(csf).get_fdata()
-    b1 = [gm < thresh]
+    b1 = gm < thresh
     gm[b1] = 0
     bx = cbf[gm > 0]
-    b2 = [wm < thresh]
+    b2 = wm < thresh
     wm[b2] = 0
     by = cbf[wm > 0]
-    b3 = [csf < thresh]
+    b3 = csf < thresh
     csf[b3] = 0
     bz = cbf[csf > 0]
     return np.mean(bx), np.mean(by), np.mean(bz)
