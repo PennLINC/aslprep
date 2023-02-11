@@ -523,7 +523,7 @@ def init_bold_reference_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.func.util import init_bold_reference_wf
+            from aslprep.niworkflows.func.util import init_bold_reference_wf
             wf = init_bold_reference_wf(omp_nthreads=1)
 
     Parameters
@@ -765,7 +765,7 @@ def init_enhance_and_skullstrip_bold_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
+            from aslprep.niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
             wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=1)
 
     .. _N4BiasFieldCorrection: https://hdl.handle.net/10380/3053
@@ -1002,7 +1002,7 @@ def init_skullstrip_bold_wf(name="skullstrip_bold_wf"):
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.func.util import init_skullstrip_bold_wf
+            from aslprep.niworkflows.func.util import init_skullstrip_bold_wf
             wf = init_skullstrip_bold_wf()
 
 
