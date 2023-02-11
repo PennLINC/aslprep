@@ -71,7 +71,7 @@ jobs:
           command: |
             pytest -rP -o log_cli=true -m "sub01" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.ds001419_nifti
+            mv /src/aslprep/.coverage /src/coverage/.coverage.sub01
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -100,7 +100,7 @@ jobs:
           command: |
             pytest -rP -o log_cli=true -m "subA00086748" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.ds001419_nifti
+            mv /src/aslprep/.coverage /src/coverage/.coverage.subA00086748
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
