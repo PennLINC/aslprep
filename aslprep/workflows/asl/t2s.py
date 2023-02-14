@@ -10,8 +10,8 @@ Generate T2* map from multi-echo ASL images
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
-from ... import config
-from ...interfaces import T2SMap
+from aslprep import config
+from aslprep.interfaces import T2SMap
 
 LOGGER = config.loggers.workflow
 
@@ -54,7 +54,7 @@ def init_asl_t2s_wf(echo_times, mem_gb, omp_nthreads, name="asl_t2s_wf"):
         the optimally combined time series for all supplied echos
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\

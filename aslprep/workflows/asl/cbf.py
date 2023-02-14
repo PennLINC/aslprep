@@ -8,9 +8,9 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
 
-from ...config import DEFAULT_MEMORY_MIN_GB
-from ...interfaces import DerivativesDataSink
-from ...interfaces.cbf_computation import (
+from aslprep.config import DEFAULT_MEMORY_MIN_GB
+from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.cbf_computation import (
     BASILCBF,
     cbfqroiquant,
     computeCBF,
@@ -22,9 +22,9 @@ from ...interfaces.cbf_computation import (
     refinemask,
     scorescrubCBF,
 )
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-from ...niworkflows.interfaces.plotting import CBFSummary, CBFtsSummary
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from aslprep.niworkflows.interfaces.plotting import CBFSummary, CBFtsSummary
 
 
 def init_cbf_compt_wf(
@@ -954,7 +954,7 @@ For each CBF map, the ROIs for the following atlases were extracted: the  Harvar
         name="outputnode",
     )
 
-    from ...interfaces.cbf_computation import get_atlas
+    from aslprep.interfaces.cbf_computation import get_atlas
 
     hvoxfile, hvoxdata, hvoxlabel = get_atlas(atlasname="HarvardOxford")
     sc207file, sc207data, sc207label = get_atlas(atlasname="schaefer200x7")

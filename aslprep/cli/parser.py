@@ -3,7 +3,7 @@
 """Parser."""
 import sys
 
-from .. import config
+from aslprep import config
 
 
 def _build_parser():
@@ -14,8 +14,8 @@ def _build_parser():
 
     from packaging.version import Version
 
-    from ..niworkflows.utils.spaces import OutputReferencesAction, Reference
-    from .version import check_latest, is_flagged
+    from aslprep.niworkflows.utils.spaces import OutputReferencesAction, Reference
+    from aslprep.cli.version import check_latest, is_flagged
 
     def _path_exists(path, parser):
         """Ensure a given path exists."""
@@ -47,7 +47,7 @@ def _build_parser():
         return value[4:] if value.startswith("sub-") else value
 
     def _filter_pybids_none_any(dct):
-        from ..pybids import layout
+        from aslprep.pybids import layout
 
         return {k: layout.Query.ANY if v == "*" else v for k, v in dct.items()}
 
@@ -481,7 +481,7 @@ def parse_args(args=None, namespace=None):
     """Parse args and run further checks on the command line."""
     import logging
 
-    from ..niworkflows.utils.spaces import Reference, SpatialReferences
+    from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
 
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)
@@ -545,7 +545,7 @@ applied."""
 
     # Wipe out existing work_dir
     if opts.clean_workdir and work_dir.exists():
-        from ..niworkflows.utils.misc import clean_directory
+        from aslprep.niworkflows.utils.misc import clean_directory
 
         build_log.info(f"Clearing previous aslprep working directory: {work_dir}")
         if not clean_directory(work_dir):
@@ -569,7 +569,7 @@ applied."""
 
     # Validate inputs
     if not opts.skip_bids_validation:
-        from ..utils.bids import validate_input_dir
+        from aslprep.utils.bids import validate_input_dir
 
         build_log.info(
             "Making sure the input data is BIDS compliant (warnings can be ignored in most "

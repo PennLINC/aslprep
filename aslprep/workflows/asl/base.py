@@ -15,14 +15,14 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
 
-from ... import config
-from ...interfaces import DerivativesDataSink
-from ...interfaces.cbf_computation import refinemask
-from ...interfaces.reports import FunctionalSummary
-from ...utils.meepi import combine_meepi_source
+from aslprep import config
+from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.cbf_computation import refinemask
+from aslprep.interfaces.reports import FunctionalSummary
+from aslprep.utils.meepi import combine_meepi_source
 
 # cbf workflows
-from .cbf import (
+from aslprep.workflows.asl.cbf import (
     init_cbf_compt_wf,
     init_cbfplot_wf,
     init_cbfqc_compt_wf,
@@ -30,13 +30,13 @@ from .cbf import (
 )
 
 # asl workflows
-from .confounds import init_asl_confs_wf, init_carpetplot_wf
-from .hmc import init_asl_hmc_wf
-from .outputs import init_asl_derivatives_wf
-from .registration import init_asl_reg_wf, init_asl_t1_trans_wf
-from .resampling import init_asl_preproc_trans_wf, init_asl_std_trans_wf
-from .stc import init_asl_stc_wf
-from .t2s import init_asl_t2s_wf
+from aslprep.workflows.asl.confounds import init_asl_confs_wf, init_carpetplot_wf
+from aslprep.workflows.asl.hmc import init_asl_hmc_wf
+from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
+from aslprep.workflows.asl.registration import init_asl_reg_wf, init_asl_t1_trans_wf
+from aslprep.workflows.asl.resampling import init_asl_preproc_trans_wf, init_asl_std_trans_wf
+from aslprep.workflows.asl.stc import init_asl_stc_wf
+from aslprep.workflows.asl.t2s import init_asl_t2s_wf
 
 
 def init_asl_preproc_wf(asl_file):
@@ -137,11 +137,11 @@ def init_asl_preproc_wf(asl_file):
     * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
-    from ...niworkflows.interfaces.nibabel import ApplyMask
-    from ...niworkflows.interfaces.utility import KeySelect
-    from ...sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.func.util import init_asl_reference_wf
+    from aslprep.niworkflows.interfaces.nibabel import ApplyMask
+    from aslprep.niworkflows.interfaces.utility import KeySelect
+    from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 
     ref_file = asl_file
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
@@ -254,7 +254,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
         str(config.execution.bids_dir) + "/sub-" + str(config.execution.participant_label[0])
     )
     if sbref_file is not None:
-        from ...niworkflows.interfaces.images import ValidateImage
+        from aslprep.niworkflows.interfaces.images import ValidateImage
 
         val_sbref = pe.Node(ValidateImage(in_file=sbref_file), name="val_sbref")
 
@@ -446,7 +446,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
 
     # MULTI-ECHO EPI DATA #############################################
     if multiecho:
-        from ...niworkflows.func.util import init_skullstrip_asl_wf
+        from aslprep.niworkflows.func.util import init_skullstrip_asl_wf
 
         skullstrip_asl_wf = init_skullstrip_asl_wf(name="skullstrip_asl_wf")
 
@@ -696,7 +696,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
     )
 
     if fmaps:
-        from ...sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
+        from aslprep.sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
 
         # Report on asl correction
         fmap_unwarp_report_wf = init_sdc_unwarp_report_wf()
@@ -786,7 +786,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
     # Map final asl mask into T1w space (if required)
     nonstd_spaces = set(spaces.get_nonstandard())
     if nonstd_spaces.intersection(("T1w", "anat")):
-        from ...niworkflows.interfaces.fixes import (
+        from aslprep.niworkflows.interfaces.fixes import (
             FixHeaderApplyTransforms as ApplyTransforms,
         )
 
@@ -1343,7 +1343,7 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
 
 
 def _get_series_len(asl_fname):
-    from ...niworkflows.interfaces.registration import _get_vols_to_discard
+    from aslprep.niworkflows.interfaces.registration import _get_vols_to_discard
 
     img = nb.load(asl_fname)
     if len(img.shape) < 4:
@@ -1391,7 +1391,7 @@ def _get_wf_name(asl_fname):
 
 def _to_join(in_file, join_file):
     """Join two tsv files if the join_file is not ``None``."""
-    from ...niworkflows.interfaces.utils import JoinTSVColumns
+    from aslprep.niworkflows.interfaces.utils import JoinTSVColumns
 
     if join_file is None:
         return in_file

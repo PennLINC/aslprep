@@ -201,7 +201,7 @@ class ASLSummary(SimpleInterface):
     output_spec = ASLSummaryOutputSpec
 
     def _run_interface(self, runtime):
-        from ..niworkflows.viz.plots import ASLPlot
+        from aslprep.niworkflows.viz.plots import ASLPlot
 
         self._results["out_file"] = fname_presuffix(
             self.inputs.in_func, suffix="_aslplot.svg", use_ext=False, newpath=runtime.cwd

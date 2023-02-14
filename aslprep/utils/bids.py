@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def write_derivative_description(bids_dir, deriv_dir):
-    from ..__about__ import DOWNLOAD_URL, __url__, __version__
+    from aslprep.__about__ import DOWNLOAD_URL, __url__, __version__
 
     bids_dir = Path(bids_dir)
     deriv_dir = Path(deriv_dir)

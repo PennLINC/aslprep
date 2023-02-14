@@ -13,11 +13,11 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from templateflow.api import get as get_template
 
-from ...config import DEFAULT_MEMORY_MIN_GB
-from ...interfaces import ASLSummary, DerivativesDataSink, GatherConfounds
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-from ...niworkflows.interfaces.utils import AddTSVHeader
+from aslprep.config import DEFAULT_MEMORY_MIN_GB
+from aslprep.interfaces import ASLSummary, DerivativesDataSink, GatherConfounds
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from aslprep.niworkflows.interfaces.utils import AddTSVHeader
 
 
 def init_asl_confs_wf(

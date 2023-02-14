@@ -19,9 +19,9 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from nipype.utils.filemanip import fname_presuffix
 
-from ... import config
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.masks import SimpleShowMaskRPT
+from aslprep import config
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces.masks import SimpleShowMaskRPT
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -109,13 +109,13 @@ def init_asl_gereg_wf(
         name="outputnode",
     )
 
-    from .registration import init_fsl_bbr_wf
+    from aslprep.workflows.asl.registration import init_fsl_bbr_wf
 
     bbr_wf = init_fsl_bbr_wf(
         use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof, asl2t1w_init=asl2t1w_init, sloppy=sloppy
     )
     # bbr_wf.base_dir=os.getcwd()
-    from ...interfaces import DerivativesDataSink
+    from aslprep.interfaces import DerivativesDataSink
 
     workflow.connect(
         [
@@ -184,8 +184,8 @@ def init_asl_t1_getrans_wf(
 
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.fixes import (
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.fixes import (
         FixHeaderApplyTransforms as ApplyTransforms,
     )
 
@@ -396,13 +396,13 @@ def init_asl_gestd_trans_wf(
     use_compression=True,
 ):
     """ """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.fixes import (
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.fixes import (
         FixHeaderApplyTransforms as ApplyTransforms,
     )
-    from ...niworkflows.interfaces.utility import KeySelect
-    from ...niworkflows.interfaces.utils import GenerateSamplingReference
-    from ...niworkflows.utils.spaces import format_reference
+    from aslprep.niworkflows.interfaces.utility import KeySelect
+    from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
+    from aslprep.niworkflows.utils.spaces import format_reference
 
     workflow = Workflow(name=name)
     output_references = spaces.cached.get_spaces(nonstandard=False, dim=(3,))
@@ -945,9 +945,9 @@ def readjson(jsonfile):
 
 def init_fsl_gebbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_bbr_wf"):
     """ """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.registration import FLIRTRPT
-    from ...niworkflows.utils.images import dseg_label as _dseg_label
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.registration import FLIRTRPT
+    from aslprep.niworkflows.utils.images import dseg_label as _dseg_label
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\

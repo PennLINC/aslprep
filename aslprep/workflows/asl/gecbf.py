@@ -7,23 +7,23 @@ import nibabel as nb
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
-from ... import config
-from ...interfaces import DerivativesDataSink
-from ...interfaces.cbf_computation import refinemask
-from ...interfaces.reports import FunctionalSummary
-from .cbf import (
+from aslprep import config
+from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.cbf_computation import refinemask
+from aslprep.interfaces.reports import FunctionalSummary
+from aslprep.workflows.asl.cbf import (
     init_cbfgeqc_compt_wf,
     init_cbfroiquant_wf,
     init_gecbf_compt_wf,
     init_gecbfplot_wf,
 )
-from .ge_utils import (
+from aslprep.workflows.asl.ge_utils import (
     init_asl_geref_wf,
     init_asl_gereg_wf,
     init_asl_gestd_trans_wf,
     init_asl_t1_getrans_wf,
 )
-from .outputs import init_geasl_derivatives_wf
+from aslprep.workflows.asl.outputs import init_geasl_derivatives_wf
 
 
 def init_asl_gepreproc_wf(asl_file):
@@ -141,8 +141,8 @@ def init_asl_gepreproc_wf(asl_file):
     * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.nibabel import ApplyMask
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 
     ref_file = asl_file
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
@@ -472,7 +472,7 @@ effects of other kernels [@lanczos].
 
     if nonstd_spaces.intersection(("T1w", "anat")):
         t1cbfspace = True
-        from ...niworkflows.interfaces.fixes import (
+        from aslprep.niworkflows.interfaces.fixes import (
             FixHeaderApplyTransforms as ApplyTransforms,
         )
 
@@ -932,7 +932,7 @@ effects of other kernels [@lanczos].
 
 
 def _get_series_len(asl_fname):
-    from ...niworkflows.interfaces.registration import _get_vols_to_discard
+    from aslprep.niworkflows.interfaces.registration import _get_vols_to_discard
 
     img = nb.load(asl_fname)
     if len(img.shape) < 4:
@@ -980,7 +980,7 @@ def _get_wf_name(asl_fname):
 
 def _to_join(in_file, join_file):
     """Join two tsv files if the join_file is not ``None``."""
-    from ...niworkflows.interfaces.utils import JoinTSVColumns
+    from aslprep.niworkflows.interfaces.utils import JoinTSVColumns
 
     if join_file is None:
         return in_file

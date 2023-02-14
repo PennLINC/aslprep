@@ -12,12 +12,12 @@ a hard-limited memory-scope.
 
 def build_workflow(config_file, retval):
     """Create the Nipype Workflow that supports the whole execution graph."""
-    from .. import config
-    from ..niworkflows.reports import generate_reports
-    from ..niworkflows.utils.bids import check_pipeline_version, collect_participants
-    from ..niworkflows.utils.misc import check_valid_fs_license
-    from ..utils.misc import check_deps
-    from ..workflows.base import init_aslprep_wf
+    from aslprep import config
+    from aslprep.niworkflows.reports import generate_reports
+    from aslprep.niworkflows.utils.bids import check_pipeline_version, collect_participants
+    from aslprep.niworkflows.utils.misc import check_valid_fs_license
+    from aslprep.utils.misc import check_deps
+    from aslprep.workflows.base import init_aslprep_wf
 
     config.load(config_file)
     build_log = config.loggers.workflow
@@ -108,7 +108,7 @@ license file at several paths, in this order: 1) command line argument ``--fs-li
 
 def build_boilerplate(config_file, workflow):
     """Write boilerplate in an isolated process."""
-    from .. import config
+    from aslprep import config
 
     config.load(config_file)
     logs_path = config.execution.output_dir / "aslprep" / "logs"

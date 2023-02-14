@@ -11,7 +11,7 @@ from nipype.interfaces import afni
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
-from ... import config
+from aslprep import config
 
 LOGGER = config.loggers.workflow
 
@@ -54,8 +54,8 @@ def init_asl_stc_wf(metadata, name="asl_stc_wf"):
         Slice-timing corrected ASL series NIfTI file
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.utils import CopyXForm
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.utils import CopyXForm
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
