@@ -4,7 +4,7 @@ import os
 import nibabel as nib
 import pytest
 
-from ..confounds import _add_volumes, _remove_volumes
+from aslprep.workflows.asl.confounds import _add_volumes, _remove_volumes
 
 skip_pytest = pytest.mark.skipif(
     not os.getenv("ASLPREP_REGRESSION_SOURCE") or not os.getenv("ASLPREP_REGRESSION_TARGETS"),
