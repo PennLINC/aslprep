@@ -6,6 +6,7 @@ profile = "black"
 multi_line_output = 3
 src_paths = ["isort", "test"]
 known_local_folder = ["aslprep"]
+skip = ["aslprep/niworkflows", "aslprep/pybids", "aslprep/sdcflows", "aslprep/smriprep"]
 
 [tool.black]
 line-length = 99
@@ -25,6 +26,10 @@ exclude = '''
   )/
   | versioneer.py
   | aslprep/_version.py
+  | aslprep/niworkflows/
+  | aslprep/pybids/
+  | aslprep/sdcflows/
+  | aslprep/smriprep/
 )
 '''
 

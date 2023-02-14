@@ -10,16 +10,15 @@ Registration workflows
 .. autofunction:: init_fsl_bbr_wf
 
 """
-from ... import config
-
 import os
 import os.path as op
 
 import pkg_resources as pkgr
-
+from nipype.interfaces import c3, fsl
+from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from nipype.interfaces import utility as niu, fsl, c3
 
+from ... import config
 from ...interfaces import DerivativesDataSink
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
@@ -27,15 +26,15 @@ LOGGER = config.loggers.workflow
 
 
 def init_asl_reg_wf(
-        use_bbr,
-        asl2t1w_dof,
-        asl2t1w_init,
-        mem_gb,
-        omp_nthreads,
-        name='asl_reg_wf',
-        sloppy=False,
-        use_compression=True,
-        write_report=True,
+    use_bbr,
+    asl2t1w_dof,
+    asl2t1w_init,
+    mem_gb,
+    omp_nthreads,
+    name="asl_reg_wf",
+    sloppy=False,
+    use_compression=True,
+    write_report=True,
 ):
     """
     Build a workflow to run same-subject, ASL-to-T1w image-registration.
@@ -109,53 +108,85 @@ def init_asl_reg_wf(
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=['ref_asl_brain', 't1w_brain', 't1w_dseg',
-                    ]),
-        name='inputnode'
+            fields=[
+                "ref_asl_brain",
+                "t1w_brain",
+                "t1w_dseg",
+            ]
+        ),
+        name="inputnode",
     )
 
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=[
-            'itk_asl_to_t1', 'itk_t1_to_asl', 'fallback']),
-        name='outputnode'
+        niu.IdentityInterface(fields=["itk_asl_to_t1", "itk_t1_to_asl", "fallback"]),
+        name="outputnode",
     )
 
+    bbr_wf = init_fsl_bbr_wf(
+        use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof, asl2t1w_init=asl2t1w_init, sloppy=sloppy
+    )
 
-
-    bbr_wf = init_fsl_bbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
-                                 asl2t1w_init=asl2t1w_init, sloppy=sloppy)
-
-    workflow.connect([
-        (inputnode, bbr_wf, [
-            ('ref_asl_brain', 'inputnode.in_file'),
-            ('t1w_dseg', 'inputnode.t1w_dseg'),
-            ('t1w_brain', 'inputnode.t1w_brain')]),
-        (bbr_wf, outputnode, [('outputnode.itk_asl_to_t1', 'itk_asl_to_t1'),
-                              ('outputnode.itk_t1_to_asl', 'itk_t1_to_asl'),
-                              ('outputnode.fallback', 'fallback')]),
-    ])
+    workflow.connect(
+        [
+            (
+                inputnode,
+                bbr_wf,
+                [
+                    ("ref_asl_brain", "inputnode.in_file"),
+                    ("t1w_dseg", "inputnode.t1w_dseg"),
+                    ("t1w_brain", "inputnode.t1w_brain"),
+                ],
+            ),
+            (
+                bbr_wf,
+                outputnode,
+                [
+                    ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
+                    ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
+                    ("outputnode.fallback", "fallback"),
+                ],
+            ),
+        ]
+    )
 
     if write_report:
         ds_report_reg = pe.Node(
             DerivativesDataSink(datatype="figures", dismiss_entities=("echo",)),
-            name='ds_report_reg', run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB)
+            name="ds_report_reg",
+            run_without_submitting=True,
+            mem_gb=DEFAULT_MEMORY_MIN_GB,
+        )
 
         def _asl_reg_suffix(fallback):
-            return 'flirtbbr'
+            return "flirtbbr"
 
-        workflow.connect([
-            (bbr_wf, ds_report_reg, [
-                ('outputnode.out_report', 'in_file'),
-                (('outputnode.fallback', _asl_reg_suffix), 'desc')]),
-        ])
+        workflow.connect(
+            [
+                (
+                    bbr_wf,
+                    ds_report_reg,
+                    [
+                        ("outputnode.out_report", "in_file"),
+                        (("outputnode.fallback", _asl_reg_suffix), "desc"),
+                    ],
+                ),
+            ]
+        )
 
     return workflow
 
 
-def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbft1space=False,
-                        multiecho=False, use_fieldwarp=False,
-                          use_compression=True, name='asl_t1_trans_wf'):
+def init_asl_t1_trans_wf(
+    mem_gb,
+    omp_nthreads,
+    scorescrub=False,
+    basil=False,
+    cbft1space=False,
+    multiecho=False,
+    use_fieldwarp=False,
+    use_compression=True,
+    name="asl_t1_trans_wf",
+):
     """
     Co-register the reference ASL image to T1w-space.
 
@@ -226,7 +257,9 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from ...niworkflows.func.util import init_asl_reference_wf
-    from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+    from ...niworkflows.interfaces.fixes import (
+        FixHeaderApplyTransforms as ApplyTransforms,
+    )
     from ...niworkflows.interfaces.itk import MultiApplyTransforms
     from ...niworkflows.interfaces.nilearn import Merge
     from ...niworkflows.interfaces.utils import GenerateSamplingReference
@@ -234,41 +267,84 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=['name_source', 'ref_asl_brain', 'ref_asl_mask','t1w_brain', 't1w_mask',
-                    'asl_split', 'fieldwarp', 'hmc_xforms', 'cbf', 'meancbf','att',
-                    'score', 'avgscore', 'scrub', 'basil', 'pv', 'pvwm','itk_asl_to_t1']),
-        name='inputnode'
+            fields=[
+                "name_source",
+                "ref_asl_brain",
+                "ref_asl_mask",
+                "t1w_brain",
+                "t1w_mask",
+                "asl_split",
+                "fieldwarp",
+                "hmc_xforms",
+                "cbf",
+                "meancbf",
+                "att",
+                "score",
+                "avgscore",
+                "scrub",
+                "basil",
+                "pv",
+                "pvwm",
+                "itk_asl_to_t1",
+            ]
+        ),
+        name="inputnode",
     )
 
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=[
-            'asl_t1', 'asl_t1_ref', 'asl_mask_t1','att_t1',
-            'cbf_t1', 'meancbf_t1', 'score_t1', 'avgscore_t1',
-            'scrub_t1', 'basil_t1', 'pv_t1','pvwm_t1']),
-        name='outputnode'
+        niu.IdentityInterface(
+            fields=[
+                "asl_t1",
+                "asl_t1_ref",
+                "asl_mask_t1",
+                "att_t1",
+                "cbf_t1",
+                "meancbf_t1",
+                "score_t1",
+                "avgscore_t1",
+                "scrub_t1",
+                "basil_t1",
+                "pv_t1",
+                "pvwm_t1",
+            ]
+        ),
+        name="outputnode",
     )
 
-    gen_ref = pe.Node(GenerateSamplingReference(), name='gen_ref',
-                      mem_gb=0.3)  # 256x256x256 * 64 / 8 ~ 150MB
+    gen_ref = pe.Node(
+        GenerateSamplingReference(), name="gen_ref", mem_gb=0.3
+    )  # 256x256x256 * 64 / 8 ~ 150MB
 
-    mask_t1w_tfm = pe.Node(ApplyTransforms(interpolation='MultiLabel'),
-                           name='mask_t1w_tfm', mem_gb=0.1)
+    mask_t1w_tfm = pe.Node(
+        ApplyTransforms(interpolation="MultiLabel"), name="mask_t1w_tfm", mem_gb=0.1
+    )
 
-    workflow.connect([
-        (inputnode, gen_ref, [('ref_asl_brain', 'moving_image'),
-                              ('t1w_brain', 'fixed_image'),
-                              ('t1w_mask', 'fov_mask')]),
-        (inputnode, mask_t1w_tfm, [('ref_asl_mask', 'input_image')]),
-        (gen_ref, mask_t1w_tfm, [('out_file', 'reference_image')]),
-        (inputnode, mask_t1w_tfm, [('itk_asl_to_t1', 'transforms')]),
-        (mask_t1w_tfm, outputnode, [('output_image', 'asl_mask_t1')]),
-    ])
+    workflow.connect(
+        [
+            (
+                inputnode,
+                gen_ref,
+                [
+                    ("ref_asl_brain", "moving_image"),
+                    ("t1w_brain", "fixed_image"),
+                    ("t1w_mask", "fov_mask"),
+                ],
+            ),
+            (inputnode, mask_t1w_tfm, [("ref_asl_mask", "input_image")]),
+            (gen_ref, mask_t1w_tfm, [("out_file", "reference_image")]),
+            (inputnode, mask_t1w_tfm, [("itk_asl_to_t1", "transforms")]),
+            (mask_t1w_tfm, outputnode, [("output_image", "asl_mask_t1")]),
+        ]
+    )
 
     asl_to_t1w_transform = pe.Node(
-                  MultiApplyTransforms(interpolation="LanczosWindowedSinc", float=True, copy_dtype=True),
-                  name='asl_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+        MultiApplyTransforms(interpolation="LanczosWindowedSinc", float=True, copy_dtype=True),
+        name="asl_to_t1w_transform",
+        mem_gb=mem_gb * 3 * omp_nthreads,
+        n_procs=omp_nthreads,
+    )
     # merge 3D volumes into 4D timeseries
-    merge = pe.Node(Merge(compress=use_compression), name='merge', mem_gb=mem_gb)
+    merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb)
 
     # Generate a reference on the target T1w space
     gen_final_ref = init_asl_reference_wf(omp_nthreads, pre_mask=True)
@@ -276,138 +352,174 @@ def init_asl_t1_trans_wf( mem_gb, omp_nthreads,scorescrub=False,basil=False, cbf
     if not multiecho:
         # Merge transforms placing the head motion correction last
         nforms = 2 + int(use_fieldwarp)
-        merge_xforms = pe.Node(niu.Merge(nforms), name='merge_xforms',
-                               run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
+        merge_xforms = pe.Node(
+            niu.Merge(nforms),
+            name="merge_xforms",
+            run_without_submitting=True,
+            mem_gb=DEFAULT_MEMORY_MIN_GB,
+        )
         if use_fieldwarp:
-            workflow.connect([
-                (inputnode, merge_xforms, [('fieldwarp', 'in2')])
-            ])
+            workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in2")])])
 
-        workflow.connect([
-            # merge transforms
-            (inputnode, merge_xforms, [
-                ('hmc_xforms', 'in%d' % nforms),
-                ('itk_asl_to_t1', 'in1')]),
-            (merge_xforms, asl_to_t1w_transform, [('out', 'transforms')]),
-            (inputnode, asl_to_t1w_transform, [('asl_split', 'input_image')]),
-            (inputnode, merge, [('name_source', 'header_source')]),
-            (gen_ref, asl_to_t1w_transform, [('out_file', 'reference_image')]),
-            (asl_to_t1w_transform, merge, [('out_files', 'in_files')]),
-            (merge, gen_final_ref, [('out_file', 'inputnode.asl_file')]),
-            (mask_t1w_tfm, gen_final_ref, [('output_image', 'inputnode.asl_mask')]),
-            (merge, outputnode, [('out_file', 'asl_t1')]),
-        ])
+        workflow.connect(
+            [
+                # merge transforms
+                (
+                    inputnode,
+                    merge_xforms,
+                    [("hmc_xforms", "in%d" % nforms), ("itk_asl_to_t1", "in1")],
+                ),
+                (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
+                (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
+                (inputnode, merge, [("name_source", "header_source")]),
+                (gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")]),
+                (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
+                (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
+                (mask_t1w_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
+                (merge, outputnode, [("out_file", "asl_t1")]),
+            ]
+        )
 
     else:
         from nipype.interfaces.fsl import Split as FSLSplit
-        asl_split = pe.Node(FSLSplit(dimension='t'), name='asl_split',
-                             mem_gb=DEFAULT_MEMORY_MIN_GB)
 
-        workflow.connect([
-            (inputnode, asl_split, [('asl_split', 'in_file')]),
-            (asl_split, asl_to_t1w_transform, [('out_files', 'input_image')]),
-            (inputnode, asl_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-            (inputnode, merge, [('name_source', 'header_source')]),
-            (gen_ref, asl_to_t1w_transform, [('out_file', 'reference_image')]),
-            (asl_to_t1w_transform, merge, [('out_files', 'in_files')]),
-            (merge, gen_final_ref, [('out_file', 'inputnode.asl_file')]),
-            (mask_t1w_tfm, gen_final_ref, [('output_image', 'inputnode.asl_mask')]),
-            (merge, outputnode, [('out_file', 'asl_t1')]),
-        ])
+        asl_split = pe.Node(
+            FSLSplit(dimension="t"), name="asl_split", mem_gb=DEFAULT_MEMORY_MIN_GB
+        )
+
+        workflow.connect(
+            [
+                (inputnode, asl_split, [("asl_split", "in_file")]),
+                (asl_split, asl_to_t1w_transform, [("out_files", "input_image")]),
+                (inputnode, asl_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (inputnode, merge, [("name_source", "header_source")]),
+                (gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")]),
+                (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
+                (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
+                (mask_t1w_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
+                (merge, outputnode, [("out_file", "asl_t1")]),
+            ]
+        )
 
     if cbft1space:
         cbf_to_t1w_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
-                        dimension=3),
-              name='cbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+            ApplyTransforms(
+                interpolation="LanczosWindowedSinc", float=True, input_image_type=3, dimension=3
+            ),
+            name="cbf_to_t1w_transform",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
         meancbf_to_t1w_transform = pe.Node(
-                         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
-                         name='meancbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
+            name="meancbf_to_t1w_transform",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
 
-        workflow.connect([
-
-         (gen_final_ref, outputnode, [('outputnode.ref_image', 'asl_t1_ref')]),
-         (inputnode, cbf_to_t1w_transform, [('cbf', 'input_image')]),
-         (cbf_to_t1w_transform, outputnode, [('output_image', 'cbf_t1')]),
-         (inputnode, cbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-         (gen_ref, cbf_to_t1w_transform, [('out_file', 'reference_image')]),
-         (inputnode, meancbf_to_t1w_transform, [('meancbf', 'input_image')]),
-         (meancbf_to_t1w_transform, outputnode, [('output_image', 'meancbf_t1')]),
-         (inputnode, meancbf_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-         (gen_ref, meancbf_to_t1w_transform, [('out_file', 'reference_image')]),
-            ])
+        workflow.connect(
+            [
+                (gen_final_ref, outputnode, [("outputnode.ref_image", "asl_t1_ref")]),
+                (inputnode, cbf_to_t1w_transform, [("cbf", "input_image")]),
+                (cbf_to_t1w_transform, outputnode, [("output_image", "cbf_t1")]),
+                (inputnode, cbf_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (gen_ref, cbf_to_t1w_transform, [("out_file", "reference_image")]),
+                (inputnode, meancbf_to_t1w_transform, [("meancbf", "input_image")]),
+                (meancbf_to_t1w_transform, outputnode, [("output_image", "meancbf_t1")]),
+                (inputnode, meancbf_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (gen_ref, meancbf_to_t1w_transform, [("out_file", "reference_image")]),
+            ]
+        )
     if cbft1space and scorescrub:
         score_to_t1w_transform = pe.Node(
-             ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
-                        dimension=3),
-             name='score_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+            ApplyTransforms(
+                interpolation="LanczosWindowedSinc", float=True, input_image_type=3, dimension=3
+            ),
+            name="score_to_t1w_transform",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
         avgscore_to_t1w_transform = pe.Node(
-            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
-           name='avgscore_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
+            name="avgscore_to_t1w_transform",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
         scrub_to_t1w_transform = pe.Node(
-              ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
-              name='scrub_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
+            name="scrub_to_t1w_transform",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
 
-        workflow.connect([
-
-         (inputnode, score_to_t1w_transform, [('score', 'input_image')]),
-         (score_to_t1w_transform, outputnode, [('output_image', 'score_t1')]),
-         (inputnode, score_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-         (gen_ref, score_to_t1w_transform, [('out_file', 'reference_image')]),
-
-         (inputnode, avgscore_to_t1w_transform, [('avgscore', 'input_image')]),
-         (avgscore_to_t1w_transform, outputnode, [('output_image', 'avgscore_t1')]),
-         (inputnode, avgscore_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-         (gen_ref, avgscore_to_t1w_transform, [('out_file', 'reference_image')]),
-
-         (inputnode, scrub_to_t1w_transform, [('scrub', 'input_image')]),
-         (scrub_to_t1w_transform, outputnode, [('output_image', 'scrub_t1')]),
-         (inputnode, scrub_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-         (gen_ref, scrub_to_t1w_transform, [('out_file', 'reference_image')]),
-
-         ])
+        workflow.connect(
+            [
+                (inputnode, score_to_t1w_transform, [("score", "input_image")]),
+                (score_to_t1w_transform, outputnode, [("output_image", "score_t1")]),
+                (inputnode, score_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (gen_ref, score_to_t1w_transform, [("out_file", "reference_image")]),
+                (inputnode, avgscore_to_t1w_transform, [("avgscore", "input_image")]),
+                (avgscore_to_t1w_transform, outputnode, [("output_image", "avgscore_t1")]),
+                (inputnode, avgscore_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (gen_ref, avgscore_to_t1w_transform, [("out_file", "reference_image")]),
+                (inputnode, scrub_to_t1w_transform, [("scrub", "input_image")]),
+                (scrub_to_t1w_transform, outputnode, [("output_image", "scrub_t1")]),
+                (inputnode, scrub_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (gen_ref, scrub_to_t1w_transform, [("out_file", "reference_image")]),
+            ]
+        )
 
     if cbft1space and basil:
         basil_to_t1w_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
-            name='basil_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
+            name="basil_to_t1w_transform",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
         pv_to_t1w_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
-               name='pv_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
+            name="pv_to_t1w_transform",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
         pvwm_to_t1w_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
-               name='pv_to_t1w_transformwm', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
+            name="pv_to_t1w_transformwm",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
         att_to_t1w_transform = pe.Node(
-               ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
-               name='att_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
+            ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
+            name="att_to_t1w_transform",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
 
-
-        workflow.connect([
-         (inputnode, basil_to_t1w_transform, [('basil', 'input_image')]),
-         (basil_to_t1w_transform, outputnode, [('output_image', 'basil_t1')]),
-         (inputnode, basil_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-         (gen_ref, basil_to_t1w_transform, [('out_file', 'reference_image')]),
-
-         (inputnode, pv_to_t1w_transform, [('pv', 'input_image')]),
-         (pv_to_t1w_transform, outputnode, [('output_image', 'pv_t1')]),
-         (inputnode, pv_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-         (gen_ref, pv_to_t1w_transform, [('out_file', 'reference_image')]),
-
-         (inputnode, pvwm_to_t1w_transform, [('pvwm', 'input_image')]),
-         (pvwm_to_t1w_transform, outputnode, [('output_image', 'pvwm_t1')]),
-         (inputnode, pvwm_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-         (gen_ref, pvwm_to_t1w_transform, [('out_file', 'reference_image')]),
-
-         (inputnode, att_to_t1w_transform, [('att', 'input_image')]),
-         (att_to_t1w_transform, outputnode, [('output_image', 'att_t1')]),
-         (inputnode, att_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
-         (gen_ref, att_to_t1w_transform, [('out_file', 'reference_image')]),
-          ])
+        workflow.connect(
+            [
+                (inputnode, basil_to_t1w_transform, [("basil", "input_image")]),
+                (basil_to_t1w_transform, outputnode, [("output_image", "basil_t1")]),
+                (inputnode, basil_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (gen_ref, basil_to_t1w_transform, [("out_file", "reference_image")]),
+                (inputnode, pv_to_t1w_transform, [("pv", "input_image")]),
+                (pv_to_t1w_transform, outputnode, [("output_image", "pv_t1")]),
+                (inputnode, pv_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (gen_ref, pv_to_t1w_transform, [("out_file", "reference_image")]),
+                (inputnode, pvwm_to_t1w_transform, [("pvwm", "input_image")]),
+                (pvwm_to_t1w_transform, outputnode, [("output_image", "pvwm_t1")]),
+                (inputnode, pvwm_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (gen_ref, pvwm_to_t1w_transform, [("out_file", "reference_image")]),
+                (inputnode, att_to_t1w_transform, [("att", "input_image")]),
+                (att_to_t1w_transform, outputnode, [("output_image", "att_t1")]),
+                (inputnode, att_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+                (gen_ref, att_to_t1w_transform, [("out_file", "reference_image")]),
+            ]
+        )
 
     return workflow
 
 
-def init_bbreg_wf(use_bbr, asl2t1w_dof, asl2t1w_init, omp_nthreads, name='bbreg_wf'):
+def init_bbreg_wf(use_bbr, asl2t1w_dof, asl2t1w_init, omp_nthreads, name="bbreg_wf"):
     """
     Build a workflow to run FreeSurfer's ``bbregister``.
 
@@ -477,11 +589,10 @@ def init_bbreg_wf(use_bbr, asl2t1w_dof, asl2t1w_init, omp_nthreads, name='bbreg_
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-
     from ...niworkflows.interfaces.freesurfer import (
         PatchedBBRegisterRPT as BBRegisterRPT,
-        PatchedMRICoregRPT as MRICoregRPT,
     )
+    from ...niworkflows.interfaces.freesurfer import PatchedMRICoregRPT as MRICoregRPT
     from ...niworkflows.interfaces.nitransforms import ConcatenateXFMs
 
     workflow = Workflow(name=name)
@@ -489,19 +600,30 @@ def init_bbreg_wf(use_bbr, asl2t1w_dof, asl2t1w_init, omp_nthreads, name='bbreg_
 The ASL reference was then co-registered to the T1w reference using
 `bbregister` (FreeSurfer) which implements boundary-based registration [@bbr].
 Co-registration was configured with {dof} degrees of freedom{reason}.
-""".format(dof={6: 'six', 9: 'nine', 12: 'twelve'}[asl2t1w_dof],
-           reason='' if asl2t1w_dof == 6 else
-                  'to account for distortions remaining in the ASL reference')
+""".format(
+        dof={6: "six", 9: "nine", 12: "twelve"}[asl2t1w_dof],
+        reason=""
+        if asl2t1w_dof == 6
+        else "to account for distortions remaining in the ASL reference",
+    )
 
     inputnode = pe.Node(
-        niu.IdentityInterface([
-            'in_file',
-            'fsnative2t1w_xfm', 'subjects_dir', 'subject_id',  # BBRegister
-            't1w_dseg', 't1w_brain']),  # FLIRT BBR
-        name='inputnode')
+        niu.IdentityInterface(
+            [
+                "in_file",
+                "fsnative2t1w_xfm",
+                "subjects_dir",
+                "subject_id",  # BBRegister
+                "t1w_dseg",
+                "t1w_brain",
+            ]
+        ),  # FLIRT BBR
+        name="inputnode",
+    )
     outputnode = pe.Node(
-        niu.IdentityInterface(['itk_asl_to_t1', 'itk_t1_to_asl', 'out_report', 'fallback']),
-        name='outputnode')
+        niu.IdentityInterface(["itk_asl_to_t1", "itk_t1_to_asl", "out_report", "fallback"]),
+        name="outputnode",
+    )
 
     if asl2t1w_init not in ("register", "header"):
         raise ValueError(f"Unknown ASL-T1w initialization option: {asl2t1w_init}")
@@ -515,101 +637,136 @@ Co-registration was configured with {dof} degrees of freedom{reason}.
             LOGGER.warning("Initializing BBR with header; affine fallback disabled")
             use_bbr = True
 
-    merge_ltas = pe.Node(niu.Merge(2), name='merge_ltas', run_without_submitting=True)
-    concat_xfm = pe.Node(ConcatenateXFMs(inverse=True), name='concat_xfm')
+    merge_ltas = pe.Node(niu.Merge(2), name="merge_ltas", run_without_submitting=True)
+    concat_xfm = pe.Node(ConcatenateXFMs(inverse=True), name="concat_xfm")
 
-    workflow.connect([
-        # Output ITK transforms
-        (inputnode, merge_ltas, [('fsnative2t1w_xfm', 'in2')]),
-        (merge_ltas, concat_xfm, [('out', 'in_xfms')]),
-        (concat_xfm, outputnode, [('out_xfm', 'itk_asl_to_t1')]),
-        (concat_xfm, outputnode, [('out_inv', 'itk_t1_to_asl')]),
-    ])
+    workflow.connect(
+        [
+            # Output ITK transforms
+            (inputnode, merge_ltas, [("fsnative2t1w_xfm", "in2")]),
+            (merge_ltas, concat_xfm, [("out", "in_xfms")]),
+            (concat_xfm, outputnode, [("out_xfm", "itk_asl_to_t1")]),
+            (concat_xfm, outputnode, [("out_inv", "itk_t1_to_asl")]),
+        ]
+    )
 
     # Define both nodes, but only connect conditionally
     mri_coreg = pe.Node(
-        MRICoregRPT(dof=asl2t1w_dof, sep=[4], ftol=0.0001, linmintol=0.01,
-                    generate_report=not use_bbr),
-        name='mri_coreg', n_procs=omp_nthreads, mem_gb=5)
+        MRICoregRPT(
+            dof=asl2t1w_dof, sep=[4], ftol=0.0001, linmintol=0.01, generate_report=not use_bbr
+        ),
+        name="mri_coreg",
+        n_procs=omp_nthreads,
+        mem_gb=5,
+    )
 
     bbregister = pe.Node(
-        BBRegisterRPT(dof=asl2t1w_dof, contrast_type='t2', registered_file=True,
-                      out_lta_file=True, generate_report=True),
-        name='bbregister', mem_gb=12)
+        BBRegisterRPT(
+            dof=asl2t1w_dof,
+            contrast_type="t2",
+            registered_file=True,
+            out_lta_file=True,
+            generate_report=True,
+        ),
+        name="bbregister",
+        mem_gb=12,
+    )
 
     # Use mri_coreg
     if asl2t1w_init == "register":
-        workflow.connect([
-            (inputnode, mri_coreg, [('subjects_dir', 'subjects_dir'),
-                                    ('subject_id', 'subject_id'),
-                                    ('in_file', 'source_file')]),
-        ])
+        workflow.connect(
+            [
+                (
+                    inputnode,
+                    mri_coreg,
+                    [
+                        ("subjects_dir", "subjects_dir"),
+                        ("subject_id", "subject_id"),
+                        ("in_file", "source_file"),
+                    ],
+                ),
+            ]
+        )
 
         # Short-circuit workflow building, use initial registration
         if use_bbr is False:
-            workflow.connect([
-                (mri_coreg, outputnode, [('out_report', 'out_report')]),
-                (mri_coreg, merge_ltas, [('out_lta_file', 'in1')])])
+            workflow.connect(
+                [
+                    (mri_coreg, outputnode, [("out_report", "out_report")]),
+                    (mri_coreg, merge_ltas, [("out_lta_file", "in1")]),
+                ]
+            )
             outputnode.inputs.fallback = True
 
             return workflow
 
     # Use bbregister
-    workflow.connect([
-        (inputnode, bbregister, [('subjects_dir', 'subjects_dir'),
-                                 ('subject_id', 'subject_id'),
-                                 ('in_file', 'source_file')]),
-    ])
+    workflow.connect(
+        [
+            (
+                inputnode,
+                bbregister,
+                [
+                    ("subjects_dir", "subjects_dir"),
+                    ("subject_id", "subject_id"),
+                    ("in_file", "source_file"),
+                ],
+            ),
+        ]
+    )
 
     if asl2t1w_init == "header":
         bbregister.inputs.init = "header"
     else:
-        workflow.connect([(mri_coreg, bbregister, [('out_lta_file', 'init_reg_file')])])
+        workflow.connect([(mri_coreg, bbregister, [("out_lta_file", "init_reg_file")])])
 
     # Short-circuit workflow building, use boundary-based registration
     if use_bbr is True:
-        workflow.connect([
-            (bbregister, outputnode, [('out_report', 'out_report')]),
-            (bbregister, merge_ltas, [('out_lta_file', 'in1')])])
+        workflow.connect(
+            [
+                (bbregister, outputnode, [("out_report", "out_report")]),
+                (bbregister, merge_ltas, [("out_lta_file", "in1")]),
+            ]
+        )
         outputnode.inputs.fallback = False
 
         return workflow
 
     # Only reach this point if asl2t1w_init is "register" and use_bbr is None
 
-    #transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
-    #reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
+    # transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
+    # reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
 
-    #lta_ras2ras = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_lta'],
-                             #name='lta_ras2ras', mem_gb=2)
-    #compare_transforms = pe.Node(niu.Function(function=compare_xforms), name='compare_transforms')
+    # lta_ras2ras = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_lta'],
+    # name='lta_ras2ras', mem_gb=2)
+    # compare_transforms = pe.Node(niu.Function(function=compare_xforms), name='compare_transforms')
 
-    #select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
-    #select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
+    # select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
+    # select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
 
-    #workflow.connect([
-        #(bbregister, transforms, [('out_lta_file', 'in1')]),
-        #(mri_coreg, transforms, [('out_lta_file', 'in2')]),
-        # Normalize LTA transforms to RAS2RAS (inputs are VOX2VOX) and compare
-        #(transforms, lta_ras2ras, [('out', 'in_lta')]),
-        #(lta_ras2ras, compare_transforms, [('out_lta', 'lta_list')]),
-        #(compare_transforms, outputnode, [('out', 'fallback')]),
-        # Select output transform
-        #(transforms, select_transform, [('out', 'inlist')]),
-        #(compare_transforms, select_transform, [('out', 'index')]),
-        #(select_transform, merge_ltas, [('out', 'in1')]),
-        # Select output report
-        #(bbregister, reports, [('out_report', 'in1')]),
-        #(mri_coreg, reports, [('out_report', 'in2')]),
-        #(reports, select_report, [('out', 'inlist')]),
-        #(compare_transforms, select_report, [('out', 'index')]),
-        #(select_report, outputnode, [('out', 'out_report')]),
-    #])
+    # workflow.connect([
+    # (bbregister, transforms, [('out_lta_file', 'in1')]),
+    # (mri_coreg, transforms, [('out_lta_file', 'in2')]),
+    # Normalize LTA transforms to RAS2RAS (inputs are VOX2VOX) and compare
+    # (transforms, lta_ras2ras, [('out', 'in_lta')]),
+    # (lta_ras2ras, compare_transforms, [('out_lta', 'lta_list')]),
+    # (compare_transforms, outputnode, [('out', 'fallback')]),
+    # Select output transform
+    # (transforms, select_transform, [('out', 'inlist')]),
+    # (compare_transforms, select_transform, [('out', 'index')]),
+    # (select_transform, merge_ltas, [('out', 'in1')]),
+    # Select output report
+    # (bbregister, reports, [('out_report', 'in1')]),
+    # (mri_coreg, reports, [('out_report', 'in2')]),
+    # (reports, select_report, [('out', 'inlist')]),
+    # (compare_transforms, select_report, [('out', 'index')]),
+    # (select_report, outputnode, [('out', 'out_report')]),
+    # ])
 
-    #return workflow
+    # return workflow
 
 
-def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_bbr_wf'):
+def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_bbr_wf"):
     """
     Build a workflow to run FSL's ``flirt``.
 
@@ -672,8 +829,9 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.utils.images import dseg_label as _dseg_label
     from ...niworkflows.interfaces.registration import FLIRTRPT
+    from ...niworkflows.utils.images import dseg_label as _dseg_label
+
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 ASLPrep co-registered the ASL reference to the T1w reference using *FSL*’s `flirt` [@flirt], which
@@ -681,20 +839,23 @@ implemented the boundary-based registration cost-function [@bbr]. Co-registratio
 {dof} degrees of freedom. The quality of co-registration and normalization to template was quantified
 using the Dice and Jaccard indices, the cross-correlation with the reference image, and the overlap between
 the ASL and reference images (e.g., image coverage).
-""".format(dof=asl2t1w_dof)
+""".format(
+        dof=asl2t1w_dof
+    )
 
     inputnode = pe.Node(
-        niu.IdentityInterface([
-            'in_file', 't1w_dseg', 't1w_brain']),  # FLIRT BBR
-        name='inputnode')
+        niu.IdentityInterface(["in_file", "t1w_dseg", "t1w_brain"]), name="inputnode"  # FLIRT BBR
+    )
     outputnode = pe.Node(
-        niu.IdentityInterface(['itk_asl_to_t1', 'itk_t1_to_asl', 'out_report', 'fallback']),
-        name='outputnode')
+        niu.IdentityInterface(["itk_asl_to_t1", "itk_t1_to_asl", "out_report", "fallback"]),
+        name="outputnode",
+    )
 
-    wm_mask = pe.Node(niu.Function(function=_dseg_label), name='wm_mask')
+    wm_mask = pe.Node(niu.Function(function=_dseg_label), name="wm_mask")
     wm_mask.inputs.label = 2  # BIDS default is WM=2
-    flt_bbr_init = pe.Node(FLIRTRPT(dof=6, generate_report=not use_bbr,
-                                    uses_qform=True), name='flt_bbr_init')
+    flt_bbr_init = pe.Node(
+        FLIRTRPT(dof=6, generate_report=not use_bbr, uses_qform=True), name="flt_bbr_init"
+    )
 
     if asl2t1w_init not in ("register", "header"):
         raise ValueError(f"Unknown ASL-T1w initialization option: {asl2t1w_init}")
@@ -702,116 +863,144 @@ the ASL and reference images (e.g., image coverage).
     if asl2t1w_init == "header":
         raise NotImplementedError("Header-based registration initialization not supported for FSL")
 
-    invt_bbr = pe.Node(fsl.ConvertXFM(invert_xfm=True), name='invt_bbr',
-                       mem_gb=DEFAULT_MEMORY_MIN_GB)
+    invt_bbr = pe.Node(
+        fsl.ConvertXFM(invert_xfm=True), name="invt_bbr", mem_gb=DEFAULT_MEMORY_MIN_GB
+    )
 
     # ASL to T1 transform matrix is from fsl, using c3 tools to convert to
     # something ANTs will like.
-    fsl2itk_fwd = pe.Node(c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
-                          name='fsl2itk_fwd', mem_gb=DEFAULT_MEMORY_MIN_GB)
-    fsl2itk_inv = pe.Node(c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
-                          name='fsl2itk_inv', mem_gb=DEFAULT_MEMORY_MIN_GB)
+    fsl2itk_fwd = pe.Node(
+        c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
+        name="fsl2itk_fwd",
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
+    fsl2itk_inv = pe.Node(
+        c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
+        name="fsl2itk_inv",
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
 
-    workflow.connect([
-        (inputnode, flt_bbr_init, [('in_file', 'in_file'),
-                                   ('t1w_brain', 'reference')]),
-        (inputnode, fsl2itk_fwd, [('t1w_brain', 'reference_file'),
-                                  ('in_file', 'source_file')]),
-        (inputnode, fsl2itk_inv, [('in_file', 'reference_file'),
-                                  ('t1w_brain', 'source_file')]),
-        (invt_bbr, fsl2itk_inv, [('out_file', 'transform_file')]),
-        (fsl2itk_fwd, outputnode, [('itk_transform', 'itk_asl_to_t1')]),
-        (fsl2itk_inv, outputnode, [('itk_transform', 'itk_t1_to_asl')]),
-    ])
+    workflow.connect(
+        [
+            (inputnode, flt_bbr_init, [("in_file", "in_file"), ("t1w_brain", "reference")]),
+            (
+                inputnode,
+                fsl2itk_fwd,
+                [("t1w_brain", "reference_file"), ("in_file", "source_file")],
+            ),
+            (
+                inputnode,
+                fsl2itk_inv,
+                [("in_file", "reference_file"), ("t1w_brain", "source_file")],
+            ),
+            (invt_bbr, fsl2itk_inv, [("out_file", "transform_file")]),
+            (fsl2itk_fwd, outputnode, [("itk_transform", "itk_asl_to_t1")]),
+            (fsl2itk_inv, outputnode, [("itk_transform", "itk_t1_to_asl")]),
+        ]
+    )
 
     # Short-circuit workflow building, use rigid registration
     if use_bbr is False:
-        workflow.connect([
-            (flt_bbr_init, invt_bbr, [('out_matrix_file', 'in_file')]),
-            (flt_bbr_init, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
-            (flt_bbr_init, outputnode, [('out_report', 'out_report')]),
-        ])
+        workflow.connect(
+            [
+                (flt_bbr_init, invt_bbr, [("out_matrix_file", "in_file")]),
+                (flt_bbr_init, fsl2itk_fwd, [("out_matrix_file", "transform_file")]),
+                (flt_bbr_init, outputnode, [("out_report", "out_report")]),
+            ]
+        )
         outputnode.inputs.fallback = True
 
         return workflow
 
     flt_bbr = pe.Node(
-        FLIRTRPT(cost_func='bbr', dof=asl2t1w_dof, generate_report=True),
-        name='flt_bbr')
+        FLIRTRPT(cost_func="bbr", dof=asl2t1w_dof, generate_report=True), name="flt_bbr"
+    )
 
-    FSLDIR = os.getenv('FSLDIR')
+    FSLDIR = os.getenv("FSLDIR")
     if FSLDIR:
-        flt_bbr.inputs.schedule = op.join(FSLDIR, 'etc/flirtsch/bbr.sch')
+        flt_bbr.inputs.schedule = op.join(FSLDIR, "etc/flirtsch/bbr.sch")
     else:
         # Should mostly be hit while building docs
         LOGGER.warning("FSLDIR unset - using packaged BBR schedule")
-        flt_bbr.inputs.schedule = pkgr.resource_filename('aslprep', 'data/flirtsch/bbr.sch')
+        flt_bbr.inputs.schedule = pkgr.resource_filename("aslprep", "data/flirtsch/bbr.sch")
 
-    workflow.connect([
-        (inputnode, wm_mask, [('t1w_dseg', 'in_seg')]),
-        (inputnode, flt_bbr, [('in_file', 'in_file')]),
-        (flt_bbr_init, flt_bbr, [('out_matrix_file', 'in_matrix_file')]),
-    ])
+    workflow.connect(
+        [
+            (inputnode, wm_mask, [("t1w_dseg", "in_seg")]),
+            (inputnode, flt_bbr, [("in_file", "in_file")]),
+            (flt_bbr_init, flt_bbr, [("out_matrix_file", "in_matrix_file")]),
+        ]
+    )
 
     if sloppy is True:
-        downsample = pe.Node(niu.Function(
-            function=_conditional_downsampling, output_names=["out_file", "out_mask"]),
-            name='downsample')
-        workflow.connect([
-            (inputnode, downsample, [("t1w_brain", "in_file")]),
-            (wm_mask, downsample, [("out", "in_mask")]),
-            (downsample, flt_bbr, [('out_file', 'reference'),
-                                   ('out_mask', 'wm_seg')]),
-        ])
+        downsample = pe.Node(
+            niu.Function(
+                function=_conditional_downsampling, output_names=["out_file", "out_mask"]
+            ),
+            name="downsample",
+        )
+        workflow.connect(
+            [
+                (inputnode, downsample, [("t1w_brain", "in_file")]),
+                (wm_mask, downsample, [("out", "in_mask")]),
+                (downsample, flt_bbr, [("out_file", "reference"), ("out_mask", "wm_seg")]),
+            ]
+        )
     else:
-        workflow.connect([
-            (inputnode, flt_bbr, [('t1w_brain', 'reference')]),
-            (wm_mask, flt_bbr, [('out', 'wm_seg')]),
-        ])
+        workflow.connect(
+            [
+                (inputnode, flt_bbr, [("t1w_brain", "reference")]),
+                (wm_mask, flt_bbr, [("out", "wm_seg")]),
+            ]
+        )
 
     # Short-circuit workflow building, use boundary-based registration
     if use_bbr is True:
-        workflow.connect([
-            (flt_bbr, invt_bbr, [('out_matrix_file', 'in_file')]),
-            (flt_bbr, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
-            (flt_bbr, outputnode, [('out_report', 'out_report')]),
-        ])
+        workflow.connect(
+            [
+                (flt_bbr, invt_bbr, [("out_matrix_file", "in_file")]),
+                (flt_bbr, fsl2itk_fwd, [("out_matrix_file", "transform_file")]),
+                (flt_bbr, outputnode, [("out_report", "out_report")]),
+            ]
+        )
         outputnode.inputs.fallback = False
 
         return workflow
 
-    #transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
-    #reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
+    # transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
+    # reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
 
-    #compare_transforms = pe.Node(niu.Function(function=compare_xforms,output_names="out"), name='compare_transforms')
+    # compare_transforms = pe.Node(niu.Function(function=compare_xforms,output_names="out"), name='compare_transforms')
 
-    #select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
-    #select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
+    # select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
+    # select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
 
-    #fsl_to_lta = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_fsl'],
-                            #name='fsl_to_lta')
-    #select_transform.inputs.index= 0
+    # fsl_to_lta = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_fsl'],
+    # name='fsl_to_lta')
+    # select_transform.inputs.index= 0
 
-    workflow.connect([
-        #(flt_bbr, transforms, [('out_matrix_file', 'in1')]),
-        #(flt_bbr_init, transforms, [('out_matrix_file', 'in2')]),
-        #Convert FSL transforms to LTA (RAS2RAS) transforms and compare
-        #(inputnode, fsl_to_lta, [('in_file', 'source_file'),
-                                 #('t1w_brain', 'target_file')]),
-        #(transforms, fsl_to_lta, [('out', 'in_fsl')]),
-        #(fsl_to_lta, compare_transforms, [('out_lta', 'lta_list')]),
-        #(compare_transforms, outputnode, [('out', 'fallback')]),
-        # Select output transform
-        #(transforms, select_transform, [('out', 'inlist')]),
-        #(compare_transforms, select_transform, [('out', 'index')]),
-        (flt_bbr, invt_bbr, [('out_matrix_file', 'in_file')]),
-        (flt_bbr, fsl2itk_fwd, [('out_matrix_file', 'transform_file')]),
-        #(flt_bbr, reports, [('out_report', 'in1')]),
-        #(flt_bbr_init, reports, [('out_report', 'in2')]),
-        #(reports, select_report, [('out', 'inlist')]),
-        #(compare_transforms, select_report, [('out', 'index')]),
-        (flt_bbr, outputnode, [('out_report', 'out_report')]),
-    ])
+    workflow.connect(
+        [
+            # (flt_bbr, transforms, [('out_matrix_file', 'in1')]),
+            # (flt_bbr_init, transforms, [('out_matrix_file', 'in2')]),
+            # Convert FSL transforms to LTA (RAS2RAS) transforms and compare
+            # (inputnode, fsl_to_lta, [('in_file', 'source_file'),
+            # ('t1w_brain', 'target_file')]),
+            # (transforms, fsl_to_lta, [('out', 'in_fsl')]),
+            # (fsl_to_lta, compare_transforms, [('out_lta', 'lta_list')]),
+            # (compare_transforms, outputnode, [('out', 'fallback')]),
+            # Select output transform
+            # (transforms, select_transform, [('out', 'inlist')]),
+            # (compare_transforms, select_transform, [('out', 'index')]),
+            (flt_bbr, invt_bbr, [("out_matrix_file", "in_file")]),
+            (flt_bbr, fsl2itk_fwd, [("out_matrix_file", "transform_file")]),
+            # (flt_bbr, reports, [('out_report', 'in1')]),
+            # (flt_bbr_init, reports, [('out_report', 'in2')]),
+            # (reports, select_report, [('out', 'inlist')]),
+            # (compare_transforms, select_report, [('out', 'index')]),
+            (flt_bbr, outputnode, [("out_report", "out_report")]),
+        ]
+    )
 
     return workflow
 
@@ -845,8 +1034,9 @@ def compare_xforms(lta_list, norm_threshold=10):
           second transform relative to the first (default: `15`)
 
     """
-    from ...niworkflows.interfaces.surf import load_transform
     from nipype.algorithms.rapidart import _calc_norm_affine
+
+    from ...niworkflows.interfaces.surf import load_transform
 
     bbr_affine = load_transform(lta_list[0])
     fallback_affine = load_transform(lta_list[1])
@@ -859,9 +1049,10 @@ def compare_xforms(lta_list, norm_threshold=10):
 def _conditional_downsampling(in_file, in_mask, zoom_th=4.0):
     """Downsamples the input dataset for sloppy mode."""
     from pathlib import Path
-    import numpy as np
+
     import nibabel as nb
     import nitransforms as nt
+    import numpy as np
     from scipy.ndimage.filters import gaussian_filter
 
     img = nb.load(in_file)
@@ -870,8 +1061,8 @@ def _conditional_downsampling(in_file, in_mask, zoom_th=4.0):
     if not np.any(zooms < zoom_th):
         return in_file, in_mask
 
-    out_file = Path('desc-resampled_input.nii.gz').absolute()
-    out_mask = Path('desc-resampled_mask.nii.gz').absolute()
+    out_file = Path("desc-resampled_input.nii.gz").absolute()
+    out_mask = Path("desc-resampled_mask.nii.gz").absolute()
 
     shape = np.array(img.shape[:3])
     scaling = zoom_th / zooms

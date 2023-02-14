@@ -1,9 +1,10 @@
 """Test parser."""
-from packaging.version import Version
 import pytest
-from ..parser import _build_parser
-from .. import version as _version
-from ... import config
+from packaging.version import Version
+
+from aslprep import config
+from aslprep.cli import version as _version
+from aslprep.cli.parser import _build_parser
 
 MIN_ARGS = ["data/", "out/", "participant"]
 
@@ -86,20 +87,15 @@ def test_get_parser_update(monkeypatch, capsys, current, latest):
     _build_parser()
     captured = capsys.readouterr().err
 
-    msg = """\
-You are using aslprep-%s, and a newer version of aslprep is available: %s.
+    msg = f"""\
+You are using aslprep-{current}, and a newer version of aslprep is available: {latest}.
 Please check out our documentation about how and when to upgrade:
-https://aslprep.readthedocs.io/en/latest/faq.html#upgrading""" % (
-        current,
-        latest,
-    )
+https://aslprep.readthedocs.io/en/latest/faq.html#upgrading"""
 
     assert (msg in captured) is expectation
 
 
-@pytest.mark.parametrize(
-    "flagged", [(True, None), (True, "random reason"), (False, None)]
-)
+@pytest.mark.parametrize("flagged", [(True, None), (True, "random reason"), (False, None)])
 def test_get_parser_blacklist(monkeypatch, capsys, flagged):
     """Make sure the blacklisting banner is shown."""
 

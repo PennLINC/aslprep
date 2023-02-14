@@ -12,10 +12,10 @@ a hard-limited memory-scope.
 
 def build_workflow(config_file, retval):
     """Create the Nipype Workflow that supports the whole execution graph."""
-    from ..niworkflows.utils.bids import collect_participants, check_pipeline_version
-    from ..niworkflows.utils.misc import check_valid_fs_license
-    from ..niworkflows.reports import generate_reports
     from .. import config
+    from ..niworkflows.reports import generate_reports
+    from ..niworkflows.utils.bids import check_pipeline_version, collect_participants
+    from ..niworkflows.utils.misc import check_valid_fs_license
     from ..utils.misc import check_deps
     from ..workflows.base import init_aslprep_wf
 
@@ -29,9 +29,7 @@ def build_workflow(config_file, retval):
     retval["workflow"] = None
 
     # warn if older results exist: check for dataset_description.json in output folder
-    msg = check_pipeline_version(
-        version, output_dir / "aslprep" / "dataset_description.json"
-    )
+    msg = check_pipeline_version(version, output_dir / "aslprep" / "dataset_description.json")
     if msg is not None:
         build_log.warning(msg)
 
@@ -52,9 +50,7 @@ def build_workflow(config_file, retval):
     if config.execution.reports_only:
         from pkg_resources import resource_filename as pkgrf
 
-        build_log.log(
-            25, "Running --reports-only on participants %s", ", ".join(subject_list)
-        )
+        build_log.log(25, "Running --reports-only on participants %s", ", ".join(subject_list))
         retval["return_code"] = generate_reports(
             subject_list,
             config.execution.output_dir,
@@ -81,11 +77,13 @@ def build_workflow(config_file, retval):
 
     # Check for FS license after building the workflow
     if not check_valid_fs_license():
-        build_log.critical("""\
+        build_log.critical(
+            """\
 ERROR: a valid license file is required for FreeSurfer to run. ASLPrep looked for an existing \
 license file at several paths, in this order: 1) command line argument ``--fs-license-file``; \
 2) ``$FS_LICENSE`` environment variable; and 3) the ``$FREESURFER_HOME/license.txt`` path. Get it \
-(for free) by registering at https://surfer.nmr.mgh.harvard.edu/registration.html""")
+(for free) by registering at https://surfer.nmr.mgh.harvard.edu/registration.html"""
+        )
         retval["return_code"] = 126  # 126 == Command invoked cannot execute.
         return retval
 
@@ -94,9 +92,7 @@ license file at several paths, in this order: 1) command line argument ``--fs-li
     if missing:
         build_log.critical(
             "Cannot run ASLPrep. Missing dependencies:%s",
-            "\n\t* ".join(
-                [""] + [f"{cmd} (Interface: {iface})" for iface, cmd in missing]
-            ),
+            "\n\t* ".join([""] + [f"{cmd} (Interface: {iface})" for iface, cmd in missing]),
         )
         retval["return_code"] = 127  # 127 == command not found.
         return retval
@@ -134,9 +130,10 @@ def build_boilerplate(config_file, workflow):
     citation_files["md"].write_text(boilerplate)
 
     if not config.execution.md_only_boilerplate and citation_files["md"].exists():
-        from subprocess import check_call, CalledProcessError, TimeoutExpired
-        from pkg_resources import resource_filename as pkgrf
         from shutil import copyfile
+        from subprocess import CalledProcessError, TimeoutExpired, check_call
+
+        from pkg_resources import resource_filename as pkgrf
 
         # Generate HTML file resolving citations
         cmd = [
@@ -153,15 +150,11 @@ def build_boilerplate(config_file, workflow):
             str(citation_files["html"]),
         ]
 
-        config.loggers.cli.info(
-            "Generating an HTML version of the citation boilerplate..."
-        )
+        config.loggers.cli.info("Generating an HTML version of the citation boilerplate...")
         try:
             check_call(cmd, timeout=10)
         except (FileNotFoundError, CalledProcessError, TimeoutExpired):
-            config.loggers.cli.warning(
-                "Could not generate CITATION.html file:\n%s", " ".join(cmd)
-            )
+            config.loggers.cli.warning("Could not generate CITATION.html file:\n%s", " ".join(cmd))
 
         # Generate LaTex file resolving citations
         cmd = [
@@ -174,14 +167,10 @@ def build_boilerplate(config_file, workflow):
             "-o",
             str(citation_files["tex"]),
         ]
-        config.loggers.cli.info(
-            "Generating a LaTeX version of the citation boilerplate..."
-        )
+        config.loggers.cli.info("Generating a LaTeX version of the citation boilerplate...")
         try:
             check_call(cmd, timeout=10)
         except (FileNotFoundError, CalledProcessError, TimeoutExpired):
-            config.loggers.cli.warning(
-                "Could not generate CITATION.tex file:\n%s", " ".join(cmd)
-            )
+            config.loggers.cli.warning("Could not generate CITATION.tex file:\n%s", " ".join(cmd))
         else:
             copyfile(pkgrf("aslprep", "data/boilerplate.bib"), citation_files["bib"])
