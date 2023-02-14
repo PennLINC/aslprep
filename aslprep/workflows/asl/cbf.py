@@ -23,7 +23,9 @@ from aslprep.interfaces.cbf_computation import (
     scorescrubCBF,
 )
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from aslprep.niworkflows.interfaces.fixes import (
+    FixHeaderApplyTransforms as ApplyTransforms,
+)
 from aslprep.niworkflows.interfaces.plotting import CBFSummary, CBFtsSummary
 
 

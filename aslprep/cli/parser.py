@@ -14,8 +14,8 @@ def _build_parser():
 
     from packaging.version import Version
 
-    from aslprep.niworkflows.utils.spaces import OutputReferencesAction, Reference
     from aslprep.cli.version import check_latest, is_flagged
+    from aslprep.niworkflows.utils.spaces import OutputReferencesAction, Reference
 
     def _path_exists(path, parser):
         """Ensure a given path exists."""

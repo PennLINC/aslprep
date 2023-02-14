@@ -14,7 +14,10 @@ def build_workflow(config_file, retval):
     """Create the Nipype Workflow that supports the whole execution graph."""
     from aslprep import config
     from aslprep.niworkflows.reports import generate_reports
-    from aslprep.niworkflows.utils.bids import check_pipeline_version, collect_participants
+    from aslprep.niworkflows.utils.bids import (
+        check_pipeline_version,
+        collect_participants,
+    )
     from aslprep.niworkflows.utils.misc import check_valid_fs_license
     from aslprep.utils.misc import check_deps
     from aslprep.workflows.base import init_aslprep_wf

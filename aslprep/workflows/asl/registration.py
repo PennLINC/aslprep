@@ -592,7 +592,9 @@ def init_bbreg_wf(use_bbr, asl2t1w_dof, asl2t1w_init, omp_nthreads, name="bbreg_
     from aslprep.niworkflows.interfaces.freesurfer import (
         PatchedBBRegisterRPT as BBRegisterRPT,
     )
-    from aslprep.niworkflows.interfaces.freesurfer import PatchedMRICoregRPT as MRICoregRPT
+    from aslprep.niworkflows.interfaces.freesurfer import (
+        PatchedMRICoregRPT as MRICoregRPT,
+    )
     from aslprep.niworkflows.interfaces.nitransforms import ConcatenateXFMs
 
     workflow = Workflow(name=name)
