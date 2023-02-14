@@ -25,6 +25,10 @@ exclude = '''
   )/
   | versioneer.py
   | aslprep/_version.py
+  | aslprep/niworkflows/
+  | aslprep/pybids/
+  | aslprep/sdcflows/
+  | aslprep/smriprep/
 )
 '''
 
