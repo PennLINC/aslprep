@@ -1,9 +1,10 @@
 """Test parser."""
-from packaging.version import Version
 import pytest
-from ..parser import _build_parser
-from .. import version as _version
+from packaging.version import Version
+
 from ... import config
+from .. import version as _version
+from ..parser import _build_parser
 
 MIN_ARGS = ["data/", "out/", "participant"]
 
@@ -97,9 +98,7 @@ https://aslprep.readthedocs.io/en/latest/faq.html#upgrading""" % (
     assert (msg in captured) is expectation
 
 
-@pytest.mark.parametrize(
-    "flagged", [(True, None), (True, "random reason"), (False, None)]
-)
+@pytest.mark.parametrize("flagged", [(True, None), (True, "random reason"), (False, None)])
 def test_get_parser_blacklist(monkeypatch, capsys, flagged):
     """Make sure the blacklisting banner is shown."""
 

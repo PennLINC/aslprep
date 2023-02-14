@@ -7,19 +7,17 @@ Generate T2* map from multi-echo ASL images
 .. autofunction:: init_asl_t2s_wf
 
 """
-from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
+from nipype.pipeline import engine as pe
 
-from ...interfaces import T2SMap
 from ... import config
-
+from ...interfaces import T2SMap
 
 LOGGER = config.loggers.workflow
 
 
 # pylint: disable=R0914
-def init_asl_t2s_wf(echo_times, mem_gb, omp_nthreads,
-                     name='asl_t2s_wf'):
+def init_asl_t2s_wf(echo_times, mem_gb, omp_nthreads, name="asl_t2s_wf"):
     """
     Combine multiple echos of :abbr:`ME-EPI (multi-echo echo-planar imaging)`.
 
@@ -70,17 +68,19 @@ echoes following the method described in [@posse_t2s].
 The optimally combined time series was carried forward as the *preprocessed asl*.
 """
 
-    inputnode = pe.Node(niu.IdentityInterface(fields=['asl_file']), name='inputnode')
+    inputnode = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="inputnode")
 
-    outputnode = pe.Node(niu.IdentityInterface(fields=['asl']), name='outputnode')
+    outputnode = pe.Node(niu.IdentityInterface(fields=["asl"]), name="outputnode")
 
-    LOGGER.log(25, 'Generating T2* map and optimally combined ME-EPI time series.')
+    LOGGER.log(25, "Generating T2* map and optimally combined ME-EPI time series.")
 
-    t2smap_node = pe.Node(T2SMap(echo_times=echo_times), name='t2smap_node')
+    t2smap_node = pe.Node(T2SMap(echo_times=echo_times), name="t2smap_node")
 
-    workflow.connect([
-        (inputnode, t2smap_node, [('asl_file', 'in_files')]),
-        (t2smap_node, outputnode, [('optimal_comb', 'asl')]),
-    ])
+    workflow.connect(
+        [
+            (inputnode, t2smap_node, [("asl_file", "in_files")]),
+            (t2smap_node, outputnode, [("optimal_comb", "asl")]),
+        ]
+    )
 
     return workflow
