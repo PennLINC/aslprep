@@ -13,25 +13,25 @@ def pytest_addoption(parser):
 
 
 # Set up the commandline options as fixtures
-@pytest.fixture
+@pytest.fixture(scope="session")
 def data_dir(request):
     """Grab data directory."""
     return request.config.getoption("--data_dir")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def working_dir(request):
     """Grab working directory."""
     return request.config.getoption("--working_dir")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def output_dir(request):
     """Grab output directory."""
     return request.config.getoption("--output_dir")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def datasets(data_dir):
     """Locate downloaded datasets."""
     dsets = {}
