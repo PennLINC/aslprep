@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from packaging.version import Version
 
-from .. import version as _version
-from ..version import DATE_FMT, check_latest, is_flagged, requests
+from aslprep.cli import version as _version
+from aslprep.cli.version import DATE_FMT, check_latest, is_flagged, requests
 
 
 class MockResponse:
