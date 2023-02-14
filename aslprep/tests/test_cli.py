@@ -21,7 +21,6 @@ def test_sub01(datasets, output_dir, working_dir):
     work_dir = os.path.join(working_dir, test_name)
 
     test_data_dir = get_test_data_path()
-    os.environ["FS_LICENSE"] = os.path.join(test_data_dir, "license.txt")
 
     parameters = [
         data_dir,
@@ -63,7 +62,6 @@ def test_subA00086748(datasets, output_dir, working_dir):
     work_dir = os.path.join(working_dir, test_name)
 
     test_data_dir = get_test_data_path()
-    os.environ["FS_LICENSE"] = os.path.join(test_data_dir, "license.txt")
 
     parameters = [
         data_dir,
