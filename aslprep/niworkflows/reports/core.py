@@ -65,7 +65,7 @@ class Reportlet(Element):
 
     >>> from pkg_resources import resource_filename
     >>> from shutil import copytree
-    >>> from bids.layout import BIDSLayout
+    >>> from aslprep.pybids.layout import BIDSLayout
     >>> test_data_path = resource_filename('niworkflows', 'data/tests/work')
     >>> testdir = Path(tmpdir)
     >>> data_dir = copytree(test_data_path, str(testdir / 'work'))
@@ -217,7 +217,7 @@ class Report:
 
     >>> from pkg_resources import resource_filename
     >>> from shutil import copytree
-    >>> from bids.layout import BIDSLayout
+    >>> from aslprep.pybids.layout import BIDSLayout
     >>> test_data_path = resource_filename('niworkflows', 'data/tests/work')
     >>> testdir = Path(tmpdir)
     >>> data_dir = copytree(test_data_path, str(testdir / 'work'))
@@ -267,7 +267,7 @@ class Report:
             )
             self.out_filename = f"sub-{self.subject_id}.html"
 
-        # Default template from niworkflows
+        # Default template from aslprep.niworkflows
         self.template_path = Path(pkgrf("aslprep", "niworkflows/reports/report.tpl"))
         self._load_config(Path(config or pkgrf("aslprep", "niworkflows/reports/default.yml")))
         assert self.template_path.exists()

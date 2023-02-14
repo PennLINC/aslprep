@@ -34,7 +34,7 @@ def init_magnitude_wf(omp_nthreads, name='magnitude_wf'):
             :graph2use: orig
             :simple_form: yes
 
-            from sdcflows.workflows.fmap import init_magnitude_wf
+            from aslprep.sdcflows.workflows.fmap import init_magnitude_wf
             wf = init_magnitude_wf(omp_nthreads=6)
 
     Parameters
@@ -97,7 +97,7 @@ def init_fmap_postproc_wf(omp_nthreads, fmap_bspline, median_kernel_size=5,
             :graph2use: orig
             :simple_form: yes
 
-            from sdcflows.workflows.fmap import init_fmap_postproc_wf
+            from aslprep.sdcflows.workflows.fmap import init_fmap_postproc_wf
             wf = init_fmap_postproc_wf(omp_nthreads=6, fmap_bspline=False)
 
     Parameters

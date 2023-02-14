@@ -1,6 +1,6 @@
 """Test phase-difference type of fieldmaps."""
 import pytest
-from niworkflows.interfaces.bids import DerivativesDataSink
+from aslprep.niworkflows.interfaces.bids import DerivativesDataSink
 from nipype.pipeline import engine as pe
 
 from ..phdiff import init_phdiff_wf, Workflow

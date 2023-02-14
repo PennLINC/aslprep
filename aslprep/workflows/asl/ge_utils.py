@@ -9,18 +9,15 @@ utils code to process GE scan with fewer volumes
 from pathlib import Path
 import nibabel as nb
 import numpy as np
-import os 
-import pandas as pd
 import os
+import pandas as pd
 import os.path as op
 import pkg_resources as pkgr
 from nipype.utils.filemanip import fname_presuffix
-from ...niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.masks import SimpleShowMaskRPT 
+from ...niworkflows.interfaces.masks import SimpleShowMaskRPT
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu, fsl, c3
-from nipype.interfaces import fsl
 from ... import config
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
@@ -28,14 +25,14 @@ LOGGER = config.loggers.workflow
 
 
 def init_asl_geref_wf(omp_nthreads,mem_gb,metadata,bids_dir,
-               smooth_kernel=5,brainmask_thresh=0.5,pre_mask=False, 
+               smooth_kernel=5,brainmask_thresh=0.5,pre_mask=False,
                name="asl_gereference_wf",gen_report=False):
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 First, a reference volume and its skull-stripped version were generated.
         """
-    
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -90,7 +87,7 @@ First, a reference volume and its skull-stripped version were generated.
 def init_asl_gereg_wf(use_bbr,asl2t1w_dof,asl2t1w_init,
         mem_gb, omp_nthreads, name='asl_reg_wf',
         sloppy=False, use_compression=True, write_report=True):
-    
+
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -98,7 +95,7 @@ def init_asl_gereg_wf(use_bbr,asl2t1w_dof,asl2t1w_init,
     outputnode = pe.Node(
         niu.IdentityInterface(fields=['itk_asl_to_t1','itk_t1_to_asl',
              'fallback']),name='outputnode')
-    
+
     from .registration import init_fsl_bbr_wf
 
     bbr_wf = init_fsl_bbr_wf(use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof,
@@ -123,7 +120,7 @@ def init_asl_gereg_wf(use_bbr,asl2t1w_dof,asl2t1w_init,
             mem_gb=DEFAULT_MEMORY_MIN_GB)
 
         def _asl_reg_suffix(fallback):
-            return 'flirtbbr' 
+            return 'flirtbbr'
 
         workflow.connect([
             (bbr_wf, ds_report_reg, [
@@ -140,15 +137,11 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
 
     The workflow uses :abbr:`BBR (boundary-based registration)`.
 
-    
+
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
     from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-    from ...niworkflows.interfaces.itk import MultiApplyTransforms
-    from ...niworkflows.interfaces.nilearn import Merge
-    from ...niworkflows.interfaces.utils import GenerateSamplingReference
 
     workflow = Workflow(name=name)
     inputnode = pe.Node(
@@ -161,7 +154,7 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
 
     outputnode = pe.Node(
         niu.IdentityInterface(fields=[
-            'asl_t1', 'asl_t1_ref', 'asl_mask_t1','att_t1','cbf_t1', 'meancbf_t1', 
+            'asl_t1', 'asl_t1_ref', 'asl_mask_t1','att_t1','cbf_t1', 'meancbf_t1',
             'score_t1', 'avgscore_t1', 'scrub_t1', 'basil_t1', 'pv_t1','pvwm_t1']),
         name='outputnode'
     )
@@ -183,10 +176,10 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
                   ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
                         dimension=3),
                   name='asl_to_t1w_transform', mem_gb=mem_gb)
-   
+
     # Generate a reference on the target T1w space
-   
-    
+
+
     workflow.connect([
             (inputnode, asl_to_t1w_transform, [('ref_asl_brain', 'input_image')]),
             (inputnode, asl_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
@@ -203,7 +196,7 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
                          ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
                          name='meancbf_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
         workflow.connect([
-         
+
         (asl_to_t1w_transform, outputnode, [('output_image', 'asl_t1_ref')]),
         (inputnode, cbf_to_t1w_transform, [('cbf', 'input_image')]),
         (cbf_to_t1w_transform, outputnode, [('output_image', 'cbf_t1')]),
@@ -240,7 +233,7 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
         att_to_t1w_transform = pe.Node(
                ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
                name='att_to_t1w_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-        
+
         workflow.connect([
          (inputnode, score_to_t1w_transform, [('score', 'input_image')]),
          (score_to_t1w_transform, outputnode, [('output_image', 'score_t1')]),
@@ -257,7 +250,7 @@ def init_asl_t1_getrans_wf(mem_gb, omp_nthreads, cbft1space=False,scorescrub=Fal
          (inputnode, scrub_to_t1w_transform, [('itk_asl_to_t1', 'transforms')]),
          (inputnode, scrub_to_t1w_transform, [('t1w_brain', 'reference_image')]),
           ])
-        
+
         workflow.connect([
          (inputnode, basil_to_t1w_transform, [('basil', 'input_image')]),
          (basil_to_t1w_transform, outputnode, [('output_image', 'basil_t1')]),
@@ -296,12 +289,9 @@ def init_asl_gestd_trans_wf(
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
     from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-    from ...niworkflows.interfaces.itk import MultiApplyTransforms
     from ...niworkflows.interfaces.utility import KeySelect
     from ...niworkflows.interfaces.utils import GenerateSamplingReference
-    from ...niworkflows.interfaces.nilearn import Merge
     from ...niworkflows.utils.spaces import format_reference
 
     workflow = Workflow(name=name)
@@ -357,7 +347,7 @@ preprocessed ASL runs*: {tpl}.
     # Write corrected file in the designated output dir
     mask_merge_tfms = pe.Node(niu.Merge(2), name='mask_merge_tfms', run_without_submitting=True,
                               mem_gb=DEFAULT_MEMORY_MIN_GB)
-    nxforms = 3 
+    nxforms = 3
     merge_xforms = pe.Node(niu.Merge(nxforms), name='merge_xforms',
                            run_without_submitting=True, mem_gb=DEFAULT_MEMORY_MIN_GB)
 
@@ -372,7 +362,7 @@ preprocessed ASL runs*: {tpl}.
     meancbf_to_std_transform = pe.Node(
         ApplyTransforms(interpolation="LanczosWindowedSinc", float=True,input_image_type=3),
         name='meancbf_to_std_transform', mem_gb=mem_gb * 3 * omp_nthreads, n_procs=omp_nthreads)
-    
+
     if scorescrub:
         score_to_std_transform = pe.Node(
             ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3,
@@ -407,7 +397,7 @@ preprocessed ASL runs*: {tpl}.
                               mem_gb=DEFAULT_MEMORY_MIN_GB)
     # Generate a reference on the target standard space
     gen_ref = pe.Node(GenerateSamplingReference(), name='gen_ref',
-                      mem_gb=0.3) 
+                      mem_gb=0.3)
     #gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
 
     workflow.connect([
@@ -445,7 +435,7 @@ preprocessed ASL runs*: {tpl}.
         'template',
         'cbf_std',
         'meancbf_std',
-    ] 
+    ]
 
     if scorescrub:
         output_names = output_names +['score_std','avgscore_std','scrub_std']
@@ -474,8 +464,8 @@ preprocessed ASL runs*: {tpl}.
         (gen_ref, meancbf_to_std_transform, [('out_file', 'reference_image')]),
         (inputnode, meancbf_to_std_transform, [('cbf', 'input_image')]),
         (meancbf_to_std_transform, poutputnode, [('output_image', 'meancbf_std')]),
-    
-        
+
+
       ])
 
     if scorescrub:
@@ -495,7 +485,7 @@ preprocessed ASL runs*: {tpl}.
          (inputnode, scrub_to_std_transform, [('scrub', 'input_image')]),
          (scrub_to_std_transform, poutputnode, [('output_image', 'scrub_std')]),
          ])
-         
+
     if basil:
         workflow.connect([
         (mask_merge_tfms, basil_to_std_transform, [('out', 'transforms')]),
@@ -518,7 +508,7 @@ preprocessed ASL runs*: {tpl}.
         (inputnode, att_to_std_transform, [('att', 'input_image')]),
         (att_to_std_transform, poutputnode, [('output_image', 'att_std')]),
          ])
-    
+
     # Connect parametric outputs to a Join outputnode
     outputnode = pe.JoinNode(niu.IdentityInterface(fields=output_names),
                              name='outputnode', joinsource='iterablesource')
@@ -529,13 +519,10 @@ preprocessed ASL runs*: {tpl}.
 
 from nipype.interfaces.base import (
     traits,
-    isdefined,
     File,
-    InputMultiPath,
     TraitedSpec,
     BaseInterfaceInputSpec,
     SimpleInterface,
-    DynamicTraitedSpec,
 )
 
 class _GenerateReferenceInputSpec(BaseInterfaceInputSpec):
@@ -544,7 +531,7 @@ class _GenerateReferenceInputSpec(BaseInterfaceInputSpec):
     )
     fwhm =traits.Float(exists=False, mandatory=False,default_value=0,
                               desc='smoothing kernel for m0')
-    
+
 
 class _GenerateReferenceOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc="one file with all inputs flattened")
@@ -571,15 +558,14 @@ class GenerateReference(SimpleInterface):
 def gen_reference(in_img,fwhm=5,newpath=None):
 
     """generate reference for a GE scan with few volumes."""
-    import nibabel as nb 
+    import nibabel as nb
     import numpy as np
-    import os 
     from nibabel.processing import smooth_image
     newpath = Path(newpath or ".")
     ss=check_img(in_img)
-    if ss == 0: 
+    if ss == 0:
         ref_data=nb.load(in_img).get_fdata()
-    else: 
+    else:
         nii = nb.load(in_img).get_fdata()
         ref_data=np.mean(nii,axis=3)
     new_file = nb.Nifti1Image(dataobj=ref_data,header=nb.load(in_img).header,
@@ -591,7 +577,7 @@ def gen_reference(in_img,fwhm=5,newpath=None):
     return out_file
 
 def check_img(img):
-    # get the 4th dimension 
+    # get the 4th dimension
     ss=nb.load(img).get_fdata().shape
     if len(ss) == 3:
         ss=np.hstack([ss,0])
@@ -604,7 +590,7 @@ def _split_spec(in_target):
 
 
 def _select_template(template):
-    from niworkflows.utils.misc import get_template_specs
+    from aslprep.niworkflows.utils.misc import get_template_specs
     template, specs = template
     template = template.split(':')[0]  # Drop any cohort modifier if present
     specs = specs.copy()
@@ -653,7 +639,7 @@ class _GeReferenceFileInputSpec(BaseInterfaceInputSpec):
     ref_file = File(exists=False,mandatory=False, desc="ref file")
     m0_file = File(exists=False,mandatory=False, desc="m0 file")
     fwhm  = traits.Float(exits=False,mandatory=False,default_value=5,desc="smoothing kernel for M0")
-    
+
 
 class _GeReferenceFileOutputSpec(TraitedSpec):
     ref_file = File(exists=True,mandatory=True,desc="ref file")
@@ -671,7 +657,7 @@ class GeReferenceFile(SimpleInterface):
     output_spec = _GeReferenceFileOutputSpec
 
     def _run_interface(self, runtime):
-        import os 
+        import os
         filex = os.path.abspath(self.inputs.in_file)
         aslcontext1 = filex.replace('_asl.nii.gz', '_aslcontext.tsv')
         aslcontext = pd.read_csv(aslcontext1)
@@ -684,14 +670,14 @@ class GeReferenceFile(SimpleInterface):
 
         allasl = nb.load(self.inputs.in_file)
         dataasl = allasl.get_fdata()
-         
+
         if self.inputs.in_metadata['M0Type'] == 'Separate':
             m0file = self.inputs.in_file.replace("asl.nii.gz","m0scan.nii.gz")
             m0file_metadata=readjson(m0file.replace('nii.gz','json'))
             aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
             reffile = gen_reference(m0file,fwhm=self.inputs.fwhm, newpath=runtime.cwd)
             m0file = reffile
-        
+
         elif self.inputs.in_metadata['M0Type'] == "Included":
             modata2 = dataasl[:, :, :, m0list]
             m0filename=fname_presuffix(self.inputs.in_file,
@@ -702,7 +688,7 @@ class GeReferenceFile(SimpleInterface):
             m0file = reffile
 
         elif self.inputs.in_metadata["M0Type"] == "Estimate":
-            m0num = np.float(self.inputs.in_metadata['M0Estimate'])
+            m0num = float(self.inputs.in_metadata['M0Estimate'])
             if len(deltamlist) > 0:
                 modata2 = dataasl[:, :, :, deltamlist]
             elif len(controllist) > 0 :
@@ -714,7 +700,7 @@ class GeReferenceFile(SimpleInterface):
                                                     suffix='_m0file', newpath=os.getcwd())
             if len(modata2.shape) > 3:
                 mdata = np.mean(modata2,axis=3)
-            else: 
+            else:
                 mdata = modata2
 
             m0file_data=m0num * np.ones_like(mdata)
@@ -737,7 +723,7 @@ class GeReferenceFile(SimpleInterface):
                                                     suffix='_m0file', newpath=os.getcwd())
             if len(modata2.shape) > 3:
                 mdata = np.mean(modata2,axis=3)
-            else: 
+            else:
                 mdata = modata2
 
             m0obj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
@@ -770,12 +756,11 @@ def readjson(jsonfile):
 
 def init_fsl_gebbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name='fsl_bbr_wf'):
     """
-    
+
 
     """
     from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from ...niworkflows.utils.images import dseg_label as _dseg_label
-    from ...niworkflows.interfaces.freesurfer import PatchedLTAConvert as LTAConvert
     from ...niworkflows.interfaces.registration import FLIRTRPT
     workflow = Workflow(name=name)
     workflow.__desc__ = """\

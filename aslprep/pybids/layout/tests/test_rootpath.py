@@ -1,8 +1,7 @@
-import sys
 import pytest
 from pathlib import Path
-from bids.layout import BIDSLayout
-from bids.tests import get_test_data_path
+from aslprep.pybids.layout import BIDSLayout
+from aslprep.pybids.tests import get_test_data_path
 """
 test handling of pathlib Path file paths in place of old-style string type
 """

@@ -43,7 +43,7 @@ def init_fmap_wf(omp_nthreads, fmap_bspline, name='fmap_wf'):
             :graph2use: orig
             :simple_form: yes
 
-            from sdcflows.workflows.fmap import init_fmap_wf
+            from aslprep.sdcflows.workflows.fmap import init_fmap_wf
             wf = init_fmap_wf(omp_nthreads=6, fmap_bspline=False)
 
     Parameters
@@ -123,7 +123,7 @@ def init_fmap2field_wf(omp_nthreads, debug, name='fmap2field_wf',
             :graph2use: orig
             :simple_form: yes
 
-            from sdcflows.workflows.fmap import init_fmap2field_wf
+            from aslprep.sdcflows.workflows.fmap import init_fmap2field_wf
             wf = init_fmap2field_wf(omp_nthreads=8,
                                     debug=False)
 
@@ -235,7 +235,7 @@ tools such as ANTs) with FSL's `fugue` and other *SDCflows* tools.
     ])
 
     if generate_report:
-        from niworkflows.interfaces.bids import DerivativesDataSink
+        from aslprep.niworkflows.interfaces.bids import DerivativesDataSink
         from ..interfaces.reportlets import FieldmapReportlet
 
         fmap_rpt = pe.Node(FieldmapReportlet(

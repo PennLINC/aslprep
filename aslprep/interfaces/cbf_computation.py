@@ -52,7 +52,7 @@ class refinemask(SimpleInterface):
                                          t12ref_transform = self.inputs.transforms,
                                          tmp_mask = self._results['out_tmp'],
                                          refined_mask = self._results['out_mask'])
-        
+
         return runtime
 
 
@@ -102,13 +102,13 @@ class extractCBF(SimpleInterface):
         allasl = nb.load(self.inputs.asl_file)
         dataasl = allasl.get_fdata()
 
-        # get the control,tag,moscan or label 
+        # get the control,tag,moscan or label
         controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
         labellist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
         m0list = [i for i in range(0, len(idasl)) if idasl[i] == 'm0scan']
         deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == 'deltam']
         cbflist = [i for i in range(0, len(idasl)) if idasl[i] == 'CBF']
-         
+
         # extcract m0 file and register it to ASL if separate
         if self.inputs.in_metadata['M0Type'] == 'Separate':
             m0file = self.inputs.in_file.replace("asl.nii.gz","m0scan.nii.gz")
@@ -116,16 +116,16 @@ class extractCBF(SimpleInterface):
             aslfile_linkedM0 = os.path.abspath(self.inputs.bids_dir+'/'+m0file_metadata['IntendedFor'])
             if self.inputs.in_file not in aslfile_linkedM0:
                  raise RuntimeError("there is no separate m0scan for the asl data")
-            
+
             newm0 = fname_presuffix(self.inputs.asl_file,
-                                                    suffix='_m0file') 
+                                                    suffix='_m0file')
             newm0 = regmotoasl(asl=self.inputs.asl_file,m0file=m0file,m02asl=newm0)
             m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_data()
             if len(m0data_smooth.shape) > 3 :
                 m0dataf = mask*np.mean(m0data_smooth, axis=3)
             else:
                 m0dataf = mask*m0data_smooth
-        
+
         elif self.inputs.in_metadata['M0Type'] == "Included":
             modata2 = dataasl[:, :, :, m0list]
             con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
@@ -147,26 +147,26 @@ class extractCBF(SimpleInterface):
                 m0dataf = mask*np.mean(control_img1, axis=3)
             elif len(cbflist) > 0:
                 m0dataf = mask
-            else: 
+            else:
                 raise RuntimeError("m0scan is absent")
         else:
             raise RuntimeError("no pathway to m0scan")
-        
+
 
         if len(dataasl.shape) == 5:
             raise RuntimeError('Input image (%s) is 5D.')
-        if len(deltamlist) > 0 : 
+        if len(deltamlist) > 0 :
             cbf_data = dataasl[:, :, :, deltamlist]
-        if len(cbflist) > 0 : 
+        if len(cbflist) > 0 :
             cbf_data = dataasl[:, :, :, cbflist]
         elif len(labellist) > 0 :
             control_img = dataasl[:, :, :, controllist]
-            label_img = dataasl[:, :, :, labellist] 
+            label_img = dataasl[:, :, :, labellist]
             cbf_data = np.subtract(control_img, label_img)
-        else: 
+        else:
             raise RuntimeError('no valid asl or cbf image.')
-      
-        
+
+
         if self.inputs.dummy_vols != 0:
             cbf_data = np.delete(cbf_data, range(0, self.inputs.dummy_vols), axis=3)
             #control_img = np.delete(control_img, range(0, self.inputs.dummy_vols), axis=3)
@@ -253,7 +253,7 @@ class computeCBF(SimpleInterface):
         return runtime
 
 def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
-    
+
     """
     compute cbf with pld and multi pld
     metadata
@@ -272,10 +272,10 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     plds = np.array(metadata['PostLabelingDelay'])
     #m0scale = metadata['M0']
     magstrength = metadata['MagneticFieldStrength']
-    t1blood = (110*int(magstrength)+1316)/1000 # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550 
+    t1blood = (110*int(magstrength)+1316)/1000 # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550
     #mask = nb.load(mask).get_fdata()
 
-        
+
     if 'LabelingEfficiency' in metadata.keys():
         labeleff = metadata['LabelingEfficiency']
     elif 'CASL' in labeltype:
@@ -305,25 +305,25 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     cbf_data = nb.load(cbffile).get_fdata()
     cbf_data = cbf_data[maskx==1]
     cbf1 = np.zeros(cbf_data.shape)
-    if len(cbf_data.shape) < 2: 
+    if len(cbf_data.shape) < 2:
         cbf1 = np.divide(cbf_data,(m0scale*m0data))
-    else: 
+    else:
         for i in range(cbf1.shape[1]):
             cbf1[:, i] = np.divide(cbf_data[:,i], (m0scale*m0data))
         # m1=m0scale*m0_data
         # cbf1=np.divide(cbf_data,m1)
         # for compute cbf for each PLD and TI
-    att = None  
+    att = None
     if hasattr(perfusion_factor, '__len__') and cbf_data.shape[1] > 1 :
         permfactor = np.tile(perfusion_factor ,int(cbf_data.shape[1]/len(perfusion_factor)))
         cbf_data_ts = np.zeros(cbf_data.shape)
 
-        #calculate  cbf with multiple plds 
+        #calculate  cbf with multiple plds
         for i in range(cbf_data.shape[1]):
             cbf_data_ts[:, i] =np.multiply(cbf1[:, i],permfactor[i])
         cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1]/len(perfusion_factor))])
         cbf_xx = np.split(cbf_data_ts,int(cbf_data_ts.shape[1]/len(perfusion_factor)),axis=1)
-        
+
         # calculate weighted cbf with multiplds
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3791289/
         # https://pubmed.ncbi.nlm.nih.gov/22084006/
@@ -349,7 +349,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     else:
         tcbf = np.zeros([maskx.shape[0],maskx.shape[1],maskx.shape[2],cbf.shape[1]])
         for i in range(cbf.shape[1]):
-            tcbfx = np.zeros(maskx.shape) 
+            tcbfx = np.zeros(maskx.shape)
             tcbfx[maskx==1]=cbf[:,i]
             tcbf[:,:,:,i]=tcbfx
     if len(tcbf.shape) < 4:
@@ -415,7 +415,7 @@ class scorescrubCBF(SimpleInterface):
             index_score = np.array([0])
             cbfscrub = cbf_ts
             avgscore = cbf_ts
-        
+
         self._results['out_score'] = fname_presuffix(self.inputs.in_file,
                                                      suffix='_cbfscorets', newpath=runtime.cwd)
         self._results['out_avgscore'] = fname_presuffix(self.inputs.in_file,
@@ -531,15 +531,15 @@ def _getchisquare(n):
 
 
 def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
-    """ 
+    """
     score algorithm by Sudipto
     removing noisy cbf volume
     cbf_ts
        nd array of 3D or 4D computed cbf
-    gm,wm,csf 
+    gm,wm,csf
        numpy array of grey matter, whitematter, and csf
-    mask 
-       numpy array of mask 
+    mask
+       numpy array of mask
 
     reference:
 
@@ -559,9 +559,9 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     # mean  of times series cbf within greymatter
     mgmts = np.squeeze(np.mean(cbfts[gm == 1, :], axis=0))
     # robiust mean and meadian
-    from scipy.stats import median_absolute_deviation
+    from scipy.stats import median_abs_deviation
     medmngm = np.median(mgmts)
-    sdmngm = median_absolute_deviation(mgmts)/0.675
+    sdmngm = median_abs_deviation(mgmts)/0.675
     indx = 1*(np.abs(mgmts-medmngm) > (2.5*sdmngm))
     R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
     V = nogm*np.var(R[gm == 1]) + nowm*np.var(R[wm == 1]) + nocf*np.var(R[csf == 1])
@@ -590,7 +590,7 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
 def _roubustfit(Y, mu, Globalprior, modrobprior, lmd=0, localprior=0, wfun='huber', tune=1.345,
                 flagstd=1, flagmodrobust=1, flagprior=1, thresh=0.7):
     """
-    robust fit 
+    robust fit
     """
     dimcbf = Y.shape
     priow = np.ones([dimcbf[0], dimcbf[1]])
@@ -636,17 +636,17 @@ def _roubustfit(Y, mu, Globalprior, modrobprior, lmd=0, localprior=0, wfun='hube
 
 
 def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber', thresh=0.7):
-    
-    """ 
+
+    """
     scrub algorithms by Sudipto
     cbf_ts
        nd array of 3D or 4D computed cbf
-       gm,wm,csf 
+       gm,wm,csf
        numpy array of grey matter, whitematter, and csf
-    mask 
-       numpy array of mask 
-    
-    wf 
+    mask
+       numpy array of mask
+
+    wf
       wave function
 
     reference:
@@ -762,7 +762,7 @@ class _BASILCBFOutputSpec(TraitedSpec):
 
 class BASILCBF(FSLCommand):
     r"""
-    oxford asl 
+    oxford asl
     https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL
     """
     _cmd = " oxford_asl "
@@ -785,13 +785,13 @@ class BASILCBF(FSLCommand):
         from shutil import copyfile
         copyfile(self.inputs.out_basename+'/native_space/perfusion_calib.nii.gz',
                  outputs["out_cbfb"])
-        
-        
+
+
             # outputs["out_att"]=self.inputs.out_basename+'/arrivaltime.nii.gz'
         outputs["out_att"] = fname_presuffix(self.inputs.mask, suffix='_arrivaltime')
         copyfile(self.inputs.out_basename+'/native_space/arrival.nii.gz', outputs["out_att"])
         self.inputs.out_att = os.path.abspath(outputs["out_att"])
-        
+
         # outputs["out_cbfpv"]=self.inputs.out_basename+'/basilcbfpv.nii.gz'
         outputs["out_cbfpv"] = fname_presuffix(self.inputs.mask, suffix='_cbfbasilpv')
         copyfile(self.inputs.out_basename+'/native_space/pvcorr/perfusion_calib.nii.gz',
@@ -831,8 +831,8 @@ class _qccbfOutputSpec(TraitedSpec):
 
 class qccbf(SimpleInterface):
     r""""
-     compute qc from confound regressors 
-     and cbf maps, 
+     compute qc from confound regressors
+     and cbf maps,
      coregistration and regsitration indexes
 
     """
@@ -876,7 +876,7 @@ class qccbf(SimpleInterface):
         else:
             print ('no score inputs, setting to np.nan')
             scorecbf_qei = np.nan
-            scrub_qei = np.nan 
+            scrub_qei = np.nan
             negscore = np.nan
             negscrub = np.nan
 
@@ -893,12 +893,12 @@ class qccbf(SimpleInterface):
             pvcbf_qei = np.nan
             negbasil = np.nan
             negpvc = np.nan
-        
-        
+
+
         gwratio = np.divide(meancbf[0], meancbf[1])
         negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.7)
-        
-        
+
+
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
             dict1 = {'FD': [fd], 'rmsd': [rms], 'coregDC': [regDC], 'coregJC': [regJC],
@@ -934,7 +934,7 @@ class qccbf(SimpleInterface):
 
         self.inputs.qc_file = os.path.abspath(self._results['qc_file'])
         return runtime
-        
+
 
 class _qccbfgeInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc='original asl_file')
@@ -959,8 +959,8 @@ class _qccbfgeOutputSpec(TraitedSpec):
 
 class qccbfge(SimpleInterface):
     r""""
-     compute qc from confound regressors 
-     and cbf maps, 
+     compute qc from confound regressors
+     and cbf maps,
      coregistration and regsitration indexes
 
     """
@@ -984,7 +984,7 @@ class qccbfge(SimpleInterface):
                               csf=self.inputs.in_csf, img=self.inputs.in_meancbf, thresh=0.8)
         meancbf = globalcbf(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
                             csf=self.inputs.in_csf, cbf=self.inputs.in_meancbf, thresh=0.8)
-        
+
 
         if self.inputs.in_avgscore:
             scorecbf_qei = cbf_qei(gm=self.inputs.in_greyM, wm=self.inputs.in_whiteM,
@@ -995,7 +995,7 @@ class qccbfge(SimpleInterface):
             negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.8)
         else:
             scorecbf_qei = 0
-            scrub_qei = 0 
+            scrub_qei = 0
             negscore = 0
             negscrub = 0
 
@@ -1008,7 +1008,7 @@ class qccbfge(SimpleInterface):
             negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.8)
         else:
             basilcbf_qei = 0
-            pvcbf_qei = 0 
+            pvcbf_qei = 0
             negbasil = 0
             negpvc = 0
         gwratio = np.divide(meancbf[0], meancbf[1])
@@ -1077,8 +1077,8 @@ def dc(input1, input2):
     """
     input1 = nb.load(input1).get_fdata()
     input2 = nb.load(input2).get_fdata()
-    input1 = np.atleast_1d(input1.astype(np.bool))
-    input2 = np.atleast_1d(input2.astype(np.bool))
+    input1 = np.atleast_1d(input1.astype(bool))
+    input2 = np.atleast_1d(input2.astype(bool))
 
     intersection = np.count_nonzero(input1 & input2)
 
@@ -1116,8 +1116,8 @@ def jc(input1, input2):
     """
     input1 = nb.load(input1).get_fdata()
     input2 = nb.load(input2).get_fdata()
-    input1 = np.atleast_1d(input1.astype(np.bool))
-    input2 = np.atleast_1d(input2.astype(np.bool))
+    input1 = np.atleast_1d(input1.astype(bool))
+    input2 = np.atleast_1d(input2.astype(bool))
 
     intersection = np.count_nonzero(input1 & input2)
     union = np.count_nonzero(input1 | input2)
@@ -1134,8 +1134,8 @@ def crosscorr(input1, input2):
     """
     input1 = nb.load(input1).get_fdata()
     input2 = nb.load(input2).get_fdata()
-    input1 = np.atleast_1d(input1.astype(np.bool)).flatten()
-    input2 = np.atleast_1d(input2.astype(np.bool)).flatten()
+    input1 = np.atleast_1d(input1.astype(bool)).flatten()
+    input2 = np.atleast_1d(input2.astype(bool)).flatten()
     cc = np.corrcoef(input1, input2)[0][1]
     return cc
 
@@ -1146,8 +1146,8 @@ def coverage(input1, input2):
     """
     input1 = nb.load(input1).get_fdata()
     input2 = nb.load(input2).get_fdata()
-    input1 = np.atleast_1d(input1.astype(np.bool))
-    input2 = np.atleast_1d(input2.astype(np.bool))
+    input1 = np.atleast_1d(input1.astype(bool))
+    input2 = np.atleast_1d(input2.astype(bool))
     intsec = np.count_nonzero(input1 & input2)
     if np.sum(input1) > np.sum(input2):
         smallv = np.sum(input2)
@@ -1162,13 +1162,13 @@ def globalcbf(cbf, gm, wm, csf, thresh=0.7):
     gm = nb.load(gm).get_fdata()
     wm = nb.load(wm).get_fdata()
     csf = nb.load(csf).get_fdata()
-    b1 = [gm < thresh]
+    b1 = gm < thresh
     gm[b1] = 0
     bx = cbf[gm > 0]
-    b2 = [wm < thresh]
+    b2 = wm < thresh
     wm[b2] = 0
     by = cbf[wm > 0]
-    b3 = [csf < thresh]
+    b3 = csf < thresh
     csf[b3] = 0
     bz = cbf[csf > 0]
     return np.mean(bx), np.mean(by), np.mean(bz)
@@ -1176,8 +1176,8 @@ def globalcbf(cbf, gm, wm, csf, thresh=0.7):
 
 def cbf_qei(gm, wm, csf, img, thresh=0.8):
     """
-    Quality evaluation index of CBF base on Sudipto Dolui work 
-    Dolui S., Wolf R. & Nabavizadeh S., David W., Detre, J. (2017). 
+    Quality evaluation index of CBF base on Sudipto Dolui work
+    Dolui S., Wolf R. & Nabavizadeh S., David W., Detre, J. (2017).
     Automated Quality Evaluation Index for 2D ASL CBF Maps. ISMR 2017
 
     """
@@ -1320,7 +1320,7 @@ class _extractCBInputSpec(BaseInterfaceInputSpec):
 
 class _extractCBOutputSpec(TraitedSpec):
     out_file= File(exists=False, desc='cbf or deltam')
-    
+
 
 
 class extractCB(SimpleInterface):
@@ -1343,7 +1343,7 @@ class extractCB(SimpleInterface):
 
         controllist = [i for i in range(0, len(idasl)) if idasl[i] == 'control']
         labelist = [i for i in range(0, len(idasl)) if idasl[i] == 'label']
-        
+
 
         if self.inputs.file_type == 'd':
             if len(controllist) > 0 :
@@ -1363,7 +1363,7 @@ class extractCB(SimpleInterface):
             else:
                 ffdata=fdata[:, :, :, dlist]
                 newdata = nb.Nifti1Image(dataobj=ffdata,affine=img.affine,header=img.header)
-        
+
         newdata.to_filename(self._results['out_file'])
 
         return runtime
@@ -1378,11 +1378,11 @@ def regmotoasl(asl,m0file,m02asl):
     meanm0.inputs.out_file = fname_presuffix(asl,suffix='_meanm0')
     meanm0.run()
     flt = fsl.FLIRT(bins=640, cost_func='mutualinfo')
-    flt.inputs.in_file = meanm0.inputs.out_file 
+    flt.inputs.in_file = meanm0.inputs.out_file
     flt.inputs.reference = meanasl.inputs.out_file
     flt.inputs.out_file = m02asl
     flt.run()
-    return m02asl    
+    return m02asl
 
 
 def readjson(jsonfile):
@@ -1400,11 +1400,11 @@ def refine_ref_mask(t1w_mask,ref_asl_mask,
     b1.inputs.interpolation = 'NearestNeighbor'; b1.inputs.reference_image = ref_asl_mask
     b1.inputs.transforms = t12ref_transform; b1.inputs.input_image_type = 3
     b1.inputs.output_image = tmp_mask; b1.run()
-    
+
     mat1 = MultiImageMaths(); mat1.inputs.in_file = tmp_mask
     mat1.inputs.op_string = " -mul  %s -bin"; mat1.inputs.operand_files = ref_asl_mask
     mat1.inputs.out_file = refined_mask; mat1.run()
-  
+
     return refined_mask
 
 def get_tis(metadata: dict[str, Any]):

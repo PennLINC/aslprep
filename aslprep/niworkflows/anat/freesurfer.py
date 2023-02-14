@@ -35,7 +35,7 @@ def init_gifti_surface_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.anat.freesurfer import init_gifti_surface_wf
+            from aslprep.niworkflows.anat.freesurfer import init_gifti_surface_wf
             wf = init_gifti_surface_wf()
 
     Parameters

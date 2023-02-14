@@ -8,33 +8,18 @@ Calculate asl confounds
 
 
 """
-from os import getenv
 from nipype.pipeline import engine as pe
-from nipype.interfaces import utility as niu, fsl
+from nipype.interfaces import utility as niu
 from nipype.algorithms import confounds as nac
 
 from templateflow.api import get as get_template
 from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.confounds import ExpandModel, SpikeRegressors
 from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-from ...niworkflows.interfaces.images import SignalExtraction
-from ...niworkflows.interfaces.masks import ROIsPlot
-from ...niworkflows.interfaces.utility import KeySelect
-from ...niworkflows.interfaces.patches import (
-    RobustACompCor as ACompCor,
-    RobustTCompCor as TCompCor,
-)
-from ...niworkflows.interfaces.plotting import (
-    CompCorVariancePlot, ConfoundsCorrelationPlot
-)
-from ...niworkflows.interfaces.segmentation import ICA_AROMARPT
-from ...niworkflows.interfaces.utils import (
-    TPM2ROI, AddTPMs, AddTSVHeader, TSV2JSON, DictMerge
-)
+from ...niworkflows.interfaces.utils import AddTSVHeader
 
 from ...config import DEFAULT_MEMORY_MIN_GB
 from ...interfaces import (
-    GatherConfounds, 
+    GatherConfounds,
     ASLSummary, DerivativesDataSink
 )
 
@@ -91,7 +76,7 @@ def init_asl_confs_wf(
     movpar_file
         SPM-formatted motion parameters file
     rmsd_file
-        Framewise displacement as measured by ``fsl_motion_outliers``. 
+        Framewise displacement as measured by ``fsl_motion_outliers``.
     skip_vols
         number of non steady state volumes
     t1w_mask
@@ -112,9 +97,9 @@ def init_asl_confs_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-Several confounding timeseries were calculated, including both framewise displacement 
+Several confounding timeseries were calculated, including both framewise displacement
 (FD) and DVARS. FD and DVARS are calculated using the implementations in in *Nipype*
-(following the definition by [@power_fd_dvars]) for each ASL run.  ASLPrep summarizes 
+(following the definition by [@power_fd_dvars]) for each ASL run.  ASLPrep summarizes
 in-scanner motion as the mean framewise displacement and relative root-mean square displacement.
 """
     inputnode = pe.Node(niu.IdentityInterface(
@@ -176,7 +161,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         (add_std_dvars_header, concat, [("out_file", "std_dvars")]),
         # Set outputs
         (concat, outputnode, [('confounds_file', 'confounds_file')]),
-    
+
     ])
 
     return workflow
@@ -249,7 +234,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
             ('framewise_displacement', 'mm', 'FD')]),
         name='conf_plot', mem_gb=mem_gb)
     ds_report_asl_conf = pe.Node(
-        DerivativesDataSink(desc='carpetplot',datatype="figures", 
+        DerivativesDataSink(desc='carpetplot',datatype="figures",
         keep_dtype=True),
          name='ds_report_asl_conf', run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB)

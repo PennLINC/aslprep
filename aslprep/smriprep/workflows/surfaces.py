@@ -91,7 +91,7 @@ def init_surface_recon_wf(omp_nthreads, hires, name='surface_recon_wf'):
             :graph2use: orig
             :simple_form: yes
 
-            from smriprep.workflows.surfaces import init_surface_recon_wf
+            from aslprep.smriprep.workflows.surfaces import init_surface_recon_wf
             wf = init_surface_recon_wf(omp_nthreads=1, hires=True)
 
     Parameters
@@ -289,7 +289,7 @@ def init_autorecon_resume_wf(omp_nthreads, name='autorecon_resume_wf'):
             :graph2use: orig
             :simple_form: yes
 
-            from smriprep.workflows.surfaces import init_autorecon_resume_wf
+            from aslprep.smriprep.workflows.surfaces import init_autorecon_resume_wf
             wf = init_autorecon_resume_wf(omp_nthreads=1)
 
     Inputs
@@ -413,7 +413,7 @@ def init_gifti_surface_wf(name='gifti_surface_wf'):
             :graph2use: orig
             :simple_form: yes
 
-            from smriprep.workflows.surfaces import init_gifti_surface_wf
+            from aslprep.smriprep.workflows.surfaces import init_gifti_surface_wf
             wf = init_gifti_surface_wf()
 
     Inputs
@@ -486,7 +486,7 @@ def init_segs_to_native_wf(name='segs_to_native', segmentation='aseg'):
             :graph2use: orig
             :simple_form: yes
 
-            from smriprep.workflows.surfaces import init_segs_to_native_wf
+            from aslprep.smriprep.workflows.surfaces import init_segs_to_native_wf
             wf = init_segs_to_native_wf()
 
     Parameters

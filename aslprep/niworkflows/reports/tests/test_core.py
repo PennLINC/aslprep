@@ -8,8 +8,8 @@ from itertools import product
 from yaml import safe_load as load
 
 import matplotlib.pyplot as plt
-from bids.layout.writing import build_path
-from bids.layout import BIDSLayout
+from aslprep.pybids.layout.writing import build_path
+from aslprep.pybids.layout import BIDSLayout
 
 import pytest
 

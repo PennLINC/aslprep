@@ -3,10 +3,10 @@ import os
 import shutil
 from os.path import join, exists, islink, dirname
 
-from bids.layout.writing import build_path, _PATTERN_FIND
-from bids.tests import get_test_data_path
-from bids import BIDSLayout
-from bids.layout.models import BIDSFile, Entity, Tag, Base
+from aslprep.pybids.layout.writing import build_path, _PATTERN_FIND
+from aslprep.pybids.tests import get_test_data_path
+from aslprep.pybids import BIDSLayout
+from aslprep.pybids.layout.models import BIDSFile, Entity, Tag, Base
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

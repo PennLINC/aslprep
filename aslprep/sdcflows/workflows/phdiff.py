@@ -49,7 +49,7 @@ def init_phdiff_wf(omp_nthreads, name='phdiff_wf'):
             :graph2use: orig
             :simple_form: yes
 
-            from sdcflows.workflows.phdiff import init_phdiff_wf
+            from aslprep.sdcflows.workflows.phdiff import init_phdiff_wf
             wf = init_phdiff_wf(omp_nthreads=1)
 
     Parameters

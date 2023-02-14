@@ -3,7 +3,7 @@ import sys
 from collections import namedtuple
 from pkg_resources import DistributionNotFound
 from importlib import reload
-import sdcflows
+from aslprep import sdcflows
 
 
 def test_version_scm0(monkeypatch):

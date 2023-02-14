@@ -54,7 +54,7 @@ def init_pepolar_unwarp_wf(omp_nthreads=1, matched_pe=False,
             :graph2use: orig
             :simple_form: yes
 
-            from sdcflows.workflows.pepolar import init_pepolar_unwarp_wf
+            from aslprep.sdcflows.workflows.pepolar import init_pepolar_unwarp_wf
             wf = init_pepolar_unwarp_wf()
 
     Parameters
@@ -184,7 +184,7 @@ def init_prepare_epi_wf(omp_nthreads, matched_pe=False,
             :graph2use: orig
             :simple_form: yes
 
-            from sdcflows.workflows.pepolar import init_prepare_epi_wf
+            from aslprep.sdcflows.workflows.pepolar import init_prepare_epi_wf
             wf = init_prepare_epi_wf(omp_nthreads=8)
 
     Parameters
