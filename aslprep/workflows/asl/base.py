@@ -20,16 +20,12 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import refinemask
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.utils.meepi import combine_meepi_source
-
-# cbf workflows
 from aslprep.workflows.asl.cbf import (
     init_cbf_compt_wf,
     init_cbfplot_wf,
     init_cbfqc_compt_wf,
     init_cbfroiquant_wf,
 )
-
-# asl workflows
 from aslprep.workflows.asl.confounds import init_asl_confs_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
