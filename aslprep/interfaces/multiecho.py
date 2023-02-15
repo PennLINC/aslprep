@@ -29,7 +29,7 @@ from nipype.interfaces.base import (
 LOGGER = logging.getLogger("nipype.interface")
 
 
-class T2SMapInputSpec(CommandLineInputSpec):
+class _T2SMapInputSpec(CommandLineInputSpec):
     in_files = traits.List(
         File(exists=True),
         argstr="-d %s",
@@ -58,7 +58,7 @@ class T2SMapInputSpec(CommandLineInputSpec):
     )
 
 
-class T2SMapOutputSpec(TraitedSpec):
+class _T2SMapOutputSpec(TraitedSpec):
     t2star_map = File(exists=True, desc="limited T2* map")
     s0_map = File(exists=True, desc="limited S0 map")
     optimal_comb = File(exists=True, desc="optimally combined ME-EPI time series")
@@ -83,8 +83,8 @@ sub-01_run-01_echo-3_bold.nii.gz -e 13.0 27.0 43.0 --fittype curvefit'
     """
 
     _cmd = "t2smap"
-    input_spec = T2SMapInputSpec
-    output_spec = T2SMapOutputSpec
+    input_spec = _T2SMapInputSpec
+    output_spec = _T2SMapOutputSpec
 
     def _format_arg(self, name, trait_spec, value):
         if name == "echo_times":
