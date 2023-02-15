@@ -14,9 +14,6 @@ import numpy as np
 import pandas as pd
 from nipype.interfaces import fsl
 from nipype.interfaces import utility as niu
-from nipype.pipeline import engine as pe
-from nipype.utils.filemanip import fname_presuffix
-
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     File,
@@ -24,6 +21,8 @@ from nipype.interfaces.base import (
     TraitedSpec,
     traits,
 )
+from nipype.pipeline import engine as pe
+from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow

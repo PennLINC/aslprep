@@ -419,7 +419,9 @@ effects of other kernels [@lanczos].
         ]
     )
 
-    refine_mask = pe.Node(RefineMask(), mem_gb=1.0, run_without_submitting=True, name="refine_mask")
+    refine_mask = pe.Node(
+        RefineMask(), mem_gb=1.0, run_without_submitting=True, name="refine_mask"
+    )
 
     workflow.connect(
         [

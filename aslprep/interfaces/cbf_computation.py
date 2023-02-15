@@ -45,6 +45,7 @@ class RefineMask(SimpleInterface):
     the output is refined asl mask
 
     """
+
     input_spec = _RefineMaskInputSpec
     output_spec = _RefineMaskOutputSpec
 
@@ -1722,6 +1723,7 @@ class extractCB(SimpleInterface):
     the output is refined asl mask
 
     """
+
     input_spec = _extractCBInputSpec
     output_spec = _extractCBOutputSpec
 

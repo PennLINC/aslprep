@@ -12,15 +12,15 @@ from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import (
     BASILCBF,
-    ParcellateCBF,
     ComputeCBF,
-    extractCB,
-    ExtractCBF,
-    get_tis,
     ComputeCBFQC,
     ComputeCBFQCforGE,
+    ExtractCBF,
+    ParcellateCBF,
     RefineMask,
     ScoreAndScrubCBF,
+    extractCB,
+    get_tis,
 )
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
@@ -184,7 +184,9 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
         mem_gb=0.2,
     )
 
-    refinemaskj = pe.Node(RefineMask(), mem_gb=0.2, run_without_submitting=True, name="refinemaskj")
+    refinemaskj = pe.Node(
+        RefineMask(), mem_gb=0.2, run_without_submitting=True, name="refinemaskj"
+    )
 
     def _pick_csf(files):
         return files[-1]
@@ -574,7 +576,10 @@ def init_cbfgeqc_compt_wf(
     )
 
     qccompute = pe.Node(
-        ComputeCBFQCforGE(in_file=asl_file), name="qccompute", run_without_submitting=True, mem_gb=0.2
+        ComputeCBFQCforGE(in_file=asl_file),
+        name="qccompute",
+        run_without_submitting=True,
+        mem_gb=0.2,
     )
 
     workflow.connect(
