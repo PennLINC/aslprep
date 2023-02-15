@@ -953,9 +953,6 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     return newcbf
 
 
-# basil and pvcorr
-
-
 class _BASILCBFInputSpec(FSLCommandInputSpec):
     # We use position args here as list indices - so a negative number
     # will put something on the end
@@ -1287,7 +1284,7 @@ class _ComputeCBFQCforGEOutputSpec(TraitedSpec):
 
 
 class ComputeCBFQCforGE(SimpleInterface):
-    r""" "
+    """
     compute qc from confound regressors
     and cbf maps,
     coregistration and regsitration indexes
@@ -1441,14 +1438,19 @@ class ComputeCBFQCforGE(SimpleInterface):
 
 
 def dc(input1, input2):
-    r"""
+    """
     Dice coefficient
+
     Computes the Dice coefficient (also known as Sorensen index) between the binary
     objects in two images.
+
     The metric is defined as
+
     .. math::
         DC=\frac{2|A\cap B|}{|A|+|B|}
+
     , where :math:`A` is the first and :math:`B` the second set of samples (here: binary objects).
+
     Parameters
     ----------
     input1 : array_like
@@ -1457,11 +1459,13 @@ def dc(input1, input2):
     input2 : array_like
         Input data containing objects. Can be any type but will be converted
         into binary: background where 0, object everywhere else.
+
     Returns
     -------
     dc : float
         The Dice coefficient between the object(s) in ```input1``` and the
         object(s) in ```input2```. It ranges from 0 (no overlap) to 1 (perfect overlap).
+
     Notes
     -----
     This is a real metric.
@@ -1487,7 +1491,9 @@ def dc(input1, input2):
 def jc(input1, input2):
     r"""
     Jaccard coefficient
+
     Computes the Jaccard coefficient between the binary objects in two images.
+
     Parameters
     ----------
     input1: array_like
@@ -1496,11 +1502,13 @@ def jc(input1, input2):
     input2: array_like
             Input data containing objects. Can be any type but will be converted
             into binary: background where 0, object everywhere else.
+
     Returns
     -------
     jc: float
         The Jaccard coefficient between the object(s) in `input1` and the
         object(s) in `input2`. It ranges from 0 (no overlap) to 1 (perfect overlap).
+
     Notes
     -----
     This is a real metric.
@@ -1519,7 +1527,7 @@ def jc(input1, input2):
 
 
 def crosscorr(input1, input2):
-    r"""
+    """
     cross correlation
     computer compute cross correction bewteen input mask
     """
@@ -1706,32 +1714,29 @@ class ParcellateCBF(SimpleInterface):
         return runtime
 
 
-class _extractCBInputSpec(BaseInterfaceInputSpec):
+class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
     in_asl = File(exists=True, mandatory=True, desc="raw asl file")
     in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
     file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
     out_file = File(exists=False, mandatory=False, desc="cbf or deltam")
 
 
-class _extractCBOutputSpec(TraitedSpec):
+class _ExtractCBForDeltaMOutputSpec(TraitedSpec):
     out_file = File(exists=False, desc="cbf or deltam")
 
 
-class extractCB(SimpleInterface):
-    """
-    the code refine the asl mask with t1w mask
-    the output is refined asl mask
+class ExtractCBForDeltaM(SimpleInterface):
+    """Load an ASL file and grab the CBF or DeltaM volumes from it."""
 
-    """
-
-    input_spec = _extractCBInputSpec
-    output_spec = _extractCBOutputSpec
+    input_spec = _ExtractCBForDeltaMInputSpec
+    output_spec = _ExtractCBForDeltaMOutputSpec
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(
             self.inputs.in_aslmask, suffix="_cbfdeltam", newpath=runtime.cwd
         )
         filex = self.inputs.in_asl
+        # NOTE: Not a good way to find the aslcontext file.
         aslcontext = pd.read_csv(filex.replace("_asl.nii.gz", "_aslcontext.tsv"))
         idasl = aslcontext["volume_type"].tolist()
         fdata = nb.load(filex).get_fdata()
@@ -1742,20 +1747,27 @@ class extractCB(SimpleInterface):
 
         if self.inputs.file_type == "d":
             if len(controllist) > 0:
+                # Grab control and label volumes from ASL file,
+                # then calculate deltaM by subtracting label volumes from control volumes.
                 ffdata = fdata[:, :, :, controllist] - fdata[:, :, :, labelist]
                 newdata = nb.Nifti1Image(dataobj=ffdata, affine=img.affine, header=img.header)
             else:
+                # Grab deltaM volumes from ASL file.
                 dlist = [i for i in range(0, len(idasl)) if idasl[i] == "deltam"]
                 if len(fdata.shape) < 4:
                     newdata = nb.Nifti1Image(dataobj=fdata, affine=img.affine, header=img.header)
                 else:
                     ffdata = fdata[:, :, :, dlist]
                     newdata = nb.Nifti1Image(dataobj=ffdata, affine=img.affine, header=img.header)
+
         elif self.inputs.file_type == "c":
             dlist = [i for i in range(0, len(idasl)) if idasl[i] == "CBF"]
             if len(fdata.shape) < 4:
+                # 3D volume is written out without any changes.
+                # NOTE: Why not return the original file then?
                 newdata = nb.Nifti1Image(dataobj=fdata, affine=img.affine, header=img.header)
             else:
+                # Grab CBF volumes from ASL file.
                 ffdata = fdata[:, :, :, dlist]
                 newdata = nb.Nifti1Image(dataobj=ffdata, affine=img.affine, header=img.header)
 
