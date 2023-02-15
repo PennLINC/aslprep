@@ -28,7 +28,7 @@ from nipype.utils.filemanip import fname_presuffix
 LOGGER = logging.getLogger("nipype.interface")
 
 
-class GatherConfoundsInputSpec(BaseInterfaceInputSpec):
+class _GatherConfoundsInputSpec(BaseInterfaceInputSpec):
     signals = File(exists=True, desc="input signals")
     dvars = File(exists=True, desc="file containing DVARS")
     rmsd = File(exists=True, desc="input RMS framewise displacement")
@@ -37,7 +37,7 @@ class GatherConfoundsInputSpec(BaseInterfaceInputSpec):
     motion = File(exists=True, desc="input motion parameters")
 
 
-class GatherConfoundsOutputSpec(TraitedSpec):
+class _GatherConfoundsOutputSpec(TraitedSpec):
     confounds_file = File(exists=True, desc="output confounds file")
     confounds_list = traits.List(traits.Str, desc="list of headers")
 
@@ -74,8 +74,8 @@ class GatherConfounds(SimpleInterface):
     >>> tmpdir.cleanup()
 
     """
-    input_spec = GatherConfoundsInputSpec
-    output_spec = GatherConfoundsOutputSpec
+    input_spec = _GatherConfoundsInputSpec
+    output_spec = _GatherConfoundsOutputSpec
 
     def _run_interface(self, runtime):
         combined_out, confounds_list = _gather_confounds(
