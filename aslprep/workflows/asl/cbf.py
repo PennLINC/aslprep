@@ -16,10 +16,10 @@ from aslprep.interfaces.cbf_computation import (
     ComputeCBFQC,
     ComputeCBFQCforGE,
     ExtractCBF,
+    ExtractCBForDeltaM,
     ParcellateCBF,
     RefineMask,
     ScoreAndScrubCBF,
-    extractCB,
     get_tis,
 )
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -1286,7 +1286,10 @@ model [@detre_perfusion;@alsop_recommended].
 
     if len(deltamlist) > 0 or len(controllist) > 0:
         extractcbf1 = pe.Node(
-            extractCB(file_type="d"), mem_gb=1, run_without_submitting=True, name="extract_d"
+            ExtractCBForDeltaM(file_type="d"),
+            mem_gb=1,
+            run_without_submitting=True,
+            name="extract_d",
         )
 
         workflow.connect(
@@ -1419,7 +1422,10 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
         )
 
         extractcbf2 = pe.Node(
-            extractCB(file_type="c"), mem_gb=1, run_without_submitting=True, name="extract_c"
+            ExtractCBForDeltaM(file_type="c"),
+            mem_gb=1,
+            run_without_submitting=True,
+            name="extract_c",
         )
         workflow.connect(
             [
