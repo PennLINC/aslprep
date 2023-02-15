@@ -13,7 +13,7 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import (
     BASILCBF,
     cbfqroiquant,
-    computeCBF,
+    ComputeCBF,
     extractCB,
     ExtractCBF,
     get_tis,
@@ -159,7 +159,7 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
         name="extractcbf",
     )
     computecbf = pe.Node(
-        computeCBF(in_metadata=metadata, in_m0scale=M0Scale),
+        ComputeCBF(in_metadata=metadata, in_m0scale=M0Scale),
         mem_gb=0.2,
         run_without_submitting=True,
         name="computecbf",
@@ -1257,7 +1257,7 @@ model [@detre_perfusion;@alsop_recommended].
         return pcasl1
 
     computecbf = pe.Node(
-        computeCBF(in_metadata=metadata, in_m0scale=M0Scale),
+        ComputeCBF(in_metadata=metadata, in_m0scale=M0Scale),
         mem_gb=mem_gb,
         run_without_submitting=True,
         name="computecbf",

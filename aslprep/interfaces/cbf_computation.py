@@ -197,7 +197,7 @@ class ExtractCBF(SimpleInterface):
         return runtime
 
 
-class _computeCBFInputSpec(BaseInterfaceInputSpec):
+class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
     in_cbf = File(exists=True, mandatory=True, desc="cbf nifti")
     in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for CBF ")
     in_m0scale = traits.Float(
@@ -210,19 +210,19 @@ class _computeCBFInputSpec(BaseInterfaceInputSpec):
     out_att = File(exists=False, mandatory=False, desc="Arterial Transit Time")
 
 
-class _computeCBFOutputSpec(TraitedSpec):
+class _ComputeCBFOutputSpec(TraitedSpec):
     out_cbf = File(exists=False, desc="cbf timeries data")
     out_mean = File(exists=False, desc="average control")
     out_att = File(exists=False, desc="Arterial Transit Time")
 
 
-class computeCBF(SimpleInterface):
+class ComputeCBF(SimpleInterface):
     """
     compute cbf pASL or pCASL
     """
 
-    input_spec = _computeCBFInputSpec
-    output_spec = _computeCBFOutputSpec
+    input_spec = _ComputeCBFInputSpec
+    output_spec = _ComputeCBFOutputSpec
 
     def _run_interface(self, runtime):
         cbf, meancbf, att = cbfcomputation(
@@ -385,7 +385,7 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
 
 
 class _scorescrubCBFInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc="computed CBF from computeCBF")
+    in_file = File(exists=True, mandatory=True, desc="computed CBF from ComputeCBF")
     in_greyM = File(exists=True, mandatory=True, desc="grey  matter")
     in_whiteM = File(exists=True, mandatory=True, desc="white  matter")
     in_mask = File(exists=True, mandatory=True, desc="mask")
