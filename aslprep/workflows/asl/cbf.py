@@ -1,6 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-
+"""Workflows for calculating CBF."""
 import os
 
 import pandas as pd
@@ -41,8 +41,7 @@ def init_cbf_compt_wf(
     smooth_kernel=5,
     name="cbf_compt_wf",
 ):
-    """
-    Create a workflow for :abbr:`CCBF ( compute cbf)`.
+    """Create a workflow for :abbr:`CCBF (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -300,8 +299,7 @@ corrected CBF image [@chappell_pvc].
 def init_cbfqc_compt_wf(
     mem_gb, asl_file, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbfqc_compt_wf"
 ):
-    """
-    Create a workflow for :abbr:`cbfqc( compute cbf)`.
+    """Create a workflow for :abbr:`cbfqc (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -476,8 +474,7 @@ negative CBF values.
 def init_cbfgeqc_compt_wf(
     mem_gb, asl_file, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbfqc_compt_wf"
 ):
-    """
-    Create a workflow for :abbr:`cbfqc( compute cbf)`.
+    """Create a workflow for :abbr:`cbfqc (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -650,6 +647,7 @@ def init_cbfgeqc_compt_wf(
 def init_cbfplot_wf(
     mem_gb, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbf_plot"
 ):
+    """Plot CBF results."""
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -800,6 +798,7 @@ def init_cbfplot_wf(
 def init_gecbfplot_wf(
     mem_gb, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbf_plot"
 ):
+    """Plot CBF results for GE data."""
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -905,6 +904,7 @@ def init_gecbfplot_wf(
 
 
 def init_cbfroiquant_wf(mem_gb, omp_nthreads, scorescrub=False, basil=False, name="cbf_roiquant"):
+    """Parcellate CBF results using a set of atlases."""
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """\
@@ -1190,9 +1190,7 @@ def init_gecbf_compt_wf(
     basil=False,
     name="cbf_compt_wf",
 ):
-    """
-    be back
-    """
+    """Calculate CBF for GE data."""
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\

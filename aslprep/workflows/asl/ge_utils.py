@@ -1,32 +1,25 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-utils code to process GE scan with fewer volumes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-"""
-
+"""Workflows to process GE ASL data."""
 import os
-from pathlib import Path
 
-import nibabel as nb
-import numpy as np
-import pandas as pd
 from nipype.interfaces import fsl
 from nipype.interfaces import utility as niu
-from nipype.interfaces.base import (
-    BaseInterfaceInputSpec,
-    File,
-    SimpleInterface,
-    TraitedSpec,
-    traits,
-)
 from nipype.pipeline import engine as pe
-from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
+from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.ge import GeReferenceFile
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces.fixes import (
+    FixHeaderApplyTransforms as ApplyTransforms,
+)
 from aslprep.niworkflows.interfaces.masks import SimpleShowMaskRPT
+from aslprep.niworkflows.interfaces.utility import KeySelect
+from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
+from aslprep.niworkflows.utils.spaces import format_reference
+from aslprep.utils.misc import _aslist, _is_native, _select_template, _split_spec
+from aslprep.workflows.asl.registration import init_fsl_bbr_wf
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -43,6 +36,7 @@ def init_asl_geref_wf(
     name="asl_gereference_wf",
     gen_report=False,
 ):
+    """Generate a reference volume and its skull-stripped version."""
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 First, a reference volume and its skull-stripped version were generated.
@@ -105,6 +99,7 @@ def init_asl_gereg_wf(
     use_compression=True,
     write_report=True,
 ):
+    """Calculate registration transforms from ASL reference volume to T1w space."""
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(fields=["ref_asl_brain", "t1w_brain", "t1w_dseg"]), name="inputnode"
@@ -114,13 +109,9 @@ def init_asl_gereg_wf(
         name="outputnode",
     )
 
-    from aslprep.workflows.asl.registration import init_fsl_bbr_wf
-
     bbr_wf = init_fsl_bbr_wf(
         use_bbr=use_bbr, asl2t1w_dof=asl2t1w_dof, asl2t1w_init=asl2t1w_init, sloppy=sloppy
     )
-    # bbr_wf.base_dir=os.getcwd()
-    from aslprep.interfaces import DerivativesDataSink
 
     workflow.connect(
         [
@@ -181,13 +172,9 @@ def init_asl_t1_getrans_wf(
     use_compression=True,
     name="asl_t1_trans_wf",
 ):
-    """
-    Co-register the reference ASL image to T1w-space.
+    """Co-register the reference ASL image to T1w-space.
 
     The workflow uses :abbr:`BBR (boundary-based registration)`.
-
-
-
     """
     from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from aslprep.niworkflows.interfaces.fixes import (
@@ -400,15 +387,7 @@ def init_asl_gestd_trans_wf(
     name="asl_gestd_trans_wf",
     use_compression=True,
 ):
-    """ """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.fixes import (
-        FixHeaderApplyTransforms as ApplyTransforms,
-    )
-    from aslprep.niworkflows.interfaces.utility import KeySelect
-    from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
-    from aslprep.niworkflows.utils.spaces import format_reference
-
+    """Resample ASL and CBF derivatives into target spaces."""
     workflow = Workflow(name=name)
     output_references = spaces.cached.get_spaces(nonstandard=False, dim=(3,))
     std_vol_references = [
@@ -692,212 +671,3 @@ preprocessed ASL runs*: {', '.join(output_references)}.
         ]
     )
     return workflow
-
-
-def gen_reference(in_img, fwhm=5, newpath=None):
-    """generate reference for a GE scan with few volumes."""
-    import nibabel as nb
-    import numpy as np
-    from nibabel.processing import smooth_image
-
-    newpath = Path(newpath or ".")
-    ss = check_img(in_img)
-    if ss == 0:
-        ref_data = nb.load(in_img).get_fdata()
-    else:
-        nii = nb.load(in_img).get_fdata()
-        ref_data = np.mean(nii, axis=3)
-    new_file = nb.Nifti1Image(
-        dataobj=ref_data, header=nb.load(in_img).header, affine=nb.load(in_img).affine
-    )
-
-    new_file = smooth_image(new_file, fwhm=fwhm)
-    out_file = fname_presuffix(
-        "aslref", suffix="_reference.nii.gz", newpath=str(newpath.absolute())
-    )
-    new_file.to_filename(out_file)
-    return out_file
-
-
-def check_img(img):
-    # get the 4th dimension
-    ss = nb.load(img).get_fdata().shape
-    if len(ss) == 3:
-        ss = np.hstack([ss, 0])
-    return ss[3]
-
-
-def _split_spec(in_target):
-    space, spec = in_target
-    template = space.split(":")[0]
-    return space, template, spec
-
-
-def _select_template(template):
-    from aslprep.niworkflows.utils.misc import get_template_specs
-
-    template, specs = template
-    template = template.split(":")[0]  # Drop any cohort modifier if present
-    specs = specs.copy()
-    specs["suffix"] = specs.get("suffix", "T1w")
-
-    # Sanitize resolution
-    res = specs.pop("res", None) or specs.pop("resolution", None) or "native"
-    if res != "native":
-        specs["resolution"] = res
-        return get_template_specs(template, template_spec=specs)[0]
-
-    # Map nonstandard resolutions to existing resolutions
-    specs["resolution"] = 2
-    try:
-        out = get_template_specs(template, template_spec=specs)
-    except RuntimeError:
-        specs["resolution"] = 1
-        out = get_template_specs(template, template_spec=specs)
-
-    return out[0]
-
-
-def _aslist(in_value):
-    if isinstance(in_value, list):
-        return in_value
-    return [in_value]
-
-
-def _is_native(in_value):
-    return in_value.get("resolution") == "native" or in_value.get("res") == "native"
-
-
-class _GeReferenceFileInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc="asl_file")
-    in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for asl or deltam ")
-    bids_dir = traits.Str(exits=True, mandatory=True, desc=" bids directory")
-    ref_file = File(exists=False, mandatory=False, desc="ref file")
-    m0_file = File(exists=False, mandatory=False, desc="m0 file")
-    fwhm = traits.Float(
-        exits=False, mandatory=False, default_value=5, desc="smoothing kernel for M0"
-    )
-
-
-class _GeReferenceFileOutputSpec(TraitedSpec):
-    ref_file = File(exists=True, mandatory=True, desc="ref file")
-    m0_file = File(exists=True, mandatory=True, desc="m0 file")
-
-
-class GeReferenceFile(SimpleInterface):
-    """
-    Generates a reference grid for resampling one image keeping original resolution,
-    but moving data to a different space (e.g. MNI).
-
-    """
-
-    input_spec = _GeReferenceFileInputSpec
-    output_spec = _GeReferenceFileOutputSpec
-
-    def _run_interface(self, runtime):
-        import os
-
-        filex = os.path.abspath(self.inputs.in_file)
-        aslcontext1 = filex.replace("_asl.nii.gz", "_aslcontext.tsv")
-        aslcontext = pd.read_csv(aslcontext1)
-        idasl = aslcontext["volume_type"].tolist()
-        m0list = [i for i in range(0, len(idasl)) if idasl[i] == "m0scan"]
-        deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == "deltam"]
-        controllist = [i for i in range(0, len(idasl)) if idasl[i] == "control"]
-        labellist = [i for i in range(0, len(idasl)) if idasl[i] == "label"]
-        cbflist = [i for i in range(0, len(idasl)) if idasl[i] == "CBF"]
-
-        allasl = nb.load(self.inputs.in_file)
-        dataasl = allasl.get_fdata()
-
-        if self.inputs.in_metadata["M0Type"] == "Separate":
-            m0file = self.inputs.in_file.replace("asl.nii.gz", "m0scan.nii.gz")
-            m0file_metadata = readjson(m0file.replace("nii.gz", "json"))
-            aslfile_linkedM0 = os.path.abspath(
-                self.inputs.bids_dir + "/" + m0file_metadata["IntendedFor"]
-            )
-            reffile = gen_reference(m0file, fwhm=self.inputs.fwhm, newpath=runtime.cwd)
-            m0file = reffile
-
-        elif self.inputs.in_metadata["M0Type"] == "Included":
-            modata2 = dataasl[:, :, :, m0list]
-            m0filename = fname_presuffix(
-                self.inputs.in_file, suffix="_mofile", newpath=os.getcwd()
-            )
-            m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-            m0obj.to_filename(m0filename)
-            reffile = gen_reference(m0filename, fwhm=self.inputs.fwhm, newpath=runtime.cwd)
-            m0file = reffile
-
-        elif self.inputs.in_metadata["M0Type"] == "Estimate":
-            m0num = float(self.inputs.in_metadata["M0Estimate"])
-            if len(deltamlist) > 0:
-                modata2 = dataasl[:, :, :, deltamlist]
-            elif len(controllist) > 0:
-                modata2 = dataasl[:, :, :, controllist]
-            elif len(cbflist) > 0:
-                modata2 = dataasl[:, :, :, cbflist]
-
-            m0filename = fname_presuffix(
-                self.inputs.in_file, suffix="_m0file", newpath=os.getcwd()
-            )
-            if len(modata2.shape) > 3:
-                mdata = np.mean(modata2, axis=3)
-            else:
-                mdata = modata2
-
-            m0file_data = m0num * np.ones_like(mdata)
-
-            m0obj = nb.Nifti1Image(m0file_data, allasl.affine, allasl.header)
-            m0obj.to_filename(m0filename)
-            m0file = m0filename
-
-            reffilename = fname_presuffix(
-                self.inputs.in_file, suffix="_refile", newpath=os.getcwd()
-            )
-            refobj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
-
-            refobj.to_filename(reffilename)
-            reffile = gen_reference(reffilename, fwhm=0, newpath=runtime.cwd)
-
-        elif self.inputs.in_metadata["M0Type"] == "Absent":
-            if len(controllist) > 0:
-                modata2 = dataasl[:, :, :, controllist]
-            m0filename = fname_presuffix(
-                self.inputs.in_file, suffix="_m0file", newpath=os.getcwd()
-            )
-            if len(modata2.shape) > 3:
-                mdata = np.mean(modata2, axis=3)
-            else:
-                mdata = modata2
-
-            m0obj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
-            m0obj.to_filename(m0filename)
-            m0file = m0filename
-            # m0file  = gen_reference(reffilename,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
-
-            reffilename = fname_presuffix(
-                self.inputs.in_file, suffix="_refile", newpath=os.getcwd()
-            )
-            refobj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
-
-            refobj.to_filename(reffilename)
-            reffile = gen_reference(
-                reffilename, fwhm=self.inputs.class_trait_namesfwhm, newpath=runtime.cwd
-            )
-
-        else:
-            raise RuntimeError("no path way to obtain real m0scan")
-        self._results["ref_file"] = reffile
-        self._results["m0_file"] = m0file
-        self.inputs.ref_file = os.path.abspath(self._results["ref_file"])
-        self.inputs.m0_file = os.path.abspath(self._results["m0_file"])
-        return runtime
-
-
-def readjson(jsonfile):
-    import json
-
-    with open(jsonfile) as f:
-        data = json.load(f)
-    return data

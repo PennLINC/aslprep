@@ -1,25 +1,37 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-Resampling workflows
-++++++++++++++++++++
-
-.. autofunction:: init_asl_surf_wf
-.. autofunction:: init_asl_std_trans_wf
-.. autofunction:: init_asl_preproc_trans_wf
-
-"""
+"""Workflows for resampling data."""
 from nipype.interfaces import freesurfer as fs
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
+from nipype.interfaces.io import FreeSurferSource
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.func.util import init_asl_reference_wf
+from aslprep.niworkflows.interfaces.fixes import (
+    FixHeaderApplyTransforms as ApplyTransforms,
+)
+from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
+from aslprep.niworkflows.interfaces.nilearn import Merge
+from aslprep.niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
+from aslprep.niworkflows.interfaces.utility import KeySelect
+from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
+from aslprep.niworkflows.utils.spaces import format_reference
+from aslprep.utils.misc import (
+    _aslist,
+    _is_native,
+    _itk2lta,
+    _select_first_in_list,
+    _select_template,
+    _split_spec,
+    select_target,
+)
 
 
 def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_wf"):
-    """
-    Sample functional images to FreeSurfer surfaces.
+    """Sample functional images to FreeSurfer surfaces.
 
     For each vertex, the cortical ribbon is sampled at six points (spaced 20% of thickness apart)
     and averaged.
@@ -64,11 +76,6 @@ def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_
         ASL series, resampled to FreeSurfer surfaces
 
     """
-    from nipype.interfaces.io import FreeSurferSource
-
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
-
     workflow = Workflow(name=name)
     workflow.__desc__ = f"""\
 The ASL time-series were resampled onto the following surfaces
@@ -86,10 +93,6 @@ The ASL time-series were resampled onto the following surfaces
     itersource.iterables = [("target", surface_spaces)]
 
     get_fsnative = pe.Node(FreeSurferSource(), name="get_fsnative", run_without_submitting=True)
-
-    def select_target(subject_id, space):
-        """Get the target subject ID, given a source subject ID and a target space."""
-        return subject_id if space == "fsnative" else space
 
     targets = pe.Node(
         niu.Function(function=select_target),
@@ -187,8 +190,7 @@ def init_asl_std_trans_wf(
     use_compression=True,
     use_fieldwarp=False,
 ):
-    """
-    Sample ASL into standard space with a single-step resampling of the original ASL series.
+    """Sample ASL into standard space with a single-step resampling of the original ASL series.
 
     .. important::
         This workflow provides two outputnodes.
@@ -268,19 +270,7 @@ def init_asl_std_trans_wf(
         described outputs.
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.func.util import init_asl_reference_wf
-    from aslprep.niworkflows.interfaces.fixes import (
-        FixHeaderApplyTransforms as ApplyTransforms,
-    )
-    from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
-    from aslprep.niworkflows.interfaces.nilearn import Merge
-    from aslprep.niworkflows.interfaces.utility import KeySelect
-    from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
-    from aslprep.niworkflows.utils.spaces import format_reference
-
     workflow = Workflow(name=name)
-    output_references = spaces.cached.get_spaces(nonstandard=False, dim=(3,))
     std_vol_references = [
         (s.fullname, s.spec) for s in spaces.references if s.standard and s.dim == 3
     ]
@@ -439,7 +429,7 @@ def init_asl_std_trans_wf(
             (iterablesource, select_tpl, [("std_target", "template")]),
             (inputnode, select_std, [("anat2std_xfm", "anat2std_xfm"), ("templates", "keys")]),
             (inputnode, mask_std_tfm, [("asl_mask", "input_image")]),
-            (inputnode, gen_ref, [(("asl_split", _first), "moving_image")]),
+            (inputnode, gen_ref, [(("asl_split", _select_first_in_list), "moving_image")]),
             (inputnode, merge_xforms, [(("itk_asl_to_t1", _aslist), "in2")]),
             (inputnode, merge, [("name_source", "header_source")]),
             (inputnode, mask_merge_tfms, [(("itk_asl_to_t1", _aslist), "in2")]),
@@ -559,8 +549,7 @@ def init_asl_preproc_trans_wf(
     split_file=False,
     interpolation="LanczosWindowedSinc",
 ):
-    """
-    Resample in native (original) space.
+    """Resample in native (original) space.
 
     This workflow resamples the input fMRI in its native (original)
     space in a "single shot" from the original asl series.
@@ -618,11 +607,6 @@ def init_asl_preproc_trans_wf(
         Same as ``asl_ref``, but once the brain mask has been applied
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.func.util import init_asl_reference_wf
-    from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
-    from aslprep.niworkflows.interfaces.nilearn import Merge
-
     workflow = Workflow(name=name)
     # workflow.__desc__ = """\
     # The ASL timeseries were resampled onto their original,
@@ -684,7 +668,7 @@ def init_asl_preproc_trans_wf(
                     asl_transform,
                     [
                         ("out_files", "input_image"),
-                        (("out_files", _first), "reference_image"),
+                        (("out_files", _select_first_in_list), "reference_image"),
                     ],
                 ),
             ]
@@ -695,7 +679,10 @@ def init_asl_preproc_trans_wf(
                 (
                     inputnode,
                     asl_transform,
-                    [("asl_file", "input_image"), (("asl_file", _first), "reference_image")],
+                    [
+                        ("asl_file", "input_image"),
+                        (("asl_file", _select_first_in_list), "reference_image"),
+                    ],
                 ),
             ]
         )
@@ -724,60 +711,3 @@ def init_asl_preproc_trans_wf(
             ]
         )
     return workflow
-
-
-def _split_spec(in_target):
-    space, spec = in_target
-    template = space.split(":")[0]
-    return space, template, spec
-
-
-def _select_template(template):
-    from aslprep.niworkflows.utils.misc import get_template_specs
-
-    template, specs = template
-    template = template.split(":")[0]  # Drop any cohort modifier if present
-    specs = specs.copy()
-    specs["suffix"] = specs.get("suffix", "T1w")
-
-    # Sanitize resolution
-    res = specs.pop("res", None) or specs.pop("resolution", None) or "native"
-    if res != "native":
-        specs["resolution"] = res
-        return get_template_specs(template, template_spec=specs)[0]
-
-    # Map nonstandard resolutions to existing resolutions
-    specs["resolution"] = 2
-    try:
-        out = get_template_specs(template, template_spec=specs)
-    except RuntimeError:
-        specs["resolution"] = 1
-        out = get_template_specs(template, template_spec=specs)
-
-    return out[0]
-
-
-def _first(inlist):
-    return inlist[0]
-
-
-def _aslist(in_value):
-    if isinstance(in_value, list):
-        return in_value
-    return [in_value]
-
-
-def _is_native(in_value):
-    return in_value.get("resolution") == "native" or in_value.get("res") == "native"
-
-
-def _itk2lta(in_file, src_file, dst_file):
-    from pathlib import Path
-
-    import nitransforms as nt
-
-    out_file = Path("out.lta").absolute()
-    nt.linear.load(
-        in_file, fmt="fs" if in_file.endswith(".lta") else "itk", reference=src_file
-    ).to_filename(out_file, moving=dst_file, fmt="fs")
-    return str(out_file)

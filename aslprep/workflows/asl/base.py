@@ -1,16 +1,8 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-Orchestrating the ASL-preprocessing workflow
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autofunction:: init_asl_preproc_wf
-.. autofunction:: init_asl_derivatives_wf
-
-"""
+"""Preprocessing workflows for ASL data."""
 import os
 
-import nibabel as nb
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
@@ -20,6 +12,7 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.utils.meepi import combine_meepi_source
+from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
 from aslprep.workflows.asl.cbf import (
     init_cbf_compt_wf,
     init_cbfplot_wf,
@@ -39,8 +32,7 @@ from aslprep.workflows.asl.t2s import init_asl_t2s_wf
 
 
 def init_asl_preproc_wf(asl_file):
-    """
-    This workflow controls the functional preprocessing stages of *aslprep*.
+    """Perform the functional preprocessing stages of ASLPrep.
 
     Workflow Graph
         .. workflow::
@@ -1346,50 +1338,3 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             workflow.get_node(node).inputs.source_file = ref_file
 
     return workflow
-
-
-def _get_series_len(asl_fname):
-    from aslprep.niworkflows.interfaces.registration import _get_vols_to_discard
-
-    img = nb.load(asl_fname)
-    if len(img.shape) < 4:
-        return 1
-
-    skip_vols = _get_vols_to_discard(img)
-
-    return img.shape[3] - skip_vols
-
-
-def _create_mem_gb(asl_fname):
-    asl_size_gb = os.path.getsize(asl_fname) / (1024**3)
-    asl_tlen = nb.load(asl_fname).shape[-1]
-    mem_gb = {
-        "filesize": asl_size_gb,
-        "resampled": asl_size_gb * 4,
-        "largemem": asl_size_gb * (max(asl_tlen / 100, 1.0) + 4),
-    }
-
-    return asl_tlen, mem_gb
-
-
-def _get_wf_name(asl_fname):
-    """
-    Derive the workflow name for supplied asl file.
-
-    >>> _get_wf_name('/completely/made/up/path/sub-01_task-nback_asl.nii.gz')
-    'func_preproc_task_nback_wf'
-    >>> _get_wf_name('/completely/made/up/path/sub-01_task-nback_run-01_echo-1_asl.nii.gz')
-    'func_preproc_task_nback_run_01_echo_1_wf'
-
-    """
-    from nipype.utils.filemanip import split_filename
-
-    fname = split_filename(asl_fname)[1]
-    fname_nosub = "_".join(fname.split("_")[1:])
-    # if 'echo' in fname_nosub:
-    #     fname_nosub = '_'.join(fname_nosub.split("_echo-")[:1]) + "_asl"
-    name = "asl_preproc_" + fname_nosub.replace(".", "_").replace(" ", "").replace(
-        "-", "_"
-    ).replace("_asl", "_wf")
-
-    return name

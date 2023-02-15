@@ -1,9 +1,8 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-
+"""CBF-processing workflows for GE data."""
 import os
 
-import nibabel as nb
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
@@ -11,6 +10,9 @@ from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces.nibabel import ApplyMask
+from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import (
     init_cbfgeqc_compt_wf,
     init_cbfroiquant_wf,
@@ -27,8 +29,7 @@ from aslprep.workflows.asl.outputs import init_geasl_derivatives_wf
 
 
 def init_asl_gepreproc_wf(asl_file):
-    """
-    This workflow controls the functional preprocessing stages of *aslprep*.
+    """Manage the functional preprocessing stages of ASLPrep, for GE data.
 
     Workflow Graph
         .. workflow::
@@ -37,13 +38,13 @@ def init_asl_gepreproc_wf(asl_file):
 
             from aslprep.workflows.tests import mock_config
             from aslprep import config
-            from aslprep.workflows.asl.base import init_asl_preproc_wf
+            from aslprep.workflows.asl.base import init_asl_gepreproc_wf
             with mock_config():
                 asl_file = (
                     config.execution.bids_dir / 'sub-01' / 'perf' /
                     'sub-01_task-restEyesOpen_asl.nii.gz'
                 )
-                wf = init_asl_preproc_wf(str(asl_file))
+                wf = init_asl_gepreproc_wf(str(asl_file))
 
     Parameters
     ----------
@@ -144,9 +145,6 @@ def init_asl_gepreproc_wf(asl_file):
     * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.nibabel import ApplyMask
-
     ref_file = asl_file
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
@@ -907,23 +905,9 @@ effects of other kernels [@lanczos].
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
 
-    ds_report_validation = pe.Node(
-        DerivativesDataSink(
-            base_directory=output_dir,
-            desc="validation",
-            datatype="figures",
-            dismiss_entities=("echo",),
-        ),
-        name="ds_report_validation",
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
-
     workflow.connect(
         [
             (summary, ds_report_summary, [("out_report", "in_file")]),
-            # (gen_ref_wf, ds_report_validation, [
-            # ('outputnode.validation_report', 'in_file')]),
         ]
     )
 
@@ -934,38 +918,3 @@ effects of other kernels [@lanczos].
             workflow.get_node(node).inputs.source_file = ref_file
 
     return workflow
-
-
-def _create_mem_gb(asl_fname):
-    asl_size_gb = os.path.getsize(asl_fname) / (1024**3)
-    asl_tlen = nb.load(asl_fname).shape[-1]
-    mem_gb = {
-        "filesize": asl_size_gb,
-        "resampled": asl_size_gb * 4,
-        "largemem": asl_size_gb * (max(asl_tlen / 100, 1.0) + 4),
-    }
-
-    return asl_tlen, mem_gb
-
-
-def _get_wf_name(asl_fname):
-    """
-    Derive the workflow name for supplied asl file.
-
-    >>> _get_wf_name('/completely/made/up/path/sub-01_task-nback_asl.nii.gz')
-    'func_preproc_task_nback_wf'
-    >>> _get_wf_name('/completely/made/up/path/sub-01_task-nback_run-01_echo-1_asl.nii.gz')
-    'func_preproc_task_nback_run_01_echo_1_wf'
-
-    """
-    from nipype.utils.filemanip import split_filename
-
-    fname = split_filename(asl_fname)[1]
-    fname_nosub = "_".join(fname.split("_")[1:])
-    # if 'echo' in fname_nosub:
-    #     fname_nosub = '_'.join(fname_nosub.split("_echo-")[:1]) + "_asl"
-    name = "asl_preproc_" + fname_nosub.replace(".", "_").replace(" ", "").replace(
-        "-", "_"
-    ).replace("_asl", "_wf")
-
-    return name

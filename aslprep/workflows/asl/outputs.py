@@ -1,11 +1,14 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""Writing out derivative files."""
+"""Workflows for writing out derivative files."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import DerivativesDataSink
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces.utility import KeySelect
+from aslprep.smriprep.workflows.outputs import _bids_relative
 
 
 def init_asl_derivatives_wf(
@@ -17,8 +20,7 @@ def init_asl_derivatives_wf(
     basil=False,
     name="asl_derivatives_wf",
 ):
-    """
-    Set up a battery of datasinks to store derivatives in the right location.
+    """Set up a battery of datasinks to store derivatives in the right location.
 
     Parameters
     ----------
@@ -41,10 +43,6 @@ def init_asl_derivatives_wf(
         This workflow's identifier (default: ``func_derivatives_wf``).
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.utility import KeySelect
-    from aslprep.smriprep.workflows.outputs import _bids_relative
-
     nonstd_spaces = set(spaces.get_nonstandard())
     workflow = Workflow(name=name)
 
@@ -1283,8 +1281,7 @@ def init_geasl_derivatives_wf(
     basil=False,
     name="asl_derivatives_wf",
 ):
-    """
-    Set up a battery of datasinks to store derivatives in the right location.
+    """Set up a battery of datasinks to store derivatives in the right location, for GE data.
 
     Parameters
     ----------
@@ -1311,10 +1308,6 @@ def init_geasl_derivatives_wf(
         This workflow's identifier (default: ``func_derivatives_wf``).
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.utility import KeySelect
-    from aslprep.smriprep.workflows.outputs import _bids_relative
-
     nonstd_spaces = set(spaces.get_nonstandard())
     workflow = Workflow(name=name)
 

@@ -1,24 +1,18 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-Generate T2* map from multi-echo ASL images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autofunction:: init_asl_t2s_wf
-
-"""
+"""Generate T2* map from multi-echo ASL images."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import T2SMap
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 LOGGER = config.loggers.workflow
 
 
 def init_asl_t2s_wf(echo_times, mem_gb, omp_nthreads, name="asl_t2s_wf"):
-    """
-    Combine multiple echos of :abbr:`ME-EPI (multi-echo echo-planar imaging)`.
+    """Combine multiple echos of :abbr:`ME-EPI (multi-echo echo-planar imaging)`.
 
     This workflow wraps the `tedana`_ `T2* workflow`_ to optimally
     combine multiple echos and derive a T2* map.
@@ -53,8 +47,6 @@ def init_asl_t2s_wf(echo_times, mem_gb, omp_nthreads, name="asl_t2s_wf"):
         the optimally combined time series for all supplied echos
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 A T2* map was estimated from the preprocessed asl by fitting to a monoexponential signal

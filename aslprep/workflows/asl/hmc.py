@@ -1,23 +1,19 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-Head-Motion Estimation and Correction (HMC) of ASL images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autofunction:: init_asl_hmc_wf
-
-"""
-
+"""Workflows for estimating and correcting head motion in ASL images."""
 from nipype.interfaces import fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces import NormalizeMotionParams
+from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
+from aslprep.utils.misc import _select_last_in_list
 
 
 def init_asl_hmc_wf(mem_gb, omp_nthreads, name="asl_hmc_wf"):
-    """
-    Build a workflow to estimate head-motion parameters.
+    """Build a workflow to estimate head-motion parameters.
 
     This workflow estimates the motion parameters to perform
     :abbr:`HMC (head motion correction)` over the input
@@ -59,10 +55,6 @@ def init_asl_hmc_wf(mem_gb, omp_nthreads, name="asl_hmc_wf"):
         Framewise displacement as measured by ``fsl_motion_outliers``
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces import NormalizeMotionParams
-    from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
-
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 Head-motion parameters were estimated using *FSL*’s `mcflirt` [ @mcflirt].
@@ -90,9 +82,6 @@ Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file.
         NormalizeMotionParams(format="FSL"), name="normalize_motion", mem_gb=DEFAULT_MEMORY_MIN_GB
     )
 
-    def _pick_rel(rms_files):
-        return rms_files[-1]
-
     workflow.connect(
         [
             (inputnode, mcflirt, [("raw_ref_image", "ref_file"), ("asl_file", "in_file")]),
@@ -103,7 +92,7 @@ Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file.
             ),
             (mcflirt, fsl2itk, [("mat_file", "in_files")]),
             (mcflirt, normalize_motion, [("par_file", "in_file")]),
-            (mcflirt, outputnode, [(("rms_files", _pick_rel), "rmsd_file")]),
+            (mcflirt, outputnode, [(("rms_files", _select_last_in_list), "rmsd_file")]),
             (fsl2itk, outputnode, [("out_file", "xforms")]),
             (normalize_motion, outputnode, [("out_file", "movpar_file")]),
         ]
