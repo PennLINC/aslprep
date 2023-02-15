@@ -17,7 +17,7 @@ from aslprep.interfaces.cbf_computation import (
     extractCB,
     ExtractCBF,
     get_tis,
-    qccbf,
+    ComputeCBFQC,
     ComputeCBFQCforGE,
     RefineMask,
     ScoreAndScrubCBF,
@@ -402,7 +402,7 @@ negative CBF values.
     )
 
     qccompute = pe.Node(
-        qccbf(in_file=asl_file), name="qccompute", run_without_submitting=True, mem_gb=0.2
+        ComputeCBFQC(in_file=asl_file), name="qccompute", run_without_submitting=True, mem_gb=0.2
     )
 
     workflow.connect(

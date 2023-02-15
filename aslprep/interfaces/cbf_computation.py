@@ -1076,7 +1076,7 @@ class BASILCBF(FSLCommand):
         return outputs
 
 
-class _qccbfInputSpec(BaseInterfaceInputSpec):
+class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="original asl_file")
     in_meancbf = File(exists=True, mandatory=True, desc="cbf img")
     in_avgscore = File(exists=True, mandatory=False, desc="cbf img")
@@ -1095,20 +1095,20 @@ class _qccbfInputSpec(BaseInterfaceInputSpec):
     rmsd_file = File(exists=True, mandatory=True, desc="rmsd file")
 
 
-class _qccbfOutputSpec(TraitedSpec):
+class _ComputeCBFQCOutputSpec(TraitedSpec):
     qc_file = File(exists=False, desc="qc file ")
 
 
-class qccbf(SimpleInterface):
-    r""" "
+class ComputeCBFQC(SimpleInterface):
+    """
     compute qc from confound regressors
     and cbf maps,
     coregistration and regsitration indexes
 
     """
 
-    input_spec = _qccbfInputSpec
-    output_spec = _qccbfOutputSpec
+    input_spec = _ComputeCBFQCInputSpec
+    output_spec = _ComputeCBFQCOutputSpec
 
     def _run_interface(self, runtime):
         time1 = pd.read_csv(self.inputs.in_confmat, sep="\t")
