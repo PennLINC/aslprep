@@ -355,7 +355,7 @@ class execution(_Config):
     the command line) as spatial references for outputs."""
     reports_only = False
     """Only build the reports, based on the reportlets found in a cached working directory."""
-    run_uuid = "%s_%s" % (strftime("%Y%m%d-%H%M%S"), uuid4())
+    run_uuid = f"{strftime('%Y%m%d-%H%M%S')}_{uuid4()}"
     """Unique identifier of this particular run."""
     participant_label = None
     """List of participant identifiers that are to be preprocessed."""

@@ -364,7 +364,7 @@ def init_asl_t1_trans_wf(
                 (
                     inputnode,
                     merge_xforms,
-                    [("hmc_xforms", "in%d" % nforms), ("itk_asl_to_t1", "in1")],
+                    [("hmc_xforms", f"in{nforms}"), ("itk_asl_to_t1", "in1")],
                 ),
                 (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
                 (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
@@ -715,37 +715,10 @@ and the overlap between the ASL and reference images (e.g., image coverage).
 
         return workflow
 
-    # transforms = pe.Node(niu.Merge(2), run_without_submitting=True, name='transforms')
-    # reports = pe.Node(niu.Merge(2), run_without_submitting=True, name='reports')
-
-    # compare_transforms = pe.Node(niu.Function(function=compare_xforms,output_names="out"), name='compare_transforms')
-
-    # select_transform = pe.Node(niu.Select(), run_without_submitting=True, name='select_transform')
-    # select_report = pe.Node(niu.Select(), run_without_submitting=True, name='select_report')
-
-    # fsl_to_lta = pe.MapNode(LTAConvert(out_lta=True), iterfield=['in_fsl'],
-    # name='fsl_to_lta')
-    # select_transform.inputs.index= 0
-
     workflow.connect(
         [
-            # (flt_bbr, transforms, [('out_matrix_file', 'in1')]),
-            # (flt_bbr_init, transforms, [('out_matrix_file', 'in2')]),
-            # Convert FSL transforms to LTA (RAS2RAS) transforms and compare
-            # (inputnode, fsl_to_lta, [('in_file', 'source_file'),
-            # ('t1w_brain', 'target_file')]),
-            # (transforms, fsl_to_lta, [('out', 'in_fsl')]),
-            # (fsl_to_lta, compare_transforms, [('out_lta', 'lta_list')]),
-            # (compare_transforms, outputnode, [('out', 'fallback')]),
-            # Select output transform
-            # (transforms, select_transform, [('out', 'inlist')]),
-            # (compare_transforms, select_transform, [('out', 'index')]),
             (flt_bbr, invt_bbr, [("out_matrix_file", "in_file")]),
             (flt_bbr, fsl2itk_fwd, [("out_matrix_file", "transform_file")]),
-            # (flt_bbr, reports, [('out_report', 'in1')]),
-            # (flt_bbr_init, reports, [('out_report', 'in2')]),
-            # (reports, select_report, [('out', 'inlist')]),
-            # (compare_transforms, select_report, [('out', 'index')]),
             (flt_bbr, outputnode, [("out_report", "out_report")]),
         ]
     )

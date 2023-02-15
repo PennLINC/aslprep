@@ -163,8 +163,7 @@ def init_asl_derivatives_wf(
         ]
     )
 
-    ## wtite transform matrix file between asl native space and T1w
-
+    # write transform matrix file between asl native space and T1w
     itkt12asl = pe.Node(
         DerivativesDataSink(
             base_directory=output_dir,
@@ -1417,8 +1416,7 @@ def init_geasl_derivatives_wf(
         ]
     )
 
-    ## wtite transform matrix file between asl native space and T1w
-
+    # write transform matrix file between asl native space and T1w
     itkt12asl = pe.Node(
         DerivativesDataSink(
             base_directory=output_dir,

@@ -117,7 +117,7 @@ def init_single_subject_wf(subject_id):
     from aslprep.niworkflows.utils.spaces import Reference
     from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
 
-    name = "single_subject_%s_wf" % subject_id
+    name = f"single_subject_{subject_id}_wf"
     subject_data = collect_data(
         config.execution.bids_dir,
         subject_id,

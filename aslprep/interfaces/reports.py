@@ -176,8 +176,6 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
     qc_file = File(exists=True, desc="qc file")
     tr = traits.Float(desc="Repetition time", mandatory=True)
-    # dummy_scans = traits.Either(traits.Int(), None, desc='number of dummy scans specified by user')
-    # algo_dummy_scans = traits.Int(desc='number of dummy scans determined by algorithm')
 
 
 class FunctionalSummary(SummaryInterface):
@@ -191,13 +189,13 @@ class FunctionalSummary(SummaryInterface):
         reg = {
             "FSL": [
                 "FSL <code>flirt</code> with boundary-based registration"
-                " (BBR) metric - %d dof" % dof,
+                f" (BBR) metric - {dof} dof",
                 "FSL <code>flirt</code> rigid registration - 6 dof",
             ],
             "FreeSurfer": [
                 "FreeSurfer <code>bbregister</code> "
-                "(boundary-based registration, BBR) - %d dof" % dof,
-                "FreeSurfer <code>mri_coreg</code> - %d dof" % dof,
+                f"(boundary-based registration, BBR) - {dof} dof",
+                f"FreeSurfer <code>mri_coreg</code> - {dof} dof",
             ],
         }[self.inputs.registration][self.inputs.fallback]
         import pandas as pd

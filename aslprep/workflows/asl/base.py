@@ -51,7 +51,10 @@ def init_asl_preproc_wf(asl_file):
             from aslprep import config
             from aslprep.workflows.asl.base import init_asl_preproc_wf
             with mock_config():
-                asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_task-restEyesOpen_asl.nii.gz'
+                asl_file = (
+                    config.execution.bids_dir / 'sub-01' / 'perf' /
+                    'sub-01_task-restEyesOpen_asl.nii.gz'
+                )
                 wf = init_asl_preproc_wf(str(asl_file))
 
     Parameters
@@ -167,8 +170,10 @@ def init_asl_preproc_wf(asl_file):
 
     wf_name = _get_wf_name(ref_file)
     config.loggers.workflow.debug(
-        'Creating asl processing workflow for "%s" (%.2f GB / %d TRs). '
-        "Memory resampled/largemem=%.2f/%.2f GB.",
+        (
+            'Creating asl processing workflow for "%s" (%.2f GB / %d TRs). '
+            "Memory resampled/largemem=%.2f/%.2f GB."
+        ),
         ref_file,
         mem_gb["filesize"],
         asl_tlen,
@@ -228,8 +233,9 @@ def init_asl_preproc_wf(asl_file):
     workflow = Workflow(name=wf_name)
     workflow.__postdesc__ = """\
 All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations.
-Gridded (volumetric) resampling was performed using `antsApplyTransforms`, configured with *Lanczos*
-interpolation to minimize the smoothing effects of other kernels [@lanczos].
+Gridded (volumetric) resampling was performed using `antsApplyTransforms`,
+configured with *Lanczos* interpolation to minimize the smoothing effects of other kernels
+[@lanczos].
 """
 
     inputnode = pe.Node(

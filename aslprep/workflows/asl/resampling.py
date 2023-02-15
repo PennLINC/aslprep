@@ -355,7 +355,7 @@ def init_asl_std_trans_wf(
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    workflow.connect([(inputnode, merge_xforms, [("hmc_xforms", "in%d" % nxforms)])])
+    workflow.connect([(inputnode, merge_xforms, [("hmc_xforms", f"in{nxforms}")])])
 
     if use_fieldwarp:
         workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in3")])])

@@ -84,7 +84,7 @@ def main():
 
     config.loggers.workflow.log(
         15,
-        "\n".join(["ASLPrep config:"] + ["\t\t%s" % s for s in config.dumps().splitlines()]),
+        "\n".join(["ASLPrep config:"] + [f"\t\t{s}" for s in config.dumps().splitlines()]),
     )
     config.loggers.workflow.log(25, "ASLPrep started!")
     errno = 1  # Default is error exit unless otherwise set
@@ -153,7 +153,7 @@ def main():
 
         if failed_reports and not config.execution.notrack:
             sentry_sdk.capture_message(
-                "Report generation failed for %d subjects" % failed_reports,
+                f"Report generation failed for {failed_reports} subjects",
                 level="error",
             )
         sys.exit(int((errno + failed_reports) > 0))
