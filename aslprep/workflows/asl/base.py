@@ -11,6 +11,11 @@ from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.func.util import init_asl_reference_wf
+from aslprep.niworkflows.interfaces.nibabel import ApplyMask
+from aslprep.niworkflows.interfaces.utility import KeySelect
+from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.meepi import combine_meepi_source
 from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
 from aslprep.workflows.asl.cbf import (
@@ -74,7 +79,6 @@ def init_asl_preproc_wf(asl_file):
     std2anat_xfm
         List of inverse transform files, collated with templates
 
-
     Outputs
     -------
     asl_t1
@@ -109,34 +113,7 @@ def init_asl_preproc_wf(asl_file):
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
         quality control meausres
-
-    See Also
-    --------
-
-    * :py:func:`~aslprep.niworkflows.func.util.init_asl_reference_wf`
-    * :py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
-    * :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
-    * :py:func:`~aslprep.workflows.asl.t2s.init_asl_t2s_wf`
-    * :py:func:`~aslprep.workflows.asl.registration.init_asl_t1_trans_wf`
-    * :py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
-    * :py:func:`~aslprep.workflows.asl.confounds.init_asl_confounds_wf`
-    * :py:func:`~aslprep.workflows.asl.confounds.init_ica_aroma_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_preproc_trans_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_surf_wf`
-    * :py:func:`~sdcflows.workflows.fmap.init_fmap_wf`
-    * :py:func:`~sdcflows.workflows.pepolar.init_pepolar_unwarp_wf`
-    * :py:func:`~sdcflows.workflows.phdiff.init_phdiff_wf`
-    * :py:func:`~sdcflows.workflows.syn.init_syn_sdc_wf`
-    * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
-
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.func.util import init_asl_reference_wf
-    from aslprep.niworkflows.interfaces.nibabel import ApplyMask
-    from aslprep.niworkflows.interfaces.utility import KeySelect
-    from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
-
     ref_file = asl_file
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
