@@ -225,7 +225,7 @@ class ComputeCBF(SimpleInterface):
     output_spec = _ComputeCBFOutputSpec
 
     def _run_interface(self, runtime):
-        cbf, meancbf, att = cbfcomputation(
+        cbf, meancbf, att = compute_cbf(
             metadata=self.inputs.in_metadata,
             m0scale=self.inputs.in_m0scale,
             mask=self.inputs.in_mask,
@@ -273,7 +273,7 @@ class ComputeCBF(SimpleInterface):
         return runtime
 
 
-def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
+def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
     """
     compute cbf with pld and multi pld
     metadata
@@ -379,9 +379,6 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     tcbf = np.nan_to_num(tcbf)
     att = np.nan_to_num(att)
     return tcbf, meancbf, att
-
-
-# score and scrub
 
 
 class _scorescrubCBFInputSpec(BaseInterfaceInputSpec):
