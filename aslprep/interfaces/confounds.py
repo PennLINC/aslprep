@@ -171,7 +171,7 @@ def _gather_confounds(
     return combined_out, confounds_list
 
 
-class ASLSummaryInputSpec(BaseInterfaceInputSpec):
+class _ASLSummaryInputSpec(BaseInterfaceInputSpec):
     in_func = File(exists=True, mandatory=True, desc="input ASL time-series (4D file)")
     in_mask = File(exists=True, desc="3D brain mask")
     in_segm = File(exists=True, desc="resampled segmentation")
@@ -188,7 +188,7 @@ class ASLSummaryInputSpec(BaseInterfaceInputSpec):
     tr = traits.Either(None, traits.Float, usedefault=True, desc="the repetition time")
 
 
-class ASLSummaryOutputSpec(TraitedSpec):
+class _ASLSummaryOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc="written file path")
 
 
@@ -197,8 +197,8 @@ class ASLSummary(SimpleInterface):
     Copy the x-form matrices from `hdr_file` to `out_file`.
     """
 
-    input_spec = ASLSummaryInputSpec
-    output_spec = ASLSummaryOutputSpec
+    input_spec = _ASLSummaryInputSpec
+    output_spec = _ASLSummaryOutputSpec
 
     def _run_interface(self, runtime):
         from aslprep.niworkflows.viz.plots import ASLPlot
