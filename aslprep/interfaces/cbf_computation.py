@@ -1658,7 +1658,7 @@ def get_atlas(atlasname):
     return atlasfile, atlasdata, atlaslabel
 
 
-def cbfroiquant(roi_file, roi_label, cbfmap):
+def parcellate_cbf(roi_file, roi_label, cbfmap):
     data = nb.load(cbfmap).get_data()
     roi = nb.load(roi_file).get_data()
     roi_labels = np.loadtxt(roi_label)
@@ -1672,7 +1672,7 @@ def cbfroiquant(roi_file, roi_label, cbfmap):
     return mean_vals
 
 
-class _cbfroiquantInputSpec(BaseInterfaceInputSpec):
+class _ParcellateCBFInputSpec(BaseInterfaceInputSpec):
     in_cbf = File(exists=True, mandatory=True, desc="cbf img")
     atlasfile = File(exists=True, mandatory=True, desc="data")
     atlasdata = File(exists=True, mandatory=True, desc="data")
@@ -1680,19 +1680,19 @@ class _cbfroiquantInputSpec(BaseInterfaceInputSpec):
     atlascsv = File(exists=False, mandatory=False, desc="harvard output csv")
 
 
-class _cbfroiquantOutputSpec(TraitedSpec):
+class _ParcellateCBFOutputSpec(TraitedSpec):
     atlascsv = File(exists=False, desc="harvard output csv")
 
 
-class cbfqroiquant(SimpleInterface):
-    input_spec = _cbfroiquantInputSpec
-    output_spec = _cbfroiquantOutputSpec
+class ParcellateCBF(SimpleInterface):
+    input_spec = _ParcellateCBFInputSpec
+    output_spec = _ParcellateCBFOutputSpec
 
     def _run_interface(self, runtime):
         self._results["atlascsv"] = fname_presuffix(
             self.inputs.in_cbf, suffix="atlas.csv", newpath=runtime.cwd, use_ext=False
         )
-        roiquant = cbfroiquant(
+        roiquant = parcellate_cbf(
             roi_label=self.inputs.atlaslabel,
             roi_file=self.inputs.atlasfile,
             cbfmap=self.inputs.in_cbf,

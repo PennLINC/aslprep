@@ -12,7 +12,7 @@ from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import (
     BASILCBF,
-    cbfqroiquant,
+    ParcellateCBF,
     ComputeCBF,
     extractCB,
     ExtractCBF,
@@ -1016,58 +1016,58 @@ For each CBF map, the ROIs for the following atlases were extracted: the  Harvar
         name="sc417trans",
     )
 
-    cbfroihv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="cbfroihv")
-    cbfroi207 = pe.Node(cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="cbf207")
-    cbfroi217 = pe.Node(cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="cbf217")
-    cbfroi407 = pe.Node(cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="cbf407")
-    cbfroi417 = pe.Node(cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="cbf417")
+    cbfroihv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="cbfroihv")
+    cbfroi207 = pe.Node(ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="cbf207")
+    cbfroi217 = pe.Node(ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="cbf217")
+    cbfroi407 = pe.Node(ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="cbf407")
+    cbfroi417 = pe.Node(ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="cbf417")
     if scorescrub:
-        scorehv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scorehv")
+        scorehv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scorehv")
         score207 = pe.Node(
-            cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="score207"
+            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="score207"
         )
         score217 = pe.Node(
-            cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="score217"
+            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="score217"
         )
         score407 = pe.Node(
-            cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="score407"
+            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="score407"
         )
         score417 = pe.Node(
-            cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="score417"
+            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="score417"
         )
-        scrubhv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scrubhv")
+        scrubhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scrubhv")
         scrub207 = pe.Node(
-            cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="scrub207"
+            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="scrub207"
         )
         scrub217 = pe.Node(
-            cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="scrub217"
+            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="scrub217"
         )
         scrub407 = pe.Node(
-            cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="scrub407"
+            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="scrub407"
         )
         scrub417 = pe.Node(
-            cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="scrub417"
+            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="scrub417"
         )
 
     if basil:
-        basilhv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="basilhv")
+        basilhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="basilhv")
         basil207 = pe.Node(
-            cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="basil207"
+            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="basil207"
         )
         basil217 = pe.Node(
-            cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="basil217"
+            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="basil217"
         )
         basil407 = pe.Node(
-            cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="basil407"
+            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="basil407"
         )
         basil417 = pe.Node(
-            cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="basil417"
+            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="basil417"
         )
-        pvchv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="pvchv")
-        pvc207 = pe.Node(cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="pvc207")
-        pvc217 = pe.Node(cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="pvc217")
-        pvc407 = pe.Node(cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="pvc407")
-        pvc417 = pe.Node(cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="pvc417")
+        pvchv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="pvchv")
+        pvc207 = pe.Node(ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="pvc207")
+        pvc217 = pe.Node(ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="pvc217")
+        pvc407 = pe.Node(ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="pvc407")
+        pvc417 = pe.Node(ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="pvc417")
 
     workflow.connect(
         [
