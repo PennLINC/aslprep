@@ -195,8 +195,7 @@ def init_asl_preproc_wf(asl_file):
         sbbase = os.path.basename(sbref_file)
         if len(files) > 1:
             config.loggers.workflow.warning(
-                "Multiple single-band reference files found for {}; using "
-                "{}".format(refbase, sbbase)
+                f"Multiple single-band reference files found for {refbase}; using {sbbase}"
             )
         else:
             config.loggers.workflow.info("Using single-band reference file %s.", sbbase)

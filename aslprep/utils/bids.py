@@ -45,7 +45,7 @@ def write_derivative_description(bids_dir, deriv_dir):
             orig_desc = json.load(fobj)
 
     if "DatasetDOI" in orig_desc:
-        desc["SourceDatasetsURLs"] = ["https://doi.org/{}".format(orig_desc["DatasetDOI"])]
+        desc["SourceDatasetsURLs"] = [f"https://doi.org/{orig_desc['DatasetDOI']}"]
     if "License" in orig_desc:
         desc["License"] = orig_desc["License"]
 

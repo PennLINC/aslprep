@@ -62,7 +62,7 @@ def _build_parser():
     is_release = not any((currentv.is_devrelease, currentv.is_prerelease, currentv.is_postrelease))
 
     parser = ArgumentParser(
-        description="ASLPrep: ASL PREProcessing workflows v{}".format(config.environment.version),
+        description=f"ASLPrep: ASL PREProcessing workflows v{config.environment.version}",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
     PathExists = partial(_path_exists, parser=parser)

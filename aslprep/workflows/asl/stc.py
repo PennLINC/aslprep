@@ -70,7 +70,7 @@ ASL runs were slice-time corrected using `3dTshift` from AFNI [@afni].
     slice_timing_correction = pe.Node(
         afni.TShift(
             outputtype="NIFTI_GZ",
-            tr="{}s".format(metadata["RepetitionTime"]),
+            tr=f"{metadata['RepetitionTime']}s",
             slice_timing=metadata["SliceTiming"],
             slice_encoding_direction=metadata.get("SliceEncodingDirection", "k"),
         ),

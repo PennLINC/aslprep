@@ -97,7 +97,7 @@ def main():
             crashfolders = [
                 config.execution.output_dir
                 / "aslprep"
-                / "sub-{}".format(s)
+                / f"sub-{s}"
                 / "log"
                 / config.execution.run_uuid
                 for s in config.execution.participant_label
