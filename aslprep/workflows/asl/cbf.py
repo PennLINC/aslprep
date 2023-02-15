@@ -20,7 +20,7 @@ from aslprep.interfaces.cbf_computation import (
     qccbf,
     qccbfge,
     RefineMask,
-    scorescrubCBF,
+    ScoreAndScrubCBF,
 )
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
@@ -165,7 +165,7 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
         name="computecbf",
     )
     scorescrub = pe.Node(
-        scorescrubCBF(in_thresh=0.7, in_wfun="huber"),
+        ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
         mem_gb=0.2,
         name="scorescrub",
         run_without_submitting=True,
@@ -1334,7 +1334,7 @@ structural tissues probability maps[@score_dolui;@scrub_dolui].
 """
             )
             scorescrub1 = pe.Node(
-                scorescrubCBF(in_thresh=0.7, in_wfun="huber"),
+                ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
                 mem_gb=mem_gb,
                 name="scorescrub",
                 run_without_submitting=True,
@@ -1445,7 +1445,7 @@ structural tissues probability maps[@score_dolui;@scrub_dolui].
 """
             )
             scorescrub1 = pe.Node(
-                scorescrubCBF(in_thresh=0.7, in_wfun="huber"),
+                ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
                 mem_gb=mem_gb,
                 name="scorescrub",
                 run_without_submitting=True,

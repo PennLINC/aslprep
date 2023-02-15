@@ -381,7 +381,7 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
     return tcbf, meancbf, att
 
 
-class _scorescrubCBFInputSpec(BaseInterfaceInputSpec):
+class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="computed CBF from ComputeCBF")
     in_greyM = File(exists=True, mandatory=True, desc="grey  matter")
     in_whiteM = File(exists=True, mandatory=True, desc="white  matter")
@@ -403,20 +403,20 @@ class _scorescrubCBFInputSpec(BaseInterfaceInputSpec):
     out_scoreindex = File(exists=False, desc="index of volume remove or leave by score")
 
 
-class _scorescrubCBFOutputSpec(TraitedSpec):
+class _ScoreAndScrubCBFOutputSpec(TraitedSpec):
     out_score = File(exists=False, mandatory=False, desc="score timeseries data")
     out_avgscore = File(exists=False, mandatory=False, desc="average score")
     out_scrub = File(exists=False, mandatory=False, desc="average scrub")
     out_scoreindex = File(exists=False, mandatory=False, desc="index of volume remove ")
 
 
-class scorescrubCBF(SimpleInterface):
+class ScoreAndScrubCBF(SimpleInterface):
     """
     compute score and scrub
     """
 
-    input_spec = _scorescrubCBFInputSpec
-    output_spec = _scorescrubCBFOutputSpec
+    input_spec = _ScoreAndScrubCBFInputSpec
+    output_spec = _ScoreAndScrubCBFOutputSpec
 
     def _run_interface(self, runtime):
         cbf_ts = nb.load(self.inputs.in_file).get_fdata()
