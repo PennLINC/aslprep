@@ -9,7 +9,6 @@ Resampling workflows
 .. autofunction:: init_asl_preproc_trans_wf
 
 """
-import nipype.interfaces.workbench as wb
 from nipype.interfaces import freesurfer as fs
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
