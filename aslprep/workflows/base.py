@@ -15,9 +15,9 @@ from copy import deepcopy
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
-from .. import config
-from ..interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
-from .asl import init_asl_gepreproc_wf, init_asl_preproc_wf
+from aslprep import config
+from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
+from aslprep.workflows.asl import init_asl_gepreproc_wf, init_asl_preproc_wf
 
 
 def init_aslprep_wf():
@@ -41,9 +41,9 @@ def init_aslprep_wf():
                 wf = init_aslprep_wf()
 
     """
-    from ..niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
-    # from ..niworkflows.interfaces.bids import BIDSFreeSurferDir
+    # from aslprep.niworkflows.interfaces.bids import BIDSFreeSurferDir
 
     aslprep_wf = Workflow(name="aslprep_wf")
     aslprep_wf.base_dir = config.execution.work_dir
@@ -109,13 +109,13 @@ def init_single_subject_wf(subject_id):
         FreeSurfer's ``$SUBJECTS_DIR``.
 
     """
-    from ..niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ..niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
-    from ..niworkflows.interfaces.nilearn import NILEARN_VERSION
-    from ..niworkflows.utils.bids import collect_data
-    from ..niworkflows.utils.misc import fix_multi_T1w_source_name
-    from ..niworkflows.utils.spaces import Reference
-    from ..smriprep.workflows.anatomical import init_anat_preproc_wf
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
+    from aslprep.niworkflows.interfaces.nilearn import NILEARN_VERSION
+    from aslprep.niworkflows.utils.bids import collect_data
+    from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
+    from aslprep.niworkflows.utils.spaces import Reference
+    from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
 
     name = "single_subject_%s_wf" % subject_id
     subject_data = collect_data(
@@ -196,7 +196,7 @@ def init_single_subject_wf(subject_id):
     )
     anat_derivatives = config.execution.anat_derivatives
     if anat_derivatives:
-        from ..smriprep.utils.bids import collect_derivatives
+        from aslprep.smriprep.utils.bids import collect_derivatives
 
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         anat_derivatives = collect_derivatives(

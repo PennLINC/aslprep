@@ -42,7 +42,7 @@ graph is built across processes.
     config.to_filename(config_file)
     # Call build_workflow(config_file, retval) in a subprocess
     with Manager() as mgr:
-        from .workflow import build_workflow
+        from aslprep.cli import build_workflow
         retval = mgr.dict()
         p = Process(target=build_workflow, args=(str(config_file), retval))
         p.start()
@@ -87,7 +87,7 @@ finally:
     from nipype import logging as nlogging
     from templateflow import __version__ as _tf_ver
 
-    from . import __version__
+    from aslprep import __version__
 
 if not hasattr(sys, "_is_pytest_session"):
     sys._is_pytest_session = False  # Trick to avoid sklearn's FutureWarnings
@@ -99,12 +99,12 @@ if not any(
         os.getenv("aslprep_DEV", "0").lower() in ("1", "on", "true", "y", "yes"),
     )
 ):
-    from ._warnings import logging
+    from aslprep._warnings import logging
 
     os.environ["PYTHONWARNINGS"] = "ignore"
 elif os.getenv("aslprep_WARNINGS", "0").lower() in ("1", "on", "true", "y", "yes"):
     # allow disabling warnings on development versions
-    from ._warnings import logging
+    from aslprep._warnings import logging
 else:
     import logging
 
@@ -191,7 +191,7 @@ class _Config:
     @classmethod
     def get(cls):
         """Return defined settings."""
-        from .niworkflows.utils.spaces import Reference, SpatialReferences
+        from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
 
         out = {}
         for k, v in cls.__dict__.items():
@@ -600,7 +600,7 @@ def to_filename(filename):
 
 def init_spaces(checkpoint=True):
     """Initialize the :attr:`~workflow.spaces` setting."""
-    from .niworkflows.utils.spaces import Reference, SpatialReferences
+    from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
 
     spaces = execution.output_spaces or SpatialReferences()
     if not isinstance(spaces, SpatialReferences):

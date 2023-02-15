@@ -2,7 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Top-module metadata."""
 
-from .__about__ import __copyright__, __credits__, __packagename__, __version__
+from aslprep.__about__ import __copyright__, __credits__, __packagename__, __version__
 
 __all__ = [
     "__copyright__",

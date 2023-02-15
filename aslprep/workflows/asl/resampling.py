@@ -15,7 +15,7 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
 
-from ...config import DEFAULT_MEMORY_MIN_GB
+from aslprep.config import DEFAULT_MEMORY_MIN_GB
 
 
 def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_wf"):
@@ -67,8 +67,8 @@ def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_
     """
     from nipype.interfaces.io import FreeSurferSource
 
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -163,7 +163,7 @@ The ASL time-series were resampled onto the following surfaces
         workflow.connect(sampler, "out_file", update_metadata, "in_file")
         return workflow
 
-    from ...niworkflows.interfaces.freesurfer import MedialNaNs
+    from aslprep.niworkflows.interfaces.freesurfer import MedialNaNs
 
     # Refine if medial vertices should be NaNs
     medial_nans = pe.MapNode(
@@ -271,16 +271,16 @@ def init_asl_std_trans_wf(
         described outputs.
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
-    from ...niworkflows.interfaces.fixes import (
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.func.util import init_asl_reference_wf
+    from aslprep.niworkflows.interfaces.fixes import (
         FixHeaderApplyTransforms as ApplyTransforms,
     )
-    from ...niworkflows.interfaces.itk import MultiApplyTransforms
-    from ...niworkflows.interfaces.nilearn import Merge
-    from ...niworkflows.interfaces.utility import KeySelect
-    from ...niworkflows.interfaces.utils import GenerateSamplingReference
-    from ...niworkflows.utils.spaces import format_reference
+    from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
+    from aslprep.niworkflows.interfaces.nilearn import Merge
+    from aslprep.niworkflows.interfaces.utility import KeySelect
+    from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
+    from aslprep.niworkflows.utils.spaces import format_reference
 
     workflow = Workflow(name=name)
     output_references = spaces.cached.get_spaces(nonstandard=False, dim=(3,))
@@ -633,10 +633,10 @@ def init_asl_preproc_trans_wf(
         Same as ``asl_ref``, but once the brain mask has been applied
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
-    from ...niworkflows.interfaces.itk import MultiApplyTransforms
-    from ...niworkflows.interfaces.nilearn import Merge
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.func.util import init_asl_reference_wf
+    from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
+    from aslprep.niworkflows.interfaces.nilearn import Merge
 
     workflow = Workflow(name=name)
     # workflow.__desc__ = """\
@@ -791,9 +791,9 @@ def init_asl_grayords_wf(grayord_density, mem_gb, repetition_time, name="asl_gra
     """
     import templateflow.api as tf
 
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.cifti import GenerateCifti
-    from ...niworkflows.interfaces.utility import KeySelect
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.cifti import GenerateCifti
+    from aslprep.niworkflows.interfaces.utility import KeySelect
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\

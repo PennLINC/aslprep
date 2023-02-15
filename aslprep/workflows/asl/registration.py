@@ -18,8 +18,8 @@ from nipype.interfaces import c3, fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
-from ... import config
-from ...interfaces import DerivativesDataSink
+from aslprep import config
+from aslprep.interfaces import DerivativesDataSink
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -103,7 +103,7 @@ def init_asl_reg_wf(
       * :py:func:`~aslprep.workflows.asl.registration.init_fsl_bbr_wf`
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
     workflow = Workflow(name=name)
     inputnode = pe.Node(
@@ -255,14 +255,14 @@ def init_asl_t1_trans_wf(
       * :py:func:`~aslprep.workflows.asl.registration.init_fsl_bbr_wf`
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.func.util import init_asl_reference_wf
-    from ...niworkflows.interfaces.fixes import (
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.func.util import init_asl_reference_wf
+    from aslprep.niworkflows.interfaces.fixes import (
         FixHeaderApplyTransforms as ApplyTransforms,
     )
-    from ...niworkflows.interfaces.itk import MultiApplyTransforms
-    from ...niworkflows.interfaces.nilearn import Merge
-    from ...niworkflows.interfaces.utils import GenerateSamplingReference
+    from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
+    from aslprep.niworkflows.interfaces.nilearn import Merge
+    from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
 
     workflow = Workflow(name=name)
     inputnode = pe.Node(
@@ -588,12 +588,14 @@ def init_bbreg_wf(use_bbr, asl2t1w_dof, asl2t1w_init, omp_nthreads, name="bbreg_
         Boolean indicating whether BBR was rejected (mri_coreg registration returned)
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.freesurfer import (
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.freesurfer import (
         PatchedBBRegisterRPT as BBRegisterRPT,
     )
-    from ...niworkflows.interfaces.freesurfer import PatchedMRICoregRPT as MRICoregRPT
-    from ...niworkflows.interfaces.nitransforms import ConcatenateXFMs
+    from aslprep.niworkflows.interfaces.freesurfer import (
+        PatchedMRICoregRPT as MRICoregRPT,
+    )
+    from aslprep.niworkflows.interfaces.nitransforms import ConcatenateXFMs
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -828,9 +830,9 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
         Boolean indicating whether BBR was rejected (rigid FLIRT registration returned)
 
     """
-    from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from ...niworkflows.interfaces.registration import FLIRTRPT
-    from ...niworkflows.utils.images import dseg_label as _dseg_label
+    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from aslprep.niworkflows.interfaces.registration import FLIRTRPT
+    from aslprep.niworkflows.utils.images import dseg_label as _dseg_label
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -1036,7 +1038,7 @@ def compare_xforms(lta_list, norm_threshold=10):
     """
     from nipype.algorithms.rapidart import _calc_norm_affine
 
-    from ...niworkflows.interfaces.surf import load_transform
+    from aslprep.niworkflows.interfaces.surf import load_transform
 
     bbr_affine = load_transform(lta_list[0])
     fallback_affine = load_transform(lta_list[1])
