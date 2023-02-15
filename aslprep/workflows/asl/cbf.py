@@ -19,7 +19,7 @@ from aslprep.interfaces.cbf_computation import (
     get_tis,
     qccbf,
     qccbfge,
-    refinemask,
+    RefineMask,
     scorescrubCBF,
 )
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -184,7 +184,7 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
         mem_gb=0.2,
     )
 
-    refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
+    refinemaskj = pe.Node(RefineMask(), mem_gb=0.2, run_without_submitting=True, name="refinemaskj")
 
     def _pick_csf(files):
         return files[-1]
@@ -1263,7 +1263,7 @@ model [@detre_perfusion;@alsop_recommended].
         name="computecbf",
     )
 
-    refinemaskj = pe.Node(refinemask(), mem_gb=1, run_without_submitting=True, name="refinemask")
+    refinemaskj = pe.Node(RefineMask(), mem_gb=1, run_without_submitting=True, name="refinemaskj")
 
     def _pick_csf(files):
         return files[-1]

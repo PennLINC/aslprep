@@ -9,7 +9,7 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.interfaces.cbf_computation import refinemask
+from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.workflows.asl.cbf import (
     init_cbfgeqc_compt_wf,
@@ -419,7 +419,7 @@ effects of other kernels [@lanczos].
         ]
     )
 
-    refine_mask = pe.Node(refinemask(), mem_gb=1.0, run_without_submitting=True, name="refinemask")
+    refine_mask = pe.Node(RefineMask(), mem_gb=1.0, run_without_submitting=True, name="refine_mask")
 
     workflow.connect(
         [

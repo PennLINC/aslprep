@@ -26,7 +26,7 @@ from scipy.stats import gmean
 LOGGER = logging.getLogger("nipype.interface")
 
 
-class _refinemaskInputSpec(BaseInterfaceInputSpec):
+class _RefineMaskInputSpec(BaseInterfaceInputSpec):
     in_t1mask = File(exists=True, mandatory=True, desc="t1 mask")
     in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
     transforms = File(exists=True, mandatory=True, desc="transfom")
@@ -34,19 +34,19 @@ class _refinemaskInputSpec(BaseInterfaceInputSpec):
     out_tmp = File(exists=False, mandatory=False, desc="tmp mask")
 
 
-class _refinemaskOutputSpec(TraitedSpec):
+class _RefineMaskOutputSpec(TraitedSpec):
     out_mask = File(exists=False, desc="output mask")
     out_tmp = File(exists=False, desc="tmp mask")
 
 
-class refinemask(SimpleInterface):
-    r"""
+class RefineMask(SimpleInterface):
+    """
     the code refine the asl mask with t1w mask
     the output is refined asl mask
 
     """
-    input_spec = _refinemaskInputSpec
-    output_spec = _refinemaskOutputSpec
+    input_spec = _RefineMaskInputSpec
+    output_spec = _RefineMaskOutputSpec
 
     def _run_interface(self, runtime):
         self._results["out_tmp"] = fname_presuffix(
