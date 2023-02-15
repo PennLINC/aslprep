@@ -1296,8 +1296,8 @@ class qccbfge(SimpleInterface):
 
     """
 
-    input_spec = _qccbfInputSpec
-    output_spec = _qccbfOutputSpec
+    input_spec = _qccbfgeInputSpec
+    output_spec = _qccbfgeOutputSpec
 
     def _run_interface(self, runtime):
         regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)
