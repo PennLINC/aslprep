@@ -15,7 +15,7 @@ from aslprep.interfaces.cbf_computation import (
     cbfqroiquant,
     computeCBF,
     extractCB,
-    extractCBF,
+    ExtractCBF,
     get_tis,
     qccbf,
     qccbfge,
@@ -151,7 +151,7 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
         return pcasl1
 
     extractcbf = pe.Node(
-        extractCBF(
+        ExtractCBF(
             dummy_vols=dummy_vols, bids_dir=bids_dir, fwhm=smooth_kernel, in_metadata=metadata
         ),
         mem_gb=0.2,

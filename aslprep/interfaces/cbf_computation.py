@@ -67,7 +67,7 @@ class RefineMask(SimpleInterface):
         return runtime
 
 
-class _extractCBFInputSpec(BaseInterfaceInputSpec):
+class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="raw asl file")
     asl_file = File(exists=True, mandatory=True, desc="preprocessed asl file")
     in_mask = File(exists=True, mandatory=True, desc="mask")
@@ -81,12 +81,12 @@ class _extractCBFInputSpec(BaseInterfaceInputSpec):
     out_avg = File(exists=False, mandatory=False, desc="average control")
 
 
-class _extractCBFOutputSpec(TraitedSpec):
+class _ExtractCBFOutputSpec(TraitedSpec):
     out_file = File(exists=False, desc="cbf timeries data")
     out_avg = File(exists=False, desc="average control")
 
 
-class extractCBF(SimpleInterface):
+class ExtractCBF(SimpleInterface):
     """
     extract  CBF timeseries
     by substracting label from control
@@ -96,8 +96,8 @@ class extractCBF(SimpleInterface):
 
     """
 
-    input_spec = _extractCBFInputSpec
-    output_spec = _extractCBFOutputSpec
+    input_spec = _ExtractCBFInputSpec
+    output_spec = _ExtractCBFOutputSpec
 
     def _run_interface(self, runtime):
         file1 = os.path.abspath(self.inputs.in_file)
