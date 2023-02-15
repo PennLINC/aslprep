@@ -3,12 +3,17 @@ import os
 import re
 
 import pandas as pd
-
 from nipype.interfaces.base import isdefined
 
 
 def _gather_confounds(
-    signals=None, dvars=None, std_dvars=None, fdisp=None, rmsd=None, motion=None, newpath=None,
+    signals=None,
+    dvars=None,
+    std_dvars=None,
+    fdisp=None,
+    rmsd=None,
+    motion=None,
+    newpath=None,
 ):
     """Load confounds from the filenames, concatenate together horizontally, and save new file."""
 
