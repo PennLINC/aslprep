@@ -7,14 +7,12 @@ utils code to process GE scan with fewer volumes
 """
 
 import os
-import os.path as op
 from pathlib import Path
 
 import nibabel as nb
 import numpy as np
 import pandas as pd
-import pkg_resources as pkgr
-from nipype.interfaces import c3, fsl
+from nipype.interfaces import fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from nipype.utils.filemanip import fname_presuffix
@@ -700,34 +698,6 @@ from nipype.interfaces.base import (
     TraitedSpec,
     traits,
 )
-
-
-class _GenerateReferenceInputSpec(BaseInterfaceInputSpec):
-    input_image = File(exists=True, mandatory=True, desc="input images")
-    fwhm = traits.Float(
-        exists=False, mandatory=False, default_value=0, desc="smoothing kernel for m0"
-    )
-
-
-class _GenerateReferenceOutputSpec(TraitedSpec):
-    out_file = File(exists=True, desc="one file with all inputs flattened")
-
-
-class GenerateReference(SimpleInterface):
-    """
-    Generates a reference grid for resampling one image keeping original resolution,
-    but moving data to a different space (e.g. MNI).
-
-    """
-
-    input_spec = _GenerateReferenceInputSpec
-    output_spec = _GenerateReferenceOutputSpec
-
-    def _run_interface(self, runtime):
-        self._results["out_file"] = gen_reference(
-            in_img=self.inputs.input_image, fwhm=self.inputs.fwhm
-        )
-        return runtime
 
 
 def gen_reference(in_img, fwhm=5, newpath=None):
