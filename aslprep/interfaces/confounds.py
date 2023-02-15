@@ -28,7 +28,7 @@ from nipype.utils.filemanip import fname_presuffix
 LOGGER = logging.getLogger("nipype.interface")
 
 
-class GatherConfoundsInputSpec(BaseInterfaceInputSpec):
+class _GatherConfoundsInputSpec(BaseInterfaceInputSpec):
     signals = File(exists=True, desc="input signals")
     dvars = File(exists=True, desc="file containing DVARS")
     rmsd = File(exists=True, desc="input RMS framewise displacement")
@@ -37,7 +37,7 @@ class GatherConfoundsInputSpec(BaseInterfaceInputSpec):
     motion = File(exists=True, desc="input motion parameters")
 
 
-class GatherConfoundsOutputSpec(TraitedSpec):
+class _GatherConfoundsOutputSpec(TraitedSpec):
     confounds_file = File(exists=True, desc="output confounds file")
     confounds_list = traits.List(traits.Str, desc="list of headers")
 
@@ -74,8 +74,8 @@ class GatherConfounds(SimpleInterface):
     >>> tmpdir.cleanup()
 
     """
-    input_spec = GatherConfoundsInputSpec
-    output_spec = GatherConfoundsOutputSpec
+    input_spec = _GatherConfoundsInputSpec
+    output_spec = _GatherConfoundsOutputSpec
 
     def _run_interface(self, runtime):
         combined_out, confounds_list = _gather_confounds(
@@ -171,7 +171,7 @@ def _gather_confounds(
     return combined_out, confounds_list
 
 
-class ASLSummaryInputSpec(BaseInterfaceInputSpec):
+class _ASLSummaryInputSpec(BaseInterfaceInputSpec):
     in_func = File(exists=True, mandatory=True, desc="input ASL time-series (4D file)")
     in_mask = File(exists=True, desc="3D brain mask")
     in_segm = File(exists=True, desc="resampled segmentation")
@@ -188,7 +188,7 @@ class ASLSummaryInputSpec(BaseInterfaceInputSpec):
     tr = traits.Either(None, traits.Float, usedefault=True, desc="the repetition time")
 
 
-class ASLSummaryOutputSpec(TraitedSpec):
+class _ASLSummaryOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc="written file path")
 
 
@@ -197,8 +197,8 @@ class ASLSummary(SimpleInterface):
     Copy the x-form matrices from `hdr_file` to `out_file`.
     """
 
-    input_spec = ASLSummaryInputSpec
-    output_spec = ASLSummaryOutputSpec
+    input_spec = _ASLSummaryInputSpec
+    output_spec = _ASLSummaryOutputSpec
 
     def _run_interface(self, runtime):
         from aslprep.niworkflows.viz.plots import ASLPlot

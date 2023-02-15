@@ -26,7 +26,7 @@ from scipy.stats import gmean
 LOGGER = logging.getLogger("nipype.interface")
 
 
-class _refinemaskInputSpec(BaseInterfaceInputSpec):
+class _RefineMaskInputSpec(BaseInterfaceInputSpec):
     in_t1mask = File(exists=True, mandatory=True, desc="t1 mask")
     in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
     transforms = File(exists=True, mandatory=True, desc="transfom")
@@ -34,19 +34,20 @@ class _refinemaskInputSpec(BaseInterfaceInputSpec):
     out_tmp = File(exists=False, mandatory=False, desc="tmp mask")
 
 
-class _refinemaskOutputSpec(TraitedSpec):
+class _RefineMaskOutputSpec(TraitedSpec):
     out_mask = File(exists=False, desc="output mask")
     out_tmp = File(exists=False, desc="tmp mask")
 
 
-class refinemask(SimpleInterface):
-    r"""
+class RefineMask(SimpleInterface):
+    """
     the code refine the asl mask with t1w mask
     the output is refined asl mask
 
     """
-    input_spec = _refinemaskInputSpec
-    output_spec = _refinemaskOutputSpec
+
+    input_spec = _RefineMaskInputSpec
+    output_spec = _RefineMaskOutputSpec
 
     def _run_interface(self, runtime):
         self._results["out_tmp"] = fname_presuffix(
@@ -67,7 +68,7 @@ class refinemask(SimpleInterface):
         return runtime
 
 
-class _extractCBFInputSpec(BaseInterfaceInputSpec):
+class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="raw asl file")
     asl_file = File(exists=True, mandatory=True, desc="preprocessed asl file")
     in_mask = File(exists=True, mandatory=True, desc="mask")
@@ -81,12 +82,12 @@ class _extractCBFInputSpec(BaseInterfaceInputSpec):
     out_avg = File(exists=False, mandatory=False, desc="average control")
 
 
-class _extractCBFOutputSpec(TraitedSpec):
+class _ExtractCBFOutputSpec(TraitedSpec):
     out_file = File(exists=False, desc="cbf timeries data")
     out_avg = File(exists=False, desc="average control")
 
 
-class extractCBF(SimpleInterface):
+class ExtractCBF(SimpleInterface):
     """
     extract  CBF timeseries
     by substracting label from control
@@ -96,8 +97,8 @@ class extractCBF(SimpleInterface):
 
     """
 
-    input_spec = _extractCBFInputSpec
-    output_spec = _extractCBFOutputSpec
+    input_spec = _ExtractCBFInputSpec
+    output_spec = _ExtractCBFOutputSpec
 
     def _run_interface(self, runtime):
         file1 = os.path.abspath(self.inputs.in_file)
@@ -197,7 +198,7 @@ class extractCBF(SimpleInterface):
         return runtime
 
 
-class _computeCBFInputSpec(BaseInterfaceInputSpec):
+class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
     in_cbf = File(exists=True, mandatory=True, desc="cbf nifti")
     in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for CBF ")
     in_m0scale = traits.Float(
@@ -210,22 +211,22 @@ class _computeCBFInputSpec(BaseInterfaceInputSpec):
     out_att = File(exists=False, mandatory=False, desc="Arterial Transit Time")
 
 
-class _computeCBFOutputSpec(TraitedSpec):
+class _ComputeCBFOutputSpec(TraitedSpec):
     out_cbf = File(exists=False, desc="cbf timeries data")
     out_mean = File(exists=False, desc="average control")
     out_att = File(exists=False, desc="Arterial Transit Time")
 
 
-class computeCBF(SimpleInterface):
+class ComputeCBF(SimpleInterface):
     """
     compute cbf pASL or pCASL
     """
 
-    input_spec = _computeCBFInputSpec
-    output_spec = _computeCBFOutputSpec
+    input_spec = _ComputeCBFInputSpec
+    output_spec = _ComputeCBFOutputSpec
 
     def _run_interface(self, runtime):
-        cbf, meancbf, att = cbfcomputation(
+        cbf, meancbf, att = compute_cbf(
             metadata=self.inputs.in_metadata,
             m0scale=self.inputs.in_m0scale,
             mask=self.inputs.in_mask,
@@ -255,7 +256,7 @@ class computeCBF(SimpleInterface):
             self.inputs.out_att = os.path.abspath(self._results["out_att"])
         self.inputs.out_cbf = os.path.abspath(self._results["out_cbf"])
         self.inputs.out_mean = os.path.abspath(self._results["out_mean"])
-        ## we dont know why not zeros background $
+        # we dont know why not zeros background $
         from nipype.interfaces.fsl import MultiImageMaths
 
         mat1 = MultiImageMaths()
@@ -273,7 +274,7 @@ class computeCBF(SimpleInterface):
         return runtime
 
 
-def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
+def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
     """
     compute cbf with pld and multi pld
     metadata
@@ -381,11 +382,8 @@ def cbfcomputation(metadata, mask, m0file, cbffile, m0scale=1):
     return tcbf, meancbf, att
 
 
-# score and scrub
-
-
-class _scorescrubCBFInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc="computed CBF from computeCBF")
+class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
+    in_file = File(exists=True, mandatory=True, desc="computed CBF from ComputeCBF")
     in_greyM = File(exists=True, mandatory=True, desc="grey  matter")
     in_whiteM = File(exists=True, mandatory=True, desc="white  matter")
     in_mask = File(exists=True, mandatory=True, desc="mask")
@@ -406,20 +404,20 @@ class _scorescrubCBFInputSpec(BaseInterfaceInputSpec):
     out_scoreindex = File(exists=False, desc="index of volume remove or leave by score")
 
 
-class _scorescrubCBFOutputSpec(TraitedSpec):
+class _ScoreAndScrubCBFOutputSpec(TraitedSpec):
     out_score = File(exists=False, mandatory=False, desc="score timeseries data")
     out_avgscore = File(exists=False, mandatory=False, desc="average score")
     out_scrub = File(exists=False, mandatory=False, desc="average scrub")
     out_scoreindex = File(exists=False, mandatory=False, desc="index of volume remove ")
 
 
-class scorescrubCBF(SimpleInterface):
+class ScoreAndScrubCBF(SimpleInterface):
     """
     compute score and scrub
     """
 
-    input_spec = _scorescrubCBFInputSpec
-    output_spec = _scorescrubCBFOutputSpec
+    input_spec = _ScoreAndScrubCBFInputSpec
+    output_spec = _ScoreAndScrubCBFOutputSpec
 
     def _run_interface(self, runtime):
         cbf_ts = nb.load(self.inputs.in_file).get_fdata()
@@ -955,9 +953,6 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     return newcbf
 
 
-# basil and pvcorr
-
-
 class _BASILCBFInputSpec(FSLCommandInputSpec):
     # We use position args here as list indices - so a negative number
     # will put something on the end
@@ -1079,7 +1074,7 @@ class BASILCBF(FSLCommand):
         return outputs
 
 
-class _qccbfInputSpec(BaseInterfaceInputSpec):
+class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="original asl_file")
     in_meancbf = File(exists=True, mandatory=True, desc="cbf img")
     in_avgscore = File(exists=True, mandatory=False, desc="cbf img")
@@ -1098,20 +1093,20 @@ class _qccbfInputSpec(BaseInterfaceInputSpec):
     rmsd_file = File(exists=True, mandatory=True, desc="rmsd file")
 
 
-class _qccbfOutputSpec(TraitedSpec):
+class _ComputeCBFQCOutputSpec(TraitedSpec):
     qc_file = File(exists=False, desc="qc file ")
 
 
-class qccbf(SimpleInterface):
-    r""" "
+class ComputeCBFQC(SimpleInterface):
+    """
     compute qc from confound regressors
     and cbf maps,
     coregistration and regsitration indexes
 
     """
 
-    input_spec = _qccbfInputSpec
-    output_spec = _qccbfOutputSpec
+    input_spec = _ComputeCBFQCInputSpec
+    output_spec = _ComputeCBFQCOutputSpec
 
     def _run_interface(self, runtime):
         time1 = pd.read_csv(self.inputs.in_confmat, sep="\t")
@@ -1267,7 +1262,7 @@ class qccbf(SimpleInterface):
         return runtime
 
 
-class _qccbfgeInputSpec(BaseInterfaceInputSpec):
+class _ComputeCBFQCforGEInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="original asl_file")
     in_meancbf = File(exists=True, mandatory=True, desc="cbf img")
     in_avgscore = File(exists=True, mandatory=False, desc="cbf img")
@@ -1284,20 +1279,20 @@ class _qccbfgeInputSpec(BaseInterfaceInputSpec):
     qc_file = File(exists=False, mandatory=False, desc="qc file ")
 
 
-class _qccbfgeOutputSpec(TraitedSpec):
+class _ComputeCBFQCforGEOutputSpec(TraitedSpec):
     qc_file = File(exists=False, desc="qc file ")
 
 
-class qccbfge(SimpleInterface):
-    r""" "
+class ComputeCBFQCforGE(SimpleInterface):
+    """
     compute qc from confound regressors
     and cbf maps,
     coregistration and regsitration indexes
 
     """
 
-    input_spec = _qccbfgeInputSpec
-    output_spec = _qccbfgeOutputSpec
+    input_spec = _ComputeCBFQCforGEInputSpec
+    output_spec = _ComputeCBFQCforGEOutputSpec
 
     def _run_interface(self, runtime):
         regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)
@@ -1443,14 +1438,19 @@ class qccbfge(SimpleInterface):
 
 
 def dc(input1, input2):
-    r"""
+    """
     Dice coefficient
+
     Computes the Dice coefficient (also known as Sorensen index) between the binary
     objects in two images.
+
     The metric is defined as
+
     .. math::
         DC=\frac{2|A\cap B|}{|A|+|B|}
+
     , where :math:`A` is the first and :math:`B` the second set of samples (here: binary objects).
+
     Parameters
     ----------
     input1 : array_like
@@ -1459,11 +1459,13 @@ def dc(input1, input2):
     input2 : array_like
         Input data containing objects. Can be any type but will be converted
         into binary: background where 0, object everywhere else.
+
     Returns
     -------
     dc : float
         The Dice coefficient between the object(s) in ```input1``` and the
         object(s) in ```input2```. It ranges from 0 (no overlap) to 1 (perfect overlap).
+
     Notes
     -----
     This is a real metric.
@@ -1489,7 +1491,9 @@ def dc(input1, input2):
 def jc(input1, input2):
     r"""
     Jaccard coefficient
+
     Computes the Jaccard coefficient between the binary objects in two images.
+
     Parameters
     ----------
     input1: array_like
@@ -1498,11 +1502,13 @@ def jc(input1, input2):
     input2: array_like
             Input data containing objects. Can be any type but will be converted
             into binary: background where 0, object everywhere else.
+
     Returns
     -------
     jc: float
         The Jaccard coefficient between the object(s) in `input1` and the
         object(s) in `input2`. It ranges from 0 (no overlap) to 1 (perfect overlap).
+
     Notes
     -----
     This is a real metric.
@@ -1521,7 +1527,7 @@ def jc(input1, input2):
 
 
 def crosscorr(input1, input2):
-    r"""
+    """
     cross correlation
     computer compute cross correction bewteen input mask
     """
@@ -1661,7 +1667,7 @@ def get_atlas(atlasname):
     return atlasfile, atlasdata, atlaslabel
 
 
-def cbfroiquant(roi_file, roi_label, cbfmap):
+def parcellate_cbf(roi_file, roi_label, cbfmap):
     data = nb.load(cbfmap).get_data()
     roi = nb.load(roi_file).get_data()
     roi_labels = np.loadtxt(roi_label)
@@ -1675,7 +1681,7 @@ def cbfroiquant(roi_file, roi_label, cbfmap):
     return mean_vals
 
 
-class _cbfroiquantInputSpec(BaseInterfaceInputSpec):
+class _ParcellateCBFInputSpec(BaseInterfaceInputSpec):
     in_cbf = File(exists=True, mandatory=True, desc="cbf img")
     atlasfile = File(exists=True, mandatory=True, desc="data")
     atlasdata = File(exists=True, mandatory=True, desc="data")
@@ -1683,19 +1689,19 @@ class _cbfroiquantInputSpec(BaseInterfaceInputSpec):
     atlascsv = File(exists=False, mandatory=False, desc="harvard output csv")
 
 
-class _cbfroiquantOutputSpec(TraitedSpec):
+class _ParcellateCBFOutputSpec(TraitedSpec):
     atlascsv = File(exists=False, desc="harvard output csv")
 
 
-class cbfqroiquant(SimpleInterface):
-    input_spec = _cbfroiquantInputSpec
-    output_spec = _cbfroiquantOutputSpec
+class ParcellateCBF(SimpleInterface):
+    input_spec = _ParcellateCBFInputSpec
+    output_spec = _ParcellateCBFOutputSpec
 
     def _run_interface(self, runtime):
         self._results["atlascsv"] = fname_presuffix(
             self.inputs.in_cbf, suffix="atlas.csv", newpath=runtime.cwd, use_ext=False
         )
-        roiquant = cbfroiquant(
+        roiquant = parcellate_cbf(
             roi_label=self.inputs.atlaslabel,
             roi_file=self.inputs.atlasfile,
             cbfmap=self.inputs.in_cbf,
@@ -1708,31 +1714,29 @@ class cbfqroiquant(SimpleInterface):
         return runtime
 
 
-class _extractCBInputSpec(BaseInterfaceInputSpec):
+class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
     in_asl = File(exists=True, mandatory=True, desc="raw asl file")
     in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
     file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
     out_file = File(exists=False, mandatory=False, desc="cbf or deltam")
 
 
-class _extractCBOutputSpec(TraitedSpec):
+class _ExtractCBForDeltaMOutputSpec(TraitedSpec):
     out_file = File(exists=False, desc="cbf or deltam")
 
 
-class extractCB(SimpleInterface):
-    r"""
-    the code refine the asl mask with t1w mask
-    the output is refined asl mask
+class ExtractCBForDeltaM(SimpleInterface):
+    """Load an ASL file and grab the CBF or DeltaM volumes from it."""
 
-    """
-    input_spec = _extractCBInputSpec
-    output_spec = _extractCBOutputSpec
+    input_spec = _ExtractCBForDeltaMInputSpec
+    output_spec = _ExtractCBForDeltaMOutputSpec
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(
             self.inputs.in_aslmask, suffix="_cbfdeltam", newpath=runtime.cwd
         )
         filex = self.inputs.in_asl
+        # NOTE: Not a good way to find the aslcontext file.
         aslcontext = pd.read_csv(filex.replace("_asl.nii.gz", "_aslcontext.tsv"))
         idasl = aslcontext["volume_type"].tolist()
         fdata = nb.load(filex).get_fdata()
@@ -1743,20 +1747,27 @@ class extractCB(SimpleInterface):
 
         if self.inputs.file_type == "d":
             if len(controllist) > 0:
+                # Grab control and label volumes from ASL file,
+                # then calculate deltaM by subtracting label volumes from control volumes.
                 ffdata = fdata[:, :, :, controllist] - fdata[:, :, :, labelist]
                 newdata = nb.Nifti1Image(dataobj=ffdata, affine=img.affine, header=img.header)
             else:
+                # Grab deltaM volumes from ASL file.
                 dlist = [i for i in range(0, len(idasl)) if idasl[i] == "deltam"]
                 if len(fdata.shape) < 4:
                     newdata = nb.Nifti1Image(dataobj=fdata, affine=img.affine, header=img.header)
                 else:
                     ffdata = fdata[:, :, :, dlist]
                     newdata = nb.Nifti1Image(dataobj=ffdata, affine=img.affine, header=img.header)
+
         elif self.inputs.file_type == "c":
             dlist = [i for i in range(0, len(idasl)) if idasl[i] == "CBF"]
             if len(fdata.shape) < 4:
+                # 3D volume is written out without any changes.
+                # NOTE: Why not return the original file then?
                 newdata = nb.Nifti1Image(dataobj=fdata, affine=img.affine, header=img.header)
             else:
+                # Grab CBF volumes from ASL file.
                 ffdata = fdata[:, :, :, dlist]
                 newdata = nb.Nifti1Image(dataobj=ffdata, affine=img.affine, header=img.header)
 

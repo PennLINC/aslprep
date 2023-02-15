@@ -17,7 +17,7 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.interfaces.cbf_computation import refinemask
+from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.utils.meepi import combine_meepi_source
 from aslprep.workflows.asl.cbf import (
@@ -410,9 +410,9 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
     )
     asl_asl_trans_wf.inputs.inputnode.name_source = ref_file
 
-    # refinemaskj = pe.Node(refinemask(),mem_gb=0.2,
+    # refinemaskj = pe.Node(RefineMask(),mem_gb=0.2,
     # run_without_submitting=True,
-    # name="refinemask")
+    # name="RefineMask")
 
     # SLICE-TIME CORRECTION (or bypass) #############################################
     if run_stc is True:  # bool('TooShort') == True, so check True explicitly
@@ -685,7 +685,9 @@ interpolation to minimize the smoothing effects of other kernels [@lanczos].
         ]
     )
 
-    refine_mask = pe.Node(refinemask(), mem_gb=1.0, run_without_submitting=True, name="refinemask")
+    refine_mask = pe.Node(
+        RefineMask(), mem_gb=1.0, run_without_submitting=True, name="refine_mask"
+    )
     workflow.connect(
         [
             (asl_asl_trans_wf, refine_mask, [("outputnode.asl_mask", "in_aslmask")]),
@@ -1386,13 +1388,3 @@ def _get_wf_name(asl_fname):
     ).replace("_asl", "_wf")
 
     return name
-
-
-def _to_join(in_file, join_file):
-    """Join two tsv files if the join_file is not ``None``."""
-    from aslprep.niworkflows.interfaces.utils import JoinTSVColumns
-
-    if join_file is None:
-        return in_file
-    res = JoinTSVColumns(in_file=in_file, join_file=join_file).run()
-    return res.outputs.out_file

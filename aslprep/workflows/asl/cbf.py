@@ -12,15 +12,15 @@ from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import (
     BASILCBF,
-    cbfqroiquant,
-    computeCBF,
-    extractCB,
-    extractCBF,
+    ComputeCBF,
+    ComputeCBFQC,
+    ComputeCBFQCforGE,
+    ExtractCBF,
+    ExtractCBForDeltaM,
+    ParcellateCBF,
+    RefineMask,
+    ScoreAndScrubCBF,
     get_tis,
-    qccbf,
-    qccbfge,
-    refinemask,
-    scorescrubCBF,
 )
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
@@ -151,7 +151,7 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
         return pcasl1
 
     extractcbf = pe.Node(
-        extractCBF(
+        ExtractCBF(
             dummy_vols=dummy_vols, bids_dir=bids_dir, fwhm=smooth_kernel, in_metadata=metadata
         ),
         mem_gb=0.2,
@@ -159,13 +159,13 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
         name="extractcbf",
     )
     computecbf = pe.Node(
-        computeCBF(in_metadata=metadata, in_m0scale=M0Scale),
+        ComputeCBF(in_metadata=metadata, in_m0scale=M0Scale),
         mem_gb=0.2,
         run_without_submitting=True,
         name="computecbf",
     )
     scorescrub = pe.Node(
-        scorescrubCBF(in_thresh=0.7, in_wfun="huber"),
+        ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
         mem_gb=0.2,
         name="scorescrub",
         run_without_submitting=True,
@@ -184,7 +184,9 @@ The cerebral blood flow (CBF) was quantified from  preprocessed ASL data using a
         mem_gb=0.2,
     )
 
-    refinemaskj = pe.Node(refinemask(), mem_gb=0.2, run_without_submitting=True, name="refinemask")
+    refinemaskj = pe.Node(
+        RefineMask(), mem_gb=0.2, run_without_submitting=True, name="refinemaskj"
+    )
 
     def _pick_csf(files):
         return files[-1]
@@ -402,7 +404,7 @@ negative CBF values.
     )
 
     qccompute = pe.Node(
-        qccbf(in_file=asl_file), name="qccompute", run_without_submitting=True, mem_gb=0.2
+        ComputeCBFQC(in_file=asl_file), name="qccompute", run_without_submitting=True, mem_gb=0.2
     )
 
     workflow.connect(
@@ -574,7 +576,10 @@ def init_cbfgeqc_compt_wf(
     )
 
     qccompute = pe.Node(
-        qccbfge(in_file=asl_file), name="qccompute", run_without_submitting=True, mem_gb=0.2
+        ComputeCBFQCforGE(in_file=asl_file),
+        name="qccompute",
+        run_without_submitting=True,
+        mem_gb=0.2,
     )
 
     workflow.connect(
@@ -1016,58 +1021,58 @@ For each CBF map, the ROIs for the following atlases were extracted: the  Harvar
         name="sc417trans",
     )
 
-    cbfroihv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="cbfroihv")
-    cbfroi207 = pe.Node(cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="cbf207")
-    cbfroi217 = pe.Node(cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="cbf217")
-    cbfroi407 = pe.Node(cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="cbf407")
-    cbfroi417 = pe.Node(cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="cbf417")
+    cbfroihv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="cbfroihv")
+    cbfroi207 = pe.Node(ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="cbf207")
+    cbfroi217 = pe.Node(ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="cbf217")
+    cbfroi407 = pe.Node(ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="cbf407")
+    cbfroi417 = pe.Node(ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="cbf417")
     if scorescrub:
-        scorehv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scorehv")
+        scorehv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scorehv")
         score207 = pe.Node(
-            cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="score207"
+            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="score207"
         )
         score217 = pe.Node(
-            cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="score217"
+            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="score217"
         )
         score407 = pe.Node(
-            cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="score407"
+            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="score407"
         )
         score417 = pe.Node(
-            cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="score417"
+            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="score417"
         )
-        scrubhv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scrubhv")
+        scrubhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scrubhv")
         scrub207 = pe.Node(
-            cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="scrub207"
+            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="scrub207"
         )
         scrub217 = pe.Node(
-            cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="scrub217"
+            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="scrub217"
         )
         scrub407 = pe.Node(
-            cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="scrub407"
+            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="scrub407"
         )
         scrub417 = pe.Node(
-            cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="scrub417"
+            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="scrub417"
         )
 
     if basil:
-        basilhv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="basilhv")
+        basilhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="basilhv")
         basil207 = pe.Node(
-            cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="basil207"
+            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="basil207"
         )
         basil217 = pe.Node(
-            cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="basil217"
+            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="basil217"
         )
         basil407 = pe.Node(
-            cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="basil407"
+            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="basil407"
         )
         basil417 = pe.Node(
-            cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="basil417"
+            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="basil417"
         )
-        pvchv = pe.Node(cbfqroiquant(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="pvchv")
-        pvc207 = pe.Node(cbfqroiquant(atlaslabel=sc207label, atlasdata=sc207data), name="pvc207")
-        pvc217 = pe.Node(cbfqroiquant(atlaslabel=sc217label, atlasdata=sc217data), name="pvc217")
-        pvc407 = pe.Node(cbfqroiquant(atlaslabel=sc407label, atlasdata=sc407data), name="pvc407")
-        pvc417 = pe.Node(cbfqroiquant(atlaslabel=sc417label, atlasdata=sc417data), name="pvc417")
+        pvchv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="pvchv")
+        pvc207 = pe.Node(ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="pvc207")
+        pvc217 = pe.Node(ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="pvc217")
+        pvc407 = pe.Node(ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="pvc407")
+        pvc417 = pe.Node(ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="pvc417")
 
     workflow.connect(
         [
@@ -1257,13 +1262,13 @@ model [@detre_perfusion;@alsop_recommended].
         return pcasl1
 
     computecbf = pe.Node(
-        computeCBF(in_metadata=metadata, in_m0scale=M0Scale),
+        ComputeCBF(in_metadata=metadata, in_m0scale=M0Scale),
         mem_gb=mem_gb,
         run_without_submitting=True,
         name="computecbf",
     )
 
-    refinemaskj = pe.Node(refinemask(), mem_gb=1, run_without_submitting=True, name="refinemask")
+    refinemaskj = pe.Node(RefineMask(), mem_gb=1, run_without_submitting=True, name="refinemaskj")
 
     def _pick_csf(files):
         return files[-1]
@@ -1281,7 +1286,10 @@ model [@detre_perfusion;@alsop_recommended].
 
     if len(deltamlist) > 0 or len(controllist) > 0:
         extractcbf1 = pe.Node(
-            extractCB(file_type="d"), mem_gb=1, run_without_submitting=True, name="extract_d"
+            ExtractCBForDeltaM(file_type="d"),
+            mem_gb=1,
+            run_without_submitting=True,
+            name="extract_d",
         )
 
         workflow.connect(
@@ -1334,7 +1342,7 @@ structural tissues probability maps[@score_dolui;@scrub_dolui].
 """
             )
             scorescrub1 = pe.Node(
-                scorescrubCBF(in_thresh=0.7, in_wfun="huber"),
+                ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
                 mem_gb=mem_gb,
                 name="scorescrub",
                 run_without_submitting=True,
@@ -1414,7 +1422,10 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
         )
 
         extractcbf2 = pe.Node(
-            extractCB(file_type="c"), mem_gb=1, run_without_submitting=True, name="extract_c"
+            ExtractCBForDeltaM(file_type="c"),
+            mem_gb=1,
+            run_without_submitting=True,
+            name="extract_c",
         )
         workflow.connect(
             [
@@ -1445,7 +1456,7 @@ structural tissues probability maps[@score_dolui;@scrub_dolui].
 """
             )
             scorescrub1 = pe.Node(
-                scorescrubCBF(in_thresh=0.7, in_wfun="huber"),
+                ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
                 mem_gb=mem_gb,
                 name="scorescrub",
                 run_without_submitting=True,

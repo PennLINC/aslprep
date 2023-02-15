@@ -14,6 +14,13 @@ import numpy as np
 import pandas as pd
 from nipype.interfaces import fsl
 from nipype.interfaces import utility as niu
+from nipype.interfaces.base import (
+    BaseInterfaceInputSpec,
+    File,
+    SimpleInterface,
+    TraitedSpec,
+    traits,
+)
 from nipype.pipeline import engine as pe
 from nipype.utils.filemanip import fname_presuffix
 
@@ -691,15 +698,6 @@ preprocessed ASL runs*: {tpl}.
     return workflow
 
 
-from nipype.interfaces.base import (
-    BaseInterfaceInputSpec,
-    File,
-    SimpleInterface,
-    TraitedSpec,
-    traits,
-)
-
-
 def gen_reference(in_img, fwhm=5, newpath=None):
     """generate reference for a GE scan with few volumes."""
     import nibabel as nb
@@ -762,10 +760,6 @@ def _select_template(template):
         out = get_template_specs(template, template_spec=specs)
 
     return out[0]
-
-
-def _first(inlist):
-    return inlist[0]
 
 
 def _aslist(in_value):
@@ -911,45 +905,3 @@ def readjson(jsonfile):
     with open(jsonfile) as f:
         data = json.load(f)
     return data
-
-
-def _conditional_downsampling(in_file, in_mask, zoom_th=4.0):
-    """Downsamples the input dataset for sloppy mode."""
-    from pathlib import Path
-
-    import nibabel as nb
-    import nitransforms as nt
-    import numpy as np
-    from scipy.ndimage.filters import gaussian_filter
-
-    img = nb.load(in_file)
-
-    zooms = np.array(img.header.get_zooms()[:3])
-    if not np.any(zooms < zoom_th):
-        return in_file, in_mask
-
-    out_file = Path("desc-resampled_input.nii.gz").absolute()
-    out_mask = Path("desc-resampled_mask.nii.gz").absolute()
-
-    shape = np.array(img.shape[:3])
-    scaling = zoom_th / zooms
-    newrot = np.diag(scaling).dot(img.affine[:3, :3])
-    newshape = np.ceil(shape / scaling).astype(int)
-    old_center = img.affine.dot(np.hstack((0.5 * (shape - 1), 1.0)))[:3]
-    offset = old_center - newrot.dot((newshape - 1) * 0.5)
-    newaffine = nb.affines.from_matvec(newrot, offset)
-
-    newref = nb.Nifti1Image(np.zeros(newshape, dtype=np.uint8), newaffine)
-    nt.Affine(reference=newref).apply(img).to_filename(out_file)
-
-    mask = nb.load(in_mask)
-    mask.set_data_dtype(float)
-    mdata = gaussian_filter(mask.get_fdata(dtype=float), scaling)
-    floatmask = nb.Nifti1Image(mdata, mask.affine, mask.header)
-    newmask = nt.Affine(reference=newref).apply(floatmask)
-    hdr = newmask.header.copy()
-    hdr.set_data_dtype(np.uint8)
-    newmaskdata = (newmask.get_fdata(dtype=float) > 1.5).astype(np.uint8)
-    nb.Nifti1Image(newmaskdata, newmask.affine, hdr).to_filename(out_mask)
-
-    return str(out_file), str(out_mask)

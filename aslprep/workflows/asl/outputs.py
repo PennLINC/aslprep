@@ -2529,23 +2529,3 @@ def init_geasl_derivatives_wf(
                 ]
             )
     return workflow
-
-
-def _unlist(in_file):
-    while isinstance(in_file, (list, tuple)) and len(in_file) == 1:
-        in_file = in_file[0]
-    return in_file
-
-
-def _get_surface(in_file):
-    from json import loads
-    from pathlib import Path
-
-    return loads(Path(in_file).read_text())["surface"]
-
-
-def _read_json(in_file):
-    from json import loads
-    from pathlib import Path
-
-    return loads(Path(in_file).read_text())

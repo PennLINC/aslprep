@@ -58,12 +58,12 @@ ABOUT_TEMPLATE = """\t<ul>
 """
 
 
-class SummaryOutputSpec(TraitedSpec):
+class _SummaryOutputSpec(TraitedSpec):
     out_report = File(exists=True, desc="HTML segment containing summary")
 
 
 class SummaryInterface(SimpleInterface):
-    output_spec = SummaryOutputSpec
+    output_spec = _SummaryOutputSpec
 
     def _run_interface(self, runtime):
         segment = self._generate_segment()
@@ -77,7 +77,7 @@ class SummaryInterface(SimpleInterface):
         raise NotImplementedError
 
 
-class SubjectSummaryInputSpec(BaseInterfaceInputSpec):
+class _SubjectSummaryInputSpec(BaseInterfaceInputSpec):
     t1w = InputMultiObject(File(exists=True), desc="T1w structural images")
     t2w = InputMultiObject(File(exists=True), desc="T2w structural images")
     subjects_dir = Directory(desc="FreeSurfer subjects directory")
@@ -90,15 +90,15 @@ class SubjectSummaryInputSpec(BaseInterfaceInputSpec):
     nstd_spaces = traits.List(Str, desc="list of non-standard spaces")
 
 
-class SubjectSummaryOutputSpec(SummaryOutputSpec):
+class _SubjectSummaryOutputSpec(_SummaryOutputSpec):
     # This exists to ensure that the summary is run prior to the first ReconAll
     # call, allowing a determination whether there is a pre-existing directory
     subject_id = Str(desc="FreeSurfer subject ID")
 
 
 class SubjectSummary(SummaryInterface):
-    input_spec = SubjectSummaryInputSpec
-    output_spec = SubjectSummaryOutputSpec
+    input_spec = _SubjectSummaryInputSpec
+    output_spec = _SubjectSummaryOutputSpec
 
     def _run_interface(self, runtime):
         if isdefined(self.inputs.subject_id):
@@ -163,7 +163,7 @@ class SubjectSummary(SummaryInterface):
         )
 
 
-class FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
+class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     slice_timing = traits.Enum(
         False, True, "TooShort", usedefault=True, desc="Slice timing correction used"
     )
@@ -195,7 +195,7 @@ class FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
 
 
 class FunctionalSummary(SummaryInterface):
-    input_spec = FunctionalSummaryInputSpec
+    input_spec = _FunctionalSummaryInputSpec
 
     def _generate_segment(self):
         dof = self.inputs.registration_dof
@@ -282,14 +282,14 @@ class FunctionalSummary(SummaryInterface):
         )
 
 
-class AboutSummaryInputSpec(BaseInterfaceInputSpec):
+class _AboutSummaryInputSpec(BaseInterfaceInputSpec):
     version = Str(desc="ASLPREP version")
     command = Str(desc="ASLPREP command")
     # Date not included - update timestamp only if version or command changes
 
 
 class AboutSummary(SummaryInterface):
-    input_spec = AboutSummaryInputSpec
+    input_spec = _AboutSummaryInputSpec
 
     def _generate_segment(self):
         return ABOUT_TEMPLATE.format(
