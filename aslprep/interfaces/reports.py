@@ -132,31 +132,17 @@ class SubjectSummary(SummaryInterface):
 
         t2w_seg = ""
         if self.inputs.t2w:
-            t2w_seg = "(+ {:d} T2-weighted)".format(len(self.inputs.t2w))
+            t2w_seg = f"(+ {len(self.inputs.t2w):d} T2-weighted)"
 
         # Add list of tasks with number of runs
         asl_series = self.inputs.asl if isdefined(self.inputs.asl) else []
         asl_series = [s[0] if isinstance(s, list) else s for s in asl_series]
-
-        # [task-id]
-        # counts = Counter(BIDS_NAME.search(series).groupdict()[5:]
-        # for series in asl_series)
-
-        # tasks = ''
-        # if counts:
-        # header = '\t\t<ul class="elem-desc">'
-        # footer = '\t\t</ul>'
-        # lines = ['\t\t\t<li> ({n_runs:d} run{s})</li>'.format(
-        # n_runs=n_runs, s='' if n_runs == 1 else 's')
-        # for n_runs in sorted(counts.items())]
-        # tasks = '\n'.join([header] + lines + [footer])
 
         return SUBJECT_TEMPLATE.format(
             subject_id=self.inputs.subject_id,
             n_t1s=len(self.inputs.t1w),
             t2w=t2w_seg,
             n_asl=len(asl_series),
-            # tasks=tasks,
             std_spaces=", ".join(self.inputs.std_spaces),
             nstd_spaces=", ".join(self.inputs.nstd_spaces),
             freesurfer_status=freesurfer_status,
@@ -190,8 +176,6 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
     qc_file = File(exists=True, desc="qc file")
     tr = traits.Float(desc="Repetition time", mandatory=True)
-    # dummy_scans = traits.Either(traits.Int(), None, desc='number of dummy scans specified by user')
-    # algo_dummy_scans = traits.Int(desc='number of dummy scans determined by algorithm')
 
 
 class FunctionalSummary(SummaryInterface):
@@ -205,51 +189,49 @@ class FunctionalSummary(SummaryInterface):
         reg = {
             "FSL": [
                 "FSL <code>flirt</code> with boundary-based registration"
-                " (BBR) metric - %d dof" % dof,
+                f" (BBR) metric - {dof} dof",
                 "FSL <code>flirt</code> rigid registration - 6 dof",
             ],
             "FreeSurfer": [
                 "FreeSurfer <code>bbregister</code> "
-                "(boundary-based registration, BBR) - %d dof" % dof,
-                "FreeSurfer <code>mri_coreg</code> - %d dof" % dof,
+                f"(boundary-based registration, BBR) - {dof} dof",
+                f"FreeSurfer <code>mri_coreg</code> - {dof} dof",
             ],
         }[self.inputs.registration][self.inputs.fallback]
         import pandas as pd
 
         qcfile = pd.read_csv(self.inputs.qc_file)
-        motionparam = "FD : {}, rmsd: {} ".format(
-            round(qcfile["FD"][0], 4), round(qcfile["rmsd"][0], 4)
+        motionparam = f"FD : {round(qcfile['FD'][0], 4)}, rmsd: {round(qcfile['rmsd'][0], 4)} "
+        coregindex = (
+            f" Dice Index: {round(qcfile['coregDC'][0], 4)}, "
+            f"Jaccard Index: {round(qcfile['coregJC'][0], 4)}, "
+            f"Cross Cor.: {round(qcfile['coregCC'][0], 4)}, "
+            f"Coverage: {round(qcfile['coregCOV'][0], 4)} "
         )
-        coregindex = " Dice Index: {}, Jaccard Index: {}, Cross Cor.: {}, Coverage: {} ".format(
-            round(qcfile["coregDC"][0], 4),
-            round(qcfile["coregJC"][0], 4),
-            round(qcfile["coregCC"][0], 4),
-            round(qcfile["coregCOV"][0], 4),
+        normindex = (
+            f" Dice Index: {round(qcfile['normDC'][0], 4)}, "
+            f"Jaccard Index: {round(qcfile['normJC'][0], 4)}, "
+            f"Cross Cor.: {round(qcfile['normCC'][0], 4)}, "
+            f"Coverage: {round(qcfile['normCOV'][0], 4)} "
         )
-        normindex = " Dice Index: {}, Jaccard Index: {}, Cross Cor.: {}, Coverage: {} ".format(
-            round(qcfile["normDC"][0], 4),
-            round(qcfile["normJC"][0], 4),
-            round(qcfile["normCC"][0], 4),
-            round(qcfile["normCOV"][0], 4),
+        qei = (
+            f"cbf: {round(qcfile['cbfQEI'][0], 4)}, "
+            f"score: {round(qcfile['scoreQEI'][0], 4)}, "
+            f"scrub: {round(qcfile['scrubQEI'][0], 4)}, "
+            f"basil: {round(qcfile['basilQEI'][0], 4)}, "
+            f"pvc: {round(qcfile['pvcQEI'][0], 4)} "
         )
-        qei = "cbf: {},score: {},scrub: {}, basil: {}, pvc: {} ".format(
-            round(qcfile["cbfQEI"][0], 4),
-            round(qcfile["scoreQEI"][0], 4),
-            round(qcfile["scrubQEI"][0], 4),
-            round(qcfile["basilQEI"][0], 4),
-            round(qcfile["pvcQEI"][0], 4),
+        meancbf = (
+            f"GM CBF: {round(qcfile['GMmeanCBF'][0], 2)}, "
+            f"WM CBF: {round(qcfile['WMmeanCBF'][0], 2)}, "
+            f"GM/WM CBF ratio: {round(qcfile['Gm_Wm_CBF_ratio'][0], 2)} "
         )
-        meancbf = "GM CBF: {}, WM CBF: {}, GM/WM CBF ratio: {} ".format(
-            round(qcfile["GMmeanCBF"][0], 2),
-            round(qcfile["WMmeanCBF"][0], 2),
-            round(qcfile["Gm_Wm_CBF_ratio"][0], 2),
-        )
-        negvoxel = "cbf: {}, score: {}, scrub: {}, basil: {}, pvc: {} ".format(
-            round(qcfile["NEG_CBF_PERC"][0], 2),
-            round(qcfile["NEG_SCORE_PERC"][0], 2),
-            round(qcfile["NEG_SCRUB_PERC"][0], 2),
-            round(qcfile["NEG_BASIL_PERC"][0], 2),
-            round(qcfile["NEG_PVC_PERC"][0], 2),
+        negvoxel = (
+            f"cbf: {round(qcfile['NEG_CBF_PERC'][0], 2)}, "
+            f"score: {round(qcfile['NEG_SCORE_PERC'][0], 2)}, "
+            f"scrub: {round(qcfile['NEG_SCRUB_PERC'][0], 2)}, "
+            f"basil: {round(qcfile['NEG_BASIL_PERC'][0], 2)}, "
+            f"pvc: {round(qcfile['NEG_PVC_PERC'][0], 2)} "
         )
         if self.inputs.pe_direction is None:
             pedir = "MISSING - Assuming Anterior-Posterior"

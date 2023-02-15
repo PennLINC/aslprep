@@ -305,7 +305,7 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
     elif "PASL" in labeltype:
         labeleff = 0.8
     else:
-        raise LabelingEfficiencyNotFound("No labeling efficiency")
+        raise LabelingEfficiencyNotFoundError("No labeling efficiency")
     part_coeff = 0.9  # brain partition coefficient
 
     if "CASL" in labeltype:
@@ -1832,5 +1832,5 @@ def get_tis(metadata: dict[str, Any]):
         return np.array(metadata["PostLabelingDelay"])
 
 
-class LabelingEfficiencyNotFound(Exception):
+class LabelingEfficiencyNotFoundError(Exception):
     """LabelingEfficiency was not specified and no value could be derived."""

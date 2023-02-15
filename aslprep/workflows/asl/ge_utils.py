@@ -416,20 +416,16 @@ def init_asl_gestd_trans_wf(
     ]
 
     if len(output_references) == 1:
-        workflow.__desc__ = """\
+        workflow.__desc__ = f"""\
 The ASL and CBF dreivatives  were resampled into standard space,
-generating a *preprocessed ASL and computed CBF in {tpl} space*.
-""".format(
-            tpl=output_references[0]
-        )
+generating a *preprocessed ASL and computed CBF in {output_references[0]} space*.
+"""
     elif len(output_references) > 1:
-        workflow.__desc__ = """\
+        workflow.__desc__ = f"""\
 The ASL and CBF dreivatives were resampled into several standard spaces,
 correspondingly generating the following *spatially-normalized,
-preprocessed ASL runs*: {tpl}.
-""".format(
-            tpl=", ".join(output_references)
-        )
+preprocessed ASL runs*: {', '.join(output_references)}.
+"""
 
     inputnode = pe.Node(
         niu.IdentityInterface(

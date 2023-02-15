@@ -62,7 +62,7 @@ def _build_parser():
     is_release = not any((currentv.is_devrelease, currentv.is_prerelease, currentv.is_postrelease))
 
     parser = ArgumentParser(
-        description="ASLPrep: ASL PREProcessing workflows v{}".format(config.environment.version),
+        description=f"ASLPrep: ASL PREProcessing workflows v{config.environment.version}",
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
     PathExists = partial(_path_exists, parser=parser)
@@ -133,11 +133,13 @@ def _build_parser():
         action="store",
         type=_bids_filter,
         metavar="FILE",
-        help="a JSON file describing custom BIDS input filters using PyBIDS. "
-        "For further details, please check out "
-        "https://aslprep.readthedocs.io/en/%s/faq.html#"
-        "how-do-I-select-only-certain-files-to-be-input-to-ASLPrep"
-        % (currentv.base_version if is_release else "latest"),
+        help=(
+            "a JSON file describing custom BIDS input filters using PyBIDS. "
+            "For further details, please check out "
+            "https://aslprep.readthedocs.io/en/"
+            f"{currentv.base_version if is_release else 'latest'}/faq.html#"
+            "how-do-I-select-only-certain-files-to-be-input-to-ASLPrep"
+        ),
     )
     g_bids.add_argument(
         "--anat-derivatives",
@@ -453,11 +455,10 @@ any spatial references.""",
     latest = check_latest()
     if latest is not None and currentv < latest:
         print(
-            """\
-You are using aslprep-%s, and a newer version of aslprep is available: %s.
+            f"""\
+You are using aslprep-{currentv}, and a newer version of aslprep is available: {latest}.
 Please check out our documentation about how and when to upgrade:
-https://aslprep.readthedocs.io/en/latest/faq.html#upgrading"""
-            % (currentv, latest),
+https://aslprep.readthedocs.io/en/latest/faq.html#upgrading""",
             file=sys.stderr,
         )
 
@@ -465,12 +466,11 @@ https://aslprep.readthedocs.io/en/latest/faq.html#upgrading"""
     if _blist[0]:
         _reason = _blist[1] or "unknown"
         print(
-            """\
-WARNING: Version %s of aslprep (current) has been FLAGGED
-(reason: %s).
+            f"""\
+WARNING: Version {config.environment.version} of aslprep (current) has been FLAGGED
+(reason: {_reason}).
 That means some severe flaw was found in it and we strongly
-discourage its usage."""
-            % (config.environment.version, _reason),
+discourage its usage.""",
             file=sys.stderr,
         )
 
@@ -553,12 +553,10 @@ applied."""
 
     # Ensure input and output folders are not the same
     if output_dir == bids_dir:
+        rec_path = bids_dir / "derivatives" / f"aslprep-{version.split('+')[0]}"
         parser.error(
             "The selected output folder is the same as the input BIDS folder. "
-            "Please modify the output path (suggestion: %s)."
-            % bids_dir
-            / "derivatives"
-            / ("aslprep-%s" % version.split("+")[0])
+            f"Please modify the output path (suggestion: {rec_path})."
         )
 
     if bids_dir in work_dir.parents:
@@ -595,7 +593,7 @@ applied."""
     if missing_subjects:
         parser.error(
             "One or more participant labels were not found in the BIDS directory: "
-            "%s." % ", ".join(missing_subjects)
+            f"{', '.join(missing_subjects)}."
         )
 
     config.execution.participant_label = sorted(participant_label)

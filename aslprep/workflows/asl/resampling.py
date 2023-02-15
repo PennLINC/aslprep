@@ -70,13 +70,11 @@ def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_
     from aslprep.niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
+    workflow.__desc__ = f"""\
 The ASL time-series were resampled onto the following surfaces
 (FreeSurfer reconstruction nomenclature):
-{out_spaces}.
-""".format(
-        out_spaces=", ".join(["*%s*" % s for s in surface_spaces])
-    )
+{', '.join(['*' + s + '*' for s in surface_spaces])}.
+"""
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -287,18 +285,6 @@ def init_asl_std_trans_wf(
         (s.fullname, s.spec) for s in spaces.references if s.standard and s.dim == 3
     ]
 
-    # if len(output_references) == 1:
-    # workflow.__desc__ = """\
-    # The ASL and CBF dreivatives  were resampled into standard space,
-    # generating a *preprocessed ASL and computed CBF in {tpl} space*.
-    # """.format(tpl=output_references[0])
-    # elif len(output_references) > 1:
-    # workflow.__desc__ = """\
-    # The ASL and CBF dreivatives were resampled into several standard spaces,
-    # correspondingly generating the following *spatially-normalized,
-    # preprocessed ASL runs*: {tpl}.
-    # """.format(tpl=', '.join(output_references))
-
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -369,7 +355,7 @@ def init_asl_std_trans_wf(
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    workflow.connect([(inputnode, merge_xforms, [("hmc_xforms", "in%d" % nxforms)])])
+    workflow.connect([(inputnode, merge_xforms, [("hmc_xforms", f"in{nxforms}")])])
 
     if use_fieldwarp:
         workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in3")])])

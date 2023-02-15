@@ -67,7 +67,7 @@ def init_aslprep_wf():
         log_dir = (
             config.execution.output_dir
             / "aslprep"
-            / "sub-{}".format(subject_id)
+            / f"sub-{subject_id}"
             / "log"
             / config.execution.run_uuid
         )
@@ -117,7 +117,7 @@ def init_single_subject_wf(subject_id):
     from aslprep.niworkflows.utils.spaces import Reference
     from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
 
-    name = "single_subject_%s_wf" % subject_id
+    name = f"single_subject_{subject_id}_wf"
     subject_data = collect_data(
         config.execution.bids_dir,
         subject_id,
@@ -136,14 +136,14 @@ def init_single_subject_wf(subject_id):
     if not anat_only and not subject_data["asl"]:
         # task_id = config.execution.task_id
         raise RuntimeError(
-            "No ASL images found for participant {}. "
-            "All workflows require ASL images.".format(subject_id)
+            f"No ASL images found for participant {subject_id}. "
+            "All workflows require ASL images."
         )
 
     if not subject_data["t1w"]:
         raise Exception(
-            "No T1w images found for participant {}. "
-            "All workflows require T1w images.".format(subject_id)
+            f"No T1w images found for participant {subject_id}. "
+            "All workflows require T1w images."
         )
 
     workflow = Workflow(name=name)
@@ -214,18 +214,16 @@ were met (for participant <{subject_id}>, spaces <{', '.join(std_spaces)}>, \
 """
             )
 
-    workflow.__desc__ = """
+    workflow.__desc__ = f"""
 ### Arterial Spin-Labeled MRI Preprocessing and Cerebral Blood Flow Computation
 
-Arterial spin-labeled MRI images were preprocessed using *ASLPrep* {aslprep_ver},
-which is based on *Nipype* {nipype_ver} [@nipype].
+Arterial spin-labeled MRI images were preprocessed using *ASLPrep* {config.environment.version},
+which is based on *Nipype* {config.environment.nipype_version} [@nipype].
 
-""".format(
-        aslprep_ver=config.environment.version, nipype_ver=config.environment.nipype_version
-    )
-    workflow.__postdesc__ = """ \
+"""
+    workflow.__postdesc__ = f""" \
 Many internal operations of *ASLPrep* use
-*Nilearn* {nilearn_ver} [@nilearn], *NumPy* [@numpy], and *SciPy* [@scipy].
+*Nilearn* {NILEARN_VERSION} [@nilearn], *NumPy* [@numpy], and *SciPy* [@scipy].
 For more details of the pipeline, see [the  *ASLPrep*  documentation.]\
 (https://aslprep.readthedocs.io/en/latest/workflows.html).
 
@@ -239,9 +237,7 @@ their manuscripts unchanged. It is released under the unchanged [CC0]\
 
 ### References
 
-""".format(
-        nilearn_ver=NILEARN_VERSION
-    )
+"""
 
     # Preprocessing of T1w (includes registration to MNI)
     anat_preproc_wf = init_anat_preproc_wf(
@@ -302,15 +298,13 @@ their manuscripts unchanged. It is released under the unchanged [CC0]\
         runx = "run"
     anat_preproc_wf.__postdesc__ = (
         (anat_preproc_wf.__postdesc__ or "")
-        + """
+        + f"""
 
 ### ASL data preprocessing
 
-For the {num_asl} ASL {runx} found per subject (across all
+For the {len(subject_data['asl'])} ASL {runx} found per subject (across all
 tasks and sessions), the following preprocessing was performed.
-""".format(
-            num_asl=len(subject_data["asl"]), runx=runx
-        )
+"""
     )
 
     for asl_file in subject_data["asl"]:

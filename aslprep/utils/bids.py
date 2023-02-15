@@ -45,7 +45,7 @@ def write_derivative_description(bids_dir, deriv_dir):
             orig_desc = json.load(fobj)
 
     if "DatasetDOI" in orig_desc:
-        desc["SourceDatasetsURLs"] = ["https://doi.org/{}".format(orig_desc["DatasetDOI"])]
+        desc["SourceDatasetsURLs"] = [f"https://doi.org/{orig_desc['DatasetDOI']}"]
     if "License" in orig_desc:
         desc["License"] = orig_desc["License"]
 
@@ -113,30 +113,31 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
         bad_labels = selected_subs.difference(all_subs)
         if bad_labels:
             error_msg = (
-                "Data for requested participant(s) label(s) not found. Could "
-                "not find data for participant(s): %s. Please verify the requested "
-                "participant labels."
+                "Data for requested participant(s) label(s) not found. "
+                f"Could not find data for participant(s): {','.join(bad_labels)}. "
+                "Please verify the requested participant labels."
             )
             if exec_env == "docker":
                 error_msg += (
                     " This error can be caused by the input data not being "
-                    "accessible inside the docker container. Please make sure all "
-                    "volumes are mounted properly (see https://docs.docker.com/"
-                    "engine/reference/commandline/run/#mount-volume--v---read-only)"
+                    "accessible inside the docker container. "
+                    "Please make sure all volumes are mounted properly "
+                    "(see https://docs.docker.com/engine/reference/commandline/"
+                    "run/#mount-volume--v---read-only)"
                 )
             if exec_env == "singularity":
                 error_msg += (
                     " This error can be caused by the input data not being "
-                    "accessible inside the singularity container. Please make sure "
-                    "all paths are mapped properly (see https://www.sylabs.io/"
-                    "guides/3.0/user-guide/bind_paths_and_mounts.html)"
+                    "accessible inside the singularity container. "
+                    "Please make sure all paths are mapped properly "
+                    "(see https://www.sylabs.io/guides/3.0/user-guide/bind_paths_and_mounts.html)"
                 )
-            raise RuntimeError(error_msg % ",".join(bad_labels))
+            raise RuntimeError(error_msg)
 
         ignored_subs = all_subs.difference(selected_subs)
         if ignored_subs:
             for sub in ignored_subs:
-                validator_config_dict["ignoredFiles"].append("/sub-%s/**" % sub)
+                validator_config_dict["ignoredFiles"].append(f"/sub-{sub}/**")
     with tempfile.NamedTemporaryFile("w+") as temp:
         temp.write(json.dumps(validator_config_dict))
         temp.flush()
