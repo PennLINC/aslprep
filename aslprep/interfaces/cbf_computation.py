@@ -1264,7 +1264,7 @@ class qccbf(SimpleInterface):
         return runtime
 
 
-class _qccbfgeInputSpec(BaseInterfaceInputSpec):
+class _ComputeCBFQCforGEInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="original asl_file")
     in_meancbf = File(exists=True, mandatory=True, desc="cbf img")
     in_avgscore = File(exists=True, mandatory=False, desc="cbf img")
@@ -1281,11 +1281,11 @@ class _qccbfgeInputSpec(BaseInterfaceInputSpec):
     qc_file = File(exists=False, mandatory=False, desc="qc file ")
 
 
-class _qccbfgeOutputSpec(TraitedSpec):
+class _ComputeCBFQCforGEOutputSpec(TraitedSpec):
     qc_file = File(exists=False, desc="qc file ")
 
 
-class qccbfge(SimpleInterface):
+class ComputeCBFQCforGE(SimpleInterface):
     r""" "
     compute qc from confound regressors
     and cbf maps,
@@ -1293,8 +1293,8 @@ class qccbfge(SimpleInterface):
 
     """
 
-    input_spec = _qccbfgeInputSpec
-    output_spec = _qccbfgeOutputSpec
+    input_spec = _ComputeCBFQCforGEInputSpec
+    output_spec = _ComputeCBFQCforGEOutputSpec
 
     def _run_interface(self, runtime):
         regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)

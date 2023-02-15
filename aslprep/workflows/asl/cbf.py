@@ -18,7 +18,7 @@ from aslprep.interfaces.cbf_computation import (
     ExtractCBF,
     get_tis,
     qccbf,
-    qccbfge,
+    ComputeCBFQCforGE,
     RefineMask,
     ScoreAndScrubCBF,
 )
@@ -574,7 +574,7 @@ def init_cbfgeqc_compt_wf(
     )
 
     qccompute = pe.Node(
-        qccbfge(in_file=asl_file), name="qccompute", run_without_submitting=True, mem_gb=0.2
+        ComputeCBFQCforGE(in_file=asl_file), name="qccompute", run_without_submitting=True, mem_gb=0.2
     )
 
     workflow.connect(
