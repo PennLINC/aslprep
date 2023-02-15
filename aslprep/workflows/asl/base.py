@@ -1386,13 +1386,3 @@ def _get_wf_name(asl_fname):
     ).replace("_asl", "_wf")
 
     return name
-
-
-def _to_join(in_file, join_file):
-    """Join two tsv files if the join_file is not ``None``."""
-    from aslprep.niworkflows.interfaces.utils import JoinTSVColumns
-
-    if join_file is None:
-        return in_file
-    res = JoinTSVColumns(in_file=in_file, join_file=join_file).run()
-    return res.outputs.out_file

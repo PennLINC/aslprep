@@ -931,18 +931,6 @@ effects of other kernels [@lanczos].
     return workflow
 
 
-def _get_series_len(asl_fname):
-    from aslprep.niworkflows.interfaces.registration import _get_vols_to_discard
-
-    img = nb.load(asl_fname)
-    if len(img.shape) < 4:
-        return 1
-
-    skip_vols = _get_vols_to_discard(img)
-
-    return img.shape[3] - skip_vols
-
-
 def _create_mem_gb(asl_fname):
     asl_size_gb = os.path.getsize(asl_fname) / (1024**3)
     asl_tlen = nb.load(asl_fname).shape[-1]
@@ -976,33 +964,3 @@ def _get_wf_name(asl_fname):
     ).replace("_asl", "_wf")
 
     return name
-
-
-def _to_join(in_file, join_file):
-    """Join two tsv files if the join_file is not ``None``."""
-    from aslprep.niworkflows.interfaces.utils import JoinTSVColumns
-
-    if join_file is None:
-        return in_file
-    res = JoinTSVColumns(in_file=in_file, join_file=join_file).run()
-    return res.outputs.out_file
-
-
-def check_img(img):
-    # get the 4th dimension
-    import nibabel as nb
-    import numpy as np
-
-    ss = nb.load(img).get_fdata().shape
-    if len(ss) == 3:
-        ss = np.hstack([ss, 0])
-    return ss[3]
-
-
-def _getTR(img):
-    import nibabel as nib
-    import numpy as np
-
-    asl_img = nib.load(img)
-    tr = asl_img.header.get_zooms()[-1]
-    return float(tr)
