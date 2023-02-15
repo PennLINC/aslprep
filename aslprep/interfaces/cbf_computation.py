@@ -1717,7 +1717,7 @@ class _extractCBOutputSpec(TraitedSpec):
 
 
 class extractCB(SimpleInterface):
-    r"""
+    """
     the code refine the asl mask with t1w mask
     the output is refined asl mask
 
