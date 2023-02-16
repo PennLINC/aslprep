@@ -6,11 +6,11 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any
-from pkg_resources import resource_filename as pkgrf
 
 import nibabel as nb
 import numpy as np
 from nipype.utils.filemanip import fname_presuffix
+from pkg_resources import resource_filename as pkgrf
 
 
 def check_deps(workflow):

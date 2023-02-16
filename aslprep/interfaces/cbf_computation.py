@@ -19,8 +19,22 @@ from nipype.interfaces.fsl import MultiImageMaths
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
-from aslprep.utils.misc import _getcbfscore, _scrubcbf, compute_cbf, readjson, parcellate_cbf
-from aslprep.utils.qc import dc, jc, crosscorr, coverage, cbf_qei, negativevoxel, globalcbf
+from aslprep.utils.misc import (
+    _getcbfscore,
+    _scrubcbf,
+    compute_cbf,
+    parcellate_cbf,
+    readjson,
+)
+from aslprep.utils.qc import (
+    cbf_qei,
+    coverage,
+    crosscorr,
+    dc,
+    globalcbf,
+    jc,
+    negativevoxel,
+)
 
 LOGGER = logging.getLogger("nipype.interface")
 
@@ -444,6 +458,7 @@ class BASILCBF(FSLCommand):
     oxford asl
     https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL
     """
+
     _cmd = " oxford_asl "
     input_spec = _BASILCBFInputSpec
     output_spec = _BASILCBFOutputSpec
@@ -869,6 +884,7 @@ class _ParcellateCBFOutputSpec(TraitedSpec):
 
 class ParcellateCBF(SimpleInterface):
     """Parcellate CBF time series according to a given atlas."""
+
     input_spec = _ParcellateCBFInputSpec
     output_spec = _ParcellateCBFOutputSpec
 

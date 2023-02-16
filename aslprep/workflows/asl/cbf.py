@@ -6,9 +6,8 @@ import os
 import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.interfaces.afni import Resample
-from nipype.interfaces.fsl import Info
+from nipype.interfaces.fsl import Info, MultiImageMaths
 from nipype.pipeline import engine as pe
-from nipype.interfaces.fsl import MultiImageMaths
 from templateflow.api import get as get_template
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
