@@ -1,5 +1,4 @@
 """Plotting interfaces."""
-import numpy as np
 import pandas as pd
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
@@ -15,15 +14,20 @@ from aslprep.utils.plotting import ASLPlot, CBFPlot, CBFtsPlot
 
 
 class _ASLSummaryInputSpec(BaseInterfaceInputSpec):
-    in_func = File(exists=True, mandatory=True, desc="")
-    in_mask = File(exists=True, desc="")
-    in_segm = File(exists=True, desc="")
-    in_spikes_bg = File(exists=True, mandatory=True, desc="")
-    fd = File(exists=True, mandatory=True, desc="")
-    fd_thres = traits.Float(0.2, usedefault=True, desc="")
-    dvars = File(exists=True, mandatory=True, desc="")
-    outliers = File(exists=True, mandatory=True, desc="")
-    tr = traits.Either(None, traits.Float, usedefault=True, desc="the TR")
+    in_func = File(exists=True, mandatory=True, desc="input ASL time-series (4D file)")
+    in_mask = File(exists=True, desc="3D brain mask")
+    in_segm = File(exists=True, desc="resampled segmentation")
+    confounds_file = File(exists=True, desc="BIDS' _confounds.tsv file")
+
+    str_or_tuple = traits.Either(
+        traits.Str,
+        traits.Tuple(traits.Str, traits.Either(None, traits.Str)),
+        traits.Tuple(traits.Str, traits.Either(None, traits.Str), traits.Either(None, traits.Str)),
+    )
+    confounds_list = traits.List(
+        str_or_tuple, minlen=1, desc="list of headers to extract from the confounds_file"
+    )
+    tr = traits.Either(None, traits.Float, usedefault=True, desc="the repetition time")
 
 
 class _ASLSummaryOutputSpec(TraitedSpec):
@@ -31,40 +35,63 @@ class _ASLSummaryOutputSpec(TraitedSpec):
 
 
 class ASLSummary(SimpleInterface):
-    """Prepare an fMRI summary plot for the report."""
+    """Copy the x-form matrices from `hdr_file` to `out_file`.
+
+    Clearly that's wrong.
+    """
 
     input_spec = _ASLSummaryInputSpec
     output_spec = _ASLSummaryOutputSpec
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(
-            self.inputs.in_func,
-            suffix="_aslplot.svg",
-            use_ext=False,
-            newpath=runtime.cwd,
+            self.inputs.in_func, suffix="_aslplot.svg", use_ext=False, newpath=runtime.cwd
         )
 
-        dataframe = pd.DataFrame(
-            {
-                "outliers": np.loadtxt(self.inputs.outliers, usecols=[0]).tolist(),
-                # Pick non-standardize dvars (col 1)
-                # First timepoint is NaN (difference)
-                "DVARS": [np.nan]
-                + np.loadtxt(self.inputs.dvars, skiprows=1, usecols=[1]).tolist(),
-                # First timepoint is zero (reference volume)
-                "FD": [0.0] + np.loadtxt(self.inputs.fd, skiprows=1, usecols=[0]).tolist(),
-            }
+        dataframe = pd.read_csv(
+            self.inputs.confounds_file,
+            sep="\t",
+            index_col=None,
+            dtype="float32",
+            na_filter=True,
+            na_values="n/a",
         )
+
+        headers = []
+        units = {}
+        names = {}
+
+        for conf_el in self.inputs.confounds_list:
+            if isinstance(conf_el, (list, tuple)):
+                headers.append(conf_el[0])
+                if conf_el[1] is not None:
+                    units[conf_el[0]] = conf_el[1]
+
+                if len(conf_el) > 2 and conf_el[2] is not None:
+                    names[conf_el[0]] = conf_el[2]
+            else:
+                headers.append(conf_el)
+
+        if not headers:
+            data = None
+            units = None
+        else:
+            data = dataframe[headers]
+
+        colnames = data.columns.ravel().tolist()
+
+        for name, newname in list(names.items()):
+            colnames[colnames.index(name)] = newname
+
+        data.columns = colnames
 
         fig = ASLPlot(
             self.inputs.in_func,
             mask_file=self.inputs.in_mask if isdefined(self.inputs.in_mask) else None,
-            seg_file=self.inputs.in_segm if isdefined(self.inputs.seg_file) else None,
-            spikes_files=[self.inputs.in_spikes_bg],
+            seg_file=(self.inputs.in_segm if isdefined(self.inputs.in_segm) else None),
             tr=self.inputs.tr,
-            data=dataframe[["outliers", "DVARS", "FD"]],
-            units={"outliers": "%", "FD": "mm"},
-            vlines={"FD": [self.inputs.fd_thres]},
+            data=data,
+            units=units,
         ).plot()
         fig.savefig(self._results["out_file"], bbox_inches="tight")
         return runtime
