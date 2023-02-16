@@ -23,11 +23,11 @@ from aslprep.interfaces.cbf_computation import (
     RefineMask,
     ScoreAndScrubCBF,
 )
+from aslprep.interfaces.plotting import CBFSummary, CBFtsSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
 )
-from aslprep.niworkflows.interfaces.plotting import CBFSummary, CBFtsSummary
 from aslprep.utils.misc import get_atlas, get_tis, pcaslorasl
 
 
