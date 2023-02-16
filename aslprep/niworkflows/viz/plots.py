@@ -5,7 +5,6 @@
 import numpy as np
 import nibabel as nb
 import pandas as pd
-from svgutils.transform import SVGFigure
 import matplotlib.pyplot as plt
 from matplotlib import gridspec as mgs
 import matplotlib.cm as cm
@@ -18,69 +17,111 @@ from nilearn._utils import check_niimg_4d
 from nilearn._utils.niimg import _safe_get_data
 
 import seaborn as sns
-from .utils import (extract_svg,
-                    robust_set_limits,
-                    _3d_in_file,
-                    cuts_from_bbox)
 
 DINA4_LANDSCAPE = (11.69, 8.27)
 
 
-def plotstatsimg(cbf, ref_vol, plot_params=None, order=('z', 'x', 'y'),vmax=90,
-                 estimate_brightness=False, label=None, compress='auto'):
-    """
-    plot zsts
-    """
-    plot_params = {} if plot_params is None else plot_params
+class fMRIPlot:
+    """Generates the fMRI Summary Plot."""
 
-    image_nii = _3d_in_file(cbf)
-    data = image_nii.get_fdata()
-    from nilearn.image import threshold_img
-    bbox_nii = threshold_img(nb.load(cbf), 1)
+    __slots__ = (
+        "timeseries",
+        "segments",
+        "tr",
+        "confounds",
+        "spikes",
+        "nskip",
+        "sort_carpet",
+        "paired_carpet",
+    )
 
-    cuts = cuts_from_bbox(bbox_nii, cuts=7)
+    def __init__(
+        self,
+        timeseries,
+        segments,
+        confounds=None,
+        conf_file=None,
+        tr=None,
+        usecols=None,
+        units=None,
+        vlines=None,
+        spikes_files=None,
+        nskip=0,
+        sort_carpet=True,
+        paired_carpet=False,
+    ):
+        self.timeseries = timeseries
+        self.segments = segments
+        self.tr = tr
+        self.nskip = nskip
+        self.sort_carpet = sort_carpet
+        self.paired_carpet = paired_carpet
 
-    out_files = []
-    if estimate_brightness:
-        plot_params = robust_set_limits(data,
-                                        plot_params)
+        if units is None:
+            units = {}
+        if vlines is None:
+            vlines = {}
+        self.confounds = {}
+        if confounds is None and conf_file:
+            confounds = pd.read_csv(conf_file, sep=r"[\t\s]+", usecols=usecols, index_col=False)
 
-    # Plot each cut axis
-    for i, mode in enumerate(list(order)):
-        plot_params['display_mode'] = mode
-        plot_params['cut_coords'] = cuts[mode]
-        plot_params['draw_cross'] = False
-        plot_params['symmetric_cbar'] = True
-        plot_params['vmax'] = vmax
-        plot_params['threshold'] = 0.02
-        plot_params['colorbar'] = True
-        plot_params['cmap'] = 'coolwarm'
-        if i == 0:
-            plot_params['title'] = label
-            plot_params['colorbar'] =True
-        else:
-            plot_params['title'] = None
+        if confounds is not None:
+            for name in confounds.columns:
+                self.confounds[name] = {
+                    "values": confounds[[name]].values.squeeze().tolist(),
+                    "units": units.get(name),
+                    "cutoff": vlines.get(name),
+                }
 
-        # Generate nilearn figure
-        from nilearn.plotting import plot_stat_map
-        display = plot_stat_map(stat_map_img=cbf, bg_img=ref_vol,
-                     resampling_interpolation='nearest',**plot_params)
-        svg = extract_svg(display, compress=compress)
-        display.close()
-        from lxml import etree
-        from .. import NIWORKFLOWS_LOG
-        # Find and replace the figure_1 id.
-        try:
-            xml_data = etree.fromstring(svg)
-        except etree.XMLSyntaxError as e:
-            NIWORKFLOWS_LOG.info(e)
-            return
+        self.spikes = []
+        if spikes_files:
+            for sp_file in spikes_files:
+                self.spikes.append((np.loadtxt(sp_file), None, False))
 
-        svg_fig = SVGFigure()
-        svg_fig.root = xml_data
-        out_files.append(svg_fig)
+    def plot(self, figure=None):
+        """Main plotter"""
+        import seaborn as sns
 
-    return out_files
+        sns.set_style("whitegrid")
+        sns.set_context("paper", font_scale=0.8)
+
+        if figure is None:
+            figure = plt.gcf()
+
+        nconfounds = len(self.confounds)
+        nspikes = len(self.spikes)
+        nrows = 1 + nconfounds + nspikes
+
+        # Create grid
+        grid = mgs.GridSpec(
+            nrows, 1, wspace=0.0, hspace=0.05, height_ratios=[1] * (nrows - 1) + [5]
+        )
+
+        grid_id = 0
+        for tsz, name, iszs in self.spikes:
+            spikesplot(tsz, title=name, outer_gs=grid[grid_id], tr=self.tr, zscored=iszs)
+            grid_id += 1
+
+        if self.confounds:
+            from seaborn import color_palette
+
+            palette = color_palette("husl", nconfounds)
+
+        for i, (name, kwargs) in enumerate(self.confounds.items()):
+            tseries = kwargs.pop("values")
+            confoundplot(tseries, grid[grid_id], tr=self.tr, color=palette[i], name=name, **kwargs)
+            grid_id += 1
+
+        plot_carpet(
+            self.timeseries,
+            segments=self.segments,
+            subplot=grid[-1],
+            tr=self.tr,
+            sort_rows=self.sort_carpet,
+            drop_trs=self.nskip,
+            cmap="paired" if self.paired_carpet else None,
+        )
+        return figure
 
 
 def plot_carpet(

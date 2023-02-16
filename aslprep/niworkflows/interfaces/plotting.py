@@ -13,7 +13,7 @@ from nipype.interfaces.base import (
     traits,
     isdefined,
 )
-from ..viz.plots import (ASLPlot, compcor_variance_plot,
+from ..viz.plots import (fMRIPlot, compcor_variance_plot,
                          confounds_correlation_plot)
 
 
@@ -60,7 +60,7 @@ class FMRISummary(SimpleInterface):
             }
         )
 
-        fig = ASLPlot(
+        fig = fMRIPlot(
             self.inputs.in_func,
             mask_file=self.inputs.in_mask if isdefined(self.inputs.in_mask) else None,
             seg_file=self.inputs.in_segm if isdefined(self.inputs.seg_file) else None,
