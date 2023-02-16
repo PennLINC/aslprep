@@ -8,6 +8,7 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.afni import Resample
 from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
+from nipype.interfaces.fsl import MultiImageMaths
 from templateflow.api import get as get_template
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
@@ -22,14 +23,13 @@ from aslprep.interfaces.cbf_computation import (
     ParcellateCBF,
     RefineMask,
     ScoreAndScrubCBF,
-    get_atlas,
-    get_tis,
 )
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
 )
 from aslprep.niworkflows.interfaces.plotting import CBFSummary, CBFtsSummary
+from aslprep.utils.misc import get_atlas, get_tis, pcaslorasl
 
 
 def init_cbf_compt_wf(
@@ -1270,13 +1270,6 @@ model [@detre_perfusion;@alsop_recommended].
 
     tiscbf = get_tis(metadata)
 
-    def pcaslorasl(metadata):
-        if "CASL" in metadata["ArterialSpinLabelingType"]:
-            pcasl1 = True
-        elif "PASL" in metadata["ArterialSpinLabelingType"]:
-            pcasl1 = False
-        return pcasl1
-
     computecbf = pe.Node(
         ComputeCBF(in_metadata=metadata, in_m0scale=M0Scale),
         mem_gb=mem_gb,
@@ -1425,8 +1418,6 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
                 ]
             )
     elif len(cbflist) > 0:
-        from nipype.interfaces.fsl import MultiImageMaths
-
         basil = False
         mask_cbf = pe.Node(
             MultiImageMaths(op_string=" -mul  %s "),
