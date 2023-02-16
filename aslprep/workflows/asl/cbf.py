@@ -209,6 +209,8 @@ model [@kinetic].
         return files[1]
 
     def _getfiledir(file):
+        import os
+
         return os.path.dirname(file)
 
     workflow.connect(
@@ -1288,6 +1290,8 @@ model [@detre_perfusion;@alsop_recommended].
         return files[1]
 
     def _getfiledir(file):
+        import os
+
         return os.path.dirname(file)
 
     if len(deltamlist) > 0 or len(controllist) > 0:
