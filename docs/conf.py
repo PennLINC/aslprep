@@ -52,7 +52,6 @@ extensions = [
 # Mock modules in autodoc:
 autodoc_mock_imports = [
     "numpy",
-    "nitime",
     "matplotlib",
     "pygraphviz",
 ]
