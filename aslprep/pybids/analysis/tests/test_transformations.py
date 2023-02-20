@@ -1,13 +1,13 @@
-# from aslprep.pybids.analysis.variables import load_variables
-from aslprep.pybids.analysis import transformations as transform
-from aslprep.pybids.variables import SparseRunVariable
-from aslprep.pybids.variables.entities import RunInfo
-from aslprep.pybids.variables.kollekshuns import BIDSRunVariableCollection
-from aslprep.pybids.layout import BIDSLayout
+# from bids.analysis.variables import load_variables
+from bids.analysis import transformations as transform
+from bids.variables import SparseRunVariable
+from bids.variables.entities import RunInfo
+from bids.variables.kollekshuns import BIDSRunVariableCollection
+from bids.layout import BIDSLayout
 import math
 import pytest
 from os.path import join, sep
-from aslprep.pybids.tests import get_test_data_path
+from bids.tests import get_test_data_path
 import numpy as np
 import pandas as pd
 

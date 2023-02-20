@@ -9,11 +9,11 @@ import pandas as pd
 # See https://github.com/bids-standard/pybids/issues/423 for more info
 from collections import OrderedDict as odict
 
-from aslprep.pybids.utils import listify
+from bids.utils import listify
 from .base import Transformation
 from patsy import dmatrix
 import re
-from aslprep.pybids.variables import DenseRunVariable, SimpleVariable
+from bids.variables import DenseRunVariable, SimpleVariable
 
 
 class Assign(Transformation):

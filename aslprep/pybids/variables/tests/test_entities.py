@@ -1,10 +1,10 @@
-from aslprep.pybids.layout import BIDSLayout
-from aslprep.pybids.variables.entities import RunNode, Node, NodeIndex
-from aslprep.pybids.variables import load_variables
-from aslprep.pybids.variables import BIDSRunVariableCollection
+from bids.layout import BIDSLayout
+from bids.variables.entities import RunNode, Node, NodeIndex
+from bids.variables import load_variables
+from bids.variables import BIDSRunVariableCollection
 import pytest
 from os.path import join
-from aslprep.pybids.tests import get_test_data_path
+from bids.tests import get_test_data_path
 
 
 @pytest.fixture(scope="module")

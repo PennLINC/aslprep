@@ -1,8 +1,8 @@
 from os.path import join
-from aslprep.pybids.analysis import Analysis
-from aslprep.pybids.analysis.analysis import ContrastInfo, DesignMatrixInfo
-from aslprep.pybids.layout import BIDSLayout
-from aslprep.pybids.tests import get_test_data_path
+from bids.analysis import Analysis
+from bids.analysis.analysis import ContrastInfo, DesignMatrixInfo
+from bids.layout import BIDSLayout
+from bids.tests import get_test_data_path
 import numpy as np
 import pytest
 

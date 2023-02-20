@@ -3,9 +3,9 @@ functionality should go in the grabbit package. """
 
 import pytest
 from bids_validator import BIDSValidator
-from aslprep.pybids.layout import BIDSLayout
+from bids.layout import BIDSLayout
 from os.path import join
-from aslprep.pybids.tests import get_test_data_path
+from bids.tests import get_test_data_path
 
 
 # Fixture uses in the rest of the tests

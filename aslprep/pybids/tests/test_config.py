@@ -1,9 +1,9 @@
-import aslprep.pybids
+import bids
 import tempfile
 import os
 import json
 import pytest
-from aslprep.pybids.config import reset_options
+from bids.config import reset_options
 
 
 def test_load_from_standard_paths():
