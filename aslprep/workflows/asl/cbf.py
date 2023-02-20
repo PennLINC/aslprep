@@ -490,10 +490,7 @@ negative CBF values.
 
 
 def init_cbfgeqc_compt_wf(
-    mem_gb,
     asl_file,
-    metadata,
-    omp_nthreads,
     scorescrub=False,
     basil=False,
     name="cbfqc_compt_wf",
@@ -505,8 +502,8 @@ def init_cbfgeqc_compt_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
-            wf = init_cbfqc_compt_wf(mem_gb=0.1)
+            from aslprep.workflows.asl.cbf import init_cbfgeqc_compt_wf
+            wf = init_cbfgeqc_compt_wf()
 
     Parameters
     ----------

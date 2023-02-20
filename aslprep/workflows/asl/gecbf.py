@@ -550,12 +550,9 @@ effects of other kernels [@lanczos].
 
     compt_qccbf_wf = init_cbfgeqc_compt_wf(
         name="compt_qccbf_wf",
-        mem_gb=mem_gb["filesize"],
-        omp_nthreads=omp_nthreads,
         asl_file=asl_file,
         scorescrub=scorescrub,
         basil=basil,
-        metadata=metadata,
     )
     workflow.connect(
         [
