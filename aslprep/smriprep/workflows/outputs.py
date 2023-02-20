@@ -3,8 +3,8 @@
 """Writing outputs."""
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.utils.misc import fix_multi_T1w_source_name
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.utils.misc import fix_multi_T1w_source_name
 
 from ..interfaces import DerivativesDataSink
 
@@ -14,8 +14,8 @@ BIDS_TISSUE_ORDER = ("GM", "WM", "CSF")
 def init_anat_reports_wf(freesurfer, output_dir,
                          name='anat_reports_wf'):
     """Set up a battery of datasinks to store reports in the right location."""
-    from ...niworkflows.interfaces import SimpleBeforeAfter
-    from ...niworkflows.interfaces.masks import ROIsPlot
+    from niworkflows.interfaces.reportlets.registration import SimpleBeforeAfterRPT
+    from niworkflows.interfaces.masks import ROIsPlot
     from ..interfaces.templateflow import TemplateFlowSelect
 
     workflow = Workflow(name=name)
@@ -62,7 +62,7 @@ def init_anat_reports_wf(freesurfer, output_dir,
         function=_rpt_masks, output_names=['before', 'after'],
         input_names=['mask_file', 'before', 'after', 'after_mask']),
         name='norm_msk')
-    norm_rpt = pe.Node(SimpleBeforeAfter(), name='norm_rpt', mem_gb=0.1)
+    norm_rpt = pe.Node(SimpleBeforeAfterRPT(), name='norm_rpt', mem_gb=0.1)
     norm_rpt.inputs.after_label = 'Participant'  # after
 
     ds_std_t1w_report = pe.Node(
@@ -242,8 +242,8 @@ def init_anat_derivatives_wf(bids_root, freesurfer, num_t1w, output_dir,
     if not freesurfer:
         return workflow
 
-    from ...niworkflows.interfaces.nitransforms import ConcatenateXFMs
-    from ...niworkflows.interfaces.surf import Path2BIDS
+    from niworkflows.interfaces.nitransforms import ConcatenateXFMs
+    from niworkflows.interfaces.surf import Path2BIDS
 
     # FS native space transforms
     lta2itk_fwd = pe.Node(ConcatenateXFMs(), name='lta2itk_fwd', run_without_submitting=True)

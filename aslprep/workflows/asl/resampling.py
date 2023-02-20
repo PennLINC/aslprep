@@ -7,7 +7,6 @@ from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.interfaces.io import FreeSurferSource
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.func.util import init_asl_reference_wf
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from niworkflows.interfaces.itk import MultiApplyTransforms
 from niworkflows.interfaces.nilearn import Merge
@@ -26,6 +25,7 @@ from aslprep.utils.misc import (
     _split_spec,
     select_target,
 )
+from aslprep.workflows.asl.util import init_asl_reference_wf
 
 
 def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_wf"):

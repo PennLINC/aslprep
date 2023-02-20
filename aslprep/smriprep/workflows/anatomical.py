@@ -15,16 +15,17 @@ from nipype.interfaces import (
 from nipype.interfaces.ants.base import Info as ANTsInfo
 from nipype.interfaces.ants import N4BiasFieldCorrection
 
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.freesurfer import (
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.freesurfer import (
     StructuralReference,
     PatchedLTAConvert as LTAConvert,
 )
-from ...niworkflows.interfaces.images import TemplateDimensions, Conform, ValidateImage
-from ...niworkflows.interfaces.nitransforms import ConcatenateXFMs
-from ...niworkflows.interfaces.utility import KeySelect
-from ...niworkflows.utils.misc import fix_multi_T1w_source_name, add_suffix
-from ...niworkflows.anat.ants import init_brain_extraction_wf, init_n4_only_wf
+from niworkflows.interfaces.images import TemplateDimensions, Conform
+from niworkflows.interfaces.header import ValidateImage
+from niworkflows.interfaces.nitransforms import ConcatenateXFMs
+from niworkflows.interfaces.utility import KeySelect
+from niworkflows.utils.misc import fix_multi_T1w_source_name, add_suffix
+from niworkflows.anat.ants import init_brain_extraction_wf, init_n4_only_wf
 from ..utils.bids import get_outputnode_spec
 from ..utils.misc import apply_lut as _apply_bids_lut
 from .norm import init_anat_norm_wf

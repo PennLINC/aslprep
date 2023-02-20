@@ -5,10 +5,10 @@ from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 
 from templateflow.api import get_metadata
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.ants import ImageMath
-from ...niworkflows.interfaces.mni import RobustMNINormalization
-from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.ants import ImageMath
+from niworkflows.interfaces.mni import RobustMNINormalization
+from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from ..interfaces.templateflow import TemplateFlowSelect, TemplateDesc
 
 

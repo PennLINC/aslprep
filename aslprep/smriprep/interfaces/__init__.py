@@ -2,7 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 
 # Load modules for compatibility
-from ...niworkflows.interfaces.bids import DerivativesDataSink as DDS
+from niworkflows.interfaces.bids import DerivativesDataSink as DDS
 
 
 class DerivativesDataSink(DDS):

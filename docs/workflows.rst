@@ -119,13 +119,13 @@ split into multiple sub-workflows described below.
 
 ASL reference image estimation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslrep.niworkflows.func.util.init_asl_reference_wf`
+:py:func:`~aslprep.workflows.asl.util.init_asl_reference_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
 
-    from niworkflows.func.util import init_asl_reference_wf
+    from aslprep.workflows.asl.util import init_asl_reference_wf
     wf = init_asl_reference_wf(omp_nthreads=1)
 
 This workflow estimates a reference image for an

@@ -21,9 +21,9 @@ import pkg_resources as pkgr
 
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu, fsl
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.images import IntraModalMerge
-from ...niworkflows.interfaces.registration import ANTSApplyTransformsRPT, ANTSRegistrationRPT
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.images import IntraModalMerge
+from niworkflows.interfaces.registration import ANTSApplyTransformsRPT, ANTSRegistrationRPT
 
 from ..interfaces.fmap import get_ees as _get_ees, FieldToRadS, FUGUEvsm2ANTSwarp
 from .gre import init_fmap_postproc_wf, init_magnitude_wf

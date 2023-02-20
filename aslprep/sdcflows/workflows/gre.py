@@ -15,9 +15,9 @@ images and cleaning up the fieldmaps created from the phases or phasediff.
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu, fsl, ants
 from niflow.nipype1.workflows.dmri.fsl.utils import cleanup_edge_pipeline
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.images import IntraModalMerge
-from ...niworkflows.interfaces.masks import BETRPT
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.images import IntraModalMerge
+from niworkflows.interfaces.masks import BETRPT
 
 
 def init_magnitude_wf(omp_nthreads, name='magnitude_wf'):

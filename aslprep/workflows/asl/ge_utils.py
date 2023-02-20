@@ -539,7 +539,6 @@ preprocessed ASL runs*: {', '.join(output_references)}.
     )
     # Generate a reference on the target standard space
     gen_ref = pe.Node(GenerateSamplingReference(), name="gen_ref", mem_gb=0.3)
-    # gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
 
     workflow.connect(
         [

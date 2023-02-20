@@ -5,7 +5,7 @@ from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.registration import ANTSApplyTransformsRPT
-from ...niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
+from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
 
 def init_sdc_unwarp_wf(omp_nthreads, debug, name='sdc_unwarp_wf'):
