@@ -368,9 +368,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
 
     # get confounds
-    asl_confounds_wf = init_asl_confs_wf(
-        mem_gb=mem_gb["largemem"], metadata=metadata, name="asl_confounds_wf"
-    )
+    asl_confounds_wf = init_asl_confs_wf(mem_gb=mem_gb["largemem"], name="asl_confounds_wf")
     asl_confounds_wf.get_node("inputnode").inputs.t1_transform_flags = [False]
 
     # Apply transforms in 1 shot
