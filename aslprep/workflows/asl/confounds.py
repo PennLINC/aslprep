@@ -1,13 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-Calculate asl confounds
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autofunction:: init_asl_confs_wf
-
-
-"""
+"""Workflows for calculating confounds for ASL data."""
 from nipype.algorithms import confounds as nac
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
@@ -27,8 +20,7 @@ def init_asl_confs_wf(
     metadata,
     name="asl_confs_wf",
 ):
-    """
-    Build a workflow to generate and write out confounding signals.
+    """Build a workflow to generate and write out confounding signals.
 
     This workflow calculates confounds for a asl series, and aggregates them
     into a :abbr:`TSV (tab-separated value)` file, for use as nuisance
@@ -185,8 +177,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
 
 
 def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
-    """
-    Build a workflow to generate *carpet* plots.
+    """Build a workflow to generate carpet plots.
 
     Resamples the MNI parcellation (ad-hoc parcellation derived from the
     Harvard-Oxford template and others).

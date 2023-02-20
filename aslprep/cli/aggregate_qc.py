@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""aggregate qc of all the subjects"""
+"""Aggregate QC measures across all subjects in dataset."""
 import os
 from pathlib import Path
 
@@ -9,7 +9,7 @@ import pandas as pd
 
 
 def get_parser():
-    """Build parser object"""
+    """Build parser object."""
     from argparse import ArgumentParser, RawTextHelpFormatter
 
     parser = ArgumentParser(description=__doc__, formatter_class=RawTextHelpFormatter)
@@ -21,8 +21,7 @@ def get_parser():
 
 
 def main():
-    """Entry point"""
-
+    """Run the workflow."""
     opts = get_parser().parse_args()
 
     allsubj_dir = os.path.abspath(opts.aslprep_dir)

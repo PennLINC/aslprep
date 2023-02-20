@@ -5,7 +5,6 @@
 import numpy as np
 import nibabel as nb
 import pandas as pd
-from svgutils.transform import SVGFigure
 import matplotlib.pyplot as plt
 from matplotlib import gridspec as mgs
 import matplotlib.cm as cm
@@ -18,65 +17,58 @@ from nilearn._utils import check_niimg_4d
 from nilearn._utils.niimg import _safe_get_data
 
 import seaborn as sns
-from seaborn import color_palette
-from .utils import (extract_svg,
-                    robust_set_limits,
-                    _3d_in_file,
-                    cuts_from_bbox,
-                    compose_view)
 
 DINA4_LANDSCAPE = (11.69, 8.27)
 
 
-class ASLPlot:
-    """Generates the ASL Summary Plot."""
+class fMRIPlot:
+    """Generates the fMRI Summary Plot."""
 
-    __slots__ = ("func_file", "mask_data", "tr", "seg_data", "confounds", "spikes")
+    __slots__ = (
+        "timeseries",
+        "segments",
+        "tr",
+        "confounds",
+        "spikes",
+        "nskip",
+        "sort_carpet",
+        "paired_carpet",
+    )
 
     def __init__(
         self,
-        func_file,
-        mask_file=None,
-        data=None,
+        timeseries,
+        segments,
+        confounds=None,
         conf_file=None,
-        seg_file=None,
         tr=None,
         usecols=None,
         units=None,
         vlines=None,
         spikes_files=None,
+        nskip=0,
+        sort_carpet=True,
+        paired_carpet=False,
     ):
-        func_img = nb.load(func_file)
-        self.func_file = func_file
-        self.tr = tr or _get_tr(func_img)
-        self.mask_data = None
-        self.seg_data = None
-
-        if not isinstance(func_img, nb.Cifti2Image):
-            self.mask_data = nb.fileslice.strided_scalar(
-                func_img.shape[:3], np.uint8(1)
-            )
-            if mask_file:
-                self.mask_data = np.asanyarray(nb.load(mask_file).dataobj).astype(
-                    "uint8"
-                )
-            if seg_file:
-                self.seg_data = np.asanyarray(nb.load(seg_file).dataobj)
+        self.timeseries = timeseries
+        self.segments = segments
+        self.tr = tr
+        self.nskip = nskip
+        self.sort_carpet = sort_carpet
+        self.paired_carpet = paired_carpet
 
         if units is None:
             units = {}
         if vlines is None:
             vlines = {}
         self.confounds = {}
-        if data is None and conf_file:
-            data = pd.read_csv(
-                conf_file, sep=r"[\t\s]+", usecols=usecols, index_col=False
-            )
+        if confounds is None and conf_file:
+            confounds = pd.read_csv(conf_file, sep=r"[\t\s]+", usecols=usecols, index_col=False)
 
-        if data is not None:
-            for name in data.columns.ravel():
+        if confounds is not None:
+            for name in confounds.columns:
                 self.confounds[name] = {
-                    "values": data[[name]].values.ravel().tolist(),
+                    "values": confounds[[name]].values.squeeze().tolist(),
                     "units": units.get(name),
                     "cutoff": vlines.get(name),
                 }
@@ -88,6 +80,8 @@ class ASLPlot:
 
     def plot(self, figure=None):
         """Main plotter"""
+        import seaborn as sns
+
         sns.set_style("whitegrid")
         sns.set_context("paper", font_scale=0.8)
 
@@ -105,174 +99,29 @@ class ASLPlot:
 
         grid_id = 0
         for tsz, name, iszs in self.spikes:
-            spikesplot(
-                tsz, title=name, outer_gs=grid[grid_id], tr=self.tr, zscored=iszs
-            )
+            spikesplot(tsz, title=name, outer_gs=grid[grid_id], tr=self.tr, zscored=iszs)
             grid_id += 1
 
         if self.confounds:
+            from seaborn import color_palette
+
             palette = color_palette("husl", nconfounds)
 
         for i, (name, kwargs) in enumerate(self.confounds.items()):
             tseries = kwargs.pop("values")
-            confoundplot(
-                tseries,
-                grid[grid_id],
-                tr=self.tr,
-                color=palette[i],
-                name=name,
-                **kwargs
-            )
+            confoundplot(tseries, grid[grid_id], tr=self.tr, color=palette[i], name=name, **kwargs)
             grid_id += 1
 
         plot_carpet(
-            self.func_file, atlaslabels=self.seg_data, subplot=grid[-1], tr=self.tr
+            self.timeseries,
+            segments=self.segments,
+            subplot=grid[-1],
+            tr=self.tr,
+            sort_rows=self.sort_carpet,
+            drop_trs=self.nskip,
+            cmap="paired" if self.paired_carpet else None,
         )
-        # spikesplot_cb([0.7, 0.78, 0.2, 0.008])
         return figure
-
-
-class CBFtsPlot(object):
-    """
-    Generates the CBF Summary Plot
-    """
-    __slots__ = ['cbf_file', 'tr', 'seg_data', 'fd_file']
-
-    def __init__(self, cbf_file, conf_file=None, seg_file=None, scoreindex=None,
-                 tr=None, usecols=None, units=None, vlines=None):
-        self.cbf_file = cbf_file
-        volindex = np.loadtxt(scoreindex)
-        func_nii = nb.load(cbf_file)
-        self.tr = tr if tr is not None else func_nii.header.get_zooms()[-1]
-
-        self.seg_data = None
-        if seg_file:
-            self.seg_data = np.asanyarray(nb.load(seg_file).dataobj)
-
-        if units is None:
-            units = {}
-
-        if vlines is None:
-            vlines = {}
-
-        self.fd_file = {}
-        if conf_file:
-            data = pd.read_csv(conf_file, sep=r'[\t\s]+', index_col=False)
-            fdlist = data['framewise_displacement'].tolist()
-            fdlist = fdlist[::2]
-            # fdlist=np.nan_to_num(fdlist)
-            self.fd_file['FD'] = {
-                    'values': fdlist}
-        if scoreindex:
-            self.fd_file['The SCORE index'] = {
-                    'values': volindex}
-
-    def plot(self, figure=None):
-        """Main plotter"""
-        sns.set_style("whitegrid")
-        sns.set_context("paper", font_scale=0.8)
-
-        if figure is None:
-            figure = plt.gcf()
-
-        nconfounds = len(self.fd_file)
-        nrows = 1 + nconfounds
-
-        # Create grid
-        grid = mgs.GridSpec(nrows, 1, wspace=0.0, hspace=0.05,
-                            height_ratios=[1] * (nrows - 1) + [5])
-
-        grid_id = 0
-
-        if self.fd_file:
-            palette = color_palette("husl", nconfounds)
-
-        for i, (name, kwargs) in enumerate(self.fd_file.items()):
-            tseries = kwargs.pop('values')
-            confoundplotx(
-                tseries, grid[grid_id], tr=self.tr, color=palette[i],
-                name=name, **kwargs)
-            grid_id += 1
-
-        plot_carpet(self.cbf_file, self.seg_data, subplot=grid[-1], tr=self.tr)
-        # spikesplot_cb([0.7, 0.78, 0.2, 0.008])
-        return figure
-
-
-class CBFPlot(object):
-    """
-    Generates the cbf Summary Plot
-    """
-    __slots__ = ['cbf', 'ref_vol', 'label', 'outfile','vmax']
-
-    def __init__(self, cbf, ref_vol, label, outfile,vmax):
-        self.cbf = cbf
-        self.ref_vol = ref_vol
-        self.label = label
-        self.outfile = outfile
-        self.vmax = vmax
-
-    def plot(self, figure=None):
-        """Main plotter"""
-        statfile = plotstatsimg(cbf=self.cbf, ref_vol=self.ref_vol,vmax= self.vmax,label=self.label)
-        compose_view(bg_svgs=statfile, fg_svgs=None, out_file=self.outfile)
-
-
-def plotstatsimg(cbf, ref_vol, plot_params=None, order=('z', 'x', 'y'),vmax=90,
-                 estimate_brightness=False, label=None, compress='auto'):
-    """
-    plot zsts
-    """
-    plot_params = {} if plot_params is None else plot_params
-
-    image_nii = _3d_in_file(cbf)
-    data = image_nii.get_fdata()
-    from nilearn.image import threshold_img
-    bbox_nii = threshold_img(nb.load(cbf), 1)
-
-    cuts = cuts_from_bbox(bbox_nii, cuts=7)
-
-    out_files = []
-    if estimate_brightness:
-        plot_params = robust_set_limits(data,
-                                        plot_params)
-
-    # Plot each cut axis
-    for i, mode in enumerate(list(order)):
-        plot_params['display_mode'] = mode
-        plot_params['cut_coords'] = cuts[mode]
-        plot_params['draw_cross'] = False
-        plot_params['symmetric_cbar'] = True
-        plot_params['vmax'] = vmax
-        plot_params['threshold'] = 0.02
-        plot_params['colorbar'] = True
-        plot_params['cmap'] = 'coolwarm'
-        if i == 0:
-            plot_params['title'] = label
-            plot_params['colorbar'] =True
-        else:
-            plot_params['title'] = None
-
-        # Generate nilearn figure
-        from nilearn.plotting import plot_stat_map
-        display = plot_stat_map(stat_map_img=cbf, bg_img=ref_vol,
-                     resampling_interpolation='nearest',**plot_params)
-        svg = extract_svg(display, compress=compress)
-        display.close()
-        from lxml import etree
-        from .. import NIWORKFLOWS_LOG
-        # Find and replace the figure_1 id.
-        try:
-            xml_data = etree.fromstring(svg)
-        except etree.XMLSyntaxError as e:
-            NIWORKFLOWS_LOG.info(e)
-            return
-
-        svg_fig = SVGFigure()
-        svg_fig.root = xml_data
-        out_files.append(svg_fig)
-
-    return out_files
 
 
 def plot_carpet(

@@ -1,24 +1,19 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-Slice-Timing Correction (STC) of ASL images
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autofunction:: init_asl_stc_wf
-
-"""
+"""Slice-Timing Correction (STC) of ASL images."""
 from nipype.interfaces import afni
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep import config
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces.utils import CopyXForm
 
 LOGGER = config.loggers.workflow
 
 
 def init_asl_stc_wf(metadata, name="asl_stc_wf"):
-    """
-    Create a workflow for :abbr:`STC (slice-timing correction)`.
+    """Create a workflow for :abbr:`STC (slice-timing correction)`.
 
     This workflow performs :abbr:`STC (slice-timing correction)` over the input
     :abbr:`ASL (arterial spin labeling)` image.
@@ -54,9 +49,6 @@ def init_asl_stc_wf(metadata, name="asl_stc_wf"):
         Slice-timing corrected ASL series NIfTI file
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.utils import CopyXForm
-
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 ASL runs were slice-time corrected using `3dTshift` from AFNI [@afni].

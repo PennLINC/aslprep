@@ -1,13 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-ASLprep base processing workflows
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. autofunction:: init_aslprep_wf
-.. autofunction:: init_single_subject_wf
-
-"""
+"""ASLprep base processing workflows."""
 
 import sys
 from copy import deepcopy
@@ -17,12 +10,19 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
+from aslprep.niworkflows.interfaces.nilearn import NILEARN_VERSION
+from aslprep.niworkflows.utils.bids import collect_data
+from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
+from aslprep.niworkflows.utils.spaces import Reference
+from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
+from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.workflows.asl import init_asl_gepreproc_wf, init_asl_preproc_wf
 
 
 def init_aslprep_wf():
-    """
-    Build *ASLPrep*'s pipeline.
+    """Build ASLPrep's pipeline.
 
     This workflow organizes the execution of aslprep, with a sub-workflow for
     each subject.
@@ -41,10 +41,6 @@ def init_aslprep_wf():
                 wf = init_aslprep_wf()
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-
-    # from aslprep.niworkflows.interfaces.bids import BIDSFreeSurferDir
-
     aslprep_wf = Workflow(name="aslprep_wf")
     aslprep_wf.base_dir = config.execution.work_dir
 
@@ -78,8 +74,7 @@ def init_aslprep_wf():
 
 
 def init_single_subject_wf(subject_id):
-    """
-    Organize the preprocessing pipeline for a single subject.
+    """Organize the preprocessing pipeline for a single subject.
 
     It collects and reports information about the subject, and prepares
     sub-workflows to perform anatomical and functional preprocessing.
@@ -109,14 +104,6 @@ def init_single_subject_wf(subject_id):
         FreeSurfer's ``$SUBJECTS_DIR``.
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
-    from aslprep.niworkflows.interfaces.nilearn import NILEARN_VERSION
-    from aslprep.niworkflows.utils.bids import collect_data
-    from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
-    from aslprep.niworkflows.utils.spaces import Reference
-    from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
-
     name = f"single_subject_{subject_id}_wf"
     subject_data = collect_data(
         config.execution.bids_dir,
@@ -308,9 +295,8 @@ tasks and sessions), the following preprocessing was performed.
     )
 
     for asl_file in subject_data["asl"]:
-        if (
-            check_img(img=asl_file) > 5
-        ):  # if number of volume of ASL is less than 5. motion slicetiming etc will be skipped
+        # if number of volume of ASL is less than 5. motion slicetiming etc will be skipped
+        if get_n_volumes(asl_file) > 5:
             asl_preproc_wf = init_asl_preproc_wf(asl_file)
             workflow.connect(
                 [
@@ -350,24 +336,3 @@ tasks and sessions), the following preprocessing was performed.
             )
 
     return workflow
-
-
-def _prefix(subid):
-    return subid if subid.startswith("sub-") else f"sub-{subid}"
-
-
-def _pop(inlist):
-    if isinstance(inlist, (list, tuple)):
-        return inlist[0]
-    return inlist
-
-
-def check_img(img):
-    # get the 4th dimension
-    import nibabel as nb
-    import numpy as np
-
-    ss = nb.load(img).get_fdata().shape
-    if len(ss) == 3:
-        ss = np.hstack([ss, 0])
-    return ss[3]

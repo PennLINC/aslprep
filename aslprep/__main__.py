@@ -1,3 +1,4 @@
+"""A way to run the ASLPrep CLI with a Python call."""
 from aslprep.cli.run import main
 
 if __name__ == "__main__":

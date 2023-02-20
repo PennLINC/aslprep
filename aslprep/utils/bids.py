@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 def write_derivative_description(bids_dir, deriv_dir):
+    """Write derivative dataset_description file."""
     from aslprep.__about__ import DOWNLOAD_URL, __url__, __version__
 
     bids_dir = Path(bids_dir)
@@ -29,6 +30,7 @@ def write_derivative_description(bids_dir, deriv_dir):
     # Keys that can only be set by environment
     if "ASLPREP_DOCKER_TAG" in os.environ:
         desc["DockerHubContainerTag"] = os.environ["ASLPREP_DOCKER_TAG"]
+
     if "ASLPREP_SINGULARITY_URL" in os.environ:
         singularity_url = os.environ["ASLPREP_SINGULARITY_URL"]
         desc["SingularityContainerURL"] = singularity_url
@@ -54,7 +56,11 @@ def write_derivative_description(bids_dir, deriv_dir):
 
 
 def validate_input_dir(exec_env, bids_dir, participant_label):
-    # Ignore issues and warnings that should not influence
+    """Validate input directory.
+
+    This function checks necessary validator requirements,
+    but skips ones that should not influence the pipeline.
+    """
     import subprocess
     import tempfile
 

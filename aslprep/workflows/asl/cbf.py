@@ -1,12 +1,14 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-
+"""Workflows for calculating CBF."""
 import os
 
 import pandas as pd
 from nipype.interfaces import utility as niu
-from nipype.interfaces.fsl import Info
+from nipype.interfaces.afni import Resample
+from nipype.interfaces.fsl import Info, MultiImageMaths
 from nipype.pipeline import engine as pe
+from templateflow.api import get as get_template
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import DerivativesDataSink
@@ -20,13 +22,13 @@ from aslprep.interfaces.cbf_computation import (
     ParcellateCBF,
     RefineMask,
     ScoreAndScrubCBF,
-    get_tis,
 )
+from aslprep.interfaces.plotting import CBFSummary, CBFtsSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
 )
-from aslprep.niworkflows.interfaces.plotting import CBFSummary, CBFtsSummary
+from aslprep.utils.misc import get_atlas, get_tis, pcaslorasl
 
 
 def init_cbf_compt_wf(
@@ -41,8 +43,7 @@ def init_cbf_compt_wf(
     smooth_kernel=5,
     name="cbf_compt_wf",
 ):
-    """
-    Create a workflow for :abbr:`CCBF ( compute cbf)`.
+    """Create a workflow for :abbr:`CCBF (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -87,9 +88,7 @@ def init_cbf_compt_wf(
     *cbf
        all cbf outputs
        cbf,score, scrub, pv, and basil
-
     """
-
     workflow = Workflow(name=name)
     workflow.__desc__ = """
 ### Cerebral blood flow computation and denoising
@@ -132,13 +131,19 @@ model [@kinetic].
     )
     # convert tmps to asl_space
     csf_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="csf_tfm", mem_gb=0.1
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="csf_tfm",
+        mem_gb=0.1,
     )
     wm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="wm_tfm", mem_gb=0.1
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="wm_tfm",
+        mem_gb=0.1,
     )
     gm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="gm_tfm", mem_gb=0.1
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="gm_tfm",
+        mem_gb=0.1,
     )
 
     tiscbf = get_tis(metadata)
@@ -152,7 +157,10 @@ model [@kinetic].
 
     extractcbf = pe.Node(
         ExtractCBF(
-            dummy_vols=dummy_vols, bids_dir=bids_dir, fwhm=smooth_kernel, in_metadata=metadata
+            dummy_vols=dummy_vols,
+            bids_dir=bids_dir,
+            fwhm=smooth_kernel,
+            in_metadata=metadata,
         ),
         mem_gb=0.2,
         run_without_submitting=True,
@@ -185,7 +193,10 @@ model [@kinetic].
     )
 
     refinemaskj = pe.Node(
-        RefineMask(), mem_gb=0.2, run_without_submitting=True, name="refinemaskj"
+        RefineMask(),
+        mem_gb=0.2,
+        run_without_submitting=True,
+        name="refinemaskj",
     )
 
     def _pick_csf(files):
@@ -298,10 +309,15 @@ corrected CBF image [@chappell_pvc].
 
 
 def init_cbfqc_compt_wf(
-    mem_gb, asl_file, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbfqc_compt_wf"
+    mem_gb,
+    asl_file,
+    metadata,
+    omp_nthreads,
+    scorescrub=False,
+    basil=False,
+    name="cbfqc_compt_wf",
 ):
-    """
-    Create a workflow for :abbr:`cbfqc( compute cbf)`.
+    """Create a workflow for :abbr:`cbfqc (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -333,9 +349,7 @@ def init_cbfqc_compt_wf(
     -------
     qc_file
        qc measures in tsv
-
     """
-
     workflow = Workflow(name=name)
     workflow.__desc__ = """
 The Quality evaluation index (QEI) was computed for each CBF map [@cbfqc].
@@ -374,13 +388,19 @@ negative CBF values.
         return files[1]
 
     csf_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="csf_tfm", mem_gb=0.1
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="csf_tfm",
+        mem_gb=0.1,
     )
     wm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="wm_tfm", mem_gb=0.1
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="wm_tfm",
+        mem_gb=0.1,
     )
     gm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="gm_tfm", mem_gb=0.1
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="gm_tfm",
+        mem_gb=0.1,
     )
 
     mask_tfm = pe.Node(
@@ -389,20 +409,21 @@ negative CBF values.
         mem_gb=0.1,
     )
 
-    from templateflow.api import get as get_template
-
     brain_mask = str(
         get_template("MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask")
     )
 
-    from nipype.interfaces.afni import Resample
-
     resample = pe.Node(
-        Resample(in_file=brain_mask, outputtype="NIFTI_GZ"), name="resample", mem_gb=0.1
+        Resample(in_file=brain_mask, outputtype="NIFTI_GZ"),
+        name="resample",
+        mem_gb=0.1,
     )
 
     qccompute = pe.Node(
-        ComputeCBFQC(in_file=asl_file), name="qccompute", run_without_submitting=True, mem_gb=0.2
+        ComputeCBFQC(in_file=asl_file),
+        name="qccompute",
+        run_without_submitting=True,
+        mem_gb=0.2,
     )
 
     workflow.connect(
@@ -474,10 +495,15 @@ negative CBF values.
 
 
 def init_cbfgeqc_compt_wf(
-    mem_gb, asl_file, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbfqc_compt_wf"
+    mem_gb,
+    asl_file,
+    metadata,
+    omp_nthreads,
+    scorescrub=False,
+    basil=False,
+    name="cbfqc_compt_wf",
 ):
-    """
-    Create a workflow for :abbr:`cbfqc( compute cbf)`.
+    """Create a workflow for :abbr:`cbfqc (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -509,9 +535,7 @@ def init_cbfgeqc_compt_wf(
     -------
     qc_file
        qc measures in tsv
-
     """
-
     workflow = Workflow(name=name)
     # workflow.__desc__ = """\
 
@@ -561,13 +585,9 @@ def init_cbfgeqc_compt_wf(
         mem_gb=0.1,
     )
 
-    from templateflow.api import get as get_template
-
     brain_mask = str(
         get_template("MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask")
     )
-
-    from nipype.interfaces.afni import Resample
 
     resample = pe.Node(
         Resample(in_file=brain_mask, outputtype="NIFTI_GZ"), name="resample", mem_gb=0.1
@@ -648,8 +668,14 @@ def init_cbfgeqc_compt_wf(
 
 
 def init_cbfplot_wf(
-    mem_gb, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbf_plot"
+    mem_gb,
+    metadata,
+    omp_nthreads,
+    scorescrub=False,
+    basil=False,
+    name="cbf_plot",
 ):
+    """Plot CBF results."""
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -688,7 +714,6 @@ def init_cbfplot_wf(
         name="outputnode",
     )
     mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
-    from templateflow.api import get as get_template
 
     seg = get_template("MNI152NLin2009cAsym", resolution=1, desc="carpet", suffix="dseg")
     print(seg)
@@ -800,6 +825,7 @@ def init_cbfplot_wf(
 def init_gecbfplot_wf(
     mem_gb, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbf_plot"
 ):
+    """Plot CBF results for GE data."""
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -817,21 +843,6 @@ def init_gecbfplot_wf(
             ]
         ),
         name="outputnode",
-    )
-    mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
-    from templateflow.api import get as get_template
-
-    seg = get_template("MNI152NLin2009cAsym", resolution=1, desc="carpet", suffix="dseg")
-    print(seg)
-    resample_parc = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=str(seg),
-            dimension=3,
-            default_value=0,
-            interpolation="MultiLabel",
-        ),
-        name="resample_parc",
     )
 
     cbfsummary = pe.Node(CBFSummary(label="cbf", vmax=90), name="cbf_summary", mem_gb=1)
@@ -905,6 +916,7 @@ def init_gecbfplot_wf(
 
 
 def init_cbfroiquant_wf(mem_gb, omp_nthreads, scorescrub=False, basil=False, name="cbf_roiquant"):
+    """Parcellate CBF results using a set of atlases."""
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """\
@@ -959,8 +971,6 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
         ),
         name="outputnode",
     )
-
-    from aslprep.interfaces.cbf_computation import get_atlas
 
     hvoxfile, hvoxdata, hvoxlabel = get_atlas(atlasname="HarvardOxford")
     sc207file, sc207data, sc207label = get_atlas(atlasname="schaefer200x7")
@@ -1028,44 +1038,56 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
     if scorescrub:
         scorehv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scorehv")
         score207 = pe.Node(
-            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="score207"
+            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data),
+            name="score207",
         )
         score217 = pe.Node(
-            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="score217"
+            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data),
+            name="score217",
         )
         score407 = pe.Node(
-            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="score407"
+            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data),
+            name="score407",
         )
         score417 = pe.Node(
-            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="score417"
+            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data),
+            name="score417",
         )
         scrubhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scrubhv")
         scrub207 = pe.Node(
-            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="scrub207"
+            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data),
+            name="scrub207",
         )
         scrub217 = pe.Node(
-            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="scrub217"
+            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data),
+            name="scrub217",
         )
         scrub407 = pe.Node(
-            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="scrub407"
+            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data),
+            name="scrub407",
         )
         scrub417 = pe.Node(
-            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="scrub417"
+            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data),
+            name="scrub417",
         )
 
     if basil:
         basilhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="basilhv")
         basil207 = pe.Node(
-            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="basil207"
+            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data),
+            name="basil207",
         )
         basil217 = pe.Node(
-            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="basil217"
+            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data),
+            name="basil217",
         )
         basil407 = pe.Node(
-            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="basil407"
+            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data),
+            name="basil407",
         )
         basil417 = pe.Node(
-            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="basil417"
+            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data),
+            name="basil417",
         )
         pvchv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="pvchv")
         pvc207 = pe.Node(ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="pvc207")
@@ -1190,10 +1212,7 @@ def init_gecbf_compt_wf(
     basil=False,
     name="cbf_compt_wf",
 ):
-    """
-    be back
-    """
-
+    """Calculate CBF for GE data."""
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data  using a standard
@@ -1249,16 +1268,8 @@ model [@detre_perfusion;@alsop_recommended].
     deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == "deltam"]
     cbflist = [i for i in range(0, len(idasl)) if idasl[i] == "CBF"]
     controllist = [i for i in range(0, len(idasl)) if idasl[i] == "control"]
-    labelist = [i for i in range(0, len(idasl)) if idasl[i] == "label"]
 
     tiscbf = get_tis(metadata)
-
-    def pcaslorasl(metadata):
-        if "CASL" in metadata["ArterialSpinLabelingType"]:
-            pcasl1 = True
-        elif "PASL" in metadata["ArterialSpinLabelingType"]:
-            pcasl1 = False
-        return pcasl1
 
     computecbf = pe.Node(
         ComputeCBF(in_metadata=metadata, in_m0scale=M0Scale),
@@ -1411,8 +1422,6 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
             )
     elif len(cbflist) > 0:
         basil = False
-        from nipype.interfaces.fsl import MultiImageMaths
-
         mask_cbf = pe.Node(
             MultiImageMaths(op_string=" -mul  %s "),
             mem_gb=1,

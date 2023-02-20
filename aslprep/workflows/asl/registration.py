@@ -1,14 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-Registration workflows
-++++++++++++++++++++++
-
-.. autofunction:: init_asl_reg_wf
-.. autofunction:: init_asl_t1_trans_wf
-.. autofunction:: init_fsl_bbr_wf
-
-"""
+"""Workflows for registering ASL data."""
 import os
 import os.path as op
 
@@ -19,6 +11,17 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
+from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.niworkflows.func.util import init_asl_reference_wf
+from aslprep.niworkflows.interfaces.fixes import (
+    FixHeaderApplyTransforms as ApplyTransforms,
+)
+from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
+from aslprep.niworkflows.interfaces.nilearn import Merge
+from aslprep.niworkflows.interfaces.registration import FLIRTRPT
+from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
+from aslprep.niworkflows.utils.images import dseg_label
+from aslprep.utils.misc import _conditional_downsampling
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -35,8 +38,7 @@ def init_asl_reg_wf(
     use_compression=True,
     write_report=True,
 ):
-    """
-    Build a workflow to run same-subject, ASL-to-T1w image-registration.
+    """Build a workflow to run same-subject, ASL-to-T1w image-registration.
 
     Calculates the registration between a reference ASL image and T1w-space
     using a boundary-based registration (BBR) cost function.
@@ -101,8 +103,6 @@ def init_asl_reg_wf(
       * :py:func:`~aslprep.workflows.asl.registration.init_fsl_bbr_wf`
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -252,15 +252,6 @@ def init_asl_t1_trans_wf(
       * :py:func:`~aslprep.workflows.asl.registration.init_fsl_bbr_wf`
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.func.util import init_asl_reference_wf
-    from aslprep.niworkflows.interfaces.fixes import (
-        FixHeaderApplyTransforms as ApplyTransforms,
-    )
-    from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
-    from aslprep.niworkflows.interfaces.nilearn import Merge
-    from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
-
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -517,8 +508,7 @@ def init_asl_t1_trans_wf(
 
 
 def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_bbr_wf"):
-    """
-    Build a workflow to run FSL's ``flirt``.
+    """Build a workflow to run FSL's ``flirt``.
 
     This workflow uses FSL FLIRT to register a ASL image to a T1-weighted
     structural image, using a boundary-based registration (BBR) cost function.
@@ -578,10 +568,6 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
         Boolean indicating whether BBR was rejected (rigid FLIRT registration returned)
 
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.registration import FLIRTRPT
-    from aslprep.niworkflows.utils.images import dseg_label as _dseg_label
-
     workflow = Workflow(name=name)
     workflow.__desc__ = f"""\
 ASLPrep co-registered the ASL reference to the T1w reference using *FSL*’s `flirt` [@flirt], which
@@ -599,7 +585,7 @@ and the overlap between the ASL and reference images (e.g., image coverage).
         name="outputnode",
     )
 
-    wm_mask = pe.Node(niu.Function(function=_dseg_label), name="wm_mask")
+    wm_mask = pe.Node(niu.Function(function=dseg_label), name="wm_mask")
     wm_mask.inputs.label = 2  # BIDS default is WM=2
     flt_bbr_init = pe.Node(
         FLIRTRPT(dof=6, generate_report=not use_bbr, uses_qform=True), name="flt_bbr_init"
@@ -724,86 +710,3 @@ and the overlap between the ASL and reference images (e.g., image coverage).
     )
 
     return workflow
-
-
-def compare_xforms(lta_list, norm_threshold=10):
-    """
-    Computes a normalized displacement between two affine transforms as the
-    maximum overall displacement of the midpoints of the faces of a cube, when
-    each transform is applied to the cube.
-    This combines displacement resulting from scaling, translation and rotation.
-
-    Although the norm is in mm, in a scaling context, it is not necessarily
-    equivalent to that distance in translation.
-
-    We choose a default threshold of 15mm as a rough heuristic.
-    Normalized displacement above 20mm showed clear signs of distortion, while
-    "good" BBR refinements were frequently below 10mm displaced from the rigid
-    transform.
-    The 10-20mm range was more ambiguous, and 15mm chosen as a compromise.
-    This is open to revisiting in either direction.
-
-
-
-    Parameters
-    ----------
-
-      lta_list : :obj:`list` or :obj:`tuple` of :obj:`str`
-          the two given affines in LTA format
-      norm_threshold : :obj:`float`
-          the upper bound limit to the normalized displacement caused by the
-          second transform relative to the first (default: `15`)
-
-    """
-    from nipype.algorithms.rapidart import _calc_norm_affine
-
-    from aslprep.niworkflows.interfaces.surf import load_transform
-
-    bbr_affine = load_transform(lta_list[0])
-    fallback_affine = load_transform(lta_list[1])
-
-    norm, _ = _calc_norm_affine([fallback_affine, bbr_affine], use_differences=True)
-
-    return norm[1] > norm_threshold
-
-
-def _conditional_downsampling(in_file, in_mask, zoom_th=4.0):
-    """Downsamples the input dataset for sloppy mode."""
-    from pathlib import Path
-
-    import nibabel as nb
-    import nitransforms as nt
-    import numpy as np
-    from scipy.ndimage.filters import gaussian_filter
-
-    img = nb.load(in_file)
-
-    zooms = np.array(img.header.get_zooms()[:3])
-    if not np.any(zooms < zoom_th):
-        return in_file, in_mask
-
-    out_file = Path("desc-resampled_input.nii.gz").absolute()
-    out_mask = Path("desc-resampled_mask.nii.gz").absolute()
-
-    shape = np.array(img.shape[:3])
-    scaling = zoom_th / zooms
-    newrot = np.diag(scaling).dot(img.affine[:3, :3])
-    newshape = np.ceil(shape / scaling).astype(int)
-    old_center = img.affine.dot(np.hstack((0.5 * (shape - 1), 1.0)))[:3]
-    offset = old_center - newrot.dot((newshape - 1) * 0.5)
-    newaffine = nb.affines.from_matvec(newrot, offset)
-
-    newref = nb.Nifti1Image(np.zeros(newshape, dtype=np.uint8), newaffine)
-    nt.Affine(reference=newref).apply(img).to_filename(out_file)
-
-    mask = nb.load(in_mask)
-    mask.set_data_dtype(float)
-    mdata = gaussian_filter(mask.get_fdata(dtype=float), scaling)
-    floatmask = nb.Nifti1Image(mdata, mask.affine, mask.header)
-    newmask = nt.Affine(reference=newref).apply(floatmask)
-    hdr = newmask.header.copy()
-    hdr.set_data_dtype(np.uint8)
-    newmaskdata = (newmask.get_fdata(dtype=float) > 0.5).astype(np.uint8)
-    nb.Nifti1Image(newmaskdata, newmask.affine, hdr).to_filename(out_mask)
-
-    return str(out_file), str(out_mask)

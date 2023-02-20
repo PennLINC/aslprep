@@ -6,6 +6,7 @@ import os
 import re
 import time
 
+import pandas as pd
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     Directory,
@@ -63,6 +64,8 @@ class _SummaryOutputSpec(TraitedSpec):
 
 
 class SummaryInterface(SimpleInterface):
+    """A basic summary interface."""
+
     output_spec = _SummaryOutputSpec
 
     def _run_interface(self, runtime):
@@ -97,6 +100,8 @@ class _SubjectSummaryOutputSpec(_SummaryOutputSpec):
 
 
 class SubjectSummary(SummaryInterface):
+    """A summary describing the subject's data as a whole."""
+
     input_spec = _SubjectSummaryInputSpec
     output_spec = _SubjectSummaryOutputSpec
 
@@ -106,16 +111,6 @@ class SubjectSummary(SummaryInterface):
         return super(SubjectSummary, self)._run_interface(runtime)
 
     def _generate_segment(self):
-        BIDS_NAME = re.compile(
-            r"^(.*\/)?"
-            "(?P<subject_id>sub-[a-zA-Z0-9]+)"
-            "(_(?P<session_id>ses-[a-zA-Z0-9]+))?"
-            #'(_(?P<task_id>task-[a-zA-Z0-9]+))?'
-            "(_(?P<acq_id>acq-[a-zA-Z0-9]+))?"
-            "(_(?P<rec_id>rec-[a-zA-Z0-9]+))?"
-            "(_(?P<run_id>run-[a-zA-Z0-9]+))?"
-        )
-
         if not isdefined(self.inputs.subjects_dir):
             freesurfer_status = "Not run"
         else:
@@ -179,6 +174,8 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
 
 
 class FunctionalSummary(SummaryInterface):
+    """A summary of a functional run, with QC measures included."""
+
     input_spec = _FunctionalSummaryInputSpec
 
     def _generate_segment(self):
@@ -198,7 +195,6 @@ class FunctionalSummary(SummaryInterface):
                 f"FreeSurfer <code>mri_coreg</code> - {dof} dof",
             ],
         }[self.inputs.registration][self.inputs.fallback]
-        import pandas as pd
 
         qcfile = pd.read_csv(self.inputs.qc_file)
         motionparam = f"FD : {round(qcfile['FD'][0], 4)}, rmsd: {round(qcfile['rmsd'][0], 4)} "
@@ -271,6 +267,8 @@ class _AboutSummaryInputSpec(BaseInterfaceInputSpec):
 
 
 class AboutSummary(SummaryInterface):
+    """A basic summary of the ASLPrep run."""
+
     input_spec = _AboutSummaryInputSpec
 
     def _generate_segment(self):
