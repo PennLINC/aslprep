@@ -225,7 +225,6 @@ class ApplyXFMRPT(FLIRTRPT, fsl.ApplyXFM):
     output_spec = _FLIRTOutputSpecRPT
 
 
-raise Exception(fs.Info.looseversion())
 if LooseVersion("0.0.0") < fs.Info.looseversion() < LooseVersion("6.0.0"):
     _BBRegisterInputSpec = fs.preprocess.BBRegisterInputSpec
 else:
