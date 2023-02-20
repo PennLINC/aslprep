@@ -25,6 +25,7 @@ def check_deps(workflow):
 
 
 def _get_series_len(asl_fname):
+    """Determine the number of volumes in an image, after removing outlier volumes."""
     from aslprep.niworkflows.interfaces.registration import _get_vols_to_discard
 
     img = nb.load(asl_fname)
@@ -37,6 +38,7 @@ def _get_series_len(asl_fname):
 
 
 def _create_mem_gb(asl_fname):
+    """Estimate the memory needed for different operations, based on the size of the data."""
     asl_size_gb = os.path.getsize(asl_fname) / (1024**3)
     asl_tlen = nb.load(asl_fname).shape[-1]
     mem_gb = {
@@ -49,7 +51,7 @@ def _create_mem_gb(asl_fname):
 
 
 def _get_wf_name(asl_fname):
-    """Derive the workflow name for supplied asl file.
+    """Derive the workflow name for a supplied ASL file.
 
     >>> _get_wf_name('/completely/made/up/path/sub-01_task-nback_asl.nii.gz')
     'func_preproc_task_nback_wf'
@@ -69,7 +71,7 @@ def _get_wf_name(asl_fname):
 
 
 def get_n_volumes(fname):
-    """Get number of volumes in niimg file."""
+    """Get the number of volumes in a niimg file."""
     img = nb.load(fname)
     if img.ndim == 3:
         n_volumes = 0
@@ -81,26 +83,26 @@ def get_n_volumes(fname):
     return n_volumes
 
 
-def gen_reference(in_img, fwhm=5, newpath=None):
+def gen_reference(in_file, fwhm=5, newpath=None):
     """Generate reference for a GE scan with few volumes."""
     newpath = Path(newpath or ".")
-    ss = get_n_volumes(in_img)
-    if ss == 0:
-        ref_data = nb.load(in_img).get_fdata()
-    else:
-        nii = nb.load(in_img).get_fdata()
-        ref_data = np.mean(nii, axis=3)
-    new_file = nb.Nifti1Image(
-        dataobj=ref_data, header=nb.load(in_img).header, affine=nb.load(in_img).affine
-    )
+    n_vols = get_n_volumes(in_file)
 
-    new_file = nb.processing.smooth_image(new_file, fwhm=fwhm)
+    in_img = nb.load(in_file)
+    ref_data = in_img.get_fdata()
+
+    if n_vols > 0:
+        ref_data = np.mean(ref_data, axis=3)
+
+    new_img = nb.Nifti1Image(dataobj=ref_data, affine=in_img.affine, header=in_img.header)
+
+    new_img = nb.processing.smooth_image(new_img, fwhm=fwhm)
     out_file = fname_presuffix(
         "aslref",
         suffix="_reference.nii.gz",
         newpath=str(newpath.absolute()),
     )
-    new_file.to_filename(out_file)
+    new_img.to_filename(out_file)
     return out_file
 
 

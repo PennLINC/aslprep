@@ -111,7 +111,6 @@ class GeReferenceFile(SimpleInterface):
             m0obj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
             m0obj.to_filename(m0filename)
             m0file = m0filename
-            # m0file  = gen_reference(reffilename,fwhm=self.inputs.fwhm,newpath=runtime.cwd)
 
             reffilename = fname_presuffix(
                 self.inputs.in_file, suffix="_refile", newpath=os.getcwd()
@@ -120,7 +119,9 @@ class GeReferenceFile(SimpleInterface):
 
             refobj.to_filename(reffilename)
             reffile = gen_reference(
-                reffilename, fwhm=self.inputs.class_trait_namesfwhm, newpath=runtime.cwd
+                reffilename,
+                fwhm=self.inputs.fwhm,
+                newpath=runtime.cwd,
             )
 
         else:

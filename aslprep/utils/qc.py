@@ -5,28 +5,21 @@ from nibabel.processing import smooth_image
 from scipy.stats import gmean
 
 
-def dc(input1, input2):
+def dice(input1, input2):
     """Compute Dice coefficient between the binary objects in two images.
-
-    The metric is defined as
-
-    .. math::
-        DC=\frac{2|A\cap B|}{|A|+|B|}
-
-    , where :math:`A` is the first and :math:`B` the second set of samples (here: binary objects).
 
     Parameters
     ----------
-    input1 : array_like
+    input1 : str
         Input data containing objects. Can be any type but will be converted
         into binary: background where 0, object everywhere else.
-    input2 : array_like
+    input2 : str
         Input data containing objects. Can be any type but will be converted
         into binary: background where 0, object everywhere else.
 
     Returns
     -------
-    dice : float
+    coef : float
         The Dice coefficient between the object(s) in ```input1``` and the
         object(s) in ```input2```. It ranges from 0 (no overlap) to 1 (perfect overlap).
     """
@@ -41,28 +34,28 @@ def dc(input1, input2):
     size_i2 = np.count_nonzero(input2)
 
     try:
-        dice = 2.0 * intersection / float(size_i1 + size_i2)
+        coef = 2.0 * intersection / float(size_i1 + size_i2)
     except ZeroDivisionError:
-        dice = 0.0
+        coef = 0.0
 
-    return dice
+    return coef
 
 
-def jc(input1, input2):
+def jaccard(input1, input2):
     """Compute Jaccard coefficient between the binary objects in two images.
 
     Parameters
     ----------
-    input1 : array_like
+    input1 : str
         Input data containing objects. Can be any type but will be converted
         into binary: background where 0, object everywhere else.
-    input2 : array_like
+    input2 : str
         Input data containing objects. Can be any type but will be converted
         into binary: background where 0, object everywhere else.
 
     Returns
     -------
-    jaccard : float
+    coef : float
         The Jaccard coefficient between the object(s) in `input1` and the
         object(s) in `input2`. It ranges from 0 (no overlap) to 1 (perfect overlap).
     """
@@ -74,9 +67,9 @@ def jc(input1, input2):
     intersection = np.count_nonzero(input1 & input2)
     union = np.count_nonzero(input1 | input2)
 
-    jaccard = float(intersection) / float(union)
+    coef = float(intersection) / float(union)
 
-    return jaccard
+    return coef
 
 
 def crosscorr(input1, input2):

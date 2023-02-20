@@ -30,9 +30,9 @@ from aslprep.utils.qc import (
     cbf_qei,
     coverage,
     crosscorr,
-    dc,
+    dice,
     globalcbf,
-    jc,
+    jaccard,
     negativevoxel,
 )
 
@@ -569,14 +569,14 @@ class ComputeCBFQC(SimpleInterface):
         # rms = np.mean(np.sqrt(rms1.sum(axis=1)/3))
         print(self.inputs.rmsd_file)
         rms = pd.read_csv(self.inputs.rmsd_file, header=None).mean().values[0]
-        regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)
-        regJC = jc(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regDC = dice(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regJC = jaccard(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regCC = crosscorr(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regCov = coverage(self.inputs.in_aslmask, self.inputs.in_t1mask)
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
-            normDC = dc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
-            normJC = jc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normDC = dice(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normJC = jaccard(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
             normCC = crosscorr(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
             normCov = coverage(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
 
@@ -747,14 +747,14 @@ class ComputeCBFQCforGE(SimpleInterface):
     output_spec = _ComputeCBFQCforGEOutputSpec
 
     def _run_interface(self, runtime):
-        regDC = dc(self.inputs.in_aslmask, self.inputs.in_t1mask)
-        regJC = jc(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regDC = dice(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        regJC = jaccard(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regCC = crosscorr(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regCov = coverage(self.inputs.in_aslmask, self.inputs.in_t1mask)
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
-            normDC = dc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
-            normJC = jc(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normDC = dice(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+            normJC = jaccard(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
             normCC = crosscorr(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
             normCov = coverage(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
 
