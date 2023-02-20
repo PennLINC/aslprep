@@ -307,10 +307,7 @@ corrected CBF image [@chappell_pvc].
 
 
 def init_cbfqc_compt_wf(
-    mem_gb,
     asl_file,
-    metadata,
-    omp_nthreads,
     scorescrub=False,
     basil=False,
     name="cbfqc_compt_wf",
@@ -323,7 +320,7 @@ def init_cbfqc_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
-            wf = init_cbfqc_compt_wf(mem_gb=0.1)
+            wf = init_cbfqc_compt_wf()
 
     Parameters
     ----------
