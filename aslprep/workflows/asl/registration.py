@@ -148,7 +148,7 @@ def init_asl_reg_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        def _asl_reg_suffix(fallback):
+        def _asl_reg_suffix(fallback):  # noqa: U100
             return "flirtbbr"
 
         workflow.connect(
