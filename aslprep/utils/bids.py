@@ -153,5 +153,5 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
             print("bids-validator does not appear to be installed", file=sys.stderr)
 
 
-def _get_shub_version(singularity_url):
+def _get_shub_version(singularity_url):  # noqa: U100
     return NotImplemented
