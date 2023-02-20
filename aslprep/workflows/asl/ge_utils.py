@@ -26,15 +26,10 @@ LOGGER = config.loggers.workflow
 
 
 def init_asl_geref_wf(
-    omp_nthreads,
-    mem_gb,
     metadata,
     bids_dir,
     smooth_kernel=5,
-    brainmask_thresh=0.5,
-    pre_mask=False,
     name="asl_gereference_wf",
-    gen_report=False,
 ):
     """Generate a reference volume and its skull-stripped version."""
     workflow = Workflow(name=name)
@@ -92,11 +87,8 @@ def init_asl_gereg_wf(
     use_bbr,
     asl2t1w_dof,
     asl2t1w_init,
-    mem_gb,
-    omp_nthreads,
     name="asl_reg_wf",
     sloppy=False,
-    use_compression=True,
     write_report=True,
 ):
     """Calculate registration transforms from ASL reference volume to T1w space."""
@@ -144,7 +136,7 @@ def init_asl_gereg_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        def _asl_reg_suffix(fallback):
+        def _asl_reg_suffix(fallback):  # noqa: U100
             return "flirtbbr"
 
         workflow.connect(
@@ -169,7 +161,6 @@ def init_asl_t1_getrans_wf(
     cbft1space=False,
     scorescrub=False,
     basil=False,
-    use_compression=True,
     name="asl_t1_trans_wf",
 ):
     """Co-register the reference ASL image to T1w-space.
@@ -385,7 +376,6 @@ def init_asl_gestd_trans_wf(
     scorescrub=False,
     basil=False,
     name="asl_gestd_trans_wf",
-    use_compression=True,
 ):
     """Resample ASL and CBF derivatives into target spaces."""
     workflow = Workflow(name=name)

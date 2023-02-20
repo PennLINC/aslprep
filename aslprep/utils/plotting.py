@@ -121,7 +121,6 @@ class CBFtsPlot(object):
         seg_file=None,
         scoreindex=None,
         tr=None,
-        usecols=None,
         units=None,
         vlines=None,
     ):
@@ -195,7 +194,7 @@ class CBFPlot(object):
         self.outfile = outfile
         self.vmax = vmax
 
-    def plot(self, figure=None):
+    def plot(self):
         """Generate the plot."""
         statfile = plotstatsimg(
             cbf=self.cbf, ref_vol=self.ref_vol, vmax=self.vmax, label=self.label
@@ -272,7 +271,6 @@ def confoundplotx(
     tr=None,
     hide_x=True,
     color="b",
-    nskip=0,
     cutoff=None,
     ylims=None,
 ):

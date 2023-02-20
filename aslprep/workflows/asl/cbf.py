@@ -32,11 +32,9 @@ from aslprep.utils.misc import get_atlas, get_tis, pcaslorasl
 
 
 def init_cbf_compt_wf(
-    mem_gb,
     metadata,
     bids_dir,
     dummy_vols,
-    omp_nthreads,
     scorescrub=False,
     basil=False,
     M0Scale=1,
@@ -51,7 +49,7 @@ def init_cbf_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbf_compt_wf
-            wf = init_cbf_compt_wf(mem_gb=0.1,smooth_kernel=5,dummy_vols=0)
+            wf = init_cbf_compt_wf(smooth_kernel=5, dummy_vols=0)
 
     Parameters
     ----------
@@ -309,10 +307,7 @@ corrected CBF image [@chappell_pvc].
 
 
 def init_cbfqc_compt_wf(
-    mem_gb,
     asl_file,
-    metadata,
-    omp_nthreads,
     scorescrub=False,
     basil=False,
     name="cbfqc_compt_wf",
@@ -325,7 +320,7 @@ def init_cbfqc_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
-            wf = init_cbfqc_compt_wf(mem_gb=0.1)
+            wf = init_cbfqc_compt_wf()
 
     Parameters
     ----------
@@ -495,10 +490,7 @@ negative CBF values.
 
 
 def init_cbfgeqc_compt_wf(
-    mem_gb,
     asl_file,
-    metadata,
-    omp_nthreads,
     scorescrub=False,
     basil=False,
     name="cbfqc_compt_wf",
@@ -510,8 +502,8 @@ def init_cbfgeqc_compt_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
-            wf = init_cbfqc_compt_wf(mem_gb=0.1)
+            from aslprep.workflows.asl.cbf import init_cbfgeqc_compt_wf
+            wf = init_cbfgeqc_compt_wf()
 
     Parameters
     ----------
@@ -668,9 +660,7 @@ def init_cbfgeqc_compt_wf(
 
 
 def init_cbfplot_wf(
-    mem_gb,
     metadata,
-    omp_nthreads,
     scorescrub=False,
     basil=False,
     name="cbf_plot",
@@ -822,9 +812,7 @@ def init_cbfplot_wf(
     return workflow
 
 
-def init_gecbfplot_wf(
-    mem_gb, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbf_plot"
-):
+def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
     """Plot CBF results for GE data."""
     workflow = Workflow(name=name)
 
@@ -915,7 +903,7 @@ def init_gecbfplot_wf(
     return workflow
 
 
-def init_cbfroiquant_wf(mem_gb, omp_nthreads, scorescrub=False, basil=False, name="cbf_roiquant"):
+def init_cbfroiquant_wf(scorescrub=False, basil=False, name="cbf_roiquant"):
     """Parcellate CBF results using a set of atlases."""
     workflow = Workflow(name=name)
 
@@ -1204,10 +1192,7 @@ def init_gecbf_compt_wf(
     metadata,
     asl_file,
     mem_gb,
-    bids_dir,
-    omp_nthreads,
     M0Scale=1,
-    smooth_kernel=5,
     scorescrub=False,
     basil=False,
     name="cbf_compt_wf",
