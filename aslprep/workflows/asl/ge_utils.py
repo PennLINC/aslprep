@@ -26,15 +26,10 @@ LOGGER = config.loggers.workflow
 
 
 def init_asl_geref_wf(
-    omp_nthreads,
-    mem_gb,
     metadata,
     bids_dir,
     smooth_kernel=5,
-    brainmask_thresh=0.5,
-    pre_mask=False,
     name="asl_gereference_wf",
-    gen_report=False,
 ):
     """Generate a reference volume and its skull-stripped version."""
     workflow = Workflow(name=name)

@@ -295,15 +295,10 @@ effects of other kernels [@lanczos].
 
     # begin workflow
     gen_ref_wf = init_asl_geref_wf(
-        omp_nthreads=omp_nthreads,
         smooth_kernel=smoothkernel,
-        mem_gb=mem_gb["filesize"],
         metadata=metadata,
         bids_dir=subj_dir,
-        brainmask_thresh=0.5,
-        pre_mask=False,
         name="asl_gereference_wf",
-        gen_report=False,
     )
 
     asl_reg_wf = init_asl_gereg_wf(
