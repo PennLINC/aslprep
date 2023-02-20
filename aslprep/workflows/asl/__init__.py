@@ -1,22 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""
-
-Pre-processing ASL - ASL signal workflows
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: aslprep.workflows.asl.base
-.. automodule:: aslprep.workflows.asl.hmc
-.. automodule:: aslprep.workflows.asl.stc
-.. automodule:: aslprep.workflows.asl.t2s
-.. automodule:: aslprep.workflows.asl.registration
-.. automodule:: aslprep.workflows.asl.resampling
-.. automodule:: aslprep.workflows.asl.confounds
-.. automodule:: aslprep.workflows.asl.cbf
-
-
-"""
-
+"""Workflows for the ASL processing portions of ASLPrep."""
 from aslprep.workflows.asl.base import init_asl_preproc_wf
 from aslprep.workflows.asl.cbf import (
     init_cbf_compt_wf,

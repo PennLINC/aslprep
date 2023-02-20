@@ -107,12 +107,14 @@ def gen_reference(in_file, fwhm=5, newpath=None):
 
 
 def _split_spec(in_target):
+    """Split space-resolution specification into space, template, and remaining info."""
     space, spec = in_target
     template = space.split(":")[0]
     return space, template, spec
 
 
 def _select_template(template):
+    """Select template file based on space/template specification."""
     from aslprep.niworkflows.utils.misc import get_template_specs
 
     template, specs = template
@@ -138,16 +140,22 @@ def _select_template(template):
 
 
 def _aslist(in_value):
+    """Convert input to a list.
+
+    TODO: Replace with listify from something like NiMARE.
+    """
     if isinstance(in_value, list):
         return in_value
     return [in_value]
 
 
 def _is_native(in_value):
+    """Determine if input dictionary references native-space data."""
     return in_value.get("resolution") == "native" or in_value.get("res") == "native"
 
 
 def _select_last_in_list(lst):
+    """Select the last element in a list."""
     return lst[-1]
 
 
@@ -199,26 +207,33 @@ def select_target(subject_id, space):
 
 
 def _select_first_in_list(lst):
+    """Select the first element in a list."""
     return lst[0]
 
 
 def _itk2lta(in_file, src_file, dst_file):
+    """Convert ITK file to LTA file."""
     from pathlib import Path
 
     import nitransforms as nt
 
     out_file = Path("out.lta").absolute()
-    nt.linear.load(
-        in_file, fmt="fs" if in_file.endswith(".lta") else "itk", reference=src_file
-    ).to_filename(out_file, moving=dst_file, fmt="fs")
+    lta_object = nt.linear.load(
+        in_file,
+        fmt="fs" if in_file.endswith(".lta") else "itk",
+        reference=src_file,
+    )
+    lta_object.to_filename(out_file, moving=dst_file, fmt="fs")
     return str(out_file)
 
 
 def _prefix(subid):
+    """Add sub- prefix to subject ID, if necessary."""
     return subid if subid.startswith("sub-") else f"sub-{subid}"
 
 
 def pcaslorasl(metadata):
+    """Determine if metadata indicates a PCASL or ASL scan."""
     if "CASL" in metadata["ArterialSpinLabelingType"]:
         pcasl1 = True
     elif "PASL" in metadata["ArterialSpinLabelingType"]:
@@ -227,6 +242,7 @@ def pcaslorasl(metadata):
 
 
 def readjson(jsonfile):
+    """Read a JSON file into memory."""
     import json
 
     with open(jsonfile) as f:
@@ -235,18 +251,26 @@ def readjson(jsonfile):
 
 
 def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
-    """
-    compute cbf with pld and multi pld
+    """Compute cbf with pld and multi pld, whatever that means.
+
+    Parameters
+    ----------
     metadata
-      cbf metadata
+        cbf metadata
     mask
-      asl mask in native space
+        asl mask in native space
     m0file
-      m0scan
+        m0scan
     cbffile
-      already processed cbf  after tag-control substraction
+        already processed cbf  after tag-control substraction
     m0scale
-      relative scale between m0scan and asl, default is 1
+        relative scale between m0scan and asl, default is 1
+
+    Returns
+    -------
+    tcbf
+    meancbf
+    att
     """
     labeltype = metadata["ArterialSpinLabelingType"]
     tau = metadata["LabelingDuration"]
@@ -343,6 +367,7 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
 
 
 def get_tis(metadata: "dict[str, Any]"):
+    """Determine inversion times from metadata."""
     if "CASL" in metadata["ArterialSpinLabelingType"]:
         return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"])
     else:
@@ -354,10 +379,7 @@ class LabelingEfficiencyNotFoundError(Exception):
 
 
 def _weightfun(x, wfun="huber"):
-    """ "
-    get weight fun and tuner
-
-    """
+    """Get weight fun and tuner."""
     if wfun == "andrews":
         tuner = 1.339
         weight = (np.abs(x) < np.pi) * np.sin(x)
@@ -386,9 +408,9 @@ def _weightfun(x, wfun="huber"):
 
 
 def _tune(wfun="huber"):
-    """ "
-    get weight fun and tuner
+    """Get weight fun and tuner.
 
+    But wait, you might say, the docstring makes no sense! Correct.
     """
     if wfun == "andrews":
         tuner = 1.339
@@ -410,6 +432,10 @@ def _tune(wfun="huber"):
 
 
 def _getchisquare(n):
+    """Get chi-square value for a given sample size.
+
+    TODO: Replace with scipy.stats call, assuming this function is correct in any way.
+    """
     a = [
         0.000000,
         15.484663,
@@ -618,18 +644,16 @@ def _getchisquare(n):
 
 
 def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
-    """
-    score algorithm by Sudipto
-    removing noisy cbf volume
+    """Apply SCORE algorithm to remove noisy CBF volumes.
+
+    Parameters
+    ----------
     cbf_ts
        nd array of 3D or 4D computed cbf
     gm,wm,csf
        numpy array of grey matter, whitematter, and csf
     mask
        numpy array of mask
-
-    reference:
-
     """
     gm[gm < thresh] = 0
     gm[gm > 0] = 1
@@ -675,7 +699,7 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     return cbfts_recon1, indx
 
 
-def _roubustfit(
+def _robust_fit(
     Y,
     mu,
     Globalprior,
@@ -689,9 +713,7 @@ def _roubustfit(
     flagprior=1,
     thresh=0.7,
 ):
-    """
-    robust fit
-    """
+    """Perform robust fit, whatever that means."""
     dimcbf = Y.shape
     priow = np.ones([dimcbf[0], dimcbf[1]])
     sw = 1
@@ -740,22 +762,19 @@ def _roubustfit(
 
 
 def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
-    """
-    scrub algorithms by Sudipto
+    """Apply SCRUB algorithm to CBF data.
+
+    Parameters
+    ----------
     cbf_ts
        nd array of 3D or 4D computed cbf
        gm,wm,csf
        numpy array of grey matter, whitematter, and csf
     mask
        numpy array of mask
-
     wf
       wave function
-
-    reference:
-
     """
-
     gm = mask * gm
     wm = mask * wm
     csf = csf * mask
@@ -808,7 +827,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     localprior = 0
     lmd = 0
     tune = _tune(wfun=wfun)
-    bb = _roubustfit(
+    bb = _robust_fit(
         Y=y,
         mu=mu,
         Globalprior=Globalprior,
@@ -829,6 +848,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
 
 
 def get_atlas(atlasname):
+    """Find atlas file and metadata associated with a given atlas name."""
     if atlasname == "HarvardOxford":
         atlasfile = pkgrf("aslprep", "data/atlas/HarvardOxford/HarvardOxfordMNI.nii.gz")
         atlasdata = pkgrf("aslprep", "data/atlas/HarvardOxford/HarvardOxfordNodeNames.txt")
@@ -855,14 +875,18 @@ def get_atlas(atlasname):
 
 
 def parcellate_cbf(roi_file, roi_label, cbfmap):
+    """Parcellate CBF data using atlas.
+
+    TODO: Replace with NiftiLabelsMasker.
+    """
     data = nb.load(cbfmap).get_data()
     roi = nb.load(roi_file).get_data()
     roi_labels = np.loadtxt(roi_label)
     if data.shape != roi.shape:
         raise ValueError("Image-shapes do not match")
-    # if roi_labels is None:
-    # roi_labels = np.unique(roi)
+
     mean_vals = []
     for roi_label in roi_labels:
         mean_vals.append(np.mean(data[roi == roi_label]))
+
     return mean_vals
