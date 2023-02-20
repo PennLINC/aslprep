@@ -6,7 +6,7 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.fixes import (
     FixN4BiasFieldCorrection as N4BiasFieldCorrection,
 )
-from niworkflows.interfaces.images import ValidateImage
+from niworkflows.interfaces.header import ValidateImage
 from niworkflows.interfaces.masks import SimpleShowMaskRPT
 from niworkflows.interfaces.registration import EstimateReferenceImage
 from niworkflows.interfaces.utils import CopyXForm
