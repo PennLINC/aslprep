@@ -318,7 +318,6 @@ effects of other kernels [@lanczos].
         mem_gb=3,
         omp_nthreads=omp_nthreads,
         cbft1space=t1cbfspace,
-        use_compression=True,
         scorescrub=scorescrub,
         basil=basil,
         name="asl_t1_trans_wf",
@@ -664,7 +663,6 @@ effects of other kernels [@lanczos].
             scorescrub=scorescrub,
             basil=basil,
             name="asl_gestd_trans_wf",
-            use_compression=True,
         )
         workflow.connect(
             [

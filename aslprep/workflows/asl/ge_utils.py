@@ -136,7 +136,7 @@ def init_asl_gereg_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        def _asl_reg_suffix(fallback):
+        def _asl_reg_suffix(fallback):  # noqa: U100
             return "flirtbbr"
 
         workflow.connect(
@@ -161,7 +161,6 @@ def init_asl_t1_getrans_wf(
     cbft1space=False,
     scorescrub=False,
     basil=False,
-    use_compression=True,
     name="asl_t1_trans_wf",
 ):
     """Co-register the reference ASL image to T1w-space.
@@ -377,7 +376,6 @@ def init_asl_gestd_trans_wf(
     scorescrub=False,
     basil=False,
     name="asl_gestd_trans_wf",
-    use_compression=True,
 ):
     """Resample ASL and CBF derivatives into target spaces."""
     workflow = Workflow(name=name)
