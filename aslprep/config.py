@@ -519,7 +519,7 @@ class loggers:
 
 
 class seeds(_Config):
-    """Initialize the PRNG and track random seed assignments"""
+    """Initialize the PRNG and track random seed assignments."""
 
     master = None
     """Master seed used to generate all other tracked seeds"""
@@ -528,6 +528,7 @@ class seeds(_Config):
 
     @classmethod
     def init(cls):
+        """Initialize a seeds object."""
         cls.master = workflow.random_seed
         if cls.master is None:
             cls.master = random.randint(1, 65536)
