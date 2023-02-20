@@ -9,9 +9,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import numpy as np
 
-from bids.layout.models import (BIDSFile, Entity, Tag, Base, Config,
+from aslprep.pybids.layout.models import (BIDSFile, Entity, Tag, Base, Config,
                                 FileAssociation, BIDSImageFile)
-from bids.tests import get_test_data_path
+from aslprep.pybids.tests import get_test_data_path
 
 
 

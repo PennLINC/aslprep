@@ -7,8 +7,8 @@ from os.path import abspath
 from os.path import join as pathjoin
 from collections import Counter
 
-from bids.reports import utils
-from bids.reports import parsing
+from aslprep.pybids.reports import utils
+from aslprep.pybids.reports import parsing
 
 
 class BIDSReport(object):
@@ -71,9 +71,9 @@ class BIDSReport(object):
         Examples
         --------
         >>> from os.path import join
-        >>> from bids.layout import BIDSLayout
-        >>> from bids.reports import BIDSReport
-        >>> from bids.tests import get_test_data_path
+        >>> from aslprep.pybids.layout import BIDSLayout
+        >>> from aslprep.pybids.reports import BIDSReport
+        >>> from aslprep.pybids.tests import get_test_data_path
         >>> layout = BIDSLayout(join(get_test_data_path(), 'synthetic'))
         >>> report = BIDSReport(layout)
         >>> counter = report.generate(session='01')

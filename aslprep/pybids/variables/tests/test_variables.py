@@ -1,11 +1,11 @@
-from bids.layout import BIDSLayout
+from aslprep.pybids.layout import BIDSLayout
 import pytest
 import os
 from os.path import join
-from bids.tests import get_test_data_path
-from bids.variables import (merge_variables, DenseRunVariable, SimpleVariable,
+from aslprep.pybids.tests import get_test_data_path
+from aslprep.pybids.variables import (merge_variables, DenseRunVariable, SimpleVariable,
                             load_variables)
-from bids.variables.entities import RunInfo
+from aslprep.pybids.variables.entities import RunInfo
 import numpy as np
 import pandas as pd
 import nibabel as nb

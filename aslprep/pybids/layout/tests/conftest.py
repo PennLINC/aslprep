@@ -1,8 +1,8 @@
 from os.path import join
 
 import pytest
-from bids.layout import BIDSLayout
-from bids.tests import get_test_data_path
+from aslprep.pybids.layout import BIDSLayout
+from aslprep.pybids.tests import get_test_data_path
 
 
 # Fixture uses in the rest of the tests

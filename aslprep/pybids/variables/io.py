@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from bids.utils import listify
+from aslprep.pybids.utils import listify
 from .entities import NodeIndex
 from .variables import SparseRunVariable, DenseRunVariable, SimpleVariable
 

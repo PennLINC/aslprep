@@ -1,8 +1,8 @@
-from bids.layout import BIDSLayout
+from aslprep.pybids.layout import BIDSLayout
 import pytest
 from os.path import join
-from bids.tests import get_test_data_path
-from bids.variables import (DenseRunVariable, SparseRunVariable,
+from aslprep.pybids.tests import get_test_data_path
+from aslprep.pybids.variables import (DenseRunVariable, SparseRunVariable,
                             merge_collections)
 
 
