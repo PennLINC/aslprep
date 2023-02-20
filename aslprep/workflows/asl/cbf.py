@@ -32,11 +32,9 @@ from aslprep.utils.misc import get_atlas, get_tis, pcaslorasl
 
 
 def init_cbf_compt_wf(
-    mem_gb,
     metadata,
     bids_dir,
     dummy_vols,
-    omp_nthreads,
     scorescrub=False,
     basil=False,
     M0Scale=1,
@@ -51,7 +49,7 @@ def init_cbf_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbf_compt_wf
-            wf = init_cbf_compt_wf(mem_gb=0.1,smooth_kernel=5,dummy_vols=0)
+            wf = init_cbf_compt_wf(smooth_kernel=5, dummy_vols=0)
 
     Parameters
     ----------

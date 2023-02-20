@@ -606,8 +606,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # compute  the CBF here
     compt_cbf_wf = init_cbf_compt_wf(
         name="compt_cbf_wf",
-        mem_gb=mem_gb["filesize"],
-        omp_nthreads=omp_nthreads,
         dummy_vols=dummyvols,
         M0Scale=mscale,
         bids_dir=subj_dir,
