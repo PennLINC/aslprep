@@ -327,12 +327,9 @@ effects of other kernels [@lanczos].
         mem_gb=mem_gb["filesize"],
         asl_file=asl_file,
         metadata=metadata,
-        bids_dir=subj_dir,
-        omp_nthreads=omp_nthreads,
         scorescrub=scorescrub,
         basil=basil,
         M0Scale=mscale,
-        smooth_kernel=5,
         name="cbf_compt_wf",
     )
 
