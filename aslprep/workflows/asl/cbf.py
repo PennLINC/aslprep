@@ -812,9 +812,7 @@ def init_cbfplot_wf(
     return workflow
 
 
-def init_gecbfplot_wf(
-    mem_gb, metadata, omp_nthreads, scorescrub=False, basil=False, name="cbf_plot"
-):
+def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
     """Plot CBF results for GE data."""
     workflow = Workflow(name=name)
 

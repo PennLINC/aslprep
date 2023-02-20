@@ -422,11 +422,8 @@ effects of other kernels [@lanczos].
     )
 
     cbf_plot = init_gecbfplot_wf(
-        mem_gb=mem_gb["filesize"],
-        metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,
-        omp_nthreads=omp_nthreads,
         name="cbf_plot",
     )
     workflow.connect(
