@@ -433,8 +433,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # create optimal combination, adaptive T2* map
         asl_t2s_wf = init_asl_t2s_wf(
             echo_times=tes,
-            mem_gb=mem_gb["resampled"],
-            omp_nthreads=omp_nthreads,
             name="asl_t2smap_wf",
         )
 

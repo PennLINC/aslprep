@@ -11,7 +11,7 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 LOGGER = config.loggers.workflow
 
 
-def init_asl_t2s_wf(echo_times, mem_gb, omp_nthreads, name="asl_t2s_wf"):
+def init_asl_t2s_wf(echo_times, name="asl_t2s_wf"):
     """Combine multiple echos of :abbr:`ME-EPI (multi-echo echo-planar imaging)`.
 
     This workflow wraps the `tedana`_ `T2* workflow`_ to optimally
