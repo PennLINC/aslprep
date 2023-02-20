@@ -660,9 +660,7 @@ def init_cbfgeqc_compt_wf(
 
 
 def init_cbfplot_wf(
-    mem_gb,
     metadata,
-    omp_nthreads,
     scorescrub=False,
     basil=False,
     name="cbf_plot",

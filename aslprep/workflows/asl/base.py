@@ -1091,11 +1091,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         )
 
     cbf_plot = init_cbfplot_wf(
-        mem_gb=mem_gb["filesize"],
         metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,
-        omp_nthreads=omp_nthreads,
         name="cbf_plot",
     )
     workflow.connect(
