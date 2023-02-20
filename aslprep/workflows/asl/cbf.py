@@ -903,7 +903,7 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
     return workflow
 
 
-def init_cbfroiquant_wf(mem_gb, omp_nthreads, scorescrub=False, basil=False, name="cbf_roiquant"):
+def init_cbfroiquant_wf(scorescrub=False, basil=False, name="cbf_roiquant"):
     """Parcellate CBF results using a set of atlases."""
     workflow = Workflow(name=name)
 

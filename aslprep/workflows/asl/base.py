@@ -1175,10 +1175,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]
         )
     cbfroiqu = init_cbfroiquant_wf(
-        mem_gb=mem_gb["filesize"],
         basil=basil,
         scorescrub=scorescrub,
-        omp_nthreads=omp_nthreads,
         name="cbf_roiquant",
     )
     workflow.connect(

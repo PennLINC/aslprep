@@ -788,10 +788,8 @@ effects of other kernels [@lanczos].
             )
 
     cbfroiqu = init_cbfroiquant_wf(
-        mem_gb=mem_gb,
         scorescrub=scorescrub,
         basil=basil,
-        omp_nthreads=omp_nthreads,
         name="cbf_roiquant",
     )
     workflow.connect(
