@@ -305,11 +305,8 @@ effects of other kernels [@lanczos].
         use_bbr=config.workflow.use_bbr,
         asl2t1w_dof=config.workflow.asl2t1w_dof,
         asl2t1w_init=config.workflow.asl2t1w_init,
-        mem_gb=2,
-        omp_nthreads=omp_nthreads,
         name="asl_reg_wf",
         sloppy=False,
-        use_compression=True,
         write_report=True,
     )
 
