@@ -11,7 +11,7 @@ import re
 from itertools import compress
 from collections import defaultdict
 from pkg_resources import resource_filename as pkgrf
-from ...pybids.layout import BIDSLayout, add_config_paths
+from bids.layout import BIDSLayout, add_config_paths
 import jinja2
 from nipype.utils.filemanip import copyfile
 
