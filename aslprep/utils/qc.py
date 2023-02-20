@@ -6,11 +6,7 @@ from scipy.stats import gmean
 
 
 def dc(input1, input2):
-    """
-    Dice coefficient
-
-    Computes the Dice coefficient (also known as Sorensen index) between the binary
-    objects in two images.
+    """Compute Dice coefficient between the binary objects in two images.
 
     The metric is defined as
 
@@ -30,13 +26,9 @@ def dc(input1, input2):
 
     Returns
     -------
-    dc : float
+    dice : float
         The Dice coefficient between the object(s) in ```input1``` and the
         object(s) in ```input2```. It ranges from 0 (no overlap) to 1 (perfect overlap).
-
-    Notes
-    -----
-    This is a real metric.
     """
     input1 = nb.load(input1).get_fdata()
     input2 = nb.load(input2).get_fdata()
@@ -49,37 +41,30 @@ def dc(input1, input2):
     size_i2 = np.count_nonzero(input2)
 
     try:
-        dc = 2.0 * intersection / float(size_i1 + size_i2)
+        dice = 2.0 * intersection / float(size_i1 + size_i2)
     except ZeroDivisionError:
-        dc = 0.0
+        dice = 0.0
 
-    return dc
+    return dice
 
 
 def jc(input1, input2):
-    r"""
-    Jaccard coefficient
-
-    Computes the Jaccard coefficient between the binary objects in two images.
+    """Compute Jaccard coefficient between the binary objects in two images.
 
     Parameters
     ----------
-    input1: array_like
-            Input data containing objects. Can be any type but will be converted
-            into binary: background where 0, object everywhere else.
-    input2: array_like
-            Input data containing objects. Can be any type but will be converted
-            into binary: background where 0, object everywhere else.
+    input1 : array_like
+        Input data containing objects. Can be any type but will be converted
+        into binary: background where 0, object everywhere else.
+    input2 : array_like
+        Input data containing objects. Can be any type but will be converted
+        into binary: background where 0, object everywhere else.
 
     Returns
     -------
-    jc: float
+    jaccard : float
         The Jaccard coefficient between the object(s) in `input1` and the
         object(s) in `input2`. It ranges from 0 (no overlap) to 1 (perfect overlap).
-
-    Notes
-    -----
-    This is a real metric.
     """
     input1 = nb.load(input1).get_fdata()
     input2 = nb.load(input2).get_fdata()
@@ -89,16 +74,13 @@ def jc(input1, input2):
     intersection = np.count_nonzero(input1 & input2)
     union = np.count_nonzero(input1 | input2)
 
-    jc = float(intersection) / float(union)
+    jaccard = float(intersection) / float(union)
 
-    return jc
+    return jaccard
 
 
 def crosscorr(input1, input2):
-    """
-    cross correlation
-    computer compute cross correction bewteen input mask
-    """
+    """Compute cross correlation between two binary images."""
     input1 = nb.load(input1).get_fdata()
     input2 = nb.load(input2).get_fdata()
     input1 = np.atleast_1d(input1.astype(bool)).flatten()
@@ -108,9 +90,7 @@ def crosscorr(input1, input2):
 
 
 def coverage(input1, input2):
-    """
-    estimate the coverage between  two mask
-    """
+    """Estimate the coverage between two binary images."""
     input1 = nb.load(input1).get_fdata()
     input2 = nb.load(input2).get_fdata()
     input1 = np.atleast_1d(input1.astype(bool))
@@ -125,6 +105,7 @@ def coverage(input1, input2):
 
 
 def globalcbf(cbf, gm, wm, csf, thresh=0.7):
+    """Compute global measures of quality, whatever that is."""
     cbf = nb.load(cbf).get_fdata()
     gm = nb.load(gm).get_fdata()
     wm = nb.load(wm).get_fdata()
@@ -142,11 +123,13 @@ def globalcbf(cbf, gm, wm, csf, thresh=0.7):
 
 
 def cbf_qei(gm, wm, csf, img, thresh=0.8):
-    """
-    Quality evaluation index of CBF base on Sudipto Dolui work
-    Dolui S., Wolf R. & Nabavizadeh S., David W., Detre, J. (2017).
-    Automated Quality Evaluation Index for 2D ASL CBF Maps. ISMR 2017
+    """Compute quality evaluation index (QEI) of CBF.
 
+    The QEI is based on :footcite:t:`cbfqc`.
+
+    References
+    ----------
+    .. footbibliography
     """
 
     def fun1(x, xdata):
@@ -193,10 +176,7 @@ def cbf_qei(gm, wm, csf, img, thresh=0.8):
 
 
 def negativevoxel(cbf, gm, thresh=0.7):
-    """
-    percentage of negative voxel within
-    grey matter voxel
-    """
+    """Compute percentage of negative voxels within grey matter mask."""
     gm = nb.load(gm).get_fdata()
     cbf = nb.load(cbf).get_fdata()
     gm1 = np.array(gm > thresh)

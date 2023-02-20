@@ -36,15 +36,16 @@ needs_sphinx = "1.5.3"
 # extensions coming with Sphinx (named "sphinx.ext.*") or your custom
 # ones.
 extensions = [
+    "nbsphinx",
+    "nipype.sphinxext.plot_workflow",
     "sphinx.ext.autodoc",
+    "sphinx.ext.coverage",
     "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
-    "sphinx.ext.coverage",
-    "sphinx.ext.mathjax",
     "sphinx.ext.linkcode",
+    "sphinx.ext.mathjax",
     "sphinxarg.ext",  # argparse extension
-    "nipype.sphinxext.plot_workflow",
-    "nbsphinx",
+    "sphinxcontrib.bibtex",
     "sphinxcontrib.napoleon",
 ]
 
@@ -352,6 +353,14 @@ intersphinx_mapping = {
 }
 
 suppress_warnings = ["image.nonlocal_uri"]
+
+# -----------------------------------------------------------------------------
+# sphinxcontrib-bibtex
+# -----------------------------------------------------------------------------
+bibtex_bibfiles = ["../aslprep/data/boilerplate.bib"]
+bibtex_style = "unsrt"
+bibtex_reference_style = "author_year"
+bibtex_footbibliography_header = ""
 
 
 def setup(app):

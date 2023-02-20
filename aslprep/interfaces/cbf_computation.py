@@ -53,11 +53,7 @@ class _RefineMaskOutputSpec(TraitedSpec):
 
 
 class RefineMask(SimpleInterface):
-    """
-    the code refine the asl mask with t1w mask
-    the output is refined asl mask
-
-    """
+    """Reduce the ASL-derived brain mask using the associated T1w mask."""
 
     input_spec = _RefineMaskInputSpec
     output_spec = _RefineMaskOutputSpec
@@ -96,18 +92,14 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
 
 
 class _ExtractCBFOutputSpec(TraitedSpec):
-    out_file = File(exists=False, desc="cbf timeries data")
+    out_file = File(exists=False, desc="cbf time series data")
     out_avg = File(exists=False, desc="average control")
 
 
 class ExtractCBF(SimpleInterface):
-    """
-    extract  CBF timeseries
-    by substracting label from control
-    or viceversa
+    """Extract CBF time series by subtracting label volumes from control volumes.
 
-    it generate M0 maps for cbf computation
-
+    TODO: Mock up test data and write tests to cover all of the branches in this interface.
     """
 
     input_spec = _ExtractCBFInputSpec
@@ -175,13 +167,16 @@ class ExtractCBF(SimpleInterface):
                 m0dataf = mask
             else:
                 raise RuntimeError("m0scan is absent")
+
         else:
             raise RuntimeError("no pathway to m0scan")
 
         if len(dataasl.shape) == 5:
-            raise RuntimeError("Input image (%s) is 5D.")
+            raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
+
         if len(deltamlist) > 0:
             cbf_data = dataasl[:, :, :, deltamlist]
+
         if len(cbflist) > 0:
             cbf_data = dataasl[:, :, :, cbflist]
         elif len(labellist) > 0:
@@ -231,9 +226,7 @@ class _ComputeCBFOutputSpec(TraitedSpec):
 
 
 class ComputeCBF(SimpleInterface):
-    """
-    compute cbf pASL or pCASL
-    """
+    """Calculate CBF time series, mean control, and arterial transit time."""
 
     input_spec = _ComputeCBFInputSpec
     output_spec = _ComputeCBFOutputSpec
@@ -317,8 +310,18 @@ class _ScoreAndScrubCBFOutputSpec(TraitedSpec):
 
 
 class ScoreAndScrubCBF(SimpleInterface):
-    """
-    compute score and scrub
+    """Apply the SCORE and SCRUB algorithms.
+
+    The Structural Correlation-based Outlier Rejection (SCORE) algorithm is applied to the CBF
+    time series to discard CBF volumes with outlying values :footcite:p:`score_dolui` before
+    computing the mean CBF.
+    The Structural Correlation with RobUst Bayesian (SCRUB) algorithm is then applied to the CBF
+    maps using structural tissue probability maps to reweight the mean CBF
+    :footcite:p:`scrub_dolui`.
+
+    References
+    ----------
+    .. footbibliography::
     """
 
     input_spec = _ScoreAndScrubCBFInputSpec
@@ -389,33 +392,36 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     in_file = File(
         exists=True,
         desc="input file cbf after substracting tag-control or control-tag",
-        argstr=" -i %s",
+        argstr="-i %s",
         position=0,
         mandatory=True,
     )
     mask = File(
         exists=True,
-        argstr=" -m %s ",
+        argstr="-m %s",
         desc="mask in the same space as in_infile",
         mandatory=True,
     )
-    mzero = File(exists=True, argstr=" -c %s ", desc="m0 scan", mandatory=False)
-    m0scale = traits.Float(desc="calibration of asl", argstr=" --cgain %.2f ", mandatory=True)
+    mzero = File(exists=True, argstr="-c %s", desc="m0 scan", mandatory=False)
+    m0scale = traits.Float(desc="calibration of asl", argstr="--cgain %.2f", mandatory=True)
     m0tr = traits.Float(
         desc="Mzero TR",
-        argstr=" --tr %.2f ",
+        argstr="--tr %.2f",
         mandatory=True,
     )
     tis = traits.Either(
         traits.Float(),
         traits.List(traits.Float()),
         desc="recovery time =plds+bolus",
-        argstr=" --tis %s ",
+        argstr="--tis %s",
         mandatory=True,
         sep=",",
     )
     pcasl = traits.Bool(
-        desc="label type:defualt is PASL", argstr=" --casl ", mandatory=False, default_value=False
+        desc="label type:defualt is PASL",
+        argstr="--casl",
+        mandatory=False,
+        default_value=False,
     )
     bolus = traits.Either(
         traits.Float(),
@@ -426,22 +432,31 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         sep=",",
     )
     pvc = traits.Bool(
-        desc="calibration of asl", mandatory=False, argstr=" --pvcorr ", default_value=True
+        desc="calibration of asl",
+        mandatory=False,
+        argstr="--pvcorr",
+        default_value=True,
     )
     pvgm = File(
-        exists=True, mandatory=False, desc="grey matter probablity matter ", argstr=" --pvgm %s "
+        exists=True,
+        mandatory=False,
+        desc="grey matter probablity matter ",
+        argstr="--pvgm %s",
     )
     pvwm = File(
-        exists=True, mandatory=False, desc="white matter probablity matter ", argstr=" --pvwm %s "
+        exists=True,
+        mandatory=False,
+        desc="white matter probablity matter ",
+        argstr="--pvwm %s",
     )
-    out_basename = File(desc="base name of output files", argstr=" -o %s ", mandatory=True)
+    out_basename = File(desc="base name of output files", argstr="-o %s", mandatory=True)
     out_cbfb = File(exists=False, desc="cbf with spatial correction")
     out_cbfpv = File(exists=False, desc="cbf with spatial partial volume correction")
     out_cbfpvwm = File(
-        exists=False, desc="cbf with spatial partial volume white matter correction"
+        exists=False,
+        desc="cbf with spatial partial volume white matter correction",
     )
     out_att = File(exists=False, desc="aretrial transist time")
-    # environ=traits.Str('FSLOUTPUTTYPE': 'NIFTI_GZ'}
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
@@ -454,12 +469,18 @@ class _BASILCBFOutputSpec(TraitedSpec):
 
 
 class BASILCBF(FSLCommand):
-    """
-    oxford asl
-    https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL
+    """Apply Bayesian Inference for Arterial Spin Labeling (BASIL).
+
+    This interface calculates:
+    (1) arterial transit time,
+    (2) CBF with spatial correction,
+    (3) CBF with spatial partial volume white matter correction, and
+    (4) CBF with spatial partial volume correction.
+
+    See https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL and https://asl-docs.readthedocs.io.
     """
 
-    _cmd = " oxford_asl "
+    _cmd = "oxford_asl"
     input_spec = _BASILCBFInputSpec
     output_spec = _BASILCBFOutputSpec
 
@@ -534,7 +555,6 @@ class ComputeCBFQC(SimpleInterface):
     compute qc from confound regressors
     and cbf maps,
     coregistration and regsitration indexes
-
     """
 
     input_spec = _ComputeCBFQCInputSpec
@@ -721,7 +741,6 @@ class ComputeCBFQCforGE(SimpleInterface):
     compute qc from confound regressors
     and cbf maps,
     coregistration and regsitration indexes
-
     """
 
     input_spec = _ComputeCBFQCforGEInputSpec
@@ -970,7 +989,7 @@ class ExtractCBForDeltaM(SimpleInterface):
 def regmotoasl(asl, m0file, m02asl):
     """Calculate mean M0 image and mean ASL image, then FLIRT M0 image to ASL space.
 
-    This should not be a function. It uses interfaces, so it should be a workflow.
+    TODO: This should not be a function. It uses interfaces, so it should be a workflow.
     """
     from nipype.interfaces import fsl
 
@@ -993,7 +1012,7 @@ def regmotoasl(asl, m0file, m02asl):
 def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_mask):
     """Warp T1w mask to ASL space, then use it to mask the ASL mask.
 
-    This should not be a function. It uses interfaces, so it should be a workflow.
+    TODO: This should not be a function. It uses interfaces, so it should be a workflow.
     """
     b1 = ApplyTransforms()
     b1.inputs.dimension = 3

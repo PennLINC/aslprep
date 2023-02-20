@@ -4,16 +4,16 @@
 
 
 def combine_meepi_source(in_files):
-    """
-    Create a new source name when optimally
-    combining multiple multi-echo EPIs
+    """Create a new source name when optimally combining multiple multi-echo EPIs.
 
+    Examples
+    --------
     >>> combine_meepi_source([
     ...     'sub-01_run-01_echo-1_bold.nii.gz',
     ...     'sub-01_run-01_echo-2_bold.nii.gz',
-    ...     'sub-01_run-01_echo-3_bold.nii.gz',])
+    ...     'sub-01_run-01_echo-3_bold.nii.gz',
+    ... ])
     'sub-01_run-01_bold.nii.gz'
-
     """
     import os
 
