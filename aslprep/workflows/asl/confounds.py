@@ -17,7 +17,6 @@ from aslprep.niworkflows.interfaces.utils import AddTSVHeader
 
 def init_asl_confs_wf(
     mem_gb,
-    metadata,
     name="asl_confs_wf",
 ):
     """Build a workflow to generate and write out confounding signals.
@@ -41,7 +40,6 @@ def init_asl_confs_wf(
             from aslprep.workflows.asl.confounds import init_asl_confs_wf
             wf = init_asl_confs_wf(
                 mem_gb=1,
-                metadata={},
             )
 
     Parameters

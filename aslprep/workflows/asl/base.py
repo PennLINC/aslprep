@@ -341,12 +341,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_reg_wf = init_asl_reg_wf(
         asl2t1w_dof=config.workflow.asl2t1w_dof,
         asl2t1w_init=config.workflow.asl2t1w_init,
-        mem_gb=mem_gb["resampled"],
         name="asl_reg_wf",
-        omp_nthreads=omp_nthreads,
         sloppy=config.execution.debug,
         use_bbr=config.workflow.use_bbr,
-        use_compression=False,
     )
 
     # apply asl registration to T1w
@@ -368,9 +365,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
 
     # get confounds
-    asl_confounds_wf = init_asl_confs_wf(
-        mem_gb=mem_gb["largemem"], metadata=metadata, name="asl_confounds_wf"
-    )
+    asl_confounds_wf = init_asl_confs_wf(mem_gb=mem_gb["largemem"], name="asl_confounds_wf")
     asl_confounds_wf.get_node("inputnode").inputs.t1_transform_flags = [False]
 
     # Apply transforms in 1 shot
@@ -435,8 +430,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # create optimal combination, adaptive T2* map
         asl_t2s_wf = init_asl_t2s_wf(
             echo_times=tes,
-            mem_gb=mem_gb["resampled"],
-            omp_nthreads=omp_nthreads,
             name="asl_t2smap_wf",
         )
 
@@ -610,8 +603,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # compute  the CBF here
     compt_cbf_wf = init_cbf_compt_wf(
         name="compt_cbf_wf",
-        mem_gb=mem_gb["filesize"],
-        omp_nthreads=omp_nthreads,
         dummy_vols=dummyvols,
         M0Scale=mscale,
         bids_dir=subj_dir,
@@ -1035,12 +1026,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     compt_qccbf_wf = init_cbfqc_compt_wf(
         name="compt_qccbf_wf",
-        mem_gb=mem_gb["filesize"],
-        omp_nthreads=omp_nthreads,
         asl_file=asl_file,
         scorescrub=scorescrub,
         basil=basil,
-        metadata=metadata,
     )
     workflow.connect(
         [
@@ -1100,11 +1088,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         )
 
     cbf_plot = init_cbfplot_wf(
-        mem_gb=mem_gb["filesize"],
         metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,
-        omp_nthreads=omp_nthreads,
         name="cbf_plot",
     )
     workflow.connect(
@@ -1186,10 +1172,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]
         )
     cbfroiqu = init_cbfroiquant_wf(
-        mem_gb=mem_gb["filesize"],
         basil=basil,
         scorescrub=scorescrub,
-        omp_nthreads=omp_nthreads,
         name="cbf_roiquant",
     )
     workflow.connect(

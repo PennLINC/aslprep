@@ -295,26 +295,18 @@ effects of other kernels [@lanczos].
 
     # begin workflow
     gen_ref_wf = init_asl_geref_wf(
-        omp_nthreads=omp_nthreads,
         smooth_kernel=smoothkernel,
-        mem_gb=mem_gb["filesize"],
         metadata=metadata,
         bids_dir=subj_dir,
-        brainmask_thresh=0.5,
-        pre_mask=False,
         name="asl_gereference_wf",
-        gen_report=False,
     )
 
     asl_reg_wf = init_asl_gereg_wf(
         use_bbr=config.workflow.use_bbr,
         asl2t1w_dof=config.workflow.asl2t1w_dof,
         asl2t1w_init=config.workflow.asl2t1w_init,
-        mem_gb=2,
-        omp_nthreads=omp_nthreads,
         name="asl_reg_wf",
         sloppy=False,
-        use_compression=True,
         write_report=True,
     )
 
@@ -326,7 +318,6 @@ effects of other kernels [@lanczos].
         mem_gb=3,
         omp_nthreads=omp_nthreads,
         cbft1space=t1cbfspace,
-        use_compression=True,
         scorescrub=scorescrub,
         basil=basil,
         name="asl_t1_trans_wf",
@@ -336,12 +327,9 @@ effects of other kernels [@lanczos].
         mem_gb=mem_gb["filesize"],
         asl_file=asl_file,
         metadata=metadata,
-        bids_dir=subj_dir,
-        omp_nthreads=omp_nthreads,
         scorescrub=scorescrub,
         basil=basil,
         M0Scale=mscale,
-        smooth_kernel=5,
         name="cbf_compt_wf",
     )
 
@@ -431,11 +419,8 @@ effects of other kernels [@lanczos].
     )
 
     cbf_plot = init_gecbfplot_wf(
-        mem_gb=mem_gb["filesize"],
-        metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,
-        omp_nthreads=omp_nthreads,
         name="cbf_plot",
     )
     workflow.connect(
@@ -559,12 +544,9 @@ effects of other kernels [@lanczos].
 
     compt_qccbf_wf = init_cbfgeqc_compt_wf(
         name="compt_qccbf_wf",
-        mem_gb=mem_gb["filesize"],
-        omp_nthreads=omp_nthreads,
         asl_file=asl_file,
         scorescrub=scorescrub,
         basil=basil,
-        metadata=metadata,
     )
     workflow.connect(
         [
@@ -672,7 +654,6 @@ effects of other kernels [@lanczos].
             scorescrub=scorescrub,
             basil=basil,
             name="asl_gestd_trans_wf",
-            use_compression=True,
         )
         workflow.connect(
             [
@@ -804,10 +785,8 @@ effects of other kernels [@lanczos].
             )
 
     cbfroiqu = init_cbfroiquant_wf(
-        mem_gb=mem_gb,
         scorescrub=scorescrub,
         basil=basil,
-        omp_nthreads=omp_nthreads,
         name="cbf_roiquant",
     )
     workflow.connect(

@@ -710,8 +710,6 @@ def _robust_fit(
     tune=1.345,
     flagstd=1,
     flagmodrobust=1,
-    flagprior=1,
-    thresh=0.7,
 ):
     """Perform robust fit, whatever that means."""
     dimcbf = Y.shape
@@ -838,8 +836,6 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
         tune=tune,
         flagstd=1,
         flagmodrobust=1,
-        flagprior=1,
-        thresh=0.7,
     )
     newcbf = meancbf * mask
     newcbf[mask == 1] = bb
