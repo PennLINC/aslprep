@@ -538,7 +538,7 @@ class seeds(_Config):
 
 
 def _set_ants_seed():
-    """Fix random seed for antsRegistration, antsAI, antsMotionCorr"""
+    """Fix random seed for antsRegistration, antsAI, antsMotionCorr."""
     val = random.randint(1, 65536)
     os.environ["ANTS_RANDOM_SEED"] = str(val)
     return val
