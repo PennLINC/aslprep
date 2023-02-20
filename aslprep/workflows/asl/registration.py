@@ -31,11 +31,8 @@ def init_asl_reg_wf(
     use_bbr,
     asl2t1w_dof,
     asl2t1w_init,
-    mem_gb,
-    omp_nthreads,
     name="asl_reg_wf",
     sloppy=False,
-    use_compression=True,
     write_report=True,
 ):
     """Build a workflow to run same-subject, ASL-to-T1w image-registration.
@@ -49,11 +46,7 @@ def init_asl_reg_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.registration import init_asl_reg_wf
-            wf = init_asl_reg_wf( mem_gb=3,
-                                  omp_nthreads=1,
-                                  use_bbr=True,
-                                  asl2t1w_dof=9,
-                                  asl2t1w_init='register')
+            wf = init_asl_reg_wf(use_bbr=True, asl2t1w_dof=9, asl2t1w_init='register')
 
     Parameters
     ----------

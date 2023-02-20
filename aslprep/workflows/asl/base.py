@@ -341,12 +341,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_reg_wf = init_asl_reg_wf(
         asl2t1w_dof=config.workflow.asl2t1w_dof,
         asl2t1w_init=config.workflow.asl2t1w_init,
-        mem_gb=mem_gb["resampled"],
         name="asl_reg_wf",
-        omp_nthreads=omp_nthreads,
         sloppy=config.execution.debug,
         use_bbr=config.workflow.use_bbr,
-        use_compression=False,
     )
 
     # apply asl registration to T1w
