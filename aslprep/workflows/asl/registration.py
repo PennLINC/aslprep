@@ -8,19 +8,17 @@ import pkg_resources as pkgr
 from nipype.interfaces import c3, fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.func.util import init_asl_reference_wf
+from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from niworkflows.interfaces.itk import MultiApplyTransforms
+from niworkflows.interfaces.nilearn import Merge
+from niworkflows.interfaces.registration import FLIRTRPT
+from niworkflows.interfaces.utils import GenerateSamplingReference
+from niworkflows.utils.images import dseg_label
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.func.util import init_asl_reference_wf
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
-from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
-from aslprep.niworkflows.interfaces.nilearn import Merge
-from aslprep.niworkflows.interfaces.registration import FLIRTRPT
-from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
-from aslprep.niworkflows.utils.images import dseg_label
 from aslprep.utils.misc import _conditional_downsampling
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB

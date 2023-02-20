@@ -1,7 +1,5 @@
 """Adapted interfaces from Niworkflows."""
-from aslprep.niworkflows.interfaces.bids import (
-    DerivativesDataSink as BaseDerivativesDataSink,
-)
+from niworkflows.interfaces.bids import DerivativesDataSink as BaseDerivativesDataSink
 
 
 class DerivativesDataSink(BaseDerivativesDataSink):

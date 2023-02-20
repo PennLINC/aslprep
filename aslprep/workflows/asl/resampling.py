@@ -6,19 +6,17 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.interfaces.io import FreeSurferSource
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.func.util import init_asl_reference_wf
+from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from niworkflows.interfaces.itk import MultiApplyTransforms
+from niworkflows.interfaces.nilearn import Merge
+from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
+from niworkflows.interfaces.utility import KeySelect
+from niworkflows.interfaces.utils import GenerateSamplingReference
+from niworkflows.utils.spaces import format_reference
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.func.util import init_asl_reference_wf
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
-from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
-from aslprep.niworkflows.interfaces.nilearn import Merge
-from aslprep.niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
-from aslprep.niworkflows.interfaces.utility import KeySelect
-from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
-from aslprep.niworkflows.utils.spaces import format_reference
 from aslprep.utils.misc import (
     _aslist,
     _is_native,
@@ -163,7 +161,7 @@ The ASL time-series were resampled onto the following surfaces
         workflow.connect(sampler, "out_file", update_metadata, "in_file")
         return workflow
 
-    from aslprep.niworkflows.interfaces.freesurfer import MedialNaNs
+    from niworkflows.interfaces.freesurfer import MedialNaNs
 
     # Refine if medial vertices should be NaNs
     medial_nans = pe.MapNode(
@@ -205,7 +203,7 @@ def init_asl_std_trans_wf(
             :graph2use: colored
             :simple_form: yes
 
-            from aslprep.niworkflows.utils.spaces import SpatialReferences
+            from niworkflows.utils.spaces import SpatialReferences
             from aslprep.workflows.asl import init_asl_std_trans_wf
             wf = init_asl_std_trans_wf(
                 mem_gb=3,

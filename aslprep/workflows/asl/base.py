@@ -6,15 +6,15 @@ import os
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.func.util import init_asl_reference_wf
+from niworkflows.interfaces.nibabel import ApplyMask
+from niworkflows.interfaces.utility import KeySelect
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.func.util import init_asl_reference_wf
-from aslprep.niworkflows.interfaces.nibabel import ApplyMask
-from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.meepi import combine_meepi_source
 from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
@@ -227,7 +227,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         str(config.execution.bids_dir) + "/sub-" + str(config.execution.participant_label[0])
     )
     if sbref_file is not None:
-        from aslprep.niworkflows.interfaces.images import ValidateImage
+        from niworkflows.interfaces.images import ValidateImage
 
         val_sbref = pe.Node(ValidateImage(in_file=sbref_file), name="val_sbref")
 
@@ -414,7 +414,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # MULTI-ECHO EPI DATA #############################################
     if multiecho:
-        from aslprep.niworkflows.func.util import init_skullstrip_asl_wf
+        from niworkflows.func.util import init_skullstrip_asl_wf
 
         skullstrip_asl_wf = init_skullstrip_asl_wf(name="skullstrip_asl_wf")
 
@@ -752,7 +752,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Map final asl mask into T1w space (if required)
     nonstd_spaces = set(spaces.get_nonstandard())
     if nonstd_spaces.intersection(("T1w", "anat")):
-        from aslprep.niworkflows.interfaces.fixes import (
+        from niworkflows.interfaces.fixes import (
             FixHeaderApplyTransforms as ApplyTransforms,
         )
 

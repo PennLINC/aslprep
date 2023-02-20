@@ -6,18 +6,16 @@ import os
 from nipype.interfaces import fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+from niworkflows.interfaces.masks import SimpleShowMaskRPT
+from niworkflows.interfaces.utility import KeySelect
+from niworkflows.interfaces.utils import GenerateSamplingReference
+from niworkflows.utils.spaces import format_reference
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ge import GeReferenceFile
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
-from aslprep.niworkflows.interfaces.masks import SimpleShowMaskRPT
-from aslprep.niworkflows.interfaces.utility import KeySelect
-from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
-from aslprep.niworkflows.utils.spaces import format_reference
 from aslprep.utils.misc import _aslist, _is_native, _select_template, _split_spec
 from aslprep.workflows.asl.registration import init_fsl_bbr_wf
 
@@ -167,10 +165,8 @@ def init_asl_t1_getrans_wf(
 
     The workflow uses :abbr:`BBR (boundary-based registration)`.
     """
-    from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.fixes import (
-        FixHeaderApplyTransforms as ApplyTransforms,
-    )
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 
     workflow = Workflow(name=name)
     inputnode = pe.Node(

@@ -5,9 +5,9 @@ import os
 import re
 
 import sentry_sdk
+from niworkflows.utils.misc import read_crashfile
 
 from aslprep import config
-from aslprep.niworkflows.utils.misc import read_crashfile
 
 CHUNK_SIZE = 16384
 # Group common events with pre specified fingerprints

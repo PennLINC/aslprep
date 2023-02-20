@@ -1,11 +1,11 @@
 """Check the configuration module and file."""
 from pathlib import Path
 
+from niworkflows.utils.spaces import format_reference
 from pkg_resources import resource_filename as pkgrf
 from toml import loads
 
 from aslprep import config
-from aslprep.niworkflows.utils.spaces import format_reference
 
 
 def test_config_spaces():

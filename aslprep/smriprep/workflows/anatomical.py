@@ -69,7 +69,7 @@ def init_anat_preproc_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.niworkflows.utils.spaces import SpatialReferences, Reference
+            from niworkflows.utils.spaces import SpatialReferences, Reference
             from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
             wf = init_anat_preproc_wf(
                 bids_root='.',

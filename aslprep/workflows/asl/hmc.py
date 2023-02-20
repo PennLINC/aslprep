@@ -4,11 +4,11 @@
 from nipype.interfaces import fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces import NormalizeMotionParams
+from niworkflows.interfaces.itk import MCFLIRT2ITK
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces import NormalizeMotionParams
-from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
 from aslprep.utils.misc import _select_last_in_list
 
 

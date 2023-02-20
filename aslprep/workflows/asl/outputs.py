@@ -3,11 +3,11 @@
 """Workflows for writing out derivative files."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.utility import KeySelect
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.smriprep.workflows.outputs import _bids_relative
 
 
@@ -939,7 +939,7 @@ def init_asl_derivatives_wf(
 
     # Store resamplings in standard spaces when listed in --output-spaces
     if spaces.cached.references:
-        from aslprep.niworkflows.interfaces.space import SpaceDataSource
+        from niworkflows.interfaces.space import SpaceDataSource
 
         spacesource = pe.Node(SpaceDataSource(), name="spacesource", run_without_submitting=True)
         spacesource.iterables = (
@@ -2187,7 +2187,7 @@ def init_geasl_derivatives_wf(
 
     # Store resamplings in standard spaces when listed in --output-spaces
     if spaces.cached.references:
-        from aslprep.niworkflows.interfaces.space import SpaceDataSource
+        from niworkflows.interfaces.space import SpaceDataSource
 
         spacesource = pe.Node(SpaceDataSource(), name="spacesource", run_without_submitting=True)
         spacesource.iterables = (

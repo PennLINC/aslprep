@@ -8,6 +8,8 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.afni import Resample
 from nipype.interfaces.fsl import Info, MultiImageMaths
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from templateflow.api import get as get_template
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
@@ -24,10 +26,6 @@ from aslprep.interfaces.cbf_computation import (
     ScoreAndScrubCBF,
 )
 from aslprep.interfaces.plotting import CBFSummary, CBFtsSummary
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
 from aslprep.utils.misc import get_atlas, get_tis, pcaslorasl
 
 

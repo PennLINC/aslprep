@@ -3,10 +3,10 @@
 """Generate T2* map from multi-echo ASL images."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
 from aslprep.interfaces import T2SMap
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 LOGGER = config.loggers.workflow
 

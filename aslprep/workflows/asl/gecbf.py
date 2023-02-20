@@ -5,13 +5,13 @@ import os
 
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.nibabel import ApplyMask
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import (
     init_cbfgeqc_compt_wf,
@@ -126,7 +126,7 @@ def init_asl_gepreproc_wf(asl_file):
 
     See Also
     --------
-    * :py:func:`~aslprep.niworkflows.func.util.init_asl_reference_wf`
+    * :py:func:`~niworkflows.func.util.init_asl_reference_wf`
     * :py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
     * :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
     * :py:func:`~aslprep.workflows.asl.t2s.init_asl_t2s_wf`
@@ -458,7 +458,7 @@ effects of other kernels [@lanczos].
 
     if nonstd_spaces.intersection(("T1w", "anat")):
         t1cbfspace = True
-        from aslprep.niworkflows.interfaces.fixes import (
+        from niworkflows.interfaces.fixes import (
             FixHeaderApplyTransforms as ApplyTransforms,
         )
 
