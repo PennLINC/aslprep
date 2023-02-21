@@ -44,19 +44,14 @@ class _EstimateReferenceImageInputSpec(BaseInterfaceInputSpec):
     multiecho = traits.Bool(
         False,
         usedefault=True,
-        desc=(
-            "If multiecho data was supplied, data from "
-            "the first echo will be selected."
-        ),
+        desc=("If multiecho data was supplied, data from " "the first echo will be selected."),
     )
 
 
 class _EstimateReferenceImageOutputSpec(TraitedSpec):
     ref_image = File(exists=True, desc="3D reference image")
     n_volumes_to_discard = traits.Int(
-        desc="Number of detected non-steady "
-        "state volumes in the beginning of "
-        "the input file"
+        desc="Number of detected non-steady " "state volumes in the beginning of " "the input file"
     )
 
 
@@ -89,14 +84,17 @@ class EstimateReferenceImage(SimpleInterface):
         if self.inputs.multiecho:
             if len(ref_input) < 2:
                 input_name = "sbref_file" if is_sbref else "in_file"
-                raise ValueError("Argument 'multiecho' is True but "
-                                 f"'{input_name}' has only one element.")
+                raise ValueError(
+                    "Argument 'multiecho' is True but " f"'{input_name}' has only one element."
+                )
             else:
                 # Select only the first echo (see LIMITATION above for SBRefs)
                 ref_input = ref_input[:1]
         elif not is_sbref and len(ref_input) > 1:
-            raise ValueError("Input 'in_file' cannot point to more than one file "
-                             "for single-echo BOLD datasets.")
+            raise ValueError(
+                "Input 'in_file' cannot point to more than one file "
+                "for single-echo BOLD datasets."
+            )
 
         # Build the nibabel spatial image we will work with
         ref_im = []
@@ -146,20 +144,14 @@ class EstimateReferenceImage(SimpleInterface):
                     outputtype="NIFTI_GZ",
                 ).run()
             elif self.inputs.mc_method == "FSL":
-                res = fsl.MCFLIRT(
-                    in_file=ref_name, ref_vol=0, interpolation="sinc"
-                ).run()
+                res = fsl.MCFLIRT(in_file=ref_name, ref_vol=0, interpolation="sinc").run()
             mc_slice_nii = nb.load(res.outputs.out_file)
 
             median_image_data = np.median(mc_slice_nii.get_fdata(), axis=3)
         else:
-            median_image_data = np.median(
-                ref_im.dataobj[:, :, :, :n_volumes_to_discard], axis=3
-            )
+            median_image_data = np.median(ref_im.dataobj[:, :, :, :n_volumes_to_discard], axis=3)
 
-        nb.Nifti1Image(median_image_data, ref_im.affine, ref_im.header).to_filename(
-            out_ref_fname
-        )
+        nb.Nifti1Image(median_image_data, ref_im.affine, ref_im.header).to_filename(out_ref_fname)
         return runtime
 
 
