@@ -3,15 +3,15 @@ import os
 
 import nibabel as nb
 import numpy as np
-from nipype.interfaces import fsl, afni
+from nipype.interfaces import afni, fsl
 from nipype.interfaces.base import (
-    traits,
-    isdefined,
-    TraitedSpec,
     BaseInterfaceInputSpec,
     File,
-    SimpleInterface,
     InputMultiObject,
+    SimpleInterface,
+    TraitedSpec,
+    isdefined,
+    traits,
 )
 
 
