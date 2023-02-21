@@ -127,7 +127,11 @@ def init_asl_derivatives_wf(
     raw_sources.inputs.bids_root = bids_root
 
     ds_confounds = pe.Node(
-        DerivativesDataSink(base_directory=output_dir, desc="confounds", suffix="regressors"),
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc="confounds",
+            suffix="regressors",
+        ),
         name="ds_confounds",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
@@ -149,7 +153,10 @@ def init_asl_derivatives_wf(
 
     qcfile = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="quality_control", suffix="cbf", compress=False
+            base_directory=output_dir,
+            desc="qualitycontrol",
+            suffix="cbf",
+            compress=False,
         ),
         name="qcfile",
         run_without_submitting=True,
@@ -206,7 +213,11 @@ def init_asl_derivatives_wf(
 
     cbf_hvoxf = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="HavardOxford", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="HarvardOxford",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_hvoxf",
         run_without_submitting=True,
@@ -214,7 +225,11 @@ def init_asl_derivatives_wf(
     )
     cbf_sc207 = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="schaefer200x7", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="schaefer200x7",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_sc207",
         run_without_submitting=True,
@@ -222,7 +237,11 @@ def init_asl_derivatives_wf(
     )
     cbf_sc217 = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="schaefer200x17", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="schaefer200x17",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_sc217",
         run_without_submitting=True,
@@ -230,7 +249,11 @@ def init_asl_derivatives_wf(
     )
     cbf_sc407 = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="schaefer400x7", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="schaefer400x7",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_sc407",
         run_without_submitting=True,
@@ -238,7 +261,11 @@ def init_asl_derivatives_wf(
     )
     cbf_sc417 = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="schaefer400x17", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="schaefer400x17",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_sc417",
         run_without_submitting=True,
@@ -258,7 +285,11 @@ def init_asl_derivatives_wf(
     if scorescrub:
         score_hvoxf = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="HavardOxford", suffix="mean_score", compress=False
+                base_directory=output_dir,
+                atlas="HarvardOxford",
+                desc="mean",
+                suffix="score",
+                compress=False,
             ),
             name="score_hvoxf",
             run_without_submitting=True,
@@ -266,7 +297,11 @@ def init_asl_derivatives_wf(
         )
         scrub_hvoxf = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="HavardOxford", suffix="mean_scrub", compress=False
+                base_directory=output_dir,
+                atlas="HarvardOxford",
+                desc="mean",
+                suffix="scrub",
+                compress=False,
             ),
             name="scrub_hvoxf",
             run_without_submitting=True,
@@ -275,8 +310,9 @@ def init_asl_derivatives_wf(
         score_sc207 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x7",
-                suffix="mean_score",
+                atlas="schaefer200x7",
+                desc="mean",
+                suffix="score",
                 compress=False,
             ),
             name="score_sc207",
@@ -286,8 +322,9 @@ def init_asl_derivatives_wf(
         scrub_sc207 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x7",
-                suffix="mean_scrub",
+                atlas="schaefer200x7",
+                desc="mean",
+                suffix="scrub",
                 compress=False,
             ),
             name="scrub_sc207",
@@ -298,8 +335,9 @@ def init_asl_derivatives_wf(
         score_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x17",
-                suffix="mean_score",
+                atlas="schaefer200x17",
+                desc="mean",
+                suffix="score",
                 compress=False,
             ),
             name="score_sc217",
@@ -309,8 +347,9 @@ def init_asl_derivatives_wf(
         scrub_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x17",
-                suffix="mean_scrub",
+                atlas="schaefer200x17",
+                desc="mean",
+                suffix="scrub",
                 compress=False,
             ),
             name="scrub_sc217",
@@ -320,8 +359,9 @@ def init_asl_derivatives_wf(
         score_sc407 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x7",
-                suffix="mean_score",
+                atlas="schaefer400x7",
+                desc="mean",
+                suffix="score",
                 compress=False,
             ),
             name="score_sc407",
@@ -331,8 +371,9 @@ def init_asl_derivatives_wf(
         scrub_sc407 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x7",
-                suffix="mean_scrub",
+                atlas="schaefer400x7",
+                desc="mean",
+                suffix="scrub",
                 compress=False,
             ),
             name="scrub_sc407",
@@ -342,8 +383,9 @@ def init_asl_derivatives_wf(
         score_sc417 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x17",
-                suffix="mean_score",
+                atlas="schaefer400x17",
+                desc="mean",
+                suffix="score",
                 compress=False,
             ),
             name="score_sc417",
@@ -353,8 +395,9 @@ def init_asl_derivatives_wf(
         scrub_sc417 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x17",
-                suffix="mean_scrub",
+                atlas="schaefer400x17",
+                desc="mean",
+                suffix="scrub",
                 compress=False,
             ),
             name="scrub_sc417",
@@ -419,7 +462,11 @@ def init_asl_derivatives_wf(
     if basil:
         basil_hvoxf = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="HavardOxford", suffix="mean_basil", compress=False
+                base_directory=output_dir,
+                atlas="HarvardOxford",
+                desc="mean",
+                suffix="basil",
+                compress=False,
             ),
             name="basil_hvoxf",
             run_without_submitting=True,
@@ -427,7 +474,11 @@ def init_asl_derivatives_wf(
         )
         pvc_hvoxf = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="HavardOxford", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="HarvardOxford",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_hvoxf",
             run_without_submitting=True,
@@ -436,8 +487,9 @@ def init_asl_derivatives_wf(
         basil_sc207 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x7",
-                suffix="mean_basil",
+                atlas="schaefer200x7",
+                desc="mean",
+                suffix="basil",
                 compress=False,
             ),
             name="basil_sc207",
@@ -446,7 +498,11 @@ def init_asl_derivatives_wf(
         )
         pvc_sc207 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="schaefer200x7", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="schaefer200x7",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_sc207",
             run_without_submitting=True,
@@ -456,8 +512,9 @@ def init_asl_derivatives_wf(
         basil_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x17",
-                suffix="mean_basil",
+                atlas="schaefer200x17",
+                desc="mean",
+                suffix="basil",
                 compress=False,
             ),
             name="basil_sc217",
@@ -466,7 +523,11 @@ def init_asl_derivatives_wf(
         )
         pvc_sc217 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="schaefer200x17", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="schaefer200x17",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_sc217",
             run_without_submitting=True,
@@ -475,8 +536,9 @@ def init_asl_derivatives_wf(
         basil_sc407 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x7",
-                suffix="mean_basil",
+                atlas="schaefer400x7",
+                desc="mean",
+                suffix="basil",
                 compress=False,
             ),
             name="basil_sc407",
@@ -485,7 +547,11 @@ def init_asl_derivatives_wf(
         )
         pvc_sc407 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="schaefer400x7", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="schaefer400x7",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_sc407",
             run_without_submitting=True,
@@ -494,8 +560,9 @@ def init_asl_derivatives_wf(
         basil_sc417 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x17",
-                suffix="mean_basil",
+                atlas="schaefer400x17",
+                desc="mean",
+                suffix="basil",
                 compress=False,
             ),
             name="basil_sc417",
@@ -504,7 +571,11 @@ def init_asl_derivatives_wf(
         )
         pvc_sc417 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="schaefer400x17", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="schaefer400x17",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_sc417",
             run_without_submitting=True,
@@ -584,13 +655,22 @@ def init_asl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
         cbfnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix="cbf", compress=True),
+            DerivativesDataSink(
+                base_directory=output_dir,
+                suffix="cbf",
+                compress=True,
+            ),
             name="cbfnative",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
         meancbfnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix="mean_cbf", compress=True),
+            DerivativesDataSink(
+                base_directory=output_dir,
+                desc="mean",
+                suffix="cbf",
+                compress=True,
+            ),
             name="meancbfnative",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
@@ -625,7 +705,10 @@ def init_asl_derivatives_wf(
         if scorescrub:
             scorenative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="score", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="score",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="scorenative",
                 run_without_submitting=True,
@@ -633,7 +716,10 @@ def init_asl_derivatives_wf(
             )
             meanscorenative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="score", suffix="mean_cbf", compress=True
+                    base_directory=output_dir,
+                    desc="meanScore",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="meanscorenative",
                 run_without_submitting=True,
@@ -642,7 +728,10 @@ def init_asl_derivatives_wf(
 
             scrubnative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="scrub", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="scrub",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="scrubnative",
                 run_without_submitting=True,
@@ -672,7 +761,10 @@ def init_asl_derivatives_wf(
         if basil:
             basilnative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="basil", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="basil",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="basilnative",
                 run_without_submitting=True,
@@ -680,7 +772,10 @@ def init_asl_derivatives_wf(
             )
             pvnative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="pvGM", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="pvGM",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="pvcnative",
                 run_without_submitting=True,
@@ -688,7 +783,10 @@ def init_asl_derivatives_wf(
             )
             pvnativewm = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="pvWM", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="pvWM",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="pvcwmnative",
                 run_without_submitting=True,
@@ -696,7 +794,10 @@ def init_asl_derivatives_wf(
             )
             attnative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="bat", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="bat",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="attcnative",
                 run_without_submitting=True,
@@ -763,7 +864,10 @@ def init_asl_derivatives_wf(
 
         cbfnativet1 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, suffix="cbf", space="T1w", compress=True
+                base_directory=output_dir,
+                space="T1w",
+                suffix="cbf",
+                compress=True,
             ),
             name="cbfnativet1",
             run_without_submitting=True,
@@ -771,7 +875,11 @@ def init_asl_derivatives_wf(
         )
         meancbfnativet1 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, suffix="mean_cbf", space="T1w", compress=True
+                base_directory=output_dir,
+                space="T1w",
+                desc="mean",
+                suffix="cbf",
+                compress=True,
             ),
             name="meancbfnativet1",
             run_without_submitting=True,
@@ -804,9 +912,9 @@ def init_asl_derivatives_wf(
             scorenativet1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
+                    space="T1w",
                     desc="score",
                     suffix="cbf",
-                    space="T1w",
                     compress=True,
                 ),
                 name="scorenativet1",
@@ -816,9 +924,9 @@ def init_asl_derivatives_wf(
             meanscorenativet1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
-                    suffix="mean_cbf",
-                    desc="score",
                     space="T1w",
+                    desc="meanScore",
+                    suffix="cbf",
                     compress=True,
                 ),
                 name="meanscorenativet1",
@@ -828,9 +936,9 @@ def init_asl_derivatives_wf(
             scrubnativet1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
+                    space="T1w",
                     desc="scrub",
                     suffix="cbf",
-                    space="T1w",
                     compress=True,
                 ),
                 name="scrubnativet1",
@@ -861,9 +969,9 @@ def init_asl_derivatives_wf(
             basilnativet1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
+                    space="T1w",
                     desc="basil",
                     suffix="cbf",
-                    space="T1w",
                     compress=True,
                 ),
                 name="basilnativet1",
@@ -873,9 +981,9 @@ def init_asl_derivatives_wf(
             pvnativet1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
+                    space="T1w",
                     desc="pvGM",
                     suffix="cbf",
-                    space="T1w",
                     compress=True,
                 ),
                 name="pvcnativet1",
@@ -885,9 +993,9 @@ def init_asl_derivatives_wf(
             pvnativetwm1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
+                    space="T1w",
                     desc="pvWM",
                     suffix="cbf",
-                    space="T1w",
                     compress=True,
                 ),
                 name="pvcnativet1wm",
@@ -896,7 +1004,11 @@ def init_asl_derivatives_wf(
             )
             attnativet1 = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="bat", suffix="cbf", space="T1w", compress=True
+                    base_directory=output_dir,
+                    space="T1w",
+                    desc="bat",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="attnativet1",
                 run_without_submitting=True,
@@ -1003,13 +1115,22 @@ def init_asl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
         cbfstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix="cbf", compress=True),
+            DerivativesDataSink(
+                base_directory=output_dir,
+                suffix="cbf",
+                compress=True,
+            ),
             name="cbfstd",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
         meancbfstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix="mean_cbf", compress=True),
+            DerivativesDataSink(
+                base_directory=output_dir,
+                desc="mean",
+                suffix="cbf",
+                compress=True,
+            ),
             name="meancbfstd",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
@@ -1098,7 +1219,10 @@ def init_asl_derivatives_wf(
         if scorescrub:
             scorestd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="score", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="score",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="scorestd",
                 run_without_submitting=True,
@@ -1107,7 +1231,10 @@ def init_asl_derivatives_wf(
 
             meanscorestd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="score", suffix="mean_cbf", compress=True
+                    base_directory=output_dir,
+                    desc="meanScore",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="meanscorestd",
                 run_without_submitting=True,
@@ -1115,7 +1242,10 @@ def init_asl_derivatives_wf(
             )
             scrubstd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="scrub", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="scrub",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="scrubstd",
                 run_without_submitting=True,
@@ -1175,7 +1305,10 @@ def init_asl_derivatives_wf(
         if basil:
             basilstd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="basil", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="basil",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="basilstd",
                 run_without_submitting=True,
@@ -1183,7 +1316,10 @@ def init_asl_derivatives_wf(
             )
             pvstd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="pvGM", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="pvGM",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="pvcstd",
                 run_without_submitting=True,
@@ -1191,7 +1327,10 @@ def init_asl_derivatives_wf(
             )
             pvstdwm = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="pvWM", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="pvWM",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="pvcstdwm",
                 run_without_submitting=True,
@@ -1199,7 +1338,10 @@ def init_asl_derivatives_wf(
             )
             attstd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="bat", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="bat",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="attstd",
                 run_without_submitting=True,
@@ -1397,7 +1539,10 @@ def init_geasl_derivatives_wf(
 
     qcfile = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="quality_control", suffix="cbf", compress=False
+            base_directory=output_dir,
+            desc="qualitycontrol",
+            suffix="cbf",
+            compress=False,
         ),
         name="qcfile",
         run_without_submitting=True,
@@ -1454,7 +1599,11 @@ def init_geasl_derivatives_wf(
 
     cbf_hvoxf = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="HavardOxford", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="HarvardOxford",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_hvoxf",
         run_without_submitting=True,
@@ -1462,7 +1611,11 @@ def init_geasl_derivatives_wf(
     )
     cbf_sc207 = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="schaefer200x7", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="schaefer200x7",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_sc207",
         run_without_submitting=True,
@@ -1470,7 +1623,11 @@ def init_geasl_derivatives_wf(
     )
     cbf_sc217 = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="schaefer200x17", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="schaefer200x17",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_sc217",
         run_without_submitting=True,
@@ -1478,7 +1635,11 @@ def init_geasl_derivatives_wf(
     )
     cbf_sc407 = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="schaefer400x7", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="schaefer400x7",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_sc407",
         run_without_submitting=True,
@@ -1486,7 +1647,11 @@ def init_geasl_derivatives_wf(
     )
     cbf_sc417 = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="schaefer400x17", suffix="mean_cbf", compress=False
+            base_directory=output_dir,
+            atlas="schaefer400x17",
+            desc="mean",
+            suffix="cbf",
+            compress=False,
         ),
         name="cbf_sc417",
         run_without_submitting=True,
@@ -1506,7 +1671,11 @@ def init_geasl_derivatives_wf(
     if scorescrub:
         score_hvoxf = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="HavardOxford", suffix="mean_score", compress=False
+                base_directory=output_dir,
+                atlas="HarvardOxford",
+                desc="mean",
+                suffix="score",
+                compress=False,
             ),
             name="score_hvoxf",
             run_without_submitting=True,
@@ -1514,7 +1683,11 @@ def init_geasl_derivatives_wf(
         )
         scrub_hvoxf = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="HavardOxford", suffix="mean_scrub", compress=False
+                base_directory=output_dir,
+                atlas="HarvardOxford",
+                desc="mean",
+                suffix="scrub",
+                compress=False,
             ),
             name="scrub_hvoxf",
             run_without_submitting=True,
@@ -1523,8 +1696,9 @@ def init_geasl_derivatives_wf(
         score_sc207 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x7",
-                suffix="mean_score",
+                atlas="schaefer200x7",
+                desc="mean",
+                suffix="score",
                 compress=False,
             ),
             name="score_sc207",
@@ -1534,8 +1708,9 @@ def init_geasl_derivatives_wf(
         scrub_sc207 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x7",
-                suffix="mean_scrub",
+                atlas="schaefer200x7",
+                desc="mean",
+                suffix="scrub",
                 compress=False,
             ),
             name="scrub_sc207",
@@ -1546,8 +1721,9 @@ def init_geasl_derivatives_wf(
         score_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x17",
-                suffix="mean_score",
+                atlas="schaefer200x17",
+                desc="mean",
+                suffix="score",
                 compress=False,
             ),
             name="score_sc217",
@@ -1557,8 +1733,9 @@ def init_geasl_derivatives_wf(
         scrub_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x17",
-                suffix="mean_scrub",
+                atlas="schaefer200x17",
+                desc="mean",
+                suffix="scrub",
                 compress=False,
             ),
             name="scrub_sc217",
@@ -1568,8 +1745,9 @@ def init_geasl_derivatives_wf(
         score_sc407 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x7",
-                suffix="mean_score",
+                atlas="schaefer400x7",
+                desc="mean",
+                suffix="score",
                 compress=False,
             ),
             name="score_sc407",
@@ -1579,8 +1757,9 @@ def init_geasl_derivatives_wf(
         scrub_sc407 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x7",
-                suffix="mean_scrub",
+                atlas="schaefer400x7",
+                desc="mean",
+                suffix="scrub",
                 compress=False,
             ),
             name="scrub_sc407",
@@ -1590,8 +1769,9 @@ def init_geasl_derivatives_wf(
         score_sc417 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x17",
-                suffix="mean_score",
+                atlas="schaefer400x17",
+                desc="mean",
+                suffix="score",
                 compress=False,
             ),
             name="score_sc417",
@@ -1601,8 +1781,9 @@ def init_geasl_derivatives_wf(
         scrub_sc417 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x17",
-                suffix="mean_scrub",
+                atlas="schaefer400x17",
+                desc="mean",
+                suffix="scrub",
                 compress=False,
             ),
             name="scrub_sc417",
@@ -1667,7 +1848,11 @@ def init_geasl_derivatives_wf(
     if basil:
         basil_hvoxf = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="HavardOxford", suffix="mean_basil", compress=False
+                base_directory=output_dir,
+                atlas="HarvardOxford",
+                desc="mean",
+                suffix="basil",
+                compress=False,
             ),
             name="basil_hvoxf",
             run_without_submitting=True,
@@ -1675,7 +1860,11 @@ def init_geasl_derivatives_wf(
         )
         pvc_hvoxf = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="HavardOxford", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="HarvardOxford",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_hvoxf",
             run_without_submitting=True,
@@ -1684,8 +1873,9 @@ def init_geasl_derivatives_wf(
         basil_sc207 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x7",
-                suffix="mean_basil",
+                atlas="schaefer200x7",
+                desc="mean",
+                suffix="basil",
                 compress=False,
             ),
             name="basil_sc207",
@@ -1694,7 +1884,11 @@ def init_geasl_derivatives_wf(
         )
         pvc_sc207 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="schaefer200x7", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="schaefer200x7",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_sc207",
             run_without_submitting=True,
@@ -1704,8 +1898,9 @@ def init_geasl_derivatives_wf(
         basil_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer200x17",
-                suffix="mean_basil",
+                atlas="schaefer200x17",
+                desc="mean",
+                suffix="basil",
                 compress=False,
             ),
             name="basil_sc217",
@@ -1714,7 +1909,11 @@ def init_geasl_derivatives_wf(
         )
         pvc_sc217 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="schaefer200x17", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="schaefer200x17",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_sc217",
             run_without_submitting=True,
@@ -1723,8 +1922,9 @@ def init_geasl_derivatives_wf(
         basil_sc407 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x7",
-                suffix="mean_basil",
+                atlas="schaefer400x7",
+                desc="mean",
+                suffix="basil",
                 compress=False,
             ),
             name="basil_sc407",
@@ -1733,7 +1933,11 @@ def init_geasl_derivatives_wf(
         )
         pvc_sc407 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="schaefer400x7", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="schaefer400x7",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_sc407",
             run_without_submitting=True,
@@ -1742,8 +1946,9 @@ def init_geasl_derivatives_wf(
         basil_sc417 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                desc="schaefer400x17",
-                suffix="mean_basil",
+                atlas="schaefer400x17",
+                desc="mean",
+                suffix="basil",
                 compress=False,
             ),
             name="basil_sc417",
@@ -1752,7 +1957,11 @@ def init_geasl_derivatives_wf(
         )
         pvc_sc417 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, desc="schaefer400x17", suffix="mean_pvc", compress=False
+                base_directory=output_dir,
+                atlas="schaefer400x17",
+                desc="mean",
+                suffix="pvc",
+                compress=False,
             ),
             name="pvc_sc417",
             run_without_submitting=True,
@@ -1832,13 +2041,22 @@ def init_geasl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
         cbfnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix="cbf", compress=True),
+            DerivativesDataSink(
+                base_directory=output_dir,
+                suffix="cbf",
+                compress=True,
+            ),
             name="cbfnative",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
         meancbfnative = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix="mean_cbf", compress=True),
+            DerivativesDataSink(
+                base_directory=output_dir,
+                desc="mean",
+                suffix="cbf",
+                compress=True,
+            ),
             name="meancbfnative",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
@@ -1873,7 +2091,10 @@ def init_geasl_derivatives_wf(
         if scorescrub:
             scorenative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="score", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="score",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="scorenative",
                 run_without_submitting=True,
@@ -1881,7 +2102,10 @@ def init_geasl_derivatives_wf(
             )
             meanscorenative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="score", suffix="mean_cbf", compress=True
+                    base_directory=output_dir,
+                    desc="meanScore",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="meanscorenative",
                 run_without_submitting=True,
@@ -1890,7 +2114,10 @@ def init_geasl_derivatives_wf(
 
             scrubnative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="scrub", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="scrub",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="scrubnative",
                 run_without_submitting=True,
@@ -1920,7 +2147,10 @@ def init_geasl_derivatives_wf(
         if basil:
             basilnative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="basil", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="basil",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="basilnative",
                 run_without_submitting=True,
@@ -1928,7 +2158,10 @@ def init_geasl_derivatives_wf(
             )
             pvnative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="pvGM", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="pvGM",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="pvcnative",
                 run_without_submitting=True,
@@ -1936,7 +2169,10 @@ def init_geasl_derivatives_wf(
             )
             pvnativewm = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="pvWM", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="pvWM",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="pvcnativewm",
                 run_without_submitting=True,
@@ -1944,7 +2180,10 @@ def init_geasl_derivatives_wf(
             )
             attnative = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="bat", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="bat",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="attcnative",
                 run_without_submitting=True,
@@ -2011,7 +2250,10 @@ def init_geasl_derivatives_wf(
 
         cbfnativet1 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, suffix="cbf", space="T1w", compress=True
+                base_directory=output_dir,
+                suffix="cbf",
+                space="T1w",
+                compress=True,
             ),
             name="cbfnativet1",
             run_without_submitting=True,
@@ -2019,7 +2261,11 @@ def init_geasl_derivatives_wf(
         )
         meancbfnativet1 = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir, suffix="mean_cbf", space="T1w", compress=True
+                base_directory=output_dir,
+                desc="mean",
+                suffix="cbf",
+                space="T1w",
+                compress=True,
             ),
             name="meancbfnativet1",
             run_without_submitting=True,
@@ -2064,8 +2310,8 @@ def init_geasl_derivatives_wf(
             meanscorenativet1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
-                    suffix="mean_cbf",
-                    desc="score",
+                    suffix="cbf",
+                    desc="meanScore",
                     space="T1w",
                     compress=True,
                 ),
@@ -2144,7 +2390,11 @@ def init_geasl_derivatives_wf(
             )
             attnativet1 = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="bat", suffix="cbf", space="T1w", compress=True
+                    base_directory=output_dir,
+                    desc="bat",
+                    suffix="cbf",
+                    space="T1w",
+                    compress=True,
                 ),
                 name="attnativet1",
                 run_without_submitting=True,
@@ -2252,13 +2502,22 @@ def init_geasl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
         cbfstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix="cbf", compress=True),
+            DerivativesDataSink(
+                base_directory=output_dir,
+                suffix="cbf",
+                compress=True,
+            ),
             name="cbfstd",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
         meancbfstd = pe.Node(
-            DerivativesDataSink(base_directory=output_dir, suffix="mean_cbf", compress=True),
+            DerivativesDataSink(
+                base_directory=output_dir,
+                desc="mean",
+                suffix="cbf",
+                compress=True,
+            ),
             name="meancbfstd",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
@@ -2347,7 +2606,10 @@ def init_geasl_derivatives_wf(
         if scorescrub:
             scorestd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="score", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="score",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="scorestd",
                 run_without_submitting=True,
@@ -2356,7 +2618,10 @@ def init_geasl_derivatives_wf(
 
             meanscorestd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="score", suffix="mean_cbf", compress=True
+                    base_directory=output_dir,
+                    desc="meanScore",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="meanscorestd",
                 run_without_submitting=True,
@@ -2364,7 +2629,10 @@ def init_geasl_derivatives_wf(
             )
             scrubstd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="scrub", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="scrub",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="scrubstd",
                 run_without_submitting=True,
@@ -2424,7 +2692,10 @@ def init_geasl_derivatives_wf(
         if basil:
             basilstd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="basil", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="basil",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="basilstd",
                 run_without_submitting=True,
@@ -2432,7 +2703,10 @@ def init_geasl_derivatives_wf(
             )
             pvstd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="pvGM", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="pvGM",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="pvcstd",
                 run_without_submitting=True,
@@ -2441,7 +2715,10 @@ def init_geasl_derivatives_wf(
 
             pvstdwm = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="pvWM", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="pvWM",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="pvcstdwm",
                 run_without_submitting=True,
@@ -2450,7 +2727,10 @@ def init_geasl_derivatives_wf(
 
             attstd = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir, desc="bat", suffix="cbf", compress=True
+                    base_directory=output_dir,
+                    desc="bat",
+                    suffix="cbf",
+                    compress=True,
                 ),
                 name="attstd",
                 run_without_submitting=True,
