@@ -17,7 +17,7 @@ import pkg_resources as pkgr
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.header import CopyHeader
 from niworkflows.interfaces.freesurfer import StructuralReference
-from niworkflows.interfaces.registration import ANTSApplyTransformsRPT
+from niworkflows.interfaces.reportlets.registration import ANTSApplyTransformsRPT
 from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
 from nipype.pipeline import engine as pe
