@@ -5,7 +5,7 @@ from nipype.interfaces import afni
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.utils import CopyXForm
+from niworkflows.interfaces.header import CopyXForm
 
 from aslprep import config
 

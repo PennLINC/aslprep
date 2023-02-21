@@ -13,7 +13,7 @@ from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransf
 from niworkflows.interfaces.itk import MultiApplyTransforms
 from niworkflows.interfaces.nilearn import Merge
 from niworkflows.interfaces.registration import FLIRTRPT
-from niworkflows.interfaces.utils import GenerateSamplingReference
+from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.utils.images import dseg_label
 
 from aslprep import config

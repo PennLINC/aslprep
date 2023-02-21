@@ -9,7 +9,7 @@ from niworkflows.interfaces.fixes import (
 from niworkflows.interfaces.header import ValidateImage
 from niworkflows.interfaces.masks import SimpleShowMaskRPT
 from niworkflows.interfaces.registration import EstimateReferenceImage
-from niworkflows.interfaces.utils import CopyXForm
+from niworkflows.interfaces.header import CopyXForm
 from niworkflows.utils.connections import listify
 from niworkflows.utils.misc import pass_dummy_scans as _pass_dummy_scans
 

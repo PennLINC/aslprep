@@ -10,7 +10,7 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from niworkflows.interfaces.masks import SimpleShowMaskRPT
 from niworkflows.interfaces.utility import KeySelect
-from niworkflows.interfaces.utils import GenerateSamplingReference
+from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.utils.spaces import format_reference
 
 from aslprep import config
