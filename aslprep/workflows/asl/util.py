@@ -7,12 +7,12 @@ from niworkflows.interfaces.fixes import (
     FixN4BiasFieldCorrection as N4BiasFieldCorrection,
 )
 from niworkflows.interfaces.header import CopyXForm, ValidateImage
-from niworkflows.interfaces.masks import SimpleShowMaskRPT
-from niworkflows.interfaces.registration import EstimateReferenceImage
+from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
 from niworkflows.utils.connections import listify
 from niworkflows.utils.misc import pass_dummy_scans as _pass_dummy_scans
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
+from aslprep.interfaces.niworkflows import EstimateReferenceImage
 
 
 def init_asl_reference_wf(

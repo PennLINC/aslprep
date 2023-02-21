@@ -6,8 +6,8 @@ from nipype.interfaces import utility as niu
 
 from templateflow.api import get_metadata
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.ants import ImageMath
-from niworkflows.interfaces.mni import RobustMNINormalization
+from nipype.interfaces.ants import ImageMath
+from niworkflows.interfaces.norm import SpatialNormalization
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from ..interfaces.templateflow import TemplateFlowSelect, TemplateDesc
 
@@ -152,7 +152,7 @@ The following template {tpls} selected for spatial normalization:
     trunc_mov = pe.Node(ImageMath(operation='TruncateImageIntensity', op2='0.01 0.999 256'),
                         name='trunc_mov')
 
-    registration = pe.Node(RobustMNINormalization(
+    registration = pe.Node(SpatialNormalization(
         float=True, flavor=['precise', 'testing'][debug],
     ), name='registration', n_procs=omp_nthreads, mem_gb=2)
 

@@ -8,8 +8,8 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-from niworkflows.interfaces.masks import SimpleShowMaskRPT
 from niworkflows.interfaces.nibabel import GenerateSamplingReference
+from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
 from niworkflows.interfaces.utility import KeySelect
 from niworkflows.utils.spaces import format_reference
 
