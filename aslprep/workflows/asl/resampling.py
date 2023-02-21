@@ -9,10 +9,10 @@ from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from niworkflows.interfaces.itk import MultiApplyTransforms
+from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.interfaces.nilearn import Merge
 from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 from niworkflows.interfaces.utility import KeySelect
-from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.utils.spaces import format_reference
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
