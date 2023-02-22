@@ -141,11 +141,7 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
     gen_ref = pe.Node(
         EstimateReferenceImage(multiecho=multiecho), name="gen_ref", mem_gb=1
     )  # OE: 128x128x128x50 * 64 / 8 ~ 900MB.
-    enhance_and_skullstrip_asl_wf = init_enhance_and_skullstrip_asl_wf(
-        brainmask_thresh=brainmask_thresh,
-        omp_nthreads=omp_nthreads,
-        pre_mask=pre_mask,
-    )
+    enhance_and_skullstrip_asl_wf = init_enhance_and_skullstrip_asl_wf(pre_mask=pre_mask)
 
     calc_dummy_scans = pe.Node(
         niu.Function(function=_pass_dummy_scans, output_names=["skip_vols_num"]),
@@ -271,7 +267,7 @@ def init_enhance_and_skullstrip_asl_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
-            wf = init_enhance_and_skullstrip_asl_wf(omp_nthreads=1)
+            wf = init_enhance_and_skullstrip_asl_wf()
 
     .. _N4BiasFieldCorrection: https://hdl.handle.net/10380/3053
 
