@@ -216,7 +216,7 @@ class Reference:
             return FSAVERAGE_LEGACY[self.spec["den"]]
 
     @space.validator
-    def _check_name(self, value):
+    def _check_name(self, attribute, value):  # noqa: U100
         """Check the name."""
         if value.startswith("fsaverage"):
             return
