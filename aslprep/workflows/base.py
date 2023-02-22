@@ -12,7 +12,7 @@ from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
 from niworkflows.interfaces.nilearn import NILEARN_VERSION
 from niworkflows.utils.bids import collect_data
 from niworkflows.utils.misc import fix_multi_T1w_source_name
-from niworkflows.utils.spaces import Reference
+from aslprep.utils.niworkflows import Reference
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary

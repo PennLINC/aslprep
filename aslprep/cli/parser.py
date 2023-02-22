@@ -12,7 +12,7 @@ def _build_parser():
     from functools import partial
     from pathlib import Path
 
-    from niworkflows.utils.spaces import OutputReferencesAction, Reference
+    from aslprep.utils.niworkflows import OutputReferencesAction, Reference
     from packaging.version import Version
 
     from aslprep.cli.version import check_latest, is_flagged
@@ -481,7 +481,7 @@ def parse_args(args=None, namespace=None):
     """Parse args and run further checks on the command line."""
     import logging
 
-    from niworkflows.utils.spaces import Reference, SpatialReferences
+    from aslprep.utils.niworkflows import Reference, SpatialReferences
 
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)

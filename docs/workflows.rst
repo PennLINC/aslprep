@@ -13,7 +13,7 @@ BIDS-valid and include necessary ASL parameters.
     :simple_form: yes
 
     from collections import namedtuple
-    from niworkflows.utils.spaces import Reference, SpatialReferences
+    from aslprep.utils.niworkflows import Reference, SpatialReferences
     from aslprep.workflows.base import init_single_subject_wf
     BIDSLayout = namedtuple('BIDSLayout', ('root'))
     wf = init_single_subject_wf('01')
@@ -30,7 +30,7 @@ averages them into a single reference template.
     :graph2use: orig
     :simple_form: yes
 
-    from niworkflows.utils.spaces import Reference, SpatialReferences
+    from aslprep.utils.niworkflows import Reference, SpatialReferences
     from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
     wf = init_anat_preproc_wf(
         bids_root='.',
@@ -455,7 +455,7 @@ Resampling ASL  and CBF runs onto standard spaces
     :graph2use: colored
     :simple_form: yes
 
-    from niworkflows.utils.spaces import SpatialReferences
+    from aslprep.utils.niworkflows import SpatialReferences
     from aslprep.workflows.asl import init_asl_std_trans_wf
     wf = init_asl_std_trans_wf(
         mem_gb=3,

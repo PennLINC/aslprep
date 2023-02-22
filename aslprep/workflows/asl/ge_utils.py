@@ -11,7 +11,7 @@ from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransf
 from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
 from niworkflows.interfaces.utility import KeySelect
-from niworkflows.utils.spaces import format_reference
+from aslprep.utils.niworkflows import format_reference
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink

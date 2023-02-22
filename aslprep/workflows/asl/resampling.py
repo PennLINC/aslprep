@@ -13,7 +13,7 @@ from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.interfaces.nilearn import Merge
 from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 from niworkflows.interfaces.utility import KeySelect
-from niworkflows.utils.spaces import format_reference
+from aslprep.utils.niworkflows import format_reference
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.utils.misc import (
@@ -203,7 +203,7 @@ def init_asl_std_trans_wf(
             :graph2use: colored
             :simple_form: yes
 
-            from niworkflows.utils.spaces import SpatialReferences
+            from aslprep.utils.niworkflows import SpatialReferences
             from aslprep.workflows.asl import init_asl_std_trans_wf
             wf = init_asl_std_trans_wf(
                 mem_gb=3,
@@ -220,9 +220,9 @@ def init_asl_std_trans_wf(
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
         Maximum number of threads an individual process may use
-    spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
+    spaces : :py:class:`~aslprep.utils.niworkflows.SpatialReferences`
         A container for storing, organizing, and parsing spatial normalizations. Composed of
-        :py:class:`~niworkflows.utils.spaces.Reference` objects representing spatial references.
+        :py:class:`~aslprep.utils.niworkflows.Reference` objects representing spatial references.
         Each ``Reference`` contains a space, which is a string of either TemplateFlow template IDs.
     name : :obj:`str`
         Name of workflow (default: ``asl_std_trans_wf``)

@@ -59,7 +59,7 @@ def init_smriprep_wf(
             BIDSLayout = namedtuple('BIDSLayout', ['root'])
             os.environ['FREESURFER_HOME'] = os.getcwd()
             from aslprep.smriprep.workflows.base import init_smriprep_wf
-            from niworkflows.utils.spaces import SpatialReferences, Reference
+            from aslprep.utils.niworkflows import SpatialReferences, Reference
             wf = init_smriprep_wf(
                 debug=False,
                 fast_track=False,
@@ -113,9 +113,9 @@ def init_smriprep_wf(
         Determiner for T1-weighted skull stripping (`force` ensures skull stripping,
         `skip` ignores skull stripping, and `auto` automatically ignores skull stripping
         if pre-stripped brains are detected).
-    skull_strip_template : :py:class:`~niworkflows.utils.spaces.Reference`
+    skull_strip_template : :py:class:`~aslprep.utils.niworkflows.Reference`
         Spatial reference to use in atlas-based brain extraction.
-    spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
+    spaces : :py:class:`~aslprep.utils.niworkflows.SpatialReferences`
         Object containing standard and nonstandard space specifications.
     subject_list : :obj:`list`
         List of subject labels
@@ -210,7 +210,7 @@ def init_single_subject_wf(
             :simple_form: yes
 
             from collections import namedtuple
-            from niworkflows.utils.spaces import SpatialReferences, Reference
+            from aslprep.utils.niworkflows import SpatialReferences, Reference
             from aslprep.smriprep.workflows.base import init_single_subject_wf
             BIDSLayout = namedtuple('BIDSLayout', ['root'])
             wf = init_single_subject_wf(
@@ -262,9 +262,9 @@ def init_single_subject_wf(
         Determiner for T1-weighted skull stripping (`force` ensures skull stripping,
         `skip` ignores skull stripping, and `auto` automatically ignores skull stripping
         if pre-stripped brains are detected).
-    skull_strip_template : :py:class:`~niworkflows.utils.spaces.Reference`
+    skull_strip_template : :py:class:`~aslprep.utils.niworkflows.Reference`
         Spatial reference to use in atlas-based brain extraction.
-    spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
+    spaces : :py:class:`~aslprep.utils.niworkflows.SpatialReferences`
         Object containing standard and nonstandard space specifications.
     subject_id : :obj:`str`
         List of subject labels

@@ -70,7 +70,7 @@ def init_anat_preproc_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from niworkflows.utils.spaces import SpatialReferences, Reference
+            from aslprep.utils.niworkflows import SpatialReferences, Reference
             from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
             wf = init_anat_preproc_wf(
                 bids_root='.',
@@ -107,9 +107,9 @@ def init_anat_preproc_wf(
         Maximum number of threads an individual process may use
     output_dir : :obj:`str`
         Directory in which to save derivatives
-    skull_strip_template : :py:class:`~niworkflows.utils.spaces.Reference`
+    skull_strip_template : :py:class:`~aslprep.utils.niworkflows.Reference`
         Spatial reference to use in atlas-based brain extraction.
-    spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
+    spaces : :py:class:`~aslprep.utils.niworkflows.SpatialReferences`
         Object containing standard and nonstandard space specifications.
     debug : :obj:`bool`
         Enable debugging outputs

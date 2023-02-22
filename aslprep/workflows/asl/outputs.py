@@ -30,9 +30,9 @@ def init_asl_derivatives_wf(
         Metadata dictionary associated to the ASL run.
     output_dir : :obj:`str`
         Where derivatives should be written out to.
-    spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
+    spaces : :py:class:`~aslprep.utils.niworkflows.SpatialReferences`
         A container for storing, organizing, and parsing spatial normalizations. Composed of
-        :py:class:`~niworkflows.utils.spaces.Reference` objects representing spatial references.
+        :py:class:`~aslprep.utils.niworkflows.Reference` objects representing spatial references.
         Each ``Reference`` contains a space, which is a string of either TemplateFlow template IDs
         (e.g., ``MNI152Lin``, ``MNI152NLin6Asym``, ``MNIPediatricAsym``), nonstandard references
         (e.g., ``T1w`` or ``anat``, ``sbref``, ``run``, etc.), or a custom template located in
@@ -1295,9 +1295,9 @@ def init_geasl_derivatives_wf(
         Metadata dictionary associated to the ASL run.
     output_dir : :obj:`str`
         Where derivatives should be written out to.
-    spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
+    spaces : :py:class:`~aslprep.utils.niworkflows.SpatialReferences`
         A container for storing, organizing, and parsing spatial normalizations. Composed of
-        :py:class:`~niworkflows.utils.spaces.Reference` objects representing spatial references.
+        :py:class:`~aslprep.utils.niworkflows.Reference` objects representing spatial references.
         Each ``Reference`` contains a space, which is a string of either TemplateFlow template IDs
         (e.g., ``MNI152Lin``, ``MNI152NLin6Asym``, ``MNIPediatricAsym``), nonstandard references
         (e.g., ``T1w`` or ``anat``, ``sbref``, ``run``, etc.), or a custom template located in
