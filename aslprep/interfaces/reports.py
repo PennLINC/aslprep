@@ -18,7 +18,6 @@ from nipype.interfaces.base import (
     isdefined,
     traits,
 )
-
 from smriprep.interfaces.freesurfer import ReconAll
 
 SUBJECT_TEMPLATE = """\
