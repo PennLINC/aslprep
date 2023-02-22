@@ -169,7 +169,7 @@ def init_asl_derivatives_wf(
     )
 
     # write transform matrix file between asl native space and T1w
-    ds_itkt12asl = pe.Node(
+    ds_t1w_to_asl_xform = pe.Node(
         DerivativesDataSink(
             base_directory=output_dir,
             to="T1w",
@@ -179,7 +179,7 @@ def init_asl_derivatives_wf(
             dismiss_entities=("echo",),
             **{"from": "scanner"},
         ),
-        name="ds_itkt12asl",
+        name="ds_t1w_to_asl_xform",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
@@ -188,30 +188,34 @@ def init_asl_derivatives_wf(
         [
             (
                 inputnode,
-                ds_itkt12asl,
+                ds_t1w_to_asl_xform,
                 [("source_file", "source_file"), ("itk_asl_to_t1", "in_file")],
             ),
         ]
     )
 
-    itkasl2t1 = pe.Node(
+    ds_asl_to_t1w_xform = pe.Node(
         DerivativesDataSink(
             base_directory=output_dir,
+            dismiss_entities=("echo",),
             to="scanner",
             mode="image",
             suffix="xfm",
             extension=".txt",
-            dismiss_entities=("echo",),
             **{"from": "T1w"},
         ),
-        name="itkasl2t1",
+        name="ds_asl_to_t1w_xform",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
     workflow.connect(
         [
-            (inputnode, itkasl2t1, [("source_file", "source_file"), ("itk_t1_to_asl", "in_file")]),
+            (
+                inputnode,
+                ds_asl_to_t1w_xform,
+                [("source_file", "source_file"), ("itk_t1_to_asl", "in_file")],
+            ),
         ]
     )
 
@@ -1559,7 +1563,7 @@ def init_geasl_derivatives_wf(
     )
 
     # write transform matrix file between asl native space and T1w
-    ds_itkt12asl = pe.Node(
+    ds_t1w_to_asl_xform = pe.Node(
         DerivativesDataSink(
             base_directory=output_dir,
             to="scanner",
@@ -1569,7 +1573,7 @@ def init_geasl_derivatives_wf(
             dismiss_entities=("echo",),
             **{"from": "T1w"},
         ),
-        name="ds_itkt12asl",
+        name="ds_t1w_to_asl_xform",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
@@ -1578,13 +1582,13 @@ def init_geasl_derivatives_wf(
         [
             (
                 inputnode,
-                ds_itkt12asl,
+                ds_t1w_to_asl_xform,
                 [("source_file", "source_file"), ("itk_asl_to_t1", "in_file")],
             ),
         ]
     )
 
-    itkasl2t1 = pe.Node(
+    ds_asl_to_t1w_xform = pe.Node(
         DerivativesDataSink(
             base_directory=output_dir,
             to="T1w",
@@ -1594,14 +1598,18 @@ def init_geasl_derivatives_wf(
             dismiss_entities=("echo",),
             **{"from": "scanner"},
         ),
-        name="itkasl2t1",
+        name="ds_asl_to_t1w_xform",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
     workflow.connect(
         [
-            (inputnode, itkasl2t1, [("source_file", "source_file"), ("itk_t1_to_asl", "in_file")]),
+            (
+                inputnode,
+                ds_asl_to_t1w_xform,
+                [("source_file", "source_file"), ("itk_t1_to_asl", "in_file")],
+            ),
         ]
     )
 
