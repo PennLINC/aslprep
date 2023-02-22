@@ -8,7 +8,7 @@ from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.utility import KeySelect
-from aslprep.smriprep.workflows.outputs import _bids_relative
+from smriprep.workflows.outputs import _bids_relative
 
 
 def init_asl_derivatives_wf(
