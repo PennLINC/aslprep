@@ -419,7 +419,7 @@ def init_asl_std_trans_wf(
     merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb * 3)
 
     # Generate a reference on the target standard space
-    gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
+    gen_final_ref = init_asl_reference_wf(pre_mask=True)
 
     workflow.connect(
         [
@@ -634,7 +634,7 @@ def init_asl_preproc_trans_wf(
     merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb * 3)
 
     # Generate a new asl reference
-    asl_reference_wf = init_asl_reference_wf(omp_nthreads=omp_nthreads)
+    asl_reference_wf = init_asl_reference_wf()
     asl_reference_wf.__desc__ = None  # Unset description to avoid second appearance
 
     workflow.connect(

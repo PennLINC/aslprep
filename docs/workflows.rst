@@ -126,7 +126,7 @@ ASL reference image estimation
     :simple_form: yes
 
     from aslprep.workflows.asl.util import init_asl_reference_wf
-    wf = init_asl_reference_wf(omp_nthreads=1)
+    wf = init_asl_reference_wf()
 
 This workflow estimates a reference image for an
 :abbr:`ASL (Arterial Spin Labelling)` series.

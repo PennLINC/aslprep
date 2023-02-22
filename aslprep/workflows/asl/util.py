@@ -16,10 +16,8 @@ from aslprep.interfaces.niworkflows import EstimateReferenceImage
 
 
 def init_asl_reference_wf(
-    omp_nthreads,
     asl_file=None,
     sbref_files=None,
-    brainmask_thresh=0.1,
     pre_mask=False,
     multiecho=False,
     name="asl_reference_wf",
@@ -37,7 +35,7 @@ def init_asl_reference_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.util import init_asl_reference_wf
-            wf = init_asl_reference_wf(omp_nthreads=1)
+            wf = init_asl_reference_wf()
 
     Parameters
     ----------

@@ -326,7 +326,7 @@ def init_asl_t1_trans_wf(
     merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb)
 
     # Generate a reference on the target T1w space
-    gen_final_ref = init_asl_reference_wf(omp_nthreads, pre_mask=True)
+    gen_final_ref = init_asl_reference_wf(pre_mask=True)
 
     if not multiecho:
         # Merge transforms placing the head motion correction last
