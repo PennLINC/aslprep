@@ -15,7 +15,7 @@ def init_anat_reports_wf(freesurfer, output_dir,
                          name='anat_reports_wf'):
     """Set up a battery of datasinks to store reports in the right location."""
     from niworkflows.interfaces.reportlets.registration import SimpleBeforeAfterRPT
-    from niworkflows.interfaces.masks import ROIsPlot
+    from niworkflows.interfaces.reportlets.masks import ROIsPlot
     from ..interfaces.templateflow import TemplateFlowSelect
 
     workflow = Workflow(name=name)
