@@ -12,10 +12,10 @@ def _build_parser():
     from functools import partial
     from pathlib import Path
 
-    from aslprep.utils.niworkflows import OutputReferencesAction, Reference
     from packaging.version import Version
 
     from aslprep.cli.version import check_latest, is_flagged
+    from aslprep.utils.niworkflows import OutputReferencesAction, Reference
 
     def _path_exists(path, parser):
         """Ensure a given path exists."""

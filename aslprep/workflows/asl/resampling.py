@@ -13,7 +13,6 @@ from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.interfaces.nilearn import Merge
 from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 from niworkflows.interfaces.utility import KeySelect
-from aslprep.utils.niworkflows import format_reference
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.utils.misc import (
@@ -25,6 +24,7 @@ from aslprep.utils.misc import (
     _split_spec,
     select_target,
 )
+from aslprep.utils.niworkflows import format_reference
 from aslprep.workflows.asl.util import init_asl_reference_wf
 
 

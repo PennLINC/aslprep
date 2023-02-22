@@ -11,12 +11,12 @@ from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransf
 from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
 from niworkflows.interfaces.utility import KeySelect
-from aslprep.utils.niworkflows import format_reference
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ge import GeReferenceFile
 from aslprep.utils.misc import _aslist, _is_native, _select_template, _split_spec
+from aslprep.utils.niworkflows import format_reference
 from aslprep.workflows.asl.registration import init_fsl_bbr_wf
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
