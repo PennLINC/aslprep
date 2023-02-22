@@ -10,12 +10,12 @@ from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
 from niworkflows.interfaces.nilearn import NILEARN_VERSION
-from niworkflows.utils.bids import collect_data
 from niworkflows.utils.misc import fix_multi_T1w_source_name
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
 from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
+from aslprep.utils.bids import collect_data
 from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.utils.niworkflows import Reference
 from aslprep.workflows.asl import init_asl_gepreproc_wf, init_asl_preproc_wf
