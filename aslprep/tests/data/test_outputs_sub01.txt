@@ -17,7 +17,7 @@ aslprep/sub-01/perf/sub-01_desc-preproc_asl.json
 aslprep/sub-01/perf/sub-01_desc-preproc_asl.nii.gz
 aslprep/sub-01/perf/sub-01_desc-pvGM_cbf.nii.gz
 aslprep/sub-01/perf/sub-01_desc-pvWM_cbf.nii.gz
-aslprep/sub-01/perf/sub-01_desc-quality_control_cbf.csv
+aslprep/sub-01/perf/sub-01_desc-qualitycontrol_cbf.csv
 aslprep/sub-01/perf/sub-01_atlas-schaefer200x17_desc-mean_basil.csv
 aslprep/sub-01/perf/sub-01_atlas-schaefer200x17_desc-mean_cbf.csv
 aslprep/sub-01/perf/sub-01_atlas-schaefer200x17_desc-mean_pvc.csv

@@ -18,7 +18,7 @@ aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-preproc_asl.json
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-preproc_asl.nii.gz
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-pvGM_cbf.nii.gz
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-pvWM_cbf.nii.gz
-aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-quality_control_cbf.csv
+aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-qualitycontrol_cbf.csv
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_atlas-schaefer200x17_desc-mean_basil.csv
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_atlas-schaefer200x17_desc-mean_cbf.csv
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_atlas-schaefer200x17_desc-mean_pvc.csv
