@@ -47,7 +47,7 @@ def _build_parser():
         return value[4:] if value.startswith("sub-") else value
 
     def _filter_pybids_none_any(dct):
-        from aslprep.pybids import layout
+        from bids import layout
 
         return {k: layout.Query.ANY if v == "*" else v for k, v in dct.items()}
 

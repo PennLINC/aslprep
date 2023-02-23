@@ -176,7 +176,10 @@ def init_single_subject_wf(subject_id):
 
     ds_report_about = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="about", datatype="figures", dismiss_entities=("echo",)
+            base_directory=output_dir,
+            desc="about",
+            datatype="figures",
+            dismiss_entities=("echo",),
         ),
         name="ds_report_about",
         run_without_submitting=True,

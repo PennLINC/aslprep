@@ -11,7 +11,7 @@ import re
 from itertools import compress
 from collections import defaultdict
 from pkg_resources import resource_filename as pkgrf
-from ...pybids.layout import BIDSLayout, add_config_paths
+from bids.layout import BIDSLayout, add_config_paths
 import jinja2
 from nipype.utils.filemanip import copyfile
 
@@ -65,7 +65,7 @@ class Reportlet(Element):
 
     >>> from pkg_resources import resource_filename
     >>> from shutil import copytree
-    >>> from aslprep.pybids.layout import BIDSLayout
+    >>> from bids.layout import BIDSLayout
     >>> test_data_path = resource_filename('niworkflows', 'data/tests/work')
     >>> testdir = Path(tmpdir)
     >>> data_dir = copytree(test_data_path, str(testdir / 'work'))
@@ -217,7 +217,7 @@ class Report:
 
     >>> from pkg_resources import resource_filename
     >>> from shutil import copytree
-    >>> from aslprep.pybids.layout import BIDSLayout
+    >>> from bids.layout import BIDSLayout
     >>> test_data_path = resource_filename('niworkflows', 'data/tests/work')
     >>> testdir = Path(tmpdir)
     >>> data_dir = copytree(test_data_path, str(testdir / 'work'))
