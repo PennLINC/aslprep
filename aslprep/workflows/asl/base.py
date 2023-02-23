@@ -445,7 +445,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         [
             (inputnode, t1w_brain, [("t1w_preproc", "in_file"), ("t1w_mask", "in_mask")]),
             # Generate early reference
-            (inputnode, asl_reference_wf, [("asl_file", "inputnode.asl_file")]),
+            (inputnode, asl_reference_wf, [("asl_file", "inputnode.bold_file")]),
             # asl buffer has slice-time corrected if it was run, original otherwise
             (aslbuffer, asl_split, [("asl_file", "in_file")]),
             # HMC

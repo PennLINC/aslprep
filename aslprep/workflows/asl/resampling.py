@@ -445,9 +445,9 @@ def init_asl_std_trans_wf(
             (gen_ref, asl_to_std_transform, [("out_file", "reference_image")]),
             (gen_ref, mask_std_tfm, [("out_file", "reference_image")]),
             (mask_merge_tfms, mask_std_tfm, [("out", "transforms")]),
-            (mask_std_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
+            (mask_std_tfm, gen_final_ref, [("output_image", "inputnode.bold_mask")]),
             (asl_to_std_transform, merge, [("out_files", "in_files")]),
-            (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
+            (merge, gen_final_ref, [("out_file", "inputnode.bold_file")]),
         ]
     )
 
@@ -645,7 +645,7 @@ def init_asl_preproc_trans_wf(
         [
             (inputnode, merge, [("name_source", "header_source")]),
             (asl_transform, merge, [("out_files", "in_files")]),
-            (merge, asl_reference_wf, [("out_file", "inputnode.asl_file")]),
+            (merge, asl_reference_wf, [("out_file", "inputnode.bold_file")]),
             (merge, outputnode, [("out_file", "asl")]),
             (
                 asl_reference_wf,
@@ -653,7 +653,7 @@ def init_asl_preproc_trans_wf(
                 [
                     ("outputnode.ref_image", "asl_ref"),
                     ("outputnode.ref_image_brain", "asl_ref_brain"),
-                    ("outputnode.asl_mask", "asl_mask"),
+                    ("outputnode.bold_mask", "asl_mask"),
                 ],
             ),
         ]
