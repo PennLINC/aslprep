@@ -79,7 +79,9 @@ Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file.
     fsl2itk = pe.Node(MCFLIRT2ITK(), name="fsl2itk", mem_gb=0.05, n_procs=omp_nthreads)
 
     normalize_motion = pe.Node(
-        NormalizeMotionParams(format="FSL"), name="normalize_motion", mem_gb=DEFAULT_MEMORY_MIN_GB,
+        NormalizeMotionParams(format="FSL"),
+        name="normalize_motion",
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
     # fmt:off

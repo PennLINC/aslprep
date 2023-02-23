@@ -330,7 +330,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # HMC on the asl
     asl_hmc_wf = init_asl_hmc_wf(
-        name="asl_hmc_wf", mem_gb=mem_gb["filesize"], omp_nthreads=omp_nthreads,
+        name="asl_hmc_wf",
+        mem_gb=mem_gb["filesize"],
+        omp_nthreads=omp_nthreads,
     )
 
     # calculate asl registration to T1w
@@ -410,7 +412,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # SDC (SUSCEPTIBILITY DISTORTION CORRECTION) or bypass ##########################
     asl_sdc_wf = init_sdc_estimate_wf(
-        fmaps, metadata, omp_nthreads=omp_nthreads, debug=config.execution.debug,
+        fmaps,
+        metadata,
+        omp_nthreads=omp_nthreads,
+        debug=config.execution.debug,
     )
 
     # MULTI-ECHO EPI DATA #############################################
@@ -577,7 +582,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:on
 
     refine_mask = pe.Node(
-        RefineMask(), mem_gb=1.0, run_without_submitting=True, name="refine_mask",
+        RefineMask(),
+        mem_gb=1.0,
+        run_without_submitting=True,
+        name="refine_mask",
     )
     # fmt:off
     workflow.connect([
