@@ -185,7 +185,7 @@ def write_derivative_description(bids_dir, deriv_dir):
     >>> from pathlib import Path
     >>> from tempfile import TemporaryDirectory
     >>> tmpdir = TemporaryDirectory()
-    >>> bids_dir = resource_filename('smriprep', 'data/tests')
+    >>> bids_dir = resource_filename('smriprep', 'tests/data')
     >>> deriv_desc = Path(tmpdir.name) / 'dataset_description.json'
 
     .. doctest::

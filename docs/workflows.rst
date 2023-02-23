@@ -209,7 +209,6 @@ Confounds estimation
 Calculated confounds include frame-wise displacement, 6 motion parameters, and DVARS.
 
 
-
 Susceptibility Distortion Correction (SDC)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 One of the major problems that affects :abbr:`EPI (echo planar imaging)` data
@@ -273,7 +272,7 @@ CBF Computation in native space
 
     from aslprep.workflows.asl.cbf import init_cbf_compt_wf
 
-    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
+    bids_dir=Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
     metadata_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
     with open(metadata_file) as f:
         metadata = json.load(f)
@@ -411,7 +410,7 @@ Quality control measures
 
     from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
 
-    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
+    bids_dir=Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
     asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
     metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
     wf = init_cbfqc_compt_wf(asl_file=str(asl_file), metadata=str(metadata))
