@@ -153,10 +153,11 @@ Head-motion estimation
     :graph2use: colored
     :simple_form: yes
 
-    from aslprep.workflows.asl import init_asl_hmc_wf # Is this still what it's called?
+    from aslprep.workflows.asl.hmc import init_asl_hmc_wf
     wf = init_asl_hmc_wf(
         mem_gb=1,
-        omp_nthreads=1)
+        omp_nthreads=1,
+    )
 
 Using the previously :ref:`estimated reference scan <asl_ref>`,
 FSL ``mcflirt`` or AFNI ``3dvolreg`` is used to estimate head-motion.
@@ -178,11 +179,14 @@ Slice time correction
     :graph2use: colored
     :simple_form: yes
 
-    from aslprep.workflows.asl import init_asl_stc_wf
+    from aslprep.workflows.asl.stc import init_asl_stc_wf
+
     wf = init_asl_stc_wf(
-        metadata={'RepetitionTime': 2.0,
-                  'SliceTiming': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]},
-        )
+        metadata={
+            'RepetitionTime': 2.0,
+            'SliceTiming': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+        },
+    )
 
 If the ``SliceTiming`` field is available within the input dataset metadata,
 this workflow performs slice time correction prior to other signal resampling
@@ -235,14 +239,18 @@ See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 Preprocessed ASL in native space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-:py:func:`~aslprep.workflows.asl.init_asl_preproc_trans_wf`
+:py:func:`~aslprep.workflows.asl.resampling.init_asl_preproc_trans_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.workflows.asl import init_asl_preproc_trans_wf
-    wf = init_asl_preproc_trans_wf(mem_gb=3, omp_nthreads=1)
+    from aslprep.workflows.asl.resampling import init_asl_preproc_trans_wf
+
+    wf = init_asl_preproc_trans_wf(
+        mem_gb=3,
+        omp_nthreads=1,
+    )
 
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
 from either the slice-timing corrected data or the original data (if
@@ -434,7 +442,8 @@ ASL and CBF to T1w registration
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.workflows.asl import init_asl_reg_wf
+    from aslprep.workflows.asl.registration import init_asl_reg_wf
+
     wf = init_asl_reg_wf(
         use_bbr=True,
         asl2t1w_dof=6,
@@ -468,14 +477,16 @@ Resampling ASL and CBF runs onto standard spaces
     :simple_form: yes
 
     from aslprep.niworkflows.utils.spaces import SpatialReferences
-    from aslprep.workflows.asl import init_asl_std_trans_wf
+    from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 
     wf = init_asl_std_trans_wf(
         mem_gb=3,
         omp_nthreads=1,
         spaces=SpatialReferences(
-        spaces=[('MNI152Lin', {})],
-        checkpoint=True))
+            spaces=[('MNI152Lin', {})],
+            checkpoint=True,
+        ),
+    )
 
 This sub-workflow concatenates the transforms calculated upstream (see
 `Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_) if
