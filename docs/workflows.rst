@@ -223,8 +223,7 @@ Susceptibility Distortion Correction (SDC)
 One of the major problems that affects :abbr:`EPI (echo planar imaging)` data
 is the spatial distortion caused by the inhomogeneity of the field inside
 the scanner.
-Please refer to :doc:`sdc` for details on the
-available workflows.
+Please refer to :doc:`sdc` for details on the available workflows.
 
 .. figure:: _static/unwarping.svg
 
@@ -313,13 +312,13 @@ subtracted:
 
 The CBF computation of either single or multiple PLD (post labelling delay)
 is done using a relatively simple model. For P/CASL (pseudo continuous ASL), CBF
-is calculated by using a general kinetic model :footcite:p:`buxton1998general``:
+is calculated by using a general kinetic model :footcite:p:`buxton1998general`:
 
 .. math::
    CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{- \tau / T1_{blood} }) }
 
 
-PASL (Pulsed ASL) is also computed by the QUIPSS model :footcite:p:`wong1998quantitative``:
+PASL (Pulsed ASL) is also computed by the QUIPSS model :footcite:p:`wong1998quantitative`:
 
 
 .. math::
