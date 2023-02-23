@@ -211,36 +211,45 @@ model [@kinetic].
 
         return os.path.dirname(file)
 
-    workflow.connect(
-        [
-            # extract CBF data and compute cbf
-            (inputnode, extractcbf, [("in_file", "in_file"), ("asl_file", "asl_file")]),
-            (extractcbf, computecbf, [("out_file", "in_cbf"), ("out_avg", "in_m0file")]),
-            # (inputnode,computecbf,[('asl_mask','in_mask')]),
-            (
-                inputnode,
-                refinemaskj,
-                [
-                    ("t1w_mask", "in_t1mask"),
-                    ("asl_mask", "in_aslmask"),
-                    ("t1_asl_xform", "transforms"),
-                ],
-            ),
-            (refinemaskj, extractcbf, [("out_mask", "in_mask")]),
-            (refinemaskj, computecbf, [("out_mask", "in_mask")]),
-            (computecbf, outputnode, [("out_cbf", "out_cbf"), ("out_mean", "out_mean")]),
-            (
-                inputnode,
-                csf_tfm,
-                [("asl_mask", "reference_image"), ("t1_asl_xform", "transforms")],
-            ),
-            (inputnode, csf_tfm, [(("t1w_tpms", _pick_csf), "input_image")]),
-            (inputnode, wm_tfm, [("asl_mask", "reference_image"), ("t1_asl_xform", "transforms")]),
-            (inputnode, wm_tfm, [(("t1w_tpms", _pick_wm), "input_image")]),
-            (inputnode, gm_tfm, [("asl_mask", "reference_image"), ("t1_asl_xform", "transforms")]),
-            (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        # extract CBF data and compute cbf
+        (inputnode, extractcbf, [
+            ("in_file", "in_file"),
+            ("asl_file", "asl_file"),
+        ]),
+        (extractcbf, computecbf, [
+            ("out_file", "in_cbf"),
+            ("out_avg", "in_m0file"),
+        ]),
+        (inputnode, refinemaskj, [
+            ("t1w_mask", "in_t1mask"),
+            ("asl_mask", "in_aslmask"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (refinemaskj, extractcbf, [("out_mask", "in_mask")]),
+        (refinemaskj, computecbf, [("out_mask", "in_mask")]),
+        (computecbf, outputnode, [
+            ("out_cbf", "out_cbf"),
+            ("out_mean", "out_mean"),
+        ]),
+        (inputnode, csf_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (inputnode, csf_tfm, [(("t1w_tpms", _pick_csf), "input_image")]),
+        (inputnode, wm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (inputnode, wm_tfm, [(("t1w_tpms", _pick_wm), "input_image")]),
+        (inputnode, gm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
+    ])
+    # fmt:on
 
     if scorescrub:
         workflow.__desc__ = (
@@ -254,25 +263,22 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
 [@score_dolui;@scrub_dolui].
 """
         )
-        workflow.connect(
-            [
-                (refinemaskj, scorescrub, [("out_mask", "in_mask")]),
-                (computecbf, scorescrub, [("out_cbf", "in_file")]),
-                (gm_tfm, scorescrub, [("output_image", "in_greyM")]),
-                (wm_tfm, scorescrub, [("output_image", "in_whiteM")]),
-                (csf_tfm, scorescrub, [("output_image", "in_csf")]),
-                (
-                    scorescrub,
-                    outputnode,
-                    [
-                        ("out_score", "out_score"),
-                        ("out_scoreindex", "out_scoreindex"),
-                        ("out_avgscore", "out_avgscore"),
-                        ("out_scrub", "out_scrub"),
-                    ],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (refinemaskj, scorescrub, [("out_mask", "in_mask")]),
+            (computecbf, scorescrub, [("out_cbf", "in_file")]),
+            (gm_tfm, scorescrub, [("output_image", "in_greyM")]),
+            (wm_tfm, scorescrub, [("output_image", "in_whiteM")]),
+            (csf_tfm, scorescrub, [("output_image", "in_csf")]),
+            (scorescrub, outputnode, [
+                ("out_score", "out_score"),
+                ("out_scoreindex", "out_scoreindex"),
+                ("out_avgscore", "out_avgscore"),
+                ("out_scrub", "out_scrub"),
+            ]),
+        ])
+        # fmt:on
+
     if basil:
         workflow.__desc__ += f"""
 
@@ -281,27 +287,22 @@ as implemented in *FSL* {Info.version().split(':')[0]}. BASIL computes CBF using
 regularization of the estimated perfusion image and additionally calculates a partial-volume
 corrected CBF image [@chappell_pvc].
 """
-
-        workflow.connect(
-            [
-                (refinemaskj, basilcbf, [("out_mask", "mask")]),
-                (extractcbf, basilcbf, [(("out_avg", _getfiledir), "out_basename")]),
-                (extractcbf, basilcbf, [("out_file", "in_file")]),
-                (gm_tfm, basilcbf, [("output_image", "pvgm")]),
-                (wm_tfm, basilcbf, [("output_image", "pvwm")]),
-                (extractcbf, basilcbf, [("out_avg", "mzero")]),
-                (
-                    basilcbf,
-                    outputnode,
-                    [
-                        ("out_cbfb", "out_cbfb"),
-                        ("out_cbfpv", "out_cbfpv"),
-                        ("out_cbfpvwm", "out_cbfpvwm"),
-                        ("out_att", "out_att"),
-                    ],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (refinemaskj, basilcbf, [("out_mask", "mask")]),
+            (extractcbf, basilcbf, [(("out_avg", _getfiledir), "out_basename")]),
+            (extractcbf, basilcbf, [("out_file", "in_file")]),
+            (gm_tfm, basilcbf, [("output_image", "pvgm")]),
+            (wm_tfm, basilcbf, [("output_image", "pvwm")]),
+            (extractcbf, basilcbf, [("out_avg", "mzero")]),
+            (basilcbf, outputnode, [
+                ("out_cbfb", "out_cbfb"),
+                ("out_cbfpv", "out_cbfpv"),
+                ("out_cbfpvwm", "out_cbfpvwm"),
+                ("out_att", "out_att"),
+            ]),
+        ])
+        # fmt:on
 
     return workflow
 
@@ -421,70 +422,67 @@ negative CBF values.
         mem_gb=0.2,
     )
 
-    workflow.connect(
-        [
-            (
-                inputnode,
-                csf_tfm,
-                [("asl_mask", "reference_image"), ("t1_asl_xform", "transforms")],
-            ),
-            (inputnode, csf_tfm, [(("t1w_tpms", _pick_csf), "input_image")]),
-            (inputnode, wm_tfm, [("asl_mask", "reference_image"), ("t1_asl_xform", "transforms")]),
-            (inputnode, wm_tfm, [(("t1w_tpms", _pick_wm), "input_image")]),
-            (inputnode, gm_tfm, [("asl_mask", "reference_image"), ("t1_asl_xform", "transforms")]),
-            (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
-            (
-                inputnode,
-                mask_tfm,
-                [
-                    ("asl_mask", "reference_image"),
-                    ("t1_asl_xform", "transforms"),
-                    ("t1w_mask", "input_image"),
-                ],
-            ),
-            (mask_tfm, qccompute, [("output_image", "in_t1mask")]),
-            (inputnode, qccompute, [("asl_mask", "in_aslmask"), ("confmat", "in_confmat")]),
-            (inputnode, qccompute, [(("asl_mask_std", _pick_csf), "in_aslmaskstd")]),
-            (inputnode, qccompute, [("rmsd_file", "rmsd_file")]),
-            (inputnode, resample, [(("asl_mask_std", _pick_csf), "master")]),
-            (resample, qccompute, [("out_file", "in_templatemask")]),
-            (gm_tfm, qccompute, [("output_image", "in_greyM")]),
-            (wm_tfm, qccompute, [("output_image", "in_whiteM")]),
-            (csf_tfm, qccompute, [("output_image", "in_csf")]),
-            (
-                inputnode,
-                qccompute,
-                [("meancbf", "in_meancbf")],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, csf_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (inputnode, csf_tfm, [(("t1w_tpms", _pick_csf), "input_image")]),
+        (inputnode, wm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (inputnode, wm_tfm, [(("t1w_tpms", _pick_wm), "input_image")]),
+        (inputnode, gm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
+        (inputnode, mask_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+            ("t1w_mask", "input_image"),
+        ]),
+        (mask_tfm, qccompute, [("output_image", "in_t1mask")]),
+        (inputnode, qccompute, [
+            ("asl_mask", "in_aslmask"),
+            ("confmat", "in_confmat"),
+        ]),
+        (inputnode, qccompute, [(("asl_mask_std", _pick_csf), "in_aslmaskstd")]),
+        (inputnode, qccompute, [("rmsd_file", "rmsd_file")]),
+        (inputnode, resample, [(("asl_mask_std", _pick_csf), "master")]),
+        (resample, qccompute, [("out_file", "in_templatemask")]),
+        (gm_tfm, qccompute, [("output_image", "in_greyM")]),
+        (wm_tfm, qccompute, [("output_image", "in_whiteM")]),
+        (csf_tfm, qccompute, [("output_image", "in_csf")]),
+        (inputnode, qccompute, [("meancbf", "in_meancbf")]),
+    ])
+    # fmt:on
 
     if scorescrub:
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    qccompute,
-                    [
-                        ("scrub", "in_scrub"),
-                        ("avgscore", "in_avgscore"),
-                    ],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, qccompute, [
+                ("scrub", "in_scrub"),
+                ("avgscore", "in_avgscore"),
+            ]),
+        ])
+        # fmt:on
 
     if basil:
-        workflow.connect(
-            [
-                (inputnode, qccompute, [("basil", "in_basil"), ("pv", "in_pvc")]),
-            ]
-        ),
+        # fmt:off
+        workflow.connect([
+            (inputnode, qccompute, [
+                ("basil", "in_basil"),
+                ("pv", "in_pvc"),
+            ]),
+        ])
+        # fmt:on
 
-    workflow.connect(
-        [
-            (qccompute, outputnode, [("qc_file", "qc_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([(qccompute, outputnode, [("qc_file", "qc_file")])])
+    # fmt:on
 
     return workflow
 
@@ -562,13 +560,13 @@ def init_cbfgeqc_compt_wf(
         return files[1]
 
     csf_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="csf_tfm", mem_gb=0.1
+        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="csf_tfm", mem_gb=0.1,
     )
     wm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="wm_tfm", mem_gb=0.1
+        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="wm_tfm", mem_gb=0.1,
     )
     gm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="gm_tfm", mem_gb=0.1
+        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="gm_tfm", mem_gb=0.1,
     )
 
     mask_tfm = pe.Node(
@@ -582,7 +580,7 @@ def init_cbfgeqc_compt_wf(
     )
 
     resample = pe.Node(
-        Resample(in_file=brain_mask, outputtype="NIFTI_GZ"), name="resample", mem_gb=0.1
+        Resample(in_file=brain_mask, outputtype="NIFTI_GZ"), name="resample", mem_gb=0.1,
     )
 
     qccompute = pe.Node(
@@ -592,70 +590,58 @@ def init_cbfgeqc_compt_wf(
         mem_gb=0.2,
     )
 
-    workflow.connect(
-        [
-            (
-                inputnode,
-                csf_tfm,
-                [("asl_mask", "reference_image"), ("t1_asl_xform", "transforms")],
-            ),
-            (inputnode, csf_tfm, [(("t1w_tpms", _pick_csf), "input_image")]),
-            (inputnode, wm_tfm, [("asl_mask", "reference_image"), ("t1_asl_xform", "transforms")]),
-            (inputnode, wm_tfm, [(("t1w_tpms", _pick_wm), "input_image")]),
-            (inputnode, gm_tfm, [("asl_mask", "reference_image"), ("t1_asl_xform", "transforms")]),
-            (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
-            (
-                inputnode,
-                mask_tfm,
-                [
-                    ("asl_mask", "reference_image"),
-                    ("t1_asl_xform", "transforms"),
-                    ("t1w_mask", "input_image"),
-                ],
-            ),
-            (mask_tfm, qccompute, [("output_image", "in_t1mask")]),
-            (
-                inputnode,
-                qccompute,
-                [
-                    ("asl_mask", "in_aslmask"),
-                ],
-            ),
-            (inputnode, qccompute, [(("asl_mask_std", _pick_csf), "in_aslmaskstd")]),
-            (inputnode, resample, [(("asl_mask_std", _pick_csf), "master")]),
-            (resample, qccompute, [("out_file", "in_templatemask")]),
-            (gm_tfm, qccompute, [("output_image", "in_greyM")]),
-            (wm_tfm, qccompute, [("output_image", "in_whiteM")]),
-            (csf_tfm, qccompute, [("output_image", "in_csf")]),
-            (inputnode, qccompute, [("meancbf", "in_meancbf")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, csf_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (inputnode, csf_tfm, [(("t1w_tpms", _pick_csf), "input_image")]),
+        (inputnode, wm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (inputnode, wm_tfm, [(("t1w_tpms", _pick_wm), "input_image")]),
+        (inputnode, gm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+        (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
+        (inputnode, mask_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+            ("t1w_mask", "input_image"),
+        ]),
+        (mask_tfm, qccompute, [("output_image", "in_t1mask")]),
+        (inputnode, qccompute, [("asl_mask", "in_aslmask")]),
+        (inputnode, qccompute, [(("asl_mask_std", _pick_csf), "in_aslmaskstd")]),
+        (inputnode, resample, [(("asl_mask_std", _pick_csf), "master")]),
+        (resample, qccompute, [("out_file", "in_templatemask")]),
+        (gm_tfm, qccompute, [("output_image", "in_greyM")]),
+        (wm_tfm, qccompute, [("output_image", "in_whiteM")]),
+        (csf_tfm, qccompute, [("output_image", "in_csf")]),
+        (inputnode, qccompute, [("meancbf", "in_meancbf")]),
+    ])
+    # fmt:on
+
     if scorescrub:
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    qccompute,
-                    [
-                        ("scrub", "in_scrub"),
-                        ("avgscore", "in_avgscore"),
-                    ],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, qccompute, [
+                ("scrub", "in_scrub"),
+                ("avgscore", "in_avgscore"),
+            ]),
+        ])
+        # fmt:on
 
     if basil:
-        workflow.connect(
-            [
-                (inputnode, qccompute, [("basil", "in_basil"), ("pv", "in_pvc")]),
-            ]
-        ),
+        # fmt:off
+        workflow.connect([(inputnode, qccompute, [("basil", "in_basil"), ("pv", "in_pvc")])])
+        # fmt:on
 
-    workflow.connect(
-        [
-            (qccompute, outputnode, [("qc_file", "qc_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([(qccompute, outputnode, [("qc_file", "qc_file")])])
+    # fmt:on
     return workflow
 
 
@@ -734,28 +720,24 @@ def init_cbfplot_wf(
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    workflow.connect(
-        [
-            (inputnode, mrg_xfms, [("t1_asl_xform", "in2"), ("std2anat_xfm", "in1")]),
-            (inputnode, resample_parc, [("asl_mask", "reference_image")]),
-            (mrg_xfms, resample_parc, [("out", "transforms")]),
-            (resample_parc, cbftssummary, [("output_image", "seg_file")]),
-            (
-                inputnode,
-                cbftssummary,
-                [
-                    ("cbf_ts", "cbf_ts"),
-                    ("confounds_file", "conf_file"),
-                    ("scoreindex", "score_file"),
-                ],
-            ),
-            (cbftssummary, ds_report_cbftsplot, [("out_file", "in_file")]),
-            (cbftssummary, outputnode, [("out_file", "cbf_carpetplot")]),
-            (inputnode, cbfsummary, [("cbf", "cbf"), ("asl_ref", "ref_vol")]),
-            (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
-            (cbfsummary, outputnode, [("out_file", "cbf_summary_plot")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, mrg_xfms, [("t1_asl_xform", "in2"), ("std2anat_xfm", "in1")]),
+        (inputnode, resample_parc, [("asl_mask", "reference_image")]),
+        (mrg_xfms, resample_parc, [("out", "transforms")]),
+        (resample_parc, cbftssummary, [("output_image", "seg_file")]),
+        (inputnode, cbftssummary, [
+            ("cbf_ts", "cbf_ts"),
+            ("confounds_file", "conf_file"),
+            ("scoreindex", "score_file"),
+        ]),
+        (cbftssummary, ds_report_cbftsplot, [("out_file", "in_file")]),
+        (cbftssummary, outputnode, [("out_file", "cbf_carpetplot")]),
+        (inputnode, cbfsummary, [("cbf", "cbf"), ("asl_ref", "ref_vol")]),
+        (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
+        (cbfsummary, outputnode, [("out_file", "cbf_summary_plot")]),
+    ])
+    # fmt:on
 
     if scorescrub:
         scoresummary = pe.Node(CBFSummary(label="score", vmax=90), name="score_summary", mem_gb=1)
