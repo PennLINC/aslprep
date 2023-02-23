@@ -128,7 +128,7 @@ ASL reference image estimation
     :simple_form: yes
 
     from niworkflows.func.util import init_bold_reference_wf
-    wf = init_bold_reference_wf(brainmask_thresh=0.1)
+    wf = init_bold_reference_wf(omp_nthreads=1, brainmask_thresh=0.1)
 
 This workflow estimates a reference image for an
 :abbr:`ASL (Arterial Spin Labelling)` series.

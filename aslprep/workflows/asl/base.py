@@ -320,7 +320,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
 
     # Generate a tentative aslref
-    asl_reference_wf = init_bold_reference_wf(brainmask_thresh=0.1)
+    asl_reference_wf = init_bold_reference_wf(omp_nthreads=omp_nthreads, brainmask_thresh=0.1)
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
     if sbref_file is not None:
         workflow.connect(
