@@ -6,9 +6,8 @@ import os
 import sys
 from pathlib import Path
 
+from bids.layout import BIDSLayout
 from niworkflows.utils.bids import group_multiecho
-
-from aslprep.pybids import BIDSLayout
 
 
 def collect_data(
