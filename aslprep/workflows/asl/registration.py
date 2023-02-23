@@ -9,6 +9,7 @@ from nipype.interfaces import c3, fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.func.util import init_bold_reference_wf
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from niworkflows.interfaces.itk import MultiApplyTransforms
 from niworkflows.interfaces.nibabel import GenerateSamplingReference
@@ -19,7 +20,6 @@ from niworkflows.utils.images import dseg_label
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.utils.misc import _conditional_downsampling
-from niworkflows.func.util import init_bold_reference_wf
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow

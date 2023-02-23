@@ -7,6 +7,7 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.func.util import init_bold_reference_wf
 from niworkflows.interfaces.nibabel import ApplyMask
 from niworkflows.interfaces.utility import KeySelect
 
@@ -33,7 +34,6 @@ from aslprep.workflows.asl.resampling import (
 )
 from aslprep.workflows.asl.stc import init_asl_stc_wf
 from aslprep.workflows.asl.t2s import init_asl_t2s_wf
-from niworkflows.func.util import init_bold_reference_wf
 
 
 def init_asl_preproc_wf(asl_file):
