@@ -6,6 +6,7 @@ import os
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
+from sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
@@ -15,7 +16,6 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.func.util import init_asl_reference_wf
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
-from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.meepi import combine_meepi_source
 from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
 from aslprep.workflows.asl.cbf import (
@@ -662,7 +662,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
 
     if fmaps:
-        from aslprep.sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
+        from sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
 
         # Report on asl correction
         fmap_unwarp_report_wf = init_sdc_unwarp_report_wf()
