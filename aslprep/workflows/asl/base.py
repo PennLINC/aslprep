@@ -454,7 +454,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 asl_hmc_wf,
                 [
                     ("outputnode.raw_ref_image", "inputnode.raw_ref_image"),
-                    ("outputnode.asl_file", "inputnode.asl_file"),
+                    ("outputnode.bold_file", "inputnode.asl_file"),
                 ],
             ),
             # (asl_reference_wf, summary, [
@@ -501,7 +501,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 [
                     ("outputnode.ref_image", "inputnode.epi_file"),
                     ("outputnode.ref_image_brain", "inputnode.epi_brain"),
-                    ("outputnode.asl_mask", "inputnode.epi_mask"),
+                    ("outputnode.bold_mask", "inputnode.epi_mask"),
                 ],
             ),
             (
