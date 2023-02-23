@@ -137,11 +137,6 @@ def init_asl_gepreproc_wf(asl_file):
     * :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
     * :py:func:`~aslprep.workflows.asl.resampling.init_asl_preproc_trans_wf`
     * :py:func:`~aslprep.workflows.asl.resampling.init_asl_surf_wf`
-    * :py:func:`~sdcflows.workflows.fmap.init_fmap_wf`
-    * :py:func:`~sdcflows.workflows.pepolar.init_pepolar_unwarp_wf`
-    * :py:func:`~sdcflows.workflows.phdiff.init_phdiff_wf`
-    * :py:func:`~sdcflows.workflows.syn.init_syn_sdc_wf`
-    * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
     """
     ref_file = asl_file
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}

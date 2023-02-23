@@ -7,6 +7,7 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
 from sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
+from sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
@@ -662,8 +663,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
 
     if fmaps:
-        from sdcflows.workflows.outputs import init_sdc_unwarp_report_wf
-
         # Report on asl correction
         fmap_unwarp_report_wf = init_sdc_unwarp_report_wf()
         workflow.connect(
