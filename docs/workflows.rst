@@ -30,7 +30,7 @@ averages them into a single reference template.
     :simple_form: yes
 
     from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
-    from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
+    from smriprep.workflows.anatomical import init_anat_preproc_wf
     wf = init_anat_preproc_wf(
         bids_root='.',
         freesurfer=False,
@@ -51,7 +51,7 @@ averages them into a single reference template.
     )
 
 See also *sMRIPrep*'s
-:py:func:`~aslprep.smriprep.workflows.anatomical.init_anat_preproc_wf`.
+:py:func:`~smriprep.workflows.anatomical.init_anat_preproc_wf`.
 
 
 Brain extraction, brain tissue segmentation and spatial normalization
@@ -351,7 +351,7 @@ over all PLDs at time = t :footcite:p:`dai2012reduced`.
 .. math::
    CBF_{t} =\frac {\sum_{i}^{NPLDs} PLD_{i} * CBF_{i}} { \sum_{i}^{NPLDs} PLD_{i} }
 
-ASLPrep includes option of CBF denoising  by  SCORE and SCRUB.
+ASLPrep includes option of CBF denoising by SCORE and SCRUB.
 Structural Correlation based Outlier Rejection (SCORE) :footcite:p:`dolui2017structural` detects and discards
 extreme outliers in the CBF volume(s) from the CBF time series.
 SCORE first discards CBF volumes whose CBF within grey matter (GM)
