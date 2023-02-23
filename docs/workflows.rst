@@ -313,13 +313,13 @@ subtracted:
 
 The CBF computation of either single or multiple PLD (post labelling delay)
 is done using a relatively simple model. For P/CASL (pseudo continuous ASL), CBF
-is calculated by using a general kinetic model [Buxton1998]_:
+is calculated by using a general kinetic model :footcite:p:`buxton1998general``:
 
 .. math::
    CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{- \tau / T1_{blood} }) }
 
 
-PASL (Pulsed ASL) is also computed by the QUIPSS model [Wong1998]_:
+PASL (Pulsed ASL) is also computed by the QUIPSS model :footcite:p:`wong1998quantitative``:
 
 
 .. math::
@@ -344,14 +344,15 @@ Mean CBF is computed from the average of CBF timeseries.
 
    Computed CBF maps
 
-For multi-PLDs (Post Labeling Delay) ASL data, the CBF is first computed for each PLD and the weighted average CBF is computed
-over all PLDs at time = t,([Daiw2012]_).
+For multi-PLDs (Post Labeling Delay) ASL data,
+the CBF is first computed for each PLD and the weighted average CBF is computed
+over all PLDs at time = t :footcite:p:`dai2012reduced`.
 
 .. math::
    CBF_{t} =\frac {\sum_{i}^{NPLDs} PLD_{i} * CBF_{i}} { \sum_{i}^{NPLDs} PLD_{i} }
 
 ASLPrep includes option of CBF denoising  by  SCORE and SCRUB.
-Structural Correlation based Outlier Rejection (SCORE) ([Dolui2017]_) detects and discards
+Structural Correlation based Outlier Rejection (SCORE) :footcite:p:`dolui2017structural` detects and discards
 extreme outliers in the CBF volume(s) from the CBF time series.
 SCORE first discards CBF volumes whose CBF within grey matter (GM)
 means are 2.5 standard deviations away from the median of the CBF within GM.
@@ -368,7 +369,7 @@ The mean CBF after denoising by SCORE is plotted below
 
 After discarding extreme outlier CBF volume(s) (if present) by SCORE,
 SCRUB (Structural Correlation with RobUst Bayesian) uses robust Bayesian estimation
-of CBF using iterative reweighted least square method [Dolui2016]_ to denoise CBF.
+of CBF using iterative reweighted least square method :footcite:p:`dolui2016scrub` to denoise CBF.
 The SCRUB algorithm is described below:
 
 .. math::
@@ -389,9 +390,10 @@ An example of CBF denoised by SCRUB is shown below.
 
 *ASLPrep* also includes option of CBF computation by Bayesian Inference for Arterial Spin Labeling
 `(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_. BASIL also implements a simple kinetic model as
-described above, but using Bayesian Inference principles ([Chappell2009]_).
+described above, but using Bayesian Inference principles :footcite:p:`chappell2008variational`.
 BASIL is mostly suitable for multi-PLD. It includes bolus arrival time estimation
-with spatial regularization [Groves2009]_ and the correction of partial volume effects [Chappell2011]_.
+with spatial regularization :footcite:p:`groves2009combined`
+and the correction of partial volume effects :footcite:p:`chappell2011partial`.
 
 The sample of BASIL CBF with spatial regularization is shown below:
 
@@ -420,14 +422,15 @@ Quality control measures
 
     from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
 
-    bids_dir=Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
+    bids_dir = Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
     asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
     metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
-    wf = init_cbfqc_compt_wf(asl_file=str(asl_file), metadata=str(metadata))
+
+    wf = init_cbfqc_compt_wf(asl_file=str(asl_file))
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index, and
 quality evaluation index (QEI) are included for all CBF maps.
-The QEI [Dolui2017b]_ evaluates the quality of the computed CBF maps considering three factors:
+The QEI :footcite:p:`dolui2017automated` evaluates the quality of the computed CBF maps considering three factors:
 structural similarity, spatial variability, and percentage of voxels in GM with negative CBF.
 
 
@@ -499,44 +502,4 @@ It also maps the T1w-based mask to each of those standard spaces.
 Transforms are concatenated and applied all at once, with one interpolation (Lanczos)
 step, so as little information is lost as possible.
 
-
-.. topic:: References
-
-  .. [Buxton1998] Buxton R.B., Frank L.R., Wong E.C., Siewert B, Warach S, Edelman R.R.
-      A general kinetic model for quantitative perfusion imaging with arterial spin
-      labeling. Magn Reson Med. 1998;40(3):383-396.
-      doi:`10.1002/mrm.1910400308 <https://doi.org/10.1002/mrm.1910400308>`_.
-
-  .. [Wong1998] Wong E.C., Buxton R.B., Frank L.R. Quantitative imaging of perfusion using a single subtraction
-     (QUIPSS and QUIPSS II). Magn Reson Med. 1998;39(5):702-708.
-     doi:`10.1002/mrm.1910390506 <https://doi.org/10.1002/mrm.1910390506>`_
-
-  .. [Dolui2017] Dolui S, Wang Z, Shinohara R.T., Wolk D.A., Detre J.A.; Alzheimer's Disease
-     Neuroimaging Initiative. Structural Correlation-based Outlier Rejection (SCORE)
-     algorithm for arterial spin labeling time series. J Magn Reson Imaging. 2017;45(6):1786-1797.
-     doi:`10.1002/jmri.25436 <https://doi.org/10.1002/jmri.25436>`_
-
-  .. [Dolui2016] Dolui S., Wolk D.A., Detre J.A. SCRUB: a structural correlation and empirical
-     robust bayesian method for ASL data. Proceedings of the International Society
-     of Magnetic Resonance in Medicine; Singapore; 2016
-
-  .. [Chappell2009] Chappell M.A., Groves R.B, Whitcher B., and  Woolrich M. W.,
-    "Variational Bayesian Inference for a Nonlinear Forward Model,"
-    in IEEE Transactions on Signal Processing, vol. 57, no. 1, pp. 223-236,
-    Jan. 2009, doi:`10.1109/TSP.2008.2005752 <https://doi.org/10.1109/TSP.2008.2005752>`_.
-
-  .. [Groves2009] Groves A.R., Chappell M.A., Woolrich M.W., Combined spatial and non-spatial prior for
-     inference on MRI time-series. Neuroimage. 2009;45(3):795-809.
-     doi:`10.1016/j.neuroimage.2008.12.027 <https://doi.org/10.1016/j.neuroimage.2008.12.027>`_.
-
-  .. [Chappell2011] Chappell M.A., Groves A.R., MacIntosh B.J., Donahue M.J., Jezzard P., Woolrich M.W.,
-     Partial volume correction of multiple inversion time arterial spin labeling MRI data.
-     Magn Reson Med. 2011;65(4):1173-1183. doi:`10.1002/mrm.22641 <https://doi.org/10.1002/mrm.22641>`_
-
-  .. [Dolui2017b] Dolui S.,  Wolf R. & Nabavizadeh S., David W., Detre, J. (2017).
-     Automated Quality Evaluation Index for 2D ASL CBF Maps. ISMR 2017
-
-  .. [Daiw2012] Dai W., Robson P.M., Shankaranarayanan A., Alsop D.C.
-      Reduced resolution transit delay prescan for quantitative continuous arterial spin
-      labeling perfusion imaging. Magn Reson Med. 2012;67(5):1252-1265.
-      doi:`10.1002/mrm.23103 <https://doi.org/10.1002/mrm.23103>`_
+.. footbibliography::

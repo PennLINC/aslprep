@@ -99,7 +99,7 @@ def init_cbf_compt_wf(
 *ASLPrep* was configured to calculate cerebral blood flow (CBF) using the following methods.
 
 The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
-model [@kinetic].
+model [@buxton1998general].
 """
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -253,10 +253,10 @@ model [@kinetic].
             + """
 
 Structural Correlation based Outlier Rejection (SCORE) algorithm was applied to the CBF timeseries
-to discard CBF volumes with outlying values [@score_dolui] before computing the mean CBF.
+to discard CBF volumes with outlying values [@dolui2017structural] before computing the mean CBF.
 Following SCORE, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to
 the CBF maps using structural tissue probability maps to reweight the mean CBF
-[@score_dolui;@scrub_dolui].
+[@dolui2017structural;@dolui2016scrub].
 """
         )
         workflow.connect(
@@ -281,7 +281,7 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
     if basil:
         workflow.__desc__ += f"""
 
-CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL) [@chappell_basil],
+CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL) [@chappell2008variational],
 as implemented in *FSL* {Info.version().split(':')[0]}. BASIL computes CBF using a spatial
 regularization of the estimated perfusion image and additionally calculates a partial-volume
 corrected CBF image [@chappell_pvc].
@@ -317,7 +317,7 @@ def init_cbfqc_compt_wf(
     basil=False,
     name="cbfqc_compt_wf",
 ):
-    """Create a workflow for :abbr:`cbfqc (compute cbf)`.
+    """Create a workflow for :abbr:`dolui2017automated (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -355,7 +355,7 @@ def init_cbfqc_compt_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """
-The Quality evaluation index (QEI) was computed for each CBF map [@cbfqc].
+The Quality evaluation index (QEI) was computed for each CBF map [@dolui2017automated].
 QEI is based on the similarity between the CBF and the structural images, the spatial
 variability of the CBF image, and the percentage of grey matter voxels containing
 negative CBF values.
@@ -503,7 +503,7 @@ def init_cbfgeqc_compt_wf(
     basil=False,
     name="cbfqc_compt_wf",
 ):
-    """Create a workflow for :abbr:`cbfqc (compute cbf)`.
+    """Create a workflow for :abbr:`dolui2017automated (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -1390,7 +1390,7 @@ model [@detre_perfusion;@alsop_recommended].
 CBF is susceptible to artifacts due to low signal to noise ratio and high sensitivity to  motion.
 Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF
 timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean
-CBF with structural tissues probability maps [@score_dolui;@scrub_dolui].
+CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scrub].
 """
             )
             scorescrub1 = pe.Node(
@@ -1424,7 +1424,7 @@ CBF with structural tissues probability maps [@score_dolui;@scrub_dolui].
                 + """\
 In addition, CBF was also computed by Bayesian Inference for Arterial Spin Labeling
 (BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
- [@chappell_basil], and computed CBF from ASL by incorporating natural
+ [@chappell2008variational], and computed CBF from ASL by incorporating natural
  variability of other model parameters and spatial regularization of the estimated
  perfusion image, including correction of partial volume effects [@chappell_pvc].
 """
@@ -1502,7 +1502,7 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
 CBF is susceptible to artifacts due to low signal to noise ratio and high sensitivity to  motion.
 Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF
 timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean
-CBF with structural tissues probability maps [@score_dolui;@scrub_dolui].
+CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scrub].
 """
             )
             scorescrub1 = pe.Node(
