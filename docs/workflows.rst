@@ -31,7 +31,7 @@ averages them into a single reference template.
     :simple_form: yes
 
     from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
-    from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
+    from smriprep.workflows.anatomical import init_anat_preproc_wf
     wf = init_anat_preproc_wf(
         bids_root='.',
         freesurfer=False,
@@ -52,7 +52,7 @@ averages them into a single reference template.
     )
 
 See also *sMRIPrep*'s
-:py:func:`~aslprep.smriprep.workflows.anatomical.init_anat_preproc_wf`.
+:py:func:`~smriprep.workflows.anatomical.init_anat_preproc_wf`.
 
 .. _t1preproc_steps:
 
@@ -134,7 +134,7 @@ The reference image is then used to calculate a brain mask for the
 :abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
 :py:func:`~aslprep.niworkflows.func.util.init_enhance_and_skullstrip_asl_wf`.
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
-workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the 
+workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.
 
 .. figure:: _static/brainextraction.svg
@@ -326,7 +326,7 @@ Mean CBF is computed from the average of CBF timeseries.
 
    Computed CBF maps
 
-For multi-PLDs (Post Labeling Delay) ASL data, the CBF is first computed for each PLD and the weighted average CBF is computed 
+For multi-PLDs (Post Labeling Delay) ASL data, the CBF is first computed for each PLD and the weighted average CBF is computed
 over all PLDs at time = t,([Daiw2012]_).
 
 .. math::
@@ -334,7 +334,7 @@ over all PLDs at time = t,([Daiw2012]_).
 
 
 
-ASLPrep includes option of CBF denoising  by  SCORE and SCRUB. 
+ASLPrep includes option of CBF denoising  by  SCORE and SCRUB.
 Structural Correlation based Outlier Rejection (SCORE) ([Dolui2017]_) detects and discards
 extreme outliers in the CBF volume(s) from the CBF time series.
 SCORE first discards CBF volumes whose CBF within grey matter (GM)
@@ -354,7 +354,7 @@ The mean CBF after denoising by SCORE is plotted below
 After discarding extreme outlier CBF volume(s) (if present) by SCORE,
 SCRUB (Structural Correlation with RobUst Bayesian) uses robust Bayesian estimation
 of CBF using iterative reweighted least square method [Dolui2016]_ to denoise CBF.
-The SCRUB algorithm is described below: 
+The SCRUB algorithm is described below:
 
 .. math::
    CBF_{SCRUB} =  \arg\max_{\theta} \sum_{t=1}^N \rho(CBF_{t} -\theta)  + \lambda(\theta -\mu)^2
@@ -439,7 +439,7 @@ and the reconstructed subject using the gray/white matter boundary
 
     Animation showing :abbr:`ASL (arterial spin labelling)` to T1w registration.
 
- 
+
 FSL ``flirt`` is run with the :abbr:`BBR (boundary-based registration)` cost function, using the
 ``fast`` segmentation to establish the gray/white matter boundary. After :abbr:`BBR (boundary-based registration)` is run,
 the resulting affine transform will be compared to the initial transform found by ``flirt``.
@@ -512,7 +512,7 @@ step, so as little information is lost as possible.
   .. [Dolui2017b] Dolui S.,  Wolf R. & Nabavizadeh S., David W., Detre, J. (2017).
      Automated Quality Evaluation Index for 2D ASL CBF Maps. ISMR 2017
 
-  .. [Daiw2012] Dai W., Robson P.M., Shankaranarayanan A., Alsop D.C. 
-      Reduced resolution transit delay prescan for quantitative continuous arterial spin 
-      labeling perfusion imaging. Magn Reson Med. 2012;67(5):1252-1265. 
+  .. [Daiw2012] Dai W., Robson P.M., Shankaranarayanan A., Alsop D.C.
+      Reduced resolution transit delay prescan for quantitative continuous arterial spin
+      labeling perfusion imaging. Magn Reson Med. 2012;67(5):1252-1265.
       doi:`10.1002/mrm.23103 <https://doi.org/10.1002/mrm.23103>`_

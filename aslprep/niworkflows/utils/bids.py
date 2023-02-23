@@ -11,7 +11,7 @@ from pathlib import Path
 import json
 import re
 import warnings
-from ...pybids import BIDSLayout
+from bids import BIDSLayout
 from packaging.version import Version
 
 
