@@ -414,9 +414,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # MULTI-ECHO EPI DATA #############################################
     if multiecho:
-        from aslprep.workflows.asl.util import init_skullstrip_asl_wf
+        from niworkflows.func.util import init_skullstrip_bold_wf
 
-        skullstrip_asl_wf = init_skullstrip_asl_wf(name="skullstrip_asl_wf")
+        skullstrip_asl_wf = init_skullstrip_bold_wf(name="skullstrip_asl_wf")
 
         inputnode.inputs.asl_file = ref_file  # Replace reference w first echo
 
