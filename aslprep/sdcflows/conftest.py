@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import numpy
 import pytest
-from aslprep.pybids.layout import BIDSLayout
+from bids.layout import BIDSLayout
 
 test_data_env = os.getenv('TEST_DATA_HOME', str(Path.home() / 'sdcflows-tests'))
 test_output_dir = os.getenv('TEST_OUTPUT_DIR')

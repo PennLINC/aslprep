@@ -10,9 +10,9 @@ import re
 
 import nibabel as nb
 import numpy as np
-from ...pybids.layout import parse_file_entities
-from ...pybids.layout.writing import build_path
-from ...pybids.utils import listify
+from bids.layout import parse_file_entities
+from bids.layout.writing import build_path
+from bids.utils import listify
 
 from nipype import logging
 from nipype.interfaces.base import (

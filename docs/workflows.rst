@@ -30,8 +30,10 @@ averages them into a single reference template.
     :graph2use: orig
     :simple_form: yes
 
+    from smriprep.workflows.anatomical import init_anat_preproc_wf
+
     from aslprep.utils.niworkflows import Reference, SpatialReferences
-    from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
+
     wf = init_anat_preproc_wf(
         bids_root='.',
         freesurfer=False,
@@ -52,7 +54,7 @@ averages them into a single reference template.
     )
 
 See also *sMRIPrep*'s
-:py:func:`~aslprep.smriprep.workflows.anatomical.init_anat_preproc_wf`.
+:py:func:`~smriprep.workflows.anatomical.init_anat_preproc_wf`.
 
 .. _t1preproc_steps:
 

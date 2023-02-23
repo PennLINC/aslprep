@@ -11,11 +11,11 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.bids import BIDSInfo
 from niworkflows.interfaces.nilearn import NILEARN_VERSION
 from niworkflows.utils.misc import fix_multi_T1w_source_name
+from smriprep.workflows.anatomical import init_anat_preproc_wf
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, SubjectSummary
 from aslprep.interfaces.bids import BIDSDataGrabber, DerivativesDataSink
-from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
 from aslprep.utils.bids import collect_data
 from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.utils.niworkflows import Reference
@@ -176,14 +176,17 @@ def init_single_subject_wf(subject_id):
 
     ds_report_about = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir, desc="about", datatype="figures", dismiss_entities=("echo",)
+            base_directory=output_dir,
+            desc="about",
+            datatype="figures",
+            dismiss_entities=("echo",),
         ),
         name="ds_report_about",
         run_without_submitting=True,
     )
     anat_derivatives = config.execution.anat_derivatives
     if anat_derivatives:
-        from aslprep.smriprep.utils.bids import collect_derivatives
+        from smriprep.utils.bids import collect_derivatives
 
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         anat_derivatives = collect_derivatives(
