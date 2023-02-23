@@ -4,6 +4,14 @@ from pathlib import Path
 
 from bids.layout import Config
 from nipype import logging
+from nipype.interfaces.base import (
+    BaseInterfaceInputSpec,
+    OutputMultiObject,
+    SimpleInterface,
+    Str,
+    TraitedSpec,
+    traits,
+)
 from niworkflows.interfaces.bids import DerivativesDataSink as BaseDerivativesDataSink
 from pkg_resources import resource_filename as pkgrf
 
