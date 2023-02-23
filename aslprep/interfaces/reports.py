@@ -18,8 +18,7 @@ from nipype.interfaces.base import (
     isdefined,
     traits,
 )
-
-from aslprep.smriprep.interfaces.freesurfer import ReconAll
+from smriprep.interfaces.freesurfer import ReconAll
 
 SUBJECT_TEMPLATE = """\
 \t<ul class="elem-desc">

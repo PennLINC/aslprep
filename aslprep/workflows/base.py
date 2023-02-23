@@ -7,6 +7,7 @@ from copy import deepcopy
 
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from smriprep.workflows.anatomical import init_anat_preproc_wf
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
@@ -16,7 +17,6 @@ from aslprep.niworkflows.interfaces.nilearn import NILEARN_VERSION
 from aslprep.niworkflows.utils.bids import collect_data
 from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
 from aslprep.niworkflows.utils.spaces import Reference
-from aslprep.smriprep.workflows.anatomical import init_anat_preproc_wf
 from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.workflows.asl import init_asl_gepreproc_wf, init_asl_preproc_wf
 
@@ -183,7 +183,7 @@ def init_single_subject_wf(subject_id):
     )
     anat_derivatives = config.execution.anat_derivatives
     if anat_derivatives:
-        from aslprep.smriprep.utils.bids import collect_derivatives
+        from smriprep.utils.bids import collect_derivatives
 
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         anat_derivatives = collect_derivatives(
