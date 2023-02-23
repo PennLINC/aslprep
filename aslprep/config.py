@@ -391,7 +391,7 @@ class execution(_Config):
         if cls._layout is None:
             import re
 
-            from aslprep.pybids.layout import BIDSLayout
+            from bids.layout import BIDSLayout
 
             work_dir = cls.work_dir / "bids.db"
             work_dir.mkdir(exist_ok=True, parents=True)
