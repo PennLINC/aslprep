@@ -85,7 +85,7 @@ Once the brain mask is computed, FSL ``fast`` is utilized for brain tissue segme
 
 Finally, spatial normalization to standard spaces is performed using ANTs' ``antsRegistration``
 in a multiscale, mutual-information based, nonlinear registration scheme.
-See :ref:`spaces` for more information on how standard and nonstandard spaces can
+See :doc:`spaces` for more information on how standard and nonstandard spaces can
 be set to resample the preprocessed data onto the final output spaces.
 
 
@@ -114,6 +114,8 @@ Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.
 
 
+.. _asl_ref:
+
 ASL reference image estimation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -139,6 +141,8 @@ ASL series onto the T1w image of the same subject.
 
     Calculation of a brain mask from the ASL series.
 
+
+.. _asl_hmc:
 
 Head-motion estimation
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -190,6 +194,8 @@ Slice time correction can be disabled with the ``--ignore slicetiming``
 command line argument.
 
 
+.. _asl_confounds:
+
 Confounds estimation
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -213,7 +219,7 @@ Susceptibility Distortion Correction (SDC)
 One of the major problems that affects :abbr:`EPI (echo planar imaging)` data
 is the spatial distortion caused by the inhomogeneity of the field inside
 the scanner.
-Please refer to :ref:`sdc` for details on the
+Please refer to :doc:`sdc` for details on the
 available workflows.
 
 .. figure:: _static/unwarping.svg
@@ -223,6 +229,8 @@ available workflows.
 
 See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 
+
+.. _asl_preproc:
 
 Preprocessed ASL in native space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -252,6 +260,8 @@ Interpolation uses a Lanczos kernel.
     The preprocessed ASL with label and control. The signal plots above the carpet plot
     are framewise diplacement (FD) and DVRAS.
 
+
+.. _cbf_preproc:
 
 CBF Computation in native space
 -------------------------------
@@ -413,6 +423,8 @@ The QEI [Dolui2017b]_ evaluates the quality of the computed CBF maps considering
 structural similarity, spatial variability, and percentage of voxels in GM with negative CBF.
 
 
+.. _asl_reg:
+
 ASL and CBF to T1w registration
 -------------------------------
 
@@ -445,8 +457,9 @@ Excessive deviation will result in rejection of the BBR refinement and acceptanc
 of the original affine registration. The computed :ref:`CBF <cbf_preproc>`
 is registered to T1w using the transformation from ASL-T1w registration.
 
-Resampling ASL  and CBF runs onto standard spaces
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Resampling ASL and CBF runs onto standard spaces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
 
@@ -469,7 +482,7 @@ This sub-workflow concatenates the transforms calculated upstream (see
 fieldmaps are available, and an anatomical-to-standard
 transform from `Structural Preprocessing`_ to map the
 ASL and CBF images to the standard spaces is given by the ``--output-spaces`` argument
-(see :ref:`spaces`).
+(see :doc:`spaces`).
 It also maps the T1w-based mask to each of those standard spaces.
 
 Transforms are concatenated and applied all at once, with one interpolation (Lanczos)

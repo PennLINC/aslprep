@@ -38,7 +38,7 @@ def init_asl_gepreproc_wf(asl_file):
 
             from aslprep.tests.tests import mock_config
             from aslprep import config
-            from aslprep.workflows.asl.base import init_asl_gepreproc_wf
+            from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
             with mock_config():
                 asl_file = (
                     config.execution.bids_dir / 'sub-01' / 'perf' /

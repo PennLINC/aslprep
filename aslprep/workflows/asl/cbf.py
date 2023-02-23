@@ -49,7 +49,12 @@ def init_cbf_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbf_compt_wf
-            wf = init_cbf_compt_wf(smooth_kernel=5, dummy_vols=0)
+
+            wf = init_cbf_compt_wf(
+                metadata={},
+                bids_dir="",
+                dummy_vols=0,
+            )
 
     Parameters
     ----------
@@ -320,7 +325,10 @@ def init_cbfqc_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
-            wf = init_cbfqc_compt_wf()
+
+            wf = init_cbfqc_compt_wf(
+                asl_file="",
+            )
 
     Parameters
     ----------
@@ -503,7 +511,10 @@ def init_cbfgeqc_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbfgeqc_compt_wf
-            wf = init_cbfgeqc_compt_wf()
+
+            wf = init_cbfgeqc_compt_wf(
+                asl_file="",
+            )
 
     Parameters
     ----------
@@ -665,7 +676,19 @@ def init_cbfplot_wf(
     basil=False,
     name="cbf_plot",
 ):
-    """Plot CBF results."""
+    """Plot CBF results.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_cbfplot_wf
+
+            wf = init_cbfplot_wf(
+                metadata={},
+            )
+    """
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -813,7 +836,17 @@ def init_cbfplot_wf(
 
 
 def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
-    """Plot CBF results for GE data."""
+    """Plot CBF results for GE data.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_gecbfplot_wf
+
+            wf = init_gecbfplot_wf()
+    """
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -904,7 +937,17 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
 
 
 def init_cbfroiquant_wf(scorescrub=False, basil=False, name="cbf_roiquant"):
-    """Parcellate CBF results using a set of atlases."""
+    """Parcellate CBF results using a set of atlases.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_cbfroiquant_wf
+
+            wf = init_cbfroiquant_wf()
+    """
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """\
@@ -1197,7 +1240,21 @@ def init_gecbf_compt_wf(
     basil=False,
     name="cbf_compt_wf",
 ):
-    """Calculate CBF for GE data."""
+    """Calculate CBF for GE data.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_gecbf_compt_wf
+
+            wf = init_gecbf_compt_wf(
+                metadata={},
+                asl_file="",
+                mem_gb=0.1,
+            )
+    """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data  using a standard

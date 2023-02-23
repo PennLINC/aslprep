@@ -24,10 +24,11 @@ def init_asl_hmc_wf(mem_gb, omp_nthreads, name="asl_hmc_wf"):
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl import init_asl_hmc_wf
+            from aslprep.workflows.asl.hmc import init_asl_hmc_wf
             wf = init_asl_hmc_wf(
                 mem_gb=3,
-                omp_nthreads=1)
+                omp_nthreads=1,
+            )
 
     Parameters
     ----------

@@ -8,8 +8,8 @@ There are two ways to install *ASLPrep*:
 
 * within a  `Computer or HPC installation`_
 
-* using container technologies (RECOMMENDED), such as :ref:`docker`
-  or :ref:`singularity`.
+* using container technologies (RECOMMENDED), such as :doc:`docker`
+  or :doc:`singularity`.
 
 Once the environment is set up (first option above),
 the next step is to execute ``aslprep`` on the command-line.
@@ -36,7 +36,7 @@ Computer or HPC installation
 .. warning::
 
    This method is not recommended! Please check out container alternatives
-   in :ref:`docker`, and :ref:`singularity`.
+   in :doc:`docker`, and :doc:`singularity`.
 
 Make sure all of *ASLPRep*'s `External Dependencies`_ are installed.
 These tools must be installed and their binaries available in the

@@ -42,10 +42,13 @@ def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_
             :graph2use: colored
             :simple_form: yes
 
-            from aslprep.workflows.asl import init_asl_surf_wf
-            wf = init_asl_surf_wf(mem_gb=0.1,
-                                   surface_spaces=['fsnative', 'fsaverage5'],
-                                   medial_surface_nan=False)
+            from aslprep.workflows.asl.resampling import init_asl_surf_wf
+
+            wf = init_asl_surf_wf(
+                mem_gb=0.1,
+                surface_spaces=['fsnative', 'fsaverage5'],
+                medial_surface_nan=False,
+            )
 
     Parameters
     ----------
@@ -206,14 +209,15 @@ def init_asl_std_trans_wf(
             :simple_form: yes
 
             from aslprep.niworkflows.utils.spaces import SpatialReferences
-            from aslprep.workflows.asl import init_asl_std_trans_wf
+            from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
+
             wf = init_asl_std_trans_wf(
                 mem_gb=3,
                 omp_nthreads=1,
                 spaces=SpatialReferences(
-                    spaces=['MNI152Lin',
-                            ('MNIPediatricAsym', {'cohort': '6'})],
-                    checkpoint=True),
+                    spaces=['MNI152Lin', ('MNIPediatricAsym', {'cohort': '6'})],
+                    checkpoint=True,
+                ),
             )
 
     Parameters
@@ -559,8 +563,12 @@ def init_asl_preproc_trans_wf(
             :graph2use: colored
             :simple_form: yes
 
-            from aslprep.workflows.asl import init_asl_preproc_trans_wf
-            wf = init_asl_preproc_trans_wf(mem_gb=3, omp_nthreads=1)
+            from aslprep.workflows.asl.resampling import init_asl_preproc_trans_wf
+
+            wf = init_asl_preproc_trans_wf(
+                mem_gb=3,
+                omp_nthreads=1,
+            )
 
     Parameters
     ----------
