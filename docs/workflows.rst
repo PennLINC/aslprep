@@ -121,14 +121,14 @@ split into multiple sub-workflows described below.
 
 ASL reference image estimation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:py:func:`~aslprep.workflows.asl.util.init_asl_reference_wf`
+:py:func:`~niworkflows.func.util.init_bold_reference_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.workflows.asl.util import init_asl_reference_wf
-    wf = init_asl_reference_wf()
+    from niworkflows.func.util import init_bold_reference_wf
+    wf = init_bold_reference_wf(brainmask_thresh=0.1)
 
 This workflow estimates a reference image for an
 :abbr:`ASL (Arterial Spin Labelling)` series.

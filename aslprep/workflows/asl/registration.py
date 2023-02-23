@@ -19,7 +19,7 @@ from niworkflows.utils.images import dseg_label
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.utils.misc import _conditional_downsampling
-from aslprep.workflows.asl.util import init_asl_reference_wf
+from niworkflows.func.util import init_bold_reference_wf
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -326,7 +326,7 @@ def init_asl_t1_trans_wf(
     merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb)
 
     # Generate a reference on the target T1w space
-    gen_final_ref = init_asl_reference_wf(pre_mask=True)
+    gen_final_ref = init_bold_reference_wf(pre_mask=True, brainmask_thresh=0.1)
 
     if not multiecho:
         # Merge transforms placing the head motion correction last
