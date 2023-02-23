@@ -1,19 +1,41 @@
+*ASLPrep*: A Robust Preprocessing Pipeline for ASL Data
+=======================================================
+
+.. image:: https://img.shields.io/badge/Source%20Code-pennlinc%2Faslprep-purple
+   :target: https://github.com/PennLINC/aslprep
+   :alt: GitHub Repository
+
+.. image:: https://readthedocs.org/projects/aslprep/badge/?version=latest
+   :target: http://aslprep.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation
+
+.. image:: https://img.shields.io/badge/docker-pennlinc/aslprep-brightgreen.svg?logo=docker&style=flat
+   :target: https://hub.docker.com/r/pennlinc/aslprep/tags/
+   :alt: Docker
+
+.. image:: https://circleci.com/gh/PennLINC/aslprep.svg?style=svg
+   :target: https://circleci.com/gh/PennLINC/aslprep
+   :alt: Test Status
+
+.. image:: https://codecov.io/gh/PennLINC/aslprep/branch/main/graph/badge.svg
+   :target: https://codecov.io/gh/PennLINC/aslprep
+   :alt: Codecov
+
 .. image:: https://zenodo.org/badge/256420694.svg
    :target: https://zenodo.org/badge/latestdoi/256420694
-   
-   
-   
-*ASLPrep*: A Robust Preprocessing Pipeline for ASL Data
-=========================================================
+   :alt: DOI
 
-This pipeline is developed by the `Satterthwaite lab at the University of Pennysilvania
+.. image:: https://img.shields.io/github/license/pennlinc/aslprep
+   :target: https://opensource.org/licenses/BSD-3-Clause
+   :alt: License
+
+This pipeline is developed by the `Satterthwaite lab at the University of Pennsylvania
 <https://www.satterthwaitelab.com/>`_ for use at the `The Lifespan Informatics and Neuroimaging Center
-at the University of Pennylvannia <https://www.satterthwaitelab.com/>`_, as well as for
+at the University of Pennsylvania <https://www.satterthwaitelab.com/>`_, as well as for
 open-source software distribution.
 
 About
 -----
-
 
 .. image:: https://raw.githubusercontent.com/a3sha2/aslprep/master/docs/_static/aslprepworkflow.png
 
@@ -48,7 +70,7 @@ This tool allows you to easily do the following:
   subject, including meaningful errors.
 - Automate and parallelize processing steps, which provides a significant
   speed-up from typical linear, manual processing.
-- 
+-
 
 More information and documentation can be found at
 https://aslprep.readthedocs.io/
@@ -56,9 +78,9 @@ https://aslprep.readthedocs.io/
 ASLPrep
 --------
 
-*ASLPrep* adapts the preprocessing steps depending on the input dataset 
-and provide results as good as possible independently of scanner make and scanning parameters 
-With the BIDS input, little or no parameter are required allowing ease of operation. 
+*ASLPrep* adapts the preprocessing steps depending on the input dataset
+and provide results as good as possible independently of scanner make and scanning parameters
+With the BIDS input, little or no parameter are required allowing ease of operation.
 *ASLPrep*  also provides visual reports for each subject,
 detailing the the most important processing steps.
 
