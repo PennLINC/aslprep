@@ -281,10 +281,10 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
     if basil:
         workflow.__desc__ += f"""
 
-CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL) [@chappell2008variational],
-as implemented in *FSL* {Info.version().split(':')[0]}. BASIL computes CBF using a spatial
-regularization of the estimated perfusion image and additionally calculates a partial-volume
-corrected CBF image [@chappell_pvc].
+CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
+[@chappell2008variational], as implemented in *FSL* {Info.version().split(':')[0]}.
+BASIL computes CBF using a spatial regularization of the estimated perfusion image and
+additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 """
 
         workflow.connect(
