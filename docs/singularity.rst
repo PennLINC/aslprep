@@ -1,12 +1,12 @@
 .. include:: links.rst
 
-
-.. _run_singularity:
-
 Running *ASLPrep* via Singularity containers
-=============================================
+============================================
+
+
 Preparing a Singularity Image
 -----------------------------
+
 **Singularity version >= 2.5**:
 If the version of Singularity installed on your :abbr:`HPC (High-Performance Computing)`
 system is modern enough you can create a Singularity image directly on the system
@@ -17,8 +17,10 @@ using the following command: ::
 where ``<version>`` should be replaced with the desired version of *ASLPrep* that you
 want to download.
 
+
 Running a Singularity Image
 ---------------------------
+
 If the data to be preprocessed is also on the HPC or a personal computer,
 you are ready to run *ASLPrep*. ::
 
@@ -27,8 +29,10 @@ you are ready to run *ASLPrep*. ::
         participant \
         --participant-label label
 
+
 Handling environment variables
 ------------------------------
+
 By default, Singularity interacts with all environment variables from the host.
 The host libraries could accidentally conflict with singularity variables.
 To avoid such a situation, it is recommended that you sue the ``--cleanenv or -e``

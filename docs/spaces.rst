@@ -1,20 +1,21 @@
 .. include:: links.rst
 
-.. _output-spaces:
-
 Standard and nonstandard spaces
-================================
+===============================
+
 The command line interface of *ASLPPrep* allows resampling of the pre-processed
 and computed CBF maps onto other output spaces.
 That is achieved using the ``--output-spaces`` argument, where standard and
 nonstandard spaces can be inserted.
 
 .. important::
-   *ASLPrep* will reduce the number of output spaces to just spaces listed in ``--output-spaces``,
-   even if other options require resampling the preprocessed data into intermediary spaces.
+  *ASLPrep* will reduce the number of output spaces to just spaces listed in ``--output-spaces``,
+  even if other options require resampling the preprocessed data into intermediary spaces.
+
 
 Standard spaces
 """""""""""""""
+
 By default, *ASLPrep* uses ``MNI152NLin2009cAsym`` as spatial-standardization reference and
 output space. Valid template identifiers can be used from the
 `TemplateFlow repository <https://github.com/templateflow/templateflow>`__.
@@ -30,6 +31,7 @@ isotropic resolution.
 
 Nonstandard spaces
 """"""""""""""""""
+
 Additionally, ``--output-spaces`` accepts identifiers of spatial references
 that do not generate *standardized* coordinate spaces:
 

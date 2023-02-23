@@ -1,10 +1,9 @@
 .. include:: links.rst
 
-.. _outputs:
-
----------------------
+--------------------
 Outputs of *ASLPrep*
----------------------
+--------------------
+
 *ASLPrep* generates three broad classes of outputs:
 
 1. **Visual QA (quality assessment) reports**:
@@ -26,6 +25,7 @@ Outputs of *ASLPrep*
 
 Visual Reports
 --------------
+
 *ASLPrep* outputs summary reports are written to ``<output dir>/aslprep/sub-<label>.html``.
 These reports provide a quick way to make visual inspection of the results easy.
 `View a sample report. <_static/sub-01.html>`_
@@ -33,6 +33,7 @@ These reports provide a quick way to make visual inspection of the results easy.
 
 Derivatives of *ASLPrep*
 ------------------------
+
 Preprocessed, or derivative, data are written to
 ``<output dir>/aslprep/sub-<label>/``.
 The `BIDS Derivatives RC1`_ specification describes the naming and metadata conventions
@@ -41,6 +42,7 @@ that we follow.
 
 Anatomical derivatives
 ~~~~~~~~~~~~~~~~~~~~~~
+
 Anatomical derivatives are placed in each subject's ``anat`` subfolder.
 These derivatives are the same as smriprep output::
 
@@ -64,11 +66,10 @@ Additionally, the following transforms are saved::
       sub-<label>_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5
       sub-<label>_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5
 
-.. _fsderivs:
-
 
 ASL and CBF derivatives
 ~~~~~~~~~~~~~~~~~~~~~~~~
+
 ASL derivatives are stored in the ``perf/`` subfolder.
 All derivatives contain ``task-<task_label>`` (mandatory) and ``run-<run_index>`` (optional), and
 these will be indicated with ``[specifiers]``::
@@ -121,7 +122,8 @@ corresponding :abbr:`ASL (arterial spin labelling)` time series::
 
 
 CBF quality control
---------------------
+-------------------
+
 *ASLPrep* produces a quality control (QC) file for each ASL run::
 
     sub-<label>/
@@ -139,7 +141,8 @@ percentage of voxels in gray matter with negative CBF values.
 
 
 CBF Confounds
---------------
+-------------
+
 Confounds include the six head-motion parameters (three rotations and three translations),
 which are common outputs from the head-motion correction (also known as *realignment*).
 *ASLPrep* also generates framewise displacement, `DVARS`, and `std_dvars`.

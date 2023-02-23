@@ -35,7 +35,7 @@ using the following command::
 
 This requires installation of Singularity version >= 2.5
 
-See  :ref:`run_docker`  and  :ref:`run_singularity` for more information.
+See  :ref:`docker`  and  :ref:`singularity` for more information.
 
 2. Installation is available via ``pip``::
 

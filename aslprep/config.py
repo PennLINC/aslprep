@@ -11,7 +11,7 @@ Settings are stored using :abbr:`ToML (Tom's Markup Language)`.
 The module has a :py:func:`~aslprep.config.to_filename` function to allow writting out
 the settings to hard disk in *ToML* format, which looks like:
 
-.. literalinclude:: ../aslprep/tests/data/config.toml
+.. literalinclude:: ../../aslprep/tests/data/config.toml
    :language: toml
    :name: aslprep.toml
    :caption: **Example file representation of aslprep settings**.
