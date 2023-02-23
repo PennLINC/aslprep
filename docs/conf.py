@@ -37,14 +37,20 @@ needs_sphinx = "1.5.3"
 # ones.
 extensions = [
     "nbsphinx",
+    "nipype.sphinxext.apidoc",
     "nipype.sphinxext.plot_workflow",
+    "recommonmark",
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosectionlabel",
+    "sphinx.ext.autosummary",  # standard
     "sphinx.ext.coverage",
     "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
     "sphinx.ext.linkcode",
     "sphinx.ext.mathjax",
+    "sphinx_markdown_tables",
     "sphinxarg.ext",  # argparse extension
+    "sphinxcontrib.apidoc",
     "sphinxcontrib.bibtex",
     "sphinxcontrib.napoleon",
 ]
