@@ -44,7 +44,7 @@ def init_asl_preproc_wf(asl_file):
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.tests import mock_config
+            from aslprep.workflows.tests.tests import mock_config
             from aslprep import config
             from aslprep.workflows.asl.base import init_asl_preproc_wf
             with mock_config():

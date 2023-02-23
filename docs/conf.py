@@ -15,22 +15,23 @@
 import os
 import sys
 from datetime import datetime
+
+from packaging import (
+    version as pver,  # Avoid distutils.LooseVersion which is deprecated
+)
 from sphinx import __version__ as sphinxversion
-from packaging import version as pver  # Avoid distutils.LooseVersion which is deprecated
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.append(os.path.abspath("sphinxext"))
-sys.path.insert(0, os.path.abspath("../wrapper"))
-sys.path.insert(0, os.path.abspath("../.."))
 
 from github_link import make_linkcode_resolve
 
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = "1.5.3"
+needs_sphinx = "4.2.0"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named "sphinx.ext.*") or your custom
@@ -57,7 +58,6 @@ extensions = [
 # Mock modules in autodoc:
 autodoc_mock_imports = [
     "numpy",
-    "nitime",
     "matplotlib",
     "pygraphviz",
 ]
@@ -73,6 +73,24 @@ if pver.parse(sphinxversion) >= pver.parse("1.7.0"):
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
+# -----------------------------------------------------------------------------
+# Napoleon settings
+# -----------------------------------------------------------------------------
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = True
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = False
+napoleon_use_admonition_for_examples = True
+napoleon_use_admonition_for_notes = True
+napoleon_use_admonition_for_references = True
+napoleon_use_ivar = True
+napoleon_use_keyword = True
+napoleon_use_rtype = True
+napoleon_preprocess_types = False
+napoleon_type_aliases = None
+napoleon_attr_annotations = True
+
 # Accept custom section names to be parsed for numpy-style docstrings
 # of parameters.
 # Requires pinning sphinxcontrib-napoleon to a specific commit while
@@ -81,7 +99,18 @@ napoleon_use_param = False
 napoleon_custom_sections = [
     ("Inputs", "Parameters"),
     ("Outputs", "Parameters"),
+    ("Attributes", "Parameters"),
+    ("Mandatory Inputs", "Parameters"),
+    ("Optional Inputs", "Parameters"),
+    ("License", "License"),
 ]
+
+# -- Extension configuration -------------------------------------------------
+apidoc_module_dir = "../aslprep"
+apidoc_output_dir = "api"
+apidoc_excluded_paths = ["conftest.py", "*/tests/*", "tests/*", "data/*"]
+apidoc_separate_modules = True
+apidoc_extra_args = ["--module-first", "-d 1", "-T"]
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -97,7 +126,7 @@ master_doc = "index"
 # General information about the project.
 project = "aslprep"
 author = "Azeez Adebimpe"
-copyright = "2020-%s, %s" % (datetime.now().year, author)
+copyright = f"2020-{datetime.now().year}, {author}"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -113,7 +142,7 @@ release = "version"
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -254,93 +283,23 @@ html_static_path = ["_static"]
 # Output file base name for HTML help builder.
 htmlhelp_basename = "aslprepdoc"
 
-# -- Options for LaTeX output ---------------------------------------------
-
-latex_elements = {
-    # The paper size ('letterpaper' or 'a4paper').
-    # 'papersize': 'letterpaper',
-
-    # The font size ('10pt', '11pt' or '12pt').
-    # 'pointsize': '10pt',
-
-    # Additional stuff for the LaTeX preamble.
-    # 'preamble': '',
-
-    # Latex figure (float) alignment
-    # 'figure_align': 'htbp',
-}
-
-# Grouping the document tree into LaTeX files. List of tuples
-# (source start file, target name, title,
-#  author, documentclass [howto, manual, or own class]).
-latex_documents = [
-    (master_doc, "aslprep.tex", "ASLprep Documentation",
-     author,
-     "manual"),
-]
-
-# The name of an image file (relative to this directory) to place at the top of
-# the title page.
-# latex_logo = None
-
-# For "manual" documents, if this is true, then toplevel headings are parts,
-# not chapters.
-# latex_use_parts = False
-
-# If true, show page references after internal links.
-# latex_show_pagerefs = False
-
-# If true, show URL addresses after external links.
-# latex_show_urls = False
-
-# Documents to append as an appendix to all manuals.
-# latex_appendices = []
-
-# If false, no module index is generated.
-# latex_domain_indices = True
-
-
 # -- Options for manual page output ---------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, "aslprep", "aslprep Documentation",
-     [author], 1)
-]
+man_pages = [(master_doc, "aslprep", "aslprep Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
 
-
-# -- Options for Texinfo output -------------------------------------------
-
-# Grouping the document tree into Texinfo files. List of tuples
-# (source start file, target name, title, author,
-#  dir menu entry, description, category)
-texinfo_documents = [
-    (master_doc, "aslprep", "ASLprep Documentation",
-     author, "aslprep", "One line description of project.",
-     "Miscellaneous"),
-]
-
-# Documents to append as an appendix to all manuals.
-# texinfo_appendices = []
-
-# If false, no module index is generated.
-# texinfo_domain_indices = True
-
-# How to display URL addresses: 'footnote', 'no', or 'inline'.
-# texinfo_show_urls = 'footnote'
-
-# If true, do not generate a @detailmenu in the "Top" node's menu.
-# texinfo_no_detailmenu = False
-
 # The following is used by sphinx.ext.linkcode to provide links to github
-linkcode_resolve = make_linkcode_resolve("aslprep",
-                                         "https://github.com/pennlinc/"
-                                         "aslprep/blob/{revision}/"
-                                         "{package}/{path}#L{lineno}")
+linkcode_resolve = make_linkcode_resolve(
+    "aslprep",
+    (
+        "https://github.com/pennlinc/aslprep/blob/"
+        "{revision}/{package}/{path}#L{lineno}"  # noqa: FS003
+    ),
+)
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
@@ -353,7 +312,7 @@ intersphinx_mapping = {
     "nipype": ("https://nipype.readthedocs.io/en/latest/", None),
     "niworkflows": ("https://www.nipreps.org/niworkflows/", None),
     "sdcflows": ("https://www.nipreps.org/sdcflows/", None),
-    "smriprep": ("https://poldracklab.github.io/smriprep/", None),
+    "smriprep": ("https://www.nipreps.org/smriprep/", None),
     "templateflow": ("https://www.templateflow.org/python-client", None),
 }
 
@@ -369,6 +328,7 @@ bibtex_footbibliography_header = ""
 
 
 def setup(app):
+    """Add extra formatting files."""
     app.add_css_file("theme_overrides.css")
     # We need this for the boilerplate script
     app.add_js_file("https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js")

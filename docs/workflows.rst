@@ -104,7 +104,7 @@ ASL preprocessing
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.workflows.tests import mock_config
+    from aslprep.workflows.tests.tests import mock_config
     from aslprep import config
     from aslprep.workflows.asl.base import init_asl_preproc_wf
     with mock_config():
@@ -134,7 +134,7 @@ The reference image is then used to calculate a brain mask for the
 :abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
 :py:func:`~aslprep.niworkflows.func.util.init_enhance_and_skullstrip_asl_wf`.
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
-workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the 
+workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.
 
 .. figure:: _static/brainextraction.svg
@@ -202,12 +202,8 @@ Confounds estimation
     :simple_form: yes
 
     from aslprep.workflows.asl.confounds import init_asl_confs_wf
-    wf = init_asl_confs_wf(
-        name="confound_wf",
-        mem_gb=1,
-        metadata={"RepetitionTime": 2.0,
-                  "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.9, 0.5, 0.6, 0.7]},
-    )
+
+    wf = init_asl_confs_wf(name="confound_wf", mem_gb=1)
 
 
 Calculated confounds include frame-wise displacement, 6 motion parameters, and DVARS.
@@ -271,16 +267,26 @@ CBF Computation in native space
     :graph2use: orig
     :simple_form: yes
 
+    import json
     from pathlib import Path
     from pkg_resources import resource_filename as pkgrf
-    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
-    metadatafile = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
-    import json
-    with open(metadatafile) as f:
-        metadata = json.load(f)
+
     from aslprep.workflows.asl.cbf import init_cbf_compt_wf
-    wf = init_cbf_compt_wf(bids_dir=str(bids_dir),mem_gb=0.1,
-            scorescrub=False,basil=False,metadata=metadata,M0Scale=1,omp_nthreads=4,smooth_kernel=5,dummy_vols=0)
+
+    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
+    metadata_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
+    with open(metadata_file) as f:
+        metadata = json.load(f)
+
+    wf = init_cbf_compt_wf(
+        bids_dir=str(bids_dir),
+        scorescrub=False,
+        basil=False,
+        metadata=metadata,
+        M0Scale=1,
+        smooth_kernel=5,
+        dummy_vols=0,
+    )
 
 ASL data consist of multiple pairs of labeled and control images. *ASLPrep* first checks for
 the reference ASL volume(s) (M0,``sub-task_xxxx-acq-YYY_m0scan.nii.gz``). In the absence of M0 images,
@@ -326,7 +332,7 @@ Mean CBF is computed from the average of CBF timeseries.
 
    Computed CBF maps
 
-For multi-PLDs (Post Labeling Delay) ASL data, the CBF is first computed for each PLD and the weighted average CBF is computed 
+For multi-PLDs (Post Labeling Delay) ASL data, the CBF is first computed for each PLD and the weighted average CBF is computed
 over all PLDs at time = t,([Daiw2012]_).
 
 .. math::
@@ -334,7 +340,7 @@ over all PLDs at time = t,([Daiw2012]_).
 
 
 
-ASLPrep includes option of CBF denoising  by  SCORE and SCRUB. 
+ASLPrep includes option of CBF denoising  by  SCORE and SCRUB.
 Structural Correlation based Outlier Rejection (SCORE) ([Dolui2017]_) detects and discards
 extreme outliers in the CBF volume(s) from the CBF time series.
 SCORE first discards CBF volumes whose CBF within grey matter (GM)
@@ -354,7 +360,7 @@ The mean CBF after denoising by SCORE is plotted below
 After discarding extreme outlier CBF volume(s) (if present) by SCORE,
 SCRUB (Structural Correlation with RobUst Bayesian) uses robust Bayesian estimation
 of CBF using iterative reweighted least square method [Dolui2016]_ to denoise CBF.
-The SCRUB algorithm is described below: 
+The SCRUB algorithm is described below:
 
 .. math::
    CBF_{SCRUB} =  \arg\max_{\theta} \sum_{t=1}^N \rho(CBF_{t} -\theta)  + \lambda(\theta -\mu)^2
@@ -402,11 +408,13 @@ Quality control measures
 
     from pathlib import Path
     from pkg_resources import resource_filename as pkgrf
-    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
+
     from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
+
+    bids_dir=Path(pkgrf('aslprep', 'data/tests/ds000240')).absolute()
     asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
     metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
-    wf = init_cbfqc_compt_wf(mem_gb=0.1,asl_file=str(asl_file),metadata=str(metadata),omp_nthreads=1)
+    wf = init_cbfqc_compt_wf(asl_file=str(asl_file), metadata=str(metadata))
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index, and
 quality evaluation index (QEI) are included for all CBF maps. The QEI [Dolui2017b]_ evaluates the quality of the computed
@@ -425,11 +433,10 @@ ASL and CBF to T1w registration
 
     from aslprep.workflows.asl import init_asl_reg_wf
     wf = init_asl_reg_wf(
-        mem_gb=1,
-        omp_nthreads=1,
         use_bbr=True,
         asl2t1w_dof=6,
-        asl2t1w_init='register')
+        asl2t1w_init='register',
+    )
 
 *ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's :abbr:`ASL (arterial spin labelling)` reference image
 and the reconstructed subject using the gray/white matter boundary
@@ -439,7 +446,7 @@ and the reconstructed subject using the gray/white matter boundary
 
     Animation showing :abbr:`ASL (arterial spin labelling)` to T1w registration.
 
- 
+
 FSL ``flirt`` is run with the :abbr:`BBR (boundary-based registration)` cost function, using the
 ``fast`` segmentation to establish the gray/white matter boundary. After :abbr:`BBR (boundary-based registration)` is run,
 the resulting affine transform will be compared to the initial transform found by ``flirt``.
@@ -457,6 +464,7 @@ Resampling ASL  and CBF runs onto standard spaces
 
     from aslprep.niworkflows.utils.spaces import SpatialReferences
     from aslprep.workflows.asl import init_asl_std_trans_wf
+
     wf = init_asl_std_trans_wf(
         mem_gb=3,
         omp_nthreads=1,
@@ -512,7 +520,7 @@ step, so as little information is lost as possible.
   .. [Dolui2017b] Dolui S.,  Wolf R. & Nabavizadeh S., David W., Detre, J. (2017).
      Automated Quality Evaluation Index for 2D ASL CBF Maps. ISMR 2017
 
-  .. [Daiw2012] Dai W., Robson P.M., Shankaranarayanan A., Alsop D.C. 
-      Reduced resolution transit delay prescan for quantitative continuous arterial spin 
-      labeling perfusion imaging. Magn Reson Med. 2012;67(5):1252-1265. 
+  .. [Daiw2012] Dai W., Robson P.M., Shankaranarayanan A., Alsop D.C.
+      Reduced resolution transit delay prescan for quantitative continuous arterial spin
+      labeling perfusion imaging. Magn Reson Med. 2012;67(5):1252-1265.
       doi:`10.1002/mrm.23103 <https://doi.org/10.1002/mrm.23103>`_

@@ -35,7 +35,7 @@ def init_aslprep_wf():
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.tests import mock_config
+            from aslprep.workflows.tests.tests import mock_config
             from aslprep.workflows.base import init_aslprep_wf
             with mock_config():
                 wf = init_aslprep_wf()
@@ -88,7 +88,7 @@ def init_single_subject_wf(subject_id):
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.tests import mock_config
+            from aslprep.workflows.tests.tests import mock_config
             from aslprep.workflows.base import init_single_subject_wf
             with mock_config():
                 wf = init_single_subject_wf('01')
