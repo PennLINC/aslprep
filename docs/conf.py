@@ -52,7 +52,6 @@ extensions = [
     "sphinxarg.ext",  # argparse extension
     "sphinxcontrib.apidoc",
     "sphinxcontrib.bibtex",
-    "sphinxcontrib.napoleon",
 ]
 
 # Mock modules in autodoc:
