@@ -560,13 +560,19 @@ def init_cbfgeqc_compt_wf(
         return files[1]
 
     csf_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="csf_tfm", mem_gb=0.1,
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="csf_tfm",
+        mem_gb=0.1,
     )
     wm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="wm_tfm", mem_gb=0.1,
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="wm_tfm",
+        mem_gb=0.1,
     )
     gm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="gm_tfm", mem_gb=0.1,
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="gm_tfm",
+        mem_gb=0.1,
     )
 
     mask_tfm = pe.Node(
@@ -580,7 +586,9 @@ def init_cbfgeqc_compt_wf(
     )
 
     resample = pe.Node(
-        Resample(in_file=brain_mask, outputtype="NIFTI_GZ"), name="resample", mem_gb=0.1,
+        Resample(in_file=brain_mask, outputtype="NIFTI_GZ"),
+        name="resample",
+        mem_gb=0.1,
     )
 
     qccompute = pe.Node(
@@ -1252,13 +1260,19 @@ model [@detre_perfusion;@alsop_recommended].
     )
     # convert tmps to asl_space
     csf_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="csf_tfm", mem_gb=0.1,
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="csf_tfm",
+        mem_gb=0.1,
     )
     wm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="wm_tfm", mem_gb=0.1,
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="wm_tfm",
+        mem_gb=0.1,
     )
     gm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True), name="gm_tfm", mem_gb=0.1,
+        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        name="gm_tfm",
+        mem_gb=0.1,
     )
 
     filex = os.path.abspath(asl_file)
