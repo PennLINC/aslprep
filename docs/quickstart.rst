@@ -1,8 +1,8 @@
 .. include:: links.rst
 
----------------------
+####################
 Quick Start Tutorial
----------------------
+####################
 
 This page describes the basic steps to run ``ASLPrep`` on a BIDS dataset.
 ``ASLPrep`` is containerized and available via ``pip``, and thus can be run in a variety of ways.
@@ -23,8 +23,9 @@ The BIDS dataset should include the following datatypes in order to run *ASLPrep
     sub-01/perf/sub-01_aslcontext.tsv
 
 
+********************
 ASLPrep installation
---------------------
+********************
 
 There are two ways to install *ASLPrep*:
 
@@ -56,8 +57,9 @@ See  :doc:`docker`  and  :doc:`singularity` for more information.
 This method is not recommended, because it requires external dependencies to be installed.
 
 
+***************
 Running ASLPrep
-----------------
+***************
 
 Running ``ASLPrep`` will require a freesurfer license file (you do not actually need Freesurfer, though),
 which can be requested `here <https://surfer.nmr.mgh.harvard.edu/registration.html>`_.
@@ -98,8 +100,9 @@ Here is a breakdown of this command::
 For additional options, see usage notes >  :ref:`Usage`
 
 
+***************
 ASLPrep outputs
----------------
+***************
 
 After a successful run, *ASLPrep* generates preprocessed ASL data, computed CBF maps, confound quality metrics,
 preprocessed structural images, as well as one HTML report per subject that provides visual assessment of the

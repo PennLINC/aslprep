@@ -1,8 +1,8 @@
 .. include:: links.rst
 
---------------------
+####################
 Outputs of *ASLPrep*
---------------------
+####################
 
 *ASLPrep* generates three broad classes of outputs:
 
@@ -23,16 +23,18 @@ Outputs of *ASLPrep*
    and CBF quality controls.
 
 
+**************
 Visual Reports
---------------
+**************
 
 *ASLPrep* outputs summary reports are written to ``<output dir>/aslprep/sub-<label>.html``.
 These reports provide a quick way to make visual inspection of the results easy.
 `View a sample report. <_static/sub-01.html>`_
 
 
+************************
 Derivatives of *ASLPrep*
-------------------------
+************************
 
 Preprocessed, or derivative, data are written to
 ``<output dir>/aslprep/sub-<label>/[ses-<label>/]``.
@@ -41,7 +43,7 @@ that we follow.
 
 
 Anatomical derivatives
-~~~~~~~~~~~~~~~~~~~~~~
+======================
 
 Anatomical derivatives are placed in each subject's ``anat`` subfolder.
 These derivatives are the same as smriprep output::
@@ -68,7 +70,7 @@ Additionally, the following transforms are saved::
 
 
 ASL and CBF derivatives
-~~~~~~~~~~~~~~~~~~~~~~~~
+=======================
 
 ASL derivatives are stored in the ``perf/`` subfolder.
 All derivatives contain ``task-<task_label>`` (mandatory) and ``run-<run_index>`` (optional), and
@@ -121,8 +123,9 @@ corresponding :abbr:`ASL (arterial spin labelling)` time series::
      1.01591	15.281561	0.0333937	0.010164	-0.0103568	0.0424513	0	0	0.00019174
 
 
+*******************
 CBF quality control
--------------------
+*******************
 
 *ASLPrep* produces a quality control (QC) file for each ASL run::
 
@@ -140,8 +143,9 @@ of the CBF image based on structural similarity, spatial variability, and
 percentage of voxels in gray matter with negative CBF values.
 
 
+*************
 CBF Confounds
--------------
+*************
 
 Confounds include the six head-motion parameters (three rotations and three translations),
 which are common outputs from the head-motion correction (also known as *realignment*).

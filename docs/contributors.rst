@@ -1,8 +1,8 @@
 .. include:: links.rst
 
------------------------
+#######################
 Contributing to ASLPREP
------------------------
+#######################
 
 This document explains how to prepare a new development environment and
 update an existing environment, as necessary.
@@ -16,8 +16,9 @@ which tracks the latest release version
 (see the :ref:`installation` guide for the basic procedure for running).
 
 
+*******************
 Adding dependencies
-===================
+*******************
 
 New dependencies to be inserted into the Docker image will either be
 Python or non-Python dependencies.
@@ -33,12 +34,13 @@ If the latest version in `PyPI <https://pypi.org/>`_ is sufficient,
 then no further action is required.
 
 
+**************************************************
 Code-Server Development Environment (Experimental)
-==================================================
+**************************************************
 
 
 1. Build the Docker image
-~~~~~~~~~~~~~~~~~~~~~~~~~
+=========================
 
 We will use the ``Dockerfile_devel`` file to build
 our development docker image::
@@ -50,7 +52,7 @@ our development docker image::
 
 
 2. Run the Docker image
-~~~~~~~~~~~~~~~~~~~~~~~
+=======================
 
 We can start a docker container using the image we built (``aslprep_devel``)::
 

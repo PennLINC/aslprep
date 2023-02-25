@@ -8,8 +8,9 @@
 .. include:: license.rst
 
 
+********
 Contents
---------
+********
 
 .. automodule:: aslprep
    :members:

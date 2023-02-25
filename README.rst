@@ -1,5 +1,6 @@
+#######################################################
 *ASLPrep*: A Robust Preprocessing Pipeline for ASL Data
-=======================================================
+#######################################################
 
 .. image:: https://img.shields.io/badge/Source%20Code-pennlinc%2Faslprep-purple
    :target: https://github.com/PennLINC/aslprep
@@ -34,8 +35,9 @@ This pipeline is developed by the `Satterthwaite lab at the University of Pennsy
 at the University of Pennsylvania <https://www.satterthwaitelab.com/>`_, as well as for
 open-source software distribution.
 
+*****
 About
------
+*****
 
 .. image:: https://raw.githubusercontent.com/PennLINC/aslprep/main/docs/_static/aslprepworkflow.png
 
@@ -69,8 +71,9 @@ This tool allows you to easily do the following:
 
 More information and documentation can be found at https://aslprep.readthedocs.io/.
 
+*******
 ASLPrep
---------
+*******
 
 *ASLPrep* adapts the preprocessing steps depending on the input dataset
 and provide results as good as possible independently of scanner make and scanning parameters
@@ -78,8 +81,9 @@ With the BIDS input, little or no parameter are required allowing ease of operat
 *ASLPrep* also provides visual reports for each subject,
 detailing the most important processing steps.
 
+****************
 Acknowledgements
-----------------
+****************
 
 Please acknowledge this work using the citation boilerplate that *ASLPrep* includes
 in the visual report generated for every subject processed.

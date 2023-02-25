@@ -1,10 +1,13 @@
 .. include:: links.rst
 
+###########
 Usage Notes
-===========
+###########
 
+
+*****************************
 Execution and the BIDS format
------------------------------
+*****************************
 
 The main input to *ASLPREP* is the path of the dataset
 that needs processing.
@@ -32,8 +35,9 @@ For example: ::
     aslprep data/bids_root/ out/ participant -w work/
 
 
+**********************
 Command-Line Arguments
-----------------------
+**********************
 
 .. argparse::
    :ref: aslprep.cli.parser._build_parser
@@ -42,8 +46,9 @@ Command-Line Arguments
    :nodefaultconst:
 
 
+**********************
 The FreeSurfer license
-----------------------
+**********************
 
 *ASLPRep* uses FreeSurfer tools, which require a license to run.
 
@@ -71,8 +76,9 @@ file on the host system: ::
         --ignore fieldmaps
 
 
+***************
 Troubleshooting
----------------
+***************
 
 Logs and crashfiles are written to the
 ``<output dir>/aslprep/sub-<participant_label>/log`` directory.
@@ -80,7 +86,10 @@ Information on how to customize and understand these files can be found on the
 `nipype debugging <http://nipype.readthedocs.io/en/latest/users/debug.html>`_
 page.
 
-**Support and communication**.
+
+*************************
+Support and communication
+*************************
 
 The documentation of this project is found here: http://aslprep.readthedocs.org/en/latest/.
 

@@ -1,5 +1,8 @@
+.. include:: links.rst
+
+##########################################
 Susceptibility Distortion Correction (SDC)
-------------------------------------------
+##########################################
 
 Please note that all routines for susceptibility-derived distortion correction
 have been used in

@@ -1,7 +1,8 @@
 .. include:: links.rst
 
+#######################################
 Running *ASLPrep* via Docker containers
-=======================================
+#######################################
 
 For every new version of *ASLPrep* that is released, a corresponding Docker
 image is generated.
@@ -17,8 +18,9 @@ more recent version of the image::
 command line, or through a lightweight wrapper that was created for convenience.
 
 
+*************************************************************
 Running *ASLPrep* directly interacting with the Docker Engine
--------------------------------------------------------------
+*************************************************************
 
 **Running containers as a user**.
 

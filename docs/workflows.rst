@@ -1,8 +1,8 @@
 .. include:: links.rst
 
-===============================
+###############################
 ASL processing pipeline details
-===============================
+###############################
 
 *ASLPrep* adapts its pipeline depending on what data and metadata are
 available and are used as inputs. It requires the input data to be
@@ -17,11 +17,12 @@ BIDS-valid and include necessary ASL parameters.
     wf = init_single_subject_wf('01')
 
 
+************************
 Structural Preprocessing
-------------------------
+************************
 
 The anatomical sub-workflow is from `sMRIPrep <https://github.com/nipreps/smriprep>`_.
-It  first constructs an average image by conforming all found T1w images
+It first constructs an average image by conforming all found T1w images
 to a common voxel size, and, in the case of multiple images,
 averages them into a single reference template.
 
@@ -55,7 +56,7 @@ See also *sMRIPrep*'s
 
 
 Brain extraction, brain tissue segmentation and spatial normalization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+=====================================================================
 
 Next, the T1w reference is skull-stripped using a Nipype implementation of
 the ``antsBrainExtraction.sh`` tool (ANTs), which is an atlas-based
@@ -94,8 +95,9 @@ be set to resample the preprocessed data onto the final output spaces.
     Animation showing spatial normalization of T1w onto the ``MNI152NLin2009cAsym`` template
 
 
+*****************
 ASL preprocessing
------------------
+*****************
 
 :py:func:`~aslprep.workflows.asl.base.init_asl_preproc_wf`
 
@@ -117,7 +119,7 @@ split into multiple sub-workflows described below.
 .. _asl_ref:
 
 ASL reference image estimation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+==============================
 
 :py:func:`~aslrep.niworkflows.func.util.init_asl_reference_wf`
 
@@ -145,7 +147,7 @@ ASL series onto the T1w image of the same subject.
 .. _asl_hmc:
 
 Head-motion estimation
-~~~~~~~~~~~~~~~~~~~~~~
+======================
 
 :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
 
@@ -171,7 +173,7 @@ for a more accurate estimation of head-motion.
 
 
 Slice time correction
-~~~~~~~~~~~~~~~~~~~~~
+=====================
 
 :py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
 
@@ -201,7 +203,7 @@ command line argument.
 .. _asl_confounds:
 
 Confounds estimation
-~~~~~~~~~~~~~~~~~~~~
+====================
 
 :py:func:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`
 
@@ -218,7 +220,7 @@ Calculated confounds include frame-wise displacement, 6 motion parameters, and D
 
 
 Susceptibility Distortion Correction (SDC)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+==========================================
 
 One of the major problems that affects :abbr:`EPI (echo planar imaging)` data
 is the spatial distortion caused by the inhomogeneity of the field inside
@@ -236,7 +238,7 @@ See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 .. _asl_preproc:
 
 Preprocessed ASL in native space
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+================================
 
 :py:func:`~aslprep.workflows.asl.resampling.init_asl_preproc_trans_wf`
 
@@ -270,8 +272,9 @@ Interpolation uses a Lanczos kernel.
 
 .. _cbf_preproc:
 
+*******************************
 CBF Computation in native space
--------------------------------
+*******************************
 
 :py:func:`~aslprep.workflows.asl.cbf.init_cbf_compt_wf`
 
@@ -407,8 +410,9 @@ The CBF map shown below is the result of partial volume corrected CBF computed b
    Partial volume corrected CBF maps by BASIL
 
 
+************************
 Quality control measures
-------------------------
+************************
 
 :py:func:`~aslprep.workflows.asl.cbf.init_cbfqc_compt_wf`
 
@@ -435,8 +439,9 @@ structural similarity, spatial variability, and percentage of voxels in GM with 
 
 .. _asl_reg:
 
+*******************************
 ASL and CBF to T1w registration
--------------------------------
+*******************************
 
 :py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
 
@@ -470,7 +475,7 @@ is registered to T1w using the transformation from ASL-T1w registration.
 
 
 Resampling ASL and CBF runs onto standard spaces
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+================================================
 
 :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
 

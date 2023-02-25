@@ -1,17 +1,20 @@
 .. include:: links.rst
 
-================
+################
 Developers - API
-================
+################
 
+*****************************
 Internal configuration system
------------------------------
+*****************************
 
 .. automodule:: aslprep.config
    :members: from_dict, load, get, dumps, to_filename, init_spaces
 
+
+***********************************
 :mod:`aslprep.workflows`: Workflows
------------------------------------
+***********************************
 
 .. automodule:: aslprep.workflows
    :no-members:
@@ -36,8 +39,10 @@ Internal configuration system
    aslprep.workflows.asl.stc
    aslprep.workflows.asl.t2s
 
+
+*************************************
 :mod:`aslprep.interfaces`: Interfaces
--------------------------------------
+*************************************
 
 .. automodule:: aslprep.interfaces
    :no-members:
@@ -58,8 +63,9 @@ Internal configuration system
    aslprep.interfaces.reports
 
 
+*******************************
 :mod:`aslprep.utils`: Utilities
--------------------------------
+*******************************
 
 .. automodule:: aslprep.utils
    :no-members:

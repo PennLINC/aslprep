@@ -1,7 +1,8 @@
 .. include:: links.rst
 
+###############################
 Standard and nonstandard spaces
-===============================
+###############################
 
 The command line interface of *ASLPPrep* allows resampling of the pre-processed
 and computed CBF maps onto other output spaces.
@@ -14,8 +15,9 @@ nonstandard spaces can be inserted.
   even if other options require resampling the preprocessed data into intermediary spaces.
 
 
+***************
 Standard spaces
-"""""""""""""""
+***************
 
 By default, *ASLPrep* uses ``MNI152NLin2009cAsym`` as spatial-standardization reference and
 output space. Valid template identifiers can be used from the
@@ -30,8 +32,9 @@ ASL and CBF on standard space (``MNI152NLin6Asym``) with the template's 2mm
 isotropic resolution.
 
 
+******************
 Nonstandard spaces
-""""""""""""""""""
+******************
 
 Additionally, ``--output-spaces`` accepts identifiers of spatial references
 that do not generate *standardized* coordinate spaces:

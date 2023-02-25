@@ -1,8 +1,8 @@
 .. include:: links.rst
 
---------------------
+####################
 ASLPrep Installation
---------------------
+####################
 
 There are two ways to install *ASLPrep*:
 
@@ -29,8 +29,9 @@ The command-line structure is as follows::
        <input_bids_path> <derivatives_path> <analysis_level> <ASLPrep_named_options>
 
 
+****************************
 Computer or HPC installation
-============================
+****************************
 
 .. warning::
 
@@ -56,7 +57,7 @@ Check your installation with the ``--version`` argument ::
 
 
 External Dependencies
----------------------
+=====================
 
 *ASLPRep* is written using Python 3.7 (or above), and is based on
 nipype_.
