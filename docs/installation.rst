@@ -6,7 +6,7 @@ ASLPrep Installation
 
 There are two ways to install *ASLPrep*:
 
-* within a  `Computer or HPC installation`_
+* within a `Computer or HPC installation`_
 
 * using container technologies (RECOMMENDED), such as :doc:`docker`
   or :doc:`singularity`.
@@ -23,8 +23,7 @@ will require binding configurations and options. The call to the docker or
 singularity image follows a similar format to standard installations, except that
 the binding configurations must be specified before the ``aslprep`` argument.
 
-The command-line structure is as follows:
-::
+The command-line structure is as follows::
 
   $ <container_command_and_options> <container_image> \
        <input_bids_path> <derivatives_path> <analysis_level> <ASLPrep_named_options>
@@ -43,7 +42,8 @@ These tools must be installed and their binaries available in the
 system's ``$PATH``.
 A relatively interpretable description of how your environment can be set up
 is found in the `Dockerfile <https://github.com/pennlinc/aslprep/blob/main/Dockerfile>`_.
-Note that FreeSurfer requires a license file, which can be requested `here <https://surfer.nmr.mgh.harvard.edu/fswiki/License>`_.
+Note that FreeSurfer requires a license file, which can be requested
+`here <https://surfer.nmr.mgh.harvard.edu/fswiki/License>`_.
 
 If Python 3.7 (or above) is installed, along with the ``pip`` command,
 *ASLPRep* can be installed using the following command ::

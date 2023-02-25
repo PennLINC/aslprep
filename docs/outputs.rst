@@ -20,7 +20,7 @@ Outputs of *ASLPrep*
 
 3. **Confounds and quality controls**: a confounds matrix that inlcudes framewise
    displacement, motion parameters, coregistration and registration quality indices,
-   and cbf quality controls.
+   and CBF quality controls.
 
 
 Visual Reports
@@ -35,7 +35,7 @@ Derivatives of *ASLPrep*
 ------------------------
 
 Preprocessed, or derivative, data are written to
-``<output dir>/aslprep/sub-<label>/``.
+``<output dir>/aslprep/sub-<label>/[ses-<label>/]``.
 The `BIDS Derivatives RC1`_ specification describes the naming and metadata conventions
 that we follow.
 
@@ -46,14 +46,14 @@ Anatomical derivatives
 Anatomical derivatives are placed in each subject's ``anat`` subfolder.
 These derivatives are the same as smriprep output::
 
-  sub-<label>/
+  sub-<label>/[ses-<label>/]
     anat/
-      sub-<label>[_space-<label>]_desc-preproc_T1w.nii.gz
-      sub-<label>[_space-<label>]_desc-brain_mask.nii.gz
-      sub-<label>[_space-<label>]_dseg.nii.gz
-      sub-<label>[_space-<label>]_label-CSF_probseg.nii.gz
-      sub-<label>[_space-<label>]_label-GM_probseg.nii.gz
-      sub-<label>[_space-<label>]_label-WM_probseg.nii.gz
+      <source_entities>[_space-<label>]_desc-preproc_T1w.nii.gz
+      <source_entities>[_space-<label>]_desc-brain_mask.nii.gz
+      <source_entities>[_space-<label>]_dseg.nii.gz
+      <source_entities>[_space-<label>]_label-CSF_probseg.nii.gz
+      <source_entities>[_space-<label>]_label-GM_probseg.nii.gz
+      <source_entities>[_space-<label>]_label-WM_probseg.nii.gz
 
 Spatially-standardized derivatives are denoted with a space label,
 such as ``MNI152NLin2009cAsym``, while derivatives in
@@ -61,7 +61,7 @@ the original ``T1w`` space omit the ``space-`` keyword.
 
 Additionally, the following transforms are saved::
 
-  sub-<label>/
+  sub-<label>/[ses-<label>/]
     anat/
       sub-<label>_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5
       sub-<label>_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5
@@ -74,26 +74,26 @@ ASL derivatives are stored in the ``perf/`` subfolder.
 All derivatives contain ``task-<task_label>`` (mandatory) and ``run-<run_index>`` (optional), and
 these will be indicated with ``[specifiers]``::
 
-  sub-<label>/
+  sub-<label>/[ses-<label>/]
     perf/
-      sub-<label>[_<specifiers>][_space-<label>]_aslref.nii.gz  # asl reference image
-      sub-<label>[_<specifiers>][_space-<label>]_desc-brain_mask.nii.gz  # asl brain mask
-      sub-<label>[_<specifiers>][_space-<label>]_desc-preproc_asl.nii.gz  # preprocessed asl timeseries
-      sub-<label>[_<specifiers>][_space-<label>]_cbf.nii.gz  # computed cbf timeseries
-      sub-<label>[_<specifiers>][_space-<label>]_desc-mean_cbf.nii.gz  # mean cbf
+      <source_entities>[_space-<label>]_aslref.nii.gz  # asl reference image
+      <source_entities>[_space-<label>]_desc-brain_mask.nii.gz  # asl brain mask
+      <source_entities>[_space-<label>]_desc-preproc_asl.nii.gz  # preprocessed asl timeseries
+      <source_entities>[_space-<label>]_cbf.nii.gz  # computed CBF timeseries
+      <source_entities>[_space-<label>]_desc-mean_cbf.nii.gz  # mean CBF
 
 SCORE and SCRUB Outputs::
 
-      sub-<label>[_<specifiers>][_space-<label>]_desc-score_cbf.nii.gz  # cbf timeseries denoised with  SCORE
-      sub-<label>[_<specifiers>][_space-<label>]_desc-meanScore_cbf.nii.gz  # mean cbf denoised with SCORE
-      sub-<label>[_<specifiers>][_space-<label>]_desc-scrub_cbf.nii.gz  # mean CBF denoised with SCRUB
+      <source_entities>[_space-<label>]_desc-score_cbf.nii.gz  # CBF timeseries denoised with  SCORE
+      <source_entities>[_space-<label>]_desc-meanScore_cbf.nii.gz  # mean CBF denoised with SCORE
+      <source_entities>[_space-<label>]_desc-scrub_cbf.nii.gz  # mean CBF denoised with SCRUB
 
 BASIL outputs::
 
-      sub-<label>[_<specifiers>][_space-<label>]_desc-basil_cbf.nii.gz  # cbf computed with BASIL
-      sub-<label>[_<specifiers>][_space-<label>]_desc-pvGM_cbf.nii.gz  # GM partial volume corrected cbf with BASIL
-      sub-<label>[_<specifiers>][_space-<label>]_desc-pvWM_cbf.nii.gz  # WM partial volume corrected cbf with BASIL
-      sub-<label>[_<specifiers>][_space-<label>]_desc-bat_cbf.nii.gz  # bolus arrival time (in seconds)
+      <source_entities>[_space-<label>]_desc-basil_cbf.nii.gz  # CBF computed with BASIL
+      <source_entities>[_space-<label>]_desc-pvGM_cbf.nii.gz  # GM partial volume corrected CBF with BASIL
+      <source_entities>[_space-<label>]_desc-pvWM_cbf.nii.gz  # WM partial volume corrected CBF with BASIL
+      <source_entities>[_space-<label>]_desc-bat_cbf.nii.gz  # bolus arrival time (in seconds)
 
 
 **Regularly gridded outputs (images):**
@@ -105,10 +105,10 @@ For each :abbr:`ASL (arterial spin labelling)` run processed with *ASLPrep*, an
 accompanying *confounds* file will be generated.
 `CBF Confounds`_ are saved as a :abbr:`TSV (tab-separated value)` file::
 
-  sub-<label>/
+  sub-<label>/[ses-<label>/]
     perf/
-      sub-<label>[_<specifiers>]_desc-confounds_regressors.tsv
-      sub-<label>[_<specifiers>]_desc-confounds_regressors.json
+      <source_entities>_desc-confounds_regressors.tsv
+      <source_entities>_desc-confounds_regressors.json
 
 These :abbr:`TSV (tab-separated values)` tables look like the example below,
 where each row of the file corresponds to one time point found in the
@@ -126,9 +126,9 @@ CBF quality control
 
 *ASLPrep* produces a quality control (QC) file for each ASL run::
 
-    sub-<label>/
+    sub-<label>/[ses-<label>/]
       perf/
-        sub-<label>[_<specifiers>]_cbfqc.csv
+        <source_entities>_desc-qualitycontrol_cbf.csv
 
 The following QC measures were estimated: framewise displacement
 and relative root mean square (relRMS). Other QC measurers include dice and jaccard indices,

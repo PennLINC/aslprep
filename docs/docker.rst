@@ -9,7 +9,7 @@ image is generated.
 In order to run *ASLPrep* Docker images, the Docker Engine must be installed.
 
 If you have used *ASLPrep* via Docker in the past, you might need to pull down a
-more recent version of the image: ::
+more recent version of the image::
 
     $ docker pull pennlinc/aslprep:<latest-version>
 
@@ -38,7 +38,7 @@ A ``docker`` container can be created using the following command::
         /data /out/out \
         participant
 
-For example: ::
+For example::
 
     $ docker run -ti -m 12GB --rm \
         -v $HOME/ds000240:/data:ro \

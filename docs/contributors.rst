@@ -15,6 +15,7 @@ or ``pennlinc/aslprep:latest``,
 which tracks the latest release version
 (see the :ref:`installation` guide for the basic procedure for running).
 
+
 Adding dependencies
 ===================
 
@@ -31,8 +32,10 @@ list in `aslprep/__about__.py
 If the latest version in `PyPI <https://pypi.org/>`_ is sufficient,
 then no further action is required.
 
+
 Code-Server Development Environment (Experimental)
 ==================================================
+
 
 1. Build the Docker image
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,6 +47,7 @@ our development docker image::
     $ cd $HOME/projects/aslprep
     $ git clone https://github.com/PennLINC/aslprep.git
     $ docker build -t aslprep_devel -f Dockerfile_devel .
+
 
 2. Run the Docker image
 ~~~~~~~~~~~~~~~~~~~~~~~
