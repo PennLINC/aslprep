@@ -136,20 +136,16 @@ def init_asl_derivatives_wf(
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    workflow.connect(
-        [
-            (inputnode, raw_sources, [("source_file", "in_files")]),
-            (
-                inputnode,
-                ds_confounds,
-                [
-                    ("source_file", "source_file"),
-                    ("confounds", "in_file"),
-                    ("confounds_metadata", "meta_dict"),
-                ],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, raw_sources, [("source_file", "in_files")]),
+        (inputnode, ds_confounds, [
+            ("source_file", "source_file"),
+            ("confounds", "in_file"),
+            ("confounds_metadata", "meta_dict"),
+        ]),
+    ])
+    # fmt:on
 
     qcfile = pe.Node(
         DerivativesDataSink(
@@ -162,11 +158,14 @@ def init_asl_derivatives_wf(
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    workflow.connect(
-        [
-            (inputnode, qcfile, [("source_file", "source_file"), ("qc_file", "in_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, qcfile, [
+            ("source_file", "source_file"),
+            ("qc_file", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     # write transform matrix file between asl native space and T1w
     ds_t1w_to_asl_xform = pe.Node(
@@ -184,15 +183,14 @@ def init_asl_derivatives_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (
-                inputnode,
-                ds_t1w_to_asl_xform,
-                [("source_file", "source_file"), ("itk_asl_to_t1", "in_file")],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_t1w_to_asl_xform, [
+            ("source_file", "source_file"),
+            ("itk_asl_to_t1", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     ds_asl_to_t1w_xform = pe.Node(
         DerivativesDataSink(
@@ -209,15 +207,14 @@ def init_asl_derivatives_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (
-                inputnode,
-                ds_asl_to_t1w_xform,
-                [("source_file", "source_file"), ("itk_t1_to_asl", "in_file")],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_asl_to_t1w_xform, [
+            ("source_file", "source_file"),
+            ("itk_t1_to_asl", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     cbf_hvoxf = pe.Node(
         DerivativesDataSink(
@@ -280,15 +277,30 @@ def init_asl_derivatives_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (inputnode, cbf_hvoxf, [("source_file", "source_file"), ("cbf_hvoxf", "in_file")]),
-            (inputnode, cbf_sc207, [("source_file", "source_file"), ("cbf_sc207", "in_file")]),
-            (inputnode, cbf_sc217, [("source_file", "source_file"), ("cbf_sc217", "in_file")]),
-            (inputnode, cbf_sc407, [("source_file", "source_file"), ("cbf_sc407", "in_file")]),
-            (inputnode, cbf_sc417, [("source_file", "source_file"), ("cbf_sc417", "in_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, cbf_hvoxf, [
+            ("source_file", "source_file"),
+            ("cbf_hvoxf", "in_file"),
+        ]),
+        (inputnode, cbf_sc207, [
+            ("source_file", "source_file"),
+            ("cbf_sc207", "in_file"),
+        ]),
+        (inputnode, cbf_sc217, [
+            ("source_file", "source_file"),
+            ("cbf_sc217", "in_file"),
+        ]),
+        (inputnode, cbf_sc407, [
+            ("source_file", "source_file"),
+            ("cbf_sc407", "in_file"),
+        ]),
+        (inputnode, cbf_sc417, [
+            ("source_file", "source_file"),
+            ("cbf_sc417", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     if scorescrub:
         score_hvoxf = pe.Node(
@@ -339,7 +351,6 @@ def init_asl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         score_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -413,60 +424,51 @@ def init_asl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    score_hvoxf,
-                    [("source_file", "source_file"), ("score_hvoxf", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_hvoxf,
-                    [("source_file", "source_file"), ("scrub_hvoxf", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc217,
-                    [("source_file", "source_file"), ("score_sc217", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc207,
-                    [("source_file", "source_file"), ("score_sc207", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc207,
-                    [("source_file", "source_file"), ("scrub_sc207", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc217,
-                    [("source_file", "source_file"), ("scrub_sc217", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc417,
-                    [("source_file", "source_file"), ("score_sc417", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc417,
-                    [("source_file", "source_file"), ("scrub_sc417", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc407,
-                    [("source_file", "source_file"), ("score_sc407", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc407,
-                    [("source_file", "source_file"), ("scrub_sc407", "in_file")],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, score_hvoxf, [
+                ("source_file", "source_file"),
+                ("score_hvoxf", "in_file"),
+            ]),
+            (inputnode, scrub_hvoxf, [
+                ("source_file", "source_file"),
+                ("scrub_hvoxf", "in_file"),
+            ]),
+            (inputnode, score_sc217, [
+                ("source_file", "source_file"),
+                ("score_sc217", "in_file"),
+            ]),
+            (inputnode, score_sc207, [
+                ("source_file", "source_file"),
+                ("score_sc207", "in_file"),
+            ]),
+            (inputnode, scrub_sc207, [
+                ("source_file", "source_file"),
+                ("scrub_sc207", "in_file"),
+            ]),
+            (inputnode, scrub_sc217, [
+                ("source_file", "source_file"),
+                ("scrub_sc217", "in_file"),
+            ]),
+            (inputnode, score_sc417, [
+                ("source_file", "source_file"),
+                ("score_sc417", "in_file"),
+            ]),
+            (inputnode, scrub_sc417, [
+                ("source_file", "source_file"),
+                ("scrub_sc417", "in_file"),
+            ]),
+            (inputnode, score_sc407, [
+                ("source_file", "source_file"),
+                ("score_sc407", "in_file"),
+            ]),
+            (inputnode, scrub_sc407, [
+                ("source_file", "source_file"),
+                ("scrub_sc407", "in_file"),
+            ]),
+        ])
+        # fmt:on
+
     if basil:
         basil_hvoxf = pe.Node(
             DerivativesDataSink(
@@ -516,7 +518,6 @@ def init_asl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         basil_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -590,40 +591,50 @@ def init_asl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    basil_hvoxf,
-                    [("source_file", "source_file"), ("basil_hvoxf", "in_file")],
-                ),
-                (inputnode, pvc_hvoxf, [("source_file", "source_file"), ("pvc_hvoxf", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc207,
-                    [("source_file", "source_file"), ("basil_sc207", "in_file")],
-                ),
-                (inputnode, pvc_sc207, [("source_file", "source_file"), ("pvc_sc207", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc217,
-                    [("source_file", "source_file"), ("basil_sc217", "in_file")],
-                ),
-                (inputnode, pvc_sc217, [("source_file", "source_file"), ("pvc_sc217", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc407,
-                    [("source_file", "source_file"), ("basil_sc407", "in_file")],
-                ),
-                (inputnode, pvc_sc407, [("source_file", "source_file"), ("pvc_sc217", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc417,
-                    [("source_file", "source_file"), ("basil_sc417", "in_file")],
-                ),
-                (inputnode, pvc_sc417, [("source_file", "source_file"), ("pvc_sc417", "in_file")]),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, basil_hvoxf, [
+                ("source_file", "source_file"),
+                ("basil_hvoxf", "in_file"),
+            ]),
+            (inputnode, pvc_hvoxf, [
+                ("source_file", "source_file"),
+                ("pvc_hvoxf", "in_file"),
+            ]),
+            (inputnode, basil_sc207, [
+                ("source_file", "source_file"),
+                ("basil_sc207", "in_file"),
+            ]),
+            (inputnode, pvc_sc207, [
+                ("source_file", "source_file"),
+                ("pvc_sc207", "in_file"),
+            ]),
+            (inputnode, basil_sc217, [
+                ("source_file", "source_file"),
+                ("basil_sc217", "in_file"),
+            ]),
+            (inputnode, pvc_sc217, [
+                ("source_file", "source_file"),
+                ("pvc_sc217", "in_file"),
+            ]),
+            (inputnode, basil_sc407, [
+                ("source_file", "source_file"),
+                ("basil_sc407", "in_file"),
+            ]),
+            (inputnode, pvc_sc407, [
+                ("source_file", "source_file"),
+                ("pvc_sc217", "in_file"),
+            ]),
+            (inputnode, basil_sc417, [
+                ("source_file", "source_file"),
+                ("basil_sc417", "in_file"),
+            ]),
+            (inputnode, pvc_sc417, [
+                ("source_file", "source_file"),
+                ("pvc_sc417", "in_file"),
+            ]),
+        ])
+        # fmt:on
 
     if nonstd_spaces.intersection(("func", "run", "asl", "sbref")):
         ds_asl_native = pe.Node(
