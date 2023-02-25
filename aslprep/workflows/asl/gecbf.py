@@ -381,7 +381,10 @@ effects of other kernels [@lanczos].
     # fmt:on
 
     refine_mask = pe.Node(
-        RefineMask(), mem_gb=1.0, run_without_submitting=True, name="refine_mask",
+        RefineMask(),
+        mem_gb=1.0,
+        run_without_submitting=True,
+        name="refine_mask",
     )
 
     # fmt:off
@@ -431,7 +434,9 @@ effects of other kernels [@lanczos].
         )
 
         aslmask_to_t1w = pe.Node(
-            ApplyTransforms(interpolation="MultiLabel"), name="aslmask_to_t1w", mem_gb=0.1,
+            ApplyTransforms(interpolation="MultiLabel"),
+            name="aslmask_to_t1w",
+            mem_gb=0.1,
         )
         # fmt:off
         workflow.connect([
@@ -571,224 +576,162 @@ effects of other kernels [@lanczos].
             basil=basil,
             name="asl_gestd_trans_wf",
         )
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    std_gereg_wf,
-                    [
-                        ("template", "inputnode.templates"),
-                        ("anat2std_xfm", "inputnode.anat2std_xfm"),
-                        ("asl_file", "inputnode.name_source"),
-                        ("asl_file", "inputnode.asl_file"),
-                    ],
-                ),
-                (
-                    asl_reg_wf,
-                    std_gereg_wf,
-                    [("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1")],
-                ),
-                (refine_mask, std_gereg_wf, [("out_mask", "inputnode.asl_mask")]),
-                (
-                    std_gereg_wf,
-                    outputnode,
-                    [
-                        ("outputnode.asl_std", "asl_std"),
-                        ("outputnode.asl_std_ref", "asl_std_ref"),
-                        ("outputnode.asl_mask_std", "asl_mask_std"),
-                    ],
-                ),
-                (
-                    cbf_compt_wf,
-                    std_gereg_wf,
-                    [
-                        ("outputnode.out_cbf", "inputnode.cbf"),
-                        ("outputnode.out_mean", "inputnode.meancbf"),
-                    ],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, std_gereg_wf, [
+                ("template", "inputnode.templates"),
+                ("anat2std_xfm", "inputnode.anat2std_xfm"),
+                ("asl_file", "inputnode.name_source"),
+                ("asl_file", "inputnode.asl_file"),
+            ]),
+            (asl_reg_wf, std_gereg_wf, [("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1")]),
+            (refine_mask, std_gereg_wf, [("out_mask", "inputnode.asl_mask")]),
+            (std_gereg_wf, outputnode, [
+                ("outputnode.asl_std", "asl_std"),
+                ("outputnode.asl_std_ref", "asl_std_ref"),
+                ("outputnode.asl_mask_std", "asl_mask_std"),
+            ]),
+            (cbf_compt_wf, std_gereg_wf, [
+                ("outputnode.out_cbf", "inputnode.cbf"),
+                ("outputnode.out_mean", "inputnode.meancbf"),
+            ]),
+        ])
+        # fmt:on
 
         if scorescrub:
-            workflow.connect(
-                [
-                    (
-                        cbf_compt_wf,
-                        std_gereg_wf,
-                        [
-                            ("outputnode.out_score", "inputnode.score"),
-                            ("outputnode.out_avgscore", "inputnode.avgscore"),
-                            ("outputnode.out_scrub", "inputnode.scrub"),
-                        ],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (cbf_compt_wf, std_gereg_wf, [
+                    ("outputnode.out_score", "inputnode.score"),
+                    ("outputnode.out_avgscore", "inputnode.avgscore"),
+                    ("outputnode.out_scrub", "inputnode.scrub"),
+                ]),
+            ])
+            # fmt:on
+
         if basil:
-            workflow.connect(
-                [
-                    (
-                        cbf_compt_wf,
-                        std_gereg_wf,
-                        [
-                            ("outputnode.out_cbfb", "inputnode.basil"),
-                            ("outputnode.out_cbfpv", "inputnode.pv"),
-                            ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
-                            ("outputnode.out_att", "inputnode.att"),
-                        ],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (cbf_compt_wf, std_gereg_wf, [
+                    ("outputnode.out_cbfb", "inputnode.basil"),
+                    ("outputnode.out_cbfpv", "inputnode.pv"),
+                    ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
+                    ("outputnode.out_att", "inputnode.att"),
+                ]),
+            ])
+            # fmt:on
 
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
-        workflow.connect(
-            [
-                (
-                    std_gereg_wf,
-                    compt_qccbf_wf,
-                    [("outputnode.asl_mask_std", "inputnode.asl_mask_std")],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (std_gereg_wf, compt_qccbf_wf, [
+                ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
+            ]),
+        ])
+        # fmt:on
 
         # asl_derivatives_wf internally parametrizes over snapshotted spaces.
-        # asl_derivatives_wf internally parametrizes over snapshotted spaces.
-        workflow.connect(
-            [
-                (
-                    std_gereg_wf,
-                    asl_derivatives_wf,
-                    [
-                        ("outputnode.template", "inputnode.template"),
-                        ("outputnode.spatial_reference", "inputnode.spatial_reference"),
-                        ("outputnode.asl_std_ref", "inputnode.asl_std_ref"),
-                        ("outputnode.asl_std", "inputnode.asl_std"),
-                        ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
-                        ("outputnode.cbf_std", "inputnode.cbf_std"),
-                        ("outputnode.meancbf_std", "inputnode.meancbf_std"),
-                    ],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (std_gereg_wf, asl_derivatives_wf, [
+                ("outputnode.template", "inputnode.template"),
+                ("outputnode.spatial_reference", "inputnode.spatial_reference"),
+                ("outputnode.asl_std_ref", "inputnode.asl_std_ref"),
+                ("outputnode.asl_std", "inputnode.asl_std"),
+                ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
+                ("outputnode.cbf_std", "inputnode.cbf_std"),
+                ("outputnode.meancbf_std", "inputnode.meancbf_std"),
+            ]),
+        ])
+        # fmt:on
 
         if scorescrub:
-            workflow.connect(
-                [
-                    (
-                        std_gereg_wf,
-                        asl_derivatives_wf,
-                        [
-                            ("outputnode.score_std", "inputnode.score_std"),
-                            ("outputnode.avgscore_std", "inputnode.avgscore_std"),
-                            ("outputnode.scrub_std", "inputnode.scrub_std"),
-                        ],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (std_gereg_wf, asl_derivatives_wf, [
+                    ("outputnode.score_std", "inputnode.score_std"),
+                    ("outputnode.avgscore_std", "inputnode.avgscore_std"),
+                    ("outputnode.scrub_std", "inputnode.scrub_std"),
+                ]),
+            ])
+            # fmt:on
+
         if basil:
-            workflow.connect(
-                [
-                    (
-                        std_gereg_wf,
-                        asl_derivatives_wf,
-                        [
-                            ("outputnode.basil_std", "inputnode.basil_std"),
-                            ("outputnode.pv_std", "inputnode.pv_std"),
-                            ("outputnode.pvwm_std", "inputnode.pvwm_std"),
-                            ("outputnode.att_std", "inputnode.att_std"),
-                        ],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (std_gereg_wf, asl_derivatives_wf, [
+                    ("outputnode.basil_std", "inputnode.basil_std"),
+                    ("outputnode.pv_std", "inputnode.pv_std"),
+                    ("outputnode.pvwm_std", "inputnode.pvwm_std"),
+                    ("outputnode.att_std", "inputnode.att_std"),
+                ]),
+            ])
+            # fmt:on
 
     cbfroiqu = init_cbfroiquant_wf(
         scorescrub=scorescrub,
         basil=basil,
         name="cbf_roiquant",
     )
-    workflow.connect(
-        [
-            (refine_mask, cbfroiqu, [("out_mask", "inputnode.aslmask")]),
-            (inputnode, cbfroiqu, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
-            (asl_reg_wf, cbfroiqu, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-            (
-                cbf_compt_wf,
-                cbfroiqu,
-                [
-                    ("outputnode.out_mean", "inputnode.cbf"),
-                ],
-            ),
-            (
-                cbfroiqu,
-                asl_derivatives_wf,
-                [
-                    ("outputnode.cbf_hvoxf", "inputnode.cbf_hvoxf"),
-                    ("outputnode.cbf_sc207", "inputnode.cbf_sc207"),
-                    ("outputnode.cbf_sc217", "inputnode.cbf_sc217"),
-                    ("outputnode.cbf_sc407", "inputnode.cbf_sc407"),
-                    ("outputnode.cbf_sc417", "inputnode.cbf_sc417"),
-                ],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (refine_mask, cbfroiqu, [("out_mask", "inputnode.aslmask")]),
+        (inputnode, cbfroiqu, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
+        (asl_reg_wf, cbfroiqu, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
+        (cbf_compt_wf, cbfroiqu, [("outputnode.out_mean", "inputnode.cbf")]),
+        (cbfroiqu, asl_derivatives_wf, [
+            ("outputnode.cbf_hvoxf", "inputnode.cbf_hvoxf"),
+            ("outputnode.cbf_sc207", "inputnode.cbf_sc207"),
+            ("outputnode.cbf_sc217", "inputnode.cbf_sc217"),
+            ("outputnode.cbf_sc407", "inputnode.cbf_sc407"),
+            ("outputnode.cbf_sc417", "inputnode.cbf_sc417"),
+        ]),
+    ])
+    # fmt:on
 
     if scorescrub:
-        workflow.connect(
-            [
-                (
-                    cbf_compt_wf,
-                    cbfroiqu,
-                    [
-                        ("outputnode.out_avgscore", "inputnode.score"),
-                        ("outputnode.out_scrub", "inputnode.scrub"),
-                    ],
-                ),
-                (
-                    cbfroiqu,
-                    asl_derivatives_wf,
-                    [
-                        ("outputnode.score_hvoxf", "inputnode.score_hvoxf"),
-                        ("outputnode.score_sc207", "inputnode.score_sc207"),
-                        ("outputnode.score_sc217", "inputnode.score_sc217"),
-                        ("outputnode.score_sc407", "inputnode.score_sc407"),
-                        ("outputnode.score_sc417", "inputnode.score_sc417"),
-                        ("outputnode.scrub_hvoxf", "inputnode.scrub_hvoxf"),
-                        ("outputnode.scrub_sc207", "inputnode.scrub_sc207"),
-                        ("outputnode.scrub_sc217", "inputnode.scrub_sc217"),
-                        ("outputnode.scrub_sc407", "inputnode.scrub_sc407"),
-                        ("outputnode.scrub_sc417", "inputnode.scrub_sc417"),
-                    ],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (cbf_compt_wf, cbfroiqu, [
+                ("outputnode.out_avgscore", "inputnode.score"),
+                ("outputnode.out_scrub", "inputnode.scrub"),
+            ]),
+            (cbfroiqu, asl_derivatives_wf, [
+                ("outputnode.score_hvoxf", "inputnode.score_hvoxf"),
+                ("outputnode.score_sc207", "inputnode.score_sc207"),
+                ("outputnode.score_sc217", "inputnode.score_sc217"),
+                ("outputnode.score_sc407", "inputnode.score_sc407"),
+                ("outputnode.score_sc417", "inputnode.score_sc417"),
+                ("outputnode.scrub_hvoxf", "inputnode.scrub_hvoxf"),
+                ("outputnode.scrub_sc207", "inputnode.scrub_sc207"),
+                ("outputnode.scrub_sc217", "inputnode.scrub_sc217"),
+                ("outputnode.scrub_sc407", "inputnode.scrub_sc407"),
+                ("outputnode.scrub_sc417", "inputnode.scrub_sc417"),
+            ]),
+        ])
+        # fmt:on
+
     if basil:
-        workflow.connect(
-            [
-                (
-                    cbf_compt_wf,
-                    cbfroiqu,
-                    [
-                        ("outputnode.out_cbfb", "inputnode.basil"),
-                        ("outputnode.out_cbfpv", "inputnode.pvc"),
-                    ],
-                ),
-                (
-                    cbfroiqu,
-                    asl_derivatives_wf,
-                    [
-                        ("outputnode.basil_hvoxf", "inputnode.basil_hvoxf"),
-                        ("outputnode.basil_sc207", "inputnode.basil_sc207"),
-                        ("outputnode.basil_sc217", "inputnode.basil_sc217"),
-                        ("outputnode.basil_sc407", "inputnode.basil_sc407"),
-                        ("outputnode.basil_sc417", "inputnode.basil_sc417"),
-                        ("outputnode.pvc_hvoxf", "inputnode.pvc_hvoxf"),
-                        ("outputnode.pvc_sc207", "inputnode.pvc_sc207"),
-                        ("outputnode.pvc_sc217", "inputnode.pvc_sc217"),
-                        ("outputnode.pvc_sc407", "inputnode.pvc_sc407"),
-                        ("outputnode.pvc_sc417", "inputnode.pvc_sc417"),
-                    ],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (cbf_compt_wf, cbfroiqu, [
+                ("outputnode.out_cbfb", "inputnode.basil"),
+                ("outputnode.out_cbfpv", "inputnode.pvc"),
+            ]),
+            (cbfroiqu, asl_derivatives_wf, [
+                ("outputnode.basil_hvoxf", "inputnode.basil_hvoxf"),
+                ("outputnode.basil_sc207", "inputnode.basil_sc207"),
+                ("outputnode.basil_sc217", "inputnode.basil_sc217"),
+                ("outputnode.basil_sc407", "inputnode.basil_sc407"),
+                ("outputnode.basil_sc417", "inputnode.basil_sc417"),
+                ("outputnode.pvc_hvoxf", "inputnode.pvc_hvoxf"),
+                ("outputnode.pvc_sc207", "inputnode.pvc_sc207"),
+                ("outputnode.pvc_sc217", "inputnode.pvc_sc217"),
+                ("outputnode.pvc_sc407", "inputnode.pvc_sc407"),
+                ("outputnode.pvc_sc417", "inputnode.pvc_sc417"),
+            ]),
+        ])
+        # fmt:on
 
     # REPORTING ############################################################
     ds_report_summary = pe.Node(
@@ -798,11 +741,9 @@ effects of other kernels [@lanczos].
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (summary, ds_report_summary, [("out_report", "in_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([(summary, ds_report_summary, [("out_report", "in_file")])])
+    # fmt:on
 
     # Fill-in datasinks of reportlets seen so far
     for node in workflow.list_node_names():
