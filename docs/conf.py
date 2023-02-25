@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-#
 # aslprep documentation build configuration file, created by
 # sphinx-quickstart on Mon May  9 09:04:25 2016.
 #
@@ -11,6 +9,16 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
+
+# Notes on ASLPrep-specific style:
+# 1. For rst headings, we use the following convention, based on
+#    https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#sections:
+#        # with overline, for parts
+#        * with overline, for chapters
+#        = for sections
+#        - for subsections
+#        ^ for subsubsections
+#        " for paragraphs
 
 import os
 import sys
@@ -171,7 +179,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
+pygments_style = "default"
 
 # A list of ignored prefixes for module index sorting.
 # modindex_common_prefix = []
