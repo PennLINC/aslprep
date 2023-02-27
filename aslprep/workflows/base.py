@@ -18,7 +18,8 @@ from aslprep.niworkflows.utils.bids import collect_data
 from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
 from aslprep.niworkflows.utils.spaces import Reference
 from aslprep.utils.misc import _prefix, get_n_volumes
-from aslprep.workflows.asl import init_asl_gepreproc_wf, init_asl_preproc_wf
+from aslprep.workflows.asl.base import init_asl_preproc_wf
+from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
 
 
 def init_aslprep_wf():
@@ -35,7 +36,7 @@ def init_aslprep_wf():
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.tests import mock_config
+            from aslprep.tests.tests import mock_config
             from aslprep.workflows.base import init_aslprep_wf
             with mock_config():
                 wf = init_aslprep_wf()
@@ -88,8 +89,9 @@ def init_single_subject_wf(subject_id):
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.tests import mock_config
+            from aslprep.tests.tests import mock_config
             from aslprep.workflows.base import init_single_subject_wf
+
             with mock_config():
                 wf = init_single_subject_wf('01')
 

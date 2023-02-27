@@ -1,24 +1,26 @@
 .. include:: links.rst
 
-.. _Usage :
-
+###########
 Usage Notes
-===========
+###########
 
+
+*****************************
 Execution and the BIDS format
------------------------------
+*****************************
+
 The main input to *ASLPREP* is the path of the dataset
 that needs processing.
 
 .. note::
-     The official `BIDS Specification for ASL <https://docs.google.com/document/d/15tnn5F10KpgHypaQJNNGiNKsni9035GtDqJzWqkkP6c/edit>`_  is currently in its final stages of development.
-     We have created a simple tool for converting ASL data into currently valid BIDS, available `at PennLINC <https://github.com/PennLINC/aslbids>`_.
-     Note that some of the parameters necessary for running *ASLPrep* cannot be extracted directly from the DICOM header —
-     to obtain these parameters, we recommend consulting the MRI physicist/technician at the scanner.
-     The conversion of ASL into BIDS on `Flywheel <https://flywheel.io/>`_ using `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_
-     is described `here at fw-heudiconv <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_.
-
-
+    We have created a simple tool for converting ASL data into currently valid BIDS,
+    available `at PennLINC <https://github.com/PennLINC/aslbids>`_.
+    Note that some of the parameters necessary for running *ASLPrep* cannot be extracted directly
+    from the DICOM header —
+    to obtain these parameters, we recommend consulting the MRI physicist/technician at the scanner.
+    The conversion of ASL into BIDS on `Flywheel <https://flywheel.io/>`_ using
+    `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_ is described
+    `here at fw-heudiconv <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_.
 
 The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data
 Structure)` format, and it must include at least one T1w structural image.
@@ -33,9 +35,9 @@ For example: ::
     aslprep data/bids_root/ out/ participant -w work/
 
 
-
+**********************
 Command-Line Arguments
-----------------------
+**********************
 
 .. argparse::
    :ref: aslprep.cli.parser._build_parser
@@ -43,8 +45,10 @@ Command-Line Arguments
    :nodefault:
    :nodefaultconst:
 
+
+**********************
 The FreeSurfer license
-----------------------
+**********************
 
 *ASLPRep* uses FreeSurfer tools, which require a license to run.
 
@@ -71,8 +75,10 @@ file on the host system: ::
         participant \
         --ignore fieldmaps
 
+
+***************
 Troubleshooting
----------------
+***************
 
 Logs and crashfiles are written to the
 ``<output dir>/aslprep/sub-<participant_label>/log`` directory.
@@ -80,9 +86,17 @@ Information on how to customize and understand these files can be found on the
 `nipype debugging <http://nipype.readthedocs.io/en/latest/users/debug.html>`_
 page.
 
-**Support and communication**.
 
-The documentation of this project is found here: http://aslprep.readthedocs.org/en/latest/.
+*************************
+Support and communication
+*************************
+
+The documentation of this project is found here: https://aslprep.readthedocs.io.
 
 All bugs, concerns and enhancement requests for this software can be submitted here:
-https://github.com/pennlinc/aslprep/issues.
+https://github.com/PennLINC/aslprep/issues.
+
+If you have a question about using ``aslprep``,
+please create a new topic on `NeuroStars <https://neurostars.org>`_ with
+`the "Software Support" category and the "aslprep" tag <https://neurostars.org/tags/c/software-support/234/aslprep>`_.
+The ``aslprep`` developers follow NeuroStars, and will be able to answer your question there.

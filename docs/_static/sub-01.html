@@ -246,10 +246,10 @@ Problem loading figure sub-01/figures/sub-01_task-restEyesOpen_desc-flirtbbr_asl
 <dd><p>A total of 1 T1-weighted (T1w) images were found within the input BIDS dataset.The T1-weighted (T1w) image was corrected for intensity non-uniformity (INU) with <code>N4BiasFieldCorrection</code> <span class="citation" data-cites="n4">(Tustison et al. 2010)</span>, distributed with ANTs 2.3.1 <span class="citation" data-cites="ants">(Avants et al. 2008, RRID:SCR_004757)</span>, and used as T1w-reference throughout the workflow. The T1w-reference was then skull-stripped with a <em>Nipype</em> implementation of the <code>antsBrainExtraction.sh</code> workflow (from ANTs), using OASIS30ANTs as target template. Brain tissue segmentation of cerebrospinal fluid (CSF), white-matter (WM) and gray-matter (GM) was performed on the brain-extracted T1w using <code>fast</code> <span class="citation" data-cites="fsl_fast">(FSL 6.0.3:b862cdd5, RRID:SCR_002823, Zhang, Brady, and Smith 2001)</span>. Volume-based spatial normalization to one standard space (MNI152NLin2009cAsym) was performed through nonlinear registration with <code>antsRegistration</code> (ANTs 2.3.1), using brain-extracted versions of both T1w reference and the T1w template. The following template was selected for spatial normalization: <em>ICBM 152 Nonlinear Asymmetrical template version 2009c</em> [<span class="citation" data-cites="mni152nlin2009casym">Fonov et al. (2009)</span>, RRID:SCR_008796; TemplateFlow ID: MNI152NLin2009cAsym],</p>
 </dd>
 <dt>Functional data preprocessing</dt>
-<dd><p>For each of the 1 ASL runs found per subject (across all tasks and sessions), the following preprocessing was performed. First, a reference volume and its skull-stripped version were generated using a custom methodology of <em>fMRIPrep</em>. Head-motion parameters with respect to the BOLD reference (transformation matrices, and six corresponding rotation and translation parameters) are estimated before any spatiotemporal filtering using <code>mcflirt</code> <span class="citation" data-cites="mcflirt">(FSL 6.0.3:b862cdd5, Jenkinson et al. 2002)</span>. The BOLD reference was then co-registered to the T1w reference using <code>flirt</code> <span class="citation" data-cites="flirt">(FSL 6.0.3:b862cdd5, Jenkinson and Smith 2001)</span> with the boundary-based registration <span class="citation" data-cites="bbr">(Greve and Fischl 2009)</span> cost-function. Co-registration was configured with nine degrees of freedom to account for distortions remaining in the BOLD reference. The BOLD time-series (including slice-timing correction when applied) were resampled onto their original, native space by applying the transforms to correct for head-motion. These resampled BOLD time-series will be referred to as <em>preprocessed BOLD in original space</em>, or just <em>preprocessed BOLD</em>. The CBF was quantified from <em>preproccessed</em> ASL data using a relatively basic model <span class="citation" data-cites="detre_perfusion">(Detre et al. 1992)</span> <span class="citation" data-cites="alsop_recommended">(Alsop et al. 2015)</span>. CBF are susceptible to artifacts due to low signal to noise ratio and sensitivity to motion, Structural Correlation based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme outliers <span class="citation" data-cites="score_dolui">(Dolui et al. 2017)</span>. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB) algorithms was applied to the CBF by iteratively reweighted CBF with structural tissues probalility maps <span class="citation" data-cites="scrub_dolui">(Sudipto Dolui David A. Wolk and Detre 2016)</span>. Alternate method of CBF computation is Bayesian Inference for Arterial Spin Labeling (BASIL) as implmented in FSL which is based on Bayeisan inference principles <span class="citation" data-cites="chappell_basil">(Chappell et al. 2009)</span>. BASIL computed the CBF from ASL incoporating natural varaibility of other model parameters and spatial regularization of the estimated perfusion image. BASIL also included correction for partial volume effects <span class="citation" data-cites="chappell_pvc">(Chappell et al. 2011)</span>. The ASL and CBF dreivatives were resampled into standard space, generating a <em>preprocessed ASL and computed CBF in MNI152NLin2009cAsym space</em>. First, a reference volume and its skull-stripped version were generated using a custom methodology of <em>fMRIPrep</em>. Several confounding time-series were calculated based on the <em>preprocessed ASL</em>: framewise displacement (FD) and DVARS. FD and DVARS are calculated for each ASL run, both using their implementations in <em>Nipype</em> <span class="citation" data-cites="power_fd_dvars">(following the definitions by Power et al. 2014)</span>. The head-motion estimates calculated in the correction step were also placed within the corresponding confounds file.</p>
+<dd><p>For each of the 1 ASL runs found per subject (across all tasks and sessions), the following preprocessing was performed. First, a reference volume and its skull-stripped version were generated using a custom methodology of <em>fMRIPrep</em>. Head-motion parameters with respect to the BOLD reference (transformation matrices, and six corresponding rotation and translation parameters) are estimated before any spatiotemporal filtering using <code>mcflirt</code> <span class="citation" data-cites="mcflirt">(FSL 6.0.3:b862cdd5, Jenkinson et al. 2002)</span>. The BOLD reference was then co-registered to the T1w reference using <code>flirt</code> <span class="citation" data-cites="flirt">(FSL 6.0.3:b862cdd5, Jenkinson and Smith 2001)</span> with the boundary-based registration <span class="citation" data-cites="bbr">(Greve and Fischl 2009)</span> cost-function. Co-registration was configured with nine degrees of freedom to account for distortions remaining in the BOLD reference. The BOLD time-series (including slice-timing correction when applied) were resampled onto their original, native space by applying the transforms to correct for head-motion. These resampled BOLD time-series will be referred to as <em>preprocessed BOLD in original space</em>, or just <em>preprocessed BOLD</em>. The CBF was quantified from <em>preproccessed</em> ASL data using a relatively basic model <span class="citation" data-cites="detre_perfusion">(Detre et al. 1992)</span> <span class="citation" data-cites="alsop_recommended">(Alsop et al. 2015)</span>. CBF are susceptible to artifacts due to low signal to noise ratio and sensitivity to motion, Structural Correlation based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme outliers <span class="citation" data-cites="dolui2017structural">(Dolui et al. 2017)</span>. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB) algorithms was applied to the CBF by iteratively reweighted CBF with structural tissues probalility maps <span class="citation" data-cites="dolui2016scrub">(Sudipto Dolui David A. Wolk and Detre 2016)</span>. Alternate method of CBF computation is Bayesian Inference for Arterial Spin Labeling (BASIL) as implmented in FSL which is based on Bayeisan inference principles <span class="citation" data-cites="chappell2008variational">(Chappell et al. 2009)</span>. BASIL computed the CBF from ASL incoporating natural varaibility of other model parameters and spatial regularization of the estimated perfusion image. BASIL also included correction for partial volume effects <span class="citation" data-cites="chappell_pvc">(Chappell et al. 2011)</span>. The ASL and CBF dreivatives were resampled into standard space, generating a <em>preprocessed ASL and computed CBF in MNI152NLin2009cAsym space</em>. First, a reference volume and its skull-stripped version were generated using a custom methodology of <em>fMRIPrep</em>. Several confounding time-series were calculated based on the <em>preprocessed ASL</em>: framewise displacement (FD) and DVARS. FD and DVARS are calculated for each ASL run, both using their implementations in <em>Nipype</em> <span class="citation" data-cites="power_fd_dvars">(following the definitions by Power et al. 2014)</span>. The head-motion estimates calculated in the correction step were also placed within the corresponding confounds file.</p>
 </dd>
 </dl>
-<p>The following quality control (qc) measures was estimated: framewise displacement and relative root mean square dice index. Other qc meaure include dice and jaccard indices, cross-correlation and coverage that estimate the coregistration quality of ASL and T1W images and normalization quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF <span class="citation" data-cites="cbfqc">(S. A. N. Sudipto Dolui Ronald Wolf 2016)</span>. The QEI is automated for objective quality evaluation of CBF maps and measured the CBF quality based on structural similarity,spatial variability and the percentatge of voxels with negtaive CBF within Grey matter All resamplings can be performed with <em>a single interpolation step</em> by composing all the pertinent transformations (i.e. head-motion transform matrices, susceptibility distortion correction when available, and co-registrations to anatomical and output spaces). Gridded (volumetric) resamplings were performed using <code>antsApplyTransforms</code> (ANTs), configured with Lanczos interpolation to minimize the smoothing effects of other kernels <span class="citation" data-cites="lanczos">(Lanczos 1964)</span>. Non-gridded (surface) resamplings were performed using <code>mri_vol2surf</code> (FreeSurfer).</p>
+<p>The following quality control (qc) measures was estimated: framewise displacement and relative root mean square dice index. Other qc meaure include dice and jaccard indices, cross-correlation and coverage that estimate the coregistration quality of ASL and T1W images and normalization quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF <span class="citation" data-cites="dolui2017automated">(S. A. N. Sudipto Dolui Ronald Wolf 2016)</span>. The QEI is automated for objective quality evaluation of CBF maps and measured the CBF quality based on structural similarity,spatial variability and the percentatge of voxels with negtaive CBF within Grey matter All resamplings can be performed with <em>a single interpolation step</em> by composing all the pertinent transformations (i.e. head-motion transform matrices, susceptibility distortion correction when available, and co-registrations to anatomical and output spaces). Gridded (volumetric) resamplings were performed using <code>antsApplyTransforms</code> (ANTs), configured with Lanczos interpolation to minimize the smoothing effects of other kernels <span class="citation" data-cites="lanczos">(Lanczos 1964)</span>. Non-gridded (surface) resamplings were performed using <code>mri_vol2surf</code> (FreeSurfer).</p>
 <p>Many internal operations of <em>aslprep</em> use <em>Nilearn</em> 0.6.2 <span class="citation" data-cites="nilearn">(Abraham et al. 2014, RRID:SCR_001362)</span>, mostly within the functional processing workflow. For more details of the pipeline, see <a href="https://aslprep.readthedocs.io/en/latest/workflows.html" title="aslprep&#39;s documentation">the section corresponding to workflows in <em>aslprep</em>’s documentation</a>.</p>
 <h3 id="copyright-waiver">Copyright Waiver</h3>
 <p>The above boilerplate text was automatically generated by aslprep with the express intention that users should copy and paste this text into their manuscripts <em>unchanged</em>. It is released under the <a href="https://creativecommons.org/publicdomain/zero/1.0/">CC0</a> license.</p>
@@ -267,13 +267,13 @@ Problem loading figure sub-01/figures/sub-01_task-restEyesOpen_desc-flirtbbr_asl
 <div id="ref-chappell_pvc">
 <p>Chappell, M. A., A. R. Groves, B. J. MacIntosh, M. J. Donahue, P. Jezzard, and M. W. Woolrich. 2011. “Partial Volume Correction of Multiple Inversion Time Arterial Spin Labeling MRI Data.” <em>Magnetic Resonance in Medicine</em> 65 (4). <a href="https://doi.org/10.1002/mrm.22641" class="uri">https://doi.org/10.1002/mrm.22641</a>.</p>
 </div>
-<div id="ref-chappell_basil">
+<div id="ref-chappell2008variational">
 <p>Chappell, Michael A., Adrian R. Groves, Brandon Whitcher, and Mark W. Woolrich. 2009. “Variational Bayesian Inference for a Nonlinear Forward Model.” <em>IEEE Transactions on Signal Processing</em> 57 (1). <a href="https://doi.org/10.1109/TSP.2008.2005752" class="uri">https://doi.org/10.1109/TSP.2008.2005752</a>.</p>
 </div>
 <div id="ref-detre_perfusion">
 <p>Detre, John A., John S. Leigh, Donald S. Williams, and Alan P. Koretsky. 1992. “Perfusion Imaging.” <em>Magnetic Resonance in Medicine</em> 23 (1). <a href="https://doi.org/10.1002/mrm.1910230106" class="uri">https://doi.org/10.1002/mrm.1910230106</a>.</p>
 </div>
-<div id="ref-score_dolui">
+<div id="ref-dolui2017structural">
 <p>Dolui, Sudipto, Ze Wang, Russell T. Shinohara, David A. Wolk, John A. Detre, and for the Alzheimer’s Disease Neuroimaging Initiative. 2017. “Structural Correlation-Based Outlier Rejection (SCORE) Algorithm for Arterial Spin Labeling Time Series: SCORE: Denoising Algorithm for ASL.” <em>Journal of Magnetic Resonance Imaging</em> 45 (6). <a href="https://doi.org/10.1002/jmri.25436" class="uri">https://doi.org/10.1002/jmri.25436</a>.</p>
 </div>
 <div id="ref-mni152nlin2009casym">
@@ -300,10 +300,10 @@ Problem loading figure sub-01/figures/sub-01_task-restEyesOpen_desc-flirtbbr_asl
 <div id="ref-power_fd_dvars">
 <p>Power, Jonathan D., Anish Mitra, Timothy O. Laumann, Abraham Z. Snyder, Bradley L. Schlaggar, and Steven E. Petersen. 2014. “Methods to Detect, Characterize, and Remove Motion Artifact in Resting State fMRI.” <em>NeuroImage</em> 84 (Supplement C): 320–41. <a href="https://doi.org/10.1016/j.neuroimage.2013.08.048" class="uri">https://doi.org/10.1016/j.neuroimage.2013.08.048</a>.</p>
 </div>
-<div id="ref-scrub_dolui">
+<div id="ref-dolui2016scrub">
 <p>Sudipto Dolui, David A. Wolk, and John A. Detre. 2016. “SCRUB: A Structural Correlation and Empirical Robust Bayesian Method for Asl Data.” <em>International Society for Magnetic Resonance in Medicine</em>, no. 1. <a href="https://doi.org/http://archive.ismrm.org/2016/2880.html" class="uri">https://doi.org/http://archive.ismrm.org/2016/2880.html</a>.</p>
 </div>
-<div id="ref-cbfqc">
+<div id="ref-dolui2017automated">
 <p>Sudipto Dolui, Seyed Ali Nabavizadeh, Ronald Wolf. 2016. “Automated Quality Evaluation Index for 2D Asl Cbf Maps.” <em>International Society for Magnetic Resonance in Medicine</em>, no. 1. <a href="https://doi.org/http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html" class="uri">https://doi.org/http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html</a>.</p>
 </div>
 <div id="ref-n4">
@@ -335,7 +335,7 @@ Volume-based spatial normalization to one standard space (MNI152NLin2009cAsym) w
 nonlinear registration with `antsRegistration` (ANTs 2.3.1),
 using brain-extracted versions of both T1w reference and the T1w template.
 The following template was selected for spatial normalization:
-*ICBM 152 Nonlinear Asymmetrical template version 2009c* [@mni152nlin2009casym, RRID:SCR_008796; TemplateFlow ID: MNI152NLin2009cAsym], 
+*ICBM 152 Nonlinear Asymmetrical template version 2009c* [@mni152nlin2009casym, RRID:SCR_008796; TemplateFlow ID: MNI152NLin2009cAsym],
 
 Functional data preprocessing
 
@@ -362,11 +362,11 @@ The CBF was quantified from  *preproccessed* ASL data using a relatively basic
 model [@detre_perfusion] [@alsop_recommended]. CBF are susceptible to artifacts
 due to low signal to noise ratio  and  sensitivity to  motion, Structural Correlation
 based Outlier Rejection (SCORE) algothim was applied to the CBF to discard few extreme
-outliers [@score_dolui]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
+outliers [@dolui2017structural]. Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
 algorithms was applied to the CBF by iteratively reweighted  CBF  with structural tissues
-probalility maps [@scrub_dolui].  Alternate method of CBF computation is Bayesian Inference
+probalility maps [@dolui2016scrub].  Alternate method of CBF computation is Bayesian Inference
 for Arterial Spin Labeling (BASIL) as implmented in FSL which is  based on Bayeisan inference
-principles [@chappell_basil]. BASIL computed the CBF from ASL incoporating natural varaibility
+principles [@chappell2008variational]. BASIL computed the CBF from ASL incoporating natural varaibility
 of other model parameters and spatial regularization of the estimated perfusion image. BASIL
 also included correction for partial volume effects [@chappell_pvc].
 The ASL and CBF dreivatives  were resampled into standard space,
@@ -375,7 +375,7 @@ First, a reference volume and its skull-stripped version were generated
  using a custom
 methodology of *fMRIPrep*.
 Several confounding time-series were calculated based on the
-*preprocessed ASL*: framewise displacement (FD) and DVARS. 
+*preprocessed ASL*: framewise displacement (FD) and DVARS.
 FD and DVARS are calculated for each ASL run, both using their
 implementations in *Nipype* [following the definitions by @power_fd_dvars].
 The head-motion estimates calculated in the correction step were also
@@ -384,7 +384,7 @@ placed within the corresponding confounds file.
 The following quality control (qc) measures was estimated: framewise displacement and relative
 root mean square dice index. Other qc meaure include dice and jaccard indices, cross-correlation
 and coverage that estimate the coregistration quality of  ASL and T1W images and  normalization
-quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF [@cbfqc].
+quality of ASL to template. Quality evaluation index (QEI) was also computed for CBF [@dolui2017automated].
 The  QEI is  automated for objective quality evaluation of CBF maps and measured the CBF quality
 based on structural similarity,spatial variability and the percentatge  of voxels with  negtaive
 CBF within Grey matter
@@ -464,13 +464,13 @@ space}, or just \emph{preprocessed BOLD}. The CBF was quantified from
 \citep{detre_perfusion} \citep{alsop_recommended}. CBF are susceptible
 to artifacts due to low signal to noise ratio and sensitivity to motion,
 Structural Correlation based Outlier Rejection (SCORE) algothim was
-applied to the CBF to discard few extreme outliers \citep{score_dolui}.
+applied to the CBF to discard few extreme outliers \citep{dolui2017structural}.
 Furthermore,Structural Correlation with RobUst Bayesian (SCRUB)
 algorithms was applied to the CBF by iteratively reweighted CBF with
-structural tissues probalility maps \citep{scrub_dolui}. Alternate
+structural tissues probalility maps \citep{dolui2016scrub}. Alternate
 method of CBF computation is Bayesian Inference for Arterial Spin
 Labeling (BASIL) as implmented in FSL which is based on Bayeisan
-inference principles \citep{chappell_basil}. BASIL computed the CBF from
+inference principles \citep{chappell2008variational}. BASIL computed the CBF from
 ASL incoporating natural varaibility of other model parameters and
 spatial regularization of the estimated perfusion image. BASIL also
 included correction for partial volume effects \citep{chappell_pvc}. The
@@ -491,7 +491,7 @@ displacement and relative root mean square dice index. Other qc meaure
 include dice and jaccard indices, cross-correlation and coverage that
 estimate the coregistration quality of ASL and T1W images and
 normalization quality of ASL to template. Quality evaluation index (QEI)
-was also computed for CBF \citep{cbfqc}. The QEI is automated for
+was also computed for CBF \citep{dolui2017automated}. The QEI is automated for
 objective quality evaluation of CBF maps and measured the CBF quality
 based on structural similarity,spatial variability and the percentatge
 of voxels with negtaive CBF within Grey matter All resamplings can be
@@ -865,7 +865,7 @@ their manuscripts \emph{unchanged}. It is released under the
 }
 
 
-@article{cbfqc,
+@article{dolui2017automated,
     author = {Sudipto Dolui, Ronald Wolf, Seyed Ali Nabavizadeh, David A. Wolk, John A. Detre},
     doi = {http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html},
     journal = {International Society for Magnetic Resonance in Medicine},
@@ -875,7 +875,7 @@ their manuscripts \emph{unchanged}. It is released under the
 }
 
 
-@article{score_dolui,
+@article{dolui2017structural,
 	title = {Structural {Correlation}-based {Outlier} {Rejection} ({SCORE}) algorithm for arterial spin labeling time series: {SCORE}: {Denoising} {Algorithm} for {ASL}},
 	volume = 45,
 	doi = {10.1002/jmri.25436},
@@ -886,7 +886,7 @@ their manuscripts \emph{unchanged}. It is released under the
 }
 
 
-@article{scrub_dolui,
+@article{dolui2016scrub,
     title = {SCRUB: A Structural Correlation and Empirical Robust Bayesian Method for ASL Data},
     doi = {http://archive.ismrm.org/2016/2880.html},
     journal = {International Society for Magnetic Resonance in Medicine},
@@ -895,7 +895,7 @@ their manuscripts \emph{unchanged}. It is released under the
     year = 2016
 }
 
-@article{chappell_basil,
+@article{chappell2008variational,
 	title = {Variational Bayesian Inference for a Nonlinear Forward Model},
 	volume = 57,
 	doi = {10.1109/TSP.2008.2005752},

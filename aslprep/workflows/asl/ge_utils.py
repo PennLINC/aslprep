@@ -31,7 +31,20 @@ def init_asl_geref_wf(
     smooth_kernel=5,
     name="asl_gereference_wf",
 ):
-    """Generate a reference volume and its skull-stripped version."""
+    """Generate a reference volume and its skull-stripped version.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.ge_utils import init_asl_geref_wf
+
+            wf = init_asl_geref_wf(
+                metadata={},
+                bids_dir=".",
+            )
+    """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 First, a reference volume and its skull-stripped version were generated.
@@ -92,7 +105,21 @@ def init_asl_gereg_wf(
     sloppy=False,
     write_report=True,
 ):
-    """Calculate registration transforms from ASL reference volume to T1w space."""
+    """Calculate registration transforms from ASL reference volume to T1w space.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.ge_utils import init_asl_gereg_wf
+
+            wf = init_asl_gereg_wf(
+                use_bbr=True,
+                asl2t1w_dof=9,
+                asl2t1w_init="register",
+            )
+    """
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(fields=["ref_asl_brain", "t1w_brain", "t1w_dseg"]),
@@ -159,6 +186,18 @@ def init_asl_t1_getrans_wf(
     """Co-register the reference ASL image to T1w-space.
 
     The workflow uses :abbr:`BBR (boundary-based registration)`.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.ge_utils import init_asl_t1_getrans_wf
+
+            wf = init_asl_t1_getrans_wf(
+                mem_gb=0.1,
+                omp_nthreads=1,
+            )
     """
     from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from aslprep.niworkflows.interfaces.fixes import (
@@ -417,7 +456,21 @@ def init_asl_gestd_trans_wf(
     basil=False,
     name="asl_gestd_trans_wf",
 ):
-    """Resample ASL and CBF derivatives into target spaces."""
+    """Resample ASL and CBF derivatives into target spaces.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.ge_utils import init_asl_gestd_trans_wf
+
+            wf = init_asl_gestd_trans_wf(
+                mem_gb=0.1,
+                omp_nthreads=1,
+                spaces="",
+            )
+    """
     workflow = Workflow(name=name)
     output_references = spaces.cached.get_spaces(nonstandard=False, dim=(3,))
     std_vol_references = [

@@ -17,7 +17,7 @@
 .. _`Docker installation`: https://docs.docker.com/install/
 .. _`Docker Hub`: https://hub.docker.com/r/pennlinc/aslprep/tags
 .. _Singularity: https://github.com/singularityware/singularity
-..  _SPM: https://www.fil.ion.ucl.ac.uk/spm/software/spm12/
+.. _SPM: https://www.fil.ion.ucl.ac.uk/spm/software/spm12/
 .. _TACC: https://www.tacc.utexas.edu/
 .. _tedana: https://github.com/me-ica/tedana
 .. _`T2* workflow`: https://tedana.readthedocs.io/en/latest/generated/tedana.workflows.t2smap_workflow.html#tedana.workflows.t2smap_workflow  # noqa
