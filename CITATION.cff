@@ -3,10 +3,11 @@
 
 cff-version: 1.2.0
 title: >-
-  ASLPrep: A Robust Preprocessing Pipeline for ASL Data
+  ASLPrep: A Robust Preprocessing Pipeline for ASL Data
 message: >-
   If you use this software, please cite it using the
-  metadata from this file.
+  metadata from this file, as well as the Nature Methods paper
+  (doi:10.1038/s41592-022-01458-7).
 type: software
 authors:
   - given-names: Taylor
@@ -22,7 +23,8 @@ authors:
     family-names: Bertolero
     orcid: 'https://orcid.org/0000-0002-2691-3698'
     affiliation: University of Pennsylvania
-Sudipto Dolui
+  - given-names: Sudipto
+    family-names: Dolui
   - given-names: Matthew
     family-names: Cieslak
     email: matthew.cieslak@pennmedicine.upenn.edu
@@ -102,9 +104,6 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.3759082
     description: The Zenodo DOI
-  - type: doi
-    value: 10.1038/s41592-022-01458-7
-    description: The Nature Methods paper
 repository-code: 'https://github.com/PennLINC/aslprep'
 url: 'https://aslprep.readthedocs.io'
 abstract: >-
