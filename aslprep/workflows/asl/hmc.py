@@ -80,23 +80,29 @@ Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file.
     fsl2itk = pe.Node(MCFLIRT2ITK(), name="fsl2itk", mem_gb=0.05, n_procs=omp_nthreads)
 
     normalize_motion = pe.Node(
-        NormalizeMotionParams(format="FSL"), name="normalize_motion", mem_gb=DEFAULT_MEMORY_MIN_GB
+        NormalizeMotionParams(format="FSL"),
+        name="normalize_motion",
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (inputnode, mcflirt, [("raw_ref_image", "ref_file"), ("asl_file", "in_file")]),
-            (
-                inputnode,
-                fsl2itk,
-                [("raw_ref_image", "in_source"), ("raw_ref_image", "in_reference")],
-            ),
-            (mcflirt, fsl2itk, [("mat_file", "in_files")]),
-            (mcflirt, normalize_motion, [("par_file", "in_file")]),
-            (mcflirt, outputnode, [(("rms_files", _select_last_in_list), "rmsd_file")]),
-            (fsl2itk, outputnode, [("out_file", "xforms")]),
-            (normalize_motion, outputnode, [("out_file", "movpar_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, mcflirt, [
+            ("raw_ref_image", "ref_file"),
+            ("asl_file", "in_file"),
+        ]),
+        (inputnode, fsl2itk, [
+            ("raw_ref_image", "in_source"),
+            ("raw_ref_image", "in_reference"),
+        ]),
+        (mcflirt, fsl2itk, [("mat_file", "in_files")]),
+        (mcflirt, normalize_motion, [("par_file", "in_file")]),
+        (mcflirt, outputnode, [
+            (("rms_files", _select_last_in_list), "rmsd_file"),
+        ]),
+        (fsl2itk, outputnode, [("out_file", "xforms")]),
+        (normalize_motion, outputnode, [("out_file", "movpar_file")]),
+    ])
+    # fmt:on
 
     return workflow

@@ -150,26 +150,25 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     concat = pe.Node(GatherConfounds(), name="concat", mem_gb=0.01, run_without_submitting=True)
 
     # Expand model to include derivatives and quadratics
-
-    workflow.connect(
-        [
-            # connect inputnode to each non-anatomical confound node
-            (inputnode, dvars, [("asl", "in_file"), ("asl_mask", "in_mask")]),
-            (inputnode, fdisp, [("movpar_file", "in_file")]),
-            # Collate computed confounds together
-            (inputnode, add_motion_headers, [("movpar_file", "in_file")]),
-            (inputnode, add_rmsd_header, [("rmsd_file", "in_file")]),
-            (dvars, add_dvars_header, [("out_nstd", "in_file")]),
-            (dvars, add_std_dvars_header, [("out_std", "in_file")]),
-            (fdisp, concat, [("out_file", "fd")]),
-            (add_motion_headers, concat, [("out_file", "motion")]),
-            (add_rmsd_header, concat, [("out_file", "rmsd")]),
-            (add_dvars_header, concat, [("out_file", "dvars")]),
-            (add_std_dvars_header, concat, [("out_file", "std_dvars")]),
-            # Set outputs
-            (concat, outputnode, [("confounds_file", "confounds_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        # Connect inputnode to each non-anatomical confound node
+        (inputnode, dvars, [("asl", "in_file"), ("asl_mask", "in_mask")]),
+        (inputnode, fdisp, [("movpar_file", "in_file")]),
+        # Collate computed confounds together
+        (inputnode, add_motion_headers, [("movpar_file", "in_file")]),
+        (inputnode, add_rmsd_header, [("rmsd_file", "in_file")]),
+        (dvars, add_dvars_header, [("out_nstd", "in_file")]),
+        (dvars, add_std_dvars_header, [("out_std", "in_file")]),
+        (fdisp, concat, [("out_file", "fd")]),
+        (add_motion_headers, concat, [("out_file", "motion")]),
+        (add_rmsd_header, concat, [("out_file", "rmsd")]),
+        (add_dvars_header, concat, [("out_file", "dvars")]),
+        (add_std_dvars_header, concat, [("out_file", "std_dvars")]),
+        # Set outputs
+        (concat, outputnode, [("confounds_file", "confounds_file")]),
+    ])
+    # fmt:on
 
     return workflow
 
@@ -261,24 +260,20 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     )
 
     workflow = Workflow(name=name)
-    workflow.connect(
-        [
-            (inputnode, mrg_xfms, [("t1_asl_xform", "in1"), ("std2anat_xfm", "in2")]),
-            (inputnode, resample_parc, [("asl_mask", "reference_image")]),
-            (mrg_xfms, resample_parc, [("out", "transforms")]),
-            # Carpetplot
-            (
-                inputnode,
-                conf_plot,
-                [
-                    ("asl", "in_func"),
-                    ("asl_mask", "in_mask"),
-                    ("confounds_file", "confounds_file"),
-                ],
-            ),
-            (resample_parc, conf_plot, [("output_image", "in_segm")]),
-            (conf_plot, ds_report_asl_conf, [("out_file", "in_file")]),
-            (conf_plot, outputnode, [("out_file", "out_carpetplot")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, mrg_xfms, [("t1_asl_xform", "in1"), ("std2anat_xfm", "in2")]),
+        (inputnode, resample_parc, [("asl_mask", "reference_image")]),
+        (mrg_xfms, resample_parc, [("out", "transforms")]),
+        # Carpetplot
+        (inputnode, conf_plot, [
+            ("asl", "in_func"),
+            ("asl_mask", "in_mask"),
+            ("confounds_file", "confounds_file"),
+        ]),
+        (resample_parc, conf_plot, [("output_image", "in_segm")]),
+        (conf_plot, ds_report_asl_conf, [("out_file", "in_file")]),
+        (conf_plot, outputnode, [("out_file", "out_carpetplot")]),
+    ])
+    # fmt:on
     return workflow

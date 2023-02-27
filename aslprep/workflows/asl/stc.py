@@ -74,17 +74,15 @@ ASL runs were slice-time corrected using `3dTshift` from AFNI [@afni].
 
     copy_xform = pe.Node(CopyXForm(), name="copy_xform", mem_gb=0.1)
 
-    workflow.connect(
-        [
-            (
-                inputnode,
-                slice_timing_correction,
-                [("asl_file", "in_file"), ("skip_vols", "ignore")],
-            ),
-            (slice_timing_correction, copy_xform, [("out_file", "in_file")]),
-            (inputnode, copy_xform, [("asl_file", "hdr_file")]),
-            (copy_xform, outputnode, [("out_file", "stc_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, slice_timing_correction, [
+            ("asl_file", "in_file"), ("skip_vols", "ignore"),
+        ]),
+        (slice_timing_correction, copy_xform, [("out_file", "in_file")]),
+        (inputnode, copy_xform, [("asl_file", "hdr_file")]),
+        (copy_xform, outputnode, [("out_file", "stc_file")]),
+    ])
+    # fmt:on
 
     return workflow
