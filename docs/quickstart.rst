@@ -16,11 +16,14 @@ You can also acquire data using using ``datalad`` or ``aws``.
 
 The BIDS dataset should include the following datatypes in order to run *ASLPrep*::
 
-    sub-01/anat/sub-01_T1w.nii.gz
-    sub-01/anat/sub-01_T1w.json
-    sub-01/perf/sub-01_asl.jnii.gz
-    sub-01/perf/sub-01_asl.json
-    sub-01/perf/sub-01_aslcontext.tsv
+    sub-01/
+        anat/
+            sub-01_T1w.nii.gz
+            sub-01_T1w.json
+        perf/
+            sub-01_asl.nii.gz
+            sub-01_asl.json
+            sub-01_aslcontext.tsv
 
 
 ********************
@@ -76,26 +79,32 @@ Make sure it is called **ds000240**.
 The following command, which should run in about 8 hours, can be called for a single participant::
 
     docker run -ti -m 12GB --rm \
-        -v $HOME/license.txt:/license/license.txt \
+        -v $HOME/license.txt:/license.txt \
         -v $HOME/ds000240:/data:ro \
-        -v $HOME/ds000240-results:/out:rw \
-        -v $HOME/tmp/ds000240-workdir:/work:rw pennlinc/aslprep \
-        /data /out participant --participant-label 01 --fs-license-file /license/license.txt -w /work
+        -v $HOME/ds000240/derivatives:/out:rw \
+        -v $HOME/tmp/ds000240-workdir:/work:rw \
+        pennlinc/aslprep:latest \
+        /data \
+        /out/aslprep \
+        participant \
+        --participant-label 01 \
+        --fs-license-file /license/license.txt \
+        -w /work
 
 Here is a breakdown of this command::
 
-    docker run -ti -m 12GB --rm                         # attach to the container interactively
-    -v $HOME/license.txt:/license/license.txt           # mount the freesurfer license directory
-    -v $HOME/ds000240:/data:ro                          # mount the data directory to the container directory
-    -v $HOME/ds000240-results:/out:rw                   # mount the output directory to the container directory
-    -v $HOME/tmp/ds000240-workdir:/work                 # mount working directory
-    pennlinc/aslprep                                    # the container name: aslprep
-    /data                                               # the data directory
-    /out/aslprep                                        # the output directory
-    participant                                         # analysis type: participant
-    --participant-label 01                              # select participant 01
-    --fs-license-file /license/license.txt              # setting freesurfer license file
-    -w /work                                            # setting working directory
+    docker run -ti -m 12GB --rm \                    # attach to the container interactively
+        -v $HOME/license.txt:/license/license.txt \  # mount the freesurfer license directory
+        -v $HOME/ds000240:/data:ro \                 # mount the data directory to the container directory
+        -v $HOME/ds000240-results:/out:rw \          # mount the output directory to the container directory
+        -v $HOME/tmp/ds000240-workdir:/work \        # mount working directory
+        pennlinc/aslprep:latest \                    # the container name, along with the version tag
+        /data \                                      # the data directory
+        /out/aslprep \                               # the output directory
+        participant \                                # analysis type: participant
+        --participant-label 01 \                     # select participant 01
+        --fs-license-file /license.txt \             # setting freesurfer license file
+        -w /work                                     # setting working directory
 
 For additional options, see usage notes >  :ref:`Usage`
 
@@ -108,13 +117,3 @@ After a successful run, *ASLPrep* generates preprocessed ASL data, computed CBF 
 preprocessed structural images, as well as one HTML report per subject that provides visual assessment of the
 preprocessed data.
 See :doc:`outputs` for more information.
-
-
-
-
-
-
-
-
-
-

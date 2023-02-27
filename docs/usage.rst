@@ -91,7 +91,12 @@ page.
 Support and communication
 *************************
 
-The documentation of this project is found here: http://aslprep.readthedocs.org/en/latest/.
+The documentation of this project is found here: https://aslprep.readthedocs.io.
 
 All bugs, concerns and enhancement requests for this software can be submitted here:
-https://github.com/pennlinc/aslprep/issues.
+https://github.com/PennLINC/aslprep/issues.
+
+If you have a question about using ``aslprep``,
+please create a new topic on `NeuroStars <https://neurostars.org>`_ with
+`the "Software Support" category and the "aslprep" tag <https://neurostars.org/tags/c/software-support/234/aslprep>`_.
+The ``aslprep`` developers follow NeuroStars, and will be able to answer your question there.
