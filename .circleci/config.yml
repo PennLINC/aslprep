@@ -127,7 +127,7 @@ jobs:
           name: Run pytest on the tests directory
           no_output_timeout: 1h
           command: |
-            pytest --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            pytest --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep/tests
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.pytests
       - persist_to_workspace:
