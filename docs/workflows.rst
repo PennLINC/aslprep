@@ -77,7 +77,7 @@ An example of brain extraction is shown below:
     Brain extraction
 
 
-Once the brain mask is computed, FSL ``fast`` is utilized for brain tissue segmentation.
+Once the brain mask is computed, FSL ``fast`` is used for brain tissue segmentation.
 
 .. figure:: _static/segmentation.svg
 
@@ -152,7 +152,7 @@ Head-motion estimation
 :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
 
 .. workflow::
-    :graph2use: colored
+    :graph2use: orig
     :simple_form: yes
 
     from aslprep.workflows.asl.hmc import init_asl_hmc_wf
@@ -178,7 +178,7 @@ Slice time correction
 :py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
 
 .. workflow::
-    :graph2use: colored
+    :graph2use: orig
     :simple_form: yes
 
     from aslprep.workflows.asl.stc import init_asl_stc_wf
@@ -208,7 +208,7 @@ Confounds estimation
 :py:func:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`
 
 .. workflow::
-    :graph2use: colored
+    :graph2use: orig
     :simple_form: yes
 
     from aslprep.workflows.asl.confounds import init_asl_confs_wf
@@ -216,7 +216,7 @@ Confounds estimation
     wf = init_asl_confs_wf(name="confound_wf", mem_gb=1)
 
 
-Calculated confounds include frame-wise displacement, 6 motion parameters, and DVARS.
+Calculated confounds include framewise displacement, 6 motion parameters, and DVARS.
 
 
 Susceptibility Distortion Correction (SDC)
@@ -229,8 +229,7 @@ Please refer to :doc:`sdc` for details on the available workflows.
 
 .. figure:: _static/unwarping.svg
 
-    Applying susceptibility-derived distortion correction, based on
-    fieldmap estimation
+    Applying susceptibility-derived distortion correction, based on fieldmap estimation
 
 See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 
@@ -266,8 +265,8 @@ Interpolation uses a Lanczos kernel.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
 
-    The preprocessed ASL with label and control. The signal plots above the carpet plot
-    are framewise diplacement (FD) and DVRAS.
+    The preprocessed ASL with label and control.
+    The signal plots above the carpet plot are framewise diplacement (FD) and DVRAS.
 
 
 .. _cbf_preproc:
@@ -328,16 +327,17 @@ PASL (Pulsed ASL) is also computed by the QUIPSS model :footcite:p:`wong1998quan
    CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * TI  * M_{0}}
 
 
-:math:`\tau,\quad \lambda,\quad and\quad \alpha\quad` are label duration, brain-blood partition coefficient,
-and labeling efficiency, respectively. In the absence of any of these parameters,
-standard values are used based on the scan type and scanning parameters.
+:math:`\tau,\quad \lambda,\quad and\quad \alpha\quad` are label duration, brain-blood partition
+coefficient, and labeling efficiency, respectively.
+In the absence of any of these parameters, standard values are used based on the scan type and
+scanning parameters.
 
 The computed CBF time series is shown in carpet plot below.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbftsplot_asl.svg
 
-    The carpet plot of computed CBF. The step plot above indicated the volume(s) marked by SCORE algorithm
-    to be contaminated by noise.
+    The carpet plot of computed CBF. The step plot above indicated the volume(s) marked by SCORE
+    algorithm to be contaminated by noise.
 
 
 Mean CBF is computed from the average of CBF timeseries.
@@ -354,14 +354,14 @@ over all PLDs at time = t :footcite:p:`dai2012reduced`.
    CBF_{t} =\frac {\sum_{i}^{NPLDs} PLD_{i} * CBF_{i}} { \sum_{i}^{NPLDs} PLD_{i} }
 
 ASLPrep includes option of CBF denoising by SCORE and SCRUB.
-Structural Correlation based Outlier Rejection (SCORE) :footcite:p:`dolui2017structural` detects and discards
-extreme outliers in the CBF volume(s) from the CBF time series.
+Structural Correlation based Outlier Rejection (SCORE) :footcite:p:`dolui2017structural`
+detects and discards extreme outliers in the CBF volume(s) from the CBF time series.
 SCORE first discards CBF volumes whose CBF within grey matter (GM)
 means are 2.5 standard deviations away from the median of the CBF within GM.
 Next, it iteratively removes volumes that are most structurally correlated
 to the intermediate mean CBF map unless the variance within each
-tissue type starts increasing (which implies an effect of white noise removal
-as opposed to outlier rejection).
+tissue type starts increasing
+(which implies an effect of white noise removal as opposed to outlier rejection).
 
 The mean CBF after denoising by SCORE is plotted below
 
@@ -379,9 +379,11 @@ The SCRUB algorithm is described below:
 
    \mu =\sum_{i \in Tissue type} p *\mu_{i}
 
-:math:`CBF_{t},\quad  \mu,\quad  \theta,\quad  and\quad  p` equal CBF time series (after any extreme outliers are discarded by SCORE),
-mean CBF, ratio of temporal variance at each voxel to overall variance of all voxels, and probability tissue maps,
-respectively. Other variables include :math:`\lambda\quad and\quad \rho` that represent the weighting parameter
+:math:`CBF_{t},\quad  \mu,\quad  \theta,\quad  and\quad  p` equal CBF time series
+(after any extreme outliers are discarded by SCORE),
+mean CBF, ratio of temporal variance at each voxel to overall variance of all voxels,
+and probability tissue maps, respectively.
+Other variables include :math:`\lambda\quad and\quad \rho` that represent the weighting parameter
 and Tukey's bisquare function, respectively.
 
 An example of CBF denoised by SCRUB is shown below.
@@ -391,10 +393,11 @@ An example of CBF denoised by SCRUB is shown below.
    Computed CBF maps denoised by SCRUB
 
 *ASLPrep* also includes option of CBF computation by Bayesian Inference for Arterial Spin Labeling
-`(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_. BASIL also implements a simple kinetic model as
-described above, but using Bayesian Inference principles :footcite:p:`chappell2008variational`.
-BASIL is mostly suitable for multi-PLD. It includes bolus arrival time estimation
-with spatial regularization :footcite:p:`groves2009combined`
+`(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_.
+BASIL also implements a simple kinetic model as described above,
+but using Bayesian Inference principles :footcite:p:`chappell2008variational`.
+BASIL is mostly suitable for multi-PLD.
+It includes bolus arrival time estimation with spatial regularization :footcite:p:`groves2009combined`
 and the correction of partial volume effects :footcite:p:`chappell2011partial`.
 
 The sample of BASIL CBF with spatial regularization is shown below:
@@ -431,9 +434,10 @@ Quality control measures
 
     wf = init_cbfqc_compt_wf(asl_file=str(asl_file))
 
-Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index, and
-quality evaluation index (QEI) are included for all CBF maps.
-The QEI :footcite:p:`dolui2017automated` evaluates the quality of the computed CBF maps considering three factors:
+Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index,
+and quality evaluation index (QEI) are included for all CBF maps.
+The QEI :footcite:p:`dolui2017automated` evaluates the quality of the computed CBF maps considering
+three factors:
 structural similarity, spatial variability, and percentage of voxels in GM with negative CBF.
 
 
@@ -457,8 +461,9 @@ ASL and CBF to T1w registration
         asl2t1w_init='register',
     )
 
-*ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's :abbr:`ASL (arterial spin labelling)` reference image
-and the reconstructed subject using the gray/white matter boundary
+*ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's
+:abbr:`ASL (arterial spin labelling)` reference image and the reconstructed subject using the
+gray/white matter boundary.
 
 
 .. figure:: _static/EPIT1Normalization.svg
@@ -467,11 +472,13 @@ and the reconstructed subject using the gray/white matter boundary
 
 
 FSL ``flirt`` is run with the :abbr:`BBR (boundary-based registration)` cost function, using the
-``fast`` segmentation to establish the gray/white matter boundary. After :abbr:`BBR (boundary-based registration)` is run,
+``fast`` segmentation to establish the gray/white matter boundary.
+After :abbr:`BBR (boundary-based registration)` is run,
 the resulting affine transform will be compared to the initial transform found by ``flirt``.
 Excessive deviation will result in rejection of the BBR refinement and acceptance
-of the original affine registration. The computed :ref:`CBF <cbf_preproc>`
-is registered to T1w using the transformation from ASL-T1w registration.
+of the original affine registration.
+The computed :ref:`CBF <cbf_preproc>` is registered to T1w using the transformation from ASL-T1w
+registration.
 
 
 Resampling ASL and CBF runs onto standard spaces
@@ -480,7 +487,7 @@ Resampling ASL and CBF runs onto standard spaces
 :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
 
 .. workflow::
-    :graph2use: colored
+    :graph2use: orig
     :simple_form: yes
 
     from aslprep.niworkflows.utils.spaces import SpatialReferences
@@ -495,15 +502,17 @@ Resampling ASL and CBF runs onto standard spaces
         ),
     )
 
-This sub-workflow concatenates the transforms calculated upstream (see
-`Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_) if
-fieldmaps are available, and an anatomical-to-standard
-transform from `Structural Preprocessing`_ to map the
-ASL and CBF images to the standard spaces is given by the ``--output-spaces`` argument
-(see :doc:`spaces`).
+This sub-workflow concatenates the transforms calculated upstream
+(see `Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_)
+if fieldmaps are available, and an anatomical-to-standard transform from
+`Structural Preprocessing`_ to map the ASL and CBF images to the standard spaces is given by the
+``--output-spaces`` argument (see :doc:`spaces`).
 It also maps the T1w-based mask to each of those standard spaces.
 
-Transforms are concatenated and applied all at once, with one interpolation (Lanczos)
-step, so as little information is lost as possible.
+Transforms are concatenated and applied all at once, with one interpolation (Lanczos) step,
+so as little information is lost as possible.
+
+References
+==========
 
 .. footbibliography::
