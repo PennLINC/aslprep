@@ -24,26 +24,25 @@ import os
 import sys
 from datetime import datetime
 
-from packaging import (
-    version as pver,  # Avoid distutils.LooseVersion which is deprecated
-)
+from packaging import version as pver
 from sphinx import __version__ as sphinxversion
 
 # If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
+# add these directories to sys.path here.
+# If the directory is relative to the documentation root, use os.path.abspath to make it absolute,
+# like shown here.
 sys.path.append(os.path.abspath("sphinxext"))
 
 from github_link import make_linkcode_resolve
 
-# -- General configuration ------------------------------------------------
-
+# -----------------------------------------------------------------------------
+# General configuration
+# -----------------------------------------------------------------------------
 # If your documentation needs a minimal Sphinx version, state it here.
 needs_sphinx = "4.2.0"
 
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named "sphinx.ext.*") or your custom
-# ones.
+# Add any Sphinx extension module names here, as strings.
+# They can be extensions coming with Sphinx (named "sphinx.ext.*") or your custom ones.
 extensions = [
     "nbsphinx",
     "nipype.sphinxext.apidoc",
@@ -99,8 +98,7 @@ napoleon_preprocess_types = False
 napoleon_type_aliases = None
 napoleon_attr_annotations = True
 
-# Accept custom section names to be parsed for numpy-style docstrings
-# of parameters.
+# Accept custom section names to be parsed for numpy-style docstrings of parameters.
 # Requires pinning sphinxcontrib-napoleon to a specific commit while
 # https://github.com/sphinx-contrib/napoleon/pull/10 is merged.
 napoleon_use_param = False
@@ -113,7 +111,9 @@ napoleon_custom_sections = [
     ("License", "License"),
 ]
 
-# -- Extension configuration -------------------------------------------------
+# -----------------------------------------------------------------------------
+# Extension configuration
+# -----------------------------------------------------------------------------
 apidoc_module_dir = "../aslprep"
 apidoc_output_dir = "api"
 apidoc_excluded_paths = ["conftest.py", "*/tests/*", "tests/*", "data/*"]
@@ -126,14 +126,14 @@ apidoc_extra_args = ["--module-first", "-d 1", "-T"]
 source_suffix = ".rst"
 
 # The encoding of source files.
-# source_encoding = "utf-8-sig"
+source_encoding = "utf-8-sig"
 
 # The master toctree document.
 master_doc = "index"
 
 # General information about the project.
 project = "aslprep"
-author = "Azeez Adebimpe"
+author = "ASLPrep developers"
 copyright = f"2020-{datetime.now().year}, {author}"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -152,47 +152,40 @@ release = "version"
 # Usually you set "language" from the command line for these cases.
 language = "en"
 
-# There are two options for replacing |today|: either, you set today to some
-# non-false value, then it is used:
-# today = ''
-# Else, today_fmt is used as the format for a strftime call.
-# today_fmt = '%B %d, %Y'
-
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-# The reST default role (used for this markup: `text`) to use for all
-# documents.
-# default_role = None
+# The reST default role (used for this markup: `text`) to use for all documents.
+default_role = "autolink"
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
-# add_function_parentheses = True
+add_function_parentheses = True
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
-# add_module_names = True
+add_module_names = False
 
 # If true, sectionauthor and moduleauthor directives will be shown in the
 # output. They are ignored by default.
-# show_authors = False
+show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "default"
 
 # A list of ignored prefixes for module index sorting.
-# modindex_common_prefix = []
+modindex_common_prefix = []
 
 # If true, keep warnings as "system message" paragraphs in the built documents.
-# keep_warnings = False
+keep_warnings = False
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
-
-# -- Options for HTML output ----------------------------------------------
-
+# -----------------------------------------------------------------------------
+# Options for HTML output
+# -----------------------------------------------------------------------------
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "sphinx_rtd_theme"
@@ -200,105 +193,105 @@ html_theme = "sphinx_rtd_theme"
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-# html_theme_options = {}
+html_theme_options = {}
 
 # Add any paths that contain custom themes here, relative to this directory.
-# html_theme_path = []
+html_theme_path = []
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
-# html_title = u'aslprep vversion'
+html_title = "aslprep version"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-# html_short_title = None
+html_short_title = None
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-# html_logo = None
+html_logo = None
 
-# The name of an image file (relative to this directory) to use as a favicon of
-# the docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
-# pixels large.
-# html_favicon = None
+# The name of an image file (relative to this directory) to use as a favicon of the docs.
+# This file should be a Windows icon file (.ico) being 16x16 or 32x32 pixels large.
+html_favicon = None
 
 # Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
+# relative to this directory.
+# They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-# Add any extra paths that contain custom files (such as robots.txt or
-# .htaccess) here, relative to this directory. These files are copied
-# directly to the root of the documentation.
-# html_extra_path = []
+# Add any extra paths that contain custom files (such as robots.txt or .htaccess) here,
+# relative to this directory.
+# These files are copied directly to the root of the documentation.
+html_extra_path = []
 
 # If not None, a 'Last updated on:' timestamp is inserted at every page
 # bottom, using the given strftime format.
 # The empty string is equivalent to '%b %d, %Y'.
-# html_last_updated_fmt = None
+html_last_updated_fmt = None
 
 # If true, SmartyPants will be used to convert quotes and dashes to
 # typographically correct entities.
-# html_use_smartypants = True
+html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
-# html_sidebars = {}
+html_sidebars = {}
 
-# Additional templates that should be rendered to pages, maps page names to
-# template names.
-# html_additional_pages = {}
+# Additional templates that should be rendered to pages, maps page names to template names.
+html_additional_pages = {}
 
 # If false, no module index is generated.
-# html_domain_indices = True
+html_domain_indices = True
 
 # If false, no index is generated.
-# html_use_index = True
+html_use_index = True
 
 # If true, the index is split into individual pages for each letter.
-# html_split_index = False
+html_split_index = False
 
 # If true, links to the reST sources are added to the pages.
-# html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
-# html_show_sphinx = True
+html_show_sphinx = False
 
 # If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
-# html_show_copyright = True
+html_show_copyright = True
 
 # If true, an OpenSearch description file will be output, and all pages will
 # contain a <link> tag referring to it.  The value of this option must be the
 # base URL from which the finished HTML is served.
-# html_use_opensearch = ''
+html_use_opensearch = ""
 
 # This is the file name suffix for HTML files (e.g., ".xhtml").
-# html_file_suffix = None
+html_file_suffix = None
 
 # Language to be used for generating the HTML full-text search index.
 # Sphinx supports the following languages:
 #   'da', 'de', 'en', 'es', 'fi', 'fr', 'hu', 'it', 'ja'
 #   'nl', 'no', 'pt', 'ro', 'ru', 'sv', 'tr', 'zh'
-# html_search_language = 'en'
+html_search_language = 'en'
 
 # A dictionary with options for the search language support, empty by default.
 # 'ja' uses this config value.
 # 'zh' user can custom change `jieba` dictionary path.
-# html_search_options = {'type': 'default'}
+html_search_options = {'type': 'default'}
 
 # The name of a javascript file (relative to the configuration directory) that
 # implements a search results scorer. If empty, the default will be used.
-# html_search_scorer = 'scorer.js'
+html_search_scorer = ""
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = "aslprepdoc"
 
-# -- Options for manual page output ---------------------------------------
-
+# -----------------------------------------------------------------------------
+# Options for manual page output
+# -----------------------------------------------------------------------------
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [(master_doc, "aslprep", "aslprep Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
-# man_show_urls = False
+man_show_urls = False
 
 # The following is used by sphinx.ext.linkcode to provide links to github
 linkcode_resolve = make_linkcode_resolve(
