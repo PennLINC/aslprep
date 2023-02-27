@@ -6,7 +6,6 @@ from glob import glob
 
 import nibabel as nb
 import numpy as np
-
 from bids.layout import BIDSLayout
 
 
