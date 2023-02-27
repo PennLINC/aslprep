@@ -246,30 +246,38 @@ their manuscripts unchanged. It is released under the unchanged [CC0]\
         t1w=subject_data["t1w"],
     )
 
-    workflow.connect(
-        [
-            (inputnode, anat_preproc_wf, [("subjects_dir", "inputnode.subjects_dir")]),
-            (bidssrc, bids_info, [(("t1w", fix_multi_T1w_source_name), "in_file")]),
-            (inputnode, summary, [("subjects_dir", "subjects_dir")]),
-            (bidssrc, summary, [("t1w", "t1w"), ("t2w", "t2w"), ("asl", "asl")]),
-            (bids_info, summary, [("subject", "subject_id")]),
-            (bids_info, anat_preproc_wf, [(("subject", _prefix), "inputnode.subject_id")]),
-            (
-                bidssrc,
-                anat_preproc_wf,
-                [
-                    ("t1w", "inputnode.t1w"),
-                    ("t2w", "inputnode.t2w"),
-                    ("roi", "inputnode.roi"),
-                    ("flair", "inputnode.flair"),
-                ],
-            ),
-            (bidssrc, ds_report_summary, [(("t1w", fix_multi_T1w_source_name), "source_file")]),
-            (summary, ds_report_summary, [("out_report", "in_file")]),
-            (bidssrc, ds_report_about, [(("t1w", fix_multi_T1w_source_name), "source_file")]),
-            (about, ds_report_about, [("out_report", "in_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, anat_preproc_wf, [("subjects_dir", "inputnode.subjects_dir")]),
+        (bidssrc, bids_info, [
+            (("t1w", fix_multi_T1w_source_name), "in_file"),
+        ]),
+        (inputnode, summary, [("subjects_dir", "subjects_dir")]),
+        (bidssrc, summary, [
+            ("t1w", "t1w"),
+            ("t2w", "t2w"),
+            ("asl", "asl"),
+        ]),
+        (bids_info, summary, [("subject", "subject_id")]),
+        (bids_info, anat_preproc_wf, [
+            (("subject", _prefix), "inputnode.subject_id"),
+        ]),
+        (bidssrc, anat_preproc_wf, [
+            ("t1w", "inputnode.t1w"),
+            ("t2w", "inputnode.t2w"),
+            ("roi", "inputnode.roi"),
+            ("flair", "inputnode.flair"),
+        ]),
+        (bidssrc, ds_report_summary, [
+            (("t1w", fix_multi_T1w_source_name), "source_file"),
+        ]),
+        (summary, ds_report_summary, [("out_report", "in_file")]),
+        (bidssrc, ds_report_about, [
+            (("t1w", fix_multi_T1w_source_name), "source_file"),
+        ]),
+        (about, ds_report_about, [("out_report", "in_file")]),
+    ])
+    # fmt:on
 
     # Overwrite ``out_path_base`` of smriprep's DataSinks
     for node in workflow.list_node_names():
@@ -301,41 +309,35 @@ tasks and sessions), the following preprocessing was performed.
         # if number of volume of ASL is less than 5. motion slicetiming etc will be skipped
         if get_n_volumes(asl_file) > 5:
             asl_preproc_wf = init_asl_preproc_wf(asl_file)
-            workflow.connect(
-                [
-                    (
-                        anat_preproc_wf,
-                        asl_preproc_wf,
-                        [
-                            ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
-                            ("outputnode.t1w_mask", "inputnode.t1w_mask"),
-                            ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
-                            ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
-                            ("outputnode.template", "inputnode.template"),
-                            ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
-                            ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
-                        ],
-                    ),
-                ]
-            )
+
+            # fmt:off
+            workflow.connect([
+                (anat_preproc_wf, asl_preproc_wf, [
+                    ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
+                    ("outputnode.t1w_mask", "inputnode.t1w_mask"),
+                    ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
+                    ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
+                    ("outputnode.template", "inputnode.template"),
+                    ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
+                    ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
+                ]),
+            ])
+            # fmt:on
         else:
             asl_preproc_wf = init_asl_gepreproc_wf(asl_file)
-            workflow.connect(
-                [
-                    (
-                        anat_preproc_wf,
-                        asl_preproc_wf,
-                        [
-                            ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
-                            ("outputnode.t1w_mask", "inputnode.t1w_mask"),
-                            ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
-                            ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
-                            ("outputnode.template", "inputnode.template"),
-                            ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
-                            ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
-                        ],
-                    ),
-                ]
-            )
+
+            # fmt:off
+            workflow.connect([
+                (anat_preproc_wf, asl_preproc_wf, [
+                    ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
+                    ("outputnode.t1w_mask", "inputnode.t1w_mask"),
+                    ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
+                    ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
+                    ("outputnode.template", "inputnode.template"),
+                    ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
+                    ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
+                ]),
+            ])
+            # fmt:on
 
     return workflow
