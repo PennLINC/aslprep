@@ -67,11 +67,11 @@ The optimally combined time series was carried forward as the *preprocessed asl*
 
     t2smap_node = pe.Node(T2SMap(echo_times=echo_times), name="t2smap_node")
 
-    workflow.connect(
-        [
-            (inputnode, t2smap_node, [("asl_file", "in_files")]),
-            (t2smap_node, outputnode, [("optimal_comb", "asl")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, t2smap_node, [("asl_file", "in_files")]),
+        (t2smap_node, outputnode, [("optimal_comb", "asl")]),
+    ])
+    # fmt:on
 
     return workflow

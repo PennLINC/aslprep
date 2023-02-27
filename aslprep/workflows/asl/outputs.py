@@ -136,20 +136,16 @@ def init_asl_derivatives_wf(
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    workflow.connect(
-        [
-            (inputnode, raw_sources, [("source_file", "in_files")]),
-            (
-                inputnode,
-                ds_confounds,
-                [
-                    ("source_file", "source_file"),
-                    ("confounds", "in_file"),
-                    ("confounds_metadata", "meta_dict"),
-                ],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, raw_sources, [("source_file", "in_files")]),
+        (inputnode, ds_confounds, [
+            ("source_file", "source_file"),
+            ("confounds", "in_file"),
+            ("confounds_metadata", "meta_dict"),
+        ]),
+    ])
+    # fmt:on
 
     qcfile = pe.Node(
         DerivativesDataSink(
@@ -162,11 +158,14 @@ def init_asl_derivatives_wf(
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    workflow.connect(
-        [
-            (inputnode, qcfile, [("source_file", "source_file"), ("qc_file", "in_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, qcfile, [
+            ("source_file", "source_file"),
+            ("qc_file", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     # write transform matrix file between asl native space and T1w
     ds_t1w_to_asl_xform = pe.Node(
@@ -184,15 +183,14 @@ def init_asl_derivatives_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (
-                inputnode,
-                ds_t1w_to_asl_xform,
-                [("source_file", "source_file"), ("itk_asl_to_t1", "in_file")],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_t1w_to_asl_xform, [
+            ("source_file", "source_file"),
+            ("itk_asl_to_t1", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     ds_asl_to_t1w_xform = pe.Node(
         DerivativesDataSink(
@@ -209,15 +207,14 @@ def init_asl_derivatives_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (
-                inputnode,
-                ds_asl_to_t1w_xform,
-                [("source_file", "source_file"), ("itk_t1_to_asl", "in_file")],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_asl_to_t1w_xform, [
+            ("source_file", "source_file"),
+            ("itk_t1_to_asl", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     cbf_hvoxf = pe.Node(
         DerivativesDataSink(
@@ -280,15 +277,30 @@ def init_asl_derivatives_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (inputnode, cbf_hvoxf, [("source_file", "source_file"), ("cbf_hvoxf", "in_file")]),
-            (inputnode, cbf_sc207, [("source_file", "source_file"), ("cbf_sc207", "in_file")]),
-            (inputnode, cbf_sc217, [("source_file", "source_file"), ("cbf_sc217", "in_file")]),
-            (inputnode, cbf_sc407, [("source_file", "source_file"), ("cbf_sc407", "in_file")]),
-            (inputnode, cbf_sc417, [("source_file", "source_file"), ("cbf_sc417", "in_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, cbf_hvoxf, [
+            ("source_file", "source_file"),
+            ("cbf_hvoxf", "in_file"),
+        ]),
+        (inputnode, cbf_sc207, [
+            ("source_file", "source_file"),
+            ("cbf_sc207", "in_file"),
+        ]),
+        (inputnode, cbf_sc217, [
+            ("source_file", "source_file"),
+            ("cbf_sc217", "in_file"),
+        ]),
+        (inputnode, cbf_sc407, [
+            ("source_file", "source_file"),
+            ("cbf_sc407", "in_file"),
+        ]),
+        (inputnode, cbf_sc417, [
+            ("source_file", "source_file"),
+            ("cbf_sc417", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     if scorescrub:
         score_hvoxf = pe.Node(
@@ -339,7 +351,6 @@ def init_asl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         score_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -413,60 +424,51 @@ def init_asl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    score_hvoxf,
-                    [("source_file", "source_file"), ("score_hvoxf", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_hvoxf,
-                    [("source_file", "source_file"), ("scrub_hvoxf", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc217,
-                    [("source_file", "source_file"), ("score_sc217", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc207,
-                    [("source_file", "source_file"), ("score_sc207", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc207,
-                    [("source_file", "source_file"), ("scrub_sc207", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc217,
-                    [("source_file", "source_file"), ("scrub_sc217", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc417,
-                    [("source_file", "source_file"), ("score_sc417", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc417,
-                    [("source_file", "source_file"), ("scrub_sc417", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc407,
-                    [("source_file", "source_file"), ("score_sc407", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc407,
-                    [("source_file", "source_file"), ("scrub_sc407", "in_file")],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, score_hvoxf, [
+                ("source_file", "source_file"),
+                ("score_hvoxf", "in_file"),
+            ]),
+            (inputnode, scrub_hvoxf, [
+                ("source_file", "source_file"),
+                ("scrub_hvoxf", "in_file"),
+            ]),
+            (inputnode, score_sc217, [
+                ("source_file", "source_file"),
+                ("score_sc217", "in_file"),
+            ]),
+            (inputnode, score_sc207, [
+                ("source_file", "source_file"),
+                ("score_sc207", "in_file"),
+            ]),
+            (inputnode, scrub_sc207, [
+                ("source_file", "source_file"),
+                ("scrub_sc207", "in_file"),
+            ]),
+            (inputnode, scrub_sc217, [
+                ("source_file", "source_file"),
+                ("scrub_sc217", "in_file"),
+            ]),
+            (inputnode, score_sc417, [
+                ("source_file", "source_file"),
+                ("score_sc417", "in_file"),
+            ]),
+            (inputnode, scrub_sc417, [
+                ("source_file", "source_file"),
+                ("scrub_sc417", "in_file"),
+            ]),
+            (inputnode, score_sc407, [
+                ("source_file", "source_file"),
+                ("score_sc407", "in_file"),
+            ]),
+            (inputnode, scrub_sc407, [
+                ("source_file", "source_file"),
+                ("scrub_sc407", "in_file"),
+            ]),
+        ])
+        # fmt:on
+
     if basil:
         basil_hvoxf = pe.Node(
             DerivativesDataSink(
@@ -516,7 +518,6 @@ def init_asl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         basil_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -590,40 +591,50 @@ def init_asl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    basil_hvoxf,
-                    [("source_file", "source_file"), ("basil_hvoxf", "in_file")],
-                ),
-                (inputnode, pvc_hvoxf, [("source_file", "source_file"), ("pvc_hvoxf", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc207,
-                    [("source_file", "source_file"), ("basil_sc207", "in_file")],
-                ),
-                (inputnode, pvc_sc207, [("source_file", "source_file"), ("pvc_sc207", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc217,
-                    [("source_file", "source_file"), ("basil_sc217", "in_file")],
-                ),
-                (inputnode, pvc_sc217, [("source_file", "source_file"), ("pvc_sc217", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc407,
-                    [("source_file", "source_file"), ("basil_sc407", "in_file")],
-                ),
-                (inputnode, pvc_sc407, [("source_file", "source_file"), ("pvc_sc217", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc417,
-                    [("source_file", "source_file"), ("basil_sc417", "in_file")],
-                ),
-                (inputnode, pvc_sc417, [("source_file", "source_file"), ("pvc_sc417", "in_file")]),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, basil_hvoxf, [
+                ("source_file", "source_file"),
+                ("basil_hvoxf", "in_file"),
+            ]),
+            (inputnode, pvc_hvoxf, [
+                ("source_file", "source_file"),
+                ("pvc_hvoxf", "in_file"),
+            ]),
+            (inputnode, basil_sc207, [
+                ("source_file", "source_file"),
+                ("basil_sc207", "in_file"),
+            ]),
+            (inputnode, pvc_sc207, [
+                ("source_file", "source_file"),
+                ("pvc_sc207", "in_file"),
+            ]),
+            (inputnode, basil_sc217, [
+                ("source_file", "source_file"),
+                ("basil_sc217", "in_file"),
+            ]),
+            (inputnode, pvc_sc217, [
+                ("source_file", "source_file"),
+                ("pvc_sc217", "in_file"),
+            ]),
+            (inputnode, basil_sc407, [
+                ("source_file", "source_file"),
+                ("basil_sc407", "in_file"),
+            ]),
+            (inputnode, pvc_sc407, [
+                ("source_file", "source_file"),
+                ("pvc_sc217", "in_file"),
+            ]),
+            (inputnode, basil_sc417, [
+                ("source_file", "source_file"),
+                ("basil_sc417", "in_file"),
+            ]),
+            (inputnode, pvc_sc417, [
+                ("source_file", "source_file"),
+                ("pvc_sc417", "in_file"),
+            ]),
+        ])
+        # fmt:on
 
     if nonstd_spaces.intersection(("func", "run", "asl", "sbref")):
         ds_asl_native = pe.Node(
@@ -684,31 +695,30 @@ def init_asl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    ds_asl_native,
-                    [("source_file", "source_file"), ("asl_native", "in_file")],
-                ),
-                (
-                    inputnode,
-                    ds_asl_native_ref,
-                    [("source_file", "source_file"), ("asl_native_ref", "in_file")],
-                ),
-                (
-                    inputnode,
-                    ds_asl_mask_native,
-                    [("source_file", "source_file"), ("asl_mask_native", "in_file")],
-                ),
-                (inputnode, cbfnative, [("source_file", "source_file"), ("cbf", "in_file")]),
-                (
-                    inputnode,
-                    meancbfnative,
-                    [("source_file", "source_file"), ("meancbf", "in_file")],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, ds_asl_native, [
+                ("source_file", "source_file"),
+                ("asl_native", "in_file"),
+            ]),
+            (inputnode, ds_asl_native_ref, [
+                ("source_file", "source_file"),
+                ("asl_native_ref", "in_file"),
+            ]),
+            (inputnode, ds_asl_mask_native, [
+                ("source_file", "source_file"),
+                ("asl_mask_native", "in_file"),
+            ]),
+            (inputnode, cbfnative, [
+                ("source_file", "source_file"),
+                ("cbf", "in_file"),
+            ]),
+            (inputnode, meancbfnative, [
+                ("source_file", "source_file"),
+                ("meancbf", "in_file"),
+            ]),
+        ])
+        # fmt:on
 
         if scorescrub:
             scorenative = pe.Node(
@@ -746,25 +756,22 @@ def init_asl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (
-                        inputnode,
-                        scorenative,
-                        [("source_file", "source_file"), ("score", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        meanscorenative,
-                        [("source_file", "source_file"), ("avgscore", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        scrubnative,
-                        [("source_file", "source_file"), ("scrub", "in_file")],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, scorenative, [
+                    ("source_file", "source_file"),
+                    ("score", "in_file"),
+                ]),
+                (inputnode, meanscorenative, [
+                    ("source_file", "source_file"),
+                    ("avgscore", "in_file"),
+                ]),
+                (inputnode, scrubnative, [
+                    ("source_file", "source_file"),
+                    ("scrub", "in_file"),
+                ]),
+            ])
+            # fmt:on
 
         if basil:
             basilnative = pe.Node(
@@ -812,19 +819,27 @@ def init_asl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (
-                        inputnode,
-                        basilnative,
-                        [("source_file", "source_file"), ("basil", "in_file")],
-                    ),
-                    (inputnode, pvnative, [("source_file", "source_file"), ("pv", "in_file")]),
-                    (inputnode, pvnativewm, [("source_file", "source_file"), ("pvwm", "in_file")]),
-                    (inputnode, attnative, [("source_file", "source_file"), ("att", "in_file")]),
-                    (raw_sources, ds_asl_mask_native, [("out", "RawSources")]),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, basilnative, [
+                    ("source_file", "source_file"),
+                    ("basil", "in_file"),
+                ]),
+                (inputnode, pvnative, [
+                    ("source_file", "source_file"),
+                    ("pv", "in_file"),
+                ]),
+                (inputnode, pvnativewm, [
+                    ("source_file", "source_file"),
+                    ("pvwm", "in_file"),
+                ]),
+                (inputnode, attnative, [
+                    ("source_file", "source_file"),
+                    ("att", "in_file"),
+                ]),
+                (raw_sources, ds_asl_mask_native, [("out", "RawSources")]),
+            ])
+            # fmt:on
 
     # Resample to T1w space
     if nonstd_spaces.intersection(("T1w", "anat")):
@@ -855,7 +870,6 @@ def init_asl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         ds_asl_mask_t1 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -869,7 +883,6 @@ def init_asl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         cbfnativet1 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -894,27 +907,30 @@ def init_asl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (inputnode, ds_asl_t1, [("source_file", "source_file"), ("asl_t1", "in_file")]),
-                (
-                    inputnode,
-                    ds_asl_t1_ref,
-                    [("source_file", "source_file"), ("asl_t1_ref", "in_file")],
-                ),
-                (
-                    inputnode,
-                    ds_asl_mask_t1,
-                    [("source_file", "source_file"), ("asl_mask_t1", "in_file")],
-                ),
-                (inputnode, cbfnativet1, [("source_file", "source_file"), ("cbf_t1", "in_file")]),
-                (
-                    inputnode,
-                    meancbfnativet1,
-                    [("source_file", "source_file"), ("meancbf_t1", "in_file")],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, ds_asl_t1, [
+                ("source_file", "source_file"),
+                ("asl_t1", "in_file"),
+            ]),
+            (inputnode, ds_asl_t1_ref, [
+                ("source_file", "source_file"),
+                ("asl_t1_ref", "in_file"),
+            ]),
+            (inputnode, ds_asl_mask_t1, [
+                ("source_file", "source_file"),
+                ("asl_mask_t1", "in_file"),
+            ]),
+            (inputnode, cbfnativet1, [
+                ("source_file", "source_file"),
+                ("cbf_t1", "in_file"),
+            ]),
+            (inputnode, meancbfnativet1, [
+                ("source_file", "source_file"),
+                ("meancbf_t1", "in_file"),
+            ]),
+        ])
+        # fmt:on
 
         if scorescrub:
             scorenativet1 = pe.Node(
@@ -953,25 +969,23 @@ def init_asl_derivatives_wf(
                 run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
-            workflow.connect(
-                [
-                    (
-                        inputnode,
-                        scorenativet1,
-                        [("source_file", "source_file"), ("score_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        meanscorenativet1,
-                        [("source_file", "source_file"), ("avgscore_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        scrubnativet1,
-                        [("source_file", "source_file"), ("scrub_t1", "in_file")],
-                    ),
-                ]
-            )
+
+            # fmt:off
+            workflow.connect([
+                (inputnode, scorenativet1, [
+                    ("source_file", "source_file"),
+                    ("score_t1", "in_file"),
+                ]),
+                (inputnode, meanscorenativet1, [
+                    ("source_file", "source_file"),
+                    ("avgscore_t1", "in_file"),
+                ]),
+                (inputnode, scrubnativet1, [
+                    ("source_file", "source_file"),
+                    ("scrub_t1", "in_file"),
+                ]),
+            ])
+            # fmt:on
 
         if basil:
             basilnativet1 = pe.Node(
@@ -1023,36 +1037,30 @@ def init_asl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (
-                        inputnode,
-                        basilnativet1,
-                        [("source_file", "source_file"), ("basil_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        pvnativet1,
-                        [("source_file", "source_file"), ("pv_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        pvnativetwm1,
-                        [("source_file", "source_file"), ("pvwm_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        attnativet1,
-                        [("source_file", "source_file"), ("att_t1", "in_file")],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, basilnativet1, [
+                    ("source_file", "source_file"),
+                    ("basil_t1", "in_file"),
+                ]),
+                (inputnode, pvnativet1, [
+                    ("source_file", "source_file"),
+                    ("pv_t1", "in_file"),
+                ]),
+                (inputnode, pvnativetwm1, [
+                    ("source_file", "source_file"),
+                    ("pvwm_t1", "in_file"),
+                ]),
+                (inputnode, attnativet1, [
+                    ("source_file", "source_file"),
+                    ("att_t1", "in_file"),
+                ]),
+            ])
+            # fmt:on
 
-        workflow.connect(
-            [
-                (raw_sources, ds_asl_mask_t1, [("out", "RawSources")]),
-            ]
-        )
+        # fmt:off
+        workflow.connect([(raw_sources, ds_asl_mask_t1, [("out", "RawSources")])])
+        # fmt:on
 
     if getattr(spaces, "_cached") is None:
         return workflow
@@ -1076,6 +1084,7 @@ def init_asl_derivatives_wf(
         ]
         if scorescrub:
             out_names = out_names + ["score_std", "avgscore_std", "scrub_std"]
+
         if basil:
             out_names = out_names + ["basil_std", "pv_std", "pvwm_std", "att_std"]
 
@@ -1144,85 +1153,61 @@ def init_asl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (inputnode, ds_asl_std, [("source_file", "source_file")]),
-                (inputnode, ds_asl_std_ref, [("source_file", "source_file")]),
-                (inputnode, ds_asl_mask_std, [("source_file", "source_file")]),
-                (inputnode, cbfstd, [("source_file", "source_file")]),
-                (inputnode, meancbfstd, [("source_file", "source_file")]),
-                (
-                    inputnode,
-                    select_std,
-                    [
-                        ("asl_std", "asl_std"),
-                        ("asl_std_ref", "asl_std_ref"),
-                        ("asl_mask_std", "asl_mask_std"),
-                        ("cbf_std", "cbf_std"),
-                        ("meancbf_std", "meancbf_std"),
-                        ("template", "template"),
-                        ("spatial_reference", "keys"),
-                    ],
-                ),
-                (spacesource, select_std, [("uid", "key")]),
-                (select_std, ds_asl_std, [("asl_std", "in_file")]),
-                (
-                    spacesource,
-                    ds_asl_std,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (select_std, ds_asl_std_ref, [("asl_std_ref", "in_file")]),
-                (
-                    spacesource,
-                    ds_asl_std_ref,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (select_std, ds_asl_mask_std, [("asl_mask_std", "in_file")]),
-                (
-                    spacesource,
-                    ds_asl_mask_std,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (select_std, cbfstd, [("cbf_std", "in_file")]),
-                (
-                    spacesource,
-                    cbfstd,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (select_std, meancbfstd, [("meancbf_std", "in_file")]),
-                (
-                    spacesource,
-                    meancbfstd,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (raw_sources, ds_asl_mask_std, [("out", "RawSources")]),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, ds_asl_std, [("source_file", "source_file")]),
+            (inputnode, ds_asl_std_ref, [("source_file", "source_file")]),
+            (inputnode, ds_asl_mask_std, [("source_file", "source_file")]),
+            (inputnode, cbfstd, [("source_file", "source_file")]),
+            (inputnode, meancbfstd, [("source_file", "source_file")]),
+            (inputnode, select_std, [
+                ("asl_std", "asl_std"),
+                ("asl_std_ref", "asl_std_ref"),
+                ("asl_mask_std", "asl_mask_std"),
+                ("cbf_std", "cbf_std"),
+                ("meancbf_std", "meancbf_std"),
+                ("template", "template"),
+                ("spatial_reference", "keys"),
+            ]),
+            (spacesource, select_std, [("uid", "key")]),
+            (select_std, ds_asl_std, [("asl_std", "in_file")]),
+            (spacesource, ds_asl_std, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (select_std, ds_asl_std_ref, [("asl_std_ref", "in_file")]),
+            (spacesource, ds_asl_std_ref, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (select_std, ds_asl_mask_std, [("asl_mask_std", "in_file")]),
+            (spacesource, ds_asl_mask_std, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (select_std, cbfstd, [("cbf_std", "in_file")]),
+            (spacesource, cbfstd, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (select_std, meancbfstd, [("meancbf_std", "in_file")]),
+            (spacesource, meancbfstd, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (raw_sources, ds_asl_mask_std, [("out", "RawSources")]),
+        ])
+        # fmt:on
 
         if scorescrub:
             scorestd = pe.Node(
@@ -1236,7 +1221,6 @@ def init_asl_derivatives_wf(
                 run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
-
             meanscorestd = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
@@ -1260,55 +1244,39 @@ def init_asl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (inputnode, scorestd, [("source_file", "source_file")]),
-                    (inputnode, meanscorestd, [("source_file", "source_file")]),
-                    (inputnode, scrubstd, [("source_file", "source_file")]),
-                    (
-                        inputnode,
-                        select_std,
-                        [
-                            ("score_std", "score_std"),
-                            ("avgscore_std", "avgscore_std"),
-                            ("scrub_std", "scrub_std"),
-                        ],
-                    ),
-                    (select_std, scorestd, [("score_std", "in_file")]),
-                    (
-                        spacesource,
-                        scorestd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, meanscorestd, [("avgscore_std", "in_file")]),
-                    (
-                        spacesource,
-                        meanscorestd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, scrubstd, [("scrub_std", "in_file")]),
-                    (
-                        spacesource,
-                        scrubstd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, scorestd, [("source_file", "source_file")]),
+                (inputnode, meanscorestd, [("source_file", "source_file")]),
+                (inputnode, scrubstd, [("source_file", "source_file")]),
+                (inputnode, select_std, [
+                    ("score_std", "score_std"),
+                    ("avgscore_std", "avgscore_std"),
+                    ("scrub_std", "scrub_std"),
+                ]),
+                (select_std, scorestd, [("score_std", "in_file")]),
+                (spacesource, scorestd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, meanscorestd, [("avgscore_std", "in_file")]),
+                (spacesource, meanscorestd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, scrubstd, [("scrub_std", "in_file")]),
+                (spacesource, scrubstd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+            ])
+            # fmt:on
 
         if basil:
             basilstd = pe.Node(
@@ -1356,68 +1324,48 @@ def init_asl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (inputnode, basilstd, [("source_file", "source_file")]),
-                    (inputnode, pvstd, [("source_file", "source_file")]),
-                    (inputnode, pvstdwm, [("source_file", "source_file")]),
-                    (inputnode, attstd, [("source_file", "source_file")]),
-                    (
-                        inputnode,
-                        select_std,
-                        [
-                            ("basil_std", "basil_std"),
-                            ("pv_std", "pv_std"),
-                            ("pvwm_std", "pvwm_std"),
-                            ("att_std", "att_std"),
-                        ],
-                    ),
-                    (select_std, basilstd, [("basil_std", "in_file")]),
-                    (
-                        spacesource,
-                        basilstd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, pvstd, [("pv_std", "in_file")]),
-                    (
-                        spacesource,
-                        pvstd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, pvstdwm, [("pvwm_std", "in_file")]),
-                    (
-                        spacesource,
-                        pvstdwm,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, attstd, [("att_std", "in_file")]),
-                    (
-                        spacesource,
-                        attstd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, basilstd, [("source_file", "source_file")]),
+                (inputnode, pvstd, [("source_file", "source_file")]),
+                (inputnode, pvstdwm, [("source_file", "source_file")]),
+                (inputnode, attstd, [("source_file", "source_file")]),
+                (inputnode, select_std, [
+                    ("basil_std", "basil_std"),
+                    ("pv_std", "pv_std"),
+                    ("pvwm_std", "pvwm_std"),
+                    ("att_std", "att_std"),
+                ]),
+                (select_std, basilstd, [("basil_std", "in_file")]),
+                (spacesource, basilstd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, pvstd, [("pv_std", "in_file")]),
+                (spacesource, pvstd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, pvstdwm, [("pvwm_std", "in_file")]),
+                (spacesource, pvstdwm, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, attstd, [("att_std", "in_file")]),
+                (spacesource, attstd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+            ])
+            # fmt:on
 
     return workflow
 
@@ -1456,7 +1404,6 @@ def init_geasl_derivatives_wf(
         would lead to resampling on a 2mm resolution of the space).
     name : :obj:`str`
         This workflow's identifier (default: ``func_derivatives_wf``).
-
     """
     nonstd_spaces = set(spaces.get_nonstandard())
     workflow = Workflow(name=name)
@@ -1531,7 +1478,7 @@ def init_geasl_derivatives_wf(
                 "scrub_sc417",
                 "basil_sc417",
                 "pvc_sc417",
-            ]
+            ],
         ),
         name="inputnode",
     )
@@ -1539,11 +1486,9 @@ def init_geasl_derivatives_wf(
     raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
     raw_sources.inputs.bids_root = bids_root
 
-    workflow.connect(
-        [
-            (inputnode, raw_sources, [("source_file", "in_files")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([(inputnode, raw_sources, [("source_file", "in_files")])])
+    # fmt:on
 
     qcfile = pe.Node(
         DerivativesDataSink(
@@ -1556,11 +1501,14 @@ def init_geasl_derivatives_wf(
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    workflow.connect(
-        [
-            (inputnode, qcfile, [("source_file", "source_file"), ("qc_file", "in_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, qcfile, [
+            ("source_file", "source_file"),
+            ("qc_file", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     # write transform matrix file between asl native space and T1w
     ds_t1w_to_asl_xform = pe.Node(
@@ -1578,15 +1526,14 @@ def init_geasl_derivatives_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (
-                inputnode,
-                ds_t1w_to_asl_xform,
-                [("source_file", "source_file"), ("itk_asl_to_t1", "in_file")],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_t1w_to_asl_xform, [
+            ("source_file", "source_file"),
+            ("itk_asl_to_t1", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     ds_asl_to_t1w_xform = pe.Node(
         DerivativesDataSink(
@@ -1603,15 +1550,14 @@ def init_geasl_derivatives_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (
-                inputnode,
-                ds_asl_to_t1w_xform,
-                [("source_file", "source_file"), ("itk_t1_to_asl", "in_file")],
-            ),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_asl_to_t1w_xform, [
+            ("source_file", "source_file"),
+            ("itk_t1_to_asl", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     cbf_hvoxf = pe.Node(
         DerivativesDataSink(
@@ -1674,15 +1620,30 @@ def init_geasl_derivatives_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow.connect(
-        [
-            (inputnode, cbf_hvoxf, [("source_file", "source_file"), ("cbf_hvoxf", "in_file")]),
-            (inputnode, cbf_sc207, [("source_file", "source_file"), ("cbf_sc207", "in_file")]),
-            (inputnode, cbf_sc217, [("source_file", "source_file"), ("cbf_sc217", "in_file")]),
-            (inputnode, cbf_sc407, [("source_file", "source_file"), ("cbf_sc407", "in_file")]),
-            (inputnode, cbf_sc417, [("source_file", "source_file"), ("cbf_sc417", "in_file")]),
-        ]
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, cbf_hvoxf, [
+            ("source_file", "source_file"),
+            ("cbf_hvoxf", "in_file"),
+        ]),
+        (inputnode, cbf_sc207, [
+            ("source_file", "source_file"),
+            ("cbf_sc207", "in_file"),
+        ]),
+        (inputnode, cbf_sc217, [
+            ("source_file", "source_file"),
+            ("cbf_sc217", "in_file"),
+        ]),
+        (inputnode, cbf_sc407, [
+            ("source_file", "source_file"),
+            ("cbf_sc407", "in_file"),
+        ]),
+        (inputnode, cbf_sc417, [
+            ("source_file", "source_file"),
+            ("cbf_sc417", "in_file"),
+        ]),
+    ])
+    # fmt:on
 
     if scorescrub:
         score_hvoxf = pe.Node(
@@ -1733,7 +1694,6 @@ def init_geasl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         score_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -1807,60 +1767,51 @@ def init_geasl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    score_hvoxf,
-                    [("source_file", "source_file"), ("score_hvoxf", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_hvoxf,
-                    [("source_file", "source_file"), ("scrub_hvoxf", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc217,
-                    [("source_file", "source_file"), ("score_sc217", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc207,
-                    [("source_file", "source_file"), ("score_sc207", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc207,
-                    [("source_file", "source_file"), ("scrub_sc207", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc217,
-                    [("source_file", "source_file"), ("scrub_sc217", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc417,
-                    [("source_file", "source_file"), ("score_sc417", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc417,
-                    [("source_file", "source_file"), ("scrub_sc417", "in_file")],
-                ),
-                (
-                    inputnode,
-                    score_sc407,
-                    [("source_file", "source_file"), ("score_sc407", "in_file")],
-                ),
-                (
-                    inputnode,
-                    scrub_sc407,
-                    [("source_file", "source_file"), ("scrub_sc407", "in_file")],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, score_hvoxf, [
+                ("source_file", "source_file"),
+                ("score_hvoxf", "in_file"),
+            ]),
+            (inputnode, scrub_hvoxf, [
+                ("source_file", "source_file"),
+                ("scrub_hvoxf", "in_file"),
+            ]),
+            (inputnode, score_sc217, [
+                ("source_file", "source_file"),
+                ("score_sc217", "in_file"),
+            ]),
+            (inputnode, score_sc207, [
+                ("source_file", "source_file"),
+                ("score_sc207", "in_file"),
+            ]),
+            (inputnode, scrub_sc207, [
+                ("source_file", "source_file"),
+                ("scrub_sc207", "in_file"),
+            ]),
+            (inputnode, scrub_sc217, [
+                ("source_file", "source_file"),
+                ("scrub_sc217", "in_file"),
+            ]),
+            (inputnode, score_sc417, [
+                ("source_file", "source_file"),
+                ("score_sc417", "in_file"),
+            ]),
+            (inputnode, scrub_sc417, [
+                ("source_file", "source_file"),
+                ("scrub_sc417", "in_file"),
+            ]),
+            (inputnode, score_sc407, [
+                ("source_file", "source_file"),
+                ("score_sc407", "in_file"),
+            ]),
+            (inputnode, scrub_sc407, [
+                ("source_file", "source_file"),
+                ("scrub_sc407", "in_file"),
+            ]),
+        ])
+        # fmt:on
+
     if basil:
         basil_hvoxf = pe.Node(
             DerivativesDataSink(
@@ -1910,7 +1861,6 @@ def init_geasl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         basil_sc217 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -1984,40 +1934,50 @@ def init_geasl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    basil_hvoxf,
-                    [("source_file", "source_file"), ("basil_hvoxf", "in_file")],
-                ),
-                (inputnode, pvc_hvoxf, [("source_file", "source_file"), ("pvc_hvoxf", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc207,
-                    [("source_file", "source_file"), ("basil_sc207", "in_file")],
-                ),
-                (inputnode, pvc_sc207, [("source_file", "source_file"), ("pvc_sc207", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc217,
-                    [("source_file", "source_file"), ("basil_sc217", "in_file")],
-                ),
-                (inputnode, pvc_sc217, [("source_file", "source_file"), ("pvc_sc217", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc407,
-                    [("source_file", "source_file"), ("basil_sc407", "in_file")],
-                ),
-                (inputnode, pvc_sc407, [("source_file", "source_file"), ("pvc_sc217", "in_file")]),
-                (
-                    inputnode,
-                    basil_sc417,
-                    [("source_file", "source_file"), ("basil_sc417", "in_file")],
-                ),
-                (inputnode, pvc_sc417, [("source_file", "source_file"), ("pvc_sc417", "in_file")]),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, basil_hvoxf, [
+                ("source_file", "source_file"),
+                ("basil_hvoxf", "in_file"),
+            ]),
+            (inputnode, pvc_hvoxf, [
+                ("source_file", "source_file"),
+                ("pvc_hvoxf", "in_file"),
+            ]),
+            (inputnode, basil_sc207, [
+                ("source_file", "source_file"),
+                ("basil_sc207", "in_file"),
+            ]),
+            (inputnode, pvc_sc207, [
+                ("source_file", "source_file"),
+                ("pvc_sc207", "in_file"),
+            ]),
+            (inputnode, basil_sc217, [
+                ("source_file", "source_file"),
+                ("basil_sc217", "in_file"),
+            ]),
+            (inputnode, pvc_sc217, [
+                ("source_file", "source_file"),
+                ("pvc_sc217", "in_file"),
+            ]),
+            (inputnode, basil_sc407, [
+                ("source_file", "source_file"),
+                ("basil_sc407", "in_file"),
+            ]),
+            (inputnode, pvc_sc407, [
+                ("source_file", "source_file"),
+                ("pvc_sc217", "in_file"),
+            ]),
+            (inputnode, basil_sc417, [
+                ("source_file", "source_file"),
+                ("basil_sc417", "in_file"),
+            ]),
+            (inputnode, pvc_sc417, [
+                ("source_file", "source_file"),
+                ("pvc_sc417", "in_file"),
+            ]),
+        ])
+        # fmt:on
 
     if nonstd_spaces.intersection(("func", "run", "asl", "sbref")):
         ds_asl_native = pe.Node(
@@ -2078,31 +2038,30 @@ def init_geasl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (
-                    inputnode,
-                    ds_asl_native,
-                    [("source_file", "source_file"), ("asl_native", "in_file")],
-                ),
-                (
-                    inputnode,
-                    ds_asl_native_ref,
-                    [("source_file", "source_file"), ("asl_native_ref", "in_file")],
-                ),
-                (
-                    inputnode,
-                    ds_asl_mask_native,
-                    [("source_file", "source_file"), ("asl_mask_native", "in_file")],
-                ),
-                (inputnode, cbfnative, [("source_file", "source_file"), ("cbf", "in_file")]),
-                (
-                    inputnode,
-                    meancbfnative,
-                    [("source_file", "source_file"), ("meancbf", "in_file")],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, ds_asl_native, [
+                ("source_file", "source_file"),
+                ("asl_native", "in_file"),
+            ]),
+            (inputnode, ds_asl_native_ref, [
+                ("source_file", "source_file"),
+                ("asl_native_ref", "in_file"),
+            ]),
+            (inputnode, ds_asl_mask_native, [
+                ("source_file", "source_file"),
+                ("asl_mask_native", "in_file"),
+            ]),
+            (inputnode, cbfnative, [
+                ("source_file", "source_file"),
+                ("cbf", "in_file"),
+            ]),
+            (inputnode, meancbfnative, [
+                ("source_file", "source_file"),
+                ("meancbf", "in_file"),
+            ]),
+        ])
+        # fmt:on
 
         if scorescrub:
             scorenative = pe.Node(
@@ -2127,7 +2086,6 @@ def init_geasl_derivatives_wf(
                 run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
-
             scrubnative = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
@@ -2140,25 +2098,22 @@ def init_geasl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (
-                        inputnode,
-                        scorenative,
-                        [("source_file", "source_file"), ("score", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        meanscorenative,
-                        [("source_file", "source_file"), ("avgscore", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        scrubnative,
-                        [("source_file", "source_file"), ("scrub", "in_file")],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, scorenative, [
+                    ("source_file", "source_file"),
+                    ("score", "in_file"),
+                ]),
+                (inputnode, meanscorenative, [
+                    ("source_file", "source_file"),
+                    ("avgscore", "in_file"),
+                ]),
+                (inputnode, scrubnative, [
+                    ("source_file", "source_file"),
+                    ("scrub", "in_file"),
+                ]),
+            ])
+            # fmt:on
 
         if basil:
             basilnative = pe.Node(
@@ -2206,19 +2161,27 @@ def init_geasl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (
-                        inputnode,
-                        basilnative,
-                        [("source_file", "source_file"), ("basil", "in_file")],
-                    ),
-                    (inputnode, pvnative, [("source_file", "source_file"), ("pv", "in_file")]),
-                    (inputnode, pvnativewm, [("source_file", "source_file"), ("pvwm", "in_file")]),
-                    (inputnode, attnative, [("source_file", "source_file"), ("att", "in_file")]),
-                    (raw_sources, ds_asl_mask_native, [("out", "RawSources")]),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, basilnative, [
+                    ("source_file", "source_file"),
+                    ("basil", "in_file"),
+                ]),
+                (inputnode, pvnative, [
+                    ("source_file", "source_file"),
+                    ("pv", "in_file"),
+                ]),
+                (inputnode, pvnativewm, [
+                    ("source_file", "source_file"),
+                    ("pvwm", "in_file"),
+                ]),
+                (inputnode, attnative, [
+                    ("source_file", "source_file"),
+                    ("att", "in_file"),
+                ]),
+                (raw_sources, ds_asl_mask_native, [("out", "RawSources")]),
+            ])
+            # fmt:on
 
     # Resample to T1w space
     if nonstd_spaces.intersection(("T1w", "anat")):
@@ -2249,7 +2212,6 @@ def init_geasl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         ds_asl_mask_t1 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -2263,7 +2225,6 @@ def init_geasl_derivatives_wf(
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-
         cbfnativet1 = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
@@ -2288,27 +2249,30 @@ def init_geasl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (inputnode, ds_asl_t1, [("source_file", "source_file"), ("asl_t1", "in_file")]),
-                (
-                    inputnode,
-                    ds_asl_t1_ref,
-                    [("source_file", "source_file"), ("asl_t1_ref", "in_file")],
-                ),
-                (
-                    inputnode,
-                    ds_asl_mask_t1,
-                    [("source_file", "source_file"), ("asl_mask_t1", "in_file")],
-                ),
-                (inputnode, cbfnativet1, [("source_file", "source_file"), ("cbf_t1", "in_file")]),
-                (
-                    inputnode,
-                    meancbfnativet1,
-                    [("source_file", "source_file"), ("meancbf_t1", "in_file")],
-                ),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, ds_asl_t1, [
+                ("source_file", "source_file"),
+                ("asl_t1", "in_file"),
+            ]),
+            (inputnode, ds_asl_t1_ref, [
+                ("source_file", "source_file"),
+                ("asl_t1_ref", "in_file"),
+            ]),
+            (inputnode, ds_asl_mask_t1, [
+                ("source_file", "source_file"),
+                ("asl_mask_t1", "in_file"),
+            ]),
+            (inputnode, cbfnativet1, [
+                ("source_file", "source_file"),
+                ("cbf_t1", "in_file"),
+            ]),
+            (inputnode, meancbfnativet1, [
+                ("source_file", "source_file"),
+                ("meancbf_t1", "in_file"),
+            ]),
+        ])
+        # fmt:on
 
         if scorescrub:
             scorenativet1 = pe.Node(
@@ -2347,25 +2311,23 @@ def init_geasl_derivatives_wf(
                 run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
-            workflow.connect(
-                [
-                    (
-                        inputnode,
-                        scorenativet1,
-                        [("source_file", "source_file"), ("score_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        meanscorenativet1,
-                        [("source_file", "source_file"), ("avgscore_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        scrubnativet1,
-                        [("source_file", "source_file"), ("scrub_t1", "in_file")],
-                    ),
-                ]
-            )
+
+            # fmt:off
+            workflow.connect([
+                (inputnode, scorenativet1, [
+                    ("source_file", "source_file"),
+                    ("score_t1", "in_file"),
+                ]),
+                (inputnode, meanscorenativet1, [
+                    ("source_file", "source_file"),
+                    ("avgscore_t1", "in_file"),
+                ]),
+                (inputnode, scrubnativet1, [
+                    ("source_file", "source_file"),
+                    ("scrub_t1", "in_file"),
+                ]),
+            ])
+            # fmt:on
 
         if basil:
             basilnativet1 = pe.Node(
@@ -2417,36 +2379,30 @@ def init_geasl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (
-                        inputnode,
-                        basilnativet1,
-                        [("source_file", "source_file"), ("basil_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        pvnativet1,
-                        [("source_file", "source_file"), ("pv_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        pvnativet1wm,
-                        [("source_file", "source_file"), ("pvwm_t1", "in_file")],
-                    ),
-                    (
-                        inputnode,
-                        attnativet1,
-                        [("source_file", "source_file"), ("att_t1", "in_file")],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, basilnativet1, [
+                    ("source_file", "source_file"),
+                    ("basil_t1", "in_file"),
+                ]),
+                (inputnode, pvnativet1, [
+                    ("source_file", "source_file"),
+                    ("pv_t1", "in_file"),
+                ]),
+                (inputnode, pvnativet1wm, [
+                    ("source_file", "source_file"),
+                    ("pvwm_t1", "in_file"),
+                ]),
+                (inputnode, attnativet1, [
+                    ("source_file", "source_file"),
+                    ("att_t1", "in_file"),
+                ]),
+            ])
+            # fmt:on
 
-        workflow.connect(
-            [
-                (raw_sources, ds_asl_mask_t1, [("out", "RawSources")]),
-            ]
-        )
+        # fmt:off
+        workflow.connect([(raw_sources, ds_asl_mask_t1, [("out", "RawSources")])])
+        # fmt:on
 
     if getattr(spaces, "_cached") is None:
         return workflow
@@ -2471,6 +2427,7 @@ def init_geasl_derivatives_wf(
         ]
         if scorescrub:
             out_names = out_names + ["score_std", "avgscore_std", "scrub_std"]
+
         if basil:
             out_names = out_names + ["basil_std", "pv_std", "pvwm_std", "att_std"]
 
@@ -2539,85 +2496,61 @@ def init_geasl_derivatives_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
 
-        workflow.connect(
-            [
-                (inputnode, ds_asl_std, [("source_file", "source_file")]),
-                (inputnode, ds_asl_std_ref, [("source_file", "source_file")]),
-                (inputnode, ds_asl_mask_std, [("source_file", "source_file")]),
-                (inputnode, cbfstd, [("source_file", "source_file")]),
-                (inputnode, meancbfstd, [("source_file", "source_file")]),
-                (
-                    inputnode,
-                    select_std,
-                    [
-                        ("asl_std", "asl_std"),
-                        ("asl_std_ref", "asl_std_ref"),
-                        ("asl_mask_std", "asl_mask_std"),
-                        ("cbf_std", "cbf_std"),
-                        ("meancbf_std", "meancbf_std"),
-                        ("template", "template"),
-                        ("spatial_reference", "keys"),
-                    ],
-                ),
-                (spacesource, select_std, [("uid", "key")]),
-                (select_std, ds_asl_std, [("asl_std", "in_file")]),
-                (
-                    spacesource,
-                    ds_asl_std,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (select_std, ds_asl_std_ref, [("asl_std_ref", "in_file")]),
-                (
-                    spacesource,
-                    ds_asl_std_ref,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (select_std, ds_asl_mask_std, [("asl_mask_std", "in_file")]),
-                (
-                    spacesource,
-                    ds_asl_mask_std,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (select_std, cbfstd, [("cbf_std", "in_file")]),
-                (
-                    spacesource,
-                    cbfstd,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (select_std, meancbfstd, [("meancbf_std", "in_file")]),
-                (
-                    spacesource,
-                    meancbfstd,
-                    [
-                        ("space", "space"),
-                        ("cohort", "cohort"),
-                        ("resolution", "resolution"),
-                        ("density", "density"),
-                    ],
-                ),
-                (raw_sources, ds_asl_mask_std, [("out", "RawSources")]),
-            ]
-        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, ds_asl_std, [("source_file", "source_file")]),
+            (inputnode, ds_asl_std_ref, [("source_file", "source_file")]),
+            (inputnode, ds_asl_mask_std, [("source_file", "source_file")]),
+            (inputnode, cbfstd, [("source_file", "source_file")]),
+            (inputnode, meancbfstd, [("source_file", "source_file")]),
+            (inputnode, select_std, [
+                ("asl_std", "asl_std"),
+                ("asl_std_ref", "asl_std_ref"),
+                ("asl_mask_std", "asl_mask_std"),
+                ("cbf_std", "cbf_std"),
+                ("meancbf_std", "meancbf_std"),
+                ("template", "template"),
+                ("spatial_reference", "keys"),
+            ]),
+            (spacesource, select_std, [("uid", "key")]),
+            (select_std, ds_asl_std, [("asl_std", "in_file")]),
+            (spacesource, ds_asl_std, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (select_std, ds_asl_std_ref, [("asl_std_ref", "in_file")]),
+            (spacesource, ds_asl_std_ref, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (select_std, ds_asl_mask_std, [("asl_mask_std", "in_file")]),
+            (spacesource, ds_asl_mask_std, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (select_std, cbfstd, [("cbf_std", "in_file")]),
+            (spacesource, cbfstd, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (select_std, meancbfstd, [("meancbf_std", "in_file")]),
+            (spacesource, meancbfstd, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
+            (raw_sources, ds_asl_mask_std, [("out", "RawSources")]),
+        ])
+        # fmt:on
 
         if scorescrub:
             scorestd = pe.Node(
@@ -2631,7 +2564,6 @@ def init_geasl_derivatives_wf(
                 run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
-
             meanscorestd = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
@@ -2655,55 +2587,39 @@ def init_geasl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (inputnode, scorestd, [("source_file", "source_file")]),
-                    (inputnode, meanscorestd, [("source_file", "source_file")]),
-                    (inputnode, scrubstd, [("source_file", "source_file")]),
-                    (
-                        inputnode,
-                        select_std,
-                        [
-                            ("score_std", "score_std"),
-                            ("avgscore_std", "avgscore_std"),
-                            ("scrub_std", "scrub_std"),
-                        ],
-                    ),
-                    (select_std, scorestd, [("score_std", "in_file")]),
-                    (
-                        spacesource,
-                        scorestd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, meanscorestd, [("avgscore_std", "in_file")]),
-                    (
-                        spacesource,
-                        meanscorestd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, scrubstd, [("scrub_std", "in_file")]),
-                    (
-                        spacesource,
-                        scrubstd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, scorestd, [("source_file", "source_file")]),
+                (inputnode, meanscorestd, [("source_file", "source_file")]),
+                (inputnode, scrubstd, [("source_file", "source_file")]),
+                (inputnode, select_std, [
+                    ("score_std", "score_std"),
+                    ("avgscore_std", "avgscore_std"),
+                    ("scrub_std", "scrub_std"),
+                ]),
+                (select_std, scorestd, [("score_std", "in_file")]),
+                (spacesource, scorestd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, meanscorestd, [("avgscore_std", "in_file")]),
+                (spacesource, meanscorestd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, scrubstd, [("scrub_std", "in_file")]),
+                (spacesource, scrubstd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+            ])
+            # fmt:on
 
         if basil:
             basilstd = pe.Node(
@@ -2728,7 +2644,6 @@ def init_geasl_derivatives_wf(
                 run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
-
             pvstdwm = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
@@ -2740,7 +2655,6 @@ def init_geasl_derivatives_wf(
                 run_without_submitting=True,
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
-
             attstd = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
@@ -2753,66 +2667,47 @@ def init_geasl_derivatives_wf(
                 mem_gb=DEFAULT_MEMORY_MIN_GB,
             )
 
-            workflow.connect(
-                [
-                    (inputnode, basilstd, [("source_file", "source_file")]),
-                    (inputnode, pvstd, [("source_file", "source_file")]),
-                    (inputnode, pvstdwm, [("source_file", "source_file")]),
-                    (inputnode, attstd, [("source_file", "source_file")]),
-                    (
-                        inputnode,
-                        select_std,
-                        [
-                            ("basil_std", "basil_std"),
-                            ("pv_std", "pv_std"),
-                            ("pvwm_std", "pvwm_std"),
-                            ("att_std", "att_std"),
-                        ],
-                    ),
-                    (select_std, basilstd, [("basil_std", "in_file")]),
-                    (
-                        spacesource,
-                        basilstd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, pvstd, [("pv_std", "in_file")]),
-                    (
-                        spacesource,
-                        pvstd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, pvstdwm, [("pvwm_std", "in_file")]),
-                    (
-                        spacesource,
-                        pvstdwm,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                    (select_std, attstd, [("att_std", "in_file")]),
-                    (
-                        spacesource,
-                        attstd,
-                        [
-                            ("space", "space"),
-                            ("cohort", "cohort"),
-                            ("resolution", "resolution"),
-                            ("density", "density"),
-                        ],
-                    ),
-                ]
-            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, basilstd, [("source_file", "source_file")]),
+                (inputnode, pvstd, [("source_file", "source_file")]),
+                (inputnode, pvstdwm, [("source_file", "source_file")]),
+                (inputnode, attstd, [("source_file", "source_file")]),
+                (inputnode, select_std, [
+                    ("basil_std", "basil_std"),
+                    ("pv_std", "pv_std"),
+                    ("pvwm_std", "pvwm_std"),
+                    ("att_std", "att_std"),
+                ]),
+                (select_std, basilstd, [("basil_std", "in_file")]),
+                (spacesource, basilstd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, pvstd, [("pv_std", "in_file")]),
+                (spacesource, pvstd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, pvstdwm, [("pvwm_std", "in_file")]),
+                (spacesource, pvstdwm, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_std, attstd, [("att_std", "in_file")]),
+                (spacesource, attstd, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+            ])
+            # fmt:on
+
     return workflow
