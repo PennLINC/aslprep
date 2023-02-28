@@ -22,9 +22,13 @@
    :target: https://codecov.io/gh/PennLINC/aslprep
    :alt: Codecov
 
+.. image:: https://img.shields.io/badge/Nature%20Methods-10.1038%2Fs41592--022--01458--7-purple
+   :target: https://doi.org/10.1038/s41592-022-01458-7
+   :alt: Publication DOI
+
 .. image:: https://zenodo.org/badge/256420694.svg
    :target: https://zenodo.org/badge/latestdoi/256420694
-   :alt: DOI
+   :alt: Zenodo DOI
 
 .. image:: https://img.shields.io/github/license/pennlinc/aslprep
    :target: https://opensource.org/licenses/BSD-3-Clause

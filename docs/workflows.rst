@@ -4,9 +4,10 @@
 ASL processing pipeline details
 ###############################
 
-*ASLPrep* adapts its pipeline depending on what data and metadata are
-available and are used as inputs. It requires the input data to be
-BIDS-valid and include necessary ASL parameters.
+*ASLPrep* :footcite:p:`aslprep_nature_methods,aslprep_zenodo`
+adapts its pipeline depending on what data and metadata are
+available and are used as inputs.
+It requires the input data to be BIDS-valid and include necessary ASL parameters.
 
 .. workflow::
     :graph2use: orig
