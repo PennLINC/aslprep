@@ -19,7 +19,7 @@
    :alt: Test Status
 
 .. image:: https://codecov.io/gh/PennLINC/aslprep/branch/main/graph/badge.svg
-   :target: https://codecov.io/gh/PennLINC/aslprep
+   :target: https://app.codecov.io/gh/PennLINC/aslprep/tree/main
    :alt: Codecov
 
 .. image:: https://img.shields.io/badge/Nature%20Methods-10.1038%2Fs41592--022--01458--7-purple
