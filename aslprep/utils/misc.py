@@ -366,12 +366,23 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
     return tcbf, meancbf, att
 
 
-def get_tis(metadata: "dict[str, Any]"):
-    """Determine inversion times from metadata."""
+def get_tis(metadata: "dict[str, Any]") -> list:
+    """Determine inversion times from metadata.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata associated with ASL file.
+
+    Returns
+    -------
+    :obj:`list`
+        List of PostLabelingDelay values.
+    """
     if "CASL" in metadata["ArterialSpinLabelingType"]:
-        return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"])
+        return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"]).tolist()
     else:
-        return np.array(metadata["PostLabelingDelay"])
+        return np.array(metadata["PostLabelingDelay"]).tolist()
 
 
 class LabelingEfficiencyNotFoundError(Exception):

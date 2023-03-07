@@ -313,11 +313,11 @@ class ScoreAndScrubCBF(SimpleInterface):
     """Apply the SCORE and SCRUB algorithms.
 
     The Structural Correlation-based Outlier Rejection (SCORE) algorithm is applied to the CBF
-    time series to discard CBF volumes with outlying values :footcite:p:`score_dolui` before
-    computing the mean CBF.
+    time series to discard CBF volumes with outlying values :footcite:p:`dolui2017structural`
+    before computing the mean CBF.
     The Structural Correlation with RobUst Bayesian (SCRUB) algorithm is then applied to the CBF
     maps using structural tissue probability maps to reweight the mean CBF
-    :footcite:p:`scrub_dolui`.
+    :footcite:p:`dolui2016scrub`.
 
     References
     ----------
