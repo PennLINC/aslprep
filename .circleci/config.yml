@@ -73,7 +73,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.sub01
       - store_artifacts:
-          path: /src/aslprep/.circleci/out
+          path: /src/aslprep/.circleci
       - persist_to_workspace:
           root: /src/coverage
           paths:
@@ -102,7 +102,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.subA00086748
       - store_artifacts:
-          path: /src/aslprep/.circleci/out
+          path: /src/aslprep/.circleci
       - persist_to_workspace:
           root: /src/coverage
           paths:
