@@ -504,7 +504,9 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
     # HMC on the ASL
     asl_hmc_wf = init_asl_hmc_wf(
-        name="asl_hmc_wf", mem_gb=mem_gb["filesize"], omp_nthreads=omp_nthreads
+        name="asl_hmc_wf",
+        mem_gb=mem_gb["filesize"],
+        omp_nthreads=omp_nthreads,
     )
 
     # calculate ASL registration to T1w
@@ -620,8 +622,10 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     # fmt:off
     workflow.connect([
         # Prepare masked T1w image
-        (inputnode, t1w_brain, [("t1w_preproc", "in_file"),
-                                ("t1w_mask", "in_mask")]),
+        (inputnode, t1w_brain, [
+            ("t1w_preproc", "in_file"),
+            ("t1w_mask", "in_mask"),
+        ]),
         # Select validated asl files per-echo
         (initial_aslref_wf, select_asl, [("outputnode.all_asl_files", "inlist")]),
         # ASL buffer has slice-time corrected if it was run, original otherwise
@@ -774,17 +778,19 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     # cbf computation workflow
     # fmt:off
     workflow.connect([
-        (asl_asl_trans_wf, compt_cbf_wf, [
-            ("outputnode.asl", "inputnode.asl_file"),
-            ("outputnode.asl_mask", "inputnode.asl_mask"),
+        (asl_final, compt_cbf_wf, [
+            ("asl", "inputnode.asl_file"),
+            ("mask", "inputnode.asl_mask"),
         ]),
         (inputnode, compt_cbf_wf, [
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("asl_file", "inputnode.in_file"),
+            ("t1w_mask", "inputnode.t1w_mask")
         ]),
-        (asl_reg_wf, compt_cbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (asl_reg_wf, compt_cbf_wf, [("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1")]),
-        (inputnode, compt_cbf_wf, [("t1w_mask", "inputnode.t1w_mask")]),
+        (asl_reg_wf, compt_cbf_wf, [
+            ("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform"),
+            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
+        ]),
         (asl_reg_wf, outputnode, [
             ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
             ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
@@ -949,10 +955,12 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
     # fmt:off
     workflow.connect([
-        (refine_mask, compt_qccbf_wf, [("out_mask", "inputnode.asl_mask")]),
-        (inputnode, compt_qccbf_wf, [("t1w_tpms", "inputnode.t1w_tpms")]),
+        (asl_final, compt_qccbf_wf, [("mask", "inputnode.asl_mask")]),
+        (inputnode, compt_qccbf_wf, [
+            ("t1w_tpms", "inputnode.t1w_tpms"),
+            ("t1w_mask", "inputnode.t1w_mask"),
+        ]),
         (asl_reg_wf, compt_qccbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (inputnode, compt_qccbf_wf, [("t1w_mask", "inputnode.t1w_mask")]),
         (compt_cbf_wf, compt_qccbf_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
         (asl_confounds_wf, compt_qccbf_wf, [("outputnode.confounds_file", "inputnode.confmat")]),
         (compt_qccbf_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
@@ -989,13 +997,13 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ("outputnode.out_cbfpv", "inputnode.pvc"),
             ("outputnode.out_score", "inputnode.score_ts"),
             ("outputnode.out_cbf", "inputnode.cbf_ts"),
+            ("outputnode.out_scoreindex", "inputnode.scoreindex"),
         ]),
         (inputnode, cbf_plot, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbf_plot, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (refine_mask, cbf_plot, [("out_mask", "inputnode.asl_mask")]),
+        (asl_final, cbf_plot, [("mask", "inputnode.asl_mask")]),
         (final_aslref_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.asl_ref")]),
         (asl_confounds_wf, cbf_plot, [("outputnode.confounds_file", "inputnode.confounds_file")]),
-        (compt_cbf_wf, cbf_plot, [("outputnode.out_scoreindex", "inputnode.scoreindex")]),
     ])
     # fmt:on
 
@@ -1021,8 +1029,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ]),
             (asl_t1_trans_wf, asl_surf_wf, [("outputnode.asl_t1", "inputnode.source_file")]),
             (asl_surf_wf, outputnode, [("outputnode.surfaces", "surfaces")]),
-            (asl_surf_wf, asl_derivatives_wf, [("outputnode.target", "inputnode.surf_refs")]),
             (asl_surf_wf, asl_derivatives_wf, [
+                ("outputnode.target", "inputnode.surf_refs"),
                 ("outputnode.goodvoxels_ribbon", "inputnode.goodvoxels_ribbon"),
             ]),
         ])
@@ -1030,7 +1038,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
         # CIFTI output
         if config.workflow.cifti_output:
-            from .resampling import init_asl_grayords_wf
+            from aslprep.workflows.asl.resampling import init_asl_grayords_wf
 
             asl_grayords_wf = init_asl_grayords_wf(
                 grayord_density=config.workflow.cifti_output,
@@ -1085,8 +1093,10 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             (initial_aslref_wf, carpetplot_wf, [
                 ("outputnode.skip_vols", "inputnode.dummy_scans"),
             ]),
-            (inputnode, carpetplot_select_std, [("std2anat_xfm", "std2anat_xfm"),
-                                                ("template", "keys")]),
+            (inputnode, carpetplot_select_std, [
+                ("std2anat_xfm", "std2anat_xfm"),
+                ("template", "keys"),
+            ]),
             (carpetplot_select_std, carpetplot_wf, [
                 ("std2anat_xfm", "inputnode.std2anat_xfm"),
             ]),
@@ -1113,7 +1123,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
     # fmt:off
     workflow.connect([
-        (asl_asl_trans_wf, cbfroiqu, [("outputnode.asl_mask", "inputnode.aslmask")]),
+        (asl_final, cbfroiqu, [("mask", "inputnode.aslmask")]),
         (inputnode, cbfroiqu, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbfroiqu, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
         (compt_cbf_wf, cbfroiqu, [("outputnode.out_mean", "inputnode.cbf")]),
@@ -1272,12 +1282,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
     # fmt:off
     workflow.connect([
-        (inputnode, output_select, [("fmap", "fmap"),
-                                    ("fmap_ref", "fmap_ref"),
-                                    ("fmap_coeff", "fmap_coeff"),
-                                    ("fmap_mask", "fmap_mask"),
-                                    ("sdc_method", "sdc_method"),
-                                    ("fmap_id", "keys")]),
+        (inputnode, output_select, [
+            ("fmap", "fmap"),
+            ("fmap_ref", "fmap_ref"),
+            ("fmap_coeff", "fmap_coeff"),
+            ("fmap_mask", "fmap_mask"),
+            ("sdc_method", "sdc_method"),
+            ("fmap_id", "keys"),
+        ]),
         (output_select, coeff2epi_wf, [
             ("fmap_ref", "inputnode.fmap_ref"),
             ("fmap_coeff", "inputnode.fmap_coeff"),
@@ -1366,7 +1378,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             (final_aslref_wf, fmap_report, [
                 ("outputnode.asl_mask", "mask"),
             ]),
-
             (fmap_report, ds_fmap_report, [("out_report", "in_file")]),
             (inputnode, ds_fmap_report, [("asl_file", "source_file")]),
         ])
@@ -1453,8 +1464,7 @@ def _to_join(in_file, join_file):
 
 
 def extract_entities(file_list):
-    """
-    Return a dictionary of common entities given a list of files.
+    """Return a dictionary of common entities given a list of files.
 
     Examples
     --------
