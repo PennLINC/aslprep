@@ -3,6 +3,7 @@
 """Preprocessing workflows for ASL data."""
 import os
 
+import nibabel as nb
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
@@ -48,6 +49,7 @@ def init_asl_preproc_wf(asl_file):
             from aslprep.tests.tests import mock_config
             from aslprep import config
             from aslprep.workflows.asl.base import init_asl_preproc_wf
+
             with mock_config():
                 asl_file = (
                     config.execution.bids_dir / 'sub-01' / 'perf' /
@@ -58,12 +60,13 @@ def init_asl_preproc_wf(asl_file):
     Parameters
     ----------
     asl_file
-        asl series NIfTI file
+        Path to NIfTI file (single echo) or list of paths to NIfTI files (multi-echo)
+    has_fieldmap : :obj:`bool`
 
     Inputs
     ------
     asl_file
-        asl series NIfTI file
+        ASL series NIfTI file
     t1w_preproc
         Bias-corrected structural template image
     t1w_mask
@@ -71,6 +74,10 @@ def init_asl_preproc_wf(asl_file):
     t1w_dseg
         Segmentation of preprocessed structural image, including
         gray-matter (GM), white-matter (WM) and cerebrospinal fluid (CSF)
+    t1w_aseg
+        Segmentation of structural image, done with FreeSurfer.
+    t1w_aparc
+        Parcellation of structural image, done with FreeSurfer.
     t1w_tpms
         List of tissue probability maps in T1w space
     template
@@ -79,19 +86,67 @@ def init_asl_preproc_wf(asl_file):
         List of transform files, collated with templates
     std2anat_xfm
         List of inverse transform files, collated with templates
+    subjects_dir
+        FreeSurfer SUBJECTS_DIR
+    subject_id
+        FreeSurfer subject ID
+    t1w2fsnative_xfm
+        LTA-style affine matrix translating from T1w to FreeSurfer-conformed subject space
+    fsnative2t1w_xfm
+        LTA-style affine matrix translating from FreeSurfer-conformed subject space to T1w
 
     Outputs
     -------
     asl_t1
         asl series, resampled to T1w space
+    asl_t1_ref
+        BOLD reference image, resampled to T1w space
+    asl2anat_xfm
+        Affine transform from BOLD reference space to T1w space
+    anat2asl_xfm
+        Affine transform from T1w space to BOLD reference space
+    hmc_xforms
+        Affine transforms for each BOLD volume to the BOLD reference
     asl_mask_t1
-        asl series mask in T1w space
+        BOLD series mask in T1w space
+    asl_aseg_t1
+        FreeSurfer ``aseg`` resampled to match ``asl_t1``
+    asl_aparc_t1
+        FreeSurfer ``aparc+aseg`` resampled to match ``asl_t1``
     asl_std
-        asl series, resampled to template space
+        BOLD series, resampled to template space
+    asl_std_ref
+        BOLD reference image, resampled to template space
     asl_mask_std
-        asl series mask in template space
+        BOLD series mask in template space
+    asl_aseg_std
+        FreeSurfer ``aseg`` resampled to match ``asl_std``
+    asl_aparc_std
+        FreeSurfer ``aparc+aseg`` resampled to match ``asl_std``
+    asl_native
+        BOLD series, with distortion corrections applied (native space)
+    asl_native_ref
+        BOLD reference image in native space
+    asl_mask_native
+        BOLD series mask in native space
+    asl_echos_native
+        Per-echo BOLD series, with distortion corrections applied
+    asl_cifti
+        BOLD CIFTI image
+    cifti_metadata
+        Path of metadata files corresponding to ``asl_cifti``.
+    surfaces
+        BOLD series, resampled to FreeSurfer surfaces
+    t2star_asl
+        Estimated T2\\* map in BOLD native space
+    t2star_t1
+        Estimated T2\\* map in T1w space
+    t2star_std
+        Estimated T2\\* map in template space
     confounds
         TSV of confounds
+    confounds_metadata
+        Confounds metadata dictionary
     cbf_t1
         cbf times series in T1w space
     meancbf_t1
@@ -115,6 +170,17 @@ def init_asl_preproc_wf(asl_file):
     qc_file
         quality control meausres
     """
+    img = nb.load(asl_file[0] if isinstance(asl_file, (list, tuple)) else asl_file)
+    nvols = 1 if img.ndim < 4 else img.shape[3]
+    if nvols <= 5 - config.execution.sloppy:
+        config.loggers.workflow.warning(
+            f"Too short ASL series (<= 5 timepoints). Skipping processing of <{asl_file}>."
+        )
+        return
+
+    mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
+    bold_tlen = 10
+
     ref_file = asl_file
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
