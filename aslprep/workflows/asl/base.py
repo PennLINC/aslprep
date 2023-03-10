@@ -41,7 +41,7 @@ from aslprep.workflows.asl.t2s import init_asl_t2s_wf, init_t2s_reporting_wf
 
 
 def init_asl_preproc_wf(asl_file, has_fieldmap=False):
-    """Perform the functional preprocessing stages of ASLPrep.
+    r"""Perform the functional preprocessing stages of ASLPrep.
 
     Workflow Graph
         .. workflow::
@@ -1497,6 +1497,6 @@ def extract_entities(file_list):
 
 
 def get_img_orientation(imgf):
-    """Return the image orientation as a string"""
+    """Return the image orientation as a string."""
     img = nb.load(imgf)
     return "".join(nb.aff2axcodes(img.affine))
