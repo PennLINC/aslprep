@@ -22,9 +22,8 @@ from aslprep.niworkflows.interfaces.nilearn import NILEARN_VERSION
 from aslprep.niworkflows.utils.bids import collect_data
 from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
 from aslprep.niworkflows.utils.spaces import Reference
-from aslprep.utils.misc import _prefix, get_n_volumes
+from aslprep.utils.misc import _prefix
 from aslprep.workflows.asl.base import init_asl_preproc_wf
-from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
 
 
 def init_aslprep_wf():
@@ -378,7 +377,7 @@ their manuscripts unchanged. It is released under the unchanged
     # Append the functional section to the existing anatomical exerpt
     # That way we do not need to stream down the number of asl datasets
     func_pre_desc = f"""
-Functional data preprocessing
+ASL data preprocessing
 
 : For each of the {len(subject_data['asl'])} ASL runs found per subject
 (across all tasks and sessions), the following preprocessing was performed.
@@ -408,7 +407,8 @@ Functional data preprocessing
                 ("outputnode.subjects_dir", "inputnode.subjects_dir"),
                 ("outputnode.subject_id", "inputnode.subject_id"),
                 ("outputnode.t1w2fsnative_xfm", "inputnode.t1w2fsnative_xfm"),
-                ("outputnode.fsnative2t1w_xfm", "inputnode.fsnative2t1w_xfm")]),
+                ("outputnode.fsnative2t1w_xfm", "inputnode.fsnative2t1w_xfm"),
+            ]),
         ])
         # fmt:on
         asl_preproc_wfs.append(asl_preproc_wf)
