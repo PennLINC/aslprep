@@ -119,7 +119,7 @@ class ExtractCBF(SimpleInterface):
         allasl = nb.load(self.inputs.asl_file)
         dataasl = allasl.get_fdata()
 
-        # get the control,tag,moscan or label
+        # get the control,tag,m0scan or label
         controllist = [i for i in range(0, len(idasl)) if idasl[i] == "control"]
         labellist = [i for i in range(0, len(idasl)) if idasl[i] == "label"]
         m0list = [i for i in range(0, len(idasl)) if idasl[i] == "m0scan"]
