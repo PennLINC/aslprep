@@ -27,6 +27,8 @@ from datetime import datetime
 from packaging import version as pver
 from sphinx import __version__ as sphinxversion
 
+sys.path.insert(0, os.path.abspath(".."))
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here.
 # If the directory is relative to the documentation root, use os.path.abspath to make it absolute,
@@ -203,7 +205,7 @@ html_theme_path = []
 html_title = "aslprep version"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_short_title = None
+html_short_title = "aslprep version"
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.

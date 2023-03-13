@@ -16,28 +16,40 @@ Internal configuration system
 :mod:`aslprep.workflows`: Workflows
 ***********************************
 
-.. automodule:: aslprep.workflows
-   :no-members:
-   :no-inherited-members:
-
 .. currentmodule:: aslprep
 
 .. autosummary::
    :toctree: generated/
-   :template: module.rst
+   :template: function.rst
 
-   aslprep.workflows.base
-   aslprep.workflows.asl.base
-   aslprep.workflows.asl.cbf
-   aslprep.workflows.asl.confounds
-   aslprep.workflows.asl.ge_utils
-   aslprep.workflows.asl.gecbf
-   aslprep.workflows.asl.hmc
-   aslprep.workflows.asl.outputs
-   aslprep.workflows.asl.registration
-   aslprep.workflows.asl.resampling
-   aslprep.workflows.asl.stc
-   aslprep.workflows.asl.t2s
+   workflows.base.init_aslprep_wf
+   workflows.base.init_single_subject_wf
+   workflows.asl.base.init_asl_preproc_wf
+   workflows.asl.cbf.init_cbf_compt_wf
+   workflows.asl.cbf.init_cbfqc_compt_wf
+   workflows.asl.cbf.init_cbfgeqc_compt_wf
+   workflows.asl.cbf.init_cbfplot_wf
+   workflows.asl.cbf.init_gecbfplot_wf
+   workflows.asl.cbf.init_cbfroiquant_wf
+   workflows.asl.cbf.init_gecbf_compt_wf
+   workflows.asl.confounds.init_asl_confs_wf
+   workflows.asl.confounds.init_carpetplot_wf
+   workflows.asl.ge_utils.init_asl_geref_wf
+   workflows.asl.ge_utils.init_asl_gereg_wf
+   workflows.asl.ge_utils.init_asl_t1_getrans_wf
+   workflows.asl.ge_utils.init_asl_gestd_trans_wf
+   workflows.asl.gecbf.init_asl_gepreproc_wf
+   workflows.asl.hmc.init_asl_hmc_wf
+   workflows.asl.outputs.init_asl_derivatives_wf
+   workflows.asl.outputs.init_geasl_derivatives_wf
+   workflows.asl.registration.init_asl_reg_wf
+   workflows.asl.registration.init_asl_t1_trans_wf
+   workflows.asl.registration.init_fsl_bbr_wf
+   workflows.asl.resampling.init_asl_surf_wf
+   workflows.asl.resampling.init_asl_std_trans_wf
+   workflows.asl.resampling.init_asl_preproc_trans_wf
+   workflows.asl.stc.init_asl_stc_wf
+   workflows.asl.t2s.init_asl_t2s_wf
 
 
 *************************************
