@@ -36,7 +36,7 @@ KNOWN_ERRORS = {
 
 
 def sentry_setup():
-    """Set-up sentry."""
+    """Set up sentry."""
     release = config.environment.version or "dev"
     environment = (
         "dev"
@@ -92,7 +92,7 @@ def process_crashfile(crashfile):
                 scope.set_extra(k, strv[0])
             else:
                 for i, chunk in enumerate(strv):
-                    scope.set_extra("%s_%02d" % (k, i), chunk)
+                    scope.set_extra("%s_%02d" % (k, i), chunk)  # noqa:FS001
 
         fingerprint = ""
         issue_title = f"{node_name}: {gist}"
@@ -124,7 +124,7 @@ def process_crashfile(crashfile):
         sentry_sdk.capture_message(message, "fatal")
 
 
-def before_send(event, hints):
+def before_send(event, hints):  # noqa:U100
     """Filter log messages about crashed nodes."""
     if "logentry" in event and "message" in event["logentry"]:
         msg = event["logentry"]["message"]
