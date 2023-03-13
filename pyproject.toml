@@ -106,7 +106,6 @@ exclude = [
 ##  The following two sections configure setuptools_scm in the hatch way
 
 [tool.hatch.version]
-validate-bump = true
 source = "vcs"
 # raw-options = { version_scheme = "nipreps-calver" }
 
