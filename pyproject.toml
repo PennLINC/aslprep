@@ -147,7 +147,13 @@ skip = ["aslprep/niworkflows", "aslprep/pybids", "aslprep/sdcflows", "aslprep/sm
 [tool.flake8]
 max-line-length = "99"
 doctests = "False"
-exclude = "*build/"
+exclude = [
+    "*build/",
+    "aslprep/data/",
+    "aslprep/niworkflows/",
+    "aslprep/sdcflows/",
+    "aslprep/tests/",
+]
 ignore = ["D107", "E203", "E402", "E722", "W503", "N803", "N806", "N815"]
 per-file-ignores = [
     "**/__init__.py : F401",
