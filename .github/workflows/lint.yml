@@ -34,4 +34,4 @@ jobs:
           flake8-isort flake8-pyproject flake8-unused-arguments \
           flake8-use-fstring flake8-warnings pep8-naming
       - name: Check aslprep
-        run: python -m flake8 aslprep/workflows/base.py
+        run: python -m flake8 aslprep
