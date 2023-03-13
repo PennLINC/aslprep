@@ -149,6 +149,8 @@ max-line-length = "99"
 doctests = "False"
 exclude = [
     "*build/",
+    "aslprep/_warnings.py",
+    "aslprep/config.py",
     "aslprep/data/",
     "aslprep/niworkflows/",
     "aslprep/sdcflows/",
