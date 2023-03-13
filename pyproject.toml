@@ -79,8 +79,6 @@ maint = [
 ]
 
 # Aliases
-docs = ["aslprep[doc]"]
-tests = ["aslprep[test]"]
 all = ["aslprep[doc,maint,test]"]
 
 [project.scripts]
