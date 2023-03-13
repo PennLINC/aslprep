@@ -6,6 +6,7 @@ import os
 import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.interfaces.afni import Resample
+from nipype.interfaces.base import Undefined
 from nipype.interfaces.fsl import Info, MultiImageMaths
 from nipype.pipeline import engine as pe
 from templateflow.api import get as get_template
@@ -184,8 +185,11 @@ model [@buxton1998general].
     basilcbf = pe.Node(
         BASILCBF(
             m0scale=M0Scale,
+            # NOTE: LabelingDuration should only be defined for CASL/PCASL data, per BIDS.
+            # Therefore, this shouldn't be defined for PASL data.
             bolus=metadata["LabelingDuration"],
             m0tr=metadata["RepetitionTime"],
+            alpha=metadata.get("LabelingEfficiency", Undefined),
             pvc=True,
             tis=tiscbf,
             pcasl=pcaslorasl(metadata=metadata),
@@ -1456,6 +1460,7 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
                     m0scale=M0Scale,
                     bolus=metadata["LabelingDuration"],
                     m0tr=metadata["RepetitionTime"],
+                    alpha=metadata.get("LabelingEfficiency", Undefined),
                     pvc=True,
                     tis=tiscbf,
                     pcasl=pcaslorasl(metadata=metadata),
