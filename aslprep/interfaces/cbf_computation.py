@@ -474,7 +474,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
             "Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. "
             "This is equivalent the BIDS metadata field 'LabelingEfficiency'."
         ),
-        argstr="--alpha",
+        argstr="--alpha %.2f",
     )
     out_basename = File(desc="base name of output files", argstr="-o %s", mandatory=True)
     out_cbfb = File(exists=False, desc="cbf with spatial correction")
