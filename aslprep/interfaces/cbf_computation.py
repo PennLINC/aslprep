@@ -391,7 +391,10 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     # will put something on the end
     in_file = File(
         exists=True,
-        desc="input file cbf after substracting tag-control or control-tag",
+        desc=(
+            "ASL data after subtracting tag-control or control-tag. "
+            "This matches with ``--iaf diff``, which is the default."
+        ),
         argstr="-i %s",
         position=0,
         mandatory=True,
@@ -405,20 +408,37 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     mzero = File(exists=True, argstr="-c %s", desc="m0 scan", mandatory=False)
     m0scale = traits.Float(desc="calibration of asl", argstr="--cgain %.2f", mandatory=True)
     m0tr = traits.Float(
-        desc="Mzero TR",
+        desc="The repetition time for the calibration image (the M0 scan).",
         argstr="--tr %.2f",
         mandatory=True,
     )
     tis = traits.Either(
         traits.Float(),
         traits.List(traits.Float()),
-        desc="recovery time =plds+bolus",
+        desc=(
+            "The list of inflow times (TIs), a comma separated list of values should be provided "
+            "(that matches the order in the data).\n\n"
+            "Note, the inflow time is the PLD plus bolus duration for pcASL (and cASL), "
+            "it equals the inversion time for pASL. "
+            "If the data contains multiple repeats of the same set of TIs then it is only "
+            "necessary to list the unique TIs.\n\n"
+            "When using the ``--tis=`` you can specify a full list of all TIs/PLDs in the data "
+            "(i.e., as many entries as there are label-control pairs). "
+            "Or, if you have a number of TIs/PLDs repeated multiple times you can just list the "
+            "unique TIs in order and ``oxford_asl`` will automatically replicate that list to "
+            "match the number of repeated measurements in the data. "
+            "If you have a variable number of repeats at each TI/PLD then either list all TIs "
+            "or use the ``--rpts=<csv>`` option (see below)."
+        ),
         argstr="--tis %s",
         mandatory=True,
         sep=",",
     )
     pcasl = traits.Bool(
-        desc="label type:defualt is PASL",
+        desc=(
+            "Data were acquired using cASL or pcASL labelling "
+            "(pASL labeling is assumed by default)."
+        ),
         argstr="--casl",
         mandatory=False,
         default_value=False,
@@ -432,7 +452,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         sep=",",
     )
     pvc = traits.Bool(
-        desc="calibration of asl",
+        desc="Do partial volume correction.",
         mandatory=False,
         argstr="--pvcorr",
         default_value=True,
@@ -440,14 +460,21 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     pvgm = File(
         exists=True,
         mandatory=False,
-        desc="grey matter probablity matter ",
+        desc="Partial volume estimates for GM. This is just a GM tissue probability map.",
         argstr="--pvgm %s",
     )
     pvwm = File(
         exists=True,
         mandatory=False,
-        desc="white matter probablity matter ",
+        desc="Partial volume estimates for WM. This is just a WM tissue probability map.",
         argstr="--pvwm %s",
+    )
+    alpha = traits.Float(
+        desc=(
+            "Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. "
+            "This is equivalent the BIDS metadata field 'LabelingEfficiency'."
+        ),
+        argstr="--alpha",
     )
     out_basename = File(desc="base name of output files", argstr="-o %s", mandatory=True)
     out_cbfb = File(exists=False, desc="cbf with spatial correction")
