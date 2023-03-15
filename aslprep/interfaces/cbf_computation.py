@@ -268,21 +268,15 @@ class ComputeCBF(SimpleInterface):
         cbf_data = masker.fit_transform(cbf_file).T
         m0data = masker.transform(m0file).T
         scaled_m0data = m0scale * m0data
-        LOGGER.warning(f"cbf_data: {cbf_data.shape}")
-        LOGGER.warning(f"m0data: {m0data.shape}")
-        LOGGER.warning(f"scaled_m0data: {scaled_m0data.shape}")
 
         # compute cbf
         cbf1 = cbf_data / scaled_m0data
-        LOGGER.warning(f"cbf1: {cbf1.shape}")
 
         if hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] > 1:
             permfactor = np.tile(perfusion_factor, int(cbf_data.shape[1] / len(perfusion_factor)))
-            LOGGER.warning(f"permfactor: {permfactor.shape}")
 
             # calculate cbf with multiple plds
             cbf_data_ts = cbf1 * permfactor
-            LOGGER.warning(f"cbf_data_ts: {cbf_data_ts.shape}")
 
             cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1] / len(perfusion_factor))])
             cbf_xx = np.split(
@@ -312,12 +306,8 @@ class ComputeCBF(SimpleInterface):
         else:  # cbf is timeseries
             cbf = cbf1 * np.array(perfusion_factor)
 
-        LOGGER.warning(f"cbf: {cbf.shape}")
-
         # return cbf to nifti shape
         cbf = np.nan_to_num(cbf)
-        LOGGER.warning(f"cbf: {cbf.shape}")
-        LOGGER.warning(f"mask: {mask}")
         tcbf = masker.inverse_transform(cbf.T)
 
         if tcbf.ndim == 3:
