@@ -41,7 +41,6 @@ def init_asl_derivatives_wf(
         would lead to resampling on a 2mm resolution of the space).
     name : :obj:`str`
         This workflow's identifier (default: ``func_derivatives_wf``).
-
     """
     nonstd_spaces = set(spaces.get_nonstandard())
     workflow = Workflow(name=name)

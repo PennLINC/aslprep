@@ -28,7 +28,7 @@ def afni_wf(name="AFNISkullStripWorkflow", unifize=False, n4_nthreads=1):
     Parameters
     ----------
     n4_nthreads : int
-        number of cpus N4 bias field correction can utilize.
+        number of cpus N4 bias field correction can use.
     unifize : bool
         whether AFNI's ``3dUnifize`` should be applied (default: ``False``).
     name : str

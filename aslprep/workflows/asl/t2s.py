@@ -25,6 +25,17 @@ def init_asl_t2s_wf(echo_times, name="asl_t2s_wf"):
     .. _tedana: https://github.com/me-ica/tedana
     .. _`T2* workflow`: https://tedana.readthedocs.io/en/latest/generated/tedana.workflows.t2smap_workflow.html#tedana.workflows.t2smap_workflow  # noqa
 
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.t2s import init_asl_t2s_wf
+
+            wf = init_asl_t2s_wf(
+                echo_times=[1, 2, 3],
+            )
+
     Parameters
     ----------
     echo_times : :obj:`list`

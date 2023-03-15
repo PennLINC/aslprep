@@ -44,7 +44,12 @@ def init_asl_reg_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.registration import init_asl_reg_wf
-            wf = init_asl_reg_wf(use_bbr=True, asl2t1w_dof=9, asl2t1w_init='register')
+
+            wf = init_asl_reg_wf(
+                use_bbr=True,
+                asl2t1w_dof=9,
+                asl2t1w_init='register',
+            )
 
     Parameters
     ----------
@@ -184,9 +189,11 @@ def init_asl_t1_trans_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
+
             wf = init_asl_t1_trans_wf(
-                                       mem_gb=3,
-                                       omp_nthreads=1)
+                mem_gb=3,
+                omp_nthreads=1,
+            )
 
     Parameters
     ----------
@@ -560,7 +567,12 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
             :simple_form: yes
 
             from aslprep.workflows.asl.registration import init_fsl_bbr_wf
-            wf = init_fsl_bbr_wf(use_bbr=True, asl2t1w_dof=9, asl2t1w_init='register')
+
+            wf = init_fsl_bbr_wf(
+                use_bbr=True,
+                asl2t1w_dof=9,
+                asl2t1w_init='register',
+            )
 
 
     Parameters

@@ -8,14 +8,15 @@
 .. include:: license.rst
 
 
+********
 Contents
---------
+********
 
 .. automodule:: aslprep
    :members:
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
 
    installation
    usage

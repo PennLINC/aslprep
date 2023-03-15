@@ -118,7 +118,7 @@ def globalcbf(cbf, gm, wm, csf, thresh=0.7):
 def cbf_qei(gm, wm, csf, img, thresh=0.8):
     """Compute quality evaluation index (QEI) of CBF.
 
-    The QEI is based on :footcite:t:`cbfqc`.
+    The QEI is based on :footcite:t:`dolui2017automated`.
 
     References
     ----------
