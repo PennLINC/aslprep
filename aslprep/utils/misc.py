@@ -351,7 +351,7 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
 
     # return cbf to nifti shape
     try:
-        tcbf = unmask(cbf, mask).get_fdata()
+        tcbf = unmask(cbf.T, mask).get_fdata()
     except TypeError:
         raise ValueError(f"cbf shape: {cbf.shape}")
 
