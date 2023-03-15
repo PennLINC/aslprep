@@ -234,11 +234,19 @@ def _prefix(subid):
 
 def pcasl_or_pasl(metadata):
     """Determine if metadata indicates a PCASL or ASL scan."""
-    if "CASL" in metadata["ArterialSpinLabelingType"]:
-        pcasl1 = True
-    elif "PASL" in metadata["ArterialSpinLabelingType"]:
-        pcasl1 = False
-    return pcasl1
+    aslt = metadata["ArterialSpinLabelingType"]
+
+    if "CASL" in aslt:
+        is_casl = True
+    elif "PASL" in aslt:
+        is_casl = False
+    else:
+        raise ValueError(
+            "Labeling type cannot be classified as (P)CASL or PASL based on "
+            f"ArterialSpinLabelingType: '{aslt}'."
+        )
+
+    return is_casl
 
 
 def readjson(jsonfile):
@@ -256,13 +264,13 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
     Parameters
     ----------
     metadata
-        cbf metadata
+        Metadata from the ASL scan.
     mask
         asl mask in native space
     m0file
         m0scan
     cbffile
-        already processed cbf  after tag-control substraction
+        already processed cbf after tag-control subtraction
     m0scale
         relative scale between m0scan and asl, default is 1
 
@@ -272,51 +280,44 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
     meancbf
     att
     """
-    labeltype = metadata["ArterialSpinLabelingType"]
-    tau = metadata["LabelingDuration"]
+    is_casl = pcasl_or_pasl(metadata=metadata)
     plds = np.array(metadata["PostLabelingDelay"])
-    # m0scale = metadata['M0']
-    magstrength = metadata["MagneticFieldStrength"]
-    t1blood = (
-        110 * int(magstrength) + 1316
-    ) / 1000  # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550
-    # mask = nb.load(mask).get_fdata()
+
+    # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550
+    t1blood = (110 * int(metadata["MagneticFieldStrength"]) + 1316) / 1000
 
     if "LabelingEfficiency" in metadata.keys():
         labeleff = metadata["LabelingEfficiency"]
-    elif "CASL" in labeltype:
+    elif is_casl:
         labeleff = 0.72
-    elif "PASL" in labeltype:
-        labeleff = 0.8
     else:
-        raise LabelingEfficiencyNotFoundError("No labeling efficiency")
-    part_coeff = 0.9  # brain partition coefficient
+        labeleff = 0.8
 
-    if "CASL" in labeltype:
-        pf1 = (6000 * part_coeff) / (2 * labeleff * t1blood * (1 - np.exp(-(tau / t1blood))))
+    PARTITION_COEF = 0.9  # brain partition coefficient
+
+    if is_casl:
+        tau = metadata["LabelingDuration"]
+        pf1 = (6000 * PARTITION_COEF) / (2 * labeleff * t1blood * (1 - np.exp(-(tau / t1blood))))
         perfusion_factor = pf1 * np.exp(plds / t1blood)
-    elif "PASL" in labeltype:
-        inverstiontime = plds  # As per BIDS: inversiontime for PASL == PostLabelingDelay
-        pf1 = (6000 * part_coeff) / (2 * labeleff)
-        perfusion_factor = (pf1 * np.exp(inverstiontime / t1blood)) / inverstiontime
-    # perfusion_factor = np.array(perfusion_factor)
-    # print(perfusion_factor)
+    else:
+        inversiontime = plds  # As per BIDS: inversiontime for PASL == PostLabelingDelay
+        pf1 = (6000 * PARTITION_COEF) / (2 * labeleff)
+        perfusion_factor = (pf1 * np.exp(inversiontime / t1blood)) / inversiontime
 
-    maskx = nb.load(mask).get_fdata()
+    mask_arr = nb.load(mask).get_fdata()
     m0data = nb.load(m0file).get_fdata()
-    m0data = m0data[maskx == 1]
+    m0data = m0data[mask_arr == 1]
+
     # compute cbf
     cbf_data = nb.load(cbffile).get_fdata()
-    cbf_data = cbf_data[maskx == 1]
+    cbf_data = cbf_data[mask_arr == 1]
     cbf1 = np.zeros(cbf_data.shape)
     if len(cbf_data.shape) < 2:
         cbf1 = np.divide(cbf_data, (m0scale * m0data))
     else:
         for i in range(cbf1.shape[1]):
             cbf1[:, i] = np.divide(cbf_data[:, i], (m0scale * m0data))
-        # m1=m0scale*m0_data
-        # cbf1=np.divide(cbf_data,m1)
-        # for compute cbf for each PLD and TI
+
     att = None
     if hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] > 1:
         permfactor = np.tile(perfusion_factor, int(cbf_data.shape[1] / len(perfusion_factor)))
@@ -343,26 +344,32 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
         for i in len(perfusion_factor):
             cbf_ts[:, i] = np.multiply(cbf1, perfusion_factor[i])
         cbf = np.divide(np.sum(cbf_ts, axis=1), np.sum(perfusion_factor))
+
     else:
         cbf = cbf1 * np.array(perfusion_factor)
         # cbf is timeseries
+
     # return cbf to nifti shape
     if len(cbf.shape) < 2:
-        tcbf = np.zeros(maskx.shape)
-        tcbf[maskx == 1] = cbf
+        tcbf = np.zeros(mask_arr.shape)
+        tcbf[mask_arr == 1] = cbf
+
     else:
-        tcbf = np.zeros([maskx.shape[0], maskx.shape[1], maskx.shape[2], cbf.shape[1]])
+        tcbf = np.zeros([mask_arr.shape[0], mask_arr.shape[1], mask_arr.shape[2], cbf.shape[1]])
         for i in range(cbf.shape[1]):
-            tcbfx = np.zeros(maskx.shape)
-            tcbfx[maskx == 1] = cbf[:, i]
+            tcbfx = np.zeros(mask_arr.shape)
+            tcbfx[mask_arr == 1] = cbf[:, i]
             tcbf[:, :, :, i] = tcbfx
+
     if len(tcbf.shape) < 4:
         meancbf = tcbf
     else:
         meancbf = np.nanmean(tcbf, axis=3)
+
     meancbf = np.nan_to_num(meancbf)
     tcbf = np.nan_to_num(tcbf)
     att = np.nan_to_num(att)
+
     return tcbf, meancbf, att
 
 
