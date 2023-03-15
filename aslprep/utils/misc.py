@@ -9,6 +9,7 @@ from typing import Any
 
 import nibabel as nb
 import numpy as np
+from nilearn.masking import apply_mask, unmask
 from nipype.utils.filemanip import fname_presuffix
 from pkg_resources import resource_filename as pkgrf
 
@@ -304,19 +305,17 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
         pf1 = (6000 * PARTITION_COEF) / (2 * labeleff)
         perfusion_factor = (pf1 * np.exp(inversiontime / t1blood)) / inversiontime
 
-    mask_arr = nb.load(mask).get_fdata()
-    m0data = nb.load(m0file).get_fdata()
-    m0data = m0data[mask_arr == 1]
+    m0data = apply_mask(m0file, mask).T
+    scaled_m0data = m0scale * m0data
 
     # compute cbf
-    cbf_data = nb.load(cbffile).get_fdata()
-    cbf_data = cbf_data[mask_arr == 1]
+    cbf_data = apply_mask(cbffile, mask).T
     cbf1 = np.zeros(cbf_data.shape)
-    if len(cbf_data.shape) < 2:
-        cbf1 = np.divide(cbf_data, (m0scale * m0data))
+    if cbf_data.ndim < 2:
+        cbf1 = np.divide(cbf_data, scaled_m0data)
     else:
-        for i in range(cbf1.shape[1]):
-            cbf1[:, i] = np.divide(cbf_data[:, i], (m0scale * m0data))
+        for i_vol in range(cbf1.shape[1]):
+            cbf1[:, i_vol] = np.divide(cbf_data[:, i_vol], scaled_m0data)
 
     att = None
     if hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] > 1:
@@ -324,8 +323,9 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
         cbf_data_ts = np.zeros(cbf_data.shape)
 
         # calculate  cbf with multiple plds
-        for i in range(cbf_data.shape[1]):
-            cbf_data_ts[:, i] = np.multiply(cbf1[:, i], permfactor[i])
+        for i_vol in range(cbf_data.shape[1]):
+            cbf_data_ts[:, i_vol] = np.multiply(cbf1[:, i_vol], permfactor[i_vol])
+
         cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1] / len(perfusion_factor))])
         cbf_xx = np.split(cbf_data_ts, int(cbf_data_ts.shape[1] / len(perfusion_factor)), axis=1)
 
@@ -350,18 +350,9 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
         # cbf is timeseries
 
     # return cbf to nifti shape
-    if len(cbf.shape) < 2:
-        tcbf = np.zeros(mask_arr.shape)
-        tcbf[mask_arr == 1] = cbf
+    tcbf = unmask(cbf, mask).get_fdata()
 
-    else:
-        tcbf = np.zeros([mask_arr.shape[0], mask_arr.shape[1], mask_arr.shape[2], cbf.shape[1]])
-        for i in range(cbf.shape[1]):
-            tcbfx = np.zeros(mask_arr.shape)
-            tcbfx[mask_arr == 1] = cbf[:, i]
-            tcbf[:, :, :, i] = tcbfx
-
-    if len(tcbf.shape) < 4:
+    if tcbf.ndim < 4:
         meancbf = tcbf
     else:
         meancbf = np.nanmean(tcbf, axis=3)
