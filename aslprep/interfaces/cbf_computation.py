@@ -318,7 +318,7 @@ class ComputeCBF(SimpleInterface):
         cbf = np.nan_to_num(cbf)
         LOGGER.warning(f"cbf: {cbf.shape}")
         LOGGER.warning(f"mask: {mask}")
-        tcbf = masker.inverse_transform(cbf.T, mask)
+        tcbf = masker.inverse_transform(cbf.T)
 
         if tcbf.ndim == 3:
             meancbf = tcbf
