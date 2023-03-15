@@ -29,7 +29,7 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
 )
-from aslprep.utils.misc import get_atlas, get_tis, pcaslorasl
+from aslprep.utils.misc import get_atlas, get_tis, pcasl_or_pasl
 
 
 def init_cbf_compt_wf(
@@ -152,12 +152,7 @@ model [@buxton1998general].
 
     tiscbf = get_tis(metadata)
 
-    def pcaslorasl(metadata):
-        if "CASL" in metadata["ArterialSpinLabelingType"]:
-            pcasl1 = True
-        elif "PASL" in metadata["ArterialSpinLabelingType"]:
-            pcasl1 = False
-        return pcasl1
+    is_casl = pcasl_or_pasl(metadata=metadata)
 
     extractcbf = pe.Node(
         ExtractCBF(
@@ -181,22 +176,6 @@ model [@buxton1998general].
         mem_gb=0.2,
         name="scorescrub",
         run_without_submitting=True,
-    )
-    basilcbf = pe.Node(
-        BASILCBF(
-            m0scale=M0Scale,
-            # NOTE: LabelingDuration should only be defined for CASL/PCASL data, per BIDS.
-            # Therefore, this shouldn't be defined for PASL data.
-            bolus=metadata["LabelingDuration"],
-            m0tr=metadata["RepetitionTime"],
-            alpha=metadata.get("LabelingEfficiency", Undefined),
-            pvc=True,
-            tis=tiscbf,
-            pcasl=pcaslorasl(metadata=metadata),
-        ),
-        name="basilcbf",
-        run_without_submitting=True,
-        mem_gb=0.2,
     )
 
     refinemaskj = pe.Node(
@@ -296,6 +275,27 @@ CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
 BASIL computes CBF using a spatial regularization of the estimated perfusion image and
 additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 """
+        if is_casl:
+            bolus = metadata["LabelingDuration"]
+        else:  # pasl
+            assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
+            bolus = metadata["BolusCutOffDelayTime"]
+
+        basilcbf = pe.Node(
+            BASILCBF(
+                m0scale=M0Scale,
+                bolus=bolus,
+                m0tr=metadata["RepetitionTime"],
+                alpha=metadata.get("LabelingEfficiency", Undefined),
+                pvc=True,
+                tis=tiscbf,
+                pcasl=is_casl,
+            ),
+            name="basilcbf",
+            run_without_submitting=True,
+            mem_gb=0.2,
+        )
+
         # fmt:off
         workflow.connect([
             (refinemaskj, basilcbf, [("out_mask", "mask")]),
@@ -1369,6 +1369,8 @@ model [@detre_perfusion;@alsop_recommended].
 
         return os.path.dirname(file)
 
+    is_casl = pcasl_or_pasl(metadata=metadata)
+
     if len(deltamlist) > 0 or len(controllist) > 0:
         extractcbf1 = pe.Node(
             ExtractCBForDeltaM(file_type="d"),
@@ -1455,15 +1457,22 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
  perfusion image, including correction of partial volume effects [@chappell_pvc].
 """
             )
+
+            if is_casl:
+                bolus = metadata["LabelingDuration"]
+            else:
+                assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
+                bolus = metadata["BolusCutOffDelayTime"]
+
             basilcbf = pe.Node(
                 BASILCBF(
                     m0scale=M0Scale,
-                    bolus=metadata["LabelingDuration"],
+                    bolus=bolus,
                     m0tr=metadata["RepetitionTime"],
                     alpha=metadata.get("LabelingEfficiency", Undefined),
                     pvc=True,
                     tis=tiscbf,
-                    pcasl=pcaslorasl(metadata=metadata),
+                    pcasl=is_casl,
                 ),
                 name="basilcbf",
                 run_without_submitting=True,

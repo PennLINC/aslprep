@@ -232,7 +232,7 @@ def _prefix(subid):
     return subid if subid.startswith("sub-") else f"sub-{subid}"
 
 
-def pcaslorasl(metadata):
+def pcasl_or_pasl(metadata):
     """Determine if metadata indicates a PCASL or ASL scan."""
     if "CASL" in metadata["ArterialSpinLabelingType"]:
         pcasl1 = True
