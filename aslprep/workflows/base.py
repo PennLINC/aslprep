@@ -14,9 +14,9 @@ from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
 from aslprep.niworkflows.interfaces.nilearn import NILEARN_VERSION
-from aslprep.niworkflows.utils.bids import collect_data
 from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
 from aslprep.niworkflows.utils.spaces import Reference
+from aslprep.utils.bids import collect_data
 from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.workflows.asl.base import init_asl_preproc_wf
 from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
@@ -110,7 +110,6 @@ def init_single_subject_wf(subject_id):
     subject_data = collect_data(
         config.execution.bids_dir,
         subject_id,
-        task=None,
         echo=config.execution.echo_idx,
         bids_filters=config.execution.bids_filters,
     )[0]

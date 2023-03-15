@@ -6,6 +6,59 @@ import os
 import sys
 from pathlib import Path
 
+from bids.layout import BIDSLayout
+from niworkflows.utils.bids import group_multiecho
+
+
+def collect_data(
+    bids_dir,
+    participant_label,
+    echo=None,
+    bids_validate=False,
+    bids_filters=None,
+):
+    """Use pybids to retrieve the input data for a given participant."""
+    if isinstance(bids_dir, BIDSLayout):
+        layout = bids_dir
+    else:
+        layout = BIDSLayout(str(bids_dir), validate=bids_validate)
+
+    queries = {
+        "fmap": {"datatype": "fmap"},
+        "bold": {"datatype": "func", "suffix": "bold"},
+        "sbref": {"datatype": "func", "suffix": "sbref"},
+        "flair": {"datatype": "anat", "suffix": "FLAIR"},
+        "t2w": {"datatype": "anat", "suffix": "T2w"},
+        "t1w": {"datatype": "anat", "suffix": "T1w"},
+        "roi": {"datatype": "anat", "suffix": "roi"},
+        "asl": {"datatype": "perf", "suffix": "asl"},
+    }
+
+    bids_filters = bids_filters or {}
+    for acq, entities in bids_filters.items():
+        queries[acq].update(entities)
+
+    if echo:
+        queries["asl"]["echo"] = echo
+
+    subj_data = {
+        dtype: sorted(
+            layout.get(
+                return_type="file",
+                subject=participant_label,
+                extension=["nii", "nii.gz"],
+                **query,
+            )
+        )
+        for dtype, query in queries.items()
+    }
+
+    # Special case: multi-echo BOLD, grouping echos
+    if any(["_echo-" in bold for bold in subj_data["asl"]]):
+        subj_data["asl"] = group_multiecho(subj_data["asl"])
+
+    return subj_data, layout
+
 
 def write_derivative_description(bids_dir, deriv_dir):
     """Write derivative dataset_description file."""
