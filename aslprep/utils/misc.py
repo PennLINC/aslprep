@@ -350,7 +350,10 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
         # cbf is timeseries
 
     # return cbf to nifti shape
-    tcbf = unmask(cbf, mask).get_fdata()
+    try:
+        tcbf = unmask(cbf, mask).get_fdata()
+    except TypeError:
+        raise ValueError(f"cbf shape: {cbf.shape}")
 
     if tcbf.ndim < 4:
         meancbf = tcbf
