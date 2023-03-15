@@ -886,8 +886,8 @@ def parcellate_cbf(roi_file, roi_label, cbfmap):
 
     TODO: Replace with NiftiLabelsMasker.
     """
-    data = nb.load(cbfmap).get_data()
-    roi = nb.load(roi_file).get_data()
+    data = nb.load(cbfmap).get_fdata()
+    roi = nb.load(roi_file).get_fdata()
     roi_labels = np.loadtxt(roi_label)
     if data.shape != roi.shape:
         raise ValueError("Image-shapes do not match")
