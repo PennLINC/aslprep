@@ -270,20 +270,13 @@ class ComputeCBF(SimpleInterface):
         scaled_m0data = m0scale * m0data
 
         # compute cbf
-        if cbf_data.ndim < 2:
-            cbf1 = np.divide(cbf_data, scaled_m0data)
-        else:
-            cbf1 = np.zeros(cbf_data.shape)
-            for i_vol in range(cbf1.shape[1]):
-                cbf1[:, i_vol] = np.divide(cbf_data[:, i_vol], scaled_m0data)
+        cbf1 = cbf_data / scaled_m0data
 
         if hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] > 1:
             permfactor = np.tile(perfusion_factor, int(cbf_data.shape[1] / len(perfusion_factor)))
-            cbf_data_ts = np.zeros(cbf_data.shape)
 
             # calculate cbf with multiple plds
-            for i_vol in range(cbf_data.shape[1]):
-                cbf_data_ts[:, i_vol] = np.multiply(cbf1[:, i_vol], permfactor[i_vol])
+            cbf_data_ts = cbf1 * permfactor
 
             cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1] / len(perfusion_factor))])
             cbf_xx = np.split(
@@ -301,14 +294,14 @@ class ComputeCBF(SimpleInterface):
                 for j in range(cbf_plds.shape[1]):
                     pldx[:, j] = np.array(np.multiply(cbf_plds[:, j], plds[j]))
 
-                cbf[:, k] = np.divide(np.sum(pldx, axis=1), np.sum(plds))
+                cbf[:, k] = np.sum(pldx, axis=1) / np.sum(plds)
 
         elif hasattr(perfusion_factor, "__len__") and len(cbf_data.shape) < 2:
             cbf_ts = np.zeros(cbf_data.shape, len(perfusion_factor))
             for i in len(perfusion_factor):
-                cbf_ts[:, i] = np.multiply(cbf1, perfusion_factor[i])
+                cbf_ts[:, i] = cbf1 * perfusion_factor[i]
 
-            cbf = np.divide(np.sum(cbf_ts, axis=1), np.sum(perfusion_factor))
+            cbf = np.sum(cbf_ts, axis=1) / np.sum(perfusion_factor)
 
         else:  # cbf is timeseries
             cbf = cbf1 * np.array(perfusion_factor)
