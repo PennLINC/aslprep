@@ -138,7 +138,7 @@ class ExtractCBF(SimpleInterface):
 
             newm0 = fname_presuffix(self.inputs.asl_file, suffix="_m0file")
             newm0 = regmotoasl(asl=self.inputs.asl_file, m0file=m0file, m02asl=newm0)
-            m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_data()
+            m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
                 m0dataf = mask * np.mean(m0data_smooth, axis=3)
             else:
@@ -147,7 +147,7 @@ class ExtractCBF(SimpleInterface):
         elif self.inputs.in_metadata["M0Type"] == "Included":
             modata2 = dataasl[:, :, :, m0list]
             con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-            m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_data()
+            m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
                 m0dataf = mask * np.mean(m0data_smooth, axis=3)
             else:
@@ -161,7 +161,7 @@ class ExtractCBF(SimpleInterface):
             if len(controllist) > 0:
                 control_img = dataasl[:, :, :, controllist]
                 con = nb.Nifti1Image(control_img, allasl.affine, allasl.header)
-                control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_data()
+                control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_fdata()
                 m0dataf = mask * np.mean(control_img1, axis=3)
             elif len(cbflist) > 0:
                 m0dataf = mask
