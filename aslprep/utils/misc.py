@@ -9,7 +9,6 @@ from typing import Any
 
 import nibabel as nb
 import numpy as np
-from nilearn.masking import apply_mask, unmask
 from nipype.utils.filemanip import fname_presuffix
 from pkg_resources import resource_filename as pkgrf
 
@@ -257,114 +256,6 @@ def readjson(jsonfile):
     with open(jsonfile) as f:
         data = json.load(f)
     return data
-
-
-def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
-    """Compute cbf with pld and multi pld, whatever that means.
-
-    Parameters
-    ----------
-    metadata
-        Metadata from the ASL scan.
-    mask
-        asl mask in native space
-    m0file
-        m0scan
-    cbffile
-        already processed cbf after tag-control subtraction
-    m0scale
-        relative scale between m0scan and asl, default is 1
-
-    Returns
-    -------
-    tcbf
-    meancbf
-    att
-    """
-    is_casl = pcasl_or_pasl(metadata=metadata)
-    plds = np.array(metadata["PostLabelingDelay"])
-
-    # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550
-    t1blood = (110 * int(metadata["MagneticFieldStrength"]) + 1316) / 1000
-
-    if "LabelingEfficiency" in metadata.keys():
-        labeleff = metadata["LabelingEfficiency"]
-    elif is_casl:
-        labeleff = 0.72
-    else:
-        labeleff = 0.8
-
-    PARTITION_COEF = 0.9  # brain partition coefficient
-
-    if is_casl:
-        tau = metadata["LabelingDuration"]
-        pf1 = (6000 * PARTITION_COEF) / (2 * labeleff * t1blood * (1 - np.exp(-(tau / t1blood))))
-        perfusion_factor = pf1 * np.exp(plds / t1blood)
-    else:
-        inversiontime = plds  # As per BIDS: inversiontime for PASL == PostLabelingDelay
-        pf1 = (6000 * PARTITION_COEF) / (2 * labeleff)
-        perfusion_factor = (pf1 * np.exp(inversiontime / t1blood)) / inversiontime
-
-    m0data = apply_mask(m0file, mask).T
-    scaled_m0data = m0scale * m0data
-
-    # compute cbf
-    cbf_data = apply_mask(cbffile, mask).T
-    cbf1 = np.zeros(cbf_data.shape)
-    if cbf_data.ndim < 2:
-        cbf1 = np.divide(cbf_data, scaled_m0data)
-    else:
-        for i_vol in range(cbf1.shape[1]):
-            cbf1[:, i_vol] = np.divide(cbf_data[:, i_vol], scaled_m0data)
-
-    att = None
-    if hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] > 1:
-        permfactor = np.tile(perfusion_factor, int(cbf_data.shape[1] / len(perfusion_factor)))
-        cbf_data_ts = np.zeros(cbf_data.shape)
-
-        # calculate  cbf with multiple plds
-        for i_vol in range(cbf_data.shape[1]):
-            cbf_data_ts[:, i_vol] = np.multiply(cbf1[:, i_vol], permfactor[i_vol])
-
-        cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1] / len(perfusion_factor))])
-        cbf_xx = np.split(cbf_data_ts, int(cbf_data_ts.shape[1] / len(perfusion_factor)), axis=1)
-
-        # calculate weighted cbf with multiplds
-        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3791289/
-        # https://pubmed.ncbi.nlm.nih.gov/22084006/
-        for k in range(len(cbf_xx)):
-            cbf_plds = cbf_xx[k]
-            pldx = np.zeros([cbf_plds.shape[0], len(cbf_plds)])
-            for j in range(cbf_plds.shape[1]):
-                pldx[:, j] = np.array(np.multiply(cbf_plds[:, j], plds[j]))
-            cbf[:, k] = np.divide(np.sum(pldx, axis=1), np.sum(plds))
-
-    elif hasattr(perfusion_factor, "__len__") and len(cbf_data.shape) < 2:
-        cbf_ts = np.zeros(cbf_data.shape, len(perfusion_factor))
-        for i in len(perfusion_factor):
-            cbf_ts[:, i] = np.multiply(cbf1, perfusion_factor[i])
-        cbf = np.divide(np.sum(cbf_ts, axis=1), np.sum(perfusion_factor))
-
-    else:
-        cbf = cbf1 * np.array(perfusion_factor)
-        # cbf is timeseries
-
-    # return cbf to nifti shape
-    try:
-        tcbf = unmask(cbf.T, mask).get_fdata()
-    except TypeError:
-        raise ValueError(f"cbf shape: {cbf.shape}")
-
-    if tcbf.ndim < 4:
-        meancbf = tcbf
-    else:
-        meancbf = np.nanmean(tcbf, axis=3)
-
-    meancbf = np.nan_to_num(meancbf)
-    tcbf = np.nan_to_num(tcbf)
-    att = np.nan_to_num(att)
-
-    return tcbf, meancbf, att
 
 
 def get_tis(metadata: "dict[str, Any]") -> list:

@@ -5,6 +5,7 @@ import nibabel as nb
 import numpy as np
 import pandas as pd
 from nibabel.processing import smooth_image
+from nilearn import image, maskers
 from nipype import logging
 from nipype.interfaces.ants import ApplyTransforms
 from nipype.interfaces.base import (
@@ -22,8 +23,8 @@ from nipype.utils.filemanip import fname_presuffix
 from aslprep.utils.misc import (
     _getcbfscore,
     _scrubcbf,
-    compute_cbf,
     parcellate_cbf,
+    pcasl_or_pasl,
     readjson,
 )
 from aslprep.utils.qc import (
@@ -210,13 +211,12 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
     in_cbf = File(exists=True, mandatory=True, desc="cbf nifti")
     in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for CBF ")
     in_m0scale = traits.Float(
-        exists=True, mandatory=True, desc="relative scale between asl and m0"
+        exists=True,
+        mandatory=True,
+        desc="relative scale between asl and m0",
     )
     in_m0file = File(exists=True, mandatory=False, desc="M0 nifti file")
     in_mask = File(exists=True, mandatory=False, desc="mask")
-    out_cbf = File(exists=False, mandatory=False, desc="cbf timeries data")
-    out_mean = File(exists=False, mandatory=False, desc="average control")
-    out_att = File(exists=False, mandatory=False, desc="Arterial Transit Time")
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -232,51 +232,109 @@ class ComputeCBF(SimpleInterface):
     output_spec = _ComputeCBFOutputSpec
 
     def _run_interface(self, runtime):
-        cbf, meancbf, att = compute_cbf(
-            metadata=self.inputs.in_metadata,
-            m0scale=self.inputs.in_m0scale,
-            mask=self.inputs.in_mask,
-            m0file=self.inputs.in_m0file,
-            cbffile=self.inputs.in_cbf,
-        )
+        metadata = self.inputs.in_metadata
+        m0file = self.inputs.in_m0file
+        m0scale = self.inputs.in_m0scale
+        mask = self.inputs.in_mask
+        cbf_file = self.inputs.in_cbf
+
+        is_casl = pcasl_or_pasl(metadata=metadata)
+        plds = np.array(metadata["PostLabelingDelay"])
+
+        # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550
+        t1blood = (110 * int(metadata["MagneticFieldStrength"]) + 1316) / 1000
+
+        if "LabelingEfficiency" in metadata.keys():
+            labeleff = metadata["LabelingEfficiency"]
+        elif is_casl:
+            labeleff = 0.72
+        else:
+            labeleff = 0.8
+
+        PARTITION_COEF = 0.9  # brain partition coefficient
+
+        if is_casl:
+            tau = metadata["LabelingDuration"]
+            pf1 = (6000 * PARTITION_COEF) / (
+                2 * labeleff * t1blood * (1 - np.exp(-(tau / t1blood)))
+            )
+            perfusion_factor = pf1 * np.exp(plds / t1blood)
+        else:
+            inversiontime = plds  # As per BIDS: inversiontime for PASL == PostLabelingDelay
+            pf1 = (6000 * PARTITION_COEF) / (2 * labeleff)
+            perfusion_factor = (pf1 * np.exp(inversiontime / t1blood)) / inversiontime
+
+        masker = maskers.NiftiMasker(mask_img=mask)
+        cbf_data = masker.fit_transform(cbf_file).T
+        m0data = masker.transform(m0file).T
+        scaled_m0data = m0scale * m0data
+
+        # compute cbf
+        if cbf_data.ndim < 2:
+            cbf1 = np.divide(cbf_data, scaled_m0data)
+        else:
+            cbf1 = np.zeros(cbf_data.shape)
+            for i_vol in range(cbf1.shape[1]):
+                cbf1[:, i_vol] = np.divide(cbf_data[:, i_vol], scaled_m0data)
+
+        if hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] > 1:
+            permfactor = np.tile(perfusion_factor, int(cbf_data.shape[1] / len(perfusion_factor)))
+            cbf_data_ts = np.zeros(cbf_data.shape)
+
+            # calculate cbf with multiple plds
+            for i_vol in range(cbf_data.shape[1]):
+                cbf_data_ts[:, i_vol] = np.multiply(cbf1[:, i_vol], permfactor[i_vol])
+
+            cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1] / len(perfusion_factor))])
+            cbf_xx = np.split(
+                cbf_data_ts,
+                int(cbf_data_ts.shape[1] / len(perfusion_factor)),
+                axis=1,
+            )
+
+            # calculate weighted cbf with multiplds
+            # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3791289/
+            # https://pubmed.ncbi.nlm.nih.gov/22084006/
+            for k in range(len(cbf_xx)):
+                cbf_plds = cbf_xx[k]
+                pldx = np.zeros([cbf_plds.shape[0], len(cbf_plds)])
+                for j in range(cbf_plds.shape[1]):
+                    pldx[:, j] = np.array(np.multiply(cbf_plds[:, j], plds[j]))
+
+                cbf[:, k] = np.divide(np.sum(pldx, axis=1), np.sum(plds))
+
+        elif hasattr(perfusion_factor, "__len__") and len(cbf_data.shape) < 2:
+            cbf_ts = np.zeros(cbf_data.shape, len(perfusion_factor))
+            for i in len(perfusion_factor):
+                cbf_ts[:, i] = np.multiply(cbf1, perfusion_factor[i])
+
+            cbf = np.divide(np.sum(cbf_ts, axis=1), np.sum(perfusion_factor))
+
+        else:  # cbf is timeseries
+            cbf = cbf1 * np.array(perfusion_factor)
+
+        # return cbf to nifti shape
+        cbf = np.nan_to_num(cbf)
+        tcbf = masker.inverse_transform(cbf.T, mask)
+
+        if tcbf.ndim == 3:
+            meancbf = tcbf
+        else:
+            meancbf = image.mean_img(tcbf)
+
         self._results["out_cbf"] = fname_presuffix(
-            self.inputs.in_cbf, suffix="_cbf", newpath=runtime.cwd
+            self.inputs.in_cbf,
+            suffix="_cbf",
+            newpath=runtime.cwd,
         )
         self._results["out_mean"] = fname_presuffix(
-            self.inputs.in_cbf, suffix="_meancbf", newpath=runtime.cwd
+            self.inputs.in_cbf,
+            suffix="_meancbf",
+            newpath=runtime.cwd,
         )
-        samplecbf = nb.load(self.inputs.in_m0file)
-        nb.Nifti1Image(cbf, samplecbf.affine, samplecbf.header).to_filename(
-            self._results["out_cbf"]
-        )
-        nb.Nifti1Image(meancbf, samplecbf.affine, samplecbf.header).to_filename(
-            self._results["out_mean"]
-        )
-        if att is not None:
-            self._results["out_att"] = fname_presuffix(
-                self.inputs.in_cbf, suffix="_att", newpath=runtime.cwd
-            )
-            nb.Nifti1Image(att, samplecbf.affine, samplecbf.header).to_filename(
-                self._results["out_att"]
-            )
-            self.inputs.out_att = os.path.abspath(self._results["out_att"])
-        self.inputs.out_cbf = os.path.abspath(self._results["out_cbf"])
-        self.inputs.out_mean = os.path.abspath(self._results["out_mean"])
-        # we dont know why not zeros background $
-        from nipype.interfaces.fsl import MultiImageMaths
+        tcbf.to_filename(self._results["out_cbf"])
+        meancbf.to_filename(self._results["out_mean"])
 
-        mat1 = MultiImageMaths()
-        mat1.inputs.in_file = self.inputs.out_mean
-        mat1.inputs.op_string = " -mul  %s "
-        mat1.inputs.operand_files = self.inputs.in_mask
-        mat1.inputs.out_file = self.inputs.out_mean
-        mat1.run()
-        mat1 = MultiImageMaths()
-        mat1.inputs.in_file = self.inputs.out_cbf
-        mat1.inputs.op_string = " -mul  %s "
-        mat1.inputs.operand_files = self.inputs.in_mask
-        mat1.inputs.out_file = self.inputs.out_cbf
-        mat1.run()
         return runtime
 
 
