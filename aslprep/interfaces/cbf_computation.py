@@ -383,9 +383,14 @@ class ScoreAndScrubCBF(SimpleInterface):
         greym = nb.load(self.inputs.in_greyM).get_fdata()
         whitem = nb.load(self.inputs.in_whiteM).get_fdata()
         csf = nb.load(self.inputs.in_csf).get_fdata()
-        if len(cbf_ts.shape) > 3:
+        if cbf_ts.ndim > 3:
             cbf_scorets, index_score = _getcbfscore(
-                cbfts=cbf_ts, wm=whitem, gm=greym, csf=csf, mask=mask, thresh=self.inputs.in_thresh
+                cbfts=cbf_ts,
+                wm=whitem,
+                gm=greym,
+                csf=csf,
+                mask=mask,
+                thresh=self.inputs.in_thresh,
             )
             cbfscrub = _scrubcbf(
                 cbf_ts=cbf_scorets,
@@ -398,33 +403,49 @@ class ScoreAndScrubCBF(SimpleInterface):
             )
             avgscore = np.mean(cbf_scorets, axis=3)
         else:
+            LOGGER.warning(f"CBF time series is only {cbf_ts.ndim}D. Skipping SCORE and SCRUB.")
             cbf_scorets = cbf_ts
             index_score = np.array([0])
             cbfscrub = cbf_ts
             avgscore = cbf_ts
 
         self._results["out_score"] = fname_presuffix(
-            self.inputs.in_file, suffix="_cbfscorets", newpath=runtime.cwd
+            self.inputs.in_file,
+            suffix="_cbfscorets",
+            newpath=runtime.cwd,
         )
         self._results["out_avgscore"] = fname_presuffix(
-            self.inputs.in_file, suffix="_meancbfscore", newpath=runtime.cwd
+            self.inputs.in_file,
+            suffix="_meancbfscore",
+            newpath=runtime.cwd,
         )
         self._results["out_scrub"] = fname_presuffix(
-            self.inputs.in_file, suffix="_cbfscrub", newpath=runtime.cwd
+            self.inputs.in_file,
+            suffix="_cbfscrub",
+            newpath=runtime.cwd,
         )
         self._results["out_scoreindex"] = fname_presuffix(
-            self.inputs.in_file, suffix="_scoreindex.txt", newpath=runtime.cwd, use_ext=False
+            self.inputs.in_file,
+            suffix="_scoreindex.txt",
+            newpath=runtime.cwd,
+            use_ext=False,
         )
         samplecbf = nb.load(self.inputs.in_mask)
 
         nb.Nifti1Image(
-            dataobj=cbf_scorets, affine=samplecbf.affine, header=samplecbf.header
+            dataobj=cbf_scorets,
+            affine=samplecbf.affine,
+            header=samplecbf.header,
         ).to_filename(self._results["out_score"])
         nb.Nifti1Image(
-            dataobj=avgscore, affine=samplecbf.affine, header=samplecbf.header
+            dataobj=avgscore,
+            affine=samplecbf.affine,
+            header=samplecbf.header,
         ).to_filename(self._results["out_avgscore"])
         nb.Nifti1Image(
-            dataobj=cbfscrub, affine=samplecbf.affine, header=samplecbf.header
+            dataobj=cbfscrub,
+            affine=samplecbf.affine,
+            header=samplecbf.header,
         ).to_filename(self._results["out_scrub"])
 
         np.savetxt(self._results["out_scoreindex"], index_score, delimiter=",")
@@ -527,13 +548,6 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         argstr="--alpha %.2f",
     )
     out_basename = File(desc="base name of output files", argstr="-o %s", mandatory=True)
-    out_cbfb = File(exists=False, desc="cbf with spatial correction")
-    out_cbfpv = File(exists=False, desc="cbf with spatial partial volume correction")
-    out_cbfpvwm = File(
-        exists=False,
-        desc="cbf with spatial partial volume white matter correction",
-    )
-    out_att = File(exists=False, desc="aretrial transist time")
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
