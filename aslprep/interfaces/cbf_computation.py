@@ -44,8 +44,6 @@ class _RefineMaskInputSpec(BaseInterfaceInputSpec):
     in_t1mask = File(exists=True, mandatory=True, desc="t1 mask")
     in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
     transforms = File(exists=True, mandatory=True, desc="transfom")
-    out_mask = File(exists=False, mandatory=False, desc="output mask")
-    out_tmp = File(exists=False, mandatory=False, desc="tmp mask")
 
 
 class _RefineMaskOutputSpec(TraitedSpec):
@@ -61,10 +59,14 @@ class RefineMask(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results["out_tmp"] = fname_presuffix(
-            self.inputs.in_aslmask, suffix="_tempmask", newpath=runtime.cwd
+            self.inputs.in_aslmask,
+            suffix="_tempmask",
+            newpath=runtime.cwd,
         )
         self._results["out_mask"] = fname_presuffix(
-            self.inputs.in_aslmask, suffix="_refinemask", newpath=runtime.cwd
+            self.inputs.in_aslmask,
+            suffix="_refinemask",
+            newpath=runtime.cwd,
         )
 
         refine_ref_mask(
@@ -88,8 +90,6 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for asl or deltam ")
     bids_dir = traits.Str(exits=True, mandatory=True, desc=" bids directory")
     fwhm = traits.Float(default_value=5, exists=True, mandatory=False, desc="fwhm")
-    out_file = File(exists=False, mandatory=False, desc="cbf timeries data")
-    out_avg = File(exists=False, mandatory=False, desc="average control")
 
 
 class _ExtractCBFOutputSpec(TraitedSpec):
@@ -192,18 +192,20 @@ class ExtractCBF(SimpleInterface):
             # control_img = np.delete(control_img, range(0, self.inputs.dummy_vols), axis=3)
 
         self._results["out_file"] = fname_presuffix(
-            self.inputs.in_file, suffix="_cbftimeseries", newpath=runtime.cwd
+            self.inputs.in_file,
+            suffix="_cbftimeseries",
+            newpath=runtime.cwd,
         )
         self._results["out_avg"] = fname_presuffix(
-            self.inputs.in_file, suffix="_m0file", newpath=runtime.cwd
+            self.inputs.in_file,
+            suffix="_m0file",
+            newpath=runtime.cwd,
         )
         nb.Nifti1Image(cbf_data, allasl.affine, allasl.header).to_filename(
             self._results["out_file"]
         )
         nb.Nifti1Image(m0dataf, allasl.affine, allasl.header).to_filename(self._results["out_avg"])
 
-        self.inputs.out_file = os.path.abspath(self._results["out_file"])
-        self.inputs.out_avg = os.path.abspath(self._results["out_avg"])
         return runtime
 
 
@@ -585,35 +587,18 @@ class BASILCBF(FSLCommand):
         return os.path.abspath(out_file)
 
     def _list_outputs(self):
+        basename = self.inputs.out_basename
+
         outputs = self.output_spec().get()
-        # outputs["out_cbfb"]=self.inputs.out_basename+'/basilcbf.nii.gz'
-        outputs["out_cbfb"] = fname_presuffix(self.inputs.mask, suffix="_cbfbasil")
-        from shutil import copyfile
 
-        copyfile(
-            self.inputs.out_basename + "/native_space/perfusion_calib.nii.gz", outputs["out_cbfb"]
+        outputs["out_cbfb"] = os.path.join(basename, "native_space/perfusion_calib.nii.gz")
+        outputs["out_att"] = os.path.join(basename, "native_space/arrival.nii.gz")
+        outputs["out_cbfpv"] = os.path.join(basename, "native_space/pvcorr/perfusion_calib.nii.gz")
+        outputs["out_cbfpvwm"] = os.path.join(
+            basename,
+            "native_space/pvcorr/perfusion_wm_calib.nii.gz",
         )
 
-        # outputs["out_att"]=self.inputs.out_basename+'/arrivaltime.nii.gz'
-        outputs["out_att"] = fname_presuffix(self.inputs.mask, suffix="_arrivaltime")
-        copyfile(self.inputs.out_basename + "/native_space/arrival.nii.gz", outputs["out_att"])
-        self.inputs.out_att = os.path.abspath(outputs["out_att"])
-
-        # outputs["out_cbfpv"]=self.inputs.out_basename+'/basilcbfpv.nii.gz'
-        outputs["out_cbfpv"] = fname_presuffix(self.inputs.mask, suffix="_cbfbasilpv")
-        copyfile(
-            self.inputs.out_basename + "/native_space/pvcorr/perfusion_calib.nii.gz",
-            outputs["out_cbfpv"],
-        )
-
-        outputs["out_cbfpvwm"] = fname_presuffix(self.inputs.mask, suffix="_cbfbasilpvwm")
-        copyfile(
-            self.inputs.out_basename + "/native_space/pvcorr/perfusion_wm_calib.nii.gz",
-            outputs["out_cbfpvwm"],
-        )
-        self.inputs.out_cbfb = os.path.abspath(outputs["out_cbfb"])
-        self.inputs.out_cbfpv = os.path.abspath(outputs["out_cbfpv"])
-        self.inputs.out_cbfpvwm = os.path.abspath(outputs["out_cbfpvwm"])
         return outputs
 
 
@@ -632,7 +617,6 @@ class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
     in_t1mask = File(exists=True, mandatory=True, desc="t1wmask in native space ")
     in_aslmaskstd = File(exists=True, mandatory=False, desc="asl mask in native space")
     in_templatemask = File(exists=True, mandatory=False, desc="template mask or image")
-    qc_file = File(exists=False, mandatory=False, desc="qc file ")
     rmsd_file = File(exists=True, mandatory=True, desc="rmsd file")
 
 
@@ -797,11 +781,13 @@ class ComputeCBFQC(SimpleInterface):
         df = pd.DataFrame(dict2)
 
         self._results["qc_file"] = fname_presuffix(
-            self.inputs.in_meancbf, suffix="qc_cbf.csv", newpath=runtime.cwd, use_ext=False
+            self.inputs.in_meancbf,
+            suffix="qc_cbf.csv",
+            newpath=runtime.cwd,
+            use_ext=False,
         )
         df.to_csv(self._results["qc_file"], index=False, header=True)
 
-        self.inputs.qc_file = os.path.abspath(self._results["qc_file"])
         return runtime
 
 
@@ -819,7 +805,6 @@ class _ComputeCBFQCforGEInputSpec(BaseInterfaceInputSpec):
     in_t1mask = File(exists=True, mandatory=True, desc="t1wmask in native space ")
     in_aslmaskstd = File(exists=True, mandatory=False, desc="asl mask in native space")
     in_templatemask = File(exists=True, mandatory=False, desc="template mask or image")
-    qc_file = File(exists=False, mandatory=False, desc="qc file ")
 
 
 class _ComputeCBFQCforGEOutputSpec(TraitedSpec):
@@ -972,11 +957,13 @@ class ComputeCBFQCforGE(SimpleInterface):
         df = pd.DataFrame(dict2)
 
         self._results["qc_file"] = fname_presuffix(
-            self.inputs.in_meancbf, suffix="qc_cbf.csv", newpath=runtime.cwd, use_ext=False
+            self.inputs.in_meancbf,
+            suffix="qc_cbf.csv",
+            newpath=runtime.cwd,
+            use_ext=False,
         )
         df.to_csv(self._results["qc_file"], index=False, header=True)
 
-        self.inputs.qc_file = os.path.abspath(self._results["qc_file"])
         return runtime
 
 
@@ -985,7 +972,6 @@ class _ParcellateCBFInputSpec(BaseInterfaceInputSpec):
     atlasfile = File(exists=True, mandatory=True, desc="data")
     atlasdata = File(exists=True, mandatory=True, desc="data")
     atlaslabel = File(exists=True, mandatory=True, desc="data")
-    atlascsv = File(exists=False, mandatory=False, desc="harvard output csv")
 
 
 class _ParcellateCBFOutputSpec(TraitedSpec):
@@ -1000,7 +986,10 @@ class ParcellateCBF(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results["atlascsv"] = fname_presuffix(
-            self.inputs.in_cbf, suffix="atlas.csv", newpath=runtime.cwd, use_ext=False
+            self.inputs.in_cbf,
+            suffix="atlas.csv",
+            newpath=runtime.cwd,
+            use_ext=False,
         )
         roiquant = parcellate_cbf(
             roi_label=self.inputs.atlaslabel,
@@ -1019,7 +1008,6 @@ class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
     in_asl = File(exists=True, mandatory=True, desc="raw asl file")
     in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
     file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
-    out_file = File(exists=False, mandatory=False, desc="cbf or deltam")
 
 
 class _ExtractCBForDeltaMOutputSpec(TraitedSpec):
@@ -1034,7 +1022,9 @@ class ExtractCBForDeltaM(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(
-            self.inputs.in_aslmask, suffix="_cbfdeltam", newpath=runtime.cwd
+            self.inputs.in_aslmask,
+            suffix="_cbfdeltam",
+            newpath=runtime.cwd,
         )
         filex = self.inputs.in_asl
         # NOTE: Not a good way to find the aslcontext file.
