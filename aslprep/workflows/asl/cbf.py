@@ -1462,6 +1462,9 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
             else:
                 assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
                 bolus = metadata["BolusCutOffDelayTime"]
+                if metadata["BolusCutOffTechnique"] == "Q2TIPS":
+                    # BolusCutOffDelayTime is a list, and the first entry should be used.
+                    bolus = bolus[0]
 
             basilcbf = pe.Node(
                 BASILCBF(
