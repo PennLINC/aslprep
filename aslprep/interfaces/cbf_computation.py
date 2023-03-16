@@ -222,7 +222,6 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
 class _ComputeCBFOutputSpec(TraitedSpec):
     out_cbf = File(exists=False, desc="cbf timeries data")
     out_mean = File(exists=False, desc="average control")
-    out_att = File(exists=False, desc="Arterial Transit Time")
 
 
 class ComputeCBF(SimpleInterface):
