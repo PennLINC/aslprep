@@ -278,7 +278,6 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         if is_casl:
             bolus = metadata["LabelingDuration"]
         else:  # pasl
-            assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
             bolus = metadata["BolusCutOffDelayTime"]
 
         basilcbf = pe.Node(
