@@ -236,9 +236,9 @@ def pcasl_or_pasl(metadata):
     """Determine if metadata indicates a PCASL or ASL scan."""
     aslt = metadata["ArterialSpinLabelingType"]
 
-    if "CASL" in aslt:
+    if aslt in ["CASL", "PCASL"]:
         is_casl = True
-    elif "PASL" in aslt:
+    elif aslt == "PASL":
         assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
         is_casl = False
     else:
