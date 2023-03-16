@@ -20,8 +20,6 @@ class _GeReferenceFileInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="asl_file")
     in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for asl or deltam ")
     bids_dir = traits.Str(exits=True, mandatory=True, desc=" bids directory")
-    ref_file = File(exists=False, mandatory=False, desc="ref file")
-    m0_file = File(exists=False, mandatory=False, desc="m0 file")
     fwhm = traits.Float(
         exits=False, mandatory=False, default_value=5, desc="smoothing kernel for M0"
     )
@@ -126,8 +124,8 @@ class GeReferenceFile(SimpleInterface):
 
         else:
             raise RuntimeError("no path way to obtain real m0scan")
+
         self._results["ref_file"] = reffile
         self._results["m0_file"] = m0file
-        self.inputs.ref_file = os.path.abspath(self._results["ref_file"])
-        self.inputs.m0_file = os.path.abspath(self._results["m0_file"])
+
         return runtime
