@@ -274,9 +274,9 @@ class ComputeCBF(SimpleInterface):
         cbf1 = cbf_data / scaled_m0data
 
         if hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] > 1:
+            # CBF is a time series and there are multiple PostLabelingDelays.
             permfactor = np.tile(perfusion_factor, int(cbf_data.shape[1] / len(perfusion_factor)))
 
-            # calculate cbf with multiple plds
             cbf_data_ts = cbf1 * permfactor
 
             cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1] / len(perfusion_factor))])
@@ -297,24 +297,24 @@ class ComputeCBF(SimpleInterface):
 
                 cbf[:, k] = np.sum(pldx, axis=1) / np.sum(plds)
 
-        elif hasattr(perfusion_factor, "__len__") and len(cbf_data.shape) < 2:
+        elif hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] == 1:
+            # CBF is not a time series, but there are multiple PostLabelingDelays.
             cbf_ts = np.zeros(cbf_data.shape, len(perfusion_factor))
             for i in len(perfusion_factor):
                 cbf_ts[:, i] = cbf1 * perfusion_factor[i]
 
             cbf = np.sum(cbf_ts, axis=1) / np.sum(perfusion_factor)
 
-        else:  # cbf is timeseries
+        else:
+            # CBF has one PostLabelingDelay.
             cbf = cbf1 * np.array(perfusion_factor)
 
         # return cbf to nifti shape
         cbf = np.nan_to_num(cbf)
         tcbf = masker.inverse_transform(cbf.T)
 
-        if tcbf.ndim == 3:
-            meancbf = tcbf
-        else:
-            meancbf = image.mean_img(tcbf)
+        # If CBF is not a time series, nilearn will still add a singleton time dimension.
+        meancbf = image.mean_img(tcbf)
 
         self._results["out_cbf"] = fname_presuffix(
             self.inputs.in_cbf,
