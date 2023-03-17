@@ -265,6 +265,8 @@ class ComputeCBF(SimpleInterface):
             pf1 = (6000 * PARTITION_COEF) / (2 * labeleff)
             perfusion_factor = (pf1 * np.exp(inversiontime / t1blood)) / inversiontime
 
+        # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
+        # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask)
         cbf_data = masker.fit_transform(cbf_file).T
         m0data = masker.transform(m0file).T
@@ -312,8 +314,6 @@ class ComputeCBF(SimpleInterface):
         # return cbf to nifti shape
         cbf = np.nan_to_num(cbf)
         tcbf = masker.inverse_transform(cbf.T)
-
-        # If CBF is not a time series, nilearn will still add a singleton time dimension.
         meancbf = image.mean_img(tcbf)
 
         self._results["out_cbf"] = fname_presuffix(
