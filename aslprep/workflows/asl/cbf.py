@@ -1283,8 +1283,8 @@ def init_gecbf_compt_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The CBF was quantified from  *preproccessed* ASL data  using a standard
-model [@detre_perfusion;@alsop_recommended].
+The CBF was quantified from *preproccessed* ASL data using a standard
+model [@detre_perfusion_1992;@alsop_recommended_2015].
 """
     inputnode = pe.Node(
         niu.IdentityInterface(
