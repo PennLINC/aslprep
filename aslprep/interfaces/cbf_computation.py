@@ -256,6 +256,10 @@ class ComputeCBF(SimpleInterface):
     is calculated according to :footcite:t:`alsop_recommended_2015`.
     Multi-PLD CBF is handled using a weighted average,
     based on :footcite:t:`dai2012reduced,wang2013multi`.
+
+    References
+    ----------
+    .. footbibliography::
     """
 
     input_spec = _ComputeCBFInputSpec
