@@ -210,13 +210,13 @@ class ExtractCBF(SimpleInterface):
 
 
 class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
-    raw_cbf = File(
+    deltam = File(
         exists=True,
         mandatory=True,
         desc=(
             "NIfTI file containing raw CBF image(s). "
-            "These unquantified CBF values are the result of subtracting label volumes from "
-            "control volumes. "
+            "These raw CBF values are the result of subtracting label volumes from "
+            "control volumes, without any kind of additional scaling. "
             "This file may be 3D or 4D."
         ),
     )
@@ -228,10 +228,10 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
     m0scale = traits.Float(
         exists=True,
         mandatory=True,
-        desc="relative scale between asl and m0",
+        desc="Relative scale between ASL and M0.",
     )
     m0_file = File(exists=True, mandatory=False, desc="M0 nifti file")
-    mask = File(exists=True, mandatory=False, desc="mask")
+    mask = File(exists=True, mandatory=False, desc="Mask nifti file")
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -249,8 +249,8 @@ class ComputeCBF(SimpleInterface):
         metadata = self.inputs.metadata
         m0_file = self.inputs.m0_file
         m0scale = self.inputs.m0scale
-        mask = self.inputs.mask
-        cl_diff_file = self.inputs.raw_cbf  # control - label signal intensities
+        mask_file = self.inputs.mask
+        deltam_file = self.inputs.deltam  # control - label signal intensities
 
         is_casl = pcasl_or_pasl(metadata=metadata)
         plds = np.array(metadata["PostLabelingDelay"])
@@ -280,14 +280,14 @@ class ComputeCBF(SimpleInterface):
 
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
-        masker = maskers.NiftiMasker(mask_img=mask)
-        cl_diff_arr = masker.fit_transform(cl_diff_file).T
-        n_voxels, n_volumes = cl_diff_arr.shape
+        masker = maskers.NiftiMasker(mask_img=mask_file)
+        deltam_arr = masker.fit_transform(deltam_file).T
+        n_voxels, n_volumes = deltam_arr.shape
         m0data = masker.transform(m0_file).T
         scaled_m0data = m0scale * m0data
 
         # Scale difference signal to absolute CBF units by dividing by PD image (M0)
-        cl_diff_scaled = cl_diff_arr / scaled_m0data
+        cl_diff_scaled = deltam_arr / scaled_m0data
 
         if (perfusion_factor.size > 1) and (n_volumes > 1):
             # Multi-PLD acquisition with multiple control/label pairs.
@@ -314,7 +314,7 @@ class ComputeCBF(SimpleInterface):
 
         elif (perfusion_factor.size > 1) and (n_volumes == 1):
             # Multi-PLD acquisition with one control/label pair.
-            cbf_ts = np.zeros(cl_diff_arr.shape, len(perfusion_factor))
+            cbf_ts = np.zeros(deltam_arr.shape, len(perfusion_factor))
             for i_delay in len(perfusion_factor):
                 cbf_ts[:, i_delay] = cl_diff_scaled * perfusion_factor[i_delay]
 
@@ -330,12 +330,12 @@ class ComputeCBF(SimpleInterface):
         meancbf = image.mean_img(tcbf)
 
         self._results["cbf"] = fname_presuffix(
-            self.inputs.raw_cbf,
+            self.inputs.deltam,
             suffix="_cbf",
             newpath=runtime.cwd,
         )
         self._results["mean_cbf"] = fname_presuffix(
-            self.inputs.raw_cbf,
+            self.inputs.deltam,
             suffix="_meancbf",
             newpath=runtime.cwd,
         )

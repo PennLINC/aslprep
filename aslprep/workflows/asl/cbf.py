@@ -207,7 +207,7 @@ model [@buxton1998general].
             ("asl_file", "asl_file"),
         ]),
         (extractcbf, computecbf, [
-            ("out_file", "raw_cbf"),
+            ("out_file", "deltam"),
             ("out_avg", "m0_file"),
         ]),
         (inputnode, refinemaskj, [
@@ -1385,7 +1385,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 ("asl_file", "in_asl"),
                 ("asl_mask", "in_aslmask"),
             ]),
-            (extractcbf1, computecbf, [("out_file", "raw_cbf")]),
+            (extractcbf1, computecbf, [("out_file", "deltam")]),
             (inputnode, computecbf, [("m0_file", "m0_file")]),
             (inputnode, refinemaskj, [
                 ("t1w_mask", "in_t1mask"),
