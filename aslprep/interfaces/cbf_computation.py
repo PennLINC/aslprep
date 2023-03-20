@@ -214,7 +214,7 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         exists=True,
         mandatory=True,
         desc=(
-            "NIfTI file containing raw CBF image(s). "
+            "NIfTI file containing raw CBF volume(s). "
             "These raw CBF values are the result of subtracting label volumes from "
             "control volumes, without any kind of additional scaling. "
             "This file may be 3D or 4D."
@@ -240,7 +240,23 @@ class _ComputeCBFOutputSpec(TraitedSpec):
 
 
 class ComputeCBF(SimpleInterface):
-    """Calculate CBF time series and mean control."""
+    """Calculate CBF time series and mean control.
+
+    Notes
+    -----
+    This interface calculates CBF from deltam and M0 data.
+    It can handle single-PostLabelingDelay and multi-PostLabelingDelay data,
+    single CBF volumes and CBF time series, and
+    PASL and (P)CASL data.
+
+    T1blood is calculated based on the scanner's field strength, according to
+    :footcite:t:`zhang2013vivo`.
+
+    Single-PLD CBF, for both (P)CASL and PASL (QUIPS II/QUIPSSII BolusCutOffTechnique only)
+    is calculated according to :footcite:t:`alsop_recommended_2015`.
+    Multi-PLD CBF is handled using a weighted average,
+    based on :footcite:t:`dai2012reduced,wang2013multi`.
+    """
 
     input_spec = _ComputeCBFInputSpec
     output_spec = _ComputeCBFOutputSpec
@@ -255,7 +271,7 @@ class ComputeCBF(SimpleInterface):
         is_casl = pcasl_or_pasl(metadata=metadata)
         plds = np.array(metadata["PostLabelingDelay"])
 
-        # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550
+        # Zhang et al. (2012): https://doi.org/10.1002/mrm.24550
         t1blood = (110 * int(metadata["MagneticFieldStrength"]) + 1316) / 1000
 
         # Get labeling efficiency (alpha in Alsop 2015)
@@ -282,12 +298,13 @@ class ComputeCBF(SimpleInterface):
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask_file)
         deltam_arr = masker.fit_transform(deltam_file).T
+        assert deltam_arr.ndim == 2, f"deltam is {deltam_arr.ndim}"
         n_voxels, n_volumes = deltam_arr.shape
         m0data = masker.transform(m0_file).T
         scaled_m0data = m0scale * m0data
 
-        # Scale difference signal to absolute CBF units by dividing by PD image (M0)
-        cl_diff_scaled = deltam_arr / scaled_m0data
+        # Scale difference signal to absolute CBF units by dividing by PD image (M0).
+        deltam_scaled = deltam_arr / scaled_m0data
 
         if (perfusion_factor.size > 1) and (n_volumes > 1):
             # Multi-PLD acquisition with multiple control/label pairs.
@@ -296,14 +313,14 @@ class ComputeCBF(SimpleInterface):
                 int(n_volumes / len(perfusion_factor)),
             )
 
-            cbf_data_ts = cl_diff_scaled * permfactor
+            cbf_data_ts = deltam_scaled * permfactor
 
             cbf = np.zeros([n_voxels, int(n_volumes / len(perfusion_factor))])
             cbf_xx = np.split(cbf_data_ts, int(n_volumes / len(perfusion_factor)), axis=1)
 
-            # calculate weighted cbf with multiple PostLabelingDelays
-            # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3791289/
-            # https://pubmed.ncbi.nlm.nih.gov/22084006/
+            # Calculate weighted CBF with multiple PostLabelingDelays.
+            # Wang et al. (2013): https://doi.org/10.1016%2Fj.nicl.2013.06.017
+            # Dai et al. (2012): https://doi.org/10.1002/mrm.23103
             for k in range(len(cbf_xx)):
                 cbf_plds = cbf_xx[k]
                 pldx = np.zeros(cbf_plds.shape)
@@ -316,18 +333,18 @@ class ComputeCBF(SimpleInterface):
             # Multi-PLD acquisition with one control/label pair.
             cbf_ts = np.zeros(deltam_arr.shape, len(perfusion_factor))
             for i_delay in len(perfusion_factor):
-                cbf_ts[:, i_delay] = cl_diff_scaled * perfusion_factor[i_delay]
+                cbf_ts[:, i_delay] = deltam_scaled * perfusion_factor[i_delay]
 
             cbf = np.sum(cbf_ts, axis=2) / np.sum(perfusion_factor)
 
         else:
             # There is only a single PLD.
-            cbf = cl_diff_scaled * perfusion_factor
+            cbf = deltam_scaled * perfusion_factor
 
-        # return cbf to nifti shape
+        # Return CBF to niimg.
         cbf = np.nan_to_num(cbf)
-        tcbf = masker.inverse_transform(cbf.T)
-        meancbf = image.mean_img(tcbf)
+        cbf_img = masker.inverse_transform(cbf.T)
+        mean_cbf_img = image.mean_img(cbf_img)
 
         self._results["cbf"] = fname_presuffix(
             self.inputs.deltam,
@@ -339,8 +356,8 @@ class ComputeCBF(SimpleInterface):
             suffix="_meancbf",
             newpath=runtime.cwd,
         )
-        tcbf.to_filename(self._results["cbf"])
-        meancbf.to_filename(self._results["mean_cbf"])
+        cbf_img.to_filename(self._results["cbf"])
+        mean_cbf_img.to_filename(self._results["mean_cbf"])
 
         return runtime
 
