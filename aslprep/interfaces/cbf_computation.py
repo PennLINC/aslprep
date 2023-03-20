@@ -260,7 +260,8 @@ class ComputeCBF(SimpleInterface):
             perfusion_factor = np.exp(plds / t1blood) / (t1blood * (1 - np.exp(-(tau / t1blood))))
         else:
             inversiontime = plds  # As per BIDS: inversiontime for PASL == PostLabelingDelay
-            perfusion_factor = np.exp(inversiontime / t1blood) / inversiontime
+            inversiontime1 = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
+            perfusion_factor = np.exp(inversiontime / t1blood) / inversiontime1
 
         perfusion_factor *= (6000 * PARTITION_COEF) / (2 * labeleff)
 
