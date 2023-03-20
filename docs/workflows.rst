@@ -347,7 +347,7 @@ Mean CBF is computed from the average of CBF timeseries.
 
    Computed CBF maps
 
-For multi-PLDs (Post Labeling Delay) ASL data,
+For multi-PLD (Post Labeling Delay) ASL data,
 the CBF is first computed for each PLD and the weighted average CBF is computed
 over all PLDs at time = t :footcite:p:`dai2012reduced`.
 

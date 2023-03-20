@@ -277,7 +277,7 @@ class ComputeCBF(SimpleInterface):
         cl_diff_scaled = cl_diff_arr / scaled_m0data
 
         if (perfusion_factor.size > 1) and (n_volumes > 1):
-            # CBF is a time series and there are multiple PLDs.
+            # Multi-PLD acquisition with multiple control/label pairs.
             permfactor = np.tile(
                 perfusion_factor,
                 int(n_volumes / len(perfusion_factor)),
@@ -300,10 +300,10 @@ class ComputeCBF(SimpleInterface):
                 cbf[:, k] = np.sum(pldx, axis=1) / np.sum(plds)
 
         elif (perfusion_factor.size > 1) and (n_volumes == 1):
-            # CBF is not a time series, but there are multiple PLDs.
+            # Multi-PLD acquisition with one control/label pair.
             cbf_ts = np.zeros(cl_diff_arr.shape, len(perfusion_factor))
-            for i in len(perfusion_factor):
-                cbf_ts[:, i] = cl_diff_scaled * perfusion_factor[i]
+            for i_delay in len(perfusion_factor):
+                cbf_ts[:, i_delay] = cl_diff_scaled * perfusion_factor[i_delay]
 
             cbf = np.sum(cbf_ts, axis=2) / np.sum(perfusion_factor)
 
