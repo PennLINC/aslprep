@@ -237,7 +237,7 @@ class ComputeCBF(SimpleInterface):
         m0file = self.inputs.in_m0file
         m0scale = self.inputs.in_m0scale
         mask = self.inputs.in_mask
-        cbf_file = self.inputs.in_cbf
+        cl_diff_file = self.inputs.in_cbf  # control - label signal intensities
 
         is_casl = pcasl_or_pasl(metadata=metadata)
         plds = np.array(metadata["PostLabelingDelay"])
@@ -245,6 +245,7 @@ class ComputeCBF(SimpleInterface):
         # https://onlinelibrary.wiley.com/doi/pdf/10.1002/mrm.24550
         t1blood = (110 * int(metadata["MagneticFieldStrength"]) + 1316) / 1000
 
+        # Get labeling efficiency (alpha in Alsop 2015)
         if "LabelingEfficiency" in metadata.keys():
             labeleff = metadata["LabelingEfficiency"]
         elif is_casl:
@@ -252,64 +253,62 @@ class ComputeCBF(SimpleInterface):
         else:
             labeleff = 0.8
 
-        PARTITION_COEF = 0.9  # brain partition coefficient
+        PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
 
         if is_casl:
             tau = metadata["LabelingDuration"]
-            pf1 = (6000 * PARTITION_COEF) / (
-                2 * labeleff * t1blood * (1 - np.exp(-(tau / t1blood)))
-            )
-            perfusion_factor = pf1 * np.exp(plds / t1blood)
+            perfusion_factor = np.exp(plds / t1blood) / (t1blood * (1 - np.exp(-(tau / t1blood))))
         else:
             inversiontime = plds  # As per BIDS: inversiontime for PASL == PostLabelingDelay
-            pf1 = (6000 * PARTITION_COEF) / (2 * labeleff)
-            perfusion_factor = (pf1 * np.exp(inversiontime / t1blood)) / inversiontime
+            perfusion_factor = np.exp(inversiontime / t1blood) / inversiontime
+
+        perfusion_factor *= (6000 * PARTITION_COEF) / (2 * labeleff)
 
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask)
-        cbf_data = masker.fit_transform(cbf_file).T
+        cl_diff_arr = masker.fit_transform(cl_diff_file).T
+        n_voxels, n_volumes = cl_diff_arr.shape
         m0data = masker.transform(m0file).T
         scaled_m0data = m0scale * m0data
 
-        # compute cbf
-        cbf1 = cbf_data / scaled_m0data
+        # Scale difference signal to absolute CBF units by dividing by PD image (M0)
+        cl_diff_scaled = cl_diff_arr / scaled_m0data
 
-        if hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] > 1:
-            # CBF is a time series and there are multiple PostLabelingDelays.
-            permfactor = np.tile(perfusion_factor, int(cbf_data.shape[1] / len(perfusion_factor)))
-
-            cbf_data_ts = cbf1 * permfactor
-
-            cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1] / len(perfusion_factor))])
-            cbf_xx = np.split(
-                cbf_data_ts,
-                int(cbf_data_ts.shape[1] / len(perfusion_factor)),
-                axis=1,
+        if (perfusion_factor.size > 1) and (n_volumes > 1):
+            # CBF is a time series and there are multiple PLDs.
+            permfactor = np.tile(
+                perfusion_factor,
+                int(n_volumes / len(perfusion_factor)),
             )
 
-            # calculate weighted cbf with multiplds
+            cbf_data_ts = cl_diff_scaled * permfactor
+
+            cbf = np.zeros([n_voxels, int(n_volumes / len(perfusion_factor))])
+            cbf_xx = np.split(cbf_data_ts, int(n_volumes / len(perfusion_factor)), axis=1)
+
+            # calculate weighted cbf with multiple PostLabelingDelays
             # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3791289/
             # https://pubmed.ncbi.nlm.nih.gov/22084006/
             for k in range(len(cbf_xx)):
                 cbf_plds = cbf_xx[k]
-                pldx = np.zeros([cbf_plds.shape[0], len(cbf_plds)])
-                for j in range(cbf_plds.shape[1]):
+                pldx = np.zeros(cbf_plds.shape)
+                for j in range(cbf_plds.shape[0]):
                     pldx[:, j] = np.array(np.multiply(cbf_plds[:, j], plds[j]))
 
                 cbf[:, k] = np.sum(pldx, axis=1) / np.sum(plds)
 
-        elif hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] == 1:
-            # CBF is not a time series, but there are multiple PostLabelingDelays.
-            cbf_ts = np.zeros(cbf_data.shape, len(perfusion_factor))
+        elif (perfusion_factor.size > 1) and (n_volumes == 1):
+            # CBF is not a time series, but there are multiple PLDs.
+            cbf_ts = np.zeros(cl_diff_arr.shape, len(perfusion_factor))
             for i in len(perfusion_factor):
-                cbf_ts[:, i] = cbf1 * perfusion_factor[i]
+                cbf_ts[:, i] = cl_diff_scaled * perfusion_factor[i]
 
-            cbf = np.sum(cbf_ts, axis=1) / np.sum(perfusion_factor)
+            cbf = np.sum(cbf_ts, axis=2) / np.sum(perfusion_factor)
 
         else:
-            # CBF has one PostLabelingDelay.
-            cbf = cbf1 * np.array(perfusion_factor)
+            # There is only a single PLD.
+            cbf = cl_diff_scaled * perfusion_factor
 
         # return cbf to nifti shape
         cbf = np.nan_to_num(cbf)
