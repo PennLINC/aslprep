@@ -210,34 +210,47 @@ class ExtractCBF(SimpleInterface):
 
 
 class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
-    in_cbf = File(exists=True, mandatory=True, desc="cbf nifti")
-    in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for CBF ")
-    in_m0scale = traits.Float(
+    raw_cbf = File(
+        exists=True,
+        mandatory=True,
+        desc=(
+            "NIfTI file containing raw CBF image(s). "
+            "These unquantified CBF values are the result of subtracting label volumes from "
+            "control volumes. "
+            "This file may be 3D or 4D."
+        ),
+    )
+    metadata = traits.Dict(
+        exists=True,
+        mandatory=True,
+        desc="Metadata for the raw CBF file, taken from the raw ASL data's sidecar JSON file.",
+    )
+    m0scale = traits.Float(
         exists=True,
         mandatory=True,
         desc="relative scale between asl and m0",
     )
-    in_m0file = File(exists=True, mandatory=False, desc="M0 nifti file")
-    in_mask = File(exists=True, mandatory=False, desc="mask")
+    m0_file = File(exists=True, mandatory=False, desc="M0 nifti file")
+    mask = File(exists=True, mandatory=False, desc="mask")
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
-    out_cbf = File(exists=False, desc="cbf timeries data")
-    out_mean = File(exists=False, desc="average control")
+    cbf = File(exists=True, desc="Quantitative CBF data, in mL/100g/min.")
+    mean_cbf = File(exists=True, desc="Quantified CBF, averaged over time.")
 
 
 class ComputeCBF(SimpleInterface):
-    """Calculate CBF time series, mean control, and arterial transit time."""
+    """Calculate CBF time series and mean control."""
 
     input_spec = _ComputeCBFInputSpec
     output_spec = _ComputeCBFOutputSpec
 
     def _run_interface(self, runtime):
-        metadata = self.inputs.in_metadata
-        m0file = self.inputs.in_m0file
-        m0scale = self.inputs.in_m0scale
-        mask = self.inputs.in_mask
-        cl_diff_file = self.inputs.in_cbf  # control - label signal intensities
+        metadata = self.inputs.metadata
+        m0_file = self.inputs.m0_file
+        m0scale = self.inputs.m0scale
+        mask = self.inputs.mask
+        cl_diff_file = self.inputs.raw_cbf  # control - label signal intensities
 
         is_casl = pcasl_or_pasl(metadata=metadata)
         plds = np.array(metadata["PostLabelingDelay"])
@@ -270,7 +283,7 @@ class ComputeCBF(SimpleInterface):
         masker = maskers.NiftiMasker(mask_img=mask)
         cl_diff_arr = masker.fit_transform(cl_diff_file).T
         n_voxels, n_volumes = cl_diff_arr.shape
-        m0data = masker.transform(m0file).T
+        m0data = masker.transform(m0_file).T
         scaled_m0data = m0scale * m0data
 
         # Scale difference signal to absolute CBF units by dividing by PD image (M0)
@@ -316,18 +329,18 @@ class ComputeCBF(SimpleInterface):
         tcbf = masker.inverse_transform(cbf.T)
         meancbf = image.mean_img(tcbf)
 
-        self._results["out_cbf"] = fname_presuffix(
-            self.inputs.in_cbf,
+        self._results["cbf"] = fname_presuffix(
+            self.inputs.raw_cbf,
             suffix="_cbf",
             newpath=runtime.cwd,
         )
-        self._results["out_mean"] = fname_presuffix(
-            self.inputs.in_cbf,
+        self._results["mean_cbf"] = fname_presuffix(
+            self.inputs.raw_cbf,
             suffix="_meancbf",
             newpath=runtime.cwd,
         )
-        tcbf.to_filename(self._results["out_cbf"])
-        meancbf.to_filename(self._results["out_mean"])
+        tcbf.to_filename(self._results["cbf"])
+        meancbf.to_filename(self._results["mean_cbf"])
 
         return runtime
 

@@ -166,7 +166,7 @@ model [@buxton1998general].
         name="extractcbf",
     )
     computecbf = pe.Node(
-        ComputeCBF(in_metadata=metadata, in_m0scale=M0Scale),
+        ComputeCBF(metadata=metadata, m0scale=M0Scale),
         mem_gb=0.2,
         run_without_submitting=True,
         name="computecbf",
@@ -207,8 +207,8 @@ model [@buxton1998general].
             ("asl_file", "asl_file"),
         ]),
         (extractcbf, computecbf, [
-            ("out_file", "in_cbf"),
-            ("out_avg", "in_m0file"),
+            ("out_file", "raw_cbf"),
+            ("out_avg", "m0_file"),
         ]),
         (inputnode, refinemaskj, [
             ("t1w_mask", "in_t1mask"),
@@ -216,10 +216,10 @@ model [@buxton1998general].
             ("t1_asl_xform", "transforms"),
         ]),
         (refinemaskj, extractcbf, [("out_mask", "in_mask")]),
-        (refinemaskj, computecbf, [("out_mask", "in_mask")]),
+        (refinemaskj, computecbf, [("out_mask", "mask")]),
         (computecbf, outputnode, [
-            ("out_cbf", "out_cbf"),
-            ("out_mean", "out_mean"),
+            ("cbf", "out_cbf"),
+            ("mean_cbf", "out_mean"),
         ]),
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
@@ -254,7 +254,7 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
         # fmt:off
         workflow.connect([
             (refinemaskj, scorescrub, [("out_mask", "in_mask")]),
-            (computecbf, scorescrub, [("out_cbf", "in_file")]),
+            (computecbf, scorescrub, [("cbf", "in_file")]),
             (gm_tfm, scorescrub, [("output_image", "in_greyM")]),
             (wm_tfm, scorescrub, [("output_image", "in_whiteM")]),
             (csf_tfm, scorescrub, [("output_image", "in_csf")]),
@@ -1346,7 +1346,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     tiscbf = get_tis(metadata)
 
     computecbf = pe.Node(
-        ComputeCBF(in_metadata=metadata, in_m0scale=M0Scale),
+        ComputeCBF(metadata=metadata, m0scale=M0Scale),
         mem_gb=mem_gb,
         run_without_submitting=True,
         name="computecbf",
@@ -1385,14 +1385,14 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 ("asl_file", "in_asl"),
                 ("asl_mask", "in_aslmask"),
             ]),
-            (extractcbf1, computecbf, [("out_file", "in_cbf")]),
-            (inputnode, computecbf, [("m0_file", "in_m0file")]),
+            (extractcbf1, computecbf, [("out_file", "raw_cbf")]),
+            (inputnode, computecbf, [("m0_file", "m0_file")]),
             (inputnode, refinemaskj, [
                 ("t1w_mask", "in_t1mask"),
                 ("asl_mask", "in_aslmask"),
                 ("t1_asl_xform", "transforms"),
             ]),
-            (refinemaskj, computecbf, [("out_mask", "in_mask")]),
+            (refinemaskj, computecbf, [("out_mask", "mask")]),
             # extract probability maps
             (inputnode, csf_tfm, [
                 ("asl_mask", "reference_image"),
@@ -1409,7 +1409,10 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 ("t1_asl_xform", "transforms"),
             ]),
             (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
-            (computecbf, outputnode, [("out_cbf", "out_cbf"), ("out_mean", "out_mean")]),
+            (computecbf, outputnode, [
+                ("cbf", "out_cbf"),
+                ("mean_cbf", "out_mean"),
+            ]),
         ])
         # fmt:on
 
@@ -1431,7 +1434,7 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
             )
             # fmt:off
             workflow.connect([
-                (computecbf, scorescrub1, [("out_cbf", "in_file")]),
+                (computecbf, scorescrub1, [("cbf", "in_file")]),
                 (gm_tfm, scorescrub1, [("output_image", "in_greyM")]),
                 (refinemaskj, scorescrub1, [("out_mask", "in_mask")]),
                 (wm_tfm, scorescrub1, [("output_image", "in_whiteM")]),
