@@ -1338,10 +1338,10 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     filex = os.path.abspath(asl_file)
     aslcontext1 = filex.replace("_asl.nii.gz", "_aslcontext.tsv")
     aslcontext = pd.read_csv(aslcontext1)
-    idasl = aslcontext["volume_type"].tolist()
-    deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == "deltam"]
-    cbflist = [i for i in range(0, len(idasl)) if idasl[i] == "CBF"]
-    controllist = [i for i in range(0, len(idasl)) if idasl[i] == "control"]
+    vol_types = aslcontext["volume_type"].tolist()
+    deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
+    cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
+    control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
 
     tiscbf = get_tis(metadata)
 
@@ -1370,7 +1370,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
 
     is_casl = pcasl_or_pasl(metadata=metadata)
 
-    if len(deltamlist) > 0 or len(controllist) > 0:
+    if len(deltam_volume_idx) > 0 or len(control_volume_idx) > 0:
         extractcbf1 = pe.Node(
             ExtractCBForDeltaM(file_type="d"),
             mem_gb=1,
@@ -1454,9 +1454,9 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
                 + """\
 In addition, CBF was also computed by Bayesian Inference for Arterial Spin Labeling
 (BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
- [@chappell2008variational], and computed CBF from ASL by incorporating natural
- variability of other model parameters and spatial regularization of the estimated
- perfusion image, including correction of partial volume effects [@chappell_pvc].
+[@chappell2008variational], and computed CBF from ASL by incorporating natural
+variability of other model parameters and spatial regularization of the estimated
+perfusion image, including correction of partial volume effects [@chappell_pvc].
 """
             )
 
@@ -1501,7 +1501,7 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
             ])
             # fmt:on
 
-    elif len(cbflist) > 0:
+    elif len(cbf_volume_idx) > 0:
         basil = False
         mask_cbf = pe.Node(
             MultiImageMaths(op_string=" -mul  %s "),

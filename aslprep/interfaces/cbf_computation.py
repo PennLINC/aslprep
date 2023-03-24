@@ -114,18 +114,18 @@ class ExtractCBF(SimpleInterface):
         aslfile_linkedM0 = []
         mask = nb.load(self.inputs.in_mask).get_fdata()
         aslcontext1 = file1.replace("_asl.nii.gz", "_aslcontext.tsv")
-        idasl = pd.read_csv(aslcontext1)["volume_type"].tolist()
+        vol_types = pd.read_csv(aslcontext1)["volume_type"].tolist()
 
         # read the data
         allasl = nb.load(self.inputs.asl_file)
         dataasl = allasl.get_fdata()
 
         # get the control,tag,moscan or label
-        controllist = [i for i in range(0, len(idasl)) if idasl[i] == "control"]
-        labellist = [i for i in range(0, len(idasl)) if idasl[i] == "label"]
-        m0list = [i for i in range(0, len(idasl)) if idasl[i] == "m0scan"]
-        deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == "deltam"]
-        cbflist = [i for i in range(0, len(idasl)) if idasl[i] == "CBF"]
+        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
+        label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
+        m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "m0scan"]
+        deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
+        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
 
         # extcract m0 file and register it to ASL if separate
         if self.inputs.in_metadata["M0Type"] == "Separate":
@@ -146,7 +146,7 @@ class ExtractCBF(SimpleInterface):
                 m0dataf = mask * m0data_smooth
 
         elif self.inputs.in_metadata["M0Type"] == "Included":
-            modata2 = dataasl[:, :, :, m0list]
+            modata2 = dataasl[:, :, :, m0_volume_idx]
             con2 = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
             m0data_smooth = smooth_image(con2, fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
@@ -159,12 +159,12 @@ class ExtractCBF(SimpleInterface):
             m0dataf = moestimate * mask
 
         elif self.inputs.in_metadata["M0Type"] == "Absent":
-            if len(controllist) > 0:
-                control_img = dataasl[:, :, :, controllist]
+            if len(control_volume_idx) > 0:
+                control_img = dataasl[:, :, :, control_volume_idx]
                 con = nb.Nifti1Image(control_img, allasl.affine, allasl.header)
                 control_img1 = smooth_image(con, fwhm=self.inputs.fwhm).get_fdata()
                 m0dataf = mask * np.mean(control_img1, axis=3)
-            elif len(cbflist) > 0:
+            elif len(cbf_volume_idx) > 0:
                 m0dataf = mask
             else:
                 raise RuntimeError("m0scan is absent")
@@ -175,14 +175,14 @@ class ExtractCBF(SimpleInterface):
         if len(dataasl.shape) == 5:
             raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
 
-        if len(deltamlist) > 0:
-            cbf_data = dataasl[:, :, :, deltamlist]
+        if len(deltam_volume_idx) > 0:
+            cbf_data = dataasl[:, :, :, deltam_volume_idx]
 
-        if len(cbflist) > 0:
-            cbf_data = dataasl[:, :, :, cbflist]
-        elif len(labellist) > 0:
-            control_img = dataasl[:, :, :, controllist]
-            label_img = dataasl[:, :, :, labellist]
+        if len(cbf_volume_idx) > 0:
+            cbf_data = dataasl[:, :, :, cbf_volume_idx]
+        elif len(label_volume_idx) > 0:
+            control_img = dataasl[:, :, :, control_volume_idx]
+            label_img = dataasl[:, :, :, label_volume_idx]
             cbf_data = np.subtract(control_img, label_img)
         else:
             raise RuntimeError("no valid asl or cbf image.")
@@ -1063,37 +1063,37 @@ class ExtractCBForDeltaM(SimpleInterface):
         filex = self.inputs.in_asl
         # NOTE: Not a good way to find the aslcontext file.
         aslcontext = pd.read_csv(filex.replace("_asl.nii.gz", "_aslcontext.tsv"))
-        idasl = aslcontext["volume_type"].tolist()
+        vol_types = aslcontext["volume_type"].tolist()
         fdata = nb.load(filex).get_fdata()
         img = nb.load(filex)
 
-        controllist = [i for i in range(0, len(idasl)) if idasl[i] == "control"]
-        labelist = [i for i in range(0, len(idasl)) if idasl[i] == "label"]
+        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
+        label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
+        deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
+        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
 
         if self.inputs.file_type == "d":
-            if len(controllist) > 0:
+            if len(control_volume_idx) > 0:
                 # Grab control and label volumes from ASL file,
                 # then calculate deltaM by subtracting label volumes from control volumes.
-                ffdata = fdata[:, :, :, controllist] - fdata[:, :, :, labelist]
+                ffdata = fdata[:, :, :, control_volume_idx] - fdata[:, :, :, label_volume_idx]
                 newdata = nb.Nifti1Image(dataobj=ffdata, affine=img.affine, header=img.header)
             else:
                 # Grab deltaM volumes from ASL file.
-                dlist = [i for i in range(0, len(idasl)) if idasl[i] == "deltam"]
                 if len(fdata.shape) < 4:
                     newdata = nb.Nifti1Image(dataobj=fdata, affine=img.affine, header=img.header)
                 else:
-                    ffdata = fdata[:, :, :, dlist]
+                    ffdata = fdata[:, :, :, deltam_volume_idx]
                     newdata = nb.Nifti1Image(dataobj=ffdata, affine=img.affine, header=img.header)
 
         elif self.inputs.file_type == "c":
-            dlist = [i for i in range(0, len(idasl)) if idasl[i] == "CBF"]
             if len(fdata.shape) < 4:
                 # 3D volume is written out without any changes.
                 # NOTE: Why not return the original file then?
                 newdata = nb.Nifti1Image(dataobj=fdata, affine=img.affine, header=img.header)
             else:
                 # Grab CBF volumes from ASL file.
-                ffdata = fdata[:, :, :, dlist]
+                ffdata = fdata[:, :, :, cbf_volume_idx]
                 newdata = nb.Nifti1Image(dataobj=ffdata, affine=img.affine, header=img.header)
 
         newdata.to_filename(self._results["out_file"])

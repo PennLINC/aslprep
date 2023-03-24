@@ -40,11 +40,11 @@ class GeReferenceFile(SimpleInterface):
         filex = os.path.abspath(self.inputs.in_file)
         aslcontext1 = filex.replace("_asl.nii.gz", "_aslcontext.tsv")
         aslcontext = pd.read_csv(aslcontext1)
-        idasl = aslcontext["volume_type"].tolist()
-        m0list = [i for i in range(0, len(idasl)) if idasl[i] == "m0scan"]
-        deltamlist = [i for i in range(0, len(idasl)) if idasl[i] == "deltam"]
-        controllist = [i for i in range(0, len(idasl)) if idasl[i] == "control"]
-        cbflist = [i for i in range(0, len(idasl)) if idasl[i] == "CBF"]
+        vol_types = aslcontext["volume_type"].tolist()
+        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
+        m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "m0scan"]
+        deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
+        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
 
         allasl = nb.load(self.inputs.in_file)
         dataasl = allasl.get_fdata()
@@ -55,7 +55,7 @@ class GeReferenceFile(SimpleInterface):
             m0file = reffile
 
         elif self.inputs.in_metadata["M0Type"] == "Included":
-            modata2 = dataasl[:, :, :, m0list]
+            modata2 = dataasl[:, :, :, m0_volume_idx]
             m0filename = fname_presuffix(
                 self.inputs.in_file, suffix="_mofile", newpath=os.getcwd()
             )
@@ -66,12 +66,12 @@ class GeReferenceFile(SimpleInterface):
 
         elif self.inputs.in_metadata["M0Type"] == "Estimate":
             m0num = float(self.inputs.in_metadata["M0Estimate"])
-            if len(deltamlist) > 0:
-                modata2 = dataasl[:, :, :, deltamlist]
-            elif len(controllist) > 0:
-                modata2 = dataasl[:, :, :, controllist]
-            elif len(cbflist) > 0:
-                modata2 = dataasl[:, :, :, cbflist]
+            if len(deltam_volume_idx) > 0:
+                modata2 = dataasl[:, :, :, deltam_volume_idx]
+            elif len(control_volume_idx) > 0:
+                modata2 = dataasl[:, :, :, control_volume_idx]
+            elif len(cbf_volume_idx) > 0:
+                modata2 = dataasl[:, :, :, cbf_volume_idx]
 
             m0filename = fname_presuffix(
                 self.inputs.in_file, suffix="_m0file", newpath=os.getcwd()
@@ -96,8 +96,8 @@ class GeReferenceFile(SimpleInterface):
             reffile = gen_reference(reffilename, fwhm=0, newpath=runtime.cwd)
 
         elif self.inputs.in_metadata["M0Type"] == "Absent":
-            if len(controllist) > 0:
-                modata2 = dataasl[:, :, :, controllist]
+            if len(control_volume_idx) > 0:
+                modata2 = dataasl[:, :, :, control_volume_idx]
             m0filename = fname_presuffix(
                 self.inputs.in_file, suffix="_m0file", newpath=os.getcwd()
             )
