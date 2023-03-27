@@ -175,18 +175,22 @@ class ExtractCBF(SimpleInterface):
             raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
 
         precalculated_cbf = False
-        if cbf_volume_idx:
-            precalculated_cbf = True
-            out_data = asl_data[:, :, :, cbf_volume_idx]
-        elif deltam_volume_idx:
+        if deltam_volume_idx:
+            LOGGER.info("Extracting deltaM from ASL file.")
             out_data = asl_data[:, :, :, deltam_volume_idx]
         elif label_volume_idx:
+            LOGGER.info("Calculating deltaM from label-control pairs in ASL file.")
             assert len(label_volume_idx) == len(control_volume_idx)
             control_data = asl_data[:, :, :, control_volume_idx]
             label_data = asl_data[:, :, :, label_volume_idx]
             out_data = control_data - label_data
+        elif cbf_volume_idx:
+            # NOTE: The output from this interface is fed into the CBF calculation interface,
+            # so this is probably a bug.
+            precalculated_cbf = True
+            out_data = asl_data[:, :, :, cbf_volume_idx]
         else:
-            raise RuntimeError("no valid asl or cbf image.")
+            raise RuntimeError("No valid ASL or CBF image.")
 
         if self.inputs.dummy_vols != 0:
             out_data = out_data[..., self.inputs.dummy_vols :]
@@ -275,6 +279,9 @@ class ComputeCBF(SimpleInterface):
         deltam_file = self.inputs.deltam  # control - label signal intensities
 
         is_casl = pcasl_or_pasl(metadata=metadata)
+        # PostLabelingDelay is either a single number or an array of numbers.
+        # If it is an array of numbers, then there should be one value for every volume in the
+        # time series, with any M0 volumes having a value of 0.
         plds = np.array(metadata["PostLabelingDelay"])
 
         # Zhang et al. (2012): https://doi.org/10.1002/mrm.24550
@@ -288,52 +295,63 @@ class ComputeCBF(SimpleInterface):
         else:
             labeleff = 0.8
 
+        UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
         PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
 
         if is_casl:
             tau = metadata["LabelingDuration"]
-            perfusion_factor = np.exp(plds / t1blood) / (t1blood * (1 - np.exp(-(tau / t1blood))))
+            denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
+
+        elif not metadata["BolusCutOffFlag"]:
+            raise ValueError("PASL without a bolus cut-off technique is not supported in ASLPrep.")
+
+        elif metadata["BolusCutOffTechnique"] == "QUIPSS":
+            # PASL + QUIPSS
+            assert len(plds) == 2, "QUIPSS requires two inversion times."
+            denom_factor = plds[1] - plds[0]  # delta_TI, per Wong 1998
+
+        elif metadata["BolusCutOffTechnique"] == "QUIPSSII":
+            # PASL + QUIPSSII/Q2TIPS
+            # Per SD, use PLD as TI for PASL, so we will just use 'plds' in the numerator when
+            # calculating the perfusion factor.
+            denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
+
+        elif metadata["BolusCutOffTechnique"] == "Q2TIPS":
+            # Q2TIPS should have two BolusCutOffDelayTimes.
+            assert len(metadata["BolusCutOffDelayTime"]) == 2
+            # NOTE: This may be wrong.
+            denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
+
         else:
-            inversiontime = plds  # As per BIDS: inversiontime for PASL == PostLabelingDelay
-            if metadata["BolusCutOffTechnique"] == "QUIPSS":
-                assert len(inversiontime) == 2, "QUIPSS requires two inversion times."
-                denom_factor = inversiontime[1] - inversiontime[0]  # delta_TI, per Wong 1998
+            raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
 
-            elif metadata["BolusCutOffTechnique"] in ("QUIPSSII", "Q2TIPS"):
-                denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
-
-            else:
-                raise ValueError(
-                    f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}"
-                )
-
-            perfusion_factor = np.exp(inversiontime / t1blood) / denom_factor
-
-        perfusion_factor *= (6000 * PARTITION_COEF) / (2 * labeleff)
+        perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
+            denom_factor * 2 * labeleff
+        )
 
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask_file)
-        deltam_arr = masker.fit_transform(deltam_file).T
+        deltam_arr = masker.fit_transform(deltam_file).T  # Transpose to SxT
         assert deltam_arr.ndim == 2, f"deltam is {deltam_arr.ndim}"
         n_voxels, n_volumes = deltam_arr.shape
         m0data = masker.transform(m0_file).T
         scaled_m0data = m0scale * m0data
 
-        # Scale difference signal to absolute CBF units by dividing by PD image (M0).
+        # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
         deltam_scaled = deltam_arr / scaled_m0data
 
         if (perfusion_factor.size > 1) and (n_volumes > 1):
             # Multi-PLD acquisition with multiple control/label pairs.
-            permfactor = np.tile(
-                perfusion_factor,
-                int(n_volumes / len(perfusion_factor)),
-            )
+            if n_volumes % len(perfusion_factor) != 0:
+                raise ValueError("Number of volumes must be divisible by number of PLDs.")
 
+            n_cbf_volumes = n_volumes // len(perfusion_factor)
+
+            permfactor = np.tile(perfusion_factor, n_cbf_volumes)
             cbf_data_ts = deltam_scaled * permfactor
-
-            cbf = np.zeros([n_voxels, int(n_volumes / len(perfusion_factor))])
-            cbf_xx = np.split(cbf_data_ts, int(n_volumes / len(perfusion_factor)), axis=1)
+            cbf = np.zeros((n_voxels, n_cbf_volumes))
+            cbf_xx = np.split(cbf_data_ts, n_cbf_volumes, axis=1)
 
             # Calculate weighted CBF with multiple PostLabelingDelays.
             # Wang et al. (2013): https://doi.org/10.1016%2Fj.nicl.2013.06.017

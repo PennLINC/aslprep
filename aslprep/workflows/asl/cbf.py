@@ -154,7 +154,7 @@ model [@buxton1998general].
 
     is_casl = pcasl_or_pasl(metadata=metadata)
 
-    extractcbf = pe.Node(
+    extract_deltam = pe.Node(
         ExtractCBF(
             dummy_vols=dummy_vols,
             bids_dir=bids_dir,
@@ -163,7 +163,7 @@ model [@buxton1998general].
         ),
         mem_gb=0.2,
         run_without_submitting=True,
-        name="extractcbf",
+        name="extract_deltam",
     )
     computecbf = pe.Node(
         ComputeCBF(metadata=metadata, m0scale=M0Scale),
@@ -201,12 +201,12 @@ model [@buxton1998general].
 
     # fmt:off
     workflow.connect([
-        # extract CBF data and compute cbf
-        (inputnode, extractcbf, [
+        # extract deltaM data and compute CBF
+        (inputnode, extract_deltam, [
             ("in_file", "in_file"),
             ("asl_file", "asl_file"),
         ]),
-        (extractcbf, computecbf, [
+        (extract_deltam, computecbf, [
             ("out_file", "deltam"),
             ("out_avg", "m0_file"),
         ]),
@@ -215,7 +215,7 @@ model [@buxton1998general].
             ("asl_mask", "in_aslmask"),
             ("t1_asl_xform", "transforms"),
         ]),
-        (refinemaskj, extractcbf, [("out_mask", "in_mask")]),
+        (refinemaskj, extract_deltam, [("out_mask", "in_mask")]),
         (refinemaskj, computecbf, [("out_mask", "mask")]),
         (computecbf, outputnode, [
             ("cbf", "out_cbf"),
@@ -224,18 +224,18 @@ model [@buxton1998general].
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
             ("t1_asl_xform", "transforms"),
+            (("t1w_tpms", _pick_csf), "input_image"),
         ]),
-        (inputnode, csf_tfm, [(("t1w_tpms", _pick_csf), "input_image")]),
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
             ("t1_asl_xform", "transforms"),
+            (("t1w_tpms", _pick_wm), "input_image"),
         ]),
-        (inputnode, wm_tfm, [(("t1w_tpms", _pick_wm), "input_image")]),
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
             ("t1_asl_xform", "transforms"),
+            (("t1w_tpms", _pick_gm), "input_image"),
         ]),
-        (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
     ])
     # fmt:on
 
@@ -280,6 +280,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         else:  # pasl
             bolus = metadata["BolusCutOffDelayTime"]
 
+        # NOTE: Do we need the TR of just the M0 volumes?
         basilcbf = pe.Node(
             BASILCBF(
                 m0scale=M0Scale,
@@ -298,11 +299,13 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         # fmt:off
         workflow.connect([
             (refinemaskj, basilcbf, [("out_mask", "mask")]),
-            (extractcbf, basilcbf, [(("out_avg", _getfiledir), "out_basename")]),
-            (extractcbf, basilcbf, [("out_file", "in_file")]),
+            (extract_deltam, basilcbf, [
+                (("out_avg", _getfiledir), "out_basename"),
+                ("out_file", "in_file"),
+                ("out_avg", "mzero"),
+            ]),
             (gm_tfm, basilcbf, [("output_image", "pvgm")]),
             (wm_tfm, basilcbf, [("output_image", "pvwm")]),
-            (extractcbf, basilcbf, [("out_avg", "mzero")]),
             (basilcbf, outputnode, [
                 ("out_cbfb", "out_cbfb"),
                 ("out_cbfpv", "out_cbfpv"),
@@ -1371,21 +1374,22 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     is_casl = pcasl_or_pasl(metadata=metadata)
 
     if len(deltam_volume_idx) > 0 or len(control_volume_idx) > 0:
-        extractcbf1 = pe.Node(
+        # If deltaM or label-control pairs are available, then calculate CBF.
+        extract_deltam = pe.Node(
             ExtractCBForDeltaM(file_type="d"),
             mem_gb=1,
             run_without_submitting=True,
-            name="extract_d",
+            name="extract_deltam",
         )
 
         # fmt:off
         workflow.connect([
             # extract CBF data and compute cbf
-            (inputnode, extractcbf1, [
+            (inputnode, extract_deltam, [
                 ("asl_file", "in_asl"),
                 ("asl_mask", "in_aslmask"),
             ]),
-            (extractcbf1, computecbf, [("out_file", "deltam")]),
+            (extract_deltam, computecbf, [("out_file", "deltam")]),
             (inputnode, computecbf, [("m0_file", "m0_file")]),
             (inputnode, refinemaskj, [
                 ("t1w_mask", "in_t1mask"),
@@ -1502,6 +1506,8 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
             # fmt:on
 
     elif len(cbf_volume_idx) > 0:
+        # If CBF has already been calculated, and deltaM isn't available.
+        # BASIL can't be run on pre-calculated CBF data.
         basil = False
         mask_cbf = pe.Node(
             MultiImageMaths(op_string=" -mul  %s "),
@@ -1510,11 +1516,11 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
             name="mask_cbf",
         )
 
-        extractcbf2 = pe.Node(
+        extract_cbf = pe.Node(
             ExtractCBForDeltaM(file_type="c"),
             mem_gb=1,
             run_without_submitting=True,
-            name="extract_c",
+            name="extract_cbf",
         )
 
         # fmt:off
@@ -1525,11 +1531,11 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 ("t1_asl_xform", "transforms"),
             ]),
             (refinemaskj, mask_cbf, [("out_mask", "in_file")]),
-            (inputnode, extractcbf2, [
+            (inputnode, extract_cbf, [
                 ("asl_file", "in_asl"),
                 ("asl_mask", "in_aslmask"),
             ]),
-            (extractcbf2, mask_cbf, [("out_file", "operand_files")]),
+            (extract_cbf, mask_cbf, [("out_file", "operand_files")]),
             (mask_cbf, outputnode, [
                 ("out_file", "out_cbf"),
                 ("out_file", "out_mean"),
