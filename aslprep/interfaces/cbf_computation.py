@@ -254,7 +254,7 @@ class ComputeCBF(SimpleInterface):
     T1blood is calculated based on the scanner's field strength, according to
     :footcite:t:`zhang2013vivo`.
 
-    Single-PLD CBF, for both (P)CASL and PASL (QUIPS II/QUIPSSII BolusCutOffTechnique only)
+    Single-PLD CBF, for both (P)CASL and PASL (QUIPSSII BolusCutOffTechnique only)
     is calculated according to :footcite:t:`alsop_recommended_2015`.
     Multi-PLD CBF is handled using a weighted average,
     based on :footcite:t:`dai2012reduced,wang2013multi`.
@@ -295,8 +295,19 @@ class ComputeCBF(SimpleInterface):
             perfusion_factor = np.exp(plds / t1blood) / (t1blood * (1 - np.exp(-(tau / t1blood))))
         else:
             inversiontime = plds  # As per BIDS: inversiontime for PASL == PostLabelingDelay
-            inversiontime1 = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
-            perfusion_factor = np.exp(inversiontime / t1blood) / inversiontime1
+            if metadata["BolusCutOffTechnique"] == "QUIPSS":
+                assert len(inversiontime) == 2, "QUIPSS requires two inversion times."
+                denom_factor = inversiontime[1] - inversiontime[0]  # delta_TI, per Wong 1998
+
+            elif metadata["BolusCutOffTechnique"] in ("QUIPSSII", "Q2TIPS"):
+                denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
+
+            else:
+                raise ValueError(
+                    f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}"
+                )
+
+            perfusion_factor = np.exp(inversiontime / t1blood) / denom_factor
 
         perfusion_factor *= (6000 * PARTITION_COEF) / (2 * labeleff)
 
