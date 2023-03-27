@@ -23,11 +23,14 @@ def init_asl_stc_wf(metadata, name="asl_stc_wf"):
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl import init_asl_stc_wf
+            from aslprep.workflows.asl.stc import init_asl_stc_wf
+
             wf = init_asl_stc_wf(
-                metadata={"RepetitionTime": 2.0,
-                          "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]},
-                )
+                metadata={
+                    "RepetitionTime": 2.0,
+                    "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+                },
+            )
 
     Parameters
     ----------

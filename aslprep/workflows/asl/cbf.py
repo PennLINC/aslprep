@@ -6,6 +6,7 @@ import os
 import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.interfaces.afni import Resample
+from nipype.interfaces.base import Undefined
 from nipype.interfaces.fsl import Info, MultiImageMaths
 from nipype.pipeline import engine as pe
 from templateflow.api import get as get_template
@@ -49,7 +50,12 @@ def init_cbf_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbf_compt_wf
-            wf = init_cbf_compt_wf(smooth_kernel=5, dummy_vols=0)
+
+            wf = init_cbf_compt_wf(
+                metadata={},
+                bids_dir="",
+                dummy_vols=0,
+            )
 
     Parameters
     ----------
@@ -94,7 +100,7 @@ def init_cbf_compt_wf(
 *ASLPrep* was configured to calculate cerebral blood flow (CBF) using the following methods.
 
 The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
-model [@kinetic].
+model [@buxton1998general].
 """
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -179,8 +185,11 @@ model [@kinetic].
     basilcbf = pe.Node(
         BASILCBF(
             m0scale=M0Scale,
+            # NOTE: LabelingDuration should only be defined for CASL/PCASL data, per BIDS.
+            # Therefore, this shouldn't be defined for PASL data.
             bolus=metadata["LabelingDuration"],
             m0tr=metadata["RepetitionTime"],
+            alpha=metadata.get("LabelingEfficiency", Undefined),
             pvc=True,
             tis=tiscbf,
             pcasl=pcaslorasl(metadata=metadata),
@@ -257,10 +266,10 @@ model [@kinetic].
             + """
 
 Structural Correlation based Outlier Rejection (SCORE) algorithm was applied to the CBF timeseries
-to discard CBF volumes with outlying values [@score_dolui] before computing the mean CBF.
+to discard CBF volumes with outlying values [@dolui2017structural] before computing the mean CBF.
 Following SCORE, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to
 the CBF maps using structural tissue probability maps to reweight the mean CBF
-[@score_dolui;@scrub_dolui].
+[@dolui2017structural;@dolui2016scrub].
 """
         )
         # fmt:off
@@ -282,10 +291,10 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
     if basil:
         workflow.__desc__ += f"""
 
-CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL) [@chappell_basil],
-as implemented in *FSL* {Info.version().split(':')[0]}. BASIL computes CBF using a spatial
-regularization of the estimated perfusion image and additionally calculates a partial-volume
-corrected CBF image [@chappell_pvc].
+CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
+[@chappell2008variational], as implemented in *FSL* {Info.version().split(':')[0]}.
+BASIL computes CBF using a spatial regularization of the estimated perfusion image and
+additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 """
         # fmt:off
         workflow.connect([
@@ -313,7 +322,7 @@ def init_cbfqc_compt_wf(
     basil=False,
     name="cbfqc_compt_wf",
 ):
-    """Create a workflow for :abbr:`cbfqc (compute cbf)`.
+    """Create a workflow for :abbr:`dolui2017automated (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -321,7 +330,10 @@ def init_cbfqc_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
-            wf = init_cbfqc_compt_wf()
+
+            wf = init_cbfqc_compt_wf(
+                asl_file="",
+            )
 
     Parameters
     ----------
@@ -348,7 +360,7 @@ def init_cbfqc_compt_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """
-The Quality evaluation index (QEI) was computed for each CBF map [@cbfqc].
+The Quality evaluation index (QEI) was computed for each CBF map [@dolui2017automated].
 QEI is based on the similarity between the CBF and the structural images, the spatial
 variability of the CBF image, and the percentage of grey matter voxels containing
 negative CBF values.
@@ -493,7 +505,7 @@ def init_cbfgeqc_compt_wf(
     basil=False,
     name="cbfqc_compt_wf",
 ):
-    """Create a workflow for :abbr:`cbfqc (compute cbf)`.
+    """Create a workflow for :abbr:`dolui2017automated (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -501,7 +513,10 @@ def init_cbfgeqc_compt_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.cbf import init_cbfgeqc_compt_wf
-            wf = init_cbfgeqc_compt_wf()
+
+            wf = init_cbfgeqc_compt_wf(
+                asl_file="",
+            )
 
     Parameters
     ----------
@@ -659,7 +674,19 @@ def init_cbfplot_wf(
     basil=False,
     name="cbf_plot",
 ):
-    """Plot CBF results."""
+    """Plot CBF results.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_cbfplot_wf
+
+            wf = init_cbfplot_wf(
+                metadata={},
+            )
+    """
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -816,7 +843,17 @@ def init_cbfplot_wf(
 
 
 def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
-    """Plot CBF results for GE data."""
+    """Plot CBF results for GE data.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_gecbfplot_wf
+
+            wf = init_gecbfplot_wf()
+    """
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -923,7 +960,17 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
 
 
 def init_cbfroiquant_wf(scorescrub=False, basil=False, name="cbf_roiquant"):
-    """Parcellate CBF results using a set of atlases."""
+    """Parcellate CBF results using a set of atlases.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_cbfroiquant_wf
+
+            wf = init_cbfroiquant_wf()
+    """
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """\
@@ -1220,7 +1267,21 @@ def init_gecbf_compt_wf(
     basil=False,
     name="cbf_compt_wf",
 ):
-    """Calculate CBF for GE data."""
+    """Calculate CBF for GE data.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.cbf import init_gecbf_compt_wf
+
+            wf = init_gecbf_compt_wf(
+                metadata={},
+                asl_file="",
+                mem_gb=0.1,
+            )
+    """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 The CBF was quantified from  *preproccessed* ASL data  using a standard
@@ -1358,7 +1419,7 @@ model [@detre_perfusion;@alsop_recommended].
 CBF is susceptible to artifacts due to low signal to noise ratio and high sensitivity to  motion.
 Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF
 timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean
-CBF with structural tissues probability maps [@score_dolui;@scrub_dolui].
+CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scrub].
 """
             )
             scorescrub1 = pe.Node(
@@ -1389,7 +1450,7 @@ CBF with structural tissues probability maps [@score_dolui;@scrub_dolui].
                 + """\
 In addition, CBF was also computed by Bayesian Inference for Arterial Spin Labeling
 (BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
- [@chappell_basil], and computed CBF from ASL by incorporating natural
+ [@chappell2008variational], and computed CBF from ASL by incorporating natural
  variability of other model parameters and spatial regularization of the estimated
  perfusion image, including correction of partial volume effects [@chappell_pvc].
 """
@@ -1399,6 +1460,7 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
                     m0scale=M0Scale,
                     bolus=metadata["LabelingDuration"],
                     m0tr=metadata["RepetitionTime"],
+                    alpha=metadata.get("LabelingEfficiency", Undefined),
                     pvc=True,
                     tis=tiscbf,
                     pcasl=pcaslorasl(metadata=metadata),
@@ -1468,7 +1530,7 @@ In addition, CBF was also computed by Bayesian Inference for Arterial Spin Label
 CBF is susceptible to artifacts due to low signal to noise ratio and high sensitivity to  motion.
 Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF
 timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean
-CBF with structural tissues probability maps [@score_dolui;@scrub_dolui].
+CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scrub].
 """
             )
             scorescrub1 = pe.Node(
