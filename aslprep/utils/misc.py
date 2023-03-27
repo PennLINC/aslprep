@@ -239,7 +239,6 @@ def pcasl_or_pasl(metadata):
     if aslt in ["CASL", "PCASL"]:
         is_casl = True
     elif aslt == "PASL":
-        assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
         is_casl = False
     else:
         raise ValueError(
