@@ -285,7 +285,7 @@ class ComputeCBF(SimpleInterface):
         plds = np.array(metadata["PostLabelingDelay"])
 
         # Zhang et al. (2012): https://doi.org/10.1002/mrm.24550
-        t1blood = (110 * int(metadata["MagneticFieldStrength"]) + 1316) / 1000
+        t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
         # Get labeling efficiency (alpha in Alsop 2015)
         if "LabelingEfficiency" in metadata.keys():
@@ -311,7 +311,7 @@ class ComputeCBF(SimpleInterface):
             denom_factor = plds[1] - plds[0]  # delta_TI, per Wong 1998
 
         elif metadata["BolusCutOffTechnique"] == "QUIPSSII":
-            # PASL + QUIPSSII/Q2TIPS
+            # PASL + QUIPSSII
             # Per SD, use PLD as TI for PASL, so we will just use 'plds' in the numerator when
             # calculating the perfusion factor.
             denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
