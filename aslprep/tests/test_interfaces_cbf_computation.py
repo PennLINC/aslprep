@@ -52,7 +52,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = pcasl_singlepld.run(cwd=os.path.join(tmpdir, "pcasl_singlepld"))
+    results = pcasl_singlepld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4
@@ -76,7 +76,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = pcasl_multipld.run(cwd=os.path.join(tmpdir, "pcasl_multipld"))
+    results = pcasl_multipld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4
@@ -99,7 +99,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = pcasl_singlepld.run(cwd=os.path.join(tmpdir, "casl_singlepld"))
+    results = pcasl_singlepld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4
@@ -122,7 +122,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = pcasl_multipld.run(cwd=os.path.join(tmpdir, "casl_multipld"))
+    results = pcasl_multipld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4
@@ -172,7 +172,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        results = pasl_no_bcof.run(cwd=os.path.join(tmpdir, "pasl_no_bcof"))
+        results = pasl_no_bcof.run(cwd=tmpdir)
 
     # Scenario 2: QUIPSS PASL with a single PostLabelingDelay
     metadata = {
@@ -189,7 +189,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = quipss_singlepld.run(cwd=os.path.join(tmpdir, "quipss_singlepld"))
+    results = quipss_singlepld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4
@@ -213,7 +213,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = quipss_multipld.run(cwd=os.path.join(tmpdir, "quipss_multipld"))
+    results = quipss_multipld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4
@@ -238,7 +238,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = quipssii_singlepld.run(cwd=os.path.join(tmpdir, "quipssii_singlepld"))
+    results = quipssii_singlepld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4
@@ -263,7 +263,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = quipssii_multipld.run(cwd=os.path.join(tmpdir, "quipssii_multipld"))
+    results = quipssii_multipld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4
@@ -288,7 +288,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = q2tips_singlepld.run(cwd=os.path.join(tmpdir, "q2tips_singlepld"))
+    results = q2tips_singlepld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4
@@ -313,7 +313,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = q2tips_multipld.run(cwd=os.path.join(tmpdir, "q2tips_multipld"))
+    results = q2tips_multipld.run(cwd=tmpdir)
     assert os.path.isfile(results.outputs.cbf)
     cbf_img = nb.load(results.outputs.cbf)
     assert cbf_img.ndim == 4

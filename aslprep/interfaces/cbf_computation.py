@@ -1,5 +1,6 @@
 """Interfaces for calculating CBF."""
 import os
+from numbers import Number
 
 import nibabel as nb
 import numpy as np
@@ -307,13 +308,16 @@ class ComputeCBF(SimpleInterface):
 
         elif metadata["BolusCutOffTechnique"] == "QUIPSS":
             # PASL + QUIPSS
-            assert len(plds) == 2, "QUIPSS requires two inversion times."
-            denom_factor = plds[1] - plds[0]  # delta_TI, per Wong 1998
+            # Only one BolusCutOffDelayTime allowed.
+            assert isinstance(metadata["BolusCutOffDelayTime"], Number)
+            denom_factor = plds - metadata["BolusCutOffDelayTime"]  # delta_TI, per Wong 1998
 
         elif metadata["BolusCutOffTechnique"] == "QUIPSSII":
             # PASL + QUIPSSII
             # Per SD, use PLD as TI for PASL, so we will just use 'plds' in the numerator when
             # calculating the perfusion factor.
+            # Only one BolusCutOffDelayTime allowed.
+            assert isinstance(metadata["BolusCutOffDelayTime"], Number)
             denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
 
         elif metadata["BolusCutOffTechnique"] == "Q2TIPS":
