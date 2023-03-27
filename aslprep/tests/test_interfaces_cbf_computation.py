@@ -180,6 +180,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         "MagneticFieldStrength": 3,
         "BolusCutOffFlag": True,
         "BolusCutOffTechnique": "QUIPSS",
+        "BolusCutOffDelayTime": 0.5,
         "PostLabelingDelay": single_pld,
     }
     quipss_singlepld = cbf_computation.ComputeCBF(
@@ -204,6 +205,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         "MagneticFieldStrength": 3,
         "BolusCutOffFlag": True,
         "BolusCutOffTechnique": "QUIPSS",
+        "BolusCutOffDelayTime": 0.5,
         "PostLabelingDelay": multiple_plds,
     }
     quipss_multipld = cbf_computation.ComputeCBF(
