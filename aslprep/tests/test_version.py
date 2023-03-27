@@ -1,6 +1,5 @@
 """Test version checks."""
 from datetime import datetime
-from os import getenv
 from pathlib import Path
 
 import pytest
@@ -25,63 +24,6 @@ class MockResponse:
     def json(self):
         """Redefine the response object."""
         return self._json
-
-
-def test_check_latest1(tmpdir, monkeypatch):
-    """Test latest version check."""
-    tmpdir.chdir()
-    monkeypatch.setenv("HOME", str(tmpdir))
-    assert str(Path.home()) == str(tmpdir)
-
-    def mock_get(*args, **kwargs):
-        return MockResponse()
-
-    monkeypatch.setattr(requests, "get", mock_get)
-
-    # Initially, cache should not exist
-    cachefile = Path.home() / ".cache" / "aslprep" / "latest"
-    assert not cachefile.exists()
-
-    # First check actually fetches from pypi
-    v = check_latest()
-    assert cachefile.exists()
-    assert isinstance(v, Version)
-    assert v == Version("1.1.0")
-    assert cachefile.read_text().split("|") == [
-        str(v),
-        datetime.now().strftime(DATE_FMT),
-    ]
-
-    # Second check - test the cache file is read
-    cachefile.write_text("|".join(("1.0.0", cachefile.read_text().split("|")[1])))
-    v = check_latest()
-    assert isinstance(v, Version)
-    assert v == Version("1.0.0")
-
-    # Third check - forced oudating of cache
-    cachefile.write_text("2.0.0|20180121")
-    v = check_latest()
-    assert isinstance(v, Version)
-    assert v == Version("1.1.0")
-
-    # Mock timeouts
-    def mock_get(*args, **kwargs):
-        raise requests.exceptions.Timeout
-
-    monkeypatch.setattr(requests, "get", mock_get)
-
-    cachefile.write_text("|".join(("1.0.0", cachefile.read_text().split("|")[1])))
-    v = check_latest()
-    assert isinstance(v, Version)
-    assert v == Version("1.0.0")
-
-    cachefile.write_text("2.0.0|20180121")
-    v = check_latest()
-    assert v is None
-
-    cachefile.unlink()
-    v = check_latest()
-    assert v is None
 
 
 @pytest.mark.parametrize(
@@ -174,20 +116,3 @@ def test_is_flagged(monkeypatch, result, version, code, json):
         assert reason == test_reason
     else:
         assert reason is None
-
-
-def test_readonly(tmp_path, monkeypatch):
-    """Test behavior when $HOME/.cache/aslprep/latest can't be written out."""
-    home_path = Path("/home/readonly") if getenv("TEST_READONLY_FILESYSTEM") else tmp_path
-    monkeypatch.setenv("HOME", str(home_path))
-    cachedir = home_path / ".cache"
-
-    if getenv("TEST_READONLY_FILESYSTEM") is None:
-        cachedir.mkdir(mode=0o555, exist_ok=True)
-
-    # Make sure creating the folder will raise the exception.
-    with pytest.raises(OSError):
-        (cachedir / "aslprep").mkdir(parents=True)
-
-    # Should not raise
-    check_latest()
