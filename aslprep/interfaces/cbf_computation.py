@@ -320,7 +320,8 @@ class ComputeCBF(SimpleInterface):
             # Q2TIPS should have two BolusCutOffDelayTimes.
             assert len(metadata["BolusCutOffDelayTime"]) == 2
             # NOTE: This may be wrong.
-            denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
+            LOGGER.warning("Standard CBF calculation with Q2TIPS may be buggy.")
+            denom_factor = metadata["BolusCutOffDelayTime"][0]  # called TI1 in Alsop 2015
 
         else:
             raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
