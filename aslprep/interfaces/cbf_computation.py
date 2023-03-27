@@ -289,12 +289,17 @@ class ComputeCBF(SimpleInterface):
         t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
         # Get labeling efficiency (alpha in Alsop 2015)
+        # Get labeling efficiency (alpha in Alsop 2015).
+        # PCASL and PASL values come from Alsop 2015.
+        # CASL value comes from Wang 2005 (https://doi.org/10.1148/radiol.2351031663).
         if "LabelingEfficiency" in metadata.keys():
             labeleff = metadata["LabelingEfficiency"]
-        elif is_casl:
-            labeleff = 0.72
-        else:
-            labeleff = 0.8
+        elif metadata["ArterialSpinLabelingType"] == "CASL":
+            labeleff = 0.68
+        elif metadata["ArterialSpinLabelingType"] == "PCASL":
+            labeleff = 0.85
+        else:  # PASL
+            labeleff = 0.98
 
         UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
         PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
@@ -321,11 +326,12 @@ class ComputeCBF(SimpleInterface):
             denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
 
         elif metadata["BolusCutOffTechnique"] == "Q2TIPS":
+            # PASL + Q2TIPS
             # Q2TIPS should have two BolusCutOffDelayTimes.
             assert len(metadata["BolusCutOffDelayTime"]) == 2
             # NOTE: This may be wrong.
             LOGGER.warning("Standard CBF calculation with Q2TIPS may be buggy.")
-            denom_factor = metadata["BolusCutOffDelayTime"][0]  # called TI1 in Alsop 2015
+            denom_factor = metadata["BolusCutOffDelayTime"][0]
 
         else:
             raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
@@ -347,7 +353,7 @@ class ComputeCBF(SimpleInterface):
         deltam_scaled = deltam_arr / scaled_m0data
 
         if (perfusion_factor.size > 1) and (n_volumes > 1):
-            # Multi-PLD acquisition with multiple control/label pairs.
+            # Multi-PLD acquisition with multiple control-label pairs.
             if n_volumes % len(perfusion_factor) != 0:
                 raise ValueError("Number of volumes must be divisible by number of PLDs.")
 
@@ -370,7 +376,7 @@ class ComputeCBF(SimpleInterface):
                 cbf[:, k] = np.sum(pldx, axis=1) / np.sum(plds)
 
         elif (perfusion_factor.size > 1) and (n_volumes == 1):
-            # Multi-PLD acquisition with one control/label pair.
+            # Multi-PLD acquisition with one control-label pair.
             cbf_ts = np.zeros(deltam_arr.shape, len(perfusion_factor))
             for i_delay in len(perfusion_factor):
                 cbf_ts[:, i_delay] = deltam_scaled * perfusion_factor[i_delay]
