@@ -12,7 +12,7 @@ from aslprep.interfaces import cbf_computation
 
 def test_computecbf_casl(datasets, tmp_path_factory):
     """Test aslprep.interfaces.cbf_computation.ComputeCBF with (P)CASL."""
-    tmpdir = tmp_path_factory.mkdtemp("test_computecbf_casl")
+    tmpdir = tmp_path_factory.mktemp("test_computecbf_casl")
     json_file = os.path.join(datasets["dset"], "sub-01/perf/sub-01_asl.json")
     aslcontext_file = os.path.join(datasets["dset"], "sub-01/perf/sub-01_aslcontext.tsv")
 
@@ -35,10 +35,10 @@ def test_computecbf_casl(datasets, tmp_path_factory):
         "ArterialSpinLabelingType": "PCASL",
         "MagneticFieldStrength": 3,
         "LabelingDuration": 1.6,
+        "PostLabelingDelay": 1.5,
     }
 
     # Scenario 1: PCASL with a single PostLabelingDelay
-    metadata["PostLabelingDelay"] = 1.5
     pcasl_singlepld = cbf_computation.ComputeCBF(
         deltam=asl_file,
         metadata=metadata,
@@ -125,7 +125,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
     """Test aslprep.interfaces.cbf_computation.ComputeCBF with PASL."""
-    tmpdir = tmp_path_factory.mkdtemp("test_computecbf_pasl")
+    tmpdir = tmp_path_factory.mktemp("test_computecbf_pasl")
     aslcontext_file = os.path.join(datasets["dset"], "sub-01/perf/sub-01_aslcontext.tsv")
 
     aslcontext = pd.read_table(aslcontext_file)
