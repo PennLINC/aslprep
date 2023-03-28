@@ -322,7 +322,7 @@ effects of other kernels [@lanczos].
 
     cbf_compt_wf = init_gecbf_compt_wf(
         mem_gb=mem_gb["filesize"],
-        asl_file=asl_file,
+        name_source=asl_file,
         metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,

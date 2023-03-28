@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 from nibabel.processing import smooth_image
 from nilearn import image, maskers
-from nipype import logging
 from nipype.interfaces.ants import ApplyTransforms
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
@@ -21,6 +20,7 @@ from nipype.interfaces.fsl import MultiImageMaths
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
+from aslprep import config
 from aslprep.utils.misc import (
     _getcbfscore,
     _scrubcbf,
@@ -37,8 +37,6 @@ from aslprep.utils.qc import (
     jaccard,
     negativevoxel,
 )
-
-LOGGER = logging.getLogger("nipype.interface")
 
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
@@ -82,8 +80,8 @@ class RefineMask(SimpleInterface):
 
 
 class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc="raw asl file")
     asl_file = File(exists=True, mandatory=True, desc="preprocessed asl file")
+    aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
     in_mask = File(exists=True, mandatory=True, desc="mask")
     dummy_vols = traits.Int(
         default_value=0, exit=False, mandatory=False, desc="remove first n volumes"
@@ -95,7 +93,7 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
 
 class _ExtractCBFOutputSpec(TraitedSpec):
     out_file = File(exists=False, desc="Either CBF or deltaM time series.")
-    out_avg = File(exists=False, desc="Mean M0 image.")
+    m0_file = File(exists=False, desc="Mean M0 image, after smoothing.")
     metadata = traits.Dict(
         desc=(
             "Metadata for the ASL run. "
@@ -109,15 +107,19 @@ class ExtractCBF(SimpleInterface):
     """Extract CBF time series by subtracting label volumes from control volumes.
 
     TODO: Mock up test data and write tests to cover all of the branches in this interface.
+
+    Notes
+    -----
+    The M0 information is extracted in the same way as GeReferenceFile,
+    so there's duplication that could be reduced.
     """
 
     input_spec = _ExtractCBFInputSpec
     output_spec = _ExtractCBFOutputSpec
 
     def _run_interface(self, runtime):
-        raw_asl_file = os.path.abspath(self.inputs.in_file)
+        aslcontext = pd.read_table(self.inputs.aslcontext)
         metadata = self.inputs.in_metadata.copy()
-        aslcontext = raw_asl_file.replace("_asl.nii.gz", "_aslcontext.tsv")
 
         mask_data = nb.load(self.inputs.in_mask).get_fdata()
 
@@ -126,7 +128,7 @@ class ExtractCBF(SimpleInterface):
         asl_data = asl_img.get_fdata()
 
         # get the control, tag, moscan or label
-        vol_types = pd.read_csv(aslcontext)["volume_type"].tolist()
+        vol_types = aslcontext["volume_type"].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
         label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
         m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "m0scan"]
@@ -155,14 +157,10 @@ class ExtractCBF(SimpleInterface):
             m0data = asl_data[:, :, :, m0_volume_idx]
             m0img = nb.Nifti1Image(m0data, asl_img.affine, asl_img.header)
             m0data_smooth = smooth_image(m0img, fwhm=self.inputs.fwhm).get_fdata()
-            if m0data_smooth.ndim > 3:
-                m0data = mask_data * np.mean(m0data_smooth, axis=3)
-            else:
-                m0data = mask_data * m0data_smooth
+            m0data = mask_data * np.mean(m0data_smooth, axis=3)
 
         elif metadata["M0Type"] == "Estimate":
-            moestimate = metadata["M0Estimate"]
-            m0data = moestimate * mask_data
+            m0data = metadata["M0Estimate"] * mask_data
 
         elif metadata["M0Type"] == "Absent":
             if control_volume_idx:
@@ -175,38 +173,43 @@ class ExtractCBF(SimpleInterface):
                 # If we have precalculated CBF data, just use the mask as M0.
                 m0data = mask_data
             else:
-                raise RuntimeError("m0scan is absent")
+                raise RuntimeError(
+                    "m0scan is absent, "
+                    "and there are no control volumes that can be used as a substitute"
+                )
 
         else:
             raise RuntimeError("no pathway to m0scan")
 
         if asl_data.ndim == 5:
+            # XXX: Why specifically check for 5D data? NIFTIs can go up to 8, I think.
             raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
 
         precalculated_cbf = False
         pld = np.array(metadata["PostLabelingDelay"])
-        if pld.size > 1 and pld.size != asl_data.shape[3]:
+        multi_pld = pld.size > 1
+        if multi_pld and pld.size != asl_data.shape[3]:
             raise ValueError(
                 "PostLabelingDelay is an array, but the number of values does not match the "
                 "number of volumes in the ASL data."
             )
 
         if deltam_volume_idx:
-            LOGGER.info("Extracting deltaM from ASL file.")
+            config.loggers.interface.info("Extracting deltaM from ASL file.")
             metadata_idx = deltam_volume_idx
             out_data = asl_data[:, :, :, deltam_volume_idx]
 
         elif label_volume_idx:
-            LOGGER.info("Calculating deltaM from label-control pairs in ASL file.")
-            assert len(label_volume_idx) == len(control_volume_idx)
+            config.loggers.interface.info(
+                "Calculating deltaM from label-control pairs in ASL file."
+            )
+            assert label_volume_idx.size == control_volume_idx.size
             metadata_idx = control_volume_idx
             control_data = asl_data[:, :, :, control_volume_idx]
             label_data = asl_data[:, :, :, label_volume_idx]
             out_data = control_data - label_data
 
         elif cbf_volume_idx:
-            # NOTE: The output from this interface is fed into the CBF calculation interface,
-            # so this is probably a bug.
             precalculated_cbf = True
             metadata_idx = cbf_volume_idx
             out_data = asl_data[:, :, :, cbf_volume_idx]
@@ -214,17 +217,22 @@ class ExtractCBF(SimpleInterface):
         else:
             raise RuntimeError("No valid ASL or CBF image.")
 
-        if pld.size > 1:
+        if multi_pld:
             # Reduce the volume-wise PLDs to just include the selected volumes.
             pld = pld[metadata_idx]
+            if np.std(pld) > 0:
+                raise ValueError(
+                    f"{np.unique(pld).size} unique PostLabelingDelay values detected. "
+                    "ASLPrep cannot currently process multi-PLD data."
+                )
 
         if self.inputs.dummy_vols != 0:
             out_data = out_data[..., self.inputs.dummy_vols :]
-            if pld.size > 1:
+            if multi_pld:
                 # Remove dummy volumes from the PLDs
                 pld = pld[self.inputs.dummy_vols :]
 
-        if pld.size > 1:
+        if multi_pld:
             metadata["PostLabelingDelay"] = pld.tolist()
 
         self._results["metadata"] = metadata
@@ -269,8 +277,12 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc="Relative scale between ASL and M0.",
     )
-    m0_file = File(exists=True, mandatory=False, desc="M0 nifti file")
-    mask = File(exists=True, mandatory=False, desc="Mask nifti file")
+    m0_file = File(exists=True, mandatory=True, desc="M0 nifti file")
+    mask = File(exists=True, mandatory=True, desc="Mask nifti file")
+    cbf_only = traits.Bool(
+        mandatory=True,
+        desc="Whether data are deltam (False) or CBF (True).",
+    )
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -310,6 +322,20 @@ class ComputeCBF(SimpleInterface):
         m0scale = self.inputs.m0scale
         mask_file = self.inputs.mask
         deltam_file = self.inputs.deltam  # control - label signal intensities
+
+        if self.inputs.cbf_only:
+            config.loggers.interface.debug(
+                "Precalculated CBF data detected. Skipping CBF estimation."
+            )
+            mean_cbf_img = image.mean_img(deltam_file)
+            self._results["cbf"] = deltam_file
+            self._results["mean_cbf"] = fname_presuffix(
+                deltam_file,
+                suffix="_meancbf",
+                newpath=runtime.cwd,
+            )
+            mean_cbf_img.to_filename(self._results["mean_cbf"])
+            return runtime
 
         is_casl = pcasl_or_pasl(metadata=metadata)
         # PostLabelingDelay is either a single number or an array of numbers.
@@ -360,8 +386,8 @@ class ComputeCBF(SimpleInterface):
             # PASL + Q2TIPS
             # Q2TIPS should have two BolusCutOffDelayTimes.
             assert len(metadata["BolusCutOffDelayTime"]) == 2
-            # NOTE: This may be wrong.
-            LOGGER.warning("Standard CBF calculation with Q2TIPS may be buggy.")
+            # XXX: This may be wrong.
+            config.loggers.interface.warning("Standard CBF calculation with Q2TIPS may be buggy.")
             denom_factor = metadata["BolusCutOffDelayTime"][0]
 
         else:
@@ -388,6 +414,8 @@ class ComputeCBF(SimpleInterface):
                 f"Number of volumes ({n_volumes}) must match number of PLDs "
                 f"({perfusion_factor.size})."
             )
+        elif perfusion_factor.size > 1:
+            raise ValueError("Multi-PLD data is not currently supported in ASLPrep.")
 
         if (perfusion_factor.size > 1) and (n_volumes > 1):
             # Multi-PLD acquisition with multiple control-label pairs.
@@ -404,7 +432,7 @@ class ComputeCBF(SimpleInterface):
 
         elif (perfusion_factor.size > 1) and (n_volumes == 1):
             # Multi-PLD acquisition with one control-label pair.
-            # NOTE: How is this possible?
+            # XXX: How is this possible?
             cbf_ts = np.zeros(deltam_arr.shape, len(perfusion_factor))
             for i_delay in len(perfusion_factor):
                 cbf_ts[:, i_delay] = deltam_scaled * perfusion_factor[i_delay]
@@ -509,7 +537,9 @@ class ScoreAndScrubCBF(SimpleInterface):
             )
             avgscore = np.mean(cbf_scorets, axis=3)
         else:
-            LOGGER.warning(f"CBF time series is only {cbf_ts.ndim}D. Skipping SCORE and SCRUB.")
+            config.loggers.interface.warning(
+                f"CBF time series is only {cbf_ts.ndim}D. Skipping SCORE and SCRUB."
+            )
             cbf_scorets = cbf_ts
             index_score = np.array([0])
             cbfscrub = cbf_ts
@@ -579,7 +609,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     mask = File(
         exists=True,
         argstr="-m %s",
-        desc="mask in the same space as in_infile",
+        desc="mask in the same space as in_file",
         mandatory=True,
     )
     mzero = File(exists=True, argstr="-c %s", desc="m0 scan", mandatory=False)
@@ -1133,7 +1163,7 @@ class ExtractCBForDeltaM(SimpleInterface):
         asl_img = nb.load(self.inputs.in_asl)
         asl_data = asl_img.get_fdata()
 
-        # NOTE: Not a good way to find the aslcontext file.
+        # XXX: Not a good way to find the aslcontext file.
         aslcontext = pd.read_csv(self.inputs.in_asl.replace("_asl.nii.gz", "_aslcontext.tsv"))
         vol_types = aslcontext["volume_type"].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]

@@ -546,7 +546,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # compute  the CBF here
     compt_cbf_wf = init_cbf_compt_wf(
-        name="compt_cbf_wf",
+        name_source=asl_file,
         dummy_vols=dummyvols,
         M0Scale=mscale,
         bids_dir=subj_dir,
@@ -554,6 +554,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         basil=basil,
         smooth_kernel=smoothkernel,
         metadata=metadata,
+        name="compt_cbf_wf",
     )
 
     # cbf computation workflow

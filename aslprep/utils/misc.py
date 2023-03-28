@@ -277,10 +277,6 @@ def get_tis(metadata: "dict[str, Any]") -> list:
         return np.array(metadata["PostLabelingDelay"]).tolist()
 
 
-class LabelingEfficiencyNotFoundError(Exception):
-    """LabelingEfficiency was not specified and no value could be derived."""
-
-
 def _weightfun(x, wfun="huber"):
     """Get weight fun and tuner."""
     if wfun == "andrews":

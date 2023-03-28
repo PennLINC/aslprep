@@ -1,8 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for calculating CBF."""
-import os
-
 import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.interfaces.afni import Resample
@@ -11,7 +9,7 @@ from nipype.interfaces.fsl import Info, MultiImageMaths
 from nipype.pipeline import engine as pe
 from templateflow.api import get as get_template
 
-from aslprep.config import DEFAULT_MEMORY_MIN_GB
+from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import (
     BASILCBF,
@@ -33,6 +31,7 @@ from aslprep.utils.misc import get_atlas, get_tis, pcasl_or_pasl
 
 
 def init_cbf_compt_wf(
+    name_source,
     metadata,
     bids_dir,
     dummy_vols,
@@ -52,6 +51,7 @@ def init_cbf_compt_wf(
             from aslprep.workflows.asl.cbf import init_cbf_compt_wf
 
             wf = init_cbf_compt_wf(
+                name_source="",
                 metadata={},
                 bids_dir="",
                 dummy_vols=0,
@@ -59,6 +59,8 @@ def init_cbf_compt_wf(
 
     Parameters
     ----------
+    name_source : :obj:`str`
+        Path to the raw ASL file.
     metadata : :obj:`dict`
         BIDS metadata for asl file
     name : :obj:`str`
@@ -67,7 +69,7 @@ def init_cbf_compt_wf(
     Inputs
     ------
     in_file
-        raw asl file
+        Raw asl file. Equivalent to name_source.
     bids_dir
         bids dir of the subject
     asl_file
@@ -153,9 +155,22 @@ model [@buxton1998general].
     tiscbf = get_tis(metadata)
 
     is_casl = pcasl_or_pasl(metadata=metadata)
+    # XXX: This is a bad way to find this file.
+    aslcontext = name_source.replace("_asl.nii.gz", "_aslcontext.tsv")
+    aslcontext_df = pd.read_table(aslcontext)
+    cbf_only = all(aslcontext_df["volume_type"].isin("m0scan", "cbf"))
+    if cbf_only and not basil:
+        config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
+    elif basil:
+        config.loggers.workflow.warning(
+            f"Only CBF volumes are detected in {name_source}. "
+            "BASIL will automatically be disabled."
+        )
+        basil = False
 
     extract_deltam = pe.Node(
         ExtractCBF(
+            aslcontext=aslcontext,
             dummy_vols=dummy_vols,
             bids_dir=bids_dir,
             fwhm=smooth_kernel,
@@ -165,29 +180,43 @@ model [@buxton1998general].
         run_without_submitting=True,
         name="extract_deltam",
     )
+
+    # fmt:off
+    workflow.connect([
+        # extract deltaM data
+        (inputnode, extract_deltam, [
+            ("in_file", "in_file"),
+            ("asl_file", "asl_file"),
+        ]),
+    ])
+    # fmt:on
+
     compute_cbf = pe.Node(
-        ComputeCBF(m0scale=M0Scale),
+        ComputeCBF(
+            cbf_only=cbf_only,
+            m0scale=M0Scale,
+        ),
         mem_gb=0.2,
         run_without_submitting=True,
         name="compute_cbf",
     )
 
     # fmt:off
-    workflow.connect([(extract_deltam, compute_cbf, [("metadata", "metadata")])])
+    workflow.connect([
+        # compute CBF from deltaM
+        (extract_deltam, compute_cbf, [
+            ("out_file", "deltam"),
+            ("m0_file", "m0_file"),
+            ("metadata", "metadata"),
+        ]),
+    ])
     # fmt:on
 
-    scorescrub = pe.Node(
-        ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
-        mem_gb=0.2,
-        name="scorescrub",
-        run_without_submitting=True,
-    )
-
-    refinemaskj = pe.Node(
+    refine_mask = pe.Node(
         RefineMask(),
         mem_gb=0.2,
         run_without_submitting=True,
-        name="refinemaskj",
+        name="refine_mask",
     )
 
     def _pick_csf(files):
@@ -206,22 +235,13 @@ model [@buxton1998general].
 
     # fmt:off
     workflow.connect([
-        # extract deltaM data and compute CBF
-        (inputnode, extract_deltam, [
-            ("in_file", "in_file"),
-            ("asl_file", "asl_file"),
-        ]),
-        (extract_deltam, compute_cbf, [
-            ("out_file", "deltam"),
-            ("out_avg", "m0_file"),
-        ]),
-        (inputnode, refinemaskj, [
+        (inputnode, refine_mask, [
             ("t1w_mask", "in_t1mask"),
             ("asl_mask", "in_aslmask"),
             ("t1_asl_xform", "transforms"),
         ]),
-        (refinemaskj, extract_deltam, [("out_mask", "in_mask")]),
-        (refinemaskj, compute_cbf, [("out_mask", "mask")]),
+        (refine_mask, extract_deltam, [("out_mask", "in_mask")]),
+        (refine_mask, compute_cbf, [("out_mask", "mask")]),
         (compute_cbf, outputnode, [
             ("cbf", "out_cbf"),
             ("mean_cbf", "out_mean"),
@@ -245,9 +265,14 @@ model [@buxton1998general].
     # fmt:on
 
     if scorescrub:
-        workflow.__desc__ = (
-            workflow.__desc__
-            + """
+        score_and_scrub_cbf = pe.Node(
+            ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
+            mem_gb=0.2,
+            name="score_and_scrub_cbf",
+            run_without_submitting=True,
+        )
+
+        workflow.__desc__ += """
 
 Structural Correlation based Outlier Rejection (SCORE) algorithm was applied to the CBF timeseries
 to discard CBF volumes with outlying values [@dolui2017structural] before computing the mean CBF.
@@ -255,15 +280,14 @@ Following SCORE, the Structural Correlation with RobUst Bayesian (SCRUB) algorit
 the CBF maps using structural tissue probability maps to reweight the mean CBF
 [@dolui2017structural;@dolui2016scrub].
 """
-        )
         # fmt:off
         workflow.connect([
-            (refinemaskj, scorescrub, [("out_mask", "in_mask")]),
-            (compute_cbf, scorescrub, [("cbf", "in_file")]),
-            (gm_tfm, scorescrub, [("output_image", "in_greyM")]),
-            (wm_tfm, scorescrub, [("output_image", "in_whiteM")]),
-            (csf_tfm, scorescrub, [("output_image", "in_csf")]),
-            (scorescrub, outputnode, [
+            (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
+            (compute_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
+            (gm_tfm, score_and_scrub_cbf, [("output_image", "in_greyM")]),
+            (wm_tfm, score_and_scrub_cbf, [("output_image", "in_whiteM")]),
+            (csf_tfm, score_and_scrub_cbf, [("output_image", "in_csf")]),
+            (score_and_scrub_cbf, outputnode, [
                 ("out_score", "out_score"),
                 ("out_scoreindex", "out_scoreindex"),
                 ("out_avgscore", "out_avgscore"),
@@ -286,6 +310,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             bolus = metadata["BolusCutOffDelayTime"]
 
         # NOTE: Do we need the TR of just the M0 volumes?
+        # TODO: Extract M0 TR in extract_deltam.
         basilcbf = pe.Node(
             BASILCBF(
                 m0scale=M0Scale,
@@ -303,11 +328,11 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
         # fmt:off
         workflow.connect([
-            (refinemaskj, basilcbf, [("out_mask", "mask")]),
+            (refine_mask, basilcbf, [("out_mask", "mask")]),
             (extract_deltam, basilcbf, [
-                (("out_avg", _getfiledir), "out_basename"),
+                (("m0_file", _getfiledir), "out_basename"),
                 ("out_file", "in_file"),
-                ("out_avg", "mzero"),
+                ("m0_file", "mzero"),
             ]),
             (gm_tfm, basilcbf, [("output_image", "pvgm")]),
             (wm_tfm, basilcbf, [("output_image", "pvwm")]),
@@ -754,13 +779,13 @@ def init_cbfplot_wf(
         DerivativesDataSink(desc="cbftsplot", datatype="figures", keep_dtype=True),
         name="ds_report_cbftsplot",
         run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     ds_report_cbfplot = pe.Node(
         DerivativesDataSink(desc="cbfplot", datatype="figures", keep_dtype=True),
         name="ds_report_cbfplot",
         run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     # fmt:off
     workflow.connect([
@@ -788,13 +813,13 @@ def init_cbfplot_wf(
             DerivativesDataSink(desc="scoreplot", datatype="figures", keep_dtype=True),
             name="ds_report_scoreplot",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         ds_report_scrubplot = pe.Node(
             DerivativesDataSink(desc="scrubplot", datatype="figures", keep_dtype=True),
             name="ds_report_scrubplot",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         # fmt:off
         workflow.connect([
@@ -820,13 +845,13 @@ def init_cbfplot_wf(
             DerivativesDataSink(desc="basilplot", datatype="figures", keep_dtype=True),
             name="ds_report_basilplot",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         ds_report_pvcplot = pe.Node(
             DerivativesDataSink(desc="pvcplot", datatype="figures", keep_dtype=True),
             name="ds_report_pvcplot",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
 
         # fmt:off
@@ -885,7 +910,7 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
         DerivativesDataSink(desc="cbfplot", datatype="figures", keep_dtype=True),
         name="ds_report_cbfplot",
         run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     # fmt:off
     workflow.connect([
@@ -905,13 +930,13 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
             DerivativesDataSink(desc="scoreplot", datatype="figures", keep_dtype=True),
             name="ds_report_scoreplot",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         ds_report_scrubplot = pe.Node(
             DerivativesDataSink(desc="scrubplot", datatype="figures", keep_dtype=True),
             name="ds_report_scrubplot",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         # fmt:off
         workflow.connect([
@@ -937,13 +962,13 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
             DerivativesDataSink(desc="basilplot", datatype="figures", keep_dtype=True),
             name="ds_report_basilplot",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         ds_report_pvcplot = pe.Node(
             DerivativesDataSink(desc="pvcplot", datatype="figures", keep_dtype=True),
             name="ds_report_pvcplot",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
 
         # fmt:off
@@ -1266,8 +1291,8 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
 
 
 def init_gecbf_compt_wf(
+    name_source,
     metadata,
-    asl_file,
     mem_gb,
     M0Scale=1,
     scorescrub=False,
@@ -1284,8 +1309,8 @@ def init_gecbf_compt_wf(
             from aslprep.workflows.asl.cbf import init_gecbf_compt_wf
 
             wf = init_gecbf_compt_wf(
+                name_source="",
                 metadata={},
-                asl_file="",
                 mem_gb=0.1,
             )
     """
@@ -1343,27 +1368,27 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         mem_gb=0.1,
     )
 
-    filex = os.path.abspath(asl_file)
-    aslcontext1 = filex.replace("_asl.nii.gz", "_aslcontext.tsv")
-    aslcontext = pd.read_csv(aslcontext1)
-    vol_types = aslcontext["volume_type"].tolist()
+    # XXX: This is a bad way to find this file.
+    aslcontext = name_source.replace("_asl.nii.gz", "_aslcontext.tsv")
+    aslcontext_df = pd.read_table(aslcontext)
+    vol_types = aslcontext_df["volume_type"].tolist()
     deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
     cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
     control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
 
     tiscbf = get_tis(metadata)
 
-    compute_cbf = pe.Node(
-        ComputeCBF(metadata=metadata, m0scale=M0Scale),
-        mem_gb=mem_gb,
-        run_without_submitting=True,
-        name="compute_cbf",
-    )
+    refine_mask = pe.Node(RefineMask(), mem_gb=1, run_without_submitting=True, name="refine_mask")
 
-    refinemaskj = pe.Node(RefineMask(), mem_gb=1, run_without_submitting=True, name="refinemaskj")
-
-    def _pick_csf(files):
-        return files[-1]
+    # fmt:off
+    workflow.connect([
+        (inputnode, refine_mask, [
+            ("t1w_mask", "in_t1mask"),
+            ("asl_mask", "in_aslmask"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+    ])
+    # fmt:on
 
     def _pick_gm(files):
         return files[0]
@@ -1371,14 +1396,22 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     def _pick_wm(files):
         return files[1]
 
+    def _pick_csf(files):
+        return files[-1]
+
     def _getfiledir(file):
         import os
 
         return os.path.dirname(file)
 
+    collect_cbf = niu.IdentityInterface(
+        fields=["deltam", "cbf"],
+        name="collect_cbf",
+    )
+
     is_casl = pcasl_or_pasl(metadata=metadata)
 
-    if len(deltam_volume_idx) > 0 or len(control_volume_idx) > 0:
+    if deltam_volume_idx or control_volume_idx:
         # If deltaM or label-control pairs are available, then calculate CBF.
         extract_deltam = pe.Node(
             ExtractCBForDeltaM(file_type="d"),
@@ -1389,35 +1422,28 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
 
         # fmt:off
         workflow.connect([
-            # extract CBF data and compute cbf
+            # extract deltaM data
             (inputnode, extract_deltam, [
                 ("asl_file", "in_asl"),
                 ("asl_mask", "in_aslmask"),
             ]),
-            (extract_deltam, compute_cbf, [("out_file", "deltam")]),
+        ])
+        # fmt:on
+
+        compute_cbf = pe.Node(
+            ComputeCBF(metadata=metadata, m0scale=M0Scale),
+            mem_gb=mem_gb,
+            run_without_submitting=True,
+            name="compute_cbf",
+        )
+
+        # fmt:off
+        workflow.connect([
             (inputnode, compute_cbf, [("m0_file", "m0_file")]),
-            (inputnode, refinemaskj, [
-                ("t1w_mask", "in_t1mask"),
-                ("asl_mask", "in_aslmask"),
-                ("t1_asl_xform", "transforms"),
-            ]),
-            (refinemaskj, compute_cbf, [("out_mask", "mask")]),
-            # extract probability maps
-            (inputnode, csf_tfm, [
-                ("asl_mask", "reference_image"),
-                ("t1_asl_xform", "transforms"),
-            ]),
-            (inputnode, csf_tfm, [(("t1w_tpms", _pick_csf), "input_image")]),
-            (inputnode, wm_tfm, [
-                ("asl_mask", "reference_image"),
-                ("t1_asl_xform", "transforms"),
-            ]),
-            (inputnode, wm_tfm, [(("t1w_tpms", _pick_wm), "input_image")]),
-            (inputnode, gm_tfm, [
-                ("asl_mask", "reference_image"),
-                ("t1_asl_xform", "transforms"),
-            ]),
-            (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
+            (extract_deltam, compute_cbf, [("out_file", "deltam")]),
+            (extract_deltam, collect_cbf, [("out_file", "deltam")]),
+            (refine_mask, compute_cbf, [("out_mask", "mask")]),
+            (compute_cbf, collect_cbf, [("cbf", "cbf")]),
             (compute_cbf, outputnode, [
                 ("cbf", "out_cbf"),
                 ("mean_cbf", "out_mean"),
@@ -1425,101 +1451,14 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         ])
         # fmt:on
 
-        if scorescrub:
-            workflow.__desc__ = (
-                workflow.__desc__
-                + """\
-CBF is susceptible to artifacts due to low signal to noise ratio and high sensitivity to  motion.
-Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF
-timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean
-CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scrub].
-"""
-            )
-            scorescrub1 = pe.Node(
-                ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
-                mem_gb=mem_gb,
-                name="scorescrub",
-                run_without_submitting=True,
-            )
-            # fmt:off
-            workflow.connect([
-                (compute_cbf, scorescrub1, [("cbf", "in_file")]),
-                (gm_tfm, scorescrub1, [("output_image", "in_greyM")]),
-                (refinemaskj, scorescrub1, [("out_mask", "in_mask")]),
-                (wm_tfm, scorescrub1, [("output_image", "in_whiteM")]),
-                (csf_tfm, scorescrub1, [("output_image", "in_csf")]),
-                (scorescrub1, outputnode, [
-                    ("out_score", "out_score"),
-                    ("out_scoreindex", "out_scoreindex"),
-                    ("out_avgscore", "out_avgscore"),
-                    ("out_scrub", "out_scrub"),
-                ]),
-            ])
-            # fmt:on
-
-        if basil:
-            workflow.__desc__ = (
-                workflow.__desc__
-                + """\
-In addition, CBF was also computed by Bayesian Inference for Arterial Spin Labeling
-(BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
-[@chappell2008variational], and computed CBF from ASL by incorporating natural
-variability of other model parameters and spatial regularization of the estimated
-perfusion image, including correction of partial volume effects [@chappell_pvc].
-"""
-            )
-
-            if is_casl:
-                bolus = metadata["LabelingDuration"]
-            else:
-                assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
-                bolus = metadata["BolusCutOffDelayTime"]
-                if metadata["BolusCutOffTechnique"] == "Q2TIPS":
-                    # BolusCutOffDelayTime is a list, and the first entry should be used.
-                    bolus = bolus[0]
-
-            basilcbf = pe.Node(
-                BASILCBF(
-                    m0scale=M0Scale,
-                    bolus=bolus,
-                    m0tr=metadata["RepetitionTime"],
-                    alpha=metadata.get("LabelingEfficiency", Undefined),
-                    pvc=True,
-                    tis=tiscbf,
-                    pcasl=is_casl,
-                ),
-                name="basilcbf",
-                run_without_submitting=True,
-                mem_gb=mem_gb,
-            )
-
-            # fmt:off
-            workflow.connect([
-                (inputnode, basilcbf, [("asl_file", "in_file")]),
-                (gm_tfm, basilcbf, [("output_image", "pvgm")]),
-                (wm_tfm, basilcbf, [("output_image", "pvwm")]),
-                (inputnode, basilcbf, [(("asl_mask", _getfiledir), "out_basename")]),
-                (inputnode, basilcbf, [("m0_file", "mzero")]),
-                (refinemaskj, basilcbf, [("out_mask", "mask")]),
-                (basilcbf, outputnode, [
-                    ("out_cbfb", "out_cbfb"),
-                    ("out_cbfpv", "out_cbfpv"),
-                    ("out_cbfpvwm", "out_cbfpvwm"),
-                    ("out_att", "out_att"),
-                ]),
-            ])
-            # fmt:on
-
-    elif len(cbf_volume_idx) > 0:
+    elif cbf_volume_idx:
         # If CBF has already been calculated, and deltaM isn't available.
         # BASIL can't be run on pre-calculated CBF data.
-        basil = False
-        mask_cbf = pe.Node(
-            MultiImageMaths(op_string=" -mul  %s "),
-            mem_gb=1,
-            run_without_submitting=True,
-            name="mask_cbf",
+        config.loggers.workflow.warning(
+            f"Only CBF volumes are detected in {name_source}. "
+            "BASIL will automatically be disabled."
         )
+        basil = False
 
         extract_cbf = pe.Node(
             ExtractCBForDeltaM(file_type="c"),
@@ -1530,17 +1469,25 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
 
         # fmt:off
         workflow.connect([
-            (inputnode, refinemaskj, [
-                ("t1w_mask", "in_t1mask"),
-                ("asl_mask", "in_aslmask"),
-                ("t1_asl_xform", "transforms"),
-            ]),
-            (refinemaskj, mask_cbf, [("out_mask", "in_file")]),
             (inputnode, extract_cbf, [
                 ("asl_file", "in_asl"),
                 ("asl_mask", "in_aslmask"),
             ]),
+        ])
+        # fmt:on
+
+        mask_cbf = pe.Node(
+            MultiImageMaths(op_string=" -mul  %s "),
+            mem_gb=1,
+            run_without_submitting=True,
+            name="mask_cbf",
+        )
+
+        # fmt:off
+        workflow.connect([
+            (refine_mask, mask_cbf, [("out_mask", "in_file")]),
             (extract_cbf, mask_cbf, [("out_file", "operand_files")]),
+            (mask_cbf, collect_cbf, [("out_file", "cbf")]),
             (mask_cbf, outputnode, [
                 ("out_file", "out_cbf"),
                 ("out_file", "out_mean"),
@@ -1548,51 +1495,103 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
         ])
         # fmt:on
 
-        if scorescrub:
-            workflow.__desc__ = (
-                workflow.__desc__
-                + """\
+    if scorescrub:
+        workflow.__desc__ += """\
 CBF is susceptible to artifacts due to low signal to noise ratio and high sensitivity to  motion.
 Therefore, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to the CBF
 timeseries to discard few extreme outlier volumes (if present) and iteratively reweight the mean
 CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scrub].
 """
-            )
-            scorescrub1 = pe.Node(
-                ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
-                mem_gb=mem_gb,
-                name="scorescrub",
-                run_without_submitting=True,
-            )
 
-            # fmt:off
-            workflow.connect([
-                (inputnode, csf_tfm, [
-                    ("asl_mask", "reference_image"),
-                    ("t1_asl_xform", "transforms"),
-                ]),
-                (inputnode, csf_tfm, [(("t1w_tpms", _pick_csf), "input_image")]),
-                (inputnode, wm_tfm, [
-                    ("asl_mask", "reference_image"),
-                    ("t1_asl_xform", "transforms"),
-                ]),
-                (inputnode, wm_tfm, [(("t1w_tpms", _pick_wm), "input_image")]),
-                (inputnode, gm_tfm, [
-                    ("asl_mask", "reference_image"),
-                    ("t1_asl_xform", "transforms"),
-                ]),
-                (inputnode, gm_tfm, [(("t1w_tpms", _pick_gm), "input_image")]),
-                (inputnode, scorescrub1, [("asl_file", "in_file")]),
-                (gm_tfm, scorescrub1, [("output_image", "in_greyM")]),
-                (wm_tfm, scorescrub1, [("output_image", "in_whiteM")]),
-                (csf_tfm, scorescrub1, [("output_image", "in_csf")]),
-                (scorescrub1, outputnode, [
-                    ("out_score", "out_score"),
-                    ("out_scoreindex", "out_scoreindex"),
-                    ("out_avgscore", "out_avgscore"),
-                    ("out_scrub", "out_scrub"),
-                ]),
-            ])
-            # fmt:on
+        score_and_scrub_cbf = pe.Node(
+            ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
+            mem_gb=mem_gb,
+            name="scorescrub",
+            run_without_submitting=True,
+        )
+
+        # fmt:off
+        workflow.connect([
+            # extract probability maps
+            (inputnode, csf_tfm, [
+                ("asl_mask", "reference_image"),
+                ("t1_asl_xform", "transforms"),
+                (("t1w_tpms", _pick_csf), "input_image"),
+            ]),
+            (inputnode, wm_tfm, [
+                ("asl_mask", "reference_image"),
+                ("t1_asl_xform", "transforms"),
+                (("t1w_tpms", _pick_wm), "input_image"),
+            ]),
+            (inputnode, gm_tfm, [
+                ("asl_mask", "reference_image"),
+                ("t1_asl_xform", "transforms"),
+                (("t1w_tpms", _pick_gm), "input_image"),
+            ]),
+            (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
+            (gm_tfm, score_and_scrub_cbf, [("output_image", "in_greyM")]),
+            (wm_tfm, score_and_scrub_cbf, [("output_image", "in_whiteM")]),
+            (csf_tfm, score_and_scrub_cbf, [("output_image", "in_csf")]),
+            (collect_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
+            (score_and_scrub_cbf, outputnode, [
+                ("out_score", "out_score"),
+                ("out_scoreindex", "out_scoreindex"),
+                ("out_avgscore", "out_avgscore"),
+                ("out_scrub", "out_scrub"),
+            ]),
+        ])
+        # fmt:on
+
+    if basil:
+        workflow.__desc__ += """\
+In addition, CBF was also computed by Bayesian Inference for Arterial Spin Labeling
+(BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
+[@chappell2008variational], and computed CBF from ASL by incorporating natural
+variability of other model parameters and spatial regularization of the estimated
+perfusion image, including correction of partial volume effects [@chappell_pvc].
+"""
+
+        if is_casl:
+            bolus = metadata["LabelingDuration"]
+        else:
+            assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
+            bolus = metadata["BolusCutOffDelayTime"]
+            if metadata["BolusCutOffTechnique"] == "Q2TIPS":
+                # BolusCutOffDelayTime is a list, and the first entry should be used.
+                bolus = bolus[0]
+
+        basilcbf = pe.Node(
+            BASILCBF(
+                m0scale=M0Scale,
+                bolus=bolus,
+                m0tr=metadata["RepetitionTime"],
+                alpha=metadata.get("LabelingEfficiency", Undefined),
+                pvc=True,
+                tis=tiscbf,
+                pcasl=is_casl,
+            ),
+            name="basilcbf",
+            run_without_submitting=True,
+            mem_gb=mem_gb,
+        )
+
+        # fmt:off
+        workflow.connect([
+            (inputnode, basilcbf, [
+                (("asl_mask", _getfiledir), "out_basename"),
+                ("m0_file", "mzero"),
+            ]),
+            (collect_cbf, basilcbf, [("deltam", "in_file")]),
+            (gm_tfm, basilcbf, [("output_image", "pvgm")]),
+            (wm_tfm, basilcbf, [("output_image", "pvwm")]),
+            (refine_mask, basilcbf, [("out_mask", "mask")]),
+            (basilcbf, outputnode, [
+                ("out_cbfb", "out_cbfb"),
+                ("out_cbfpv", "out_cbfpv"),
+                ("out_cbfpvwm", "out_cbfpvwm"),
+                ("out_att", "out_att"),
+            ]),
+        ])
+        # fmt:on
 
     return workflow
