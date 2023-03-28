@@ -285,12 +285,8 @@ class ComputeCBF(SimpleInterface):
         # time series, with any M0 volumes having a value of 0.
         plds = np.array(metadata["PostLabelingDelay"])
 
-        # 1.5T and 3T values taken from Alsop 2015
-        t1blood_dict = {
-            1.5: 1.35,
-            3: 1.65,
-        }
-        t1blood = t1blood_dict[metadata["MagneticFieldStrength"]]
+        # Zhang et al. (2012): https://doi.org/10.1002/mrm.24550
+        t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
         # Get labeling efficiency (alpha in Alsop 2015).
         # PCASL and PASL values come from Alsop 2015.
