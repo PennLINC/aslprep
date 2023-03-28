@@ -325,7 +325,9 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
         # for compute cbf for each PLD and TI
     att = None
     if hasattr(perfusion_factor, "__len__") and cbf_data.shape[1] > 1:
+        LOGGER.warning(f"perfusion_factor: {perfusion_factor.shape}")
         permfactor = np.tile(perfusion_factor, int(cbf_data.shape[1] / len(perfusion_factor)))
+        LOGGER.warning(f"permfactor: {permfactor.shape}")
         cbf_data_ts = np.zeros(cbf_data.shape)
 
         # calculate  cbf with multiple plds
