@@ -225,7 +225,7 @@ model [@buxton1998general].
     cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
     if cbf_only and not basil:
         config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
-    elif basil:
+    elif cbf_only:
         config.loggers.workflow.warning(
             f"Only CBF volumes are detected in {name_source}. "
             "BASIL will automatically be disabled."
@@ -1390,7 +1390,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
     if cbf_only and not basil:
         config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
-    elif basil:
+    elif cbf_only:
         config.loggers.workflow.warning(
             f"Only CBF volumes are detected in {name_source}. "
             "BASIL will automatically be disabled."

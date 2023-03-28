@@ -325,13 +325,19 @@ class ComputeCBF(SimpleInterface):
             config.loggers.interface.debug(
                 "Precalculated CBF data detected. Skipping CBF estimation."
             )
-            mean_cbf_img = image.mean_img(deltam_file)
-            self._results["cbf"] = os.path.abspath(deltam_file)
+            self._results["cbf"] = fname_presuffix(
+                deltam_file,
+                suffix="_meancbf",
+                newpath=runtime.cwd,
+            )
+            cbf_img = nb.load(deltam_file)
+            cbf_img.to_filename(self._results["cbf"])
             self._results["mean_cbf"] = fname_presuffix(
                 deltam_file,
                 suffix="_meancbf",
                 newpath=runtime.cwd,
             )
+            mean_cbf_img = image.mean_img(cbf_img)
             mean_cbf_img.to_filename(self._results["mean_cbf"])
             return runtime
 
