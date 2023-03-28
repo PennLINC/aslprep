@@ -321,12 +321,12 @@ effects of other kernels [@lanczos].
     )
 
     cbf_compt_wf = init_gecbf_compt_wf(
-        mem_gb=mem_gb["filesize"],
         name_source=asl_file,
         metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,
         M0Scale=mscale,
+        mem_gb=mem_gb["filesize"],
         name="cbf_compt_wf",
     )
 

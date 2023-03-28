@@ -158,7 +158,7 @@ model [@buxton1998general].
     # XXX: This is a bad way to find this file.
     aslcontext = name_source.replace("_asl.nii.gz", "_aslcontext.tsv")
     aslcontext_df = pd.read_table(aslcontext)
-    cbf_only = all(aslcontext_df["volume_type"].isin("m0scan", "cbf"))
+    cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
     if cbf_only and not basil:
         config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
     elif basil:
@@ -1371,6 +1371,16 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     # XXX: This is a bad way to find this file.
     aslcontext = name_source.replace("_asl.nii.gz", "_aslcontext.tsv")
     aslcontext_df = pd.read_table(aslcontext)
+    cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
+    if cbf_only and not basil:
+        config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
+    elif basil:
+        config.loggers.workflow.warning(
+            f"Only CBF volumes are detected in {name_source}. "
+            "BASIL will automatically be disabled."
+        )
+        basil = False
+
     vol_types = aslcontext_df["volume_type"].tolist()
     deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
     cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
@@ -1431,7 +1441,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         # fmt:on
 
         compute_cbf = pe.Node(
-            ComputeCBF(metadata=metadata, m0scale=M0Scale),
+            ComputeCBF(
+                metadata=metadata,
+                m0scale=M0Scale,
+                cbf_only=cbf_only,
+            ),
             mem_gb=mem_gb,
             run_without_submitting=True,
             name="compute_cbf",
@@ -1452,14 +1466,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         # fmt:on
 
     elif cbf_volume_idx:
-        # If CBF has already been calculated, and deltaM isn't available.
-        # BASIL can't be run on pre-calculated CBF data.
-        config.loggers.workflow.warning(
-            f"Only CBF volumes are detected in {name_source}. "
-            "BASIL will automatically be disabled."
-        )
-        basil = False
-
         extract_cbf = pe.Node(
             ExtractCBForDeltaM(file_type="c"),
             mem_gb=1,
