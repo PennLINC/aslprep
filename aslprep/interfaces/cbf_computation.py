@@ -183,39 +183,49 @@ class ExtractCBF(SimpleInterface):
         if asl_data.ndim == 5:
             raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
 
-        pld = metadata["PostLabelingDelay"]
         precalculated_cbf = False
+        pld = np.array(metadata["PostLabelingDelay"])
+        if pld.size > 1 and pld.size != asl_data.shape[3]:
+            raise ValueError(
+                "PostLabelingDelay is an array, but the number of values does not match the "
+                "number of volumes in the ASL data."
+            )
+
         if deltam_volume_idx:
             LOGGER.info("Extracting deltaM from ASL file.")
+            metadata_idx = deltam_volume_idx
             out_data = asl_data[:, :, :, deltam_volume_idx]
-            if isinstance(pld, list) and len(pld) == asl_data.shape[3]:
-                # Reduce the volume-wise PLDs to just include the selected volumes.
-                metadata["PostLabelingDelay"] = [pld[i] for i in deltam_volume_idx]
 
         elif label_volume_idx:
             LOGGER.info("Calculating deltaM from label-control pairs in ASL file.")
             assert len(label_volume_idx) == len(control_volume_idx)
+            metadata_idx = control_volume_idx
             control_data = asl_data[:, :, :, control_volume_idx]
             label_data = asl_data[:, :, :, label_volume_idx]
             out_data = control_data - label_data
-            if isinstance(pld, list) and len(pld) == asl_data.shape[3]:
-                # Reduce the volume-wise PLDs to just include the selected volumes.
-                metadata["PostLabelingDelay"] = [pld[i] for i in control_volume_idx]
 
         elif cbf_volume_idx:
             # NOTE: The output from this interface is fed into the CBF calculation interface,
             # so this is probably a bug.
             precalculated_cbf = True
+            metadata_idx = cbf_volume_idx
             out_data = asl_data[:, :, :, cbf_volume_idx]
-            if isinstance(pld, list) and len(pld) == asl_data.shape[3]:
-                # Reduce the volume-wise PLDs to just include the selected volumes.
-                metadata["PostLabelingDelay"] = [pld[i] for i in cbf_volume_idx]
 
         else:
             raise RuntimeError("No valid ASL or CBF image.")
 
+        if pld.size > 1:
+            # Reduce the volume-wise PLDs to just include the selected volumes.
+            pld = pld[metadata_idx]
+
         if self.inputs.dummy_vols != 0:
             out_data = out_data[..., self.inputs.dummy_vols :]
+            if pld.size > 1:
+                # Remove dummy volumes from the PLDs
+                pld = pld[self.inputs.dummy_vols :]
+
+        if pld.size > 1:
+            metadata["PostLabelingDelay"] = pld.tolist()
 
         self._results["metadata"] = metadata
         self._results["out_file"] = fname_presuffix(
@@ -373,17 +383,20 @@ class ComputeCBF(SimpleInterface):
         # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
         deltam_scaled = deltam_arr / scaled_m0data
 
+        if (perfusion_factor.size > 1) and (perfusion_factor.size != n_volumes):
+            raise ValueError(
+                f"Number of volumes ({n_volumes}) must match number of PLDs "
+                f"({perfusion_factor.size})."
+            )
+
         if (perfusion_factor.size > 1) and (n_volumes > 1):
             # Multi-PLD acquisition with multiple control-label pairs.
-            if n_volumes % len(perfusion_factor) != 0:
-                raise ValueError("Number of volumes must be divisible by number of PLDs.")
-
-            n_cbf_volumes = n_volumes // len(perfusion_factor)
-
-            permfactor = np.tile(perfusion_factor, n_cbf_volumes)
+            permfactor = np.tile(perfusion_factor, n_volumes)
+            LOGGER.warning(permfactor.shape)
             cbf_data_ts = deltam_scaled * permfactor
-            cbf = np.zeros((n_voxels, n_cbf_volumes))
-            cbf_xx = np.split(cbf_data_ts, n_cbf_volumes, axis=1)
+            LOGGER.warning(cbf_data_ts.shape)
+            cbf = np.zeros((n_voxels, n_volumes))
+            cbf_xx = np.split(cbf_data_ts, n_volumes, axis=1)
 
             # Calculate weighted CBF with multiple PostLabelingDelays.
             # Wang et al. (2013): https://doi.org/10.1016%2Fj.nicl.2013.06.017
@@ -398,6 +411,7 @@ class ComputeCBF(SimpleInterface):
 
         elif (perfusion_factor.size > 1) and (n_volumes == 1):
             # Multi-PLD acquisition with one control-label pair.
+            # NOTE: How is this possible?
             cbf_ts = np.zeros(deltam_arr.shape, len(perfusion_factor))
             for i_delay in len(perfusion_factor):
                 cbf_ts[:, i_delay] = deltam_scaled * perfusion_factor[i_delay]
