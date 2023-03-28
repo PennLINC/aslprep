@@ -310,8 +310,11 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
     m0data = m0data[maskx == 1]
     # compute cbf
     cbf_data = nb.load(cbffile).get_fdata()
+    LOGGER.warning(f"cbf_data: {cbf_data.shape}")
     cbf_data = cbf_data[maskx == 1]
+    LOGGER.warning(f"cbf_data (masked): {cbf_data.shape}")
     cbf1 = np.zeros(cbf_data.shape)
+    LOGGER.warning(f"cbf1: {cbf1.shape}")
     if len(cbf_data.shape) < 2:
         cbf1 = np.divide(cbf_data, (m0scale * m0data))
     else:
