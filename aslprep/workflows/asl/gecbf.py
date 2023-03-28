@@ -250,6 +250,15 @@ effects of other kernels [@lanczos].
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name="t1w_brain")
 
+    # fmt:off
+    workflow.connect([
+        (inputnode, t1w_brain, [
+            ("t1w_preproc", "in_file"),
+            ("t1w_mask", "in_mask"),
+        ]),
+    ])
+    # fmt:on
+
     # asl buffer: an identity used as a pointer to either the original asl
     # or the STC'ed one for further use.
     aslbuffer = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer")
@@ -280,6 +289,7 @@ effects of other kernels [@lanczos].
 
     # fmt:off
     workflow.connect([
+        (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
         (outputnode, asl_derivatives_wf, [
             ("asl_t1", "inputnode.asl_t1"),
             ("asl_t1_ref", "inputnode.asl_t1_ref"),
@@ -297,6 +307,12 @@ effects of other kernels [@lanczos].
         name="asl_gereference_wf",
     )
 
+    # fmt:off
+    workflow.connect([
+        (inputnode, gen_ref_wf, [("asl_file", "inputnode.asl_file")]),
+    ])
+    # fmt:on
+
     asl_reg_wf = init_asl_gereg_wf(
         use_bbr=config.workflow.use_bbr,
         asl2t1w_dof=config.workflow.asl2t1w_dof,
@@ -305,6 +321,23 @@ effects of other kernels [@lanczos].
         sloppy=False,
         write_report=True,
     )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, asl_reg_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
+        (gen_ref_wf, asl_reg_wf, [("outputnode.ref_image_brain", "inputnode.ref_asl_brain")]),
+        (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
+        (asl_reg_wf, outputnode, [
+            ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
+            ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
+        ]),
+        (asl_reg_wf, asl_derivatives_wf, [
+            ("outputnode.itk_t1_to_asl", "inputnode.itk_t1_to_asl"),
+            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
+        ]),
+        (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
+    ])
+    # fmt:on
 
     nonstd_spaces = set(spaces.get_nonstandard())
     t1cbfspace = False
@@ -320,48 +353,8 @@ effects of other kernels [@lanczos].
         name="asl_t1_trans_wf",
     )
 
-    cbf_compt_wf = init_gecbf_compt_wf(
-        name_source=asl_file,
-        metadata=metadata,
-        scorescrub=scorescrub,
-        basil=basil,
-        M0Scale=mscale,
-        mem_gb=mem_gb["filesize"],
-        name="cbf_compt_wf",
-    )
-
     # fmt:off
     workflow.connect([
-        (inputnode, gen_ref_wf, [("asl_file", "inputnode.asl_file")]),
-        (gen_ref_wf, asl_reg_wf, [("outputnode.ref_image_brain", "inputnode.ref_asl_brain")]),
-        (inputnode, t1w_brain, [
-            ("t1w_preproc", "in_file"),
-            ("t1w_mask", "in_mask"),
-        ]),
-        (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
-        (inputnode, asl_reg_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
-        (gen_ref_wf, cbf_compt_wf, [("outputnode.m0_file", "inputnode.m0_file")]),
-        (inputnode, cbf_compt_wf, [
-            ("asl_file", "inputnode.in_file"),
-            ("asl_file", "inputnode.asl_file"),
-        ]),
-        (gen_ref_wf, cbf_compt_wf, [("outputnode.asl_mask", "inputnode.asl_mask")]),
-        (inputnode, cbf_compt_wf, [
-            ("t1w_tpms", "inputnode.t1w_tpms"),
-            ("t1w_mask", "inputnode.t1w_mask"),
-        ]),
-        (asl_reg_wf, cbf_compt_wf, [
-            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
-            ("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform"),
-        ]),
-        (asl_reg_wf, outputnode, [
-            ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
-            ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
-        ]),
-        (asl_reg_wf, asl_derivatives_wf, [
-            ("outputnode.itk_t1_to_asl", "inputnode.itk_t1_to_asl"),
-            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
-        ]),
         (inputnode, t1w_gereg_wf, [
             ("asl_file", "inputnode.name_source"),
             ("t1w_mask", "inputnode.t1w_mask"),
@@ -375,8 +368,35 @@ effects of other kernels [@lanczos].
             ("outputnode.asl_t1", "asl_t1"),
             ("outputnode.asl_t1_ref", "asl_t1_ref"),
         ]),
-        (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
-        (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
+    ])
+    # fmt:on
+
+    cbf_compt_wf = init_gecbf_compt_wf(
+        name_source=asl_file,
+        metadata=metadata,
+        scorescrub=scorescrub,
+        basil=basil,
+        M0Scale=mscale,
+        mem_gb=mem_gb["filesize"],
+        name="cbf_compt_wf",
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, cbf_compt_wf, [
+            ("asl_file", "inputnode.in_file"),
+            ("asl_file", "inputnode.asl_file"),
+            ("t1w_tpms", "inputnode.t1w_tpms"),
+            ("t1w_mask", "inputnode.t1w_mask"),
+        ]),
+        (gen_ref_wf, cbf_compt_wf, [
+            ("outputnode.asl_mask", "inputnode.asl_mask"),
+            ("outputnode.m0_file", "inputnode.m0_file"),
+        ]),
+        (asl_reg_wf, cbf_compt_wf, [
+            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
+            ("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform"),
+        ]),
     ])
     # fmt:on
 
@@ -389,9 +409,9 @@ effects of other kernels [@lanczos].
 
     # fmt:off
     workflow.connect([
+        (inputnode, refine_mask, [("t1w_mask", "in_t1mask")]),
         (gen_ref_wf, refine_mask, [("outputnode.asl_mask", "in_aslmask")]),
         (asl_reg_wf, refine_mask, [("outputnode.itk_t1_to_asl", "transforms")]),
-        (inputnode, refine_mask, [("t1w_mask", "in_t1mask")]),
     ])
     # fmt:on
 
@@ -400,6 +420,7 @@ effects of other kernels [@lanczos].
         basil=basil,
         name="cbf_plot",
     )
+
     # fmt:off
     workflow.connect([
         (cbf_compt_wf, cbf_plot, [("outputnode.out_mean", "inputnode.cbf")]),
@@ -495,6 +516,7 @@ effects of other kernels [@lanczos].
         scorescrub=scorescrub,
         basil=basil,
     )
+
     # fmt:off
     workflow.connect([
         (refine_mask, compt_qccbf_wf, [("out_mask", "inputnode.asl_mask")]),
@@ -576,6 +598,7 @@ effects of other kernels [@lanczos].
             basil=basil,
             name="asl_gestd_trans_wf",
         )
+
         # fmt:off
         workflow.connect([
             (inputnode, std_gereg_wf, [
@@ -673,6 +696,7 @@ effects of other kernels [@lanczos].
         basil=basil,
         name="cbf_roiquant",
     )
+
     # fmt:off
     workflow.connect([
         (refine_mask, cbfroiqu, [("out_mask", "inputnode.aslmask")]),
