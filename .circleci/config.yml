@@ -108,6 +108,35 @@ jobs:
           paths:
               - .coverage.subA00086748
 
+  aslprep_sub10R01383:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_sub01\]' )" != "" ]]; then
+              echo "Skipping aslprep_sub01 build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: data-v4
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on aslprep_sub10R01383 bold
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "sub10R01383" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.sub10R01383
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.sub10R01383
+
   pytests:
     <<: *dockersetup
     steps:
@@ -253,6 +282,18 @@ workflows:
             tags:
               only: /.*/
 
+      - aslprep_sub10R01383:
+          requires:
+            - download_data
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
       - pytests:
           requires:
             - download_data
@@ -269,6 +310,7 @@ workflows:
           requires:
             - aslprep_sub01
             - aslprep_subA00086748
+            - aslprep_sub10R01383
             - pytests
           filters:
             branches:
@@ -283,6 +325,7 @@ workflows:
             - build
             - aslprep_sub01
             - aslprep_subA00086748
+            - aslprep_sub10R01383
           filters:
             branches:
               only: main
