@@ -80,6 +80,7 @@ class RefineMask(SimpleInterface):
 
 
 class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
+    name_source = File(exists=True, mandatory=True, desc="raw asl file")
     asl_file = File(exists=True, mandatory=True, desc="preprocessed asl file")
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
     in_mask = File(exists=True, mandatory=True, desc="mask")
@@ -235,12 +236,12 @@ class ExtractCBF(SimpleInterface):
 
         self._results["metadata"] = metadata
         self._results["out_file"] = fname_presuffix(
-            self.inputs.in_file,
+            self.inputs.name_source,
             suffix="_DeltaMOrCBF",
             newpath=runtime.cwd,
         )
         self._results["out_avg"] = fname_presuffix(
-            self.inputs.in_file,
+            self.inputs.name_source,
             suffix="_m0file",
             newpath=runtime.cwd,
         )

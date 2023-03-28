@@ -234,6 +234,7 @@ model [@buxton1998general].
 
     extract_deltam = pe.Node(
         ExtractCBF(
+            name_source=name_source,
             aslcontext=aslcontext,
             dummy_vols=dummy_vols,
             bids_dir=bids_dir,
