@@ -94,6 +94,8 @@ def test_subA00086748(datasets, output_dir, working_dir):
 def test_sub10R01383(datasets, output_dir, working_dir):
     """Run aslprep on sub-10R01383.
 
+    Currently skipped.
+
     Notes
     -----
     scorescrub fails on this dataset, so I've dropped that parameter.

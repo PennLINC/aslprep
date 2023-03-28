@@ -288,7 +288,7 @@ CBF Computation in native space
 
     from aslprep.workflows.asl.cbf import init_cbf_compt_wf
 
-    bids_dir=Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
+    bids_dir = Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
     metadata_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
     with open(metadata_file) as f:
         metadata = json.load(f)
@@ -303,33 +303,35 @@ CBF Computation in native space
         dummy_vols=0,
     )
 
-ASL data consist of multiple pairs of labeled and control images. *ASLPrep* first checks for
-the reference ASL volume(s) (M0,``sub-task_xxxx-acq-YYY_m0scan.nii.gz``). In the absence of M0 images,
+ASL data consist of multiple pairs of labeled and control images.
+*ASLPrep* first checks for proton density-weighted volume(s)
+(M0, ``sub-task_xxxx-acq-YYY_m0scan.nii.gz``).
+In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
-After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are
-subtracted:
+After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted:
 
 .. math::
-   ASL_{signal}= M_{C} - M_{L}
+   ASL_{signal} = M_{C} - M_{L}
 
 The CBF computation of either single or multiple PLD (post labelling delay)
-is done using a relatively simple model. For P/CASL (pseudo continuous ASL), CBF
-is calculated by using a general kinetic model :footcite:p:`buxton1998general`:
+is done using a relatively simple model.
+For P/CASL (pseudo continuous ASL),
+CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`:
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{- \tau / T1_{blood} }) }
+   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ \frac{ PLD }{ T1_{blood} } } {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{\frac{ - \tau }{ T1_{blood} } }) }
 
 
 PASL (Pulsed ASL) is also computed by the QUIPSS model :footcite:p:`wong1998quantitative`:
 
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ {PLD/T1_{blood}}} {2 * \alpha * TI  * M_{0}}
+   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ \frac{ PLD }{ T1_{blood} } } {2 * \alpha * TI  * M_{0}}
 
 
-:math:`\tau,\quad \lambda,\quad and\quad \alpha\quad` are label duration, brain-blood partition
-coefficient, and labeling efficiency, respectively.
+:math:`\tau`, :math:`\lambda`, and :math:`\alpha` are label duration,
+brain-blood partition coefficient, and labeling efficiency, respectively.
 In the absence of any of these parameters, standard values are used based on the scan type and
 scanning parameters.
 
@@ -337,9 +339,8 @@ The computed CBF time series is shown in carpet plot below.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbftsplot_asl.svg
 
-    The carpet plot of computed CBF. The step plot above indicated the volume(s) marked by SCORE
-    algorithm to be contaminated by noise.
-
+    The carpet plot of computed CBF.
+    The step plot above indicated the volume(s) marked by SCORE algorithm to be contaminated by noise.
 
 Mean CBF is computed from the average of CBF timeseries.
 
