@@ -391,25 +391,15 @@ class ComputeCBF(SimpleInterface):
 
         if (perfusion_factor.size > 1) and (n_volumes > 1):
             # Multi-PLD acquisition with multiple control-label pairs.
-            LOGGER.warning(f"deltam_arr: {deltam_arr.shape}")
-            LOGGER.warning(f"perfusion_factor: {perfusion_factor.shape}")
-            permfactor = np.tile(perfusion_factor, n_volumes)
-            LOGGER.warning(f"permfactor: {permfactor.shape}")
-            cbf_data_ts = deltam_scaled * perfusion_factor[None, :]
-            LOGGER.warning(f"cbf_data_ts: {cbf_data_ts.shape}")
-            cbf = np.zeros((n_voxels, n_volumes))
-
             # Calculate weighted CBF with multiple PostLabelingDelays.
             # Wang et al. (2013): https://doi.org/10.1016%2Fj.nicl.2013.06.017
             # Dai et al. (2012): https://doi.org/10.1002/mrm.23103
-            for i_volume in range(n_volumes):
-                cbf_plds = cbf_data_ts[:, i_volume]
-                LOGGER.warning(f"cbf_plds[{i_volume}]: {cbf_plds.shape}")
-                pldx = np.zeros(cbf_plds.shape)
-                for j in range(cbf_plds.shape[0]):
-                    pldx[:, j] = np.array(np.multiply(cbf_plds[:, j], plds[j]))
-
-                cbf[:, k] = np.sum(pldx, axis=1) / np.sum(plds)
+            cbf_ts = deltam_scaled * perfusion_factor[None, :]
+            for perfusion_value in np.unique(perfusion_factor):
+                perf_val_idx = perfusion_factor == perfusion_value
+                cbf[:, perf_val_idx] = np.sum(cbf_ts[:, perf_val_idx], axis=1) / np.sum(
+                    perfusion_factor[perf_val_idx]
+                )
 
         elif (perfusion_factor.size > 1) and (n_volumes == 1):
             # Multi-PLD acquisition with one control-label pair.
