@@ -391,10 +391,11 @@ class ComputeCBF(SimpleInterface):
 
         if (perfusion_factor.size > 1) and (n_volumes > 1):
             # Multi-PLD acquisition with multiple control-label pairs.
+            LOGGER.warning(f"perfusion_factor: {perfusion_factor.shape}")
             permfactor = np.tile(perfusion_factor, n_volumes)
-            LOGGER.warning(permfactor.shape)
+            LOGGER.warning(f"permfactor: {permfactor.shape}")
             cbf_data_ts = deltam_scaled * permfactor
-            LOGGER.warning(cbf_data_ts.shape)
+            LOGGER.warning(f"cbf_data_ts: {cbf_data_ts.shape}")
             cbf = np.zeros((n_voxels, n_volumes))
             cbf_xx = np.split(cbf_data_ts, n_volumes, axis=1)
 
@@ -403,6 +404,7 @@ class ComputeCBF(SimpleInterface):
             # Dai et al. (2012): https://doi.org/10.1002/mrm.23103
             for k in range(len(cbf_xx)):
                 cbf_plds = cbf_xx[k]
+                LOGGER.warning(f"cbf_plds[{k}]: {cbf_plds.shape}")
                 pldx = np.zeros(cbf_plds.shape)
                 for j in range(cbf_plds.shape[0]):
                     pldx[:, j] = np.array(np.multiply(cbf_plds[:, j], plds[j]))
