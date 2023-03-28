@@ -96,6 +96,13 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
 class _ExtractCBFOutputSpec(TraitedSpec):
     out_file = File(exists=False, desc="Either CBF or deltaM time series.")
     out_avg = File(exists=False, desc="Mean M0 image.")
+    metadata = traits.Dict(
+        desc=(
+            "Metadata for the ASL run. "
+            "The dictionary may be modified to only include metadata associated with the selected "
+            "volumes."
+        ),
+    )
 
 
 class ExtractCBF(SimpleInterface):
@@ -109,6 +116,7 @@ class ExtractCBF(SimpleInterface):
 
     def _run_interface(self, runtime):
         raw_asl_file = os.path.abspath(self.inputs.in_file)
+        metadata = self.inputs.in_metadata.copy()
         aslcontext = raw_asl_file.replace("_asl.nii.gz", "_aslcontext.tsv")
 
         mask_data = nb.load(self.inputs.in_mask).get_fdata()
@@ -126,7 +134,7 @@ class ExtractCBF(SimpleInterface):
         cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
 
         # extcract m0 file and register it to ASL if separate
-        if self.inputs.in_metadata["M0Type"] == "Separate":
+        if metadata["M0Type"] == "Separate":
             m0file = self.inputs.in_file.replace("asl.nii.gz", "m0scan.nii.gz")
             m0file_metadata = readjson(m0file.replace("nii.gz", "json"))
             aslfile_linkedM0 = os.path.abspath(
@@ -143,7 +151,7 @@ class ExtractCBF(SimpleInterface):
             else:
                 m0data = mask_data * m0data_smooth
 
-        elif self.inputs.in_metadata["M0Type"] == "Included":
+        elif metadata["M0Type"] == "Included":
             m0data = asl_data[:, :, :, m0_volume_idx]
             m0img = nb.Nifti1Image(m0data, asl_img.affine, asl_img.header)
             m0data_smooth = smooth_image(m0img, fwhm=self.inputs.fwhm).get_fdata()
@@ -152,11 +160,11 @@ class ExtractCBF(SimpleInterface):
             else:
                 m0data = mask_data * m0data_smooth
 
-        elif self.inputs.in_metadata["M0Type"] == "Estimate":
-            moestimate = self.inputs.in_metadata["M0Estimate"]
+        elif metadata["M0Type"] == "Estimate":
+            moestimate = metadata["M0Estimate"]
             m0data = moestimate * mask_data
 
-        elif self.inputs.in_metadata["M0Type"] == "Absent":
+        elif metadata["M0Type"] == "Absent":
             if control_volume_idx:
                 # Estimate M0 using the smoothed mean control volumes.
                 control_data = asl_data[:, :, :, control_volume_idx]
@@ -175,27 +183,41 @@ class ExtractCBF(SimpleInterface):
         if asl_data.ndim == 5:
             raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
 
+        pld = metadata["PostLabelingDelay"]
         precalculated_cbf = False
         if deltam_volume_idx:
             LOGGER.info("Extracting deltaM from ASL file.")
             out_data = asl_data[:, :, :, deltam_volume_idx]
+            if isinstance(pld, list) and len(pld) == asl_data.shape[3]:
+                # Reduce the volume-wise PLDs to just include the selected volumes.
+                metadata["PostLabelingDelay"] = [pld[i] for i in deltam_volume_idx]
+
         elif label_volume_idx:
             LOGGER.info("Calculating deltaM from label-control pairs in ASL file.")
             assert len(label_volume_idx) == len(control_volume_idx)
             control_data = asl_data[:, :, :, control_volume_idx]
             label_data = asl_data[:, :, :, label_volume_idx]
             out_data = control_data - label_data
+            if isinstance(pld, list) and len(pld) == asl_data.shape[3]:
+                # Reduce the volume-wise PLDs to just include the selected volumes.
+                metadata["PostLabelingDelay"] = [pld[i] for i in control_volume_idx]
+
         elif cbf_volume_idx:
             # NOTE: The output from this interface is fed into the CBF calculation interface,
             # so this is probably a bug.
             precalculated_cbf = True
             out_data = asl_data[:, :, :, cbf_volume_idx]
+            if isinstance(pld, list) and len(pld) == asl_data.shape[3]:
+                # Reduce the volume-wise PLDs to just include the selected volumes.
+                metadata["PostLabelingDelay"] = [pld[i] for i in cbf_volume_idx]
+
         else:
             raise RuntimeError("No valid ASL or CBF image.")
 
         if self.inputs.dummy_vols != 0:
             out_data = out_data[..., self.inputs.dummy_vols :]
 
+        self._results["metadata"] = metadata
         self._results["out_file"] = fname_presuffix(
             self.inputs.in_file,
             suffix=f"_{'cbf' if precalculated_cbf else 'deltam'}",
