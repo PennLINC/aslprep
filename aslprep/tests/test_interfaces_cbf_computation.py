@@ -1,5 +1,4 @@
 """Tests for the aslprep.interfaces.cbf_computation submodule."""
-import json
 import os
 
 import nibabel as nb
@@ -13,14 +12,11 @@ from aslprep.interfaces import cbf_computation
 def test_computecbf_casl(datasets, tmp_path_factory):
     """Test aslprep.interfaces.cbf_computation.ComputeCBF with (P)CASL."""
     tmpdir = tmp_path_factory.mktemp("test_computecbf_casl")
-    json_file = os.path.join(datasets["dset"], "sub-01/perf/sub-01_asl.json")
     aslcontext_file = os.path.join(datasets["dset"], "sub-01/perf/sub-01_aslcontext.tsv")
 
     aslcontext = pd.read_table(aslcontext_file)
     n_deltam = aslcontext.loc[aslcontext["volume_type"] == "label"].shape[0]
     n_volumes = aslcontext.shape[0]
-    with open(json_file, "r") as fo:
-        metadata = json.load(fo)
 
     # Simulate ASL data and a brain mask.
     asl_data = np.random.random((30, 30, 30, n_deltam)).astype(np.float32)
