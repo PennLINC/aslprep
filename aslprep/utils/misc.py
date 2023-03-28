@@ -6,11 +6,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any
+from nipype import logging
 
 import nibabel as nb
 import numpy as np
 from nipype.utils.filemanip import fname_presuffix
 from pkg_resources import resource_filename as pkgrf
+
+LOGGER = logging.getLogger("nipype.utils")
 
 
 def check_deps(workflow):
@@ -323,9 +326,11 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
         cbf_data_ts = np.zeros(cbf_data.shape)
 
         # calculate  cbf with multiple plds
+        LOGGER.warning(f"cbf_data_ts: {cbf_data_ts.shape}")
         for i in range(cbf_data.shape[1]):
             cbf_data_ts[:, i] = np.multiply(cbf1[:, i], permfactor[i])
         cbf = np.zeros([cbf_data_ts.shape[0], int(cbf_data.shape[1] / len(perfusion_factor))])
+        LOGGER.warning(f"cbf: {cbf.shape}")
         cbf_xx = np.split(cbf_data_ts, int(cbf_data_ts.shape[1] / len(perfusion_factor)), axis=1)
 
         # calculate weighted cbf with multiplds
@@ -333,10 +338,13 @@ def compute_cbf(metadata, mask, m0file, cbffile, m0scale=1):
         # https://pubmed.ncbi.nlm.nih.gov/22084006/
         for k in range(len(cbf_xx)):
             cbf_plds = cbf_xx[k]
+            LOGGER.warning(f"cbf_plds{k}: {cbf_plds.shape}")
             pldx = np.zeros([cbf_plds.shape[0], len(cbf_plds)])
+            LOGGER.warning(f"pldx{k}: {pldx.shape}")
             for j in range(cbf_plds.shape[1]):
                 pldx[:, j] = np.array(np.multiply(cbf_plds[:, j], plds[j]))
             cbf[:, k] = np.divide(np.sum(pldx, axis=1), np.sum(plds))
+            LOGGER.warning(f"cbf{k}: {cbf.shape}")
 
     elif hasattr(perfusion_factor, "__len__") and len(cbf_data.shape) < 2:
         cbf_ts = np.zeros(cbf_data.shape, len(perfusion_factor))
