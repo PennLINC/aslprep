@@ -326,7 +326,7 @@ class ComputeCBF(SimpleInterface):
                 "Precalculated CBF data detected. Skipping CBF estimation."
             )
             mean_cbf_img = image.mean_img(deltam_file)
-            self._results["cbf"] = deltam_file
+            self._results["cbf"] = os.path.abspath(deltam_file)
             self._results["mean_cbf"] = fname_presuffix(
                 deltam_file,
                 suffix="_meancbf",

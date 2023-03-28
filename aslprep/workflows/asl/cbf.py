@@ -813,7 +813,10 @@ def init_cbfplot_wf(
         ]),
         (cbftssummary, ds_report_cbftsplot, [("out_file", "in_file")]),
         (cbftssummary, outputnode, [("out_file", "cbf_carpetplot")]),
-        (inputnode, cbfsummary, [("cbf", "cbf"), ("asl_ref", "ref_vol")]),
+        (inputnode, cbfsummary, [
+            ("cbf", "cbf"),
+            ("asl_ref", "ref_vol"),
+        ]),
         (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
         (cbfsummary, outputnode, [("out_file", "cbf_summary_plot")]),
     ])

@@ -227,7 +227,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    with pytest.raises(ValueError, match="Number of volumes"):
+    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
         results = interface.run(cwd=tmpdir)
 
     # Scenario 4: QUIPSS PASL with one PostLabelingDelay for each deltam volume (good)
