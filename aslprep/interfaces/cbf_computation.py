@@ -398,14 +398,13 @@ class ComputeCBF(SimpleInterface):
             cbf_data_ts = deltam_scaled * perfusion_factor[None, :]
             LOGGER.warning(f"cbf_data_ts: {cbf_data_ts.shape}")
             cbf = np.zeros((n_voxels, n_volumes))
-            cbf_xx = np.split(cbf_data_ts, n_volumes, axis=1)
 
             # Calculate weighted CBF with multiple PostLabelingDelays.
             # Wang et al. (2013): https://doi.org/10.1016%2Fj.nicl.2013.06.017
             # Dai et al. (2012): https://doi.org/10.1002/mrm.23103
-            for k in range(len(cbf_xx)):
-                cbf_plds = cbf_xx[k]
-                LOGGER.warning(f"cbf_plds[{k}]: {cbf_plds.shape}")
+            for i_volume in range(n_volumes):
+                cbf_plds = cbf_data_ts[:, i_volume]
+                LOGGER.warning(f"cbf_plds[{i_volume}]: {cbf_plds.shape}")
                 pldx = np.zeros(cbf_plds.shape)
                 for j in range(cbf_plds.shape[0]):
                     pldx[:, j] = np.array(np.multiply(cbf_plds[:, j], plds[j]))
