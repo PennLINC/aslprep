@@ -396,9 +396,9 @@ class ComputeCBF(SimpleInterface):
             # Dai et al. (2012): https://doi.org/10.1002/mrm.23103
             cbf_ts = deltam_scaled * perfusion_factor[None, :]
             cbf = np.zeros((n_voxels, np.unique(perfusion_factor).size))
-            for perfusion_value in np.unique(perfusion_factor):
+            for i_delay, perfusion_value in enumerate(np.unique(perfusion_factor)):
                 perf_val_idx = perfusion_factor == perfusion_value
-                cbf[:, perf_val_idx] = np.sum(cbf_ts[:, perf_val_idx], axis=1) / np.sum(
+                cbf[:, i_delay] = np.sum(cbf_ts[:, perf_val_idx], axis=1) / np.sum(
                     perfusion_factor[perf_val_idx]
                 )
 
