@@ -202,7 +202,7 @@ class ExtractCBF(SimpleInterface):
             config.loggers.interface.info(
                 "Calculating deltaM from label-control pairs in ASL file."
             )
-            assert label_volume_idx.size == control_volume_idx.size
+            assert len(label_volume_idx) == len(control_volume_idx)
             metadata_idx = control_volume_idx
             control_data = asl_data[:, :, :, control_volume_idx]
             label_data = asl_data[:, :, :, label_volume_idx]
