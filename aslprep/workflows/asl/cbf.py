@@ -182,13 +182,7 @@ model [@buxton1998general].
     )
 
     # fmt:off
-    workflow.connect([
-        # extract deltaM data
-        (inputnode, extract_deltam, [
-            ("in_file", "in_file"),
-            ("asl_file", "asl_file"),
-        ]),
-    ])
+    workflow.connect([(inputnode, extract_deltam, [("asl_file", "asl_file")])])
     # fmt:on
 
     compute_cbf = pe.Node(
