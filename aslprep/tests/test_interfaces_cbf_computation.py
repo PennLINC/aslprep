@@ -43,6 +43,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
         "PostLabelingDelay": single_pld,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
@@ -67,13 +68,14 @@ def test_computecbf_casl(datasets, tmp_path_factory):
     }
 
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
         m0_file=m0_file,
         mask=mask_file,
     )
-    with pytest.raises(ValueError, match="Number of volumes"):
+    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
         results = interface.run(cwd=tmpdir)
 
     # Scenario 3: PCASL with one PostLabelingDelay for each deltam volume (good)
@@ -85,20 +87,15 @@ def test_computecbf_casl(datasets, tmp_path_factory):
     }
 
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = interface.run(cwd=tmpdir)
-    assert os.path.isfile(results.outputs.cbf)
-    cbf_img = nb.load(results.outputs.cbf)
-    assert cbf_img.ndim == 4
-    assert cbf_img.shape[3] == n_deltam
-    assert os.path.isfile(results.outputs.mean_cbf)
-    mean_cbf_img = nb.load(results.outputs.mean_cbf)
-    assert mean_cbf_img.ndim == 3
+    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        results = interface.run(cwd=tmpdir)
 
     # Scenario 4: CASL with a single PostLabelingDelay
     metadata = {
@@ -108,6 +105,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
         "PostLabelingDelay": single_pld,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
@@ -131,20 +129,15 @@ def test_computecbf_casl(datasets, tmp_path_factory):
         "PostLabelingDelay": good_multiple_plds,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = interface.run(cwd=tmpdir)
-    assert os.path.isfile(results.outputs.cbf)
-    cbf_img = nb.load(results.outputs.cbf)
-    assert cbf_img.ndim == 4
-    assert cbf_img.shape[3] == n_deltam
-    assert os.path.isfile(results.outputs.mean_cbf)
-    mean_cbf_img = nb.load(results.outputs.mean_cbf)
-    assert mean_cbf_img.ndim == 3
+    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        results = interface.run(cwd=tmpdir)
 
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
@@ -182,6 +175,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
     }
     with pytest.raises(ValueError, match="not supported in ASLPrep."):
         interface = cbf_computation.ComputeCBF(
+            cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
             m0scale=1,
@@ -200,6 +194,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         "PostLabelingDelay": single_pld,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
@@ -225,6 +220,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         "PostLabelingDelay": bad_multiple_plds,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
@@ -244,20 +240,15 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         "PostLabelingDelay": good_multiple_plds,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = interface.run(cwd=tmpdir)
-    assert os.path.isfile(results.outputs.cbf)
-    cbf_img = nb.load(results.outputs.cbf)
-    assert cbf_img.ndim == 4
-    assert cbf_img.shape[3] == n_deltam
-    assert os.path.isfile(results.outputs.mean_cbf)
-    mean_cbf_img = nb.load(results.outputs.mean_cbf)
-    assert mean_cbf_img.ndim == 3
+    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        results = interface.run(cwd=tmpdir)
 
     # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
     metadata = {
@@ -269,6 +260,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         "PostLabelingDelay": single_pld,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
@@ -294,20 +286,15 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         "PostLabelingDelay": good_multiple_plds,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = interface.run(cwd=tmpdir)
-    assert os.path.isfile(results.outputs.cbf)
-    cbf_img = nb.load(results.outputs.cbf)
-    assert cbf_img.ndim == 4
-    assert cbf_img.shape[3] == n_deltam
-    assert os.path.isfile(results.outputs.mean_cbf)
-    mean_cbf_img = nb.load(results.outputs.mean_cbf)
-    assert mean_cbf_img.ndim == 3
+    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        results = interface.run(cwd=tmpdir)
 
     # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
     metadata = {
@@ -319,6 +306,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         "PostLabelingDelay": single_pld,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
@@ -344,20 +332,15 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         "PostLabelingDelay": good_multiple_plds,
     }
     interface = cbf_computation.ComputeCBF(
+        cbf_only=False,
         deltam=asl_file,
         metadata=metadata,
         m0scale=1,
         m0_file=m0_file,
         mask=mask_file,
     )
-    results = interface.run(cwd=tmpdir)
-    assert os.path.isfile(results.outputs.cbf)
-    cbf_img = nb.load(results.outputs.cbf)
-    assert cbf_img.ndim == 4
-    assert cbf_img.shape[3] == n_deltam
-    assert os.path.isfile(results.outputs.mean_cbf)
-    mean_cbf_img = nb.load(results.outputs.mean_cbf)
-    assert mean_cbf_img.ndim == 3
+    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        results = interface.run(cwd=tmpdir)
 
 
 def _save_img(arr, tmpdir, fname):

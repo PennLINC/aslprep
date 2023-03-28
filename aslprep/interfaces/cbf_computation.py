@@ -135,7 +135,7 @@ class ExtractCBF(SimpleInterface):
         deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
         cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
 
-        # extcract m0 file and register it to ASL if separate
+        # extract m0 file and register it to ASL if separate
         if metadata["M0Type"] == "Separate":
             m0file = self.inputs.in_file.replace("asl.nii.gz", "m0scan.nii.gz")
             m0file_metadata = readjson(m0file.replace("nii.gz", "json"))
@@ -185,7 +185,6 @@ class ExtractCBF(SimpleInterface):
             # XXX: Why specifically check for 5D data? NIFTIs can go up to 8, I think.
             raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
 
-        precalculated_cbf = False
         pld = np.array(metadata["PostLabelingDelay"])
         multi_pld = pld.size > 1
         if multi_pld and pld.size != asl_data.shape[3]:
@@ -210,7 +209,6 @@ class ExtractCBF(SimpleInterface):
             out_data = control_data - label_data
 
         elif cbf_volume_idx:
-            precalculated_cbf = True
             metadata_idx = cbf_volume_idx
             out_data = asl_data[:, :, :, cbf_volume_idx]
 
@@ -238,7 +236,7 @@ class ExtractCBF(SimpleInterface):
         self._results["metadata"] = metadata
         self._results["out_file"] = fname_presuffix(
             self.inputs.in_file,
-            suffix=f"_{'cbf' if precalculated_cbf else 'deltam'}",
+            suffix="_DeltaMOrCBF",
             newpath=runtime.cwd,
         )
         self._results["out_avg"] = fname_presuffix(
@@ -342,6 +340,11 @@ class ComputeCBF(SimpleInterface):
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
         plds = np.array(metadata["PostLabelingDelay"])
+        if np.std(plds) > 0:
+            raise ValueError(
+                f"{np.unique(plds).size} unique PostLabelingDelay values detected. "
+                "ASLPrep cannot currently process multi-PLD data."
+            )
 
         # Zhang et al. (2012): https://doi.org/10.1002/mrm.24550
         t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
@@ -410,14 +413,14 @@ class ComputeCBF(SimpleInterface):
         deltam_scaled = deltam_arr / scaled_m0data
 
         if (perfusion_factor.size > 1) and (perfusion_factor.size != n_volumes):
+            # For future multi-PLD support.
             raise ValueError(
                 f"Number of volumes ({n_volumes}) must match number of PLDs "
                 f"({perfusion_factor.size})."
             )
-        elif perfusion_factor.size > 1:
-            raise ValueError("Multi-PLD data is not currently supported in ASLPrep.")
 
         if (perfusion_factor.size > 1) and (n_volumes > 1):
+            # TODO: Make this actually work.
             # Multi-PLD acquisition with multiple control-label pairs.
             # Calculate weighted CBF with multiple PostLabelingDelays.
             # Wang et al. (2013): https://doi.org/10.1016%2Fj.nicl.2013.06.017

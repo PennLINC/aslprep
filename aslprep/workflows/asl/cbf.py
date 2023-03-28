@@ -135,22 +135,86 @@ model [@buxton1998general].
         ),
         name="outputnode",
     )
+
+    refine_mask = pe.Node(
+        RefineMask(),
+        mem_gb=0.2,
+        run_without_submitting=True,
+        name="refine_mask",
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, refine_mask, [
+            ("t1w_mask", "in_t1mask"),
+            ("asl_mask", "in_aslmask"),
+            ("t1_asl_xform", "transforms"),
+        ]),
+    ])
+    # fmt:on
+
     # convert tmps to asl_space
+    def _pick_csf(files):
+        return files[-1]
+
+    def _pick_gm(files):
+        return files[0]
+
+    def _pick_wm(files):
+        return files[1]
+
+    def _getfiledir(file):
+        import os
+
+        return os.path.dirname(file)
+
     csf_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),
         name="csf_tfm",
         mem_gb=0.1,
     )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, csf_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+            (("t1w_tpms", _pick_csf), "input_image"),
+        ]),
+    ])
+    # fmt:on
+
     wm_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),
         name="wm_tfm",
         mem_gb=0.1,
     )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, wm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+            (("t1w_tpms", _pick_wm), "input_image"),
+        ]),
+    ])
+    # fmt:on
+
     gm_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),
         name="gm_tfm",
         mem_gb=0.1,
     )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, gm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+            (("t1w_tpms", _pick_gm), "input_image"),
+        ]),
+    ])
+    # fmt:on
 
     tiscbf = get_tis(metadata)
 
@@ -182,7 +246,10 @@ model [@buxton1998general].
     )
 
     # fmt:off
-    workflow.connect([(inputnode, extract_deltam, [("asl_file", "asl_file")])])
+    workflow.connect([
+        (inputnode, extract_deltam, [("asl_file", "asl_file")]),
+        (refine_mask, extract_deltam, [("out_mask", "in_mask")]),
+    ])
     # fmt:on
 
     compute_cbf = pe.Node(
@@ -197,63 +264,15 @@ model [@buxton1998general].
 
     # fmt:off
     workflow.connect([
-        # compute CBF from deltaM
+        (refine_mask, compute_cbf, [("out_mask", "mask")]),
         (extract_deltam, compute_cbf, [
             ("out_file", "deltam"),
             ("m0_file", "m0_file"),
             ("metadata", "metadata"),
         ]),
-    ])
-    # fmt:on
-
-    refine_mask = pe.Node(
-        RefineMask(),
-        mem_gb=0.2,
-        run_without_submitting=True,
-        name="refine_mask",
-    )
-
-    def _pick_csf(files):
-        return files[-1]
-
-    def _pick_gm(files):
-        return files[0]
-
-    def _pick_wm(files):
-        return files[1]
-
-    def _getfiledir(file):
-        import os
-
-        return os.path.dirname(file)
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, refine_mask, [
-            ("t1w_mask", "in_t1mask"),
-            ("asl_mask", "in_aslmask"),
-            ("t1_asl_xform", "transforms"),
-        ]),
-        (refine_mask, extract_deltam, [("out_mask", "in_mask")]),
-        (refine_mask, compute_cbf, [("out_mask", "mask")]),
         (compute_cbf, outputnode, [
             ("cbf", "out_cbf"),
             ("mean_cbf", "out_mean"),
-        ]),
-        (inputnode, csf_tfm, [
-            ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
-            (("t1w_tpms", _pick_csf), "input_image"),
-        ]),
-        (inputnode, wm_tfm, [
-            ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
-            (("t1w_tpms", _pick_wm), "input_image"),
-        ]),
-        (inputnode, gm_tfm, [
-            ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
-            (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
     # fmt:on
