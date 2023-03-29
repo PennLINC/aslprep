@@ -322,6 +322,9 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             bolus = metadata["LabelingDuration"]
         else:  # pasl
             bolus = metadata["BolusCutOffDelayTime"]
+            if metadata["BolusCutOffTechnique"] == "Q2TIPS":
+                # BolusCutOffDelayTime is a list, and the first entry should be used.
+                bolus = bolus[0]
 
         # NOTE: Do we need the TR of just the M0 volumes?
         # TODO: Extract M0 TR in extract_deltam.

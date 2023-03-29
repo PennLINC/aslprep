@@ -216,6 +216,7 @@ class ExtractCBF(SimpleInterface):
         else:
             raise RuntimeError("No valid ASL or CBF image.")
 
+        # Multi-PLD data will be supported in the future, but it is not for now.
         if multi_pld:
             # Reduce the volume-wise PLDs to just include the selected volumes.
             pld = pld[metadata_idx]
