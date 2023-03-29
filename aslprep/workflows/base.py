@@ -308,7 +308,8 @@ tasks and sessions), the following preprocessing was performed.
     )
 
     for asl_file in subject_data["asl"]:
-        # if number of volume of ASL is less than 5. motion slicetiming etc will be skipped
+        # If number of volume of ASL is less than 5, motion correction,
+        # slice-timing correction, etc. will be skipped.
         if get_n_volumes(asl_file) > 5:
             asl_preproc_wf = init_asl_preproc_wf(asl_file)
 
