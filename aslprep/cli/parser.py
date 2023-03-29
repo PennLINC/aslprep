@@ -76,8 +76,10 @@ def _build_parser():
         "bids_dir",
         action="store",
         type=PathExists,
-        help="the root folder of a BIDS valid dataset (sub-XXXXX folders should "
-        "be found at the top level in this folder).",
+        help=(
+            "the root folder of a BIDS valid dataset (sub-XXXXX folders should "
+            "be found at the top level in this folder)."
+        ),
     )
     parser.add_argument(
         "output_dir",
@@ -88,8 +90,10 @@ def _build_parser():
     parser.add_argument(
         "analysis_level",
         choices=["participant"],
-        help='processing stage to be run, only "participant" in the case of '
-        "ASLPREP (see BIDS-Apps specification).",
+        help=(
+            'processing stage to be run, only "participant" in the case of '
+            "ASLPREP (see BIDS-Apps specification)."
+        ),
     )
 
     # optional arguments
@@ -109,8 +113,10 @@ def _build_parser():
         action="store",
         nargs="+",
         type=_drop_sub,
-        help="a space delimited list of participant identifiers or a single "
-        "identifier (the sub- prefix can be removed)",
+        help=(
+            "a space delimited list of participant identifiers or a single "
+            "identifier (the sub- prefix can be removed)"
+        ),
     )
     # Re-enable when option is actually implemented
     # g_bids.add_argument('-s', '--session-id', action='store', default='single_session',
@@ -146,8 +152,10 @@ def _build_parser():
         action="store",
         metavar="PATH",
         type=PathExists,
-        help="Reuse the anatomical derivatives from another ASLPrep run or calculated "
-        "with an alternative processing tool (NOT RECOMMENDED).",
+        help=(
+            "Reuse the anatomical derivatives from another ASLPrep run or calculated "
+            "with an alternative processing tool (NOT RECOMMENDED)."
+        ),
     )
 
     g_perfm = parser.add_argument_group("Options to handle performance")
@@ -179,7 +187,7 @@ def _build_parser():
     g_perfm.add_argument(
         "--low-mem",
         action="store_true",
-        help="attempt to reduce memory usage (will increase disk usage " "in working directory)",
+        help="attempt to reduce memory usage (will increase disk usage in working directory)",
     )
     g_perfm.add_argument(
         "--use-plugin",
@@ -189,7 +197,11 @@ def _build_parser():
         type=IsFile,
         help="nipype plugin configuration file",
     )
-    g_perfm.add_argument("--anat-only", action="store_true", help="run anatomical workflows only")
+    g_perfm.add_argument(
+        "--anat-only",
+        action="store_true",
+        help="run anatomical workflows only",
+    )
     g_perfm.add_argument(
         "--boilerplate_only",
         action="store_true",
@@ -219,8 +231,10 @@ def _build_parser():
         nargs="+",
         default=[],
         choices=["fieldmaps", "slicetiming", "sbref"],
-        help="ignore selected aspects of the input dataset to disable corresponding "
-        "parts of the workflow (a space delimited list)",
+        help=(
+            "ignore selected aspects of the input dataset to disable corresponding "
+            "parts of the workflow (a space delimited list)"
+        ),
     )
     g_conf.add_argument(
         "--longitudinal",
@@ -231,16 +245,18 @@ def _build_parser():
         "--output-spaces",
         nargs="*",
         action=OutputReferencesAction,
-        help="""\
-Standard and non-standard spaces to resample anatomical and functional images to. \
-Standard spaces may be specified by the form \
-``<SPACE>[:cohort-<label>][:res-<resolution>][...]``, where ``<SPACE>`` is \
-a keyword designating a spatial reference, and may be followed by optional, \
-colon-separated parameters. \
-Non-standard spaces imply specific orientations and sampling grids. \
-Important to note, the ``res-*`` modifier does not define the resolution used for \
-the spatial normalization. To generate no ASL outputs, use this option without specifying \
-any spatial references.""",
+        help=(
+            "Standard and non-standard spaces to resample anatomical and functional images to. "
+            "Standard spaces may be specified by the form "
+            "``<SPACE>[:cohort-<label>][:res-<resolution>][...]``, where ``<SPACE>`` is "
+            "a keyword designating a spatial reference, and may be followed by optional, "
+            "colon-separated parameters. "
+            "Non-standard spaces imply specific orientations and sampling grids. "
+            "Important to note, the ``res-*`` modifier does not define the resolution used for "
+            "the spatial normalization. "
+            "To generate no ASL outputs, use this option without specifying any spatial "
+            "references."
+        ),
     )
 
     g_conf.add_argument(
@@ -248,8 +264,10 @@ any spatial references.""",
         action="store",
         default="register",
         choices=["register", "header"],
-        help='Either "register" (the default) to initialize volumes at center or "header"'
-        " to use the header information when coregistering ASL to T1w images.",
+        help=(
+            'Either "register" (the default) to initialize volumes at center or "header" '
+            "to use the header information when coregistering ASL to T1w images."
+        ),
     )
     g_conf.add_argument(
         "--asl2t1w-dof",
@@ -257,17 +275,21 @@ any spatial references.""",
         default=6,
         choices=[6, 9, 12],
         type=int,
-        help="Degrees of freedom when registering ASL to T1w images. "
-        "6 degrees (rotation and translation) are used by default.",
+        help=(
+            "Degrees of freedom when registering ASL to T1w images. "
+            "6 degrees (rotation and translation) are used by default."
+        ),
     )
-    g_conf.add_argument(
+
+    bbr_group = g_conf.add_mutually_exclusive_group()
+    bbr_group.add_argument(
         "--force-bbr",
         action="store_true",
         dest="use_bbr",
         default=False,
         help="Always use boundary-based registration (no goodness-of-fit checks)",
     )
-    g_conf.add_argument(
+    bbr_group.add_argument(
         "--force-no-bbr",
         action="store_false",
         dest="use_bbr",
@@ -296,7 +318,7 @@ any spatial references.""",
         action="store",
         default=0,
         type=int,
-        help="Number of initial volumes to ignore",
+        help="Number of initial volumes to ignore.",
     )
     g_conf.add_argument(
         "--smooth_kernel",
@@ -306,23 +328,28 @@ any spatial references.""",
         help="Smoothing kernel for the M0 image(s)",
     )
 
-    g_conf.add_argument(
+    # CBF calculation settings
+    cbf_group = g_conf.add_mutually_exclusive_group()
+    cbf_group.add_argument(
         "--scorescrub",
         action="store_true",
         default=False,
-        help=" Sudipto algoritms for denoising CBF",
+        help=(
+            "Apply the Sudipto algorithms (SCRUB and SCORE) for denoising CBF. "
+            "These algorithms will be applied to the standard CBF results."
+        ),
     )
-
-    g_conf.add_argument(
+    cbf_group.add_argument(
         "--basil",
         action="store_true",
         default=False,
-        help=" FSL's CBF computation with spatial regularization and \
-          partial volume correction",
+        help=(
+            "Use FSL's CBF computation with spatial regularization and partial volume correction, "
+            "rather than ASLPrep's standard CBF estimation method."
+        ),
     )
-    # Confounds options
 
-    #  ANTs options
+    # ANTs options
     g_ants = parser.add_argument_group("Specific options for ANTs registrations")
     g_ants.add_argument(
         "--skull-strip-template",
@@ -333,18 +360,22 @@ any spatial references.""",
     g_ants.add_argument(
         "--skull-strip-fixed-seed",
         action="store_true",
-        help="do not use a random seed for skull-stripping - will ensure "
-        "run-to-run replicability when used with --omp-nthreads 1 and "
-        "matching --random-seed <int>",
+        help=(
+            "do not use a random seed for skull-stripping - will ensure "
+            "run-to-run replicability when used with --omp-nthreads 1 and "
+            "matching --random-seed <int>"
+        ),
     )
     g_ants.add_argument(
         "--skull-strip-t1w",
         action="store",
         choices=("auto", "skip", "force"),
         default="force",
-        help="determiner for T1-weighted skull stripping ('force' ensures skull "
-        "stripping, 'skip' ignores skull stripping, and 'auto' applies brain extraction "
-        "based on the outcome of a heuristic to check whether the brain is already masked).",
+        help=(
+            "determiner for T1-weighted skull stripping ('force' ensures skull "
+            "stripping, 'skip' ignores skull stripping, and 'auto' applies brain extraction "
+            "based on the outcome of a heuristic to check whether the brain is already masked)."
+        ),
     )
 
     # Fieldmap options
@@ -374,8 +405,10 @@ any spatial references.""",
         "--force-syn",
         action="store_true",
         default=False,
-        help="EXPERIMENTAL/TEMPORARY: Use SyN correction in addition to "
-        "fieldmap correction, if available",
+        help=(
+            "EXPERIMENTAL/TEMPORARY: Use SyN correction in addition to "
+            "fieldmap correction, if available"
+        ),
     )
 
     # FreeSurfer options
@@ -384,8 +417,10 @@ any spatial references.""",
         "--fs-license-file",
         metavar="FILE",
         type=IsFile,
-        help="Path to FreeSurfer license key file. Get it (for free) by registering"
-        " at https://surfer.nmr.mgh.harvard.edu/registration.html",
+        help=(
+            "Path to FreeSurfer license key file. Get it (for free) by registering "
+            "at https://surfer.nmr.mgh.harvard.edu/registration.html"
+        ),
     )
 
     g_other = parser.add_argument_group("Other options")
@@ -401,8 +436,10 @@ any spatial references.""",
         "--clean-workdir",
         action="store_true",
         default=False,
-        help="Clears working directory of contents. Use of this flag is not"
-        "recommended when running concurrent processes of aslprep.",
+        help=(
+            "Clears working directory of contents. Use of this flag is not "
+            "recommended when running concurrent processes of aslprep."
+        ),
     )
     g_other.add_argument(
         "--resource-monitor",
@@ -414,15 +451,19 @@ any spatial references.""",
         "--reports-only",
         action="store_true",
         default=False,
-        help="only generate reports, don't run workflows. This will only rerun report "
-        "aggregation, not reportlet generation for specific nodes.",
+        help=(
+            "only generate reports, don't run workflows. This will only rerun report "
+            "aggregation, not reportlet generation for specific nodes."
+        ),
     )
     g_other.add_argument(
         "--run-uuid",
         action="store",
         default=None,
-        help="Specify UUID of previous run, to include error logs in report. "
-        "No effect without --reports-only.",
+        help=(
+            "Specify UUID of previous run, to include error logs in report. "
+            "No effect without --reports-only."
+        ),
     )
     g_other.add_argument(
         "--write-graph",
@@ -440,10 +481,12 @@ any spatial references.""",
         "--notrack",
         action="store_true",
         default=False,
-        help="Opt-out of sending tracking information of this run to "
-        "the aslprep developers. This information helps to "
-        "improve aslprep and provides an indicator of real "
-        "world usage crucial for obtaining funding.",
+        help=(
+            "Opt-out of sending tracking information of this run to "
+            "the aslprep developers. This information helps to "
+            "improve aslprep and provides an indicator of real "
+            "world usage crucial for obtaining funding."
+        ),
     )
     g_other.add_argument(
         "--sloppy",
