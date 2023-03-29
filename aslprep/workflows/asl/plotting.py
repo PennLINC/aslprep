@@ -86,7 +86,7 @@ def init_cbfplot_wf(
     )
 
     cbftssummary = pe.Node(
-        CBFtsSummary(tr=metadata["RepetitionTimePreparation"]),
+        CBFtsSummary(tr=metadata["RepetitionTime"]),
         name="cbf_ts_summary",
         mem_gb=2,
     )

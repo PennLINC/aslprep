@@ -267,7 +267,7 @@ effects of other kernels [@lanczos].
             registration_init=config.workflow.asl2t1w_init,
             distortion_correction="No distortion correction",
             pe_direction=metadata.get("PhaseEncodingDirection"),
-            tr=metadata.get("RepetitionTimePreparation"),
+            tr=metadata.get("RepetitionTime"),
         ),
         name="summary",
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
