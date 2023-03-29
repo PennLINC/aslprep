@@ -3,7 +3,6 @@
 """Workflows for calculating CBF."""
 import pandas as pd
 from nipype.interfaces import utility as niu
-from nipype.interfaces.base import Undefined
 from nipype.interfaces.fsl import Info, MultiImageMaths
 from nipype.pipeline import engine as pe
 
@@ -21,7 +20,12 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
 )
-from aslprep.utils.misc import get_atlas, get_tis, pcasl_or_pasl
+from aslprep.utils.misc import (
+    estimate_labeling_efficiency,
+    get_atlas,
+    get_tis,
+    pcasl_or_pasl,
+)
 
 
 def init_cbf_compt_wf(
@@ -327,7 +331,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 m0scale=M0Scale,
                 bolus=bolus,
                 m0tr=metadata["RepetitionTime"],
-                alpha=metadata.get("LabelingEfficiency", Undefined),
+                alpha=estimate_labeling_efficiency(metadata),
                 pvc=True,
                 tis=tiscbf,
                 pcasl=is_casl,
@@ -640,7 +644,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 m0scale=M0Scale,
                 bolus=bolus,
                 m0tr=metadata["RepetitionTime"],
-                alpha=metadata.get("LabelingEfficiency", Undefined),
+                alpha=estimate_labeling_efficiency(metadata),
                 pvc=True,
                 tis=tiscbf,
                 pcasl=is_casl,

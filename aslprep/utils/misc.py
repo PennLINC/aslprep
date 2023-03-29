@@ -626,15 +626,15 @@ def _robust_fit(
     tiny_s = (1e-6) * (np.std(h, axis=0))
     tiny_s[tiny_s == 0] = 1
     D = np.sqrt(np.finfo(float).eps)
-    iter = 0
+    iter_num = 0
     interlim = 10
-    while iter < interlim:
-        print("iteration  ", iter, "\n")
-        iter = iter + 1
+    while iter_num < interlim:
+        print("iteration  ", iter_num, "\n")
+        iter_num = iter_num + 1
         check1 = np.subtract(np.abs(b - b0), (D * np.maximum(np.abs(b), np.abs(b0))))
         check1[check1 > 0] = 0
         if any(check1):
-            print(" \n converged after ", iter, "iterations\n")
+            print(" \n converged after ", iter_num, "iterations\n")
             break
         r = Y - X * (np.tile(b, (dimcbf[0], 1)))
         radj = r * adjfactor / sw
@@ -785,3 +785,48 @@ def parcellate_cbf(roi_file, roi_label, cbfmap):
         mean_vals.append(np.mean(data[roi == roi_label]))
 
     return mean_vals
+
+
+def estimate_labeling_efficiency(metadata):
+    """Estimate labeling efficiency based on the available metadata.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata from the ASL file.
+
+    Returns
+    -------
+    labeleff : :obj:`float`
+        Labeling efficiency.
+
+    Notes
+    -----
+    If LabelingEfficiency is defined in the metadata, then this value will be used.
+    Otherwise, efficiency will be estimated based on the ASL type and number of background
+    suppression pulses (if any).
+    PCASL and PASL values come from :footcite:t:`alsop_recommended_2015`.
+    CASL value comes from :footcite:t:`wang2005amplitude`.
+    The adjustment based on number of background suppression pulses comes from
+    :footcite:t:`XXXX`.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    if "LabelingEfficiency" in metadata.keys():
+        labeleff = metadata["LabelingEfficiency"]
+    else:
+        BASE_LABELEFF = {
+            "CASL": 0.68,
+            "PCASL": 0.85,
+            "PASL": 0.98,
+        }
+        labeleff = BASE_LABELEFF[metadata["ArterialSpinLabelingType"]]
+
+        if metadata.get("BackgroundSuppression", False):
+            # We assume there was one pulse if suppression was applied,
+            # but the number of pulses isn't defined.
+            labeleff = labeleff * (0.95 ** metadata.get("BackgroundSuppressionNumberPulses", 1))
+
+    return labeleff
