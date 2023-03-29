@@ -61,7 +61,7 @@ def test_sub01(datasets, output_dir, working_dir):
 
 
 @pytest.mark.subA00086748
-def test_subA00086748(datasets, output_dir, working_dir):
+def test_subA00086748(datasets, output_dir, working_dir):  # noqa: N802
     """Run aslprep on sub-A00086748."""
     from aslprep import config
 
@@ -118,7 +118,7 @@ def test_subA00086748(datasets, output_dir, working_dir):
 
 
 @pytest.mark.sub10R01383
-def test_sub10R01383(datasets, output_dir, working_dir):
+def test_sub10R01383(datasets, output_dir, working_dir):  # noqa: N802
     """Run aslprep on sub-10R01383.
 
     Currently skipped.
