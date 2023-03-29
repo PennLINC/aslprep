@@ -398,8 +398,8 @@ class ComputeCBF(SimpleInterface):
             # Q2TIPS should have two BolusCutOffDelayTimes.
             assert len(metadata["BolusCutOffDelayTime"]) == 2
             # XXX: This may be wrong.
-            config.loggers.interface.warning("Standard CBF calculation with Q2TIPS may be buggy.")
             denom_factor = metadata["BolusCutOffDelayTime"][0]
+            raise ValueError("Q2TIPS is not supported in ASLPrep.")
 
         else:
             raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")

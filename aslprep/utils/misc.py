@@ -253,7 +253,7 @@ def readjson(jsonfile):
     """Read a JSON file into memory."""
     import json
 
-    with open(jsonfile) as f:
+    with open(jsonfile, "r") as f:
         data = json.load(f)
     return data
 

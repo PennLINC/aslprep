@@ -416,6 +416,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
 
     # MULTI-ECHO EPI DATA #############################################
+    # XXX: This may not be reachable, since echo is not an allowed entity for ASL data.
     if multiecho:
         from aslprep.niworkflows.func.util import init_skullstrip_asl_wf
 
