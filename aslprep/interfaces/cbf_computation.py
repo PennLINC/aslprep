@@ -240,7 +240,7 @@ class ExtractCBF(SimpleInterface):
             suffix="_DeltaMOrCBF",
             newpath=runtime.cwd,
         )
-        self._results["out_avg"] = fname_presuffix(
+        self._results["m0_file"] = fname_presuffix(
             self.inputs.name_source,
             suffix="_m0file",
             newpath=runtime.cwd,
@@ -249,7 +249,7 @@ class ExtractCBF(SimpleInterface):
             self._results["out_file"]
         )
         nb.Nifti1Image(m0data, asl_img.affine, asl_img.header).to_filename(
-            self._results["out_avg"]
+            self._results["m0_file"]
         )
 
         return runtime
