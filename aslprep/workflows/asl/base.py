@@ -282,7 +282,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
             pe_direction=metadata.get("PhaseEncodingDirection"),
-            tr=metadata.get("RepetitionTime"),
+            tr=metadata.get("RepetitionTimePreparation"),
         ),
         name="summary",
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
