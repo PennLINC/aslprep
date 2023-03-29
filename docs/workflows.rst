@@ -419,7 +419,7 @@ The CBF map shown below is the result of partial volume corrected CBF computed b
 Quality control measures
 ************************
 
-:py:func:`~aslprep.workflows.asl.cbf.init_cbfqc_compt_wf`
+:py:func:`~aslprep.workflows.asl.qc.init_cbfqc_compt_wf`
 
 .. workflow::
     :graph2use: orig
@@ -428,7 +428,7 @@ Quality control measures
     from pathlib import Path
     from pkg_resources import resource_filename as pkgrf
 
-    from aslprep.workflows.asl.cbf import init_cbfqc_compt_wf
+    from aslprep.workflows.asl.qc import init_cbfqc_compt_wf
 
     bids_dir = Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
     asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'

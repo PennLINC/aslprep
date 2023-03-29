@@ -13,12 +13,7 @@ from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
-from aslprep.workflows.asl.cbf import (
-    init_cbfgeqc_compt_wf,
-    init_cbfroiquant_wf,
-    init_gecbf_compt_wf,
-    init_gecbfplot_wf,
-)
+from aslprep.workflows.asl.cbf import init_cbfroiquant_wf, init_gecbf_compt_wf
 from aslprep.workflows.asl.ge_utils import (
     init_asl_geref_wf,
     init_asl_gereg_wf,
@@ -26,6 +21,8 @@ from aslprep.workflows.asl.ge_utils import (
     init_asl_t1_getrans_wf,
 )
 from aslprep.workflows.asl.outputs import init_geasl_derivatives_wf
+from aslprep.workflows.asl.plotting import init_gecbfplot_wf
+from aslprep.workflows.asl.qc import init_cbfgeqc_compt_wf
 
 
 def init_asl_gepreproc_wf(asl_file):

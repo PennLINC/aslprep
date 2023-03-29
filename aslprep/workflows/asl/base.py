@@ -18,15 +18,12 @@ from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.meepi import combine_meepi_source
 from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
-from aslprep.workflows.asl.cbf import (
-    init_cbf_compt_wf,
-    init_cbfplot_wf,
-    init_cbfqc_compt_wf,
-    init_cbfroiquant_wf,
-)
+from aslprep.workflows.asl.cbf import init_cbf_compt_wf, init_cbfroiquant_wf
 from aslprep.workflows.asl.confounds import init_asl_confs_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
+from aslprep.workflows.asl.plotting import init_cbfplot_wf
+from aslprep.workflows.asl.qc import init_cbfqc_compt_wf
 from aslprep.workflows.asl.registration import init_asl_reg_wf, init_asl_t1_trans_wf
 from aslprep.workflows.asl.resampling import (
     init_asl_preproc_trans_wf,
