@@ -86,7 +86,9 @@ def init_cbfplot_wf(
     )
 
     cbftssummary = pe.Node(
-        CBFtsSummary(tr=metadata["RepetitionTime"]), name="cbf_ts_summary", mem_gb=2
+        CBFtsSummary(tr=metadata["RepetitionTime"]),
+        name="cbf_ts_summary",
+        mem_gb=2,
     )
     cbfsummary = pe.Node(CBFSummary(label="cbf", vmax=90), name="cbf_summary", mem_gb=1)
     ds_report_cbftsplot = pe.Node(

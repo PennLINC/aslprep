@@ -320,13 +320,10 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 # BolusCutOffDelayTime is a list, and the first entry should be used.
                 bolus = bolus[0]
 
-        # NOTE: Do we need the TR of just the M0 volumes?
-        # TODO: Extract M0 TR in extract_deltam.
         basilcbf = pe.Node(
             BASILCBF(
                 m0scale=M0Scale,
                 bolus=bolus,
-                m0tr=metadata["RepetitionTime"],
                 alpha=metadata.get("LabelingEfficiency", Undefined),
                 pvc=True,
                 tis=tiscbf,
@@ -344,6 +341,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 (("m0_file", _getfiledir), "out_basename"),
                 ("out_file", "in_file"),
                 ("m0_file", "mzero"),
+                ("m0tr", "m0tr"),
             ]),
             (gm_tfm, basilcbf, [("output_image", "pvgm")]),
             (wm_tfm, basilcbf, [("output_image", "pvwm")]),
@@ -639,7 +637,6 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
             BASILCBF(
                 m0scale=M0Scale,
                 bolus=bolus,
-                m0tr=metadata["RepetitionTime"],
                 alpha=metadata.get("LabelingEfficiency", Undefined),
                 pvc=True,
                 tis=tiscbf,
@@ -656,6 +653,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 (("asl_mask", _getfiledir), "out_basename"),
                 ("m0_file", "mzero"),
             ]),
+            (extract_deltam, basilcbf, [("m0tr", "m0tr")]),
             (collect_cbf, basilcbf, [("deltam", "in_file")]),
             (gm_tfm, basilcbf, [("output_image", "pvgm")]),
             (wm_tfm, basilcbf, [("output_image", "pvwm")]),
