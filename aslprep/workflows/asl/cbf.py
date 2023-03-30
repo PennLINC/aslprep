@@ -26,8 +26,8 @@ from aslprep.utils.misc import get_atlas, get_tis, pcasl_or_pasl
 
 def init_cbf_compt_wf(
     name_source,
+    aslcontext,
     metadata,
-    bids_dir,
     dummy_vols,
     scorescrub=False,
     basil=False,
@@ -47,7 +47,6 @@ def init_cbf_compt_wf(
             wf = init_cbf_compt_wf(
                 name_source="",
                 metadata={},
-                bids_dir="",
                 dummy_vols=0,
             )
 
@@ -55,19 +54,26 @@ def init_cbf_compt_wf(
     ----------
     name_source : :obj:`str`
         Path to the raw ASL file.
+    aslcontext : :obj:`str`
+        Path to the aslcontext file associated with the ASL file being processed.
+        Used to set the aslcontext input.
     metadata : :obj:`dict`
         BIDS metadata for asl file
+    scorescrub
+    basil
+    M0Scale
+    smooth_kernel
     name : :obj:`str`
         Name of workflow (default: ``cbf_compt_wf``)
 
     Inputs
     ------
-    in_file
-        Raw asl file. Equivalent to name_source.
-    bids_dir
-        bids dir of the subject
     asl_file
-        asl series NIfTI file
+        asl series NIfTI file, after preprocessing
+    aslcontext : :obj:`str`
+        Defined from the parameter.
+    m0scan : :obj:`str` or None
+    m0scan_metadata : :obj:`dict` or None
     asl_mask
         asl mask NIFTI file
     t1w_tpms
@@ -75,13 +81,9 @@ def init_cbf_compt_wf(
     t1w_mask
         t1w mask Nifti
     t1_asl_xform
-        t1w to asl transfromation file
+        t1w to asl transformation file
     itk_asl_to_t1
-        asl to t1q transfromation file
-    scorescrub
-        compute score and scrub
-    basil
-        compute basil and PVC
+        asl to t1w transformation file
 
     Outputs
     -------
@@ -102,7 +104,9 @@ model [@buxton1998general].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
-                "in_file",
+                "aslcontext",  # set from the parameter
+                "m0scan",
+                "m0scan_metadata",
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
@@ -112,6 +116,8 @@ model [@buxton1998general].
         ),
         name="inputnode",
     )
+    inputnode.inputs.aslcontext = aslcontext
+
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -213,8 +219,6 @@ model [@buxton1998general].
     tiscbf = get_tis(metadata)
     is_casl = pcasl_or_pasl(metadata=metadata)
 
-    # XXX: This is a bad way to find this file.
-    aslcontext = name_source.replace("_asl.nii.gz", "_aslcontext.tsv")
     aslcontext_df = pd.read_table(aslcontext)
     cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
     if cbf_only and not basil:
@@ -229,11 +233,9 @@ model [@buxton1998general].
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
-            aslcontext=aslcontext,
             dummy_vols=dummy_vols,
-            bids_dir=bids_dir,
             fwhm=smooth_kernel,
-            in_metadata=metadata,
+            metadata=metadata,
         ),
         mem_gb=0.2,
         run_without_submitting=True,
@@ -242,7 +244,12 @@ model [@buxton1998general].
 
     # fmt:off
     workflow.connect([
-        (inputnode, extract_deltam, [("asl_file", "asl_file")]),
+        (inputnode, extract_deltam, [
+            ("asl_file", "asl_file"),
+            ("aslcontext", "aslcontext"),
+            ("m0scan", "m0scan"),
+            ("m0scan_metadata", "m0scan_metadata"),
+        ]),
         (refine_mask, extract_deltam, [("out_mask", "in_mask")]),
     ])
     # fmt:on
@@ -359,6 +366,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
 def init_gecbf_compt_wf(
     name_source,
+    aslcontext,
     metadata,
     mem_gb,
     M0Scale=1,
@@ -390,7 +398,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
-                "in_file",
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
@@ -435,8 +442,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         mem_gb=0.1,
     )
 
-    # XXX: This is a bad way to find this file.
-    aslcontext = name_source.replace("_asl.nii.gz", "_aslcontext.tsv")
     aslcontext_df = pd.read_table(aslcontext)
     cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
     if cbf_only and not basil:

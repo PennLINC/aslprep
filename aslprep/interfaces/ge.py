@@ -13,21 +13,27 @@ from nipype.interfaces.base import (
 )
 from nipype.utils.filemanip import fname_presuffix
 
-from aslprep.utils.misc import gen_reference
-
 
 class _GeReferenceFileInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="asl_file")
-    in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for asl or deltam ")
-    bids_dir = traits.Str(exits=True, mandatory=True, desc=" bids directory")
+    metadata = traits.Dict(mandatory=True, desc="metadata for asl or deltam ")
     fwhm = traits.Float(
-        exits=False, mandatory=False, default_value=5, desc="smoothing kernel for M0"
+        mandatory=False,
+        default_value=5,
+        desc="smoothing kernel for M0",
     )
+    m0scan = traits.Either(
+        File(exists=True),
+        None,
+        mandatory=True,
+        desc="M0 file.",
+    )
+    aslcontext = File(exists=True, mandatory=True, desc="aslcontext file.")
 
 
 class _GeReferenceFileOutputSpec(TraitedSpec):
     ref_file = File(exists=True, mandatory=True, desc="ref file")
-    m0_file = File(exists=True, mandatory=True, desc="m0 file")
+    m0_file = File(exists=True, mandatory=True, desc="Averaged and smoothed m0 file")
 
 
 class GeReferenceFile(SimpleInterface):
@@ -37,95 +43,83 @@ class GeReferenceFile(SimpleInterface):
     output_spec = _GeReferenceFileOutputSpec
 
     def _run_interface(self, runtime):
-        filex = os.path.abspath(self.inputs.in_file)
-        aslcontext1 = filex.replace("_asl.nii.gz", "_aslcontext.tsv")
-        aslcontext = pd.read_csv(aslcontext1)
-        vol_types = aslcontext["volume_type"].tolist()
+        aslcontext_df = pd.read_table(self.inputs.aslcontext)
+        vol_types = aslcontext_df["volume_type"].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
-        m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "m0scan"]
         deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
         cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
 
-        allasl = nb.load(self.inputs.in_file)
-        dataasl = allasl.get_fdata()
+        asl_img = nb.load(self.inputs.in_file)
+        asl_data = asl_img.get_fdata()
 
-        if self.inputs.in_metadata["M0Type"] == "Separate":
-            m0file = self.inputs.in_file.replace("asl.nii.gz", "m0scan.nii.gz")
-            reffile = gen_reference(m0file, fwhm=self.inputs.fwhm, newpath=runtime.cwd)
-            m0file = reffile
+        m0_file = fname_presuffix(self.inputs.in_file, suffix="_m0file", newpath=os.getcwd())
+        ref_file = fname_presuffix(self.inputs.in_file, suffix="_ref", newpath=os.getcwd())
 
-        elif self.inputs.in_metadata["M0Type"] == "Included":
-            modata2 = dataasl[:, :, :, m0_volume_idx]
-            m0filename = fname_presuffix(
-                self.inputs.in_file, suffix="_mofile", newpath=os.getcwd()
-            )
-            m0obj = nb.Nifti1Image(modata2, allasl.affine, allasl.header)
-            m0obj.to_filename(m0filename)
-            reffile = gen_reference(m0filename, fwhm=self.inputs.fwhm, newpath=runtime.cwd)
-            m0file = reffile
+        if self.inputs.metadata["M0Type"] == "Separate":
+            # Average and smooth the M0 data
+            m0_img = nb.load(self.inputs.m0scan)
+            m0_data = m0_img.get_fdata()
+            if m0_data.ndim > 3:
+                m0_data = np.mean(m0_data, axis=3)
 
-        elif self.inputs.in_metadata["M0Type"] == "Estimate":
-            m0num = float(self.inputs.in_metadata["M0Estimate"])
-            if len(deltam_volume_idx) > 0:
-                modata2 = dataasl[:, :, :, deltam_volume_idx]
-            elif len(control_volume_idx) > 0:
-                modata2 = dataasl[:, :, :, control_volume_idx]
-            elif len(cbf_volume_idx) > 0:
-                modata2 = dataasl[:, :, :, cbf_volume_idx]
+            mean_img = nb.Nifti1Image(m0_data, asl_img.affine, asl_img.header)
+            smoothed_img = nb.processing.smooth_image(mean_img, fwhm=self.inputs.fwhm)
 
-            m0filename = fname_presuffix(
-                self.inputs.in_file, suffix="_m0file", newpath=os.getcwd()
-            )
-            if len(modata2.shape) > 3:
-                mdata = np.mean(modata2, axis=3)
-            else:
-                mdata = modata2
+            self._results["m0_file"] = m0_file
+            self._results["ref_file"] = m0_file  # The reference file is the averaged, smoothed M0
 
-            m0file_data = m0num * np.ones_like(mdata)
+        elif self.inputs.metadata["M0Type"] == "Included":
+            m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "m0scan"]
+            m0_data = asl_data[:, :, :, m0_volume_idx]
 
-            m0obj = nb.Nifti1Image(m0file_data, allasl.affine, allasl.header)
-            m0obj.to_filename(m0filename)
-            m0file = m0filename
+            # Average and smooth the M0 data
+            mean_m0_data = np.mean(m0_data, axis=3)
+            mean_img = nb.Nifti1Image(mean_m0_data, asl_img.affine, asl_img.header)
+            smoothed_img = nb.processing.smooth_image(mean_img, fwhm=self.inputs.fwhm)
+            smoothed_img.to_filename(m0_file)
 
-            reffilename = fname_presuffix(
-                self.inputs.in_file, suffix="_refile", newpath=os.getcwd()
-            )
-            refobj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
+            self._results["m0_file"] = m0_file
+            self._results["ref_file"] = m0_file  # The reference file is the averaged, smoothed M0
 
-            refobj.to_filename(reffilename)
-            reffile = gen_reference(reffilename, fwhm=0, newpath=runtime.cwd)
+        elif self.inputs.metadata["M0Type"] == "Estimate":
+            if deltam_volume_idx:
+                idx = deltam_volume_idx
+            elif control_volume_idx:
+                idx = control_volume_idx
+            elif cbf_volume_idx:
+                idx = cbf_volume_idx
 
-        elif self.inputs.in_metadata["M0Type"] == "Absent":
-            if len(control_volume_idx) > 0:
-                modata2 = dataasl[:, :, :, control_volume_idx]
-            m0filename = fname_presuffix(
-                self.inputs.in_file, suffix="_m0file", newpath=os.getcwd()
-            )
-            if len(modata2.shape) > 3:
-                mdata = np.mean(modata2, axis=3)
-            else:
-                mdata = modata2
+            selected_data = asl_data[:, :, :, idx]
+            mean_data = np.mean(selected_data, axis=3)
 
-            m0obj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
-            m0obj.to_filename(m0filename)
-            m0file = m0filename
+            # XXX: Why not use an existing brain mask here?
+            m0_data = self.inputs.metadata["M0Estimate"] * np.ones(mean_data.shape)
+            m0_img = nb.Nifti1Image(m0_data, asl_img.affine, asl_img.header)
+            m0_img.to_filename(m0_file)
 
-            reffilename = fname_presuffix(
-                self.inputs.in_file, suffix="_refile", newpath=os.getcwd()
-            )
-            refobj = nb.Nifti1Image(mdata, allasl.affine, allasl.header)
+            # The reference image is the mean deltaM, or control, or CBF data.
+            ref_img = nb.Nifti1Image(mean_data, asl_img.affine, asl_img.header)
+            ref_img.to_filename(ref_file)
 
-            refobj.to_filename(reffilename)
-            reffile = gen_reference(
-                reffilename,
-                fwhm=self.inputs.fwhm,
-                newpath=runtime.cwd,
-            )
+            self._results["m0_file"] = m0_file
+            self._results["ref_file"] = ref_file
+
+        elif self.inputs.metadata["M0Type"] == "Absent":
+            if not control_volume_idx:
+                raise RuntimeError("M0 could not be estimated from control volumes.")
+
+            control_data = asl_data[:, :, :, control_volume_idx]
+            m0_data = np.mean(control_data, axis=3)
+
+            mean_img = nb.Nifti1Image(m0_data, asl_img.affine, asl_img.header)
+            mean_img.to_filename(m0_file)  # XXX: Why not smooth the "M0" image?
+            smoothed_img = nb.processing.smooth_image(mean_img, fwhm=self.inputs.fwhm)
+            smoothed_img.to_filename(ref_file)
+
+            self._results["m0_file"] = m0_file
+            self._results["ref_file"] = ref_file
 
         else:
             raise RuntimeError("no path way to obtain real m0scan")
-
-        self._results["ref_file"] = reffile
-        self._results["m0_file"] = m0file
 
         return runtime

@@ -116,8 +116,16 @@ def init_single_subject_wf(subject_id):
 
     if "flair" in config.workflow.ignore:
         subject_data["flair"] = []
+
     if "t2w" in config.workflow.ignore:
         subject_data["t2w"] = []
+
+    bidssrc = pe.Node(
+        BIDSDataGrabber(
+            subject_data=subject_data,
+        ),
+        name="bidssrc",
+    )
 
     anat_only = config.workflow.anat_only
     # Make sure we always go through these two checks

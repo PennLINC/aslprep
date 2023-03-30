@@ -6,8 +6,11 @@ import os
 import sys
 from pathlib import Path
 
+import yaml
 from bids.layout import BIDSLayout
 from niworkflows.utils.bids import group_multiecho
+
+from aslprep import config
 
 
 def collect_data(
@@ -54,10 +57,84 @@ def collect_data(
     }
 
     # Special case: multi-echo BOLD, grouping echos
-    if any(["_echo-" in bold for bold in subj_data["asl"]]):
+    if any("_echo-" in bold for bold in subj_data["asl"]):
         subj_data["asl"] = group_multiecho(subj_data["asl"])
 
     return subj_data, layout
+
+
+def collect_run_data(layout, asl_file, multiecho):
+    """Use pybids to retrieve the input data for a given participant."""
+    queries = {
+        "aslcontext": {"suffix": "aslcontext", "extension": ".tsv"},
+        "sbref": {"suffix": "sbref"},
+    }
+
+    bids_file = layout.get_file(asl_file)
+
+    run_data = {
+        dtype: sorted(
+            layout.get_nearest(
+                bids_file.path,
+                return_type="file",
+                **query,
+            )
+        )
+        for dtype, query in queries.items()
+    }
+
+    if "sbref" in config.workflow.ignore:
+        config.loggers.workflow.info("Single-band reference files ignored.")
+        run_data["sbref"] = None
+    elif multiecho:
+        config.loggers.workflow.warning(
+            "Single-band reference found, but not supported in "
+            "multi-echo workflows at this time. Ignoring."
+        )
+        run_data["sbref"] = None
+
+    # The aslcontext file is required
+    if not run_data["aslcontext"]:
+        raise FileNotFoundError(f"aslcontext file for {asl_file} not found.")
+
+    # Now let's look for an m0scan
+    m0scan_candidates = [
+        f
+        for f in bids_file.get_associations(kind="InformedBy")
+        if f.entities["suffix"] == "m0scan"
+    ]
+    if m0scan_candidates:
+        if len(m0scan_candidates) > 1:
+            config.loggers.workflow.warning(
+                f"More than one M0 file found for {asl_file}. "
+                f"Using the first one ({m0scan_candidates[0]})"
+            )
+        run_data["m0scan"] = m0scan_candidates[0]
+    else:
+        run_data["m0scan"] = None
+
+    m0scan_metadata = None
+    if (run_data["asl_metadata"]["M0Type"] == "Separate") and not run_data["m0scan"]:
+        raise FileNotFoundError(f"M0 file for {asl_file} not found.")
+    elif run_data["asl_metadata"]["M0Type"] == "Separate":
+        m0scan_metadata = layout.get_metadata(run_data["m0scan"])
+    elif run_data["m0scan"]:
+        raise ValueError(
+            f"M0Type is {run_data['asl_metadata']['M0Type']}, "
+            f"but an M0 scan was found at {run_data['m0scan']}"
+        )
+
+    config.loggers.workflow.info(
+        (
+            f"Collected run data for {asl_file}:\n"
+            f"{yaml.dump(run_data, default_flow_style=False, indent=4)}"
+        ),
+    )
+
+    run_data["asl_metadata"] = layout.get_metadata(asl_file)
+    run_data["m0scan_metadata"] = m0scan_metadata
+
+    return run_data
 
 
 def write_derivative_description(bids_dir, deriv_dir):
@@ -167,10 +244,9 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
     }
     # Limit validation only to data from requested participants
     if participant_label:
-        all_subs = set([s.name[4:] for s in bids_dir.glob("sub-*")])
-        selected_subs = set([s[4:] if s.startswith("sub-") else s for s in participant_label])
-        bad_labels = selected_subs.difference(all_subs)
-        if bad_labels:
+        all_subs = {s.name[4:] for s in bids_dir.glob("sub-*")}
+        selected_subs = {s[4:] if s.startswith("sub-") else s for s in participant_label}
+        if bad_labels := selected_subs.difference(all_subs):
             error_msg = (
                 "Data for requested participant(s) label(s) not found. "
                 f"Could not find data for participant(s): {','.join(bad_labels)}. "
@@ -193,8 +269,7 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
                 )
             raise RuntimeError(error_msg)
 
-        ignored_subs = all_subs.difference(selected_subs)
-        if ignored_subs:
+        if ignored_subs := all_subs.difference(selected_subs):
             for sub in ignored_subs:
                 validator_config_dict["ignoredFiles"].append(f"/sub-{sub}/**")
     with tempfile.NamedTemporaryFile("w+") as temp:

@@ -1,8 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """CBF-processing workflows for GE data."""
-import os
-
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
@@ -12,6 +10,7 @@ from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
+from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_cbfroiquant_wf, init_gecbf_compt_wf
 from aslprep.workflows.asl.ge_utils import (
@@ -140,7 +139,6 @@ def init_asl_gepreproc_wf(asl_file):
     * :py:func:`~sdcflows.workflows.syn.init_syn_sdc_wf`
     * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
     """
-    ref_file = asl_file
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
 
@@ -154,8 +152,8 @@ def init_asl_gepreproc_wf(asl_file):
     basil = config.workflow.basil
     smoothkernel = config.workflow.smooth_kernel
 
-    if os.path.isfile(ref_file):
-        asl_tlen, mem_gb = _create_mem_gb(ref_file)
+    ref_file = asl_file
+    asl_tlen, mem_gb = _create_mem_gb(ref_file)
 
     wf_name = _get_wf_name(ref_file)
     config.loggers.workflow.debug(
@@ -168,10 +166,9 @@ def init_asl_gepreproc_wf(asl_file):
         mem_gb["largemem"],
     )
 
-    # Find associated sbref, if possible
-    refbase = os.path.basename(ref_file)
-    config.loggers.workflow.info("No single-band-reference found for %s.", refbase)
-    metadata = layout.get_metadata(ref_file)
+    # Collect associated files
+    run_data = collect_run_data(layout, ref_file, multiecho=False)
+    metadata = run_data["asl_metadata"].copy()
 
     # Build workflow
     workflow = Workflow(name=wf_name)
@@ -189,6 +186,8 @@ effects of other kernels [@lanczos].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "m0scan",
+                "m0scan_metadata",
                 "t1w_preproc",
                 "t1w_mask",
                 "t1w_dseg",
@@ -201,9 +200,8 @@ effects of other kernels [@lanczos].
         name="inputnode",
     )
     inputnode.inputs.asl_file = asl_file
-    subj_dir = (
-        str(config.execution.bids_dir) + "/sub-" + str(config.execution.participant_label[0])
-    )
+    inputnode.inputs.m0scan = run_data["m0scan"]
+    inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
     outputnode = pe.Node(
         niu.IdentityInterface(
@@ -223,7 +221,7 @@ effects of other kernels [@lanczos].
                 "score_std",
                 "avgscore_t1",
                 "avgscore_std",
-                " scrub_t1",
+                "scrub_t1",
                 "scrub_std",
                 "itk_asl_to_t1",
                 "itk_t1_to_asl",
@@ -239,7 +237,7 @@ effects of other kernels [@lanczos].
                 "att_t1",
                 "att_std",
                 "qc_file",
-            ]
+            ],
         ),
         name="outputnode",
     )
@@ -300,13 +298,16 @@ effects of other kernels [@lanczos].
     gen_ref_wf = init_asl_geref_wf(
         smooth_kernel=smoothkernel,
         metadata=metadata,
-        bids_dir=subj_dir,
         name="asl_gereference_wf",
     )
 
     # fmt:off
     workflow.connect([
-        (inputnode, gen_ref_wf, [("asl_file", "inputnode.asl_file")]),
+        (inputnode, gen_ref_wf, [
+            ("asl_file", "inputnode.asl_file"),
+            ("m0scan", "inputnode.m0scan"),
+            ("aslcontext", "inputnode.aslcontext"),
+        ]),
     ])
     # fmt:on
 
@@ -356,8 +357,10 @@ effects of other kernels [@lanczos].
             ("asl_file", "inputnode.name_source"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (gen_ref_wf, t1w_gereg_wf, [("outputnode.ref_image_brain", "inputnode.ref_asl_brain")]),
-        (gen_ref_wf, t1w_gereg_wf, [("outputnode.asl_mask", "inputnode.ref_asl_mask")]),
+        (gen_ref_wf, t1w_gereg_wf, [
+            ("outputnode.ref_image_brain", "inputnode.ref_asl_brain"),
+            ("outputnode.asl_mask", "inputnode.ref_asl_mask"),
+        ]),
         (t1w_brain, t1w_gereg_wf, [("out_file", "inputnode.t1w_brain")]),
         # unused if multiecho, but this is safe
         (asl_reg_wf, t1w_gereg_wf, [("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1")]),

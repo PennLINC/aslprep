@@ -21,13 +21,7 @@ from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
-from aslprep.utils.misc import (
-    _getcbfscore,
-    _scrubcbf,
-    parcellate_cbf,
-    pcasl_or_pasl,
-    readjson,
-)
+from aslprep.utils.misc import _getcbfscore, _scrubcbf, parcellate_cbf, pcasl_or_pasl
 from aslprep.utils.qc import (
     cbf_qei,
     coverage,
@@ -83,12 +77,16 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     name_source = File(exists=True, mandatory=True, desc="raw asl file")
     asl_file = File(exists=True, mandatory=True, desc="preprocessed asl file")
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
+    m0scan = traits.Either(
+        File(exists=True),
+        None,
+        desc="m0scan file associated with the ASL file. Only defined if M0Type is 'Separate'.",
+    )
     in_mask = File(exists=True, mandatory=True, desc="mask")
     dummy_vols = traits.Int(
         default_value=0, exit=False, mandatory=False, desc="remove first n volumes"
     )
-    in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for asl or deltam ")
-    bids_dir = traits.Str(exits=True, mandatory=True, desc=" bids directory")
+    metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for asl or deltam ")
     fwhm = traits.Float(default_value=5, exists=True, mandatory=False, desc="fwhm")
 
 
@@ -125,7 +123,7 @@ class ExtractCBF(SimpleInterface):
 
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
-        metadata = self.inputs.in_metadata.copy()
+        metadata = self.inputs.metadata.copy()
 
         mask_data = nb.load(self.inputs.in_mask).get_fdata()
 
@@ -143,17 +141,12 @@ class ExtractCBF(SimpleInterface):
 
         # extract m0 file and register it to ASL if separate
         if metadata["M0Type"] == "Separate":
-            m0file = self.inputs.in_file.replace("asl.nii.gz", "m0scan.nii.gz")
-            m0file_metadata = readjson(m0file.replace("nii.gz", "json"))
-            aslfile_linkedM0 = os.path.abspath(
-                os.path.join(self.inputs.bids_dir, m0file_metadata["IntendedFor"])
-            )
-            if self.inputs.in_file not in aslfile_linkedM0:
-                raise RuntimeError("there is no separate m0scan for the asl data")
+            m0file = self.inputs.m0scan
+            m0file_metadata = self.inputs.m0scan_metadata
 
-            newm0 = fname_presuffix(self.inputs.asl_file, suffix="_m0file")
-            newm0 = regmotoasl(asl=self.inputs.asl_file, m0file=m0file, m02asl=newm0)
-            m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_fdata()
+            m0_in_asl = fname_presuffix(self.inputs.asl_file, suffix="_m0file")
+            m0_in_asl = regmotoasl(asl=self.inputs.asl_file, m0file=m0file, m02asl=m0_in_asl)
+            m0data_smooth = smooth_image(nb.load(m0_in_asl), fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
                 m0data = mask_data * np.mean(m0data_smooth, axis=3)
             else:
@@ -204,10 +197,6 @@ class ExtractCBF(SimpleInterface):
 
         else:
             raise RuntimeError("no pathway to m0scan")
-
-        if asl_data.ndim == 5:
-            # XXX: Why specifically check for 5D data? NIFTIs can go up to 8, I think.
-            raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
 
         pld = np.array(metadata["PostLabelingDelay"])
         multi_pld = pld.size > 1
