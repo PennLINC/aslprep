@@ -295,6 +295,7 @@ effects of other kernels [@lanczos].
     # fmt:on
 
     # begin workflow
+    # Extract averaged, smoothed M0 image and reference image (which is generally the M0 image).
     gen_ref_wf = init_asl_geref_wf(
         smooth_kernel=smoothkernel,
         metadata=metadata,
@@ -311,6 +312,7 @@ effects of other kernels [@lanczos].
     ])
     # fmt:on
 
+    # ASL-to-T1w registration
     asl_reg_wf = init_asl_gereg_wf(
         use_bbr=config.workflow.use_bbr,
         asl2t1w_dof=config.workflow.asl2t1w_dof,
@@ -334,6 +336,35 @@ effects of other kernels [@lanczos].
             ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
         ]),
         (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
+    ])
+    # fmt:on
+
+    cbf_compt_wf = init_gecbf_compt_wf(
+        name_source=asl_file,
+        metadata=metadata,
+        scorescrub=scorescrub,
+        basil=basil,
+        M0Scale=mscale,
+        mem_gb=mem_gb["filesize"],
+        name="cbf_compt_wf",
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, cbf_compt_wf, [
+            ("asl_file", "inputnode.in_file"),
+            ("asl_file", "inputnode.asl_file"),
+            ("t1w_tpms", "inputnode.t1w_tpms"),
+            ("t1w_mask", "inputnode.t1w_mask"),
+        ]),
+        (gen_ref_wf, cbf_compt_wf, [
+            ("outputnode.asl_mask", "inputnode.asl_mask"),
+            ("outputnode.m0_file", "inputnode.m0_file"),
+        ]),
+        (asl_reg_wf, cbf_compt_wf, [
+            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
+            ("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform"),
+        ]),
     ])
     # fmt:on
 
@@ -368,34 +399,13 @@ effects of other kernels [@lanczos].
             ("outputnode.asl_t1", "asl_t1"),
             ("outputnode.asl_t1_ref", "asl_t1_ref"),
         ]),
-    ])
-    # fmt:on
-
-    cbf_compt_wf = init_gecbf_compt_wf(
-        name_source=asl_file,
-        metadata=metadata,
-        scorescrub=scorescrub,
-        basil=basil,
-        M0Scale=mscale,
-        mem_gb=mem_gb["filesize"],
-        name="cbf_compt_wf",
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, cbf_compt_wf, [
-            ("asl_file", "inputnode.in_file"),
-            ("asl_file", "inputnode.asl_file"),
-            ("t1w_tpms", "inputnode.t1w_tpms"),
-            ("t1w_mask", "inputnode.t1w_mask"),
+        (cbf_compt_wf, t1w_gereg_wf, [
+            ("outputnode.out_cbf", "inputnode.cbf"),
+            ("outputnode.out_mean", "inputnode.meancbf"),
         ]),
-        (gen_ref_wf, cbf_compt_wf, [
-            ("outputnode.asl_mask", "inputnode.asl_mask"),
-            ("outputnode.m0_file", "inputnode.m0_file"),
-        ]),
-        (asl_reg_wf, cbf_compt_wf, [
-            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
-            ("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform"),
+        (t1w_gereg_wf, asl_derivatives_wf, [
+            ("outputnode.cbf_t1", "inputnode.cbf_t1"),
+            ("outputnode.meancbf_t1", "inputnode.meancbf_t1"),
         ]),
     ])
     # fmt:on
@@ -465,14 +475,6 @@ effects of other kernels [@lanczos].
             (t1w_gereg_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
             (refine_mask, aslmask_to_t1w, [("out_mask", "input_image")]),
             (aslmask_to_t1w, outputnode, [("output_image", "asl_mask_t1")]),
-            (cbf_compt_wf, t1w_gereg_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf"),
-                ("outputnode.out_mean", "inputnode.meancbf"),
-            ]),
-            (t1w_gereg_wf, asl_derivatives_wf, [
-                ("outputnode.cbf_t1", "inputnode.cbf_t1"),
-                ("outputnode.meancbf_t1", "inputnode.meancbf_t1"),
-            ]),
         ])
         # fmt:on
 
@@ -519,10 +521,12 @@ effects of other kernels [@lanczos].
 
     # fmt:off
     workflow.connect([
+        (inputnode, compt_qccbf_wf, [
+            ("t1w_tpms", "inputnode.t1w_tpms"),
+            ("t1w_mask", "inputnode.t1w_mask"),
+        ]),
         (refine_mask, compt_qccbf_wf, [("out_mask", "inputnode.asl_mask")]),
-        (inputnode, compt_qccbf_wf, [("t1w_tpms", "inputnode.t1w_tpms")]),
         (asl_reg_wf, compt_qccbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (inputnode, compt_qccbf_wf, [("t1w_mask", "inputnode.t1w_mask")]),
         (cbf_compt_wf, compt_qccbf_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
         (compt_qccbf_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
         (compt_qccbf_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
