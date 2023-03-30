@@ -73,12 +73,10 @@ def collect_run_data(layout, asl_file, multiecho):
     bids_file = layout.get_file(asl_file)
 
     run_data = {
-        dtype: sorted(
-            layout.get_nearest(
-                bids_file.path,
-                return_type="file",
-                **query,
-            )
+        dtype: layout.get_nearest(
+            bids_file.path,
+            return_type="file",
+            **query,
         )
         for dtype, query in queries.items()
     }
