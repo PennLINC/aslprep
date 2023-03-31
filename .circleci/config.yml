@@ -33,53 +33,103 @@ jobs:
       - checkout
       - run: *runinstall
 
-  download_data:
+  download_data_examples_pcasl_singlepld:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: data-v4
+          key: examples_pcasl_singlepld-v1
       - run:
           name: Get test data and smriprep from box
           command: |
             cd /src/aslprep/.circleci
-            source get_data.sh
-            get_bids_data $PWD downsampled
+            python get_data.py ${PWD}/data downsampled
       - save_cache:
-          key: data-v4
+          key: examples_pcasl_singlepld-v1
           paths:
               - /src/aslprep/.circleci/data
 
-  aslprep_sub01:
+  download_data_examples_pcasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            cd /src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_sub01\]' )" != "" ]]; then
-              echo "Skipping aslprep_sub01 build"
-              circleci step halt
-            fi
       - restore_cache:
-          key: data-v4
-      - run: *runinstall
+          key: examples_pcasl_multipld-v1
       - run:
-          name: Run full aslprep on aslprep_sub01 bold
-          no_output_timeout: 5h
+          name: Get test data and smriprep from box
           command: |
-            pytest -rP -o log_cli=true -m "sub01" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.sub01
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data downsampled
+      - save_cache:
+          key: examples_pcasl_multipld-v1
           paths:
-              - .coverage.sub01
+              - /src/aslprep/.circleci/data
 
-  aslprep_subA00086748:
+  download_data_examples_pasl_multipld:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: examples_pasl_multipld-v1
+      - run:
+          name: Get test data and smriprep from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data downsampled
+      - save_cache:
+          key: examples_pasl_multipld-v1
+          paths:
+              - /src/aslprep/.circleci/data
+
+  download_data_test_001:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: test_001-v1
+      - run:
+          name: Get test data and smriprep from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data downsampled
+      - save_cache:
+          key: test_001-v1
+          paths:
+              - /src/aslprep/.circleci/data
+
+  download_data_test_002:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: test_002-v1
+      - run:
+          name: Get test data and smriprep from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data downsampled
+      - save_cache:
+          key: test_002-v1
+          paths:
+              - /src/aslprep/.circleci/data
+
+  download_data_test_003:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: test_003-v1
+      - run:
+          name: Get test data and smriprep from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data downsampled
+      - save_cache:
+          key: test_003-v1
+          paths:
+              - /src/aslprep/.circleci/data
+
+  aslprep_examples_pcasl_singlepld:
     <<: *dockersetup
     steps:
       - checkout
@@ -87,26 +137,171 @@ jobs:
           name: Check whether build should be skipped
           command: |
             cd /src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_sub01\]' )" != "" ]]; then
-              echo "Skipping aslprep_sub01 build"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld\]' )" != "" ]]; then
+              echo "Skipping examples_pcasl_singlepld build"
               circleci step halt
             fi
       - restore_cache:
-          key: data-v4
+          key: examples_pcasl_singlepld-v1
       - run: *runinstall
       - run:
-          name: Run full aslprep on aslprep_subA00086748 bold
+          name: Run full aslprep on examples_pcasl_singlepld dataset
           no_output_timeout: 5h
           command: |
-            pytest -rP -o log_cli=true -m "subA00086748" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.subA00086748
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
           root: /src/coverage
           paths:
-              - .coverage.subA00086748
+              - .coverage.examples_pcasl_singlepld
+
+  aslprep_examples_pcasl_multipld:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_multipld\]' )" != "" ]]; then
+              echo "Skipping examples_pcasl_multipld build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: examples_pcasl_multipld-v1
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on examples_pcasl_multipld dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "examples_pcasl_multipld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_multipld
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.examples_pcasl_multipld
+
+  aslprep_examples_pasl_multipld:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pasl_multipld\]' )" != "" ]]; then
+              echo "Skipping examples_pasl_multipld build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: examples_pasl_multipld-v1
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on examples_pasl_multipld dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "examples_pasl_multipld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pasl_multipld
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.examples_pasl_multipld
+
+  aslprep_test_001:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_001\]' )" != "" ]]; then
+              echo "Skipping test_001 build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_001-v1
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on test_001 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_001" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_001
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_001
+
+  aslprep_test_002:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_002\]' )" != "" ]]; then
+              echo "Skipping test_002 build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_002-v1
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on test_002 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_002" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_002
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_002
+
+  aslprep_test_003:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_test_003\]' )" != "" ]]; then
+              echo "Skipping aslprep_test_003 build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_003-v1
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on test_003 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_003" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_003
 
   pytests:
     <<: *dockersetup
@@ -229,9 +424,9 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_sub01:
+      - aslprep_examples_pcasl_singlepld:
           requires:
-            - download_data
+            - download_data_examples_pcasl_singlepld
             - build
           filters:
             branches:
@@ -241,9 +436,57 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_subA00086748:
+      - aslprep_examples_pcasl_multipld:
           requires:
-            - download_data
+            - download_data_examples_pcasl_multipld
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - aslprep_examples_pasl_multipld:
+          requires:
+            - download_data_examples_pasl_multipld
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - aslprep_test_001:
+          requires:
+            - download_data_test_001
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - aslprep_test_002:
+          requires:
+            - download_data_test_002
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - aslprep_test_003:
+          requires:
+            - download_data_test_003
             - build
           filters:
             branches:
@@ -255,7 +498,9 @@ workflows:
 
       - pytests:
           requires:
-            - download_data
+            - download_data_test_001
+            - download_data_test_002
+            - download_data_test_003
             - build
           filters:
             branches:
@@ -267,8 +512,12 @@ workflows:
 
       - merge_coverage:
           requires:
-            - aslprep_sub01
-            - aslprep_subA00086748
+            - aslprep_examples_pcasl_singlepld
+            - aslprep_examples_pcasl_multipld
+            - aslprep_examples_pasl_multipld
+            - aslprep_test_001
+            - aslprep_test_002
+            - aslprep_test_003
             - pytests
           filters:
             branches:
@@ -281,8 +530,12 @@ workflows:
       - deployable:
           requires:
             - build
-            - aslprep_sub01
-            - aslprep_subA00086748
+            - aslprep_examples_pcasl_singlepld
+            - aslprep_examples_pcasl_multipld
+            - aslprep_examples_pasl_multipld
+            - aslprep_test_001
+            - aslprep_test_002
+            - aslprep_test_003
           filters:
             branches:
               only: main
