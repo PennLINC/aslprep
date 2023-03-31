@@ -75,7 +75,7 @@ class BIDSDataGrabber(SimpleInterface):
                 f"No ASL images found for subject sub-{self.inputs.subject_id}"
             )
 
-        for imtype in ["bold", "t2w", "flair", "fmap", "sbref", "roi", "asl"]:
+        for imtype in ["t2w", "flair", "fmap", "sbref", "roi", "asl"]:
             if not bids_dict[imtype]:
                 config.loggers.interface.info(
                     'No "%s" images found for sub-%s',

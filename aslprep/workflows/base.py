@@ -11,8 +11,9 @@ from smriprep.workflows.anatomical import init_anat_preproc_wf
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
+from aslprep.interfaces.bids import BIDSDataGrabber
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
+from aslprep.niworkflows.interfaces.bids import BIDSInfo
 from aslprep.niworkflows.interfaces.nilearn import NILEARN_VERSION
 from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
 from aslprep.niworkflows.utils.spaces import Reference
