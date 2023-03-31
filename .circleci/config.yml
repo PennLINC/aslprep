@@ -44,7 +44,7 @@ jobs:
           name: Get test data and smriprep from box
           command: |
             cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data downsampled
+            python get_data.py ${PWD}/data examples_pcasl_singlepld
       - save_cache:
           key: examples_pcasl_singlepld-v1
           paths:
@@ -61,7 +61,7 @@ jobs:
           name: Get test data and smriprep from box
           command: |
             cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data downsampled
+            python get_data.py ${PWD}/data examples_pcasl_multipld
       - save_cache:
           key: examples_pcasl_multipld-v1
           paths:
@@ -78,7 +78,7 @@ jobs:
           name: Get test data and smriprep from box
           command: |
             cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data downsampled
+            python get_data.py ${PWD}/data examples_pasl_multipld
       - save_cache:
           key: examples_pasl_multipld-v1
           paths:
@@ -95,7 +95,7 @@ jobs:
           name: Get test data and smriprep from box
           command: |
             cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data downsampled
+            python get_data.py ${PWD}/data test_001
       - save_cache:
           key: test_001-v1
           paths:
@@ -112,7 +112,7 @@ jobs:
           name: Get test data and smriprep from box
           command: |
             cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data downsampled
+            python get_data.py ${PWD}/data test_002
       - save_cache:
           key: test_002-v1
           paths:
@@ -129,7 +129,7 @@ jobs:
           name: Get test data and smriprep from box
           command: |
             cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data downsampled
+            python get_data.py ${PWD}/data test_003
       - save_cache:
           key: test_003-v1
           paths:
