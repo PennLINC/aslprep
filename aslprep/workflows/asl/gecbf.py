@@ -350,6 +350,7 @@ effects of other kernels [@lanczos].
 
     cbf_compt_wf = init_gecbf_compt_wf(
         name_source=asl_file,
+        aslcontext=run_data["aslcontext"],
         metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,
