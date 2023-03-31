@@ -28,12 +28,11 @@ def collect_data(
 
     queries = {
         "fmap": {"datatype": "fmap"},
-        "bold": {"datatype": "func", "suffix": "bold"},
-        "sbref": {"datatype": "func", "suffix": "sbref"},
         "flair": {"datatype": "anat", "suffix": "FLAIR"},
         "t2w": {"datatype": "anat", "suffix": "T2w"},
         "t1w": {"datatype": "anat", "suffix": "T1w"},
         "roi": {"datatype": "anat", "suffix": "roi"},
+        "sbref": {"datatype": "perf", "suffix": "sbref"},
         "asl": {"datatype": "perf", "suffix": "asl"},
     }
 
@@ -259,18 +258,21 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
                     "(see https://docs.docker.com/engine/reference/commandline/"
                     "run/#mount-volume--v---read-only)"
                 )
-            if exec_env == "singularity":
+
+            elif exec_env == "singularity":
                 error_msg += (
                     " This error can be caused by the input data not being "
                     "accessible inside the singularity container. "
                     "Please make sure all paths are mapped properly "
                     "(see https://www.sylabs.io/guides/3.0/user-guide/bind_paths_and_mounts.html)"
                 )
+
             raise RuntimeError(error_msg)
 
         if ignored_subs := all_subs.difference(selected_subs):
             for sub in ignored_subs:
                 validator_config_dict["ignoredFiles"].append(f"/sub-{sub}/**")
+
     with tempfile.NamedTemporaryFile("w+") as temp:
         temp.write(json.dumps(validator_config_dict))
         temp.flush()
