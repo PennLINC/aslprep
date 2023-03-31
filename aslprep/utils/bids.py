@@ -112,9 +112,10 @@ def collect_run_data(layout, asl_file, multiecho):
         run_data["m0scan"] = None
 
     m0scan_metadata = None
-    if (run_data["asl_metadata"]["M0Type"] == "Separate") and not run_data["m0scan"]:
+    asl_metadata = layout.get_metadata(asl_file)
+    if (asl_metadata["M0Type"] == "Separate") and not run_data["m0scan"]:
         raise FileNotFoundError(f"M0 file for {asl_file} not found.")
-    elif run_data["asl_metadata"]["M0Type"] == "Separate":
+    elif asl_metadata["M0Type"] == "Separate":
         m0scan_metadata = layout.get_metadata(run_data["m0scan"])
     elif run_data["m0scan"]:
         raise ValueError(
@@ -129,7 +130,8 @@ def collect_run_data(layout, asl_file, multiecho):
         ),
     )
 
-    run_data["asl_metadata"] = layout.get_metadata(asl_file)
+    # Add metadata to dictionary now (we don't want to print these with the logger).
+    run_data["asl_metadata"] = asl_metadata
     run_data["m0scan_metadata"] = m0scan_metadata
 
     return run_data
