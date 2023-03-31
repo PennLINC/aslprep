@@ -76,18 +76,28 @@ class RefineMask(SimpleInterface):
 class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     name_source = File(exists=True, mandatory=True, desc="raw asl file")
     asl_file = File(exists=True, mandatory=True, desc="preprocessed asl file")
+    metadata = traits.Dict(mandatory=True, desc="metadata for ASL file")
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
     m0scan = traits.Either(
         File(exists=True),
         None,
+        mandatory=True,
         desc="m0scan file associated with the ASL file. Only defined if M0Type is 'Separate'.",
+    )
+    metadata = traits.Either(
+        traits.Dict,
+        None,
+        mandatory=True,
+        desc="metadata for M0 scan. Only defined if M0Type is 'Separate'.",
     )
     in_mask = File(exists=True, mandatory=True, desc="mask")
     dummy_vols = traits.Int(
-        default_value=0, exit=False, mandatory=False, desc="remove first n volumes"
+        default_value=0,
+        use_default=True,
+        mandatory=False,
+        desc="remove first n volumes",
     )
-    metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for asl or deltam ")
-    fwhm = traits.Float(default_value=5, exists=True, mandatory=False, desc="fwhm")
+    fwhm = traits.Float(default_value=5, use_default=True, mandatory=False, desc="fwhm")
 
 
 class _ExtractCBFOutputSpec(TraitedSpec):
