@@ -481,8 +481,10 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
 
         return os.path.dirname(file)
 
-    collect_cbf = niu.IdentityInterface(
-        fields=["deltam", "cbf"],
+    collect_cbf = pe.Node(
+        niu.IdentityInterface(
+            fields=["deltam", "cbf"],
+        ),
         name="collect_cbf",
     )
 
