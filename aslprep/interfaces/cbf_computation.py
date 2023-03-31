@@ -103,6 +103,11 @@ class _ExtractCBFOutputSpec(TraitedSpec):
             "volumes."
         ),
     )
+    m0tr = traits.Either(
+        traits.Float,
+        None,
+        desc="RepetitionTimePreparation for M0 scans.",
+    )
 
 
 class ExtractCBF(SimpleInterface):
@@ -155,14 +160,28 @@ class ExtractCBF(SimpleInterface):
             else:
                 m0data = mask_data * m0data_smooth
 
+            m0tr = m0file_metadata["RepetitionTimePreparation"]
+            if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
+
         elif metadata["M0Type"] == "Included":
             m0data = asl_data[:, :, :, m0_volume_idx]
             m0img = nb.Nifti1Image(m0data, asl_img.affine, asl_img.header)
             m0data_smooth = smooth_image(m0img, fwhm=self.inputs.fwhm).get_fdata()
             m0data = mask_data * np.mean(m0data_smooth, axis=3)
 
+            if np.array(metadata["RepetitionTimePreparation"]).size > 1:
+                m0tr = np.array(metadata["RepetitionTimePreparation"])[m0_volume_idx]
+            else:
+                m0tr = metadata["RepetitionTimePreparation"]
+
+            if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
+
         elif metadata["M0Type"] == "Estimate":
             m0data = metadata["M0Estimate"] * mask_data
+
+            m0tr = None
 
         elif metadata["M0Type"] == "Absent":
             if control_volume_idx:
@@ -171,9 +190,13 @@ class ExtractCBF(SimpleInterface):
                 control_img = nb.Nifti1Image(control_data, asl_img.affine, asl_img.header)
                 control_img = smooth_image(control_img, fwhm=self.inputs.fwhm).get_fdata()
                 m0data = mask_data * np.mean(control_img, axis=3)
+
+                m0tr = None
+
             elif cbf_volume_idx:
-                # If we have precalculated CBF data, just use the mask as M0.
+                # If we have precalculated CBF data, we don't need M0, so we'll just use the mask.
                 m0data = mask_data
+
             else:
                 raise RuntimeError(
                     "m0scan is absent, "
@@ -237,6 +260,7 @@ class ExtractCBF(SimpleInterface):
             metadata["PostLabelingDelay"] = pld.tolist()
 
         self._results["metadata"] = metadata
+        self._results["m0tr"] = m0tr
         self._results["out_file"] = fname_presuffix(
             self.inputs.name_source,
             suffix="_DeltaMOrCBF",

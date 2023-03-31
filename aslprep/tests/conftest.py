@@ -38,10 +38,10 @@ def output_dir(request):
 @pytest.fixture(scope="session")
 def datasets(data_dir):
     """Locate downloaded datasets."""
-    dsets = {}
-    dsets["dset"] = os.path.join(data_dir, "dset")
-    dsets["smriprep"] = os.path.join(dsets["dset"], "derivatives/smriprep")
-    return dsets
+    return {
+        "dset": os.path.join(data_dir, "dset"),
+        "smriprep": os.path.join(data_dir, "dset/derivatives/smriprep"),
+    }
 
 
 @pytest.fixture(scope="session", autouse=True)

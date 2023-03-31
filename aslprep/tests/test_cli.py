@@ -1,4 +1,5 @@
 """Command-line interface tests."""
+import json
 import os
 
 import pytest
@@ -19,6 +20,16 @@ def test_sub01(datasets, output_dir, working_dir):
     smriprep_dir = datasets["smriprep"]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
+
+    # Patch the JSON file until I have enough changes to merit completely replacing the current
+    # version of the data.
+    json_file = os.path.join(data_dir, "sub-01", "perf", "sub-01_asl.json")
+    with open(json_file, "r") as fo:
+        metadata = json.load(fo)
+
+    metadata["RepetitionTimePreparation"] = metadata["RepetitionTime"]
+    with open(json_file, "w") as fo:
+        json.dump(metadata, fo, sort_keys=True, indent=4)
 
     test_data_dir = get_test_data_path()
 
@@ -50,7 +61,7 @@ def test_sub01(datasets, output_dir, working_dir):
 
 
 @pytest.mark.subA00086748
-def test_subA00086748(datasets, output_dir, working_dir):
+def test_subA00086748(datasets, output_dir, working_dir):  # noqa: N802
     """Run aslprep on sub-A00086748."""
     from aslprep import config
 
@@ -60,6 +71,22 @@ def test_subA00086748(datasets, output_dir, working_dir):
     smriprep_dir = datasets["smriprep"]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
+
+    # Patch the JSON file until I have enough changes to merit completely replacing the current
+    # version of the data.
+    json_file = os.path.join(
+        data_dir,
+        "sub-A00086748",
+        "ses-BAS1",
+        "perf",
+        "sub-A00086748_ses-BAS1_asl.json",
+    )
+    with open(json_file, "r") as fo:
+        metadata = json.load(fo)
+
+    metadata["RepetitionTimePreparation"] = metadata["RepetitionTime"]
+    with open(json_file, "w") as fo:
+        json.dump(metadata, fo, sort_keys=True, indent=4)
 
     test_data_dir = get_test_data_path()
 
@@ -91,7 +118,7 @@ def test_subA00086748(datasets, output_dir, working_dir):
 
 
 @pytest.mark.sub10R01383
-def test_sub10R01383(datasets, output_dir, working_dir):
+def test_sub10R01383(datasets, output_dir, working_dir):  # noqa: N802
     """Run aslprep on sub-10R01383.
 
     Currently skipped.
