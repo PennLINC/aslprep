@@ -806,9 +806,9 @@ def estimate_labeling_efficiency(metadata):
     Otherwise, efficiency will be estimated based on the ASL type and number of background
     suppression pulses (if any).
     PCASL and PASL values come from :footcite:t:`alsop_recommended_2015`.
-    CASL value comes from :footcite:t:`wang2005amplitude`.
-    The adjustment based on number of background suppression pulses comes from
-    :footcite:t:`XXXX`.
+    The CASL value comes from :footcite:t:`wang2005amplitude`.
+    The adjustment based on number of background suppression pulses is not described in any papers,
+    as far as we know, but is apparently widely used.
 
     References
     ----------
@@ -825,8 +825,9 @@ def estimate_labeling_efficiency(metadata):
         labeleff = BASE_LABELEFF[metadata["ArterialSpinLabelingType"]]
 
         if metadata.get("BackgroundSuppression", False):
+            BS_PULSE_EFF = 0.95  # hardcoded BackgroundSuppressionPulse efficiency
             # We assume there was one pulse if suppression was applied,
             # but the number of pulses isn't defined.
-            labeleff = labeleff * (0.95 ** metadata.get("BackgroundSuppressionNumberPulses", 1))
+            labeleff *= BS_PULSE_EFF ** metadata.get("BackgroundSuppressionNumberPulses", 1)
 
     return labeleff
