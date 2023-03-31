@@ -37,7 +37,10 @@ class _GeReferenceFileOutputSpec(TraitedSpec):
 
 
 class GeReferenceFile(SimpleInterface):
-    """Generate a reference grid to resample image to new space, but with original resolution."""
+    """Generate a reference grid to resample image to new space, but with original resolution.
+
+    TODO: Extract M0 in a separate step, to be shared between the GE and non-GE pipelines.
+    """
 
     input_spec = _GeReferenceFileInputSpec
     output_spec = _GeReferenceFileOutputSpec
