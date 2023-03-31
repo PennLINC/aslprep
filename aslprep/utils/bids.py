@@ -76,6 +76,7 @@ def collect_run_data(layout, asl_file, multiecho):
         dtype: layout.get_nearest(
             bids_file.path,
             return_type="file",
+            strict=False,  # aslcontext files aren't grabbed when strict=True, for some reason
             **query,
         )
         for dtype, query in queries.items()
