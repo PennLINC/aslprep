@@ -109,6 +109,17 @@ def init_asl_preproc_wf(asl_file):
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
         quality control meausres
+
+    Notes
+    -----
+    1.  Brain-mask T1w.
+    2.  Generate ASL reference image.
+        I think this is just the BOLD reference workflow from niworkflows,
+        without any modifications for ASL data. I could be missing something.
+    3.  Slice-timing correction.
+    4.  Motion correction.
+    5.  Register ASL to T1w.
+    6.  ...
     """
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
@@ -293,9 +304,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
     if sbref_file is not None:
         # fmt:off
-        workflow.connect([
-            (val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")]),
-        ])
+        workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
         # fmt:on
 
     # Top-level asl splitter
@@ -923,13 +932,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.out_cbfpv", "inputnode.pvc"),
             ("outputnode.out_score", "inputnode.score_ts"),
             ("outputnode.out_cbf", "inputnode.cbf_ts"),
+            ("outputnode.out_scoreindex", "inputnode.scoreindex"),
         ]),
         (inputnode, cbf_plot, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbf_plot, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
         (refine_mask, cbf_plot, [("out_mask", "inputnode.asl_mask")]),
         (asl_reference_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.asl_ref")]),
         (asl_confounds_wf, cbf_plot, [("outputnode.confounds_file", "inputnode.confounds_file")]),
-        (compt_cbf_wf, cbf_plot, [("outputnode.out_scoreindex", "inputnode.scoreindex")]),
     ])
     # fmt:on
 
