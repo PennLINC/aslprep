@@ -1,5 +1,4 @@
 """Command-line interface tests."""
-import json
 import os
 
 import pytest
@@ -15,29 +14,16 @@ def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
     from aslprep import config
 
     test_name = "examples_pcasl_singlepld"
-
-    data_dir = datasets["dset"]
-    smriprep_dir = datasets["smriprep"]
+    data_dir = datasets[test_name]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-
-    # Patch the JSON file until I have enough changes to merit completely replacing the current
-    # version of the data.
-    json_file = os.path.join(data_dir, "sub-01", "perf", "sub-01_asl.json")
-    with open(json_file, "r") as fo:
-        metadata = json.load(fo)
-
-    metadata["RepetitionTimePreparation"] = metadata["RepetitionTime"]
-    with open(json_file, "w") as fo:
-        json.dump(metadata, fo, sort_keys=True, indent=4)
-
     test_data_dir = get_test_data_path()
 
     parameters = [
         data_dir,
         out_dir,
         "participant",
-        "--participant-label=01",
+        "--participant-label=103",
         f"-w={work_dir}",
         "--nthreads=2",
         "--omp-nthreads=2",
@@ -45,7 +31,7 @@ def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={smriprep_dir}",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
     ]
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
@@ -66,22 +52,9 @@ def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
     from aslprep import config
 
     test_name = "examples_pcasl_multipld"
-
-    data_dir = datasets["dset"]
-    smriprep_dir = datasets["smriprep"]
+    data_dir = datasets[test_name]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-
-    # Patch the JSON file until I have enough changes to merit completely replacing the current
-    # version of the data.
-    json_file = os.path.join(data_dir, "sub-01", "perf", "sub-01_asl.json")
-    with open(json_file, "r") as fo:
-        metadata = json.load(fo)
-
-    metadata["RepetitionTimePreparation"] = metadata["RepetitionTime"]
-    with open(json_file, "w") as fo:
-        json.dump(metadata, fo, sort_keys=True, indent=4)
-
     test_data_dir = get_test_data_path()
 
     parameters = [
@@ -96,7 +69,7 @@ def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={smriprep_dir}",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
     ]
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
@@ -117,22 +90,9 @@ def test_examples_pasl_multipld(datasets, output_dir, working_dir):
     from aslprep import config
 
     test_name = "examples_pasl_multipld"
-
-    data_dir = datasets["dset"]
-    smriprep_dir = datasets["smriprep"]
+    data_dir = datasets[test_name]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-
-    # Patch the JSON file until I have enough changes to merit completely replacing the current
-    # version of the data.
-    json_file = os.path.join(data_dir, "sub-01", "perf", "sub-01_asl.json")
-    with open(json_file, "r") as fo:
-        metadata = json.load(fo)
-
-    metadata["RepetitionTimePreparation"] = metadata["RepetitionTime"]
-    with open(json_file, "w") as fo:
-        json.dump(metadata, fo, sort_keys=True, indent=4)
-
     test_data_dir = get_test_data_path()
 
     parameters = [
@@ -147,7 +107,7 @@ def test_examples_pasl_multipld(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={smriprep_dir}",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
     ]
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
@@ -168,22 +128,9 @@ def test_test_001(datasets, output_dir, working_dir):
     from aslprep import config
 
     test_name = "test_001"
-
-    data_dir = datasets["dset"]
-    smriprep_dir = datasets["smriprep"]
+    data_dir = datasets[test_name]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-
-    # Patch the JSON file until I have enough changes to merit completely replacing the current
-    # version of the data.
-    json_file = os.path.join(data_dir, "sub-01", "perf", "sub-01_asl.json")
-    with open(json_file, "r") as fo:
-        metadata = json.load(fo)
-
-    metadata["RepetitionTimePreparation"] = metadata["RepetitionTime"]
-    with open(json_file, "w") as fo:
-        json.dump(metadata, fo, sort_keys=True, indent=4)
-
     test_data_dir = get_test_data_path()
 
     parameters = [
@@ -198,7 +145,7 @@ def test_test_001(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={smriprep_dir}",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
     ]
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
@@ -227,12 +174,9 @@ def test_test_002(datasets, output_dir, working_dir):
     from aslprep import config
 
     test_name = "test_002"
-
-    data_dir = datasets["dset"]
-    smriprep_dir = datasets["smriprep"]
+    data_dir = datasets[test_name]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-
     test_data_dir = get_test_data_path()
 
     parameters = [
@@ -246,7 +190,7 @@ def test_test_002(datasets, output_dir, working_dir):
         "--output-spaces=asl",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={smriprep_dir}",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
     ]
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
@@ -267,28 +211,9 @@ def test_test_003(datasets, output_dir, working_dir):
     from aslprep import config
 
     test_name = "test_003"
-
-    data_dir = datasets["dset"]
-    smriprep_dir = datasets["smriprep"]
+    data_dir = datasets[test_name]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-
-    # Patch the JSON file until I have enough changes to merit completely replacing the current
-    # version of the data.
-    json_file = os.path.join(
-        data_dir,
-        "sub-A00086748",
-        "ses-BAS1",
-        "perf",
-        "sub-A00086748_ses-BAS1_asl.json",
-    )
-    with open(json_file, "r") as fo:
-        metadata = json.load(fo)
-
-    metadata["RepetitionTimePreparation"] = metadata["RepetitionTime"]
-    with open(json_file, "w") as fo:
-        json.dump(metadata, fo, sort_keys=True, indent=4)
-
     test_data_dir = get_test_data_path()
 
     parameters = [
@@ -303,7 +228,7 @@ def test_test_003(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={smriprep_dir}",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
     ]
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"

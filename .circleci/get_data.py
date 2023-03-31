@@ -7,4 +7,4 @@ from aslprep.tests.utils import download_test_data
 if __name__ == "__main__":
     data_dir = sys.argv[1]
     dset = sys.argv[2]
-    download_test_data(data_dir, dset)
+    download_test_data(dset, data_dir)
