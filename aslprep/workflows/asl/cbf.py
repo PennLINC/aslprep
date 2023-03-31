@@ -104,7 +104,6 @@ model [@buxton1998general].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
-                "aslcontext",  # set from the parameter
                 "m0scan",
                 "m0scan_metadata",
                 "asl_mask",
@@ -116,7 +115,6 @@ model [@buxton1998general].
         ),
         name="inputnode",
     )
-    inputnode.inputs.aslcontext = aslcontext
 
     outputnode = pe.Node(
         niu.IdentityInterface(
@@ -233,6 +231,7 @@ model [@buxton1998general].
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
+            aslcontext=aslcontext,
             dummy_vols=dummy_vols,
             fwhm=smooth_kernel,
             metadata=metadata,
@@ -246,7 +245,6 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, extract_deltam, [
             ("asl_file", "asl_file"),
-            ("aslcontext", "aslcontext"),
             ("m0scan", "m0scan"),
             ("m0scan_metadata", "m0scan_metadata"),
         ]),
@@ -496,7 +494,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     if deltam_volume_idx or control_volume_idx:
         # If deltaM or label-control pairs are available, then calculate CBF.
         extract_deltam = pe.Node(
-            ExtractCBForDeltaM(file_type="d"),
+            ExtractCBForDeltaM(file_type="d", aslcontext=aslcontext),
             mem_gb=1,
             run_without_submitting=True,
             name="extract_deltam",
@@ -506,7 +504,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         workflow.connect([
             # extract deltaM data
             (inputnode, extract_deltam, [
-                ("asl_file", "in_asl"),
+                ("asl_file", "asl_file"),
                 ("asl_mask", "in_aslmask"),
             ]),
         ])

@@ -1173,7 +1173,8 @@ class ParcellateCBF(SimpleInterface):
 
 
 class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
-    in_asl = File(exists=True, mandatory=True, desc="raw asl file")
+    asl_file = File(exists=True, mandatory=True, desc="raw asl file")
+    aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
     in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
     file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
 
@@ -1194,11 +1195,10 @@ class ExtractCBForDeltaM(SimpleInterface):
             suffix="_cbfdeltam",
             newpath=runtime.cwd,
         )
-        asl_img = nb.load(self.inputs.in_asl)
+        asl_img = nb.load(self.inputs.asl_file)
         asl_data = asl_img.get_fdata()
 
-        # XXX: Not a good way to find the aslcontext file.
-        aslcontext = pd.read_csv(self.inputs.in_asl.replace("_asl.nii.gz", "_aslcontext.tsv"))
+        aslcontext = pd.read_table(self.inputs.aslcontext)
         vol_types = aslcontext["volume_type"].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
         label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]

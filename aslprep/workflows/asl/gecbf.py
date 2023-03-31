@@ -120,6 +120,19 @@ def init_asl_gepreproc_wf(asl_file):
     qc_file
         quality control meausres
 
+    Notes
+    -----
+    1.  Brain-mask T1w.
+    2.  Extract averaged, smoothed M0 image and reference image (which is generally the M0 image).
+    3.  Estimate transforms from ASL to T1w.
+    4.  Compute CBF.
+    5.  Co-register the reference ASL image to T1w-space. (what about Step 3?)
+    6.  Refine the ASL brain mask.
+    7.  Warp the ASL brain mask to T1w-space.
+    8.  CBF plotting workflow.
+    9.  CBF QC workflow.
+    10. Parcellate CBF results.
+
     See Also
     --------
     * :py:func:`~aslprep.niworkflows.func.util.init_asl_reference_wf`
@@ -254,10 +267,6 @@ effects of other kernels [@lanczos].
     ])
     # fmt:on
 
-    # asl buffer: an identity used as a pointer to either the original asl
-    # or the STC'ed one for further use.
-    aslbuffer = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer")
-    aslbuffer.inputs.asl_file = ref_file
     summary = pe.Node(
         FunctionalSummary(
             registration=("FSL"),

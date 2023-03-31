@@ -294,17 +294,14 @@ their manuscripts unchanged. It is released under the unchanged
     # Append the functional section to the existing anatomical exerpt
     # That way we do not need to stream down the number of asl datasets
 
-    if len(subject_data["asl"]) > 1:
-        runx = "runs"
-    else:
-        runx = "run"
+    run_str = "runs" if len(subject_data["asl"]) > 1 else "run"
     anat_preproc_wf.__postdesc__ = (
         (anat_preproc_wf.__postdesc__ or "")
         + f"""
 
 ### ASL data preprocessing
 
-For the {len(subject_data['asl'])} ASL {runx} found per subject (across all
+For the {len(subject_data['asl'])} ASL {run_str} found per subject (across all
 tasks and sessions), the following preprocessing was performed.
 """
     )
@@ -312,37 +309,21 @@ tasks and sessions), the following preprocessing was performed.
     for asl_file in subject_data["asl"]:
         # If number of volume of ASL is less than 5, motion correction,
         # slice-timing correction, etc. will be skipped.
-        if get_n_volumes(asl_file) > 5:
-            asl_preproc_wf = init_asl_preproc_wf(asl_file)
-
-            # fmt:off
-            workflow.connect([
-                (anat_preproc_wf, asl_preproc_wf, [
-                    ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
-                    ("outputnode.t1w_mask", "inputnode.t1w_mask"),
-                    ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
-                    ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
-                    ("outputnode.template", "inputnode.template"),
-                    ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
-                    ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
-                ]),
-            ])
-            # fmt:on
-        else:
-            asl_preproc_wf = init_asl_gepreproc_wf(asl_file)
-
-            # fmt:off
-            workflow.connect([
-                (anat_preproc_wf, asl_preproc_wf, [
-                    ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
-                    ("outputnode.t1w_mask", "inputnode.t1w_mask"),
-                    ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
-                    ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
-                    ("outputnode.template", "inputnode.template"),
-                    ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
-                    ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
-                ]),
-            ])
-            # fmt:on
+        n_vols = get_n_volumes(asl_file)
+        asl_preproc_func = init_asl_preproc_wf if n_vols > 5 else init_asl_gepreproc_wf
+        asl_preproc_wf = asl_preproc_func(asl_file)
+        # fmt:off
+        workflow.connect([
+            (anat_preproc_wf, asl_preproc_wf, [
+                ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
+                ("outputnode.t1w_mask", "inputnode.t1w_mask"),
+                ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
+                ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
+                ("outputnode.template", "inputnode.template"),
+                ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
+                ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
+            ]),
+        ])
+        # fmt:on
 
     return workflow
