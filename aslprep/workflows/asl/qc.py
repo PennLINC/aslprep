@@ -11,6 +11,7 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
 )
+from aslprep.utils.misc import _select_last_in_list
 
 
 def init_cbfqc_compt_wf(
@@ -158,9 +159,9 @@ negative CBF values.
             ("asl_mask", "in_aslmask"),
             ("confmat", "in_confmat"),
         ]),
-        (inputnode, qccompute, [(("asl_mask_std", _pick_csf), "in_aslmaskstd")]),
+        (inputnode, qccompute, [(("asl_mask_std", _select_last_in_list), "in_aslmaskstd")]),
         (inputnode, qccompute, [("rmsd_file", "rmsd_file")]),
-        (inputnode, resample, [(("asl_mask_std", _pick_csf), "master")]),
+        (inputnode, resample, [(("asl_mask_std", _select_last_in_list), "master")]),
         (resample, qccompute, [("out_file", "in_templatemask")]),
         (gm_tfm, qccompute, [("output_image", "in_greyM")]),
         (wm_tfm, qccompute, [("output_image", "in_whiteM")]),
@@ -334,8 +335,8 @@ def init_cbfgeqc_compt_wf(
         ]),
         (mask_tfm, qccompute, [("output_image", "in_t1mask")]),
         (inputnode, qccompute, [("asl_mask", "in_aslmask")]),
-        (inputnode, qccompute, [(("asl_mask_std", _pick_csf), "in_aslmaskstd")]),
-        (inputnode, resample, [(("asl_mask_std", _pick_csf), "master")]),
+        (inputnode, qccompute, [(("asl_mask_std", _select_last_in_list), "in_aslmaskstd")]),
+        (inputnode, resample, [(("asl_mask_std", _select_last_in_list), "master")]),
         (resample, qccompute, [("out_file", "in_templatemask")]),
         (gm_tfm, qccompute, [("output_image", "in_greyM")]),
         (wm_tfm, qccompute, [("output_image", "in_whiteM")]),
