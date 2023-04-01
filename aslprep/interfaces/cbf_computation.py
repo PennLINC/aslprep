@@ -1156,6 +1156,7 @@ class ComputeCBFQCforGE(SimpleInterface):
             dict1 = {
                 "FD": 0,
                 "relRMS": 0,
+                "rmsd": np.nan,
                 "coregDC": [regDC],
                 "coregJC": [regJC],
                 "coregCC": [regCC],
@@ -1182,6 +1183,7 @@ class ComputeCBFQCforGE(SimpleInterface):
             dict1 = {
                 "FD": 0,
                 "relRMS": 0,
+                "rmsd": np.nan,
                 "coregDC": [regDC],
                 "coregJC": [regJC],
                 "coregCC": [regCC],
