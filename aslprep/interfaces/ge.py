@@ -79,6 +79,7 @@ class GeReferenceFile(SimpleInterface):
 
             mean_img = nb.Nifti1Image(m0_data, asl_img.affine, asl_img.header)
             smoothed_img = nb.processing.smooth_image(mean_img, fwhm=self.inputs.fwhm)
+            smoothed_img.to_filename(m0_file)
 
             self._results["m0_file"] = m0_file
             self._results["ref_file"] = m0_file  # The reference file is the averaged, smoothed M0
