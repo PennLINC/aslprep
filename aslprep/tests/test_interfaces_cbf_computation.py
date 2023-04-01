@@ -12,7 +12,7 @@ from aslprep.interfaces import cbf_computation
 def test_computecbf_casl(datasets, tmp_path_factory):
     """Test aslprep.interfaces.cbf_computation.ComputeCBF with (P)CASL."""
     tmpdir = tmp_path_factory.mktemp("test_computecbf_casl")
-    aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
+    aslcontext_file = os.path.join(datasets["test_001"], "dset/sub-01/perf/sub-01_aslcontext.tsv")
 
     aslcontext = pd.read_table(aslcontext_file)
     n_deltam = aslcontext.loc[aslcontext["volume_type"] == "label"].shape[0]
@@ -143,7 +143,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
 def test_computecbf_pasl(datasets, tmp_path_factory):
     """Test aslprep.interfaces.cbf_computation.ComputeCBF with PASL."""
     tmpdir = tmp_path_factory.mktemp("test_computecbf_pasl")
-    aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
+    aslcontext_file = os.path.join(datasets["test_001"], "dset/sub-01/perf/sub-01_aslcontext.tsv")
 
     aslcontext = pd.read_table(aslcontext_file)
     n_deltam = aslcontext.loc[aslcontext["volume_type"] == "label"].shape[0]
