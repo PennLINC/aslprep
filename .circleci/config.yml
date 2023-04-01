@@ -322,7 +322,9 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: data-v4
+          key: test_001-v1
+      - restore_cache:
+          key: test_003-v1
       - run: *runinstall
       - run:
           name: Run pytest on the tests directory
