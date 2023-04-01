@@ -363,7 +363,6 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (inputnode, cbf_compt_wf, [
-            ("asl_file", "inputnode.in_file"),
             ("asl_file", "inputnode.asl_file"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
