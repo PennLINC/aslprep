@@ -117,6 +117,8 @@ def collect_run_data(layout, asl_file, multiecho):
         raise FileNotFoundError(f"M0 file for {asl_file} not found.")
     elif asl_metadata["M0Type"] == "Separate":
         m0scan_metadata = layout.get_metadata(run_data["m0scan"])
+        if not m0scan_metadata:
+            raise Exception(f"No metadata for m0scan: {run_data['m0scan']}")
     elif run_data["m0scan"]:
         raise ValueError(
             f"M0Type is {run_data['asl_metadata']['M0Type']}, "
