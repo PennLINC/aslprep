@@ -90,7 +90,7 @@ negative CBF values.
         return files[1]
 
     def _pick_csf(files):
-        return files[-1]
+        return files[2]
 
     gm_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),
@@ -262,14 +262,14 @@ def init_cbfgeqc_compt_wf(
     )
     outputnode = pe.Node(niu.IdentityInterface(fields=["qc_file"]), name="outputnode")
 
-    def _pick_csf(files):
-        return files[-1]
-
     def _pick_gm(files):
         return files[0]
 
     def _pick_wm(files):
         return files[1]
+
+    def _pick_csf(files):
+        return files[2]
 
     csf_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),

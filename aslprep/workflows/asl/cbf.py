@@ -159,7 +159,7 @@ model [@buxton1998general].
         return files[1]
 
     def _pick_csf(files):
-        return files[-1]
+        return files[2]
 
     def _getfiledir(file):
         import os
@@ -424,22 +424,70 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         ),
         name="outputnode",
     )
+
+    def _pick_gm(files):
+        return files[0]
+
+    def _pick_wm(files):
+        return files[1]
+
+    def _pick_csf(files):
+        return files[2]
+
+    def _getfiledir(file):
+        import os
+
+        return os.path.dirname(file)
+
     # convert tmps to asl_space
+    # extract probability maps
     csf_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),
         name="csf_tfm",
         mem_gb=0.1,
     )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, csf_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+            (("t1w_tpms", _pick_csf), "input_image"),
+        ]),
+    ])
+    # fmt:on
+
     wm_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),
         name="wm_tfm",
         mem_gb=0.1,
     )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, wm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+            (("t1w_tpms", _pick_wm), "input_image"),
+        ]),
+    ])
+    # fmt:on
+
     gm_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),
         name="gm_tfm",
         mem_gb=0.1,
     )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, gm_tfm, [
+            ("asl_mask", "reference_image"),
+            ("t1_asl_xform", "transforms"),
+            (("t1w_tpms", _pick_gm), "input_image"),
+        ]),
+    ])
+    # fmt:on
 
     aslcontext_df = pd.read_table(aslcontext)
     cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
@@ -470,20 +518,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         ]),
     ])
     # fmt:on
-
-    def _pick_gm(files):
-        return files[0]
-
-    def _pick_wm(files):
-        return files[1]
-
-    def _pick_csf(files):
-        return files[-1]
-
-    def _getfiledir(file):
-        import os
-
-        return os.path.dirname(file)
 
     collect_cbf = pe.Node(
         niu.IdentityInterface(
@@ -591,22 +625,6 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
 
         # fmt:off
         workflow.connect([
-            # extract probability maps
-            (inputnode, csf_tfm, [
-                ("asl_mask", "reference_image"),
-                ("t1_asl_xform", "transforms"),
-                (("t1w_tpms", _pick_csf), "input_image"),
-            ]),
-            (inputnode, wm_tfm, [
-                ("asl_mask", "reference_image"),
-                ("t1_asl_xform", "transforms"),
-                (("t1w_tpms", _pick_wm), "input_image"),
-            ]),
-            (inputnode, gm_tfm, [
-                ("asl_mask", "reference_image"),
-                ("t1_asl_xform", "transforms"),
-                (("t1w_tpms", _pick_gm), "input_image"),
-            ]),
             (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
             (gm_tfm, score_and_scrub_cbf, [("output_image", "in_greyM")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "in_whiteM")]),
