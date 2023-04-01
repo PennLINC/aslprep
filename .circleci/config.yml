@@ -336,7 +336,7 @@ jobs:
           paths:
               - .coverage.pytests
       - store_artifacts:
-          path: /src/aslprep/.circleci/out/
+          path: /src/aslprep/.circleci/
 
   merge_coverage:
     <<: *dockersetup
