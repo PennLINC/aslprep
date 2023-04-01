@@ -25,6 +25,7 @@ LOGGER = config.loggers.workflow
 
 def init_asl_geref_wf(
     metadata,
+    aslcontext,
     smooth_kernel=5,
     name="asl_gereference_wf",
 ):
@@ -53,7 +54,6 @@ First, a reference volume and its skull-stripped version were generated.
                 "asl_file",
                 "m0scan",
                 "m0scan_metadata",
-                "aslcontext",
             ],
         ),
         name="inputnode",
@@ -74,7 +74,7 @@ First, a reference volume and its skull-stripped version were generated.
     )
 
     gen_ref = pe.Node(
-        GeReferenceFile(fwhm=smooth_kernel, metadata=metadata),
+        GeReferenceFile(fwhm=smooth_kernel, metadata=metadata, aslcontext=aslcontext),
         omp_nthreads=1,
         mem_gb=1,
         name="gen_ge_ref",
@@ -86,7 +86,6 @@ First, a reference volume and its skull-stripped version were generated.
             ("asl_file", "in_file"),
             ("m0scan", "m0scan"),
             ("m0scan_metadata", "m0scan_metadata"),
-            ("aslcontext", "aslcontext"),
         ]),
         (gen_ref, outputnode, [
             ("ref_file", "raw_ref_image"),

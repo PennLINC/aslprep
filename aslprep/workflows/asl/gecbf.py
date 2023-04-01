@@ -306,8 +306,9 @@ effects of other kernels [@lanczos].
     # begin workflow
     # Extract averaged, smoothed M0 image and reference image (which is generally the M0 image).
     gen_ref_wf = init_asl_geref_wf(
-        smooth_kernel=smoothkernel,
         metadata=metadata,
+        aslcontext=run_data["aslcontext"],
+        smooth_kernel=smoothkernel,
         name="asl_gereference_wf",
     )
 
@@ -317,7 +318,6 @@ effects of other kernels [@lanczos].
             ("asl_file", "inputnode.asl_file"),
             ("m0scan", "inputnode.m0scan"),
             ("m0scan_metadata", "inputnode.m0scan_metadata"),
-            ("aslcontext", "inputnode.aslcontext"),
         ]),
     ])
     # fmt:on
