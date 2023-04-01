@@ -316,6 +316,7 @@ effects of other kernels [@lanczos].
         (inputnode, gen_ref_wf, [
             ("asl_file", "inputnode.asl_file"),
             ("m0scan", "inputnode.m0scan"),
+            ("m0scan_metadata", "inputnode.m0scan_metadata"),
             ("aslcontext", "inputnode.aslcontext"),
         ]),
     ])
@@ -370,6 +371,7 @@ effects of other kernels [@lanczos].
         (gen_ref_wf, cbf_compt_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
             ("outputnode.m0_file", "inputnode.m0_file"),
+            ("outputnode.m0tr", "inputnode.m0tr"),
         ]),
         (asl_reg_wf, cbf_compt_wf, [
             ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),

@@ -28,12 +28,23 @@ class _GeReferenceFileInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc="M0 file.",
     )
+    m0scan_metadata = traits.Either(
+        traits.Dict,
+        None,
+        mandatory=True,
+        desc="metadata for M0 scan. Only defined if M0Type is 'Separate'.",
+    )
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext file.")
 
 
 class _GeReferenceFileOutputSpec(TraitedSpec):
     ref_file = File(exists=True, mandatory=True, desc="ref file")
     m0_file = File(exists=True, mandatory=True, desc="Averaged and smoothed m0 file")
+    m0tr = traits.Either(
+        traits.Float,
+        None,
+        desc="RepetitionTimePreparation for M0 scans.",
+    )
 
 
 class GeReferenceFile(SimpleInterface):
@@ -46,6 +57,7 @@ class GeReferenceFile(SimpleInterface):
     output_spec = _GeReferenceFileOutputSpec
 
     def _run_interface(self, runtime):
+        metadata = self.inputs.metadata
         aslcontext_df = pd.read_table(self.inputs.aslcontext)
         vol_types = aslcontext_df["volume_type"].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
@@ -58,7 +70,7 @@ class GeReferenceFile(SimpleInterface):
         m0_file = fname_presuffix(self.inputs.in_file, suffix="_m0file", newpath=os.getcwd())
         ref_file = fname_presuffix(self.inputs.in_file, suffix="_ref", newpath=os.getcwd())
 
-        if self.inputs.metadata["M0Type"] == "Separate":
+        if metadata["M0Type"] == "Separate":
             # Average and smooth the M0 data
             m0_img = nb.load(self.inputs.m0scan)
             m0_data = m0_img.get_fdata()
@@ -71,7 +83,11 @@ class GeReferenceFile(SimpleInterface):
             self._results["m0_file"] = m0_file
             self._results["ref_file"] = m0_file  # The reference file is the averaged, smoothed M0
 
-        elif self.inputs.metadata["M0Type"] == "Included":
+            m0tr = self.inputs.m0scan_metadata["RepetitionTimePreparation"]
+            if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
+
+        elif metadata["M0Type"] == "Included":
             m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "m0scan"]
             m0_data = asl_data[:, :, :, m0_volume_idx]
 
@@ -84,7 +100,15 @@ class GeReferenceFile(SimpleInterface):
             self._results["m0_file"] = m0_file
             self._results["ref_file"] = m0_file  # The reference file is the averaged, smoothed M0
 
-        elif self.inputs.metadata["M0Type"] == "Estimate":
+            if np.array(metadata["RepetitionTimePreparation"]).size > 1:
+                m0tr = np.array(metadata["RepetitionTimePreparation"])[m0_volume_idx]
+            else:
+                m0tr = metadata["RepetitionTimePreparation"]
+
+            if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
+
+        elif metadata["M0Type"] == "Estimate":
             if deltam_volume_idx:
                 idx = deltam_volume_idx
             elif control_volume_idx:
@@ -96,7 +120,7 @@ class GeReferenceFile(SimpleInterface):
             mean_data = np.mean(selected_data, axis=3)
 
             # XXX: Why not use an existing brain mask here?
-            m0_data = self.inputs.metadata["M0Estimate"] * np.ones(mean_data.shape)
+            m0_data = metadata["M0Estimate"] * np.ones(mean_data.shape)
             m0_img = nb.Nifti1Image(m0_data, asl_img.affine, asl_img.header)
             m0_img.to_filename(m0_file)
 
@@ -107,7 +131,9 @@ class GeReferenceFile(SimpleInterface):
             self._results["m0_file"] = m0_file
             self._results["ref_file"] = ref_file
 
-        elif self.inputs.metadata["M0Type"] == "Absent":
+            m0tr = None
+
+        elif metadata["M0Type"] == "Absent":
             if not control_volume_idx:
                 raise RuntimeError("M0 could not be estimated from control volumes.")
 
@@ -122,7 +148,11 @@ class GeReferenceFile(SimpleInterface):
             self._results["m0_file"] = m0_file
             self._results["ref_file"] = ref_file
 
+            m0tr = None
+
         else:
             raise RuntimeError("no path way to obtain real m0scan")
+
+        self._results["m0tr"] = m0tr
 
         return runtime

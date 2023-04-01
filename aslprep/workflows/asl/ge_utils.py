@@ -52,6 +52,7 @@ First, a reference volume and its skull-stripped version were generated.
             fields=[
                 "asl_file",
                 "m0scan",
+                "m0scan_metadata",
                 "aslcontext",
             ],
         ),
@@ -65,6 +66,7 @@ First, a reference volume and its skull-stripped version were generated.
                 "ref_image_brain",
                 "asl_mask",
                 "m0_file",
+                "m0tr",
                 "mask_report",
             ]
         ),
@@ -77,27 +79,47 @@ First, a reference volume and its skull-stripped version were generated.
         mem_gb=1,
         name="gen_ge_ref",
     )
-    skull_strip_wf = pe.Node(fsl.BET(frac=0.5, mask=True), name="fslbet")
-    apply_mask = pe.Node(fsl.ApplyMask(), name="apply_mask")
-    mask_reportlet = pe.Node(SimpleShowMaskRPT(), name="mask_reportlet")
 
     # fmt:off
     workflow.connect([
         (inputnode, gen_ref, [
             ("asl_file", "in_file"),
             ("m0scan", "m0scan"),
+            ("m0scan_metadata", "m0scan_metadata"),
             ("aslcontext", "aslcontext"),
         ]),
-        (gen_ref, skull_strip_wf, [("ref_file", "in_file")]),
         (gen_ref, outputnode, [
             ("ref_file", "raw_ref_image"),
             ("m0_file", "m0_file"),
+            ("m0tr", "m0tr"),
         ]),
-        (gen_ref, mask_reportlet, [("ref_file", "background_file")]),
-        (gen_ref, apply_mask, [("ref_file", "in_file")]),
+    ])
+    # fmt:on
+
+    skull_strip_wf = pe.Node(fsl.BET(frac=0.5, mask=True), name="fslbet")
+
+    # fmt:off
+    workflow.connect([
+        (gen_ref, skull_strip_wf, [("ref_file", "in_file")]),
         (skull_strip_wf, outputnode, [("mask_file", "asl_mask")]),
+    ])
+    # fmt:on
+
+    apply_mask = pe.Node(fsl.ApplyMask(), name="apply_mask")
+
+    # fmt:off
+    workflow.connect([
+        (gen_ref, apply_mask, [("ref_file", "in_file")]),
         (skull_strip_wf, apply_mask, [("mask_file", "mask_file")]),
         (apply_mask, outputnode, [("out_file", "ref_image_brain")]),
+    ])
+    # fmt:on
+
+    mask_reportlet = pe.Node(SimpleShowMaskRPT(), name="mask_reportlet")
+
+    # fmt:off
+    workflow.connect([
+        (gen_ref, mask_reportlet, [("ref_file", "background_file")]),
         (skull_strip_wf, mask_reportlet, [("mask_file", "mask_file")]),
     ])
     # fmt:on

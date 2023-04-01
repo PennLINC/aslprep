@@ -402,6 +402,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 "t1_asl_xform",
                 "itk_asl_to_t1",
                 "m0_file",
+                "m0tr",
             ]
         ),
         name="inputnode",
@@ -657,8 +658,8 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
             (inputnode, basilcbf, [
                 (("asl_mask", _getfiledir), "out_basename"),
                 ("m0_file", "mzero"),
+                ("m0tr", "m0tr"),
             ]),
-            (extract_deltam, basilcbf, [("m0tr", "m0tr")]),
             (collect_cbf, basilcbf, [("deltam", "in_file")]),
             (gm_tfm, basilcbf, [("output_image", "pvgm")]),
             (wm_tfm, basilcbf, [("output_image", "pvwm")]),
