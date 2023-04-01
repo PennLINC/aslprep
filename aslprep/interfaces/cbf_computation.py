@@ -162,7 +162,11 @@ class ExtractCBF(SimpleInterface):
             else:
                 m0data = mask_data * m0data_smooth
 
-            m0tr = m0file_metadata["RepetitionTimePreparation"]
+            try:
+                m0tr = m0file_metadata["RepetitionTimePreparation"]
+            except KeyError:
+                raise ValueError(m0file_metadata)
+
             if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
                 raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
 
