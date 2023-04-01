@@ -2,10 +2,13 @@
 import os
 
 import pytest
+from nipype import config as nipype_config
 
 from aslprep.cli.parser import parse_args
 from aslprep.cli.workflow import build_workflow
 from aslprep.tests.utils import check_generated_files, get_test_data_path
+
+nipype_config.enable_debug_mode()
 
 
 @pytest.mark.examples_pcasl_singlepld

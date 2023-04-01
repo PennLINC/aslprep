@@ -307,11 +307,14 @@ tasks and sessions), the following preprocessing was performed.
     )
 
     for asl_file in subject_data["asl"]:
+        config.loggers.workflow.log(25, f"Processing {asl_file}")
+
         # If number of volume of ASL is less than 5, motion correction,
         # slice-timing correction, etc. will be skipped.
         n_vols = get_n_volumes(asl_file)
         asl_preproc_func = init_asl_preproc_wf if n_vols > 5 else init_asl_gepreproc_wf
         asl_preproc_wf = asl_preproc_func(asl_file)
+
         # fmt:off
         workflow.connect([
             (anat_preproc_wf, asl_preproc_wf, [
