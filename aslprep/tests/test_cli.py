@@ -21,7 +21,7 @@ def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
     test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, "examples_pcasl_singlepld_ge_filter.json")
+    filter_file = os.path.join(test_data_dir, "examples_pcasl_singlepld_filter.json")
 
     parameters = [
         data_dir,
@@ -237,6 +237,7 @@ def test_test_002(datasets, output_dir, working_dir):
         "--nthreads=2",
         "--omp-nthreads=2",
         "--output-spaces=asl",
+        "--scorescrub",
         "--basil",
         "--use-syn-sdc",
         f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
