@@ -21,6 +21,7 @@ def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
     test_data_dir = get_test_data_path()
+    filter_file = os.path.join(test_data_dir, "examples_pcasl_singlepld_ge_filter.json")
 
     parameters = [
         data_dir,
@@ -28,6 +29,7 @@ def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
         "participant",
         "--participant-label=103",
         f"-w={work_dir}",
+        f"--bids-filter-file={filter_file}",
         "--nthreads=2",
         "--omp-nthreads=2",
         "--output-spaces=asl",
@@ -46,6 +48,49 @@ def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
     aslprep_wf.run()
 
     output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pcasl_singlepld.txt")
+    check_generated_files(out_dir, output_list_file)
+
+
+@pytest.mark.examples_pcasl_singlepld_ge
+def test_examples_pcasl_singlepld_ge(datasets, output_dir, working_dir):
+    """Run aslprep on sub-01 data."""
+    from aslprep import config
+
+    test_name = "examples_pcasl_singlepld_ge"
+    data_dir = datasets["examples_pcasl_singlepld"]
+    out_dir = os.path.join(output_dir, test_name)
+    work_dir = os.path.join(working_dir, test_name)
+    test_data_dir = get_test_data_path()
+    filter_file = os.path.join(test_data_dir, "examples_pcasl_singlepld_ge_filter.json")
+
+    parameters = [
+        data_dir,
+        out_dir,
+        "participant",
+        "--participant-label=103",
+        f"-w={work_dir}",
+        f"--bids-filter-file={filter_file}",
+        "--nthreads=2",
+        "--omp-nthreads=2",
+        "--output-spaces=asl",
+        "--scorescrub",
+        "--basil",
+        "--use-syn-sdc",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+    ]
+    parse_args(parameters)
+    config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
+    config.to_filename(config_file)
+
+    retval = {}
+    retval = build_workflow(config_file, retval=retval)
+    aslprep_wf = retval.get("workflow", None)
+    aslprep_wf.run()
+
+    output_list_file = os.path.join(
+        test_data_dir,
+        "expected_outputs_examples_pcasl_singlepld_ge.txt",
+    )
     check_generated_files(out_dir, output_list_file)
 
 
@@ -167,7 +212,8 @@ def test_test_001(datasets, output_dir, working_dir):
 def test_test_002(datasets, output_dir, working_dir):
     """Run aslprep on sub-10R01383.
 
-    Currently skipped.
+    This dataset contains PCASL data from a GE scanner.
+    There are two ASL volumes (both deltam) and separate M0 scan.
 
     Notes
     -----

@@ -33,7 +33,7 @@ jobs:
       - checkout
       - run: *runinstall
 
-  download_data_examples_pcasl_singlepld:
+  download_pcasl_singlepld:
     <<: *dockersetup
     steps:
       - checkout
@@ -50,7 +50,7 @@ jobs:
           paths:
               - /src/aslprep/.circleci/data
 
-  download_data_examples_pcasl_multipld:
+  download_pcasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
@@ -67,7 +67,7 @@ jobs:
           paths:
               - /src/aslprep/.circleci/data
 
-  download_data_examples_pasl_multipld:
+  download_pasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
@@ -135,7 +135,7 @@ jobs:
           paths:
               - /src/aslprep/.circleci/data
 
-  aslprep_examples_pcasl_singlepld:
+  pcasl_singlepld:
     <<: *dockersetup
     steps:
       - checkout
@@ -164,7 +164,36 @@ jobs:
           paths:
               - .coverage.examples_pcasl_singlepld
 
-  aslprep_examples_pcasl_multipld:
+  pcasl_singlepld_ge:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld\]' )" != "" ]]; then
+              echo "Skipping examples_pcasl_singlepld build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: examples_pcasl_singlepld-v1
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on examples_pcasl_singlepld dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_ge" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_ge
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.examples_pcasl_singlepld_ge
+
+  pcasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
@@ -193,7 +222,7 @@ jobs:
           paths:
               - .coverage.examples_pcasl_multipld
 
-  aslprep_examples_pasl_multipld:
+  pasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
@@ -222,7 +251,7 @@ jobs:
           paths:
               - .coverage.examples_pasl_multipld
 
-  aslprep_test_001:
+  test_001:
     <<: *dockersetup
     steps:
       - checkout
@@ -251,7 +280,7 @@ jobs:
           paths:
               - .coverage.test_001
 
-  aslprep_test_002:
+  test_002:
     <<: *dockersetup
     steps:
       - checkout
@@ -280,7 +309,7 @@ jobs:
           paths:
               - .coverage.test_002
 
-  aslprep_test_003:
+  test_003:
     <<: *dockersetup
     steps:
       - checkout
@@ -288,8 +317,8 @@ jobs:
           name: Check whether build should be skipped
           command: |
             cd /src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_test_003\]' )" != "" ]]; then
-              echo "Skipping aslprep_test_003 build"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003\]' )" != "" ]]; then
+              echo "Skipping test_003 build"
               circleci step halt
             fi
       - restore_cache:
@@ -423,7 +452,7 @@ workflows:
             tags:
               only: /.*/
 
-      - download_data_examples_pcasl_singlepld:
+      - download_pcasl_singlepld:
           filters:
             branches:
               ignore:
@@ -432,7 +461,7 @@ workflows:
             tags:
               only: /.*/
 
-      - download_data_examples_pcasl_multipld:
+      - download_pcasl_multipld:
           filters:
             branches:
               ignore:
@@ -441,7 +470,7 @@ workflows:
             tags:
               only: /.*/
 
-      - download_data_examples_pasl_multipld:
+      - download_pasl_multipld:
           filters:
             branches:
               ignore:
@@ -477,9 +506,9 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_examples_pcasl_singlepld:
+      - pcasl_singlepld:
           requires:
-            - download_data_examples_pcasl_singlepld
+            - download_pcasl_singlepld
             - build
           filters:
             branches:
@@ -489,9 +518,9 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_examples_pcasl_multipld:
+      - pcasl_singlepld_ge:
           requires:
-            - download_data_examples_pcasl_multipld
+            - download_pcasl_singlepld
             - build
           filters:
             branches:
@@ -501,9 +530,9 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_examples_pasl_multipld:
+      - pcasl_multipld:
           requires:
-            - download_data_examples_pasl_multipld
+            - download_pcasl_multipld
             - build
           filters:
             branches:
@@ -513,7 +542,19 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_test_001:
+      - pasl_multipld:
+          requires:
+            - download_pasl_multipld
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - test_001:
           requires:
             - download_data_test_001
             - build
@@ -525,7 +566,7 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_test_002:
+      - test_002:
           requires:
             - download_data_test_002
             - build
@@ -537,7 +578,7 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_test_003:
+      - test_003:
           requires:
             - download_data_test_003
             - build
@@ -565,12 +606,13 @@ workflows:
 
       - merge_coverage:
           requires:
-            - aslprep_examples_pcasl_singlepld
-            - aslprep_examples_pcasl_multipld
-            - aslprep_examples_pasl_multipld
-            - aslprep_test_001
-            - aslprep_test_002
-            - aslprep_test_003
+            - pcasl_singlepld
+            - pcasl_singlepld_ge
+            - pcasl_multipld
+            - pasl_multipld
+            - test_001
+            - test_002
+            - test_003
             - pytests
           filters:
             branches:
@@ -583,12 +625,13 @@ workflows:
       - deployable:
           requires:
             - build
-            - aslprep_examples_pcasl_singlepld
-            - aslprep_examples_pcasl_multipld
-            - aslprep_examples_pasl_multipld
-            - aslprep_test_001
-            - aslprep_test_002
-            - aslprep_test_003
+            - pcasl_singlepld
+            - pcasl_singlepld_ge
+            - pcasl_multipld
+            - pasl_multipld
+            - test_001
+            - test_002
+            - test_003
           filters:
             branches:
               only: main

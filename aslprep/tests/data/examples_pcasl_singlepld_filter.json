@@ -1,0 +1,5 @@
+{
+    "asl": {
+        "session": ["philips2d", "siemens3d"]
+    }
+}

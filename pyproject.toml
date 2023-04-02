@@ -34,9 +34,10 @@ exclude = '''
 '''
 
 [tool.pytest.ini_options]
-addopts = '-m "not examples_pcasl_singlepld and not examples_pcasl_multipld and not examples_pasl_multipld and not test_001 and not test_002 and not test_003"'
+addopts = '-m "not examples_pcasl_singlepld and not examples_pcasl_singlepld_ge and not examples_pcasl_multipld and not examples_pasl_multipld and not test_001 and not test_002 and not test_003"'
 markers = [
     "examples_pcasl_singlepld: mark integration test",
+    "examples_pcasl_singlepld_ge: mark integration test",
     "examples_pcasl_multipld: mark integration test",
     "examples_pasl_multipld: mark integration test",
     "test_001: mark integration test for subject 01",
