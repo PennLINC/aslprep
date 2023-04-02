@@ -3,6 +3,7 @@ import os
 
 import pytest
 from nipype import config as nipype_config
+from nipype.pipeline.engine.nodes import NodeExecutionError
 
 from aslprep.cli.parser import parse_args
 from aslprep.cli.workflow import build_workflow
@@ -126,7 +127,7 @@ def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
     retval = {}
     retval = build_workflow(config_file, retval=retval)
     aslprep_wf = retval.get("workflow", None)
-    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+    with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
         aslprep_wf.run()
 
     output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pcasl_multipld.txt")
@@ -165,7 +166,7 @@ def test_examples_pasl_multipld(datasets, output_dir, working_dir):
     retval = {}
     retval = build_workflow(config_file, retval=retval)
     aslprep_wf = retval.get("workflow", None)
-    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+    with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
         aslprep_wf.run()
 
     output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pasl_multipld.txt")
