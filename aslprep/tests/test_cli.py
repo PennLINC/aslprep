@@ -126,7 +126,8 @@ def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
     retval = {}
     retval = build_workflow(config_file, retval=retval)
     aslprep_wf = retval.get("workflow", None)
-    aslprep_wf.run()
+    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        aslprep_wf.run()
 
     output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pcasl_multipld.txt")
     check_generated_files(out_dir, output_list_file)
@@ -164,7 +165,8 @@ def test_examples_pasl_multipld(datasets, output_dir, working_dir):
     retval = {}
     retval = build_workflow(config_file, retval=retval)
     aslprep_wf = retval.get("workflow", None)
-    aslprep_wf.run()
+    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        aslprep_wf.run()
 
     output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pasl_multipld.txt")
     check_generated_files(out_dir, output_list_file)

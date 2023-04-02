@@ -9,6 +9,7 @@ from typing import Any
 import nibabel as nb
 import numpy as np
 from pkg_resources import resource_filename as pkgrf
+from scipy.stats import median_abs_deviation
 
 
 def check_deps(workflow):
@@ -529,28 +530,29 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     mask
        numpy array of mask
     """
-    gm[gm < thresh] = 0
-    gm[gm > 0] = 1
-    wm[wm < thresh] = 0
-    wm[wm > 0] = 1
-    csf[csf < thresh] = 0
-    csf[csf > 0] = 1
-    # get the total number of voxle within csf,gm and wm
-    nogm = np.sum(gm == 1) - 1
-    nowm = np.sum(wm == 1) - 1
-    nocf = np.sum(csf == 1) - 1
-    mask1 = gm + wm + csf
-    # msk=sum(mask>0)
-    # mean  of times series cbf within greymatter
-    mgmts = np.squeeze(np.mean(cbfts[gm == 1, :], axis=0))
-    # robiust mean and meadian
-    from scipy.stats import median_abs_deviation
+    gm_bin = gm >= thresh
+    wm_bin = wm >= thresh
+    csf_bin = csf >= thresh
 
-    medmngm = np.median(mgmts)
-    sdmngm = median_abs_deviation(mgmts) / 0.675
-    indx = 1 * (np.abs(mgmts - medmngm) > (2.5 * sdmngm))
+    # get the total number of voxle within csf,gm and wm
+    n_gm_voxels = np.sum(gm_bin) - 1
+    n_wm_voxels = np.sum(wm_bin) - 1
+    n_csf_voxels = np.sum(csf_bin) - 1
+    mask1 = gm_bin + wm_bin + csf_bin
+
+    # mean  of times series cbf within greymatter
+    gm_cbf_ts = np.squeeze(np.mean(cbfts[gm_bin, :], axis=0))
+
+    # robust mean and median
+    median_gm_cbf = np.median(gm_cbf_ts)
+    mad_gm_cbf = median_abs_deviation(gm_cbf_ts) / 0.675
+    indx = 1 * (np.abs(gm_cbf_ts - median_gm_cbf) > (2.5 * mad_gm_cbf))
     R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
-    V = nogm * np.var(R[gm == 1]) + nowm * np.var(R[wm == 1]) + nocf * np.var(R[csf == 1])
+    V = (
+        n_gm_voxels * np.var(R[gm == 1])
+        + n_wm_voxels * np.var(R[wm == 1])
+        + n_csf_voxels * np.var(R[csf == 1])
+    )
     V1 = V + 1
     while V < V1:
         V1 = V
@@ -561,14 +563,20 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
             else:
                 tmp1 = cbfts[:, :, :, s]
                 CC[s] = np.corrcoef(R[mask1 > 0], tmp1[mask1 > 0])[0][1]
+
         inx = np.argmax(CC)
         indx[inx] = 2
         R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
-        V = nogm * np.var(R[gm == 1]) + nowm * np.var(R[wm == 1]) + nocf * np.var(R[csf == 1])
+        V = (
+            n_gm_voxels * np.var(R[gm == 1])
+            + n_wm_voxels * np.var(R[wm == 1])
+            + n_csf_voxels * np.var(R[csf == 1])
+        )
     cbfts_recon = cbfts[:, :, :, indx == 0]
     cbfts_recon1 = np.zeros_like(cbfts_recon)
     for i in range(cbfts_recon.shape[3]):
         cbfts_recon1[:, :, :, i] = cbfts_recon[:, :, :, i] * mask
+
     cbfts_recon1 = np.nan_to_num(cbfts_recon1)
     return cbfts_recon1, indx
 
@@ -640,7 +648,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     ----------
     cbf_ts
        nd array of 3D or 4D computed cbf
-       gm,wm,csf
+    gm,wm,csf
        numpy array of grey matter, whitematter, and csf
     mask
        numpy array of mask
@@ -648,18 +656,21 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
       wave function
     """
     gm = mask * gm
-    wm = mask * wm
-    csf = csf * mask
     gmidx = gm[mask == 1]
     gmidx[gmidx < thresh] = 0
     gmidx[gmidx > 0] = 1
+
+    wm = mask * wm
     wmidx = wm[mask == 1]
     wmidx[wmidx < thresh] = 0
     wmidx[wmidx > 0] = 1
+
+    csf = csf * mask
     csfidx = csf[mask == 1]
     csfidx[csfidx < thresh] = 0
     csfidx[csfidx > 0] = 1
     # midx = mask[mask==1]
+
     meancbf = np.mean(cbf_ts, axis=3)
     y = np.transpose(
         cbf_ts[
