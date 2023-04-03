@@ -288,7 +288,7 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
     aslprep_wf.run()
 
     generate_reports(
-        participant_label,
+        [participant_label],
         out_dir,
         run_uuid,
         config=pkgrf("aslprep", "data/reports-spec.yml"),
