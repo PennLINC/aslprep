@@ -21,13 +21,7 @@ from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
-from aslprep.utils.misc import (
-    _getcbfscore,
-    _scrubcbf,
-    parcellate_cbf,
-    pcasl_or_pasl,
-    readjson,
-)
+from aslprep.utils.misc import _getcbfscore, _scrubcbf, parcellate_cbf, pcasl_or_pasl
 from aslprep.utils.qc import (
     cbf_qei,
     coverage,
@@ -82,14 +76,28 @@ class RefineMask(SimpleInterface):
 class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     name_source = File(exists=True, mandatory=True, desc="raw asl file")
     asl_file = File(exists=True, mandatory=True, desc="preprocessed asl file")
+    metadata = traits.Dict(mandatory=True, desc="metadata for ASL file")
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
+    m0scan = traits.Either(
+        File(exists=True),
+        None,
+        mandatory=True,
+        desc="m0scan file associated with the ASL file. Only defined if M0Type is 'Separate'.",
+    )
+    m0scan_metadata = traits.Either(
+        traits.Dict,
+        None,
+        mandatory=True,
+        desc="metadata for M0 scan. Only defined if M0Type is 'Separate'.",
+    )
     in_mask = File(exists=True, mandatory=True, desc="mask")
     dummy_vols = traits.Int(
-        default_value=0, exit=False, mandatory=False, desc="remove first n volumes"
+        default_value=0,
+        use_default=True,
+        mandatory=False,
+        desc="remove first n volumes",
     )
-    in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for asl or deltam ")
-    bids_dir = traits.Str(exits=True, mandatory=True, desc=" bids directory")
-    fwhm = traits.Float(default_value=5, exists=True, mandatory=False, desc="fwhm")
+    fwhm = traits.Float(default_value=5, use_default=True, mandatory=False, desc="fwhm")
 
 
 class _ExtractCBFOutputSpec(TraitedSpec):
@@ -101,6 +109,11 @@ class _ExtractCBFOutputSpec(TraitedSpec):
             "The dictionary may be modified to only include metadata associated with the selected "
             "volumes."
         ),
+    )
+    m0tr = traits.Either(
+        traits.Float,
+        None,
+        desc="RepetitionTimePreparation for M0 scans.",
     )
 
 
@@ -120,7 +133,7 @@ class ExtractCBF(SimpleInterface):
 
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
-        metadata = self.inputs.in_metadata.copy()
+        metadata = self.inputs.metadata.copy()
 
         mask_data = nb.load(self.inputs.in_mask).get_fdata()
 
@@ -138,21 +151,20 @@ class ExtractCBF(SimpleInterface):
 
         # extract m0 file and register it to ASL if separate
         if metadata["M0Type"] == "Separate":
-            m0file = self.inputs.in_file.replace("asl.nii.gz", "m0scan.nii.gz")
-            m0file_metadata = readjson(m0file.replace("nii.gz", "json"))
-            aslfile_linkedM0 = os.path.abspath(
-                os.path.join(self.inputs.bids_dir, m0file_metadata["IntendedFor"])
-            )
-            if self.inputs.in_file not in aslfile_linkedM0:
-                raise RuntimeError("there is no separate m0scan for the asl data")
+            m0file = self.inputs.m0scan
+            m0file_metadata = self.inputs.m0scan_metadata
 
-            newm0 = fname_presuffix(self.inputs.asl_file, suffix="_m0file")
-            newm0 = regmotoasl(asl=self.inputs.asl_file, m0file=m0file, m02asl=newm0)
-            m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_fdata()
+            m0_in_asl = fname_presuffix(self.inputs.asl_file, suffix="_m0file")
+            m0_in_asl = regmotoasl(asl=self.inputs.asl_file, m0file=m0file, m02asl=m0_in_asl)
+            m0data_smooth = smooth_image(nb.load(m0_in_asl), fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
                 m0data = mask_data * np.mean(m0data_smooth, axis=3)
             else:
                 m0data = mask_data * m0data_smooth
+
+            m0tr = m0file_metadata["RepetitionTimePreparation"]
+            if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
 
         elif metadata["M0Type"] == "Included":
             m0data = asl_data[:, :, :, m0_volume_idx]
@@ -160,8 +172,18 @@ class ExtractCBF(SimpleInterface):
             m0data_smooth = smooth_image(m0img, fwhm=self.inputs.fwhm).get_fdata()
             m0data = mask_data * np.mean(m0data_smooth, axis=3)
 
+            if np.array(metadata["RepetitionTimePreparation"]).size > 1:
+                m0tr = np.array(metadata["RepetitionTimePreparation"])[m0_volume_idx]
+            else:
+                m0tr = metadata["RepetitionTimePreparation"]
+
+            if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
+
         elif metadata["M0Type"] == "Estimate":
             m0data = metadata["M0Estimate"] * mask_data
+
+            m0tr = None
 
         elif metadata["M0Type"] == "Absent":
             if control_volume_idx:
@@ -170,9 +192,13 @@ class ExtractCBF(SimpleInterface):
                 control_img = nb.Nifti1Image(control_data, asl_img.affine, asl_img.header)
                 control_img = smooth_image(control_img, fwhm=self.inputs.fwhm).get_fdata()
                 m0data = mask_data * np.mean(control_img, axis=3)
+
+                m0tr = None
+
             elif cbf_volume_idx:
-                # If we have precalculated CBF data, just use the mask as M0.
+                # If we have precalculated CBF data, we don't need M0, so we'll just use the mask.
                 m0data = mask_data
+
             else:
                 raise RuntimeError(
                     "m0scan is absent, "
@@ -181,10 +207,6 @@ class ExtractCBF(SimpleInterface):
 
         else:
             raise RuntimeError("no pathway to m0scan")
-
-        if asl_data.ndim == 5:
-            # XXX: Why specifically check for 5D data? NIFTIs can go up to 8, I think.
-            raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
 
         pld = np.array(metadata["PostLabelingDelay"])
         multi_pld = pld.size > 1
@@ -236,6 +258,7 @@ class ExtractCBF(SimpleInterface):
             metadata["PostLabelingDelay"] = pld.tolist()
 
         self._results["metadata"] = metadata
+        self._results["m0tr"] = m0tr
         self._results["out_file"] = fname_presuffix(
             self.inputs.name_source,
             suffix="_DeltaMOrCBF",
@@ -1166,7 +1189,8 @@ class ParcellateCBF(SimpleInterface):
 
 
 class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
-    in_asl = File(exists=True, mandatory=True, desc="raw asl file")
+    asl_file = File(exists=True, mandatory=True, desc="raw asl file")
+    aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
     in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
     file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
 
@@ -1187,11 +1211,10 @@ class ExtractCBForDeltaM(SimpleInterface):
             suffix="_cbfdeltam",
             newpath=runtime.cwd,
         )
-        asl_img = nb.load(self.inputs.in_asl)
+        asl_img = nb.load(self.inputs.asl_file)
         asl_data = asl_img.get_fdata()
 
-        # XXX: Not a good way to find the aslcontext file.
-        aslcontext = pd.read_csv(self.inputs.in_asl.replace("_asl.nii.gz", "_aslcontext.tsv"))
+        aslcontext = pd.read_table(self.inputs.aslcontext)
         vol_types = aslcontext["volume_type"].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
         label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]

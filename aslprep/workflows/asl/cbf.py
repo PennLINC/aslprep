@@ -26,8 +26,8 @@ from aslprep.utils.misc import get_atlas, get_tis, pcasl_or_pasl
 
 def init_cbf_compt_wf(
     name_source,
+    aslcontext,
     metadata,
-    bids_dir,
     dummy_vols,
     scorescrub=False,
     basil=False,
@@ -47,7 +47,6 @@ def init_cbf_compt_wf(
             wf = init_cbf_compt_wf(
                 name_source="",
                 metadata={},
-                bids_dir="",
                 dummy_vols=0,
             )
 
@@ -55,19 +54,26 @@ def init_cbf_compt_wf(
     ----------
     name_source : :obj:`str`
         Path to the raw ASL file.
+    aslcontext : :obj:`str`
+        Path to the aslcontext file associated with the ASL file being processed.
+        Used to set the aslcontext input.
     metadata : :obj:`dict`
         BIDS metadata for asl file
+    scorescrub
+    basil
+    M0Scale
+    smooth_kernel
     name : :obj:`str`
         Name of workflow (default: ``cbf_compt_wf``)
 
     Inputs
     ------
-    in_file
-        Raw asl file. Equivalent to name_source.
-    bids_dir
-        bids dir of the subject
     asl_file
-        asl series NIfTI file
+        asl series NIfTI file, after preprocessing
+    aslcontext : :obj:`str`
+        Defined from the parameter.
+    m0scan : :obj:`str` or None
+    m0scan_metadata : :obj:`dict` or None
     asl_mask
         asl mask NIFTI file
     t1w_tpms
@@ -75,13 +81,9 @@ def init_cbf_compt_wf(
     t1w_mask
         t1w mask Nifti
     t1_asl_xform
-        t1w to asl transfromation file
+        t1w to asl transformation file
     itk_asl_to_t1
-        asl to t1q transfromation file
-    scorescrub
-        compute score and scrub
-    basil
-        compute basil and PVC
+        asl to t1w transformation file
 
     Outputs
     -------
@@ -102,7 +104,8 @@ model [@buxton1998general].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
-                "in_file",
+                "m0scan",
+                "m0scan_metadata",
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
@@ -112,6 +115,7 @@ model [@buxton1998general].
         ),
         name="inputnode",
     )
+
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -213,8 +217,6 @@ model [@buxton1998general].
     tiscbf = get_tis(metadata)
     is_casl = pcasl_or_pasl(metadata=metadata)
 
-    # XXX: This is a bad way to find this file.
-    aslcontext = name_source.replace("_asl.nii.gz", "_aslcontext.tsv")
     aslcontext_df = pd.read_table(aslcontext)
     cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
     if cbf_only and not basil:
@@ -231,9 +233,8 @@ model [@buxton1998general].
             name_source=name_source,
             aslcontext=aslcontext,
             dummy_vols=dummy_vols,
-            bids_dir=bids_dir,
             fwhm=smooth_kernel,
-            in_metadata=metadata,
+            metadata=metadata,
         ),
         mem_gb=0.2,
         run_without_submitting=True,
@@ -242,7 +243,11 @@ model [@buxton1998general].
 
     # fmt:off
     workflow.connect([
-        (inputnode, extract_deltam, [("asl_file", "asl_file")]),
+        (inputnode, extract_deltam, [
+            ("asl_file", "asl_file"),
+            ("m0scan", "m0scan"),
+            ("m0scan_metadata", "m0scan_metadata"),
+        ]),
         (refine_mask, extract_deltam, [("out_mask", "in_mask")]),
     ])
     # fmt:on
@@ -320,13 +325,10 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 # BolusCutOffDelayTime is a list, and the first entry should be used.
                 bolus = bolus[0]
 
-        # NOTE: Do we need the TR of just the M0 volumes?
-        # TODO: Extract M0 TR in extract_deltam.
         basilcbf = pe.Node(
             BASILCBF(
                 m0scale=M0Scale,
                 bolus=bolus,
-                m0tr=metadata["RepetitionTime"],
                 alpha=metadata.get("LabelingEfficiency", Undefined),
                 pvc=True,
                 tis=tiscbf,
@@ -344,6 +346,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 (("m0_file", _getfiledir), "out_basename"),
                 ("out_file", "in_file"),
                 ("m0_file", "mzero"),
+                ("m0tr", "m0tr"),
             ]),
             (gm_tfm, basilcbf, [("output_image", "pvgm")]),
             (wm_tfm, basilcbf, [("output_image", "pvwm")]),
@@ -361,6 +364,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
 def init_gecbf_compt_wf(
     name_source,
+    aslcontext,
     metadata,
     mem_gb,
     M0Scale=1,
@@ -392,7 +396,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
-                "in_file",
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
@@ -437,8 +440,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         mem_gb=0.1,
     )
 
-    # XXX: This is a bad way to find this file.
-    aslcontext = name_source.replace("_asl.nii.gz", "_aslcontext.tsv")
     aslcontext_df = pd.read_table(aslcontext)
     cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
     if cbf_only and not basil:
@@ -493,7 +494,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     if deltam_volume_idx or control_volume_idx:
         # If deltaM or label-control pairs are available, then calculate CBF.
         extract_deltam = pe.Node(
-            ExtractCBForDeltaM(file_type="d"),
+            ExtractCBForDeltaM(file_type="d", aslcontext=aslcontext),
             mem_gb=1,
             run_without_submitting=True,
             name="extract_deltam",
@@ -503,7 +504,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         workflow.connect([
             # extract deltaM data
             (inputnode, extract_deltam, [
-                ("asl_file", "in_asl"),
+                ("asl_file", "asl_file"),
                 ("asl_mask", "in_aslmask"),
             ]),
         ])
@@ -639,7 +640,6 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
             BASILCBF(
                 m0scale=M0Scale,
                 bolus=bolus,
-                m0tr=metadata["RepetitionTime"],
                 alpha=metadata.get("LabelingEfficiency", Undefined),
                 pvc=True,
                 tis=tiscbf,
@@ -656,6 +656,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 (("asl_mask", _getfiledir), "out_basename"),
                 ("m0_file", "mzero"),
             ]),
+            (extract_deltam, basilcbf, [("m0tr", "m0tr")]),
             (collect_cbf, basilcbf, [("deltam", "in_file")]),
             (gm_tfm, basilcbf, [("output_image", "pvgm")]),
             (wm_tfm, basilcbf, [("output_image", "pvwm")]),
