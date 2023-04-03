@@ -21,7 +21,13 @@ from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
-from aslprep.utils.misc import _getcbfscore, _scrubcbf, parcellate_cbf, pcasl_or_pasl
+from aslprep.utils.misc import (
+    _getcbfscore,
+    _scrubcbf,
+    estimate_labeling_efficiency,
+    parcellate_cbf,
+    pcasl_or_pasl,
+)
 from aslprep.utils.qc import (
     cbf_qei,
     coverage,
@@ -482,16 +488,7 @@ class ComputeCBF(SimpleInterface):
             t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
         # Get labeling efficiency (alpha in Alsop 2015).
-        # PCASL and PASL values come from Alsop 2015.
-        # CASL value comes from Wang 2005 (https://doi.org/10.1148/radiol.2351031663).
-        if "LabelingEfficiency" in metadata.keys():
-            labeleff = metadata["LabelingEfficiency"]
-        elif metadata["ArterialSpinLabelingType"] == "CASL":
-            labeleff = 0.68
-        elif metadata["ArterialSpinLabelingType"] == "PCASL":
-            labeleff = 0.85
-        else:  # PASL
-            labeleff = 0.98
+        labeleff = estimate_labeling_efficiency(metadata=metadata)
 
         UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
         PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
