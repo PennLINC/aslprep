@@ -14,7 +14,10 @@ nipype_config.enable_debug_mode()
 
 @pytest.mark.examples_pcasl_singlepld
 def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
-    """Run aslprep on sub-01 data."""
+    """Run aslprep on the asl_002 and asl_005 ASL-BIDS examples datasets.
+
+    This test uses two ASL sessions: one on a Siemens and one on a Philips.
+    """
     from aslprep import config
 
     test_name = "examples_pcasl_singlepld"
@@ -54,7 +57,10 @@ def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
 
 @pytest.mark.examples_pcasl_singlepld_ge
 def test_examples_pcasl_singlepld_ge(datasets, output_dir, working_dir):
-    """Run aslprep on sub-01 data."""
+    """Run aslprep on the asl_001 ASL-BIDS examples dataset.
+
+    This test uses a GE session with two volumes: one deltam and one M0.
+    """
     from aslprep import config
 
     test_name = "examples_pcasl_singlepld_ge"
@@ -97,14 +103,19 @@ def test_examples_pcasl_singlepld_ge(datasets, output_dir, working_dir):
 
 @pytest.mark.examples_pcasl_multipld
 def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
-    """Run aslprep on sub-01 data."""
+    """Run aslprep on the asl_004 ASL-BIDS examples dataset.
+
+    This dataset has 48 control-label pairs at 6 different PLDs, along with a separate M0 scan.
+
+    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
+    """
     from aslprep import config
 
     test_name = "examples_pcasl_multipld"
     data_dir = datasets[test_name]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-    test_data_dir = get_test_data_path()
+    # test_data_dir = get_test_data_path()
 
     parameters = [
         data_dir,
@@ -130,20 +141,28 @@ def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
     with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
         aslprep_wf.run()
 
-    output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pcasl_multipld.txt")
-    check_generated_files(out_dir, output_list_file)
+    # output_list_file = os.path.join(
+    #     test_data_dir, "expected_outputs_examples_pcasl_multipld.txt"
+    # )
+    # check_generated_files(out_dir, output_list_file)
 
 
 @pytest.mark.examples_pasl_multipld
 def test_examples_pasl_multipld(datasets, output_dir, working_dir):
-    """Run aslprep on sub-01 data."""
+    """Run aslprep on the asl_003 ASL-BIDS examples dataset.
+
+    This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
+    The BolusCutOffTechnique is Q2TIPS.
+
+    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
+    """
     from aslprep import config
 
     test_name = "examples_pasl_multipld"
     data_dir = datasets[test_name]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-    test_data_dir = get_test_data_path()
+    # test_data_dir = get_test_data_path()
 
     parameters = [
         data_dir,
@@ -169,8 +188,8 @@ def test_examples_pasl_multipld(datasets, output_dir, working_dir):
     with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
         aslprep_wf.run()
 
-    output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pasl_multipld.txt")
-    check_generated_files(out_dir, output_list_file)
+    # output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pasl_multipld.txt")
+    # check_generated_files(out_dir, output_list_file)
 
 
 @pytest.mark.test_001
