@@ -165,6 +165,10 @@ def init_asl_gepreproc_wf(asl_file):
     basil = config.workflow.basil
     smoothkernel = config.workflow.smooth_kernel
 
+    if scorescrub:
+        config.loggers.warning(f"SCORE/SCRUB processing will be disabled for {asl_file}")
+        scorescrub = False
+
     ref_file = asl_file
     asl_tlen, mem_gb = _create_mem_gb(ref_file)
 

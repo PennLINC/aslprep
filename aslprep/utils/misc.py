@@ -11,6 +11,8 @@ import numpy as np
 from pkg_resources import resource_filename as pkgrf
 from scipy.stats import median_abs_deviation
 
+from aslprep import config
+
 
 def check_deps(workflow):
     """Make sure dependencies are present in this system."""
@@ -568,9 +570,9 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
         indx[inx] = 2
         R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
         V = (
-            n_gm_voxels * np.var(R[gm == 1])
-            + n_wm_voxels * np.var(R[wm == 1])
-            + n_csf_voxels * np.var(R[csf == 1])
+            (n_gm_voxels * np.var(R[gm == 1]))
+            + (n_wm_voxels * np.var(R[wm == 1]))
+            + (n_csf_voxels * np.var(R[csf == 1]))
         )
     cbfts_recon = cbfts[:, :, :, indx == 0]
     cbfts_recon1 = np.zeros_like(cbfts_recon)
