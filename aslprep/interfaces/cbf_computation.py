@@ -408,8 +408,11 @@ class ComputeCBF(SimpleInterface):
     single CBF volumes and CBF time series, and
     PASL and (P)CASL data.
 
-    T1blood is calculated based on the scanner's field strength, according to
-    :footcite:t:`zhang2013vivo`.
+    T1blood is set based on the scanner's field strength, according to
+    :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
+    If recommended values from these publications cannot be used
+    (i.e., if the field strength isn't 1.5T, 3T, 7T),
+    then the formula from :footcite:t:`zhang2013vivo` will be applied.
 
     Single-PLD CBF, for both (P)CASL and PASL (QUIPSSII BolusCutOffTechnique only)
     is calculated according to :footcite:t:`alsop_recommended_2015`.
@@ -462,8 +465,21 @@ class ComputeCBF(SimpleInterface):
                 "ASLPrep cannot currently process multi-PLD data."
             )
 
-        # Zhang et al. (2012): https://doi.org/10.1002/mrm.24550
-        t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
+        # 1.5T and 3T values come from Alsop 2015.
+        # 7T comes from Zhang 2013.
+        # For other field strengths, the formula from Zhang 2013 will be used.
+        t1blood_dict = {
+            1.5: 1.35,
+            3: 1.65,
+            7: 2.087,
+        }
+        t1blood = t1blood_dict.get(metadata["MagneticFieldStrength"])
+        if not t1blood:
+            config.loggers.interface.warning(
+                f"T1blood cannot be inferred for {metadata['MagneticFieldStrength']}T data. "
+                "Defaulting to formula from Zhang et al. (2013)."
+            )
+            t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
         # Get labeling efficiency (alpha in Alsop 2015).
         # PCASL and PASL values come from Alsop 2015.
