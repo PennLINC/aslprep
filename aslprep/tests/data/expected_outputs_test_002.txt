@@ -1,5 +1,6 @@
 aslprep/logs
 aslprep/sub-10R01383
+aslprep/sub-10R01383.html
 aslprep/sub-10R01383/perf
 aslprep/sub-10R01383/perf/sub-10R01383_aslref.nii.gz
 aslprep/sub-10R01383/perf/sub-10R01383_cbf.nii.gz

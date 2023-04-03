@@ -1,5 +1,6 @@
 aslprep/logs
 aslprep/sub-103
+aslprep/sub-103.html
 aslprep/sub-103/ses-ge3d
 aslprep/sub-103/ses-ge3d/perf
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_aslref.nii.gz

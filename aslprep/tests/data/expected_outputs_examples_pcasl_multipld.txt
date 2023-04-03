@@ -1,5 +1,6 @@
 aslprep/logs
 aslprep/sub-01
+aslprep/sub-01.html
 aslprep/sub-01/perf
 aslprep/sub-01/perf/sub-01_aslref.nii.gz
 aslprep/sub-01/perf/sub-01_cbf.nii.gz
