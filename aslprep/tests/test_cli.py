@@ -1,43 +1,203 @@
 """Command-line interface tests."""
-import json
 import os
 
 import pytest
+from nipype import config as nipype_config
+from nipype.pipeline.engine.nodes import NodeExecutionError
+from pkg_resources import resource_filename as pkgrf
 
 from aslprep.cli.parser import parse_args
-from aslprep.cli.workflow import build_workflow
+from aslprep.cli.workflow import build_boilerplate, build_workflow
+from aslprep.niworkflows.reports import generate_reports
 from aslprep.tests.utils import check_generated_files, get_test_data_path
 
+nipype_config.enable_debug_mode()
 
-@pytest.mark.sub01
-def test_sub01(datasets, output_dir, working_dir):
+
+@pytest.mark.examples_pasl_multipld
+def test_examples_pasl_multipld(datasets, output_dir, working_dir):
+    """Run aslprep on the asl_003 ASL-BIDS examples dataset.
+
+    This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
+    The BolusCutOffTechnique is Q2TIPS.
+
+    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
+    """
+    TEST_NAME = "examples_pasl_multipld"
+    PARTICIPANT_LABEL = "01"
+
+    data_dir = datasets[TEST_NAME]
+    out_dir = os.path.join(output_dir, TEST_NAME)
+    work_dir = os.path.join(working_dir, TEST_NAME)
+
+    parameters = [
+        data_dir,
+        out_dir,
+        "participant",
+        f"--participant-label={PARTICIPANT_LABEL}",
+        f"-w={work_dir}",
+        "--nthreads=2",
+        "--omp-nthreads=2",
+        "--output-spaces=asl",
+        "--scorescrub",
+        "--basil",
+        "--use-syn-sdc",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+    ]
+
+    _run_and_fail(parameters)
+
+
+@pytest.mark.examples_pcasl_multipld
+def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
+    """Run aslprep on the asl_004 ASL-BIDS examples dataset.
+
+    This dataset has 48 control-label pairs at 6 different PLDs, along with a separate M0 scan.
+
+    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
+    """
+    TEST_NAME = "examples_pcasl_multipld"
+    PARTICIPANT_LABEL = "01"
+
+    data_dir = datasets[TEST_NAME]
+    out_dir = os.path.join(output_dir, TEST_NAME)
+    work_dir = os.path.join(working_dir, TEST_NAME)
+
+    parameters = [
+        data_dir,
+        out_dir,
+        "participant",
+        f"--participant-label={PARTICIPANT_LABEL}",
+        f"-w={work_dir}",
+        "--nthreads=2",
+        "--omp-nthreads=2",
+        "--output-spaces=asl",
+        "--scorescrub",
+        "--basil",
+        "--use-syn-sdc",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+    ]
+
+    _run_and_fail(parameters)
+
+
+@pytest.mark.examples_pcasl_singlepld_ge
+def test_examples_pcasl_singlepld_ge(datasets, output_dir, working_dir):
+    """Run aslprep on the asl_001 ASL-BIDS examples dataset.
+
+    This test uses a GE session with two volumes: one deltam and one M0.
+    """
+    TEST_NAME = "examples_pcasl_singlepld_ge"
+    PARTICIPANT_LABEL = "103"
+
+    data_dir = datasets["examples_pcasl_singlepld"]
+    out_dir = os.path.join(output_dir, TEST_NAME)
+    work_dir = os.path.join(working_dir, TEST_NAME)
+    test_data_dir = get_test_data_path()
+    filter_file = os.path.join(test_data_dir, f"{TEST_NAME}_filter.json")
+
+    parameters = [
+        data_dir,
+        out_dir,
+        "participant",
+        f"--participant-label={PARTICIPANT_LABEL}",
+        f"-w={work_dir}",
+        f"--bids-filter-file={filter_file}",
+        "--nthreads=2",
+        "--omp-nthreads=2",
+        "--output-spaces=asl",
+        "--scorescrub",
+        "--basil",
+        "--use-syn-sdc",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+    ]
+
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+
+
+@pytest.mark.examples_pcasl_singlepld_philips
+def test_examples_pcasl_singlepld_philips(datasets, output_dir, working_dir):
+    """Run aslprep on the asl_002 ASL-BIDS examples datasets.
+
+    This test a Philips session.
+    """
+    TEST_NAME = "examples_pcasl_singlepld_philips"
+    PARTICIPANT_LABEL = "103"
+
+    data_dir = datasets["examples_pcasl_singlepld"]
+    out_dir = os.path.join(output_dir, TEST_NAME)
+    work_dir = os.path.join(working_dir, TEST_NAME)
+    test_data_dir = get_test_data_path()
+    filter_file = os.path.join(test_data_dir, f"{TEST_NAME}_filter.json")
+
+    parameters = [
+        data_dir,
+        out_dir,
+        "participant",
+        f"--participant-label={PARTICIPANT_LABEL}",
+        f"-w={work_dir}",
+        f"--bids-filter-file={filter_file}",
+        "--nthreads=2",
+        "--omp-nthreads=2",
+        "--output-spaces=asl",
+        "--scorescrub",
+        "--basil",
+        "--use-syn-sdc",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+    ]
+
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+
+
+@pytest.mark.examples_pcasl_singlepld_siemens
+def test_examples_pcasl_singlepld_siemens(datasets, output_dir, working_dir):
+    """Run aslprep on the asl_005 ASL-BIDS examples datasets.
+
+    This test a Siemens session.
+    """
+    TEST_NAME = "examples_pcasl_singlepld_siemens"
+    PARTICIPANT_LABEL = "103"
+
+    data_dir = datasets["examples_pcasl_singlepld"]
+    out_dir = os.path.join(output_dir, TEST_NAME)
+    work_dir = os.path.join(working_dir, TEST_NAME)
+    test_data_dir = get_test_data_path()
+    filter_file = os.path.join(test_data_dir, f"{TEST_NAME}_filter.json")
+
+    parameters = [
+        data_dir,
+        out_dir,
+        "participant",
+        f"--participant-label={PARTICIPANT_LABEL}",
+        f"-w={work_dir}",
+        f"--bids-filter-file={filter_file}",
+        "--nthreads=2",
+        "--omp-nthreads=2",
+        "--output-spaces=asl",
+        "--scorescrub",
+        "--basil",
+        "--use-syn-sdc",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+    ]
+
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+
+
+@pytest.mark.test_001
+def test_test_001(datasets, output_dir, working_dir):
     """Run aslprep on sub-01 data."""
-    from aslprep import config
+    TEST_NAME = "test_001"
+    PARTICIPANT_LABEL = "01"
 
-    test_name = "test_sub01"
-
-    data_dir = datasets["dset"]
-    smriprep_dir = datasets["smriprep"]
-    out_dir = os.path.join(output_dir, test_name)
-    work_dir = os.path.join(working_dir, test_name)
-
-    # Patch the JSON file until I have enough changes to merit completely replacing the current
-    # version of the data.
-    json_file = os.path.join(data_dir, "sub-01", "perf", "sub-01_asl.json")
-    with open(json_file, "r") as fo:
-        metadata = json.load(fo)
-
-    metadata["RepetitionTimePreparation"] = metadata["RepetitionTime"]
-    with open(json_file, "w") as fo:
-        json.dump(metadata, fo, sort_keys=True, indent=4)
-
-    test_data_dir = get_test_data_path()
+    data_dir = datasets[TEST_NAME]
+    out_dir = os.path.join(output_dir, TEST_NAME)
+    work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
         data_dir,
         out_dir,
         "participant",
-        "--participant-label=01",
+        f"--participant-label={PARTICIPANT_LABEL}",
         f"-w={work_dir}",
         "--nthreads=2",
         "--omp-nthreads=2",
@@ -45,121 +205,104 @@ def test_sub01(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={smriprep_dir}",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
     ]
-    parse_args(parameters)
-    config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
-    config.to_filename(config_file)
 
-    retval = {}
-    retval = build_workflow(config_file, retval=retval)
-    aslprep_wf = retval.get("workflow", None)
-    aslprep_wf.run()
-
-    output_list_file = os.path.join(test_data_dir, "test_outputs_sub01.txt")
-    check_generated_files(out_dir, output_list_file)
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-@pytest.mark.subA00086748
-def test_subA00086748(datasets, output_dir, working_dir):  # noqa: N802
-    """Run aslprep on sub-A00086748."""
-    from aslprep import config
-
-    test_name = "test_subA00086748"
-
-    data_dir = datasets["dset"]
-    smriprep_dir = datasets["smriprep"]
-    out_dir = os.path.join(output_dir, test_name)
-    work_dir = os.path.join(working_dir, test_name)
-
-    # Patch the JSON file until I have enough changes to merit completely replacing the current
-    # version of the data.
-    json_file = os.path.join(
-        data_dir,
-        "sub-A00086748",
-        "ses-BAS1",
-        "perf",
-        "sub-A00086748_ses-BAS1_asl.json",
-    )
-    with open(json_file, "r") as fo:
-        metadata = json.load(fo)
-
-    metadata["RepetitionTimePreparation"] = metadata["RepetitionTime"]
-    with open(json_file, "w") as fo:
-        json.dump(metadata, fo, sort_keys=True, indent=4)
-
-    test_data_dir = get_test_data_path()
-
-    parameters = [
-        data_dir,
-        out_dir,
-        "participant",
-        "--participant-label=A00086748",
-        f"-w={work_dir}",
-        "--nthreads=2",
-        "--omp-nthreads=2",
-        "--output-spaces=asl",
-        "--scorescrub",
-        "--basil",
-        "--use-syn-sdc",
-        f"--anat-derivatives={smriprep_dir}",
-    ]
-    parse_args(parameters)
-    config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
-    config.to_filename(config_file)
-
-    retval = {}
-    retval = build_workflow(config_file, retval=retval)
-    aslprep_wf = retval.get("workflow", None)
-    aslprep_wf.run()
-
-    output_list_file = os.path.join(test_data_dir, "test_outputs_subA00086748.txt")
-    check_generated_files(out_dir, output_list_file)
-
-
-@pytest.mark.sub10R01383
-def test_sub10R01383(datasets, output_dir, working_dir):  # noqa: N802
+@pytest.mark.test_002
+def test_test_002(datasets, output_dir, working_dir):
     """Run aslprep on sub-10R01383.
 
-    Currently skipped.
-
-    Notes
-    -----
-    scorescrub fails on this dataset, so I've dropped that parameter.
-    I'll probably need to dig into why that happens at some point.
+    This dataset contains PCASL data from a GE scanner.
+    There are two ASL volumes (both deltam) and separate M0 scan.
     """
-    from aslprep import config
+    TEST_NAME = "test_002"
+    PARTICIPANT_LABEL = "10R01383"
 
-    test_name = "test_sub10R01383"
-
-    data_dir = datasets["dset"]
-    smriprep_dir = datasets["smriprep"]
-    out_dir = os.path.join(output_dir, test_name)
-    work_dir = os.path.join(working_dir, test_name)
-
-    test_data_dir = get_test_data_path()
+    data_dir = datasets[TEST_NAME]
+    out_dir = os.path.join(output_dir, TEST_NAME)
+    work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
         data_dir,
         out_dir,
         "participant",
-        "--participant-label=10R01383",
+        f"--participant-label={PARTICIPANT_LABEL}",
         f"-w={work_dir}",
         "--nthreads=2",
         "--omp-nthreads=2",
         "--output-spaces=asl",
+        "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={smriprep_dir}",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
     ]
+
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+
+
+@pytest.mark.test_003
+def test_test_003(datasets, output_dir, working_dir):
+    """Run aslprep on sub-A00086748."""
+    TEST_NAME = "test_003"
+    PARTICIPANT_LABEL = "A00086748"
+
+    data_dir = datasets[TEST_NAME]
+    out_dir = os.path.join(output_dir, TEST_NAME)
+    work_dir = os.path.join(working_dir, TEST_NAME)
+
+    parameters = [
+        data_dir,
+        out_dir,
+        "participant",
+        f"--participant-label={PARTICIPANT_LABEL}",
+        f"-w={work_dir}",
+        "--nthreads=2",
+        "--omp-nthreads=2",
+        "--output-spaces=asl",
+        "--scorescrub",
+        "--basil",
+        "--use-syn-sdc",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+    ]
+
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+
+
+def _run_and_generate(test_name, participant_label, parameters, out_dir):
+    from aslprep import config
+
+    parse_args(parameters)
+    config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
+    config.loggers.cli.warning(f"Saving config file to {config_file}")
+    config.to_filename(config_file)
+
+    retval = build_workflow(config_file, retval={})
+    aslprep_wf = retval["workflow"]
+    aslprep_wf.run()
+    build_boilerplate(str(config_file), aslprep_wf)
+    generate_reports(
+        [participant_label],
+        out_dir,
+        config.execution.run_uuid,
+        config=pkgrf("aslprep", "data/reports-spec.yml"),
+        packagename="aslprep",
+    )
+
+    output_list_file = os.path.join(get_test_data_path(), f"expected_outputs_{test_name}.txt")
+    check_generated_files(out_dir, output_list_file)
+
+
+def _run_and_fail(parameters):
+    from aslprep import config
+
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.to_filename(config_file)
 
-    retval = {}
-    retval = build_workflow(config_file, retval=retval)
-    aslprep_wf = retval.get("workflow", None)
-    aslprep_wf.run()
-
-    output_list_file = os.path.join(test_data_dir, "test_outputs_sub10R01383.txt")
-    check_generated_files(out_dir, output_list_file)
+    retval = build_workflow(config_file, retval={})
+    aslprep_wf = retval["workflow"]
+    with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
+        aslprep_wf.run()
