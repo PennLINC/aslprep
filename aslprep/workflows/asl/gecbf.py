@@ -166,7 +166,7 @@ def init_asl_gepreproc_wf(asl_file):
     smoothkernel = config.workflow.smooth_kernel
 
     if scorescrub:
-        config.loggers.warning(f"SCORE/SCRUB processing will be disabled for {asl_file}")
+        config.loggers.workflow.warning(f"SCORE/SCRUB processing will be disabled for {asl_file}")
         scorescrub = False
 
     ref_file = asl_file
