@@ -301,7 +301,7 @@ class ComputeCBF(SimpleInterface):
     PASL and (P)CASL data.
 
     T1blood is set based on the scanner's field strength, according to
-    :footcite:t:`alsop_recommended_2015,rooney2007magnetic`.
+    :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
     If recommended values from these publications cannot be used
     (i.e., if the field strength isn't 1.5T, 3T, 7T),
     then the formula from :footcite:t:`zhang2013vivo` will be applied.
@@ -358,13 +358,12 @@ class ComputeCBF(SimpleInterface):
             )
 
         # 1.5T and 3T values come from Alsop 2015.
-        # 4T and 7T come from Rooney 2007.
+        # 7T comes from Zhang 2013.
         # For other field strengths, the formula from Zhang 2013 will be used.
         t1blood_dict = {
             1.5: 1.35,
             3: 1.65,
-            4: 1.914,
-            7: 2.587,
+            7: 2.087,
         }
         t1blood = t1blood_dict.get(metadata["MagneticFieldStrength"])
         if not t1blood:
