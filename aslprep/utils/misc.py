@@ -4,12 +4,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Any
 
 import nibabel as nb
 import numpy as np
-from nipype.utils.filemanip import fname_presuffix
 from pkg_resources import resource_filename as pkgrf
 
 
@@ -81,29 +79,6 @@ def get_n_volumes(fname):
         raise ValueError(f"Image has {img.ndim} dimensions: {fname}")
 
     return n_volumes
-
-
-def gen_reference(in_file, fwhm=5, newpath=None):
-    """Generate reference for a GE scan with few volumes."""
-    newpath = Path(newpath or ".")
-    n_vols = get_n_volumes(in_file)
-
-    in_img = nb.load(in_file)
-    ref_data = in_img.get_fdata()
-
-    if n_vols > 0:
-        ref_data = np.mean(ref_data, axis=3)
-
-    new_img = nb.Nifti1Image(dataobj=ref_data, affine=in_img.affine, header=in_img.header)
-
-    new_img = nb.processing.smooth_image(new_img, fwhm=fwhm)
-    out_file = fname_presuffix(
-        "aslref",
-        suffix="_reference.nii.gz",
-        newpath=str(newpath.absolute()),
-    )
-    new_img.to_filename(out_file)
-    return out_file
 
 
 def _split_spec(in_target):
