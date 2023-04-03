@@ -135,7 +135,7 @@ jobs:
           paths:
               - /src/aslprep/.circleci/data
 
-  pcasl_singlepld:
+  pcasl_singlepld_philips:
     <<: *dockersetup
     steps:
       - checkout
@@ -143,26 +143,55 @@ jobs:
           name: Check whether build should be skipped
           command: |
             cd /src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld\]' )" != "" ]]; then
-              echo "Skipping examples_pcasl_singlepld build"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld_philips\]' )" != "" ]]; then
+              echo "Skipping examples_pcasl_singlepld_philips build"
               circleci step halt
             fi
       - restore_cache:
           key: examples_pcasl_singlepld-v1
       - run: *runinstall
       - run:
-          name: Run full aslprep on examples_pcasl_singlepld dataset
+          name: Run full aslprep on examples_pcasl_singlepld_philips dataset
           no_output_timeout: 5h
           command: |
-            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_philips" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_philips
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
           root: /src/coverage
           paths:
-              - .coverage.examples_pcasl_singlepld
+              - .coverage.examples_pcasl_singlepld_philips
+
+  pcasl_singlepld_siemens:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld_siemens\]' )" != "" ]]; then
+              echo "Skipping examples_pcasl_singlepld_siemens build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: examples_pcasl_singlepld-v1
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on examples_pcasl_singlepld_siemens dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_siemens" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_siemens
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.examples_pcasl_singlepld_siemens
 
   pcasl_singlepld_ge:
     <<: *dockersetup
@@ -506,7 +535,19 @@ workflows:
             tags:
               only: /.*/
 
-      - pcasl_singlepld:
+      - pcasl_singlepld_philips:
+          requires:
+            - download_pcasl_singlepld
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - pcasl_singlepld_siemens:
           requires:
             - download_pcasl_singlepld
             - build
@@ -606,7 +647,8 @@ workflows:
 
       - merge_coverage:
           requires:
-            - pcasl_singlepld
+            - pcasl_singlepld_philips
+            - pcasl_singlepld_siemens
             - pcasl_singlepld_ge
             - pcasl_multipld
             - pasl_multipld
@@ -625,7 +667,8 @@ workflows:
       - deployable:
           requires:
             - build
-            - pcasl_singlepld
+            - pcasl_singlepld_philips
+            - pcasl_singlepld_siemens
             - pcasl_singlepld_ge
             - pcasl_multipld
             - pasl_multipld

@@ -12,28 +12,29 @@ from aslprep.tests.utils import check_generated_files, get_test_data_path
 nipype_config.enable_debug_mode()
 
 
-@pytest.mark.examples_pcasl_singlepld
-def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
-    """Run aslprep on the asl_002 and asl_005 ASL-BIDS examples datasets.
+@pytest.mark.examples_pasl_multipld
+def test_examples_pasl_multipld(datasets, output_dir, working_dir):
+    """Run aslprep on the asl_003 ASL-BIDS examples dataset.
 
-    This test uses two ASL sessions: one on a Siemens and one on a Philips.
+    This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
+    The BolusCutOffTechnique is Q2TIPS.
+
+    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
     """
     from aslprep import config
 
-    test_name = "examples_pcasl_singlepld"
+    test_name = "examples_pasl_multipld"
     data_dir = datasets[test_name]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-    test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, "examples_pcasl_singlepld_filter.json")
+    # test_data_dir = get_test_data_path()
 
     parameters = [
         data_dir,
         out_dir,
         "participant",
-        "--participant-label=103",
+        "--participant-label=01",
         f"-w={work_dir}",
-        f"--bids-filter-file={filter_file}",
         "--nthreads=2",
         "--omp-nthreads=2",
         "--output-spaces=asl",
@@ -49,56 +50,11 @@ def test_examples_pcasl_singlepld(datasets, output_dir, working_dir):
     retval = {}
     retval = build_workflow(config_file, retval=retval)
     aslprep_wf = retval.get("workflow", None)
-    aslprep_wf.run()
+    with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
+        aslprep_wf.run()
 
-    output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pcasl_singlepld.txt")
-    check_generated_files(out_dir, output_list_file)
-
-
-@pytest.mark.examples_pcasl_singlepld_ge
-def test_examples_pcasl_singlepld_ge(datasets, output_dir, working_dir):
-    """Run aslprep on the asl_001 ASL-BIDS examples dataset.
-
-    This test uses a GE session with two volumes: one deltam and one M0.
-    """
-    from aslprep import config
-
-    test_name = "examples_pcasl_singlepld_ge"
-    data_dir = datasets["examples_pcasl_singlepld"]
-    out_dir = os.path.join(output_dir, test_name)
-    work_dir = os.path.join(working_dir, test_name)
-    test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, "examples_pcasl_singlepld_ge_filter.json")
-
-    parameters = [
-        data_dir,
-        out_dir,
-        "participant",
-        "--participant-label=103",
-        f"-w={work_dir}",
-        f"--bids-filter-file={filter_file}",
-        "--nthreads=2",
-        "--omp-nthreads=2",
-        "--output-spaces=asl",
-        "--scorescrub",
-        "--basil",
-        "--use-syn-sdc",
-        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
-    ]
-    parse_args(parameters)
-    config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
-    config.to_filename(config_file)
-
-    retval = {}
-    retval = build_workflow(config_file, retval=retval)
-    aslprep_wf = retval.get("workflow", None)
-    aslprep_wf.run()
-
-    output_list_file = os.path.join(
-        test_data_dir,
-        "expected_outputs_examples_pcasl_singlepld_ge.txt",
-    )
-    check_generated_files(out_dir, output_list_file)
+    # output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pasl_multipld.txt")
+    # check_generated_files(out_dir, output_list_file)
 
 
 @pytest.mark.examples_pcasl_multipld
@@ -147,29 +103,28 @@ def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
     # check_generated_files(out_dir, output_list_file)
 
 
-@pytest.mark.examples_pasl_multipld
-def test_examples_pasl_multipld(datasets, output_dir, working_dir):
-    """Run aslprep on the asl_003 ASL-BIDS examples dataset.
+@pytest.mark.examples_pcasl_singlepld_ge
+def test_examples_pcasl_singlepld_ge(datasets, output_dir, working_dir):
+    """Run aslprep on the asl_001 ASL-BIDS examples dataset.
 
-    This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
-    The BolusCutOffTechnique is Q2TIPS.
-
-    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
+    This test uses a GE session with two volumes: one deltam and one M0.
     """
     from aslprep import config
 
-    test_name = "examples_pasl_multipld"
-    data_dir = datasets[test_name]
+    test_name = "examples_pcasl_singlepld_ge"
+    data_dir = datasets["examples_pcasl_singlepld"]
     out_dir = os.path.join(output_dir, test_name)
     work_dir = os.path.join(working_dir, test_name)
-    # test_data_dir = get_test_data_path()
+    test_data_dir = get_test_data_path()
+    filter_file = os.path.join(test_data_dir, "examples_pcasl_singlepld_ge_filter.json")
 
     parameters = [
         data_dir,
         out_dir,
         "participant",
-        "--participant-label=01",
+        "--participant-label=103",
         f"-w={work_dir}",
+        f"--bids-filter-file={filter_file}",
         "--nthreads=2",
         "--omp-nthreads=2",
         "--output-spaces=asl",
@@ -185,11 +140,105 @@ def test_examples_pasl_multipld(datasets, output_dir, working_dir):
     retval = {}
     retval = build_workflow(config_file, retval=retval)
     aslprep_wf = retval.get("workflow", None)
-    with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
-        aslprep_wf.run()
+    aslprep_wf.run()
 
-    # output_list_file = os.path.join(test_data_dir, "expected_outputs_examples_pasl_multipld.txt")
-    # check_generated_files(out_dir, output_list_file)
+    output_list_file = os.path.join(
+        test_data_dir,
+        "expected_outputs_examples_pcasl_singlepld_ge.txt",
+    )
+    check_generated_files(out_dir, output_list_file)
+
+
+@pytest.mark.examples_pcasl_singlepld_philips
+def test_examples_pcasl_singlepld_philips(datasets, output_dir, working_dir):
+    """Run aslprep on the asl_002 ASL-BIDS examples datasets.
+
+    This test a Philips session.
+    """
+    from aslprep import config
+
+    test_name = "examples_pcasl_singlepld"
+    data_dir = datasets[test_name]
+    out_dir = os.path.join(output_dir, test_name)
+    work_dir = os.path.join(working_dir, test_name)
+    test_data_dir = get_test_data_path()
+    filter_file = os.path.join(test_data_dir, "examples_pcasl_singlepld_filter_philips.json")
+
+    parameters = [
+        data_dir,
+        out_dir,
+        "participant",
+        "--participant-label=103",
+        f"-w={work_dir}",
+        f"--bids-filter-file={filter_file}",
+        "--nthreads=2",
+        "--omp-nthreads=2",
+        "--output-spaces=asl",
+        "--scorescrub",
+        "--basil",
+        "--use-syn-sdc",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+    ]
+    parse_args(parameters)
+    config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
+    config.to_filename(config_file)
+
+    retval = {}
+    retval = build_workflow(config_file, retval=retval)
+    aslprep_wf = retval.get("workflow", None)
+    aslprep_wf.run()
+
+    output_list_file = os.path.join(
+        test_data_dir,
+        "expected_outputs_examples_pcasl_singlepld_philips.txt",
+    )
+    check_generated_files(out_dir, output_list_file)
+
+
+@pytest.mark.examples_pcasl_singlepld_siemens
+def test_examples_pcasl_singlepld_siemens(datasets, output_dir, working_dir):
+    """Run aslprep on the asl_005 ASL-BIDS examples datasets.
+
+    This test a Siemens session.
+    """
+    from aslprep import config
+
+    test_name = "examples_pcasl_singlepld"
+    data_dir = datasets[test_name]
+    out_dir = os.path.join(output_dir, test_name)
+    work_dir = os.path.join(working_dir, test_name)
+    test_data_dir = get_test_data_path()
+    filter_file = os.path.join(test_data_dir, "examples_pcasl_singlepld_filter_siemens.json")
+
+    parameters = [
+        data_dir,
+        out_dir,
+        "participant",
+        "--participant-label=103",
+        f"-w={work_dir}",
+        f"--bids-filter-file={filter_file}",
+        "--nthreads=2",
+        "--omp-nthreads=2",
+        "--output-spaces=asl",
+        "--scorescrub",
+        "--basil",
+        "--use-syn-sdc",
+        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+    ]
+    parse_args(parameters)
+    config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
+    config.to_filename(config_file)
+
+    retval = {}
+    retval = build_workflow(config_file, retval=retval)
+    aslprep_wf = retval.get("workflow", None)
+    aslprep_wf.run()
+
+    output_list_file = os.path.join(
+        test_data_dir,
+        "expected_outputs_examples_pcasl_singlepld_siemens.txt",
+    )
+    check_generated_files(out_dir, output_list_file)
 
 
 @pytest.mark.test_001
