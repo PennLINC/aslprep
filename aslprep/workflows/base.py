@@ -325,7 +325,7 @@ tasks and sessions), the following preprocessing was performed.
             )
             use_ge = True
 
-        asl_preproc_func = init_asl_preproc_wf if use_ge else init_asl_gepreproc_wf
+        asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_preproc_wf
         asl_preproc_wf = asl_preproc_func(asl_file)
 
         # fmt:off
