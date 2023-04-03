@@ -279,23 +279,19 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
     config.loggers.cli.warning(f"Saving config file to {config_file}")
     config.to_filename(config_file)
 
-    test_data_dir = get_test_data_path()
-
-    retval = {}
-    retval = build_workflow(config_file, retval=retval)
-    run_uuid = retval.get("run_uuid", None)
-    aslprep_wf = retval.get("workflow", None)
+    retval = build_workflow(config_file, retval={})
+    aslprep_wf = retval["workflow"]
     aslprep_wf.run()
 
     generate_reports(
         [participant_label],
         out_dir,
-        run_uuid,
+        config.execution.run_uuid,
         config=pkgrf("aslprep", "data/reports-spec.yml"),
         packagename="aslprep",
     )
 
-    output_list_file = os.path.join(test_data_dir, f"expected_outputs_{test_name}.txt")
+    output_list_file = os.path.join(get_test_data_path(), f"expected_outputs_{test_name}.txt")
     check_generated_files(out_dir, output_list_file)
 
 
@@ -306,8 +302,7 @@ def _run_and_fail(parameters):
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.to_filename(config_file)
 
-    retval = {}
-    retval = build_workflow(config_file, retval=retval)
-    aslprep_wf = retval.get("workflow", None)
+    retval = build_workflow(config_file, retval={})
+    aslprep_wf = retval["workflow"]
     with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
         aslprep_wf.run()
