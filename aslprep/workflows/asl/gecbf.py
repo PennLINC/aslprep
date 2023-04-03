@@ -165,6 +165,10 @@ def init_asl_gepreproc_wf(asl_file):
     basil = config.workflow.basil
     smoothkernel = config.workflow.smooth_kernel
 
+    if scorescrub:
+        config.loggers.workflow.warning(f"SCORE/SCRUB processing will be disabled for {asl_file}")
+        scorescrub = False
+
     ref_file = asl_file
     asl_tlen, mem_gb = _create_mem_gb(ref_file)
 
@@ -274,7 +278,7 @@ effects of other kernels [@lanczos].
             registration_init=config.workflow.asl2t1w_init,
             distortion_correction="No distortion correction",
             pe_direction=metadata.get("PhaseEncodingDirection"),
-            tr=metadata.get("RepetitionTime"),
+            tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"]),
         ),
         name="summary",
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
@@ -306,8 +310,9 @@ effects of other kernels [@lanczos].
     # begin workflow
     # Extract averaged, smoothed M0 image and reference image (which is generally the M0 image).
     gen_ref_wf = init_asl_geref_wf(
-        smooth_kernel=smoothkernel,
         metadata=metadata,
+        aslcontext=run_data["aslcontext"],
+        smooth_kernel=smoothkernel,
         name="asl_gereference_wf",
     )
 
@@ -316,7 +321,7 @@ effects of other kernels [@lanczos].
         (inputnode, gen_ref_wf, [
             ("asl_file", "inputnode.asl_file"),
             ("m0scan", "inputnode.m0scan"),
-            ("aslcontext", "inputnode.aslcontext"),
+            ("m0scan_metadata", "inputnode.m0scan_metadata"),
         ]),
     ])
     # fmt:on
@@ -350,6 +355,7 @@ effects of other kernels [@lanczos].
 
     cbf_compt_wf = init_gecbf_compt_wf(
         name_source=asl_file,
+        aslcontext=run_data["aslcontext"],
         metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,
@@ -361,7 +367,6 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (inputnode, cbf_compt_wf, [
-            ("asl_file", "inputnode.in_file"),
             ("asl_file", "inputnode.asl_file"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
@@ -369,6 +374,7 @@ effects of other kernels [@lanczos].
         (gen_ref_wf, cbf_compt_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
             ("outputnode.m0_file", "inputnode.m0_file"),
+            ("outputnode.m0tr", "inputnode.m0tr"),
         ]),
         (asl_reg_wf, cbf_compt_wf, [
             ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
