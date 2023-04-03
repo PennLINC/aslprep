@@ -10,7 +10,6 @@ aslprep/sub-10R01383/perf/sub-10R01383_desc-basil_cbf.nii.gz
 aslprep/sub-10R01383/perf/sub-10R01383_desc-bat_cbf.nii.gz
 aslprep/sub-10R01383/perf/sub-10R01383_desc-brain_mask.json
 aslprep/sub-10R01383/perf/sub-10R01383_desc-brain_mask.nii.gz
-aslprep/sub-10R01383/perf/sub-10R01383_desc-confounds_regressors.tsv
 aslprep/sub-10R01383/perf/sub-10R01383_desc-preproc_asl.json
 aslprep/sub-10R01383/perf/sub-10R01383_desc-preproc_asl.nii.gz
 aslprep/sub-10R01383/perf/sub-10R01383_desc-pvGM_cbf.nii.gz

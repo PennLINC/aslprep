@@ -23,7 +23,6 @@ aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-basil_cbf.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-bat_cbf.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-brain_mask.json
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-brain_mask.nii.gz
-aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-confounds_regressors.tsv
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-mean_cbf.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-preproc_asl.json
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-preproc_asl.nii.gz
