@@ -11,8 +11,6 @@ import numpy as np
 from pkg_resources import resource_filename as pkgrf
 from scipy.stats import median_abs_deviation
 
-from aslprep import config
-
 
 def check_deps(workflow):
     """Make sure dependencies are present in this system."""
