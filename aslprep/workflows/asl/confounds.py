@@ -246,7 +246,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     # Carpetplot and confounds plot
     conf_plot = pe.Node(
         ASLSummary(
-            tr=metadata["RepetitionTime"],
+            tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"]),
             confounds_list=[("std_dvars", None, "DVARS"), ("framewise_displacement", "mm", "FD")],
         ),
         name="conf_plot",

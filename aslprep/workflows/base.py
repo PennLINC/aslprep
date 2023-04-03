@@ -108,12 +108,12 @@ def init_single_subject_wf(subject_id):
 
     """
     name = f"single_subject_{subject_id}_wf"
-    subject_data = collect_data(
+    subject_data, layout = collect_data(
         config.execution.bids_dir,
         subject_id,
         echo=config.execution.echo_idx,
         bids_filters=config.execution.bids_filters,
-    )[0]
+    )
 
     if "flair" in config.workflow.ignore:
         subject_data["flair"] = []
@@ -131,7 +131,7 @@ def init_single_subject_wf(subject_id):
         )
 
     if not subject_data["t1w"]:
-        raise Exception(
+        raise RuntimeError(
             f"No T1w images found for participant {subject_id}. "
             "All workflows require T1w images."
         )
@@ -307,11 +307,27 @@ tasks and sessions), the following preprocessing was performed.
     )
 
     for asl_file in subject_data["asl"]:
+        config.loggers.workflow.log(25, f"Processing {asl_file}")
+
         # If number of volume of ASL is less than 5, motion correction,
         # slice-timing correction, etc. will be skipped.
+        metadata = layout.get_metadata(asl_file)
         n_vols = get_n_volumes(asl_file)
-        asl_preproc_func = init_asl_preproc_wf if n_vols > 5 else init_asl_gepreproc_wf
+        use_ge = False
+        if metadata.get("Manufacturer") == "GE":
+            config.loggers.workflow.warning(
+                "ASL file is acquired with a GE scanner. Using GE-specific processing."
+            )
+            use_ge = True
+        elif n_vols <= 5:
+            config.loggers.workflow.warning(
+                f"ASL file is very short ({n_vols} volumes). Using GE-specific processing."
+            )
+            use_ge = True
+
+        asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_preproc_wf
         asl_preproc_wf = asl_preproc_func(asl_file)
+
         # fmt:off
         workflow.connect([
             (anat_preproc_wf, asl_preproc_wf, [

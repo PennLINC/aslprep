@@ -1,12 +1,55 @@
 """Utility functions for tests."""
 import os
 import subprocess
+import tarfile
 from contextlib import contextmanager
 from glob import glob
+from gzip import GzipFile
+from io import BytesIO
 
 import nibabel as nb
 import numpy as np
+import requests
 from bids.layout import BIDSLayout
+
+
+def download_test_data(dset, data_dir=None):
+    """Download test data."""
+    URLS = {
+        "examples_pasl_multipld": (
+            "https://upenn.box.com/shared/static/njb5tqs2n53775qumtwc1wyxo5362sp7.tar.gz"
+        ),
+        "examples_pcasl_multipld": (
+            "https://upenn.box.com/shared/static/pm0ysafvg69jimk1bcm3ewtljiwzk899.tar.gz"
+        ),
+        "examples_pcasl_singlepld": (
+            "https://upenn.box.com/shared/static/il6cfea6f0wjnmjjvcpg6baw3e7yrwa3.tar.gz"
+        ),
+        "test_001": "https://upenn.box.com/shared/static/cudw5yyh3j6jwymmlzdw2nwc6knmxdu9.tar.gz",
+        "test_002": "https://upenn.box.com/shared/static/wpuvn06zl4v5nwd9o8tysyfs3kg4a2p0.tar.gz",
+        "test_003": "https://upenn.box.com/shared/static/1c64kn7btb5dodksnn06wer2kfk00px5.tar.gz",
+    }
+    if dset not in URLS:
+        raise ValueError(f"dset ({dset}) must be one of: {', '.join(URLS.keys())}")
+
+    if not data_dir:
+        data_dir = os.path.join(get_test_data_path(), "test_datasets")
+
+    out_dir = os.path.join(data_dir, dset)
+
+    if os.path.isdir(out_dir):
+        print(
+            f"Dataset {dset} already exists. "
+            "If you need to re-download the data, please delete the folder."
+        )
+        return out_dir
+
+    os.makedirs(out_dir, exist_ok=True)
+    with requests.get(URLS[dset], stream=True) as req:
+        with tarfile.open(fileobj=GzipFile(fileobj=BytesIO(req.content))) as t:
+            t.extractall(out_dir)
+
+    return out_dir
 
 
 def get_test_data_path():
