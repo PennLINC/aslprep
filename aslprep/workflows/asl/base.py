@@ -17,7 +17,7 @@ from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.meepi import combine_meepi_source
 from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
-from aslprep.workflows.asl.cbf import init_cbf_compt_wf, init_cbfroiquant_wf
+from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_cbfroiquant_wf
 from aslprep.workflows.asl.confounds import init_asl_confs_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
@@ -527,8 +527,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
-    # compute  the CBF here
-    compt_cbf_wf = init_cbf_compt_wf(
+    # compute the CBF here
+    compute_cbf_wf = init_compute_cbf_wf(
         name_source=asl_file,
         aslcontext=run_data["aslcontext"],
         dummy_vols=dummyvols,
@@ -537,24 +537,26 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         basil=basil,
         smooth_kernel=smoothkernel,
         metadata=metadata,
-        name="compt_cbf_wf",
+        name="compute_cbf_wf",
     )
 
     # cbf computation workflow
     # fmt:off
     workflow.connect([
-        (inputnode, compt_cbf_wf, [
+        (inputnode, compute_cbf_wf, [
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("m0scan", "inputnode.m0scan"),
             ("m0scan_metadata", "inputnode.m0scan_metadata"),
+            ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (asl_asl_trans_wf, compt_cbf_wf, [
+        (asl_asl_trans_wf, compute_cbf_wf, [
             ("outputnode.asl", "inputnode.asl_file"),
             ("outputnode.asl_mask", "inputnode.asl_mask"),
         ]),
-        (asl_reg_wf, compt_cbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (asl_reg_wf, compt_cbf_wf, [("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1")]),
-        (inputnode, compt_cbf_wf, [("t1w_mask", "inputnode.t1w_mask")]),
+        (asl_reg_wf, compute_cbf_wf, [
+            ("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform"),
+            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
+        ]),
         (asl_reg_wf, outputnode, [
             ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
             ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
@@ -671,7 +673,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_t1_trans_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
             (refine_mask, aslmask_to_t1w, [("out_mask", "input_image")]),
             (aslmask_to_t1w, outputnode, [("output_image", "asl_mask_t1")]),
-            (compt_cbf_wf, asl_t1_trans_wf, [
+            (compute_cbf_wf, asl_t1_trans_wf, [
                 ("outputnode.out_cbf", "inputnode.cbf"),
                 ("outputnode.out_mean", "inputnode.meancbf"),
             ]),
@@ -685,10 +687,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         if scorescrub:
             # fmt:off
             workflow.connect([
-                (compt_cbf_wf, asl_t1_trans_wf, [
                     ("outputnode.out_score", "inputnode.score"),
                     ("outputnode.out_avgscore", "inputnode.avgscore"),
                     ("outputnode.out_scrub", "inputnode.scrub"),
+                (compute_cbf_wf, asl_t1_trans_wf, [
                 ]),
                 (asl_t1_trans_wf, asl_derivatives_wf, [
                     ("outputnode.scrub_t1", "inputnode.scrub_t1"),
@@ -701,7 +703,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         if basil:
             # fmt:off
             workflow.connect([
-                (compt_cbf_wf, asl_t1_trans_wf, [
+                (compute_cbf_wf, asl_t1_trans_wf, [
                     ("outputnode.out_cbfb", "inputnode.basil"),
                     ("outputnode.out_cbfpv", "inputnode.pv"),
                     ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
@@ -726,7 +728,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (refine_mask, asl_derivatives_wf, [
                 ("out_mask", "inputnode.asl_mask_native"),
             ]),
-            (compt_cbf_wf, asl_derivatives_wf, [
+            (compute_cbf_wf, asl_derivatives_wf, [
                 ("outputnode.out_cbf", "inputnode.cbf"),
                 ("outputnode.out_mean", "inputnode.meancbf"),
             ]),
@@ -736,7 +738,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         if scorescrub:
             # fmt:off
             workflow.connect([
-                (compt_cbf_wf, asl_derivatives_wf, [
+                (compute_cbf_wf, asl_derivatives_wf, [
                     ("outputnode.out_score", "inputnode.score"),
                     ("outputnode.out_avgscore", "inputnode.avgscore"),
                     ("outputnode.out_scrub", "inputnode.scrub"),
@@ -747,7 +749,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         if basil:
             # fmt:off
             workflow.connect([
-                (compt_cbf_wf, asl_derivatives_wf, [
+                (compute_cbf_wf, asl_derivatives_wf, [
                     ("outputnode.out_cbfb", "inputnode.basil"),
                     ("outputnode.out_cbfpv", "inputnode.pv"),
                     ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
@@ -782,7 +784,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (refine_mask, asl_std_trans_wf, [("out_mask", "inputnode.asl_mask")]),
             (asl_sdc_wf, asl_std_trans_wf, [("outputnode.out_warp", "inputnode.fieldwarp")]),
-            (compt_cbf_wf, asl_std_trans_wf, [
+            (compute_cbf_wf, asl_std_trans_wf, [
                 ("outputnode.out_cbf", "inputnode.cbf"),
                 ("outputnode.out_mean", "inputnode.meancbf"),
             ]),
@@ -792,7 +794,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         if scorescrub:
             # fmt:off
             workflow.connect([
-                (compt_cbf_wf, asl_std_trans_wf, [
+                (compute_cbf_wf, asl_std_trans_wf, [
                     ("outputnode.out_score", "inputnode.score"),
                     ("outputnode.out_avgscore", "inputnode.avgscore"),
                     ("outputnode.out_scrub", "inputnode.scrub"),
@@ -803,7 +805,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         if basil:
             # fmt:off
             workflow.connect([
-                (compt_cbf_wf, asl_std_trans_wf, [
+                (compute_cbf_wf, asl_std_trans_wf, [
                     ("outputnode.out_cbfb", "inputnode.basil"),
                     ("outputnode.out_cbfpv", "inputnode.pv"),
                     ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
@@ -878,7 +880,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (inputnode, compt_qccbf_wf, [("t1w_tpms", "inputnode.t1w_tpms")]),
         (asl_reg_wf, compt_qccbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
         (inputnode, compt_qccbf_wf, [("t1w_mask", "inputnode.t1w_mask")]),
-        (compt_cbf_wf, compt_qccbf_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
+        (compute_cbf_wf, compt_qccbf_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
         (asl_confounds_wf, compt_qccbf_wf, [("outputnode.confounds_file", "inputnode.confmat")]),
         (compt_qccbf_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
         (compt_qccbf_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
@@ -890,7 +892,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if scorescrub:
         # fmt:off
         workflow.connect([
-            (compt_cbf_wf, compt_qccbf_wf, [
+            (compute_cbf_wf, compt_qccbf_wf, [
                 ("outputnode.out_avgscore", "inputnode.avgscore"),
                 ("outputnode.out_scrub", "inputnode.scrub"),
             ]),
@@ -900,7 +902,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if basil:
         # fmt:off
         workflow.connect([
-            (compt_cbf_wf, compt_qccbf_wf, [
+            (compute_cbf_wf, compt_qccbf_wf, [
                 ("outputnode.out_cbfb", "inputnode.basil"),
                 ("outputnode.out_cbfpv", "inputnode.pv"),
             ]),
@@ -924,7 +926,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
     # fmt:off
     workflow.connect([
-        (compt_cbf_wf, cbf_plot, [
+        (compute_cbf_wf, cbf_plot, [
             ("outputnode.out_mean", "inputnode.cbf"),
             ("outputnode.out_avgscore", "inputnode.score"),
             ("outputnode.out_scrub", "inputnode.scrub"),
@@ -985,7 +987,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_asl_trans_wf, cbfroiqu, [("outputnode.asl_mask", "inputnode.aslmask")]),
         (inputnode, cbfroiqu, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbfroiqu, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (compt_cbf_wf, cbfroiqu, [("outputnode.out_mean", "inputnode.cbf")]),
+        (compute_cbf_wf, cbfroiqu, [("outputnode.out_mean", "inputnode.cbf")]),
         (cbfroiqu, asl_derivatives_wf, [
             ("outputnode.cbf_hvoxf", "inputnode.cbf_hvoxf"),
             ("outputnode.cbf_sc207", "inputnode.cbf_sc207"),
@@ -999,7 +1001,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if scorescrub:
         # fmt:off
         workflow.connect([
-            (compt_cbf_wf, cbfroiqu, [
+            (compute_cbf_wf, cbfroiqu, [
                 ("outputnode.out_avgscore", "inputnode.score"),
                 ("outputnode.out_scrub", "inputnode.scrub"),
             ]),
@@ -1021,7 +1023,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if basil:
         # fmt:off
         workflow.connect([
-            (compt_cbf_wf, cbfroiqu, [
+            (compute_cbf_wf, cbfroiqu, [
                 ("outputnode.out_cbfb", "inputnode.basil"),
                 ("outputnode.out_cbfpv", "inputnode.pvc"),
             ]),

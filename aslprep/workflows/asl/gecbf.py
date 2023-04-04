@@ -12,7 +12,7 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
-from aslprep.workflows.asl.cbf import init_cbfroiquant_wf, init_gecbf_compt_wf
+from aslprep.workflows.asl.cbf import init_cbfroiquant_wf, init_compute_cbf_ge_wf
 from aslprep.workflows.asl.ge_utils import (
     init_asl_geref_wf,
     init_asl_gereg_wf,
@@ -353,7 +353,7 @@ effects of other kernels [@lanczos].
     ])
     # fmt:on
 
-    cbf_compt_wf = init_gecbf_compt_wf(
+    compute_cbf_wf = init_compute_cbf_ge_wf(
         name_source=asl_file,
         aslcontext=run_data["aslcontext"],
         metadata=metadata,
@@ -361,22 +361,22 @@ effects of other kernels [@lanczos].
         basil=basil,
         M0Scale=mscale,
         mem_gb=mem_gb["filesize"],
-        name="cbf_compt_wf",
+        name="compute_cbf_wf",
     )
 
     # fmt:off
     workflow.connect([
-        (inputnode, cbf_compt_wf, [
+        (inputnode, compute_cbf_wf, [
             ("asl_file", "inputnode.asl_file"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (gen_ref_wf, cbf_compt_wf, [
+        (gen_ref_wf, compute_cbf_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
             ("outputnode.m0_file", "inputnode.m0_file"),
             ("outputnode.m0tr", "inputnode.m0tr"),
         ]),
-        (asl_reg_wf, cbf_compt_wf, [
+        (asl_reg_wf, compute_cbf_wf, [
             ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
             ("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform"),
         ]),
@@ -414,7 +414,7 @@ effects of other kernels [@lanczos].
             ("outputnode.asl_t1", "asl_t1"),
             ("outputnode.asl_t1_ref", "asl_t1_ref"),
         ]),
-        (cbf_compt_wf, t1w_gereg_wf, [
+        (compute_cbf_wf, t1w_gereg_wf, [
             ("outputnode.out_cbf", "inputnode.cbf"),
             ("outputnode.out_mean", "inputnode.meancbf"),
         ]),
@@ -448,7 +448,7 @@ effects of other kernels [@lanczos].
 
     # fmt:off
     workflow.connect([
-        (cbf_compt_wf, cbf_plot, [("outputnode.out_mean", "inputnode.cbf")]),
+        (compute_cbf_wf, cbf_plot, [("outputnode.out_mean", "inputnode.cbf")]),
         (gen_ref_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.asl_ref")]),
     ])
     # fmt:on
@@ -456,7 +456,7 @@ effects of other kernels [@lanczos].
     if scorescrub:
         # fmt:off
         workflow.connect([
-            (cbf_compt_wf, cbf_plot, [
+            (compute_cbf_wf, cbf_plot, [
                 ("outputnode.out_avgscore", "inputnode.score"),
                 ("outputnode.out_scrub", "inputnode.scrub"),
             ]),
@@ -466,7 +466,7 @@ effects of other kernels [@lanczos].
     if basil:
         # fmt:off
         workflow.connect([
-            (cbf_compt_wf, cbf_plot, [
+            (compute_cbf_wf, cbf_plot, [
                 ("outputnode.out_cbfb", "inputnode.basil"),
                 ("outputnode.out_cbfpv", "inputnode.pvc"),
             ]),
@@ -496,7 +496,7 @@ effects of other kernels [@lanczos].
         if scorescrub:
             # fmt:off
             workflow.connect([
-                (cbf_compt_wf, t1w_gereg_wf, [
+                (compute_cbf_wf, t1w_gereg_wf, [
                     ("outputnode.out_score", "inputnode.score"),
                     ("outputnode.out_avgscore", "inputnode.avgscore"),
                     ("outputnode.out_scrub", "inputnode.scrub"),
@@ -512,7 +512,7 @@ effects of other kernels [@lanczos].
         if basil:
             # fmt:off
             workflow.connect([
-                (cbf_compt_wf, t1w_gereg_wf, [
+                (compute_cbf_wf, t1w_gereg_wf, [
                     ("outputnode.out_cbfb", "inputnode.basil"),
                     ("outputnode.out_cbfpv", "inputnode.pv"),
                     ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
@@ -542,7 +542,7 @@ effects of other kernels [@lanczos].
         ]),
         (refine_mask, compt_qccbf_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, compt_qccbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (cbf_compt_wf, compt_qccbf_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
+        (compute_cbf_wf, compt_qccbf_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
         (compt_qccbf_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
         (compt_qccbf_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
         (compt_qccbf_wf, summary, [("outputnode.qc_file", "qc_file")]),
@@ -552,7 +552,7 @@ effects of other kernels [@lanczos].
     if scorescrub:
         # fmt:off
         workflow.connect([
-            (cbf_compt_wf, compt_qccbf_wf, [
+            (compute_cbf_wf, compt_qccbf_wf, [
                 ("outputnode.out_avgscore", "inputnode.avgscore"),
                 ("outputnode.out_scrub", "inputnode.scrub"),
             ]),
@@ -562,7 +562,7 @@ effects of other kernels [@lanczos].
     if basil:
         # fmt:off
         workflow.connect([
-            (cbf_compt_wf, compt_qccbf_wf, [
+            (compute_cbf_wf, compt_qccbf_wf, [
                 ("outputnode.out_cbfb", "inputnode.basil"),
                 ("outputnode.out_cbfpv", "inputnode.pv"),
             ]),
@@ -577,7 +577,7 @@ effects of other kernels [@lanczos].
                 ("outputnode.raw_ref_image", "inputnode.asl_native_ref"),
             ]),
             (refine_mask, asl_derivatives_wf, [("out_mask", "inputnode.asl_mask_native")]),
-            (cbf_compt_wf, asl_derivatives_wf, [
+            (compute_cbf_wf, asl_derivatives_wf, [
                 ("outputnode.out_cbf", "inputnode.cbf"),
                 ("outputnode.out_mean", "inputnode.meancbf"),
             ]),
@@ -587,7 +587,7 @@ effects of other kernels [@lanczos].
         if scorescrub:
             # fmt:off
             workflow.connect([
-                (cbf_compt_wf, asl_derivatives_wf, [
+                (compute_cbf_wf, asl_derivatives_wf, [
                     ("outputnode.out_score", "inputnode.score"),
                     ("outputnode.out_avgscore", "inputnode.avgscore"),
                     ("outputnode.out_scrub", "inputnode.scrub"),
@@ -598,7 +598,7 @@ effects of other kernels [@lanczos].
         if basil:
             # fmt:off
             workflow.connect([
-                (cbf_compt_wf, asl_derivatives_wf, [
+                (compute_cbf_wf, asl_derivatives_wf, [
                     ("outputnode.out_cbfb", "inputnode.basil"),
                     ("outputnode.out_cbfpv", "inputnode.pv"),
                     ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
@@ -633,7 +633,7 @@ effects of other kernels [@lanczos].
                 ("outputnode.asl_std_ref", "asl_std_ref"),
                 ("outputnode.asl_mask_std", "asl_mask_std"),
             ]),
-            (cbf_compt_wf, std_gereg_wf, [
+            (compute_cbf_wf, std_gereg_wf, [
                 ("outputnode.out_cbf", "inputnode.cbf"),
                 ("outputnode.out_mean", "inputnode.meancbf"),
             ]),
@@ -643,7 +643,7 @@ effects of other kernels [@lanczos].
         if scorescrub:
             # fmt:off
             workflow.connect([
-                (cbf_compt_wf, std_gereg_wf, [
+                (compute_cbf_wf, std_gereg_wf, [
                     ("outputnode.out_score", "inputnode.score"),
                     ("outputnode.out_avgscore", "inputnode.avgscore"),
                     ("outputnode.out_scrub", "inputnode.scrub"),
@@ -654,7 +654,7 @@ effects of other kernels [@lanczos].
         if basil:
             # fmt:off
             workflow.connect([
-                (cbf_compt_wf, std_gereg_wf, [
+                (compute_cbf_wf, std_gereg_wf, [
                     ("outputnode.out_cbfb", "inputnode.basil"),
                     ("outputnode.out_cbfpv", "inputnode.pv"),
                     ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
@@ -721,7 +721,7 @@ effects of other kernels [@lanczos].
         (refine_mask, cbfroiqu, [("out_mask", "inputnode.aslmask")]),
         (inputnode, cbfroiqu, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbfroiqu, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (cbf_compt_wf, cbfroiqu, [("outputnode.out_mean", "inputnode.cbf")]),
+        (compute_cbf_wf, cbfroiqu, [("outputnode.out_mean", "inputnode.cbf")]),
         (cbfroiqu, asl_derivatives_wf, [
             ("outputnode.cbf_hvoxf", "inputnode.cbf_hvoxf"),
             ("outputnode.cbf_sc207", "inputnode.cbf_sc207"),
@@ -735,7 +735,7 @@ effects of other kernels [@lanczos].
     if scorescrub:
         # fmt:off
         workflow.connect([
-            (cbf_compt_wf, cbfroiqu, [
+            (compute_cbf_wf, cbfroiqu, [
                 ("outputnode.out_avgscore", "inputnode.score"),
                 ("outputnode.out_scrub", "inputnode.scrub"),
             ]),
@@ -757,7 +757,7 @@ effects of other kernels [@lanczos].
     if basil:
         # fmt:off
         workflow.connect([
-            (cbf_compt_wf, cbfroiqu, [
+            (compute_cbf_wf, cbfroiqu, [
                 ("outputnode.out_cbfb", "inputnode.basil"),
                 ("outputnode.out_cbfpv", "inputnode.pvc"),
             ]),
