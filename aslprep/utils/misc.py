@@ -608,7 +608,7 @@ def _score_cbf(cbf_ts, wm, gm, csf, mask, thresh=0.7):
 def _robust_fit(
     Y,
     mu,
-    Globalprior,
+    global_prior,
     modrobprior,
     lmd=0,
     localprior=0,
@@ -622,7 +622,7 @@ def _robust_fit(
     priow = np.ones([dimcbf[0], dimcbf[1]])
     sw = 1
     X = priow
-    b = (np.sum(X * Y, axis=0) + mu * Globalprior + lmd * localprior) / (
+    b = (np.sum(X * Y, axis=0) + mu * global_prior + lmd * localprior) / (
         np.sum(X * X, axis=0) + mu + lmd
     )
     b0 = np.repeat(0, len(b))
@@ -658,96 +658,96 @@ def _robust_fit(
         z = np.sqrt(w)
         x = X * z
         yz = Y * z
-        b = (np.sum(x * yz, axis=0) + mu * Globalprior + lmd * localprior) / (
+        b = (np.sum(x * yz, axis=0) + mu * global_prior + lmd * localprior) / (
             np.sum(x * x, axis=0) + mu + lmd
         )
         b = np.nan_to_num(b)
     return b
 
 
-def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
+def _scrub_cbf(cbf_ts, gm, wm, csf, mask, wavelet_function="huber", thresh=0.7):
     """Apply SCRUB algorithm to CBF data.
 
     Parameters
     ----------
-    cbf_ts
-       nd array of 3D or 4D computed cbf
-    gm,wm,csf
-       numpy array of grey matter, whitematter, and csf
-    mask
-       numpy array of mask
-    wf
-      wave function
+    cbf_ts : 4D numpy.ndarray
+        CBF time series. Generally comes after SCORE censoring.
+    gm, wm, csf : 3D numpy.ndarray
+        Gray matter, white matter, and CSF tissue probability maps.
+    mask : 3D numpy.ndarray
+        Binary brain mask.
+    wavelet_function : str
+        Wavelet function
+    thresh : float
+        Tissue probability threshold.
+        Voxels in gm, wm, and csf with values greater than or equal to the threshold are
+        considered to be of that tissue.
+
+    Returns
+    -------
+    newcbf : 3D numpy.ndarray
     """
-    gm = mask * gm
-    gmidx = gm[mask == 1]
-    gmidx[gmidx < thresh] = 0
-    gmidx[gmidx > 0] = 1
+    n_volumes = cbf_ts.shape[3]
 
-    wm = mask * wm
-    wmidx = wm[mask == 1]
-    wmidx[wmidx < thresh] = 0
-    wmidx[wmidx > 0] = 1
-
+    # Mask out non-brain voxels from tissue probability maps
+    mask = mask.astype(bool)
+    gm = gm * mask
+    wm = wm * mask
     csf = csf * mask
-    csfidx = csf[mask == 1]
-    csfidx[csfidx < thresh] = 0
-    csfidx[csfidx > 0] = 1
-    # midx = mask[mask==1]
 
-    meancbf = np.mean(cbf_ts, axis=3)
-    y = np.transpose(
-        cbf_ts[
-            mask == 1,
-            :,
-        ]
-    )
-    VV = np.var(y, axis=0)
-    thresh1, thresh3 = _getchisquare(y.shape[0])
-    mu1 = VV / (np.median(VV[gmidx == 1]) * thresh3)
+    gm_bin = gm >= thresh
+    gm_idx = gm_bin[mask]
+
+    mean_cbf = np.mean(cbf_ts, axis=3)
+    masked_cbf_ts = cbf_ts[mask, :].T  # TxS array
+    masked_var_map = np.var(masked_cbf_ts, axis=0)  # S array
+    thresh1, thresh3 = _getchisquare(n_volumes)
+    mu1 = masked_var_map / (np.median(masked_var_map[gm_idx == 1]) * thresh3)
     mu = (
         ((mu1 > thresh1) & (mu1 < 10 * thresh1)) * (mu1 - thresh1)
         + (mu1 >= 10 * thresh1) * (1 / (2 * thresh1 * 10) * np.power(mu1, 2))
         + (thresh1 * 10 / 2 - thresh1)
     )
-    M = meancbf * mask
-    M[mask == 1] = mu
+    # Create 3D array from mu
+    mu_map = np.zeros_like(mean_cbf)
+    mu_map[mask] = mu
+
     modrobprior = mu / 10
-    gmidx2 = (
-        1 * ([gm.flatten() > thresh] and [M.flatten() == 0] and [wm.flatten() > csf.flatten()])[0]
-    )
-    wmidx2 = (
-        1 * ([wm.flatten() > thresh] and [M.flatten() == 0] and [gm.flatten() > csf.flatten()])[0]
-    )
-    if np.sum(gmidx2) == 0 or np.sum(wmidx2) == 0:
-        gmidx2 = 1 * (gm.flatten() > thresh)
-        wmidx2 = 1 * (wm.flatten() > thresh)
-    idxx = gmidx2 + wmidx2
+    gm_idx2 = (
+        [gm.flatten() > thresh] and [mu_map.flatten() == 0] and [wm.flatten() > csf.flatten()]
+    )[0].astype(int)
+    wm_idx2 = (
+        [wm.flatten() > thresh] and [mu_map.flatten() == 0] and [gm.flatten() > csf.flatten()]
+    )[0].astype(int)
+    if np.sum(gm_idx2) == 0 or np.sum(wm_idx2) == 0:
+        gm_idx2 = (gm.flatten() > thresh).astype(int)
+        wm_idx2 = (wm.flatten() > thresh).astype(int)
+
+    idxx = gm_idx2 + wm_idx2
     idxx[idxx > 0] = 1
     X = np.zeros([len(idxx), 2])
     X[:, 0] = gm.flatten()[gm.flatten() >= (0)] * idxx
     X[:, 1] = wm.flatten()[wm.flatten() >= (0)] * idxx
-    A = (meancbf.flatten()[idxx >= 0]) * idxx
+    A = (mean_cbf.flatten()[idxx >= 0]) * idxx
     c = np.linalg.lstsq(X, A)[0]
-    Globalpriorfull = c[0] * gm.flatten() + c[1] * wm.flatten()
-    Globalprior = Globalpriorfull[mask.flatten() == 1]
-    localprior = 0
-    lmd = 0
-    tune = _tune(wfun=wfun)
+    global_prior_full = c[0] * gm.flatten() + c[1] * wm.flatten()
+    global_prior = global_prior_full[mask.flatten() == 1]
+
+    tune = _tune(wfun=wavelet_function)
     bb = _robust_fit(
-        Y=y,
+        Y=masked_cbf_ts,
         mu=mu,
-        Globalprior=Globalprior,
+        global_prior=global_prior,
         modrobprior=modrobprior,
-        lmd=lmd,
-        localprior=localprior,
-        wfun=wfun,
+        lmd=0,
+        localprior=0,
+        wfun=wavelet_function,
         tune=tune,
         flagstd=1,
         flagmodrobust=1,
     )
-    newcbf = meancbf * mask
-    newcbf[mask == 1] = bb
+    newcbf = np.zeros_like(mean_cbf)
+    newcbf[mask] = bb
     newcbf = np.nan_to_num(newcbf)
     return newcbf
 

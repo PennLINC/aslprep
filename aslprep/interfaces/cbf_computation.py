@@ -23,7 +23,7 @@ from nipype.utils.filemanip import fname_presuffix
 from aslprep import config
 from aslprep.utils.misc import (
     _score_cbf,
-    _scrubcbf,
+    _scrub_cbf,
     estimate_labeling_efficiency,
     parcellate_cbf,
     pcasl_or_pasl,
@@ -658,7 +658,7 @@ class ScoreAndScrubCBF(SimpleInterface):
                 thresh=self.inputs.tpm_threshold,
             )
             mean_cbf_score = np.mean(cbf_ts_score, axis=3)
-            mean_cbf_scrub = _scrubcbf(
+            mean_cbf_scrub = _scrub_cbf(
                 cbf_ts=cbf_ts_score,
                 gm=gm_tpm_arr,
                 wm=wm_tpm_arr,
