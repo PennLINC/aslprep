@@ -11,8 +11,9 @@ from smriprep.workflows.anatomical import init_anat_preproc_wf
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
+from aslprep.interfaces.bids import BIDSDataGrabber
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
+from aslprep.niworkflows.interfaces.bids import BIDSInfo
 from aslprep.niworkflows.interfaces.nilearn import NILEARN_VERSION
 from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
 from aslprep.niworkflows.utils.spaces import Reference
@@ -107,15 +108,16 @@ def init_single_subject_wf(subject_id):
 
     """
     name = f"single_subject_{subject_id}_wf"
-    subject_data = collect_data(
+    subject_data, layout = collect_data(
         config.execution.bids_dir,
         subject_id,
         echo=config.execution.echo_idx,
         bids_filters=config.execution.bids_filters,
-    )[0]
+    )
 
     if "flair" in config.workflow.ignore:
         subject_data["flair"] = []
+
     if "t2w" in config.workflow.ignore:
         subject_data["t2w"] = []
 
@@ -129,7 +131,7 @@ def init_single_subject_wf(subject_id):
         )
 
     if not subject_data["t1w"]:
-        raise Exception(
+        raise RuntimeError(
             f"No T1w images found for participant {subject_id}. "
             "All workflows require T1w images."
         )
@@ -292,55 +294,52 @@ their manuscripts unchanged. It is released under the unchanged
     # Append the functional section to the existing anatomical exerpt
     # That way we do not need to stream down the number of asl datasets
 
-    if len(subject_data["asl"]) > 1:
-        runx = "runs"
-    else:
-        runx = "run"
+    run_str = "runs" if len(subject_data["asl"]) > 1 else "run"
     anat_preproc_wf.__postdesc__ = (
         (anat_preproc_wf.__postdesc__ or "")
         + f"""
 
 ### ASL data preprocessing
 
-For the {len(subject_data['asl'])} ASL {runx} found per subject (across all
+For the {len(subject_data['asl'])} ASL {run_str} found per subject (across all
 tasks and sessions), the following preprocessing was performed.
 """
     )
 
     for asl_file in subject_data["asl"]:
+        config.loggers.workflow.log(25, f"Processing {asl_file}")
+
         # If number of volume of ASL is less than 5, motion correction,
         # slice-timing correction, etc. will be skipped.
-        if get_n_volumes(asl_file) > 5:
-            asl_preproc_wf = init_asl_preproc_wf(asl_file)
+        metadata = layout.get_metadata(asl_file)
+        n_vols = get_n_volumes(asl_file)
+        use_ge = False
+        if metadata.get("Manufacturer") == "GE":
+            config.loggers.workflow.warning(
+                "ASL file is acquired with a GE scanner. Using GE-specific processing."
+            )
+            use_ge = True
+        elif n_vols <= 5:
+            config.loggers.workflow.warning(
+                f"ASL file is very short ({n_vols} volumes). Using GE-specific processing."
+            )
+            use_ge = True
 
-            # fmt:off
-            workflow.connect([
-                (anat_preproc_wf, asl_preproc_wf, [
-                    ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
-                    ("outputnode.t1w_mask", "inputnode.t1w_mask"),
-                    ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
-                    ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
-                    ("outputnode.template", "inputnode.template"),
-                    ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
-                    ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
-                ]),
-            ])
-            # fmt:on
-        else:
-            asl_preproc_wf = init_asl_gepreproc_wf(asl_file)
+        asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_preproc_wf
+        asl_preproc_wf = asl_preproc_func(asl_file)
 
-            # fmt:off
-            workflow.connect([
-                (anat_preproc_wf, asl_preproc_wf, [
-                    ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
-                    ("outputnode.t1w_mask", "inputnode.t1w_mask"),
-                    ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
-                    ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
-                    ("outputnode.template", "inputnode.template"),
-                    ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
-                    ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
-                ]),
-            ])
-            # fmt:on
+        # fmt:off
+        workflow.connect([
+            (anat_preproc_wf, asl_preproc_wf, [
+                ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
+                ("outputnode.t1w_mask", "inputnode.t1w_mask"),
+                ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
+                ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
+                ("outputnode.template", "inputnode.template"),
+                ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
+                ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
+            ]),
+        ])
+        # fmt:on
 
     return workflow

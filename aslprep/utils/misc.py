@@ -4,13 +4,12 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Any
 
 import nibabel as nb
 import numpy as np
-from nipype.utils.filemanip import fname_presuffix
 from pkg_resources import resource_filename as pkgrf
+from scipy.stats import median_abs_deviation
 
 
 def check_deps(workflow):
@@ -81,29 +80,6 @@ def get_n_volumes(fname):
         raise ValueError(f"Image has {img.ndim} dimensions: {fname}")
 
     return n_volumes
-
-
-def gen_reference(in_file, fwhm=5, newpath=None):
-    """Generate reference for a GE scan with few volumes."""
-    newpath = Path(newpath or ".")
-    n_vols = get_n_volumes(in_file)
-
-    in_img = nb.load(in_file)
-    ref_data = in_img.get_fdata()
-
-    if n_vols > 0:
-        ref_data = np.mean(ref_data, axis=3)
-
-    new_img = nb.Nifti1Image(dataobj=ref_data, affine=in_img.affine, header=in_img.header)
-
-    new_img = nb.processing.smooth_image(new_img, fwhm=fwhm)
-    out_file = fname_presuffix(
-        "aslref",
-        suffix="_reference.nii.gz",
-        newpath=str(newpath.absolute()),
-    )
-    new_img.to_filename(out_file)
-    return out_file
 
 
 def _split_spec(in_target):
@@ -554,28 +530,29 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     mask
        numpy array of mask
     """
-    gm[gm < thresh] = 0
-    gm[gm > 0] = 1
-    wm[wm < thresh] = 0
-    wm[wm > 0] = 1
-    csf[csf < thresh] = 0
-    csf[csf > 0] = 1
-    # get the total number of voxle within csf,gm and wm
-    nogm = np.sum(gm == 1) - 1
-    nowm = np.sum(wm == 1) - 1
-    nocf = np.sum(csf == 1) - 1
-    mask1 = gm + wm + csf
-    # msk=sum(mask>0)
-    # mean  of times series cbf within greymatter
-    mgmts = np.squeeze(np.mean(cbfts[gm == 1, :], axis=0))
-    # robiust mean and meadian
-    from scipy.stats import median_abs_deviation
+    gm_bin = gm >= thresh
+    wm_bin = wm >= thresh
+    csf_bin = csf >= thresh
 
-    medmngm = np.median(mgmts)
-    sdmngm = median_abs_deviation(mgmts) / 0.675
-    indx = 1 * (np.abs(mgmts - medmngm) > (2.5 * sdmngm))
+    # get the total number of voxle within csf,gm and wm
+    n_gm_voxels = np.sum(gm_bin) - 1
+    n_wm_voxels = np.sum(wm_bin) - 1
+    n_csf_voxels = np.sum(csf_bin) - 1
+    mask1 = gm_bin + wm_bin + csf_bin
+
+    # mean  of times series cbf within greymatter
+    gm_cbf_ts = np.squeeze(np.mean(cbfts[gm_bin, :], axis=0))
+
+    # robust mean and median
+    median_gm_cbf = np.median(gm_cbf_ts)
+    mad_gm_cbf = median_abs_deviation(gm_cbf_ts) / 0.675
+    indx = 1 * (np.abs(gm_cbf_ts - median_gm_cbf) > (2.5 * mad_gm_cbf))
     R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
-    V = nogm * np.var(R[gm == 1]) + nowm * np.var(R[wm == 1]) + nocf * np.var(R[csf == 1])
+    V = (
+        n_gm_voxels * np.var(R[gm == 1])
+        + n_wm_voxels * np.var(R[wm == 1])
+        + n_csf_voxels * np.var(R[csf == 1])
+    )
     V1 = V + 1
     while V < V1:
         V1 = V
@@ -586,14 +563,20 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
             else:
                 tmp1 = cbfts[:, :, :, s]
                 CC[s] = np.corrcoef(R[mask1 > 0], tmp1[mask1 > 0])[0][1]
+
         inx = np.argmax(CC)
         indx[inx] = 2
         R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
-        V = nogm * np.var(R[gm == 1]) + nowm * np.var(R[wm == 1]) + nocf * np.var(R[csf == 1])
+        V = (
+            (n_gm_voxels * np.var(R[gm == 1]))
+            + (n_wm_voxels * np.var(R[wm == 1]))
+            + (n_csf_voxels * np.var(R[csf == 1]))
+        )
     cbfts_recon = cbfts[:, :, :, indx == 0]
     cbfts_recon1 = np.zeros_like(cbfts_recon)
     for i in range(cbfts_recon.shape[3]):
         cbfts_recon1[:, :, :, i] = cbfts_recon[:, :, :, i] * mask
+
     cbfts_recon1 = np.nan_to_num(cbfts_recon1)
     return cbfts_recon1, indx
 
@@ -626,15 +609,15 @@ def _robust_fit(
     tiny_s = (1e-6) * (np.std(h, axis=0))
     tiny_s[tiny_s == 0] = 1
     D = np.sqrt(np.finfo(float).eps)
-    iter = 0
+    iter_num = 0
     interlim = 10
-    while iter < interlim:
-        print("iteration  ", iter, "\n")
-        iter = iter + 1
+    while iter_num < interlim:
+        print("iteration  ", iter_num, "\n")
+        iter_num = iter_num + 1
         check1 = np.subtract(np.abs(b - b0), (D * np.maximum(np.abs(b), np.abs(b0))))
         check1[check1 > 0] = 0
         if any(check1):
-            print(" \n converged after ", iter, "iterations\n")
+            print(" \n converged after ", iter_num, "iterations\n")
             break
         r = Y - X * (np.tile(b, (dimcbf[0], 1)))
         radj = r * adjfactor / sw
@@ -665,7 +648,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     ----------
     cbf_ts
        nd array of 3D or 4D computed cbf
-       gm,wm,csf
+    gm,wm,csf
        numpy array of grey matter, whitematter, and csf
     mask
        numpy array of mask
@@ -673,18 +656,21 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
       wave function
     """
     gm = mask * gm
-    wm = mask * wm
-    csf = csf * mask
     gmidx = gm[mask == 1]
     gmidx[gmidx < thresh] = 0
     gmidx[gmidx > 0] = 1
+
+    wm = mask * wm
     wmidx = wm[mask == 1]
     wmidx[wmidx < thresh] = 0
     wmidx[wmidx > 0] = 1
+
+    csf = csf * mask
     csfidx = csf[mask == 1]
     csfidx[csfidx < thresh] = 0
     csfidx[csfidx > 0] = 1
     # midx = mask[mask==1]
+
     meancbf = np.mean(cbf_ts, axis=3)
     y = np.transpose(
         cbf_ts[
@@ -785,3 +771,49 @@ def parcellate_cbf(roi_file, roi_label, cbfmap):
         mean_vals.append(np.mean(data[roi == roi_label]))
 
     return mean_vals
+
+
+def estimate_labeling_efficiency(metadata):
+    """Estimate labeling efficiency based on the available metadata.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata from the ASL file.
+
+    Returns
+    -------
+    labeleff : :obj:`float`
+        Labeling efficiency.
+
+    Notes
+    -----
+    If LabelingEfficiency is defined in the metadata, then this value will be used.
+    Otherwise, efficiency will be estimated based on the ASL type and number of background
+    suppression pulses (if any).
+    PCASL and PASL values come from :footcite:t:`alsop_recommended_2015`.
+    The CASL value comes from :footcite:t:`wang2005amplitude`.
+    The adjustment based on number of background suppression pulses is not described in any papers,
+    as far as we know, but is apparently widely used.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    if "LabelingEfficiency" in metadata.keys():
+        labeleff = metadata["LabelingEfficiency"]
+    else:
+        BASE_LABELEFF = {
+            "CASL": 0.68,
+            "PCASL": 0.85,
+            "PASL": 0.98,
+        }
+        labeleff = BASE_LABELEFF[metadata["ArterialSpinLabelingType"]]
+
+        if metadata.get("BackgroundSuppression", False):
+            BS_PULSE_EFF = 0.95  # hardcoded BackgroundSuppressionPulse efficiency
+            # We assume there was one pulse if suppression was applied,
+            # but the number of pulses isn't defined.
+            labeleff *= BS_PULSE_EFF ** metadata.get("BackgroundSuppressionNumberPulses", 1)
+
+    return labeleff

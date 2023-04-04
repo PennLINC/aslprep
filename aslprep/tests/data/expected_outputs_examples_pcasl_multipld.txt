@@ -1,5 +1,10 @@
 aslprep/logs
+aslprep/logs/CITATION.bib
+aslprep/logs/CITATION.html
+aslprep/logs/CITATION.md
+aslprep/logs/CITATION.tex
 aslprep/sub-01
+aslprep/sub-01.html
 aslprep/sub-01/perf
 aslprep/sub-01/perf/sub-01_aslref.nii.gz
 aslprep/sub-01/perf/sub-01_cbf.nii.gz

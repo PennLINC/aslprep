@@ -1,8 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Preprocessing workflows for ASL data."""
-import os
-
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
@@ -16,6 +14,7 @@ from aslprep.niworkflows.func.util import init_asl_reference_wf
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
+from aslprep.utils.bids import collect_run_data
 from aslprep.utils.meepi import combine_meepi_source
 from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
 from aslprep.workflows.asl.cbf import init_cbf_compt_wf, init_cbfroiquant_wf
@@ -110,8 +109,18 @@ def init_asl_preproc_wf(asl_file):
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
         quality control meausres
+
+    Notes
+    -----
+    1.  Brain-mask T1w.
+    2.  Generate ASL reference image.
+        I think this is just the BOLD reference workflow from niworkflows,
+        without any modifications for ASL data. I could be missing something.
+    3.  Slice-timing correction.
+    4.  Motion correction.
+    5.  Register ASL to T1w.
+    6.  ...
     """
-    ref_file = asl_file
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
     multiecho = isinstance(asl_file, list)
@@ -127,12 +136,12 @@ def init_asl_preproc_wf(asl_file):
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
 
+    ref_file = asl_file
     if multiecho:
         tes = [layout.get_metadata(echo)["EchoTime"] for echo in asl_file]
         ref_file = dict(zip(tes, asl_file))[min(tes)]
 
-    if os.path.isfile(ref_file):
-        asl_tlen, mem_gb = _create_mem_gb(ref_file)
+    asl_tlen, mem_gb = _create_mem_gb(ref_file)
 
     wf_name = _get_wf_name(ref_file)
     config.loggers.workflow.debug(
@@ -147,33 +156,10 @@ def init_asl_preproc_wf(asl_file):
         mem_gb["largemem"],
     )
 
-    sbref_file = None
-    # Find associated sbref, if possible
-    entities = layout.parse_file_entities(ref_file)
-    entities["suffix"] = "sbref"
-    entities["extension"] = ["nii", "nii.gz"]  # Overwrite extensions
-    files = layout.get(return_type="file", **entities)
-    refbase = os.path.basename(ref_file)
-    if "sbref" in config.workflow.ignore:
-        config.loggers.workflow.info("Single-band reference files ignored.")
-    elif files and multiecho:
-        config.loggers.workflow.warning(
-            "Single-band reference found, but not supported in "
-            "multi-echo workflows at this time. Ignoring."
-        )
-    elif files:
-        sbref_file = files[0]
-        sbbase = os.path.basename(sbref_file)
-        if len(files) > 1:
-            config.loggers.workflow.warning(
-                f"Multiple single-band reference files found for {refbase}; using {sbbase}"
-            )
-        else:
-            config.loggers.workflow.info("Using single-band reference file %s.", sbbase)
-    else:
-        config.loggers.workflow.info("No single-band-reference found for %s.", refbase)
-
-    metadata = layout.get_metadata(ref_file)
+    # Collect associated files
+    run_data = collect_run_data(layout, ref_file, multiecho=multiecho)
+    sbref_file = run_data["sbref"]
+    metadata = run_data["asl_metadata"].copy()
 
     # Find fieldmaps. Options: (phase1|phase2|phasediff|epi|fieldmap|syn)
     fmaps = None
@@ -208,6 +194,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "m0scan",
+                "m0scan_metadata",
                 "t1w_preproc",
                 "t1w_mask",
                 "t1w_dseg",
@@ -215,14 +203,14 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 "anat2std_xfm",
                 "std2anat_xfm",
                 "template",
-            ]
+            ],
         ),
         name="inputnode",
     )
     inputnode.inputs.asl_file = asl_file
-    subj_dir = (
-        str(config.execution.bids_dir) + "/sub-" + str(config.execution.participant_label[0])
-    )
+    inputnode.inputs.m0scan = run_data["m0scan"]
+    inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
+
     if sbref_file is not None:
         from aslprep.niworkflows.interfaces.images import ValidateImage
 
@@ -246,7 +234,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 "score_std",
                 "avgscore_t1",
                 "avgscore_std",
-                " scrub_t1",
+                "scrub_t1",
                 "scrub_std",
                 "basil_t1",
                 "basil_std",
@@ -282,13 +270,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
             pe_direction=metadata.get("PhaseEncodingDirection"),
-            tr=metadata.get("RepetitionTime"),
+            tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"]),
         ),
         name="summary",
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True,
     )
-    # summary.inputs.dummy_scans = config.workflow.dummy_scans
 
     asl_derivatives_wf = init_asl_derivatives_wf(
         bids_root=layout.root,
@@ -317,9 +304,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
     if sbref_file is not None:
         # fmt:off
-        workflow.connect([
-            (val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")]),
-        ])
+        workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
         # fmt:on
 
     # Top-level asl splitter
@@ -545,9 +530,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # compute  the CBF here
     compt_cbf_wf = init_cbf_compt_wf(
         name_source=asl_file,
+        aslcontext=run_data["aslcontext"],
         dummy_vols=dummyvols,
         M0Scale=mscale,
-        bids_dir=subj_dir,
         scorescrub=scorescrub,
         basil=basil,
         smooth_kernel=smoothkernel,
@@ -558,13 +543,14 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # cbf computation workflow
     # fmt:off
     workflow.connect([
+        (inputnode, compt_cbf_wf, [
+            ("t1w_tpms", "inputnode.t1w_tpms"),
+            ("m0scan", "inputnode.m0scan"),
+            ("m0scan_metadata", "inputnode.m0scan_metadata"),
+        ]),
         (asl_asl_trans_wf, compt_cbf_wf, [
             ("outputnode.asl", "inputnode.asl_file"),
             ("outputnode.asl_mask", "inputnode.asl_mask"),
-        ]),
-        (inputnode, compt_cbf_wf, [
-            ("t1w_tpms", "inputnode.t1w_tpms"),
-            ("asl_file", "inputnode.in_file"),
         ]),
         (asl_reg_wf, compt_cbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
         (asl_reg_wf, compt_cbf_wf, [("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1")]),
@@ -946,13 +932,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.out_cbfpv", "inputnode.pvc"),
             ("outputnode.out_score", "inputnode.score_ts"),
             ("outputnode.out_cbf", "inputnode.cbf_ts"),
+            ("outputnode.out_scoreindex", "inputnode.scoreindex"),
         ]),
         (inputnode, cbf_plot, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbf_plot, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
         (refine_mask, cbf_plot, [("out_mask", "inputnode.asl_mask")]),
         (asl_reference_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.asl_ref")]),
         (asl_confounds_wf, cbf_plot, [("outputnode.confounds_file", "inputnode.confounds_file")]),
-        (compt_cbf_wf, cbf_plot, [("outputnode.out_scoreindex", "inputnode.scoreindex")]),
     ])
     # fmt:on
 

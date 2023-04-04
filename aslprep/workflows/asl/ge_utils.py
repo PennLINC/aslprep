@@ -1,8 +1,6 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows to process GE ASL data."""
-import os
-
 from nipype.interfaces import fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
@@ -27,7 +25,7 @@ LOGGER = config.loggers.workflow
 
 def init_asl_geref_wf(
     metadata,
-    bids_dir,
+    aslcontext,
     smooth_kernel=5,
     name="asl_gereference_wf",
 ):
@@ -51,7 +49,13 @@ First, a reference volume and its skull-stripped version were generated.
         """
 
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=["asl_file"]),
+        niu.IdentityInterface(
+            fields=[
+                "asl_file",
+                "m0scan",
+                "m0scan_metadata",
+            ],
+        ),
         name="inputnode",
     )
 
@@ -62,6 +66,7 @@ First, a reference volume and its skull-stripped version were generated.
                 "ref_image_brain",
                 "asl_mask",
                 "m0_file",
+                "m0tr",
                 "mask_report",
             ]
         ),
@@ -69,28 +74,52 @@ First, a reference volume and its skull-stripped version were generated.
     )
 
     gen_ref = pe.Node(
-        GeReferenceFile(bids_dir=bids_dir, fwhm=smooth_kernel, in_metadata=metadata),
+        GeReferenceFile(fwhm=smooth_kernel, metadata=metadata, aslcontext=aslcontext),
         omp_nthreads=1,
         mem_gb=1,
         name="gen_ge_ref",
     )
-    gen_ref.base_dir = os.getcwd()
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, gen_ref, [
+            ("asl_file", "in_file"),
+            ("m0scan", "m0scan"),
+            ("m0scan_metadata", "m0scan_metadata"),
+        ]),
+        (gen_ref, outputnode, [
+            ("ref_file", "raw_ref_image"),
+            ("m0_file", "m0_file"),
+            ("m0tr", "m0tr"),
+        ]),
+    ])
+    # fmt:on
+
     skull_strip_wf = pe.Node(fsl.BET(frac=0.5, mask=True), name="fslbet")
+
+    # fmt:off
+    workflow.connect([
+        (gen_ref, skull_strip_wf, [("ref_file", "in_file")]),
+        (skull_strip_wf, outputnode, [("mask_file", "asl_mask")]),
+    ])
+    # fmt:on
+
     apply_mask = pe.Node(fsl.ApplyMask(), name="apply_mask")
+
+    # fmt:off
+    workflow.connect([
+        (gen_ref, apply_mask, [("ref_file", "in_file")]),
+        (skull_strip_wf, apply_mask, [("mask_file", "mask_file")]),
+        (apply_mask, outputnode, [("out_file", "ref_image_brain")]),
+    ])
+    # fmt:on
+
     mask_reportlet = pe.Node(SimpleShowMaskRPT(), name="mask_reportlet")
 
     # fmt:off
     workflow.connect([
-        (inputnode, gen_ref, [("asl_file", "in_file")]),
-        (gen_ref, skull_strip_wf, [("ref_file", "in_file")]),
-        (gen_ref, outputnode, [("ref_file", "raw_ref_image")]),
-        (gen_ref, apply_mask, [("ref_file", "in_file")]),
-        (skull_strip_wf, outputnode, [("mask_file", "asl_mask")]),
-        (skull_strip_wf, apply_mask, [("mask_file", "mask_file")]),
-        (apply_mask, outputnode, [("out_file", "ref_image_brain")]),
         (gen_ref, mask_reportlet, [("ref_file", "background_file")]),
         (skull_strip_wf, mask_reportlet, [("mask_file", "mask_file")]),
-        (gen_ref, outputnode, [("m0_file", "m0_file")]),
     ])
     # fmt:on
 

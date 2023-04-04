@@ -24,9 +24,9 @@ from aslprep import config
 from aslprep.utils.misc import (
     _getcbfscore,
     _scrubcbf,
+    estimate_labeling_efficiency,
     parcellate_cbf,
     pcasl_or_pasl,
-    readjson,
 )
 from aslprep.utils.qc import (
     cbf_qei,
@@ -82,14 +82,28 @@ class RefineMask(SimpleInterface):
 class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     name_source = File(exists=True, mandatory=True, desc="raw asl file")
     asl_file = File(exists=True, mandatory=True, desc="preprocessed asl file")
+    metadata = traits.Dict(mandatory=True, desc="metadata for ASL file")
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
+    m0scan = traits.Either(
+        File(exists=True),
+        None,
+        mandatory=True,
+        desc="m0scan file associated with the ASL file. Only defined if M0Type is 'Separate'.",
+    )
+    m0scan_metadata = traits.Either(
+        traits.Dict,
+        None,
+        mandatory=True,
+        desc="metadata for M0 scan. Only defined if M0Type is 'Separate'.",
+    )
     in_mask = File(exists=True, mandatory=True, desc="mask")
     dummy_vols = traits.Int(
-        default_value=0, exit=False, mandatory=False, desc="remove first n volumes"
+        default_value=0,
+        use_default=True,
+        mandatory=False,
+        desc="remove first n volumes",
     )
-    in_metadata = traits.Dict(exists=True, mandatory=True, desc="metadata for asl or deltam ")
-    bids_dir = traits.Str(exits=True, mandatory=True, desc=" bids directory")
-    fwhm = traits.Float(default_value=5, exists=True, mandatory=False, desc="fwhm")
+    fwhm = traits.Float(default_value=5, use_default=True, mandatory=False, desc="fwhm")
 
 
 class _ExtractCBFOutputSpec(TraitedSpec):
@@ -101,6 +115,11 @@ class _ExtractCBFOutputSpec(TraitedSpec):
             "The dictionary may be modified to only include metadata associated with the selected "
             "volumes."
         ),
+    )
+    m0tr = traits.Either(
+        traits.Float,
+        None,
+        desc="RepetitionTimePreparation for M0 scans.",
     )
 
 
@@ -120,7 +139,7 @@ class ExtractCBF(SimpleInterface):
 
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
-        metadata = self.inputs.in_metadata.copy()
+        metadata = self.inputs.metadata.copy()
 
         mask_data = nb.load(self.inputs.in_mask).get_fdata()
 
@@ -138,21 +157,19 @@ class ExtractCBF(SimpleInterface):
 
         # extract m0 file and register it to ASL if separate
         if metadata["M0Type"] == "Separate":
-            m0file = self.inputs.in_file.replace("asl.nii.gz", "m0scan.nii.gz")
-            m0file_metadata = readjson(m0file.replace("nii.gz", "json"))
-            aslfile_linkedM0 = os.path.abspath(
-                os.path.join(self.inputs.bids_dir, m0file_metadata["IntendedFor"])
-            )
-            if self.inputs.in_file not in aslfile_linkedM0:
-                raise RuntimeError("there is no separate m0scan for the asl data")
+            m0file = self.inputs.m0scan
 
-            newm0 = fname_presuffix(self.inputs.asl_file, suffix="_m0file")
-            newm0 = regmotoasl(asl=self.inputs.asl_file, m0file=m0file, m02asl=newm0)
-            m0data_smooth = smooth_image(nb.load(newm0), fwhm=self.inputs.fwhm).get_fdata()
+            m0_in_asl = fname_presuffix(self.inputs.asl_file, suffix="_m0file")
+            m0_in_asl = regmotoasl(asl=self.inputs.asl_file, m0file=m0file, m02asl=m0_in_asl)
+            m0data_smooth = smooth_image(nb.load(m0_in_asl), fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
                 m0data = mask_data * np.mean(m0data_smooth, axis=3)
             else:
                 m0data = mask_data * m0data_smooth
+
+            m0tr = self.inputs.m0scan_metadata["RepetitionTimePreparation"]
+            if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
 
         elif metadata["M0Type"] == "Included":
             m0data = asl_data[:, :, :, m0_volume_idx]
@@ -160,8 +177,18 @@ class ExtractCBF(SimpleInterface):
             m0data_smooth = smooth_image(m0img, fwhm=self.inputs.fwhm).get_fdata()
             m0data = mask_data * np.mean(m0data_smooth, axis=3)
 
+            if np.array(metadata["RepetitionTimePreparation"]).size > 1:
+                m0tr = np.array(metadata["RepetitionTimePreparation"])[m0_volume_idx]
+            else:
+                m0tr = metadata["RepetitionTimePreparation"]
+
+            if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
+
         elif metadata["M0Type"] == "Estimate":
             m0data = metadata["M0Estimate"] * mask_data
+
+            m0tr = None
 
         elif metadata["M0Type"] == "Absent":
             if control_volume_idx:
@@ -170,21 +197,21 @@ class ExtractCBF(SimpleInterface):
                 control_img = nb.Nifti1Image(control_data, asl_img.affine, asl_img.header)
                 control_img = smooth_image(control_img, fwhm=self.inputs.fwhm).get_fdata()
                 m0data = mask_data * np.mean(control_img, axis=3)
+
             elif cbf_volume_idx:
-                # If we have precalculated CBF data, just use the mask as M0.
+                # If we have precalculated CBF data, we don't need M0, so we'll just use the mask.
                 m0data = mask_data
+
             else:
                 raise RuntimeError(
                     "m0scan is absent, "
                     "and there are no control volumes that can be used as a substitute"
                 )
 
+            m0tr = None
+
         else:
             raise RuntimeError("no pathway to m0scan")
-
-        if asl_data.ndim == 5:
-            # XXX: Why specifically check for 5D data? NIFTIs can go up to 8, I think.
-            raise RuntimeError("Input image (%s) is 5D.", self.inputs.asl_file)
 
         pld = np.array(metadata["PostLabelingDelay"])
         multi_pld = pld.size > 1
@@ -236,6 +263,7 @@ class ExtractCBF(SimpleInterface):
             metadata["PostLabelingDelay"] = pld.tolist()
 
         self._results["metadata"] = metadata
+        self._results["m0tr"] = m0tr
         self._results["out_file"] = fname_presuffix(
             self.inputs.name_source,
             suffix="_DeltaMOrCBF",
@@ -252,6 +280,92 @@ class ExtractCBF(SimpleInterface):
         nb.Nifti1Image(m0data, asl_img.affine, asl_img.header).to_filename(
             self._results["m0_file"]
         )
+
+        return runtime
+
+
+class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
+    asl_file = File(exists=True, mandatory=True, desc="raw asl file")
+    aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
+    in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
+    file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
+
+
+class _ExtractCBForDeltaMOutputSpec(TraitedSpec):
+    out_file = File(exists=False, desc="cbf or deltam")
+
+
+class ExtractCBForDeltaM(SimpleInterface):
+    """Load an ASL file and grab the CBF or DeltaM volumes from it."""
+
+    input_spec = _ExtractCBForDeltaMInputSpec
+    output_spec = _ExtractCBForDeltaMOutputSpec
+
+    def _run_interface(self, runtime):
+        self._results["out_file"] = fname_presuffix(
+            self.inputs.in_aslmask,
+            suffix="_cbfdeltam",
+            newpath=runtime.cwd,
+        )
+        asl_img = nb.load(self.inputs.asl_file)
+        asl_data = asl_img.get_fdata()
+
+        aslcontext = pd.read_table(self.inputs.aslcontext)
+        vol_types = aslcontext["volume_type"].tolist()
+        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
+        label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
+        deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
+        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
+
+        if self.inputs.file_type == "d":
+            if len(control_volume_idx) > 0:
+                # Grab control and label volumes from ASL file,
+                # then calculate deltaM by subtracting label volumes from control volumes.
+                deltam_data = (
+                    asl_data[:, :, :, control_volume_idx] - asl_data[:, :, :, label_volume_idx]
+                )
+                out_img = nb.Nifti1Image(
+                    dataobj=deltam_data,
+                    affine=asl_img.affine,
+                    header=asl_img.header,
+                )
+            else:
+                # Grab deltaM volumes from ASL file.
+                if len(asl_data.shape) < 4:
+                    # 3D volume is written out without any changes.
+                    # NOTE: Why not return the original file then?
+                    out_img = nb.Nifti1Image(
+                        dataobj=asl_data,
+                        affine=asl_img.affine,
+                        header=asl_img.header,
+                    )
+                else:
+                    deltam_data = asl_data[:, :, :, deltam_volume_idx]
+                    out_img = nb.Nifti1Image(
+                        dataobj=deltam_data,
+                        affine=asl_img.affine,
+                        header=asl_img.header,
+                    )
+
+        elif self.inputs.file_type == "c":
+            if len(asl_data.shape) < 4:
+                # 3D volume is written out without any changes.
+                # NOTE: Why not return the original file then?
+                out_img = nb.Nifti1Image(
+                    dataobj=asl_data,
+                    affine=asl_img.affine,
+                    header=asl_img.header,
+                )
+            else:
+                # Grab CBF volumes from ASL file.
+                cbf_data = asl_data[:, :, :, cbf_volume_idx]
+                out_img = nb.Nifti1Image(
+                    dataobj=cbf_data,
+                    affine=asl_img.affine,
+                    header=asl_img.header,
+                )
+
+        out_img.to_filename(self._results["out_file"])
 
         return runtime
 
@@ -300,8 +414,11 @@ class ComputeCBF(SimpleInterface):
     single CBF volumes and CBF time series, and
     PASL and (P)CASL data.
 
-    T1blood is calculated based on the scanner's field strength, according to
-    :footcite:t:`zhang2013vivo`.
+    T1blood is set based on the scanner's field strength, according to
+    :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
+    If recommended values from these publications cannot be used
+    (i.e., if the field strength isn't 1.5T, 3T, 7T),
+    then the formula from :footcite:t:`zhang2013vivo` will be applied.
 
     Single-PLD CBF, for both (P)CASL and PASL (QUIPSSII BolusCutOffTechnique only)
     is calculated according to :footcite:t:`alsop_recommended_2015`.
@@ -354,20 +471,24 @@ class ComputeCBF(SimpleInterface):
                 "ASLPrep cannot currently process multi-PLD data."
             )
 
-        # Zhang et al. (2012): https://doi.org/10.1002/mrm.24550
-        t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
+        # 1.5T and 3T values come from Alsop 2015.
+        # 7T comes from Zhang 2013.
+        # For other field strengths, the formula from Zhang 2013 will be used.
+        t1blood_dict = {
+            1.5: 1.35,
+            3: 1.65,
+            7: 2.087,
+        }
+        t1blood = t1blood_dict.get(metadata["MagneticFieldStrength"])
+        if not t1blood:
+            config.loggers.interface.warning(
+                f"T1blood cannot be inferred for {metadata['MagneticFieldStrength']}T data. "
+                "Defaulting to formula from Zhang et al. (2013)."
+            )
+            t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
         # Get labeling efficiency (alpha in Alsop 2015).
-        # PCASL and PASL values come from Alsop 2015.
-        # CASL value comes from Wang 2005 (https://doi.org/10.1148/radiol.2351031663).
-        if "LabelingEfficiency" in metadata.keys():
-            labeleff = metadata["LabelingEfficiency"]
-        elif metadata["ArterialSpinLabelingType"] == "CASL":
-            labeleff = 0.68
-        elif metadata["ArterialSpinLabelingType"] == "PCASL":
-            labeleff = 0.85
-        else:  # PASL
-            labeleff = 0.98
+        labeleff = estimate_labeling_efficiency(metadata=metadata)
 
         UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
         PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
@@ -1048,6 +1169,7 @@ class ComputeCBFQCforGE(SimpleInterface):
             dict1 = {
                 "FD": 0,
                 "relRMS": 0,
+                "rmsd": np.nan,
                 "coregDC": [regDC],
                 "coregJC": [regJC],
                 "coregCC": [regCC],
@@ -1074,6 +1196,7 @@ class ComputeCBFQCforGE(SimpleInterface):
             dict1 = {
                 "FD": 0,
                 "relRMS": 0,
+                "rmsd": np.nan,
                 "coregDC": [regDC],
                 "coregJC": [regJC],
                 "coregCC": [regCC],
@@ -1146,92 +1269,6 @@ class ParcellateCBF(SimpleInterface):
         flattened = [val for sublist in bb for val in sublist]
         datat = pd.DataFrame([flattened, roiquant])
         datat.to_csv(self._results["atlascsv"], header=None, index=None)
-        return runtime
-
-
-class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
-    in_asl = File(exists=True, mandatory=True, desc="raw asl file")
-    in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
-    file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
-
-
-class _ExtractCBForDeltaMOutputSpec(TraitedSpec):
-    out_file = File(exists=False, desc="cbf or deltam")
-
-
-class ExtractCBForDeltaM(SimpleInterface):
-    """Load an ASL file and grab the CBF or DeltaM volumes from it."""
-
-    input_spec = _ExtractCBForDeltaMInputSpec
-    output_spec = _ExtractCBForDeltaMOutputSpec
-
-    def _run_interface(self, runtime):
-        self._results["out_file"] = fname_presuffix(
-            self.inputs.in_aslmask,
-            suffix="_cbfdeltam",
-            newpath=runtime.cwd,
-        )
-        asl_img = nb.load(self.inputs.in_asl)
-        asl_data = asl_img.get_fdata()
-
-        # XXX: Not a good way to find the aslcontext file.
-        aslcontext = pd.read_csv(self.inputs.in_asl.replace("_asl.nii.gz", "_aslcontext.tsv"))
-        vol_types = aslcontext["volume_type"].tolist()
-        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
-        label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
-        deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
-        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
-
-        if self.inputs.file_type == "d":
-            if len(control_volume_idx) > 0:
-                # Grab control and label volumes from ASL file,
-                # then calculate deltaM by subtracting label volumes from control volumes.
-                deltam_data = (
-                    asl_data[:, :, :, control_volume_idx] - asl_data[:, :, :, label_volume_idx]
-                )
-                out_img = nb.Nifti1Image(
-                    dataobj=deltam_data,
-                    affine=asl_img.affine,
-                    header=asl_img.header,
-                )
-            else:
-                # Grab deltaM volumes from ASL file.
-                if len(asl_data.shape) < 4:
-                    # 3D volume is written out without any changes.
-                    # NOTE: Why not return the original file then?
-                    out_img = nb.Nifti1Image(
-                        dataobj=asl_data,
-                        affine=asl_img.affine,
-                        header=asl_img.header,
-                    )
-                else:
-                    deltam_data = asl_data[:, :, :, deltam_volume_idx]
-                    out_img = nb.Nifti1Image(
-                        dataobj=deltam_data,
-                        affine=asl_img.affine,
-                        header=asl_img.header,
-                    )
-
-        elif self.inputs.file_type == "c":
-            if len(asl_data.shape) < 4:
-                # 3D volume is written out without any changes.
-                # NOTE: Why not return the original file then?
-                out_img = nb.Nifti1Image(
-                    dataobj=asl_data,
-                    affine=asl_img.affine,
-                    header=asl_img.header,
-                )
-            else:
-                # Grab CBF volumes from ASL file.
-                cbf_data = asl_data[:, :, :, cbf_volume_idx]
-                out_img = nb.Nifti1Image(
-                    dataobj=cbf_data,
-                    affine=asl_img.affine,
-                    header=asl_img.header,
-                )
-
-        out_img.to_filename(self._results["out_file"])
-
         return runtime
 
 

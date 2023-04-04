@@ -62,10 +62,11 @@ ASL runs were slice-time corrected using `3dTshift` from AFNI [@afni].
     LOGGER.log(25, "Slice-timing correction will be included.")
 
     # It would be good to fingerprint memory use of afni.TShift
+    # XXX: Should I use RepetitionTimePreparation here?
     slice_timing_correction = pe.Node(
         afni.TShift(
             outputtype="NIFTI_GZ",
-            tr=f"{metadata['RepetitionTime']}s",
+            tr=f"{metadata.get('RepetitionTime', metadata['RepetitionTimePreparation'])}s",
             slice_timing=metadata["SliceTiming"],
             slice_encoding_direction=metadata.get("SliceEncodingDirection", "k"),
         ),
