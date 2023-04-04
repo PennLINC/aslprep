@@ -739,9 +739,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_derivatives_wf, [
-                    ("outputnode.out_score", "inputnode.score"),
-                    ("outputnode.out_avgscore", "inputnode.avgscore"),
-                    ("outputnode.out_scrub", "inputnode.scrub"),
+                    ("outputnode.cbf_ts_score", "inputnode.score"),
+                    ("outputnode.mean_cbf_score", "inputnode.avgscore"),
+                    ("outputnode.mean_cbf_scrub", "inputnode.scrub"),
                 ]),
             ])
             # fmt:on
@@ -795,9 +795,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_std_trans_wf, [
-                    ("outputnode.out_score", "inputnode.score"),
-                    ("outputnode.out_avgscore", "inputnode.avgscore"),
-                    ("outputnode.out_scrub", "inputnode.scrub"),
+                    ("outputnode.cbf_ts_score", "inputnode.score"),
+                    ("outputnode.mean_cbf_score", "inputnode.avgscore"),
+                    ("outputnode.mean_cbf_scrub", "inputnode.scrub"),
                 ]),
             ])
             # fmt:on
@@ -927,14 +927,14 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (compute_cbf_wf, cbf_plot, [
+            ("outputnode.out_cbf", "inputnode.cbf_ts"),
             ("outputnode.out_mean", "inputnode.cbf"),
-            ("outputnode.out_avgscore", "inputnode.score"),
-            ("outputnode.out_scrub", "inputnode.scrub"),
             ("outputnode.out_cbfb", "inputnode.basil"),
             ("outputnode.out_cbfpv", "inputnode.pvc"),
-            ("outputnode.out_score", "inputnode.score_ts"),
-            ("outputnode.out_cbf", "inputnode.cbf_ts"),
-            ("outputnode.out_scoreindex", "inputnode.scoreindex"),
+            ("outputnode.cbf_ts_score", "inputnode.score_ts"),
+            ("outputnode.mean_cbf_score", "inputnode.score"),
+            ("outputnode.mean_cbf_scrub", "inputnode.scrub"),
+            ("outputnode.score_outliers", "inputnode.scoreindex"),
         ]),
         (inputnode, cbf_plot, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbf_plot, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
