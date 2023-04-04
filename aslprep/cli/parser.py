@@ -329,8 +329,7 @@ def _build_parser():
     )
 
     # CBF calculation settings
-    cbf_group = g_conf.add_mutually_exclusive_group()
-    cbf_group.add_argument(
+    g_conf.add_argument(
         "--scorescrub",
         action="store_true",
         default=False,
@@ -339,7 +338,7 @@ def _build_parser():
             "These algorithms will be applied to the standard CBF results."
         ),
     )
-    cbf_group.add_argument(
+    g_conf.add_argument(
         "--basil",
         action="store_true",
         default=False,
