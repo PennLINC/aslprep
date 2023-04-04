@@ -509,7 +509,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
 
     vol_types = aslcontext_df["volume_type"].tolist()
     deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
-    cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
+    cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
     control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
 
     tiscbf = get_tis(metadata)

@@ -144,7 +144,7 @@ class ExtractCBF(SimpleInterface):
         label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
         m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "m0scan"]
         deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
-        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
+        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
 
         # extract m0 file and register it to ASL if separate
         if metadata["M0Type"] == "Separate":
@@ -306,7 +306,7 @@ class ExtractCBForDeltaM(SimpleInterface):
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
         label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
         deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
-        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
+        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
 
         if self.inputs.file_type == "d":
             if len(control_volume_idx) > 0:
