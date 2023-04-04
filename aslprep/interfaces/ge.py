@@ -62,7 +62,7 @@ class GeReferenceFile(SimpleInterface):
         vol_types = aslcontext_df["volume_type"].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
         deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
-        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "CBF"]
+        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
 
         asl_img = nb.load(self.inputs.in_file)
         asl_data = asl_img.get_fdata()
