@@ -343,8 +343,7 @@ def _build_parser():
         action="store_true",
         default=False,
         help=(
-            "Use FSL's CBF computation with spatial regularization and partial volume correction, "
-            "rather than ASLPrep's standard CBF estimation method."
+            "Use FSL's CBF computation with spatial regularization and partial volume correction."
         ),
     )
 
