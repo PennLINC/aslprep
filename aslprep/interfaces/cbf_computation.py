@@ -22,7 +22,7 @@ from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
 from aslprep.utils.misc import (
-    _getcbfscore,
+    _score_cbf,
     _scrubcbf,
     estimate_labeling_efficiency,
     parcellate_cbf,
@@ -597,32 +597,37 @@ class ComputeCBF(SimpleInterface):
 
 
 class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc="computed CBF from ComputeCBF")
-    in_greyM = File(exists=True, mandatory=True, desc="grey  matter")
-    in_whiteM = File(exists=True, mandatory=True, desc="white  matter")
-    in_mask = File(exists=True, mandatory=True, desc="mask")
-    in_csf = File(exists=True, mandatory=True, desc="csf")
-    in_thresh = traits.Float(
-        default_value=0.7, exists=True, mandatory=False, desc="threshold of propbaility matter"
+    cbf = File(exists=True, mandatory=True, desc="computed CBF from ComputeCBF")
+    gm_tpm = File(exists=True, mandatory=True, desc="Gray matter tissue probability map.")
+    wm_tpm = File(exists=True, mandatory=True, desc="White matter tissue probability map.")
+    csf_tpm = File(exists=True, mandatory=True, desc="Cerebrospinal fluid tissue probability map.")
+    brain_mask = File(exists=True, mandatory=True, desc="Brain mask.")
+    tpm_threshold = traits.Float(
+        default_value=0.7,
+        mandatory=False,
+        usedefault=True,
+        desc="Threshold for tissue probability maps.",
     )
-    in_wfun = traits.Str(
+    wavelet_function = traits.Str(
         exists=True,
         mandatory=False,
         default_value="huber",
         option=["bisquare", "andrews", "cauchy", "fair", "logistics", "ols", "talwar", "welsch"],
-        desc="wavelet fun ",
+        desc="Wavelet function used in SCRUB.",
     )
-    out_score = File(exists=False, desc="score timeseries data")
-    out_avgscore = File(exists=False, desc="average score")
-    out_scrub = File(exists=False, desc="average scrub")
-    out_scoreindex = File(exists=False, desc="index of volume remove or leave by score")
 
 
 class _ScoreAndScrubCBFOutputSpec(TraitedSpec):
-    out_score = File(exists=False, mandatory=False, desc="score timeseries data")
-    out_avgscore = File(exists=False, mandatory=False, desc="average score")
-    out_scrub = File(exists=False, mandatory=False, desc="average scrub")
-    out_scoreindex = File(exists=False, mandatory=False, desc="index of volume remove ")
+    cbf_ts_score = File(
+        exists=True,
+        desc="CBF time series after removing outlier volumes flagged by SCORE algorithm.",
+    )
+    score_outliers = File(exists=True, desc="Index of removed volumes, in a CSV file.")
+    mean_cbf_score = File(
+        exists=True,
+        desc="Mean CBF image calculated from SCORE-censored CBF time series.",
+    )
+    mean_cbf_scrub = File(exists=True, desc="average scrub")
 
 
 class ScoreAndScrubCBF(SimpleInterface):
@@ -644,84 +649,81 @@ class ScoreAndScrubCBF(SimpleInterface):
     output_spec = _ScoreAndScrubCBFOutputSpec
 
     def _run_interface(self, runtime):
-        cbf_ts = nb.load(self.inputs.in_file).get_fdata()
-        mask = nb.load(self.inputs.in_mask).get_fdata()
-        greym = nb.load(self.inputs.in_greyM).get_fdata()
-        whitem = nb.load(self.inputs.in_whiteM).get_fdata()
-        csf = nb.load(self.inputs.in_csf).get_fdata()
-        if cbf_ts.ndim > 3:
-            cbf_scorets, index_score = _getcbfscore(
-                cbfts=cbf_ts,
-                wm=whitem,
-                gm=greym,
-                csf=csf,
-                mask=mask,
-                thresh=self.inputs.in_thresh,
+        cbf_img = nb.load(self.inputs.cbf)
+        cbf_arr = cbf_img.get_fdata()
+
+        if cbf_arr.ndim > 3:
+            mask_arr = nb.load(self.inputs.brain_mask).get_fdata()
+            gm_tpm_arr = nb.load(self.inputs.gm_tpm).get_fdata()
+            wm_tpm_arr = nb.load(self.inputs.wm_tpm).get_fdata()
+            csf_tpm_arr = nb.load(self.inputs.csf_tpm).get_fdata()
+
+            cbf_ts_score, score_outliers_idx = _score_cbf(
+                cbf_ts=cbf_arr,
+                gm=gm_tpm_arr,
+                wm=wm_tpm_arr,
+                csf=csf_tpm_arr,
+                mask=mask_arr,
+                thresh=self.inputs.tpm_threshold,
             )
-            cbfscrub = _scrubcbf(
-                cbf_ts=cbf_scorets,
-                gm=greym,
-                wm=whitem,
-                csf=csf,
-                mask=mask,
-                wfun=self.inputs.in_wfun,
-                thresh=self.inputs.in_thresh,
+            mean_cbf_score = np.mean(cbf_ts_score, axis=3)
+            mean_cbf_scrub = _scrubcbf(
+                cbf_ts=cbf_ts_score,
+                gm=gm_tpm_arr,
+                wm=wm_tpm_arr,
+                csf=csf_tpm_arr,
+                mask=mask_arr,
+                wavelet_function=self.inputs.wavelet_function,
+                thresh=self.inputs.tpm_threshold,
             )
-            avgscore = np.mean(cbf_scorets, axis=3)
         else:
             config.loggers.interface.warning(
-                f"CBF time series is only {cbf_ts.ndim}D. Skipping SCORE and SCRUB."
+                f"CBF time series is only {cbf_arr.ndim}D. Skipping SCORE and SCRUB."
             )
-            cbf_scorets = cbf_ts
-            index_score = np.array([0])
-            cbfscrub = cbf_ts
-            avgscore = cbf_ts
+            cbf_ts_score = cbf_arr
+            mean_cbf_score = cbf_arr
+            score_outliers_idx = np.array([0])
+            mean_cbf_scrub = cbf_arr
 
-        self._results["out_score"] = fname_presuffix(
-            self.inputs.in_file,
+        self._results["cbf_ts_score"] = fname_presuffix(
+            self.inputs.cbf,
             suffix="_cbfscorets",
             newpath=runtime.cwd,
         )
-        self._results["out_avgscore"] = fname_presuffix(
-            self.inputs.in_file,
+        self._results["mean_cbf_score"] = fname_presuffix(
+            self.inputs.cbf,
             suffix="_meancbfscore",
             newpath=runtime.cwd,
         )
-        self._results["out_scrub"] = fname_presuffix(
-            self.inputs.in_file,
+        self._results["mean_cbf_scrub"] = fname_presuffix(
+            self.inputs.cbf,
             suffix="_cbfscrub",
             newpath=runtime.cwd,
         )
-        self._results["out_scoreindex"] = fname_presuffix(
-            self.inputs.in_file,
-            suffix="_scoreindex.txt",
+        self._results["score_outliers"] = fname_presuffix(
+            self.inputs.cbf,
+            suffix="_scoreindex.csv",
             newpath=runtime.cwd,
             use_ext=False,
         )
-        samplecbf = nb.load(self.inputs.in_mask)
 
         nb.Nifti1Image(
-            dataobj=cbf_scorets,
-            affine=samplecbf.affine,
-            header=samplecbf.header,
-        ).to_filename(self._results["out_score"])
+            dataobj=cbf_ts_score,
+            affine=cbf_img.affine,
+            header=cbf_img.header,
+        ).to_filename(self._results["cbf_ts_score"])
         nb.Nifti1Image(
-            dataobj=avgscore,
-            affine=samplecbf.affine,
-            header=samplecbf.header,
-        ).to_filename(self._results["out_avgscore"])
+            dataobj=mean_cbf_score,
+            affine=cbf_img.affine,
+            header=cbf_img.header,
+        ).to_filename(self._results["mean_cbf_score"])
+        np.savetxt(self._results["score_outliers"], score_outliers_idx, delimiter=",")
         nb.Nifti1Image(
-            dataobj=cbfscrub,
-            affine=samplecbf.affine,
-            header=samplecbf.header,
-        ).to_filename(self._results["out_scrub"])
+            dataobj=mean_cbf_scrub,
+            affine=cbf_img.affine,
+            header=cbf_img.header,
+        ).to_filename(self._results["mean_cbf_scrub"])
 
-        np.savetxt(self._results["out_scoreindex"], index_score, delimiter=",")
-
-        self.inputs.out_score = os.path.abspath(self._results["out_score"])
-        self.inputs.out_avgscore = os.path.abspath(self._results["out_avgscore"])
-        self.inputs.out_scrub = os.path.abspath(self._results["out_scrub"])
-        self.inputs.out_scoreindex = os.path.abspath(self._results["out_scoreindex"])
         return runtime
 
 

@@ -518,67 +518,91 @@ def _getchisquare(n):
     return a[n - 1], b[n - 1]
 
 
-def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
+def _score_cbf(cbf_ts, wm, gm, csf, mask, thresh=0.7):
     """Apply SCORE algorithm to remove noisy CBF volumes.
 
     Parameters
     ----------
-    cbf_ts
-       nd array of 3D or 4D computed cbf
-    gm,wm,csf
-       numpy array of grey matter, whitematter, and csf
-    mask
-       numpy array of mask
+    cbf_ts : 4D numpy.ndarray
+        CBF time series.
+    gm, wm, csf : 3D numpy.ndarray
+        Gray matter, white matter, and CSF tissue probability maps.
+    mask : 3D numpy.ndarray
+        Binary brain mask.
+    thresh : float
+        Tissue probability threshold.
+        Voxels in gm, wm, and csf with values greater than or equal to the threshold are
+        considered to be of that tissue.
+
+    Returns
+    -------
+    cbf_ts_good_vols : 4D numpy.ndarray
+        CBF time series containing only non-outlier volumes. This time series is also brain-masked.
+    outlier_idx : 1D numpy.ndarray
+        An index of outlier volumes in the CBF time series. Values of 1 indicate outliers.
     """
+    n_volumes = cbf_ts.shape[3]
+
+    # Create binary tissue-type masks
     gm_bin = gm >= thresh
     wm_bin = wm >= thresh
     csf_bin = csf >= thresh
+    tissue_type_masks = [gm_bin, wm_bin, csf_bin]
 
-    # get the total number of voxle within csf,gm and wm
+    # Get the number of voxels within each tissue type, then subtract 1 to get Nk-1.
     n_gm_voxels = np.sum(gm_bin) - 1
     n_wm_voxels = np.sum(wm_bin) - 1
     n_csf_voxels = np.sum(csf_bin) - 1
-    mask1 = gm_bin + wm_bin + csf_bin
+    n_voxels = [n_gm_voxels, n_wm_voxels, n_csf_voxels]
 
-    # mean  of times series cbf within greymatter
-    gm_cbf_ts = np.squeeze(np.mean(cbfts[gm_bin, :], axis=0))
+    # Create a mask only including GM, WM, and CSF
+    tissue_type_mask = (gm_bin + wm_bin + csf_bin).astype(bool)
 
-    # robust mean and median
-    median_gm_cbf = np.median(gm_cbf_ts)
-    mad_gm_cbf = median_abs_deviation(gm_cbf_ts) / 0.675
-    indx = 1 * (np.abs(gm_cbf_ts - median_gm_cbf) > (2.5 * mad_gm_cbf))
-    R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
-    V = (
-        n_gm_voxels * np.var(R[gm == 1])
-        + n_wm_voxels * np.var(R[wm == 1])
-        + n_csf_voxels * np.var(R[csf == 1])
-    )
-    V1 = V + 1
-    while V < V1:
-        V1 = V
-        CC = np.zeros(cbfts.shape[3]) * (-2)
-        for s in range(cbfts.shape[3]):
-            if indx[s] != 0:
+    # Perform initial outlier exclusion.
+    # Remove volumes with mean GM-CBF outside 2.5 SDs of their means.
+    mean_gb_cbf = np.squeeze(np.mean(cbf_ts[gm_bin, :], axis=0))
+    median_gm_cbf = np.median(mean_gb_cbf)
+    mad_gm_cbf = median_abs_deviation(mean_gb_cbf) / 0.675
+    outlier_idx = np.abs(mean_gb_cbf - median_gm_cbf) > (2.5 * mad_gm_cbf)
+
+    iter_mean_cbf = np.mean(cbf_ts[:, :, :, ~outlier_idx], axis=3)
+    iter_pooled_variance = [
+        (n_voxels[k] * np.var(iter_mean_cbf[tissue_type_masks[k]])) / n_voxels[k] for k in range(3)
+    ]
+    last_pooled_variance = iter_pooled_variance + 1  # add 1 to ensure it is >
+    while iter_pooled_variance < last_pooled_variance:
+        # If variance increases from the previous iteration, we interpret this as removing
+        # random noise instead of artifact.
+        last_pooled_variance = iter_pooled_variance
+        volume_wise_correlations = np.full(n_volumes, np.nan)
+        for i_vol in range(n_volumes):
+            if outlier_idx[i_vol]:
                 break
-            else:
-                tmp1 = cbfts[:, :, :, s]
-                CC[s] = np.corrcoef(R[mask1 > 0], tmp1[mask1 > 0])[0][1]
 
-        inx = np.argmax(CC)
-        indx[inx] = 2
-        R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
-        V = (
-            (n_gm_voxels * np.var(R[gm == 1]))
-            + (n_wm_voxels * np.var(R[wm == 1]))
-            + (n_csf_voxels * np.var(R[csf == 1]))
-        )
-    cbfts_recon = cbfts[:, :, :, indx == 0]
-    cbfts_recon1 = np.zeros_like(cbfts_recon)
-    for i in range(cbfts_recon.shape[3]):
-        cbfts_recon1[:, :, :, i] = cbfts_recon[:, :, :, i] * mask
+            cbf_vol = cbf_ts[:, :, :, i_vol]
+            # Correlate mean CBF's masked values with volume CBF's masked values.
+            volume_wise_correlations[i_vol] = np.corrcoef(
+                iter_mean_cbf[tissue_type_mask],
+                cbf_vol[tissue_type_mask],
+            )[0, 1]
 
-    cbfts_recon1 = np.nan_to_num(cbfts_recon1)
-    return cbfts_recon1, indx
+        # The volume with the maximum correlation value is this iteration's outlier.
+        max_correlation_idx = np.nanargmax(volume_wise_correlations)
+        outlier_idx[max_correlation_idx] = True
+
+        # Recalculate mean CBF map and pooled variance.
+        iter_mean_cbf = np.mean(cbf_ts[:, :, :, ~outlier_idx], axis=3)
+        iter_pooled_variance = [
+            (n_voxels[k] * np.var(iter_mean_cbf[tissue_type_masks[k]])) / n_voxels[k]
+            for k in range(3)
+        ]
+
+    # Create CBF time series from just the non-outlier volumes and brain-mask it.
+    cbf_ts_good_vols = cbf_ts[:, :, :, ~outlier_idx]
+    cbf_ts_good_vols *= mask[..., None]
+    cbf_ts_good_vols = np.nan_to_num(cbf_ts_good_vols)
+
+    return cbf_ts_good_vols, outlier_idx.astype(int)
 
 
 def _robust_fit(
