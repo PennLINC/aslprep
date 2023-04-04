@@ -99,11 +99,11 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     in_mask = File(exists=True, mandatory=True, desc="mask")
     dummy_vols = traits.Int(
         default_value=0,
-        use_default=True,
+        usedefault=True,
         mandatory=False,
         desc="remove first n volumes",
     )
-    fwhm = traits.Float(default_value=5, use_default=True, mandatory=False, desc="fwhm")
+    fwhm = traits.Float(default_value=5, usedefault=True, mandatory=False, desc="fwhm")
 
 
 class _ExtractCBFOutputSpec(TraitedSpec):
