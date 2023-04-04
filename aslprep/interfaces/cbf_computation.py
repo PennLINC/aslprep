@@ -953,7 +953,7 @@ def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_
 
     mat1 = MultiImageMaths()
     mat1.inputs.in_file = tmp_mask
-    mat1.inputs.op_string = " -mul  %s -bin"
+    mat1.inputs.op_string = " -mul %s -bin"
     mat1.inputs.operand_files = ref_asl_mask
     mat1.inputs.out_file = refined_mask
     mat1.run()

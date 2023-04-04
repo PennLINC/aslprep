@@ -287,23 +287,16 @@ def _tune(wfun="huber"):
 
     But wait, you might say, the docstring makes no sense! Correct.
     """
-    if wfun == "andrews":
-        tuner = 1.339
-    elif wfun == "bisquare":
-        tuner = 4.685
-    elif wfun == "cauchy":
-        tuner = 2.385
-    elif wfun == "logistic":
-        tuner = 1.205
-    elif wfun == "ols":
-        tuner = 1
-    elif wfun == "talwar":
-        tuner = 2.795
-    elif wfun == "welsch":
-        tuner = 2.985
-    else:
-        tuner = 1.345
-    return tuner
+    weights = {
+        "andrews": 1.339,
+        "bisquare": 4.685,
+        "cauchy": 2.385,
+        "logistic": 1.205,
+        "ols": 1,
+        "talwar": 2.795,
+        "welsch": 2.985,
+    }
+    return weights.get(wfun, 1.345)
 
 
 def _getchisquare(n):
@@ -566,9 +559,11 @@ def _score_cbf(cbf_ts, wm, gm, csf, mask, thresh=0.7):
     outlier_idx = np.abs(mean_gb_cbf - median_gm_cbf) > (2.5 * mad_gm_cbf)
 
     iter_mean_cbf = np.mean(cbf_ts[:, :, :, ~outlier_idx], axis=3)
-    iter_pooled_variance = [
-        (n_voxels[k] * np.var(iter_mean_cbf[tissue_type_masks[k]])) / n_voxels[k] for k in range(3)
-    ]
+    n_voxels_total = np.sum(n_voxels)
+    iter_pooled_variance = (
+        np.sum([n_voxels[k] * np.var(iter_mean_cbf[tissue_type_masks[k]]) for k in range(3)])
+        / n_voxels_total
+    )
     last_pooled_variance = iter_pooled_variance + 1  # add 1 to ensure it is >
     while iter_pooled_variance < last_pooled_variance:
         # If variance increases from the previous iteration, we interpret this as removing
@@ -592,10 +587,10 @@ def _score_cbf(cbf_ts, wm, gm, csf, mask, thresh=0.7):
 
         # Recalculate mean CBF map and pooled variance.
         iter_mean_cbf = np.mean(cbf_ts[:, :, :, ~outlier_idx], axis=3)
-        iter_pooled_variance = [
-            (n_voxels[k] * np.var(iter_mean_cbf[tissue_type_masks[k]])) / n_voxels[k]
-            for k in range(3)
-        ]
+        iter_pooled_variance = (
+            np.sum([n_voxels[k] * np.var(iter_mean_cbf[tissue_type_masks[k]]) for k in range(3)])
+            / n_voxels_total
+        )
 
     # Create CBF time series from just the non-outlier volumes and brain-mask it.
     cbf_ts_good_vols = cbf_ts[:, :, :, ~outlier_idx]
