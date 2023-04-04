@@ -687,15 +687,15 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         if scorescrub:
             # fmt:off
             workflow.connect([
-                    ("outputnode.out_score", "inputnode.score"),
-                    ("outputnode.out_avgscore", "inputnode.avgscore"),
-                    ("outputnode.out_scrub", "inputnode.scrub"),
                 (compute_cbf_wf, asl_t1_trans_wf, [
+                    ("outputnode.cbf_ts_score", "inputnode.cbf_ts_score"),
+                    ("outputnode.mean_cbf_score", "inputnode.mean_cbf_score"),
+                    ("outputnode.mean_cbf_scrub", "inputnode.mean_cbf_scrub"),
                 ]),
                 (asl_t1_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.scrub_t1", "inputnode.scrub_t1"),
-                    ("outputnode.score_t1", "inputnode.score_t1"),
-                    ("outputnode.avgscore_t1", "inputnode.avgscore_t1"),
+                    ("outputnode.cbf_ts_score_t1", "inputnode.cbf_ts_score_t1"),
+                    ("outputnode.mean_cbf_score_t1", "inputnode.mean_cbf_score_t1"),
+                    ("outputnode.mean_cbf_scrub_t1", "inputnode.mean_cbf_scrub_t1"),
                 ]),
             ])
             # fmt:on

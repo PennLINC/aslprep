@@ -101,8 +101,6 @@ def init_compute_cbf_wf(
 
 *ASLPrep* was configured to calculate cerebral blood flow (CBF) using the following methods.
 
-The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
-model [@buxton1998general].
 """
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -123,14 +121,14 @@ model [@buxton1998general].
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "out_cbf",
-                "out_mean",
-                "out_score",
+                "cbf_ts",
+                "mean_cbf",
+                "cbf_ts_score",
+                "score_outliers",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
                 "out_cbfpvwm",
-                "out_avgscore",
-                "out_scrub",
                 "out_cbfb",
-                "out_scoreindex",
                 "out_cbfpv",
                 "out_att",
             ]
@@ -256,67 +254,9 @@ model [@buxton1998general].
     ])
     # fmt:on
 
-    compute_cbf = pe.Node(
-        ComputeCBF(
-            cbf_only=cbf_only,
-            m0scale=M0Scale,
-        ),
-        mem_gb=0.2,
-        run_without_submitting=True,
-        name="compute_cbf",
-    )
-
-    # fmt:off
-    workflow.connect([
-        (refine_mask, compute_cbf, [("out_mask", "mask")]),
-        (extract_deltam, compute_cbf, [
-            ("out_file", "deltam"),
-            ("m0_file", "m0_file"),
-            ("metadata", "metadata"),
-        ]),
-        (compute_cbf, outputnode, [
-            ("cbf", "out_cbf"),
-            ("mean_cbf", "out_mean"),
-        ]),
-    ])
-    # fmt:on
-
-    if scorescrub:
-        score_and_scrub_cbf = pe.Node(
-            ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
-            mem_gb=0.2,
-            name="score_and_scrub_cbf",
-            run_without_submitting=True,
-        )
-
-        workflow.__desc__ += """
-
-Structural Correlation based Outlier Rejection (SCORE) algorithm was applied to the CBF timeseries
-to discard CBF volumes with outlying values [@dolui2017structural] before computing the mean CBF.
-Following SCORE, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to
-the CBF maps using structural tissue probability maps to reweight the mean CBF
-[@dolui2017structural;@dolui2016scrub].
-"""
-        # fmt:off
-        workflow.connect([
-            (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
-            (compute_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
-            (gm_tfm, score_and_scrub_cbf, [("output_image", "in_greyM")]),
-            (wm_tfm, score_and_scrub_cbf, [("output_image", "in_whiteM")]),
-            (csf_tfm, score_and_scrub_cbf, [("output_image", "in_csf")]),
-            (score_and_scrub_cbf, outputnode, [
-                ("out_score", "out_score"),
-                ("out_scoreindex", "out_scoreindex"),
-                ("out_avgscore", "out_avgscore"),
-                ("out_scrub", "out_scrub"),
-            ]),
-        ])
-        # fmt:on
-
     if basil:
         workflow.__desc__ += f"""
-
-CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
+CBF was computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
 [@chappell2008variational], as implemented in *FSL* {Info.version().split(':')[0]}.
 BASIL computes CBF using a spatial regularization of the estimated perfusion image and
 additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
@@ -355,13 +295,75 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             (gm_tfm, basilcbf, [("output_image", "pvgm")]),
             (wm_tfm, basilcbf, [("output_image", "pvwm")]),
             (basilcbf, outputnode, [
-                ("out_cbfb", "out_cbfb"),
-                ("out_cbfpv", "out_cbfpv"),
-                ("out_cbfpvwm", "out_cbfpvwm"),
-                ("out_att", "out_att"),
+                ("out_cbfb", "cbf"),
+                ("out_cbfpv", "cbf_pv"),
+                ("out_cbfpvwm", "cbf_pv_wm"),
+                ("out_att", "att"),
             ]),
         ])
         # fmt:on
+
+    else:
+        workflow.__desc__ += """
+The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
+model [@buxton1998general].
+"""
+        compute_cbf = pe.Node(
+            ComputeCBF(
+                cbf_only=cbf_only,
+                m0scale=M0Scale,
+            ),
+            mem_gb=0.2,
+            run_without_submitting=True,
+            name="compute_cbf",
+        )
+
+        # fmt:off
+        workflow.connect([
+            (refine_mask, compute_cbf, [("out_mask", "mask")]),
+            (extract_deltam, compute_cbf, [
+                ("out_file", "deltam"),
+                ("m0_file", "m0_file"),
+                ("metadata", "metadata"),
+            ]),
+            (compute_cbf, outputnode, [
+                ("cbf", "out_cbf"),
+                ("mean_cbf", "out_mean"),
+            ]),
+        ])
+        # fmt:on
+
+        if scorescrub:
+            score_and_scrub_cbf = pe.Node(
+                ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
+                mem_gb=0.2,
+                name="score_and_scrub_cbf",
+                run_without_submitting=True,
+            )
+
+            workflow.__desc__ += """
+
+Structural Correlation based Outlier Rejection (SCORE) algorithm was applied to the CBF timeseries
+to discard CBF volumes with outlying values [@dolui2017structural] before computing the mean CBF.
+Following SCORE, the Structural Correlation with RobUst Bayesian (SCRUB) algorithm was applied to
+the CBF maps using structural tissue probability maps to reweight the mean CBF
+[@dolui2017structural;@dolui2016scrub].
+"""
+            # fmt:off
+            workflow.connect([
+                (refine_mask, score_and_scrub_cbf, [("out_mask", "brain_mask")]),
+                (compute_cbf, score_and_scrub_cbf, [("cbf", "cbf")]),
+                (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
+                (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
+                (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
+                (score_and_scrub_cbf, outputnode, [
+                    ("cbf_ts_score", "cbf_ts_score"),
+                    ("score_outliers", "score_outliers"),
+                    ("mean_cbf_score", "mean_cbf_score"),
+                    ("mean_cbf_scrub", "mean_cbf_scrub"),
+                ]),
+            ])
+            # fmt:on
 
     return workflow
 
@@ -416,11 +418,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             fields=[
                 "out_cbf",
                 "out_mean",
-                "out_score",
-                "out_avgscore",
-                "out_scrub",
+                "cbf_ts_score",
+                "score_outliers",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
                 "out_cbfb",
-                "out_scoreindex",
                 "out_cbfpv",
                 "out_att",
                 "out_cbfpvwm",
@@ -621,7 +623,7 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
 """
 
         score_and_scrub_cbf = pe.Node(
-            ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
+            ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
             mem_gb=mem_gb,
             name="scorescrub",
             run_without_submitting=True,
@@ -629,16 +631,16 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
 
         # fmt:off
         workflow.connect([
-            (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
-            (gm_tfm, score_and_scrub_cbf, [("output_image", "in_greyM")]),
-            (wm_tfm, score_and_scrub_cbf, [("output_image", "in_whiteM")]),
-            (csf_tfm, score_and_scrub_cbf, [("output_image", "in_csf")]),
-            (collect_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
+            (refine_mask, score_and_scrub_cbf, [("out_mask", "brain_mask")]),
+            (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
+            (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
+            (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
+            (collect_cbf, score_and_scrub_cbf, [("cbf", "cbf")]),
             (score_and_scrub_cbf, outputnode, [
-                ("out_score", "out_score"),
-                ("out_scoreindex", "out_scoreindex"),
-                ("out_avgscore", "out_avgscore"),
-                ("out_scrub", "out_scrub"),
+                ("cbf_ts_score", "cbf_ts_score"),
+                ("score_outliers", "score_outliers"),
+                ("mean_cbf_score", "mean_cbf_score"),
+                ("mean_cbf_scrub", "mean_cbf_scrub"),
             ]),
         ])
         # fmt:on
