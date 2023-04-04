@@ -797,6 +797,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=False,
         argstr="--pvcorr",
         default_value=True,
+        usedefault=True,
     )
     pvgm = File(
         exists=True,
@@ -821,12 +822,22 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
-    out_cbfb = File(exists=False, desc="cbf with spatial correction")
-    out_cbfpv = File(exists=False, desc="cbf with spatial correction")
-    out_cbfpvwm = File(
-        exists=False, desc="cbf with spatial partial volume white matter correction"
+    mean_cbf = File(exists=True, desc="CBF map in absolute units (ml/100g/min).")
+    mean_cbf_gm = File(
+        exists=True,
+        desc=(
+            "CBF map with gray matter partial volume correction. "
+            "This means that the map contains 'pure' GM perfusion estimates, in absolute units."
+        ),
     )
-    out_att = File(exists=False, desc="aretrial transist time")
+    mean_cbf_wm = File(
+        exists=True,
+        desc=(
+            "CBF map with white matter partial volume correction. "
+            "This means that the map contains 'pure' WM perfusion estimates, in absolute units."
+        ),
+    )
+    att = File(exists=True, desc="Arterial transit time map.")
 
 
 class BASILCBF(FSLCommand):
@@ -859,10 +870,13 @@ class BASILCBF(FSLCommand):
 
         outputs = self.output_spec().get()
 
-        outputs["out_cbfb"] = os.path.join(basename, "native_space/perfusion_calib.nii.gz")
-        outputs["out_att"] = os.path.join(basename, "native_space/arrival.nii.gz")
-        outputs["out_cbfpv"] = os.path.join(basename, "native_space/pvcorr/perfusion_calib.nii.gz")
-        outputs["out_cbfpvwm"] = os.path.join(
+        outputs["mean_cbf"] = os.path.join(basename, "native_space/perfusion_calib.nii.gz")
+        outputs["att"] = os.path.join(basename, "native_space/arrival.nii.gz")
+        outputs["mean_cbf_gm"] = os.path.join(
+            basename,
+            "native_space/pvcorr/perfusion_calib.nii.gz",
+        )
+        outputs["mean_cbf_wm"] = os.path.join(
             basename,
             "native_space/pvcorr/perfusion_wm_calib.nii.gz",
         )

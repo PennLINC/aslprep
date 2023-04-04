@@ -704,10 +704,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_t1_trans_wf, [
-                    ("outputnode.out_cbfb", "inputnode.basil"),
-                    ("outputnode.out_cbfpv", "inputnode.pv"),
-                    ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
-                    ("outputnode.out_att", "inputnode.att"),
+                    ("outputnode.mean_cbf_basil", "inputnode.basil"),
+                    ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
+                    ("outputnode.mean_cbf_wm_basil", "inputnode.pvwm"),
+                    ("outputnode.att_basil", "inputnode.att"),
                 ]),
                 (asl_t1_trans_wf, asl_derivatives_wf, [
                     ("outputnode.basil_t1", "inputnode.basil_t1"),
@@ -750,10 +750,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_derivatives_wf, [
-                    ("outputnode.out_cbfb", "inputnode.basil"),
-                    ("outputnode.out_cbfpv", "inputnode.pv"),
-                    ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
-                    ("outputnode.out_att", "inputnode.att"),
+                    ("outputnode.mean_cbf_basil", "inputnode.basil"),
+                    ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
+                    ("outputnode.mean_cbf_wm_basil", "inputnode.pvwm"),
+                    ("outputnode.att_basil", "inputnode.att"),
                 ]),
             ])
             # fmt:on
@@ -806,10 +806,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_std_trans_wf, [
-                    ("outputnode.out_cbfb", "inputnode.basil"),
-                    ("outputnode.out_cbfpv", "inputnode.pv"),
-                    ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
-                    ("outputnode.out_att", "inputnode.att"),
+                    ("outputnode.mean_cbf_basil", "inputnode.basil"),
+                    ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
+                    ("outputnode.mean_cbf_wm_basil", "inputnode.pvwm"),
+                    ("outputnode.att_basil", "inputnode.att"),
                 ]),
             ])
             # fmt:on
@@ -903,8 +903,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, compt_qccbf_wf, [
-                ("outputnode.out_cbfb", "inputnode.basil"),
-                ("outputnode.out_cbfpv", "inputnode.pv"),
+                ("outputnode.mean_cbf_basil", "inputnode.basil"),
+                ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
             ]),
         ])
         # fmt:on
@@ -929,12 +929,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (compute_cbf_wf, cbf_plot, [
             ("outputnode.cbf_ts", "inputnode.cbf_ts"),
             ("outputnode.mean_cbf", "inputnode.cbf"),
-            ("outputnode.out_cbfb", "inputnode.basil"),
-            ("outputnode.out_cbfpv", "inputnode.pvc"),
             ("outputnode.cbf_ts_score", "inputnode.score_ts"),
             ("outputnode.mean_cbf_score", "inputnode.score"),
             ("outputnode.mean_cbf_scrub", "inputnode.scrub"),
             ("outputnode.score_outliers", "inputnode.scoreindex"),
+            ("outputnode.mean_cbf_basil", "inputnode.basil"),
+            ("outputnode.mean_cbf_gm_basil", "inputnode.pvc"),
         ]),
         (inputnode, cbf_plot, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbf_plot, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
@@ -1024,8 +1024,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, cbfroiqu, [
-                ("outputnode.out_cbfb", "inputnode.basil"),
-                ("outputnode.out_cbfpv", "inputnode.pvc"),
+                ("outputnode.mean_cbf_basil", "inputnode.basil"),
+                ("outputnode.mean_cbf_gm_basil", "inputnode.pvc"),
             ]),
             (cbfroiqu, asl_derivatives_wf, [
                 ("outputnode.basil_hvoxf", "inputnode.basil_hvoxf"),
