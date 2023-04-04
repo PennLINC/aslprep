@@ -6,7 +6,7 @@ from nipype.interfaces.afni import Resample
 from nipype.pipeline import engine as pe
 from templateflow.api import get as get_template
 
-from aslprep.interfaces.cbf_computation import ComputeCBFQC, ComputeCBFQCforGE
+from aslprep.interfaces.qc import ComputeCBFQC, ComputeCBFQCforGE
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
