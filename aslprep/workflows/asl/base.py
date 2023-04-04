@@ -674,8 +674,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (refine_mask, aslmask_to_t1w, [("out_mask", "input_image")]),
             (aslmask_to_t1w, outputnode, [("output_image", "asl_mask_t1")]),
             (compute_cbf_wf, asl_t1_trans_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf"),
-                ("outputnode.out_mean", "inputnode.meancbf"),
+                ("outputnode.cbf_ts", "inputnode.cbf"),
+                ("outputnode.mean_cbf", "inputnode.meancbf"),
             ]),
             (asl_t1_trans_wf, asl_derivatives_wf, [
                 ("outputnode.cbf_t1", "inputnode.cbf_t1"),
@@ -688,14 +688,14 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_t1_trans_wf, [
-                    ("outputnode.cbf_ts_score", "inputnode.cbf_ts_score"),
-                    ("outputnode.mean_cbf_score", "inputnode.mean_cbf_score"),
-                    ("outputnode.mean_cbf_scrub", "inputnode.mean_cbf_scrub"),
+                    ("outputnode.cbf_ts_score", "inputnode.score"),
+                    ("outputnode.mean_cbf_score", "inputnode.avgscore"),
+                    ("outputnode.mean_cbf_scrub", "inputnode.scrub"),
                 ]),
                 (asl_t1_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.cbf_ts_score_t1", "inputnode.cbf_ts_score_t1"),
-                    ("outputnode.mean_cbf_score_t1", "inputnode.mean_cbf_score_t1"),
-                    ("outputnode.mean_cbf_scrub_t1", "inputnode.mean_cbf_scrub_t1"),
+                    ("outputnode.score_t1", "inputnode.score_t1"),
+                    ("outputnode.avgscore_t1", "inputnode.avgscore_t1"),
+                    ("outputnode.scrub_t1", "inputnode.scrub_t1"),
                 ]),
             ])
             # fmt:on
@@ -729,8 +729,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("out_mask", "inputnode.asl_mask_native"),
             ]),
             (compute_cbf_wf, asl_derivatives_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf"),
-                ("outputnode.out_mean", "inputnode.meancbf"),
+                ("outputnode.cbf_ts", "inputnode.cbf"),
+                ("outputnode.mean_cbf", "inputnode.meancbf"),
             ]),
         ])
         # fmt:on
@@ -785,8 +785,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (refine_mask, asl_std_trans_wf, [("out_mask", "inputnode.asl_mask")]),
             (asl_sdc_wf, asl_std_trans_wf, [("outputnode.out_warp", "inputnode.fieldwarp")]),
             (compute_cbf_wf, asl_std_trans_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf"),
-                ("outputnode.out_mean", "inputnode.meancbf"),
+                ("outputnode.cbf_ts", "inputnode.cbf"),
+                ("outputnode.mean_cbf", "inputnode.meancbf"),
             ]),
         ])
         # fmt:on
@@ -880,7 +880,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (inputnode, compt_qccbf_wf, [("t1w_tpms", "inputnode.t1w_tpms")]),
         (asl_reg_wf, compt_qccbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
         (inputnode, compt_qccbf_wf, [("t1w_mask", "inputnode.t1w_mask")]),
-        (compute_cbf_wf, compt_qccbf_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
+        (compute_cbf_wf, compt_qccbf_wf, [("outputnode.mean_cbf", "inputnode.meancbf")]),
         (asl_confounds_wf, compt_qccbf_wf, [("outputnode.confounds_file", "inputnode.confmat")]),
         (compt_qccbf_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
         (compt_qccbf_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
@@ -893,8 +893,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, compt_qccbf_wf, [
-                ("outputnode.out_avgscore", "inputnode.avgscore"),
-                ("outputnode.out_scrub", "inputnode.scrub"),
+                ("outputnode.mean_cbf_score", "inputnode.avgscore"),
+                ("outputnode.mean_cbf_scrub", "inputnode.scrub"),
             ]),
         ])
         # fmt:on
@@ -927,8 +927,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (compute_cbf_wf, cbf_plot, [
-            ("outputnode.out_cbf", "inputnode.cbf_ts"),
-            ("outputnode.out_mean", "inputnode.cbf"),
+            ("outputnode.cbf_ts", "inputnode.cbf_ts"),
+            ("outputnode.mean_cbf", "inputnode.cbf"),
             ("outputnode.out_cbfb", "inputnode.basil"),
             ("outputnode.out_cbfpv", "inputnode.pvc"),
             ("outputnode.cbf_ts_score", "inputnode.score_ts"),
@@ -987,7 +987,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_asl_trans_wf, cbfroiqu, [("outputnode.asl_mask", "inputnode.aslmask")]),
         (inputnode, cbfroiqu, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbfroiqu, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (compute_cbf_wf, cbfroiqu, [("outputnode.out_mean", "inputnode.cbf")]),
+        (compute_cbf_wf, cbfroiqu, [("outputnode.mean_cbf", "inputnode.cbf")]),
         (cbfroiqu, asl_derivatives_wf, [
             ("outputnode.cbf_hvoxf", "inputnode.cbf_hvoxf"),
             ("outputnode.cbf_sc207", "inputnode.cbf_sc207"),
@@ -1002,8 +1002,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, cbfroiqu, [
-                ("outputnode.out_avgscore", "inputnode.score"),
-                ("outputnode.out_scrub", "inputnode.scrub"),
+                ("outputnode.mean_cbf_score", "inputnode.score"),
+                ("outputnode.mean_cbf_scrub", "inputnode.scrub"),
             ]),
             (cbfroiqu, asl_derivatives_wf, [
                 ("outputnode.score_hvoxf", "inputnode.score_hvoxf"),
