@@ -51,7 +51,7 @@ class ParcellateCBF(SimpleInterface):
     output_spec = _ParcellateCBFOutputSpec
 
     def _run_interface(self, runtime):
-        filtered_file = self.inputs.filtered_file
+        in_file = self.inputs.in_file
         mask = self.inputs.mask
         atlas = self.inputs.atlas
         atlas_labels = self.inputs.atlas_labels
@@ -153,7 +153,7 @@ class ParcellateCBF(SimpleInterface):
         )
 
         # Use nilearn for time_series
-        timeseries_arr = masker.fit_transform(filtered_file)
+        timeseries_arr = masker.fit_transform(in_file)
         assert timeseries_arr.shape[1] == n_found_nodes
 
         # Apply the coverage mask
