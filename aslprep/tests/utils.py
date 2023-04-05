@@ -12,6 +12,8 @@ import numpy as np
 import requests
 from bids.layout import BIDSLayout
 
+from aslprep import config
+
 
 def download_test_data(dset, data_dir=None):
     """Download test data."""
@@ -38,11 +40,13 @@ def download_test_data(dset, data_dir=None):
     out_dir = os.path.join(data_dir, dset)
 
     if os.path.isdir(out_dir):
-        print(
+        config.loggers.utils.info(
             f"Dataset {dset} already exists. "
             "If you need to re-download the data, please delete the folder."
         )
         return out_dir
+    else:
+        config.loggers.utils.info(f"Downloading {dset} to {out_dir}")
 
     os.makedirs(out_dir, exist_ok=True)
     with requests.get(URLS[dset], stream=True) as req:
