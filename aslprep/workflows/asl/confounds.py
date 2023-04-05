@@ -8,10 +8,8 @@ from templateflow.api import get as get_template
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import ASLSummary, DerivativesDataSink, GatherConfounds
+from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
 from aslprep.niworkflows.interfaces.utils import AddTSVHeader
 
 

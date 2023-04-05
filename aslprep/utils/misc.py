@@ -727,24 +727,6 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     return newcbf
 
 
-def parcellate_cbf(roi_file, roi_label, cbfmap):
-    """Parcellate CBF data using atlas.
-
-    TODO: Replace with NiftiLabelsMasker.
-    """
-    data = nb.load(cbfmap).get_fdata()
-    roi = nb.load(roi_file).get_fdata()
-    roi_labels = np.loadtxt(roi_label)
-    if data.shape != roi.shape:
-        raise ValueError("Image-shapes do not match")
-
-    mean_vals = []
-    for roi_label in roi_labels:
-        mean_vals.append(np.mean(data[roi == roi_label]))
-
-    return mean_vals
-
-
 def estimate_labeling_efficiency(metadata):
     """Estimate labeling efficiency based on the available metadata.
 

@@ -475,9 +475,7 @@ effects of other kernels [@lanczos].
 
     if nonstd_spaces.intersection(("T1w", "anat")):
         t1cbfspace = True
-        from aslprep.niworkflows.interfaces.fixes import (
-            FixHeaderApplyTransforms as ApplyTransforms,
-        )
+        from aslprep.interfaces.ants import ApplyTransforms
 
         aslmask_to_t1w = pe.Node(
             ApplyTransforms(interpolation="MultiLabel"),

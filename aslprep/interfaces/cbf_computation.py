@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 from nibabel.processing import smooth_image
 from nilearn import image, maskers
-from nipype.interfaces.ants import ApplyTransforms
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     File,
@@ -21,11 +20,11 @@ from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
+from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.utils.misc import (
     _getcbfscore,
     _scrubcbf,
     estimate_labeling_efficiency,
-    parcellate_cbf,
     pcasl_or_pasl,
 )
 from aslprep.utils.qc import (
