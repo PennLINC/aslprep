@@ -1262,22 +1262,24 @@ def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_
 
     TODO: This should not be a function. It uses interfaces, so it should be a workflow.
     """
-    b1 = ApplyTransforms()
-    b1.inputs.dimension = 3
-    b1.inputs.float = True
-    b1.inputs.input_image = t1w_mask
-    b1.inputs.interpolation = "NearestNeighbor"
-    b1.inputs.reference_image = ref_asl_mask
-    b1.inputs.transforms = t12ref_transform
-    b1.inputs.input_image_type = 3
-    b1.inputs.output_image = tmp_mask
-    b1.run()
+    warp_t1w_mask_to_asl = ApplyTransforms(
+        dimension=3,
+        float=True,
+        input_image=t1w_mask,
+        interpolation="NearestNeighbor",
+        reference_image=ref_asl_mask,
+        transforms=[t12ref_transform],
+        input_image_type=3,
+        output_image=tmp_mask,
+    )
+    results = warp_t1w_mask_to_asl.run()
 
-    mat1 = MultiImageMaths()
-    mat1.inputs.in_file = tmp_mask
-    mat1.inputs.op_string = " -mul  %s -bin"
-    mat1.inputs.operand_files = ref_asl_mask
-    mat1.inputs.out_file = refined_mask
-    mat1.run()
+    modify_asl_mask = MultiImageMaths(
+        in_file=results.outputs.output_image,
+        op_string="-mul %s -bin",
+        operand_files=ref_asl_mask,
+        out_file=refined_mask,
+    )
+    results = modify_asl_mask.run()
 
-    return refined_mask
+    return results.outputs.out_file
