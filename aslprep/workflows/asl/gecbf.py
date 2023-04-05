@@ -10,6 +10,7 @@ from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
+from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_gecbf_compt_wf, init_parcellate_cbf_wf
@@ -708,6 +709,22 @@ effects of other kernels [@lanczos].
             ])
             # fmt:on
 
+    # xform to 'MNI152NLin2009cAsym' is always computed, so this should always be available.
+    select_xform_MNI152NLin2009cAsym_to_t1w = pe.Node(
+        KeySelect(fields=["std2anat_xfm"], key="MNI152NLin2009cAsym"),
+        name="carpetplot_select_std",
+        run_without_submitting=True,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, select_xform_MNI152NLin2009cAsym_to_t1w, [
+            ("std2anat_xfm", "std2anat_xfm"),
+            ("template", "keys"),
+        ]),
+    ])
+    # fmt:on
+
     parcellate_cbf_wf = init_parcellate_cbf_wf(
         scorescrub=scorescrub,
         basil=basil,
@@ -716,7 +733,9 @@ effects of other kernels [@lanczos].
 
     # fmt:off
     workflow.connect([
-        (inputnode, parcellate_cbf_wf, [("std2anat_xfm", "inputnode.template_to_anat_xform")]),
+        (select_xform_MNI152NLin2009cAsym_to_t1w, parcellate_cbf_wf, [
+            ("std2anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xform"),
+        ]),
         (refine_mask, parcellate_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, parcellate_cbf_wf, [
             ("outputnode.itk_t1_to_asl", "inputnode.anat_to_asl_xform"),
