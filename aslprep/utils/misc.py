@@ -253,36 +253,21 @@ def get_tis(metadata: "dict[str, Any]") -> list:
         return np.array(metadata["PostLabelingDelay"]).tolist()
 
 
-def _weightfun(x, wfun="huber"):
-    """Get weight fun and tuner."""
-    if wfun == "andrews":
-        tuner = 1.339
-        weight = (np.abs(x) < np.pi) * np.sin(x)
-    elif wfun == "bisquare":
-        tuner = 4.685
-        weight = (np.abs(x) < 1) * np.power((1 - np.power(x, 2)), 2)
-    elif wfun == "cauchy":
-        tuner = 2.385
-        weight = 1 / (1 + np.power(x, 2))
-    elif wfun == "logistic":
-        tuner = 1.205
-        weight = np.tanh(x) / x
-    elif wfun == "ols":
-        tuner = 1
-        weight = np.repeat(1, len(x))
-    elif wfun == "talwar":
-        tuner = 2.795
-        weight = 1 * (np.abs(x) < 1)
-    elif wfun == "welsch":
-        tuner = 2.985
-        weight = np.exp(-(np.power(x, 2)))
-    else:
-        tuner = 1.345
-        weight = 1 / np.abs(x)
-    return weight, tuner
+def _get_wfun_weight(x, wfun="huber"):
+    """Get wavelet function weight."""
+    weights = {
+        "andrews": (np.abs(x) < np.pi) * np.sin(x),
+        "bisquare": (np.abs(x) < 1) * np.power((1 - np.power(x, 2)), 2),
+        "cauchy": 1 / (1 + np.power(x, 2)),
+        "logistic": np.tanh(x) / x,
+        "ols": np.repeat(1, len(x)),
+        "talwar": 1 * (np.abs(x) < 1),
+        "welsch": np.exp(-(np.power(x, 2))),
+    }
+    return weights.get(wfun, 1 / np.abs(x))
 
 
-def _tune(wfun="huber"):
+def _get_wfun_tuner(wfun="huber"):
     """Get weight fun and tuner.
 
     But wait, you might say, the docstring makes no sense! Correct.
@@ -628,16 +613,17 @@ def _robust_fit(
     tiny_s = (1e-6) * (np.std(h, axis=0))
     tiny_s[tiny_s == 0] = 1
     D = np.sqrt(np.finfo(float).eps)
-    iter_num = 0
-    interlim = 10
-    while iter_num < interlim:
-        print("iteration  ", iter_num, "\n")
-        iter_num = iter_num + 1
+
+    iter_num, max_iters = 0, 10
+    while iter_num < max_iters:
+        print(f"iteration {iter_num}")
+        iter_num += 1
         check1 = np.subtract(np.abs(b - b0), (D * np.maximum(np.abs(b), np.abs(b0))))
         check1[check1 > 0] = 0
         if any(check1):
-            print(" \n converged after ", iter_num, "iterations\n")
+            print(f"converged after {iter_num} iterations")
             break
+
         r = Y - X * (np.tile(b, (dimcbf[0], 1)))
         radj = r * adjfactor / sw
         if flagstd == 1:
@@ -645,10 +631,11 @@ def _robust_fit(
         else:
             rs = np.sort(np.abs(radj), axis=0)
             s = np.median(rs, axis=0) / 0.6745
+
         rx1 = radj * (1 - flagmodrobust * np.exp(-np.tile(modrobprior, (dimcbf[0], 1))))
         rx2 = np.tile(np.maximum(s, tiny_s) * tune, (dimcbf[0], 1))
         r1 = rx1 / rx2
-        w, _ = _weightfun(r1, wfun)
+        w = _get_wfun_weight(r1, wfun)
         b0 = b
         z = np.sqrt(w)
         x = X * z
@@ -657,6 +644,7 @@ def _robust_fit(
             np.sum(x * x, axis=0) + mu + lmd
         )
         b = np.nan_to_num(b)
+
     return b
 
 
@@ -680,7 +668,8 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, wavelet_function="huber", thresh=0.7):
 
     Returns
     -------
-    newcbf : 3D numpy.ndarray
+    mean_cbf_scrub : 3D numpy.ndarray
+        Mean CBF after denoising with SCRUB.
     """
     n_volumes = cbf_ts.shape[3]
 
@@ -728,8 +717,8 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, wavelet_function="huber", thresh=0.7):
     global_prior_full = c[0] * gm.flatten() + c[1] * wm.flatten()
     global_prior = global_prior_full[mask.flatten() == 1]
 
-    tune = _tune(wfun=wavelet_function)
-    bb = _robust_fit(
+    tune = _get_wfun_tuner(wfun=wavelet_function)
+    masked_mean_cbf_scrub = _robust_fit(
         Y=masked_cbf_ts,
         mu=mu,
         global_prior=global_prior,
@@ -741,10 +730,10 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, wavelet_function="huber", thresh=0.7):
         flagstd=1,
         flagmodrobust=1,
     )
-    newcbf = np.zeros_like(mean_cbf)
-    newcbf[mask] = bb
-    newcbf = np.nan_to_num(newcbf)
-    return newcbf
+    mean_cbf_scrub = np.zeros_like(mean_cbf)
+    mean_cbf_scrub[mask] = masked_mean_cbf_scrub
+    mean_cbf_scrub = np.nan_to_num(mean_cbf_scrub)
+    return mean_cbf_scrub
 
 
 def get_atlas(atlasname):
