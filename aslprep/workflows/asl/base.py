@@ -975,23 +975,23 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
-    cbfroiqu = init_parcellate_cbf_wf(
+    parcellate_cbf_wf = init_parcellate_cbf_wf(
         basil=basil,
         scorescrub=scorescrub,
         name="parcellate_cbf_wf",
     )
+
     # fmt:off
     workflow.connect([
-        (asl_asl_trans_wf, cbfroiqu, [("outputnode.asl_mask", "inputnode.aslmask")]),
-        (inputnode, cbfroiqu, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
-        (asl_reg_wf, cbfroiqu, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (compt_cbf_wf, cbfroiqu, [("outputnode.out_mean", "inputnode.cbf")]),
-        (cbfroiqu, asl_derivatives_wf, [
-            ("outputnode.cbf_hvoxf", "inputnode.cbf_hvoxf"),
-            ("outputnode.cbf_sc207", "inputnode.cbf_sc207"),
-            ("outputnode.cbf_sc217", "inputnode.cbf_sc217"),
-            ("outputnode.cbf_sc407", "inputnode.cbf_sc407"),
-            ("outputnode.cbf_sc417", "inputnode.cbf_sc417"),
+        (inputnode, parcellate_cbf_wf, [("std2anat_xfm", "inputnode.template_to_anat_xform")]),
+        (asl_asl_trans_wf, parcellate_cbf_wf, [("outputnode.asl_mask", "inputnode.asl_mask")]),
+        (asl_reg_wf, parcellate_cbf_wf, [
+            ("outputnode.itk_t1_to_asl", "inputnode.anat_to_asl_xform"),
+        ]),
+        (compt_cbf_wf, parcellate_cbf_wf, [("outputnode.out_mean", "inputnode.mean_cbf")]),
+        (parcellate_cbf_wf, asl_derivatives_wf, [
+            ("outputnode.atlas_names", "inputnode.atlas_names"),
+            ("outputnode.mean_cbf_parcellated", "inputnode.mean_cbf_parcellated"),
         ]),
     ])
     # fmt:on
@@ -999,21 +999,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if scorescrub:
         # fmt:off
         workflow.connect([
-            (compt_cbf_wf, cbfroiqu, [
-                ("outputnode.out_avgscore", "inputnode.score"),
-                ("outputnode.out_scrub", "inputnode.scrub"),
+            (compt_cbf_wf, parcellate_cbf_wf, [
+                ("outputnode.out_avgscore", "inputnode.mean_cbf_score"),
+                ("outputnode.out_scrub", "inputnode.mean_cbf_scrub"),
             ]),
-            (cbfroiqu, asl_derivatives_wf, [
-                ("outputnode.score_hvoxf", "inputnode.score_hvoxf"),
-                ("outputnode.score_sc207", "inputnode.score_sc207"),
-                ("outputnode.score_sc217", "inputnode.score_sc217"),
-                ("outputnode.score_sc407", "inputnode.score_sc407"),
-                ("outputnode.score_sc417", "inputnode.score_sc417"),
-                ("outputnode.scrub_hvoxf", "inputnode.scrub_hvoxf"),
-                ("outputnode.scrub_sc207", "inputnode.scrub_sc207"),
-                ("outputnode.scrub_sc217", "inputnode.scrub_sc217"),
-                ("outputnode.scrub_sc407", "inputnode.scrub_sc407"),
-                ("outputnode.scrub_sc417", "inputnode.scrub_sc417"),
+            (parcellate_cbf_wf, asl_derivatives_wf, [
+                ("outputnode.mean_cbf_score_parcellated", "inputnode.mean_cbf_score_parcellated"),
+                ("outputnode.mean_cbf_scrub_parcellated", "inputnode.mean_cbf_scrub_parcellated"),
             ]),
         ])
         # fmt:on
@@ -1021,21 +1013,16 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if basil:
         # fmt:off
         workflow.connect([
-            (compt_cbf_wf, cbfroiqu, [
-                ("outputnode.out_cbfb", "inputnode.basil"),
-                ("outputnode.out_cbfpv", "inputnode.pvc"),
+            (compt_cbf_wf, parcellate_cbf_wf, [
+                ("outputnode.out_cbfb", "inputnode.mean_cbf_basil"),
+                ("outputnode.out_cbfpv", "inputnode.mean_cbf_gm_basil"),
             ]),
-            (cbfroiqu, asl_derivatives_wf, [
-                ("outputnode.basil_hvoxf", "inputnode.basil_hvoxf"),
-                ("outputnode.basil_sc207", "inputnode.basil_sc207"),
-                ("outputnode.basil_sc217", "inputnode.basil_sc217"),
-                ("outputnode.basil_sc407", "inputnode.basil_sc407"),
-                ("outputnode.basil_sc417", "inputnode.basil_sc417"),
-                ("outputnode.pvc_hvoxf", "inputnode.pvc_hvoxf"),
-                ("outputnode.pvc_sc207", "inputnode.pvc_sc207"),
-                ("outputnode.pvc_sc217", "inputnode.pvc_sc217"),
-                ("outputnode.pvc_sc407", "inputnode.pvc_sc407"),
-                ("outputnode.pvc_sc417", "inputnode.pvc_sc417"),
+            (parcellate_cbf_wf, asl_derivatives_wf, [
+                ("outputnode.mean_cbf_basil_parcellated", "inputnode.mean_cbf_basil_parcellated"),
+                (
+                    "outputnode.mean_cbf_gm_basil_parcellated",
+                    "inputnode.mean_cbf_gm_basil_parcellated",
+                ),
             ]),
         ])
         # fmt:on

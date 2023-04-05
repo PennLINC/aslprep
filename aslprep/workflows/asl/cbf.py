@@ -728,7 +728,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
                 "mean_cbf_scrub",
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
-                "aslmask",
+                "asl_mask",
                 "anat_to_asl_xform",
                 "template_to_anat_xform",
             ]
@@ -799,7 +799,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
 
     # fmt:off
     workflow.connect([
-        (inputnode, warp_atlases_to_asl_space, [("aslref", "reference_image")]),
+        (inputnode, warp_atlases_to_asl_space, [("asl_mask", "reference_image")]),
         (atlas_file_grabber, warp_atlases_to_asl_space, [("atlas_file", "input_image")]),
         (merge_xforms, warp_atlases_to_asl_space, [("out", "transforms")]),
     ])
@@ -824,7 +824,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
         workflow.connect([
             (inputnode, parcellate_cbf, [
                 (cbf_type, "in_cbf"),
-                ("aslmask", "mask"),
+                ("asl_mask", "mask"),
             ]),
             (atlas_file_grabber, parcellate_cbf, [("atlas_labels_file", "atlas_labels")]),
             (warp_atlases_to_asl_space, parcellate_cbf, [("output_image", "atlas")]),
