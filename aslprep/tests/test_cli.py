@@ -208,6 +208,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         "--output-spaces",
         "asl",
         "T1w",
+        "MNI152NLin2009cAsym",
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
