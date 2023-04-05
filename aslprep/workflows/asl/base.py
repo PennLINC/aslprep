@@ -940,38 +940,39 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    if spaces.get_spaces(nonstandard=False, dim=(3,)):
-        carpetplot_wf = init_carpetplot_wf(
-            mem_gb=mem_gb["resampled"],
-            metadata=metadata,
-            # cifti_output=config.workflow.cifti_output,
-            name="carpetplot_wf",
-        )
+    carpetplot_wf = init_carpetplot_wf(
+        mem_gb=mem_gb["resampled"],
+        metadata=metadata,
+        # cifti_output=config.workflow.cifti_output,
+        name="carpetplot_wf",
+    )
 
-        # Xform to 'MNI152NLin2009cAsym' is always computed.
-        carpetplot_select_std = pe.Node(
-            KeySelect(fields=["std2anat_xfm"], key="MNI152NLin2009cAsym"),
-            name="carpetplot_select_std",
-            run_without_submitting=True,
-        )
+    # xform to 'MNI152NLin2009cAsym' is always computed, so this should always be available.
+    select_xform_MNI152NLin2009cAsym_to_t1w = pe.Node(
+        KeySelect(fields=["std2anat_xfm"], key="MNI152NLin2009cAsym"),
+        name="carpetplot_select_std",
+        run_without_submitting=True,
+    )
 
-        # fmt:off
-        workflow.connect([
-            (inputnode, carpetplot_select_std, [
-                ("std2anat_xfm", "std2anat_xfm"),
-                ("template", "keys"),
-            ]),
-            (carpetplot_select_std, carpetplot_wf, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
-            (asl_asl_trans_wf if not multiecho else asl_t2s_wf, carpetplot_wf, [
-                ("outputnode.asl", "inputnode.asl"),
-            ]),
-            (refine_mask, carpetplot_wf, [("out_mask", "inputnode.asl_mask")]),
-            (asl_reg_wf, carpetplot_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-            (asl_confounds_wf, carpetplot_wf, [
-                ("outputnode.confounds_file", "inputnode.confounds_file"),
-            ]),
-        ])
-        # fmt:on
+    # fmt:off
+    workflow.connect([
+        (inputnode, select_xform_MNI152NLin2009cAsym_to_t1w, [
+            ("std2anat_xfm", "std2anat_xfm"),
+            ("template", "keys"),
+        ]),
+        (select_xform_MNI152NLin2009cAsym_to_t1w, carpetplot_wf, [
+            ("std2anat_xfm", "inputnode.std2anat_xfm"),
+        ]),
+        (asl_asl_trans_wf if not multiecho else asl_t2s_wf, carpetplot_wf, [
+            ("outputnode.asl", "inputnode.asl"),
+        ]),
+        (refine_mask, carpetplot_wf, [("out_mask", "inputnode.asl_mask")]),
+        (asl_reg_wf, carpetplot_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
+        (asl_confounds_wf, carpetplot_wf, [
+            ("outputnode.confounds_file", "inputnode.confounds_file"),
+        ]),
+    ])
+    # fmt:on
 
     parcellate_cbf_wf = init_parcellate_cbf_wf(
         basil=basil,
@@ -981,7 +982,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (inputnode, parcellate_cbf_wf, [("std2anat_xfm", "inputnode.template_to_anat_xform")]),
+        (select_xform_MNI152NLin2009cAsym_to_t1w, parcellate_cbf_wf, [
+            ("std2anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xform"),
+        ]),
         (asl_asl_trans_wf, parcellate_cbf_wf, [("outputnode.asl_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, parcellate_cbf_wf, [
             ("outputnode.itk_t1_to_asl", "inputnode.anat_to_asl_xform"),
