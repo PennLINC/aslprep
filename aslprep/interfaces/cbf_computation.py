@@ -1235,43 +1235,6 @@ class ComputeCBFQCforGE(SimpleInterface):
         return runtime
 
 
-class _ParcellateCBFInputSpec(BaseInterfaceInputSpec):
-    in_cbf = File(exists=True, mandatory=True, desc="cbf img")
-    atlasfile = File(exists=True, mandatory=True, desc="data")
-    atlasdata = File(exists=True, mandatory=True, desc="data")
-    atlaslabel = File(exists=True, mandatory=True, desc="data")
-
-
-class _ParcellateCBFOutputSpec(TraitedSpec):
-    atlascsv = File(exists=False, desc="harvard output csv")
-
-
-class ParcellateCBF(SimpleInterface):
-    """Parcellate CBF time series according to a given atlas."""
-
-    input_spec = _ParcellateCBFInputSpec
-    output_spec = _ParcellateCBFOutputSpec
-
-    def _run_interface(self, runtime):
-        self._results["atlascsv"] = fname_presuffix(
-            self.inputs.in_cbf,
-            suffix="atlas.csv",
-            newpath=runtime.cwd,
-            use_ext=False,
-        )
-        roiquant = parcellate_cbf(
-            roi_label=self.inputs.atlaslabel,
-            roi_file=self.inputs.atlasfile,
-            cbfmap=self.inputs.in_cbf,
-        )
-        data1 = pd.read_table(self.inputs.atlasdata, header=None, index_col=None, sep="\t")
-        bb = list(data1.values.tolist())
-        flattened = [val for sublist in bb for val in sublist]
-        datat = pd.DataFrame([flattened, roiquant])
-        datat.to_csv(self._results["atlascsv"], header=None, index=None)
-        return runtime
-
-
 def regmotoasl(asl, m0file, m02asl):
     """Calculate mean M0 image and mean ASL image, then FLIRT M0 image to ASL space.
 

@@ -12,10 +12,10 @@ from aslprep.interfaces.cbf_computation import (
     ComputeCBF,
     ExtractCBF,
     ExtractCBForDeltaM,
-    ParcellateCBF,
     RefineMask,
     ScoreAndScrubCBF,
 )
+from aslprep.interfaces.parcellation import ParcellateCBF
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
@@ -823,7 +823,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
         # fmt:off
         workflow.connect([
             (inputnode, parcellate_cbf, [
-                (cbf_type, "in_cbf"),
+                (cbf_type, "in_file"),
                 ("asl_mask", "mask"),
             ]),
             (atlas_file_grabber, parcellate_cbf, [("atlas_labels_file", "atlas_labels")]),
