@@ -20,12 +20,8 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
 )
-from aslprep.utils.misc import (
-    estimate_labeling_efficiency,
-    get_atlas,
-    get_tis,
-    pcasl_or_pasl,
-)
+from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
+from aslprep.utils.misc import estimate_labeling_efficiency, get_tis, pcasl_or_pasl
 
 
 def init_cbf_compt_wf(
@@ -698,7 +694,14 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
     return workflow
 
 
-def init_cbfroiquant_wf(scorescrub=False, basil=False, name="cbf_roiquant"):
+def init_parcellate_cbf_wf(
+    min_coverage=0.5,
+    scorescrub=False,
+    basil=False,
+    mem_gb=0.1,
+    omp_nthreads=1,
+    name="parcellate_cbf_wf",
+):
     """Parcellate CBF results using a set of atlases.
 
     Workflow Graph
@@ -706,9 +709,9 @@ def init_cbfroiquant_wf(scorescrub=False, basil=False, name="cbf_roiquant"):
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.cbf import init_cbfroiquant_wf
+            from aslprep.workflows.asl.cbf import init_parcellate_cbf_wf
 
-            wf = init_cbfroiquant_wf()
+            wf = init_parcellate_cbf_wf()
     """
     workflow = Workflow(name=name)
 
@@ -720,14 +723,14 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "cbf",
-                "score",
-                "scrub",
-                "basil",
-                "pvc",
+                "mean_cbf",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
                 "aslmask",
-                "t1_asl_xform",
-                "std2anat_xfm",
+                "anat_to_asl_xform",
+                "template_to_anat_xform",
             ]
         ),
         name="inputnode",
@@ -735,262 +738,100 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "cbf_hvoxf",
-                "score_hvoxf",
-                "scrub_hvoxf",
-                "basil_hvoxf",
-                "pvc_hvoxf",
-                "cbf_sc207",
-                "score_sc207",
-                "scrub_sc207",
-                "basil_sc207",
-                "pvc_sc207",
-                "cbf_sc217",
-                "score_sc217",
-                "scrub_sc217",
-                "basil_sc217",
-                "pvc_sc217",
-                "cbf_sc407",
-                "score_sc407",
-                "scrub_sc407",
-                "basil_sc407",
-                "pvc_sc407",
-                "cbf_sc417",
-                "score_sc417",
-                "scrub_sc417",
-                "basil_sc417",
-                "pvc_sc417",
-            ]
+                "atlas_names",
+                "mean_cbf_parcellated",
+                "mean_cbf_score_parcellated",
+                "mean_cbf_scrub_parcellated",
+                "mean_cbf_basil_parcellated",
+                "mean_cbf_gm_basil_parcellated",
+            ],
         ),
         name="outputnode",
     )
 
-    hvoxfile, hvoxdata, hvoxlabel = get_atlas(atlasname="HarvardOxford")
-    sc207file, sc207data, sc207label = get_atlas(atlasname="schaefer200x7")
-    sc217file, sc217data, sc217label = get_atlas(atlasname="schaefer200x17")
-    sc407file, sc407data, sc407label = get_atlas(atlasname="schaefer400x7")
-    sc417file, sc417data, sc417label = get_atlas(atlasname="schaefer400x17")
-
-    mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
-    hvoftrans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=hvoxfile,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="hvoftrans",
-    )
-    sc207trans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=sc207file,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="sc207trans",
-    )
-    sc217trans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=sc217file,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="sc217trans",
-    )
-    sc407trans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=sc407file,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="sc407trans",
-    )
-    sc417trans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=sc417file,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="sc417trans",
+    atlas_name_grabber = pe.Node(
+        niu.Function(output_names=["atlas_names"], function=get_atlas_names),
+        name="atlas_name_grabber",
     )
 
-    cbfroihv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="cbfroihv")
-    cbfroi207 = pe.Node(ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="cbf207")
-    cbfroi217 = pe.Node(ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="cbf217")
-    cbfroi407 = pe.Node(ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="cbf407")
-    cbfroi417 = pe.Node(ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="cbf417")
-    if scorescrub:
-        scorehv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scorehv")
-        score207 = pe.Node(
-            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data),
-            name="score207",
-        )
-        score217 = pe.Node(
-            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data),
-            name="score217",
-        )
-        score407 = pe.Node(
-            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data),
-            name="score407",
-        )
-        score417 = pe.Node(
-            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data),
-            name="score417",
-        )
-        scrubhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scrubhv")
-        scrub207 = pe.Node(
-            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data),
-            name="scrub207",
-        )
-        scrub217 = pe.Node(
-            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data),
-            name="scrub217",
-        )
-        scrub407 = pe.Node(
-            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data),
-            name="scrub407",
-        )
-        scrub417 = pe.Node(
-            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data),
-            name="scrub417",
-        )
+    # fmt:off
+    workflow.connect([(atlas_name_grabber, outputnode, [("atlas_names", "atlas_names")])])
+    # fmt:on
 
-    if basil:
-        basilhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="basilhv")
-        basil207 = pe.Node(
-            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data),
-            name="basil207",
-        )
-        basil217 = pe.Node(
-            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data),
-            name="basil217",
-        )
-        basil407 = pe.Node(
-            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data),
-            name="basil407",
-        )
-        basil417 = pe.Node(
-            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data),
-            name="basil417",
-        )
-        pvchv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="pvchv")
-        pvc207 = pe.Node(ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="pvc207")
-        pvc217 = pe.Node(ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="pvc217")
-        pvc407 = pe.Node(ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="pvc407")
-        pvc417 = pe.Node(ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="pvc417")
+    # get atlases via pkgrf
+    atlas_file_grabber = pe.MapNode(
+        niu.Function(
+            input_names=["atlas_name"],
+            output_names=["atlas_file", "atlas_labels_file"],
+            function=get_atlas_nifti,
+        ),
+        name="atlas_file_grabber",
+        iterfield=["atlas_name"],
+    )
+
+    # fmt:off
+    workflow.connect([(atlas_name_grabber, atlas_file_grabber, [("atlas_names", "atlas_name")])])
+    # fmt:on
+
+    merge_xforms = pe.Node(niu.Merge(2), name="merge_xforms")
 
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [
-            ("t1_asl_xform", "in2"),
-            ("std2anat_xfm", "in1"),
+        (inputnode, merge_xforms, [
+            ("template_to_anat_xform", "in1"),
+            ("anat_to_asl_xform", "in2"),
         ]),
-        (inputnode, hvoftrans, [("aslmask", "reference_image")]),
-        (mrg_xfms, hvoftrans, [("out", "transforms")]),
-        (inputnode, sc207trans, [("aslmask", "reference_image")]),
-        (mrg_xfms, sc207trans, [("out", "transforms")]),
-        (inputnode, sc217trans, [("aslmask", "reference_image")]),
-        (mrg_xfms, sc217trans, [("out", "transforms")]),
-        (inputnode, sc407trans, [("aslmask", "reference_image")]),
-        (mrg_xfms, sc407trans, [("out", "transforms")]),
-        (inputnode, sc417trans, [("aslmask", "reference_image")]),
-        (mrg_xfms, sc417trans, [("out", "transforms")]),
-        (hvoftrans, cbfroihv, [("output_image", "atlasfile")]),
-        (sc207trans, cbfroi207, [("output_image", "atlasfile")]),
-        (sc217trans, cbfroi217, [("output_image", "atlasfile")]),
-        (sc407trans, cbfroi407, [("output_image", "atlasfile")]),
-        (sc417trans, cbfroi417, [("output_image", "atlasfile")]),
-        (inputnode, cbfroihv, [("cbf", "in_cbf")]),
-        (inputnode, cbfroi207, [("cbf", "in_cbf")]),
-        (inputnode, cbfroi217, [("cbf", "in_cbf")]),
-        (inputnode, cbfroi407, [("cbf", "in_cbf")]),
-        (inputnode, cbfroi417, [("cbf", "in_cbf")]),
-        (cbfroihv, outputnode, [("atlascsv", "cbf_hvoxf")]),
-        (cbfroi207, outputnode, [("atlascsv", "cbf_sc207")]),
-        (cbfroi217, outputnode, [("atlascsv", "cbf_sc217")]),
-        (cbfroi407, outputnode, [("atlascsv", "cbf_sc407")]),
-        (cbfroi417, outputnode, [("atlascsv", "cbf_sc417")]),
     ])
     # fmt:on
 
+    # Using the generated transforms, apply them to get everything in the correct MNI form
+    warp_atlases_to_asl_space = pe.MapNode(
+        ApplyTransforms(
+            interpolation="GenericLabel",
+            input_image_type=3,
+            dimension=3,
+        ),
+        name="warp_atlases_to_asl_space",
+        iterfield=["input_image"],
+        mem_gb=mem_gb,
+        n_procs=omp_nthreads,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, warp_atlases_to_asl_space, [("aslref", "reference_image")]),
+        (atlas_file_grabber, warp_atlases_to_asl_space, [("atlas_file", "input_image")]),
+        (merge_xforms, warp_atlases_to_asl_space, [("out", "transforms")]),
+    ])
+    # fmt:on
+
+    cbf_types = ["mean_cbf"]
     if scorescrub:
-        # fmt:off
-        workflow.connect([
-            (hvoftrans, scorehv, [("output_image", "atlasfile")]),
-            (hvoftrans, scrubhv, [("output_image", "atlasfile")]),
-            (sc207trans, score207, [("output_image", "atlasfile")]),
-            (sc207trans, scrub207, [("output_image", "atlasfile")]),
-            (sc217trans, score217, [("output_image", "atlasfile")]),
-            (sc217trans, scrub217, [("output_image", "atlasfile")]),
-            (sc407trans, score407, [("output_image", "atlasfile")]),
-            (sc407trans, scrub407, [("output_image", "atlasfile")]),
-            (sc417trans, score417, [("output_image", "atlasfile")]),
-            (sc417trans, scrub417, [("output_image", "atlasfile")]),
-            (inputnode, scorehv, [("score", "in_cbf")]),
-            (inputnode, scrubhv, [("scrub", "in_cbf")]),
-            (inputnode, score207, [("score", "in_cbf")]),
-            (inputnode, scrub207, [("scrub", "in_cbf")]),
-            (inputnode, score217, [("score", "in_cbf")]),
-            (inputnode, scrub217, [("scrub", "in_cbf")]),
-            (inputnode, score407, [("score", "in_cbf")]),
-            (inputnode, scrub407, [("scrub", "in_cbf")]),
-            (inputnode, score417, [("score", "in_cbf")]),
-            (inputnode, scrub417, [("scrub", "in_cbf")]),
-            (scorehv, outputnode, [("atlascsv", "score_hvoxf")]),
-            (score207, outputnode, [("atlascsv", "score_sc207")]),
-            (score217, outputnode, [("atlascsv", "score_sc217")]),
-            (score407, outputnode, [("atlascsv", "score_sc407")]),
-            (score417, outputnode, [("atlascsv", "score_sc417")]),
-            (scrubhv, outputnode, [("atlascsv", "scrub_hvoxf")]),
-            (scrub207, outputnode, [("atlascsv", "scrub_sc207")]),
-            (scrub217, outputnode, [("atlascsv", "scrub_sc217")]),
-            (scrub407, outputnode, [("atlascsv", "scrub_sc407")]),
-            (scrub417, outputnode, [("atlascsv", "scrub_sc417")]),
-        ])
-        # fmt:on
+        cbf_types += ["mean_cbf_score", "mean_cbf_scrub"]
 
     if basil:
+        cbf_types += ["mean_cbf_basil", "mean_cbf_gm_basil"]
+
+    for cbf_type in cbf_types:
+        parcellate_cbf = pe.MapNode(
+            ParcellateCBF(min_coverage=min_coverage),
+            name=f"parcellate_{cbf_type}",
+            iterfield=["atlas", "atlas_labels"],
+            mem_gb=mem_gb,
+        )
+
         # fmt:off
         workflow.connect([
-            (hvoftrans, basilhv, [("output_image", "atlasfile")]),
-            (hvoftrans, pvchv, [("output_image", "atlasfile")]),
-            (sc207trans, pvc207, [("output_image", "atlasfile")]),
-            (sc207trans, basil207, [("output_image", "atlasfile")]),
-            (sc217trans, pvc217, [("output_image", "atlasfile")]),
-            (sc217trans, basil217, [("output_image", "atlasfile")]),
-            (sc407trans, pvc407, [("output_image", "atlasfile")]),
-            (sc407trans, basil407, [("output_image", "atlasfile")]),
-            (sc417trans, pvc417, [("output_image", "atlasfile")]),
-            (sc417trans, basil417, [("output_image", "atlasfile")]),
-            (inputnode, basilhv, [("basil", "in_cbf")]),
-            (inputnode, pvchv, [("pvc", "in_cbf")]),
-            (inputnode, basil207, [("basil", "in_cbf")]),
-            (inputnode, pvc207, [("pvc", "in_cbf")]),
-            (inputnode, basil217, [("basil", "in_cbf")]),
-            (inputnode, pvc217, [("pvc", "in_cbf")]),
-            (inputnode, basil407, [("basil", "in_cbf")]),
-            (inputnode, pvc407, [("pvc", "in_cbf")]),
-            (inputnode, basil417, [("basil", "in_cbf")]),
-            (inputnode, pvc417, [("pvc", "in_cbf")]),
-            (basilhv, outputnode, [("atlascsv", "basil_hvoxf")]),
-            (basil207, outputnode, [("atlascsv", "basil_sc207")]),
-            (basil217, outputnode, [("atlascsv", "basil_sc217")]),
-            (basil407, outputnode, [("atlascsv", "basil_sc407")]),
-            (basil417, outputnode, [("atlascsv", "basil_sc417")]),
-            (pvchv, outputnode, [("atlascsv", "pvc_hvoxf")]),
-            (pvc207, outputnode, [("atlascsv", "pvc_sc207")]),
-            (pvc217, outputnode, [("atlascsv", "pvc_sc217")]),
-            (pvc407, outputnode, [("atlascsv", "pvc_sc407")]),
-            (pvc417, outputnode, [("atlascsv", "pvc_sc417")]),
+            (inputnode, parcellate_cbf, [
+                (cbf_type, "in_cbf"),
+                ("aslmask", "mask"),
+            ]),
+            (atlas_file_grabber, parcellate_cbf, [("atlas_labels_file", "atlas_labels")]),
+            (warp_atlases_to_asl_space, parcellate_cbf, [("output_image", "atlas")]),
+            (parcellate_cbf, outputnode, [
+                ("timeseries", f"{cbf_type}_parcellated"),
+                ("coverage", f"{cbf_type}_coverage"),
+            ]),
         ])
         # fmt:on
 
