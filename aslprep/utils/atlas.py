@@ -31,7 +31,7 @@ def get_atlas_names():
 
 
 def get_atlas_nifti(atlas_name):
-    """Select atlas by name from xcp_d/data using pkgrf.
+    """Select atlas by name from aslprep/data using pkgrf.
 
     All atlases are in MNI space.
 
@@ -55,12 +55,12 @@ def get_atlas_nifti(atlas_name):
     if atlas_name[:8] == "Schaefer":
         if atlas_name[8:12] == "1017":
             atlas_file = pkgrf(
-                "xcp_d",
+                "aslprep",
                 "data/niftiatlas/Schaefer2018_1000Parcels_17Networks_order_FSLMNI152_2mm.nii",
             )
         else:
             atlas_file = pkgrf(
-                "xcp_d",
+                "aslprep",
                 (
                     "data/niftiatlas/"
                     f"Schaefer2018_{atlas_name[8]}00Parcels_17Networks_order_FSLMNI152_2mm.nii"
@@ -69,17 +69,17 @@ def get_atlas_nifti(atlas_name):
         atlas_labels_file = atlas_file.replace("_FSLMNI152_2mm.nii", "_info.tsv")
 
     elif atlas_name == "Glasser":
-        atlas_file = pkgrf("xcp_d", "data/niftiatlas/glasser360/glasser360MNI.nii.gz")
-        atlas_labels_file = pkgrf("xcp_d", "data/niftiatlas/Glasser_360Parcels_info.tsv")
+        atlas_file = pkgrf("aslprep", "data/niftiatlas/glasser360/glasser360MNI.nii.gz")
+        atlas_labels_file = pkgrf("aslprep", "data/niftiatlas/Glasser_360Parcels_info.tsv")
     elif atlas_name == "Gordon":
-        atlas_file = pkgrf("xcp_d", "data/niftiatlas/gordon333/gordon333MNI.nii.gz")
-        atlas_labels_file = pkgrf("xcp_d", "data/niftiatlas/Gordon_333Parcels_info.tsv")
+        atlas_file = pkgrf("aslprep", "data/niftiatlas/gordon333/gordon333MNI.nii.gz")
+        atlas_labels_file = pkgrf("aslprep", "data/niftiatlas/Gordon_333Parcels_info.tsv")
     elif atlas_name == "subcortical":
         atlas_file = pkgrf(
-            "xcp_d",
+            "aslprep",
             "data/niftiatlas/TianSubcortical/Tian_Subcortex_S3_3T.nii.gz",
         )
-        atlas_labels_file = pkgrf("xcp_d", "data/niftiatlas/Tian_info.tsv")
+        atlas_labels_file = pkgrf("aslprep", "data/niftiatlas/Tian_info.tsv")
     else:
         raise RuntimeError(f'Atlas "{atlas_name}" not available')
 
@@ -87,7 +87,7 @@ def get_atlas_nifti(atlas_name):
 
 
 def get_atlas_cifti(atlas_name):
-    """Select atlas by name from xcp_d/data.
+    """Select atlas by name from aslprep/data.
 
     All atlases are in 91K space.
 
@@ -111,12 +111,12 @@ def get_atlas_cifti(atlas_name):
     if atlas_name[:8] == "Schaefer":
         if atlas_name[8:12] == "1017":
             atlas_file = pkgrf(
-                "xcp_d",
+                "aslprep",
                 "data/ciftiatlas/Schaefer2018_1000Parcels_17Networks_order.dlabel.nii",
             )
         else:
             atlas_file = pkgrf(
-                "xcp_d",
+                "aslprep",
                 (
                     "data/ciftiatlas/"
                     f"Schaefer2018_{atlas_name[8]}00Parcels_17Networks_order.dlabel.nii"
@@ -125,19 +125,19 @@ def get_atlas_cifti(atlas_name):
         atlas_labels_file = atlas_file.replace(".dlabel.nii", "_info.tsv")
     elif atlas_name == "Glasser":
         atlas_file = pkgrf(
-            "xcp_d",
+            "aslprep",
             "data/ciftiatlas/glasser_space-fsLR_den-32k_desc-atlas.dlabel.nii",
         )
-        atlas_labels_file = pkgrf("xcp_d", "data/ciftiatlas/Glasser_360Parcels_info.tsv")
+        atlas_labels_file = pkgrf("aslprep", "data/ciftiatlas/Glasser_360Parcels_info.tsv")
     elif atlas_name == "Gordon":
         atlas_file = pkgrf(
-            "xcp_d",
+            "aslprep",
             "data/ciftiatlas/gordon_space-fsLR_den-32k_desc-atlas.dlabel.nii",
         )
-        atlas_labels_file = pkgrf("xcp_d", "data/ciftiatlas/Gordon_333Parcels_info.tsv")
+        atlas_labels_file = pkgrf("aslprep", "data/ciftiatlas/Gordon_333Parcels_info.tsv")
     elif atlas_name == "subcortical":
-        atlas_file = pkgrf("xcp_d", "data/ciftiatlas/Tian_Subcortex_S3_3T_32k.dlabel.nii")
-        atlas_labels_file = pkgrf("xcp_d", "data/ciftiatlas/Tian_info.tsv")
+        atlas_file = pkgrf("aslprep", "data/ciftiatlas/Tian_Subcortex_S3_3T_32k.dlabel.nii")
+        atlas_labels_file = pkgrf("aslprep", "data/ciftiatlas/Tian_info.tsv")
     else:
         raise RuntimeError(f'Atlas "{atlas_name}" not available')
 
