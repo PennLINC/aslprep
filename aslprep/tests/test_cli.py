@@ -207,7 +207,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         "--omp-nthreads=2",
         "--output-spaces",
         "asl",
-        "MNI152NLin6Asym",
+        "T1w",
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
