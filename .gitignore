@@ -1,4 +1,5 @@
 .circleci/local_aslprep_path.txt
+aslprep/tests/data/test_data
 
 .DS_Store
 .trash

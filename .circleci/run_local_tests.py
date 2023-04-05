@@ -20,6 +20,16 @@ def _get_parser():
         type=str,
         help="Test pattern.",
         required=False,
+        default=None,
+    )
+    parser.add_argument(
+        "-m",
+        dest="test_mark",
+        metavar="LABEL",
+        type=str,
+        help="Test mark label.",
+        required=False,
+        default=None,
     )
     return parser
 
@@ -49,7 +59,7 @@ def run_command(command, env=None):
         )
 
 
-def run_tests(test_regex):
+def run_tests(test_regex, test_mark):
     """Run the tests."""
     local_patch = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     mounted_code = "/usr/local/miniconda/lib/python3.8/site-packages/aslprep"
@@ -59,12 +69,14 @@ def run_tests(test_regex):
     run_str += "pennlinc/aslprep:unstable "
     run_str += (
         f"{mounted_code}/aslprep "
-        f"--data_dir={mounted_code}/tests/data/test_data "
-        f"--output_dir={mounted_code}/tests/data/test_data/run_pytests/out "
-        f"--working_dir={mounted_code}/tests/data/test_data/run_pytests/work "
+        f"--data_dir={mounted_code}/aslprep/tests/data/test_data "
+        f"--output_dir={mounted_code}/aslprep/tests/data/test_data/run_pytests/out "
+        f"--working_dir={mounted_code}/aslprep/tests/data/test_data/run_pytests/work "
     )
     if test_regex:
         run_str += f"-k {test_regex} "
+    elif test_mark:
+        run_str += f"-rP -o log_cli=true -m {test_mark} "
 
     run_command(run_str)
 
