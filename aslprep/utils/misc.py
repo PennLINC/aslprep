@@ -8,7 +8,6 @@ from typing import Any
 
 import nibabel as nb
 import numpy as np
-from pkg_resources import resource_filename as pkgrf
 from scipy.stats import median_abs_deviation
 
 
@@ -726,51 +725,6 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     newcbf[mask == 1] = bb
     newcbf = np.nan_to_num(newcbf)
     return newcbf
-
-
-def get_atlas(atlasname):
-    """Find atlas file and metadata associated with a given atlas name."""
-    if atlasname == "HarvardOxford":
-        atlasfile = pkgrf("aslprep", "data/atlas/HarvardOxford/HarvardOxfordMNI.nii.gz")
-        atlasdata = pkgrf("aslprep", "data/atlas/HarvardOxford/HarvardOxfordNodeNames.txt")
-        atlaslabel = pkgrf("aslprep", "data/atlas/HarvardOxford/HarvardOxfordNodeIndex.1D")
-    elif atlasname == "schaefer200x7":
-        atlasfile = pkgrf("aslprep", "data/atlas/schaefer200x7/schaefer200x7MNI.nii.gz")
-        atlasdata = pkgrf("aslprep", "data/atlas/schaefer200x7/schaefer200x7NodeNames.txt")
-        atlaslabel = pkgrf("aslprep", "data/atlas/schaefer200x7/schaefer200x7NodeIndex.1D")
-    elif atlasname == "schaefer200x17":
-        atlasfile = pkgrf("aslprep", "data/atlas/schaefer200x17/schaefer200x17MNI.nii.gz")
-        atlasdata = pkgrf("aslprep", "data/atlas/schaefer200x17/schaefer200x17NodeNames.txt")
-        atlaslabel = pkgrf("aslprep", "data/atlas/schaefer200x17/schaefer200x17NodeIndex.1D")
-    elif atlasname == "schaefer400x7":
-        atlasfile = pkgrf("aslprep", "data/atlas/schaefer400x7/schaefer400x7MNI.nii.gz")
-        atlasdata = pkgrf("aslprep", "data/atlas/schaefer400x7/schaefer400x7NodeNames.txt")
-        atlaslabel = pkgrf("aslprep", "data/atlas/schaefer200x17/schaefer200x17NodeIndex.1D")
-    elif atlasname == "schaefer400x17":
-        atlasfile = pkgrf("aslprep", "data/atlas/schaefer400x17/schaefer400x17MNI.nii.gz")
-        atlasdata = pkgrf("aslprep", "data/atlas/schaefer400x17/schaefer400x17NodeNames.txt")
-        atlaslabel = pkgrf("aslprep", "data/atlas/schaefer400x17/schaefer400x17NodeIndex.1D")
-    else:
-        raise RuntimeError("atlas not available")
-    return atlasfile, atlasdata, atlaslabel
-
-
-def parcellate_cbf(roi_file, roi_label, cbfmap):
-    """Parcellate CBF data using atlas.
-
-    TODO: Replace with NiftiLabelsMasker.
-    """
-    data = nb.load(cbfmap).get_fdata()
-    roi = nb.load(roi_file).get_fdata()
-    roi_labels = np.loadtxt(roi_label)
-    if data.shape != roi.shape:
-        raise ValueError("Image-shapes do not match")
-
-    mean_vals = []
-    for roi_label in roi_labels:
-        mean_vals.append(np.mean(data[roi == roi_label]))
-
-    return mean_vals
 
 
 def estimate_labeling_efficiency(metadata):

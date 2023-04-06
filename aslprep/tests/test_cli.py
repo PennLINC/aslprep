@@ -9,13 +9,17 @@ from pkg_resources import resource_filename as pkgrf
 from aslprep.cli.parser import parse_args
 from aslprep.cli.workflow import build_boilerplate, build_workflow
 from aslprep.niworkflows.reports import generate_reports
-from aslprep.tests.utils import check_generated_files, get_test_data_path
+from aslprep.tests.utils import (
+    check_generated_files,
+    download_test_data,
+    get_test_data_path,
+)
 
 nipype_config.enable_debug_mode()
 
 
 @pytest.mark.examples_pasl_multipld
-def test_examples_pasl_multipld(datasets, output_dir, working_dir):
+def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_003 ASL-BIDS examples dataset.
 
     This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
@@ -26,12 +30,12 @@ def test_examples_pasl_multipld(datasets, output_dir, working_dir):
     TEST_NAME = "examples_pasl_multipld"
     PARTICIPANT_LABEL = "01"
 
-    data_dir = datasets[TEST_NAME]
+    dataset_dir = download_test_data(TEST_NAME, data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME)
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
-        data_dir,
+        dataset_dir,
         out_dir,
         "participant",
         f"--participant-label={PARTICIPANT_LABEL}",
@@ -42,14 +46,14 @@ def test_examples_pasl_multipld(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_fail(parameters)
 
 
 @pytest.mark.examples_pcasl_multipld
-def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
+def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_004 ASL-BIDS examples dataset.
 
     This dataset has 48 control-label pairs at 6 different PLDs, along with a separate M0 scan.
@@ -59,12 +63,12 @@ def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
     TEST_NAME = "examples_pcasl_multipld"
     PARTICIPANT_LABEL = "01"
 
-    data_dir = datasets[TEST_NAME]
+    dataset_dir = download_test_data(TEST_NAME, data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME)
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
-        data_dir,
+        dataset_dir,
         out_dir,
         "participant",
         f"--participant-label={PARTICIPANT_LABEL}",
@@ -75,14 +79,14 @@ def test_examples_pcasl_multipld(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_fail(parameters)
 
 
 @pytest.mark.examples_pcasl_singlepld_ge
-def test_examples_pcasl_singlepld_ge(datasets, output_dir, working_dir):
+def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_001 ASL-BIDS examples dataset.
 
     This test uses a GE session with two volumes: one deltam and one M0.
@@ -90,14 +94,14 @@ def test_examples_pcasl_singlepld_ge(datasets, output_dir, working_dir):
     TEST_NAME = "examples_pcasl_singlepld_ge"
     PARTICIPANT_LABEL = "103"
 
-    data_dir = datasets["examples_pcasl_singlepld"]
+    dataset_dir = download_test_data("examples_pcasl_singlepld", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME)
     work_dir = os.path.join(working_dir, TEST_NAME)
     test_data_dir = get_test_data_path()
     filter_file = os.path.join(test_data_dir, f"{TEST_NAME}_filter.json")
 
     parameters = [
-        data_dir,
+        dataset_dir,
         out_dir,
         "participant",
         f"--participant-label={PARTICIPANT_LABEL}",
@@ -109,14 +113,14 @@ def test_examples_pcasl_singlepld_ge(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 @pytest.mark.examples_pcasl_singlepld_philips
-def test_examples_pcasl_singlepld_philips(datasets, output_dir, working_dir):
+def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_002 ASL-BIDS examples datasets.
 
     This test a Philips session.
@@ -124,14 +128,14 @@ def test_examples_pcasl_singlepld_philips(datasets, output_dir, working_dir):
     TEST_NAME = "examples_pcasl_singlepld_philips"
     PARTICIPANT_LABEL = "103"
 
-    data_dir = datasets["examples_pcasl_singlepld"]
+    dataset_dir = download_test_data("examples_pcasl_singlepld", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME)
     work_dir = os.path.join(working_dir, TEST_NAME)
     test_data_dir = get_test_data_path()
     filter_file = os.path.join(test_data_dir, f"{TEST_NAME}_filter.json")
 
     parameters = [
-        data_dir,
+        dataset_dir,
         out_dir,
         "participant",
         f"--participant-label={PARTICIPANT_LABEL}",
@@ -143,14 +147,14 @@ def test_examples_pcasl_singlepld_philips(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 @pytest.mark.examples_pcasl_singlepld_siemens
-def test_examples_pcasl_singlepld_siemens(datasets, output_dir, working_dir):
+def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_005 ASL-BIDS examples datasets.
 
     This test a Siemens session.
@@ -158,14 +162,14 @@ def test_examples_pcasl_singlepld_siemens(datasets, output_dir, working_dir):
     TEST_NAME = "examples_pcasl_singlepld_siemens"
     PARTICIPANT_LABEL = "103"
 
-    data_dir = datasets["examples_pcasl_singlepld"]
+    dataset_dir = download_test_data("examples_pcasl_singlepld", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME)
     work_dir = os.path.join(working_dir, TEST_NAME)
     test_data_dir = get_test_data_path()
     filter_file = os.path.join(test_data_dir, f"{TEST_NAME}_filter.json")
 
     parameters = [
-        data_dir,
+        dataset_dir,
         out_dir,
         "participant",
         f"--participant-label={PARTICIPANT_LABEL}",
@@ -177,42 +181,45 @@ def test_examples_pcasl_singlepld_siemens(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 @pytest.mark.test_001
-def test_test_001(datasets, output_dir, working_dir):
+def test_test_001(data_dir, output_dir, working_dir):
     """Run aslprep on sub-01 data."""
     TEST_NAME = "test_001"
     PARTICIPANT_LABEL = "01"
 
-    data_dir = datasets[TEST_NAME]
+    dataset_dir = download_test_data(TEST_NAME, data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME)
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
-        data_dir,
+        dataset_dir,
         out_dir,
         "participant",
         f"--participant-label={PARTICIPANT_LABEL}",
         f"-w={work_dir}",
         "--nthreads=2",
         "--omp-nthreads=2",
-        "--output-spaces=asl",
+        "--output-spaces",
+        "asl",
+        "T1w",
+        "MNI152NLin2009cAsym",
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 @pytest.mark.test_002
-def test_test_002(datasets, output_dir, working_dir):
+def test_test_002(data_dir, output_dir, working_dir):
     """Run aslprep on sub-10R01383.
 
     This dataset contains PCASL data from a GE scanner.
@@ -221,40 +228,42 @@ def test_test_002(datasets, output_dir, working_dir):
     TEST_NAME = "test_002"
     PARTICIPANT_LABEL = "10R01383"
 
-    data_dir = datasets[TEST_NAME]
+    dataset_dir = download_test_data(TEST_NAME, data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME)
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
-        data_dir,
+        dataset_dir,
         out_dir,
         "participant",
         f"--participant-label={PARTICIPANT_LABEL}",
         f"-w={work_dir}",
         "--nthreads=2",
         "--omp-nthreads=2",
-        "--output-spaces=asl",
+        "--output-spaces",
+        "asl",
+        "MNI152NLin2009cAsym",
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 @pytest.mark.test_003
-def test_test_003(datasets, output_dir, working_dir):
+def test_test_003(data_dir, output_dir, working_dir):
     """Run aslprep on sub-A00086748."""
     TEST_NAME = "test_003"
     PARTICIPANT_LABEL = "A00086748"
 
-    data_dir = datasets[TEST_NAME]
+    dataset_dir = download_test_data(TEST_NAME, data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME)
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
-        data_dir,
+        dataset_dir,
         out_dir,
         "participant",
         f"--participant-label={PARTICIPANT_LABEL}",
@@ -265,7 +274,7 @@ def test_test_003(datasets, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
-        f"--anat-derivatives={os.path.join(data_dir, 'derivatives/smriprep')}",
+        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)

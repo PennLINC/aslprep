@@ -7,11 +7,9 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.ge import GeReferenceFile
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
 from aslprep.niworkflows.interfaces.masks import SimpleShowMaskRPT
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
@@ -229,9 +227,6 @@ def init_asl_t1_getrans_wf(
             )
     """
     from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from aslprep.niworkflows.interfaces.fixes import (
-        FixHeaderApplyTransforms as ApplyTransforms,
-    )
 
     workflow = Workflow(name=name)
     inputnode = pe.Node(
