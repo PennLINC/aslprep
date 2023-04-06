@@ -24,16 +24,16 @@ from aslprep.utils.qc import (
 )
 
 
-class _ComputeCBFQCforGEInputSpec(BaseInterfaceInputSpec):
+class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="original asl_file")
     in_meancbf = File(exists=True, mandatory=True, desc="cbf img")
     in_avgscore = File(exists=True, mandatory=False, desc="cbf img")
     in_scrub = File(exists=True, mandatory=False, desc="cbf img")
     in_basil = File(exists=True, mandatory=False, desc="cbf img")
     in_pvc = File(exists=True, mandatory=False, desc="cbf img")
-    in_greyM = File(exists=True, mandatory=True, desc="grey  matter")
-    in_whiteM = File(exists=True, mandatory=True, desc="white  matter")
-    in_csf = File(exists=True, mandatory=True, desc="csf")
+    in_greyM = File(exists=True, mandatory=True, desc="grey matter tissue probability map")
+    in_whiteM = File(exists=True, mandatory=True, desc="white matter tissue probability map")
+    in_csf = File(exists=True, mandatory=True, desc="csf tissue probability map")
     in_aslmask = File(exists=True, mandatory=True, desc="asl mask in native space")
     in_t1mask = File(exists=True, mandatory=True, desc="t1wmask in native space ")
     in_aslmaskstd = File(exists=True, mandatory=False, desc="asl mask in native space")
@@ -52,11 +52,11 @@ class _ComputeCBFQCforGEInputSpec(BaseInterfaceInputSpec):
     )
 
 
-class _ComputeCBFQCforGEOutputSpec(TraitedSpec):
+class _ComputeCBFQCOutputSpec(TraitedSpec):
     qc_file = File(exists=False, desc="qc file ")
 
 
-class ComputeCBFQCforGE(SimpleInterface):
+class ComputeCBFQC(SimpleInterface):
     """Calculate a series of CBF quality control metrics for GE data.
 
     compute qc from confound regressors
@@ -64,8 +64,8 @@ class ComputeCBFQCforGE(SimpleInterface):
     coregistration and regsitration indexes
     """
 
-    input_spec = _ComputeCBFQCforGEInputSpec
-    output_spec = _ComputeCBFQCforGEOutputSpec
+    input_spec = _ComputeCBFQCInputSpec
+    output_spec = _ComputeCBFQCOutputSpec
 
     def _run_interface(self, runtime):
         thresh = self.inputs.tpm_threshold
@@ -121,9 +121,15 @@ class ComputeCBFQCforGE(SimpleInterface):
                 thresh=thresh,
             )
             negscore = negativevoxel(
-                cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=thresh
+                cbf=self.inputs.in_avgscore,
+                gm=self.inputs.in_greyM,
+                thresh=thresh,
             )
-            negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=thresh)
+            negscrub = negativevoxel(
+                cbf=self.inputs.in_scrub,
+                gm=self.inputs.in_greyM,
+                thresh=thresh,
+            )
         else:
             print("no score inputs, setting to np.nan")
             scorecbf_qei = np.nan
@@ -146,8 +152,16 @@ class ComputeCBFQCforGE(SimpleInterface):
                 img=self.inputs.in_pvc,
                 thresh=thresh,
             )
-            negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=thresh)
-            negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=thresh)
+            negbasil = negativevoxel(
+                cbf=self.inputs.in_basil,
+                gm=self.inputs.in_greyM,
+                thresh=thresh,
+            )
+            negpvc = negativevoxel(
+                cbf=self.inputs.in_pvc,
+                gm=self.inputs.in_greyM,
+                thresh=thresh,
+            )
         else:
             print("no basil inputs, setting to np.nan")
             basilcbf_qei = np.nan
@@ -156,64 +170,52 @@ class ComputeCBFQCforGE(SimpleInterface):
             negpvc = np.nan
 
         gwratio = np.divide(meancbf[0], meancbf[1])
-        negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=thresh)
+        negcbf = negativevoxel(
+            cbf=self.inputs.in_meancbf,
+            gm=self.inputs.in_greyM,
+            thresh=thresh,
+        )
 
+        metrics_dict = {
+            "FD": [fd],
+            "rmsd": [rms],
+            "coregDC": [regDC],
+            "coregJC": [regJC],
+            "coregCC": [regCC],
+            "coregCOV": [regCov],
+            "cbfQEI": [meancbf_qei],
+            "scoreQEI": [scorecbf_qei],
+            "scrubQEI": [scrub_qei],
+            "basilQEI": [basilcbf_qei],
+            "pvcQEI": [pvcbf_qei],
+            "GMmeanCBF": [meancbf[0]],
+            "WMmeanCBF": [meancbf[1]],
+            "Gm_Wm_CBF_ratio": [gwratio],
+            "NEG_CBF_PERC": [negcbf],
+            "NEG_SCORE_PERC": [negscore],
+            "NEG_SCRUB_PERC": [negscrub],
+            "NEG_BASIL_PERC": [negbasil],
+            "NEG_PVC_PERC": [negpvc],
+        }
+
+        normalization_metrics_dict = {}
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
-            dict1 = {
-                "FD": [fd],
-                "rmsd": [rms],
-                "coregDC": [regDC],
-                "coregJC": [regJC],
-                "coregCC": [regCC],
-                "coregCOV": [regCov],
+            normalization_metrics_dict = {
                 "normDC": [normDC],
                 "normJC": [normJC],
                 "normCC": [normCC],
                 "normCOV": [normCov],
-                "cbfQEI": [meancbf_qei],
-                "scoreQEI": [scorecbf_qei],
-                "scrubQEI": [scrub_qei],
-                "basilQEI": [basilcbf_qei],
-                "pvcQEI": [pvcbf_qei],
-                "GMmeanCBF": [meancbf[0]],
-                "WMmeanCBF": [meancbf[1]],
-                "Gm_Wm_CBF_ratio": [gwratio],
-                "NEG_CBF_PERC": [negcbf],
-                "NEG_SCORE_PERC": [negscore],
-                "NEG_SCRUB_PERC": [negscrub],
-                "NEG_BASIL_PERC": [negbasil],
-                "NEG_PVC_PERC": [negpvc],
             }
-        else:
-            dict1 = {
-                "FD": [fd],
-                "rmsd": [rms],
-                "coregDC": [regDC],
-                "coregJC": [regJC],
-                "coregCC": [regCC],
-                "coregCOV": [regCov],
-                "cbfQEI": [meancbf_qei],
-                "scoreQEI": [scorecbf_qei],
-                "scrubQEI": [scrub_qei],
-                "basilQEI": [basilcbf_qei],
-                "pvcQEI": [pvcbf_qei],
-                "GMmeanCBF": [meancbf[0]],
-                "WMmeanCBF": [meancbf[1]],
-                "Gm_Wm_CBF_ratio": [gwratio],
-                "NEG_CBF_PERC": [negcbf],
-                "NEG_SCORE_PERC": [negscore],
-                "NEG_SCRUB_PERC": [negscrub],
-                "NEG_BASIL_PERC": [negbasil],
-                "NEG_PVC_PERC": [negpvc],
-            }
-        _, file1 = os.path.split(self.inputs.in_file)
-        bb = file1.split("_")
-        dict2 = {}
-        for i in range(len(bb) - 1):
-            dict2.update({bb[i].split("-")[0]: bb[i].split("-")[1]})
-        dict2.update(dict1)
 
-        df = pd.DataFrame(dict2)
+        # Extract entities from the input file.
+        # Useful for identifying ASL files after concatenating the QC files across runs.
+        _, base_file = os.path.split(self.inputs.in_file)
+        entities = base_file.split("_")[:-1]
+        entities_dict = {ent.split("-")[0]: ent.split("-")[1] for ent in entities}
+
+        # Combine the dictionaries and convert to a DataFrame.
+        qc_dict = {**entities_dict, **metrics_dict, **normalization_metrics_dict}
+        qc_df = pd.DataFrame(qc_dict)
 
         self._results["qc_file"] = fname_presuffix(
             self.inputs.in_meancbf,
@@ -221,6 +223,6 @@ class ComputeCBFQCforGE(SimpleInterface):
             newpath=runtime.cwd,
             use_ext=False,
         )
-        df.to_csv(self._results["qc_file"], index=False, header=True)
+        qc_df.to_csv(self._results["qc_file"], index=False, header=True, na_rep="n/a")
 
         return runtime

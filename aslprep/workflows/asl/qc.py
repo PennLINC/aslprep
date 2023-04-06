@@ -6,7 +6,7 @@ from nipype.interfaces.afni import Resample
 from nipype.pipeline import engine as pe
 from templateflow.api import get as get_template
 
-from aslprep.interfaces.cbf_computation import ComputeCBFQC, ComputeCBFQCforGE
+from aslprep.interfaces.qc import ComputeCBFQC
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.fixes import (
     FixHeaderApplyTransforms as ApplyTransforms,
@@ -126,7 +126,7 @@ negative CBF values.
     )
 
     qccompute = pe.Node(
-        ComputeCBFQC(in_file=asl_file),
+        ComputeCBFQC(in_file=asl_file, tpm_threshold=0.7),
         name="qccompute",
         run_without_submitting=True,
         mem_gb=0.2,
@@ -305,7 +305,7 @@ def init_cbfgeqc_compt_wf(
     )
 
     qccompute = pe.Node(
-        ComputeCBFQCforGE(in_file=asl_file),
+        ComputeCBFQC(in_file=asl_file, tpm_threshold=0.8),
         name="qccompute",
         run_without_submitting=True,
         mem_gb=0.2,
