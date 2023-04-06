@@ -114,6 +114,10 @@ def init_asl_derivatives_wf(
     raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
     raw_sources.inputs.bids_root = bids_root
 
+    # fmt:off
+    workflow.connect([(inputnode, raw_sources, [("source_file", "in_files")])])
+    # fmt:on
+
     if output_confounds:
         ds_confounds = pe.Node(
             DerivativesDataSink(
@@ -128,7 +132,6 @@ def init_asl_derivatives_wf(
 
         # fmt:off
         workflow.connect([
-            (inputnode, raw_sources, [("source_file", "in_files")]),
             (inputnode, ds_confounds, [
                 ("source_file", "source_file"),
                 ("confounds", "in_file"),
@@ -324,13 +327,14 @@ def init_asl_derivatives_wf(
     # Native-space derivatives
     if nonstd_spaces.intersection(("func", "run", "asl", "sbref")):
         for base_input in base_inputs:
+            base_input_native = f"{base_input}_native"
             ds_base_input_native = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
                     compress=True,
                     **BASE_INPUT_FIELDS[base_input],
                 ),
-                name=f"ds_{base_input}_native",
+                name=f"ds_{base_input_native}",
                 run_without_submitting=True,
                 mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             )
@@ -339,7 +343,7 @@ def init_asl_derivatives_wf(
             workflow.connect([
                 (inputnode, ds_base_input_native, [
                     ("source_file", "source_file"),
-                    (f"{base_input}_native", "in_file"),
+                    (base_input_native, "in_file"),
                 ]),
             ])
             # fmt:on
@@ -353,6 +357,7 @@ def init_asl_derivatives_wf(
     # T1w-space derivatives
     if nonstd_spaces.intersection(("T1w", "anat")):
         for base_input in base_inputs:
+            base_input_t1 = f"{base_input}_t1"
             ds_base_input_t1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
@@ -360,7 +365,7 @@ def init_asl_derivatives_wf(
                     space="T1w",
                     **BASE_INPUT_FIELDS[base_input],
                 ),
-                name=f"ds_{base_input}_t1",
+                name=f"ds_{base_input_t1}",
                 run_without_submitting=True,
                 mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             )
@@ -369,7 +374,7 @@ def init_asl_derivatives_wf(
             workflow.connect([
                 (inputnode, ds_base_input_t1, [
                     ("source_file", "source_file"),
-                    (f"{base_input}_t1", "in_file"),
+                    (base_input_t1, "in_file"),
                 ]),
             ])
             # fmt:on
@@ -393,7 +398,7 @@ def init_asl_derivatives_wf(
     )
 
     select_std = pe.Node(
-        KeySelect(fields=[f"{bi}_std" for bi in base_inputs] + ["template"]),
+        KeySelect(fields=[f"{base_input}_std" for base_input in base_inputs] + ["template"]),
         name="select_std",
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
@@ -410,13 +415,14 @@ def init_asl_derivatives_wf(
     # fmt:on
 
     for base_input in base_inputs:
+        base_input_std = f"{base_input}_std"
         ds_base_input_std = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
                 compress=True,
                 **BASE_INPUT_FIELDS[base_input],
             ),
-            name=f"ds_{base_input}_std",
+            name=f"ds_{base_input_std}",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
@@ -424,8 +430,8 @@ def init_asl_derivatives_wf(
         # fmt:off
         workflow.connect([
             (inputnode, ds_base_input_std, [("source_file", "source_file")]),
-            (inputnode, select_std, [(f"{base_input}_std", f"{base_input}_std")]),
-            (select_std, ds_base_input_std, [(f"{base_input}_std", "in_file")]),
+            (inputnode, select_std, [(base_input_std, base_input_std)]),
+            (select_std, ds_base_input_std, [(base_input_std, "in_file")]),
             (spacesource, ds_base_input_std, [
                 ("space", "space"),
                 ("cohort", "cohort"),
