@@ -6,11 +6,9 @@ from nipype.interfaces.afni import Resample
 from nipype.pipeline import engine as pe
 from templateflow.api import get as get_template
 
+from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.cbf_computation import ComputeCBFQC, ComputeCBFQCforGE
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
 from aslprep.utils.misc import _select_last_in_list
 
 

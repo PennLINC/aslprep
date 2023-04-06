@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 from nibabel.processing import smooth_image
 from nilearn import image, maskers
-from nipype.interfaces.ants import ApplyTransforms
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     File,
@@ -21,11 +20,11 @@ from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
+from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.utils.misc import (
     _getcbfscore,
     _scrubcbf,
     estimate_labeling_efficiency,
-    parcellate_cbf,
     pcasl_or_pasl,
 )
 from aslprep.utils.qc import (
@@ -1235,43 +1234,6 @@ class ComputeCBFQCforGE(SimpleInterface):
         return runtime
 
 
-class _ParcellateCBFInputSpec(BaseInterfaceInputSpec):
-    in_cbf = File(exists=True, mandatory=True, desc="cbf img")
-    atlasfile = File(exists=True, mandatory=True, desc="data")
-    atlasdata = File(exists=True, mandatory=True, desc="data")
-    atlaslabel = File(exists=True, mandatory=True, desc="data")
-
-
-class _ParcellateCBFOutputSpec(TraitedSpec):
-    atlascsv = File(exists=False, desc="harvard output csv")
-
-
-class ParcellateCBF(SimpleInterface):
-    """Parcellate CBF time series according to a given atlas."""
-
-    input_spec = _ParcellateCBFInputSpec
-    output_spec = _ParcellateCBFOutputSpec
-
-    def _run_interface(self, runtime):
-        self._results["atlascsv"] = fname_presuffix(
-            self.inputs.in_cbf,
-            suffix="atlas.csv",
-            newpath=runtime.cwd,
-            use_ext=False,
-        )
-        roiquant = parcellate_cbf(
-            roi_label=self.inputs.atlaslabel,
-            roi_file=self.inputs.atlasfile,
-            cbfmap=self.inputs.in_cbf,
-        )
-        data1 = pd.read_table(self.inputs.atlasdata, header=None, index_col=None, sep="\t")
-        bb = list(data1.values.tolist())
-        flattened = [val for sublist in bb for val in sublist]
-        datat = pd.DataFrame([flattened, roiquant])
-        datat.to_csv(self._results["atlascsv"], header=None, index=None)
-        return runtime
-
-
 def regmotoasl(asl, m0file, m02asl):
     """Calculate mean M0 image and mean ASL image, then FLIRT M0 image to ASL space.
 
@@ -1300,22 +1262,24 @@ def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_
 
     TODO: This should not be a function. It uses interfaces, so it should be a workflow.
     """
-    b1 = ApplyTransforms()
-    b1.inputs.dimension = 3
-    b1.inputs.float = True
-    b1.inputs.input_image = t1w_mask
-    b1.inputs.interpolation = "NearestNeighbor"
-    b1.inputs.reference_image = ref_asl_mask
-    b1.inputs.transforms = t12ref_transform
-    b1.inputs.input_image_type = 3
-    b1.inputs.output_image = tmp_mask
-    b1.run()
+    warp_t1w_mask_to_asl = ApplyTransforms(
+        dimension=3,
+        float=True,
+        input_image=t1w_mask,
+        interpolation="NearestNeighbor",
+        reference_image=ref_asl_mask,
+        transforms=[t12ref_transform],
+        input_image_type=3,
+        output_image=tmp_mask,
+    )
+    results = warp_t1w_mask_to_asl.run()
 
-    mat1 = MultiImageMaths()
-    mat1.inputs.in_file = tmp_mask
-    mat1.inputs.op_string = " -mul  %s -bin"
-    mat1.inputs.operand_files = ref_asl_mask
-    mat1.inputs.out_file = refined_mask
-    mat1.run()
+    modify_asl_mask = MultiImageMaths(
+        in_file=results.outputs.output_image,
+        op_string="-mul %s -bin",
+        operand_files=ref_asl_mask,
+        out_file=refined_mask,
+    )
+    results = modify_asl_mask.run()
 
-    return refined_mask
+    return results.outputs.out_file
