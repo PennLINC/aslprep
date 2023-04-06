@@ -20,7 +20,7 @@ from aslprep.workflows.asl.ge_utils import (
     init_asl_gestd_trans_wf,
     init_asl_t1_getrans_wf,
 )
-from aslprep.workflows.asl.outputs import init_geasl_derivatives_wf
+from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_gecbfplot_wf
 from aslprep.workflows.asl.qc import init_cbfgeqc_compt_wf
 
@@ -287,13 +287,14 @@ effects of other kernels [@lanczos].
     )
     # summary.inputs.dummy_scans = 0
 
-    asl_derivatives_wf = init_geasl_derivatives_wf(
+    asl_derivatives_wf = init_asl_derivatives_wf(
         bids_root=layout.root,
         metadata=metadata,
         output_dir=output_dir,
         scorescrub=scorescrub,
         basil=basil,
         spaces=spaces,
+        output_confounds=False,  # GE workflow doesn't generate volume-wise confounds
     )
 
     # fmt:off

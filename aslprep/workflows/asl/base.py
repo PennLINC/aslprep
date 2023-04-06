@@ -284,6 +284,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         spaces=spaces,
         scorescrub=scorescrub,
         basil=basil,
+        output_confounds=True,
     )
 
     # fmt:off
