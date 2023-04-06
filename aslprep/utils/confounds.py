@@ -45,13 +45,20 @@ def _gather_confounds(
         """
         index_diff = len(left_df.index) - len(right_df.index)
         if index_diff > 0:
+            # right_df is shorter
             config.loggers.utils.warning(f"Mismatch A between {left_df} and {right_df}")
-            right_df.index = range(index_diff, len(right_df.index) + index_diff)
+            right_df = right_df.set_index(
+                range(index_diff, len(right_df.index) + index_diff),
+                drop=True,
+                inplace=False,
+            )
         elif index_diff < 0:
-            config.loggers.utils.warning(f"Mismatch B between {left_df} and {right_df}")
-            left_df.index = range(-index_diff, len(left_df.index) - index_diff)
-        else:
-            config.loggers.utils.warning(f"Match between {left_df} and {right_df}")
+            # left_df is shorter
+            left_df = left_df.set_index(
+                range(-index_diff, len(left_df.index) - index_diff),
+                drop=True,
+                inplace=False,
+            )
 
     all_files = []
     confounds_list = []
