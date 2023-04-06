@@ -557,7 +557,7 @@ def _score_cbf(cbf_ts, wm, gm, csf, mask, thresh=0.7):
         volume_wise_correlations = np.full(n_volumes, np.nan)
         for i_vol in range(n_volumes):
             if outlier_idx[i_vol]:
-                break
+                continue
 
             cbf_vol = cbf_ts[:, :, :, i_vol]
             # Correlate mean CBF's masked values with volume CBF's masked values.
