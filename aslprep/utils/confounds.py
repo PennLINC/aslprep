@@ -21,15 +21,6 @@ def _camel_to_snake(name):
     return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
-def _adjust_indices(left_df, right_df):
-    """Force missing values to appear at the beginning of the DataFrame instead of the end."""
-    index_diff = len(left_df.index) - len(right_df.index)
-    if index_diff > 0:
-        right_df.index = range(index_diff, len(right_df.index) + index_diff)
-    elif index_diff < 0:
-        left_df.index = range(-index_diff, len(left_df.index) - index_diff)
-
-
 def _gather_confounds(
     signals=None,
     dvars=None,
@@ -40,6 +31,18 @@ def _gather_confounds(
     newpath=None,
 ):
     """Load confounds from the filenames, concatenate together horizontally, and save new file."""
+
+    def _adjust_indices(left_df, right_df):
+        """Force missing values to appear at the beginning of the DataFrame instead of the end.
+
+        Taylor: I wonder if this needs to be a nested function to deal with namespace stuff.
+        """
+        index_diff = len(left_df.index) - len(right_df.index)
+        if index_diff > 0:
+            right_df.index = range(index_diff, len(right_df.index) + index_diff)
+        elif index_diff < 0:
+            left_df.index = range(-index_diff, len(left_df.index) - index_diff)
+
     all_files = []
     confounds_list = []
     for confound, name in (
