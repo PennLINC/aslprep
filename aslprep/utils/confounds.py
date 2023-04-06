@@ -5,6 +5,8 @@ import re
 import pandas as pd
 from nipype.interfaces.base import isdefined
 
+from aslprep import config
+
 
 def _less_breakable(a_string):
     """Harden the string to different environments, whatever that means."""
@@ -30,7 +32,11 @@ def _gather_confounds(
     motion=None,
     newpath=None,
 ):
-    """Load confounds from the filenames, concatenate together horizontally, and save new file."""
+    """Load confounds from the filenames, concatenate together horizontally, and save new file.
+
+    For some confounds (e.g., FD), the number of rows in the file will be one less than the
+    number of volumes. This will be adjusted automatically in this function.
+    """
 
     def _adjust_indices(left_df, right_df):
         """Force missing values to appear at the beginning of the DataFrame instead of the end.
@@ -39,8 +45,10 @@ def _gather_confounds(
         """
         index_diff = len(left_df.index) - len(right_df.index)
         if index_diff > 0:
+            config.loggers.utils.warning(f"Mismatch between {left_df} and {right_df}")
             right_df.index = range(index_diff, len(right_df.index) + index_diff)
         elif index_diff < 0:
+            config.loggers.utils.warning(f"Mismatch between {left_df} and {right_df}")
             left_df.index = range(-index_diff, len(left_df.index) - index_diff)
 
     all_files = []
