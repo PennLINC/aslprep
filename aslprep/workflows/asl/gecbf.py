@@ -301,10 +301,10 @@ effects of other kernels [@lanczos].
     workflow.connect([
         (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
         (outputnode, asl_derivatives_wf, [
-            ("asl_t1", "inputnode.asl_t1"),
-            ("asl_t1_ref", "inputnode.asl_t1_ref"),
-            ("asl_mask_t1", "inputnode.asl_mask_t1"),
             ("asl_native", "inputnode.asl_native"),
+            ("asl_t1", "inputnode.asl_t1"),
+            ("asl_t1_ref", "inputnode.aslref_t1"),
+            ("asl_mask_t1", "inputnode.asl_mask_t1"),
         ]),
     ])
     # fmt:on
@@ -574,12 +574,12 @@ effects of other kernels [@lanczos].
         workflow.connect([
             (inputnode, outputnode, [("asl_file", "asl_native")]),
             (gen_ref_wf, asl_derivatives_wf, [
-                ("outputnode.raw_ref_image", "inputnode.asl_native_ref"),
+                ("outputnode.raw_ref_image", "inputnode.aslref_native"),
             ]),
             (refine_mask, asl_derivatives_wf, [("out_mask", "inputnode.asl_mask_native")]),
             (cbf_compt_wf, asl_derivatives_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf"),
-                ("outputnode.out_mean", "inputnode.meancbf"),
+                ("outputnode.out_cbf", "inputnode.cbf_native"),
+                ("outputnode.out_mean", "inputnode.meancbf_native"),
             ]),
         ])
         # fmt:on
@@ -588,9 +588,9 @@ effects of other kernels [@lanczos].
             # fmt:off
             workflow.connect([
                 (cbf_compt_wf, asl_derivatives_wf, [
-                    ("outputnode.out_score", "inputnode.score"),
-                    ("outputnode.out_avgscore", "inputnode.avgscore"),
-                    ("outputnode.out_scrub", "inputnode.scrub"),
+                    ("outputnode.out_score", "inputnode.score_native"),
+                    ("outputnode.out_avgscore", "inputnode.avgscore_native"),
+                    ("outputnode.out_scrub", "inputnode.scrub_native"),
                 ]),
             ])
             # fmt:on
@@ -599,10 +599,10 @@ effects of other kernels [@lanczos].
             # fmt:off
             workflow.connect([
                 (cbf_compt_wf, asl_derivatives_wf, [
-                    ("outputnode.out_cbfb", "inputnode.basil"),
-                    ("outputnode.out_cbfpv", "inputnode.pv"),
-                    ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
-                    ("outputnode.out_att", "inputnode.att"),
+                    ("outputnode.out_cbfb", "inputnode.basil_native"),
+                    ("outputnode.out_cbfpv", "inputnode.pv_native"),
+                    ("outputnode.out_cbfpvwm", "inputnode.pvwm_native"),
+                    ("outputnode.out_att", "inputnode.att_native"),
                 ]),
             ])
             # fmt:on
@@ -678,7 +678,7 @@ effects of other kernels [@lanczos].
             (std_gereg_wf, asl_derivatives_wf, [
                 ("outputnode.template", "inputnode.template"),
                 ("outputnode.spatial_reference", "inputnode.spatial_reference"),
-                ("outputnode.asl_std_ref", "inputnode.asl_std_ref"),
+                ("outputnode.asl_std_ref", "inputnode.aslref_std"),
                 ("outputnode.asl_std", "inputnode.asl_std"),
                 ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
                 ("outputnode.cbf_std", "inputnode.cbf_std"),

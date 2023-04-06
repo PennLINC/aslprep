@@ -57,9 +57,9 @@ def init_asl_derivatives_wf(
                 "asl_native",
                 "asl_t1",
                 "asl_std",
-                "asl_native_ref",
-                "asl_t1_ref",
-                "asl_std_ref",
+                "aslref_native",
+                "aslref_t1",
+                "aslref_std",
                 "asl_mask_native",
                 "asl_mask_t1",
                 "asl_mask_std",
@@ -67,33 +67,33 @@ def init_asl_derivatives_wf(
                 "itk_asl_to_t1",
                 "itk_t1_to_asl",
                 # Standard CBF outputs
-                "cbf",
+                "cbf_native",
                 "cbf_t1",
                 "cbf_std",
-                "meancbf",
+                "meancbf_native",
                 "meancbf_t1",
                 "meancbf_std",
                 # SCORE/SCRUB outputs
-                "score",
+                "score_native",
                 "score_t1",
                 "score_std",
-                "avgscore",
+                "avgscore_native",
                 "avgscore_t1",
                 "avgscore_std",
-                "scrub",
+                "scrub_native",
                 "scrub_t1",
                 "scrub_std",
                 # BASIL outputs
-                "basil",
+                "basil_native",
                 "basil_t1",
                 "basil_std",
-                "pv",
+                "pv_native",
                 "pv_t1",
                 "pv_std",
-                "pvwm",
+                "pvwm_native",
                 "pvwm_t1",
                 "pvwm_std",
-                "att",
+                "att_native",
                 "att_t1",
                 "att_std",
                 # Parcellated CBF outputs
@@ -106,7 +106,7 @@ def init_asl_derivatives_wf(
                 # non-GE outputs
                 "confounds",
                 "confounds_metadata",
-            ]
+            ],
         ),
         name="inputnode",
     )
@@ -162,12 +162,12 @@ def init_asl_derivatives_wf(
     ds_t1w_to_asl_xform = pe.Node(
         DerivativesDataSink(
             base_directory=output_dir,
-            to="T1w",
+            to="scanner",
             mode="image",
             suffix="xfm",
             extension=".txt",
             dismiss_entities=("echo",),
-            **{"from": "scanner"},
+            **{"from": "T1w"},
         ),
         name="ds_t1w_to_asl_xform",
         run_without_submitting=True,
@@ -178,7 +178,7 @@ def init_asl_derivatives_wf(
     workflow.connect([
         (inputnode, ds_t1w_to_asl_xform, [
             ("source_file", "source_file"),
-            ("itk_asl_to_t1", "in_file"),
+            ("itk_t1_to_asl", "in_file"),
         ]),
     ])
     # fmt:on
@@ -187,11 +187,11 @@ def init_asl_derivatives_wf(
         DerivativesDataSink(
             base_directory=output_dir,
             dismiss_entities=("echo",),
-            to="scanner",
+            to="T1w",
             mode="image",
             suffix="xfm",
             extension=".txt",
-            **{"from": "T1w"},
+            **{"from": "scanner"},
         ),
         name="ds_asl_to_t1w_xform",
         run_without_submitting=True,
@@ -202,7 +202,7 @@ def init_asl_derivatives_wf(
     workflow.connect([
         (inputnode, ds_asl_to_t1w_xform, [
             ("source_file", "source_file"),
-            ("itk_t1_to_asl", "in_file"),
+            ("itk_asl_to_t1", "in_file"),
         ]),
     ])
     # fmt:on
