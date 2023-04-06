@@ -2,10 +2,9 @@
 import os
 import re
 
+import numpy as np
 import pandas as pd
 from nipype.interfaces.base import isdefined
-
-from aslprep import config
 
 
 def _less_breakable(a_string):
@@ -24,26 +23,22 @@ def _camel_to_snake(name):
 
 
 def _adjust_indices(left_df, right_df):
-    """Force missing values to appear at the beginning of the DataFrame instead of the end.
-
-    Taylor: I wonder if this needs to be a nested function to deal with namespace stuff.
-    """
-    index_diff = len(left_df.index) - len(right_df.index)
+    """Force missing values to appear at the beginning of the DataFrame instead of the end."""
+    index_diff = left_df.shape[0] - right_df.shape[0]
     if index_diff > 0:
         # right_df is shorter
-        config.loggers.utils.warning(f"Mismatch A between {left_df} and {right_df}")
-        right_df = right_df.set_index(
-            range(index_diff, len(right_df.index) + index_diff),
-            drop=True,
-            inplace=False,
+        empty_df = pd.DataFrame(
+            np.full((np.abs(index_diff), right_df.shape[1]), np.nan),
+            columns=right_df.columns,
         )
+        right_df = pd.concat((empty_df, right_df), axis=0).reset_index(drop=True)
     elif index_diff < 0:
         # left_df is shorter
-        left_df = left_df.set_index(
-            range(-index_diff, len(left_df.index) - index_diff),
-            drop=True,
-            inplace=False,
+        empty_df = pd.DataFrame(
+            np.full((np.abs(index_diff), left_df.shape[1]), np.nan),
+            columns=left_df.columns,
         )
+        left_df = pd.concat((empty_df, left_df), axis=0).reset_index(drop=True)
 
     return left_df, right_df
 
