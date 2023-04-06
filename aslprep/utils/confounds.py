@@ -23,6 +23,31 @@ def _camel_to_snake(name):
     return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
 
 
+def _adjust_indices(left_df, right_df):
+    """Force missing values to appear at the beginning of the DataFrame instead of the end.
+
+    Taylor: I wonder if this needs to be a nested function to deal with namespace stuff.
+    """
+    index_diff = len(left_df.index) - len(right_df.index)
+    if index_diff > 0:
+        # right_df is shorter
+        config.loggers.utils.warning(f"Mismatch A between {left_df} and {right_df}")
+        right_df = right_df.set_index(
+            range(index_diff, len(right_df.index) + index_diff),
+            drop=True,
+            inplace=False,
+        )
+    elif index_diff < 0:
+        # left_df is shorter
+        left_df = left_df.set_index(
+            range(-index_diff, len(left_df.index) - index_diff),
+            drop=True,
+            inplace=False,
+        )
+
+    return left_df, right_df
+
+
 def _gather_confounds(
     signals=None,
     dvars=None,
@@ -37,29 +62,6 @@ def _gather_confounds(
     For some confounds (e.g., FD), the number of rows in the file will be one less than the
     number of volumes. This will be adjusted automatically in this function.
     """
-
-    def _adjust_indices(left_df, right_df):
-        """Force missing values to appear at the beginning of the DataFrame instead of the end.
-
-        Taylor: I wonder if this needs to be a nested function to deal with namespace stuff.
-        """
-        index_diff = len(left_df.index) - len(right_df.index)
-        if index_diff > 0:
-            # right_df is shorter
-            config.loggers.utils.warning(f"Mismatch A between {left_df} and {right_df}")
-            right_df = right_df.set_index(
-                range(index_diff, len(right_df.index) + index_diff),
-                drop=True,
-                inplace=False,
-            )
-        elif index_diff < 0:
-            # left_df is shorter
-            left_df = left_df.set_index(
-                range(-index_diff, len(left_df.index) - index_diff),
-                drop=True,
-                inplace=False,
-            )
-
     all_files = []
     confounds_list = []
     for confound, name in (
@@ -83,7 +85,7 @@ def _gather_confounds(
                 columns={column_name: _camel_to_snake(_less_breakable(column_name))}, inplace=True
             )
 
-        _adjust_indices(confounds_data, new)
+        confounds_data, new = _adjust_indices(confounds_data, new)
         confounds_data = pd.concat((confounds_data, new), axis=1)
 
     if newpath is None:
