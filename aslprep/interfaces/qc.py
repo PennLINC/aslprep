@@ -8,6 +8,8 @@ from nipype.interfaces.base import (
     File,
     SimpleInterface,
     TraitedSpec,
+    isdefined,
+    traits,
 )
 from nipype.utils.filemanip import fname_presuffix
 
@@ -36,6 +38,18 @@ class _ComputeCBFQCforGEInputSpec(BaseInterfaceInputSpec):
     in_t1mask = File(exists=True, mandatory=True, desc="t1wmask in native space ")
     in_aslmaskstd = File(exists=True, mandatory=False, desc="asl mask in native space")
     in_templatemask = File(exists=True, mandatory=False, desc="template mask or image")
+    tpm_threshold = traits.Float(desc="Typically 0.7 for non-GE data and 0.8 for GE data.")
+    # non-GE-only inputs
+    in_confmat = File(
+        exists=True,
+        mandatory=False,
+        desc="Confounds file. Will not be defined for GE data.",
+    )
+    rmsd_file = File(
+        exists=True,
+        mandatory=False,
+        desc="RMSD file. Will not be defined for GE data.",
+    )
 
 
 class _ComputeCBFQCforGEOutputSpec(TraitedSpec):
@@ -54,6 +68,17 @@ class ComputeCBFQCforGE(SimpleInterface):
     output_spec = _ComputeCBFQCforGEOutputSpec
 
     def _run_interface(self, runtime):
+        thresh = self.inputs.tpm_threshold
+
+        if isdefined(self.inputs.in_confmat):
+            time1 = pd.read_table(self.inputs.in_confmat)
+            time1.fillna(0, inplace=True)
+            fd = np.mean(time1["framewise_displacement"])
+            rms = pd.read_csv(self.inputs.rmsd_file, header=None).mean().values[0]
+        else:
+            fd = np.nan
+            rms = np.nan
+
         regDC = dice(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regJC = jaccard(self.inputs.in_aslmask, self.inputs.in_t1mask)
         regCC = crosscorr(self.inputs.in_aslmask, self.inputs.in_t1mask)
@@ -70,14 +95,14 @@ class ComputeCBFQCforGE(SimpleInterface):
             wm=self.inputs.in_whiteM,
             csf=self.inputs.in_csf,
             img=self.inputs.in_meancbf,
-            thresh=0.8,
+            thresh=thresh,
         )
         meancbf = globalcbf(
             gm=self.inputs.in_greyM,
             wm=self.inputs.in_whiteM,
             csf=self.inputs.in_csf,
             cbf=self.inputs.in_meancbf,
-            thresh=0.8,
+            thresh=thresh,
         )
 
         if self.inputs.in_avgscore:
@@ -86,24 +111,25 @@ class ComputeCBFQCforGE(SimpleInterface):
                 wm=self.inputs.in_whiteM,
                 csf=self.inputs.in_csf,
                 img=self.inputs.in_avgscore,
-                thresh=0.8,
+                thresh=thresh,
             )
             scrub_qei = cbf_qei(
                 gm=self.inputs.in_greyM,
                 wm=self.inputs.in_whiteM,
                 csf=self.inputs.in_csf,
                 img=self.inputs.in_scrub,
-                thresh=0.8,
+                thresh=thresh,
             )
             negscore = negativevoxel(
-                cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=0.8
+                cbf=self.inputs.in_avgscore, gm=self.inputs.in_greyM, thresh=thresh
             )
-            negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=0.8)
+            negscrub = negativevoxel(cbf=self.inputs.in_scrub, gm=self.inputs.in_greyM, thresh=thresh)
         else:
-            scorecbf_qei = 0
-            scrub_qei = 0
-            negscore = 0
-            negscrub = 0
+            print("no score inputs, setting to np.nan")
+            scorecbf_qei = np.nan
+            scrub_qei = np.nan
+            negscore = np.nan
+            negscrub = np.nan
 
         if self.inputs.in_basil:
             basilcbf_qei = cbf_qei(
@@ -111,30 +137,31 @@ class ComputeCBFQCforGE(SimpleInterface):
                 wm=self.inputs.in_whiteM,
                 csf=self.inputs.in_csf,
                 img=self.inputs.in_basil,
-                thresh=0.8,
+                thresh=thresh,
             )
             pvcbf_qei = cbf_qei(
                 gm=self.inputs.in_greyM,
                 wm=self.inputs.in_whiteM,
                 csf=self.inputs.in_csf,
                 img=self.inputs.in_pvc,
-                thresh=0.8,
+                thresh=thresh,
             )
-            negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=0.8)
-            negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=0.8)
+            negbasil = negativevoxel(cbf=self.inputs.in_basil, gm=self.inputs.in_greyM, thresh=thresh)
+            negpvc = negativevoxel(cbf=self.inputs.in_pvc, gm=self.inputs.in_greyM, thresh=thresh)
         else:
-            basilcbf_qei = 0
-            pvcbf_qei = 0
-            negbasil = 0
-            negpvc = 0
+            print("no basil inputs, setting to np.nan")
+            basilcbf_qei = np.nan
+            pvcbf_qei = np.nan
+            negbasil = np.nan
+            negpvc = np.nan
+
         gwratio = np.divide(meancbf[0], meancbf[1])
-        negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=0.8)
+        negcbf = negativevoxel(cbf=self.inputs.in_meancbf, gm=self.inputs.in_greyM, thresh=thresh)
 
         if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
             dict1 = {
-                "FD": 0,
-                "relRMS": 0,
-                "rmsd": np.nan,
+                "FD": [fd],
+                "rmsd": [rms],
                 "coregDC": [regDC],
                 "coregJC": [regJC],
                 "coregCC": [regCC],
@@ -159,9 +186,8 @@ class ComputeCBFQCforGE(SimpleInterface):
             }
         else:
             dict1 = {
-                "FD": 0,
-                "relRMS": 0,
-                "rmsd": np.nan,
+                "FD": [fd],
+                "rmsd": [rms],
                 "coregDC": [regDC],
                 "coregJC": [regJC],
                 "coregCC": [regCC],
