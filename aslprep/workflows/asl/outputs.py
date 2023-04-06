@@ -423,11 +423,8 @@ def init_asl_derivatives_wf(
 
         # fmt:off
         workflow.connect([
+            (inputnode, ds_base_input_std, [("source_file", "source_file")]),
             (inputnode, select_std, [(f"{base_input}_std", f"{base_input}_std")]),
-            (inputnode, ds_base_input_std, [
-                ("source_file", "source_file"),
-                (f"{base_input}_std", "in_file"),
-            ]),
             (select_std, ds_base_input_std, [(f"{base_input}_std", "in_file")]),
             (spacesource, ds_base_input_std, [
                 ("space", "space"),
