@@ -393,7 +393,7 @@ def init_asl_derivatives_wf(
     )
 
     select_std = pe.Node(
-        KeySelect(fields=base_inputs + ["template"]),
+        KeySelect(fields=[f"{bi}_std" for bi in base_inputs] + ["template"]),
         name="select_std",
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
