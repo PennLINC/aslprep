@@ -137,21 +137,21 @@ def init_asl_derivatives_wf(
         ])
         # fmt:on
 
-    qcfile = pe.Node(
+    ds_qcfile = pe.Node(
         DerivativesDataSink(
             base_directory=output_dir,
             desc="qualitycontrol",
             suffix="cbf",
             compress=False,
         ),
-        name="qcfile",
+        name="ds_qcfile",
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
 
     # fmt:off
     workflow.connect([
-        (inputnode, qcfile, [
+        (inputnode, ds_qcfile, [
             ("source_file", "source_file"),
             ("qc_file", "in_file"),
         ]),
@@ -254,6 +254,7 @@ def init_asl_derivatives_wf(
         ])
         # fmt:on
 
+    # Now prepare to write out primary imaging derivatives
     timeseries_metadata = {
         "SkullStripped": False,
         "RepetitionTime": metadata.get("RepetitionTime"),
@@ -320,6 +321,7 @@ def init_asl_derivatives_wf(
     if basil:
         base_inputs += ["basil", "pv", "pvwm", "att"]
 
+    # Native-space derivatives
     if nonstd_spaces.intersection(("func", "run", "asl", "sbref")):
         for base_input in base_inputs:
             ds_base_input_native = pe.Node(
@@ -348,7 +350,7 @@ def init_asl_derivatives_wf(
                 workflow.connect([(raw_sources, ds_base_input_native, [("out", "RawSources")])])
                 # fmt:on
 
-    # Resample to T1w space
+    # T1w-space derivatives
     if nonstd_spaces.intersection(("T1w", "anat")):
         for base_input in base_inputs:
             ds_base_input_t1 = pe.Node(
@@ -381,80 +383,65 @@ def init_asl_derivatives_wf(
     if getattr(spaces, "_cached") is None:
         return workflow
 
-    # Store resamplings in standard spaces when listed in --output-spaces
-    if spaces.cached.references:
-        from niworkflows.interfaces.space import SpaceDataSource
+    # Standard-space derivatives
+    from niworkflows.interfaces.space import SpaceDataSource
 
-        spacesource = pe.Node(SpaceDataSource(), name="spacesource", run_without_submitting=True)
-        config.loggers.interface.warning(spaces.cached.get_standard(dim=(3,)))
-        spacesource.iterables = (
-            "in_tuple",
-            [(s.fullname, s.spec) for s in spaces.cached.get_standard(dim=(3,))],
-        )
-        out_names = [
-            "template",
-            "asl_std",
-            "asl_std_ref",
-            "asl_mask_std",
-            "cbf_std",
-            "meancbf_std",
-        ]
-        if scorescrub:
-            out_names += ["score_std", "avgscore_std", "scrub_std"]
+    spacesource = pe.Node(SpaceDataSource(), name="spacesource", run_without_submitting=True)
+    spacesource.iterables = (
+        "in_tuple",
+        [(s.fullname, s.spec) for s in spaces.cached.get_standard(dim=(3,))],
+    )
 
-        if basil:
-            out_names += ["basil_std", "pv_std", "pvwm_std", "att_std"]
+    select_std = pe.Node(
+        KeySelect(fields=base_inputs + ["template"]),
+        name="select_std",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
 
-        select_std = pe.Node(
-            KeySelect(fields=out_names),
-            name="select_std",
+    # fmt:off
+    workflow.connect([
+        (inputnode, select_std, [
+            ("template", "template"),
+            ("spatial_reference", "keys"),
+        ]),
+        (spacesource, select_std, [("uid", "key")]),
+    ])
+    # fmt:on
+
+    for base_input in base_inputs:
+        ds_base_input_std = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                compress=True,
+                **BASE_INPUT_FIELDS[base_input],
+            ),
+            name=f"ds_{base_input}_std",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
 
         # fmt:off
         workflow.connect([
-            (inputnode, select_std, [
-                ("template", "template"),
-                ("spatial_reference", "keys"),
+            (inputnode, select_std, [(f"{base_input}_std", f"{base_input}_std")]),
+            (inputnode, ds_base_input_std, [
+                ("source_file", "source_file"),
+                (f"{base_input}_std", "in_file"),
             ]),
-            (spacesource, select_std, [("uid", "key")]),
+            (select_std, ds_base_input_std, [(f"{base_input}_std", "in_file")]),
+            (spacesource, ds_base_input_std, [
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+                ("density", "density"),
+            ]),
         ])
         # fmt:on
 
-        for base_input in base_inputs:
-            ds_base_input_std = pe.Node(
-                DerivativesDataSink(
-                    base_directory=output_dir,
-                    compress=True,
-                    **BASE_INPUT_FIELDS[base_input],
-                ),
-                name=f"ds_{base_input}_std",
-                run_without_submitting=True,
-                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-            )
-
+        # The mask file gets one extra bit of metadata.
+        if base_input == "asl_mask":
             # fmt:off
-            workflow.connect([
-                (inputnode, select_std, [(f"{base_input}_std", f"{base_input}_std")]),
-                (inputnode, ds_base_input_std, [
-                    ("source_file", "source_file"),
-                    (f"{base_input}_std", "in_file"),
-                ]),
-                (select_std, ds_base_input_std, [(f"{base_input}_std", "in_file")]),
-                (spacesource, ds_base_input_std, [
-                    ("space", "space"),
-                    ("cohort", "cohort"),
-                    ("resolution", "resolution"),
-                    ("density", "density"),
-                ]),
-            ])
+            workflow.connect([(raw_sources, ds_base_input_std, [("out", "RawSources")])])
             # fmt:on
-
-            # The mask file gets one extra bit of metadata.
-            if base_input == "asl_mask":
-                # fmt:off
-                workflow.connect([(raw_sources, ds_base_input_std, [("out", "RawSources")])])
-                # fmt:on
 
     return workflow
