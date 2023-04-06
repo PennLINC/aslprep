@@ -317,7 +317,7 @@ def init_asl_derivatives_wf(
         },
     }
 
-    base_inputs = ["asl", "aslref", "asl_mask", "meancbf"]
+    base_inputs = ["asl", "aslref", "asl_mask", "cbf", "meancbf"]
     if scorescrub:
         base_inputs += ["score", "avgscore", "scrub"]
 
