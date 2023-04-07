@@ -281,18 +281,18 @@ def init_asl_derivatives_wf(
             "dismiss_entities": ("echo",),
         },
         "cbf": {
+            "desc": "timeseries",
             "suffix": "cbf",
         },
         "meancbf": {
-            "desc": "mean",
             "suffix": "cbf",
         },
         "score": {
-            "desc": "score",
+            "desc": "scoreTimeseries",
             "suffix": "cbf",
         },
         "avgscore": {
-            "desc": "meanScore",
+            "desc": "score",
             "suffix": "cbf",
         },
         "scrub": {

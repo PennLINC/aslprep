@@ -52,11 +52,11 @@ aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-basil_cbf.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-bat_cbf.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-brain_mask.json
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-brain_mask.nii.gz
-aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-mean_cbf.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-preproc_asl.json
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-preproc_asl.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-pvGM_cbf.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-pvWM_cbf.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-qualitycontrol_cbf.csv
+aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-timeseries_cbf.nii.gz
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_from-T1w_to-scanner_mode-image_xfm.txt
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_from-scanner_to-T1w_mode-image_xfm.txt

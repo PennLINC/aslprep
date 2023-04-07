@@ -5,8 +5,7 @@ ASL processing pipeline details
 ###############################
 
 *ASLPrep* :footcite:p:`aslprep_nature_methods,aslprep_zenodo`
-adapts its pipeline depending on what data and metadata are
-available and are used as inputs.
+adapts its pipeline depending on what data and metadata are available and are used as inputs.
 It requires the input data to be BIDS-valid and include necessary ASL parameters.
 
 .. workflow::
@@ -15,7 +14,7 @@ It requires the input data to be BIDS-valid and include necessary ASL parameters
 
     from aslprep.workflows.base import init_single_subject_wf
 
-    wf = init_single_subject_wf('01')
+    wf = init_single_subject_wf("01")
 
 
 ************************
@@ -33,23 +32,23 @@ averages them into a single reference template.
 
     from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
     from smriprep.workflows.anatomical import init_anat_preproc_wf
+
     wf = init_anat_preproc_wf(
-        bids_root='.',
+        bids_root=".",
         freesurfer=False,
         hires=True,
         longitudinal=False,
         omp_nthreads=1,
-        output_dir='.',
-        skull_strip_mode='force',
-        skull_strip_template=Reference('MNI152NLin2009cAsym'),
+        output_dir=".",
+        skull_strip_mode="force",
+        skull_strip_template=Reference("MNI152NLin2009cAsym"),
         spaces=SpatialReferences([
-            ('MNI152Lin', {}),
-
-            ('T1w', {}),
-            ('fsnative', {})
+            ("MNI152Lin", {}),
+            ("T1w", {}),
+            ("fsnative", {})
         ]),
         skull_strip_fixed_seed=False,
-        t1w=['sub-01/anat/sub-01_T1w.nii.gz'],
+        t1w=["sub-01/anat/sub-01_T1w.nii.gz"],
     )
 
 See also *sMRIPrep*'s
@@ -68,6 +67,7 @@ brain extraction workflow:
     :simple_form: yes
 
     from aslprep.niworkflows.anat.ants import init_brain_extraction_wf
+
     wf = init_brain_extraction_wf()
 
 
@@ -93,7 +93,7 @@ be set to resample the preprocessed data onto the final output spaces.
 
 .. figure:: _static/T1MNINormalization.svg
 
-    Animation showing spatial normalization of T1w onto the ``MNI152NLin2009cAsym`` template
+    Animation showing spatial normalization of T1w onto the ``MNI152NLin2009cAsym`` template.
 
 
 *****************
@@ -109,12 +109,25 @@ ASL preprocessing
     from aslprep.tests.tests import mock_config
     from aslprep import config
     from aslprep.workflows.asl.base import init_asl_preproc_wf
+
     with mock_config():
-        asl_file = config.execution.bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
-        wf = init_asl_preproc_wf(str(asl_file))
+        asl_file = str(config.execution.bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz")
+        wf = init_asl_preproc_wf(asl_file)
 
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.
+
+
+.. topic:: Processing GE data
+
+    ASLPrep can process data from any of the big three manufacturers (Siemens, Philips, GE),
+    but GE ASL protocols are unique in that they typically only produce a single deltaM or CBF
+    volume (optionally along with an M0 volume).
+
+    For these short sequences, ASLPrep performs many of the same steps as for a longer sequence,
+    but certain steps are dropped, including motion correction and slice timing correction.
+    Additionally, SCORE/SCRUB cannot be used with these short sequences,
+    as the denoising method requires a long time series from which to identify outliers.
 
 
 .. _asl_ref:
@@ -129,7 +142,9 @@ ASL reference image estimation
     :simple_form: yes
 
     from aslprep.niworkflows.func.util import init_asl_reference_wf
+
     wf = init_asl_reference_wf(omp_nthreads=1)
+
 
 This workflow estimates a reference image for an
 :abbr:`ASL (Arterial Spin Labelling)` series.
@@ -157,10 +172,12 @@ Head-motion estimation
     :simple_form: yes
 
     from aslprep.workflows.asl.hmc import init_asl_hmc_wf
+
     wf = init_asl_hmc_wf(
         mem_gb=1,
         omp_nthreads=1,
     )
+
 
 Using the previously :ref:`estimated reference scan <asl_ref>`,
 FSL ``mcflirt`` or AFNI ``3dvolreg`` is used to estimate head-motion.
@@ -186,19 +203,18 @@ Slice time correction
 
     wf = init_asl_stc_wf(
         metadata={
-            'RepetitionTime': 2.0,
-            'SliceTiming': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+            "RepetitionTime": 2.0,
+            "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
         },
     )
 
+
 If the ``SliceTiming`` field is available within the input dataset metadata,
-this workflow performs slice time correction prior to other signal resampling
-processes.
+this workflow performs slice time correction prior to other signal resampling processes.
 Slice time correction is performed using AFNI ``3dTShift``.
 All slices are realigned in time to the middle of each TR.
 
-Slice time correction can be disabled with the ``--ignore slicetiming``
-command line argument.
+Slice time correction can be disabled with the ``--ignore slicetiming`` command line argument.
 
 
 .. _asl_confounds:
@@ -253,14 +269,14 @@ Preprocessed ASL in native space
         omp_nthreads=1,
     )
 
+
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
-from either the slice-timing corrected data or the original data (if
-:abbr:`STC (slice-timing correction)` was not applied) in the
-original space.
+from either the slice-timing corrected data or the original data
+(if :abbr:`STC (slice-timing correction)` was not applied)
+in the original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
-resampled in their native space by concatenating the mappings found in previous
-correction workflows (:abbr:`HMC (head-motion correction)` and
-:abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
+resampled in their native space by concatenating the mappings found in previous correction workflows
+(:abbr:`HMC (head-motion correction)` and :abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
 for a one-shot interpolation process.
 Interpolation uses a Lanczos kernel.
 
@@ -288,8 +304,8 @@ CBF Computation in native space
 
     from aslprep.workflows.asl.cbf import init_cbf_compt_wf
 
-    bids_dir = Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
-    metadata_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
+    bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+    metadata_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
     with open(metadata_file) as f:
         metadata = json.load(f)
 
@@ -323,12 +339,15 @@ CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`:
    CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ \frac{ PLD }{ T1_{blood} } } {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{\frac{ - \tau }{ T1_{blood} } }) }
 
 
-PASL (Pulsed ASL) is also computed by the QUIPSS model :footcite:p:`wong1998quantitative`:
+.. warning::
+    As of 0.3.0, ASLPrep's PASL support only extends to single-PLD data with either the QUIPSS or
+    QUIPSSII BolusCutOffTechnique.
+    We plan to support multi-PLD data, as well as Q2TIPS data, in the near future.
 
+PASL (Pulsed ASL) is also computed by the QUIPSS model :footcite:p:`wong1998quantitative`:
 
 .. math::
    CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ \frac{ PLD }{ T1_{blood} } } {2 * \alpha * TI  * M_{0}}
-
 
 :math:`\tau`, :math:`\lambda`, and :math:`\alpha` are label duration,
 brain-blood partition coefficient, and labeling efficiency, respectively.
@@ -348,6 +367,10 @@ Mean CBF is computed from the average of CBF timeseries.
 
    Computed CBF maps
 
+.. warning::
+    As of 0.3.0, ASLPrep has disabled multi-PLD support.
+    We plan to properly support multi-PLD data in the near future.
+
 For multi-PLD (Post Labeling Delay) ASL data,
 the CBF is first computed for each PLD and the weighted average CBF is computed
 over all PLDs at time = t :footcite:p:`dai2012reduced`.
@@ -355,14 +378,17 @@ over all PLDs at time = t :footcite:p:`dai2012reduced`.
 .. math::
    CBF_{t} =\frac {\sum_{i}^{NPLDs} PLD_{i} * CBF_{i}} { \sum_{i}^{NPLDs} PLD_{i} }
 
-ASLPrep includes option of CBF denoising by SCORE and SCRUB.
+Additional Denoising Options
+============================
+
+ASLPrep includes the ability to denoise CBF with SCORE and SCRUB.
+
 Structural Correlation based Outlier Rejection (SCORE) :footcite:p:`dolui2017structural`
 detects and discards extreme outliers in the CBF volume(s) from the CBF time series.
 SCORE first discards CBF volumes whose CBF within grey matter (GM)
 means are 2.5 standard deviations away from the median of the CBF within GM.
 Next, it iteratively removes volumes that are most structurally correlated
-to the intermediate mean CBF map unless the variance within each
-tissue type starts increasing
+to the intermediate mean CBF map unless the variance within each tissue type starts increasing
 (which implies an effect of white noise removal as opposed to outlier rejection).
 
 The mean CBF after denoising by SCORE is plotted below
@@ -381,11 +407,11 @@ The SCRUB algorithm is described below:
 
    \mu =\sum_{i \in Tissue type} p *\mu_{i}
 
-:math:`CBF_{t},\quad  \mu,\quad  \theta,\quad  and\quad  p` equal CBF time series
+:math:`CBF_{t}`, :math:`\mu`, :math:`\theta`, and :math:`p` equal CBF time series
 (after any extreme outliers are discarded by SCORE),
 mean CBF, ratio of temporal variance at each voxel to overall variance of all voxels,
 and probability tissue maps, respectively.
-Other variables include :math:`\lambda\quad and\quad \rho` that represent the weighting parameter
+Other variables include :math:`\lambda` and :math:`\rho` that represent the weighting parameter
 and Tukey's bisquare function, respectively.
 
 An example of CBF denoised by SCRUB is shown below.
@@ -430,9 +456,9 @@ Quality control measures
 
     from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 
-    bids_dir = Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
-    asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
-    metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
+    bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+    asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
+    metadata = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
 
     wf = init_compute_cbf_qc_wf(is_ge=False)
 
@@ -460,7 +486,7 @@ ASL and CBF to T1w registration
     wf = init_asl_reg_wf(
         use_bbr=True,
         asl2t1w_dof=6,
-        asl2t1w_init='register',
+        asl2t1w_init="register",
     )
 
 *ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's
@@ -499,7 +525,7 @@ Resampling ASL and CBF runs onto standard spaces
         mem_gb=3,
         omp_nthreads=1,
         spaces=SpatialReferences(
-            spaces=[('MNI152Lin', {})],
+            spaces=[("MNI152Lin", {})],
             checkpoint=True,
         ),
     )
@@ -513,6 +539,7 @@ It also maps the T1w-based mask to each of those standard spaces.
 
 Transforms are concatenated and applied all at once, with one interpolation (Lanczos) step,
 so as little information is lost as possible.
+
 
 References
 ==========
