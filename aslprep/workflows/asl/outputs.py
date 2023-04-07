@@ -326,6 +326,7 @@ def init_asl_derivatives_wf(
         },
         "att": {
             "suffix": "att",
+            "Units": "s",
         },
     }
 

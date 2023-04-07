@@ -95,7 +95,7 @@ BASIL outputs::
       <source_entities>[_space-<label>]_desc-basil_cbf.nii.gz  # mean CBF computed with BASIL
       <source_entities>[_space-<label>]_desc-pvGM_cbf.nii.gz  # GM partial volume corrected CBF with BASIL
       <source_entities>[_space-<label>]_desc-pvWM_cbf.nii.gz  # WM partial volume corrected CBF with BASIL
-      <source_entities>[_space-<label>]_desc-bat_cbf.nii.gz  # bolus arrival time (in seconds)
+      <source_entities>[_space-<label>]_att.nii.gz  # bolus arrival time/arterial transit time (in seconds)
 
 
 **Regularly gridded outputs (images):**
