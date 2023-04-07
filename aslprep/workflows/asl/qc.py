@@ -12,12 +12,12 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.utils.misc import _select_last_in_list
 
 
-def init_cbfqc_compt_wf(
+def init_compute_cbf_qc_wf(
     asl_file,
     is_ge,
     scorescrub=False,
     basil=False,
-    name="cbfqc_compt_wf",
+    name="compute_cbf_qc_wf",
 ):
     """Create a workflow for :abbr:`dolui2017automated (compute cbf)`.
 
@@ -26,10 +26,14 @@ def init_cbfqc_compt_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.qc import init_cbfqc_compt_wf
+            from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 
-            wf = init_cbfqc_compt_wf(
+            wf = init_compute_cbf_qc_wf(
                 asl_file="",
+                is_ge=False,
+                scorescrub=True,
+                basil=True,
+                name="compute_cbf_qc_wf",
             )
 
     Parameters
@@ -37,7 +41,7 @@ def init_cbfqc_compt_wf(
     metadata : :obj:`dict`
         BIDS metadata for asl file
     name : :obj:`str`
-        Name of workflow (default: ``cbfqc_compt_wf'``)
+        Name of workflow (default: ``compute_cbf_qc_wf'``)
 
     Inputs
     ------
