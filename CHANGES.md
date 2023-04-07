@@ -1,5 +1,3 @@
-
-
 ## 0.3.0
 
 0.3.0 reflects renewed maintenance for ASLPrep.
@@ -35,19 +33,17 @@ However, in the near future, we plan to update these atlases _again_, so that th
 ASLPrep, XCP-D, and QSIPrep, so please be aware of that upcoming change.
 
 ### 🛠 Breaking Changes
-
 * Rename BIDS-noncompliant derivatives by @tsalo in https://github.com/PennLINC/aslprep/pull/216
-* Use correct bolus values in CBF calculation and temporarily disable Q2TIPS, mulit-PLD, and no-BolusCutOff processing by @tsalo in https://github.com/PennLINC/aslprep/pull/235
+* Use correct bolus values in CBF calculation and temporarily disable Q2TIPS, multi-PLD, and no-BolusCutOff processing by @tsalo in https://github.com/PennLINC/aslprep/pull/235
 * Disable SCORE/SCRUB for GE/short runs and get GE workflow working by @tsalo in https://github.com/PennLINC/aslprep/pull/248
 * Parallelize parcellation and replace atlases by @tsalo in https://github.com/PennLINC/aslprep/pull/254
+* Remove "mean" from mean CBF filenames and add "timeseries" to 4D CBF filenames by @tsalo in https://github.com/PennLINC/aslprep/pull/257
 
 ### 🎉 Exciting New Features
-
 * Hardcode T1blood for some field strengths and use Zhang 2013 formula for others by @tsalo in https://github.com/PennLINC/aslprep/pull/243
 * Estimate labeling efficiency based on ASL type and number of background suppression pulses by @tsalo in https://github.com/PennLINC/aslprep/pull/244
 
 ### 🐛 Bug Fixes
-
 * Pin looseversion by @tsalo in https://github.com/PennLINC/aslprep/pull/211
 * Correct ordering of probseg maps by @josephmje in https://github.com/PennLINC/aslprep/pull/192
 * Convert inversion times to a list for compatility with BASIL interface by @tsalo in https://github.com/PennLINC/aslprep/pull/222
@@ -58,7 +54,6 @@ ASLPrep, XCP-D, and QSIPrep, so please be aware of that upcoming change.
 * Index aslcontext rows with "cbf", not "CBF" by @tsalo in https://github.com/PennLINC/aslprep/pull/252
 
 ### Other Changes
-
 * Use aslprep_build as base Docker image - attempt 2 by @tsalo in https://github.com/PennLINC/aslprep/pull/204
 * Autoformat with black and isort by @tsalo in https://github.com/PennLINC/aslprep/pull/205
 * Replace relative imports with absolute ones by @tsalo in https://github.com/PennLINC/aslprep/pull/206
@@ -76,7 +71,6 @@ ASLPrep, XCP-D, and QSIPrep, so please be aware of that upcoming change.
 * Refactor confounds and QC metrics by @tsalo in https://github.com/PennLINC/aslprep/pull/256
 
 ## New Contributors
-
 * @tsalo made their first contribution in https://github.com/PennLINC/aslprep/pull/204
 * @josephmje made their first contribution in https://github.com/PennLINC/aslprep/pull/192
 
