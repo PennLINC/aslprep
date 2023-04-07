@@ -258,18 +258,20 @@ def init_asl_derivatives_wf(
         # fmt:on
 
     # Now prepare to write out primary imaging derivatives
-    timeseries_metadata = {
+    asl_metadata = {
         "SkullStripped": False,
         "RepetitionTime": metadata.get("RepetitionTime"),
         "RepetitionTimePreparation": metadata.get("RepetitionTimePreparation"),
-        "TaskName": metadata.get("TaskName"),
+    }
+    cbf_metadata = {
+        "Units": "mL/100 g/min",
     }
 
     BASE_INPUT_FIELDS = {
         "asl": {
             "desc": "preproc",
             "suffix": "asl",
-            **timeseries_metadata,
+            **asl_metadata,
         },
         "aslref": {
             "suffix": "aslref",
@@ -280,40 +282,51 @@ def init_asl_derivatives_wf(
             "suffix": "mask",
             "dismiss_entities": ("echo",),
         },
+        # CBF outputs
         "cbf": {
+            "desc": "timeseries",
             "suffix": "cbf",
+            **cbf_metadata,
         },
         "meancbf": {
-            "desc": "mean",
             "suffix": "cbf",
+            **cbf_metadata,
         },
+        # SCORE/SCRUB outputs
         "score": {
-            "desc": "score",
+            "desc": "scoreTimeseries",
             "suffix": "cbf",
+            **cbf_metadata,
         },
         "avgscore": {
-            "desc": "meanScore",
+            "desc": "score",
             "suffix": "cbf",
+            **cbf_metadata,
         },
         "scrub": {
             "desc": "scrub",
             "suffix": "cbf",
+            **cbf_metadata,
         },
+        # BASIL outputs
         "basil": {
             "desc": "basil",
             "suffix": "cbf",
+            **cbf_metadata,
         },
         "pv": {
             "desc": "pvGM",
             "suffix": "cbf",
+            **cbf_metadata,
         },
         "pvwm": {
             "desc": "pvWM",
             "suffix": "cbf",
+            **cbf_metadata,
         },
         "att": {
-            "desc": "bat",
-            "suffix": "cbf",
+            "suffix": "att",
+            "Units": "s",
         },
     }
 
@@ -345,14 +358,9 @@ def init_asl_derivatives_wf(
                     ("source_file", "source_file"),
                     (base_input_native, "in_file"),
                 ]),
+                (raw_sources, ds_base_input_native, [("out", "RawSources")]),
             ])
             # fmt:on
-
-            # The mask file gets one extra bit of metadata.
-            if base_input == "asl_mask":
-                # fmt:off
-                workflow.connect([(raw_sources, ds_base_input_native, [("out", "RawSources")])])
-                # fmt:on
 
     # T1w-space derivatives
     if nonstd_spaces.intersection(("T1w", "anat")):
@@ -376,14 +384,9 @@ def init_asl_derivatives_wf(
                     ("source_file", "source_file"),
                     (base_input_t1, "in_file"),
                 ]),
+                (raw_sources, ds_base_input_t1, [("out", "RawSources")]),
             ])
             # fmt:on
-
-            # The mask file gets one extra bit of metadata.
-            if base_input == "asl_mask":
-                # fmt:off
-                workflow.connect([(raw_sources, ds_base_input_t1, [("out", "RawSources")])])
-                # fmt:on
 
     if getattr(spaces, "_cached") is None:
         return workflow
@@ -430,6 +433,7 @@ def init_asl_derivatives_wf(
         # fmt:off
         workflow.connect([
             (inputnode, ds_base_input_std, [("source_file", "source_file")]),
+            (raw_sources, ds_base_input_std, [("out", "RawSources")]),
             (inputnode, select_std, [(base_input_std, base_input_std)]),
             (select_std, ds_base_input_std, [(base_input_std, "in_file")]),
             (spacesource, ds_base_input_std, [
@@ -440,11 +444,5 @@ def init_asl_derivatives_wf(
             ]),
         ])
         # fmt:on
-
-        # The mask file gets one extra bit of metadata.
-        if base_input == "asl_mask":
-            # fmt:off
-            workflow.connect([(raw_sources, ds_base_input_std, [("out", "RawSources")])])
-            # fmt:on
 
     return workflow

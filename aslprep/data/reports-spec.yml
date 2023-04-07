@@ -1,4 +1,4 @@
-package: niworkflows
+package: aslprep
 sections:
 - name: Summary
   reportlets:
