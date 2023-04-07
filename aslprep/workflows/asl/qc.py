@@ -41,7 +41,7 @@ def init_compute_cbf_qc_wf(
     metadata : :obj:`dict`
         BIDS metadata for asl file
     name : :obj:`str`
-        Name of workflow (default: ``compute_cbf_qc_wf'``)
+        Name of workflow (default: "compute_cbf_qc_wf")
 
     Inputs
     ------
@@ -57,7 +57,7 @@ def init_compute_cbf_qc_wf(
     Outputs
     -------
     qc_file
-       qc measures in tsv
+        qc measures in tsv
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """
