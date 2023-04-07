@@ -67,6 +67,7 @@ negative CBF values.
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
+                "name_source",
                 "meancbf",
                 "asl_mask",
                 "t1w_mask",
