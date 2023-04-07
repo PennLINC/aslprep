@@ -19,6 +19,7 @@ Additionally, this release includes a number of breaking changes.
 We have renamed several of the outputs to ensure that they are BIDS-compliant.
 These outputs may need to change again in the future,
 but that will happen in the next minor release (0.4.0) at the earliest.
+See the table below for a list of the changed filenames.
 
 | Description | <0.3.0 | 0.3.0 |
 |---|---|---|
@@ -28,7 +29,7 @@ but that will happen in the next minor release (0.4.0) at the earliest.
 | Mean CBF after SCORE denoising | `_desc-score_mean_cbf.nii.gz` | `_desc-score_cbf.nii.gz` |
 | Bolus arrival time/arterial transit time | `_desc-bat_cbf.nii.gz` | `_att.nii.gz` |
 
-Additionally, we have change the atlases that are used for the parcellated CBF files.
+Additionally, we have changed the atlases that are used for the parcellated CBF files.
 We have brought the atlases in line with those used by [XCP-D](https://xcp-d.readthedocs.io/en/latest/).
 However, in the near future, we plan to update these atlases _again_, so that they are synchronized across
 ASLPrep, XCP-D, and QSIPrep, so please be aware of that upcoming change.
@@ -42,16 +43,16 @@ ASLPrep, XCP-D, and QSIPrep, so please be aware of that upcoming change.
 
 ### 🎉 Exciting New Features
 
-* Use LabelingEfficiency as BASIL `--alpha` parameter by @tsalo in https://github.com/PennLINC/aslprep/pull/233
 * Hardcode T1blood for some field strengths and use Zhang 2013 formula for others by @tsalo in https://github.com/PennLINC/aslprep/pull/243
 * Estimate labeling efficiency based on ASL type and number of background suppression pulses by @tsalo in https://github.com/PennLINC/aslprep/pull/244
 
 ### 🐛 Bug Fixes
 
 * Pin looseversion by @tsalo in https://github.com/PennLINC/aslprep/pull/211
-* FIX: Update ordering of probseg maps by @josephmje in https://github.com/PennLINC/aslprep/pull/192
+* Correct ordering of probseg maps by @josephmje in https://github.com/PennLINC/aslprep/pull/192
 * Convert inversion times to a list for compatility with BASIL interface by @tsalo in https://github.com/PennLINC/aslprep/pull/222
 * Pin networkx version by @tsalo in https://github.com/PennLINC/aslprep/pull/227
+* Use LabelingEfficiency as BASIL `--alpha` parameter by @tsalo in https://github.com/PennLINC/aslprep/pull/233
 * Remove BIDS-noncompliant m0z and cbf files by @tsalo in https://github.com/PennLINC/aslprep/pull/236
 * Replace RepetitionTime with RepetitionTimePreparation by @tsalo in https://github.com/PennLINC/aslprep/pull/245
 * Index aslcontext rows with "cbf", not "CBF" by @tsalo in https://github.com/PennLINC/aslprep/pull/252
