@@ -867,7 +867,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     compute_cbf_qc_wf = init_compute_cbf_qc_wf(
         is_ge=False,
-        asl_file=asl_file,
         scorescrub=scorescrub,
         basil=basil,
         name="compute_cbf_qc_wf",
@@ -876,6 +875,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (inputnode, compute_cbf_qc_wf, [
+            ("asl_file", "inputnode.name_source"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),

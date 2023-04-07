@@ -13,7 +13,6 @@ from aslprep.utils.misc import _select_last_in_list
 
 
 def init_compute_cbf_qc_wf(
-    asl_file,
     is_ge,
     scorescrub=False,
     basil=False,
@@ -29,7 +28,6 @@ def init_compute_cbf_qc_wf(
             from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 
             wf = init_compute_cbf_qc_wf(
-                asl_file="",
                 is_ge=False,
                 scorescrub=True,
                 basil=True,
@@ -178,10 +176,7 @@ negative CBF values.
     # fmt:on
 
     qccompute = pe.Node(
-        ComputeCBFQC(
-            in_file=asl_file,
-            tpm_threshold=0.8 if is_ge else 0.7,
-        ),
+        ComputeCBFQC(tpm_threshold=0.8 if is_ge else 0.7),
         name="qccompute",
         run_without_submitting=True,
         mem_gb=0.2,
@@ -191,6 +186,7 @@ negative CBF values.
     workflow.connect([
         (mask_tfm, qccompute, [("output_image", "in_t1mask")]),
         (inputnode, qccompute, [
+            ("name_source", "name_source"),
             ("asl_mask", "in_aslmask"),
             (("asl_mask_std", _select_last_in_list), "in_aslmaskstd"),
             ("meancbf", "in_meancbf"),

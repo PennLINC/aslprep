@@ -529,7 +529,6 @@ effects of other kernels [@lanczos].
 
     compute_cbf_qc_wf = init_compute_cbf_qc_wf(
         is_ge=True,
-        asl_file=asl_file,
         scorescrub=scorescrub,
         basil=basil,
         name="compute_cbf_qc_wf",
@@ -538,6 +537,7 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (inputnode, compute_cbf_qc_wf, [
+            ("asl_file", "inputnode.name_source"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),

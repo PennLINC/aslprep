@@ -434,7 +434,7 @@ Quality control measures
     asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
     metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
 
-    wf = init_compute_cbf_qc_wf(asl_file=str(asl_file))
+    wf = init_compute_cbf_qc_wf(is_ge=False)
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index,
 and quality evaluation index (QEI) are included for all CBF maps.

@@ -25,7 +25,11 @@ from aslprep.utils.qc import (
 
 
 class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc="original asl_file")
+    name_source = File(
+        exists=True,
+        mandatory=True,
+        desc="Original asl_file. Used to extract entity information.",
+    )
     in_meancbf = File(exists=True, mandatory=True, desc="cbf img")
     in_avgscore = File(exists=True, mandatory=False, desc="cbf img")
     in_scrub = File(exists=True, mandatory=False, desc="cbf img")
@@ -209,7 +213,7 @@ class ComputeCBFQC(SimpleInterface):
 
         # Extract entities from the input file.
         # Useful for identifying ASL files after concatenating the QC files across runs.
-        _, base_file = os.path.split(self.inputs.in_file)
+        base_file = os.path.basename(self.inputs.name_source)
         entities = base_file.split("_")[:-1]
         entities_dict = {ent.split("-")[0]: ent.split("-")[1] for ent in entities}
 
