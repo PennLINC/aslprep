@@ -3,7 +3,35 @@
 ## 0.3.0
 
 0.3.0 reflects renewed maintenance for ASLPrep.
-With this
+
+The primary focuses of this release are:
+(1) fixing easily-fixable bugs,
+(2) disabling broken features with difficult-to-fix bugs,
+(3) cleaning up the codebase,
+(4) expanding test coverage,
+and (5) ensuring that outputs are BIDS-compliant.
+
+To that end, we have unfortunately had to temporarily drop support for multi-PostLabelingDelay data,
+as well as PASL data with the Q2TIPS BolusCutOffTechnique.
+We will work on fixing these features for the next release.
+
+Additionally, this release includes a number of breaking changes.
+We have renamed several of the outputs to ensure that they are BIDS-compliant.
+These outputs may need to change again in the future,
+but that will happen in the next minor release (0.4.0) at the earliest.
+
+| Description | <0.3.0 | 0.3.0 |
+|---|---|---|
+| CBF time series | `_cbf.nii.gz` | `_desc-timeseries_cbf.nii.gz` |
+| Mean CBF | `_mean_cbf.nii.gz` | `_cbf.nii.gz` |
+| CBF time series after SCORE denoising | `_desc-score_cbf.nii.gz` | `_desc-scoreTimeseries_cbf.nii.gz` |
+| Mean CBF after SCORE denoising | `_desc-score_mean_cbf.nii.gz` | `_desc-score_cbf.nii.gz` |
+| Bolus arrival time/arterial transit time | `_desc-bat_cbf.nii.gz` | `_att.nii.gz` |
+
+Additionally, we have change the atlases that are used for the parcellated CBF files.
+We have brought the atlases in line with those used by [XCP-D](https://xcp-d.readthedocs.io/en/latest/).
+However, in the near future, we plan to update these atlases _again_, so that they are synchronized across
+ASLPrep, XCP-D, and QSIPrep, so please be aware of that upcoming change.
 
 ### 🛠 Breaking Changes
 
@@ -53,11 +81,11 @@ With this
 
 **Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.2.8...0.3.0
 
-v0.2.7
+## 0.2.7
 
 Bids validation
 
-v0.2.6
+## 0.2.6
 
 11/12/2020
 
