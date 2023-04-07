@@ -1,0 +1,68 @@
+
+
+## 0.3.0
+
+0.3.0 reflects renewed maintenance for ASLPrep.
+With this
+
+### 🛠 Breaking Changes
+
+* Rename BIDS-noncompliant derivatives by @tsalo in https://github.com/PennLINC/aslprep/pull/216
+* Use correct bolus values in CBF calculation and temporarily disable Q2TIPS, mulit-PLD, and no-BolusCutOff processing by @tsalo in https://github.com/PennLINC/aslprep/pull/235
+* Disable SCORE/SCRUB for GE/short runs and get GE workflow working by @tsalo in https://github.com/PennLINC/aslprep/pull/248
+* Parallelize parcellation and replace atlases by @tsalo in https://github.com/PennLINC/aslprep/pull/254
+
+### 🎉 Exciting New Features
+
+* Use LabelingEfficiency as BASIL `--alpha` parameter by @tsalo in https://github.com/PennLINC/aslprep/pull/233
+* Hardcode T1blood for some field strengths and use Zhang 2013 formula for others by @tsalo in https://github.com/PennLINC/aslprep/pull/243
+* Estimate labeling efficiency based on ASL type and number of background suppression pulses by @tsalo in https://github.com/PennLINC/aslprep/pull/244
+
+### 🐛 Bug Fixes
+
+* Pin looseversion by @tsalo in https://github.com/PennLINC/aslprep/pull/211
+* FIX: Update ordering of probseg maps by @josephmje in https://github.com/PennLINC/aslprep/pull/192
+* Convert inversion times to a list for compatility with BASIL interface by @tsalo in https://github.com/PennLINC/aslprep/pull/222
+* Pin networkx version by @tsalo in https://github.com/PennLINC/aslprep/pull/227
+* Remove BIDS-noncompliant m0z and cbf files by @tsalo in https://github.com/PennLINC/aslprep/pull/236
+* Replace RepetitionTime with RepetitionTimePreparation by @tsalo in https://github.com/PennLINC/aslprep/pull/245
+* Index aslcontext rows with "cbf", not "CBF" by @tsalo in https://github.com/PennLINC/aslprep/pull/252
+
+### Other Changes
+
+* Use aslprep_build as base Docker image - attempt 2 by @tsalo in https://github.com/PennLINC/aslprep/pull/204
+* Autoformat with black and isort by @tsalo in https://github.com/PennLINC/aslprep/pull/205
+* Replace relative imports with absolute ones by @tsalo in https://github.com/PennLINC/aslprep/pull/206
+* Remove unused functions and classes by @tsalo in https://github.com/PennLINC/aslprep/pull/207
+* Rename PEP8-noncompliant classes by @tsalo in https://github.com/PennLINC/aslprep/pull/208
+* Consistently use f-strings for string formatting by @tsalo in https://github.com/PennLINC/aslprep/pull/209
+* Work on fixing docstrings and splitting modules by @tsalo in https://github.com/PennLINC/aslprep/pull/210
+* Remove unused arguments throughout package by @tsalo in https://github.com/PennLINC/aslprep/pull/212
+* Replace smriprep calls with dependency calls by @tsalo in https://github.com/PennLINC/aslprep/pull/217
+* Replace pybids calls with dependency calls by @tsalo in https://github.com/PennLINC/aslprep/pull/213
+* Use custom formatting for workflow connections by @tsalo in https://github.com/PennLINC/aslprep/pull/220
+* Improve documentation by @tsalo in https://github.com/PennLINC/aslprep/pull/218
+* Add step to run unit tests by @tsalo in https://github.com/PennLINC/aslprep/pull/221
+* Collect associated files at beginning of workflow by @tsalo in https://github.com/PennLINC/aslprep/pull/246
+* Refactor confounds and QC metrics by @tsalo in https://github.com/PennLINC/aslprep/pull/256
+
+## New Contributors
+
+* @tsalo made their first contribution in https://github.com/PennLINC/aslprep/pull/204
+* @josephmje made their first contribution in https://github.com/PennLINC/aslprep/pull/192
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.2.8...0.3.0
+
+v0.2.7
+
+Bids validation
+
+v0.2.6
+
+11/12/2020
+
+ENH - Add  GE SCAN processing with deltam or cbf
+
+ENH - supressed freesurfer processing, FSL FLIRT with BBR for registration
+
+ENH - basil and scorescrub as options, cbf computation is only default
