@@ -22,7 +22,7 @@ from aslprep.workflows.asl.confounds import init_asl_confs_wf, init_carpetplot_w
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_cbfplot_wf
-from aslprep.workflows.asl.qc import init_cbfqc_compt_wf
+from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 from aslprep.workflows.asl.registration import init_asl_reg_wf, init_asl_t1_trans_wf
 from aslprep.workflows.asl.resampling import (
     init_asl_preproc_trans_wf,
@@ -865,31 +865,37 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ])
             # fmt:on
 
-    compt_qccbf_wf = init_cbfqc_compt_wf(
-        name="compt_qccbf_wf",
+    compute_cbf_qc_wf = init_compute_cbf_qc_wf(
+        is_ge=False,
         asl_file=asl_file,
         scorescrub=scorescrub,
         basil=basil,
+        name="compute_cbf_qc_wf",
     )
+
     # fmt:off
     workflow.connect([
-        (refine_mask, compt_qccbf_wf, [("out_mask", "inputnode.asl_mask")]),
-        (inputnode, compt_qccbf_wf, [("t1w_tpms", "inputnode.t1w_tpms")]),
-        (asl_reg_wf, compt_qccbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (inputnode, compt_qccbf_wf, [("t1w_mask", "inputnode.t1w_mask")]),
-        (compt_cbf_wf, compt_qccbf_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
-        (asl_confounds_wf, compt_qccbf_wf, [("outputnode.confounds_file", "inputnode.confmat")]),
-        (compt_qccbf_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
-        (compt_qccbf_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
-        (compt_qccbf_wf, summary, [("outputnode.qc_file", "qc_file")]),
-        (asl_hmc_wf, compt_qccbf_wf, [("outputnode.rmsd_file", "inputnode.rmsd_file")]),
+        (inputnode, compute_cbf_qc_wf, [
+            ("t1w_tpms", "inputnode.t1w_tpms"),
+            ("t1w_mask", "inputnode.t1w_mask"),
+        ]),
+        (refine_mask, compute_cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
+        (asl_hmc_wf, compute_cbf_qc_wf, [("outputnode.rmsd_file", "inputnode.rmsd_file")]),
+        (asl_reg_wf, compute_cbf_qc_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
+        (compt_cbf_wf, compute_cbf_qc_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
+        (asl_confounds_wf, compute_cbf_qc_wf, [
+            ("outputnode.confounds_file", "inputnode.confmat"),
+        ]),
+        (compute_cbf_qc_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
+        (compute_cbf_qc_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
+        (compute_cbf_qc_wf, summary, [("outputnode.qc_file", "qc_file")]),
     ])
     # fmt:on
 
     if scorescrub:
         # fmt:off
         workflow.connect([
-            (compt_cbf_wf, compt_qccbf_wf, [
+            (compt_cbf_wf, compute_cbf_qc_wf, [
                 ("outputnode.out_avgscore", "inputnode.avgscore"),
                 ("outputnode.out_scrub", "inputnode.scrub"),
             ]),
@@ -899,7 +905,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if basil:
         # fmt:off
         workflow.connect([
-            (compt_cbf_wf, compt_qccbf_wf, [
+            (compt_cbf_wf, compute_cbf_qc_wf, [
                 ("outputnode.out_cbfb", "inputnode.basil"),
                 ("outputnode.out_cbfpv", "inputnode.pv"),
             ]),
@@ -909,7 +915,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         # fmt:off
         workflow.connect([
-            (asl_std_trans_wf, compt_qccbf_wf, [
+            (asl_std_trans_wf, compute_cbf_qc_wf, [
                 ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
             ]),
         ])
