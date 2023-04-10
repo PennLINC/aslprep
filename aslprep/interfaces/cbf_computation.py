@@ -713,7 +713,7 @@ class ScoreAndScrubCBF(SimpleInterface):
 class _BASILCBFInputSpec(FSLCommandInputSpec):
     # We use position args here as list indices - so a negative number
     # will put something on the end
-    in_file = File(
+    deltam = File(
         exists=True,
         desc=(
             "ASL data after subtracting tag-control or control-tag. "
@@ -726,7 +726,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     mask = File(
         exists=True,
         argstr="-m %s",
-        desc="mask in the same space as in_file",
+        desc="mask in the same space as deltam",
         mandatory=True,
     )
     mzero = File(exists=True, argstr="-c %s", desc="m0 scan", mandatory=False)
@@ -834,8 +834,8 @@ class BASILCBF(FSLCommand):
         return runtime
 
     def _gen_outfilename(self, suffix):
-        if isdefined(self.inputs.in_file):
-            out_file = self._gen_fname(self.inputs.in_file, suffix=suffix)
+        if isdefined(self.inputs.deltam):
+            out_file = self._gen_fname(self.inputs.deltam, suffix=suffix)
         return os.path.abspath(out_file)
 
     def _list_outputs(self):

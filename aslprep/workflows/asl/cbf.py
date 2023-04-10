@@ -343,7 +343,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             (refine_mask, basilcbf, [("out_mask", "mask")]),
             (extract_deltam, basilcbf, [
                 (("m0_file", _getfiledir), "out_basename"),
-                ("out_file", "in_file"),
+                ("out_file", "deltam"),
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),
@@ -677,7 +677,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),
-            (collect_cbf, basilcbf, [("deltam", "in_file")]),
+            (collect_cbf, basilcbf, [("deltam", "deltam")]),
             (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
             (wm_tfm, basilcbf, [("output_image", "wm_tpm")]),
             (refine_mask, basilcbf, [("out_mask", "mask")]),
