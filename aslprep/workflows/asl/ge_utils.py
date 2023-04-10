@@ -259,7 +259,7 @@ def init_asl_t1_getrans_wf(
         niu.IdentityInterface(
             fields=[
                 "asl_t1",
-                "asl_ref_t1",
+                "aslref_t1",
                 "asl_mask_t1",
                 "cbf_ts_t1",
                 "mean_cbf_t1",
@@ -340,7 +340,7 @@ def init_asl_t1_getrans_wf(
         )
         # fmt:off
         workflow.connect([
-            (asl_to_t1w_transform, outputnode, [("output_image", "asl_ref_t1")]),
+            (asl_to_t1w_transform, outputnode, [("output_image", "aslref_t1")]),
             (inputnode, cbf_to_t1w_transform, [("cbf_ts", "input_image")]),
             (cbf_to_t1w_transform, outputnode, [("output_image", "cbf_ts_t1")]),
             (inputnode, cbf_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
@@ -696,7 +696,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
     output_names = [
         "asl_mask_std",
         "asl_std",
-        "asl_ref_std",
+        "aslref_std",
         "spatial_reference",
         "template",
         "cbf_ts_std",
@@ -725,7 +725,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
         # Connecting outputnode
         (iterablesource, poutputnode, [(("std_target", format_reference), "spatial_reference")]),
         (asl_to_std_transform, poutputnode, [("output_image", "asl_std")]),
-        (asl_to_std_transform, poutputnode, [("output_image", "asl_ref_std")]),
+        (asl_to_std_transform, poutputnode, [("output_image", "aslref_std")]),
         (mask_std_tfm, poutputnode, [("output_image", "asl_mask_std")]),
         (select_std, poutputnode, [("key", "template")]),
         (mask_merge_tfms, cbf_to_std_transform, [("out", "transforms")]),
