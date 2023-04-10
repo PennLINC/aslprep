@@ -469,8 +469,8 @@ effects of other kernels [@lanczos].
         # fmt:off
         workflow.connect([
             (cbf_compt_wf, cbf_plot, [
-                ("outputnode.out_cbfb", "inputnode.basil"),
-                ("outputnode.out_cbfpv", "inputnode.pvc"),
+                ("outputnode.mean_cbf_basil", "inputnode.basil"),
+                ("outputnode.mean_cbf_gm_basil", "inputnode.pvc"),
             ]),
         ])
         # fmt:on
@@ -513,10 +513,10 @@ effects of other kernels [@lanczos].
             # fmt:off
             workflow.connect([
                 (cbf_compt_wf, t1w_gereg_wf, [
-                    ("outputnode.out_cbfb", "inputnode.basil"),
-                    ("outputnode.out_cbfpv", "inputnode.pv"),
-                    ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
-                    ("outputnode.out_att", "inputnode.att"),
+                    ("outputnode.mean_cbf_basil", "inputnode.basil"),
+                    ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
+                    ("outputnode.mean_cbf_wm_basil", "inputnode.pvwm"),
+                    ("outputnode.att", "inputnode.att"),
                 ]),
                 (t1w_gereg_wf, asl_derivatives_wf, [
                     ("outputnode.basil_t1", "inputnode.basil_t1"),
@@ -564,8 +564,8 @@ effects of other kernels [@lanczos].
         # fmt:off
         workflow.connect([
             (cbf_compt_wf, compute_cbf_qc_wf, [
-                ("outputnode.out_cbfb", "inputnode.basil"),
-                ("outputnode.out_cbfpv", "inputnode.pv"),
+                ("outputnode.mean_cbf_basil", "inputnode.basil"),
+                ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
             ]),
         ])
         # fmt:on
@@ -600,10 +600,10 @@ effects of other kernels [@lanczos].
             # fmt:off
             workflow.connect([
                 (cbf_compt_wf, asl_derivatives_wf, [
-                    ("outputnode.out_cbfb", "inputnode.basil_native"),
-                    ("outputnode.out_cbfpv", "inputnode.pv_native"),
-                    ("outputnode.out_cbfpvwm", "inputnode.pvwm_native"),
-                    ("outputnode.out_att", "inputnode.att_native"),
+                    ("outputnode.mean_cbf_basil", "inputnode.basil_native"),
+                    ("outputnode.mean_cbf_gm_basil", "inputnode.pv_native"),
+                    ("outputnode.mean_cbf_wm_basil", "inputnode.pvwm_native"),
+                    ("outputnode.att", "inputnode.att_native"),
                 ]),
             ])
             # fmt:on
@@ -656,10 +656,10 @@ effects of other kernels [@lanczos].
             # fmt:off
             workflow.connect([
                 (cbf_compt_wf, std_gereg_wf, [
-                    ("outputnode.out_cbfb", "inputnode.basil"),
-                    ("outputnode.out_cbfpv", "inputnode.pv"),
-                    ("outputnode.out_cbfpvwm", "inputnode.pvwm"),
-                    ("outputnode.out_att", "inputnode.att"),
+                    ("outputnode.mean_cbf_basil", "inputnode.basil"),
+                    ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
+                    ("outputnode.mean_cbf_wm_basil", "inputnode.pvwm"),
+                    ("outputnode.att", "inputnode.att"),
                 ]),
             ])
             # fmt:on
@@ -768,8 +768,8 @@ effects of other kernels [@lanczos].
         # fmt:off
         workflow.connect([
             (cbf_compt_wf, parcellate_cbf_wf, [
-                ("outputnode.out_cbfb", "inputnode.mean_cbf_basil"),
-                ("outputnode.out_cbfpv", "inputnode.mean_cbf_gm_basil"),
+                ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
+                ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
             ]),
             (parcellate_cbf_wf, asl_derivatives_wf, [
                 ("outputnode.mean_cbf_basil_parcellated", "inputnode.mean_cbf_basil_parcellated"),
