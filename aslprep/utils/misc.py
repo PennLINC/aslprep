@@ -670,7 +670,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     csfidx[csfidx > 0] = 1
     # midx = mask[mask==1]
 
-    meancbf = np.mean(cbf_ts, axis=3)
+    mean_cbf = np.mean(cbf_ts, axis=3)
     y = np.transpose(
         cbf_ts[
             mask == 1,
@@ -685,7 +685,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
         + (mu1 >= 10 * thresh1) * (1 / (2 * thresh1 * 10) * np.power(mu1, 2))
         + (thresh1 * 10 / 2 - thresh1)
     )
-    M = meancbf * mask
+    M = mean_cbf * mask
     M[mask == 1] = mu
     modrobprior = mu / 10
     gmidx2 = (
@@ -702,7 +702,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     X = np.zeros([len(idxx), 2])
     X[:, 0] = gm.flatten()[gm.flatten() >= (0)] * idxx
     X[:, 1] = wm.flatten()[wm.flatten() >= (0)] * idxx
-    A = (meancbf.flatten()[idxx >= 0]) * idxx
+    A = (mean_cbf.flatten()[idxx >= 0]) * idxx
     c = np.linalg.lstsq(X, A)[0]
     Globalpriorfull = c[0] * gm.flatten() + c[1] * wm.flatten()
     Globalprior = Globalpriorfull[mask.flatten() == 1]
@@ -721,7 +721,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
         flagstd=1,
         flagmodrobust=1,
     )
-    newcbf = meancbf * mask
+    newcbf = mean_cbf * mask
     newcbf[mask == 1] = bb
     newcbf = np.nan_to_num(newcbf)
     return newcbf

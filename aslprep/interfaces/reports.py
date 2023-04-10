@@ -43,7 +43,7 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t\t<li>Coregistration quality: {coregindex}</li>
 \t\t\t<li>Normalization quality: {normindex}</li>
 \t\t\t<li>Quality evaluation index : {qei}</li>
-\t\t\t<li>Mean CBF (mL 100/g/min) : {meancbf}</li>
+\t\t\t<li>Mean CBF (mL 100/g/min) : {mean_cbf}</li>
 \t\t\t<li>Percentage of negative voxel : {negvoxel}</li>
 
 \t\t</ul>
@@ -216,7 +216,7 @@ class FunctionalSummary(SummaryInterface):
             f"basil: {round(qcfile['basilQEI'][0], 4)}, "
             f"pvc: {round(qcfile['pvcQEI'][0], 4)} "
         )
-        meancbf = (
+        mean_cbf = (
             f"GM CBF: {round(qcfile['GMmeanCBF'][0], 2)}, "
             f"WM CBF: {round(qcfile['WMmeanCBF'][0], 2)}, "
             f"GM/WM CBF ratio: {round(qcfile['Gm_Wm_CBF_ratio'][0], 2)} "
@@ -254,7 +254,7 @@ class FunctionalSummary(SummaryInterface):
             qei=qei,
             coregindex=coregindex,
             normindex=normindex,
-            meancbf=meancbf,
+            mean_cbf=mean_cbf,
             negvoxel=negvoxel,
         )
 

@@ -294,10 +294,10 @@ def init_asl_std_trans_wf(
             fields=[
                 "anat2std_xfm",
                 "cbf",
-                "meancbf",
+                "mean_cbf",
                 "att",
                 "score",
-                "avgscore",
+                "mean_cbf_score",
                 "scrub",
                 "basil",
                 "pv",
@@ -543,7 +543,7 @@ def init_asl_std_trans_wf(
         (cbf_to_std_transform, poutputnode, [("output_image", "cbf_std")]),
         (mask_merge_tfms, meancbf_to_std_transform, [("out", "transforms")]),
         (gen_ref, meancbf_to_std_transform, [("out_file", "reference_image")]),
-        (inputnode, meancbf_to_std_transform, [("meancbf", "input_image")]),
+        (inputnode, meancbf_to_std_transform, [("mean_cbf", "input_image")]),
         (meancbf_to_std_transform, poutputnode, [("output_image", "meancbf_std")]),
     ])
     # fmt:on
@@ -557,7 +557,7 @@ def init_asl_std_trans_wf(
             (score_to_std_transform, poutputnode, [("output_image", "score_std")]),
             (mask_merge_tfms, avgscore_to_std_transform, [("out", "transforms")]),
             (gen_ref, avgscore_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, avgscore_to_std_transform, [("avgscore", "input_image")]),
+            (inputnode, avgscore_to_std_transform, [("mean_cbf_score", "input_image")]),
             (avgscore_to_std_transform, poutputnode, [("output_image", "avgscore_std")]),
             (mask_merge_tfms, scrub_to_std_transform, [("out", "transforms")]),
             (gen_ref, scrub_to_std_transform, [("out_file", "reference_image")]),

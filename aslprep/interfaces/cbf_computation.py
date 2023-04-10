@@ -656,7 +656,7 @@ class ScoreAndScrubCBF(SimpleInterface):
                 wfun=self.inputs.wavelet_function,
                 thresh=self.inputs.tpm_threshold,
             )
-            avgscore = np.mean(cbf_scorets, axis=3)
+            mean_cbf_score = np.mean(cbf_scorets, axis=3)
         else:
             config.loggers.interface.warning(
                 f"CBF time series is only {cbf_ts.ndim}D. Skipping SCORE and SCRUB."
@@ -664,7 +664,7 @@ class ScoreAndScrubCBF(SimpleInterface):
             cbf_scorets = cbf_ts
             index_score = np.array([0])
             cbfscrub = cbf_ts
-            avgscore = cbf_ts
+            mean_cbf_score = cbf_ts
 
         self._results["cbf_ts_score"] = fname_presuffix(
             self.inputs.cbf_ts,
@@ -695,7 +695,7 @@ class ScoreAndScrubCBF(SimpleInterface):
             header=samplecbf.header,
         ).to_filename(self._results["cbf_ts_score"])
         nb.Nifti1Image(
-            dataobj=avgscore,
+            dataobj=mean_cbf_score,
             affine=samplecbf.affine,
             header=samplecbf.header,
         ).to_filename(self._results["mean_cbf_score"])

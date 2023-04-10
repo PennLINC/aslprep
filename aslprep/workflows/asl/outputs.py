@@ -288,7 +288,7 @@ def init_asl_derivatives_wf(
             "suffix": "cbf",
             **cbf_metadata,
         },
-        "meancbf": {
+        "mean_cbf": {
             "suffix": "cbf",
             **cbf_metadata,
         },
@@ -298,7 +298,7 @@ def init_asl_derivatives_wf(
             "suffix": "cbf",
             **cbf_metadata,
         },
-        "avgscore": {
+        "mean_cbf_score": {
             "desc": "score",
             "suffix": "cbf",
             **cbf_metadata,
@@ -330,9 +330,9 @@ def init_asl_derivatives_wf(
         },
     }
 
-    base_inputs = ["asl", "aslref", "asl_mask", "cbf", "meancbf"]
+    base_inputs = ["asl", "aslref", "asl_mask", "cbf", "mean_cbf"]
     if scorescrub:
-        base_inputs += ["score", "avgscore", "scrub"]
+        base_inputs += ["score", "mean_cbf_score", "scrub"]
 
     if basil:
         base_inputs += ["basil", "pv", "pvwm", "att"]
