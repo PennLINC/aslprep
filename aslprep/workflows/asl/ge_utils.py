@@ -153,7 +153,7 @@ def init_asl_gereg_wf(
         name="inputnode",
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["itk_asl_to_t1", "itk_t1_to_asl", "fallback"]),
+        niu.IdentityInterface(fields=["aslref_to_t1w_xfm", "itk_t1_to_asl", "fallback"]),
         name="outputnode",
     )
 
@@ -172,7 +172,7 @@ def init_asl_gereg_wf(
             ("t1w_brain", "inputnode.t1w_brain"),
         ]),
         (bbr_wf, outputnode, [
-            ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
+            ("outputnode.aslref_to_t1w_xfm", "aslref_to_t1w_xfm"),
             ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
             ("outputnode.fallback", "fallback"),
         ]),
@@ -247,7 +247,7 @@ def init_asl_t1_getrans_wf(
                 "basil",
                 "pv",
                 "pvwm",
-                "itk_asl_to_t1",
+                "aslref_to_t1w_xfm",
             ]
         ),
         name="inputnode",
@@ -286,7 +286,7 @@ def init_asl_t1_getrans_wf(
     workflow.connect([
         (inputnode, mask_t1w_tfm, [("ref_asl_mask", "input_image")]),
         (inputnode, mask_t1w_tfm, [("t1w_brain", "reference_image")]),
-        (inputnode, mask_t1w_tfm, [("itk_asl_to_t1", "transforms")]),
+        (inputnode, mask_t1w_tfm, [("aslref_to_t1w_xfm", "transforms")]),
         (mask_t1w_tfm, outputnode, [("output_image", "asl_mask_t1")]),
     ])
     # fmt:on
@@ -306,7 +306,7 @@ def init_asl_t1_getrans_wf(
     # fmt:off
     workflow.connect([
         (inputnode, asl_to_t1w_transform, [("ref_asl_brain", "input_image")]),
-        (inputnode, asl_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+        (inputnode, asl_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
         (inputnode, asl_to_t1w_transform, [("t1w_brain", "reference_image")]),
         (asl_to_t1w_transform, outputnode, [("output_image", "asl_t1")]),
     ])
@@ -339,11 +339,11 @@ def init_asl_t1_getrans_wf(
             (asl_to_t1w_transform, outputnode, [("output_image", "asl_t1_ref")]),
             (inputnode, cbf_to_t1w_transform, [("cbf", "input_image")]),
             (cbf_to_t1w_transform, outputnode, [("output_image", "cbf_t1")]),
-            (inputnode, cbf_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+            (inputnode, cbf_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
             (inputnode, cbf_to_t1w_transform, [("t1w_brain", "reference_image")]),
             (inputnode, meancbf_to_t1w_transform, [("meancbf", "input_image")]),
             (meancbf_to_t1w_transform, outputnode, [("output_image", "meancbf_t1")]),
-            (inputnode, meancbf_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+            (inputnode, meancbf_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
             (inputnode, meancbf_to_t1w_transform, [("t1w_brain", "reference_image")]),
         ])
         # fmt:on
@@ -426,43 +426,43 @@ def init_asl_t1_getrans_wf(
         workflow.connect([
             (inputnode, score_to_t1w_transform, [
                 ("score", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("aslref_to_t1w_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
             (score_to_t1w_transform, outputnode, [("output_image", "score_t1")]),
             (inputnode, avgscore_to_t1w_transform, [
                 ("avgscore", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("aslref_to_t1w_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
             (avgscore_to_t1w_transform, outputnode, [("output_image", "avgscore_t1")]),
             (inputnode, scrub_to_t1w_transform, [
                 ("scrub", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("aslref_to_t1w_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
             (scrub_to_t1w_transform, outputnode, [("output_image", "scrub_t1")]),
             (inputnode, basil_to_t1w_transform, [
                 ("basil", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("aslref_to_t1w_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
             (basil_to_t1w_transform, outputnode, [("output_image", "basil_t1")]),
             (inputnode, pv_to_t1w_transform, [
                 ("pv", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("aslref_to_t1w_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
             (pv_to_t1w_transform, outputnode, [("output_image", "pv_t1")]),
             (inputnode, pvwm_to_t1w_transform, [
                 ("pvwm", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("aslref_to_t1w_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
             (pvwm_to_t1w_transform, outputnode, [("output_image", "pvwm_t1")]),
             (inputnode, att_to_t1w_transform, [
                 ("att", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("aslref_to_t1w_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
             (att_to_t1w_transform, outputnode, [("output_image", "att_t1")]),
@@ -528,7 +528,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
                 "pv",
                 "pvwm",
                 "asl_mask",
-                "itk_asl_to_t1",
+                "aslref_to_t1w_xfm",
                 "name_source",
                 "templates",
             ]
@@ -672,8 +672,8 @@ preprocessed ASL runs*: {', '.join(output_references)}.
         ]),
         (inputnode, mask_std_tfm, [("asl_mask", "input_image")]),
         (inputnode, gen_ref, [("asl_file", "moving_image")]),
-        (inputnode, merge_xforms, [(("itk_asl_to_t1", _aslist), "in2")]),
-        (inputnode, mask_merge_tfms, [(("itk_asl_to_t1", _aslist), "in2")]),
+        (inputnode, merge_xforms, [(("aslref_to_t1w_xfm", _aslist), "in2")]),
+        (inputnode, mask_merge_tfms, [(("aslref_to_t1w_xfm", _aslist), "in2")]),
         (inputnode, asl_to_std_transform, [("asl_file", "input_image")]),
         (split_target, select_std, [("space", "key")]),
         (select_std, merge_xforms, [("anat2std_xfm", "in1")]),

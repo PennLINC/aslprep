@@ -79,9 +79,9 @@ def init_cbf_compt_wf(
         t1w probability maps
     t1w_mask
         t1w mask Nifti
-    t1_asl_xform
+    t1w_to_aslref_xfm
         t1w to asl transformation file
-    itk_asl_to_t1
+    aslref_to_t1w_xfm
         asl to t1w transformation file
 
     Outputs
@@ -108,8 +108,8 @@ model [@buxton1998general].
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "t1_asl_xform",
-                "itk_asl_to_t1",
+                "t1w_to_aslref_xfm",
+                "aslref_to_t1w_xfm",
             ]
         ),
         name="inputnode",
@@ -118,15 +118,17 @@ model [@buxton1998general].
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "out_cbf",
-                "out_mean",
+                "cbf_ts",
+                "mean_cbf",
+                # SCORE/SCRUB outputs
                 "cbf_ts_score",
-                "mean_cbf_wm_basil",
                 "mean_cbf_score",
                 "mean_cbf_scrub",
-                "mean_cbf_basil",
                 "score_outlier_index",
+                # BASIL outputs
+                "mean_cbf_basil",
                 "mean_cbf_gm_basil",
+                "mean_cbf_wm_basil",
                 "att",
             ]
         ),
@@ -145,7 +147,7 @@ model [@buxton1998general].
         (inputnode, refine_mask, [
             ("t1w_mask", "t1w_mask"),
             ("asl_mask", "asl_mask"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
         ]),
     ])
     # fmt:on
@@ -175,7 +177,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -191,7 +193,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -207,7 +209,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -270,8 +272,8 @@ model [@buxton1998general].
             ("metadata", "metadata"),
         ]),
         (compute_cbf, outputnode, [
-            ("cbf", "out_cbf"),
-            ("mean_cbf", "out_mean"),
+            ("cbf", "cbf_ts"),
+            ("mean_cbf", "mean_cbf"),
         ]),
     ])
     # fmt:on
@@ -398,8 +400,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "t1_asl_xform",
-                "itk_asl_to_t1",
+                "t1w_to_aslref_xfm",
+                "aslref_to_t1w_xfm",
                 "m0_file",
                 "m0tr",
             ]
@@ -409,16 +411,18 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "out_cbf",
-                "out_mean",
+                "cbf_ts",
+                "mean_cbf",
+                # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
                 "mean_cbf_scrub",
-                "mean_cbf_basil",
                 "score_outlier_index",
+                # BASIL outputs
+                "mean_cbf_basil",
                 "mean_cbf_gm_basil",
-                "att",
                 "mean_cbf_wm_basil",
+                "att",
             ]
         ),
         name="outputnode",
@@ -450,7 +454,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -466,7 +470,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -482,7 +486,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -513,7 +517,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         (inputnode, refine_mask, [
             ("t1w_mask", "t1w_mask"),
             ("asl_mask", "asl_mask"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
         ]),
     ])
     # fmt:on
@@ -565,8 +569,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             (refine_mask, compute_cbf, [("out_mask", "mask")]),
             (compute_cbf, collect_cbf, [("cbf", "cbf")]),
             (compute_cbf, outputnode, [
-                ("cbf", "out_cbf"),
-                ("mean_cbf", "out_mean"),
+                ("cbf", "cbf_ts"),
+                ("mean_cbf", "mean_cbf"),
             ]),
         ])
         # fmt:on
@@ -582,7 +586,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         # fmt:off
         workflow.connect([
             (inputnode, extract_cbf, [
-                ("asl_file", "in_asl"),
+                ("asl_file", "asl_file"),
                 ("asl_mask", "asl_mask"),
             ]),
         ])
@@ -601,8 +605,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             (extract_cbf, mask_cbf, [("out_file", "operand_files")]),
             (mask_cbf, collect_cbf, [("out_file", "cbf")]),
             (mask_cbf, outputnode, [
-                ("out_file", "out_cbf"),
-                ("out_file", "out_mean"),
+                ("out_file", "cbf_ts"),
+                ("out_file", "mean_cbf"),
             ]),
         ])
         # fmt:on

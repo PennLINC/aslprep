@@ -49,7 +49,7 @@ def init_compute_cbf_qc_wf(
         asl mask NIFTI file
     t1w_tpms
         t1w probability maps
-    t1_asl_xform
+    t1w_to_aslref_xfm
         t1w to asl transfromation file
 
     Outputs
@@ -72,7 +72,7 @@ negative CBF values.
                 "asl_mask",
                 "t1w_mask",
                 "t1w_tpms",
-                "t1_asl_xform",
+                "t1w_to_aslref_xfm",
                 "asl_mask_std",
                 # SCORE/SCRUB inputs
                 "avgscore",
@@ -108,7 +108,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -124,7 +124,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -140,7 +140,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -156,7 +156,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, mask_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_to_aslref_xfm", "transforms"),
             ("t1w_mask", "input_image"),
         ]),
     ])

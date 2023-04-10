@@ -64,7 +64,7 @@ def init_asl_derivatives_wf(
                 "asl_mask_t1",
                 "asl_mask_std",
                 # Transforms
-                "itk_asl_to_t1",
+                "aslref_to_t1w_xfm",
                 "itk_t1_to_asl",
                 # Standard CBF outputs
                 "cbf_native",
@@ -205,7 +205,7 @@ def init_asl_derivatives_wf(
     workflow.connect([
         (inputnode, ds_asl_to_t1w_xform, [
             ("source_file", "source_file"),
-            ("itk_asl_to_t1", "in_file"),
+            ("aslref_to_t1w_xfm", "in_file"),
         ]),
     ])
     # fmt:on

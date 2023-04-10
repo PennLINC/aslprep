@@ -241,7 +241,7 @@ effects of other kernels [@lanczos].
                 "avgscore_std",
                 "scrub_t1",
                 "scrub_std",
-                "itk_asl_to_t1",
+                "aslref_to_t1w_xfm",
                 "itk_t1_to_asl",
                 "basil_t1",
                 "basil_std",
@@ -344,12 +344,12 @@ effects of other kernels [@lanczos].
         (gen_ref_wf, asl_reg_wf, [("outputnode.ref_image_brain", "inputnode.ref_asl_brain")]),
         (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_reg_wf, outputnode, [
-            ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
+            ("outputnode.aslref_to_t1w_xfm", "aslref_to_t1w_xfm"),
             ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
         ]),
         (asl_reg_wf, asl_derivatives_wf, [
             ("outputnode.itk_t1_to_asl", "inputnode.itk_t1_to_asl"),
-            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
+            ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
         ]),
         (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
     ])
@@ -379,8 +379,8 @@ effects of other kernels [@lanczos].
             ("outputnode.m0tr", "inputnode.m0tr"),
         ]),
         (asl_reg_wf, cbf_compt_wf, [
-            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
-            ("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform"),
+            ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
+            ("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm"),
         ]),
     ])
     # fmt:on
@@ -411,14 +411,16 @@ effects of other kernels [@lanczos].
         ]),
         (t1w_brain, t1w_gereg_wf, [("out_file", "inputnode.t1w_brain")]),
         # unused if multiecho, but this is safe
-        (asl_reg_wf, t1w_gereg_wf, [("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1")]),
+        (asl_reg_wf, t1w_gereg_wf, [
+            ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
+        ]),
         (t1w_gereg_wf, outputnode, [
             ("outputnode.asl_t1", "asl_t1"),
             ("outputnode.asl_t1_ref", "asl_t1_ref"),
         ]),
         (cbf_compt_wf, t1w_gereg_wf, [
-            ("outputnode.out_cbf", "inputnode.cbf"),
-            ("outputnode.out_mean", "inputnode.meancbf"),
+            ("outputnode.cbf_ts", "inputnode.cbf"),
+            ("outputnode.mean_cbf", "inputnode.meancbf"),
         ]),
         (t1w_gereg_wf, asl_derivatives_wf, [
             ("outputnode.cbf_t1", "inputnode.cbf_t1"),
@@ -450,7 +452,7 @@ effects of other kernels [@lanczos].
 
     # fmt:off
     workflow.connect([
-        (cbf_compt_wf, cbf_plot, [("outputnode.out_mean", "inputnode.cbf")]),
+        (cbf_compt_wf, cbf_plot, [("outputnode.mean_cbf", "inputnode.cbf")]),
         (gen_ref_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.asl_ref")]),
     ])
     # fmt:on
@@ -486,7 +488,7 @@ effects of other kernels [@lanczos].
         )
         # fmt:off
         workflow.connect([
-            (asl_reg_wf, aslmask_to_t1w, [("outputnode.itk_asl_to_t1", "transforms")]),
+            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref_to_t1w_xfm", "transforms")]),
             (t1w_gereg_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
             (refine_mask, aslmask_to_t1w, [("out_mask", "input_image")]),
             (aslmask_to_t1w, outputnode, [("output_image", "asl_mask_t1")]),
@@ -542,8 +544,10 @@ effects of other kernels [@lanczos].
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
         (refine_mask, compute_cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
-        (asl_reg_wf, compute_cbf_qc_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (cbf_compt_wf, compute_cbf_qc_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
+        (asl_reg_wf, compute_cbf_qc_wf, [
+            ("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm"),
+        ]),
+        (cbf_compt_wf, compute_cbf_qc_wf, [("outputnode.mean_cbf", "inputnode.meancbf")]),
         (compute_cbf_qc_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
         (compute_cbf_qc_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
         (compute_cbf_qc_wf, summary, [("outputnode.qc_file", "qc_file")]),
@@ -579,8 +583,8 @@ effects of other kernels [@lanczos].
             ]),
             (refine_mask, asl_derivatives_wf, [("out_mask", "inputnode.asl_mask_native")]),
             (cbf_compt_wf, asl_derivatives_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf_native"),
-                ("outputnode.out_mean", "inputnode.meancbf_native"),
+                ("outputnode.cbf_ts", "inputnode.cbf_native"),
+                ("outputnode.mean_cbf", "inputnode.meancbf_native"),
             ]),
         ])
         # fmt:on
@@ -627,7 +631,9 @@ effects of other kernels [@lanczos].
                 ("asl_file", "inputnode.name_source"),
                 ("asl_file", "inputnode.asl_file"),
             ]),
-            (asl_reg_wf, std_gereg_wf, [("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1")]),
+            (asl_reg_wf, std_gereg_wf, [
+                ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
+            ]),
             (refine_mask, std_gereg_wf, [("out_mask", "inputnode.asl_mask")]),
             (std_gereg_wf, outputnode, [
                 ("outputnode.asl_std", "asl_std"),
@@ -635,8 +641,8 @@ effects of other kernels [@lanczos].
                 ("outputnode.asl_mask_std", "asl_mask_std"),
             ]),
             (cbf_compt_wf, std_gereg_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf"),
-                ("outputnode.out_mean", "inputnode.meancbf"),
+                ("outputnode.cbf_ts", "inputnode.cbf"),
+                ("outputnode.mean_cbf", "inputnode.meancbf"),
             ]),
         ])
         # fmt:on
@@ -742,7 +748,7 @@ effects of other kernels [@lanczos].
         (asl_reg_wf, parcellate_cbf_wf, [
             ("outputnode.itk_t1_to_asl", "inputnode.anat_to_asl_xform"),
         ]),
-        (cbf_compt_wf, parcellate_cbf_wf, [("outputnode.out_mean", "inputnode.mean_cbf")]),
+        (cbf_compt_wf, parcellate_cbf_wf, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
         (parcellate_cbf_wf, asl_derivatives_wf, [
             ("outputnode.atlas_names", "inputnode.atlas_names"),
             ("outputnode.mean_cbf_parcellated", "inputnode.mean_cbf_parcellated"),

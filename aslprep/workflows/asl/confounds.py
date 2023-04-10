@@ -69,7 +69,7 @@ def init_asl_confs_wf(
         Mask of the skull-stripped template image
     t1w_tpms
         List of tissue probability maps in T1w space
-    t1_asl_xform
+    t1w_to_aslref_xfm
         Affine matrix that maps the T1w space into alignment with
         the native asl space
 
@@ -98,7 +98,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
                 "skip_vols",
                 "t1w_mask",
                 "t1w_tpms",
-                "t1_asl_xform",
+                "t1w_to_aslref_xfm",
             ]
         ),
         name="inputnode",
@@ -197,7 +197,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
         ASL series mask
     confounds_file
         TSV of all aggregated confounds
-    t1_asl_xform
+    t1w_to_aslref_xfm
         Affine matrix that maps the T1w space into alignment with
         the native ASL space
     std2anat_xfm
@@ -211,7 +211,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     """
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=["asl", "asl_mask", "confounds_file", "t1_asl_xform", "std2anat_xfm"]
+            fields=["asl", "asl_mask", "confounds_file", "t1w_to_aslref_xfm", "std2anat_xfm"]
         ),
         name="inputnode",
     )
@@ -260,7 +260,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     workflow = Workflow(name=name)
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [("t1_asl_xform", "in1"), ("std2anat_xfm", "in2")]),
+        (inputnode, mrg_xfms, [("t1w_to_aslref_xfm", "in1"), ("std2anat_xfm", "in2")]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
         # Carpetplot

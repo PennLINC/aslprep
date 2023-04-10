@@ -249,7 +249,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 "confounds",
                 "confounds_metadata",
                 "qc_file",
-                "itk_asl_to_t1",
+                "aslref_to_t1w_xfm",
                 "itk_t1_to_asl",
             ]
         ),
@@ -456,7 +456,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # unused if multiecho, but this is safe
         (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
         (asl_reg_wf, asl_t1_trans_wf, [
-            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
+            ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
         ]),
         (asl_t1_trans_wf, outputnode, [
             ("outputnode.asl_t1", "asl_t1"),
@@ -491,7 +491,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.rmsd_file", "inputnode.rmsd_file"),
         ]),
         (asl_reg_wf, asl_confounds_wf, [
-            ("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform"),
+            ("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm"),
         ]),
         (asl_reference_wf, asl_confounds_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
         (asl_asl_trans_wf, asl_confounds_wf, [("outputnode.asl_mask", "inputnode.asl_mask")]),
@@ -553,16 +553,18 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.asl", "inputnode.asl_file"),
             ("outputnode.asl_mask", "inputnode.asl_mask"),
         ]),
-        (asl_reg_wf, compt_cbf_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (asl_reg_wf, compt_cbf_wf, [("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1")]),
+        (asl_reg_wf, compt_cbf_wf, [
+            ("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm"),
+            ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
+        ]),
         (inputnode, compt_cbf_wf, [("t1w_mask", "inputnode.t1w_mask")]),
         (asl_reg_wf, outputnode, [
             ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
-            ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
+            ("outputnode.aslref_to_t1w_xfm", "aslref_to_t1w_xfm"),
         ]),
         (asl_reg_wf, asl_derivatives_wf, [
             ("outputnode.itk_t1_to_asl", "inputnode.itk_t1_to_asl"),
-            ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
+            ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
         ]),
     ])
     # fmt:on
@@ -666,13 +668,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         )
         # fmt:off
         workflow.connect([
-            (asl_reg_wf, aslmask_to_t1w, [("outputnode.itk_asl_to_t1", "transforms")]),
+            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref_to_t1w_xfm", "transforms")]),
             (asl_t1_trans_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
             (refine_mask, aslmask_to_t1w, [("out_mask", "input_image")]),
             (aslmask_to_t1w, outputnode, [("output_image", "asl_mask_t1")]),
             (compt_cbf_wf, asl_t1_trans_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf"),
-                ("outputnode.out_mean", "inputnode.meancbf"),
+                ("outputnode.cbf_ts", "inputnode.cbf"),
+                ("outputnode.mean_cbf", "inputnode.meancbf"),
             ]),
             (asl_t1_trans_wf, asl_derivatives_wf, [
                 ("outputnode.cbf_t1", "inputnode.cbf_t1"),
@@ -726,8 +728,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("out_mask", "inputnode.asl_mask_native"),
             ]),
             (compt_cbf_wf, asl_derivatives_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf_native"),
-                ("outputnode.out_mean", "inputnode.meancbf_native"),
+                ("outputnode.cbf_ts", "inputnode.cbf_native"),
+                ("outputnode.mean_cbf", "inputnode.meancbf_native"),
             ]),
         ])
         # fmt:on
@@ -777,13 +779,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
             (asl_reg_wf, asl_std_trans_wf, [
-                ("outputnode.itk_asl_to_t1", "inputnode.itk_asl_to_t1"),
+                ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
             ]),
             (refine_mask, asl_std_trans_wf, [("out_mask", "inputnode.asl_mask")]),
             (asl_sdc_wf, asl_std_trans_wf, [("outputnode.out_warp", "inputnode.fieldwarp")]),
             (compt_cbf_wf, asl_std_trans_wf, [
-                ("outputnode.out_cbf", "inputnode.cbf"),
-                ("outputnode.out_mean", "inputnode.meancbf"),
+                ("outputnode.cbf_ts", "inputnode.cbf"),
+                ("outputnode.mean_cbf", "inputnode.meancbf"),
             ]),
         ])
         # fmt:on
@@ -881,8 +883,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (refine_mask, compute_cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_hmc_wf, compute_cbf_qc_wf, [("outputnode.rmsd_file", "inputnode.rmsd_file")]),
-        (asl_reg_wf, compute_cbf_qc_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
-        (compt_cbf_wf, compute_cbf_qc_wf, [("outputnode.out_mean", "inputnode.meancbf")]),
+        (asl_reg_wf, compute_cbf_qc_wf, [
+            ("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm"),
+        ]),
+        (compt_cbf_wf, compute_cbf_qc_wf, [("outputnode.mean_cbf", "inputnode.meancbf")]),
         (asl_confounds_wf, compute_cbf_qc_wf, [
             ("outputnode.confounds_file", "inputnode.confmat"),
         ]),
@@ -930,17 +934,17 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (compt_cbf_wf, cbf_plot, [
-            ("outputnode.out_mean", "inputnode.cbf"),
+            ("outputnode.mean_cbf", "inputnode.cbf"),
             ("outputnode.mean_cbf_score", "inputnode.score"),
             ("outputnode.mean_cbf_scrub", "inputnode.scrub"),
             ("outputnode.mean_cbf_basil", "inputnode.basil"),
             ("outputnode.mean_cbf_gm_basil", "inputnode.pvc"),
             ("outputnode.cbf_ts_score", "inputnode.score_ts"),
-            ("outputnode.out_cbf", "inputnode.cbf_ts"),
+            ("outputnode.cbf_ts", "inputnode.cbf_ts"),
             ("outputnode.score_outlier_index", "inputnode.scoreindex"),
         ]),
         (inputnode, cbf_plot, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
-        (asl_reg_wf, cbf_plot, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
+        (asl_reg_wf, cbf_plot, [("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm")]),
         (refine_mask, cbf_plot, [("out_mask", "inputnode.asl_mask")]),
         (asl_reference_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.asl_ref")]),
         (asl_confounds_wf, cbf_plot, [("outputnode.confounds_file", "inputnode.confounds_file")]),
@@ -974,7 +978,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.asl", "inputnode.asl"),
         ]),
         (refine_mask, carpetplot_wf, [("out_mask", "inputnode.asl_mask")]),
-        (asl_reg_wf, carpetplot_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1_asl_xform")]),
+        (asl_reg_wf, carpetplot_wf, [("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm")]),
         (asl_confounds_wf, carpetplot_wf, [
             ("outputnode.confounds_file", "inputnode.confounds_file"),
         ]),
@@ -996,7 +1000,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_reg_wf, parcellate_cbf_wf, [
             ("outputnode.itk_t1_to_asl", "inputnode.anat_to_asl_xform"),
         ]),
-        (compt_cbf_wf, parcellate_cbf_wf, [("outputnode.out_mean", "inputnode.mean_cbf")]),
+        (compt_cbf_wf, parcellate_cbf_wf, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
         (parcellate_cbf_wf, asl_derivatives_wf, [
             ("outputnode.atlas_names", "inputnode.atlas_names"),
             ("outputnode.mean_cbf_parcellated", "inputnode.mean_cbf_parcellated"),

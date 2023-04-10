@@ -45,7 +45,7 @@ def init_cbfplot_wf(
                 "basil",
                 "pvc",
                 "asl_mask",
-                "t1_asl_xform",
+                "t1w_to_aslref_xfm",
                 "std2anat_xfm",
                 "confounds_file",
                 "scoreindex",
@@ -103,7 +103,7 @@ def init_cbfplot_wf(
     )
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [("t1_asl_xform", "in2"), ("std2anat_xfm", "in1")]),
+        (inputnode, mrg_xfms, [("t1w_to_aslref_xfm", "in2"), ("std2anat_xfm", "in1")]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
         (resample_parc, cbftssummary, [("output_image", "seg_file")]),
