@@ -120,12 +120,12 @@ model [@buxton1998general].
             fields=[
                 "out_cbf",
                 "out_mean",
-                "out_score",
+                "cbf_ts_score",
                 "out_cbfpvwm",
-                "out_avgscore",
-                "out_scrub",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
                 "out_cbfb",
-                "out_scoreindex",
+                "score_outlier_index",
                 "out_cbfpv",
                 "out_att",
             ]
@@ -278,7 +278,7 @@ model [@buxton1998general].
 
     if scorescrub:
         score_and_scrub_cbf = pe.Node(
-            ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
+            ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
             mem_gb=0.2,
             name="score_and_scrub_cbf",
             run_without_submitting=True,
@@ -294,16 +294,16 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
 """
         # fmt:off
         workflow.connect([
-            (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
-            (compute_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
+            (refine_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
+            (compute_cbf, score_and_scrub_cbf, [("cbf", "cbf_ts")]),
             (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
             (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
             (score_and_scrub_cbf, outputnode, [
-                ("out_score", "out_score"),
-                ("out_scoreindex", "out_scoreindex"),
-                ("out_avgscore", "out_avgscore"),
-                ("out_scrub", "out_scrub"),
+                ("cbf_ts_score", "cbf_ts_score"),
+                ("score_outlier_index", "score_outlier_index"),
+                ("mean_cbf_score", "mean_cbf_score"),
+                ("mean_cbf_scrub", "mean_cbf_scrub"),
             ]),
         ])
         # fmt:on
@@ -411,11 +411,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             fields=[
                 "out_cbf",
                 "out_mean",
-                "out_score",
-                "out_avgscore",
-                "out_scrub",
+                "cbf_ts_score",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
                 "out_cbfb",
-                "out_scoreindex",
+                "score_outlier_index",
                 "out_cbfpv",
                 "out_att",
                 "out_cbfpvwm",
@@ -616,7 +616,7 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
 """
 
         score_and_scrub_cbf = pe.Node(
-            ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
+            ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
             mem_gb=mem_gb,
             name="scorescrub",
             run_without_submitting=True,
@@ -624,16 +624,16 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
 
         # fmt:off
         workflow.connect([
-            (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
+            (refine_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
             (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
             (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
-            (collect_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
+            (collect_cbf, score_and_scrub_cbf, [("cbf", "cbf_ts")]),
             (score_and_scrub_cbf, outputnode, [
-                ("out_score", "out_score"),
-                ("out_scoreindex", "out_scoreindex"),
-                ("out_avgscore", "out_avgscore"),
-                ("out_scrub", "out_scrub"),
+                ("cbf_ts_score", "cbf_ts_score"),
+                ("score_outlier_index", "score_outlier_index"),
+                ("mean_cbf_score", "mean_cbf_score"),
+                ("mean_cbf_scrub", "mean_cbf_scrub"),
             ]),
         ])
         # fmt:on
