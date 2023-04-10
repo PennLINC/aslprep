@@ -14,11 +14,11 @@ from nipype.interfaces.base import (
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep.utils.qc import (
-    cbf_qei,
+    average_cbf_by_tissue,
+    compute_qei,
     coverage,
     crosscorr,
     dice,
-    globalcbf,
     jaccard,
     negativevoxel,
 )
@@ -30,21 +30,28 @@ class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc="Original asl_file. Used to extract entity information.",
     )
-    in_meancbf = File(exists=True, mandatory=True, desc="cbf img")
-    in_avgscore = File(exists=True, mandatory=False, desc="cbf img")
-    in_scrub = File(exists=True, mandatory=False, desc="cbf img")
-    in_basil = File(exists=True, mandatory=False, desc="cbf img")
-    in_pvc = File(exists=True, mandatory=False, desc="cbf img")
-    in_greyM = File(exists=True, mandatory=True, desc="grey matter tissue probability map")
-    in_whiteM = File(exists=True, mandatory=True, desc="white matter tissue probability map")
-    in_csf = File(exists=True, mandatory=True, desc="csf tissue probability map")
-    in_aslmask = File(exists=True, mandatory=True, desc="asl mask in native space")
-    in_t1mask = File(exists=True, mandatory=True, desc="t1wmask in native space ")
-    in_aslmaskstd = File(exists=True, mandatory=False, desc="asl mask in native space")
-    in_templatemask = File(exists=True, mandatory=False, desc="template mask or image")
+    mean_cbf = File(exists=True, mandatory=True, desc="Mean CBF from standard CBF calculation.")
+    # SCORE/SCRUB inputs
+    mean_cbf_score = File(exists=True, mandatory=False, desc="Mean CBF after SCORE censoring.")
+    mean_cbf_scrub = File(exists=True, mandatory=False, desc="Mean CBF after SCRUB denoising.")
+    # BASIL inputs
+    mean_cbf_basil = File(exists=True, mandatory=False, desc="Mean CBF produced by BASIL.")
+    mean_cbf_gm_basil = File(
+        exists=True,
+        mandatory=False,
+        desc="GM partial volume corrected CBF with BASIL.",
+    )
+    # Tissue probability maps and masks
+    gm_tpm = File(exists=True, mandatory=True, desc="Gray matter tissue probability map")
+    wm_tpm = File(exists=True, mandatory=True, desc="White matter tissue probability map")
+    csf_tpm = File(exists=True, mandatory=True, desc="CSF tissue probability map")
+    asl_mask = File(exists=True, mandatory=True, desc="ASL mask in native ASL reference space")
+    t1w_mask = File(exists=True, mandatory=True, desc="T1w mask in native space")
+    asl_mask_std = File(exists=True, mandatory=False, desc="ASL mask in standard space")
+    template_mask = File(exists=True, mandatory=False, desc="template mask or image")
     tpm_threshold = traits.Float(desc="Typically 0.7 for non-GE data and 0.8 for GE data.")
-    # non-GE-only inputs
-    in_confmat = File(
+    # Non-GE-only inputs
+    confounds_file = File(
         exists=True,
         mandatory=False,
         desc="Confounds file. Will not be defined for GE data.",
@@ -74,141 +81,141 @@ class ComputeCBFQC(SimpleInterface):
     def _run_interface(self, runtime):
         thresh = self.inputs.tpm_threshold
 
-        if isdefined(self.inputs.in_confmat):
-            time1 = pd.read_table(self.inputs.in_confmat)
-            time1.fillna(0, inplace=True)
-            fd = np.mean(time1["framewise_displacement"])
-            rms = pd.read_csv(self.inputs.rmsd_file, header=None).mean().values[0]
+        if isdefined(self.inputs.confounds_file):
+            confounds_df = pd.read_table(self.inputs.confounds_file)
+            confounds_df.fillna(0, inplace=True)
+            mean_fd = np.mean(confounds_df["framewise_displacement"])
+            mean_rms = pd.read_csv(self.inputs.rmsd_file, header=None).mean().values[0]
         else:
-            fd = np.nan
-            rms = np.nan
+            mean_fd = np.nan
+            mean_rms = np.nan
 
-        regDC = dice(self.inputs.in_aslmask, self.inputs.in_t1mask)
-        regJC = jaccard(self.inputs.in_aslmask, self.inputs.in_t1mask)
-        regCC = crosscorr(self.inputs.in_aslmask, self.inputs.in_t1mask)
-        regCov = coverage(self.inputs.in_aslmask, self.inputs.in_t1mask)
+        coreg_dice = dice(self.inputs.asl_mask, self.inputs.t1w_mask)
+        coreg_jaccard = jaccard(self.inputs.asl_mask, self.inputs.t1w_mask)
+        coreg_crosscorr = crosscorr(self.inputs.asl_mask, self.inputs.t1w_mask)
+        coreg_coverage = coverage(self.inputs.asl_mask, self.inputs.t1w_mask)
 
-        if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
-            normDC = dice(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
-            normJC = jaccard(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
-            normCC = crosscorr(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
-            normCov = coverage(self.inputs.in_aslmaskstd, self.inputs.in_templatemask)
+        if self.inputs.asl_mask_std and self.inputs.template_mask:
+            norm_dice = dice(self.inputs.asl_mask_std, self.inputs.template_mask)
+            norm_jaccard = jaccard(self.inputs.asl_mask_std, self.inputs.template_mask)
+            norm_crosscorr = crosscorr(self.inputs.asl_mask_std, self.inputs.template_mask)
+            norm_coverage = coverage(self.inputs.asl_mask_std, self.inputs.template_mask)
 
-        meancbf_qei = cbf_qei(
-            gm=self.inputs.in_greyM,
-            wm=self.inputs.in_whiteM,
-            csf=self.inputs.in_csf,
-            img=self.inputs.in_meancbf,
+        mean_cbf_qei = compute_qei(
+            gm=self.inputs.gm_tpm,
+            wm=self.inputs.wm_tpm,
+            csf=self.inputs.csf_tpm,
+            img=self.inputs.mean_cbf,
             thresh=thresh,
         )
-        meancbf = globalcbf(
-            gm=self.inputs.in_greyM,
-            wm=self.inputs.in_whiteM,
-            csf=self.inputs.in_csf,
-            cbf=self.inputs.in_meancbf,
+        mean_cbf_mean = average_cbf_by_tissue(
+            gm=self.inputs.gm_tpm,
+            wm=self.inputs.wm_tpm,
+            csf=self.inputs.csf_tpm,
+            cbf=self.inputs.mean_cbf,
             thresh=thresh,
         )
 
-        if self.inputs.in_avgscore:
-            scorecbf_qei = cbf_qei(
-                gm=self.inputs.in_greyM,
-                wm=self.inputs.in_whiteM,
-                csf=self.inputs.in_csf,
-                img=self.inputs.in_avgscore,
+        if self.inputs.mean_cbf_score:
+            mean_cbf_score_qei = compute_qei(
+                gm=self.inputs.gm_tpm,
+                wm=self.inputs.wm_tpm,
+                csf=self.inputs.csf_tpm,
+                img=self.inputs.mean_cbf_score,
                 thresh=thresh,
             )
-            scrub_qei = cbf_qei(
-                gm=self.inputs.in_greyM,
-                wm=self.inputs.in_whiteM,
-                csf=self.inputs.in_csf,
-                img=self.inputs.in_scrub,
+            mean_cbf_scrub_qei = compute_qei(
+                gm=self.inputs.gm_tpm,
+                wm=self.inputs.wm_tpm,
+                csf=self.inputs.csf_tpm,
+                img=self.inputs.mean_cbf_scrub,
                 thresh=thresh,
             )
-            negscore = negativevoxel(
-                cbf=self.inputs.in_avgscore,
-                gm=self.inputs.in_greyM,
+            mean_cbf_score_negvox = negativevoxel(
+                cbf=self.inputs.mean_cbf_score,
+                gm=self.inputs.gm_tpm,
                 thresh=thresh,
             )
-            negscrub = negativevoxel(
-                cbf=self.inputs.in_scrub,
-                gm=self.inputs.in_greyM,
+            mean_cbf_scrub_negvox = negativevoxel(
+                cbf=self.inputs.mean_cbf_scrub,
+                gm=self.inputs.gm_tpm,
                 thresh=thresh,
             )
         else:
             print("no score inputs, setting to np.nan")
-            scorecbf_qei = np.nan
-            scrub_qei = np.nan
-            negscore = np.nan
-            negscrub = np.nan
+            mean_cbf_score_qei = np.nan
+            mean_cbf_scrub_qei = np.nan
+            mean_cbf_score_negvox = np.nan
+            mean_cbf_scrub_negvox = np.nan
 
-        if self.inputs.in_basil:
-            basilcbf_qei = cbf_qei(
-                gm=self.inputs.in_greyM,
-                wm=self.inputs.in_whiteM,
-                csf=self.inputs.in_csf,
-                img=self.inputs.in_basil,
+        if self.inputs.mean_cbf_basil:
+            mean_cbf_basil_qei = compute_qei(
+                gm=self.inputs.gm_tpm,
+                wm=self.inputs.wm_tpm,
+                csf=self.inputs.csf_tpm,
+                img=self.inputs.mean_cbf_basil,
                 thresh=thresh,
             )
-            pvcbf_qei = cbf_qei(
-                gm=self.inputs.in_greyM,
-                wm=self.inputs.in_whiteM,
-                csf=self.inputs.in_csf,
-                img=self.inputs.in_pvc,
+            mean_cbf_gm_basil_qei = compute_qei(
+                gm=self.inputs.gm_tpm,
+                wm=self.inputs.wm_tpm,
+                csf=self.inputs.csf_tpm,
+                img=self.inputs.mean_cbf_gm_basil,
                 thresh=thresh,
             )
-            negbasil = negativevoxel(
-                cbf=self.inputs.in_basil,
-                gm=self.inputs.in_greyM,
+            mean_cbf_basil_negvox = negativevoxel(
+                cbf=self.inputs.mean_cbf_basil,
+                gm=self.inputs.gm_tpm,
                 thresh=thresh,
             )
-            negpvc = negativevoxel(
-                cbf=self.inputs.in_pvc,
-                gm=self.inputs.in_greyM,
+            mean_cbf_gm_basil_negvox = negativevoxel(
+                cbf=self.inputs.mean_cbf_gm_basil,
+                gm=self.inputs.gm_tpm,
                 thresh=thresh,
             )
         else:
             print("no basil inputs, setting to np.nan")
-            basilcbf_qei = np.nan
-            pvcbf_qei = np.nan
-            negbasil = np.nan
-            negpvc = np.nan
+            mean_cbf_basil_qei = np.nan
+            mean_cbf_gm_basil_qei = np.nan
+            mean_cbf_basil_negvox = np.nan
+            mean_cbf_gm_basil_negvox = np.nan
 
-        gwratio = np.divide(meancbf[0], meancbf[1])
-        negcbf = negativevoxel(
-            cbf=self.inputs.in_meancbf,
-            gm=self.inputs.in_greyM,
+        gm_wm_ratio = np.divide(mean_cbf_mean[0], mean_cbf_mean[1])
+        mean_cbf_negvox = negativevoxel(
+            cbf=self.inputs.mean_cbf,
+            gm=self.inputs.gm_tpm,
             thresh=thresh,
         )
 
         metrics_dict = {
-            "FD": [fd],
-            "rmsd": [rms],
-            "coregDC": [regDC],
-            "coregJC": [regJC],
-            "coregCC": [regCC],
-            "coregCOV": [regCov],
-            "cbfQEI": [meancbf_qei],
-            "scoreQEI": [scorecbf_qei],
-            "scrubQEI": [scrub_qei],
-            "basilQEI": [basilcbf_qei],
-            "pvcQEI": [pvcbf_qei],
-            "GMmeanCBF": [meancbf[0]],
-            "WMmeanCBF": [meancbf[1]],
-            "Gm_Wm_CBF_ratio": [gwratio],
-            "NEG_CBF_PERC": [negcbf],
-            "NEG_SCORE_PERC": [negscore],
-            "NEG_SCRUB_PERC": [negscrub],
-            "NEG_BASIL_PERC": [negbasil],
-            "NEG_PVC_PERC": [negpvc],
+            "FD": [mean_fd],
+            "rmsd": [mean_rms],
+            "coregDC": [coreg_dice],
+            "coregJC": [coreg_jaccard],
+            "coregCC": [coreg_crosscorr],
+            "coregCOV": [coreg_coverage],
+            "cbfQEI": [mean_cbf_qei],
+            "scoreQEI": [mean_cbf_score_qei],
+            "scrubQEI": [mean_cbf_scrub_qei],
+            "basilQEI": [mean_cbf_basil_qei],
+            "pvcQEI": [mean_cbf_gm_basil_qei],
+            "GMmeanCBF": [mean_cbf_mean[0]],
+            "WMmeanCBF": [mean_cbf_mean[1]],
+            "Gm_Wm_CBF_ratio": [gm_wm_ratio],
+            "NEG_CBF_PERC": [mean_cbf_negvox],
+            "NEG_SCORE_PERC": [mean_cbf_score_negvox],
+            "NEG_SCRUB_PERC": [mean_cbf_scrub_negvox],
+            "NEG_BASIL_PERC": [mean_cbf_basil_negvox],
+            "NEG_PVC_PERC": [mean_cbf_gm_basil_negvox],
         }
 
         normalization_metrics_dict = {}
-        if self.inputs.in_aslmaskstd and self.inputs.in_templatemask:
+        if self.inputs.asl_mask_std and self.inputs.template_mask:
             normalization_metrics_dict = {
-                "normDC": [normDC],
-                "normJC": [normJC],
-                "normCC": [normCC],
-                "normCOV": [normCov],
+                "normDC": [norm_dice],
+                "normJC": [norm_jaccard],
+                "normCC": [norm_crosscorr],
+                "normCOV": [norm_coverage],
             }
 
         # Extract entities from the input file.
@@ -222,7 +229,7 @@ class ComputeCBFQC(SimpleInterface):
         qc_df = pd.DataFrame(qc_dict)
 
         self._results["qc_file"] = fname_presuffix(
-            self.inputs.in_meancbf,
+            self.inputs.mean_cbf,
             suffix="qc_cbf.csv",
             newpath=runtime.cwd,
             use_ext=False,

@@ -575,9 +575,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
     # fmt:off
     workflow.connect([
-        (asl_asl_trans_wf, refine_mask, [("outputnode.asl_mask", "in_aslmask")]),
+        (asl_asl_trans_wf, refine_mask, [("outputnode.asl_mask", "asl_mask")]),
         (asl_reg_wf, refine_mask, [("outputnode.itk_t1_to_asl", "transforms")]),
-        (inputnode, refine_mask, [("t1w_mask", "in_t1mask")]),
+        (inputnode, refine_mask, [("t1w_mask", "t1w_mask")]),
     ])
     # fmt:on
 

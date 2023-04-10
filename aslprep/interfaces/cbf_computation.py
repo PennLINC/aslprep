@@ -30,8 +30,8 @@ from aslprep.utils.misc import (
 
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
-    in_t1mask = File(exists=True, mandatory=True, desc="t1 mask")
-    in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
+    t1w_mask = File(exists=True, mandatory=True, desc="t1 mask")
+    asl_mask = File(exists=True, mandatory=True, desct="asl mask")
     transforms = File(exists=True, mandatory=True, desc="transfom")
 
 
@@ -48,19 +48,19 @@ class RefineMask(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results["out_tmp"] = fname_presuffix(
-            self.inputs.in_aslmask,
+            self.inputs.asl_mask,
             suffix="_tempmask",
             newpath=runtime.cwd,
         )
         self._results["out_mask"] = fname_presuffix(
-            self.inputs.in_aslmask,
+            self.inputs.asl_mask,
             suffix="_refinemask",
             newpath=runtime.cwd,
         )
 
         refine_ref_mask(
-            t1w_mask=self.inputs.in_t1mask,
-            ref_asl_mask=self.inputs.in_aslmask,
+            t1w_mask=self.inputs.t1w_mask,
+            ref_asl_mask=self.inputs.asl_mask,
             t12ref_transform=self.inputs.transforms,
             tmp_mask=self._results["out_tmp"],
             refined_mask=self._results["out_mask"],
@@ -277,7 +277,7 @@ class ExtractCBF(SimpleInterface):
 class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
     asl_file = File(exists=True, mandatory=True, desc="raw asl file")
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
-    in_aslmask = File(exists=True, mandatory=True, desct="asl mask")
+    asl_mask = File(exists=True, mandatory=True, desct="asl mask")
     file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
 
 
@@ -293,7 +293,7 @@ class ExtractCBForDeltaM(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(
-            self.inputs.in_aslmask,
+            self.inputs.asl_mask,
             suffix="_cbfdeltam",
             newpath=runtime.cwd,
         )
@@ -588,10 +588,10 @@ class ComputeCBF(SimpleInterface):
 
 class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc="computed CBF from ComputeCBF")
-    in_greyM = File(exists=True, mandatory=True, desc="grey  matter")
-    in_whiteM = File(exists=True, mandatory=True, desc="white  matter")
+    gm_tpm = File(exists=True, mandatory=True, desc="grey  matter")
+    wm_tpm = File(exists=True, mandatory=True, desc="white  matter")
     in_mask = File(exists=True, mandatory=True, desc="mask")
-    in_csf = File(exists=True, mandatory=True, desc="csf")
+    csf_tpm = File(exists=True, mandatory=True, desc="csf")
     in_thresh = traits.Float(
         default_value=0.7, exists=True, mandatory=False, desc="threshold of propbaility matter"
     )
@@ -636,9 +636,9 @@ class ScoreAndScrubCBF(SimpleInterface):
     def _run_interface(self, runtime):
         cbf_ts = nb.load(self.inputs.in_file).get_fdata()
         mask = nb.load(self.inputs.in_mask).get_fdata()
-        greym = nb.load(self.inputs.in_greyM).get_fdata()
-        whitem = nb.load(self.inputs.in_whiteM).get_fdata()
-        csf = nb.load(self.inputs.in_csf).get_fdata()
+        greym = nb.load(self.inputs.gm_tpm).get_fdata()
+        whitem = nb.load(self.inputs.wm_tpm).get_fdata()
+        csf = nb.load(self.inputs.csf_tpm).get_fdata()
         if cbf_ts.ndim > 3:
             cbf_scorets, index_score = _getcbfscore(
                 cbfts=cbf_ts,

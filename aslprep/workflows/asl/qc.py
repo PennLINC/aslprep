@@ -185,17 +185,17 @@ negative CBF values.
 
     # fmt:off
     workflow.connect([
-        (mask_tfm, qccompute, [("output_image", "in_t1mask")]),
+        (mask_tfm, qccompute, [("output_image", "t1w_mask")]),
         (inputnode, qccompute, [
             ("name_source", "name_source"),
-            ("asl_mask", "in_aslmask"),
-            (("asl_mask_std", _select_last_in_list), "in_aslmaskstd"),
-            ("meancbf", "in_meancbf"),
+            ("asl_mask", "asl_mask"),
+            (("asl_mask_std", _select_last_in_list), "asl_mask_std"),
+            ("meancbf", "mean_cbf"),
         ]),
-        (resample, qccompute, [("out_file", "in_templatemask")]),
-        (gm_tfm, qccompute, [("output_image", "in_greyM")]),
-        (wm_tfm, qccompute, [("output_image", "in_whiteM")]),
-        (csf_tfm, qccompute, [("output_image", "in_csf")]),
+        (resample, qccompute, [("out_file", "template_mask")]),
+        (gm_tfm, qccompute, [("output_image", "gm_tpm")]),
+        (wm_tfm, qccompute, [("output_image", "wm_tpm")]),
+        (csf_tfm, qccompute, [("output_image", "csf_tpm")]),
         (qccompute, outputnode, [("qc_file", "qc_file")]),
     ])
     # fmt:on
@@ -204,7 +204,7 @@ negative CBF values.
         # fmt:off
         workflow.connect([
             (inputnode, qccompute, [
-                ("confmat", "in_confmat"),
+                ("confmat", "confounds_file"),
                 ("rmsd_file", "rmsd_file"),
             ]),
         ])
@@ -214,8 +214,8 @@ negative CBF values.
         # fmt:off
         workflow.connect([
             (inputnode, qccompute, [
-                ("scrub", "in_scrub"),
-                ("avgscore", "in_avgscore"),
+                ("scrub", "mean_cbf_scrub"),
+                ("avgscore", "mean_cbf_score"),
             ]),
         ])
         # fmt:on
@@ -224,8 +224,8 @@ negative CBF values.
         # fmt:off
         workflow.connect([
             (inputnode, qccompute, [
-                ("basil", "in_basil"),
-                ("pv", "in_pvc"),
+                ("basil", "mean_cbf_basil"),
+                ("pv", "mean_cbf_gm_basil"),
             ]),
         ])
         # fmt:on

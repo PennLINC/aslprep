@@ -436,8 +436,8 @@ effects of other kernels [@lanczos].
 
     # fmt:off
     workflow.connect([
-        (inputnode, refine_mask, [("t1w_mask", "in_t1mask")]),
-        (gen_ref_wf, refine_mask, [("outputnode.asl_mask", "in_aslmask")]),
+        (inputnode, refine_mask, [("t1w_mask", "t1w_mask")]),
+        (gen_ref_wf, refine_mask, [("outputnode.asl_mask", "asl_mask")]),
         (asl_reg_wf, refine_mask, [("outputnode.itk_t1_to_asl", "transforms")]),
     ])
     # fmt:on

@@ -143,8 +143,8 @@ model [@buxton1998general].
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [
-            ("t1w_mask", "in_t1mask"),
-            ("asl_mask", "in_aslmask"),
+            ("t1w_mask", "t1w_mask"),
+            ("asl_mask", "asl_mask"),
             ("t1_asl_xform", "transforms"),
         ]),
     ])
@@ -296,9 +296,9 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
         workflow.connect([
             (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
             (compute_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
-            (gm_tfm, score_and_scrub_cbf, [("output_image", "in_greyM")]),
-            (wm_tfm, score_and_scrub_cbf, [("output_image", "in_whiteM")]),
-            (csf_tfm, score_and_scrub_cbf, [("output_image", "in_csf")]),
+            (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
+            (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
+            (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
             (score_and_scrub_cbf, outputnode, [
                 ("out_score", "out_score"),
                 ("out_scoreindex", "out_scoreindex"),
@@ -511,8 +511,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [
-            ("t1w_mask", "in_t1mask"),
-            ("asl_mask", "in_aslmask"),
+            ("t1w_mask", "t1w_mask"),
+            ("asl_mask", "asl_mask"),
             ("t1_asl_xform", "transforms"),
         ]),
     ])
@@ -541,7 +541,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             # extract deltaM data
             (inputnode, extract_deltam, [
                 ("asl_file", "asl_file"),
-                ("asl_mask", "in_aslmask"),
+                ("asl_mask", "asl_mask"),
             ]),
         ])
         # fmt:on
@@ -583,7 +583,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         workflow.connect([
             (inputnode, extract_cbf, [
                 ("asl_file", "in_asl"),
-                ("asl_mask", "in_aslmask"),
+                ("asl_mask", "asl_mask"),
             ]),
         ])
         # fmt:on
@@ -625,9 +625,9 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
         # fmt:off
         workflow.connect([
             (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
-            (gm_tfm, score_and_scrub_cbf, [("output_image", "in_greyM")]),
-            (wm_tfm, score_and_scrub_cbf, [("output_image", "in_whiteM")]),
-            (csf_tfm, score_and_scrub_cbf, [("output_image", "in_csf")]),
+            (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
+            (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
+            (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
             (collect_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
             (score_and_scrub_cbf, outputnode, [
                 ("out_score", "out_score"),
