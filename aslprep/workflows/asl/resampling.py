@@ -273,7 +273,7 @@ def init_asl_std_trans_wf(
     -------
     asl_std
         ASL series, resampled to template space
-    cbf_std, *cbf
+    cbf_ts_std, *cbf
         cbf series, resampled to template space
     aslref_std
         Reference, contrast-enhanced summary of the ASL series, resampled to template space

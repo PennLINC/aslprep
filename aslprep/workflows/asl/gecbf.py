@@ -98,25 +98,25 @@ def init_asl_gepreproc_wf(asl_file):
         asl CIFTI image
     cifti_variant
         combination of target spaces for `asl_cifti`
-    cbf_t1
+    cbf_ts_t1
         cbf times series in T1w space
-    meancbf_t1
+    mean_cbf_t1
         mean cbf   in T1w space
-    scorecbf_t1
+    cbf_ts_score_t1
         scorecbf times series in T1w space
-    avgscorecbf_t1
+    mean_cbf_score_t1
         mean score cbf  in T1w space
-    scrub_t1, pv_t1, basil_t1
+    mean_cbf_scrub_t1, mean_cbf_gm_basil_t1, mean_cbf_basil_t1
         scrub, parital volume corrected and basil cbf   in T1w space
-    cbf_std
+    cbf_ts_std
         cbf times series in template space
-    meancbf_std
+    mean_cbf_std
         mean cbf   in template space
-    scorecbf_std
+    cbf_ts_score_std
         scorecbf times series in template space
-    avgscorecbf_std
+    mean_cbf_score_std
         mean score cbf  in template space
-    scrub_std, pv_std, basil_std
+    mean_cbf_scrub_std, mean_cbf_gm_basil_std, mean_cbf_basil_std
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
         quality control meausres
@@ -231,26 +231,26 @@ effects of other kernels [@lanczos].
                 "aslref_std",
                 "asl_mask_std",
                 "asl_native",
-                "cbf_t1",
-                "cbf_std",
-                "meancbf_t1",
-                "meancbf_std",
-                "score_t1",
-                "score_std",
-                "avgscore_t1",
-                "avgscore_std",
-                "scrub_t1",
-                "scrub_std",
+                "cbf_ts_t1",
+                "cbf_ts_std",
+                "mean_cbf_t1",
+                "mean_cbf_std",
+                "cbf_ts_score_t1",
+                "cbf_ts_score_std",
+                "mean_cbf_score_t1",
+                "mean_cbf_score_std",
+                "mean_cbf_scrub_t1",
+                "mean_cbf_scrub_std",
                 "aslref_to_t1w_xfm",
                 "itk_t1_to_asl",
-                "basil_t1",
-                "basil_std",
-                "pv_t1",
-                "pvwm_t1",
-                "pv_std",
-                "pvwm_std",
+                "mean_cbf_basil_t1",
+                "mean_cbf_basil_std",
+                "mean_cbf_gm_basil_t1",
+                "mean_cbf_wm_basil_t1",
+                "mean_cbf_gm_basil_std",
+                "mean_cbf_wm_basil_std",
                 "pvwm_native",
-                "pv_native",
+                "mean_cbf_gm_basil",
                 "att",
                 "att_t1",
                 "att_std",
@@ -423,8 +423,8 @@ effects of other kernels [@lanczos].
             ("outputnode.mean_cbf", "inputnode.mean_cbf"),
         ]),
         (t1w_gereg_wf, asl_derivatives_wf, [
-            ("outputnode.cbf_t1", "inputnode.cbf_t1"),
-            ("outputnode.meancbf_t1", "inputnode.meancbf_t1"),
+            ("outputnode.cbf_ts_t1", "inputnode.cbf_ts_t1"),
+            ("outputnode.mean_cbf_t1", "inputnode.mean_cbf_t1"),
         ]),
     ])
     # fmt:on
