@@ -70,7 +70,7 @@ def init_asl_preproc_wf(asl_file):
         List of tissue probability maps in T1w space
     template
         List of templates to target
-    anat2std_xfm
+    anat_to_template_xfm
         List of transform files, collated with templates
     template_to_anat_xfm
         List of inverse transform files, collated with templates
@@ -200,7 +200,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 "t1w_mask",
                 "t1w_dseg",
                 "t1w_tpms",
-                "anat2std_xfm",
+                "anat_to_template_xfm",
                 "template_to_anat_xfm",
                 "template",
             ],
@@ -777,7 +777,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         workflow.connect([
             (inputnode, asl_std_trans_wf, [
                 ("template", "inputnode.templates"),
-                ("anat2std_xfm", "inputnode.anat2std_xfm"),
+                ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
                 ("asl_file", "inputnode.name_source"),
             ]),
             (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),

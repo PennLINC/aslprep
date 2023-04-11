@@ -523,7 +523,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
                 "aslref_to_anat_xfm",
                 "name_source",
                 "templates",
-                "anat2std_xfm",
+                "anat_to_template_xfm",
                 "asl_file",
                 "asl_mask",
                 "cbf_ts",
@@ -557,7 +557,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
     )
 
     select_std = pe.Node(
-        KeySelect(fields=["anat2std_xfm"]), name="select_std", run_without_submitting=True
+        KeySelect(fields=["anat_to_template_xfm"]), name="select_std", run_without_submitting=True
     )
 
     select_tpl = pe.Node(
@@ -672,7 +672,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
         (iterablesource, split_target, [("std_target", "in_target")]),
         (iterablesource, select_tpl, [("std_target", "template")]),
         (inputnode, select_std, [
-            ("anat2std_xfm", "anat2std_xfm"),
+            ("anat_to_template_xfm", "anat_to_template_xfm"),
             ("templates", "keys"),
         ]),
         (inputnode, mask_std_tfm, [("asl_mask", "input_image")]),
@@ -681,8 +681,8 @@ preprocessed ASL runs*: {', '.join(output_references)}.
         (inputnode, mask_merge_tfms, [(("aslref_to_anat_xfm", _aslist), "in2")]),
         (inputnode, asl_to_std_transform, [("asl_file", "input_image")]),
         (split_target, select_std, [("space", "key")]),
-        (select_std, merge_xforms, [("anat2std_xfm", "in1")]),
-        (select_std, mask_merge_tfms, [("anat2std_xfm", "in1")]),
+        (select_std, merge_xforms, [("anat_to_template_xfm", "in1")]),
+        (select_std, mask_merge_tfms, [("anat_to_template_xfm", "in1")]),
         (split_target, gen_ref, [(("spec", _is_native), "keep_native")]),
         (select_tpl, gen_ref, [("out", "fixed_image")]),
         (merge_xforms, asl_to_std_transform, [("out", "transforms")]),

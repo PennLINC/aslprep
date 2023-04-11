@@ -67,7 +67,7 @@ def init_asl_gepreproc_wf(asl_file):
         List of tissue probability maps in T1w space
     template
         List of templates to target
-    anat2std_xfm
+    anat_to_template_xfm
         List of transform files, collated with templates
     template_to_anat_xfm
         List of inverse transform files, collated with templates
@@ -210,7 +210,7 @@ effects of other kernels [@lanczos].
                 "t1w_mask",
                 "t1w_dseg",
                 "t1w_tpms",
-                "anat2std_xfm",
+                "anat_to_template_xfm",
                 "template_to_anat_xfm",
                 "template",
             ]
@@ -627,7 +627,7 @@ effects of other kernels [@lanczos].
         workflow.connect([
             (inputnode, std_gereg_wf, [
                 ("template", "inputnode.templates"),
-                ("anat2std_xfm", "inputnode.anat2std_xfm"),
+                ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
                 ("asl_file", "inputnode.name_source"),
                 ("asl_file", "inputnode.asl_file"),
             ]),

@@ -336,8 +336,8 @@ tasks and sessions), the following preprocessing was performed.
                 ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
                 ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
                 ("outputnode.template", "inputnode.template"),
-                ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
-                ("outputnode.template_to_anat_xfm", "inputnode.template_to_anat_xfm"),
+                ("outputnode.anat2std_xfm", "inputnode.anat_to_template_xfm"),
+                ("outputnode.std2anat_xfm", "inputnode.template_to_anat_xfm"),
             ]),
         ])
         # fmt:on

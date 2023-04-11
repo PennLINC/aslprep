@@ -249,7 +249,7 @@ def init_asl_std_trans_wf(
 
     Inputs
     ------
-    anat2std_xfm
+    anat_to_template_xfm
         List of anatomical-to-standard space transforms generated during
         spatial normalization.
     asl_mask
@@ -292,7 +292,7 @@ def init_asl_std_trans_wf(
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "anat2std_xfm",
+                "anat_to_template_xfm",
                 "asl_mask",
                 "asl_split",
                 "fieldwarp",
@@ -336,7 +336,7 @@ def init_asl_std_trans_wf(
     # fmt:on
 
     select_std = pe.Node(
-        KeySelect(fields=["anat2std_xfm"]),
+        KeySelect(fields=["anat_to_template_xfm"]),
         name="select_std",
         run_without_submitting=True,
     )
@@ -344,7 +344,7 @@ def init_asl_std_trans_wf(
     # fmt:off
     workflow.connect([
         (inputnode, select_std, [
-            ("anat2std_xfm", "anat2std_xfm"),
+            ("anat_to_template_xfm", "anat_to_template_xfm"),
             ("templates", "keys"),
         ]),
         (split_target, select_std, [("space", "key")]),
@@ -385,7 +385,7 @@ def init_asl_std_trans_wf(
     # fmt:off
     workflow.connect([
         (inputnode, mask_merge_tfms, [(("aslref_to_anat_xfm", _aslist), "in2")]),
-        (select_std, mask_merge_tfms, [("anat2std_xfm", "in1")]),
+        (select_std, mask_merge_tfms, [("anat_to_template_xfm", "in1")]),
     ])
     # fmt:on
 
@@ -418,7 +418,7 @@ def init_asl_std_trans_wf(
             ("hmc_xforms", f"in{nxforms}"),
             (("aslref_to_anat_xfm", _aslist), "in2"),
         ]),
-        (select_std, merge_xforms, [("anat2std_xfm", "in1")]),
+        (select_std, merge_xforms, [("anat_to_template_xfm", "in1")]),
     ])
     # fmt:on
 
