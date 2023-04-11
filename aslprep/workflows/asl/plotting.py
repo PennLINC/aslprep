@@ -36,19 +36,22 @@ def init_cbfplot_wf(
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "cbf_ts",
-                "mean_cbf",
-                "cbf_ts_score",
-                "mean_score_score",
-                "mean_score_scrub",
                 "aslref",
-                "mean_cbf_basil",
-                "mean_cbf_gm_basil",
                 "asl_mask",
                 "t1w_to_aslref_xfm",
                 "std2anat_xfm",
                 "confounds_file",
+                # CBF outputs
+                "cbf_ts",
+                "mean_cbf",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
                 "score_outlier_index",
+                # BASIL outputs
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
             ]
         ),
         name="inputnode",
@@ -58,7 +61,6 @@ def init_cbfplot_wf(
             fields=[
                 "cbf_carpetplot",
                 "score_carpetplot",
-                "cbf_summary_plot",
                 "cbf_summary_plot",
                 "score_summary_plot",
                 "scrub_summary_plot",
