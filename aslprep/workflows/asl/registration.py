@@ -87,9 +87,9 @@ def init_asl_reg_wf(
 
     Outputs
     -------
-    aslref_to_t1w_xfm
+    aslref_to_anat_xfm
         Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
-    itk_t1_to_asl
+    anat_to_aslref_xfm
         Affine transform from T1 space to ASL space (ITK format)
     fallback
         Boolean indicating whether BBR was rejected (mri_coreg registration returned)
@@ -114,8 +114,8 @@ def init_asl_reg_wf(
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "aslref_to_t1w_xfm",
-                "itk_t1_to_asl",
+                "aslref_to_anat_xfm",
+                "anat_to_aslref_xfm",
                 "fallback",
             ]
         ),
@@ -137,8 +137,8 @@ def init_asl_reg_wf(
             ("t1w_brain", "inputnode.t1w_brain"),
         ]),
         (bbr_wf, outputnode, [
-            ("outputnode.aslref_to_t1w_xfm", "aslref_to_t1w_xfm"),
-            ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
+            ("outputnode.aslref_to_anat_xfm", "aslref_to_anat_xfm"),
+            ("outputnode.anat_to_aslref_xfm", "anat_to_aslref_xfm"),
             ("outputnode.fallback", "fallback"),
         ]),
     ])
@@ -228,7 +228,7 @@ def init_asl_t1_trans_wf(
         Individual 3D ASL volumes, not motion corrected
     hmc_xforms
         List of affine transforms aligning each volume to ``ref_image`` in ITK format
-    aslref_to_t1w_xfm
+    aslref_to_anat_xfm
         Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
     fieldwarp
         a :abbr:`DFM (displacements field map)` in ITK format
@@ -259,7 +259,7 @@ def init_asl_t1_trans_wf(
                 "asl_split",
                 "fieldwarp",
                 "hmc_xforms",
-                "aslref_to_t1w_xfm",
+                "aslref_to_anat_xfm",
                 # CBF outputs
                 "cbf_ts",
                 "mean_cbf",
@@ -321,7 +321,7 @@ def init_asl_t1_trans_wf(
         ]),
         (inputnode, mask_t1w_tfm, [("ref_asl_mask", "input_image")]),
         (gen_ref, mask_t1w_tfm, [("out_file", "reference_image")]),
-        (inputnode, mask_t1w_tfm, [("aslref_to_t1w_xfm", "transforms")]),
+        (inputnode, mask_t1w_tfm, [("aslref_to_anat_xfm", "transforms")]),
         (mask_t1w_tfm, outputnode, [("output_image", "asl_mask_t1")]),
     ])
     # fmt:on
@@ -357,7 +357,7 @@ def init_asl_t1_trans_wf(
             # merge transforms
             (inputnode, merge_xforms, [
                 ("hmc_xforms", f"in{nforms}"),
-                ("aslref_to_t1w_xfm", "in1"),
+                ("aslref_to_anat_xfm", "in1"),
             ]),
             (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
             (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
@@ -377,7 +377,7 @@ def init_asl_t1_trans_wf(
         workflow.connect([
             (inputnode, asl_split, [("asl_split", "in_file")]),
             (asl_split, asl_to_t1w_transform, [("out_files", "input_image")]),
-            (inputnode, asl_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
+            (inputnode, asl_to_t1w_transform, [("aslref_to_anat_xfm", "transforms")]),
         ])
         # fmt:on
 
@@ -424,7 +424,7 @@ def init_asl_t1_trans_wf(
         workflow.connect([
             (inputnode, warp_input_to_t1w, [
                 (input_name, "input_image"),
-                ("aslref_to_t1w_xfm", "transforms"),
+                ("aslref_to_anat_xfm", "transforms"),
             ]),
             (gen_ref, warp_input_to_t1w, [("out_file", "reference_image")]),
             (warp_input_to_t1w, outputnode, [("output_image", f"{input_name}_t1")]),
@@ -490,9 +490,9 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
 
     Outputs
     -------
-    aslref_to_t1w_xfm
+    aslref_to_anat_xfm
         Affine transform from ``ref_asl_brain`` to T1w space (ITK format)
-    itk_t1_to_asl
+    anat_to_aslref_xfm
         Affine transform from T1 space to ASL space (ITK format)
     out_report
         Reportlet for assessing registration quality
@@ -522,8 +522,8 @@ and the overlap between the ASL and reference images (e.g., image coverage).
     outputnode = pe.Node(
         niu.IdentityInterface(
             [
-                "aslref_to_t1w_xfm",
-                "itk_t1_to_asl",
+                "aslref_to_anat_xfm",
+                "anat_to_aslref_xfm",
                 "out_report",
                 "fallback",
             ]
@@ -578,8 +578,8 @@ and the overlap between the ASL and reference images (e.g., image coverage).
             ("t1w_brain", "source_file"),
         ]),
         (invt_bbr, fsl2itk_inv, [("out_file", "transform_file")]),
-        (fsl2itk_fwd, outputnode, [("itk_transform", "aslref_to_t1w_xfm")]),
-        (fsl2itk_inv, outputnode, [("itk_transform", "itk_t1_to_asl")]),
+        (fsl2itk_fwd, outputnode, [("itk_transform", "aslref_to_anat_xfm")]),
+        (fsl2itk_inv, outputnode, [("itk_transform", "anat_to_aslref_xfm")]),
     ])
     # fmt:on
 

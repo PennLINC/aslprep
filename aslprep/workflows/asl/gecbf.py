@@ -69,7 +69,7 @@ def init_asl_gepreproc_wf(asl_file):
         List of templates to target
     anat2std_xfm
         List of transform files, collated with templates
-    std2anat_xfm
+    template_to_anat_xfm
         List of inverse transform files, collated with templates
     subjects_dir
         FreeSurfer SUBJECTS_DIR
@@ -211,7 +211,7 @@ effects of other kernels [@lanczos].
                 "t1w_dseg",
                 "t1w_tpms",
                 "anat2std_xfm",
-                "std2anat_xfm",
+                "template_to_anat_xfm",
                 "template",
             ]
         ),
@@ -241,8 +241,8 @@ effects of other kernels [@lanczos].
                 "mean_cbf_score_std",
                 "mean_cbf_scrub_t1",
                 "mean_cbf_scrub_std",
-                "aslref_to_t1w_xfm",
-                "itk_t1_to_asl",
+                "aslref_to_anat_xfm",
+                "anat_to_aslref_xfm",
                 "mean_cbf_basil_t1",
                 "mean_cbf_basil_std",
                 "mean_cbf_gm_basil_t1",
@@ -344,12 +344,12 @@ effects of other kernels [@lanczos].
         (gen_ref_wf, asl_reg_wf, [("outputnode.ref_image_brain", "inputnode.ref_asl_brain")]),
         (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_reg_wf, outputnode, [
-            ("outputnode.aslref_to_t1w_xfm", "aslref_to_t1w_xfm"),
-            ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
+            ("outputnode.aslref_to_anat_xfm", "aslref_to_anat_xfm"),
+            ("outputnode.anat_to_aslref_xfm", "anat_to_aslref_xfm"),
         ]),
         (asl_reg_wf, asl_derivatives_wf, [
-            ("outputnode.itk_t1_to_asl", "inputnode.itk_t1_to_asl"),
-            ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
+            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
         ]),
         (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
     ])
@@ -379,8 +379,8 @@ effects of other kernels [@lanczos].
             ("outputnode.m0tr", "inputnode.m0tr"),
         ]),
         (asl_reg_wf, cbf_compt_wf, [
-            ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
-            ("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm"),
+            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+            ("outputnode.anat_to_aslref_xfm", "inputnode.t1w_to_aslref_xfm"),
         ]),
     ])
     # fmt:on
@@ -412,7 +412,7 @@ effects of other kernels [@lanczos].
         (t1w_brain, t1w_gereg_wf, [("out_file", "inputnode.t1w_brain")]),
         # unused if multiecho, but this is safe
         (asl_reg_wf, t1w_gereg_wf, [
-            ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
+            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
         ]),
         (t1w_gereg_wf, outputnode, [
             ("outputnode.asl_t1", "asl_t1"),
@@ -440,7 +440,7 @@ effects of other kernels [@lanczos].
     workflow.connect([
         (inputnode, refine_mask, [("t1w_mask", "t1w_mask")]),
         (gen_ref_wf, refine_mask, [("outputnode.asl_mask", "asl_mask")]),
-        (asl_reg_wf, refine_mask, [("outputnode.itk_t1_to_asl", "transforms")]),
+        (asl_reg_wf, refine_mask, [("outputnode.anat_to_aslref_xfm", "transforms")]),
     ])
     # fmt:on
 
@@ -488,7 +488,7 @@ effects of other kernels [@lanczos].
         )
         # fmt:off
         workflow.connect([
-            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref_to_t1w_xfm", "transforms")]),
+            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref_to_anat_xfm", "transforms")]),
             (t1w_gereg_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
             (refine_mask, aslmask_to_t1w, [("out_mask", "input_image")]),
             (aslmask_to_t1w, outputnode, [("output_image", "asl_mask_t1")]),
@@ -545,7 +545,7 @@ effects of other kernels [@lanczos].
         ]),
         (refine_mask, compute_cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, compute_cbf_qc_wf, [
-            ("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm"),
+            ("outputnode.anat_to_aslref_xfm", "inputnode.t1w_to_aslref_xfm"),
         ]),
         (cbf_compt_wf, compute_cbf_qc_wf, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
         (compute_cbf_qc_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
@@ -632,7 +632,7 @@ effects of other kernels [@lanczos].
                 ("asl_file", "inputnode.asl_file"),
             ]),
             (asl_reg_wf, std_gereg_wf, [
-                ("outputnode.aslref_to_t1w_xfm", "inputnode.aslref_to_t1w_xfm"),
+                ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
             ]),
             (refine_mask, std_gereg_wf, [("out_mask", "inputnode.asl_mask")]),
             (std_gereg_wf, outputnode, [
@@ -719,7 +719,7 @@ effects of other kernels [@lanczos].
 
     # xform to 'MNI152NLin2009cAsym' is always computed, so this should always be available.
     select_xform_MNI152NLin2009cAsym_to_t1w = pe.Node(
-        KeySelect(fields=["std2anat_xfm"], key="MNI152NLin2009cAsym"),
+        KeySelect(fields=["template_to_anat_xfm"], key="MNI152NLin2009cAsym"),
         name="carpetplot_select_std",
         run_without_submitting=True,
     )
@@ -727,7 +727,7 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (inputnode, select_xform_MNI152NLin2009cAsym_to_t1w, [
-            ("std2anat_xfm", "std2anat_xfm"),
+            ("template_to_anat_xfm", "template_to_anat_xfm"),
             ("template", "keys"),
         ]),
     ])
@@ -742,11 +742,11 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (select_xform_MNI152NLin2009cAsym_to_t1w, parcellate_cbf_wf, [
-            ("std2anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xform"),
+            ("template_to_anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
         ]),
         (refine_mask, parcellate_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, parcellate_cbf_wf, [
-            ("outputnode.itk_t1_to_asl", "inputnode.anat_to_asl_xform"),
+            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
         (cbf_compt_wf, parcellate_cbf_wf, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
         (parcellate_cbf_wf, asl_derivatives_wf, [

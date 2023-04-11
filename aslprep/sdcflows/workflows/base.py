@@ -60,7 +60,7 @@ def init_sdc_estimate_wf(fmaps, epi_meta, omp_nthreads=1, debug=False):
         Brain mask for the run
     t1w_brain
         T1w image, brain-masked, for the fieldmap-less SyN method
-    std2anat_xfm
+    template_to_anat_xfm
         Standard-to-T1w transform generated during spatial
         normalization (only for the fieldmap-less SyN method).
 
@@ -83,7 +83,7 @@ def init_sdc_estimate_wf(fmaps, epi_meta, omp_nthreads=1, debug=False):
     """
     workflow = Workflow(name='sdc_estimate_wf' if fmaps else 'sdc_bypass_wf')
     inputnode = pe.Node(niu.IdentityInterface(
-        fields=['epi_file', 'epi_brain', 'epi_mask', 't1w_brain', 'std2anat_xfm']),
+        fields=['epi_file', 'epi_brain', 'epi_mask', 't1w_brain', 'template_to_anat_xfm']),
         name='inputnode')
 
     outputnode = pe.Node(niu.IdentityInterface(
@@ -233,7 +233,7 @@ accurate co-registration with the anatomical reference.
                 ('epi_file', 'inputnode.in_reference'),
                 ('epi_brain', 'inputnode.in_reference_brain'),
                 ('t1w_brain', 'inputnode.t1w_brain'),
-                ('std2anat_xfm', 'inputnode.std2anat_xfm')]),
+                ('template_to_anat_xfm', 'inputnode.template_to_anat_xfm')]),
             (syn_sdc_wf, outputnode, [
                 ('outputnode.out_reference', 'syn_ref')]),
         ])

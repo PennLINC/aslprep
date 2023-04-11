@@ -81,7 +81,7 @@ def init_cbf_compt_wf(
         t1w mask Nifti
     t1w_to_aslref_xfm
         t1w to asl transformation file
-    aslref_to_t1w_xfm
+    aslref_to_anat_xfm
         asl to t1w transformation file
 
     Outputs
@@ -109,7 +109,7 @@ model [@buxton1998general].
                 "t1w_tpms",
                 "t1w_mask",
                 "t1w_to_aslref_xfm",
-                "aslref_to_t1w_xfm",
+                "aslref_to_anat_xfm",
             ]
         ),
         name="inputnode",
@@ -401,7 +401,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 "t1w_tpms",
                 "t1w_mask",
                 "t1w_to_aslref_xfm",
-                "aslref_to_t1w_xfm",
+                "aslref_to_anat_xfm",
                 "m0_file",
                 "m0tr",
             ]
@@ -740,8 +740,8 @@ def init_parcellate_cbf_wf(
     mean_cbf_basil : Undefined or str
     mean_cbf_gm_basil : Undefined or str
     asl_mask : str
-    anat_to_asl_xform : str
-    MNI152NLin2009cAsym_to_anat_xform : str
+    anat_to_aslref_xfm : str
+    MNI152NLin2009cAsym_to_anat_xfm : str
         The transform from MNI152NLin2009cAsym to the subject's anatomical space.
 
     Outputs
@@ -778,8 +778,8 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "asl_mask",
-                "anat_to_asl_xform",
-                "MNI152NLin2009cAsym_to_anat_xform",
+                "anat_to_aslref_xfm",
+                "MNI152NLin2009cAsym_to_anat_xfm",
             ]
         ),
         name="inputnode",
@@ -843,8 +843,8 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
     # fmt:off
     workflow.connect([
         (inputnode, merge_xforms, [
-            ("MNI152NLin2009cAsym_to_anat_xform", "in2"),
-            ("anat_to_asl_xform", "in3"),
+            ("MNI152NLin2009cAsym_to_anat_xfm", "in2"),
+            ("anat_to_aslref_xfm", "in3"),
         ]),
     ])
     # fmt:on

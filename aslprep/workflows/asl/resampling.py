@@ -260,7 +260,7 @@ def init_asl_std_trans_wf(
         a :abbr:`DFM (displacements field map)` in ITK format
     hmc_xforms
         List of affine transforms aligning each volume to ``ref_image`` in ITK format
-    aslref_to_t1w_xfm
+    aslref_to_anat_xfm
         Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
     name_source
         ASL series NIfTI file
@@ -297,7 +297,7 @@ def init_asl_std_trans_wf(
                 "asl_split",
                 "fieldwarp",
                 "hmc_xforms",
-                "aslref_to_t1w_xfm",
+                "aslref_to_anat_xfm",
                 "name_source",
                 "templates",
                 # CBF outputs
@@ -384,7 +384,7 @@ def init_asl_std_trans_wf(
 
     # fmt:off
     workflow.connect([
-        (inputnode, mask_merge_tfms, [(("aslref_to_t1w_xfm", _aslist), "in2")]),
+        (inputnode, mask_merge_tfms, [(("aslref_to_anat_xfm", _aslist), "in2")]),
         (select_std, mask_merge_tfms, [("anat2std_xfm", "in1")]),
     ])
     # fmt:on
@@ -416,7 +416,7 @@ def init_asl_std_trans_wf(
     workflow.connect([
         (inputnode, merge_xforms, [
             ("hmc_xforms", f"in{nxforms}"),
-            (("aslref_to_t1w_xfm", _aslist), "in2"),
+            (("aslref_to_anat_xfm", _aslist), "in2"),
         ]),
         (select_std, merge_xforms, [("anat2std_xfm", "in1")]),
     ])

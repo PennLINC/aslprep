@@ -200,7 +200,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     t1w_to_aslref_xfm
         Affine matrix that maps the T1w space into alignment with
         the native ASL space
-    std2anat_xfm
+    template_to_anat_xfm
         ANTs-compatible affine-and-warp transform file
 
     Outputs
@@ -211,7 +211,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     """
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=["asl", "asl_mask", "confounds_file", "t1w_to_aslref_xfm", "std2anat_xfm"]
+            fields=["asl", "asl_mask", "confounds_file", "t1w_to_aslref_xfm", "template_to_anat_xfm"]
         ),
         name="inputnode",
     )
@@ -260,7 +260,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     workflow = Workflow(name=name)
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [("t1w_to_aslref_xfm", "in1"), ("std2anat_xfm", "in2")]),
+        (inputnode, mrg_xfms, [("t1w_to_aslref_xfm", "in1"), ("template_to_anat_xfm", "in2")]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
         # Carpetplot
