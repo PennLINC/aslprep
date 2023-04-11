@@ -172,7 +172,7 @@ def init_asl_t1_trans_wf(
     omp_nthreads,
     scorescrub=False,
     basil=False,
-    cbft1space=False,
+    output_t1space=False,
     multiecho=False,
     use_fieldwarp=False,
     use_compression=True,
@@ -393,7 +393,7 @@ def init_asl_t1_trans_wf(
     ])
     # fmt:on
 
-    if not cbft1space:
+    if not output_t1space:
         return workflow
 
     input_names = ["cbf_ts", "mean_cbf"]

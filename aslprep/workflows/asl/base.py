@@ -276,15 +276,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # apply asl registration to T1w
     nonstd_spaces = set(spaces.get_nonstandard())
-    t1cbfspace = False
-    if nonstd_spaces.intersection(("T1w", "anat")):
-        t1cbfspace = True
 
     asl_t1_trans_wf = init_asl_t1_trans_wf(
         name="asl_t1_trans_wf",
         use_fieldwarp=bool(fmaps),
         multiecho=multiecho,
-        cbft1space=t1cbfspace,
+        output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
         scorescrub=scorescrub,
         basil=basil,
         mem_gb=mem_gb["resampled"],

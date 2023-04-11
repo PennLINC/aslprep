@@ -205,7 +205,7 @@ def init_asl_gereg_wf(
 def init_asl_t1_getrans_wf(
     mem_gb,
     omp_nthreads,
-    cbft1space=False,
+    output_t1space=False,
     scorescrub=False,
     basil=False,
     name="asl_t1_trans_wf",
@@ -316,7 +316,7 @@ def init_asl_t1_getrans_wf(
     ])
     # fmt:on
 
-    if cbft1space:
+    if output_t1space:
         cbf_to_t1w_transform = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
@@ -352,7 +352,7 @@ def init_asl_t1_getrans_wf(
         ])
         # fmt:on
 
-    if cbft1space and scorescrub:
+    if output_t1space and scorescrub:
         score_to_t1w_transform = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
@@ -384,7 +384,7 @@ def init_asl_t1_getrans_wf(
             mem_gb=mem_gb * 3 * omp_nthreads,
             n_procs=omp_nthreads,
         )
-    if cbft1space and basil:
+    if output_t1space and basil:
         basil_to_t1w_transform = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
