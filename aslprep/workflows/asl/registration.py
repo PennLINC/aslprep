@@ -361,12 +361,6 @@ def init_asl_t1_trans_wf(
             ]),
             (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
             (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
-            (inputnode, merge, [("name_source", "header_source")]),
-            (gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")]),
-            (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
-            (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
-            (mask_t1w_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-            (merge, outputnode, [("out_file", "asl_t1")]),
         ])
         # fmt:on
 
@@ -384,14 +378,20 @@ def init_asl_t1_trans_wf(
             (inputnode, asl_split, [("asl_split", "in_file")]),
             (asl_split, asl_to_t1w_transform, [("out_files", "input_image")]),
             (inputnode, asl_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (inputnode, merge, [("name_source", "header_source")]),
-            (gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")]),
-            (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
-            (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
-            (mask_t1w_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-            (merge, outputnode, [("out_file", "asl_t1")]),
         ])
         # fmt:on
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, merge, [("name_source", "header_source")]),
+        (gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")]),
+        (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
+        (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
+        (gen_final_ref, outputnode, [("outputnode.ref_image", "asl_t1_ref")]),
+        (mask_t1w_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
+        (merge, outputnode, [("out_file", "asl_t1")]),
+    ])
+    # fmt:on
 
     if not cbft1space:
         return workflow
