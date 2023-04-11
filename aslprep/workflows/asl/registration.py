@@ -260,7 +260,7 @@ def init_asl_t1_trans_wf(
                 "fieldwarp",
                 "hmc_xforms",
                 "aslref_to_t1w_xfm",
-                "cbf",
+                "cbf_ts",
                 "mean_cbf",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
@@ -417,7 +417,7 @@ def init_asl_t1_trans_wf(
         # fmt:off
         workflow.connect([
             (gen_final_ref, outputnode, [("outputnode.ref_image", "aslref_t1")]),
-            (inputnode, cbf_to_t1w_transform, [("cbf", "input_image")]),
+            (inputnode, cbf_to_t1w_transform, [("cbf_ts", "input_image")]),
             (cbf_to_t1w_transform, outputnode, [("output_image", "cbf_ts_t1")]),
             (inputnode, cbf_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
             (gen_ref, cbf_to_t1w_transform, [("out_file", "reference_image")]),
@@ -463,7 +463,7 @@ def init_asl_t1_trans_wf(
 
         # fmt:off
         workflow.connect([
-            (inputnode, score_to_t1w_transform, [("score", "input_image")]),
+            (inputnode, score_to_t1w_transform, [("cbf_ts_score", "input_image")]),
             (score_to_t1w_transform, outputnode, [("output_image", "cbf_ts_score_t1")]),
             (inputnode, score_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
             (gen_ref, score_to_t1w_transform, [("out_file", "reference_image")]),
@@ -471,7 +471,7 @@ def init_asl_t1_trans_wf(
             (avgscore_to_t1w_transform, outputnode, [("output_image", "mean_cbf_score_t1")]),
             (inputnode, avgscore_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
             (gen_ref, avgscore_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, scrub_to_t1w_transform, [("scrub", "input_image")]),
+            (inputnode, scrub_to_t1w_transform, [("mean_cbf_scrub", "input_image")]),
             (scrub_to_t1w_transform, outputnode, [("output_image", "mean_cbf_scrub_t1")]),
             (inputnode, scrub_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
             (gen_ref, scrub_to_t1w_transform, [("out_file", "reference_image")]),

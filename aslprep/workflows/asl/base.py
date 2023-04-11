@@ -888,7 +888,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (compt_cbf_wf, compute_cbf_qc_wf, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
         (asl_confounds_wf, compute_cbf_qc_wf, [
-            ("outputnode.confounds_file", "inputnode.confmat"),
+            ("outputnode.confounds_file", "inputnode.confounds_file"),
         ]),
         (compute_cbf_qc_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
         (compute_cbf_qc_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),

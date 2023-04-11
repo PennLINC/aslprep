@@ -68,20 +68,20 @@ negative CBF values.
         niu.IdentityInterface(
             fields=[
                 "name_source",
-                "mean_cbf",
                 "asl_mask",
                 "t1w_mask",
                 "t1w_tpms",
                 "t1w_to_aslref_xfm",
                 "asl_mask_std",
+                "mean_cbf",
                 # SCORE/SCRUB inputs
                 "mean_cbf_score",
-                "scrub",
+                "mean_cbf_scrub",
                 # BASIL inputs
-                "basil",
-                "pv",
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
                 # non-GE inputs
-                "confmat",
+                "confounds_file",
                 "rmsd_file",
             ]
         ),
@@ -204,7 +204,7 @@ negative CBF values.
         # fmt:off
         workflow.connect([
             (inputnode, qccompute, [
-                ("confmat", "confounds_file"),
+                ("confounds_file", "confounds_file"),
                 ("rmsd_file", "rmsd_file"),
             ]),
         ])
@@ -214,7 +214,7 @@ negative CBF values.
         # fmt:off
         workflow.connect([
             (inputnode, qccompute, [
-                ("scrub", "mean_cbf_scrub"),
+                ("mean_cbf_scrub", "mean_cbf_scrub"),
                 ("mean_cbf_score", "mean_cbf_score"),
             ]),
         ])
@@ -224,8 +224,8 @@ negative CBF values.
         # fmt:off
         workflow.connect([
             (inputnode, qccompute, [
-                ("basil", "mean_cbf_basil"),
-                ("pv", "mean_cbf_gm_basil"),
+                ("mean_cbf_basil", "mean_cbf_basil"),
+                ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
             ]),
         ])
         # fmt:on
