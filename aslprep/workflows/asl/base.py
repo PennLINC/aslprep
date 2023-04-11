@@ -220,10 +220,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         niu.IdentityInterface(
             fields=[
                 "asl_t1",
-                "asl_t1_ref",
+                "aslref_t1",
                 "asl_mask_t1",
                 "asl_std",
-                "asl_std_ref",
+                "aslref_std",
                 "asl_mask_std",
                 "asl_native",
                 "cbf_t1",
@@ -292,7 +292,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (outputnode, asl_derivatives_wf, [
             ("asl_native", "inputnode.asl_native"),
             ("asl_t1", "inputnode.asl_t1"),
-            ("asl_t1_ref", "inputnode.aslref_t1"),
+            ("aslref_t1", "inputnode.aslref_t1"),
             ("asl_mask_t1", "inputnode.asl_mask_t1"),
             ("confounds", "inputnode.confounds"),
             ("confounds_metadata", "inputnode.confounds_metadata"),
@@ -460,7 +460,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (asl_t1_trans_wf, outputnode, [
             ("outputnode.asl_t1", "asl_t1"),
-            ("outputnode.asl_t1_ref", "asl_t1_ref"),
+            ("outputnode.aslref_t1", "aslref_t1"),
         ]),
         (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
         # SDC (or pass-through workflow)
@@ -703,15 +703,15 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (compt_cbf_wf, asl_t1_trans_wf, [
-                    ("outputnode.mean_cbf_basil", "inputnode.basil"),
-                    ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
-                    ("outputnode.mean_cbf_wm_basil", "inputnode.pvwm"),
+                    ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
+                    ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
+                    ("outputnode.mean_cbf_wm_basil", "inputnode.mean_cbf_wm_basil"),
                     ("outputnode.att", "inputnode.att"),
                 ]),
                 (asl_t1_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.basil_t1", "inputnode.basil_t1"),
-                    ("outputnode.pv_t1", "inputnode.pv_t1"),
-                    ("outputnode.pvwm_t1", "inputnode.pvwm_t1"),
+                    ("outputnode.mean_cbf_basil_t1", "inputnode.mean_cbf_basil_t1"),
+                    ("outputnode.mean_cbf_gm_basil_t1", "inputnode.mean_cbf_gm_basil_t1"),
+                    ("outputnode.mean_cbf_wm_basil_t1", "inputnode.mean_cbf_wm_basil_t1"),
                     ("outputnode.att_t1", "inputnode.att_t1"),
                 ]),
             ])
@@ -722,7 +722,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         workflow.connect([
             (asl_asl_trans_wf, outputnode, [("outputnode.asl", "asl_native")]),
             (asl_asl_trans_wf, asl_derivatives_wf, [
-                ("outputnode.asl_ref", "inputnode.aslref_native"),
+                ("outputnode.aslref", "inputnode.aslref_native"),
             ]),
             (refine_mask, asl_derivatives_wf, [
                 ("out_mask", "inputnode.asl_mask_native"),
@@ -805,9 +805,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (compt_cbf_wf, asl_std_trans_wf, [
-                    ("outputnode.mean_cbf_basil", "inputnode.basil"),
-                    ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
-                    ("outputnode.mean_cbf_wm_basil", "inputnode.pvwm"),
+                    ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
+                    ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
+                    ("outputnode.mean_cbf_wm_basil", "inputnode.mean_cbf_wm_basil"),
                     ("outputnode.att", "inputnode.att"),
                 ]),
             ])
@@ -835,11 +835,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_std_trans_wf, asl_derivatives_wf, [
                 ("outputnode.template", "inputnode.template"),
                 ("outputnode.spatial_reference", "inputnode.spatial_reference"),
-                ("outputnode.asl_std_ref", "inputnode.aslref_std"),
+                ("outputnode.aslref_std", "inputnode.aslref_std"),
                 ("outputnode.asl_std", "inputnode.asl_std"),
                 ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
-                ("outputnode.cbf_std", "inputnode.cbf_std"),
-                ("outputnode.meancbf_std", "inputnode.meancbf_std"),
+                ("outputnode.cbf_ts_std", "inputnode.cbf_ts_std"),
+                ("outputnode.mean_cbf_std", "inputnode.mean_cbf_std"),
             ]),
         ])
         # fmt:on
@@ -848,9 +848,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (asl_std_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.score_std", "inputnode.score_std"),
-                    ("outputnode.avgscore_std", "inputnode.avgscore_std"),
-                    ("outputnode.scrub_std", "inputnode.scrub_std"),
+                    ("outputnode.cbf_ts_score_std", "inputnode.cbf_ts_score_std"),
+                    ("outputnode.mean_cbf_score_std", "inputnode.mean_cbf_score_std"),
+                    ("outputnode.mean_cbf_scrub_std", "inputnode.mean_cbf_scrub_std"),
                 ]),
             ])
             # fmt:on
@@ -859,9 +859,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (asl_std_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.basil_std", "inputnode.basil_std"),
-                    ("outputnode.pv_std", "inputnode.pv_std"),
-                    ("outputnode.pvwm_std", "inputnode.pvwm_std"),
+                    ("outputnode.mean_cbf_basil_std", "inputnode.mean_cbf_basil_std"),
+                    ("outputnode.mean_cbf_gm_basil_std", "inputnode.mean_cbf_gm_basil_std"),
+                    ("outputnode.mean_cbf_wm_basil_std", "inputnode.mean_cbf_wm_basil_std"),
                     ("outputnode.att_std", "inputnode.att_std"),
                 ]),
             ])
@@ -946,7 +946,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (inputnode, cbf_plot, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
         (asl_reg_wf, cbf_plot, [("outputnode.itk_t1_to_asl", "inputnode.t1w_to_aslref_xfm")]),
         (refine_mask, cbf_plot, [("out_mask", "inputnode.asl_mask")]),
-        (asl_reference_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.asl_ref")]),
+        (asl_reference_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.aslref")]),
         (asl_confounds_wf, cbf_plot, [("outputnode.confounds_file", "inputnode.confounds_file")]),
     ])
     # fmt:on

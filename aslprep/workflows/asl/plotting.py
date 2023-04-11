@@ -41,7 +41,7 @@ def init_cbfplot_wf(
                 "score_ts",
                 "score",
                 "scrub",
-                "asl_ref",
+                "aslref",
                 "basil",
                 "pvc",
                 "asl_mask",
@@ -116,7 +116,7 @@ def init_cbfplot_wf(
         (cbftssummary, outputnode, [("out_file", "cbf_carpetplot")]),
         (inputnode, cbfsummary, [
             ("cbf", "cbf"),
-            ("asl_ref", "ref_vol"),
+            ("aslref", "ref_vol"),
         ]),
         (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
         (cbfsummary, outputnode, [("out_file", "cbf_summary_plot")]),
@@ -142,13 +142,13 @@ def init_cbfplot_wf(
         workflow.connect([
             (inputnode, scoresummary, [
                 ("score", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("aslref", "ref_vol"),
             ]),
             (scoresummary, ds_report_scoreplot, [("out_file", "in_file")]),
             (scoresummary, outputnode, [("out_file", "score_summary_plot")]),
             (inputnode, scrubsummary, [
                 ("scrub", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("aslref", "ref_vol"),
             ]),
             (scrubsummary, ds_report_scrubplot, [("out_file", "in_file")]),
             (scrubsummary, outputnode, [("out_file", "scrub_summary_plot")]),
@@ -175,13 +175,13 @@ def init_cbfplot_wf(
         workflow.connect([
             (inputnode, basilsummary, [
                 ("basil", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("aslref", "ref_vol"),
             ]),
             (basilsummary, ds_report_basilplot, [("out_file", "in_file")]),
             (basilsummary, outputnode, [("out_file", "basil_summary_plot")]),
             (inputnode, pvcsummary, [
                 ("pvc", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("aslref", "ref_vol"),
             ]),
             (pvcsummary, ds_report_pvcplot, [("out_file", "in_file")]),
             (pvcsummary, outputnode, [("out_file", "pvc_summary_plot")]),
@@ -206,7 +206,7 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=["cbf", "score", "scrub", "asl_ref", "basil", "pvc"]),
+        niu.IdentityInterface(fields=["cbf", "score", "scrub", "aslref", "basil", "pvc"]),
         name="inputnode",
     )
     outputnode = pe.Node(
@@ -233,7 +233,7 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
     workflow.connect([
         (inputnode, cbfsummary, [
             ("cbf", "cbf"),
-            ("asl_ref", "ref_vol"),
+            ("aslref", "ref_vol"),
         ]),
         (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
         (cbfsummary, outputnode, [("out_file", "cbf_summary_plot")]),
@@ -259,13 +259,13 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
         workflow.connect([
             (inputnode, scoresummary, [
                 ("score", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("aslref", "ref_vol"),
             ]),
             (scoresummary, ds_report_scoreplot, [("out_file", "in_file")]),
             (scoresummary, outputnode, [("out_file", "score_summary_plot")]),
             (inputnode, scrubsummary, [
                 ("scrub", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("aslref", "ref_vol"),
             ]),
             (scrubsummary, ds_report_scrubplot, [("out_file", "in_file")]),
             (scrubsummary, outputnode, [("out_file", "scrub_summary_plot")]),
@@ -292,13 +292,13 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
         workflow.connect([
             (inputnode, basilsummary, [
                 ("basil", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("aslref", "ref_vol"),
             ]),
             (basilsummary, ds_report_basilplot, [("out_file", "in_file")]),
             (basilsummary, outputnode, [("out_file", "basil_summary_plot")]),
             (inputnode, pvcsummary, [
                 ("pvc", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("aslref", "ref_vol"),
             ]),
             (pvcsummary, ds_report_pvcplot, [("out_file", "in_file")]),
             (pvcsummary, outputnode, [("out_file", "pvc_summary_plot")]),

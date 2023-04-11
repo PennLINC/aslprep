@@ -275,7 +275,7 @@ def init_asl_std_trans_wf(
         ASL series, resampled to template space
     cbf_std, *cbf
         cbf series, resampled to template space
-    asl_std_ref
+    aslref_std
         Reference, contrast-enhanced summary of the ASL series, resampled to template space
     asl_mask_std
         ASL series mask in template space
@@ -293,15 +293,6 @@ def init_asl_std_trans_wf(
         niu.IdentityInterface(
             fields=[
                 "anat2std_xfm",
-                "cbf",
-                "mean_cbf",
-                "att",
-                "score",
-                "mean_cbf_score",
-                "scrub",
-                "basil",
-                "pv",
-                "pvwm",
                 "asl_mask",
                 "asl_split",
                 "fieldwarp",
@@ -309,6 +300,17 @@ def init_asl_std_trans_wf(
                 "aslref_to_t1w_xfm",
                 "name_source",
                 "templates",
+                "cbf",
+                "mean_cbf",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                # BASIL outputs
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
+                "mean_cbf_wm_basil",
+                "att",
             ]
         ),
         name="inputnode",
@@ -516,17 +518,26 @@ def init_asl_std_trans_wf(
     output_names = [
         "asl_mask_std",
         "asl_std",
-        "asl_std_ref",
+        "aslref_std",
         "spatial_reference",
         "template",
-        "cbf_std",
-        "meancbf_std",
+        "cbf_ts_std",
+        "mean_cbf_std",
     ]
 
     if scorescrub:
-        output_names = output_names + ["score_std", "avgscore_std", "scrub_std"]
+        output_names += [
+            "cbf_ts_score_std",
+            "mean_cbf_score_std",
+            "mean_cbf_scrub_std",
+        ]
     if basil:
-        output_names = output_names + ["basil_std", "pv_std", "att_std", "pvwm_std"]
+        output_names += [
+            "mean_cbf_basil_std",
+            "mean_cbf_gm_basil_std",
+            "mean_cbf_wm_basil_std",
+            "att_std",
+        ]
 
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names), name="poutputnode")
     # fmt:off
@@ -534,17 +545,17 @@ def init_asl_std_trans_wf(
         # Connecting outputnode
         (iterablesource, poutputnode, [(("std_target", format_reference), "spatial_reference")]),
         (merge, poutputnode, [("out_file", "asl_std")]),
-        (gen_final_ref, poutputnode, [("outputnode.ref_image", "asl_std_ref")]),
+        (gen_final_ref, poutputnode, [("outputnode.ref_image", "aslref_std")]),
         (mask_std_tfm, poutputnode, [("output_image", "asl_mask_std")]),
         (select_std, poutputnode, [("key", "template")]),
         (mask_merge_tfms, cbf_to_std_transform, [("out", "transforms")]),
         (gen_ref, cbf_to_std_transform, [("out_file", "reference_image")]),
-        (inputnode, cbf_to_std_transform, [("cbf", "input_image")]),
-        (cbf_to_std_transform, poutputnode, [("output_image", "cbf_std")]),
+        (inputnode, cbf_to_std_transform, [("cbf_ts", "input_image")]),
+        (cbf_to_std_transform, poutputnode, [("output_image", "cbf_ts_std")]),
         (mask_merge_tfms, meancbf_to_std_transform, [("out", "transforms")]),
         (gen_ref, meancbf_to_std_transform, [("out_file", "reference_image")]),
         (inputnode, meancbf_to_std_transform, [("mean_cbf", "input_image")]),
-        (meancbf_to_std_transform, poutputnode, [("output_image", "meancbf_std")]),
+        (meancbf_to_std_transform, poutputnode, [("output_image", "mean_cbf_std")]),
     ])
     # fmt:on
 
@@ -553,16 +564,16 @@ def init_asl_std_trans_wf(
         workflow.connect([
             (mask_merge_tfms, score_to_std_transform, [("out", "transforms")]),
             (gen_ref, score_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, score_to_std_transform, [("score", "input_image")]),
-            (score_to_std_transform, poutputnode, [("output_image", "score_std")]),
+            (inputnode, score_to_std_transform, [("cbf_ts_score", "input_image")]),
+            (score_to_std_transform, poutputnode, [("output_image", "cbf_ts_score_std")]),
             (mask_merge_tfms, avgscore_to_std_transform, [("out", "transforms")]),
             (gen_ref, avgscore_to_std_transform, [("out_file", "reference_image")]),
             (inputnode, avgscore_to_std_transform, [("mean_cbf_score", "input_image")]),
-            (avgscore_to_std_transform, poutputnode, [("output_image", "avgscore_std")]),
+            (avgscore_to_std_transform, poutputnode, [("output_image", "mean_cbf_score_std")]),
             (mask_merge_tfms, scrub_to_std_transform, [("out", "transforms")]),
             (gen_ref, scrub_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, scrub_to_std_transform, [("scrub", "input_image")]),
-            (scrub_to_std_transform, poutputnode, [("output_image", "scrub_std")]),
+            (inputnode, scrub_to_std_transform, [("mean_cbf_scrub", "input_image")]),
+            (scrub_to_std_transform, poutputnode, [("output_image", "mean_cbf_scrub_std")]),
         ])
         # fmt:on
 
@@ -571,16 +582,16 @@ def init_asl_std_trans_wf(
         workflow.connect([
             (mask_merge_tfms, basil_to_std_transform, [("out", "transforms")]),
             (gen_ref, basil_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, basil_to_std_transform, [("basil", "input_image")]),
-            (basil_to_std_transform, poutputnode, [("output_image", "basil_std")]),
+            (inputnode, basil_to_std_transform, [("mean_cbf_basil", "input_image")]),
+            (basil_to_std_transform, poutputnode, [("output_image", "mean_cbf_basil_std")]),
             (mask_merge_tfms, pv_to_std_transform, [("out", "transforms")]),
             (gen_ref, pv_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, pv_to_std_transform, [("pv", "input_image")]),
-            (pv_to_std_transform, poutputnode, [("output_image", "pv_std")]),
+            (inputnode, pv_to_std_transform, [("mean_cbf_gm_basil", "input_image")]),
+            (pv_to_std_transform, poutputnode, [("output_image", "mean_cbf_gm_basil_std")]),
             (mask_merge_tfms, pvwm_to_std_transform, [("out", "transforms")]),
             (gen_ref, pvwm_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, pvwm_to_std_transform, [("pvwm", "input_image")]),
-            (pvwm_to_std_transform, poutputnode, [("output_image", "pvwm_std")]),
+            (inputnode, pvwm_to_std_transform, [("mean_cbf_wm_basil", "input_image")]),
+            (pvwm_to_std_transform, poutputnode, [("output_image", "mean_cbf_wm_basil_std")]),
             (mask_merge_tfms, att_to_std_transform, [("out", "transforms")]),
             (gen_ref, att_to_std_transform, [("out_file", "reference_image")]),
             (inputnode, att_to_std_transform, [("att", "input_image")]),
@@ -666,10 +677,10 @@ def init_asl_preproc_trans_wf(
         asl series, resampled in native space, including all preprocessing
     asl_mask
         asl series mask calculated with the new time-series
-    asl_ref
+    aslref
         asl reference image: an average-like 3D image of the time-series
-    asl_ref_brain
-        Same as ``asl_ref``, but once the brain mask has been applied
+    aslref_brain
+        Same as ``aslref``, but once the brain mask has been applied
 
     """
     workflow = Workflow(name=name)
@@ -697,8 +708,8 @@ def init_asl_preproc_trans_wf(
             fields=[
                 "asl",
                 "asl_mask",
-                "asl_ref",
-                "asl_ref_brain",
+                "aslref",
+                "aslref_brain",
             ]
         ),
         name="outputnode",
@@ -724,8 +735,8 @@ def init_asl_preproc_trans_wf(
         (merge, asl_reference_wf, [("out_file", "inputnode.asl_file")]),
         (merge, outputnode, [("out_file", "asl")]),
         (asl_reference_wf, outputnode, [
-            ("outputnode.ref_image", "asl_ref"),
-            ("outputnode.ref_image_brain", "asl_ref_brain"),
+            ("outputnode.ref_image", "aslref"),
+            ("outputnode.ref_image_brain", "aslref_brain"),
             ("outputnode.asl_mask", "asl_mask"),
         ]),
     ])

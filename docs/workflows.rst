@@ -179,7 +179,7 @@ Head-motion estimation
     )
 
 
-Using the previously :ref:`estimated reference scan <asl_ref>`,
+Using the previously :ref:`estimated reference scan <aslref>`,
 FSL ``mcflirt`` or AFNI ``3dvolreg`` is used to estimate head-motion.
 As a result, one rigid-body transform with respect to
 the reference image is written for each :abbr:`ASL (Arterial Spin Labelling)`

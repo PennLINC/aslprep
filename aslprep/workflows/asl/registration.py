@@ -235,9 +235,9 @@ def init_asl_t1_trans_wf(
 
     Outputs
     -------
-    ASL_t1
+    asl_t1
         Motion-corrected ASL series in T1 space
-    asl_t1_ref
+    aslref_t1
         Reference, contrast-enhanced summary of the motion-corrected ASL series in T1w space
     asl_mask_t1
         ASL mask in T1 space
@@ -259,16 +259,18 @@ def init_asl_t1_trans_wf(
                 "asl_split",
                 "fieldwarp",
                 "hmc_xforms",
+                "aslref_to_t1w_xfm",
                 "cbf",
                 "mean_cbf",
-                "att",
-                "score",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score",
                 "mean_cbf_score",
-                "scrub",
-                "basil",
-                "pv",
-                "pvwm",
-                "aslref_to_t1w_xfm",
+                "mean_cbf_scrub",
+                # BASIL outputs
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
+                "mean_cbf_wm_basil",
+                "att",
             ]
         ),
         name="inputnode",
@@ -278,17 +280,19 @@ def init_asl_t1_trans_wf(
         niu.IdentityInterface(
             fields=[
                 "asl_t1",
-                "asl_t1_ref",
+                "aslref_t1",
                 "asl_mask_t1",
+                "cbf_ts_t1",
+                "mean_cbf_t1",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score_t1",
+                "mean_cbf_score_t1",
+                "mean_cbf_scrub_t1",
+                # BASIL outputs
+                "mean_cbf_basil_t1",
+                "mean_cbf_gm_basil_t1",
+                "mean_cbf_gm_basil_t1",
                 "att_t1",
-                "cbf_t1",
-                "meancbf_t1",
-                "score_t1",
-                "avgscore_t1",
-                "scrub_t1",
-                "basil_t1",
-                "pv_t1",
-                "pvwm_t1",
             ]
         ),
         name="outputnode",
@@ -412,7 +416,7 @@ def init_asl_t1_trans_wf(
 
         # fmt:off
         workflow.connect([
-            (gen_final_ref, outputnode, [("outputnode.ref_image", "asl_t1_ref")]),
+            (gen_final_ref, outputnode, [("outputnode.ref_image", "aslref_t1")]),
             (inputnode, cbf_to_t1w_transform, [("cbf", "input_image")]),
             (cbf_to_t1w_transform, outputnode, [("output_image", "cbf_t1")]),
             (inputnode, cbf_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
@@ -518,16 +522,16 @@ def init_asl_t1_trans_wf(
 
         # fmt:off
         workflow.connect([
-            (inputnode, basil_to_t1w_transform, [("basil", "input_image")]),
-            (basil_to_t1w_transform, outputnode, [("output_image", "basil_t1")]),
+            (inputnode, basil_to_t1w_transform, [("mean_cbf_basil", "input_image")]),
+            (basil_to_t1w_transform, outputnode, [("output_image", "mean_cbf_basil_t1")]),
             (inputnode, basil_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
             (gen_ref, basil_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, pv_to_t1w_transform, [("pv", "input_image")]),
-            (pv_to_t1w_transform, outputnode, [("output_image", "pv_t1")]),
+            (inputnode, pv_to_t1w_transform, [("mean_cbf_gm_basil", "input_image")]),
+            (pv_to_t1w_transform, outputnode, [("output_image", "mean_cbf_gm_basil_t1")]),
             (inputnode, pv_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
             (gen_ref, pv_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, pvwm_to_t1w_transform, [("pvwm", "input_image")]),
-            (pvwm_to_t1w_transform, outputnode, [("output_image", "pvwm_t1")]),
+            (inputnode, pvwm_to_t1w_transform, [("mean_cbf_wm_basil", "input_image")]),
+            (pvwm_to_t1w_transform, outputnode, [("output_image", "mean_cbf_wm_basil_t1")]),
             (inputnode, pvwm_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
             (gen_ref, pvwm_to_t1w_transform, [("out_file", "reference_image")]),
             (inputnode, att_to_t1w_transform, [("att", "input_image")]),
