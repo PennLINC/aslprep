@@ -462,23 +462,23 @@ def init_asl_std_trans_wf(
     # fmt:on
 
     inputs_to_warp = [
-        "cbf_ts_std",
-        "mean_cbf_std",
+        "cbf_ts",
+        "mean_cbf",
     ]
 
     if scorescrub:
         inputs_to_warp += [
-            "cbf_ts_score_std",
-            "mean_cbf_score_std",
-            "mean_cbf_scrub_std",
+            "cbf_ts_score",
+            "mean_cbf_score",
+            "mean_cbf_scrub",
         ]
 
     if basil:
         inputs_to_warp += [
-            "mean_cbf_basil_std",
-            "mean_cbf_gm_basil_std",
-            "mean_cbf_wm_basil_std",
-            "att_std",
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+            "mean_cbf_wm_basil",
+            "att",
         ]
 
     output_names = [f"{input_}_std" for input_ in inputs_to_warp]
