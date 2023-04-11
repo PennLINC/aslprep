@@ -387,7 +387,7 @@ def init_asl_t1_trans_wf(
         (gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")]),
         (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
         (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
-        (gen_final_ref, outputnode, [("outputnode.ref_image", "asl_t1_ref")]),
+        (gen_final_ref, outputnode, [("outputnode.ref_image", "aslref_t1")]),
         (mask_t1w_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
         (merge, outputnode, [("out_file", "asl_t1")]),
     ])
