@@ -79,7 +79,7 @@ def init_cbf_compt_wf(
         t1w probability maps
     t1w_mask
         t1w mask Nifti
-    t1w_to_aslref_xfm
+    anat_to_aslref_xfm
         t1w to asl transformation file
     aslref_to_anat_xfm
         asl to t1w transformation file
@@ -108,7 +108,7 @@ model [@buxton1998general].
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "t1w_to_aslref_xfm",
+                "anat_to_aslref_xfm",
                 "aslref_to_anat_xfm",
             ]
         ),
@@ -147,7 +147,7 @@ model [@buxton1998general].
         (inputnode, refine_mask, [
             ("t1w_mask", "t1w_mask"),
             ("asl_mask", "asl_mask"),
-            ("t1w_to_aslref_xfm", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
         ]),
     ])
     # fmt:on
@@ -177,7 +177,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1w_to_aslref_xfm", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -193,7 +193,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1w_to_aslref_xfm", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -209,7 +209,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1w_to_aslref_xfm", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -400,7 +400,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "t1w_to_aslref_xfm",
+                "anat_to_aslref_xfm",
                 "aslref_to_anat_xfm",
                 "m0_file",
                 "m0tr",
@@ -454,7 +454,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1w_to_aslref_xfm", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -470,7 +470,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1w_to_aslref_xfm", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -486,7 +486,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1w_to_aslref_xfm", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -517,7 +517,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         (inputnode, refine_mask, [
             ("t1w_mask", "t1w_mask"),
             ("asl_mask", "asl_mask"),
-            ("t1w_to_aslref_xfm", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
         ]),
     ])
     # fmt:on

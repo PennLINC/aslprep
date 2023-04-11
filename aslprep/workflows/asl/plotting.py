@@ -38,7 +38,7 @@ def init_cbfplot_wf(
             fields=[
                 "aslref",
                 "asl_mask",
-                "t1w_to_aslref_xfm",
+                "anat_to_aslref_xfm",
                 "template_to_anat_xfm",
                 "confounds_file",
                 # CBF outputs
@@ -107,7 +107,7 @@ def init_cbfplot_wf(
     workflow.connect([
         (inputnode, mrg_xfms, [
             ("template_to_anat_xfm", "in1"),
-            ("t1w_to_aslref_xfm", "in2"),
+            ("anat_to_aslref_xfm", "in2"),
         ]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),

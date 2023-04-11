@@ -380,7 +380,7 @@ effects of other kernels [@lanczos].
         ]),
         (asl_reg_wf, cbf_compt_wf, [
             ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
-            ("outputnode.anat_to_aslref_xfm", "inputnode.t1w_to_aslref_xfm"),
+            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
     ])
     # fmt:on
@@ -545,7 +545,7 @@ effects of other kernels [@lanczos].
         ]),
         (refine_mask, compute_cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, compute_cbf_qc_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.t1w_to_aslref_xfm"),
+            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
         (cbf_compt_wf, compute_cbf_qc_wf, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
         (compute_cbf_qc_wf, outputnode, [("outputnode.qc_file", "qc_file")]),

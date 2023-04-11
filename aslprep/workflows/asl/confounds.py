@@ -69,7 +69,7 @@ def init_asl_confs_wf(
         Mask of the skull-stripped template image
     t1w_tpms
         List of tissue probability maps in T1w space
-    t1w_to_aslref_xfm
+    anat_to_aslref_xfm
         Affine matrix that maps the T1w space into alignment with
         the native asl space
 
@@ -98,7 +98,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
                 "skip_vols",
                 "t1w_mask",
                 "t1w_tpms",
-                "t1w_to_aslref_xfm",
+                "anat_to_aslref_xfm",
             ]
         ),
         name="inputnode",
@@ -171,7 +171,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     return workflow
 
 
-def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
+def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
     """Build a workflow to generate carpet plots.
 
     Resamples the MNI parcellation (ad-hoc parcellation derived from the
@@ -186,7 +186,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     metadata : :obj:`dict`
         BIDS metadata for ASL file
     name : :obj:`str`
-        Name of workflow (default: ``asl_carpet_wf``)
+        Name of workflow (default: ``carpetplot_wf``)
 
     Inputs
     ------
@@ -197,32 +197,26 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
         ASL series mask
     confounds_file
         TSV of all aggregated confounds
-    t1w_to_aslref_xfm
+    anat_to_aslref_xfm
         Affine matrix that maps the T1w space into alignment with
         the native ASL space
     template_to_anat_xfm
         ANTs-compatible affine-and-warp transform file
-
-    Outputs
-    -------
-    out_carpetplot
-        Path of the generated SVG file
-
     """
+    workflow = Workflow(name=name)
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
                 "asl",
                 "asl_mask",
                 "confounds_file",
-                "t1w_to_aslref_xfm",
+                "anat_to_aslref_xfm",
                 "template_to_anat_xfm",
             ]
         ),
         name="inputnode",
     )
-
-    outputnode = pe.Node(niu.IdentityInterface(fields=["out_carpetplot"]), name="outputnode")
 
     # List transforms
     mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
@@ -263,10 +257,9 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow = Workflow(name=name)
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [("t1w_to_aslref_xfm", "in1"), ("template_to_anat_xfm", "in2")]),
+        (inputnode, mrg_xfms, [("anat_to_aslref_xfm", "in1"), ("template_to_anat_xfm", "in2")]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
         # Carpetplot
@@ -277,7 +270,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
         ]),
         (resample_parc, conf_plot, [("output_image", "in_segm")]),
         (conf_plot, ds_report_asl_conf, [("out_file", "in_file")]),
-        (conf_plot, outputnode, [("out_file", "out_carpetplot")]),
     ])
     # fmt:on
+
     return workflow
