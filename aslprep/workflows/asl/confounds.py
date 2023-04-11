@@ -211,7 +211,13 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     """
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=["asl", "asl_mask", "confounds_file", "t1w_to_aslref_xfm", "template_to_anat_xfm"]
+            fields=[
+                "asl",
+                "asl_mask",
+                "confounds_file",
+                "t1w_to_aslref_xfm",
+                "template_to_anat_xfm",
+            ]
         ),
         name="inputnode",
     )
