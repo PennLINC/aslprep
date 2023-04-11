@@ -300,7 +300,7 @@ def init_asl_std_trans_wf(
                 "aslref_to_t1w_xfm",
                 "name_source",
                 "templates",
-                "cbf",
+                "cbf_ts",
                 "mean_cbf",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",

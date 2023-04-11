@@ -419,7 +419,7 @@ effects of other kernels [@lanczos].
             ("outputnode.aslref_t1", "aslref_t1"),
         ]),
         (cbf_compt_wf, t1w_gereg_wf, [
-            ("outputnode.cbf_ts", "inputnode.cbf"),
+            ("outputnode.cbf_ts", "inputnode.cbf_ts"),
             ("outputnode.mean_cbf", "inputnode.mean_cbf"),
         ]),
         (t1w_gereg_wf, asl_derivatives_wf, [
