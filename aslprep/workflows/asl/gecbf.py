@@ -452,7 +452,7 @@ effects of other kernels [@lanczos].
 
     # fmt:off
     workflow.connect([
-        (cbf_compt_wf, cbf_plot, [("outputnode.mean_cbf", "inputnode.cbf")]),
+        (cbf_compt_wf, cbf_plot, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
         (gen_ref_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.aslref")]),
     ])
     # fmt:on
@@ -471,8 +471,8 @@ effects of other kernels [@lanczos].
         # fmt:off
         workflow.connect([
             (cbf_compt_wf, cbf_plot, [
-                ("outputnode.mean_cbf_basil", "inputnode.basil"),
-                ("outputnode.mean_cbf_gm_basil", "inputnode.pvc"),
+                ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
+                ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
             ]),
         ])
         # fmt:on

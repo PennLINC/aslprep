@@ -48,7 +48,7 @@ def init_cbfplot_wf(
                 "t1w_to_aslref_xfm",
                 "std2anat_xfm",
                 "confounds_file",
-                "scoreindex",
+                "score_outlier_index",
             ]
         ),
         name="inputnode",
@@ -112,8 +112,8 @@ def init_cbfplot_wf(
         (resample_parc, cbftssummary, [("output_image", "seg_file")]),
         (inputnode, cbftssummary, [
             ("cbf_ts", "cbf_ts"),
-            ("confounds_file", "conf_file"),
-            ("scoreindex", "score_file"),
+            ("confounds_file", "confounds_file"),
+            ("score_outlier_index", "score_outlier_index"),
         ]),
         (cbftssummary, ds_report_cbftsplot, [("out_file", "in_file")]),
         (cbftssummary, outputnode, [("out_file", "cbf_carpetplot")]),

@@ -910,8 +910,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (compt_cbf_wf, compute_cbf_qc_wf, [
-                ("outputnode.mean_cbf_basil", "inputnode.basil"),
-                ("outputnode.mean_cbf_gm_basil", "inputnode.pv"),
+                ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
+                ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
             ]),
         ])
         # fmt:on

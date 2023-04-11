@@ -131,8 +131,8 @@ class CBFSummary(SimpleInterface):
 
 class _CBFtsSummaryInputSpec(BaseInterfaceInputSpec):
     cbf_ts = File(exists=True, mandatory=True, desc=" cbf time series")
-    conf_file = File(exists=True, mandatory=False, desc="confound file ")
-    score_file = File(exists=True, mandatory=False, desc="scorexindex file ")
+    confounds_file = File(exists=True, mandatory=False, desc="confound file ")
+    score_outlier_index = File(exists=True, mandatory=False, desc="scorexindex file ")
     seg_file = File(exists=True, mandatory=True, desc="seg_file")
     tr = traits.Float(desc="TR", mandatory=True)
 
@@ -154,7 +154,7 @@ class CBFtsSummary(SimpleInterface):
         fig = CBFtsPlot(
             cbf_file=self.inputs.cbf_ts,
             seg_file=self.inputs.seg_file,
-            scoreindex=self.inputs.score_file,
+            score_outlier_index=self.inputs.score_outlier_index,
             tr=self.inputs.tr,
         ).plot()
         fig.savefig(self._results["out_file"], bbox_inches="tight")

@@ -32,7 +32,7 @@ class ASLPlot:
         func_file,
         mask_file=None,
         data=None,
-        conf_file=None,
+        confounds_file=None,
         seg_file=None,
         tr=None,
         usecols=None,
@@ -58,8 +58,8 @@ class ASLPlot:
         if vlines is None:
             vlines = {}
         self.confounds = {}
-        if data is None and conf_file:
-            data = pd.read_csv(conf_file, sep=r"[\t\s]+", usecols=usecols, index_col=False)
+        if data is None and confounds_file:
+            data = pd.read_csv(confounds_file, sep=r"[\t\s]+", usecols=usecols, index_col=False)
 
         if data is not None:
             for name in data.columns.ravel():
@@ -117,15 +117,15 @@ class CBFtsPlot(object):
     def __init__(
         self,
         cbf_file,
-        conf_file=None,
+        confounds_file=None,
         seg_file=None,
-        scoreindex=None,
+        score_outlier_index=None,
         tr=None,
         units=None,
         vlines=None,
     ):
         self.cbf_file = cbf_file
-        volindex = np.loadtxt(scoreindex)
+        volindex = np.loadtxt(score_outlier_index)
         func_nii = nb.load(cbf_file)
         self.tr = tr if tr is not None else func_nii.header.get_zooms()[-1]
 
@@ -140,13 +140,13 @@ class CBFtsPlot(object):
             vlines = {}
 
         self.fd_file = {}
-        if conf_file:
-            data = pd.read_csv(conf_file, sep=r"[\t\s]+", index_col=False)
+        if confounds_file:
+            data = pd.read_csv(confounds_file, sep=r"[\t\s]+", index_col=False)
             fdlist = data["framewise_displacement"].tolist()
             fdlist = fdlist[::2]
             # fdlist=np.nan_to_num(fdlist)
             self.fd_file["FD"] = {"values": fdlist}
-        if scoreindex:
+        if score_outlier_index:
             self.fd_file["The SCORE index"] = {"values": volindex}
 
     def plot(self, figure=None):
