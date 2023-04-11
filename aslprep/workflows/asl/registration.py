@@ -29,9 +29,9 @@ def init_asl_reg_wf(
     use_bbr,
     asl2t1w_dof,
     asl2t1w_init,
-    name="asl_reg_wf",
     sloppy=False,
     write_report=True,
+    name="asl_reg_wf",
 ):
     """Build a workflow to run same-subject, ASL-to-T1w image-registration.
 
@@ -48,7 +48,7 @@ def init_asl_reg_wf(
             wf = init_asl_reg_wf(
                 use_bbr=True,
                 asl2t1w_dof=9,
-                asl2t1w_init='register',
+                asl2t1w_init="register",
             )
 
     Parameters
@@ -461,7 +461,7 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
             wf = init_fsl_bbr_wf(
                 use_bbr=True,
                 asl2t1w_dof=9,
-                asl2t1w_init='register',
+                asl2t1w_init="register",
             )
 
 

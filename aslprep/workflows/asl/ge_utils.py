@@ -128,9 +128,9 @@ def init_asl_gereg_wf(
     use_bbr,
     asl2t1w_dof,
     asl2t1w_init,
-    name="asl_reg_wf",
     sloppy=False,
     write_report=True,
+    name="asl_reg_wf",
 ):
     """Calculate registration transforms from ASL reference volume to T1w space.
 

@@ -36,6 +36,7 @@ def init_asl_confs_wf(
             :simple_form: yes
 
             from aslprep.workflows.asl.confounds import init_asl_confs_wf
+
             wf = init_asl_confs_wf(
                 mem_gb=1,
             )
@@ -79,7 +80,6 @@ def init_asl_confs_wf(
         TSV of all aggregated confounds
     confounds_metadata
         Confounds metadata dictionary.
-
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -151,7 +151,10 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     # fmt:off
     workflow.connect([
         # Connect inputnode to each non-anatomical confound node
-        (inputnode, dvars, [("asl", "in_file"), ("asl_mask", "in_mask")]),
+        (inputnode, dvars, [
+            ("asl", "in_file"),
+            ("asl_mask", "in_mask"),
+        ]),
         (inputnode, fdisp, [("movpar_file", "in_file")]),
         # Collate computed confounds together
         (inputnode, add_motion_headers, [("movpar_file", "in_file")]),
@@ -259,7 +262,10 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
 
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [("anat_to_aslref_xfm", "in1"), ("template_to_anat_xfm", "in2")]),
+        (inputnode, mrg_xfms, [
+            ("anat_to_aslref_xfm", "in1"),
+            ("template_to_anat_xfm", "in2"),
+        ]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
         # Carpetplot

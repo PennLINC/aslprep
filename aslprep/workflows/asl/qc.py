@@ -36,8 +36,9 @@ def init_compute_cbf_qc_wf(
 
     Parameters
     ----------
-    metadata : :obj:`dict`
-        BIDS metadata for asl file
+    is_ge : bool
+    scorescrub : bool
+    basil : bool
     name : :obj:`str`
         Name of workflow (default: "compute_cbf_qc_wf")
 

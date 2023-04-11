@@ -28,7 +28,7 @@ def init_cbfplot_wf(
             from aslprep.workflows.asl.plotting import init_cbfplot_wf
 
             wf = init_cbfplot_wf(
-                metadata={},
+                metadata={"RepetitionTimePreparation": 4},
             )
     """
     workflow = Workflow(name=name)
@@ -206,7 +206,7 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
 
             from aslprep.workflows.asl.plotting import init_gecbfplot_wf
 
-            wf = init_gecbfplot_wf()
+            wf = init_gecbfplot_wf(scorescrub=True, basil=True)
     """
     workflow = Workflow(name=name)
 

@@ -199,9 +199,9 @@ def init_asl_std_trans_wf(
     spaces,
     scorescrub=False,
     basil=False,
-    name="asl_std_trans_wf",
     use_compression=True,
     use_fieldwarp=False,
+    name="asl_std_trans_wf",
 ):
     """Sample ASL into standard space with a single-step resampling of the original ASL series.
 
@@ -540,11 +540,11 @@ def init_asl_std_trans_wf(
 def init_asl_preproc_trans_wf(
     mem_gb,
     omp_nthreads,
-    name="asl_preproc_trans_wf",
     use_compression=True,
     use_fieldwarp=False,
     split_file=False,
     interpolation="LanczosWindowedSinc",
+    name="asl_preproc_trans_wf",
 ):
     """Resample in native (original) space.
 
