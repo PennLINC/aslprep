@@ -128,9 +128,9 @@ def init_asl_gereg_wf(
     use_bbr,
     asl2t1w_dof,
     asl2t1w_init,
-    name="asl_reg_wf",
     sloppy=False,
     write_report=True,
+    name="asl_reg_wf",
 ):
     """Calculate registration transforms from ASL reference volume to T1w space.
 
@@ -153,7 +153,7 @@ def init_asl_gereg_wf(
         name="inputnode",
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["itk_asl_to_t1", "itk_t1_to_asl", "fallback"]),
+        niu.IdentityInterface(fields=["aslref_to_anat_xfm", "anat_to_aslref_xfm", "fallback"]),
         name="outputnode",
     )
 
@@ -172,8 +172,8 @@ def init_asl_gereg_wf(
             ("t1w_brain", "inputnode.t1w_brain"),
         ]),
         (bbr_wf, outputnode, [
-            ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
-            ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
+            ("outputnode.aslref_to_anat_xfm", "aslref_to_anat_xfm"),
+            ("outputnode.anat_to_aslref_xfm", "anat_to_aslref_xfm"),
             ("outputnode.fallback", "fallback"),
         ]),
     ])
@@ -205,7 +205,7 @@ def init_asl_gereg_wf(
 def init_asl_t1_getrans_wf(
     mem_gb,
     omp_nthreads,
-    cbft1space=False,
+    output_t1space=False,
     scorescrub=False,
     basil=False,
     name="asl_t1_trans_wf",
@@ -238,16 +238,18 @@ def init_asl_t1_getrans_wf(
                 "asl_file",
                 "t1w_brain",
                 "t1w_mask",
-                "cbf",
-                "meancbf",
+                "aslref_to_anat_xfm",
+                "cbf_ts",
+                "mean_cbf",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                # BASIL outputs
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
+                "mean_cbf_wm_basil",
                 "att",
-                "score",
-                "avgscore",
-                "scrub",
-                "basil",
-                "pv",
-                "pvwm",
-                "itk_asl_to_t1",
             ]
         ),
         name="inputnode",
@@ -257,17 +259,19 @@ def init_asl_t1_getrans_wf(
         niu.IdentityInterface(
             fields=[
                 "asl_t1",
-                "asl_t1_ref",
+                "aslref_t1",
                 "asl_mask_t1",
+                "cbf_ts_t1",
+                "mean_cbf_t1",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score_t1",
+                "mean_cbf_score_t1",
+                "mean_cbf_scrub_t1",
+                # BASIL outputs
+                "mean_cbf_basil_t1",
+                "mean_cbf_gm_basil_t1",
+                "mean_cbf_wm_basil_t1",
                 "att_t1",
-                "cbf_t1",
-                "meancbf_t1",
-                "score_t1",
-                "avgscore_t1",
-                "scrub_t1",
-                "basil_t1",
-                "pv_t1",
-                "pvwm_t1",
             ]
         ),
         name="outputnode",
@@ -286,7 +290,7 @@ def init_asl_t1_getrans_wf(
     workflow.connect([
         (inputnode, mask_t1w_tfm, [("ref_asl_mask", "input_image")]),
         (inputnode, mask_t1w_tfm, [("t1w_brain", "reference_image")]),
-        (inputnode, mask_t1w_tfm, [("itk_asl_to_t1", "transforms")]),
+        (inputnode, mask_t1w_tfm, [("aslref_to_anat_xfm", "transforms")]),
         (mask_t1w_tfm, outputnode, [("output_image", "asl_mask_t1")]),
     ])
     # fmt:on
@@ -306,13 +310,13 @@ def init_asl_t1_getrans_wf(
     # fmt:off
     workflow.connect([
         (inputnode, asl_to_t1w_transform, [("ref_asl_brain", "input_image")]),
-        (inputnode, asl_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+        (inputnode, asl_to_t1w_transform, [("aslref_to_anat_xfm", "transforms")]),
         (inputnode, asl_to_t1w_transform, [("t1w_brain", "reference_image")]),
         (asl_to_t1w_transform, outputnode, [("output_image", "asl_t1")]),
     ])
     # fmt:on
 
-    if cbft1space:
+    if output_t1space:
         cbf_to_t1w_transform = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
@@ -336,19 +340,19 @@ def init_asl_t1_getrans_wf(
         )
         # fmt:off
         workflow.connect([
-            (asl_to_t1w_transform, outputnode, [("output_image", "asl_t1_ref")]),
-            (inputnode, cbf_to_t1w_transform, [("cbf", "input_image")]),
-            (cbf_to_t1w_transform, outputnode, [("output_image", "cbf_t1")]),
-            (inputnode, cbf_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+            (asl_to_t1w_transform, outputnode, [("output_image", "aslref_t1")]),
+            (inputnode, cbf_to_t1w_transform, [("cbf_ts", "input_image")]),
+            (cbf_to_t1w_transform, outputnode, [("output_image", "cbf_ts_t1")]),
+            (inputnode, cbf_to_t1w_transform, [("aslref_to_anat_xfm", "transforms")]),
             (inputnode, cbf_to_t1w_transform, [("t1w_brain", "reference_image")]),
-            (inputnode, meancbf_to_t1w_transform, [("meancbf", "input_image")]),
-            (meancbf_to_t1w_transform, outputnode, [("output_image", "meancbf_t1")]),
-            (inputnode, meancbf_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
+            (inputnode, meancbf_to_t1w_transform, [("mean_cbf", "input_image")]),
+            (meancbf_to_t1w_transform, outputnode, [("output_image", "mean_cbf_t1")]),
+            (inputnode, meancbf_to_t1w_transform, [("aslref_to_anat_xfm", "transforms")]),
             (inputnode, meancbf_to_t1w_transform, [("t1w_brain", "reference_image")]),
         ])
         # fmt:on
 
-    if cbft1space and scorescrub:
+    if output_t1space and scorescrub:
         score_to_t1w_transform = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
@@ -380,7 +384,7 @@ def init_asl_t1_getrans_wf(
             mem_gb=mem_gb * 3 * omp_nthreads,
             n_procs=omp_nthreads,
         )
-    if cbft1space and basil:
+    if output_t1space and basil:
         basil_to_t1w_transform = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
@@ -425,44 +429,44 @@ def init_asl_t1_getrans_wf(
         # fmt:off
         workflow.connect([
             (inputnode, score_to_t1w_transform, [
-                ("score", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("cbf_ts_score", "input_image"),
+                ("aslref_to_anat_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
-            (score_to_t1w_transform, outputnode, [("output_image", "score_t1")]),
+            (score_to_t1w_transform, outputnode, [("output_image", "cbf_ts_score_t1")]),
             (inputnode, avgscore_to_t1w_transform, [
-                ("avgscore", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("mean_cbf_score", "input_image"),
+                ("aslref_to_anat_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
-            (avgscore_to_t1w_transform, outputnode, [("output_image", "avgscore_t1")]),
+            (avgscore_to_t1w_transform, outputnode, [("output_image", "mean_cbf_score_t1")]),
             (inputnode, scrub_to_t1w_transform, [
-                ("scrub", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("mean_cbf_scrub", "input_image"),
+                ("aslref_to_anat_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
-            (scrub_to_t1w_transform, outputnode, [("output_image", "scrub_t1")]),
+            (scrub_to_t1w_transform, outputnode, [("output_image", "mean_cbf_scrub_t1")]),
             (inputnode, basil_to_t1w_transform, [
-                ("basil", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("mean_cbf_basil", "input_image"),
+                ("aslref_to_anat_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
-            (basil_to_t1w_transform, outputnode, [("output_image", "basil_t1")]),
+            (basil_to_t1w_transform, outputnode, [("output_image", "mean_cbf_basil_t1")]),
             (inputnode, pv_to_t1w_transform, [
-                ("pv", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("mean_cbf_gm_basil", "input_image"),
+                ("aslref_to_anat_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
-            (pv_to_t1w_transform, outputnode, [("output_image", "pv_t1")]),
+            (pv_to_t1w_transform, outputnode, [("output_image", "mean_cbf_gm_basil_t1")]),
             (inputnode, pvwm_to_t1w_transform, [
-                ("pvwm", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("mean_cbf_wm_basil", "input_image"),
+                ("aslref_to_anat_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
-            (pvwm_to_t1w_transform, outputnode, [("output_image", "pvwm_t1")]),
+            (pvwm_to_t1w_transform, outputnode, [("output_image", "mean_cbf_wm_basil_t1")]),
             (inputnode, att_to_t1w_transform, [
                 ("att", "input_image"),
-                ("itk_asl_to_t1", "transforms"),
+                ("aslref_to_anat_xfm", "transforms"),
                 ("t1w_brain", "reference_image"),
             ]),
             (att_to_t1w_transform, outputnode, [("output_image", "att_t1")]),
@@ -516,21 +520,23 @@ preprocessed ASL runs*: {', '.join(output_references)}.
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "anat2std_xfm",
-                "cbf",
-                "meancbf",
-                "att",
-                "asl_file",
-                "score",
-                "avgscore",
-                "scrub",
-                "basil",
-                "pv",
-                "pvwm",
-                "asl_mask",
-                "itk_asl_to_t1",
+                "aslref_to_anat_xfm",
                 "name_source",
                 "templates",
+                "anat_to_template_xfm",
+                "asl_file",
+                "asl_mask",
+                "cbf_ts",
+                "mean_cbf",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                # BASIL outputs
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
+                "mean_cbf_wm_basil",
+                "att",
             ]
         ),
         name="inputnode",
@@ -551,7 +557,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
     )
 
     select_std = pe.Node(
-        KeySelect(fields=["anat2std_xfm"]), name="select_std", run_without_submitting=True
+        KeySelect(fields=["anat_to_template_xfm"]), name="select_std", run_without_submitting=True
     )
 
     select_tpl = pe.Node(
@@ -569,9 +575,8 @@ preprocessed ASL runs*: {', '.join(output_references)}.
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    nxforms = 3
     merge_xforms = pe.Node(
-        niu.Merge(nxforms),
+        niu.Merge(3),
         name="merge_xforms",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
@@ -650,6 +655,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
             mem_gb=mem_gb * 3 * omp_nthreads,
             n_procs=omp_nthreads,
         )
+
     # merge = pe.Node(Merge(compress=use_compression), name='merge',
     # mem_gb=mem_gb * 3)
     mask_merge_tfms = pe.Node(
@@ -660,24 +666,23 @@ preprocessed ASL runs*: {', '.join(output_references)}.
     )
     # Generate a reference on the target standard space
     gen_ref = pe.Node(GenerateSamplingReference(), name="gen_ref", mem_gb=0.3)
-    # gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
 
     # fmt:off
     workflow.connect([
         (iterablesource, split_target, [("std_target", "in_target")]),
         (iterablesource, select_tpl, [("std_target", "template")]),
         (inputnode, select_std, [
-            ("anat2std_xfm", "anat2std_xfm"),
+            ("anat_to_template_xfm", "anat_to_template_xfm"),
             ("templates", "keys"),
         ]),
         (inputnode, mask_std_tfm, [("asl_mask", "input_image")]),
         (inputnode, gen_ref, [("asl_file", "moving_image")]),
-        (inputnode, merge_xforms, [(("itk_asl_to_t1", _aslist), "in2")]),
-        (inputnode, mask_merge_tfms, [(("itk_asl_to_t1", _aslist), "in2")]),
+        (inputnode, merge_xforms, [(("aslref_to_anat_xfm", _aslist), "in2")]),
+        (inputnode, mask_merge_tfms, [(("aslref_to_anat_xfm", _aslist), "in2")]),
         (inputnode, asl_to_std_transform, [("asl_file", "input_image")]),
         (split_target, select_std, [("space", "key")]),
-        (select_std, merge_xforms, [("anat2std_xfm", "in1")]),
-        (select_std, mask_merge_tfms, [("anat2std_xfm", "in1")]),
+        (select_std, merge_xforms, [("anat_to_template_xfm", "in1")]),
+        (select_std, mask_merge_tfms, [("anat_to_template_xfm", "in1")]),
         (split_target, gen_ref, [(("spec", _is_native), "keep_native")]),
         (select_tpl, gen_ref, [("out", "fixed_image")]),
         (merge_xforms, asl_to_std_transform, [("out", "transforms")]),
@@ -690,18 +695,27 @@ preprocessed ASL runs*: {', '.join(output_references)}.
     output_names = [
         "asl_mask_std",
         "asl_std",
-        "asl_std_ref",
+        "aslref_std",
         "spatial_reference",
         "template",
-        "cbf_std",
-        "meancbf_std",
+        "cbf_ts_std",
+        "mean_cbf_std",
     ]
 
     if scorescrub:
-        output_names = output_names + ["score_std", "avgscore_std", "scrub_std"]
+        output_names += [
+            "cbf_ts_score_std",
+            "mean_cbf_score_std",
+            "mean_cbf_scrub_std",
+        ]
 
     if basil:
-        output_names = output_names + ["basil_std", "pv_std", "pvwm_std", "att_std"]
+        output_names += [
+            "mean_cbf_basil_std",
+            "mean_cbf_gm_basil_std",
+            "mean_cbf_wm_basil_std",
+            "att_std",
+        ]
 
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names), name="poutputnode")
 
@@ -710,17 +724,17 @@ preprocessed ASL runs*: {', '.join(output_references)}.
         # Connecting outputnode
         (iterablesource, poutputnode, [(("std_target", format_reference), "spatial_reference")]),
         (asl_to_std_transform, poutputnode, [("output_image", "asl_std")]),
-        (asl_to_std_transform, poutputnode, [("output_image", "asl_std_ref")]),
+        (asl_to_std_transform, poutputnode, [("output_image", "aslref_std")]),
         (mask_std_tfm, poutputnode, [("output_image", "asl_mask_std")]),
         (select_std, poutputnode, [("key", "template")]),
         (mask_merge_tfms, cbf_to_std_transform, [("out", "transforms")]),
         (gen_ref, cbf_to_std_transform, [("out_file", "reference_image")]),
-        (inputnode, cbf_to_std_transform, [("cbf", "input_image")]),
-        (cbf_to_std_transform, poutputnode, [("output_image", "cbf_std")]),
+        (inputnode, cbf_to_std_transform, [("cbf_ts", "input_image")]),
+        (cbf_to_std_transform, poutputnode, [("output_image", "cbf_ts_std")]),
         (mask_merge_tfms, meancbf_to_std_transform, [("out", "transforms")]),
         (gen_ref, meancbf_to_std_transform, [("out_file", "reference_image")]),
-        (inputnode, meancbf_to_std_transform, [("cbf", "input_image")]),
-        (meancbf_to_std_transform, poutputnode, [("output_image", "meancbf_std")]),
+        (inputnode, meancbf_to_std_transform, [("cbf_ts", "input_image")]),
+        (meancbf_to_std_transform, poutputnode, [("output_image", "mean_cbf_std")]),
     ])
     # fmt:on
 
@@ -729,16 +743,16 @@ preprocessed ASL runs*: {', '.join(output_references)}.
         workflow.connect([
             (mask_merge_tfms, avgscore_to_std_transform, [("out", "transforms")]),
             (gen_ref, avgscore_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, avgscore_to_std_transform, [("avgscore", "input_image")]),
-            (avgscore_to_std_transform, poutputnode, [("output_image", "avgscore_std")]),
+            (inputnode, avgscore_to_std_transform, [("mean_cbf_score", "input_image")]),
+            (avgscore_to_std_transform, poutputnode, [("output_image", "mean_cbf_score_std")]),
             (mask_merge_tfms, score_to_std_transform, [("out", "transforms")]),
             (gen_ref, score_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, score_to_std_transform, [("score", "input_image")]),
-            (score_to_std_transform, poutputnode, [("output_image", "score_std")]),
+            (inputnode, score_to_std_transform, [("cbf_ts_score", "input_image")]),
+            (score_to_std_transform, poutputnode, [("output_image", "cbf_ts_score_std")]),
             (mask_merge_tfms, scrub_to_std_transform, [("out", "transforms")]),
             (gen_ref, scrub_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, scrub_to_std_transform, [("scrub", "input_image")]),
-            (scrub_to_std_transform, poutputnode, [("output_image", "scrub_std")]),
+            (inputnode, scrub_to_std_transform, [("mean_cbf_scrub", "input_image")]),
+            (scrub_to_std_transform, poutputnode, [("output_image", "mean_cbf_scrub_std")]),
         ])
         # fmt:on
 
@@ -747,16 +761,16 @@ preprocessed ASL runs*: {', '.join(output_references)}.
         workflow.connect([
             (mask_merge_tfms, basil_to_std_transform, [("out", "transforms")]),
             (gen_ref, basil_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, basil_to_std_transform, [("basil", "input_image")]),
-            (basil_to_std_transform, poutputnode, [("output_image", "basil_std")]),
+            (inputnode, basil_to_std_transform, [("mean_cbf_basil", "input_image")]),
+            (basil_to_std_transform, poutputnode, [("output_image", "mean_cbf_basil_std")]),
             (mask_merge_tfms, pv_to_std_transform, [("out", "transforms")]),
             (gen_ref, pv_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, pv_to_std_transform, [("pv", "input_image")]),
-            (pv_to_std_transform, poutputnode, [("output_image", "pv_std")]),
+            (inputnode, pv_to_std_transform, [("mean_cbf_gm_basil", "input_image")]),
+            (pv_to_std_transform, poutputnode, [("output_image", "mean_cbf_gm_basil_std")]),
             (mask_merge_tfms, pvwm_to_std_transform, [("out", "transforms")]),
             (gen_ref, pvwm_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, pvwm_to_std_transform, [("pvwm", "input_image")]),
-            (pvwm_to_std_transform, poutputnode, [("output_image", "pvwm_std")]),
+            (inputnode, pvwm_to_std_transform, [("mean_cbf_wm_basil", "input_image")]),
+            (pvwm_to_std_transform, poutputnode, [("output_image", "mean_cbf_wm_basil_std")]),
             (mask_merge_tfms, att_to_std_transform, [("out", "transforms")]),
             (gen_ref, att_to_std_transform, [("out_file", "reference_image")]),
             (inputnode, att_to_std_transform, [("att", "input_image")]),

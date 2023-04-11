@@ -90,7 +90,7 @@ def coverage(input1, input2):
     return intsec / smallv
 
 
-def globalcbf(cbf, gm, wm, csf, thresh=0.7):
+def average_cbf_by_tissue(cbf, gm, wm, csf, thresh=0.7):
     """Compute mean GM, WM, and CSF CBF values.
 
     Parameters
@@ -118,7 +118,7 @@ def globalcbf(cbf, gm, wm, csf, thresh=0.7):
     return mean_tissue_cbfs
 
 
-def cbf_qei(gm, wm, csf, img, thresh=0.8):
+def compute_qei(gm, wm, csf, img, thresh=0.8):
     """Compute quality evaluation index (QEI) of CBF.
 
     The QEI is based on :footcite:t:`dolui2017automated`.

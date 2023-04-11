@@ -36,8 +36,9 @@ def init_compute_cbf_qc_wf(
 
     Parameters
     ----------
-    metadata : :obj:`dict`
-        BIDS metadata for asl file
+    is_ge : bool
+    scorescrub : bool
+    basil : bool
     name : :obj:`str`
         Name of workflow (default: "compute_cbf_qc_wf")
 
@@ -49,7 +50,7 @@ def init_compute_cbf_qc_wf(
         asl mask NIFTI file
     t1w_tpms
         t1w probability maps
-    t1_asl_xform
+    anat_to_aslref_xfm
         t1w to asl transfromation file
 
     Outputs
@@ -68,20 +69,20 @@ negative CBF values.
         niu.IdentityInterface(
             fields=[
                 "name_source",
-                "meancbf",
                 "asl_mask",
                 "t1w_mask",
                 "t1w_tpms",
-                "t1_asl_xform",
+                "anat_to_aslref_xfm",
                 "asl_mask_std",
+                "mean_cbf",
                 # SCORE/SCRUB inputs
-                "avgscore",
-                "scrub",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
                 # BASIL inputs
-                "basil",
-                "pv",
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
                 # non-GE inputs
-                "confmat",
+                "confounds_file",
                 "rmsd_file",
             ]
         ),
@@ -108,7 +109,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -124,7 +125,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -140,7 +141,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -156,7 +157,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, mask_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             ("t1w_mask", "input_image"),
         ]),
     ])
@@ -185,17 +186,17 @@ negative CBF values.
 
     # fmt:off
     workflow.connect([
-        (mask_tfm, qccompute, [("output_image", "in_t1mask")]),
+        (mask_tfm, qccompute, [("output_image", "t1w_mask")]),
         (inputnode, qccompute, [
             ("name_source", "name_source"),
-            ("asl_mask", "in_aslmask"),
-            (("asl_mask_std", _select_last_in_list), "in_aslmaskstd"),
-            ("meancbf", "in_meancbf"),
+            ("asl_mask", "asl_mask"),
+            (("asl_mask_std", _select_last_in_list), "asl_mask_std"),
+            ("mean_cbf", "mean_cbf"),
         ]),
-        (resample, qccompute, [("out_file", "in_templatemask")]),
-        (gm_tfm, qccompute, [("output_image", "in_greyM")]),
-        (wm_tfm, qccompute, [("output_image", "in_whiteM")]),
-        (csf_tfm, qccompute, [("output_image", "in_csf")]),
+        (resample, qccompute, [("out_file", "template_mask")]),
+        (gm_tfm, qccompute, [("output_image", "gm_tpm")]),
+        (wm_tfm, qccompute, [("output_image", "wm_tpm")]),
+        (csf_tfm, qccompute, [("output_image", "csf_tpm")]),
         (qccompute, outputnode, [("qc_file", "qc_file")]),
     ])
     # fmt:on
@@ -204,7 +205,7 @@ negative CBF values.
         # fmt:off
         workflow.connect([
             (inputnode, qccompute, [
-                ("confmat", "in_confmat"),
+                ("confounds_file", "confounds_file"),
                 ("rmsd_file", "rmsd_file"),
             ]),
         ])
@@ -214,8 +215,8 @@ negative CBF values.
         # fmt:off
         workflow.connect([
             (inputnode, qccompute, [
-                ("scrub", "in_scrub"),
-                ("avgscore", "in_avgscore"),
+                ("mean_cbf_scrub", "mean_cbf_scrub"),
+                ("mean_cbf_score", "mean_cbf_score"),
             ]),
         ])
         # fmt:on
@@ -224,8 +225,8 @@ negative CBF values.
         # fmt:off
         workflow.connect([
             (inputnode, qccompute, [
-                ("basil", "in_basil"),
-                ("pv", "in_pvc"),
+                ("mean_cbf_basil", "mean_cbf_basil"),
+                ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
             ]),
         ])
         # fmt:on

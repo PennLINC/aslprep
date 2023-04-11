@@ -28,7 +28,7 @@ def init_cbfplot_wf(
             from aslprep.workflows.asl.plotting import init_cbfplot_wf
 
             wf = init_cbfplot_wf(
-                metadata={},
+                metadata={"RepetitionTimePreparation": 4},
             )
     """
     workflow = Workflow(name=name)
@@ -36,19 +36,22 @@ def init_cbfplot_wf(
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "cbf",
-                "cbf_ts",
-                "score_ts",
-                "score",
-                "scrub",
-                "asl_ref",
-                "basil",
-                "pvc",
+                "aslref",
                 "asl_mask",
-                "t1_asl_xform",
-                "std2anat_xfm",
+                "anat_to_aslref_xfm",
+                "template_to_anat_xfm",
                 "confounds_file",
-                "scoreindex",
+                # CBF outputs
+                "cbf_ts",
+                "mean_cbf",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                "score_outlier_index",
+                # BASIL outputs
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
             ]
         ),
         name="inputnode",
@@ -58,7 +61,6 @@ def init_cbfplot_wf(
             fields=[
                 "cbf_carpetplot",
                 "score_carpetplot",
-                "cbf_summary_plot",
                 "cbf_summary_plot",
                 "score_summary_plot",
                 "scrub_summary_plot",
@@ -103,20 +105,23 @@ def init_cbfplot_wf(
     )
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [("t1_asl_xform", "in2"), ("std2anat_xfm", "in1")]),
+        (inputnode, mrg_xfms, [
+            ("template_to_anat_xfm", "in1"),
+            ("anat_to_aslref_xfm", "in2"),
+        ]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
         (resample_parc, cbftssummary, [("output_image", "seg_file")]),
         (inputnode, cbftssummary, [
             ("cbf_ts", "cbf_ts"),
-            ("confounds_file", "conf_file"),
-            ("scoreindex", "score_file"),
+            ("confounds_file", "confounds_file"),
+            ("score_outlier_index", "score_outlier_index"),
         ]),
         (cbftssummary, ds_report_cbftsplot, [("out_file", "in_file")]),
         (cbftssummary, outputnode, [("out_file", "cbf_carpetplot")]),
         (inputnode, cbfsummary, [
-            ("cbf", "cbf"),
-            ("asl_ref", "ref_vol"),
+            ("mean_cbf", "cbf"),
+            ("aslref", "ref_vol"),
         ]),
         (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
         (cbfsummary, outputnode, [("out_file", "cbf_summary_plot")]),
@@ -141,14 +146,14 @@ def init_cbfplot_wf(
         # fmt:off
         workflow.connect([
             (inputnode, scoresummary, [
-                ("score", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("mean_cbf_score", "cbf"),
+                ("aslref", "ref_vol"),
             ]),
             (scoresummary, ds_report_scoreplot, [("out_file", "in_file")]),
             (scoresummary, outputnode, [("out_file", "score_summary_plot")]),
             (inputnode, scrubsummary, [
-                ("scrub", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("mean_cbf_scrub", "cbf"),
+                ("aslref", "ref_vol"),
             ]),
             (scrubsummary, ds_report_scrubplot, [("out_file", "in_file")]),
             (scrubsummary, outputnode, [("out_file", "scrub_summary_plot")]),
@@ -174,14 +179,14 @@ def init_cbfplot_wf(
         # fmt:off
         workflow.connect([
             (inputnode, basilsummary, [
-                ("basil", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("mean_cbf_basil", "cbf"),
+                ("aslref", "ref_vol"),
             ]),
             (basilsummary, ds_report_basilplot, [("out_file", "in_file")]),
             (basilsummary, outputnode, [("out_file", "basil_summary_plot")]),
             (inputnode, pvcsummary, [
-                ("pvc", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("mean_cbf_gm_basil", "cbf"),
+                ("aslref", "ref_vol"),
             ]),
             (pvcsummary, ds_report_pvcplot, [("out_file", "in_file")]),
             (pvcsummary, outputnode, [("out_file", "pvc_summary_plot")]),
@@ -201,12 +206,21 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
 
             from aslprep.workflows.asl.plotting import init_gecbfplot_wf
 
-            wf = init_gecbfplot_wf()
+            wf = init_gecbfplot_wf(scorescrub=True, basil=True)
     """
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=["cbf", "score", "scrub", "asl_ref", "basil", "pvc"]),
+        niu.IdentityInterface(
+            fields=[
+                "mean_cbf",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                "aslref",
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
+            ],
+        ),
         name="inputnode",
     )
     outputnode = pe.Node(
@@ -232,8 +246,8 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
     # fmt:off
     workflow.connect([
         (inputnode, cbfsummary, [
-            ("cbf", "cbf"),
-            ("asl_ref", "ref_vol"),
+            ("mean_cbf", "cbf"),
+            ("aslref", "ref_vol"),
         ]),
         (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
         (cbfsummary, outputnode, [("out_file", "cbf_summary_plot")]),
@@ -258,14 +272,14 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
         # fmt:off
         workflow.connect([
             (inputnode, scoresummary, [
-                ("score", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("mean_cbf_score", "cbf"),
+                ("aslref", "ref_vol"),
             ]),
             (scoresummary, ds_report_scoreplot, [("out_file", "in_file")]),
             (scoresummary, outputnode, [("out_file", "score_summary_plot")]),
             (inputnode, scrubsummary, [
-                ("scrub", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("mean_cbf_scrub", "cbf"),
+                ("aslref", "ref_vol"),
             ]),
             (scrubsummary, ds_report_scrubplot, [("out_file", "in_file")]),
             (scrubsummary, outputnode, [("out_file", "scrub_summary_plot")]),
@@ -291,14 +305,14 @@ def init_gecbfplot_wf(scorescrub=False, basil=False, name="cbf_plot"):
         # fmt:off
         workflow.connect([
             (inputnode, basilsummary, [
-                ("basil", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("mean_cbf_basil", "cbf"),
+                ("aslref", "ref_vol"),
             ]),
             (basilsummary, ds_report_basilplot, [("out_file", "in_file")]),
             (basilsummary, outputnode, [("out_file", "basil_summary_plot")]),
             (inputnode, pvcsummary, [
-                ("pvc", "cbf"),
-                ("asl_ref", "ref_vol"),
+                ("mean_cbf_gm_basil", "cbf"),
+                ("aslref", "ref_vol"),
             ]),
             (pvcsummary, ds_report_pvcplot, [("out_file", "in_file")]),
             (pvcsummary, outputnode, [("out_file", "pvc_summary_plot")]),

@@ -79,9 +79,9 @@ def init_cbf_compt_wf(
         t1w probability maps
     t1w_mask
         t1w mask Nifti
-    t1_asl_xform
+    anat_to_aslref_xfm
         t1w to asl transformation file
-    itk_asl_to_t1
+    aslref_to_anat_xfm
         asl to t1w transformation file
 
     Outputs
@@ -108,8 +108,8 @@ model [@buxton1998general].
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "t1_asl_xform",
-                "itk_asl_to_t1",
+                "anat_to_aslref_xfm",
+                "aslref_to_anat_xfm",
             ]
         ),
         name="inputnode",
@@ -118,16 +118,18 @@ model [@buxton1998general].
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "out_cbf",
-                "out_mean",
-                "out_score",
-                "out_cbfpvwm",
-                "out_avgscore",
-                "out_scrub",
-                "out_cbfb",
-                "out_scoreindex",
-                "out_cbfpv",
-                "out_att",
+                "cbf_ts",
+                "mean_cbf",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                "score_outlier_index",
+                # BASIL outputs
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
+                "mean_cbf_wm_basil",
+                "att",
             ]
         ),
         name="outputnode",
@@ -143,9 +145,9 @@ model [@buxton1998general].
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [
-            ("t1w_mask", "in_t1mask"),
-            ("asl_mask", "in_aslmask"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_mask", "t1w_mask"),
+            ("asl_mask", "asl_mask"),
+            ("anat_to_aslref_xfm", "transforms"),
         ]),
     ])
     # fmt:on
@@ -175,7 +177,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -191,7 +193,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -207,7 +209,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -270,15 +272,15 @@ model [@buxton1998general].
             ("metadata", "metadata"),
         ]),
         (compute_cbf, outputnode, [
-            ("cbf", "out_cbf"),
-            ("mean_cbf", "out_mean"),
+            ("cbf", "cbf_ts"),
+            ("mean_cbf", "mean_cbf"),
         ]),
     ])
     # fmt:on
 
     if scorescrub:
         score_and_scrub_cbf = pe.Node(
-            ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
+            ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
             mem_gb=0.2,
             name="score_and_scrub_cbf",
             run_without_submitting=True,
@@ -294,16 +296,16 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
 """
         # fmt:off
         workflow.connect([
-            (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
-            (compute_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
-            (gm_tfm, score_and_scrub_cbf, [("output_image", "in_greyM")]),
-            (wm_tfm, score_and_scrub_cbf, [("output_image", "in_whiteM")]),
-            (csf_tfm, score_and_scrub_cbf, [("output_image", "in_csf")]),
+            (refine_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
+            (compute_cbf, score_and_scrub_cbf, [("cbf", "cbf_ts")]),
+            (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
+            (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
+            (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
             (score_and_scrub_cbf, outputnode, [
-                ("out_score", "out_score"),
-                ("out_scoreindex", "out_scoreindex"),
-                ("out_avgscore", "out_avgscore"),
-                ("out_scrub", "out_scrub"),
+                ("cbf_ts_score", "cbf_ts_score"),
+                ("score_outlier_index", "score_outlier_index"),
+                ("mean_cbf_score", "mean_cbf_score"),
+                ("mean_cbf_scrub", "mean_cbf_scrub"),
             ]),
         ])
         # fmt:on
@@ -343,17 +345,17 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             (refine_mask, basilcbf, [("out_mask", "mask")]),
             (extract_deltam, basilcbf, [
                 (("m0_file", _getfiledir), "out_basename"),
-                ("out_file", "in_file"),
+                ("out_file", "deltam"),
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),
-            (gm_tfm, basilcbf, [("output_image", "pvgm")]),
-            (wm_tfm, basilcbf, [("output_image", "pvwm")]),
+            (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
+            (wm_tfm, basilcbf, [("output_image", "wm_tpm")]),
             (basilcbf, outputnode, [
-                ("out_cbfb", "out_cbfb"),
-                ("out_cbfpv", "out_cbfpv"),
-                ("out_cbfpvwm", "out_cbfpvwm"),
-                ("out_att", "out_att"),
+                ("mean_cbf_basil", "mean_cbf_basil"),
+                ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
+                ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
+                ("att", "att"),
             ]),
         ])
         # fmt:on
@@ -398,8 +400,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "t1_asl_xform",
-                "itk_asl_to_t1",
+                "anat_to_aslref_xfm",
+                "aslref_to_anat_xfm",
                 "m0_file",
                 "m0tr",
             ]
@@ -409,16 +411,18 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "out_cbf",
-                "out_mean",
-                "out_score",
-                "out_avgscore",
-                "out_scrub",
-                "out_cbfb",
-                "out_scoreindex",
-                "out_cbfpv",
-                "out_att",
-                "out_cbfpvwm",
+                "cbf_ts",
+                "mean_cbf",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                "score_outlier_index",
+                # BASIL outputs
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
+                "mean_cbf_wm_basil",
+                "att",
             ]
         ),
         name="outputnode",
@@ -450,7 +454,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -466,7 +470,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -482,7 +486,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -511,9 +515,9 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [
-            ("t1w_mask", "in_t1mask"),
-            ("asl_mask", "in_aslmask"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_mask", "t1w_mask"),
+            ("asl_mask", "asl_mask"),
+            ("anat_to_aslref_xfm", "transforms"),
         ]),
     ])
     # fmt:on
@@ -541,7 +545,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             # extract deltaM data
             (inputnode, extract_deltam, [
                 ("asl_file", "asl_file"),
-                ("asl_mask", "in_aslmask"),
+                ("asl_mask", "asl_mask"),
             ]),
         ])
         # fmt:on
@@ -565,8 +569,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             (refine_mask, compute_cbf, [("out_mask", "mask")]),
             (compute_cbf, collect_cbf, [("cbf", "cbf")]),
             (compute_cbf, outputnode, [
-                ("cbf", "out_cbf"),
-                ("mean_cbf", "out_mean"),
+                ("cbf", "cbf_ts"),
+                ("mean_cbf", "mean_cbf"),
             ]),
         ])
         # fmt:on
@@ -582,8 +586,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         # fmt:off
         workflow.connect([
             (inputnode, extract_cbf, [
-                ("asl_file", "in_asl"),
-                ("asl_mask", "in_aslmask"),
+                ("asl_file", "asl_file"),
+                ("asl_mask", "asl_mask"),
             ]),
         ])
         # fmt:on
@@ -601,8 +605,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             (extract_cbf, mask_cbf, [("out_file", "operand_files")]),
             (mask_cbf, collect_cbf, [("out_file", "cbf")]),
             (mask_cbf, outputnode, [
-                ("out_file", "out_cbf"),
-                ("out_file", "out_mean"),
+                ("out_file", "cbf_ts"),
+                ("out_file", "mean_cbf"),
             ]),
         ])
         # fmt:on
@@ -616,7 +620,7 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
 """
 
         score_and_scrub_cbf = pe.Node(
-            ScoreAndScrubCBF(in_thresh=0.7, in_wfun="huber"),
+            ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
             mem_gb=mem_gb,
             name="scorescrub",
             run_without_submitting=True,
@@ -624,16 +628,16 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
 
         # fmt:off
         workflow.connect([
-            (refine_mask, score_and_scrub_cbf, [("out_mask", "in_mask")]),
-            (gm_tfm, score_and_scrub_cbf, [("output_image", "in_greyM")]),
-            (wm_tfm, score_and_scrub_cbf, [("output_image", "in_whiteM")]),
-            (csf_tfm, score_and_scrub_cbf, [("output_image", "in_csf")]),
-            (collect_cbf, score_and_scrub_cbf, [("cbf", "in_file")]),
+            (refine_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
+            (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
+            (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
+            (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
+            (collect_cbf, score_and_scrub_cbf, [("cbf", "cbf_ts")]),
             (score_and_scrub_cbf, outputnode, [
-                ("out_score", "out_score"),
-                ("out_scoreindex", "out_scoreindex"),
-                ("out_avgscore", "out_avgscore"),
-                ("out_scrub", "out_scrub"),
+                ("cbf_ts_score", "cbf_ts_score"),
+                ("score_outlier_index", "score_outlier_index"),
+                ("mean_cbf_score", "mean_cbf_score"),
+                ("mean_cbf_scrub", "mean_cbf_scrub"),
             ]),
         ])
         # fmt:on
@@ -677,15 +681,15 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),
-            (collect_cbf, basilcbf, [("deltam", "in_file")]),
-            (gm_tfm, basilcbf, [("output_image", "pvgm")]),
-            (wm_tfm, basilcbf, [("output_image", "pvwm")]),
+            (collect_cbf, basilcbf, [("deltam", "deltam")]),
+            (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
+            (wm_tfm, basilcbf, [("output_image", "wm_tpm")]),
             (refine_mask, basilcbf, [("out_mask", "mask")]),
             (basilcbf, outputnode, [
-                ("out_cbfb", "out_cbfb"),
-                ("out_cbfpv", "out_cbfpv"),
-                ("out_cbfpvwm", "out_cbfpvwm"),
-                ("out_att", "out_att"),
+                ("mean_cbf_basil", "mean_cbf_basil"),
+                ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
+                ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
+                ("att", "att"),
             ]),
         ])
         # fmt:on
@@ -736,8 +740,8 @@ def init_parcellate_cbf_wf(
     mean_cbf_basil : Undefined or str
     mean_cbf_gm_basil : Undefined or str
     asl_mask : str
-    anat_to_asl_xform : str
-    MNI152NLin2009cAsym_to_anat_xform : str
+    anat_to_aslref_xfm : str
+    MNI152NLin2009cAsym_to_anat_xfm : str
         The transform from MNI152NLin2009cAsym to the subject's anatomical space.
 
     Outputs
@@ -774,8 +778,8 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "asl_mask",
-                "anat_to_asl_xform",
-                "MNI152NLin2009cAsym_to_anat_xform",
+                "anat_to_aslref_xfm",
+                "MNI152NLin2009cAsym_to_anat_xfm",
             ]
         ),
         name="inputnode",
@@ -839,8 +843,8 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
     # fmt:off
     workflow.connect([
         (inputnode, merge_xforms, [
-            ("MNI152NLin2009cAsym_to_anat_xform", "in2"),
-            ("anat_to_asl_xform", "in3"),
+            ("MNI152NLin2009cAsym_to_anat_xfm", "in2"),
+            ("anat_to_aslref_xfm", "in3"),
         ]),
     ])
     # fmt:on

@@ -64,35 +64,35 @@ def init_asl_derivatives_wf(
                 "asl_mask_t1",
                 "asl_mask_std",
                 # Transforms
-                "itk_asl_to_t1",
-                "itk_t1_to_asl",
+                "aslref_to_anat_xfm",
+                "anat_to_aslref_xfm",
                 # Standard CBF outputs
-                "cbf_native",
-                "cbf_t1",
-                "cbf_std",
-                "meancbf_native",
-                "meancbf_t1",
-                "meancbf_std",
+                "cbf_ts_native",
+                "cbf_ts_t1",
+                "cbf_ts_std",
+                "mean_cbf_native",
+                "mean_cbf_t1",
+                "mean_cbf_std",
                 # SCORE/SCRUB outputs
-                "score_native",
-                "score_t1",
-                "score_std",
-                "avgscore_native",
-                "avgscore_t1",
-                "avgscore_std",
-                "scrub_native",
-                "scrub_t1",
-                "scrub_std",
+                "cbf_ts_score_native",
+                "cbf_ts_score_t1",
+                "cbf_ts_score_std",
+                "mean_cbf_score_native",
+                "mean_cbf_score_t1",
+                "mean_cbf_score_std",
+                "mean_cbf_scrub_native",
+                "mean_cbf_scrub_t1",
+                "mean_cbf_scrub_std",
                 # BASIL outputs
-                "basil_native",
-                "basil_t1",
-                "basil_std",
-                "pv_native",
-                "pv_t1",
-                "pv_std",
-                "pvwm_native",
-                "pvwm_t1",
-                "pvwm_std",
+                "mean_cbf_basil_native",
+                "mean_cbf_basil_t1",
+                "mean_cbf_basil_std",
+                "mean_cbf_gm_basil_native",
+                "mean_cbf_gm_basil_t1",
+                "mean_cbf_gm_basil_std",
+                "mean_cbf_wm_basil_native",
+                "mean_cbf_wm_basil_t1",
+                "mean_cbf_wm_basil_std",
                 "att_native",
                 "att_t1",
                 "att_std",
@@ -181,7 +181,7 @@ def init_asl_derivatives_wf(
     workflow.connect([
         (inputnode, ds_t1w_to_asl_xform, [
             ("source_file", "source_file"),
-            ("itk_t1_to_asl", "in_file"),
+            ("anat_to_aslref_xfm", "in_file"),
         ]),
     ])
     # fmt:on
@@ -205,7 +205,7 @@ def init_asl_derivatives_wf(
     workflow.connect([
         (inputnode, ds_asl_to_t1w_xform, [
             ("source_file", "source_file"),
-            ("itk_asl_to_t1", "in_file"),
+            ("aslref_to_anat_xfm", "in_file"),
         ]),
     ])
     # fmt:on
@@ -283,43 +283,43 @@ def init_asl_derivatives_wf(
             "dismiss_entities": ("echo",),
         },
         # CBF outputs
-        "cbf": {
+        "cbf_ts": {
             "desc": "timeseries",
             "suffix": "cbf",
             **cbf_metadata,
         },
-        "meancbf": {
+        "mean_cbf": {
             "suffix": "cbf",
             **cbf_metadata,
         },
         # SCORE/SCRUB outputs
-        "score": {
+        "cbf_ts_score": {
             "desc": "scoreTimeseries",
             "suffix": "cbf",
             **cbf_metadata,
         },
-        "avgscore": {
+        "mean_cbf_score": {
             "desc": "score",
             "suffix": "cbf",
             **cbf_metadata,
         },
-        "scrub": {
+        "mean_cbf_scrub": {
             "desc": "scrub",
             "suffix": "cbf",
             **cbf_metadata,
         },
         # BASIL outputs
-        "basil": {
+        "mean_cbf_basil": {
             "desc": "basil",
             "suffix": "cbf",
             **cbf_metadata,
         },
-        "pv": {
+        "mean_cbf_gm_basil": {
             "desc": "pvGM",
             "suffix": "cbf",
             **cbf_metadata,
         },
-        "pvwm": {
+        "mean_cbf_wm_basil": {
             "desc": "pvWM",
             "suffix": "cbf",
             **cbf_metadata,
@@ -330,12 +330,12 @@ def init_asl_derivatives_wf(
         },
     }
 
-    base_inputs = ["asl", "aslref", "asl_mask", "cbf", "meancbf"]
+    base_inputs = ["asl", "aslref", "asl_mask", "cbf_ts", "mean_cbf"]
     if scorescrub:
-        base_inputs += ["score", "avgscore", "scrub"]
+        base_inputs += ["cbf_ts_score", "mean_cbf_score", "mean_cbf_scrub"]
 
     if basil:
-        base_inputs += ["basil", "pv", "pvwm", "att"]
+        base_inputs += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att"]
 
     # Native-space derivatives
     if nonstd_spaces.intersection(("func", "run", "asl", "sbref")):

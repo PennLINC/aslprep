@@ -40,7 +40,7 @@ class fMRIPlot:
         timeseries,
         segments,
         confounds=None,
-        conf_file=None,
+        confounds_file=None,
         tr=None,
         usecols=None,
         units=None,
@@ -62,8 +62,8 @@ class fMRIPlot:
         if vlines is None:
             vlines = {}
         self.confounds = {}
-        if confounds is None and conf_file:
-            confounds = pd.read_csv(conf_file, sep=r"[\t\s]+", usecols=usecols, index_col=False)
+        if confounds is None and confounds_file:
+            confounds = pd.read_csv(confounds_file, sep=r"[\t\s]+", usecols=usecols, index_col=False)
 
         if confounds is not None:
             for name in confounds.columns:
