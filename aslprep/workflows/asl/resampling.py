@@ -81,7 +81,7 @@ def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_
     workflow.__desc__ = f"""\
 The ASL time-series were resampled onto the following surfaces
 (FreeSurfer reconstruction nomenclature):
-{', '.join(['*' + s + '*' for s in surface_spaces])}.
+{', '.join([f'*{s}*' for s in surface_spaces])}.
 """
 
     inputnode = pe.Node(
@@ -300,6 +300,7 @@ def init_asl_std_trans_wf(
                 "aslref_to_t1w_xfm",
                 "name_source",
                 "templates",
+                # CBF outputs
                 "cbf_ts",
                 "mean_cbf",
                 # SCORE/SCRUB outputs
@@ -330,11 +331,25 @@ def init_asl_std_trans_wf(
         name="split_target",
     )
 
+    # fmt:off
+    workflow.connect([(iterablesource, split_target, [("std_target", "in_target")])])
+    # fmt:on
+
     select_std = pe.Node(
         KeySelect(fields=["anat2std_xfm"]),
         name="select_std",
         run_without_submitting=True,
     )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, select_std, [
+            ("anat2std_xfm", "anat2std_xfm"),
+            ("templates", "keys"),
+        ]),
+        (split_target, select_std, [("space", "key")]),
+    ])
+    # fmt:on
 
     select_tpl = pe.Node(
         niu.Function(function=_select_template),
@@ -342,19 +357,24 @@ def init_asl_std_trans_wf(
         run_without_submitting=True,
     )
 
+    # fmt:off
+    workflow.connect([(iterablesource, select_tpl, [("std_target", "template")])])
+    # fmt:on
+
     gen_ref = pe.Node(
         GenerateSamplingReference(),
         name="gen_ref",
         mem_gb=0.3,
     )  # 256x256x256 * 64 / 8 ~ 150MB)
 
-    mask_std_tfm = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel"),
-        name="mask_std_tfm",
-        mem_gb=1,
-    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, gen_ref, [(("asl_split", _select_first_in_list), "moving_image")]),
+        (select_tpl, gen_ref, [("out", "fixed_image")]),
+        (split_target, gen_ref, [(("spec", _is_native), "keep_native")]),
+    ])
+    # fmt:on
 
-    # Write corrected file in the designated output dir
     mask_merge_tfms = pe.Node(
         niu.Merge(2),
         name="mask_merge_tfms",
@@ -362,6 +382,28 @@ def init_asl_std_trans_wf(
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
+    # fmt:off
+    workflow.connect([
+        (inputnode, mask_merge_tfms, [(("aslref_to_t1w_xfm", _aslist), "in2")]),
+        (select_std, mask_merge_tfms, [("anat2std_xfm", "in1")]),
+    ])
+    # fmt:on
+
+    mask_std_tfm = pe.Node(
+        ApplyTransforms(interpolation="MultiLabel"),
+        name="mask_std_tfm",
+        mem_gb=1,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, mask_std_tfm, [("asl_mask", "input_image")]),
+        (gen_ref, mask_std_tfm, [("out_file", "reference_image")]),
+        (mask_merge_tfms, mask_std_tfm, [("out", "transforms")]),
+    ])
+    # fmt:on
+
+    # Write corrected file in the designated output dir
     nxforms = 3 + use_fieldwarp
     merge_xforms = pe.Node(
         niu.Merge(nxforms),
@@ -371,7 +413,13 @@ def init_asl_std_trans_wf(
     )
 
     # fmt:off
-    workflow.connect([(inputnode, merge_xforms, [("hmc_xforms", f"in{nxforms}")])])
+    workflow.connect([
+        (inputnode, merge_xforms, [
+            ("hmc_xforms", f"in{nxforms}"),
+            (("aslref_to_t1w_xfm", _aslist), "in2"),
+        ]),
+        (select_std, merge_xforms, [("anat2std_xfm", "in1")]),
+    ])
     # fmt:on
 
     if use_fieldwarp:
@@ -385,161 +433,59 @@ def init_asl_std_trans_wf(
         mem_gb=mem_gb * 3 * omp_nthreads,
         n_procs=omp_nthreads,
     )
-    cbf_to_std_transform = pe.Node(
-        ApplyTransforms(
-            interpolation="LanczosWindowedSinc",
-            float=True,
-            input_image_type=3,
-            dimension=3,
-        ),
-        name="cbf_to_std_transform",
-        mem_gb=mem_gb * 3 * omp_nthreads,
-        n_procs=omp_nthreads,
-    )
-    meancbf_to_std_transform = pe.Node(
-        ApplyTransforms(
-            interpolation="LanczosWindowedSinc",
-            float=True,
-            input_image_type=3,
-        ),
-        name="meancbf_to_std_transform",
-        mem_gb=mem_gb * 3 * omp_nthreads,
-        n_procs=omp_nthreads,
-    )
-    if scorescrub:
-        score_to_std_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-                dimension=3,
-            ),
-            name="score_to_std_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        avgscore_to_std_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="avgscore_to_std_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        scrub_to_std_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="scrub_to_std_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
 
-    if basil:
-        basil_to_std_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="basil_to_std_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        pv_to_std_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="pv_to_std_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        pvwm_to_std_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="pv_to_std_transformwm",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        att_to_std_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="att_to_std_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
+    # fmt:off
+    workflow.connect([
+        (inputnode, asl_to_std_transform, [("asl_split", "input_image")]),
+        (merge_xforms, asl_to_std_transform, [("out", "transforms")]),
+        (gen_ref, asl_to_std_transform, [("out_file", "reference_image")]),
+    ])
+    # fmt:on
 
     merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb * 3)
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, merge, [("name_source", "header_source")]),
+        (asl_to_std_transform, merge, [("out_files", "in_files")]),
+    ])
+    # fmt:on
 
     # Generate a reference on the target standard space
     gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
 
     # fmt:off
     workflow.connect([
-        (iterablesource, split_target, [("std_target", "in_target")]),
-        (iterablesource, select_tpl, [("std_target", "template")]),
-        (inputnode, select_std, [
-            ("anat2std_xfm", "anat2std_xfm"),
-            ("templates", "keys"),
-        ]),
-        (inputnode, mask_std_tfm, [("asl_mask", "input_image")]),
-        (inputnode, gen_ref, [(("asl_split", _select_first_in_list), "moving_image")]),
-        (inputnode, merge_xforms, [(("aslref_to_t1w_xfm", _aslist), "in2")]),
-        (inputnode, merge, [("name_source", "header_source")]),
-        (inputnode, mask_merge_tfms, [(("aslref_to_t1w_xfm", _aslist), "in2")]),
-        (inputnode, asl_to_std_transform, [("asl_split", "input_image")]),
-        (split_target, select_std, [("space", "key")]),
-        (select_std, merge_xforms, [("anat2std_xfm", "in1")]),
-        (select_std, mask_merge_tfms, [("anat2std_xfm", "in1")]),
-        (split_target, gen_ref, [(("spec", _is_native), "keep_native")]),
-        (select_tpl, gen_ref, [("out", "fixed_image")]),
-        (merge_xforms, asl_to_std_transform, [("out", "transforms")]),
-        (gen_ref, asl_to_std_transform, [("out_file", "reference_image")]),
-        (gen_ref, mask_std_tfm, [("out_file", "reference_image")]),
-        (mask_merge_tfms, mask_std_tfm, [("out", "transforms")]),
         (mask_std_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-        (asl_to_std_transform, merge, [("out_files", "in_files")]),
         (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
     ])
     # fmt:on
 
-    output_names = [
-        "asl_mask_std",
-        "asl_std",
-        "aslref_std",
-        "spatial_reference",
-        "template",
+    inputs_to_warp = [
         "cbf_ts_std",
         "mean_cbf_std",
     ]
 
     if scorescrub:
-        output_names += [
+        inputs_to_warp += [
             "cbf_ts_score_std",
             "mean_cbf_score_std",
             "mean_cbf_scrub_std",
         ]
+
     if basil:
-        output_names += [
+        inputs_to_warp += [
             "mean_cbf_basil_std",
             "mean_cbf_gm_basil_std",
             "mean_cbf_wm_basil_std",
             "att_std",
         ]
 
+    output_names = [f"{input_}_std" for input_ in inputs_to_warp]
+    output_names += ["asl_std", "aslref_std", "asl_mask_std", "spatial_reference", "template"]
+
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names), name="poutputnode")
+
     # fmt:off
     workflow.connect([
         # Connecting outputnode
@@ -548,56 +494,35 @@ def init_asl_std_trans_wf(
         (gen_final_ref, poutputnode, [("outputnode.ref_image", "aslref_std")]),
         (mask_std_tfm, poutputnode, [("output_image", "asl_mask_std")]),
         (select_std, poutputnode, [("key", "template")]),
-        (mask_merge_tfms, cbf_to_std_transform, [("out", "transforms")]),
-        (gen_ref, cbf_to_std_transform, [("out_file", "reference_image")]),
-        (inputnode, cbf_to_std_transform, [("cbf_ts", "input_image")]),
-        (cbf_to_std_transform, poutputnode, [("output_image", "cbf_ts_std")]),
-        (mask_merge_tfms, meancbf_to_std_transform, [("out", "transforms")]),
-        (gen_ref, meancbf_to_std_transform, [("out_file", "reference_image")]),
-        (inputnode, meancbf_to_std_transform, [("mean_cbf", "input_image")]),
-        (meancbf_to_std_transform, poutputnode, [("output_image", "mean_cbf_std")]),
     ])
     # fmt:on
 
-    if scorescrub:
+    inputs_4d = ["cbf_ts", "cbf_ts_score"]
+    for input_name in inputs_to_warp:
+        kwargs = {}
+        if input_name in inputs_4d:
+            kwargs["dimension"] = 3
+
+        warp_input_to_std = pe.Node(
+            ApplyTransforms(
+                interpolation="LanczosWindowedSinc",
+                float=True,
+                input_image_type=3,
+                **kwargs,
+            ),
+            name=f"warp_{input_name}_to_std",
+            mem_gb=mem_gb * 3 * omp_nthreads,
+            n_procs=omp_nthreads,
+        )
+
         # fmt:off
         workflow.connect([
-            (mask_merge_tfms, score_to_std_transform, [("out", "transforms")]),
-            (gen_ref, score_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, score_to_std_transform, [("cbf_ts_score", "input_image")]),
-            (score_to_std_transform, poutputnode, [("output_image", "cbf_ts_score_std")]),
-            (mask_merge_tfms, avgscore_to_std_transform, [("out", "transforms")]),
-            (gen_ref, avgscore_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, avgscore_to_std_transform, [("mean_cbf_score", "input_image")]),
-            (avgscore_to_std_transform, poutputnode, [("output_image", "mean_cbf_score_std")]),
-            (mask_merge_tfms, scrub_to_std_transform, [("out", "transforms")]),
-            (gen_ref, scrub_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, scrub_to_std_transform, [("mean_cbf_scrub", "input_image")]),
-            (scrub_to_std_transform, poutputnode, [("output_image", "mean_cbf_scrub_std")]),
+            (inputnode, warp_input_to_std, [(input_name, "input_image")]),
+            (mask_merge_tfms, warp_input_to_std, [("out", "transforms")]),
+            (gen_ref, warp_input_to_std, [("out_file", "reference_image")]),
+            (warp_input_to_std, poutputnode, [("output_image", f"{input_name}_std")]),
         ])
         # fmt:on
-
-    if basil:
-        # fmt:off
-        workflow.connect([
-            (mask_merge_tfms, basil_to_std_transform, [("out", "transforms")]),
-            (gen_ref, basil_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, basil_to_std_transform, [("mean_cbf_basil", "input_image")]),
-            (basil_to_std_transform, poutputnode, [("output_image", "mean_cbf_basil_std")]),
-            (mask_merge_tfms, pv_to_std_transform, [("out", "transforms")]),
-            (gen_ref, pv_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, pv_to_std_transform, [("mean_cbf_gm_basil", "input_image")]),
-            (pv_to_std_transform, poutputnode, [("output_image", "mean_cbf_gm_basil_std")]),
-            (mask_merge_tfms, pvwm_to_std_transform, [("out", "transforms")]),
-            (gen_ref, pvwm_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, pvwm_to_std_transform, [("mean_cbf_wm_basil", "input_image")]),
-            (pvwm_to_std_transform, poutputnode, [("output_image", "mean_cbf_wm_basil_std")]),
-            (mask_merge_tfms, att_to_std_transform, [("out", "transforms")]),
-            (gen_ref, att_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, att_to_std_transform, [("att", "input_image")]),
-            (att_to_std_transform, poutputnode, [("output_image", "att_std")]),
-        ])
-        # fmt:oN
 
     # Connect parametric outputs to a Join outputnode
     outputnode = pe.JoinNode(

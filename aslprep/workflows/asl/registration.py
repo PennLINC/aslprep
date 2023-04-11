@@ -260,6 +260,7 @@ def init_asl_t1_trans_wf(
                 "fieldwarp",
                 "hmc_xforms",
                 "aslref_to_t1w_xfm",
+                # CBF outputs
                 "cbf_ts",
                 "mean_cbf",
                 # SCORE/SCRUB outputs
@@ -282,6 +283,7 @@ def init_asl_t1_trans_wf(
                 "asl_t1",
                 "aslref_t1",
                 "asl_mask_t1",
+                # CBF outputs
                 "cbf_ts_t1",
                 "mean_cbf_t1",
                 # SCORE/SCRUB outputs
@@ -391,153 +393,41 @@ def init_asl_t1_trans_wf(
         ])
         # fmt:on
 
-    if cbft1space:
-        cbf_to_t1w_transform = pe.Node(
+    if not cbft1space:
+        return workflow
+
+    input_names = ["cbf_ts", "mean_cbf"]
+    if scorescrub:
+        input_names += ["cbf_ts_score", "mean_cbf_score", "mean_cbf_scrub"]
+
+    if basil:
+        input_names += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att"]
+
+    for input_name in input_names:
+        kwargs = {}
+        if input_name in ["cbf_ts", "cbf_ts_score"]:
+            kwargs["dimension"] = 3
+
+        warp_input_to_t1w = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
                 float=True,
                 input_image_type=3,
-                dimension=3,
+                **kwargs,
             ),
-            name="cbf_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        meancbf_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="meancbf_to_t1w_transform",
+            name=f"warp_{input_name}_to_t1w",
             mem_gb=mem_gb * 3 * omp_nthreads,
             n_procs=omp_nthreads,
         )
 
         # fmt:off
         workflow.connect([
-            (gen_final_ref, outputnode, [("outputnode.ref_image", "aslref_t1")]),
-            (inputnode, cbf_to_t1w_transform, [("cbf_ts", "input_image")]),
-            (cbf_to_t1w_transform, outputnode, [("output_image", "cbf_ts_t1")]),
-            (inputnode, cbf_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (gen_ref, cbf_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, meancbf_to_t1w_transform, [("mean_cbf", "input_image")]),
-            (meancbf_to_t1w_transform, outputnode, [("output_image", "mean_cbf_t1")]),
-            (inputnode, meancbf_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (gen_ref, meancbf_to_t1w_transform, [("out_file", "reference_image")]),
-        ])
-        # fmt:on
-
-    if cbft1space and scorescrub:
-        score_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-                dimension=3,
-            ),
-            name="score_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        avgscore_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="avgscore_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        scrub_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="scrub_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, score_to_t1w_transform, [("cbf_ts_score", "input_image")]),
-            (score_to_t1w_transform, outputnode, [("output_image", "cbf_ts_score_t1")]),
-            (inputnode, score_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (gen_ref, score_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, avgscore_to_t1w_transform, [("mean_cbf_score", "input_image")]),
-            (avgscore_to_t1w_transform, outputnode, [("output_image", "mean_cbf_score_t1")]),
-            (inputnode, avgscore_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (gen_ref, avgscore_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, scrub_to_t1w_transform, [("mean_cbf_scrub", "input_image")]),
-            (scrub_to_t1w_transform, outputnode, [("output_image", "mean_cbf_scrub_t1")]),
-            (inputnode, scrub_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (gen_ref, scrub_to_t1w_transform, [("out_file", "reference_image")]),
-        ])
-        # fmt:on
-
-    if cbft1space and basil:
-        basil_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="basil_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        pv_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="pv_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        pvwm_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="pv_to_t1w_transformwm",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        att_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="att_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, basil_to_t1w_transform, [("mean_cbf_basil", "input_image")]),
-            (basil_to_t1w_transform, outputnode, [("output_image", "mean_cbf_basil_t1")]),
-            (inputnode, basil_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (gen_ref, basil_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, pv_to_t1w_transform, [("mean_cbf_gm_basil", "input_image")]),
-            (pv_to_t1w_transform, outputnode, [("output_image", "mean_cbf_gm_basil_t1")]),
-            (inputnode, pv_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (gen_ref, pv_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, pvwm_to_t1w_transform, [("mean_cbf_wm_basil", "input_image")]),
-            (pvwm_to_t1w_transform, outputnode, [("output_image", "mean_cbf_wm_basil_t1")]),
-            (inputnode, pvwm_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (gen_ref, pvwm_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, att_to_t1w_transform, [("att", "input_image")]),
-            (att_to_t1w_transform, outputnode, [("output_image", "att_t1")]),
-            (inputnode, att_to_t1w_transform, [("aslref_to_t1w_xfm", "transforms")]),
-            (gen_ref, att_to_t1w_transform, [("out_file", "reference_image")]),
+            (inputnode, warp_input_to_t1w, [
+                (input_name, "input_image"),
+                ("aslref_to_t1w_xfm", "transforms"),
+            ]),
+            (gen_ref, warp_input_to_t1w, [("out_file", "reference_image")]),
+            (warp_input_to_t1w, outputnode, [("output_image", f"{input_name}_t1")]),
         ])
         # fmt:on
 
