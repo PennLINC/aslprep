@@ -18,7 +18,7 @@ from aslprep.utils.bids import collect_run_data
 from aslprep.utils.meepi import combine_meepi_source
 from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
-from aslprep.workflows.asl.confounds import init_asl_confs_wf, init_carpetplot_wf
+from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_cbfplot_wf
@@ -449,7 +449,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:on
 
     # get confounds
-    asl_confounds_wf = init_asl_confs_wf(mem_gb=mem_gb["largemem"], name="asl_confounds_wf")
+    asl_confounds_wf = init_asl_confounds_wf(mem_gb=mem_gb["largemem"], name="asl_confounds_wf")
     asl_confounds_wf.get_node("inputnode").inputs.t1_transform_flags = [False]
 
     # fmt:off

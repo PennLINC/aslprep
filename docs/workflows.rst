@@ -222,15 +222,15 @@ Slice time correction can be disabled with the ``--ignore slicetiming`` command 
 Confounds estimation
 ====================
 
-:py:func:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`
+:py:func:`~aslprep.workflows.asl.confounds.init_asl_confounds_wf`
 
 .. workflow::
     :graph2use: orig
     :simple_form: yes
 
-    from aslprep.workflows.asl.confounds import init_asl_confs_wf
+    from aslprep.workflows.asl.confounds import init_asl_confounds_wf
 
-    wf = init_asl_confs_wf(name="confound_wf", mem_gb=1)
+    wf = init_asl_confounds_wf(name="confound_wf", mem_gb=1)
 
 
 Calculated confounds include framewise displacement, 6 motion parameters, and DVARS.

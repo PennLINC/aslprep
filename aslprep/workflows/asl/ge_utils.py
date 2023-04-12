@@ -21,11 +21,11 @@ DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
 
 
-def init_asl_geref_wf(
+def init_asl_reference_ge_wf(
     metadata,
     aslcontext,
     smooth_kernel=5,
-    name="asl_gereference_wf",
+    name="asl_reference_ge_wf",
 ):
     """Generate a reference volume and its skull-stripped version.
 
@@ -34,9 +34,9 @@ def init_asl_geref_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.ge_utils import init_asl_geref_wf
+            from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf
 
-            wf = init_asl_geref_wf(
+            wf = init_asl_reference_ge_wf(
                 metadata={},
                 bids_dir=".",
             )
@@ -124,13 +124,13 @@ First, a reference volume and its skull-stripped version were generated.
     return workflow
 
 
-def init_asl_gereg_wf(
+def init_asl_reg_ge_wf(
     use_bbr,
     asl2t1w_dof,
     asl2t1w_init,
     sloppy=False,
     write_report=True,
-    name="asl_reg_wf",
+    name="asl_reg_ge_wf",
 ):
     """Calculate registration transforms from ASL reference volume to T1w space.
 
@@ -139,9 +139,9 @@ def init_asl_gereg_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.ge_utils import init_asl_gereg_wf
+            from aslprep.workflows.asl.ge_utils import init_asl_reg_ge_wf
 
-            wf = init_asl_gereg_wf(
+            wf = init_asl_reg_ge_wf(
                 use_bbr=True,
                 asl2t1w_dof=9,
                 asl2t1w_init="register",
@@ -202,13 +202,13 @@ def init_asl_gereg_wf(
     return workflow
 
 
-def init_asl_t1_getrans_wf(
+def init_asl_t1_trans_ge_wf(
     mem_gb,
     omp_nthreads,
     output_t1space=False,
     scorescrub=False,
     basil=False,
-    name="asl_t1_trans_wf",
+    name="asl_t1_trans_ge_wf",
 ):
     """Co-register the reference ASL image to T1w-space.
 
@@ -219,9 +219,9 @@ def init_asl_t1_getrans_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.ge_utils import init_asl_t1_getrans_wf
+            from aslprep.workflows.asl.ge_utils import init_asl_t1_trans_ge_wf
 
-            wf = init_asl_t1_getrans_wf(
+            wf = init_asl_t1_trans_ge_wf(
                 mem_gb=0.1,
                 omp_nthreads=1,
             )
@@ -359,13 +359,13 @@ def init_asl_t1_getrans_wf(
     return workflow
 
 
-def init_asl_gestd_trans_wf(
+def init_asl_std_trans_ge_wf(
     mem_gb,
     omp_nthreads,
     spaces,
     scorescrub=False,
     basil=False,
-    name="asl_gestd_trans_wf",
+    name="asl_std_trans_ge_wf",
 ):
     """Resample ASL and CBF derivatives into target spaces.
 
@@ -374,9 +374,9 @@ def init_asl_gestd_trans_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.ge_utils import init_asl_gestd_trans_wf
+            from aslprep.workflows.asl.ge_utils import init_asl_std_trans_ge_wf
 
-            wf = init_asl_gestd_trans_wf(
+            wf = init_asl_std_trans_ge_wf(
                 mem_gb=0.1,
                 omp_nthreads=1,
                 spaces="",

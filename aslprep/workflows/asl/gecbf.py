@@ -15,10 +15,10 @@ from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.ge_utils import (
-    init_asl_geref_wf,
-    init_asl_gereg_wf,
-    init_asl_gestd_trans_wf,
-    init_asl_t1_getrans_wf,
+    init_asl_reference_ge_wf,
+    init_asl_reg_ge_wf,
+    init_asl_std_trans_ge_wf,
+    init_asl_t1_trans_ge_wf,
 )
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_gecbfplot_wf
@@ -264,16 +264,16 @@ effects of other kernels [@lanczos].
 
     # begin workflow
     # Extract averaged, smoothed M0 image and reference image (which is generally the M0 image).
-    gen_ref_wf = init_asl_geref_wf(
+    asl_reference_wf = init_asl_reference_ge_wf(
         metadata=metadata,
         aslcontext=run_data["aslcontext"],
         smooth_kernel=smoothkernel,
-        name="asl_gereference_wf",
+        name="asl_reference_ge_wf",
     )
 
     # fmt:off
     workflow.connect([
-        (inputnode, gen_ref_wf, [
+        (inputnode, asl_reference_wf, [
             ("asl_file", "inputnode.asl_file"),
             ("m0scan", "inputnode.m0scan"),
             ("m0scan_metadata", "inputnode.m0scan_metadata"),
@@ -282,11 +282,11 @@ effects of other kernels [@lanczos].
     # fmt:on
 
     # ASL-to-T1w registration
-    asl_reg_wf = init_asl_gereg_wf(
+    asl_reg_wf = init_asl_reg_ge_wf(
         use_bbr=config.workflow.use_bbr,
         asl2t1w_dof=config.workflow.asl2t1w_dof,
         asl2t1w_init=config.workflow.asl2t1w_init,
-        name="asl_reg_wf",
+        name="asl_reg_ge_wf",
         sloppy=False,
         write_report=True,
     )
@@ -294,7 +294,9 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (inputnode, asl_reg_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
-        (gen_ref_wf, asl_reg_wf, [("outputnode.ref_image_brain", "inputnode.ref_asl_brain")]),
+        (asl_reference_wf, asl_reg_wf, [
+            ("outputnode.ref_image_brain", "inputnode.ref_asl_brain"),
+        ]),
         (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_reg_wf, asl_derivatives_wf, [
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
@@ -322,7 +324,7 @@ effects of other kernels [@lanczos].
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (gen_ref_wf, compute_cbf_wf, [
+        (asl_reference_wf, compute_cbf_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
             ("outputnode.m0_file", "inputnode.m0_file"),
             ("outputnode.m0tr", "inputnode.m0tr"),
@@ -337,13 +339,13 @@ effects of other kernels [@lanczos].
     # apply asl registration to T1w
     nonstd_spaces = set(spaces.get_nonstandard())
 
-    t1w_gereg_wf = init_asl_t1_getrans_wf(
+    t1w_gereg_wf = init_asl_t1_trans_ge_wf(
         mem_gb=3,
         omp_nthreads=omp_nthreads,
         output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
         scorescrub=scorescrub,
         basil=basil,
-        name="asl_t1_trans_wf",
+        name="asl_t1_trans_ge_wf",
     )
 
     # fmt:off
@@ -352,7 +354,7 @@ effects of other kernels [@lanczos].
             ("asl_file", "inputnode.name_source"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (gen_ref_wf, t1w_gereg_wf, [
+        (asl_reference_wf, t1w_gereg_wf, [
             ("outputnode.ref_image_brain", "inputnode.ref_asl_brain"),
             ("outputnode.asl_mask", "inputnode.ref_asl_mask"),
         ]),
@@ -384,7 +386,7 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [("t1w_mask", "t1w_mask")]),
-        (gen_ref_wf, refine_mask, [("outputnode.asl_mask", "asl_mask")]),
+        (asl_reference_wf, refine_mask, [("outputnode.asl_mask", "asl_mask")]),
         (asl_reg_wf, refine_mask, [("outputnode.anat_to_aslref_xfm", "transforms")]),
     ])
     # fmt:on
@@ -398,7 +400,7 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (compute_cbf_wf, cbf_plot, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
-        (gen_ref_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.aslref")]),
+        (asl_reference_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.aslref")]),
     ])
     # fmt:on
 
@@ -522,7 +524,7 @@ effects of other kernels [@lanczos].
         # fmt:off
         workflow.connect([
             (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.asl_native")]),
-            (gen_ref_wf, asl_derivatives_wf, [
+            (asl_reference_wf, asl_derivatives_wf, [
                 ("outputnode.raw_ref_image", "inputnode.aslref_native"),
             ]),
             (refine_mask, asl_derivatives_wf, [("out_mask", "inputnode.asl_mask_native")]),
@@ -558,13 +560,13 @@ effects of other kernels [@lanczos].
 
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         # Apply transforms in 1 shot
-        std_gereg_wf = init_asl_gestd_trans_wf(
+        std_gereg_wf = init_asl_std_trans_ge_wf(
             mem_gb=4,
             omp_nthreads=omp_nthreads,
             spaces=spaces,
             scorescrub=scorescrub,
             basil=basil,
-            name="asl_gestd_trans_wf",
+            name="asl_std_trans_ge_wf",
         )
 
         # fmt:off
