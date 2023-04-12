@@ -312,6 +312,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_stc_wf, aslbuffer, [("outputnode.stc_file", "asl_file")]),
         ])
         # fmt:on
+
         if not multiecho:
             # fmt:off
             workflow.connect([
