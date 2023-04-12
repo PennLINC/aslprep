@@ -13,7 +13,7 @@ from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
-from aslprep.workflows.asl.cbf import init_gecbf_compt_wf, init_parcellate_cbf_wf
+from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.ge_utils import (
     init_asl_geref_wf,
     init_asl_gereg_wf,
@@ -304,7 +304,7 @@ effects of other kernels [@lanczos].
     ])
     # fmt:on
 
-    compute_cbf_wf = init_gecbf_compt_wf(
+    compute_cbf_wf = init_compute_cbf_ge_wf(
         name_source=asl_file,
         aslcontext=run_data["aslcontext"],
         metadata=metadata,

@@ -292,7 +292,7 @@ Interpolation uses a Lanczos kernel.
 CBF Computation in native space
 *******************************
 
-:py:func:`~aslprep.workflows.asl.cbf.init_cbf_compt_wf`
+:py:func:`~aslprep.workflows.asl.cbf.init_compute_cbf_wf`
 
 .. workflow::
     :graph2use: orig
@@ -302,14 +302,14 @@ CBF Computation in native space
     from pathlib import Path
     from pkg_resources import resource_filename as pkgrf
 
-    from aslprep.workflows.asl.cbf import init_cbf_compt_wf
+    from aslprep.workflows.asl.cbf import init_compute_cbf_wf
 
     bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
     metadata_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
     with open(metadata_file) as f:
         metadata = json.load(f)
 
-    wf = init_cbf_compt_wf(
+    wf = init_compute_cbf_wf(
         bids_dir=str(bids_dir),
         scorescrub=False,
         basil=False,

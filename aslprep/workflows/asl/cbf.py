@@ -23,7 +23,7 @@ from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 from aslprep.utils.misc import estimate_labeling_efficiency, get_tis, pcasl_or_pasl
 
 
-def init_cbf_compt_wf(
+def init_compute_cbf_wf(
     name_source,
     aslcontext,
     metadata,
@@ -32,7 +32,7 @@ def init_cbf_compt_wf(
     basil=False,
     M0Scale=1,
     smooth_kernel=5,
-    name="cbf_compt_wf",
+    name="compute_cbf_wf",
 ):
     """Create a workflow for :abbr:`CCBF (compute cbf)`.
 
@@ -41,9 +41,9 @@ def init_cbf_compt_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.cbf import init_cbf_compt_wf
+            from aslprep.workflows.asl.cbf import init_compute_cbf_wf
 
-            wf = init_cbf_compt_wf(
+            wf = init_compute_cbf_wf(
                 name_source="",
                 metadata={},
                 dummy_vols=0,
@@ -63,7 +63,7 @@ def init_cbf_compt_wf(
     M0Scale
     smooth_kernel
     name : :obj:`str`
-        Name of workflow (default: ``cbf_compt_wf``)
+        Name of workflow (default: ``compute_cbf_wf``)
 
     Inputs
     ------
@@ -363,7 +363,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
     return workflow
 
 
-def init_gecbf_compt_wf(
+def init_compute_cbf_ge_wf(
     name_source,
     aslcontext,
     metadata,
@@ -371,7 +371,7 @@ def init_gecbf_compt_wf(
     M0Scale=1,
     scorescrub=False,
     basil=False,
-    name="cbf_compt_wf",
+    name="compute_cbf_wf",
 ):
     """Calculate CBF for GE data.
 
@@ -380,9 +380,9 @@ def init_gecbf_compt_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.cbf import init_gecbf_compt_wf
+            from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf
 
-            wf = init_gecbf_compt_wf(
+            wf = init_compute_cbf_ge_wf(
                 name_source="",
                 metadata={},
                 mem_gb=0.1,
