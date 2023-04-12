@@ -393,6 +393,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_t1_trans_wf = init_asl_t1_trans_wf(
         name="asl_t1_trans_wf",
         use_fieldwarp=bool(fmaps),
+        use_hmc=True,
         multiecho=multiecho,
         output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
         scorescrub=scorescrub,

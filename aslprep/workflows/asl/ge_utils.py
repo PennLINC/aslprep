@@ -282,18 +282,18 @@ def init_asl_t1_getrans_wf(
     # gen_ref = pe.Node(GenerateSamplingReference(), name='gen_ref',
     # mem_gb=0.3)  # 256x256x256 * 64 / 8 ~ 150MB
 
-    mask_t1w_tfm = pe.Node(
+    mask_to_t1w_transform = pe.Node(
         ApplyTransforms(interpolation="MultiLabel"),
-        name="mask_t1w_tfm",
+        name="mask_to_t1w_transform",
         mem_gb=0.1,
     )
 
     # fmt:off
     workflow.connect([
-        (inputnode, mask_t1w_tfm, [("ref_asl_mask", "input_image")]),
-        (inputnode, mask_t1w_tfm, [("t1w_brain", "reference_image")]),
-        (inputnode, mask_t1w_tfm, [("aslref_to_anat_xfm", "transforms")]),
-        (mask_t1w_tfm, outputnode, [("output_image", "asl_mask_t1")]),
+        (inputnode, mask_to_t1w_transform, [("ref_asl_mask", "input_image")]),
+        (inputnode, mask_to_t1w_transform, [("t1w_brain", "reference_image")]),
+        (inputnode, mask_to_t1w_transform, [("aslref_to_anat_xfm", "transforms")]),
+        (mask_to_t1w_transform, outputnode, [("output_image", "asl_mask_t1")]),
     ])
     # fmt:on
 

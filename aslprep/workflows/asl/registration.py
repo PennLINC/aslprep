@@ -174,12 +174,12 @@ def init_asl_t1_trans_wf(
     basil=False,
     output_t1space=False,
     multiecho=False,
+    use_hmc=True,
     use_fieldwarp=False,
     use_compression=True,
     name="asl_t1_trans_wf",
 ):
-    """
-    Co-register the reference ASL image to T1w-space.
+    """Co-register the reference ASL image to T1w-space.
 
     The workflow uses :abbr:`BBR (boundary-based registration)`.
 
@@ -198,7 +198,10 @@ def init_asl_t1_trans_wf(
     Parameters
     ----------
     use_fieldwarp : :obj:`bool`
-        Include SDC warp in single-shot transform from ASLto T1
+        Include SDC warp in single-shot transform from ASL to T1.
+    use_hmc : :obj:`bool`
+        Include head-motion parameters in single-shot transform from ASL to T1.
+        Will be False for very short ASL scans, like GE.
     multiecho : :obj:`bool`
         If multiecho data was supplied, HMC already performed
     mem_gb : :obj:`float`
@@ -224,8 +227,11 @@ def init_asl_t1_trans_wf(
         Skull-stripped bias-corrected structural template image
     t1w_mask
         Mask of the skull-stripped template image
-    asl_split
-        Individual 3D ASL volumes, not motion corrected
+    asl_split : list of str
+        Individual 3D ASL volumes, not motion corrected.
+        The individual volumes allow MultiApplyTransforms to apply that volume's specific
+        transforms (namely, the HMC transform, since the other transforms are the same
+        across volumes).
     hmc_xforms
         List of affine transforms aligning each volume to ``ref_image`` in ITK format
     aslref_to_anat_xfm
@@ -272,7 +278,7 @@ def init_asl_t1_trans_wf(
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
                 "att",
-            ]
+            ],
         ),
         name="inputnode",
     )
@@ -306,12 +312,6 @@ def init_asl_t1_trans_wf(
         mem_gb=0.3,
     )  # 256x256x256 * 64 / 8 ~ 150MB
 
-    mask_t1w_tfm = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel"),
-        name="mask_t1w_tfm",
-        mem_gb=0.1,
-    )
-
     # fmt:off
     workflow.connect([
         (inputnode, gen_ref, [
@@ -319,10 +319,6 @@ def init_asl_t1_trans_wf(
             ("t1w_brain", "fixed_image"),
             ("t1w_mask", "fov_mask"),
         ]),
-        (inputnode, mask_t1w_tfm, [("ref_asl_mask", "input_image")]),
-        (gen_ref, mask_t1w_tfm, [("out_file", "reference_image")]),
-        (inputnode, mask_t1w_tfm, [("aslref_to_anat_xfm", "transforms")]),
-        (mask_t1w_tfm, outputnode, [("output_image", "asl_mask_t1")]),
     ])
     # fmt:on
 
@@ -332,21 +328,25 @@ def init_asl_t1_trans_wf(
         mem_gb=mem_gb * 3 * omp_nthreads,
         n_procs=omp_nthreads,
     )
-    # merge 3D volumes into 4D timeseries
-    merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb)
 
-    # Generate a reference on the target T1w space
-    gen_final_ref = init_asl_reference_wf(omp_nthreads, pre_mask=True)
+    # fmt:off
+    workflow.connect([(gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")])])
+    # fmt:on
 
     if not multiecho:
-        # Merge transforms placing the head motion correction last
-        nforms = 2 + int(use_fieldwarp)
+        # Merge transforms, placing the head motion correction last
+        nforms = 1 + int(use_fieldwarp) + int(use_hmc)
         merge_xforms = pe.Node(
             niu.Merge(nforms),
             name="merge_xforms",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
+        if use_hmc:
+            # fmt:off
+            workflow.connect([inputnode, merge_xforms, [("hmc_xforms", f"in{nforms}")]])
+            # fmt:on
+
         if use_fieldwarp:
             # fmt:off
             workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in2")])])
@@ -355,16 +355,15 @@ def init_asl_t1_trans_wf(
         # fmt:off
         workflow.connect([
             # merge transforms
-            (inputnode, merge_xforms, [
-                ("hmc_xforms", f"in{nforms}"),
-                ("aslref_to_anat_xfm", "in1"),
-            ]),
-            (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
+            (inputnode, merge_xforms, [("aslref_to_anat_xfm", "in1")]),
             (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
+            (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
         ])
         # fmt:on
 
     else:
+        # Optimally combined data will have already undergone HMC+SDC,
+        # so we only need to apply the ASLRef-to-T1w transform.
         from nipype.interfaces.fsl import Split as FSLSplit
 
         asl_split = pe.Node(
@@ -381,21 +380,51 @@ def init_asl_t1_trans_wf(
         ])
         # fmt:on
 
+    # merge 3D volumes into 4D timeseries
+    merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb)
+
     # fmt:off
     workflow.connect([
         (inputnode, merge, [("name_source", "header_source")]),
-        (gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")]),
         (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
+        (merge, outputnode, [("out_file", "asl_t1")]),
+    ])
+    # fmt:on
+
+    mask_to_t1w_transform = pe.Node(
+        ApplyTransforms(interpolation="MultiLabel"),
+        name="mask_to_t1w_transform",
+        mem_gb=0.1,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, mask_to_t1w_transform, [
+            ("ref_asl_mask", "input_image"),
+            ("aslref_to_anat_xfm", "transforms"),
+        ]),
+        (gen_ref, mask_to_t1w_transform, [("out_file", "reference_image")]),
+        (mask_to_t1w_transform, outputnode, [("output_image", "asl_mask_t1")]),
+    ])
+    # fmt:on
+
+    # Generate a reference on the target T1w space
+    gen_final_ref = init_asl_reference_wf(omp_nthreads, pre_mask=True)
+
+    # fmt:off
+    workflow.connect([
+        (mask_to_t1w_transform, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
         (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
         (gen_final_ref, outputnode, [("outputnode.ref_image", "aslref_t1")]),
-        (mask_t1w_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-        (merge, outputnode, [("out_file", "asl_t1")]),
     ])
     # fmt:on
 
     if not output_t1space:
         return workflow
 
+    # Transform CBF derivatives to T1 space.
+    # These derivatives have already undergone HMC+SDC,
+    # so we only need to apply the ASLRef-to-T1w transform.
     input_names = ["cbf_ts", "mean_cbf"]
     if scorescrub:
         input_names += ["cbf_ts_score", "mean_cbf_score", "mean_cbf_scrub"]
