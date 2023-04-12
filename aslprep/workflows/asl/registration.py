@@ -254,6 +254,7 @@ def init_asl_t1_trans_wf(
 
     """
     workflow = Workflow(name=name)
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -329,9 +330,7 @@ def init_asl_t1_trans_wf(
         n_procs=omp_nthreads,
     )
 
-    # fmt:off
     workflow.connect([(gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")])])
-    # fmt:on
 
     if not multiecho:
         # Merge transforms, placing the head motion correction last
@@ -343,18 +342,13 @@ def init_asl_t1_trans_wf(
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
         if use_hmc:
-            # fmt:off
             workflow.connect([inputnode, merge_xforms, [("hmc_xforms", f"in{nforms}")]])
-            # fmt:on
 
         if use_fieldwarp:
-            # fmt:off
             workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in2")])])
-            # fmt:on
 
         # fmt:off
         workflow.connect([
-            # merge transforms
             (inputnode, merge_xforms, [("aslref_to_anat_xfm", "in1")]),
             (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
             (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
@@ -391,6 +385,7 @@ def init_asl_t1_trans_wf(
     ])
     # fmt:on
 
+    # Warp the ASLRef-space brain mask to T1w space.
     mask_to_t1w_transform = pe.Node(
         ApplyTransforms(interpolation="MultiLabel"),
         name="mask_to_t1w_transform",

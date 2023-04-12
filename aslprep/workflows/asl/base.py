@@ -200,11 +200,12 @@ def init_asl_preproc_wf(asl_file):
         # If fieldmaps are not enabled, activate SyN-SDC in unforced (False) mode
         fmaps = {"syn": False}
 
-    # Short circuits: (True and True and (False or 'TooShort')) == 'TooShort'
+    n_vols = _get_series_len(ref_file)
+    MIN_VOLS_FOR_STC = 4
     run_stc = (
         bool(metadata.get("SliceTiming"))
         and "slicetiming" not in config.workflow.ignore
-        and (_get_series_len(ref_file) > 4 or "TooShort")
+        and (n_vols > MIN_VOLS_FOR_STC)
     )
 
     # Build workflow
@@ -256,7 +257,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     summary = pe.Node(
         FunctionalSummary(
-            slice_timing=run_stc,
+            slice_timing="TooShort" if n_vols <= MIN_VOLS_FOR_STC else run_stc,
             registration=("FSL"),
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
@@ -279,32 +280,30 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
 
     # Generate a tentative aslref
+    # XXX: Does the niworkflows reference workflow make sense for ASL data,
+    # where volumes can be control, label, M0, deltam, or CBF?
+    # It seems like the different contrasts could impact the reference image estimation.
+    # For example, should just control or M0 images be used for this?
     asl_reference_wf = init_asl_reference_wf(omp_nthreads=omp_nthreads)
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
 
-    # fmt:off
     workflow.connect([(inputnode, asl_reference_wf, [("asl_file", "inputnode.asl_file")])])
-    # fmt:on
 
     if sbref_file is not None:
-        # fmt:off
         workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
-        # fmt:on
 
-    # Top-level asl splitter
+    # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
+    # can be applied with other transforms in single shots.
     asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
 
-    # asl buffer: an identity used as a pointer to either the original asl
-    # or the STC'ed one for further use.
+    # aslbuffer: an identity used as a pointer to either the original ASL file (if STD is disabled)
+    # or the STC'ed ASL file for further use.
     aslbuffer = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer")
 
-    # asl buffer has slice-time corrected if it was run, original otherwise
-    # fmt:off
     workflow.connect([(aslbuffer, asl_split, [("asl_file", "in_file")])])
-    # fmt:on
 
     # Slice timing correction
-    if run_stc is True:  # bool('TooShort') == True, so check True explicitly
+    if run_stc:
         asl_stc_wf = init_asl_stc_wf(name="asl_stc_wf", metadata=metadata)
 
         # fmt:off
