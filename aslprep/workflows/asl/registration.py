@@ -334,18 +334,18 @@ def init_asl_t1_trans_wf(
 
     if not multiecho:
         # Merge transforms, placing the head motion correction last
-        nforms = 1 + int(use_fieldwarp) + int(use_hmc)
+        nxforms = 1 + int(use_fieldwarp) + int(use_hmc)
         merge_xforms = pe.Node(
-            niu.Merge(nforms),
+            niu.Merge(nxforms),
             name="merge_xforms",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-        if use_hmc:
-            workflow.connect([inputnode, merge_xforms, [("hmc_xforms", f"in{nforms}")]])
-
         if use_fieldwarp:
             workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in2")])])
+
+        if use_hmc:
+            workflow.connect([inputnode, merge_xforms, [("hmc_xforms", f"in{nxforms}")]])
 
         # fmt:off
         workflow.connect([
