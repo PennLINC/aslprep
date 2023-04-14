@@ -323,9 +323,6 @@ effects of other kernels [@lanczos].
     CBF_DERIVS = [
         "cbf_ts",
         "mean_cbf",
-        "cbf_ts_score",
-        "mean_cbf_score",
-        "mean_cbf_scrub",
         "mean_cbf_basil",
         "mean_cbf_gm_basil",
         "mean_cbf_wm_basil",
@@ -333,8 +330,6 @@ effects of other kernels [@lanczos].
     ]
     # we don't want mean_cbf_wm_basil for this list
     MEAN_CBF_DERIVS = [
-        "mean_cbf_score",
-        "mean_cbf_scrub",
         "mean_cbf_basil",
         "mean_cbf_gm_basil",
     ]
