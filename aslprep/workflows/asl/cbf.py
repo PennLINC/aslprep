@@ -622,7 +622,7 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
         score_and_scrub_cbf = pe.Node(
             ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
             mem_gb=mem_gb,
-            name="scorescrub",
+            name="score_and_scrub_cbf",
             run_without_submitting=True,
         )
 

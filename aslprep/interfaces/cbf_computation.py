@@ -596,7 +596,7 @@ class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
         default_value=0.7,
         usedefault=True,
         mandatory=False,
-        desc="Tissue probability threshold.",
+        desc="Tissue probability threshold for binarizing GM, WM, and CSF masks.",
     )
     wavelet_function = traits.Str(
         default_value="huber",
