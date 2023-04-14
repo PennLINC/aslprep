@@ -49,7 +49,12 @@ class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
     t1w_mask = File(exists=True, mandatory=True, desc="T1w mask in native space")
     asl_mask_std = File(exists=True, mandatory=False, desc="ASL mask in standard space")
     template_mask = File(exists=True, mandatory=False, desc="template mask or image")
-    tpm_threshold = traits.Float(desc="Typically 0.7 for non-GE data and 0.8 for GE data.")
+    tpm_threshold = traits.Float(
+        default_value=0.7,
+        usedefault=True,
+        mandatory=False,
+        desc="Tissue probability threshold for binarizing GM, WM, and CSF masks.",
+    )
     # Non-GE-only inputs
     confounds_file = File(
         exists=True,

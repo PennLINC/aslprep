@@ -90,7 +90,7 @@ def coverage(input1, input2):
     return intsec / smallv
 
 
-def average_cbf_by_tissue(cbf, gm, wm, csf, thresh=0.7):
+def average_cbf_by_tissue(cbf, gm, wm, csf, thresh):
     """Compute mean GM, WM, and CSF CBF values.
 
     Parameters
@@ -118,7 +118,7 @@ def average_cbf_by_tissue(cbf, gm, wm, csf, thresh=0.7):
     return mean_tissue_cbfs
 
 
-def compute_qei(gm, wm, csf, img, thresh=0.8):
+def compute_qei(gm, wm, csf, img, thresh):
     """Compute quality evaluation index (QEI) of CBF.
 
     The QEI is based on :footcite:t:`dolui2017automated`.
@@ -175,7 +175,7 @@ def compute_qei(gm, wm, csf, img, thresh=0.8):
     return gmean(Q)
 
 
-def negativevoxel(cbf, gm, thresh=0.7):
+def negativevoxel(cbf, gm, thresh):
     """Compute percentage of negative voxels within grey matter mask."""
     gm = nb.load(gm).get_fdata()
     cbf = nb.load(cbf).get_fdata()

@@ -74,6 +74,7 @@ negative CBF values.
                 "t1w_tpms",
                 "anat_to_aslref_xfm",
                 "asl_mask_std",
+                # CBF inputs
                 "mean_cbf",
                 # SCORE/SCRUB inputs
                 "mean_cbf_score",
@@ -177,34 +178,35 @@ negative CBF values.
     workflow.connect([(inputnode, resample, [(("asl_mask_std", _select_last_in_list), "master")])])
     # fmt:on
 
-    qccompute = pe.Node(
-        ComputeCBFQC(tpm_threshold=0.8 if is_ge else 0.7),
-        name="qccompute",
+    compute_qc_metrics = pe.Node(
+        ComputeCBFQC(tpm_threshold=0.7),
+        name="compute_qc_metrics",
         run_without_submitting=True,
         mem_gb=0.2,
     )
 
     # fmt:off
     workflow.connect([
-        (mask_tfm, qccompute, [("output_image", "t1w_mask")]),
-        (inputnode, qccompute, [
+        (mask_tfm, compute_qc_metrics, [("output_image", "t1w_mask")]),
+        (inputnode, compute_qc_metrics, [
             ("name_source", "name_source"),
             ("asl_mask", "asl_mask"),
             (("asl_mask_std", _select_last_in_list), "asl_mask_std"),
             ("mean_cbf", "mean_cbf"),
         ]),
-        (resample, qccompute, [("out_file", "template_mask")]),
-        (gm_tfm, qccompute, [("output_image", "gm_tpm")]),
-        (wm_tfm, qccompute, [("output_image", "wm_tpm")]),
-        (csf_tfm, qccompute, [("output_image", "csf_tpm")]),
-        (qccompute, outputnode, [("qc_file", "qc_file")]),
+        (resample, compute_qc_metrics, [("out_file", "template_mask")]),
+        (gm_tfm, compute_qc_metrics, [("output_image", "gm_tpm")]),
+        (wm_tfm, compute_qc_metrics, [("output_image", "wm_tpm")]),
+        (csf_tfm, compute_qc_metrics, [("output_image", "csf_tpm")]),
+        (compute_qc_metrics, outputnode, [("qc_file", "qc_file")]),
     ])
     # fmt:on
 
     if not is_ge:
+        # The QC node only expects a confounds file and RMSD file for non-GE data.
         # fmt:off
         workflow.connect([
-            (inputnode, qccompute, [
+            (inputnode, compute_qc_metrics, [
                 ("confounds_file", "confounds_file"),
                 ("rmsd_file", "rmsd_file"),
             ]),
@@ -214,7 +216,7 @@ negative CBF values.
     if scorescrub:
         # fmt:off
         workflow.connect([
-            (inputnode, qccompute, [
+            (inputnode, compute_qc_metrics, [
                 ("mean_cbf_scrub", "mean_cbf_scrub"),
                 ("mean_cbf_score", "mean_cbf_score"),
             ]),
@@ -224,7 +226,7 @@ negative CBF values.
     if basil:
         # fmt:off
         workflow.connect([
-            (inputnode, qccompute, [
+            (inputnode, compute_qc_metrics, [
                 ("mean_cbf_basil", "mean_cbf_basil"),
                 ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
             ]),
