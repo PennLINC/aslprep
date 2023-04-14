@@ -536,7 +536,6 @@ effects of other kernels [@lanczos].
 
     # Plot CBF outputs.
     plot_cbf_wf = init_gecbfplot_wf(
-        scorescrub=scorescrub,
         basil=basil,
         name="plot_cbf_wf",
     )
