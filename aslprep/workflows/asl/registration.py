@@ -179,7 +179,9 @@ def init_asl_t1_trans_wf(
     use_compression=True,
     name="asl_t1_trans_wf",
 ):
-    """Co-register the reference ASL image to T1w-space.
+    """Sample ASL into T1w space with a single-step resampling of the original ASL series.
+
+    TODO: Allow hmc_xforms and fieldwarp to be "identity".
 
     The workflow uses :abbr:`BBR (boundary-based registration)`.
 

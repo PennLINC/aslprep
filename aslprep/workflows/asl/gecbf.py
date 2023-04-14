@@ -331,7 +331,13 @@ effects of other kernels [@lanczos].
         "mean_cbf_wm_basil",
         "att",
     ]
-    mean_cbf_derivs = [cbf_deriv for cbf_deriv in CBF_DERIVS if cbf_deriv.startswith("mean_cbf")]
+    # we don't want mean_cbf_wm_basil for this list
+    MEAN_CBF_DERIVS = [
+        "mean_cbf_score",
+        "mean_cbf_scrub",
+        "mean_cbf_basil",
+        "mean_cbf_gm_basil",
+    ]
 
     # fmt:off
     workflow.connect([
@@ -433,7 +439,7 @@ effects of other kernels [@lanczos].
     ])
     # fmt:on
 
-    for cbf_deriv in mean_cbf_derivs:
+    for cbf_deriv in MEAN_CBF_DERIVS:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, compute_cbf_qc_wf, [
@@ -540,7 +546,7 @@ effects of other kernels [@lanczos].
         name="plot_cbf_wf",
     )
 
-    for cbf_deriv in mean_cbf_derivs:
+    for cbf_deriv in MEAN_CBF_DERIVS:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, plot_cbf_wf, [
@@ -592,7 +598,7 @@ effects of other kernels [@lanczos].
     ])
     # fmt:on
 
-    for cbf_deriv in mean_cbf_derivs:
+    for cbf_deriv in MEAN_CBF_DERIVS:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, parcellate_cbf_wf, [

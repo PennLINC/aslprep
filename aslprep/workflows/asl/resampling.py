@@ -205,6 +205,8 @@ def init_asl_std_trans_wf(
 ):
     """Sample ASL into standard space with a single-step resampling of the original ASL series.
 
+    TODO: Allow hmc_xforms and fieldwarp to be "identity".
+
     .. important::
         This workflow provides two outputnodes.
         One output node (with name ``poutputnode``) will be parameterized in a Nipype sense

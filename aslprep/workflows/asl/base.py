@@ -525,7 +525,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         "mean_cbf_wm_basil",
         "att",
     ]
-    mean_cbf_derivs = [cbf_deriv for cbf_deriv in CBF_DERIVS if cbf_deriv.startswith("mean_cbf")]
+    # we don't want mean_cbf_wm_basil for this list
+    MEAN_CBF_DERIVS = [
+        "mean_cbf_score",
+        "mean_cbf_scrub",
+        "mean_cbf_basil",
+        "mean_cbf_gm_basil",
+    ]
 
     # fmt:off
     workflow.connect([
@@ -713,7 +719,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    for cbf_deriv in mean_cbf_derivs:
+    for cbf_deriv in MEAN_CBF_DERIVS:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, compute_cbf_qc_wf, [
@@ -815,6 +821,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
+        # TODO: Replace this with aslbuffer_me.
+        # I think I need to modify init_asl_std_trans_wf to treat multi-echo data the same way
+        # init_asl_t1_trans_wf does (i.e., by skipping HMC and SDC).
         if not multiecho:
             # fmt:off
             workflow.connect([
@@ -936,7 +945,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    for cbf_deriv in mean_cbf_derivs:
+    for cbf_deriv in MEAN_CBF_DERIVS:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, parcellate_cbf_wf, [
