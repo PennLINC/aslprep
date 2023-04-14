@@ -345,7 +345,7 @@ def init_asl_t1_trans_wf(
             workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in2")])])
 
         if use_hmc:
-            workflow.connect([inputnode, merge_xforms, [("hmc_xforms", f"in{nxforms}")]])
+            workflow.connect([(inputnode, merge_xforms, [("hmc_xforms", f"in{nxforms}")])])
 
         # fmt:off
         workflow.connect([
