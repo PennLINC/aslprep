@@ -200,12 +200,9 @@ def init_asl_std_trans_wf(
     scorescrub=False,
     basil=False,
     use_compression=True,
-    use_fieldwarp=False,
     name="asl_std_trans_wf",
 ):
     """Sample ASL into standard space with a single-step resampling of the original ASL series.
-
-    TODO: Allow hmc_xforms and fieldwarp to be "identity".
 
     .. important::
         This workflow provides two outputnodes.
@@ -246,8 +243,6 @@ def init_asl_std_trans_wf(
         Name of workflow (default: ``asl_std_trans_wf``)
     use_compression : :obj:`bool`
         Save registered ASL series as ``.nii.gz``
-    use_fieldwarp : :obj:`bool`
-        Include SDC warp in single-shot transform from ASL to MNI
 
     Inputs
     ------
@@ -293,14 +288,15 @@ def init_asl_std_trans_wf(
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "anat_to_template_xfm",
-                "asl_mask",
-                "asl_split",
-                "fieldwarp",
-                "hmc_xforms",
-                "aslref_to_anat_xfm",
                 "name_source",
+                "asl_split",
+                "asl_mask",
                 "templates",
+                # Transforms
+                "hmc_xforms",  # may be "identity"
+                "fieldwarp",  # may be "identity"
+                "aslref_to_anat_xfm",
+                "anat_to_template_xfm",
                 # CBF outputs
                 "cbf_ts",
                 "mean_cbf",
@@ -313,7 +309,7 @@ def init_asl_std_trans_wf(
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
                 "att",
-            ]
+            ],
         ),
         name="inputnode",
     )
@@ -332,9 +328,7 @@ def init_asl_std_trans_wf(
         name="split_target",
     )
 
-    # fmt:off
     workflow.connect([(iterablesource, split_target, [("std_target", "in_target")])])
-    # fmt:on
 
     select_std = pe.Node(
         KeySelect(fields=["anat_to_template_xfm"]),
@@ -358,9 +352,7 @@ def init_asl_std_trans_wf(
         run_without_submitting=True,
     )
 
-    # fmt:off
     workflow.connect([(iterablesource, select_tpl, [("std_target", "template")])])
-    # fmt:on
 
     gen_ref = pe.Node(
         GenerateSamplingReference(),
@@ -405,9 +397,8 @@ def init_asl_std_trans_wf(
     # fmt:on
 
     # Write corrected file in the designated output dir
-    nxforms = 3 + use_fieldwarp
     merge_xforms = pe.Node(
-        niu.Merge(nxforms),
+        niu.Merge(4),
         name="merge_xforms",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
@@ -416,17 +407,13 @@ def init_asl_std_trans_wf(
     # fmt:off
     workflow.connect([
         (inputnode, merge_xforms, [
-            ("hmc_xforms", f"in{nxforms}"),
             (("aslref_to_anat_xfm", _aslist), "in2"),
+            ("fieldwarp", "in3"),  # may be "identity"
+            ("hmc_xforms", "in4"),  # may be "identity"
         ]),
         (select_std, merge_xforms, [("anat_to_template_xfm", "in1")]),
     ])
     # fmt:on
-
-    if use_fieldwarp:
-        # fmt:off
-        workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in3")])])
-        # fmt:on
 
     asl_to_std_transform = pe.Node(
         MultiApplyTransforms(interpolation="LanczosWindowedSinc", float=True, copy_dtype=True),
@@ -443,22 +430,32 @@ def init_asl_std_trans_wf(
     ])
     # fmt:on
 
-    merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb * 3)
+    # NOTE: Not in GE workflow.
+    # The GE workflow doesn't apply HMC, so it accepts a 4D ASL file that doesn't need to be
+    # re-merged back to 4D like the non-GE 3D files.
+    merge_3d_to_4d = pe.Node(
+        Merge(compress=use_compression),
+        name="merge_3d_to_4d",
+        mem_gb=mem_gb * 3,
+    )
 
     # fmt:off
     workflow.connect([
-        (inputnode, merge, [("name_source", "header_source")]),
-        (asl_to_std_transform, merge, [("out_files", "in_files")]),
+        (inputnode, merge_3d_to_4d, [("name_source", "header_source")]),
+        (asl_to_std_transform, merge_3d_to_4d, [("out_files", "in_files")]),
     ])
     # fmt:on
 
     # Generate a reference on the target standard space
+    # NOTE: Not in GE workflow.
+    # Instead, the GE workflow uses the output of the asl_to_std_transform for the aslref_std.
+    # It seems strange to do that, though, since the ASL file should still be 4D.
     gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
 
     # fmt:off
     workflow.connect([
         (mask_std_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-        (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
+        (merge_3d_to_4d, gen_final_ref, [("out_file", "inputnode.asl_file")]),
     ])
     # fmt:on
 
@@ -491,7 +488,7 @@ def init_asl_std_trans_wf(
     workflow.connect([
         # Connecting outputnode
         (iterablesource, poutputnode, [(("std_target", format_reference), "spatial_reference")]),
-        (merge, poutputnode, [("out_file", "asl_std")]),
+        (merge_3d_to_4d, poutputnode, [("out_file", "asl_std")]),
         (gen_final_ref, poutputnode, [("outputnode.ref_image", "aslref_std")]),
         (mask_std_tfm, poutputnode, [("output_image", "asl_mask_std")]),
         (select_std, poutputnode, [("key", "template")]),
@@ -531,9 +528,7 @@ def init_asl_std_trans_wf(
         name="outputnode",
         joinsource="iterablesource",
     )
-    # fmt:off
     workflow.connect([(poutputnode, outputnode, [(f, f) for f in output_names])])
-    # fmt:on
 
     return workflow
 
@@ -542,7 +537,6 @@ def init_asl_preproc_trans_wf(
     mem_gb,
     omp_nthreads,
     use_compression=True,
-    use_fieldwarp=False,
     split_file=False,
     interpolation="LanczosWindowedSinc",
     name="asl_preproc_trans_wf",
@@ -574,10 +568,8 @@ def init_asl_preproc_trans_wf(
         Name of workflow (default: ``asl_std_trans_wf``)
     use_compression : :obj:`bool`
         Save registered asl series as ``.nii.gz``
-    use_fieldwarp : :obj:`bool`
-        Include SDC warp in single-shot transform from asl to MNI
     split_file : :obj:`bool`
-        Whether the input file should be splitted (it is a 4D file)
+        Whether the input file should be split (it is a 4D file)
         or it is a list of 3D files (default ``False``, do not split)
     interpolation : :obj:`str`
         Interpolation type to be used by ANTs' ``applyTransforms``
@@ -691,30 +683,20 @@ def init_asl_preproc_trans_wf(
         ])
         # fmt:on
 
-    if use_fieldwarp:
-        merge_xforms = pe.Node(
-            niu.Merge(2),
-            name="merge_xforms",
-            run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
-        )
-        # fmt:off
-        workflow.connect([
-            (inputnode, merge_xforms, [
-                ("fieldwarp", "in1"),
-                ("hmc_xforms", "in2"),
-            ]),
-            (merge_xforms, asl_transform, [("out", "transforms")]),
-        ])
-        # fmt:on
-
-    else:
-
-        def _aslist(val):
-            return [val]
-
-        # fmt:off
-        workflow.connect([(inputnode, asl_transform, [(("hmc_xforms", _aslist), "transforms")])])
-        # fmt:on
+    merge_xforms = pe.Node(
+        niu.Merge(2),
+        name="merge_xforms",
+        run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, merge_xforms, [
+            ("fieldwarp", "in1"),  # may be "identity"
+            ("hmc_xforms", "in2"),
+        ]),
+        (merge_xforms, asl_transform, [("out", "transforms")]),
+    ])
+    # fmt:on
 
     return workflow

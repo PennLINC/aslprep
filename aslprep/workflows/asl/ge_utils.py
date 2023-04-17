@@ -435,6 +435,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
                 "anat_to_template_xfm",
                 "asl_file",
                 "asl_mask",
+                # CBF outputs
                 "cbf_ts",
                 "mean_cbf",
                 # SCORE/SCRUB outputs
@@ -466,15 +467,21 @@ preprocessed ASL runs*: {', '.join(output_references)}.
     )
 
     select_std = pe.Node(
-        KeySelect(fields=["anat_to_template_xfm"]), name="select_std", run_without_submitting=True
+        KeySelect(fields=["anat_to_template_xfm"]),
+        name="select_std",
+        run_without_submitting=True,
     )
 
     select_tpl = pe.Node(
-        niu.Function(function=_select_template), name="select_tpl", run_without_submitting=True
+        niu.Function(function=_select_template),
+        name="select_tpl",
+        run_without_submitting=True,
     )
 
     mask_std_tfm = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel"), name="mask_std_tfm", mem_gb=1
+        ApplyTransforms(interpolation="MultiLabel"),
+        name="mask_std_tfm",
+        mem_gb=1,
     )
 
     # Write corrected file in the designated output dir
@@ -523,14 +530,12 @@ preprocessed ASL runs*: {', '.join(output_references)}.
             mem_gb=mem_gb * 3 * omp_nthreads,
             n_procs=omp_nthreads,
         )
-
         avgscore_to_std_transform = pe.Node(
             ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
             name="avgscore_to_std_transform",
             mem_gb=mem_gb * 3 * omp_nthreads,
             n_procs=omp_nthreads,
         )
-
         scrub_to_std_transform = pe.Node(
             ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
             name="scrub_to_std_transform",
@@ -545,7 +550,6 @@ preprocessed ASL runs*: {', '.join(output_references)}.
             mem_gb=mem_gb * 3 * omp_nthreads,
             n_procs=omp_nthreads,
         )
-
         pv_to_std_transform = pe.Node(
             ApplyTransforms(interpolation="LanczosWindowedSinc", float=True, input_image_type=3),
             name="pv_to_std_transform",
@@ -565,14 +569,13 @@ preprocessed ASL runs*: {', '.join(output_references)}.
             n_procs=omp_nthreads,
         )
 
-    # merge = pe.Node(Merge(compress=use_compression), name='merge',
-    # mem_gb=mem_gb * 3)
     mask_merge_tfms = pe.Node(
         niu.Merge(2),
         name="mask_merge_tfms",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
+
     # Generate a reference on the target standard space
     gen_ref = pe.Node(GenerateSamplingReference(), name="gen_ref", mem_gb=0.3)
 

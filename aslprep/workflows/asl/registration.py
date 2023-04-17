@@ -69,8 +69,6 @@ def init_asl_reg_wf(
         Name of workflow (default: ``asl_reg_wf``)
     use_compression : :obj:`bool`
         Save registered ASL series as ``.nii.gz``
-    use_fieldwarp : :obj:`bool`
-        Include SDC warp in single-shot transform from ASL to T1
     write_report : :obj:`bool`
         Whether a reportlet should be stored
 
@@ -174,8 +172,6 @@ def init_asl_t1_trans_wf(
     basil=False,
     output_t1space=False,
     multiecho=False,
-    use_hmc=True,
-    use_fieldwarp=False,
     use_compression=True,
     name="asl_t1_trans_wf",
 ):
@@ -199,11 +195,6 @@ def init_asl_t1_trans_wf(
 
     Parameters
     ----------
-    use_fieldwarp : :obj:`bool`
-        Include SDC warp in single-shot transform from ASL to T1.
-    use_hmc : :obj:`bool`
-        Include head-motion parameters in single-shot transform from ASL to T1.
-        Will be False for very short ASL scans, like GE.
     multiecho : :obj:`bool`
         If multiecho data was supplied, HMC already performed
     mem_gb : :obj:`float`
@@ -266,8 +257,9 @@ def init_asl_t1_trans_wf(
                 "t1w_brain",
                 "t1w_mask",
                 "asl_split",
-                "fieldwarp",
+                # Transforms
                 "hmc_xforms",
+                "fieldwarp",
                 "aslref_to_anat_xfm",
                 # CBF outputs
                 "cbf_ts",
@@ -336,22 +328,20 @@ def init_asl_t1_trans_wf(
 
     if not multiecho:
         # Merge transforms, placing the head motion correction last
-        nxforms = 1 + int(use_fieldwarp) + int(use_hmc)
         merge_xforms = pe.Node(
-            niu.Merge(nxforms),
+            niu.Merge(3),
             name="merge_xforms",
             run_without_submitting=True,
             mem_gb=DEFAULT_MEMORY_MIN_GB,
         )
-        if use_fieldwarp:
-            workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in2")])])
-
-        if use_hmc:
-            workflow.connect([(inputnode, merge_xforms, [("hmc_xforms", f"in{nxforms}")])])
 
         # fmt:off
         workflow.connect([
-            (inputnode, merge_xforms, [("aslref_to_anat_xfm", "in1")]),
+            (inputnode, merge_xforms, [
+                ("aslref_to_anat_xfm", "in1"),
+                ("fieldwarp", "in2"),  # may be "identity"
+                ("hmc_xforms", "in3"),  # may be "identity"
+            ]),
             (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
             (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
         ])
