@@ -170,6 +170,7 @@ def init_asl_t1_trans_wf(
     omp_nthreads,
     scorescrub=False,
     basil=False,
+    generate_reference=True,
     output_t1space=False,
     multiecho=False,
     use_compression=True,
@@ -395,16 +396,30 @@ def init_asl_t1_trans_wf(
     ])
     # fmt:on
 
-    # Generate a reference on the target T1w space
-    gen_final_ref = init_asl_reference_wf(omp_nthreads, pre_mask=True)
+    reference_buffer = pe.Node(
+        niu.IdentityInterface(fields=["aslref_t1"]),
+        name="reference_buffer",
+    )
 
-    # fmt:off
-    workflow.connect([
-        (mask_to_t1w_transform, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-        (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
-        (gen_final_ref, outputnode, [("outputnode.ref_image", "aslref_t1")]),
-    ])
-    # fmt:on
+    if generate_reference:
+        # Generate a reference on the target T1w space
+        gen_final_ref = init_asl_reference_wf(omp_nthreads, pre_mask=True)
+
+        # fmt:off
+        workflow.connect([
+            (mask_to_t1w_transform, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
+            (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
+            (gen_final_ref, reference_buffer, [("outputnode.ref_image", "aslref_t1")]),
+        ])
+        # fmt:on
+    else:
+        # fmt:off
+        workflow.connect([
+            (asl_to_t1w_transform, reference_buffer, [("output_image", "aslref_t1")]),
+        ])
+        # fmt:on
+
+    workflow.connect([(reference_buffer, outputnode, [("aslref_t1", "aslref_t1")])])
 
     if not output_t1space:
         return workflow

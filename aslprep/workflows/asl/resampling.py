@@ -199,6 +199,7 @@ def init_asl_std_trans_wf(
     spaces,
     scorescrub=False,
     basil=False,
+    generate_reference=True,
     use_compression=True,
     name="asl_std_trans_wf",
 ):
@@ -446,18 +447,31 @@ def init_asl_std_trans_wf(
     ])
     # fmt:on
 
-    # Generate a reference on the target standard space
-    # NOTE: Not in GE workflow.
-    # Instead, the GE workflow uses the output of the asl_to_std_transform for the aslref_std.
-    # It seems strange to do that, though, since the ASL file should still be 4D.
-    gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
+    reference_buffer = pe.Node(
+        niu.IdentityInterface(fields=["aslref_std"]),
+        name="reference_buffer",
+    )
 
-    # fmt:off
-    workflow.connect([
-        (mask_std_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-        (merge_3d_to_4d, gen_final_ref, [("out_file", "inputnode.asl_file")]),
-    ])
-    # fmt:on
+    if generate_reference:
+        # Generate a reference on the target standard space
+        # NOTE: Not in GE workflow.
+        # Instead, the GE workflow uses the output of the asl_to_std_transform for the aslref_std.
+        # It seems strange to do that, though, since the ASL file should still be 4D.
+        gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
+
+        # fmt:off
+        workflow.connect([
+            (mask_std_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
+            (merge_3d_to_4d, gen_final_ref, [("out_file", "inputnode.asl_file")]),
+            (gen_final_ref, reference_buffer, [("outputnode.ref_image", "aslref_std")]),
+        ])
+        # fmt:on
+    else:
+        # fmt:off
+        workflow.connect([
+            (asl_to_std_transform, reference_buffer, [("output_image", "aslref_std")]),
+        ])
+        # fmt:on
 
     inputs_to_warp = [
         "cbf_ts",
@@ -489,7 +503,7 @@ def init_asl_std_trans_wf(
         # Connecting outputnode
         (iterablesource, poutputnode, [(("std_target", format_reference), "spatial_reference")]),
         (merge_3d_to_4d, poutputnode, [("out_file", "asl_std")]),
-        (gen_final_ref, poutputnode, [("outputnode.ref_image", "aslref_std")]),
+        (reference_buffer, poutputnode, [("aslref_std", "aslref_std")]),
         (mask_std_tfm, poutputnode, [("output_image", "asl_mask_std")]),
         (select_std, poutputnode, [("key", "template")]),
     ])
