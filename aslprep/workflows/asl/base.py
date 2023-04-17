@@ -525,7 +525,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         "mean_cbf_wm_basil",
         "att",
     ]
-    # we don't want mean_cbf_wm_basil for this list
+    # We don't want mean_cbf_wm_basil for this list.
     MEAN_CBF_DERIVS = [
         "mean_cbf",
         "mean_cbf_score",

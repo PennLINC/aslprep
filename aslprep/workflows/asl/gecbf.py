@@ -328,7 +328,7 @@ effects of other kernels [@lanczos].
         "mean_cbf_wm_basil",
         "att",
     ]
-    # we don't want mean_cbf_wm_basil for this list
+    # We don't want mean_cbf_wm_basil for this list and SCORE/SCRUB is blocked for GE data.
     MEAN_CBF_DERIVS = [
         "mean_cbf",
         "mean_cbf_basil",

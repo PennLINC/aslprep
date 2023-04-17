@@ -284,7 +284,6 @@ def init_asl_std_trans_wf(
     template
         Template identifiers synchronized correspondingly to previously
         described outputs.
-
     """
     workflow = Workflow(name=name)
     std_vol_references = [

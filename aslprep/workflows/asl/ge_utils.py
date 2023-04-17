@@ -381,6 +381,32 @@ def init_asl_std_trans_ge_wf(
                 omp_nthreads=1,
                 spaces="",
             )
+
+    Parameters
+    ----------
+    mem_gb
+    omp_nthreads
+    spaces
+    scorescrub
+    basil
+    name
+
+    Outputs
+    -------
+    asl_mask_std
+    asl_std
+    aslref_std
+    spatial_reference
+    template
+    cbf_ts_std
+    mean_cbf_std
+    cbf_ts_score_std
+    mean_cbf_score_std
+    mean_cbf_scrub_std
+    mean_cbf_basil_std
+    mean_cbf_gm_basil_std
+    mean_cbf_wm_basil_std
+    att_std
     """
     workflow = Workflow(name=name)
     output_references = spaces.cached.get_spaces(nonstandard=False, dim=(3,))
