@@ -413,6 +413,7 @@ def init_asl_t1_trans_wf(
         ])
         # fmt:on
     else:
+        # XXX: Why not use output from gen_ref here?
         # fmt:off
         workflow.connect([
             (asl_to_t1w_transform, reference_buffer, [("output_image", "aslref_t1")]),

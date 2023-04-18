@@ -2,6 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """CBF-processing workflows for GE data."""
 from nipype.interfaces import utility as niu
+from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
 
 from aslprep import config
@@ -18,11 +19,11 @@ from aslprep.workflows.asl.ge_utils import (
     init_asl_reference_ge_wf,
     init_asl_reg_ge_wf,
     init_asl_std_trans_ge_wf,
-    init_asl_t1_trans_ge_wf,
 )
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_gecbfplot_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
+from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
 
 
 def init_asl_gepreproc_wf(asl_file):
@@ -216,7 +217,7 @@ effects of other kernels [@lanczos].
                 "anat_to_template_xfm",
                 "template_to_anat_xfm",
                 "template",
-            ]
+            ],
         ),
         name="inputnode",
     )
@@ -280,6 +281,39 @@ effects of other kernels [@lanczos].
             ("asl_file", "inputnode.asl_file"),
             ("m0scan", "inputnode.m0scan"),
             ("m0scan_metadata", "inputnode.m0scan_metadata"),
+        ]),
+    ])
+    # fmt:on
+
+    # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
+    # can be applied with other transforms in single shots.
+    # This will be useful for GE/non-GE integration.
+    asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
+
+    workflow.connect([(inputnode, asl_split, [("asl_file", "asl_split")])])
+
+    # Set HMC xforms and fieldwarp to "identity" since neither is performed for GE data.
+    # This will be useful as I swap out GE-specific resampling workflows with general ones,
+    # which require HMC xforms and a fieldwarp.
+    xform_buffer = pe.Node(
+        niu.IdentityInterface(
+            fields=[
+                "hmc_xforms",
+                "fieldwarp",  # from sdc
+                "epi_brain",  # from sdc
+                "epi_mask",  # from sdc
+            ],
+        ),
+        name="xform_buffer",
+    )
+    xform_buffer.inputs.hmc_xforms = "identity"
+    xform_buffer.inputs.fieldwarp = "identity"
+
+    # fmt:off
+    workflow.connect([
+        (asl_reference_wf, xform_buffer, [
+            ("outputnode.ref_image_brain", "epi_brain"),
+            ("outputnode.asl_mask", "epi_mask"),
         ]),
     ])
     # fmt:on
@@ -357,13 +391,16 @@ effects of other kernels [@lanczos].
     # Apply ASL registration to T1w
     nonstd_spaces = set(spaces.get_nonstandard())
 
-    asl_t1_trans_wf = init_asl_t1_trans_ge_wf(
-        mem_gb=3,
-        omp_nthreads=omp_nthreads,
+    asl_t1_trans_wf = init_asl_t1_trans_wf(
+        multiecho=False,
         output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
         scorescrub=scorescrub,
         basil=basil,
-        name="asl_t1_trans_ge_wf",
+        generate_reference=False,  # the GE workflow doesn't generate a new reference
+        mem_gb=mem_gb["resampled"],
+        omp_nthreads=omp_nthreads,
+        use_compression=False,
+        name="asl_t1_trans_wf",
     )
 
     # fmt:off
@@ -373,10 +410,14 @@ effects of other kernels [@lanczos].
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
         (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
-        (asl_reference_wf, asl_t1_trans_wf, [
-            ("outputnode.ref_image_brain", "inputnode.ref_asl_brain"),
-            ("outputnode.asl_mask", "inputnode.ref_asl_mask"),
+        (xform_buffer, asl_t1_trans_wf, [
+            ("out_warp", "inputnode.fieldwarp"),
+            ("epi_brain", "inputnode.ref_asl_brain"),
+            ("epi_mask", "inputnode.ref_asl_mask"),
+            ("hmc_xforms", "inputnode.hmc_xforms"),
         ]),
+        # keeping this separate from the top for symmetry with non-GE workflow
+        (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.asl_split")]),
         # unused if multiecho, but this is safe
         (asl_reg_wf, asl_t1_trans_wf, [
             ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
@@ -503,12 +544,12 @@ effects of other kernels [@lanczos].
                 ("template", "inputnode.templates"),
                 ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
                 ("asl_file", "inputnode.name_source"),
-                ("asl_file", "inputnode.asl_file"),
             ]),
             (asl_reg_wf, asl_std_trans_wf, [
                 ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
             ]),
             (refine_mask, asl_std_trans_wf, [("out_mask", "inputnode.asl_mask")]),
+            (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
             (asl_std_trans_wf, compute_cbf_qc_wf, [
                 ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
             ]),

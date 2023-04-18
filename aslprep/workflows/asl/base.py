@@ -560,14 +560,15 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     nonstd_spaces = set(spaces.get_nonstandard())
 
     asl_t1_trans_wf = init_asl_t1_trans_wf(
-        name="asl_t1_trans_wf",
         multiecho=multiecho,
         output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
         scorescrub=scorescrub,
         basil=basil,
+        generate_reference=True,
         mem_gb=mem_gb["resampled"],
         omp_nthreads=omp_nthreads,
         use_compression=False,
+        name="asl_t1_trans_wf",
     )
 
     # fmt:off
@@ -589,10 +590,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # unused if multiecho, but this is safe
         (asl_reg_wf, asl_t1_trans_wf, [
             ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
-        ]),
-        (asl_t1_trans_wf, asl_derivatives_wf, [
-            ("outputnode.asl_t1", "inputnode.asl_t1"),
-            ("outputnode.aslref_t1", "inputnode.aslref_t1"),
         ]),
     ])
     # fmt:on
@@ -752,6 +749,15 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if nonstd_spaces.intersection(("T1w", "anat")):
         from aslprep.interfaces.ants import ApplyTransforms
 
+        # fmt:off
+        workflow.connect([
+            (asl_t1_trans_wf, asl_derivatives_wf, [
+                ("outputnode.asl_t1", "inputnode.asl_t1"),
+                ("outputnode.aslref_t1", "inputnode.aslref_t1"),
+            ]),
+        ])
+        # fmt:on
+
         for cbf_deriv in CBF_DERIVS:
             # fmt:off
             workflow.connect([
@@ -821,6 +827,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # TODO: Replace this with aslbuffer_me.
         # I think I need to modify init_asl_std_trans_wf to treat multi-echo data the same way
         # init_asl_t1_trans_wf does (i.e., by skipping HMC and SDC).
+        # Actually, what if I just use xform_buffer and set the xforms to "identity" there?
+        # It's a quandary.
+        # The asl-asl reg workflow needs actual HMC and SDC xforms (when applicable),
+        # but the T1 and std reg workflows would use "identity" for multi-echo data.
+        # For GE data, asl-asl, asl-T1, and asl-std should all have "identity" for HMC/SDC.
         if not multiecho:
             # fmt:off
             workflow.connect([
