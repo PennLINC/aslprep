@@ -290,7 +290,7 @@ effects of other kernels [@lanczos].
     # This will be useful for GE/non-GE integration.
     asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
 
-    workflow.connect([(inputnode, asl_split, [("asl_file", "asl_split")])])
+    workflow.connect([(inputnode, asl_split, [("asl_file", "in_file")])])
 
     # Set HMC xforms and fieldwarp to "identity" since neither is performed for GE data.
     # This will be useful as I swap out GE-specific resampling workflows with general ones,
