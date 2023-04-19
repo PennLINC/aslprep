@@ -408,10 +408,10 @@ effects of other kernels [@lanczos].
         ]),
         (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
         (xform_buffer, asl_t1_trans_wf, [
-            ("out_warp", "inputnode.fieldwarp"),
+            ("hmc_xforms", "inputnode.hmc_xforms"),
+            ("fieldwarp", "inputnode.fieldwarp"),
             ("epi_brain", "inputnode.ref_asl_brain"),
             ("epi_mask", "inputnode.ref_asl_mask"),
-            ("hmc_xforms", "inputnode.hmc_xforms"),
         ]),
         # keeping this separate from the top for symmetry with non-GE workflow
         (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.asl_split")]),
