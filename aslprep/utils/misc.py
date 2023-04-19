@@ -775,7 +775,9 @@ def estimate_labeling_efficiency(metadata):
 
 
 def estimate_att(deltam_arr, plds):
-    """Estimate arterial transit time.
+    """Estimate arterial transit time (ATT).
+
+    The ATT formula is taken from :footcite:t:`juttukonda2021characterizing`.
 
     Parameters
     ----------
@@ -789,6 +791,10 @@ def estimate_att(deltam_arr, plds):
     -------
     att_arr : :obj:`numpy.ndarray` of shape (S,)
         Estimated arterial transit time for each voxel.
+
+    References
+    ----------
+    .. footbibliography::
     """
     n_voxels, n_delays = deltam_arr.shape
     assert n_delays == plds.size
