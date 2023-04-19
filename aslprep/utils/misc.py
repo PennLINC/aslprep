@@ -8,6 +8,7 @@ from typing import Any
 
 import nibabel as nb
 import numpy as np
+from scipy.signal import correlate, correlation_lags
 from scipy.stats import median_abs_deviation
 
 
@@ -771,3 +772,82 @@ def estimate_labeling_efficiency(metadata):
             labeleff *= BS_PULSE_EFF ** metadata.get("BackgroundSuppressionNumberPulses", 1)
 
     return labeleff
+
+
+def estimate_att(deltam_arr, plds):
+    """Estimate arterial transit time.
+
+    Parameters
+    ----------
+    deltam_arr : :obj:`numpy.ndarray` of shape (S, D)
+        The array of deltaM values.
+        S = samples (voxels), D = delays (post-labeling delays).
+    plds : :obj:`numpy.ndarray` of shape (D,)
+        The post-labeling delays, in milliseconds.
+
+    Returns
+    -------
+    att_arr : :obj:`numpy.ndarray` of shape (S,)
+        Estimated arterial transit time for each voxel.
+    """
+    n_voxels, n_delays = deltam_arr.shape
+    assert n_delays == plds.size
+
+    # TODO: Simulate the curve based on Juttukonda 2017.
+    # Simulate kinetic curve with ATT=1.2 and same temporal resolution as PLDs
+    simulated_kinetic_curve_lowres = np.arange(plds.size)
+    crosscorr_lowres = correlate(deltam_arr, simulated_kinetic_curve_lowres[None, :])
+    lags = correlation_lags(plds.size, plds.size)
+    # The selected lag for each voxel
+    peak_lags = lags[np.argmax(crosscorr_lowres, axis=1)]
+
+    # Simulate kinetic curves with ATTs between 0.2 and 3.2 s and temporal resolution of 0.1 s
+    # Per paper:
+    # For voxels with shift=0, the searched range was between 0.9 s and 1.5 s.
+    # For voxels with positive shift indices (i.e., shift=+1 and shift=+2),
+    # the range of ATTs searched was between 0.2 s and 1.2 s.
+    # For voxels with negative time shifts (i.e., shift=−1 to −4),
+    # the range of ATTs searched was between 1.2 s and 3.2 s.
+    # Meanwhile, shifts ranging from +3 to +5 theoretically corresponded to negative ATTs,
+    # which are physiologically unmeaningful.
+    # Therefore, voxels with these shift indices (+3 to +5) were empirically assigned ATT=3.3 s.
+
+    # NOTE: I think the most straightforward way to do this is to loop over shift indices,
+    # select the subset of voxels with that shift index,
+    # and estimate ATT for those voxels using the preferred parameters.
+
+    # The range of ATT values to simulate the kinetic curve across is hardcoded.
+    simulated_kinetic_curve_highres_att = np.arange(0.2, 3.3, 0.1)
+
+    # TODO: Simulate the curve based on Juttukonda 2017
+    simulated_kinetic_curves_highres = np.random.random(
+        (
+            plds.size,  # one row for each PLD
+            simulated_kinetic_curve_highres_att.size,  # one column for each possible ATT value
+        ),
+    )
+
+    att_arr = np.zeros(deltam_arr.shape[0])
+    for peak_shift in np.unique(peak_lags):
+        pld_shift = plds[peak_shift]  # The delay in seconds. Determines ATT range to test.
+        peak_shift_voxel_idx = np.where(peak_lags == peak_shift)[0]
+        peak_shift_deltam = deltam_arr[peak_shift_voxel_idx, :]
+
+        # TODO: Replace with valid range for given PLD shift
+        # E.g., 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5
+        possible_att_values = np.arange(0, pld_shift, 0.1)
+        possible_att_idx = np.where(simulated_kinetic_curve_highres_att == possible_att_values)[0]
+        possible_kinetic_curves = simulated_kinetic_curves_highres[:, possible_att_idx]
+
+        # Cross-correlate to find ATT (at closest 0.1 s) for each voxel
+        crosscorr_highres = np.corrcoef(
+            peak_shift_deltam,
+            possible_kinetic_curves,
+        )[:n_voxels, n_voxels:]
+        peak_corrs_idx = np.argmax(crosscorr_highres, axis=1)
+
+        # The selected ATT value for each voxel
+        att_values = possible_att_values[peak_corrs_idx]
+        att_arr[peak_shift_voxel_idx] = att_values
+
+    return att_arr

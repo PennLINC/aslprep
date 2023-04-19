@@ -455,7 +455,8 @@ class ComputeCBF(SimpleInterface):
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
         plds = np.array(metadata["PostLabelingDelay"])
-        if np.std(plds) > 0:
+        is_multi_pld = np.unique(plds).size > 1
+        if is_multi_pld:
             raise ValueError(
                 f"{np.unique(plds).size} unique PostLabelingDelay values detected. "
                 "ASLPrep cannot currently process multi-PLD data."
