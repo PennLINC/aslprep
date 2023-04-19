@@ -19,7 +19,7 @@ from aslprep.niworkflows.interfaces.nilearn import Merge
 from aslprep.niworkflows.interfaces.registration import FLIRTRPT
 from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
 from aslprep.niworkflows.utils.images import dseg_label
-from aslprep.utils.misc import _conditional_downsampling
+from aslprep.utils.misc import _conditional_downsampling, _select_first_in_list
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -414,7 +414,13 @@ def init_asl_t1_trans_wf(
         # fmt:on
     else:
         # XXX: Why not use output from gen_ref here?
-        workflow.connect([(asl_to_t1w_transform, reference_buffer, [("out_files", "aslref_t1")])])
+        # fmt:off
+        workflow.connect([
+            (asl_to_t1w_transform, reference_buffer, [
+                (("out_files", _select_first_in_list), "aslref_t1"),
+            ]),
+        ])
+        # fmt:on
 
     workflow.connect([(reference_buffer, outputnode, [("aslref_t1", "aslref_t1")])])
 

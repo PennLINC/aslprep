@@ -469,7 +469,9 @@ def init_asl_std_trans_wf(
     else:
         # fmt:off
         workflow.connect([
-            (asl_to_std_transform, reference_buffer, [("output_image", "aslref_std")]),
+            (asl_to_std_transform, reference_buffer, [
+                (("out_files", _select_first_in_list), "aslref_std"),
+            ]),
         ])
         # fmt:on
 

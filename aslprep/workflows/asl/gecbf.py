@@ -15,15 +15,12 @@ from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cbf_wf
-from aslprep.workflows.asl.ge_utils import (
-    init_asl_reference_ge_wf,
-    init_asl_reg_ge_wf,
-    init_asl_std_trans_ge_wf,
-)
+from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf, init_asl_reg_ge_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_gecbfplot_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
+from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 
 
 def init_asl_gepreproc_wf(asl_file):
@@ -529,13 +526,14 @@ effects of other kernels [@lanczos].
     # Map standard-space outputs to derivatives.
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         # Apply transforms in 1 shot
-        asl_std_trans_wf = init_asl_std_trans_ge_wf(
+        asl_std_trans_wf = init_asl_std_trans_wf(
             mem_gb=4,
             omp_nthreads=omp_nthreads,
             spaces=spaces,
             scorescrub=scorescrub,
             basil=basil,
-            name="asl_std_trans_ge_wf",
+            generate_reference=False,
+            name="asl_std_trans_wf",
         )
 
         # fmt:off

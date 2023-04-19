@@ -794,8 +794,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             spaces=spaces,
             scorescrub=scorescrub,
             basil=basil,
-            name="asl_std_trans_wf",
+            generate_reference=True,
             use_compression=not config.execution.low_mem,
+            name="asl_std_trans_wf",
         )
 
         # fmt:off
