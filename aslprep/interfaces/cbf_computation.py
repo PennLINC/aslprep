@@ -411,10 +411,15 @@ class ComputeCBF(SimpleInterface):
     (i.e., if the field strength isn't 1.5T, 3T, 7T),
     then the formula from :footcite:t:`zhang2013vivo` will be applied.
 
-    Single-PLD CBF, for both (P)CASL and PASL (QUIPSSII BolusCutOffTechnique only)
+    Single-PLD CBF, for both (P)CASL and QUIPSSII PASL
     is calculated according to :footcite:t:`alsop_recommended_2015`.
     Multi-PLD CBF is handled using a weighted average,
     based on :footcite:t:`dai2012reduced,wang2013multi`.
+
+    Multi-PLD CBF is calculated according to :footcite:t:`fan2017long`,
+    although CBF is averaged across PLDs according to the method in
+    :footcite:t:`juttukonda2021characterizing`.
+    Arterial transit time is estimated according to :footcite:t:`juttukonda2021characterizing`.
 
     References
     ----------
@@ -527,6 +532,7 @@ class ComputeCBF(SimpleInterface):
         scaled_m0data = m0scale * m0data
 
         if is_multi_pld:
+            # Formula from Fan 2017 (equation 2)
             unique_plds = np.unique(plds)
             mean_deltam_by_pld = np.zeros((n_voxels, unique_plds.size))
             for i_pld, pld in enumerate(unique_plds):
@@ -542,9 +548,15 @@ class ComputeCBF(SimpleInterface):
                 * labeleff
                 * scaled_m0data
                 * t1blood
-                * (np.exp(-np.max(plds - att_arr, 0)) - np.exp(-np.max(tau + plds - att_arr, 0)))
+                * (
+                    np.exp(-np.maximum(plds - att_arr, 0))
+                    - np.exp(-np.maximum(tau + plds - att_arr, 0))
+                )
             )
             cbf_by_pld = num_factor / denom_factor
+
+            # Average CBF across PLDs, but only include PLDs where PLD + tau > ATT for that voxel,
+            # per Juttukonda 2021 (section 2.6).
             cbf = np.zeros(n_voxels)  # mean CBF
             for i_voxel in range(n_voxels):
                 cbf_by_pld_voxel = cbf_by_pld[i_voxel, :]
