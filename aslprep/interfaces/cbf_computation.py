@@ -24,6 +24,7 @@ from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.utils.misc import (
     _getcbfscore,
     _scrubcbf,
+    estimate_att,
     estimate_labeling_efficiency,
     pcasl_or_pasl,
 )
@@ -516,10 +517,6 @@ class ComputeCBF(SimpleInterface):
         else:
             raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
 
-        perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
-            denom_factor * 2 * labeleff
-        )
-
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask_file)
@@ -529,40 +526,39 @@ class ComputeCBF(SimpleInterface):
         m0data = masker.transform(m0_file).T
         scaled_m0data = m0scale * m0data
 
-        # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
-        deltam_scaled = deltam_arr / scaled_m0data
+        if is_multi_pld:
+            unique_plds = np.unique(plds)
+            mean_deltam_by_pld = np.zeros((n_voxels, unique_plds.size))
+            for i_pld, pld in enumerate(unique_plds):
+                pld_idx = plds == pld
+                mean_deltam_by_pld[:, i_pld] = np.mean(deltam_arr[:, pld_idx], axis=1)
 
-        if (perfusion_factor.size > 1) and (perfusion_factor.size != n_volumes):
-            # For future multi-PLD support.
-            raise ValueError(
-                f"Number of volumes ({n_volumes}) must match number of PLDs "
-                f"({perfusion_factor.size})."
+            att_arr = estimate_att(mean_deltam_by_pld, plds)
+            num_factor = (
+                UNIT_CONV * PARTITION_COEF * mean_deltam_by_pld * np.exp(att_arr / t1blood)
             )
-
-        if (perfusion_factor.size > 1) and (n_volumes > 1):
-            # TODO: Make this actually work.
-            # Multi-PLD acquisition with multiple control-label pairs.
-            # Calculate weighted CBF with multiple PostLabelingDelays.
-            # Wang et al. (2013): https://doi.org/10.1016%2Fj.nicl.2013.06.017
-            # Dai et al. (2012): https://doi.org/10.1002/mrm.23103
-            cbf_ts = deltam_scaled * perfusion_factor[None, :]
-            cbf = np.zeros((n_voxels, np.unique(perfusion_factor).size))
-            for i_delay, perfusion_value in enumerate(np.unique(perfusion_factor)):
-                perf_val_idx = perfusion_factor == perfusion_value
-                cbf[:, i_delay] = np.sum(cbf_ts[:, perf_val_idx], axis=1) / np.sum(
-                    perfusion_factor[perf_val_idx]
-                )
-
-        elif (perfusion_factor.size > 1) and (n_volumes == 1):
-            # Multi-PLD acquisition with one control-label pair.
-            # XXX: How is this possible?
-            cbf_ts = np.zeros(deltam_arr.shape, len(perfusion_factor))
-            for i_delay in len(perfusion_factor):
-                cbf_ts[:, i_delay] = deltam_scaled * perfusion_factor[i_delay]
-
-            cbf = np.sum(cbf_ts, axis=2) / np.sum(perfusion_factor)
+            denom_factor = (
+                2
+                * labeleff
+                * scaled_m0data
+                * t1blood
+                * (np.exp(-np.max(plds - att_arr, 0)) - np.exp(-np.max(tau + plds - att_arr, 0)))
+            )
+            cbf_by_pld = num_factor / denom_factor
+            cbf = np.zeros(n_voxels)  # mean CBF
+            for i_voxel in range(n_voxels):
+                cbf_by_pld_voxel = cbf_by_pld[i_voxel, :]
+                arr_voxel = att_arr[i_voxel]
+                cbf[i_voxel] = np.mean(cbf_by_pld_voxel[(plds + tau) > arr_voxel])
 
         else:
+            # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
+            deltam_scaled = deltam_arr / scaled_m0data
+
+            perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
+                denom_factor * 2 * labeleff
+            )
+
             # There is only a single PLD.
             cbf = deltam_scaled * perfusion_factor
 
