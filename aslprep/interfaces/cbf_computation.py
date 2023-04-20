@@ -486,8 +486,8 @@ class ComputeCBF(SimpleInterface):
         UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
         PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
 
+        tau = np.array(metadata["LabelingDuration"])
         if is_casl:
-            tau = np.array(metadata["LabelingDuration"])
             denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
 
         elif not metadata["BolusCutOffFlag"]:
