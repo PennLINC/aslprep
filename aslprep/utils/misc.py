@@ -8,6 +8,7 @@ from typing import Any
 
 import nibabel as nb
 import numpy as np
+from scipy.interpolate import interp1d
 from scipy.signal import correlate, correlation_lags
 from scipy.stats import median_abs_deviation
 
@@ -857,3 +858,97 @@ def estimate_att(deltam_arr, plds):
         att_arr[peak_shift_voxel_idx] = att_values
 
     return att_arr
+
+
+def estimate_att_dai(deltam_arr, plds, lds, t1_blood, t1_tissue):
+    """Estimate arterial transit time using the weighted average method.
+
+    Parameters
+    ----------
+    deltam_arr : :obj:`numpy.ndarray`
+        Delta-M array.
+    plds : :obj:`numpy.ndarray`
+        Post-labeling delays. w in Dai 2012.
+    lds : :obj:`numpy.ndarray`
+        Labeling durations. tau in Dai 2012.
+    t1_blood
+        T1 relaxation rate for blood.
+    t1_tissue
+        T1 relaxation rate for tissue.
+
+    Returns
+    -------
+    att_arr : :obj:`numpy.ndarray`
+        Arterial transit time array.
+
+    Notes
+    -----
+    Written by Jianxun Qu, @jianxun_qu@163.com in MATLAB.
+    Translated to Python by Taylor Salo.
+    """
+    n_plds = plds.size
+    n_voxels, n_volumes = deltam_arr.shape
+    assert n_volumes == n_plds, f"{n_plds} != {n_volumes}"
+
+    # Beginning of auxil_asl_gen_wsum
+    assert lds.size == plds.size
+
+    n_plds = plds.size
+
+    # Define the possible transit times to evaluate
+    transit_times = np.arange(np.round(np.min(plds), 3), np.round(np.max(plds), 3) + 0.001, 0.001)
+
+    sig_sum = np.zeros(transit_times.size)
+    sig_pld_sum = np.zeros(transit_times.size)
+
+    for i_pld in range(n_plds):
+        pld = plds[i_pld]
+        ld = lds[i_pld]
+
+        # e ^ (-delta / T1a)
+        exp_tt_T1b = np.exp(-transit_times / t1_blood)
+        # e ^ (-max(w - delta, 0) / T1t)
+        exp_pld_tt_T1t = np.exp(-np.maximum(0, pld - transit_times) / t1_tissue)
+        # e ^ (-max(tau + w - delta, 0) / T1t)
+        exp_pld_ld_tt_T1t = np.exp(-np.maximum(0, pld + ld - transit_times) / t1_tissue)
+
+        # The combination of exponent terms in Equation 1
+        sig = exp_tt_T1b * (exp_pld_tt_T1t - exp_pld_ld_tt_T1t)
+
+        # The elements in Equation 1 that aren't touched here are:
+        # 2M0t (2 * equilibrium magnetization of brain tissue),
+        # Beta (a term to compensate for static tissue signal loss caused by vessel supp. pulses),
+        # alpha (labeling efficiency),
+        # T1t (t1_tissue),
+        # f (CBF; perfusion rate)
+        # lambda (partition coefficient)
+
+        # Numerator in Equation 4, for a range of transit times
+        sig_pld_sum += sig * pld
+        # Denominator in Equation 4, for a range of transit times
+        sig_sum += sig
+
+    # Predicted weighted delay values for a range of transit times
+    weighted_delay_predicted = sig_pld_sum / sig_sum
+    # End of auxil_asl_gen_wsum
+
+    # Calculate the observed weighted delay for each voxel
+    weighted_delay_denom = np.sum(deltam_arr, axis=1)
+    weighted_delay_num = np.zeros(n_voxels)
+    for i_pld in range(n_plds):
+        weighted_delay_num += deltam_arr[:, i_pld] * plds[i_pld]
+
+    weighted_delay_observed = weighted_delay_num / (
+        np.abs(weighted_delay_denom) + np.finfo(float).eps
+    )
+
+    # Truncate extreme transit time values to the PLD limits
+    weighted_delay_min = min(weighted_delay_predicted)
+    weighted_delay_max = max(weighted_delay_predicted)
+    weighted_delay_observed[weighted_delay_observed < weighted_delay_min] = weighted_delay_min
+    weighted_delay_observed[weighted_delay_observed > weighted_delay_max] = weighted_delay_max
+
+    # Find the ATT for each voxel based on the predicted weighted delay value for each transit
+    # time and the actual weighted delay value.
+    interp_func = interp1d(weighted_delay_predicted, transit_times)
+    return interp_func(weighted_delay_observed)

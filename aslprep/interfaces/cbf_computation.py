@@ -21,10 +21,11 @@ from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
+from aslprep.niworkflows.utils.bids import BIDSError
 from aslprep.utils.misc import (
     _getcbfscore,
     _scrubcbf,
-    estimate_att,
+    estimate_att_dai,
     estimate_labeling_efficiency,
     pcasl_or_pasl,
 )
@@ -491,7 +492,7 @@ class ComputeCBF(SimpleInterface):
         PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
 
         if is_casl:
-            tau = metadata["LabelingDuration"]
+            tau = np.array(metadata["LabelingDuration"])
             denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
 
         elif not metadata["BolusCutOffFlag"]:
@@ -533,13 +534,28 @@ class ComputeCBF(SimpleInterface):
 
         if is_multi_pld:
             # Formula from Fan 2017 (equation 2)
-            unique_plds = np.unique(plds)
+            unique_plds, unique_pld_idx = np.unique(plds, return_index=True)
+            if tau.size > 1:
+                if tau.size != plds.size:
+                    raise BIDSError(
+                        f"Number of LabelingDuration values {tau.size} != number of "
+                        f"PostLabelingDelay values {plds.size}"
+                    )
+
+                tau = tau[unique_pld_idx]
+
             mean_deltam_by_pld = np.zeros((n_voxels, unique_plds.size))
             for i_pld, pld in enumerate(unique_plds):
                 pld_idx = plds == pld
                 mean_deltam_by_pld[:, i_pld] = np.mean(deltam_arr[:, pld_idx], axis=1)
 
-            att_arr = estimate_att(mean_deltam_by_pld, plds)
+            att_arr = estimate_att_dai(
+                deltam_arr=mean_deltam_by_pld,
+                plds=unique_plds,
+                lds=tau,
+                t1_blood=t1blood,
+                t1_tissue=1.5,  # TODO: Replace with Tesla-specific values.
+            )
             num_factor = (
                 UNIT_CONV * PARTITION_COEF * mean_deltam_by_pld * np.exp(att_arr / t1blood)
             )
@@ -561,7 +577,7 @@ class ComputeCBF(SimpleInterface):
             for i_voxel in range(n_voxels):
                 cbf_by_pld_voxel = cbf_by_pld[i_voxel, :]
                 arr_voxel = att_arr[i_voxel]
-                cbf[i_voxel] = np.mean(cbf_by_pld_voxel[(plds + tau) > arr_voxel])
+                cbf[i_voxel] = np.mean(cbf_by_pld_voxel[(unique_plds + tau) > arr_voxel])
 
         else:
             # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
