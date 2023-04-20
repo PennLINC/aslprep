@@ -178,7 +178,7 @@ def init_asl_t1_trans_wf(
 ):
     """Sample ASL into T1w space with a single-step resampling of the original ASL series.
 
-    TODO: Allow hmc_xforms and fieldwarp to be "identity".
+    XXX: It seems like this should be in resampling, not registration.
 
     The workflow uses :abbr:`BBR (boundary-based registration)`.
 
@@ -192,16 +192,30 @@ def init_asl_t1_trans_wf(
             wf = init_asl_t1_trans_wf(
                 mem_gb=3,
                 omp_nthreads=1,
+                scorescrub=True,
+                basil=True,
+                generate_reference=True,
+                output_t1space=True,
+                multiecho=False,
             )
 
     Parameters
     ----------
-    multiecho : :obj:`bool`
-        If multiecho data was supplied, HMC already performed
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
         Maximum number of threads an individual process may use
+    scorescrub : :obj:`bool`
+    basil : :obj:`bool`
+    generate_reference : :obj:`bool`
+        If True, init_asl_reference_wf will be used to generate a new reference volume in T1w
+        space.
+        If False, the reference volume will just be the first volume in teh T1w-warped ASL time
+        series.
+        True for non-GE data, False for GE data.
+    output_t1space : :obj:`bool`
+    multiecho : :obj:`bool`
+        If multiecho data was supplied, HMC already performed
     use_compression : :obj:`bool`
         Save registered ASL series as ``.nii.gz``
     name : :obj:`str`
@@ -228,24 +242,37 @@ def init_asl_t1_trans_wf(
         across volumes).
     hmc_xforms
         List of affine transforms aligning each volume to ``ref_image`` in ITK format
-    aslref_to_anat_xfm
-        Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
     fieldwarp
         a :abbr:`DFM (displacements field map)` in ITK format
+    aslref_to_anat_xfm
+        Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
+    cbf_ts
+    mean_cbf
+    cbf_ts_score
+    mean_cbf_score
+    mean_cbf_scrub
+    mean_cbf_basil
+    mean_cbf_gm_basil
+    mean_cbf_wm_basil
+    att
 
     Outputs
     -------
     asl_t1
-        Motion-corrected ASL series in T1 space
+        Motion-corrected ASL series in T1 space. Derived from asl_split.
     aslref_t1
         Reference, contrast-enhanced summary of the motion-corrected ASL series in T1w space
     asl_mask_t1
         ASL mask in T1 space
-
-    See also
-    --------
-      * :py:func:`~aslprep.workflows.asl.registration.init_fsl_bbr_wf`
-
+    cbf_ts_t1
+    mean_cbf_t1
+    cbf_ts_score_t1
+    mean_cbf_score_t1
+    mean_cbf_scrub_t1
+    mean_cbf_basil_t1
+    mean_cbf_gm_basil_t1
+    mean_cbf_wm_basil_t1
+    att_t1
     """
     workflow = Workflow(name=name)
 

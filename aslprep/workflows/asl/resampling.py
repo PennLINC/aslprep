@@ -31,6 +31,8 @@ from aslprep.utils.misc import (
 def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_wf"):
     """Sample functional images to FreeSurfer surfaces.
 
+    NOTE: This workflow is currently unused.
+
     For each vertex, the cortical ribbon is sampled at six points (spaced 20% of thickness apart)
     and averaged.
     Outputs are in GIFTI format.
@@ -240,32 +242,49 @@ def init_asl_std_trans_wf(
         A container for storing, organizing, and parsing spatial normalizations. Composed of
         :py:class:`~niworkflows.utils.spaces.Reference` objects representing spatial references.
         Each ``Reference`` contains a space, which is a string of either TemplateFlow template IDs.
-    name : :obj:`str`
-        Name of workflow (default: ``asl_std_trans_wf``)
+    scorescrub
+    basil
+    generate_reference : :obj:`bool`
+        If True, init_asl_reference_wf will be used to generate a new reference volume in T1w
+        space.
+        If False, the reference volume will just be the first volume in teh T1w-warped ASL time
+        series.
+        True for non-GE data, False for GE data.
     use_compression : :obj:`bool`
         Save registered ASL series as ``.nii.gz``
+    name : :obj:`str`
+        Name of workflow (default: ``asl_std_trans_wf``)
 
     Inputs
     ------
-    anat_to_template_xfm
-        List of anatomical-to-standard space transforms generated during
-        spatial normalization.
-    asl_mask
-        Skull-stripping mask of reference image
-    asl_split
-        Individual 3D volumes, not motion corrected
-    fieldwarp
-        a :abbr:`DFM (displacements field map)` in ITK format
-    hmc_xforms
-        List of affine transforms aligning each volume to ``ref_image`` in ITK format
-    aslref_to_anat_xfm
-        Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
     name_source
         ASL series NIfTI file
         Used to recover original information lost during processing
+    asl_split
+        Individual 3D volumes, not motion corrected
+    asl_mask
+        Skull-stripping mask of reference image
     templates
         List of templates that were applied as targets during
         spatial normalization.
+    hmc_xforms
+        List of affine transforms aligning each volume to ``ref_image`` in ITK format
+    fieldwarp
+        a :abbr:`DFM (displacements field map)` in ITK format
+    aslref_to_anat_xfm
+        Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
+    anat_to_template_xfm
+        List of anatomical-to-standard space transforms generated during
+        spatial normalization.
+    cbf_ts
+    mean_cbf
+    cbf_ts_score
+    mean_cbf_score
+    mean_cbf_scrub
+    mean_cbf_basil
+    mean_cbf_gm_basil
+    mean_cbf_wm_basil
+    att
 
     Outputs
     -------

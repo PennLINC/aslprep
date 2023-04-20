@@ -35,6 +35,28 @@ def init_asl_reference_ge_wf(
                 metadata={},
                 bids_dir=".",
             )
+
+    Parameters
+    ----------
+    metadata
+    aslcontext
+    smooth_kernel
+    name
+
+    Inputs
+    ------
+    asl_file
+    m0scan
+    m0scan_metadata
+
+    Outputs
+    -------
+    raw_ref_image
+    ref_image_brain
+    asl_mask
+    m0_file
+    m0tr
+    mask_report
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -141,6 +163,28 @@ def init_asl_reg_ge_wf(
                 asl2t1w_dof=9,
                 asl2t1w_init="register",
             )
+
+
+    Parameters
+    ----------
+    use_bbr
+    asl2t1w_dof
+    asl2t1w_init
+    sloppy
+    write_report
+    name
+
+    Inputs
+    ------
+    ref_asl_brain
+    t1w_brain
+    t1w_dseg
+
+    Outputs
+    -------
+    aslref_to_anat_xfm
+    anat_to_aslref_xfm
+    fallback
     """
     workflow = Workflow(name=name)
     inputnode = pe.Node(
