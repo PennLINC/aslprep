@@ -239,11 +239,6 @@ class ExtractCBF(SimpleInterface):
         if multi_pld:
             # Reduce the volume-wise PLDs to just include the selected volumes.
             pld = pld[metadata_idx]
-            if np.std(pld) > 0:
-                raise ValueError(
-                    f"{np.unique(pld).size} unique PostLabelingDelay values detected. "
-                    "ASLPrep cannot currently process multi-PLD data."
-                )
 
         if self.inputs.dummy_vols != 0:
             out_data = out_data[..., self.inputs.dummy_vols :]
