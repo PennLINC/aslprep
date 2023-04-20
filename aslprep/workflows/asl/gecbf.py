@@ -19,8 +19,7 @@ from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf, init_asl_re
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_gecbfplot_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
-from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
-from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
+from aslprep.workflows.asl.resampling import init_asl_std_trans_wf, init_asl_t1_trans_wf
 
 
 def init_asl_gepreproc_wf(asl_file):

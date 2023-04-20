@@ -23,10 +23,11 @@ from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_cbfplot_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
-from aslprep.workflows.asl.registration import init_asl_reg_wf, init_asl_t1_trans_wf
+from aslprep.workflows.asl.registration import init_asl_reg_wf
 from aslprep.workflows.asl.resampling import (
     init_asl_preproc_trans_wf,
     init_asl_std_trans_wf,
+    init_asl_t1_trans_wf,
 )
 from aslprep.workflows.asl.stc import init_asl_stc_wf
 

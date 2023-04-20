@@ -293,7 +293,6 @@ their manuscripts unchanged. It is released under the unchanged
 
     # Append the functional section to the existing anatomical excerpt
     # That way we do not need to stream down the number of asl datasets
-
     run_str = "runs" if len(subject_data["asl"]) > 1 else "run"
     anat_preproc_wf.__postdesc__ = (
         (anat_preproc_wf.__postdesc__ or "")
