@@ -24,8 +24,6 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
 
     This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
     The BolusCutOffTechnique is Q2TIPS.
-
-    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
     """
     TEST_NAME = "examples_pasl_multipld"
     PARTICIPANT_LABEL = "01"
@@ -49,7 +47,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
-    _run_and_fail(parameters)
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 @pytest.mark.examples_pcasl_multipld
@@ -57,8 +55,6 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_004 ASL-BIDS examples dataset.
 
     This dataset has 48 control-label pairs at 6 different PLDs, along with a separate M0 scan.
-
-    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
     """
     TEST_NAME = "examples_pcasl_multipld"
     PARTICIPANT_LABEL = "01"
@@ -82,7 +78,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
-    _run_and_fail(parameters)
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 @pytest.mark.examples_pcasl_singlepld_ge
