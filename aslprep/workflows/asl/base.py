@@ -203,11 +203,11 @@ def init_asl_preproc_wf(asl_file):
         fmaps = {"syn": False}
 
     n_vols = _get_series_len(ref_file)
-    MIN_VOLS_FOR_STC = 4
+    MIN_VOLS_FOR_STC = 5
     run_stc = (
         bool(metadata.get("SliceTiming"))
         and "slicetiming" not in config.workflow.ignore
-        and (n_vols > MIN_VOLS_FOR_STC)
+        and (n_vols >= MIN_VOLS_FOR_STC)
     )
 
     # Build workflow
@@ -259,7 +259,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     summary = pe.Node(
         FunctionalSummary(
-            slice_timing="TooShort" if n_vols <= MIN_VOLS_FOR_STC else run_stc,
+            slice_timing="TooShort" if n_vols < MIN_VOLS_FOR_STC else run_stc,
             registration=("FSL"),
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
