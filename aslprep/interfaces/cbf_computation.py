@@ -463,11 +463,6 @@ class ComputeCBF(SimpleInterface):
         # time series, with any M0 volumes having a value of 0.
         plds = np.array(metadata["PostLabelingDelay"])
         is_multi_pld = np.unique(plds).size > 1
-        if is_multi_pld:
-            raise ValueError(
-                f"{np.unique(plds).size} unique PostLabelingDelay values detected. "
-                "ASLPrep cannot currently process multi-PLD data."
-            )
 
         # 1.5T and 3T values come from Alsop 2015.
         # 7T comes from Zhang 2013.
