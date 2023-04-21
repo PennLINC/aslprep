@@ -805,9 +805,7 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     assert n_volumes == n_plds, f"{n_plds} != {n_volumes}"
 
     # Beginning of auxil_asl_gen_wsum
-    assert lds.size == plds.size
-
-    n_plds = plds.size
+    assert lds.size == n_plds, f"{lds.size} != {n_plds}"
 
     # Define the possible transit times to evaluate
     transit_times = np.arange(np.round(np.min(plds), 3), np.round(np.max(plds), 3) + 0.001, 0.001)
@@ -906,6 +904,7 @@ def estimate_cbf_pcasl_multipld(
         pld_idx = plds == pld
         mean_deltam_by_pld[:, i_pld] = np.mean(deltam_arr[:, pld_idx], axis=1)
 
+    # Estimate ATT for each voxel
     att_arr = estimate_att_pcasl(
         deltam_arr=mean_deltam_by_pld,
         plds=unique_plds,
@@ -914,7 +913,10 @@ def estimate_cbf_pcasl_multipld(
         t1tissue=t1tissue,
     )
     num_factor = (
-        unit_conversion * partition_coefficient * mean_deltam_by_pld * np.exp(att_arr / t1blood)
+        unit_conversion
+        * partition_coefficient
+        * mean_deltam_by_pld
+        * np.exp(att_arr[:, None] / t1blood)
     )
     denom_factor = (
         2

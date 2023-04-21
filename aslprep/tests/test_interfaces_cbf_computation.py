@@ -28,7 +28,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
 
     single_pld = 1.5
     plds = np.zeros(n_volumes)
-    temp_plds = np.linspace(0, 1, n_deltam)
+    temp_plds = np.linspace(0.5, 3.5, n_deltam)
     plds[aslcontext["volume_type"] == "m0scan"] = 0
     plds[aslcontext["volume_type"] == "label"] = temp_plds
     plds[aslcontext["volume_type"] == "control"] = temp_plds
@@ -171,7 +171,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
 
     single_pld = 1.5
     plds = np.zeros(n_volumes)
-    temp_plds = np.linspace(0, 1, n_deltam)
+    temp_plds = np.linspace(0.5, 3.5, n_deltam)
     plds[aslcontext["volume_type"] == "m0scan"] = 0
     plds[aslcontext["volume_type"] == "label"] = temp_plds
     plds[aslcontext["volume_type"] == "control"] = temp_plds
