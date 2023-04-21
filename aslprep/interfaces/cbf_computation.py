@@ -569,7 +569,9 @@ class ComputeCBF(SimpleInterface):
                 raise ValueError("Q2TIPS is not supported in ASLPrep.")
 
             else:
-                raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
+                raise ValueError(
+                    f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}"
+                )
 
             # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
             deltam_scaled = deltam_arr / scaled_m0data
