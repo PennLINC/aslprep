@@ -21,7 +21,6 @@ from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.niworkflows.utils.bids import BIDSError
 from aslprep.utils.misc import (
     _getcbfscore,
     _scrubcbf,
@@ -570,7 +569,7 @@ class ComputeCBF(SimpleInterface):
                 raise ValueError("Q2TIPS is not supported in ASLPrep.")
 
             else:
-                raise BIDSError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
+                raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
 
             # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
             deltam_scaled = deltam_arr / scaled_m0data

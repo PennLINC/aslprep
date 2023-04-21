@@ -11,8 +11,6 @@ import numpy as np
 from scipy.interpolate import interp1d
 from scipy.stats import median_abs_deviation
 
-from aslprep.niworkflows.utils.bids import BIDSError
-
 
 def check_deps(workflow):
     """Make sure dependencies are present in this system."""
@@ -885,7 +883,7 @@ def estimate_cbf_pcasl_multipld(
     """Estimate CBF and ATT for multi-PLD PCASL data."""
     n_voxels, n_volumes = deltam_arr.shape
     if plds.size != n_volumes:
-        raise BIDSError(
+        raise ValueError(
             f"Number of PostLabelingDelay values ({plds.size}) does not match number of delta-M "
             "volumes."
         )
@@ -894,7 +892,7 @@ def estimate_cbf_pcasl_multipld(
     unique_plds, unique_pld_idx = np.unique(plds, return_index=True)
     if tau.size > 1:
         if tau.size != plds.size:
-            raise BIDSError(
+            raise ValueError(
                 f"Number of LabelingDuration values {tau.size} != number of "
                 f"PostLabelingDelay values {plds.size}"
             )

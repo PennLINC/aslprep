@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 
 from aslprep.interfaces import cbf_computation
-from aslprep.niworkflows.utils.bids import BIDSError
 
 
 def test_computecbf_casl(datasets, tmp_path_factory):
@@ -76,7 +75,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    with pytest.raises(BIDSError, match="Number of PostLabelingDelay values"):
+    with pytest.raises(ValueError, match="Number of PostLabelingDelay values"):
         interface.run(cwd=tmpdir)
 
     # Scenario 3: PCASL with one PostLabelingDelay for each deltam volume (good)
