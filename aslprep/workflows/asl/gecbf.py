@@ -351,21 +351,27 @@ effects of other kernels [@lanczos].
         mem_gb=mem_gb["filesize"],
         name="compute_cbf_wf",
     )
-    CBF_DERIVS = [
-        "cbf_ts",
-        "mean_cbf",
-        "att",
-        "mean_cbf_basil",
-        "mean_cbf_gm_basil",
-        "mean_cbf_wm_basil",
-        "att_basil",
-    ]
-    # We don't want mean_cbf_wm_basil for this list and SCORE/SCRUB is blocked for GE data.
-    MEAN_CBF_DERIVS = [
-        "mean_cbf",
-        "mean_cbf_basil",
-        "mean_cbf_gm_basil",
-    ]
+    cbf_derivs = ["mean_cbf"]
+    mean_cbf_derivs = ["mean_cbf"]
+
+    if is_multi_pld:
+        cbf_derivs += ["att"]
+    else:
+        cbf_derivs += ["cbf_ts"]
+
+    # SCORE/SCRUB is blocked for GE data.
+    if basil:
+        cbf_derivs += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+            "mean_cbf_wm_basil",
+            "att_basil",
+        ]
+        # We don't want mean_cbf_wm_basil for this list.
+        mean_cbf_derivs += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+        ]
 
     # fmt:off
     workflow.connect([
@@ -424,7 +430,7 @@ effects of other kernels [@lanczos].
     ])
     # fmt:on
 
-    for cbf_deriv in CBF_DERIVS:
+    for cbf_deriv in cbf_derivs:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, asl_t1_trans_wf, [
@@ -475,7 +481,7 @@ effects of other kernels [@lanczos].
     ])
     # fmt:on
 
-    for cbf_deriv in MEAN_CBF_DERIVS:
+    for cbf_deriv in mean_cbf_derivs:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, compute_cbf_qc_wf, [
@@ -496,7 +502,7 @@ effects of other kernels [@lanczos].
         ])
         # fmt:on
 
-        for cbf_deriv in CBF_DERIVS:
+        for cbf_deriv in cbf_derivs:
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_derivatives_wf, [
@@ -565,7 +571,7 @@ effects of other kernels [@lanczos].
         # fmt:on
 
         # asl_derivatives_wf internally parametrizes over snapshotted spaces.
-        for cbf_deriv in CBF_DERIVS:
+        for cbf_deriv in cbf_derivs:
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_std_trans_wf, [
@@ -583,7 +589,7 @@ effects of other kernels [@lanczos].
         name="plot_cbf_wf",
     )
 
-    for cbf_deriv in MEAN_CBF_DERIVS:
+    for cbf_deriv in mean_cbf_derivs:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, plot_cbf_wf, [
@@ -635,7 +641,7 @@ effects of other kernels [@lanczos].
     ])
     # fmt:on
 
-    for cbf_deriv in MEAN_CBF_DERIVS:
+    for cbf_deriv in mean_cbf_derivs:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, parcellate_cbf_wf, [
