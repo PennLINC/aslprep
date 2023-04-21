@@ -1,10 +1,8 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for resampling data."""
-from nipype.interfaces import freesurfer as fs
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Split as FSLSplit
-from nipype.interfaces.io import FreeSurferSource
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
@@ -13,184 +11,16 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.func.util import init_asl_reference_wf
 from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
 from aslprep.niworkflows.interfaces.nilearn import Merge
-from aslprep.niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
 from aslprep.niworkflows.utils.spaces import format_reference
 from aslprep.utils.misc import (
     _aslist,
     _is_native,
-    _itk2lta,
     _select_first_in_list,
     _select_template,
     _split_spec,
-    select_target,
 )
-
-
-def init_asl_surf_wf(mem_gb, surface_spaces, medial_surface_nan, name="asl_surf_wf"):
-    """Sample functional images to FreeSurfer surfaces.
-
-    For each vertex, the cortical ribbon is sampled at six points (spaced 20% of thickness apart)
-    and averaged.
-    Outputs are in GIFTI format.
-
-    Workflow Graph
-        .. workflow::
-            :graph2use: colored
-            :simple_form: yes
-
-            from aslprep.workflows.asl.resampling import init_asl_surf_wf
-
-            wf = init_asl_surf_wf(
-                mem_gb=0.1,
-                surface_spaces=['fsnative', 'fsaverage5'],
-                medial_surface_nan=False,
-            )
-
-    Parameters
-    ----------
-    surface_spaces : :obj:`list`
-        List of FreeSurfer surface-spaces (either ``fsaverage{3,4,5,6,}`` or ``fsnative``)
-        the functional images are to be resampled to.
-        For ``fsnative``, images will be resampled to the individual subject's
-        native surface.
-    medial_surface_nan : :obj:`bool`
-        Replace medial wall values with NaNs on functional GIFTI files
-
-    Inputs
-    ------
-    source_file
-        Motion-corrected ASL series in T1 space
-    t1w_preproc
-        Bias-corrected structural template image
-    subjects_dir
-        FreeSurfer SUBJECTS_DIR
-    subject_id
-        FreeSurfer subject ID
-    t1w2fsnative_xfm
-        LTA-style affine matrix translating from T1w to FreeSurfer-conformed subject space
-
-    Outputs
-    -------
-    surfaces
-        ASL series, resampled to FreeSurfer surfaces
-
-    """
-    workflow = Workflow(name=name)
-    workflow.__desc__ = f"""\
-The ASL time-series were resampled onto the following surfaces
-(FreeSurfer reconstruction nomenclature):
-{', '.join([f'*{s}*' for s in surface_spaces])}.
-"""
-
-    inputnode = pe.Node(
-        niu.IdentityInterface(
-            fields=["source_file", "subject_id", "subjects_dir", "t1w2fsnative_xfm"]
-        ),
-        name="inputnode",
-    )
-    itersource = pe.Node(niu.IdentityInterface(fields=["target"]), name="itersource")
-    itersource.iterables = [("target", surface_spaces)]
-
-    get_fsnative = pe.Node(FreeSurferSource(), name="get_fsnative", run_without_submitting=True)
-
-    targets = pe.Node(
-        niu.Function(function=select_target),
-        name="targets",
-        run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
-    )
-
-    # Rename the source file to the output space to simplify naming later
-    rename_src = pe.Node(
-        niu.Rename(format_string="%(subject)s", keep_ext=True),
-        name="rename_src",
-        run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
-    )
-    itk2lta = pe.Node(niu.Function(function=_itk2lta), name="itk2lta", run_without_submitting=True)
-    sampler = pe.MapNode(
-        fs.SampleToSurface(
-            cortex_mask=True,
-            interp_method="trilinear",
-            out_type="gii",
-            override_reg_subj=True,
-            sampling_method="average",
-            sampling_range=(0, 1, 0.2),
-            sampling_units="frac",
-        ),
-        iterfield=["hemi"],
-        name="sampler",
-        mem_gb=mem_gb * 3,
-    )
-    sampler.inputs.hemi = ["lh", "rh"]
-    update_metadata = pe.MapNode(
-        GiftiSetAnatomicalStructure(),
-        iterfield=["in_file"],
-        name="update_metadata",
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
-    )
-
-    outputnode = pe.JoinNode(
-        niu.IdentityInterface(fields=["surfaces", "target"]),
-        joinsource="itersource",
-        name="outputnode",
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, get_fsnative, [
-            ("subject_id", "subject_id"),
-            ("subjects_dir", "subjects_dir"),
-        ]),
-        (inputnode, targets, [("subject_id", "subject_id")]),
-        (inputnode, rename_src, [("source_file", "in_file")]),
-        (inputnode, itk2lta, [
-            ("source_file", "src_file"),
-            ("t1w2fsnative_xfm", "in_file"),
-        ]),
-        (get_fsnative, itk2lta, [("T1", "dst_file")]),
-        (inputnode, sampler, [
-            ("subjects_dir", "subjects_dir"),
-            ("subject_id", "subject_id"),
-        ]),
-        (itersource, targets, [("target", "space")]),
-        (itersource, rename_src, [("target", "subject")]),
-        (itk2lta, sampler, [("out", "reg_file")]),
-        (targets, sampler, [("out", "target_subject")]),
-        (rename_src, sampler, [("out_file", "source_file")]),
-        (update_metadata, outputnode, [("out_file", "surfaces")]),
-        (itersource, outputnode, [("target", "target")]),
-    ])
-    # fmt:on
-
-    if not medial_surface_nan:
-        # fmt:off
-        workflow.connect(sampler, "out_file", update_metadata, "in_file")
-        # fmt:on
-
-        return workflow
-
-    from aslprep.niworkflows.interfaces.freesurfer import MedialNaNs
-
-    # Refine if medial vertices should be NaNs
-    medial_nans = pe.MapNode(
-        MedialNaNs(),
-        iterfield=["in_file"],
-        name="medial_nans",
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, medial_nans, [("subjects_dir", "subjects_dir")]),
-        (sampler, medial_nans, [("out_file", "in_file")]),
-        (medial_nans, update_metadata, [("out_file", "in_file")]),
-    ])
-    # fmt:on
-
-    return workflow
 
 
 def init_asl_std_trans_wf(
