@@ -445,13 +445,13 @@ class ComputeCBF(SimpleInterface):
             config.loggers.interface.debug(
                 "Precalculated CBF data detected. Skipping CBF estimation."
             )
-            self._results["cbf"] = fname_presuffix(
+            self._results["cbf_ts"] = fname_presuffix(
                 deltam_file,
                 suffix="_meancbf",
                 newpath=runtime.cwd,
             )
             cbf_img = nb.load(deltam_file)
-            cbf_img.to_filename(self._results["cbf"])
+            cbf_img.to_filename(self._results["cbf_ts"])
             self._results["mean_cbf"] = fname_presuffix(
                 deltam_file,
                 suffix="_meancbf",
@@ -526,11 +526,10 @@ class ComputeCBF(SimpleInterface):
                     "Multi-PLD data are not supported for PASL sequences at the moment."
                 )
 
-            # Multi-PLD data won't produce a CBF time series
-            cbf_img = None
             mean_cbf_img = masker.inverse_transform(mean_cbf)
             att_img = masker.inverse_transform(att)
 
+            # Multi-PLD data won't produce a CBF time series
             self._results["cbf_ts"] = None
             self._results["att"] = fname_presuffix(
                 self.inputs.deltam,
@@ -580,20 +579,18 @@ class ComputeCBF(SimpleInterface):
                 denom_factor * 2 * labeleff
             )
 
-            cbf = deltam_scaled * perfusion_factor
-            cbf = np.nan_to_num(cbf)
+            cbf_ts = deltam_scaled * perfusion_factor
+            cbf_ts = np.nan_to_num(cbf_ts)
 
-            cbf_img = masker.inverse_transform(cbf.T)
-            mean_cbf_img = image.mean_img(cbf_img)
-            # Single-PLD data won't produce an ATT image
-            att_img = None
-
+            cbf_ts_img = masker.inverse_transform(cbf_ts.T)
+            mean_cbf_img = image.mean_img(cbf_ts_img)
             self._results["cbf_ts"] = fname_presuffix(
                 self.inputs.deltam,
                 suffix="_cbf",
                 newpath=runtime.cwd,
             )
-            cbf_img.to_filename(self._results["cbf"])
+            cbf_ts_img.to_filename(self._results["cbf_ts"])
+            # Single-PLD data won't produce an ATT image
             self._results["att"] = None
 
         # Mean CBF is returned no matter what

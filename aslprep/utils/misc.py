@@ -883,7 +883,12 @@ def estimate_cbf_pcasl_multipld(
     partition_coefficient,
 ):
     """Estimate CBF and ATT for multi-PLD PCASL data."""
-    n_voxels = deltam_arr.shape[0]
+    n_voxels, n_volumes = deltam_arr.shape
+    if plds.size != n_volumes:
+        raise BIDSError(
+            f"Number of PostLabelingDelay values ({plds.size}) does not match number of delta-M "
+            "volumes."
+        )
 
     # Formula from Fan 2017 (equation 2)
     unique_plds, unique_pld_idx = np.unique(plds, return_index=True)
