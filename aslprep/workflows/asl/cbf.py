@@ -298,7 +298,7 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
         # fmt:off
         workflow.connect([
             (refine_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
-            (compute_cbf, score_and_scrub_cbf, [("cbf", "cbf_ts")]),
+            (compute_cbf, score_and_scrub_cbf, [("cbf_ts", "cbf_ts")]),
             (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
             (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
