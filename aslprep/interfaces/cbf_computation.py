@@ -206,8 +206,8 @@ class ExtractCBF(SimpleInterface):
             raise RuntimeError("no pathway to m0scan")
 
         pld = np.array(metadata["PostLabelingDelay"])
-        multi_pld = pld.size > 1
-        if multi_pld and pld.size != asl_data.shape[3]:
+        is_multi_pld = pld.size > 1
+        if is_multi_pld and pld.size != asl_data.shape[3]:
             raise ValueError(
                 "PostLabelingDelay is an array, but the number of values does not match the "
                 "number of volumes in the ASL data."
@@ -235,18 +235,17 @@ class ExtractCBF(SimpleInterface):
         else:
             raise RuntimeError("No valid ASL or CBF image.")
 
-        # Multi-PLD data will be supported in the future, but it is not for now.
-        if multi_pld:
+        if is_multi_pld:
             # Reduce the volume-wise PLDs to just include the selected volumes.
             pld = pld[metadata_idx]
 
         if self.inputs.dummy_vols != 0:
             out_data = out_data[..., self.inputs.dummy_vols :]
-            if multi_pld:
+            if is_multi_pld:
                 # Remove dummy volumes from the PLDs
                 pld = pld[self.inputs.dummy_vols :]
 
-        if multi_pld:
+        if is_multi_pld:
             metadata["PostLabelingDelay"] = pld.tolist()
 
         self._results["metadata"] = metadata
@@ -481,8 +480,8 @@ class ComputeCBF(SimpleInterface):
         UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
         PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
 
-        tau = np.array(metadata["LabelingDuration"])
         if is_casl:
+            tau = np.array(metadata["LabelingDuration"])
             denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
 
         elif not metadata["BolusCutOffFlag"]:
@@ -522,7 +521,11 @@ class ComputeCBF(SimpleInterface):
         m0data = masker.transform(m0_file).T
         scaled_m0data = m0scale * m0data
 
-        if is_multi_pld:
+        if is_multi_pld and not is_casl:
+            # I don't know if Dai's approach can be adapted to PASL data.
+            raise ValueError("Multi-PLD data are not supported for PASL sequences at the moment.")
+
+        elif is_multi_pld:
             # Formula from Fan 2017 (equation 2)
             unique_plds, unique_pld_idx = np.unique(plds, return_index=True)
             if tau.size > 1:
@@ -533,6 +536,8 @@ class ComputeCBF(SimpleInterface):
                     )
 
                 tau = tau[unique_pld_idx]
+            else:
+                tau = np.full(plds.size, tau[0])
 
             mean_deltam_by_pld = np.zeros((n_voxels, unique_plds.size))
             for i_pld, pld in enumerate(unique_plds):
