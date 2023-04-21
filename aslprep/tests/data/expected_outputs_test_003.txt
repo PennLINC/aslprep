@@ -74,10 +74,10 @@ aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_atlas-subcortical_des
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_atlas-subcortical_desc-basil_cbf.tsv
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_atlas-subcortical_desc-score_cbf.tsv
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_atlas-subcortical_desc-scrub_cbf.tsv
-aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_att.json
-aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_att.nii.gz
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_cbf.json
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_cbf.nii.gz
+aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-basil_att.json
+aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-basil_att.nii.gz
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-basil_cbf.json
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-basil_cbf.nii.gz
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-brain_mask.json

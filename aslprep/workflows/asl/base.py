@@ -185,6 +185,11 @@ def init_asl_preproc_wf(asl_file):
     metadata = run_data["asl_metadata"].copy()
 
     is_multi_pld = determine_multi_pld(metadata=metadata)
+    if scorescrub and is_multi_pld:
+        config.loggers.workflow.warning(
+            f"SCORE/SCRUB processing will be disabled for multi-PLD {asl_file}"
+        )
+        scorescrub = False
 
     # Find fieldmaps. Options: (phase1|phase2|phasediff|epi|fieldmap|syn)
     fmaps = None
