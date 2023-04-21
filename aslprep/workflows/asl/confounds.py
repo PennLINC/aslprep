@@ -56,7 +56,7 @@ def init_asl_confounds_wf(
     Inputs
     ------
     asl
-        asl image, after the prescribed corrections (STC, HMC and SDC)
+        asl image, after the prescribed corrections (HMC and SDC)
         when available.
     asl_mask
         asl series mask
@@ -194,7 +194,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
     Inputs
     ------
     asl
-        asl image, after the prescribed corrections (STC, HMC and SDC)
+        asl image, after the prescribed corrections (HMC and SDC)
         when available.
     asl_mask
         ASL series mask

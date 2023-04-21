@@ -114,7 +114,7 @@ def init_asl_preproc_wf(asl_file):
     2.  Generate initial ASL reference image.
         I think this is just the BOLD reference workflow from niworkflows,
         without any modifications for ASL data. I could be missing something.
-        -   Feeds into the aslbuffer_stc if STC isn't run.
+        -   Feeds into the aslbuffer_stc.
         -   Not in GE workflow.
         -   In the GE workflow, the reference image comes from the M0 scan.
     3.  Motion correction.
