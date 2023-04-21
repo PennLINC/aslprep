@@ -301,7 +301,7 @@ def init_asl_t1_trans_wf(
                 "mean_cbf_basil_t1",
                 "mean_cbf_gm_basil_t1",
                 "mean_cbf_wm_basil_t1",
-                "att_t1",
+                "att_basil_t1",
             ]
         ),
         name="outputnode",
