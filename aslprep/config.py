@@ -433,7 +433,7 @@ class workflow(_Config):
     """Whether to use standard coregistration ('register') or to initialize coregistration from the
     ASL image-header ('header')."""
     m0_scale = float(1)
-    """relative scale between asl and M0."""
+    """Relative scale between ASL (delta-M) and M0."""
     fmap_bspline = None
     """Regularize fieldmaps with a field of B-Spline basis."""
     fmap_demean = None
@@ -441,11 +441,11 @@ class workflow(_Config):
     force_syn = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation."""
     hires = None
-    """Run with the ``-hires`` flag."""
+    """Run with the ``--hires`` flag."""
     ignore = None
-    """Ignore particular steps for *aslprep*."""
+    """Ignore particular steps for *aslprep*, such as sbref and fieldmap."""
     longitudinal = False
-    """Run  with the ``-logitudinal`` flag."""
+    """Run with the ``--longitudinal`` flag."""
     random_seed = None
     """Master random seed to initialize the Pseudorandom Number Generator (PRNG)"""
     skull_strip_fixed_seed = False
@@ -463,15 +463,15 @@ class workflow(_Config):
     use_syn_sdc = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation
     in the absence of any alternatives."""
-    dummy_vols = int(0)
-    """ pair for label-control volume to be deleted before cbf computation."""
-    smooth_kernel = float(5)
-    """ kernel size for smoothing M0."""
+    dummy_vols = 0
+    """Number of label-control volume pairs to delete before CBF computation."""
+    smooth_kernel = 5.0
+    """Kernel size for smoothing M0."""
     scorescrub = False
-    """ run scorescrub, Sudipto's alogrothims for denoisng CBF """
+    """Run SCORE/SCRUB, Sudipto's algorithms for denoising CBF."""
     basil = False
-    """ run BASIL, FSL utils to compute CBF with spatial regularilization and
-       partial volume correction """
+    """Run BASIL, FSL utils to compute CBF with spatial regularization and
+       partial volume correction."""
 
 
 class loggers:
