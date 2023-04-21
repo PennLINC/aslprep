@@ -43,9 +43,8 @@ that do not generate *standardized* coordinate spaces:
     reference (e.g., the T1w image).
 
   * ``func``, ``run``, ``asl`` or ``sbref`` can be used to
-    generate ASL/CBF data in their original grid, after slice-timing,
-    head-motion, and susceptibility-distortion corrections as well as CBF
-    computation.
+    generate ASL/CBF data in their original grid, after head-motion
+    and susceptibility-distortion corrections as well as CBF computation.
     These keywords are experimental.
 
 Modifiers are not allowed when providing nonstandard spaces.

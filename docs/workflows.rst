@@ -125,7 +125,7 @@ split into multiple sub-workflows described below.
     volume (optionally along with an M0 volume).
 
     For these short sequences, ASLPrep performs many of the same steps as for a longer sequence,
-    but certain steps are dropped, including motion correction and slice timing correction.
+    but certain steps are dropped, including motion correction.
     Additionally, SCORE/SCRUB cannot be used with these short sequences,
     as the denoising method requires a long time series from which to identify outliers.
 
@@ -244,9 +244,7 @@ Preprocessed ASL in native space
 
 
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
-from either the slice-timing corrected data or the original data
-(if :abbr:`STC (slice-timing correction)` was not applied)
-in the original space.
+from the original data in the original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
 resampled in their native space by concatenating the mappings found in previous correction workflows
 (:abbr:`HMC (head-motion correction)` and :abbr:`SDC (susceptibility-derived distortion correction)`, if executed)

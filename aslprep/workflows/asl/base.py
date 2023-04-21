@@ -246,7 +246,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     summary = pe.Node(
         FunctionalSummary(
-            slice_timing=False,
             registration=("FSL"),
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
@@ -287,6 +286,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # aslbuffer_stc: an identity used as a pointer to either the original ASL file
     # (if not multi-echo) or the an iterable list of the original ASL files
+    # XXX: I don't know if I can remove this or not.
     aslbuffer_stc = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer_stc")
 
     workflow.connect([(aslbuffer_stc, asl_split, [("asl_file", "in_file")])])
