@@ -309,8 +309,7 @@ tasks and sessions), the following preprocessing was performed.
     for asl_file in subject_data["asl"]:
         config.loggers.workflow.log(25, f"Processing {asl_file}")
 
-        # If number of volume of ASL is less than 5, motion correction,
-        # slice-timing correction, etc. will be skipped.
+        # If number of volume of ASL is less than 5, motion correction, etc. will be skipped.
         metadata = layout.get_metadata(asl_file)
         n_vols = get_n_volumes(asl_file)
         use_ge = False

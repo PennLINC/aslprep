@@ -38,7 +38,6 @@ Internal configuration system
    aslprep.workflows.asl.qc
    aslprep.workflows.asl.registration
    aslprep.workflows.asl.resampling
-   aslprep.workflows.asl.stc
    aslprep.workflows.asl.t2s
 
 
