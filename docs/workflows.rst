@@ -190,33 +190,6 @@ three translations) per time-step is written and fed to the
 for a more accurate estimation of head-motion.
 
 
-Slice time correction
-=====================
-
-:py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
-
-.. workflow::
-    :graph2use: orig
-    :simple_form: yes
-
-    from aslprep.workflows.asl.stc import init_asl_stc_wf
-
-    wf = init_asl_stc_wf(
-        metadata={
-            "RepetitionTime": 2.0,
-            "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-        },
-    )
-
-
-If the ``SliceTiming`` field is available within the input dataset metadata,
-this workflow performs slice time correction prior to other signal resampling processes.
-Slice time correction is performed using AFNI ``3dTShift``.
-All slices are realigned in time to the middle of each TR.
-
-Slice time correction can be disabled with the ``--ignore slicetiming`` command line argument.
-
-
 .. _asl_confounds:
 
 Confounds estimation

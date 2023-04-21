@@ -16,7 +16,7 @@ from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.meepi import combine_meepi_source
-from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
+from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
@@ -28,7 +28,6 @@ from aslprep.workflows.asl.resampling import (
     init_asl_preproc_trans_wf,
     init_asl_std_trans_wf,
 )
-from aslprep.workflows.asl.stc import init_asl_stc_wf
 
 
 def init_asl_preproc_wf(asl_file):
@@ -118,35 +117,32 @@ def init_asl_preproc_wf(asl_file):
         -   Feeds into the aslbuffer_stc if STC isn't run.
         -   Not in GE workflow.
         -   In the GE workflow, the reference image comes from the M0 scan.
-    3.  Slice-timing correction (can be skipped).
-        -   Feeds into the aslbuffer_stc if STC is run.
-        -   Not in GE workflow.
-    4.  Motion correction.
+    3.  Motion correction.
         -   Outputs the HMC transform and the motion parameters.
         -   Not in GE workflow.
-    5.  Susceptibility distortion correction.
+    4.  Susceptibility distortion correction.
         -   Outputs the SDC transform.
         -   Not in GE workflow.
-    6.  If data are multi-echo (which they can't be), skullstrip the ASL data and perform optimal
+    5.  If data are multi-echo (which they can't be), skullstrip the ASL data and perform optimal
         combination.
         -   Not in GE workflow.
-    7.  Register ASL to T1w.
-    8.  Apply the ASL-to-T1w transforms to get T1w-space outputs
+    6.  Register ASL to T1w.
+    7.  Apply the ASL-to-T1w transforms to get T1w-space outputs
         (passed along to derivatives workflow).
-    9.  Apply the ASL-to-ASLref transforms to get native-space outputs.
+    8.  Apply the ASL-to-ASLref transforms to get native-space outputs.
         -   Not in GE workflow.
-    10. Calculate confounds.
+    9.  Calculate confounds.
         -   Not in GE workflow.
-    11. Calculate CBF.
-    12. Refine the brain mask.
-    13. Generate distortion correction report.
+    10. Calculate CBF.
+    11. Refine the brain mask.
+    12. Generate distortion correction report.
         -   Not in GE workflow.
-    14. Apply ASL-to-template transforms to get template-space outputs.
-    15. CBF QC workflow.
-    16. CBF plotting workflow.
-    17. Generate carpet plots.
+    13. Apply ASL-to-template transforms to get template-space outputs.
+    14. CBF QC workflow.
+    15. CBF plotting workflow.
+    16. Generate carpet plots.
         -   Not in GE workflow.
-    18. Parcellate CBF results.
+    17. Parcellate CBF results.
     """
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
@@ -201,14 +197,6 @@ def init_asl_preproc_wf(asl_file):
         # If fieldmaps are not enabled, activate SyN-SDC in unforced (False) mode
         fmaps = {"syn": False}
 
-    n_vols = _get_series_len(ref_file)
-    MIN_VOLS_FOR_STC = 4
-    run_stc = (
-        bool(metadata.get("SliceTiming"))
-        and "slicetiming" not in config.workflow.ignore
-        and (n_vols > MIN_VOLS_FOR_STC)
-    )
-
     # Build workflow
     workflow = Workflow(name=wf_name)
     workflow.__postdesc__ = """\
@@ -258,7 +246,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     summary = pe.Node(
         FunctionalSummary(
-            slice_timing="TooShort" if n_vols <= MIN_VOLS_FOR_STC else run_stc,
+            slice_timing=False,
             registration=("FSL"),
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
@@ -298,36 +286,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
 
     # aslbuffer_stc: an identity used as a pointer to either the original ASL file
-    # (if STD is disabled) or the STC'ed ASL file for further use.
+    # (if not multi-echo) or the an iterable list of the original ASL files
     aslbuffer_stc = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer_stc")
 
     workflow.connect([(aslbuffer_stc, asl_split, [("asl_file", "in_file")])])
 
-    # Slice timing correction
-    if run_stc:
-        asl_stc_wf = init_asl_stc_wf(name="asl_stc_wf", metadata=metadata)
-
-        # fmt:off
-        workflow.connect([
-            (asl_reference_wf, asl_stc_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
-            (asl_stc_wf, aslbuffer_stc, [("outputnode.stc_file", "asl_file")]),
-        ])
-        # fmt:on
-
-        if not multiecho:
-            # fmt:off
-            workflow.connect([
-                (asl_reference_wf, asl_stc_wf, [("outputnode.asl_file", "inputnode.asl_file")]),
-            ])
-            # fmt:on
-
-        else:  # for meepi, iterate through stc_wf for all workflows
-            meepi_echos = aslbuffer_stc.clone(name="meepi_echos")
-            meepi_echos.iterables = ("asl_file", asl_file)
-            workflow.connect([(meepi_echos, asl_stc_wf, [("asl_file", "inputnode.asl_file")])])
-
-    elif not multiecho:  # STC is too short or False
-        # bypass STC from original asl to the splitter through aslbuffer_stc
+    if not multiecho:
         # fmt:off
         workflow.connect([
             (asl_reference_wf, aslbuffer_stc, [("outputnode.asl_file", "asl_file")]),
@@ -437,7 +401,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         join_echos = pe.JoinNode(
             niu.IdentityInterface(fields=["asl_files"]),
-            joinsource=("meepi_echos" if run_stc is True else "aslbuffer_stc"),
+            joinsource="aslbuffer_stc",
             joinfield=["asl_files"],
             name="join_echos",
         )
