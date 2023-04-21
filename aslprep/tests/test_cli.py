@@ -24,6 +24,8 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
 
     This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
     The BolusCutOffTechnique is Q2TIPS.
+
+    PASL multi-PLD data is not yet supported.
     """
     TEST_NAME = "examples_pasl_multipld"
     PARTICIPANT_LABEL = "01"
@@ -47,7 +49,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
-    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+    _run_and_fail(parameters)
 
 
 @pytest.mark.examples_pcasl_multipld
