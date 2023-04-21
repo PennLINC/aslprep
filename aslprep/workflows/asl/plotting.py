@@ -14,6 +14,7 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 def init_cbfplot_wf(
     metadata,
+    is_multi_pld=False,
     scorescrub=False,
     basil=False,
     name="cbf_plot",
@@ -42,8 +43,11 @@ def init_cbfplot_wf(
                 "template_to_anat_xfm",
                 "confounds_file",
                 # CBF outputs
-                "cbf_ts",
                 "mean_cbf",
+                # Single-PLD outputs
+                "cbf_ts",
+                # Multi-PLD outputs
+                "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
@@ -73,18 +77,7 @@ def init_cbfplot_wf(
         name="resample_parc",
     )
 
-    cbftssummary = pe.Node(
-        CBFtsSummary(tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"])),
-        name="cbf_ts_summary",
-        mem_gb=2,
-    )
     cbfsummary = pe.Node(CBFSummary(label="cbf", vmax=90), name="cbf_summary", mem_gb=1)
-    ds_report_cbftsplot = pe.Node(
-        DerivativesDataSink(desc="cbftsplot", datatype="figures", keep_dtype=True),
-        name="ds_report_cbftsplot",
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
     ds_report_cbfplot = pe.Node(
         DerivativesDataSink(desc="cbfplot", datatype="figures", keep_dtype=True),
         name="ds_report_cbfplot",
@@ -99,13 +92,6 @@ def init_cbfplot_wf(
         ]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
-        (resample_parc, cbftssummary, [("output_image", "seg_file")]),
-        (inputnode, cbftssummary, [
-            ("cbf_ts", "cbf_ts"),
-            ("confounds_file", "confounds_file"),
-            ("score_outlier_index", "score_outlier_index"),
-        ]),
-        (cbftssummary, ds_report_cbftsplot, [("out_file", "in_file")]),
         (inputnode, cbfsummary, [
             ("mean_cbf", "cbf"),
             ("aslref", "ref_vol"),
@@ -113,6 +99,32 @@ def init_cbfplot_wf(
         (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
     ])
     # fmt:on
+
+    if not is_multi_pld:
+        cbftssummary = pe.Node(
+            CBFtsSummary(tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"])),
+            name="cbf_ts_summary",
+            mem_gb=2,
+        )
+
+        ds_report_cbftsplot = pe.Node(
+            DerivativesDataSink(desc="cbftsplot", datatype="figures", keep_dtype=True),
+            name="ds_report_cbftsplot",
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+
+        # fmt:off
+        workflow.connect([
+            (inputnode, cbftssummary, [
+                ("cbf_ts", "cbf_ts"),
+                ("confounds_file", "confounds_file"),
+                ("score_outlier_index", "score_outlier_index"),
+            ]),
+            (resample_parc, cbftssummary, [("output_image", "seg_file")]),
+            (cbftssummary, ds_report_cbftsplot, [("out_file", "in_file")]),
+        ])
+        # fmt:on
 
     if scorescrub:
         scoresummary = pe.Node(CBFSummary(label="score", vmax=90), name="score_summary", mem_gb=1)

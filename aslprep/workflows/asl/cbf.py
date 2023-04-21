@@ -216,7 +216,6 @@ model [@buxton1998general].
     ])
     # fmt:on
 
-    tiscbf = get_tis(metadata)
     is_casl = pcasl_or_pasl(metadata=metadata)
 
     aslcontext_df = pd.read_table(aslcontext)
@@ -334,7 +333,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 bolus=bolus,
                 alpha=estimate_labeling_efficiency(metadata),
                 pvc=True,
-                tis=tiscbf,
+                tis=get_tis(metadata),
                 pcasl=is_casl,
             ),
             name="basilcbf",
@@ -511,8 +510,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
     control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
 
-    tiscbf = get_tis(metadata)
-
     refine_mask = pe.Node(RefineMask(), mem_gb=1, run_without_submitting=True, name="refine_mask")
 
     # fmt:off
@@ -670,7 +667,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 bolus=bolus,
                 alpha=estimate_labeling_efficiency(metadata),
                 pvc=True,
-                tis=tiscbf,
+                tis=get_tis(metadata),
                 pcasl=is_casl,
             ),
             name="basilcbf",

@@ -168,6 +168,7 @@ def init_asl_reg_wf(
 def init_asl_t1_trans_wf(
     mem_gb,
     omp_nthreads,
+    is_multi_pld=False,
     scorescrub=False,
     basil=False,
     generate_reference=True,
@@ -263,8 +264,11 @@ def init_asl_t1_trans_wf(
                 "fieldwarp",
                 "aslref_to_anat_xfm",
                 # CBF outputs
-                "cbf_ts",
                 "mean_cbf",
+                # Single-PLD outputs
+                "cbf_ts",
+                # Multi-PLD outputs
+                "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
@@ -288,6 +292,7 @@ def init_asl_t1_trans_wf(
                 # CBF outputs
                 "cbf_ts_t1",
                 "mean_cbf_t1",
+                "att_t1",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score_t1",
                 "mean_cbf_score_t1",
@@ -430,7 +435,12 @@ def init_asl_t1_trans_wf(
     # Transform CBF derivatives to T1 space.
     # These derivatives have already undergone HMC+SDC,
     # so we only need to apply the ASLRef-to-T1w transform.
-    input_names = ["cbf_ts", "mean_cbf"]
+    input_names = ["mean_cbf"]
+    if is_multi_pld:
+        input_names += ["att"]
+    else:
+        input_names += ["cbf_ts"]
+
     if scorescrub:
         input_names += ["cbf_ts_score", "mean_cbf_score", "mean_cbf_scrub"]
 

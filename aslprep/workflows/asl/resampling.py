@@ -197,6 +197,7 @@ def init_asl_std_trans_wf(
     mem_gb,
     omp_nthreads,
     spaces,
+    is_multi_pld=False,
     scorescrub=False,
     basil=False,
     generate_reference=True,
@@ -299,8 +300,11 @@ def init_asl_std_trans_wf(
                 "aslref_to_anat_xfm",
                 "anat_to_template_xfm",
                 # CBF outputs
-                "cbf_ts",
                 "mean_cbf",
+                # Single-PLD outputs
+                "cbf_ts",
+                # Multi-PLD outputs
+                "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
@@ -475,10 +479,12 @@ def init_asl_std_trans_wf(
         ])
         # fmt:on
 
-    inputs_to_warp = [
-        "cbf_ts",
-        "mean_cbf",
-    ]
+    inputs_to_warp = ["mean_cbf"]
+
+    if is_multi_pld:
+        inputs_to_warp += ["att"]
+    else:
+        inputs_to_warp += ["cbf_ts"]
 
     if scorescrub:
         inputs_to_warp += [

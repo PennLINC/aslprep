@@ -530,6 +530,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_t1_trans_wf = init_asl_t1_trans_wf(
         multiecho=multiecho,
         output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
+        is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
         generate_reference=True,
@@ -760,6 +761,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             mem_gb=mem_gb["resampled"],
             omp_nthreads=omp_nthreads,
             spaces=spaces,
+            is_multi_pld=is_multi_pld,
             scorescrub=scorescrub,
             basil=basil,
             generate_reference=True,
@@ -834,6 +836,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Plot CBF outputs.
     plot_cbf_wf = init_cbfplot_wf(
         metadata=metadata,
+        is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
         name="plot_cbf_wf",
