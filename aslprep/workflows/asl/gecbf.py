@@ -13,7 +13,7 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.utils.bids import collect_run_data
-from aslprep.utils.misc import _create_mem_gb, _get_wf_name
+from aslprep.utils.misc import _create_mem_gb, _get_wf_name, determine_multi_pld
 from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf, init_asl_reg_ge_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
@@ -222,6 +222,8 @@ effects of other kernels [@lanczos].
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
+    is_multi_pld = determine_multi_pld(metadata)
+
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name="t1w_brain")
 
@@ -247,15 +249,15 @@ effects of other kernels [@lanczos].
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True,
     )
-    # summary.inputs.dummy_scans = 0
 
     asl_derivatives_wf = init_asl_derivatives_wf(
         bids_root=layout.root,
         metadata=metadata,
         output_dir=output_dir,
+        spaces=spaces,
+        is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
-        spaces=spaces,
         output_confounds=False,  # GE workflow doesn't generate volume-wise confounds
     )
 
@@ -354,10 +356,11 @@ effects of other kernels [@lanczos].
     CBF_DERIVS = [
         "cbf_ts",
         "mean_cbf",
+        "att",
         "mean_cbf_basil",
         "mean_cbf_gm_basil",
         "mean_cbf_wm_basil",
-        "att",
+        "att_basil",
     ]
     # We don't want mean_cbf_wm_basil for this list and SCORE/SCRUB is blocked for GE data.
     MEAN_CBF_DERIVS = [

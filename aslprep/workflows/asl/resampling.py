@@ -309,7 +309,7 @@ def init_asl_std_trans_wf(
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
-                "att",
+                "att_basil",
             ],
         ),
         name="inputnode",
@@ -492,7 +492,7 @@ def init_asl_std_trans_wf(
             "mean_cbf_basil",
             "mean_cbf_gm_basil",
             "mean_cbf_wm_basil",
-            "att",
+            "att_basil",
         ]
 
     output_names = [f"{input_}_std" for input_ in inputs_to_warp]

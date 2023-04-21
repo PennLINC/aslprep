@@ -53,7 +53,7 @@ def init_cbfplot_wf(
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",  # unused
-                "att",  # unused
+                "att_basil",  # unused
             ]
         ),
         name="inputnode",

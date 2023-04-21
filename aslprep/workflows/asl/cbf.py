@@ -118,8 +118,9 @@ model [@buxton1998general].
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "cbf_ts",
                 "mean_cbf",
+                "cbf_ts",  # Only calculated for single-PLD data
+                "att",  # Only calculated for multi-PLD data
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
@@ -129,7 +130,7 @@ model [@buxton1998general].
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
-                "att",
+                "att_basil",
             ]
         ),
         name="outputnode",
@@ -272,8 +273,9 @@ model [@buxton1998general].
             ("metadata", "metadata"),
         ]),
         (compute_cbf, outputnode, [
-            ("cbf", "cbf_ts"),
+            ("cbf_ts", "cbf_ts"),
             ("mean_cbf", "mean_cbf"),
+            ("att", "att"),
         ]),
     ])
     # fmt:on
@@ -355,7 +357,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 ("mean_cbf_basil", "mean_cbf_basil"),
                 ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
                 ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
-                ("att", "att"),
+                ("att_basil", "att_basil"),
             ]),
         ])
         # fmt:on
@@ -413,6 +415,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             fields=[
                 "cbf_ts",
                 "mean_cbf",
+                "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
@@ -422,7 +425,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
-                "att",
+                "att_basil",
             ]
         ),
         name="outputnode",
@@ -567,10 +570,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             (extract_deltam, compute_cbf, [("out_file", "deltam")]),
             (extract_deltam, collect_cbf, [("out_file", "deltam")]),
             (refine_mask, compute_cbf, [("out_mask", "mask")]),
-            (compute_cbf, collect_cbf, [("cbf", "cbf")]),
+            (compute_cbf, collect_cbf, [("cbf_ts", "cbf")]),
             (compute_cbf, outputnode, [
-                ("cbf", "cbf_ts"),
+                ("cbf_ts", "cbf_ts"),
                 ("mean_cbf", "mean_cbf"),
+                ("att", "att"),
             ]),
         ])
         # fmt:on
@@ -689,7 +693,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 ("mean_cbf_basil", "mean_cbf_basil"),
                 ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
                 ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
-                ("att", "att"),
+                ("att_basil", "att_basil"),
             ]),
         ])
         # fmt:on

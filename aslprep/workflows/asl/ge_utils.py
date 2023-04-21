@@ -250,7 +250,7 @@ def init_asl_t1_trans_ge_wf(
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
-                "att",
+                "att_basil",
             ],
         ),
         name="inputnode",
@@ -326,7 +326,7 @@ def init_asl_t1_trans_ge_wf(
         input_names += ["cbf_ts_score", "mean_cbf_score", "mean_cbf_scrub"]
 
     if basil:
-        input_names += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att"]
+        input_names += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att_basil"]
 
     for input_name in input_names:
         kwargs = {}
@@ -446,7 +446,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
-                "att",
+                "att_basil",
             ]
         ),
         name="inputnode",
@@ -685,7 +685,7 @@ preprocessed ASL runs*: {', '.join(output_references)}.
             (pvwm_to_std_transform, poutputnode, [("output_image", "mean_cbf_wm_basil_std")]),
             (mask_merge_tfms, att_to_std_transform, [("out", "transforms")]),
             (gen_ref, att_to_std_transform, [("out_file", "reference_image")]),
-            (inputnode, att_to_std_transform, [("att", "input_image")]),
+            (inputnode, att_to_std_transform, [("att_basil", "input_image")]),
             (att_to_std_transform, poutputnode, [("output_image", "att_std")]),
         ])
         # fmt:on

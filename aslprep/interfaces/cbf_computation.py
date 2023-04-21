@@ -25,7 +25,8 @@ from aslprep.niworkflows.utils.bids import BIDSError
 from aslprep.utils.misc import (
     _getcbfscore,
     _scrubcbf,
-    estimate_att_dai,
+    determine_multi_pld,
+    estimate_cbf_pcasl_multipld,
     estimate_labeling_efficiency,
     pcasl_or_pasl,
 )
@@ -386,8 +387,17 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
-    cbf = File(exists=True, desc="Quantitative CBF data, in mL/100g/min.")
+    cbf_ts = traits.Either(
+        File(exists=True),
+        None,
+        desc="Quantitative CBF time series, in mL/100g/min. Only generated for single-PLD data.",
+    )
     mean_cbf = File(exists=True, desc="Quantified CBF, averaged over time.")
+    att = traits.Either(
+        File(exists=True),
+        None,
+        desc="Arterial transit time map, in seconds. Only generated for multi-PLD data.",
+    )
 
 
 class ComputeCBF(SimpleInterface):
@@ -414,7 +424,7 @@ class ComputeCBF(SimpleInterface):
     Multi-PLD CBF is calculated according to :footcite:t:`fan2017long`,
     although CBF is averaged across PLDs according to the method in
     :footcite:t:`juttukonda2021characterizing`.
-    Arterial transit time is estimated according to :footcite:t:`juttukonda2021characterizing`.
+    Arterial transit time is estimated according to :footcite:t:`dai2012reduced`.
 
     References
     ----------
@@ -449,24 +459,29 @@ class ComputeCBF(SimpleInterface):
             )
             mean_cbf_img = image.mean_img(cbf_img)
             mean_cbf_img.to_filename(self._results["mean_cbf"])
+
+            # No ATT available for pre-calculated CBF
+            self._results["att"] = None
+
             return runtime
 
         is_casl = pcasl_or_pasl(metadata=metadata)
+        is_multi_pld = determine_multi_pld(metadata=metadata)
+
         # PostLabelingDelay is either a single number or an array of numbers.
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
         plds = np.array(metadata["PostLabelingDelay"])
-        is_multi_pld = np.unique(plds).size > 1
 
         # 1.5T and 3T values come from Alsop 2015.
         # 7T comes from Zhang 2013.
         # For other field strengths, the formula from Zhang 2013 will be used.
-        t1blood_dict = {
+        T1BLOOD_DICT = {
             1.5: 1.35,
             3: 1.65,
             7: 2.087,
         }
-        t1blood = t1blood_dict.get(metadata["MagneticFieldStrength"])
+        t1blood = T1BLOOD_DICT.get(metadata["MagneticFieldStrength"])
         if not t1blood:
             config.loggers.interface.warning(
                 f"T1blood cannot be inferred for {metadata['MagneticFieldStrength']}T data. "
@@ -480,101 +495,84 @@ class ComputeCBF(SimpleInterface):
         UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
         PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
 
-        if is_casl:
-            tau = np.array(metadata["LabelingDuration"])
-            denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
-
-        elif not metadata["BolusCutOffFlag"]:
-            raise ValueError("PASL without a bolus cut-off technique is not supported in ASLPrep.")
-
-        elif metadata["BolusCutOffTechnique"] == "QUIPSS":
-            # PASL + QUIPSS
-            # Only one BolusCutOffDelayTime allowed.
-            assert isinstance(metadata["BolusCutOffDelayTime"], Number)
-            denom_factor = plds - metadata["BolusCutOffDelayTime"]  # delta_TI, per Wong 1998
-
-        elif metadata["BolusCutOffTechnique"] == "QUIPSSII":
-            # PASL + QUIPSSII
-            # Per SD, use PLD as TI for PASL, so we will just use 'plds' in the numerator when
-            # calculating the perfusion factor.
-            # Only one BolusCutOffDelayTime allowed.
-            assert isinstance(metadata["BolusCutOffDelayTime"], Number)
-            denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
-
-        elif metadata["BolusCutOffTechnique"] == "Q2TIPS":
-            # PASL + Q2TIPS
-            # Q2TIPS should have two BolusCutOffDelayTimes.
-            assert len(metadata["BolusCutOffDelayTime"]) == 2
-            # XXX: This may be wrong.
-            denom_factor = metadata["BolusCutOffDelayTime"][0]
-            raise ValueError("Q2TIPS is not supported in ASLPrep.")
-
-        else:
-            raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
-
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask_file)
         deltam_arr = masker.fit_transform(deltam_file).T  # Transpose to SxT
         assert deltam_arr.ndim == 2, f"deltam is {deltam_arr.ndim}"
-        n_voxels, _ = deltam_arr.shape
         m0data = masker.transform(m0_file).T
         scaled_m0data = m0scale * m0data
 
-        if is_multi_pld and not is_casl:
-            # I don't know if Dai's approach can be adapted to PASL data.
-            raise ValueError("Multi-PLD data are not supported for PASL sequences at the moment.")
+        if is_casl:
+            tau = np.array(metadata["LabelingDuration"])
 
-        elif is_multi_pld:
-            # Formula from Fan 2017 (equation 2)
-            unique_plds, unique_pld_idx = np.unique(plds, return_index=True)
-            if tau.size > 1:
-                if tau.size != plds.size:
-                    raise BIDSError(
-                        f"Number of LabelingDuration values {tau.size} != number of "
-                        f"PostLabelingDelay values {plds.size}"
-                    )
-
-                tau = tau[unique_pld_idx]
-            else:
-                tau = np.full(plds.size, tau[0])
-
-            mean_deltam_by_pld = np.zeros((n_voxels, unique_plds.size))
-            for i_pld, pld in enumerate(unique_plds):
-                pld_idx = plds == pld
-                mean_deltam_by_pld[:, i_pld] = np.mean(deltam_arr[:, pld_idx], axis=1)
-
-            att_arr = estimate_att_dai(
-                deltam_arr=mean_deltam_by_pld,
-                plds=unique_plds,
-                lds=tau,
-                t1_blood=t1blood,
-                t1_tissue=1.5,  # TODO: Replace with Tesla-specific values.
-            )
-            num_factor = (
-                UNIT_CONV * PARTITION_COEF * mean_deltam_by_pld * np.exp(att_arr / t1blood)
-            )
-            denom_factor = (
-                2
-                * labeleff
-                * scaled_m0data
-                * t1blood
-                * (
-                    np.exp(-np.maximum(plds - att_arr, 0))
-                    - np.exp(-np.maximum(tau + plds - att_arr, 0))
+        if is_multi_pld:
+            if is_casl:
+                att, mean_cbf = estimate_cbf_pcasl_multipld(
+                    deltam_arr,
+                    scaled_m0data,
+                    plds,
+                    tau,
+                    labeleff,
+                    t1blood,
+                    t1tissue=1.5,  # TODO: Replace with Tesla-specific values.
+                    unit_conversion=UNIT_CONV,
+                    partition_coefficient=PARTITION_COEF,
                 )
+
+            else:
+                # Dai's approach can't be used on PASL data, so we'll need another method.
+                raise ValueError(
+                    "Multi-PLD data are not supported for PASL sequences at the moment."
+                )
+
+            # Multi-PLD data won't produce a CBF time series
+            cbf_img = None
+            mean_cbf_img = masker.inverse_transform(mean_cbf)
+            att_img = masker.inverse_transform(att)
+
+            self._results["cbf_ts"] = None
+            self._results["att"] = fname_presuffix(
+                self.inputs.deltam,
+                suffix="_att",
+                newpath=runtime.cwd,
             )
-            cbf_by_pld = num_factor / denom_factor
+            att_img.to_filename(self._results["att"])
 
-            # Average CBF across PLDs, but only include PLDs where PLD + tau > ATT for that voxel,
-            # per Juttukonda 2021 (section 2.6).
-            cbf = np.zeros(n_voxels)  # mean CBF
-            for i_voxel in range(n_voxels):
-                cbf_by_pld_voxel = cbf_by_pld[i_voxel, :]
-                arr_voxel = att_arr[i_voxel]
-                cbf[i_voxel] = np.mean(cbf_by_pld_voxel[(unique_plds + tau) > arr_voxel])
+        else:  # Single-PLD
+            if is_casl:
+                denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
 
-        else:
+            elif not metadata["BolusCutOffFlag"]:
+                raise ValueError(
+                    "PASL without a bolus cut-off technique is not supported in ASLPrep."
+                )
+
+            elif metadata["BolusCutOffTechnique"] == "QUIPSS":
+                # PASL + QUIPSS
+                # Only one BolusCutOffDelayTime allowed.
+                assert isinstance(metadata["BolusCutOffDelayTime"], Number)
+                denom_factor = plds - metadata["BolusCutOffDelayTime"]  # delta_TI, per Wong 1998
+
+            elif metadata["BolusCutOffTechnique"] == "QUIPSSII":
+                # PASL + QUIPSSII
+                # Per SD, use PLD as TI for PASL, so we will just use 'plds' in the numerator when
+                # calculating the perfusion factor.
+                # Only one BolusCutOffDelayTime allowed.
+                assert isinstance(metadata["BolusCutOffDelayTime"], Number)
+                denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
+
+            elif metadata["BolusCutOffTechnique"] == "Q2TIPS":
+                # PASL + Q2TIPS
+                # Q2TIPS should have two BolusCutOffDelayTimes.
+                assert len(metadata["BolusCutOffDelayTime"]) == 2
+                # XXX: This may be wrong.
+                denom_factor = metadata["BolusCutOffDelayTime"][0]
+                raise ValueError("Q2TIPS is not supported in ASLPrep.")
+
+            else:
+                raise BIDSError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
+
             # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
             deltam_scaled = deltam_arr / scaled_m0data
 
@@ -582,25 +580,28 @@ class ComputeCBF(SimpleInterface):
                 denom_factor * 2 * labeleff
             )
 
-            # There is only a single PLD.
             cbf = deltam_scaled * perfusion_factor
+            cbf = np.nan_to_num(cbf)
 
-        # Return CBF to niimg.
-        cbf = np.nan_to_num(cbf)
-        cbf_img = masker.inverse_transform(cbf.T)
-        mean_cbf_img = image.mean_img(cbf_img)
+            cbf_img = masker.inverse_transform(cbf.T)
+            mean_cbf_img = image.mean_img(cbf_img)
+            # Single-PLD data won't produce an ATT image
+            att_img = None
 
-        self._results["cbf"] = fname_presuffix(
-            self.inputs.deltam,
-            suffix="_cbf",
-            newpath=runtime.cwd,
-        )
+            self._results["cbf_ts"] = fname_presuffix(
+                self.inputs.deltam,
+                suffix="_cbf",
+                newpath=runtime.cwd,
+            )
+            cbf_img.to_filename(self._results["cbf"])
+            self._results["att"] = None
+
+        # Mean CBF is returned no matter what
         self._results["mean_cbf"] = fname_presuffix(
             self.inputs.deltam,
             suffix="_meancbf",
             newpath=runtime.cwd,
         )
-        cbf_img.to_filename(self._results["cbf"])
         mean_cbf_img.to_filename(self._results["mean_cbf"])
 
         return runtime
@@ -830,7 +831,7 @@ class _BASILCBFOutputSpec(TraitedSpec):
         exists=False,
         desc="cbf with spatial partial volume white matter correction",
     )
-    att = File(exists=False, desc="aretrial transist time")
+    att_basil = File(exists=False, desc="arterial transit time")
 
 
 class BASILCBF(FSLCommand):
@@ -864,7 +865,7 @@ class BASILCBF(FSLCommand):
         outputs = self.output_spec().get()
 
         outputs["mean_cbf_basil"] = os.path.join(basename, "native_space/perfusion_calib.nii.gz")
-        outputs["att"] = os.path.join(basename, "native_space/arrival.nii.gz")
+        outputs["att_basil"] = os.path.join(basename, "native_space/arrival.nii.gz")
         outputs["mean_cbf_gm_basil"] = os.path.join(
             basename,
             "native_space/pvcorr/perfusion_calib.nii.gz",

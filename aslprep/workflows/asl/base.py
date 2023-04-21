@@ -16,7 +16,7 @@ from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.meepi import combine_meepi_source
-from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
+from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name, determine_multi_pld
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
@@ -188,6 +188,8 @@ def init_asl_preproc_wf(asl_file):
     sbref_file = run_data["sbref"]
     metadata = run_data["asl_metadata"].copy()
 
+    is_multi_pld = determine_multi_pld(metadata=metadata)
+
     # Find fieldmaps. Options: (phase1|phase2|phasediff|epi|fieldmap|syn)
     fmaps = None
     if "fieldmaps" not in config.workflow.ignore:
@@ -275,6 +277,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         metadata=metadata,
         output_dir=output_dir,
         spaces=spaces,
+        is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
         output_confounds=True,
@@ -516,13 +519,14 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     CBF_DERIVS = [
         "cbf_ts",
         "mean_cbf",
+        "att",
         "cbf_ts_score",
         "mean_cbf_score",
         "mean_cbf_scrub",
         "mean_cbf_basil",
         "mean_cbf_gm_basil",
         "mean_cbf_wm_basil",
-        "att",
+        "att_basil",
     ]
     # We don't want mean_cbf_wm_basil for this list.
     MEAN_CBF_DERIVS = [

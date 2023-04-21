@@ -9,8 +9,9 @@ from typing import Any
 import nibabel as nb
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.signal import correlate, correlation_lags
 from scipy.stats import median_abs_deviation
+
+from aslprep.niworkflows.utils.bids import BIDSError
 
 
 def check_deps(workflow):
@@ -775,92 +776,7 @@ def estimate_labeling_efficiency(metadata):
     return labeleff
 
 
-def estimate_att(deltam_arr, plds):
-    """Estimate arterial transit time (ATT).
-
-    The ATT formula is taken from :footcite:t:`juttukonda2021characterizing`.
-
-    Parameters
-    ----------
-    deltam_arr : :obj:`numpy.ndarray` of shape (S, D)
-        The array of deltaM values.
-        S = samples (voxels), D = delays (post-labeling delays).
-    plds : :obj:`numpy.ndarray` of shape (D,)
-        The post-labeling delays, in milliseconds.
-
-    Returns
-    -------
-    att_arr : :obj:`numpy.ndarray` of shape (S,)
-        Estimated arterial transit time for each voxel.
-
-    References
-    ----------
-    .. footbibliography::
-    """
-    n_voxels, n_delays = deltam_arr.shape
-    assert n_delays == plds.size
-
-    # TODO: Simulate the curve based on Juttukonda 2017.
-    # Simulate kinetic curve with ATT=1.2 and same temporal resolution as PLDs
-    simulated_kinetic_curve_lowres = np.arange(plds.size)
-    crosscorr_lowres = correlate(deltam_arr, simulated_kinetic_curve_lowres[None, :])
-    lags = correlation_lags(plds.size, plds.size)
-    # The selected lag for each voxel
-    peak_lags = lags[np.argmax(crosscorr_lowres, axis=1)]
-
-    # Simulate kinetic curves with ATTs between 0.2 and 3.2 s and temporal resolution of 0.1 s
-    # Per paper:
-    # For voxels with shift=0, the searched range was between 0.9 s and 1.5 s.
-    # For voxels with positive shift indices (i.e., shift=+1 and shift=+2),
-    # the range of ATTs searched was between 0.2 s and 1.2 s.
-    # For voxels with negative time shifts (i.e., shift=−1 to −4),
-    # the range of ATTs searched was between 1.2 s and 3.2 s.
-    # Meanwhile, shifts ranging from +3 to +5 theoretically corresponded to negative ATTs,
-    # which are physiologically unmeaningful.
-    # Therefore, voxels with these shift indices (+3 to +5) were empirically assigned ATT=3.3 s.
-
-    # NOTE: I think the most straightforward way to do this is to loop over shift indices,
-    # select the subset of voxels with that shift index,
-    # and estimate ATT for those voxels using the preferred parameters.
-
-    # The range of ATT values to simulate the kinetic curve across is hardcoded.
-    simulated_kinetic_curve_highres_att = np.arange(0.2, 3.3, 0.1)
-
-    # TODO: Simulate the curve based on Juttukonda 2017
-    simulated_kinetic_curves_highres = np.random.random(
-        (
-            plds.size,  # one row for each PLD
-            simulated_kinetic_curve_highres_att.size,  # one column for each possible ATT value
-        ),
-    )
-
-    att_arr = np.zeros(deltam_arr.shape[0])
-    for peak_shift in np.unique(peak_lags):
-        pld_shift = plds[peak_shift]  # The delay in seconds. Determines ATT range to test.
-        peak_shift_voxel_idx = np.where(peak_lags == peak_shift)[0]
-        peak_shift_deltam = deltam_arr[peak_shift_voxel_idx, :]
-
-        # TODO: Replace with valid range for given PLD shift
-        # E.g., 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5
-        possible_att_values = np.arange(0, pld_shift, 0.1)
-        possible_att_idx = np.where(simulated_kinetic_curve_highres_att == possible_att_values)[0]
-        possible_kinetic_curves = simulated_kinetic_curves_highres[:, possible_att_idx]
-
-        # Cross-correlate to find ATT (at closest 0.1 s) for each voxel
-        crosscorr_highres = np.corrcoef(
-            peak_shift_deltam,
-            possible_kinetic_curves,
-        )[:n_voxels, n_voxels:]
-        peak_corrs_idx = np.argmax(crosscorr_highres, axis=1)
-
-        # The selected ATT value for each voxel
-        att_values = possible_att_values[peak_corrs_idx]
-        att_arr[peak_shift_voxel_idx] = att_values
-
-    return att_arr
-
-
-def estimate_att_dai(deltam_arr, plds, lds, t1_blood, t1_tissue):
+def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     """Estimate arterial transit time using the weighted average method.
 
     Parameters
@@ -871,9 +787,9 @@ def estimate_att_dai(deltam_arr, plds, lds, t1_blood, t1_tissue):
         Post-labeling delays. w in Dai 2012.
     lds : :obj:`numpy.ndarray`
         Labeling durations. tau in Dai 2012.
-    t1_blood
+    t1blood
         T1 relaxation rate for blood.
-    t1_tissue
+    t1tissue
         T1 relaxation rate for tissue.
 
     Returns
@@ -906,11 +822,11 @@ def estimate_att_dai(deltam_arr, plds, lds, t1_blood, t1_tissue):
         ld = lds[i_pld]
 
         # e ^ (-delta / T1a)
-        exp_tt_T1b = np.exp(-transit_times / t1_blood)
+        exp_tt_T1b = np.exp(-transit_times / t1blood)
         # e ^ (-max(w - delta, 0) / T1t)
-        exp_pld_tt_T1t = np.exp(-np.maximum(0, pld - transit_times) / t1_tissue)
+        exp_pld_tt_T1t = np.exp(-np.maximum(0, pld - transit_times) / t1tissue)
         # e ^ (-max(tau + w - delta, 0) / T1t)
-        exp_pld_ld_tt_T1t = np.exp(-np.maximum(0, pld + ld - transit_times) / t1_tissue)
+        exp_pld_ld_tt_T1t = np.exp(-np.maximum(0, pld + ld - transit_times) / t1tissue)
 
         # The combination of exponent terms in Equation 1
         sig = exp_tt_T1b * (exp_pld_tt_T1t - exp_pld_ld_tt_T1t)
@@ -919,9 +835,10 @@ def estimate_att_dai(deltam_arr, plds, lds, t1_blood, t1_tissue):
         # 2M0t (2 * equilibrium magnetization of brain tissue),
         # Beta (a term to compensate for static tissue signal loss caused by vessel supp. pulses),
         # alpha (labeling efficiency),
-        # T1t (t1_tissue),
+        # T1t (t1tissue),
         # f (CBF; perfusion rate)
         # lambda (partition coefficient)
+        # It seems like they are cancelled out though, so it's probably fine.
 
         # Numerator in Equation 4, for a range of transit times
         sig_pld_sum += sig * pld
@@ -952,3 +869,69 @@ def estimate_att_dai(deltam_arr, plds, lds, t1_blood, t1_tissue):
     # time and the actual weighted delay value.
     interp_func = interp1d(weighted_delay_predicted, transit_times)
     return interp_func(weighted_delay_observed)
+
+
+def estimate_cbf_pcasl_multipld(
+    deltam_arr,
+    scaled_m0data,
+    plds,
+    tau,
+    labeleff,
+    t1blood,
+    t1tissue,
+    unit_conversion,
+    partition_coefficient,
+):
+    """Estimate CBF and ATT for multi-PLD PCASL data."""
+    n_voxels = deltam_arr.shape[0]
+
+    # Formula from Fan 2017 (equation 2)
+    unique_plds, unique_pld_idx = np.unique(plds, return_index=True)
+    if tau.size > 1:
+        if tau.size != plds.size:
+            raise BIDSError(
+                f"Number of LabelingDuration values {tau.size} != number of "
+                f"PostLabelingDelay values {plds.size}"
+            )
+
+        tau = tau[unique_pld_idx]
+    else:
+        tau = np.full(plds.size, tau[0])
+
+    mean_deltam_by_pld = np.zeros((n_voxels, unique_plds.size))
+    for i_pld, pld in enumerate(unique_plds):
+        pld_idx = plds == pld
+        mean_deltam_by_pld[:, i_pld] = np.mean(deltam_arr[:, pld_idx], axis=1)
+
+    att_arr = estimate_att_pcasl(
+        deltam_arr=mean_deltam_by_pld,
+        plds=unique_plds,
+        lds=tau,
+        t1blood=t1blood,
+        t1tissue=t1tissue,
+    )
+    num_factor = (
+        unit_conversion * partition_coefficient * mean_deltam_by_pld * np.exp(att_arr / t1blood)
+    )
+    denom_factor = (
+        2
+        * labeleff
+        * scaled_m0data
+        * t1blood
+        * (np.exp(-np.maximum(plds - att_arr, 0)) - np.exp(-np.maximum(tau + plds - att_arr, 0)))
+    )
+    cbf_by_pld = num_factor / denom_factor
+
+    # Average CBF across PLDs, but only include PLDs where PLD + tau > ATT for that voxel,
+    # per Juttukonda 2021 (section 2.6).
+    cbf = np.zeros(n_voxels)  # mean CBF
+    for i_voxel in range(n_voxels):
+        cbf_by_pld_voxel = cbf_by_pld[i_voxel, :]
+        arr_voxel = att_arr[i_voxel]
+        cbf[i_voxel] = np.mean(cbf_by_pld_voxel[(unique_plds + tau) > arr_voxel])
+
+
+def determine_multi_pld(metadata):
+    """Determine if a run is multi-PLD or not."""
+    plds = np.array(metadata["PostLabelingDelay"])
+    return np.unique(plds).size > 1

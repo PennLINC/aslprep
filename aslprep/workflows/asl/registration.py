@@ -273,7 +273,7 @@ def init_asl_t1_trans_wf(
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
-                "att",
+                "att_basil",
             ],
         ),
         name="inputnode",
@@ -435,7 +435,7 @@ def init_asl_t1_trans_wf(
         input_names += ["cbf_ts_score", "mean_cbf_score", "mean_cbf_scrub"]
 
     if basil:
-        input_names += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att"]
+        input_names += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att_basil"]
 
     for input_name in input_names:
         kwargs = {}
