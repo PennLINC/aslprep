@@ -341,9 +341,13 @@ def init_asl_derivatives_wf(
         },
     }
 
-    base_inputs = ["asl", "aslref", "asl_mask", "cbf_ts", "mean_cbf"]
+    base_inputs = ["asl", "aslref", "asl_mask", "mean_cbf"]
     if is_multi_pld:
+        # ATT is only calculated for multi-PLD data
         base_inputs += ["att"]
+    else:
+        # CBF time series is only calculated for single-PLD data
+        base_inputs += ["cbf_ts"]
 
     if scorescrub:
         base_inputs += ["cbf_ts_score", "mean_cbf_score", "mean_cbf_scrub"]
