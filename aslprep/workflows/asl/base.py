@@ -17,8 +17,8 @@ from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.meepi import combine_meepi_source
 from aslprep.utils.misc import _create_mem_gb, _get_series_len, _get_wf_name
-from aslprep.workflows.asl.cbf import init_cbf_compt_wf, init_parcellate_cbf_wf
-from aslprep.workflows.asl.confounds import init_asl_confs_wf, init_carpetplot_wf
+from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
+from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_cbfplot_wf
@@ -29,7 +29,6 @@ from aslprep.workflows.asl.resampling import (
     init_asl_std_trans_wf,
 )
 from aslprep.workflows.asl.stc import init_asl_stc_wf
-from aslprep.workflows.asl.t2s import init_asl_t2s_wf
 
 
 def init_asl_preproc_wf(asl_file):
@@ -113,13 +112,41 @@ def init_asl_preproc_wf(asl_file):
     Notes
     -----
     1.  Brain-mask T1w.
-    2.  Generate ASL reference image.
+    2.  Generate initial ASL reference image.
         I think this is just the BOLD reference workflow from niworkflows,
         without any modifications for ASL data. I could be missing something.
-    3.  Slice-timing correction.
+        -   Feeds into the aslbuffer_stc if STC isn't run.
+        -   Not in GE workflow.
+        -   In the GE workflow, the reference image comes from the M0 scan.
+    3.  Slice-timing correction (can be skipped).
+        -   Feeds into the aslbuffer_stc if STC is run.
+        -   Not in GE workflow.
     4.  Motion correction.
-    5.  Register ASL to T1w.
-    6.  ...
+        -   Outputs the HMC transform and the motion parameters.
+        -   Not in GE workflow.
+    5.  Susceptibility distortion correction.
+        -   Outputs the SDC transform.
+        -   Not in GE workflow.
+    6.  If data are multi-echo (which they can't be), skullstrip the ASL data and perform optimal
+        combination.
+        -   Not in GE workflow.
+    7.  Register ASL to T1w.
+    8.  Apply the ASL-to-T1w transforms to get T1w-space outputs
+        (passed along to derivatives workflow).
+    9.  Apply the ASL-to-ASLref transforms to get native-space outputs.
+        -   Not in GE workflow.
+    10. Calculate confounds.
+        -   Not in GE workflow.
+    11. Calculate CBF.
+    12. Refine the brain mask.
+    13. Generate distortion correction report.
+        -   Not in GE workflow.
+    14. Apply ASL-to-template transforms to get template-space outputs.
+    15. CBF QC workflow.
+    16. CBF plotting workflow.
+    17. Generate carpet plots.
+        -   Not in GE workflow.
+    18. Parcellate CBF results.
     """
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
@@ -174,11 +201,12 @@ def init_asl_preproc_wf(asl_file):
         # If fieldmaps are not enabled, activate SyN-SDC in unforced (False) mode
         fmaps = {"syn": False}
 
-    # Short circuits: (True and True and (False or 'TooShort')) == 'TooShort'
+    n_vols = _get_series_len(ref_file)
+    MIN_VOLS_FOR_STC = 4
     run_stc = (
         bool(metadata.get("SliceTiming"))
         and "slicetiming" not in config.workflow.ignore
-        and (_get_series_len(ref_file) > 4 or "TooShort")
+        and (n_vols > MIN_VOLS_FOR_STC)
     )
 
     # Build workflow
@@ -219,13 +247,18 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name="t1w_brain")
 
-    # asl buffer: an identity used as a pointer to either the original asl
-    # or the STC'ed one for further use.
-    aslbuffer = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer")
+    # fmt:off
+    workflow.connect([
+        (inputnode, t1w_brain, [
+            ("t1w_preproc", "in_file"),
+            ("t1w_mask", "in_mask"),
+        ]),
+    ])
+    # fmt:on
 
     summary = pe.Node(
         FunctionalSummary(
-            slice_timing=run_stc,
+            slice_timing="TooShort" if n_vols <= MIN_VOLS_FOR_STC else run_stc,
             registration=("FSL"),
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
@@ -248,71 +281,39 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
 
     # Generate a tentative aslref
+    # XXX: Does the niworkflows reference workflow make sense for ASL data,
+    # where volumes can be control, label, M0, deltam, or CBF?
+    # It seems like the different contrasts could impact the reference image estimation.
+    # For example, should just control or M0 images be used for this?
     asl_reference_wf = init_asl_reference_wf(omp_nthreads=omp_nthreads)
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
-    if sbref_file is not None:
-        # fmt:off
-        workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
-        # fmt:on
 
-    # Top-level asl splitter
+    workflow.connect([(inputnode, asl_reference_wf, [("asl_file", "inputnode.asl_file")])])
+
+    if sbref_file is not None:
+        workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
+
+    # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
+    # can be applied with other transforms in single shots.
     asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
 
-    # HMC on the asl
-    asl_hmc_wf = init_asl_hmc_wf(
-        name="asl_hmc_wf",
-        mem_gb=mem_gb["filesize"],
-        omp_nthreads=omp_nthreads,
-    )
+    # aslbuffer_stc: an identity used as a pointer to either the original ASL file
+    # (if STD is disabled) or the STC'ed ASL file for further use.
+    aslbuffer_stc = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer_stc")
 
-    # calculate asl registration to T1w
-    asl_reg_wf = init_asl_reg_wf(
-        asl2t1w_dof=config.workflow.asl2t1w_dof,
-        asl2t1w_init=config.workflow.asl2t1w_init,
-        name="asl_reg_wf",
-        sloppy=config.execution.debug,
-        use_bbr=config.workflow.use_bbr,
-    )
+    workflow.connect([(aslbuffer_stc, asl_split, [("asl_file", "in_file")])])
 
-    # apply asl registration to T1w
-    nonstd_spaces = set(spaces.get_nonstandard())
-
-    asl_t1_trans_wf = init_asl_t1_trans_wf(
-        name="asl_t1_trans_wf",
-        use_fieldwarp=bool(fmaps),
-        multiecho=multiecho,
-        output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
-        scorescrub=scorescrub,
-        basil=basil,
-        mem_gb=mem_gb["resampled"],
-        omp_nthreads=omp_nthreads,
-        use_compression=False,
-    )
-
-    # get confounds
-    asl_confounds_wf = init_asl_confs_wf(mem_gb=mem_gb["largemem"], name="asl_confounds_wf")
-    asl_confounds_wf.get_node("inputnode").inputs.t1_transform_flags = [False]
-
-    # Apply transforms in 1 shot
-    # Only use uncompressed output if AROMA is to be run
-    asl_asl_trans_wf = init_asl_preproc_trans_wf(
-        mem_gb=mem_gb["resampled"],
-        omp_nthreads=omp_nthreads,
-        use_compression=not config.execution.low_mem,
-        use_fieldwarp=bool(fmaps),
-        name="asl_asl_trans_wf",
-    )
-    asl_asl_trans_wf.inputs.inputnode.name_source = ref_file
-
-    # SLICE-TIME CORRECTION (or bypass) #############################################
-    if run_stc is True:  # bool('TooShort') == True, so check True explicitly
+    # Slice timing correction
+    if run_stc:
         asl_stc_wf = init_asl_stc_wf(name="asl_stc_wf", metadata=metadata)
+
         # fmt:off
         workflow.connect([
             (asl_reference_wf, asl_stc_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
-            (asl_stc_wf, aslbuffer, [("outputnode.stc_file", "asl_file")]),
+            (asl_stc_wf, aslbuffer_stc, [("outputnode.stc_file", "asl_file")]),
         ])
         # fmt:on
+
         if not multiecho:
             # fmt:off
             workflow.connect([
@@ -321,19 +322,39 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:on
 
         else:  # for meepi, iterate through stc_wf for all workflows
-            meepi_echos = aslbuffer.clone(name="meepi_echos")
+            meepi_echos = aslbuffer_stc.clone(name="meepi_echos")
             meepi_echos.iterables = ("asl_file", asl_file)
             workflow.connect([(meepi_echos, asl_stc_wf, [("asl_file", "inputnode.asl_file")])])
 
     elif not multiecho:  # STC is too short or False
-        # bypass STC from original asl to the splitter through aslbuffer
-        workflow.connect([(asl_reference_wf, aslbuffer, [("outputnode.asl_file", "asl_file")])])
+        # bypass STC from original asl to the splitter through aslbuffer_stc
+        # fmt:off
+        workflow.connect([
+            (asl_reference_wf, aslbuffer_stc, [("outputnode.asl_file", "asl_file")]),
+        ])
+        # fmt:on
 
     else:
-        # for meepi, iterate over all meepi echos to aslbuffer
-        aslbuffer.iterables = ("asl_file", asl_file)
+        # for meepi, iterate over all meepi echos to aslbuffer_stc
+        aslbuffer_stc.iterables = ("asl_file", asl_file)
 
-    # SDC (SUSCEPTIBILITY DISTORTION CORRECTION) or bypass ##########################
+    # Head motion correction
+    asl_hmc_wf = init_asl_hmc_wf(
+        name="asl_hmc_wf",
+        mem_gb=mem_gb["filesize"],
+        omp_nthreads=omp_nthreads,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (asl_reference_wf, asl_hmc_wf, [
+            ("outputnode.raw_ref_image", "inputnode.raw_ref_image"),
+            ("outputnode.asl_file", "inputnode.asl_file"),
+        ]),
+    ])
+    # fmt:on
+
+    # Susceptibility distortion correction
     asl_sdc_wf = init_sdc_estimate_wf(
         fmaps,
         metadata,
@@ -341,10 +362,74 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         debug=config.execution.debug,
     )
 
-    # MULTI-ECHO EPI DATA #############################################
+    # fmt:off
+    workflow.connect([
+        (t1w_brain, asl_sdc_wf, [("out_file", "inputnode.t1w_brain")]),
+        (asl_reference_wf, asl_sdc_wf, [
+            ("outputnode.ref_image", "inputnode.epi_file"),
+            ("outputnode.ref_image_brain", "inputnode.epi_brain"),
+            ("outputnode.asl_mask", "inputnode.epi_mask"),
+        ]),
+        (asl_sdc_wf, summary, [("outputnode.method", "distortion_correction")]),
+    ])
+    # fmt:on
+
+    # ASL-to-T1 registration workflow
+    asl_reg_wf = init_asl_reg_wf(
+        asl2t1w_dof=config.workflow.asl2t1w_dof,
+        asl2t1w_init=config.workflow.asl2t1w_init,
+        name="asl_reg_wf",
+        sloppy=config.execution.debug,
+        use_bbr=config.workflow.use_bbr,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, asl_reg_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
+        (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
+        (asl_sdc_wf, asl_reg_wf, [("outputnode.epi_brain", "inputnode.ref_asl_brain")]),
+        (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
+    ])
+    # fmt:on
+
+    # Apply transforms (HMC+SDC) to ASLRef space in 1 shot
+    asl_asl_trans_wf = init_asl_preproc_trans_wf(
+        mem_gb=mem_gb["resampled"],
+        omp_nthreads=omp_nthreads,
+        use_compression=not config.execution.low_mem,
+        name="asl_asl_trans_wf",
+    )
+    asl_asl_trans_wf.inputs.inputnode.name_source = ref_file
+
+    # fmt:off
+    workflow.connect([
+        (asl_split, asl_asl_trans_wf, [("out_files", "inputnode.asl_file")]),
+        (asl_hmc_wf, asl_asl_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
+        (asl_sdc_wf, asl_asl_trans_wf, [
+            ("outputnode.out_warp", "inputnode.fieldwarp"),
+            ("outputnode.epi_mask", "inputnode.asl_mask"),
+        ]),
+    ])
+    # fmt:on
+
+    # Special steps for multi-echo data
+    # aslbuffer_me: an identity used as a pointer to either the split ASL files and the
+    # ASLRef-space ASL file (if not multi-echo) or the optimally-combined ASL file.
+    aslbuffer_me = pe.Node(
+        niu.IdentityInterface(
+            fields=[
+                "asl_file_native",
+                "asl_split",
+            ],
+        ),
+        name="aslbuffer_me",
+    )
+
     # XXX: This may not be reachable, since echo is not an allowed entity for ASL data.
+    # XXX: Also, optimal combination via tedana may not be a good idea for multi-echo ASL data.
     if multiecho:
         from aslprep.niworkflows.func.util import init_skullstrip_asl_wf
+        from aslprep.workflows.asl.t2s import init_asl_t2s_wf
 
         skullstrip_asl_wf = init_skullstrip_asl_wf(name="skullstrip_asl_wf")
 
@@ -352,7 +437,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         join_echos = pe.JoinNode(
             niu.IdentityInterface(fields=["asl_files"]),
-            joinsource=("meepi_echos" if run_stc is True else "aslbuffer"),
+            joinsource=("meepi_echos" if run_stc is True else "aslbuffer_stc"),
             joinfield=["asl_files"],
             name="join_echos",
         )
@@ -365,66 +450,35 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         # fmt:off
         workflow.connect([
+            (asl_asl_trans_wf, skullstrip_asl_wf, [("outputnode.asl", "inputnode.in_file")]),
             (skullstrip_asl_wf, join_echos, [("outputnode.skull_stripped_file", "asl_files")]),
             (join_echos, asl_t2s_wf, [("asl_files", "inputnode.asl_file")]),
+            (inputnode, asl_derivatives_wf, [
+                (("asl_file", combine_meepi_source), "inputnode.source_file"),
+            ]),
+            (asl_t2s_wf, aslbuffer_me, [
+                ("outputnode.asl", "asl_file_native"),
+                # NOTE: The 4D optcom ASL file is treated as split 3D ASL files here.
+                ("outputnode.asl", "asl_split"),
+            ]),
         ])
         # fmt:on
 
-    # MAIN WORKFLOW STRUCTURE #######################################################
+    else:
+        # fmt:off
+        workflow.connect([
+            (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
+            (asl_asl_trans_wf, aslbuffer_me, [("outputnode.asl", "asl_file_native")]),
+            (asl_split, aslbuffer_me, [("out_files", "asl_split")]),
+        ])
+        # fmt:on
+
+    # get confounds
+    asl_confounds_wf = init_asl_confounds_wf(mem_gb=mem_gb["largemem"], name="asl_confounds_wf")
+    asl_confounds_wf.get_node("inputnode").inputs.t1_transform_flags = [False]
+
     # fmt:off
     workflow.connect([
-        (inputnode, t1w_brain, [
-            ("t1w_preproc", "in_file"),
-            ("t1w_mask", "in_mask"),
-        ]),
-        # Generate early reference
-        (inputnode, asl_reference_wf, [("asl_file", "inputnode.asl_file")]),
-        # asl buffer has slice-time corrected if it was run, original otherwise
-        (aslbuffer, asl_split, [("asl_file", "in_file")]),
-        # HMC
-        (asl_reference_wf, asl_hmc_wf, [
-            ("outputnode.raw_ref_image", "inputnode.raw_ref_image"),
-            ("outputnode.asl_file", "inputnode.asl_file"),
-        ]),
-        # EPI-T1 registration workflow
-        (inputnode, asl_reg_wf, [
-            ("t1w_dseg", "inputnode.t1w_dseg"),
-        ]),
-        (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
-        (inputnode, asl_t1_trans_wf, [
-            ("asl_file", "inputnode.name_source"),
-            ("t1w_mask", "inputnode.t1w_mask"),
-        ]),
-        (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
-        # unused if multiecho, but this is safe
-        (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
-        (asl_reg_wf, asl_t1_trans_wf, [
-            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
-        ]),
-        (asl_t1_trans_wf, asl_derivatives_wf, [
-            ("outputnode.asl_t1", "inputnode.asl_t1"),
-            ("outputnode.aslref_t1", "inputnode.aslref_t1"),
-        ]),
-        (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
-        # SDC (or pass-through workflow)
-        (t1w_brain, asl_sdc_wf, [("out_file", "inputnode.t1w_brain")]),
-        (asl_reference_wf, asl_sdc_wf, [
-            ("outputnode.ref_image", "inputnode.epi_file"),
-            ("outputnode.ref_image_brain", "inputnode.epi_brain"),
-            ("outputnode.asl_mask", "inputnode.epi_mask"),
-        ]),
-        (asl_sdc_wf, asl_t1_trans_wf, [
-            ("outputnode.out_warp", "inputnode.fieldwarp"),
-            ("outputnode.epi_mask", "inputnode.ref_asl_mask"),
-            ("outputnode.epi_brain", "inputnode.ref_asl_brain"),
-        ]),
-        (asl_sdc_wf, asl_asl_trans_wf, [
-            ("outputnode.out_warp", "inputnode.fieldwarp"),
-            ("outputnode.epi_mask", "inputnode.asl_mask"),
-        ]),
-        (asl_sdc_wf, asl_reg_wf, [("outputnode.epi_brain", "inputnode.ref_asl_brain")]),
-        (asl_sdc_wf, summary, [("outputnode.method", "distortion_correction")]),
-        # Connect asl_confounds_wf
         (inputnode, asl_confounds_wf, [
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
@@ -438,43 +492,17 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (asl_reference_wf, asl_confounds_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
         (asl_asl_trans_wf, asl_confounds_wf, [("outputnode.asl_mask", "inputnode.asl_mask")]),
+        (aslbuffer_me, asl_confounds_wf, [("asl_file_native", "inputnode.asl")]),
         (asl_confounds_wf, asl_derivatives_wf, [
             ("outputnode.confounds_file", "inputnode.confounds"),
             ("outputnode.confounds_metadata", "inputnode.confounds_metadata"),
         ]),
-        # Connect asl_asl_trans_wf
-        (asl_split, asl_asl_trans_wf, [("out_files", "inputnode.asl_file")]),
-        (asl_hmc_wf, asl_asl_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
-        # Summary
         (asl_confounds_wf, summary, [("outputnode.confounds_file", "confounds_file")]),
     ])
     # fmt:on
 
-    # for standard EPI data, pass along correct file
-    if not multiecho:
-        # fmt:off
-        workflow.connect([
-            (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
-            (asl_asl_trans_wf, asl_confounds_wf, [("outputnode.asl", "inputnode.asl")]),
-            (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.asl_split")]),
-        ])
-        # fmt:on
-
-    else:  # for meepi, create and use optimal combination
-        # fmt:off
-        workflow.connect([
-            # update name source for optimal combination
-            (inputnode, asl_derivatives_wf, [
-                (("asl_file", combine_meepi_source), "inputnode.source_file"),
-            ]),
-            (asl_asl_trans_wf, skullstrip_asl_wf, [("outputnode.asl", "inputnode.in_file")]),
-            (asl_t2s_wf, asl_confounds_wf, [("outputnode.asl", "inputnode.asl")]),
-            (asl_t2s_wf, asl_t1_trans_wf, [("outputnode.asl", "inputnode.asl_split")]),
-        ])
-        # fmt:on
-
-    # compute  the CBF here
-    compute_cbf_wf = init_cbf_compt_wf(
+    # Compute CBF from ASLRef-space ASL data.
+    compute_cbf_wf = init_compute_cbf_wf(
         name_source=asl_file,
         aslcontext=run_data["aslcontext"],
         dummy_vols=dummyvols,
@@ -485,8 +513,26 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         metadata=metadata,
         name="compute_cbf_wf",
     )
+    CBF_DERIVS = [
+        "cbf_ts",
+        "mean_cbf",
+        "cbf_ts_score",
+        "mean_cbf_score",
+        "mean_cbf_scrub",
+        "mean_cbf_basil",
+        "mean_cbf_gm_basil",
+        "mean_cbf_wm_basil",
+        "att",
+    ]
+    # We don't want mean_cbf_wm_basil for this list.
+    MEAN_CBF_DERIVS = [
+        "mean_cbf",
+        "mean_cbf_score",
+        "mean_cbf_scrub",
+        "mean_cbf_basil",
+        "mean_cbf_gm_basil",
+    ]
 
-    # cbf computation workflow
     # fmt:off
     workflow.connect([
         (inputnode, compute_cbf_wf, [
@@ -510,17 +556,56 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
+    # Apply ASL registration to T1w
+    nonstd_spaces = set(spaces.get_nonstandard())
+
+    asl_t1_trans_wf = init_asl_t1_trans_wf(
+        multiecho=multiecho,
+        output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
+        scorescrub=scorescrub,
+        basil=basil,
+        generate_reference=True,
+        mem_gb=mem_gb["resampled"],
+        omp_nthreads=omp_nthreads,
+        use_compression=False,
+        name="asl_t1_trans_wf",
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, asl_t1_trans_wf, [
+            ("asl_file", "inputnode.name_source"),
+            ("t1w_mask", "inputnode.t1w_mask"),
+        ]),
+        (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
+        (asl_sdc_wf, asl_t1_trans_wf, [
+            ("outputnode.out_warp", "inputnode.fieldwarp"),
+            ("outputnode.epi_brain", "inputnode.ref_asl_brain"),
+            ("outputnode.epi_mask", "inputnode.ref_asl_mask"),
+        ]),
+        # will not be split into 3D volumes if multi-echo
+        (aslbuffer_me, asl_t1_trans_wf, [("asl_split", "inputnode.asl_split")]),
+        # unused if multiecho, but this is safe
+        (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
+        # unused if multiecho, but this is safe
+        (asl_reg_wf, asl_t1_trans_wf, [
+            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+        ]),
+    ])
+    # fmt:on
+
     refine_mask = pe.Node(
         RefineMask(),
         mem_gb=1.0,
         run_without_submitting=True,
         name="refine_mask",
     )
+
     # fmt:off
     workflow.connect([
-        (asl_asl_trans_wf, refine_mask, [("outputnode.asl_mask", "asl_mask")]),
-        (asl_reg_wf, refine_mask, [("outputnode.anat_to_aslref_xfm", "transforms")]),
         (inputnode, refine_mask, [("t1w_mask", "t1w_mask")]),
+        (asl_reg_wf, refine_mask, [("outputnode.anat_to_aslref_xfm", "transforms")]),
+        (asl_asl_trans_wf, refine_mask, [("outputnode.asl_mask", "asl_mask")]),
     ])
     # fmt:on
 
@@ -601,215 +686,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                     syn_unwarp_report_wf.get_node(node).interface.out_path_base = "aslprep"
                     syn_unwarp_report_wf.get_node(node).inputs.dismiss_entities = ("echo",)
 
-    # Map final asl mask into T1w space (if required)
-    nonstd_spaces = set(spaces.get_nonstandard())
-    if nonstd_spaces.intersection(("T1w", "anat")):
-        from aslprep.interfaces.ants import ApplyTransforms
-
-        aslmask_to_t1w = pe.Node(
-            ApplyTransforms(interpolation="MultiLabel"), name="aslmask_to_t1w", mem_gb=0.1
-        )
-        # fmt:off
-        workflow.connect([
-            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref_to_anat_xfm", "transforms")]),
-            (asl_t1_trans_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
-            (refine_mask, aslmask_to_t1w, [("out_mask", "input_image")]),
-            (aslmask_to_t1w, asl_derivatives_wf, [("output_image", "inputnode.asl_mask_t1")]),
-            (compute_cbf_wf, asl_t1_trans_wf, [
-                ("outputnode.cbf_ts", "inputnode.cbf_ts"),
-                ("outputnode.mean_cbf", "inputnode.mean_cbf"),
-            ]),
-            (asl_t1_trans_wf, asl_derivatives_wf, [
-                ("outputnode.cbf_ts_t1", "inputnode.cbf_ts_t1"),
-                ("outputnode.mean_cbf_t1", "inputnode.mean_cbf_t1"),
-            ]),
-        ])
-        # fmt:on
-
-        if scorescrub:
-            # fmt:off
-            workflow.connect([
-                (compute_cbf_wf, asl_t1_trans_wf, [
-                    ("outputnode.cbf_ts_score", "inputnode.cbf_ts_score"),
-                    ("outputnode.mean_cbf_score", "inputnode.mean_cbf_score"),
-                    ("outputnode.mean_cbf_scrub", "inputnode.mean_cbf_scrub"),
-                ]),
-                (asl_t1_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.mean_cbf_scrub_t1", "inputnode.mean_cbf_scrub_t1"),
-                    ("outputnode.cbf_ts_score_t1", "inputnode.cbf_ts_score_t1"),
-                    ("outputnode.mean_cbf_score_t1", "inputnode.mean_cbf_score_t1"),
-                ]),
-            ])
-            # fmt:on
-
-        if basil:
-            # fmt:off
-            workflow.connect([
-                (compute_cbf_wf, asl_t1_trans_wf, [
-                    ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
-                    ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
-                    ("outputnode.mean_cbf_wm_basil", "inputnode.mean_cbf_wm_basil"),
-                    ("outputnode.att", "inputnode.att"),
-                ]),
-                (asl_t1_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.mean_cbf_basil_t1", "inputnode.mean_cbf_basil_t1"),
-                    ("outputnode.mean_cbf_gm_basil_t1", "inputnode.mean_cbf_gm_basil_t1"),
-                    ("outputnode.mean_cbf_wm_basil_t1", "inputnode.mean_cbf_wm_basil_t1"),
-                    ("outputnode.att_t1", "inputnode.att_t1"),
-                ]),
-            ])
-            # fmt:on
-
-    if nonstd_spaces.intersection(("func", "run", "asl", "aslref", "sbref")):
-        # fmt:off
-        workflow.connect([
-            (asl_asl_trans_wf, asl_derivatives_wf, [
-                ("outputnode.asl", "inputnode.asl_native"),
-                ("outputnode.aslref", "inputnode.aslref_native"),
-            ]),
-            (refine_mask, asl_derivatives_wf, [
-                ("out_mask", "inputnode.asl_mask_native"),
-            ]),
-            (compute_cbf_wf, asl_derivatives_wf, [
-                ("outputnode.cbf_ts", "inputnode.cbf_ts_native"),
-                ("outputnode.mean_cbf", "inputnode.mean_cbf_native"),
-            ]),
-        ])
-        # fmt:on
-
-        if scorescrub:
-            # fmt:off
-            workflow.connect([
-                (compute_cbf_wf, asl_derivatives_wf, [
-                    ("outputnode.cbf_ts_score", "inputnode.cbf_ts_score_native"),
-                    ("outputnode.mean_cbf_score", "inputnode.mean_cbf_score_native"),
-                    ("outputnode.mean_cbf_scrub", "inputnode.mean_cbf_scrub_native"),
-                ]),
-            ])
-            # fmt:on
-
-        if basil:
-            # fmt:off
-            workflow.connect([
-                (compute_cbf_wf, asl_derivatives_wf, [
-                    ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil_native"),
-                    ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil_native"),
-                    ("outputnode.mean_cbf_wm_basil", "inputnode.mean_cbf_wm_basil_native"),
-                    ("outputnode.att", "inputnode.att_native"),
-                ]),
-            ])
-            # fmt:on
-
-    if spaces.get_spaces(nonstandard=False, dim=(3,)):
-        # Apply transforms in 1 shot
-        # Only use uncompressed output if AROMA is to be run
-        asl_std_trans_wf = init_asl_std_trans_wf(
-            mem_gb=mem_gb["resampled"],
-            omp_nthreads=omp_nthreads,
-            spaces=spaces,
-            scorescrub=scorescrub,
-            basil=basil,
-            name="asl_std_trans_wf",
-            use_compression=not config.execution.low_mem,
-            use_fieldwarp=bool(fmaps),
-        )
-        # fmt:off
-        workflow.connect([
-            (inputnode, asl_std_trans_wf, [
-                ("template", "inputnode.templates"),
-                ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
-                ("asl_file", "inputnode.name_source"),
-            ]),
-            (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
-            (asl_reg_wf, asl_std_trans_wf, [
-                ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
-            ]),
-            (refine_mask, asl_std_trans_wf, [("out_mask", "inputnode.asl_mask")]),
-            (asl_sdc_wf, asl_std_trans_wf, [("outputnode.out_warp", "inputnode.fieldwarp")]),
-            (compute_cbf_wf, asl_std_trans_wf, [
-                ("outputnode.cbf_ts", "inputnode.cbf_ts"),
-                ("outputnode.mean_cbf", "inputnode.mean_cbf"),
-            ]),
-        ])
-        # fmt:on
-
-        if scorescrub:
-            # fmt:off
-            workflow.connect([
-                (compute_cbf_wf, asl_std_trans_wf, [
-                    ("outputnode.cbf_ts_score", "inputnode.cbf_ts_score"),
-                    ("outputnode.mean_cbf_score", "inputnode.mean_cbf_score"),
-                    ("outputnode.mean_cbf_scrub", "inputnode.mean_cbf_scrub"),
-                ]),
-            ])
-            # fmt:on
-
-        if basil:
-            # fmt:off
-            workflow.connect([
-                (compute_cbf_wf, asl_std_trans_wf, [
-                    ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
-                    ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
-                    ("outputnode.mean_cbf_wm_basil", "inputnode.mean_cbf_wm_basil"),
-                    ("outputnode.att", "inputnode.att"),
-                ]),
-            ])
-            # fmt:on
-
-        if not multiecho:
-            # fmt:off
-            workflow.connect([
-                (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
-            ])
-            # fmt:on
-
-        else:
-            split_opt_comb = asl_split.clone(name="split_opt_comb")
-            # fmt:off
-            workflow.connect([
-                (asl_t2s_wf, split_opt_comb, [("outputnode.asl", "in_file")]),
-                (split_opt_comb, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
-            ])
-            # fmt:on
-
-        # asl_derivatives_wf internally parametrizes over snapshotted spaces.
-        # fmt:off
-        workflow.connect([
-            (asl_std_trans_wf, asl_derivatives_wf, [
-                ("outputnode.template", "inputnode.template"),
-                ("outputnode.spatial_reference", "inputnode.spatial_reference"),
-                ("outputnode.aslref_std", "inputnode.aslref_std"),
-                ("outputnode.asl_std", "inputnode.asl_std"),
-                ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
-                ("outputnode.cbf_ts_std", "inputnode.cbf_ts_std"),
-                ("outputnode.mean_cbf_std", "inputnode.mean_cbf_std"),
-            ]),
-        ])
-        # fmt:on
-
-        if scorescrub:
-            # fmt:off
-            workflow.connect([
-                (asl_std_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.cbf_ts_score_std", "inputnode.cbf_ts_score_std"),
-                    ("outputnode.mean_cbf_score_std", "inputnode.mean_cbf_score_std"),
-                    ("outputnode.mean_cbf_scrub_std", "inputnode.mean_cbf_scrub_std"),
-                ]),
-            ])
-            # fmt:on
-
-        if basil:
-            # fmt:off
-            workflow.connect([
-                (asl_std_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.mean_cbf_basil_std", "inputnode.mean_cbf_basil_std"),
-                    ("outputnode.mean_cbf_gm_basil_std", "inputnode.mean_cbf_gm_basil_std"),
-                    ("outputnode.mean_cbf_wm_basil_std", "inputnode.mean_cbf_wm_basil_std"),
-                    ("outputnode.att_std", "inputnode.att_std"),
-                ]),
-            ])
-            # fmt:on
-
+    # Generate QC metrics
     compute_cbf_qc_wf = init_compute_cbf_qc_wf(
         is_ge=False,
         scorescrub=scorescrub,
@@ -829,7 +706,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_reg_wf, compute_cbf_qc_wf, [
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
-        (compute_cbf_wf, compute_cbf_qc_wf, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
         (asl_confounds_wf, compute_cbf_qc_wf, [
             ("outputnode.confounds_file", "inputnode.confounds_file"),
         ]),
@@ -838,76 +714,201 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    if scorescrub:
+    for cbf_deriv in MEAN_CBF_DERIVS:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, compute_cbf_qc_wf, [
-                ("outputnode.mean_cbf_score", "inputnode.mean_cbf_score"),
-                ("outputnode.mean_cbf_scrub", "inputnode.mean_cbf_scrub"),
+                (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
             ]),
         ])
         # fmt:on
 
-    if basil:
+    # Map native-space outputs to derivatives
+    if nonstd_spaces.intersection(("func", "run", "asl", "aslref", "sbref")):
         # fmt:off
         workflow.connect([
-            (compute_cbf_wf, compute_cbf_qc_wf, [
-                ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
-                ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
+            (asl_asl_trans_wf, asl_derivatives_wf, [
+                ("outputnode.asl", "inputnode.asl_native"),
+                ("outputnode.aslref", "inputnode.aslref_native"),
+            ]),
+            (refine_mask, asl_derivatives_wf, [("out_mask", "inputnode.asl_mask_native")]),
+        ])
+        # fmt:on
+
+        for cbf_deriv in CBF_DERIVS:
+            # fmt:off
+            workflow.connect([
+                (compute_cbf_wf, asl_derivatives_wf, [
+                    (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}_native"),
+                ]),
+            ])
+            # fmt:on
+
+    # Map T1w-space outputs to derivatives.
+    # Also warp the final asl mask into T1w space.
+    if nonstd_spaces.intersection(("T1w", "anat")):
+        from aslprep.interfaces.ants import ApplyTransforms
+
+        # fmt:off
+        workflow.connect([
+            (asl_t1_trans_wf, asl_derivatives_wf, [
+                ("outputnode.asl_t1", "inputnode.asl_t1"),
+                ("outputnode.aslref_t1", "inputnode.aslref_t1"),
             ]),
         ])
         # fmt:on
 
+        for cbf_deriv in CBF_DERIVS:
+            # fmt:off
+            workflow.connect([
+                (compute_cbf_wf, asl_t1_trans_wf, [
+                    (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
+                ]),
+                (asl_t1_trans_wf, asl_derivatives_wf, [
+                    (f"outputnode.{cbf_deriv}_t1", f"inputnode.{cbf_deriv}_t1"),
+                ]),
+            ])
+            # fmt:on
+
+        # NOTE: Can this be bundled into the ASL-T1w transform workflow?
+        aslmask_to_t1w = pe.Node(
+            ApplyTransforms(interpolation="MultiLabel"), name="aslmask_to_t1w", mem_gb=0.1
+        )
+
+        # fmt:off
+        workflow.connect([
+            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref_to_anat_xfm", "transforms")]),
+            (asl_t1_trans_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
+            (refine_mask, aslmask_to_t1w, [("out_mask", "input_image")]),
+            (aslmask_to_t1w, asl_derivatives_wf, [("output_image", "inputnode.asl_mask_t1")]),
+        ])
+        # fmt:on
+
+    # Map standard-space outputs to derivatives.
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
+        # Apply transforms in 1 shot
+        # Only use uncompressed output if AROMA is to be run
+        asl_std_trans_wf = init_asl_std_trans_wf(
+            mem_gb=mem_gb["resampled"],
+            omp_nthreads=omp_nthreads,
+            spaces=spaces,
+            scorescrub=scorescrub,
+            basil=basil,
+            generate_reference=True,
+            use_compression=not config.execution.low_mem,
+            name="asl_std_trans_wf",
+        )
+
         # fmt:off
         workflow.connect([
+            (inputnode, asl_std_trans_wf, [
+                ("template", "inputnode.templates"),
+                ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
+                ("asl_file", "inputnode.name_source"),
+            ]),
+            (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
+            (asl_reg_wf, asl_std_trans_wf, [
+                ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+            ]),
+            (refine_mask, asl_std_trans_wf, [("out_mask", "inputnode.asl_mask")]),
+            (asl_sdc_wf, asl_std_trans_wf, [("outputnode.out_warp", "inputnode.fieldwarp")]),
             (asl_std_trans_wf, compute_cbf_qc_wf, [
+                ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
+            ]),
+            (asl_std_trans_wf, asl_derivatives_wf, [
+                ("outputnode.template", "inputnode.template"),
+                ("outputnode.spatial_reference", "inputnode.spatial_reference"),
+                ("outputnode.aslref_std", "inputnode.aslref_std"),
+                ("outputnode.asl_std", "inputnode.asl_std"),
                 ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
             ]),
         ])
         # fmt:on
 
-    cbf_plot = init_cbfplot_wf(
+        # TODO: Replace this with aslbuffer_me.
+        # I think I need to modify init_asl_std_trans_wf to treat multi-echo data the same way
+        # init_asl_t1_trans_wf does (i.e., by skipping HMC and SDC).
+        # Actually, what if I just use xform_buffer and set the xforms to "identity" there?
+        # It's a quandary.
+        # The asl-asl reg workflow needs actual HMC and SDC xforms (when applicable),
+        # but the T1 and std reg workflows would use "identity" for multi-echo data.
+        # For GE data, asl-asl, asl-T1, and asl-std should all have "identity" for HMC/SDC.
+        if not multiecho:
+            # fmt:off
+            workflow.connect([
+                (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
+            ])
+            # fmt:on
+
+        else:
+            split_opt_comb = asl_split.clone(name="split_opt_comb")
+
+            # fmt:off
+            workflow.connect([
+                (asl_t2s_wf, split_opt_comb, [("outputnode.asl", "in_file")]),
+                (split_opt_comb, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
+            ])
+            # fmt:on
+
+        # asl_derivatives_wf internally parametrizes over snapshotted spaces.
+        for cbf_deriv in CBF_DERIVS:
+            # fmt:off
+            workflow.connect([
+                (compute_cbf_wf, asl_std_trans_wf, [
+                    (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
+                ]),
+                (asl_std_trans_wf, asl_derivatives_wf, [
+                    (f"outputnode.{cbf_deriv}_std", f"inputnode.{cbf_deriv}_std"),
+                ]),
+            ])
+            # fmt:on
+
+    # Plot CBF outputs.
+    plot_cbf_wf = init_cbfplot_wf(
         metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,
-        name="cbf_plot",
+        name="plot_cbf_wf",
     )
-    # fmt:off
 
+    # fmt:off
     workflow.connect([
-        (compute_cbf_wf, cbf_plot, [
-            ("outputnode.mean_cbf", "inputnode.mean_cbf"),
-            ("outputnode.mean_cbf_score", "inputnode.mean_cbf_score"),
-            ("outputnode.mean_cbf_scrub", "inputnode.mean_cbf_scrub"),
-            ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
-            ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
-            ("outputnode.cbf_ts_score", "inputnode.cbf_ts_score"),
-            ("outputnode.cbf_ts", "inputnode.cbf_ts"),
+        (inputnode, plot_cbf_wf, [("template_to_anat_xfm", "inputnode.template_to_anat_xfm")]),
+        (compute_cbf_wf, plot_cbf_wf, [
             ("outputnode.score_outlier_index", "inputnode.score_outlier_index"),
         ]),
-        (inputnode, cbf_plot, [("template_to_anat_xfm", "inputnode.template_to_anat_xfm")]),
-        (asl_reg_wf, cbf_plot, [
+        (asl_reference_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
+        (asl_reg_wf, plot_cbf_wf, [
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
-        (refine_mask, cbf_plot, [("out_mask", "inputnode.asl_mask")]),
-        (asl_reference_wf, cbf_plot, [("outputnode.ref_image_brain", "inputnode.aslref")]),
-        (asl_confounds_wf, cbf_plot, [("outputnode.confounds_file", "inputnode.confounds_file")]),
+        (refine_mask, plot_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
+        (asl_confounds_wf, plot_cbf_wf, [
+            ("outputnode.confounds_file", "inputnode.confounds_file"),
+        ]),
     ])
     # fmt:on
 
-    carpetplot_wf = init_carpetplot_wf(
-        mem_gb=mem_gb["resampled"],
-        metadata=metadata,
-        # cifti_output=config.workflow.cifti_output,
-        name="carpetplot_wf",
-    )
+    for cbf_deriv in CBF_DERIVS:
+        # fmt:off
+        workflow.connect([
+            (compute_cbf_wf, plot_cbf_wf, [
+                (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
+            ]),
+        ])
+        # fmt:on
 
     # xform to 'MNI152NLin2009cAsym' is always computed, so this should always be available.
     select_xform_MNI152NLin2009cAsym_to_t1w = pe.Node(
         KeySelect(fields=["template_to_anat_xfm"], key="MNI152NLin2009cAsym"),
         name="carpetplot_select_std",
         run_without_submitting=True,
+    )
+
+    carpetplot_wf = init_carpetplot_wf(
+        mem_gb=mem_gb["resampled"],
+        metadata=metadata,
+        # cifti_output=config.workflow.cifti_output,
+        name="carpetplot_wf",
     )
 
     # fmt:off
@@ -947,41 +948,20 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_reg_wf, parcellate_cbf_wf, [
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
-        (compute_cbf_wf, parcellate_cbf_wf, [("outputnode.mean_cbf", "inputnode.mean_cbf")]),
         (parcellate_cbf_wf, asl_derivatives_wf, [
             ("outputnode.atlas_names", "inputnode.atlas_names"),
-            ("outputnode.mean_cbf_parcellated", "inputnode.mean_cbf_parcellated"),
         ]),
     ])
     # fmt:on
 
-    if scorescrub:
+    for cbf_deriv in MEAN_CBF_DERIVS:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, parcellate_cbf_wf, [
-                ("outputnode.mean_cbf_score", "inputnode.mean_cbf_score"),
-                ("outputnode.mean_cbf_scrub", "inputnode.mean_cbf_scrub"),
+                (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
             ]),
             (parcellate_cbf_wf, asl_derivatives_wf, [
-                ("outputnode.mean_cbf_score_parcellated", "inputnode.mean_cbf_score_parcellated"),
-                ("outputnode.mean_cbf_scrub_parcellated", "inputnode.mean_cbf_scrub_parcellated"),
-            ]),
-        ])
-        # fmt:on
-
-    if basil:
-        # fmt:off
-        workflow.connect([
-            (compute_cbf_wf, parcellate_cbf_wf, [
-                ("outputnode.mean_cbf_basil", "inputnode.mean_cbf_basil"),
-                ("outputnode.mean_cbf_gm_basil", "inputnode.mean_cbf_gm_basil"),
-            ]),
-            (parcellate_cbf_wf, asl_derivatives_wf, [
-                ("outputnode.mean_cbf_basil_parcellated", "inputnode.mean_cbf_basil_parcellated"),
-                (
-                    "outputnode.mean_cbf_gm_basil_parcellated",
-                    "inputnode.mean_cbf_gm_basil_parcellated",
-                ),
+                (f"outputnode.{cbf_deriv}_parcellated", f"inputnode.{cbf_deriv}_parcellated"),
             ]),
         ])
         # fmt:on

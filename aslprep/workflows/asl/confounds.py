@@ -13,9 +13,9 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.utils import AddTSVHeader
 
 
-def init_asl_confs_wf(
+def init_asl_confounds_wf(
     mem_gb,
-    name="asl_confs_wf",
+    name="asl_confounds_wf",
 ):
     """Build a workflow to generate and write out confounding signals.
 
@@ -35,9 +35,9 @@ def init_asl_confs_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.confounds import init_asl_confs_wf
+            from aslprep.workflows.asl.confounds import init_asl_confounds_wf
 
-            wf = init_asl_confs_wf(
+            wf = init_asl_confounds_wf(
                 mem_gb=1,
             )
 
@@ -50,7 +50,7 @@ def init_asl_confs_wf(
     metadata : :obj:`dict`
         BIDS metadata for asl file
     name : :obj:`str`
-        Name of workflow (default: ``asl_confs_wf``)
+        Name of workflow (default: ``asl_confounds_wf``)
 
 
     Inputs
