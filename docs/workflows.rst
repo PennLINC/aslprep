@@ -125,7 +125,7 @@ split into multiple sub-workflows described below.
     volume (optionally along with an M0 volume).
 
     For these short sequences, ASLPrep performs many of the same steps as for a longer sequence,
-    but certain steps are dropped, including motion correction and slice timing correction.
+    but certain steps are dropped, including motion correction.
     Additionally, SCORE/SCRUB cannot be used with these short sequences,
     as the denoising method requires a long time series from which to identify outliers.
 
@@ -190,33 +190,6 @@ three translations) per time-step is written and fed to the
 for a more accurate estimation of head-motion.
 
 
-Slice time correction
-=====================
-
-:py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
-
-.. workflow::
-    :graph2use: orig
-    :simple_form: yes
-
-    from aslprep.workflows.asl.stc import init_asl_stc_wf
-
-    wf = init_asl_stc_wf(
-        metadata={
-            "RepetitionTime": 2.0,
-            "SliceTiming": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-        },
-    )
-
-
-If the ``SliceTiming`` field is available within the input dataset metadata,
-this workflow performs slice time correction prior to other signal resampling processes.
-Slice time correction is performed using AFNI ``3dTShift``.
-All slices are realigned in time to the middle of each TR.
-
-Slice time correction can be disabled with the ``--ignore slicetiming`` command line argument.
-
-
 .. _asl_confounds:
 
 Confounds estimation
@@ -271,9 +244,7 @@ Preprocessed ASL in native space
 
 
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
-from either the slice-timing corrected data or the original data
-(if :abbr:`STC (slice-timing correction)` was not applied)
-in the original space.
+from the original data in the original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
 resampled in their native space by concatenating the mappings found in previous correction workflows
 (:abbr:`HMC (head-motion correction)` and :abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
