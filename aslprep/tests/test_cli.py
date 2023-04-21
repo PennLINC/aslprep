@@ -311,5 +311,5 @@ def _run_and_fail(parameters):
 
     retval = build_workflow(config_file, retval={})
     aslprep_wf = retval["workflow"]
-    with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
+    with pytest.raises(NodeExecutionError, match="Multi-PLD data are not supported for PASL"):
         aslprep_wf.run()
