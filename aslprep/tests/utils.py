@@ -35,7 +35,7 @@ def download_test_data(dset, data_dir=None):
         raise ValueError(f"dset ({dset}) must be one of: {', '.join(URLS.keys())}")
 
     if not data_dir:
-        data_dir = os.path.join(get_test_data_path(), "test_datasets")
+        data_dir = os.path.join(get_test_data_path(), "test_data")
 
     out_dir = os.path.join(data_dir, dset)
 
