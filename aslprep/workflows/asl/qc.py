@@ -51,7 +51,7 @@ def init_compute_cbf_qc_wf(
     t1w_tpms
         t1w probability maps
     anat_to_aslref_xfm
-        t1w to asl transfromation file
+        t1w to asl transformation file
 
     Outputs
     -------
