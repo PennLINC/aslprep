@@ -825,13 +825,13 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
-    mean_cbf_basil = File(exists=False, desc="cbf with spatial correction")
-    mean_cbf_gm_basil = File(exists=False, desc="cbf with spatial correction")
+    mean_cbf_basil = File(exists=True, desc="cbf with spatial correction")
+    mean_cbf_gm_basil = File(exists=True, desc="cbf with spatial correction")
     mean_cbf_wm_basil = File(
-        exists=False,
+        exists=True,
         desc="cbf with spatial partial volume white matter correction",
     )
-    att_basil = File(exists=False, desc="arterial transit time")
+    att_basil = File(exists=True, desc="arterial transit time")
 
 
 class BASILCBF(FSLCommand):
