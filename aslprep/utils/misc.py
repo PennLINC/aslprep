@@ -912,12 +912,9 @@ def estimate_cbf_pcasl_multipld(
         t1blood=t1blood,
         t1tissue=t1tissue,
     )
-    num_factor = (
-        unit_conversion
-        * partition_coefficient
-        * mean_deltam_by_pld
-        * np.exp(att_arr[:, None] / t1blood)
-    )
+
+    # Start calculating CBF
+    num_factor = unit_conversion * partition_coefficient
     denom_factor = 2 * labeleff * scaled_m0data * t1blood
 
     # Loop over PLDs and calculate CBF for each, accounting for ATT.
@@ -925,11 +922,15 @@ def estimate_cbf_pcasl_multipld(
     for i_pld, pld in enumerate(unique_plds):
         tau_for_pld = tau[i_pld]
 
+        pld_num_factor = (
+            num_factor * mean_deltam_by_pld[:, i_pld] * np.exp(att_arr[:, None] / t1blood)
+        )
+
         pld_denom_factor = denom_factor * (
             np.exp(-np.maximum(pld - att_arr, 0))
             - np.exp(-np.maximum(tau_for_pld + pld - att_arr, 0))
         )
-        cbf_by_pld[:, i_pld] = num_factor / pld_denom_factor
+        cbf_by_pld[:, i_pld] = pld_num_factor / pld_denom_factor
 
     # Average CBF across PLDs, but only include PLDs where PLD + tau > ATT for that voxel,
     # per Juttukonda 2021 (section 2.6).
