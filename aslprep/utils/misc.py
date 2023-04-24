@@ -924,9 +924,7 @@ def estimate_cbf_pcasl_multipld(
     for i_pld, pld in enumerate(unique_plds):
         tau_for_pld = tau[i_pld]
 
-        pld_num_factor = (
-            num_factor * mean_deltam_by_pld[:, i_pld] * np.exp(att_arr[:, None] / t1blood)
-        )
+        pld_num_factor = num_factor * mean_deltam_by_pld[:, i_pld] * np.exp(att_arr / t1blood)
         print(f"mean_deltam_by_pld[:, i_pld]: {mean_deltam_by_pld[:, i_pld].shape}")
         print(f"att_arr[:, None]: {att_arr[:, None].shape}")
         print(f"pld_num_factor: {pld_num_factor.shape}")
