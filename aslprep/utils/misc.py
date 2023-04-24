@@ -918,6 +918,13 @@ def estimate_cbf_pcasl_multipld(
         * mean_deltam_by_pld
         * np.exp(att_arr[:, None] / t1blood)
     )
+    denom_factor = 2
+    denom_factor *= labeleff
+    denom_factor *= scaled_m0data
+    denom_factor *= t1blood
+    temp_factor = np.exp(-np.maximum(plds - att_arr, 0))
+    temp_factor -= np.exp(-np.maximum(tau + plds - att_arr, 0))
+    denom_factor *= temp_factor
     denom_factor = (
         2
         * labeleff
