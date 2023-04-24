@@ -897,7 +897,7 @@ def estimate_cbf_pcasl_multipld(
 
         tau = tau[unique_pld_idx]
     else:
-        tau = np.full(plds.size, tau)
+        tau = np.full(unique_plds.size, tau)
 
     mean_deltam_by_pld = np.zeros((n_voxels, unique_plds.size))
     for i_pld, pld in enumerate(unique_plds):
