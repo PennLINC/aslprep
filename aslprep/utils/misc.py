@@ -247,6 +247,8 @@ def get_tis(metadata: "dict[str, Any]") -> list:
     :obj:`list`
         List of PostLabelingDelay values.
     """
+    import numpy as np
+
     if "CASL" in metadata["ArterialSpinLabelingType"]:
         return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"]).tolist()
     else:
