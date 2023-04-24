@@ -305,6 +305,7 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
 def _run_and_fail(parameters):
     from aslprep import config
 
+    parameters.append("--stop-on-first-crash")
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.to_filename(config_file)
