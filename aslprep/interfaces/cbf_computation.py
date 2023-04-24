@@ -205,14 +205,6 @@ class ExtractCBF(SimpleInterface):
         else:
             raise RuntimeError("no pathway to m0scan")
 
-        pld = np.array(metadata["PostLabelingDelay"])
-        is_multi_pld = pld.size > 1
-        if is_multi_pld and pld.size != asl_data.shape[3]:
-            raise ValueError(
-                "PostLabelingDelay is an array, but the number of values does not match the "
-                "number of volumes in the ASL data."
-            )
-
         if deltam_volume_idx:
             config.loggers.interface.info("Extracting deltaM from ASL file.")
             metadata_idx = deltam_volume_idx
@@ -235,18 +227,35 @@ class ExtractCBF(SimpleInterface):
         else:
             raise RuntimeError("No valid ASL or CBF image.")
 
-        if is_multi_pld:
-            # Reduce the volume-wise PLDs to just include the selected volumes.
-            pld = pld[metadata_idx]
+        # Update the metadata as necessary
+        VOLUME_WISE_FIELDS = [
+            "PostLabelingDelay",
+            "VascularCrushingVENC",
+            "LabelingDuration",
+            "EchoTime",
+            "FlipAngle",
+            "RepetitionTimePreparation",
+        ]
 
-        if self.inputs.dummy_vols != 0:
-            out_data = out_data[..., self.inputs.dummy_vols :]
-            if is_multi_pld:
-                # Remove dummy volumes from the PLDs
-                pld = pld[self.inputs.dummy_vols :]
+        for field in VOLUME_WISE_FIELDS:
+            if field not in metadata:
+                continue
 
-        if is_multi_pld:
-            metadata["PostLabelingDelay"] = pld.tolist()
+            value = metadata[field]
+            if isinstance(value, list) and len(value) != asl_data.shape[3]:
+                raise ValueError(
+                    f"{field} is an array, but the number of values ({len(value)}) "
+                    f"does not match the number of volumes in the ASL data ({asl_data.shape[3]})."
+                )
+            elif isinstance(value, list):
+                # Reduce to only the selected volumes
+                value = [value[i] for i in metadata_idx]
+
+                # Remove dummy volumes as well
+                if self.inputs.dummy_vols != 0:
+                    value = value[self.inputs.dummy_vols :]
+
+                metadata[field] = value
 
         self._results["metadata"] = metadata
         self._results["m0tr"] = m0tr

@@ -20,7 +20,12 @@ from aslprep.interfaces.cbf_computation import (
 from aslprep.interfaces.parcellation import ParcellateCBF
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
-from aslprep.utils.misc import estimate_labeling_efficiency, get_tis, pcasl_or_pasl
+from aslprep.utils.misc import (
+    estimate_labeling_efficiency,
+    get_bolus,
+    get_tis,
+    pcasl_or_pasl,
+)
 
 
 def init_compute_cbf_wf(
@@ -319,21 +324,44 @@ CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
 BASIL computes CBF using a spatial regularization of the estimated perfusion image and
 additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 """
-        if is_casl:
-            bolus = metadata["LabelingDuration"]
-        else:  # pasl
-            bolus = metadata["BolusCutOffDelayTime"]
-            if metadata["BolusCutOffTechnique"] == "Q2TIPS":
-                # BolusCutOffDelayTime is a list, and the first entry should be used.
-                bolus = bolus[0]
+        # Node to define bolus
+        get_bolus_node = pe.Node(
+            niu.Function(
+                function=get_bolus,
+                input_names=["metadata", "is_casl"],
+                output_names=["bolus"],
+            ),
+            name="get_bolus_node",
+        )
+        get_bolus_node.inputs.is_casl = is_casl
+        workflow.connect([(extract_deltam, get_bolus_node, [("metadata", "metadata")])])
+
+        # Node to define tis
+        get_inversion_times = pe.Node(
+            niu.Function(
+                function=get_tis,
+                input_names=["metadata"],
+                output_names=["tis"],
+            ),
+            name="get_inversion_times",
+        )
+        workflow.connect([(extract_deltam, get_inversion_times, [("metadata", "metadata")])])
+
+        # Node to estimate labeling efficiency
+        estimate_alpha = pe.Node(
+            niu.Function(
+                function=estimate_labeling_efficiency,
+                input_names=["metadata"],
+                output_names=["labeling_efficiency"],
+            ),
+            name="estimate_alpha",
+        )
+        workflow.connect([(extract_deltam, estimate_alpha, [("metadata", "metadata")])])
 
         basilcbf = pe.Node(
             BASILCBF(
                 m0scale=M0Scale,
-                bolus=bolus,
-                alpha=estimate_labeling_efficiency(metadata),
                 pvc=True,
-                tis=get_tis(metadata),
                 pcasl=is_casl,
             ),
             name="basilcbf",
@@ -350,6 +378,9 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),
+            (get_bolus_node, basilcbf, [("bolus", "bolus")]),
+            (get_inversion_times, basilcbf, [("tis", "tis")]),
+            (estimate_alpha, basilcbf, [("labeling_efficiency", "alpha")]),
             (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
             (wm_tfm, basilcbf, [("output_image", "wm_tpm")]),
             (basilcbf, outputnode, [

@@ -253,6 +253,19 @@ def get_tis(metadata: "dict[str, Any]") -> list:
         return np.array(metadata["PostLabelingDelay"]).tolist()
 
 
+def get_bolus(metadata, is_casl):
+    """Determine the appropriate bolus value(s) for BASIL."""
+    if is_casl:
+        bolus = metadata["LabelingDuration"]
+    else:  # pasl
+        bolus = metadata["BolusCutOffDelayTime"]
+        if metadata["BolusCutOffTechnique"] == "Q2TIPS":
+            # BolusCutOffDelayTime is a list, and the first entry should be used.
+            bolus = bolus[0]
+
+    return bolus
+
+
 def _weightfun(x, wfun="huber"):
     """Get weight fun and tuner."""
     if wfun == "andrews":
