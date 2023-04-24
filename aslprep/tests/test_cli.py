@@ -281,6 +281,7 @@ def test_test_003(data_dir, output_dir, working_dir):
 def _run_and_generate(test_name, participant_label, parameters, out_dir):
     from aslprep import config
 
+    parameters.append("--stop-on-first-crash")
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.loggers.cli.warning(f"Saving config file to {config_file}")
