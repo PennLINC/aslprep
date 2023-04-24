@@ -576,7 +576,7 @@ class ComputeCBF(SimpleInterface):
                 )
 
             # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
-            deltam_scaled = deltam_arr / scaled_m0data
+            deltam_scaled = deltam_arr / scaled_m0data[:, None]
 
             perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
                 denom_factor * 2 * labeleff
