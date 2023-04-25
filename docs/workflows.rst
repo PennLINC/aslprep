@@ -312,10 +312,24 @@ Pseudo-Continuous ASL
 ---------------------
 
 For (P)CASL ([pseudo-]continuous ASL),
-CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`:
+CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
+
+.. sidebar:: Notation
+
+   :math:`\tau` : Labeling duration
+
+   :math:`\lambda` : Brain-blood partition coefficient
+
+   :math:`\alpha` : Labeling efficiency
+
+   :math:`w` : Post-labeling delay (PLD)
+
+   :math:`T_{1,blood}` : Relaxation time for arterial blood
+
+   :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ w }{ T1_{blood} } } {2 * \alpha * M_{0} * T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } }) }
+   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ w }{ T_{1,blood} } } {2 * \alpha * M_{0} * T_{1,blood} * (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
 
 :math:`\tau`, :math:`\lambda`, :math:`\alpha`, and :math:`w` are labeling duration,
 brain-blood partition coefficient, labeling efficiency, and post-labeling delay (PLD), respectively.
@@ -335,6 +349,22 @@ QUIPSS Modification
 
 For pulsed ASL (PASL) data with the QUIPSS BolusCutOffTechnique,
 the formula from :footcite:t:`wong1998quantitative` is used.
+
+.. sidebar:: Notation
+
+   :math:`\lambda` : Brain-blood partition coefficient
+
+   :math:`\alpha` : Labeling efficiency
+
+   :math:`w` : Post-labeling delay (PLD)
+
+   :math:`T_{1,blood}` : Relaxation time for arterial blood
+
+   :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
+
+   :math:`\Delta{TI}` : Post-labeling delay minus bolus cutoff delay time.
+
+   :math:`TI_{1}` : Bolus cutoff delay time.
 
 .. math::
    CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ w }{ T1_{blood} } } {2 * \alpha * M_{0} * \Delta{TI} }
@@ -390,19 +420,25 @@ For multi-PLD PCASL data, the following steps are taken:
 
         .. math::
 
-            WD_{E}(\delta_{t}, w_{i}) = e ^ \frac{ -t } { T_{1,blood} } \cdot
-            ( e ^ \frac{ -max( 0, w_{i} - \delta_{t} ) } { T_{1,tissue} } -
-            e ^ \frac{ -max( 0, w_{i} + \tau - \delta_{t} ) } { T_{1,tissue} } )
+            WD_{E}(\delta_{t}, w_{i}) = e ^ \frac{ -\delta_{t} } { T_{1,blood} } \cdot
+            \left[
+                e ^ {-\frac{ max( 0, w_{i} - \delta_{t} ) } { T_{1,tissue} }} -
+                e ^ {-\frac{ max( 0, \tau + w_{i} - \delta_{t} ) } { T_{1,tissue} }}
+            \right]
 
-            WD_{E}(\delta_{t}) = \frac{ \sum_{i=1}^{|PLDs|} w_{i} \cdot
-            WD_{E}(\delta_{t},w_{i}) } { \sum_{i=1}^{|PLDs|} WD_{E}(\delta_{t},w_{i}) }
+            WD_{E}(\delta_{t}) = \frac{ \sum_{i=1}^{|w|} w_{i} \cdot
+            WD_{E}(\delta_{t},w_{i}) } { \sum_{i=1}^{|w|} WD_{E}(\delta_{t},w_{i}) }
 
     3.  Calculate the observed weighted delay (:math:`WD_{O}`) for the actual data, at each voxel :math:`v`.
 
         .. math::
 
-            WD_{O}(v) = \frac{ \sum_{i=1}^{|PLDs|} w_i \cdot \Delta{M}( w_{i},v ) }
-            { \sum_{i=1}^{|PLDs|} \Delta{M}(v) }
+            WD_{O}(v) = \frac{
+                \sum_{i=1}^{|w|} w_{i} \cdot \Delta{M}( w_{i},v )
+            }
+            {
+                \sum_{i=1}^{|w|} \Delta{M}(v)
+            }
 
     4.  Truncate the observed weighted delays to valid delay values,
         determined based on the expected weighted delays.
@@ -420,7 +456,17 @@ For multi-PLD PCASL data, the following steps are taken:
     .. math::
 
         CBF_{i} = 6000 \cdot \lambda \cdot \frac{ \Delta{M}_{i} }{ M_{0} } \cdot
-        \frac{ e ^ { \frac{\delta}{T_{1,blood}} } } { 2 \cdot \alpha \cdot T_{1,blood} \cdot \left[ e ^ \frac{-max(w_{i} - \delta, 0)}{T_{1,tissue}} - e ^ \frac{-max(\tau + w_{i} - \delta, 0)}{T_{1,tissue}} \right] }
+        \frac{
+            e ^ \frac{ \delta }{ T_{1,blood} }
+        }
+        {
+            2 \cdot \alpha \cdot T_{1,blood} \cdot
+            \left[
+                e ^ { -\frac{ max(w_{i} - \delta, 0) }{ T_{1,tissue} } }
+                -
+                e ^ { -\frac{ max(\tau + w_{i} - \delta, 0) }{ T_{1,tissue} } }
+            \right]
+        }
 
     Note that Equation 2 in :footcite:t:`fan2017long` uses different notation.
     :math:`T_{1,blood}` is referred to as :math:`T_{1a}`,
@@ -432,8 +478,8 @@ For multi-PLD PCASL data, the following steps are taken:
     and :math:`\alpha` is referred to as :math:`\epsilon`.
 
 4.  CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
-    in which an unweighted average is calculated for each voxel across all PLDs in which
-    :math:`PLD + \tau \gt ATT`.
+    in which an unweighted average is calculated for each voxel across all PLDs (:math:`w`) in which
+    :math:`w + \tau \gt \delta`.
 
 Pulsed ASL
 ----------
