@@ -315,10 +315,10 @@ For (P)CASL ([pseudo-]continuous ASL),
 CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`:
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ PLD }{ T1_{blood} } } {2 * \alpha * M_{0} * T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } }) }
+   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ w }{ T1_{blood} } } {2 * \alpha * M_{0} * T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } }) }
 
-:math:`\tau`, :math:`\lambda`, and :math:`\alpha` are label duration,
-brain-blood partition coefficient, and labeling efficiency, respectively.
+:math:`\tau`, :math:`\lambda`, :math:`\alpha`, and :math:`w` are labeling duration,
+brain-blood partition coefficient, labeling efficiency, and post-labeling delay (PLD), respectively.
 
 In the absence of any of these parameters, standard values are used based on the scan type and
 scanning parameters.
@@ -337,12 +337,12 @@ For pulsed ASL (PASL) data with the QUIPSS BolusCutOffTechnique,
 the formula from :footcite:t:`wong1998quantitative` is used.
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ PLD }{ T1_{blood} } } {2 * \alpha * M_{0} * \Delta{TI} }
+   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ w }{ T1_{blood} } } {2 * \alpha * M_{0} * \Delta{TI} }
 
 where :math:`\Delta{TI}` is the post-labeling delay (PLD) minus the bolus cutoff delay time.
 
 Note that the formula for QUIPSS is the same as PCASL,
-except :math:`\Deltam{TI}` replaced :math:`T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+except :math:`\Delta{TI}` replaces :math:`T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
 
 
 QUIPSS II Modification
@@ -352,12 +352,12 @@ For PASL data with the QUIPSS II BolusCutOffTechnique,
 the formula from :footcite:t:`alsop_recommended_2015` is used.
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ PLD }{ T1_{blood} } } {2 * \alpha * M_{0} * TI_{1} }
+   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ w }{ T1_{blood} } } {2 * \alpha * M_{0} * TI_{1} }
 
 where :math:`TI_{1}` is the bolus cutoff delay time.
 
-Note that the formula for QUIPSS is the same as PCASL,
-except :math:`TI_{1}` replaced :math:`T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+Note that the formula for QUIPSS II is the same as PCASL,
+except :math:`TI_{1}` replaces :math:`T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
 
 
 Q2TIPS Modification
