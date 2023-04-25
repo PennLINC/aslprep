@@ -446,6 +446,14 @@ Pulsed ASL
 Additional Denoising Options
 ============================
 
+For cases where data may be especially noisy (e.g., due to motion or a low-SNR protocol),
+ASLPrep includes options to additionally denoise CBF estimates.
+
+The two current options are SCORE/SCRUB and BASIL.
+
+SCORE and SCRUB
+---------------
+
 ASLPrep includes the ability to denoise CBF with SCORE and SCRUB.
 
 Structural Correlation based Outlier Rejection (SCORE) :footcite:p:`dolui2017structural`
@@ -485,15 +493,21 @@ An example of CBF denoised by SCRUB is shown below.
 
    Computed CBF maps denoised by SCRUB
 
-*ASLPrep* also includes option of CBF computation by Bayesian Inference for Arterial Spin Labeling
-`(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_.
-BASIL also implements a simple kinetic model as described above,
-but using Bayesian Inference principles :footcite:p:`chappell2008variational`.
+BASIL
+-----
+
+*ASLPrep* also includes the option to compute CBF using the BASIL.
+
+Bayesian Inference for Arterial Spin Labeling `(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_
+is an FSL tool for CBF estimation.
+
+BASIL implements a simple kinetic model as described above,
+but uses Bayesian Inference principles :footcite:p:`chappell2008variational`.
 BASIL is mostly suitable for multi-PLD.
 It includes bolus arrival time estimation with spatial regularization :footcite:p:`groves2009combined`
 and the correction of partial volume effects :footcite:p:`chappell2011partial`.
 
-The sample of BASIL CBF with spatial regularization is shown below:
+A sample of BASIL CBF with spatial regularization is shown below:
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-basilplot_asl.svg
 
