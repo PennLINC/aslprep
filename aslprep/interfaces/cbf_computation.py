@@ -455,7 +455,7 @@ class ComputeCBF(SimpleInterface):
             )
             self._results["cbf_ts"] = fname_presuffix(
                 deltam_file,
-                suffix="_meancbf",
+                suffix="_cbf_ts",
                 newpath=runtime.cwd,
             )
             cbf_img = nb.load(deltam_file)
@@ -575,19 +575,24 @@ class ComputeCBF(SimpleInterface):
                 # PASL + Q2TIPS
                 # Q2TIPS should have two BolusCutOffDelayTimes.
                 assert len(metadata["BolusCutOffDelayTime"]) == 2
-                # XXX: This may be wrong.
-                denom_factor = metadata["BolusCutOffDelayTime"][0]
-                raise ValueError("Q2TIPS is not supported in ASLPrep.")
+                denom_factor = metadata["BolusCutOffDelayTime"][0]  # called TI1 in Noguchi 2015
 
             else:
                 raise ValueError(
                     f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}"
                 )
 
+            # Q2TIPS uses TI2 instead of w (PLD), see Noguchi 2015 for this info.
+            exp_numerator = (
+                metadata["BolusCutOffDelayTime"][1]
+                if metadata.get("BolusCutOffTechnique") == "Q2TIPS"
+                else plds
+            )
+
             # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
             deltam_scaled = deltam_arr / scaled_m0data[:, None]
 
-            perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
+            perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(exp_numerator / t1blood)) / (
                 denom_factor * 2 * labeleff
             )
 

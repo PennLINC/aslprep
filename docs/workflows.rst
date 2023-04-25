@@ -308,8 +308,8 @@ Single-PLD ASL
 The CBF computation of single-PLD (post labeling delay) ASL data is done using a relatively simple model.
 
 
-Pseudo-Continuous ASL
----------------------
+(Pseudo-)Continuous ASL
+-----------------------
 
 For (P)CASL ([pseudo-]continuous ASL),
 CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
@@ -329,7 +329,8 @@ CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
    :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ w }{ T_{1,blood} } } {2 * \alpha * M_{0} * T_{1,blood} * (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T_{1,blood} } }
+   {2 \cdot \alpha \cdot M_{0} \cdot T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
 
 :math:`\tau`, :math:`\lambda`, :math:`\alpha`, and :math:`w` are labeling duration,
 brain-blood partition coefficient, labeling efficiency, and post-labeling delay (PLD), respectively.
@@ -338,7 +339,8 @@ In the absence of any of these parameters, standard values are used based on the
 scanning parameters.
 
 The element which differentiates single-PLD PCASL's CBF calculation from the PASL equivalents is
-:math:`T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+
 
 Pulsed ASL
 ----------
@@ -367,12 +369,13 @@ the formula from :footcite:t:`wong1998quantitative` is used.
    :math:`TI_{1}` : Bolus cutoff delay time.
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ w }{ T1_{blood} } } {2 * \alpha * M_{0} * \Delta{TI} }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T1_{blood} } }
+   {2 \cdot \alpha \cdot M_{0} \cdot \Delta{TI} }
 
 where :math:`\Delta{TI}` is the post-labeling delay (PLD) minus the bolus cutoff delay time.
 
 Note that the formula for QUIPSS is the same as PCASL,
-except :math:`\Delta{TI}` replaces :math:`T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+except :math:`\Delta{TI}` replaces :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
 
 
 QUIPSS II Modification
@@ -382,20 +385,32 @@ For PASL data with the QUIPSS II BolusCutOffTechnique,
 the formula from :footcite:t:`alsop_recommended_2015` is used.
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * \Delta{M} * e ^ \frac{ w }{ T1_{blood} } } {2 * \alpha * M_{0} * TI_{1} }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T1_{blood} } }
+   {2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
 where :math:`TI_{1}` is the bolus cutoff delay time.
 
 Note that the formula for QUIPSS II is the same as PCASL,
-except :math:`TI_{1}` replaces :math:`T1_{blood} * (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+except :math:`TI_{1}` replaces :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
 
 
 Q2TIPS Modification
 ^^^^^^^^^^^^^^^^^^^
 
-.. warning::
-    As of 0.3.0, ASLPrep does not support single-PLD PASL with the Q2TIPS BolusCutOffTechnique.
-    We plan to support Q2TIPS data in the near future.
+For PASL data with the Q2TIPS BolusCutOffTechnique,
+the formula from the commercial Q2TIPS CBF calculation is used,
+as described in :footcite:t:`noguchi2015technical`.
+
+.. math::
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ { \frac{TI_{2} }{ T1_{blood} } } }
+   { 2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
+
+where :math:`TI_{1}` is the first bolus cutoff delay time and
+:math:`TI_{2}` is the last bolus cutoff delay time.
+
+Note that the formula for Q2TIPS is the same as PCASL,
+except :math:`TI_{1}` replaces :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })` and
+:math:`TI_{2}` replaces :math:`w` in the numerator.
 
 
 Multi-PLD ASL
