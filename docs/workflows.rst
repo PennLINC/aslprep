@@ -439,8 +439,8 @@ Pulsed ASL
 ----------
 
 .. warning::
-    As of 0.3.0, ASLPrep has disabled multi-PLD support.
-    We plan to properly support multi-PLD data in the near future.
+    As of 0.3.0, ASLPrep has disabled multi-PLD support for PASL data.
+    We plan to properly support multi-PLD PASL data in the near future.
 
 
 Additional Denoising Options
