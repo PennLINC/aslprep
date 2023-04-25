@@ -157,6 +157,8 @@ jobs:
             pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_philips" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_philips
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -186,6 +188,8 @@ jobs:
             pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_siemens" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_siemens
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -215,6 +219,8 @@ jobs:
             pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_ge" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_ge
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -244,6 +250,8 @@ jobs:
             pytest -rP -o log_cli=true -m "examples_pcasl_multipld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_multipld
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -273,6 +281,8 @@ jobs:
             pytest -rP -o log_cli=true -m "examples_pasl_multipld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pasl_multipld
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -302,6 +312,8 @@ jobs:
             pytest -rP -o log_cli=true -m "test_001" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.test_001
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -331,6 +343,8 @@ jobs:
             pytest -rP -o log_cli=true -m "test_002" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.test_002
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -360,6 +374,8 @@ jobs:
             pytest -rP -o log_cli=true -m "test_003" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.test_003
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
