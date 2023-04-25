@@ -452,7 +452,7 @@ For multi-PLD PCASL data, the following steps are taken:
                 \sum_{i=1}^{|w|} w_{i} \cdot \Delta{M}( w_{i},v )
             }
             {
-                \sum_{i=1}^{|w|} \Delta{M}(v)
+                \sum_{i=1}^{|w|} \Delta{M}( w_{i},v )
             }
 
     4.  Truncate the observed weighted delays to valid delay values,
