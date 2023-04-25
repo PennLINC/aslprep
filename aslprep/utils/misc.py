@@ -792,6 +792,8 @@ def estimate_labeling_efficiency(metadata):
 def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     """Estimate arterial transit time using the weighted average method.
 
+    The weighted average method comes from :footcite:t:`dai2012reduced`.
+
     Parameters
     ----------
     deltam_arr : :obj:`numpy.ndarray`
@@ -814,6 +816,10 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     -----
     Written by Jianxun Qu, @jianxun_qu@163.com in MATLAB.
     Translated to Python by Taylor Salo.
+
+    References
+    ----------
+    .. footbibliography::
     """
     n_plds = plds.size
     n_voxels, n_volumes = deltam_arr.shape
@@ -893,7 +899,57 @@ def estimate_cbf_pcasl_multipld(
     unit_conversion,
     partition_coefficient,
 ):
-    """Estimate CBF and ATT for multi-PLD PCASL data."""
+    """Estimate CBF and ATT for multi-PLD PCASL data.
+
+    Parameters
+    ----------
+    deltam_arr : :obj:`numpy.ndarray` of shape (S, P)
+        Control-label values for each voxel and PLDs.
+        S = sample (i.e., voxel).
+        P = Post-labeling delay (i.e., volume).
+    scaled_m0data : :obj:`numpy.ndarray` of shape (S,)
+        The M0 volume, after scaling based on the M0-scale value.
+    plds : :obj:`numpy.ndarray` of shape (P,)
+        Post-labeling delays. One value for each volume in ``deltam_arr``.
+    tau : :obj:`numpy.ndarray` of shape (P,) or (0,)
+        Label duration. May be a single value or may vary across volumes/PLDs.
+    labeleff : :obj:`float`
+        Estimated labeling efficiency.
+    t1blood : :obj:`float`
+        The longitudinal relaxation time of blood in seconds.
+    t1tissue : :obj:`float`
+        The longitudinal relaxation time of tissue in seconds.
+    unit_conversion : :obj:`float`
+        The factor to convert CBF units from mL/g/s to mL/ (100 g)/min. 6000.
+    partition_coefficient : :obj:`float`
+        The brain/blood partition coefficient in mL/g. Called lambda in the literature.
+
+    Returns
+    -------
+    att_arr : :obj:`numpy.ndarray` of shape (S,)
+        Arterial transit time map.
+    cbf : :obj:`numpy.ndarray` of shape (S,)
+        Estimated cerebrospinal fluid map, after estimating for each PLD and averaging across
+        PLDs.
+
+    Notes
+    -----
+    Delta-M values are first averaged over time for each unique post-labeling delay value.
+
+    Arterial transit time is estimated on a voxel-wise basis according to
+    :footcite:t:`dai2012reduced`.
+
+    CBF is then calculated for each unique PLD value using the mean delta-M values and the
+    estimated ATT.
+
+    CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
+    in which an unweighted average is calculated for each voxel across all PLDs in which
+    PLD + tau > ATT.
+
+    References
+    ----------
+    .. footbibliography::
+    """
     n_voxels, n_volumes = deltam_arr.shape
     if plds.size != n_volumes:
         raise ValueError(
