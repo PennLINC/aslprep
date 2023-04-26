@@ -483,14 +483,16 @@ For multi-PLD PCASL data, the following steps are taken:
             \right]
         }
 
-    Note that Equation 2 in :footcite:t:`fan2017long` uses different notation.
-    :math:`T_{1,blood}` is referred to as :math:`T_{1a}`,
-    :math:`T_{1,tissue}` is referred to as :math:`T_{1t}`,
-    :math:`\Delta{M}` is referred to as :math:`M`,
-    :math:`w` is referred to as :math:`PLD`,
-    :math:`\delta` is referred to as :math:`ATT`,
-    :math:`\tau` is referred to as :math:`LD`,
-    and :math:`\alpha` is referred to as :math:`\epsilon`.
+    .. note::
+
+        Note that Equation 2 in :footcite:t:`fan2017long` uses different notation.
+        :math:`T_{1,blood}` is referred to as :math:`T_{1a}`,
+        :math:`T_{1,tissue}` is referred to as :math:`T_{1t}`,
+        :math:`\Delta{M}` is referred to as :math:`M`,
+        :math:`w` is referred to as :math:`PLD`,
+        :math:`\delta` is referred to as :math:`ATT`,
+        :math:`\tau` is referred to as :math:`LD`,
+        and :math:`\alpha` is referred to as :math:`\epsilon`.
 
 4.  CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
     in which an unweighted average is calculated for each voxel across all PLDs (:math:`w`) in which
