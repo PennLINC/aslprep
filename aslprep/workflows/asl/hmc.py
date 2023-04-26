@@ -6,18 +6,19 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
+from aslprep.interfaces.confounds import ZigZagCorrection
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces import NormalizeMotionParams
 from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
 from aslprep.utils.misc import _select_last_in_list
 
 
-def init_asl_hmc_wf(mem_gb, omp_nthreads, name="asl_hmc_wf"):
-    """Build a workflow to estimate head-motion parameters.
+def init_asl_hmc_wf(use_zigzag, mem_gb, omp_nthreads, name="control_label_hmc_wf"):
+    """Estimate head-motion parameters and optionally correct them for intensity differences.
 
-    This workflow estimates the motion parameters to perform
-    :abbr:`HMC (head motion correction)` over the input
-    :abbr:`ASL (blood-oxygen-level dependent)` image.
+    This workflow first estimates motion parameters using MCFLIRT,
+    then applies the zig-zag regressor method :footcite:p:`wang2012improving`
+    to correct the parameters for intensity differences between control and label volumes.
 
     Workflow Graph
         .. workflow::
@@ -25,13 +26,17 @@ def init_asl_hmc_wf(mem_gb, omp_nthreads, name="asl_hmc_wf"):
             :simple_form: yes
 
             from aslprep.workflows.asl.hmc import init_asl_hmc_wf
+
             wf = init_asl_hmc_wf(
+                use_zigzag=True,
                 mem_gb=3,
                 omp_nthreads=1,
             )
 
     Parameters
     ----------
+    use_zigzag : :obj:`bool`
+        If True, apply zig-zag correction to motion parameters.
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
@@ -42,7 +47,11 @@ def init_asl_hmc_wf(mem_gb, omp_nthreads, name="asl_hmc_wf"):
     Inputs
     ------
     asl_file
-        ASL series NIfTI file
+        Control-label pair series NIfTI file.
+        If an ASL run contains M0 volumes, deltaM volumes, or CBF volumes,
+        those volumes should be removed before running this workflow.
+    aslcontext
+        ASL context TSV file.
     raw_ref_image
         Reference image to which ASL series is motion corrected
 
@@ -54,20 +63,37 @@ def init_asl_hmc_wf(mem_gb, omp_nthreads, name="asl_hmc_wf"):
         MCFLIRT motion parameters, normalized to SPM format (X, Y, Z, Rx, Ry, Rz)
     rms_file
         Framewise displacement as measured by ``fsl_motion_outliers``
-
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-Head-motion parameters were estimated using *FSL*’s `mcflirt` [ @mcflirt].
-Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file.
+Head-motion parameters were estimated to the control-label time series using
+*FSL*'s `mcflirt` [@mcflirt].
+Next, ASLPrep applied zig-zag regression [@wang2012improving] to correct the motion parameters
+for intensity differences between the control and label volumes.
+ASLPrep wrote the modified head-motion parameters to the ASL run's confound file.
 
 """
 
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=["asl_file", "raw_ref_image"]), name="inputnode"
+        niu.IdentityInterface(
+            fields=[
+                "asl_file",
+                "aslcontext",
+                "raw_ref_image",
+            ],
+        ),
+        name="inputnode",
     )
+
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["xforms", "movpar_file", "rmsd_file"]), name="outputnode"
+        niu.IdentityInterface(
+            fields=[
+                "movpar_file",
+                "xforms",
+                "rmsd_file",
+            ],
+        ),
+        name="outputnode",
     )
 
     # Head motion correction (hmc)
@@ -77,7 +103,26 @@ Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file.
         mem_gb=mem_gb * 3,
     )
 
+    # fmt:off
+    workflow.connect([
+        (inputnode, mcflirt, [
+            ("raw_ref_image", "ref_file"),
+            ("asl_file", "in_file"),
+        ]),
+    ])
+    # fmt:on
+
     fsl2itk = pe.Node(MCFLIRT2ITK(), name="fsl2itk", mem_gb=0.05, n_procs=omp_nthreads)
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, fsl2itk, [
+            ("raw_ref_image", "in_source"),
+            ("raw_ref_image", "in_reference"),
+        ]),
+        (fsl2itk, outputnode, [("out_file", "xforms")]),
+    ])
+    # fmt:on
 
     normalize_motion = pe.Node(
         NormalizeMotionParams(format="FSL"),
@@ -85,24 +130,35 @@ Next, ASLPrep wrote head-motion parameters to the ASL run’s confound file.
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    # fmt:off
-    workflow.connect([
-        (inputnode, mcflirt, [
-            ("raw_ref_image", "ref_file"),
-            ("asl_file", "in_file"),
-        ]),
-        (inputnode, fsl2itk, [
-            ("raw_ref_image", "in_source"),
-            ("raw_ref_image", "in_reference"),
-        ]),
-        (mcflirt, fsl2itk, [("mat_file", "in_files")]),
-        (mcflirt, normalize_motion, [("par_file", "in_file")]),
-        (mcflirt, outputnode, [
-            (("rms_files", _select_last_in_list), "rmsd_file"),
-        ]),
-        (fsl2itk, outputnode, [("out_file", "xforms")]),
-        (normalize_motion, outputnode, [("out_file", "movpar_file")]),
-    ])
-    # fmt:on
+    workflow.connect([(normalize_motion, outputnode, [("out_file", "movpar_file")])])
+
+    if use_zigzag:
+        correct_motion = pe.Node(
+            ZigZagCorrection(),
+            name="correct_motion",
+            mem_gb=DEFAULT_MEMORY_MIN_GB,
+        )
+
+        # fmt:off
+        workflow.connect([
+            (inputnode, correct_motion, [("aslcontext", "aslcontext")]),
+            (mcflirt, correct_motion, [("par_file", "movpar_file")]),
+            # XXX: This probably won't work since it's a TSV rather than a MAT file
+            # Is there a trick for going from TSV files to ITK files?
+            (correct_motion, fsl2itk, [("movpar_file", "in_files")]),
+            (correct_motion, normalize_motion, [("movpar_file", "in_file")]),
+            (correct_motion, outputnode, [("rmsd_file", "rmsd_file")]),
+        ])
+        # fmt:on
+    else:
+        # fmt:off
+        workflow.connect([
+            (mcflirt, fsl2itk, [("mat_file", "in_files")]),
+            (mcflirt, normalize_motion, [("par_file", "in_file")]),
+            (mcflirt, outputnode, [
+                (("rms_files", _select_last_in_list), "rmsd_file"),
+            ]),
+        ])
+        # fmt:on
 
     return workflow

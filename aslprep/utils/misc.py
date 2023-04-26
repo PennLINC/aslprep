@@ -771,3 +771,30 @@ def estimate_labeling_efficiency(metadata):
             labeleff *= BS_PULSE_EFF ** metadata.get("BackgroundSuppressionNumberPulses", 1)
 
     return labeleff
+
+
+def group_asl_data(aslcontext, metadata):
+    """Determine how to handle ASL and M0 data based on dataset configuration."""
+    import pandas as pd
+
+    m0_type = metadata["M0Type"]
+    aslcontext_df = pd.read_table(aslcontext)
+    voltypes = aslcontext_df["volume_type"]
+
+    if "control" in voltypes and "label" in voltypes:
+        processing_target = "controllabel"
+    elif "deltam" in voltypes:
+        processing_target = "deltam"
+    elif "cbf" in voltypes:
+        processing_target = "cbf"
+    else:
+        raise ValueError("aslcontext doesn't have control, label, deltam, or cbf volumes.")
+
+    if m0_type == "Included":
+        m0_handling = "split"
+    elif m0_type == "Separate":
+        m0_handling = "separate"
+    else:
+        m0_handling = "generate"
+
+    return processing_target, m0_handling

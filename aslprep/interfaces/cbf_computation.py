@@ -906,3 +906,91 @@ def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_
     results = modify_asl_mask.run()
 
     return results.outputs.out_file
+
+
+class _SplitASLDataInputSpec(BaseInterfaceInputSpec):
+    asl_file = File(exists=True, mandatory=True, desc="ASL file to split.")
+    m0_file = traits.Either(
+        None,
+        File(exists=True),
+        mandatory=True,
+        desc="M0 file. May be None.",
+    )
+    aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV.")
+    processing_target = traits.Str()
+    m0_handling = traits.Str()
+
+
+class _SplitASLDataOutputSpec(TraitedSpec):
+    controllabel_file = traits.Either(
+        None,
+        File(exists=True),
+        desc="Time series of control-label pairs.",
+    )
+    deltam_file = traits.Either(
+        None,
+        File(exists=True),
+        desc="Time series of deltaM volumes.",
+    )
+    cbf_file = traits.Either(
+        None,
+        File(exists=True),
+        desc="Time series of precalculated CBF volumes.",
+    )
+    m0_file = traits.Either(
+        None,
+        File(exists=True),
+        desc="Time series of M0 volumes.",
+    )
+
+
+class SplitASLData(SimpleInterface):
+    """Split ASL data into different files."""
+
+    input_spec = _SplitASLDataInputSpec
+    output_spec = _SplitASLDataOutputSpec
+
+    def _run_interface(self, runtime):
+        aslcontext = pd.read_table(self.inputs.aslcontext)
+        if self.inputs.processing_target == "controllabel":
+            target_idx = aslcontext["volume_type"].isin(["control", "label"]).index.values
+            self._results["deltam_file"] = None
+            self._results["cbf_file"] = None
+        elif self.inputs.processing_target == "deltam":
+            target_idx = (aslcontext["volume_type"] == "deltam").index.values
+            self._results["controllabel_file"] = None
+            self._results["cbf_file"] = None
+        elif self.inputs.processing_target == "cbf":
+            target_idx = (aslcontext["volume_type"] == "cbf").index.values
+            self._results["controllabel_file"] = None
+            self._results["deltam_file"] = None
+        else:
+            raise ValueError(f"Unknown processing target '{self.inputs.processing_target}'")
+
+        target_img = image.index_img(self.inputs.asl_file, target_idx)
+        self._results[f"{self.inputs.processing_target}_file"] = fname_presuffix(
+            self.inputs.asl_file,
+            suffix=f"_{self.inputs.processing_target}",
+            newpath=runtime.cwd,
+            use_ext=True,
+        )
+        target_img.to_filename(self._results[f"{self.inputs.processing_target}_file"])
+
+        if self.inputs.m0_handling == "split":
+            m0_idx = (aslcontext["volume_type"] == "m0scan").index.values
+            m0_img = image.index_img(self.inputs.asl_file, m0_idx)
+            self._results["m0_file"] = fname_presuffix(
+                self.inputs.asl_file,
+                suffix="_m0",
+                newpath=runtime.cwd,
+                use_ext=True,
+            )
+            m0_img.to_filename(self._results["m0_file"])
+
+        elif self.inputs.m0_handling == "separate":
+            self._results["m0_file"] = self.inputs.m0_file
+
+        else:
+            self._results["m0_file"] = None
+
+        return runtime

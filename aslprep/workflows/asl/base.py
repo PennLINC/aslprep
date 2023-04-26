@@ -7,7 +7,7 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.interfaces.cbf_computation import RefineMask
+from aslprep.interfaces.cbf_computation import RefineMask, SplitASLData
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.func.util import init_asl_reference_wf
@@ -16,7 +16,7 @@ from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.meepi import combine_meepi_source
-from aslprep.utils.misc import _create_mem_gb, _get_wf_name
+from aslprep.utils.misc import _create_mem_gb, _get_wf_name, group_asl_data
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
@@ -267,6 +267,30 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         output_confounds=True,
     )
 
+    # Split the data into M0, control/label, deltam, and cbf time series.
+    # Processing steps depend on which ones are available.
+    processing_target, m0_handling = group_asl_data(
+        aslcontext=run_data["aslcontext"],
+        metadata=metadata,
+    )
+    split_asl_data = pe.Node(
+        SplitASLData(
+            aslcontext=run_data["aslcontext"],
+            processing_target=processing_target,
+            m0_handling=m0_handling,
+        ),
+        name="split_asl_data",
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, split_asl_data, [
+            ("asl_file", "asl_file"),
+            ("m0_file", "m0_file"),
+        ]),
+    ])
+    # fmt:on
+
     # Generate a tentative aslref
     # XXX: Does the niworkflows reference workflow make sense for ASL data,
     # where volumes can be control, label, M0, deltam, or CBF?
@@ -304,19 +328,38 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Head motion correction
     asl_hmc_wf = init_asl_hmc_wf(
-        name="asl_hmc_wf",
+        use_zigzag=processing_target == "controllabel",
         mem_gb=mem_gb["filesize"],
         omp_nthreads=omp_nthreads,
+        name="asl_hmc_wf",
     )
 
     # fmt:off
     workflow.connect([
+        (inputnode, asl_hmc_wf, [("aslcontext", "inputnode.aslcontext")]),
         (asl_reference_wf, asl_hmc_wf, [
             ("outputnode.raw_ref_image", "inputnode.raw_ref_image"),
             ("outputnode.asl_file", "inputnode.asl_file"),
         ]),
     ])
     # fmt:on
+
+    if m0_handling in ("split", "separate"):
+        m0_hmc_wf = init_asl_hmc_wf(
+            use_zigzag=False,
+            mem_gb=mem_gb["filesize"],
+            omp_nthreads=omp_nthreads,
+            name="m0_hmc_wf",
+        )
+
+        # fmt:off
+        workflow.connect([
+            (split_asl_data, m0_hmc_wf, [("m0_file", "inputnode.asl_file")]),
+            (asl_reference_wf, m0_hmc_wf, [
+                ("outputnode.raw_ref_image", "inputnode.raw_ref_image"),
+            ]),
+        ])
+        # fmt:on
 
     # Susceptibility distortion correction
     asl_sdc_wf = init_sdc_estimate_wf(
