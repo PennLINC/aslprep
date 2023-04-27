@@ -22,8 +22,8 @@ from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 from aslprep.utils.misc import (
     estimate_labeling_efficiency,
-    get_bolus,
-    get_tis,
+    get_bolus_duration,
+    get_inflow_times,
     pcasl_or_pasl,
 )
 
@@ -325,27 +325,28 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
 additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 """
         # Node to define bolus
-        get_bolus_node = pe.Node(
+        determine_bolus_duration = pe.Node(
             niu.Function(
-                function=get_bolus,
+                function=get_bolus_duration,
                 input_names=["metadata", "is_casl"],
                 output_names=["bolus"],
             ),
-            name="get_bolus_node",
+            name="determine_bolus_duration",
         )
-        get_bolus_node.inputs.is_casl = is_casl
-        workflow.connect([(extract_deltam, get_bolus_node, [("metadata", "metadata")])])
+        determine_bolus_duration.inputs.is_casl = is_casl
+        workflow.connect([(extract_deltam, determine_bolus_duration, [("metadata", "metadata")])])
 
         # Node to define tis
-        get_inversion_times = pe.Node(
+        determine_inflow_times = pe.Node(
             niu.Function(
-                function=get_tis,
-                input_names=["metadata"],
+                function=get_inflow_times,
+                input_names=["metadata", "is_casl"],
                 output_names=["tis"],
             ),
-            name="get_inversion_times",
+            name="determine_inflow_times",
         )
-        workflow.connect([(extract_deltam, get_inversion_times, [("metadata", "metadata")])])
+        determine_inflow_times.inputs.is_casl = is_casl
+        workflow.connect([(extract_deltam, determine_inflow_times, [("metadata", "metadata")])])
 
         # Node to estimate labeling efficiency
         estimate_alpha = pe.Node(
@@ -378,8 +379,8 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),
-            (get_bolus_node, basilcbf, [("bolus", "bolus")]),
-            (get_inversion_times, basilcbf, [("tis", "tis")]),
+            (determine_bolus_duration, basilcbf, [("bolus", "bolus")]),
+            (determine_inflow_times, basilcbf, [("tis", "tis")]),
             (estimate_alpha, basilcbf, [("labeling_efficiency", "alpha")]),
             (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
             (wm_tfm, basilcbf, [("output_image", "wm_tpm")]),
@@ -698,7 +699,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 bolus=bolus,
                 alpha=estimate_labeling_efficiency(metadata),
                 pvc=True,
-                tis=get_tis(metadata),
+                tis=get_inflow_times(metadata),
                 pcasl=is_casl,
             ),
             name="basilcbf",

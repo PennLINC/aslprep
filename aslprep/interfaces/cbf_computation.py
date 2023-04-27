@@ -27,6 +27,7 @@ from aslprep.utils.misc import (
     determine_multi_pld,
     estimate_cbf_pcasl_multipld,
     estimate_labeling_efficiency,
+    estimate_t1blood,
     pcasl_or_pasl,
 )
 
@@ -418,12 +419,6 @@ class ComputeCBF(SimpleInterface):
     single CBF volumes and CBF time series, and
     PASL and (P)CASL data.
 
-    T1blood is set based on the scanner's field strength, according to
-    :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
-    If recommended values from these publications cannot be used
-    (i.e., if the field strength isn't 1.5T, 3T, 7T),
-    then the formula from :footcite:t:`zhang2013vivo` will be applied.
-
     Single-PLD CBF, for both (P)CASL and QUIPSSII PASL
     is calculated according to :footcite:t:`alsop_recommended_2015`.
     Multi-PLD CBF is handled using a weighted average,
@@ -433,6 +428,14 @@ class ComputeCBF(SimpleInterface):
     although CBF is averaged across PLDs according to the method in
     :footcite:t:`juttukonda2021characterizing`.
     Arterial transit time is estimated according to :footcite:t:`dai2012reduced`.
+
+    See Also
+    --------
+    :func:`~aslprep.utils.misc.pcasl_or_pasl`
+    :func:`~aslprep.utils.misc.determine_multi_pld`
+    :func:`~aslprep.utils.misc.estimate_t1blood`
+    :func:`~aslprep.utils.misc.estimate_labeling_efficiency`
+    :func:`~aslprep.utils.misc.estimate_cbf_pcasl_multipld`
 
     References
     ----------
@@ -475,27 +478,12 @@ class ComputeCBF(SimpleInterface):
 
         is_casl = pcasl_or_pasl(metadata=metadata)
         is_multi_pld = determine_multi_pld(metadata=metadata)
+        t1blood = estimate_t1blood(metadata=metadata)
 
         # PostLabelingDelay is either a single number or an array of numbers.
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
         plds = np.array(metadata["PostLabelingDelay"])
-
-        # 1.5T and 3T values come from Alsop 2015.
-        # 7T comes from Zhang 2013.
-        # For other field strengths, the formula from Zhang 2013 will be used.
-        T1BLOOD_DICT = {
-            1.5: 1.35,
-            3: 1.65,
-            7: 2.087,
-        }
-        t1blood = T1BLOOD_DICT.get(metadata["MagneticFieldStrength"])
-        if not t1blood:
-            config.loggers.interface.warning(
-                f"T1blood cannot be inferred for {metadata['MagneticFieldStrength']}T data. "
-                "Defaulting to formula from Zhang et al. (2013)."
-            )
-            t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
         # Get labeling efficiency (alpha in Alsop 2015).
         labeleff = estimate_labeling_efficiency(metadata=metadata)
@@ -508,7 +496,7 @@ class ComputeCBF(SimpleInterface):
         masker = maskers.NiftiMasker(mask_img=mask_file)
         deltam_arr = masker.fit_transform(deltam_file).T  # Transpose to SxT
         assert deltam_arr.ndim == 2, f"deltam is {deltam_arr.ndim}"
-        # Load the M0 map and average of time, in case there's more than one map in the file.
+        # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
         m0data = np.mean(m0data, axis=0)
         scaled_m0data = m0scale * m0data
@@ -525,7 +513,7 @@ class ComputeCBF(SimpleInterface):
                     tau,
                     labeleff,
                     t1blood,
-                    t1tissue=1.5,  # TODO: Replace with Tesla-specific values.
+                    t1tissue=1.3,  # TODO: Replace with Tesla-specific values.
                     unit_conversion=UNIT_CONV,
                     partition_coefficient=PARTITION_COEF,
                 )

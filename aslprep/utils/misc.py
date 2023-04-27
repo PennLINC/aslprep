@@ -234,38 +234,59 @@ def readjson(jsonfile):
     return data
 
 
-def get_tis(metadata: "dict[str, Any]") -> list:
-    """Determine inversion times from metadata.
+def get_inflow_times(metadata: "dict[str, Any]", is_casl: bool) -> list:
+    """Determine the appropriate inflow times for BASIL.
+
+    For PASL data, the inflow time (TI) is just the post-labeling delay (PLD).
+    For (P)CASL data, TI is PLD plus the labeling duration.
 
     Parameters
     ----------
     metadata : :obj:`dict`
         Dictionary of metadata associated with ASL file.
+    is_casl : :obj:`bool`
+        True if the data are (P)CASL. False if the data are PASL.
 
     Returns
     -------
-    :obj:`list`
-        List of PostLabelingDelay values.
+    :obj:`numpy.ndarray`
+        1D array of PostLabelingDelay values.
     """
     import numpy as np
 
-    if "CASL" in metadata["ArterialSpinLabelingType"]:
+    if is_casl:
         return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"]).tolist()
     else:
         return np.array(metadata["PostLabelingDelay"]).tolist()
 
 
-def get_bolus(metadata, is_casl):
-    """Determine the appropriate bolus value(s) for BASIL."""
-    if is_casl:
-        bolus = metadata["LabelingDuration"]
-    else:  # pasl
-        bolus = metadata["BolusCutOffDelayTime"]
-        if metadata["BolusCutOffTechnique"] == "Q2TIPS":
-            # BolusCutOffDelayTime is a list, and the first entry should be used.
-            bolus = bolus[0]
+def get_bolus_duration(metadata: "dict[str, Any]", is_casl: bool) -> float:
+    """Determine the appropriate bolus duration for BASIL.
 
-    return bolus
+    For PASL data, the bolus cutoff delay is the first BolusCutOffDelayTime.
+    For (P)CASL data, it is the labeling duration.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata associated with ASL file.
+    is_casl : :obj:`bool`
+        True if the data are (P)CASL. False if the data are PASL.
+
+    Returns
+    -------
+    bolus : :obj:`float`
+        The bolus value.
+    """
+    if is_casl:
+        return metadata["LabelingDuration"]
+    elif not metadata["BolusCutOffFlag"]:
+        raise ValueError("PASL without a bolus cutoff technique is not supported.")
+    elif metadata["BolusCutOffTechnique"] == "Q2TIPS":
+        # BolusCutOffDelayTime is a list, and the first entry should be used.
+        return metadata["BolusCutOffDelayTime"][0]
+    else:  # QUIPSS or QUIPSSII
+        return metadata["BolusCutOffDelayTime"]
 
 
 def _weightfun(x, wfun="huber"):
@@ -1039,6 +1060,58 @@ def estimate_cbf_pcasl_multipld(
 
 
 def determine_multi_pld(metadata):
-    """Determine if a run is multi-PLD or not."""
+    """Determine if a run is multi-PLD or not.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata from the ASL file.
+
+    Returns
+    -------
+    :obj:`bool`
+        True if the data are multi-PLD/TI. Fale if not.
+    """
     plds = np.array(metadata["PostLabelingDelay"])
     return np.unique(plds).size > 1
+
+
+def estimate_t1blood(metadata):
+    """Estimate the relaxation rate of blood based on magnetic field strength.
+
+    T1blood is set based on the scanner's field strength, according to
+    :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
+    If recommended values from these publications cannot be used
+    (i.e., if the field strength isn't 1.5T, 3T, 7T),
+    then the formula from :footcite:t:`zhang2013vivo` will be applied.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata from the ASL file.
+
+    Returns
+    -------
+    t1blood : :obj:`float`
+        Estimated relaxation rate of blood based on magnetic field strength.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    from aslprep import config
+
+    T1BLOOD_DICT = {
+        1.5: 1.35,
+        3: 1.65,
+        7: 2.087,
+    }
+    t1blood = T1BLOOD_DICT.get(metadata["MagneticFieldStrength"])
+    if not t1blood:
+        config.loggers.interface.warning(
+            f"T1blood cannot be inferred for {metadata['MagneticFieldStrength']}T data. "
+            "Defaulting to formula from Zhang et al. (2013)."
+        )
+        t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
+
+    return t1blood
