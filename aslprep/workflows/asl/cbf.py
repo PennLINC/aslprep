@@ -684,22 +684,13 @@ variability of other model parameters and spatial regularization of the estimate
 perfusion image, including correction of partial volume effects [@chappell_pvc].
 """
 
-        if is_casl:
-            bolus = metadata["LabelingDuration"]
-        else:
-            assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
-            bolus = metadata["BolusCutOffDelayTime"]
-            if metadata["BolusCutOffTechnique"] == "Q2TIPS":
-                # BolusCutOffDelayTime is a list, and the first entry should be used.
-                bolus = bolus[0]
-
         basilcbf = pe.Node(
             BASILCBF(
                 m0scale=M0Scale,
-                bolus=bolus,
-                alpha=estimate_labeling_efficiency(metadata),
+                bolus=get_bolus_duration(metadata=metadata, is_casl=is_casl),
+                alpha=estimate_labeling_efficiency(metadata=metadata),
                 pvc=True,
-                tis=get_inflow_times(metadata),
+                tis=get_inflow_times(metadata=metadata, is_casl=is_casl),
                 pcasl=is_casl,
             ),
             name="basilcbf",
