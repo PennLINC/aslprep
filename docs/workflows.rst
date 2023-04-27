@@ -358,15 +358,21 @@ the formula from :footcite:t:`wong1998quantitative` is used.
 
    :math:`\alpha` : Labeling efficiency
 
-   :math:`w` : Post-labeling delay (PLD)
+   :math:`w` : Post-labeling delay (PLD).
+   In the PASL literature, this is typically referred to as the inversion time (TI).
 
    :math:`T_{1,blood}` : Relaxation time for arterial blood
 
    :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
 
    :math:`\Delta{TI}` : Post-labeling delay minus bolus cutoff delay time.
+   Per :footcite:t:`alsop_recommended_2015`, this is QUIPSSII's equivalent to (P)CASL's :math:`w`.
 
    :math:`TI_{1}` : Bolus cutoff delay time.
+   For Q2TIPS, this is the _first_ bolus cutoff.
+
+   :math:`TI_{2}` : For Q2TIPS, this is the _last_ bolus cutoff delay time.
+   The other methods do not have this variable.
 
 .. math::
    CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T1_{blood} } }
