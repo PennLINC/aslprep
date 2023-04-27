@@ -802,9 +802,9 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
         Post-labeling delays. w in Dai 2012.
     lds : :obj:`numpy.ndarray`
         Labeling durations. tau in Dai 2012.
-    t1blood
+    t1blood : :obj:`float`
         T1 relaxation rate for blood.
-    t1tissue
+    t1tissue : :obj:`float`
         T1 relaxation rate for tissue.
 
     Returns
@@ -909,8 +909,8 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     weighted_delay_observed[weighted_delay_observed < weighted_delay_min] = weighted_delay_min
     weighted_delay_observed[weighted_delay_observed > weighted_delay_max] = weighted_delay_max
 
-    # Find the ATT for each voxel based on the predicted weighted delay value for each transit
-    # time and the actual weighted delay value.
+    # Use linear interpolation to get the ATT for each weighted delay value (i.e., each voxel),
+    # using the predicted weighted delay and associated transit time arrays.
     interp_func = interp1d(weighted_delay_predicted, transit_times)
     return interp_func(weighted_delay_observed)
 
