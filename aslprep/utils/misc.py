@@ -817,6 +817,9 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     This function was originally written in MATLAB by Jianxun Qu and William Tackett.
     It was translated to Python by Taylor Salo.
 
+    Please see https://shorturl.at/wCO56 and https://shorturl.at/aKQU3 for the original MATLAB
+    code.
+
     License
     -------
     MIT License
