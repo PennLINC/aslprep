@@ -369,9 +369,9 @@ the formula from :footcite:t:`wong1998quantitative` is used.
    Per :footcite:t:`alsop_recommended_2015`, this is QUIPSSII's equivalent to (P)CASL's :math:`w`.
 
    :math:`TI_{1}` : Bolus cutoff delay time.
-   For Q2TIPS, this is the _first_ bolus cutoff.
+   For Q2TIPS, this is the *first* bolus cutoff.
 
-   :math:`TI_{2}` : For Q2TIPS, this is the _last_ bolus cutoff delay time.
+   :math:`TI_{2}` : For Q2TIPS, this is the *last* bolus cutoff delay time.
    The other methods do not have this variable.
 
 .. math::
