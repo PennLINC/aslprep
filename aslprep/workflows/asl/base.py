@@ -306,6 +306,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if m0_handling in ("split", "separate"):
         # Use M0 vols to generate reference if possible.
         ref_source = "m0_file"
+    elif processing_target == "controllabel":
+        ref_source = "control_file"
     else:
         # Otherwise use the target volumes.
         ref_source = f"{processing_target}_file"
