@@ -34,14 +34,14 @@ def init_validate_asl_wf(asl_file=None, name="validate_asl_wf"):
 
     Inputs
     ------
-    asl_file : str
+    asl_file : :obj:`str`
         ASL series NIfTI file
 
     Outputs
     -------
-    asl_file : str
+    asl_file : :obj:`str`
         Validated ASL series NIfTI file
-    validation_report : str
+    validation_report : :obj:`str`
         HTML reportlet indicating whether ``asl_file`` had a valid affine
     """
     workflow = Workflow(name=name)

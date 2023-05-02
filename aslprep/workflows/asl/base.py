@@ -348,9 +348,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (inputnode, asl_hmc_wf, [("aslcontext", "inputnode.aslcontext")]),
+        (split_asl_data, asl_hmc_wf, [
+            (f"outputnode.{processing_target}_file", "inputnode.asl_file"),
+        ]),
         (asl_reference_wf, asl_hmc_wf, [
             ("outputnode.raw_ref_image", "inputnode.raw_ref_image"),
-            ("outputnode.asl_file", "inputnode.asl_file"),
         ]),
     ])
     # fmt:on
