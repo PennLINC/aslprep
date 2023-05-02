@@ -270,10 +270,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Split the data into M0, control/label, deltam, and cbf time series.
     # Processing steps depend on which ones are available.
-    processing_target, m0_handling = group_asl_data(
+    processing_target = group_asl_data(
         aslcontext=run_data["aslcontext"],
         metadata=metadata,
     )
+    m0type = metadata["M0Type"]
 
     # Validate the ASL file.
     validate_asl_wf = init_validate_asl_wf(name="validate_asl_wf")
@@ -283,7 +284,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         SplitASLData(
             aslcontext=run_data["aslcontext"],
             processing_target=processing_target,
-            m0_handling=m0_handling,
+            metadata=metadata,
         ),
         name="split_asl_data",
     )
@@ -295,15 +296,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    # Generate a tentative aslref
-    # XXX: Does the niworkflows reference workflow make sense for ASL data,
-    # where volumes can be control, label, M0, deltam, or CBF?
-    # It seems like the different contrasts could impact the reference image estimation.
-    # For example, should just control or M0 images be used for this?
+    # Generate a tentative aslref from the most appropriate available image type in the ASL file
     asl_reference_wf = init_asl_reference_wf(omp_nthreads=omp_nthreads)
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
 
-    if m0_handling in ("split", "separate"):
+    if m0type in ("Included", "Separate"):
         # Use M0 vols to generate reference if possible.
         ref_source = "m0_file"
     elif processing_target == "controllabel":
@@ -317,31 +314,26 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if sbref_file is not None:
         workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
 
-    # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
-    # can be applied with other transforms in single shots.
-    asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
-
     # aslbuffer_stc: an identity used as a pointer to either the original ASL file
     # (if not multi-echo) or the an iterable list of the original ASL files
     # XXX: I don't know if I can remove this or not.
     aslbuffer_stc = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer_stc")
 
-    workflow.connect([(aslbuffer_stc, asl_split, [("asl_file", "in_file")])])
-
     if not multiecho:
-        # fmt:off
-        workflow.connect([
-            (asl_reference_wf, aslbuffer_stc, [("outputnode.asl_file", "asl_file")]),
-        ])
-        # fmt:on
+        workflow.connect([(split_asl_data, aslbuffer_stc, [("asl_file", "asl_file")])])
 
     else:
         # for meepi, iterate over all meepi echos to aslbuffer_stc
         aslbuffer_stc.iterables = ("asl_file", asl_file)
 
+    # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
+    # can be applied with other transforms in single shots.
+    asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
+
+    workflow.connect([(aslbuffer_stc, asl_split, [("asl_file", "in_file")])])
+
     # Head motion correction
     asl_hmc_wf = init_asl_hmc_wf(
-        use_zigzag=processing_target == "controllabel",
         mem_gb=mem_gb["filesize"],
         omp_nthreads=omp_nthreads,
         name="asl_hmc_wf",
@@ -359,7 +351,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    if m0_handling in ("split", "separate"):
+    if m0type in ("Included", "Separate"):
         m0_hmc_wf = init_asl_hmc_wf(
             use_zigzag=False,
             mem_gb=mem_gb["filesize"],

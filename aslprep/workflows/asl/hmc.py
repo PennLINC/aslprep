@@ -13,7 +13,13 @@ from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
 from aslprep.utils.misc import _select_last_in_list
 
 
-def init_asl_hmc_wf(use_zigzag, mem_gb, omp_nthreads, name="control_label_hmc_wf"):
+def init_asl_hmc_wf(
+    processing_target,
+    m0type,
+    mem_gb,
+    omp_nthreads,
+    name="control_label_hmc_wf",
+):
     """Estimate head-motion parameters and optionally correct them for intensity differences.
 
     This workflow first estimates motion parameters using MCFLIRT,
@@ -28,15 +34,12 @@ def init_asl_hmc_wf(use_zigzag, mem_gb, omp_nthreads, name="control_label_hmc_wf
             from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
             wf = init_asl_hmc_wf(
-                use_zigzag=True,
                 mem_gb=3,
                 omp_nthreads=1,
             )
 
     Parameters
     ----------
-    use_zigzag : :obj:`bool`
-        If True, apply zig-zag correction to motion parameters.
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
@@ -77,7 +80,11 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "asl_file",
+                "control_file",
+                "label_file",
+                "deltam_file",
+                "cbf_file",
+                "m0_file",
                 "aslcontext",
                 "raw_ref_image",
             ],
@@ -95,6 +102,15 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
         ),
         name="outputnode",
     )
+
+    files_to_mcflirt = []
+    if m0type in ("Included", "Separate"):
+        files_to_mcflirt.append("m0_file")
+
+    if processing_target == "controllabel":
+        files_to_mcflirt += ["control_file", "label_file"]
+    else:
+        files_to_mcflirt.append(f"{processing_target}_file")
 
     # Head motion correction (hmc)
     mcflirt = pe.Node(

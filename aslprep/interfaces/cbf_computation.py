@@ -1039,6 +1039,8 @@ class SplitASLData(SimpleInterface):
         else:
             raise ValueError(f"Unknown processing target '{self.inputs.processing_target}'")
 
+        self._results["metadata"] = reduce_metadata_lists(self.inputs.metadata, asl_idx)
+
         asl_img = image.index_img(self.inputs.asl_file, asl_idx)
         self._results["asl_file"] = fname_presuffix(
             self.inputs.asl_file,
@@ -1057,3 +1059,7 @@ class SplitASLData(SimpleInterface):
         aslcontext.to_csv(self._results["aslcontext_file"], sep="\t", index=False)
 
         return runtime
+
+
+def reduce_metadata_lists(metadata, idx):
+    ...
