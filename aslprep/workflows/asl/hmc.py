@@ -6,7 +6,6 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces.confounds import ZigZagCorrection
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces import NormalizeMotionParams
 from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
@@ -103,6 +102,16 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
         name="outputnode",
     )
 
+    # Combine the motpars files, mat files, and rms files across the different MCFLIRTed files,
+    # based on the aslcontext file.
+    # XXX: What about a separate M0 scan?
+    combine_motpars = pe.Node(
+        CombineMotionParameters(m0type=m0type, processing_target=processing_target),
+        name="combine_motpars",
+    )
+
+    workflow.connect([(inputnode, combine_motpars, [("aslcontext", "aslcontext")])])
+
     files_to_mcflirt = []
     if m0type in ("Included", "Separate"):
         files_to_mcflirt.append("m0_file")
@@ -112,21 +121,27 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
     else:
         files_to_mcflirt.append(f"{processing_target}_file")
 
-    # Head motion correction (hmc)
-    mcflirt = pe.Node(
-        fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=True),
-        name="mcflirt",
-        mem_gb=mem_gb * 3,
-    )
+    for file_to_mcflirt in files_to_mcflirt:
+        # Head motion correction (hmc)
+        mcflirt = pe.Node(
+            fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=True),
+            name=f"mcflirt_{file_to_mcflirt}",
+            mem_gb=mem_gb * 3,
+        )
 
-    # fmt:off
-    workflow.connect([
-        (inputnode, mcflirt, [
-            ("raw_ref_image", "ref_file"),
-            ("asl_file", "in_file"),
-        ]),
-    ])
-    # fmt:on
+        # fmt:off
+        workflow.connect([
+            (inputnode, mcflirt, [
+                ("raw_ref_image", "ref_file"),
+                (file_to_mcflirt, "in_file"),
+            ]),
+            (mcflirt, combine_motpars, [
+                ("mat_file", f"{file_to_mcflirt}_mat_file"),
+                ("par_file", f"{file_to_mcflirt}_par_file"),
+                (("rms_files", _select_last_in_list), f"{file_to_mcflirt}_rms_file"),
+            ]),
+        ])
+        # fmt:on
 
     fsl2itk = pe.Node(MCFLIRT2ITK(), name="fsl2itk", mem_gb=0.05, n_procs=omp_nthreads)
 
@@ -136,6 +151,7 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
             ("raw_ref_image", "in_source"),
             ("raw_ref_image", "in_reference"),
         ]),
+        (combine_motpars, fsl2itk, [("mat_file", "in_files")]),
         (fsl2itk, outputnode, [("out_file", "xforms")]),
     ])
     # fmt:on
@@ -148,33 +164,11 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
 
     workflow.connect([(normalize_motion, outputnode, [("out_file", "movpar_file")])])
 
-    if use_zigzag:
-        correct_motion = pe.Node(
-            ZigZagCorrection(),
-            name="correct_motion",
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, correct_motion, [("aslcontext", "aslcontext")]),
-            (mcflirt, correct_motion, [("par_file", "movpar_file")]),
-            # XXX: This probably won't work since it's a TSV rather than a MAT file
-            # Is there a trick for going from TSV files to ITK files?
-            (correct_motion, fsl2itk, [("movpar_file", "in_files")]),
-            (correct_motion, normalize_motion, [("movpar_file", "in_file")]),
-            (correct_motion, outputnode, [("rmsd_file", "rmsd_file")]),
-        ])
-        # fmt:on
-    else:
-        # fmt:off
-        workflow.connect([
-            (mcflirt, fsl2itk, [("mat_file", "in_files")]),
-            (mcflirt, normalize_motion, [("par_file", "in_file")]),
-            (mcflirt, outputnode, [
-                (("rms_files", _select_last_in_list), "rmsd_file"),
-            ]),
-        ])
-        # fmt:on
+    # fmt:off
+    workflow.connect([
+        (combine_motpars, normalize_motion, [("par_file", "in_file")]),
+        (combine_motpars, outputnode, [("rms_file", "rmsd_file")]),
+    ])
+    # fmt:on
 
     return workflow

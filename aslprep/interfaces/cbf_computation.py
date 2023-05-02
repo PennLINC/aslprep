@@ -918,7 +918,8 @@ class _SplitASLDataInputSpec(BaseInterfaceInputSpec):
     )
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV.")
     processing_target = traits.Str()
-    m0_handling = traits.Str()
+    metadata = traits.Dict()
+    m0scan_metadata = traits.Dict()
 
 
 class _SplitASLDataOutputSpec(TraitedSpec):
@@ -949,6 +950,7 @@ class _SplitASLDataOutputSpec(TraitedSpec):
     )
     asl_file = File(exists=True, desc="Modified ASL file.")
     aslcontext_file = File(exists=True, desc="Modified aslcontext file.")
+    metadata = traits.Dict()
 
 
 class SplitASLData(SimpleInterface):
@@ -964,7 +966,7 @@ class SplitASLData(SimpleInterface):
         self._results["deltam_file"] = None
         self._results["cbf_file"] = None
 
-        if self.inputs.m0_handling == "split":
+        if self.inputs.metadata["M0Type"] == "Included":
             m0_idx = (aslcontext["volume_type"] == "m0scan").index.values
             m0_img = image.index_img(self.inputs.asl_file, m0_idx)
             self._results["m0_file"] = fname_presuffix(
@@ -975,7 +977,7 @@ class SplitASLData(SimpleInterface):
             )
             m0_img.to_filename(self._results["m0_file"])
 
-        elif self.inputs.m0_handling == "separate":
+        elif self.inputs.metadata["M0Type"] == "Separate":
             m0_idx = []
             self._results["m0_file"] = self.inputs.m0_file
 
@@ -1004,9 +1006,6 @@ class SplitASLData(SimpleInterface):
             label_img.to_filename(self._results["label_file"])
 
             asl_idx = sorted(np.concatenate((control_idx, label_idx, m0_idx)))
-            aslcontext = aslcontext.loc[
-                aslcontext["volume_type"].isin(["control", "label", "m0scan"])
-            ]
 
         elif self.inputs.processing_target == "deltam":
             deltam_idx = (aslcontext["volume_type"] == "deltam").index.values
@@ -1020,7 +1019,6 @@ class SplitASLData(SimpleInterface):
             deltam_img.to_filename(self._results["deltam_file"])
 
             asl_idx = sorted(np.concatenate((deltam_idx, m0_idx)))
-            aslcontext = aslcontext.loc[aslcontext["volume_type"].isin(["deltam", "m0scan"])]
 
         elif self.inputs.processing_target == "cbf":
             cbf_idx = (aslcontext["volume_type"] == "cbf").index.values
@@ -1034,7 +1032,6 @@ class SplitASLData(SimpleInterface):
             cbf_img.to_filename(self._results["cbf_file"])
 
             asl_idx = sorted(np.concatenate((cbf_idx, m0_idx)))
-            aslcontext = aslcontext.loc[aslcontext["volume_type"].isin(["cbf", "m0scan"])]
 
         else:
             raise ValueError(f"Unknown processing target '{self.inputs.processing_target}'")
@@ -1050,6 +1047,7 @@ class SplitASLData(SimpleInterface):
         )
         asl_img.to_filename(self._results["asl_file"])
 
+        aslcontext = aslcontext.loc[asl_idx]
         self._results["aslcontext_file"] = fname_presuffix(
             self.inputs.aslcontext_file,
             suffix="_reduced",
@@ -1061,5 +1059,25 @@ class SplitASLData(SimpleInterface):
         return runtime
 
 
-def reduce_metadata_lists(metadata, idx):
-    ...
+def reduce_metadata_lists(metadata, metadata_idx):
+    """Reduce any volume-wise metadata fields to only contain values for selected volumes."""
+    # A hardcoded list of fields that may have one value for each volume.
+    VOLUME_WISE_FIELDS = [
+        "PostLabelingDelay",
+        "VascularCrushingVENC",
+        "LabelingDuration",
+        "EchoTime",
+        "FlipAngle",
+        "RepetitionTimePreparation",
+    ]
+
+    for field in VOLUME_WISE_FIELDS:
+        if field not in metadata:
+            continue
+
+        value = metadata[field]
+        if isinstance(value, list):
+            # Reduce to only the selected volumes
+            metadata[field] = [value[i] for i in metadata_idx]
+
+    return metadata
