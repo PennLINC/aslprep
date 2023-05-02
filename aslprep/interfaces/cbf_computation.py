@@ -942,6 +942,7 @@ class _SplitASLDataOutputSpec(TraitedSpec):
         File(exists=True),
         desc="Time series of M0 volumes.",
     )
+    aslcontext_file = File(exists=True, desc="Modified aslcontext file.")
 
 
 class SplitASLData(SimpleInterface):

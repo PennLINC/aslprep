@@ -28,6 +28,7 @@ from aslprep.workflows.asl.resampling import (
     init_asl_preproc_trans_wf,
     init_asl_std_trans_wf,
 )
+from aslprep.workflows.asl.util import init_validate_asl_wf
 
 
 def init_asl_preproc_wf(asl_file):
@@ -273,6 +274,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         aslcontext=run_data["aslcontext"],
         metadata=metadata,
     )
+
+    # Validate the ASL file.
+    validate_asl_wf = init_validate_asl_wf(name="validate_asl_wf")
+    workflow.connect([(inputnode, validate_asl_wf, [("asl_file", "inputnode.asl_file")])])
+
     split_asl_data = pe.Node(
         SplitASLData(
             aslcontext=run_data["aslcontext"],
@@ -284,10 +290,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (inputnode, split_asl_data, [
-            ("asl_file", "asl_file"),
-            ("m0_file", "m0_file"),
-        ]),
+        (inputnode, split_asl_data, [("m0_file", "m0_file")]),
+        (validate_asl_wf, split_asl_data, [("outputnode.asl_file", "asl_file")]),
     ])
     # fmt:on
 
@@ -299,7 +303,14 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_reference_wf = init_asl_reference_wf(omp_nthreads=omp_nthreads)
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
 
-    workflow.connect([(inputnode, asl_reference_wf, [("asl_file", "inputnode.asl_file")])])
+    if m0_handling in ("split", "separate"):
+        # Use M0 vols to generate reference if possible.
+        ref_source = "m0_file"
+    else:
+        # Otherwise use the target volumes.
+        ref_source = f"{processing_target}_file"
+
+    workflow.connect([(split_asl_data, asl_reference_wf, [(ref_source, "inputnode.asl_file")])])
 
     if sbref_file is not None:
         workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
