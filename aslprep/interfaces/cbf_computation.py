@@ -949,7 +949,7 @@ class _SplitASLDataOutputSpec(TraitedSpec):
         desc="Time series of M0 volumes.",
     )
     asl_file = File(exists=True, desc="Modified ASL file.")
-    aslcontext_file = File(exists=True, desc="Modified aslcontext file.")
+    aslcontext = File(exists=True, desc="Modified aslcontext file.")
     metadata = traits.Dict()
 
 
@@ -1010,7 +1010,7 @@ class SplitASLData(SimpleInterface):
             )
             label_img.to_filename(self._results["label_file"])
 
-            asl_idx = sorted(np.concatenate((control_idx, label_idx, m0_idx)))
+            asl_idx = np.sort(np.concatenate((control_idx, label_idx, m0_idx)))
 
         elif self.inputs.processing_target == "deltam":
             deltam_idx = (aslcontext["volume_type"] == "deltam").index.values
@@ -1023,7 +1023,7 @@ class SplitASLData(SimpleInterface):
             )
             deltam_img.to_filename(self._results["deltam_file"])
 
-            asl_idx = sorted(np.concatenate((deltam_idx, m0_idx)))
+            asl_idx = np.sort(np.concatenate((deltam_idx, m0_idx)))
 
         elif self.inputs.processing_target == "cbf":
             cbf_idx = (aslcontext["volume_type"] == "cbf").index.values
@@ -1036,7 +1036,7 @@ class SplitASLData(SimpleInterface):
             )
             cbf_img.to_filename(self._results["cbf_file"])
 
-            asl_idx = sorted(np.concatenate((cbf_idx, m0_idx)))
+            asl_idx = np.sort(np.concatenate((cbf_idx, m0_idx)))
 
         else:
             raise ValueError(f"Unknown processing target '{self.inputs.processing_target}'")
@@ -1059,13 +1059,13 @@ class SplitASLData(SimpleInterface):
         asl_img.to_filename(self._results["asl_file"])
 
         aslcontext = aslcontext.loc[asl_idx]
-        self._results["aslcontext_file"] = fname_presuffix(
-            self.inputs.aslcontext_file,
+        self._results["aslcontext"] = fname_presuffix(
+            self.inputs.aslcontext,
             suffix="_reduced",
             newpath=runtime.cwd,
             use_ext=True,
         )
-        aslcontext.to_csv(self._results["aslcontext_file"], sep="\t", index=False)
+        aslcontext.to_csv(self._results["aslcontext"], sep="\t", index=False)
 
         return runtime
 

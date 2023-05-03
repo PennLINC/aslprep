@@ -120,12 +120,12 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
 
     files_to_mcflirt = []
     if m0type in ("Included", "Separate"):
-        files_to_mcflirt.append("m0scan_file")
+        files_to_mcflirt.append("m0scan")
 
     if processing_target == "controllabel":
-        files_to_mcflirt += ["control_file", "label_file"]
+        files_to_mcflirt += ["control", "label"]
     else:
-        files_to_mcflirt.append(f"{processing_target}_file")
+        files_to_mcflirt.append(processing_target)
 
     for file_to_mcflirt in files_to_mcflirt:
         # Head motion correction (hmc)
@@ -139,11 +139,12 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
         workflow.connect([
             (inputnode, mcflirt, [
                 ("raw_ref_image", "ref_file"),
-                (file_to_mcflirt, "in_file"),
+                (f"{file_to_mcflirt}_file", "in_file"),
             ]),
             (mcflirt, combine_motpars, [
                 ("mat_file", f"{file_to_mcflirt}_mat_file"),
                 ("par_file", f"{file_to_mcflirt}_par_file"),
+                # XXX: It's the relative RMS file
                 (("rms_files", _select_last_in_list), f"{file_to_mcflirt}_rms_file"),
             ]),
         ])
