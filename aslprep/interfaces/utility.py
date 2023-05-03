@@ -9,8 +9,6 @@ from nipype.interfaces.base import (
 )
 from nipype.utils.filemanip import fname_presuffix
 
-from aslprep import config
-
 
 class _CombineMotionParametersInputSpec(BaseInterfaceInputSpec):
     m0type = traits.Str()
@@ -52,7 +50,6 @@ class CombineMotionParameters(SimpleInterface):
         out_par = [None] * aslcontext.shape[0]
         out_mat_files = [None] * aslcontext.shape[0]
         out_rms = [None] * aslcontext.shape[0]
-        config.loggers.interface.warning(f"aslcontext: {aslcontext.shape[0]}")
         for file_to_combine in files_to_combine:
             mat_files = getattr(self.inputs, f"{file_to_combine}_mat_file")
             par_file = getattr(self.inputs, f"{file_to_combine}_par_file")
@@ -64,9 +61,6 @@ class CombineMotionParameters(SimpleInterface):
 
             with open(rms_file, "r") as fo:
                 rms = fo.readlines()
-
-            config.loggers.interface.warning(f"{file_to_combine} n_vols: {len(idx)}")
-            config.loggers.interface.warning(f"{file_to_combine} rms: {len(rms)}")
 
             for i_vol, vol_idx in enumerate(idx):
                 out_par[vol_idx] = par[i_vol]
