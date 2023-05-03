@@ -966,6 +966,7 @@ class SplitASLData(SimpleInterface):
         self._results["deltam_file"] = None
         self._results["cbf_file"] = None
 
+        n_m0 = 0
         if self.inputs.metadata["M0Type"] == "Included":
             m0_idx = (aslcontext["volume_type"] == "m0scan").index.values
             m0_img = image.index_img(self.inputs.asl_file, m0_idx)
@@ -980,6 +981,10 @@ class SplitASLData(SimpleInterface):
         elif self.inputs.metadata["M0Type"] == "Separate":
             m0_idx = []
             self._results["m0_file"] = self.inputs.m0_file
+            m0_img = nb.load(self.inputs.m0_file)
+            n_m0 = 1
+            if m0_img.ndim == 4:
+                n_m0 = m0_img.shape[3]
 
         else:
             self._results["m0_file"] = None
@@ -1036,7 +1041,13 @@ class SplitASLData(SimpleInterface):
         else:
             raise ValueError(f"Unknown processing target '{self.inputs.processing_target}'")
 
-        self._results["metadata"] = reduce_metadata_lists(self.inputs.metadata, asl_idx)
+        metadata = reduce_metadata_lists(self.inputs.metadata, asl_idx)
+        self._results["metadata"] = combine_metadata(
+            metadata,
+            self.inputs.m0scan_metadata,
+            n_asl=asl_idx.size,
+            n_m0=n_m0,
+        )
 
         asl_img = image.index_img(self.inputs.asl_file, asl_idx)
         self._results["asl_file"] = fname_presuffix(
@@ -1079,5 +1090,53 @@ def reduce_metadata_lists(metadata, metadata_idx):
         if isinstance(value, list):
             # Reduce to only the selected volumes
             metadata[field] = [value[i] for i in metadata_idx]
+
+    return metadata
+
+
+def combine_metadata(metadata, m0scan_metadata, n_asl, n_m0):
+    """Combine any volume-wise metadata fields from the ASL and m0scan dictionaries."""
+    VOLUME_WISE_FIELDS = [
+        "PostLabelingDelay",
+        "VascularCrushingVENC",
+        "LabelingDuration",
+        "EchoTime",
+        "FlipAngle",
+        "RepetitionTimePreparation",
+    ]
+
+    for field in VOLUME_WISE_FIELDS:
+        if (field not in metadata) and (field not in m0scan_metadata):
+            continue
+        elif (field not in metadata) and not isinstance(m0scan_metadata[field], list):
+            metadata[field] = m0scan_metadata
+            continue
+        elif field not in metadata:
+            raise ValueError(
+                f"{field} is a list in the m0scan metadata, but not defined in the ASL metadata."
+            )
+        elif (field not in m0scan_metadata) and isinstance(metadata[field], list):
+            raise ValueError(
+                f"{field} is a list in the ASL metadata, but not defined in the m0scan metadata."
+            )
+        elif field not in m0scan_metadata:
+            continue
+
+        asl_value = metadata[field]
+        m0scan_value = m0scan_metadata[field]
+        if isinstance(asl_value, list) and isinstance(m0scan_value, list):
+            value = asl_value + m0scan_value
+        elif isinstance(asl_value, list):
+            m0scan_value = [m0scan_value] * n_m0
+            value = asl_value + m0scan_value
+        elif isinstance(m0scan_value, list):
+            asl_value = [asl_value] * n_asl
+            value = asl_value + m0scan_value
+        elif asl_value != m0scan_value:
+            asl_value = [asl_value] * n_asl
+            m0scan_value = [m0scan_value] * n_m0
+            value = asl_value + m0scan_value
+
+        metadata[field] = value
 
     return metadata
