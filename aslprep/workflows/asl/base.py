@@ -563,6 +563,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("m0scan_metadata", "inputnode.m0scan_metadata"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
+        (split_asl_data, compute_cbf_wf, [("aslcontext", "inputnode.aslcontext")]),
         (asl_asl_trans_wf, compute_cbf_wf, [
             ("outputnode.asl", "inputnode.asl_file"),
             ("outputnode.asl_mask", "inputnode.asl_mask"),
