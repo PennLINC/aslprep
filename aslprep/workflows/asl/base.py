@@ -156,7 +156,7 @@ def init_asl_preproc_wf(asl_file):
     output_dir = str(config.execution.output_dir)
     dummyvols = config.workflow.dummy_vols
     smoothkernel = config.workflow.smooth_kernel
-    mscale = config.workflow.m0_scale
+    m0scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
 
@@ -225,6 +225,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         name="inputnode",
     )
     inputnode.inputs.asl_file = asl_file
+    inputnode.inputs.aslcontext = run_data["aslcontext"]
     inputnode.inputs.m0_file = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
@@ -277,9 +278,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     validate_asl_wf = init_validate_asl_wf(name="validate_asl_wf")
     workflow.connect([(inputnode, validate_asl_wf, [("asl_file", "inputnode.asl_file")])])
 
+    # Split up the ASL data into image-type-specific files, and add in M0 scans to aslcontext
+    # and asl_file if necessary.
     split_asl_data = pe.Node(
         SplitASLData(
-            aslcontext=run_data["aslcontext"],
             processing_target=processing_target,
             metadata=metadata,
             m0scan_metadata=run_data["m0scan_metadata"],
@@ -289,7 +291,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (inputnode, split_asl_data, [("m0_file", "m0scan_file")]),
+        (inputnode, split_asl_data, [
+            ("aslcontext", "aslcontext"),
+            ("m0_file", "m0scan_file"),
+        ]),
         (validate_asl_wf, split_asl_data, [("outputnode.asl_file", "asl_file")]),
     ])
     # fmt:on
@@ -521,9 +526,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Compute CBF from ASLRef-space ASL data.
     compute_cbf_wf = init_compute_cbf_wf(
         name_source=asl_file,
-        aslcontext=run_data["aslcontext"],
+        processing_target=processing_target,
         dummy_vols=dummyvols,
-        M0Scale=mscale,
+        m0scale=m0scale,
         scorescrub=scorescrub,
         basil=basil,
         smooth_kernel=smoothkernel,

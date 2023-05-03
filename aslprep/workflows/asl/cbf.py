@@ -25,12 +25,12 @@ from aslprep.utils.misc import estimate_labeling_efficiency, get_tis, pcasl_or_p
 
 def init_compute_cbf_wf(
     name_source,
-    aslcontext,
+    processing_target,
     metadata,
     dummy_vols,
     scorescrub=False,
     basil=False,
-    M0Scale=1,
+    m0scale=1,
     smooth_kernel=5,
     name="compute_cbf_wf",
 ):
@@ -45,6 +45,7 @@ def init_compute_cbf_wf(
 
             wf = init_compute_cbf_wf(
                 name_source="",
+                processing_target="controllabel",
                 metadata={},
                 dummy_vols=0,
             )
@@ -53,14 +54,11 @@ def init_compute_cbf_wf(
     ----------
     name_source : :obj:`str`
         Path to the raw ASL file.
-    aslcontext : :obj:`str`
-        Path to the aslcontext file associated with the ASL file being processed.
-        Used to set the aslcontext input.
     metadata : :obj:`dict`
         BIDS metadata for asl file
     scorescrub
     basil
-    M0Scale
+    m0scale
     smooth_kernel
     name : :obj:`str`
         Name of workflow (default: ``compute_cbf_wf``)
@@ -70,7 +68,6 @@ def init_compute_cbf_wf(
     asl_file
         asl series NIfTI file, after preprocessing
     aslcontext : :obj:`str`
-        Defined from the parameter.
     m0scan : :obj:`str` or None
     m0scan_metadata : :obj:`dict` or None
     asl_mask
@@ -103,6 +100,7 @@ model [@buxton1998general].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "aslcontext",
                 "m0scan",
                 "m0scan_metadata",
                 "asl_mask",
@@ -218,11 +216,9 @@ model [@buxton1998general].
     tiscbf = get_tis(metadata)
     is_casl = pcasl_or_pasl(metadata=metadata)
 
-    aslcontext_df = pd.read_table(aslcontext)
-    cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
-    if cbf_only and not basil:
+    if (processing_target == "cbf") and not basil:
         config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
-    elif cbf_only:
+    elif processing_target == "cbf":
         config.loggers.workflow.warning(
             f"Only CBF volumes are detected in {name_source}. "
             "BASIL will automatically be disabled."
@@ -232,7 +228,6 @@ model [@buxton1998general].
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
-            aslcontext=aslcontext,
             dummy_vols=dummy_vols,
             fwhm=smooth_kernel,
             metadata=metadata,
@@ -246,6 +241,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, extract_deltam, [
             ("asl_file", "asl_file"),
+            ("aslcontext", "aslcontext"),
             ("m0scan", "m0scan"),
             ("m0scan_metadata", "m0scan_metadata"),
         ]),
@@ -255,8 +251,8 @@ model [@buxton1998general].
 
     compute_cbf = pe.Node(
         ComputeCBF(
-            cbf_only=cbf_only,
-            m0scale=M0Scale,
+            cbf_only=processing_target == "cbf",
+            m0scale=m0scale,
         ),
         mem_gb=0.2,
         run_without_submitting=True,
@@ -328,7 +324,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
         basilcbf = pe.Node(
             BASILCBF(
-                m0scale=M0Scale,
+                m0scale=m0scale,
                 bolus=bolus,
                 alpha=estimate_labeling_efficiency(metadata),
                 pvc=True,
@@ -368,7 +364,7 @@ def init_compute_cbf_ge_wf(
     aslcontext,
     metadata,
     mem_gb,
-    M0Scale=1,
+    m0scale=1,
     scorescrub=False,
     basil=False,
     name="compute_cbf_wf",
@@ -553,7 +549,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         compute_cbf = pe.Node(
             ComputeCBF(
                 metadata=metadata,
-                m0scale=M0Scale,
+                m0scale=m0scale,
                 cbf_only=cbf_only,
             ),
             mem_gb=mem_gb,
@@ -662,7 +658,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
 
         basilcbf = pe.Node(
             BASILCBF(
-                m0scale=M0Scale,
+                m0scale=m0scale,
                 bolus=bolus,
                 alpha=estimate_labeling_efficiency(metadata),
                 pvc=True,

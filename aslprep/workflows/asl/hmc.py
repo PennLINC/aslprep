@@ -150,6 +150,8 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
         ])
         # fmt:on
 
+    # TODO: Use rmsdiff to calculate relative rms from transform files.
+
     fsl2itk = pe.Node(MCFLIRT2ITK(), name="fsl2itk", mem_gb=0.05, n_procs=omp_nthreads)
 
     # fmt:off
