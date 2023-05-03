@@ -157,7 +157,7 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
             ("raw_ref_image", "in_source"),
             ("raw_ref_image", "in_reference"),
         ]),
-        (combine_motpars, fsl2itk, [("mat_file", "in_files")]),
+        (combine_motpars, fsl2itk, [("combined_mat_file", "in_files")]),
         (fsl2itk, outputnode, [("out_file", "xforms")]),
     ])
     # fmt:on
@@ -172,8 +172,8 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
 
     # fmt:off
     workflow.connect([
-        (combine_motpars, normalize_motion, [("par_file", "in_file")]),
-        (combine_motpars, outputnode, [("rms_file", "rmsd_file")]),
+        (combine_motpars, normalize_motion, [("combined_par_file", "in_file")]),
+        (combine_motpars, outputnode, [("combined_rms_file", "rmsd_file")]),
     ])
     # fmt:on
 
