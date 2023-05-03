@@ -4,7 +4,7 @@
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.images import ValidateImage
+from niworkflows.interfaces.header import ValidateImage
 from niworkflows.utils.connections import listify
 
 DEFAULT_MEMORY_MIN_GB = 0.01

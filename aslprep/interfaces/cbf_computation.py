@@ -910,7 +910,7 @@ def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_
 
 class _SplitASLDataInputSpec(BaseInterfaceInputSpec):
     asl_file = File(exists=True, mandatory=True, desc="ASL file to split.")
-    m0_file = traits.Either(
+    m0scan_file = traits.Either(
         None,
         File(exists=True),
         mandatory=True,
@@ -919,7 +919,7 @@ class _SplitASLDataInputSpec(BaseInterfaceInputSpec):
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV.")
     processing_target = traits.Str()
     metadata = traits.Dict()
-    m0scan_metadata = traits.Dict()
+    m0scan_metadata = traits.Either(traits.Dict(), None)
 
 
 class _SplitASLDataOutputSpec(TraitedSpec):
@@ -943,7 +943,7 @@ class _SplitASLDataOutputSpec(TraitedSpec):
         File(exists=True),
         desc="Time series of precalculated CBF volumes.",
     )
-    m0_file = traits.Either(
+    m0scan_file = traits.Either(
         None,
         File(exists=True),
         desc="Time series of M0 volumes.",
@@ -970,24 +970,24 @@ class SplitASLData(SimpleInterface):
         if self.inputs.metadata["M0Type"] == "Included":
             m0_idx = (aslcontext["volume_type"] == "m0scan").index.values
             m0_img = image.index_img(self.inputs.asl_file, m0_idx)
-            self._results["m0_file"] = fname_presuffix(
+            self._results["m0scan_file"] = fname_presuffix(
                 self.inputs.asl_file,
                 suffix="_m0",
                 newpath=runtime.cwd,
                 use_ext=True,
             )
-            m0_img.to_filename(self._results["m0_file"])
+            m0_img.to_filename(self._results["m0scan_file"])
 
         elif self.inputs.metadata["M0Type"] == "Separate":
             m0_idx = []
-            self._results["m0_file"] = self.inputs.m0_file
-            m0_img = nb.load(self.inputs.m0_file)
+            self._results["m0scan_file"] = self.inputs.m0scan_file
+            m0_img = nb.load(self.inputs.m0scan_file)
             n_m0 = 1
             if m0_img.ndim == 4:
                 n_m0 = m0_img.shape[3]
 
         else:
-            self._results["m0_file"] = None
+            self._results["m0scan_file"] = None
 
         if self.inputs.processing_target == "controllabel":
             control_idx = (aslcontext["volume_type"] == "control").index.values
@@ -1104,6 +1104,9 @@ def combine_metadata(metadata, m0scan_metadata, n_asl, n_m0):
         "FlipAngle",
         "RepetitionTimePreparation",
     ]
+
+    if n_m0 == 0:
+        return metadata
 
     for field in VOLUME_WISE_FIELDS:
         if (field not in metadata) and (field not in m0scan_metadata):

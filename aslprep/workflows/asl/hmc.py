@@ -89,7 +89,7 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
                 "label_file",
                 "deltam_file",
                 "cbf_file",
-                "m0_file",
+                "m0scan_file",
                 "aslcontext",
                 "raw_ref_image",
             ],
@@ -120,7 +120,7 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
 
     files_to_mcflirt = []
     if m0type in ("Included", "Separate"):
-        files_to_mcflirt.append("m0_file")
+        files_to_mcflirt.append("m0scan_file")
 
     if processing_target == "controllabel":
         files_to_mcflirt += ["control_file", "label_file"]

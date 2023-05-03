@@ -270,10 +270,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Split the data into M0, control/label, deltam, and cbf time series.
     # Processing steps depend on which ones are available.
-    processing_target = group_asl_data(
-        aslcontext=run_data["aslcontext"],
-        metadata=metadata,
-    )
+    processing_target = group_asl_data(aslcontext=run_data["aslcontext"])
     m0type = metadata["M0Type"]
 
     # Validate the ASL file.
@@ -292,7 +289,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (inputnode, split_asl_data, [("m0_file", "m0_file")]),
+        (inputnode, split_asl_data, [("m0_file", "m0scan_file")]),
         (validate_asl_wf, split_asl_data, [("outputnode.asl_file", "asl_file")]),
     ])
     # fmt:on
@@ -303,7 +300,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     if m0type in ("Included", "Separate"):
         # Use M0 vols to generate reference if possible.
-        ref_source = "m0_file"
+        ref_source = "m0scan_file"
     elif processing_target == "controllabel":
         ref_source = "control_file"
     else:
@@ -335,6 +332,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Head motion correction
     asl_hmc_wf = init_asl_hmc_wf(
+        processing_target=processing_target,
+        m0type=m0type,
         mem_gb=mem_gb["filesize"],
         omp_nthreads=omp_nthreads,
         name="asl_hmc_wf",
@@ -342,30 +341,33 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (inputnode, asl_hmc_wf, [("aslcontext", "inputnode.aslcontext")]),
-        (split_asl_data, asl_hmc_wf, [
-            (f"outputnode.{processing_target}_file", "inputnode.asl_file"),
-        ]),
-        (asl_reference_wf, asl_hmc_wf, [
-            ("outputnode.raw_ref_image", "inputnode.raw_ref_image"),
-        ]),
+        (split_asl_data, asl_hmc_wf, [("aslcontext", "inputnode.aslcontext")]),
+        (asl_reference_wf, asl_hmc_wf, [("outputnode.raw_ref_image", "inputnode.raw_ref_image")]),
     ])
     # fmt:on
 
-    if m0type in ("Included", "Separate"):
-        m0_hmc_wf = init_asl_hmc_wf(
-            use_zigzag=False,
-            mem_gb=mem_gb["filesize"],
-            omp_nthreads=omp_nthreads,
-            name="m0_hmc_wf",
-        )
-
+    if processing_target == "controllabel":
         # fmt:off
         workflow.connect([
-            (split_asl_data, m0_hmc_wf, [("m0_file", "inputnode.asl_file")]),
-            (asl_reference_wf, m0_hmc_wf, [
-                ("outputnode.raw_ref_image", "inputnode.raw_ref_image"),
+            (split_asl_data, asl_hmc_wf, [
+                ("control_file", "inputnode.control_file"),
+                ("label_file", "inputnode.label_file"),
             ]),
+        ])
+        # fmt:on
+    else:
+        # fmt:off
+        workflow.connect([
+            (split_asl_data, asl_hmc_wf, [
+                (f"{processing_target}_file", f"inputnode.{processing_target}_file"),
+            ]),
+        ])
+        # fmt:on
+
+    if m0type in ("Included", "Separate"):
+        # fmt:off
+        workflow.connect([
+            (split_asl_data, asl_hmc_wf, [("m0scan_file", "inputnode.m0scan_file")]),
         ])
         # fmt:on
 
