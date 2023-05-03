@@ -6,6 +6,7 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
+from aslprep.interfaces.utility import CombineMotionParameters
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces import NormalizeMotionParams
 from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
@@ -17,7 +18,7 @@ def init_asl_hmc_wf(
     m0type,
     mem_gb,
     omp_nthreads,
-    name="control_label_hmc_wf",
+    name="asl_hmc_wf",
 ):
     """Estimate head-motion parameters and optionally correct them for intensity differences.
 
@@ -33,12 +34,17 @@ def init_asl_hmc_wf(
             from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
             wf = init_asl_hmc_wf(
+                processing_target="controllabel",
+                m0type="Separate",
                 mem_gb=3,
                 omp_nthreads=1,
+                name="asl_hmc_wf",
             )
 
     Parameters
     ----------
+    processing_target
+    m0type
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
