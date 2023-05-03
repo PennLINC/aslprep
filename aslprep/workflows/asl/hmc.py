@@ -10,7 +10,7 @@ from aslprep.interfaces.utility import CombineMotionParameters
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces import NormalizeMotionParams
 from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
-from aslprep.utils.misc import _select_last_in_list
+from aslprep.utils.misc import _select_first_in_list
 
 
 def init_asl_hmc_wf(
@@ -144,8 +144,8 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
             (mcflirt, combine_motpars, [
                 ("mat_file", f"{file_to_mcflirt}_mat_file"),
                 ("par_file", f"{file_to_mcflirt}_par_file"),
-                # XXX: It's the relative RMS file
-                (("rms_files", _select_last_in_list), f"{file_to_mcflirt}_rms_file"),
+                # XXX: Typically grabs relative RMS, but I switched to grab absolute.
+                (("rms_files", _select_first_in_list), f"{file_to_mcflirt}_rms_file"),
             ]),
         ])
         # fmt:on

@@ -80,7 +80,7 @@ class CombineMotionParameters(SimpleInterface):
             use_ext=True,
         )
         with open(self._results["combined_par_file"], "w") as fo:
-            fo.write(out_par)
+            fo.write("".join(out_par))
 
         self._results["combined_mat_file"] = out_mat_files
 
@@ -91,6 +91,6 @@ class CombineMotionParameters(SimpleInterface):
             use_ext=True,
         )
         with open(self._results["combined_rms_file"], "w") as fo:
-            fo.write(out_rms)
+            fo.write("".join(out_rms))
 
         return runtime
