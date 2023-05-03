@@ -968,7 +968,7 @@ class SplitASLData(SimpleInterface):
 
         n_m0 = 0
         if self.inputs.metadata["M0Type"] == "Included":
-            m0_idx = (aslcontext["volume_type"] == "m0scan").index.values
+            m0_idx = aslcontext.loc[aslcontext["volume_type"] == "m0scan"].index.values
             m0_img = image.index_img(self.inputs.asl_file, m0_idx)
             self._results["m0scan_file"] = fname_presuffix(
                 self.inputs.asl_file,
@@ -990,7 +990,7 @@ class SplitASLData(SimpleInterface):
             self._results["m0scan_file"] = None
 
         if self.inputs.processing_target == "controllabel":
-            control_idx = (aslcontext["volume_type"] == "control").index.values
+            control_idx = aslcontext.loc[aslcontext["volume_type"] == "control"].index.values
             control_img = image.index_img(self.inputs.asl_file, control_idx)
             self._results["control_file"] = fname_presuffix(
                 self.inputs.asl_file,
@@ -1000,7 +1000,7 @@ class SplitASLData(SimpleInterface):
             )
             control_img.to_filename(self._results["control_file"])
 
-            label_idx = (aslcontext["volume_type"] == "label").index.values
+            label_idx = aslcontext.loc[aslcontext["volume_type"] == "label"].index.values
             label_img = image.index_img(self.inputs.asl_file, label_idx)
             self._results["label_file"] = fname_presuffix(
                 self.inputs.asl_file,
@@ -1013,7 +1013,7 @@ class SplitASLData(SimpleInterface):
             asl_idx = np.sort(np.concatenate((control_idx, label_idx, m0_idx)))
 
         elif self.inputs.processing_target == "deltam":
-            deltam_idx = (aslcontext["volume_type"] == "deltam").index.values
+            deltam_idx = aslcontext.loc[aslcontext["volume_type"] == "deltam"].index.values
             deltam_img = image.index_img(self.inputs.asl_file, deltam_idx)
             self._results["deltam_file"] = fname_presuffix(
                 self.inputs.asl_file,
@@ -1026,7 +1026,7 @@ class SplitASLData(SimpleInterface):
             asl_idx = np.sort(np.concatenate((deltam_idx, m0_idx)))
 
         elif self.inputs.processing_target == "cbf":
-            cbf_idx = (aslcontext["volume_type"] == "cbf").index.values
+            cbf_idx = aslcontext.loc[aslcontext["volume_type"] == "cbf"].index.values
             cbf_img = image.index_img(self.inputs.asl_file, cbf_idx)
             self._results["cbf_file"] = fname_presuffix(
                 self.inputs.asl_file,
