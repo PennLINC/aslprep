@@ -919,7 +919,6 @@ class _SplitASLDataInputSpec(BaseInterfaceInputSpec):
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV.")
     processing_target = traits.Str()
     metadata = traits.Dict()
-    m0scan_metadata = traits.Either(traits.Dict(), None)
 
 
 class _SplitASLDataOutputSpec(TraitedSpec):
@@ -966,7 +965,6 @@ class SplitASLData(SimpleInterface):
         self._results["deltam_file"] = None
         self._results["cbf_file"] = None
 
-        n_m0 = 0
         if self.inputs.metadata["M0Type"] == "Included":
             m0_idx = aslcontext.loc[aslcontext["volume_type"] == "m0scan"].index.values
             m0_img = image.index_img(self.inputs.asl_file, m0_idx)
@@ -982,9 +980,6 @@ class SplitASLData(SimpleInterface):
             m0_idx = []
             self._results["m0scan_file"] = self.inputs.m0scan_file
             m0_img = nb.load(self.inputs.m0scan_file)
-            n_m0 = 1
-            if m0_img.ndim == 4:
-                n_m0 = m0_img.shape[3]
 
         else:
             self._results["m0scan_file"] = None
@@ -1041,13 +1036,7 @@ class SplitASLData(SimpleInterface):
         else:
             raise ValueError(f"Unknown processing target '{self.inputs.processing_target}'")
 
-        metadata = reduce_metadata_lists(self.inputs.metadata, asl_idx)
-        self._results["metadata"] = combine_metadata(
-            metadata,
-            self.inputs.m0scan_metadata,
-            n_asl=asl_idx.size,
-            n_m0=n_m0,
-        )
+        self._results["metadata"] = reduce_metadata_lists(self.inputs.metadata, asl_idx)
 
         asl_img = image.index_img(self.inputs.asl_file, asl_idx)
         self._results["asl_file"] = fname_presuffix(
