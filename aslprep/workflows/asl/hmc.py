@@ -119,7 +119,7 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
     workflow.connect([(inputnode, combine_motpars, [("aslcontext", "aslcontext")])])
 
     files_to_mcflirt = []
-    if m0type in ("Included", "Separate"):
+    if m0type == "Included":
         files_to_mcflirt.append("m0scan")
 
     if processing_target == "controllabel":
@@ -151,7 +151,6 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
         # fmt:on
 
     # TODO: Use rmsdiff to calculate relative rms from transform files.
-
     fsl2itk = pe.Node(MCFLIRT2ITK(), name="fsl2itk", mem_gb=0.05, n_procs=omp_nthreads)
 
     # fmt:off

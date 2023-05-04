@@ -115,7 +115,7 @@ def init_asl_preproc_wf(asl_file):
     2.  Generate initial ASL reference image.
         I think this is just the BOLD reference workflow from niworkflows,
         without any modifications for ASL data. I could be missing something.
-        -   Feeds into the aslbuffer_stc.
+        -   Feeds into the aslbuffer_me1.
         -   Not in GE workflow.
         -   In the GE workflow, the reference image comes from the M0 scan.
     3.  Motion correction.
@@ -274,17 +274,27 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     processing_target = group_asl_data(aslcontext=run_data["aslcontext"])
     m0type = metadata["M0Type"]
 
+    # aslbuffer_me1: an identity used as a pointer to either the original ASL file
+    # (if not multi-echo) or an iterable list of the original ASL files
+    aslbuffer_me1 = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer_me1")
+
+    if not multiecho:
+        workflow.connect([(inputnode, aslbuffer_me1, [("asl_file", "asl_file")])])
+
+    else:
+        # for meepi, iterate over all meepi echos to aslbuffer_me1
+        aslbuffer_me1.iterables = ("asl_file", asl_file)
+
     # Validate the ASL file.
     validate_asl_wf = init_validate_asl_wf(name="validate_asl_wf")
-    workflow.connect([(inputnode, validate_asl_wf, [("asl_file", "inputnode.asl_file")])])
+    workflow.connect([(aslbuffer_me1, validate_asl_wf, [("asl_file", "inputnode.asl_file")])])
 
-    # Split up the ASL data into image-type-specific files, and add in M0 scans to aslcontext
-    # and asl_file if necessary.
+    # Split up the ASL data into image-type-specific files,
+    # and reduce aslcontext, metadata, and asl_file if necessary.
     split_asl_data = pe.Node(
         SplitASLData(
             processing_target=processing_target,
             metadata=metadata,
-            m0scan_metadata=run_data["m0scan_metadata"],
         ),
         name="split_asl_data",
     )
@@ -317,23 +327,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if sbref_file is not None:
         workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
 
-    # aslbuffer_stc: an identity used as a pointer to either the original ASL file
-    # (if not multi-echo) or the an iterable list of the original ASL files
-    # XXX: I don't know if I can remove this or not.
-    aslbuffer_stc = pe.Node(niu.IdentityInterface(fields=["asl_file"]), name="aslbuffer_stc")
-
-    if not multiecho:
-        workflow.connect([(split_asl_data, aslbuffer_stc, [("asl_file", "asl_file")])])
-
-    else:
-        # for meepi, iterate over all meepi echos to aslbuffer_stc
-        aslbuffer_stc.iterables = ("asl_file", asl_file)
-
     # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
     # can be applied with other transforms in single shots.
     asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
 
-    workflow.connect([(aslbuffer_stc, asl_split, [("asl_file", "in_file")])])
+    workflow.connect([(split_asl_data, asl_split, [("asl_file", "in_file")])])
 
     # Head motion correction
     asl_hmc_wf = init_asl_hmc_wf(
@@ -346,35 +344,17 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (split_asl_data, asl_hmc_wf, [("aslcontext", "inputnode.aslcontext")]),
+        (split_asl_data, asl_hmc_wf, [
+            ("aslcontext", "inputnode.aslcontext"),
+            ("control_file", "inputnode.control_file"),
+            ("label_file", "inputnode.label_file"),
+            ("deltam_file", "inputnode.deltam_file"),
+            ("cbf_file", "inputnode.cbf_file"),
+            ("m0scan_file", "inputnode.m0scan_file"),
+        ]),
         (asl_reference_wf, asl_hmc_wf, [("outputnode.raw_ref_image", "inputnode.raw_ref_image")]),
     ])
     # fmt:on
-
-    if processing_target == "controllabel":
-        # fmt:off
-        workflow.connect([
-            (split_asl_data, asl_hmc_wf, [
-                ("control_file", "inputnode.control_file"),
-                ("label_file", "inputnode.label_file"),
-            ]),
-        ])
-        # fmt:on
-    else:
-        # fmt:off
-        workflow.connect([
-            (split_asl_data, asl_hmc_wf, [
-                (f"{processing_target}_file", f"inputnode.{processing_target}_file"),
-            ]),
-        ])
-        # fmt:on
-
-    if m0type in ("Included", "Separate"):
-        # fmt:off
-        workflow.connect([
-            (split_asl_data, asl_hmc_wf, [("m0scan_file", "inputnode.m0scan_file")]),
-        ])
-        # fmt:on
 
     # Susceptibility distortion correction
     asl_sdc_wf = init_sdc_estimate_wf(
@@ -459,7 +439,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         join_echos = pe.JoinNode(
             niu.IdentityInterface(fields=["asl_files"]),
-            joinsource="aslbuffer_stc",
+            joinsource="aslbuffer_me1",
             joinfield=["asl_files"],
             name="join_echos",
         )
