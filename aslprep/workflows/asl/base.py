@@ -415,16 +415,16 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:on
 
     # Special steps for multi-echo data
-    # aslbuffer_me: an identity used as a pointer to either the split ASL files and the
+    # aslbuffer_me2: an identity used as a pointer to either the split ASL files and the
     # ASLRef-space ASL file (if not multi-echo) or the optimally-combined ASL file.
-    aslbuffer_me = pe.Node(
+    aslbuffer_me2 = pe.Node(
         niu.IdentityInterface(
             fields=[
                 "asl_file_native",
                 "asl_split",
             ],
         ),
-        name="aslbuffer_me",
+        name="aslbuffer_me2",
     )
 
     # XXX: This may not be reachable, since echo is not an allowed entity for ASL data.
@@ -458,7 +458,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (inputnode, asl_derivatives_wf, [
                 (("asl_file", combine_meepi_source), "inputnode.source_file"),
             ]),
-            (asl_t2s_wf, aslbuffer_me, [
+            (asl_t2s_wf, aslbuffer_me2, [
                 ("outputnode.asl", "asl_file_native"),
                 # NOTE: The 4D optcom ASL file is treated as split 3D ASL files here.
                 ("outputnode.asl", "asl_split"),
@@ -470,8 +470,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
-            (asl_asl_trans_wf, aslbuffer_me, [("outputnode.asl", "asl_file_native")]),
-            (asl_split, aslbuffer_me, [("out_files", "asl_split")]),
+            (asl_asl_trans_wf, aslbuffer_me2, [("outputnode.asl", "asl_file_native")]),
+            (asl_split, aslbuffer_me2, [("out_files", "asl_split")]),
         ])
         # fmt:on
 
@@ -494,7 +494,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (asl_reference_wf, asl_confounds_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
         (asl_asl_trans_wf, asl_confounds_wf, [("outputnode.asl_mask", "inputnode.asl_mask")]),
-        (aslbuffer_me, asl_confounds_wf, [("asl_file_native", "inputnode.asl")]),
+        (aslbuffer_me2, asl_confounds_wf, [("asl_file_native", "inputnode.asl")]),
         (asl_confounds_wf, asl_derivatives_wf, [
             ("outputnode.confounds_file", "inputnode.confounds"),
             ("outputnode.confounds_metadata", "inputnode.confounds_metadata"),
@@ -587,7 +587,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.epi_mask", "inputnode.ref_asl_mask"),
         ]),
         # will not be split into 3D volumes if multi-echo
-        (aslbuffer_me, asl_t1_trans_wf, [("asl_split", "inputnode.asl_split")]),
+        (aslbuffer_me2, asl_t1_trans_wf, [("asl_split", "inputnode.asl_split")]),
         # unused if multiecho, but this is safe
         (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
         # unused if multiecho, but this is safe
@@ -828,7 +828,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
-        # TODO: Replace this with aslbuffer_me.
+        # TODO: Replace this with aslbuffer_me2.
         # I think I need to modify init_asl_std_trans_wf to treat multi-echo data the same way
         # init_asl_t1_trans_wf does (i.e., by skipping HMC and SDC).
         # Actually, what if I just use xform_buffer and set the xforms to "identity" there?
