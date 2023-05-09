@@ -454,7 +454,7 @@ class ComputeCBF(SimpleInterface):
         # PostLabelingDelay is either a single number or an array of numbers.
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
-        plds = np.array(metadata["PostLabelingDelay"])
+        plds = np.atleast_1d(metadata["PostLabelingDelay"])
         if np.std(plds) > 0:
             raise ValueError(
                 f"{np.unique(plds).size} unique PostLabelingDelay values detected. "
@@ -526,22 +526,31 @@ class ComputeCBF(SimpleInterface):
 
         # Offset PLD(s) by slice times
         if "SliceTiming" in metadata:
+            config.loggers.interface.warning("Adjusting PLD(s) by slice times")
             slice_times = metadata["SliceTiming"]
             deltam_img = nb.load(deltam_file)
             shape = deltam_img.shape[:3]
+            if len(slice_times) != shape[2]:
+                raise ValueError(
+                    f"Number of slices ({shape[2]}) != slice times ({len(slice_times)})"
+                )
 
             pld_brain = np.tile(plds, list(shape) + [1])
+            config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
 
             # Assumes XXI orientation?
             pld_brain = pld_brain + slice_times[None, None, :, None]
+            config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
             pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
 
             plds = masker.transform(pld_img).T  # Transpose to SxT
+            config.loggers.interface.warning(f"plds: {plds.shape}")
 
         # Definen perfusion factor
         perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
             denom_factor * 2 * labeleff
         )
+        config.loggers.interface.warning(f"perfusion_factor: {perfusion_factor.shape}")
 
         # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
         deltam_scaled = deltam_arr / scaled_m0data
