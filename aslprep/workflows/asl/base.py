@@ -477,25 +477,39 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         metadata=metadata,
         name="compute_cbf_wf",
     )
-    CBF_DERIVS = [
+
+    # Determine the derivatives to pass around to different workflows
+    cbf_derivs = [
         "cbf_ts",
         "mean_cbf",
-        "cbf_ts_score",
-        "mean_cbf_score",
-        "mean_cbf_scrub",
-        "mean_cbf_basil",
-        "mean_cbf_gm_basil",
-        "mean_cbf_wm_basil",
-        "att",
     ]
-    # We don't want mean_cbf_wm_basil for this list.
-    MEAN_CBF_DERIVS = [
+    mean_cbf_derivs = [
         "mean_cbf",
-        "mean_cbf_score",
-        "mean_cbf_scrub",
-        "mean_cbf_basil",
-        "mean_cbf_gm_basil",
     ]
+
+    if scorescrub:
+        cbf_derivs += [
+            "cbf_ts_score",
+            "mean_cbf_score",
+            "mean_cbf_scrub",
+        ]
+        mean_cbf_derivs += [
+            "mean_cbf_score",
+            "mean_cbf_scrub",
+        ]
+
+    if basil:
+        cbf_derivs += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+            "mean_cbf_wm_basil",
+            "att",
+        ]
+        # We don't want mean_cbf_wm_basil for this list.
+        mean_cbf_derivs += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+        ]
 
     # fmt:off
     workflow.connect([
@@ -678,7 +692,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    for cbf_deriv in MEAN_CBF_DERIVS:
+    for cbf_deriv in mean_cbf_derivs:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, compute_cbf_qc_wf, [
@@ -699,7 +713,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
-        for cbf_deriv in CBF_DERIVS:
+        for cbf_deriv in cbf_derivs:
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_derivatives_wf, [
@@ -722,7 +736,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
-        for cbf_deriv in CBF_DERIVS:
+        for cbf_deriv in cbf_derivs:
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_t1_trans_wf, [
@@ -815,7 +829,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:on
 
         # asl_derivatives_wf internally parametrizes over snapshotted spaces.
-        for cbf_deriv in CBF_DERIVS:
+        for cbf_deriv in cbf_derivs:
             # fmt:off
             workflow.connect([
                 (compute_cbf_wf, asl_std_trans_wf, [
@@ -852,7 +866,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    for cbf_deriv in CBF_DERIVS:
+    for cbf_deriv in cbf_derivs:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, plot_cbf_wf, [
@@ -918,7 +932,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    for cbf_deriv in MEAN_CBF_DERIVS:
+    for cbf_deriv in mean_cbf_derivs:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, parcellate_cbf_wf, [
