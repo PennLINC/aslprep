@@ -526,6 +526,10 @@ class ComputeCBF(SimpleInterface):
         scaled_m0data = m0scale * m0data
 
         # Offset PLD(s) by slice times
+        # This step builds a voxel-wise array of post-labeling delay values,
+        # where voxels from each slice have the appropriately-shifted PLD value.
+        # If there are multiple PLDs, then the second dimension of the PLD array will
+        # correspond to volumes in the time series.
         if "SliceTiming" in metadata:
             config.loggers.interface.warning("Adjusting PLD(s) by slice times")
             slice_times = np.array(metadata["SliceTiming"])
@@ -548,24 +552,29 @@ class ComputeCBF(SimpleInterface):
                 # Reverse the slice times
                 slice_times = slice_times[::-1]
 
-            # Determine which dimensions to add to the slice times
+            # Determine which dimensions to add to the slice times array,
+            # so that all 4 dims are 1, except for the slice encoding axis,
+            # which will have the slice times.
             new_dims = [0, 1, 2, 3]
             new_dims.pop(slice_encoding_axis)
             slice_times = np.expand_dims(slice_times, new_dims)
             config.loggers.interface.warning(f"slice_times: {slice_times.shape}")
 
+            # Create a 4D array of PLDs, matching shape of ASL data.
             pld_brain = np.tile(plds, list(shape) + [1])
             config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
 
+            # Shift the PLDs by the appropriate slice times.
             pld_brain = pld_brain + slice_times
             config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
-            pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
 
+            # Mask the PLD array to go from (X, Y, Z, T) to (S, T)
+            pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
             plds = masker.transform(pld_img).T  # Transpose to SxT
             config.loggers.interface.warning(f"plds: {plds.shape}")
             config.loggers.interface.warning(f"plds: {np.unique(plds)}")
 
-        # Definen perfusion factor
+        # Define perfusion factor
         perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
             denom_factor * 2 * labeleff
         )
@@ -575,7 +584,8 @@ class ComputeCBF(SimpleInterface):
         deltam_scaled = deltam_arr / scaled_m0data
 
         if (n_plds > 1) and (n_plds != n_volumes):
-            # For future multi-PLD support.
+            # Multi-PLD, but the number of PLDs doesn't match the number of volumes.
+            # Technically, the validator should catch this.
             raise ValueError(
                 f"Number of volumes ({n_volumes}) must match number of PLDs "
                 f"({perfusion_factor.size})."
@@ -583,7 +593,7 @@ class ComputeCBF(SimpleInterface):
 
         if (n_plds > 1) and (n_volumes > 1):
             # TODO: Make this actually work.
-            # Multi-PLD acquisition with multiple control-label pairs.
+            # Multi-PLD acquisition.
             # Calculate weighted CBF with multiple PostLabelingDelays.
             # Wang et al. (2013): https://doi.org/10.1016%2Fj.nicl.2013.06.017
             # Dai et al. (2012): https://doi.org/10.1002/mrm.23103
@@ -595,17 +605,8 @@ class ComputeCBF(SimpleInterface):
                     perfusion_factor[perf_val_idx]
                 )
 
-        elif (n_plds > 1) and (n_volumes == 1):
-            # Multi-PLD acquisition with one control-label pair.
-            # XXX: How is this possible?
-            cbf_ts = np.zeros(deltam_arr.shape, len(perfusion_factor))
-            for i_delay in len(perfusion_factor):
-                cbf_ts[:, i_delay] = deltam_scaled * perfusion_factor[i_delay]
-
-            cbf = np.sum(cbf_ts, axis=2) / np.sum(perfusion_factor)
-
         else:
-            # There is only a single PLD.
+            # Single-PLD acquisition.
             cbf = deltam_scaled * perfusion_factor
 
         # Return CBF to niimg.
