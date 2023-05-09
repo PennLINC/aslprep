@@ -326,10 +326,12 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 # BolusCutOffDelayTime is a list, and the first entry should be used.
                 bolus = bolus[0]
 
-        slice_spacing = None
+        basil_kwargs = {}
         if "SliceTiming" in metadata.keys():
             # This won't work for non-ascending slice orders.
-            slice_spacing = abs(metadata["SliceTiming"][1] - metadata["SliceTiming"][0])
+            basil_kwargs["slice_spacing"] = abs(
+                metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            )
 
         basilcbf = pe.Node(
             BASILCBF(
@@ -339,7 +341,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 pvc=True,
                 tis=tiscbf,
                 pcasl=is_casl,
-                slice_spacing=slice_spacing,
+                **basil_kwargs,
             ),
             name="basilcbf",
             run_without_submitting=True,
@@ -666,10 +668,12 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 # BolusCutOffDelayTime is a list, and the first entry should be used.
                 bolus = bolus[0]
 
-        slice_spacing = None
+        basil_kwargs = {}
         if "SliceTiming" in metadata.keys():
             # This won't work for non-ascending slice orders.
-            slice_spacing = abs(metadata["SliceTiming"][1] - metadata["SliceTiming"][0])
+            basil_kwargs["slice_spacing"] = abs(
+                metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            )
 
         basilcbf = pe.Node(
             BASILCBF(
@@ -679,7 +683,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 pvc=True,
                 tis=tiscbf,
                 pcasl=is_casl,
-                slice_spacing=slice_spacing,
+                **basil_kwargs,
             ),
             name="basilcbf",
             run_without_submitting=True,
