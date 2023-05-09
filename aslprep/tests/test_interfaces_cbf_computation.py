@@ -35,109 +35,87 @@ def test_computecbf_casl(datasets, tmp_path_factory):
     bad_multiple_plds = plds.tolist()
     good_multiple_plds = plds[aslcontext["volume_type"] == "control"]
 
-    # Scenario 1: PCASL with a single PostLabelingDelay
-    metadata = {
-        "ArterialSpinLabelingType": "PCASL",
+    BASE_METADATA = {
         "MagneticFieldStrength": 3,
         "LabelingDuration": 1.6,
-        "PostLabelingDelay": single_pld,
     }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    results = interface.run(cwd=tmpdir)
-    assert os.path.isfile(results.outputs.cbf)
-    cbf_img = nb.load(results.outputs.cbf)
-    assert cbf_img.ndim == 4
-    assert cbf_img.shape[3] == n_deltam
-    assert os.path.isfile(results.outputs.mean_cbf)
-    mean_cbf_img = nb.load(results.outputs.mean_cbf)
-    assert mean_cbf_img.ndim == 3
+    ACQ_DICTS = [
+        {"MRAcquisitionType": "3D"},
+        {
+            "MRAcquisitionType": "2D",
+            "SliceTiming": list(np.linspace(0.1, 0.5, 30)),
+        },
+    ]
 
-    # Scenario 2: PCASL with one PostLabelingDelay for each volume (bad)
-    metadata = {
-        "ArterialSpinLabelingType": "PCASL",
-        "MagneticFieldStrength": 3,
-        "LabelingDuration": 1.6,
-        "PostLabelingDelay": bad_multiple_plds,
-    }
+    for asltype in ["PCASL", "CASL"]:
+        for acq_dict in ACQ_DICTS:
+            # Scenario 1: PCASL with a single PostLabelingDelay
+            metadata = {
+                "ArterialSpinLabelingType": asltype,
+                "PostLabelingDelay": single_pld,
+                **BASE_METADATA,
+                **acq_dict,
+            }
+            interface = cbf_computation.ComputeCBF(
+                cbf_only=False,
+                deltam=asl_file,
+                metadata=metadata,
+                m0scale=1,
+                m0_file=m0_file,
+                mask=mask_file,
+            )
+            results = interface.run(cwd=tmpdir)
+            assert os.path.isfile(results.outputs.cbf)
+            cbf_img = nb.load(results.outputs.cbf)
+            assert cbf_img.ndim == 4
+            assert cbf_img.shape[3] == n_deltam
+            assert os.path.isfile(results.outputs.mean_cbf)
+            mean_cbf_img = nb.load(results.outputs.mean_cbf)
+            assert mean_cbf_img.ndim == 3
 
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
-        results = interface.run(cwd=tmpdir)
+            # Scenario 2: PCASL with one PostLabelingDelay for each volume (bad)
+            metadata = {
+                "ArterialSpinLabelingType": asltype,
+                "PostLabelingDelay": bad_multiple_plds,
+                **BASE_METADATA,
+                **acq_dict,
+            }
 
-    # Scenario 3: PCASL with one PostLabelingDelay for each deltam volume (good)
-    metadata = {
-        "ArterialSpinLabelingType": "PCASL",
-        "MagneticFieldStrength": 3,
-        "LabelingDuration": 1.6,
-        "PostLabelingDelay": good_multiple_plds,
-    }
+            interface = cbf_computation.ComputeCBF(
+                cbf_only=False,
+                deltam=asl_file,
+                metadata=metadata,
+                m0scale=1,
+                m0_file=m0_file,
+                mask=mask_file,
+            )
+            with pytest.raises(
+                ValueError,
+                match="ASLPrep cannot currently process multi-PLD data.",
+            ):
+                results = interface.run(cwd=tmpdir)
 
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
-        results = interface.run(cwd=tmpdir)
+            # Scenario 3: PCASL with one PostLabelingDelay for each deltam volume (good)
+            metadata = {
+                "ArterialSpinLabelingType": asltype,
+                "PostLabelingDelay": good_multiple_plds,
+                **BASE_METADATA,
+                **acq_dict,
+            }
 
-    # Scenario 4: CASL with a single PostLabelingDelay
-    metadata = {
-        "ArterialSpinLabelingType": "CASL",
-        "MagneticFieldStrength": 3,
-        "LabelingDuration": 1.6,
-        "PostLabelingDelay": single_pld,
-    }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    results = interface.run(cwd=tmpdir)
-    assert os.path.isfile(results.outputs.cbf)
-    cbf_img = nb.load(results.outputs.cbf)
-    assert cbf_img.ndim == 4
-    assert cbf_img.shape[3] == n_deltam
-    assert os.path.isfile(results.outputs.mean_cbf)
-    mean_cbf_img = nb.load(results.outputs.mean_cbf)
-    assert mean_cbf_img.ndim == 3
-
-    # Scenario 5: CASL with multiple PostLabelingDelays
-    metadata = {
-        "ArterialSpinLabelingType": "CASL",
-        "MagneticFieldStrength": 3,
-        "LabelingDuration": 1.6,
-        "PostLabelingDelay": good_multiple_plds,
-    }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
-        results = interface.run(cwd=tmpdir)
+            interface = cbf_computation.ComputeCBF(
+                cbf_only=False,
+                deltam=asl_file,
+                metadata=metadata,
+                m0scale=1,
+                m0_file=m0_file,
+                mask=mask_file,
+            )
+            with pytest.raises(
+                ValueError,
+                match="ASLPrep cannot currently process multi-PLD data.",
+            ):
+                results = interface.run(cwd=tmpdir)
 
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
@@ -166,14 +144,46 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
     bad_multiple_plds = plds.tolist()
     good_multiple_plds = plds[aslcontext["volume_type"] == "control"]
 
-    # Scenario 1: PASL without BolusCutOff (raises ValueError).
-    metadata = {
+    BASE_METADATA = {
         "ArterialSpinLabelingType": "PASL",
         "MagneticFieldStrength": 3,
-        "BolusCutOffFlag": False,
-        "PostLabelingDelay": single_pld,
     }
-    with pytest.raises(ValueError, match="not supported in ASLPrep."):
+    ACQ_DICTS = [
+        {"MRAcquisitionType": "3D"},
+        {
+            "MRAcquisitionType": "2D",
+            "SliceTiming": list(np.linspace(0.1, 0.5, 30)),
+        },
+    ]
+
+    for acq_dict in ACQ_DICTS:
+        # Scenario 1: PASL without BolusCutOff (raises ValueError).
+        metadata = {
+            "BolusCutOffFlag": False,
+            "PostLabelingDelay": single_pld,
+            **BASE_METADATA,
+            **acq_dict,
+        }
+        with pytest.raises(ValueError, match="not supported in ASLPrep."):
+            interface = cbf_computation.ComputeCBF(
+                cbf_only=False,
+                deltam=asl_file,
+                metadata=metadata,
+                m0scale=1,
+                m0_file=m0_file,
+                mask=mask_file,
+            )
+            results = interface.run(cwd=tmpdir)
+
+        # Scenario 2: QUIPSS PASL with a single PostLabelingDelay
+        metadata = {
+            "BolusCutOffFlag": True,
+            "BolusCutOffTechnique": "QUIPSS",
+            "BolusCutOffDelayTime": 0.5,
+            "PostLabelingDelay": single_pld,
+            **BASE_METADATA,
+            **acq_dict,
+        }
         interface = cbf_computation.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
@@ -183,158 +193,139 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
+        assert os.path.isfile(results.outputs.cbf)
+        cbf_img = nb.load(results.outputs.cbf)
+        assert cbf_img.ndim == 4
+        assert cbf_img.shape[3] == n_deltam
+        assert os.path.isfile(results.outputs.mean_cbf)
+        mean_cbf_img = nb.load(results.outputs.mean_cbf)
+        assert mean_cbf_img.ndim == 3
 
-    # Scenario 2: QUIPSS PASL with a single PostLabelingDelay
-    metadata = {
-        "ArterialSpinLabelingType": "PASL",
-        "MagneticFieldStrength": 3,
-        "BolusCutOffFlag": True,
-        "BolusCutOffTechnique": "QUIPSS",
-        "BolusCutOffDelayTime": 0.5,
-        "PostLabelingDelay": single_pld,
-    }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    results = interface.run(cwd=tmpdir)
-    assert os.path.isfile(results.outputs.cbf)
-    cbf_img = nb.load(results.outputs.cbf)
-    assert cbf_img.ndim == 4
-    assert cbf_img.shape[3] == n_deltam
-    assert os.path.isfile(results.outputs.mean_cbf)
-    mean_cbf_img = nb.load(results.outputs.mean_cbf)
-    assert mean_cbf_img.ndim == 3
+        # Scenario 3: QUIPSS PASL with one PostLabelingDelay for each volume (bad)
+        metadata = {
+            "BolusCutOffFlag": True,
+            "BolusCutOffTechnique": "QUIPSS",
+            "BolusCutOffDelayTime": 0.5,
+            "PostLabelingDelay": bad_multiple_plds,
+            **BASE_METADATA,
+            **acq_dict,
+        }
+        interface = cbf_computation.ComputeCBF(
+            cbf_only=False,
+            deltam=asl_file,
+            metadata=metadata,
+            m0scale=1,
+            m0_file=m0_file,
+            mask=mask_file,
+        )
+        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+            results = interface.run(cwd=tmpdir)
 
-    # Scenario 3: QUIPSS PASL with one PostLabelingDelay for each volume (bad)
-    metadata = {
-        "ArterialSpinLabelingType": "PASL",
-        "MagneticFieldStrength": 3,
-        "BolusCutOffFlag": True,
-        "BolusCutOffTechnique": "QUIPSS",
-        "BolusCutOffDelayTime": 0.5,
-        "PostLabelingDelay": bad_multiple_plds,
-    }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        # Scenario 4: QUIPSS PASL with one PostLabelingDelay for each deltam volume (good)
+        metadata = {
+            "BolusCutOffFlag": True,
+            "BolusCutOffTechnique": "QUIPSS",
+            "BolusCutOffDelayTime": 0.5,
+            "PostLabelingDelay": good_multiple_plds,
+            **BASE_METADATA,
+            **acq_dict,
+        }
+        interface = cbf_computation.ComputeCBF(
+            cbf_only=False,
+            deltam=asl_file,
+            metadata=metadata,
+            m0scale=1,
+            m0_file=m0_file,
+            mask=mask_file,
+        )
+        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+            results = interface.run(cwd=tmpdir)
+
+        # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
+        metadata = {
+            "BolusCutOffFlag": True,
+            "BolusCutOffTechnique": "QUIPSSII",
+            "BolusCutOffDelayTime": 0.5,
+            "PostLabelingDelay": single_pld,
+            **BASE_METADATA,
+            **acq_dict,
+        }
+        interface = cbf_computation.ComputeCBF(
+            cbf_only=False,
+            deltam=asl_file,
+            metadata=metadata,
+            m0scale=1,
+            m0_file=m0_file,
+            mask=mask_file,
+        )
         results = interface.run(cwd=tmpdir)
+        assert os.path.isfile(results.outputs.cbf)
+        cbf_img = nb.load(results.outputs.cbf)
+        assert cbf_img.ndim == 4
+        assert cbf_img.shape[3] == n_deltam
+        assert os.path.isfile(results.outputs.mean_cbf)
+        mean_cbf_img = nb.load(results.outputs.mean_cbf)
+        assert mean_cbf_img.ndim == 3
 
-    # Scenario 4: QUIPSS PASL with one PostLabelingDelay for each deltam volume (good)
-    metadata = {
-        "ArterialSpinLabelingType": "PASL",
-        "MagneticFieldStrength": 3,
-        "BolusCutOffFlag": True,
-        "BolusCutOffTechnique": "QUIPSS",
-        "BolusCutOffDelayTime": 0.5,
-        "PostLabelingDelay": good_multiple_plds,
-    }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
-        results = interface.run(cwd=tmpdir)
+        # Scenario 6: QUIPSSII PASL with multiple PostLabelingDelays
+        metadata = {
+            "BolusCutOffFlag": True,
+            "BolusCutOffTechnique": "QUIPSSII",
+            "BolusCutOffDelayTime": 0.5,
+            "PostLabelingDelay": good_multiple_plds,
+            **BASE_METADATA,
+            **acq_dict,
+        }
+        interface = cbf_computation.ComputeCBF(
+            cbf_only=False,
+            deltam=asl_file,
+            metadata=metadata,
+            m0scale=1,
+            m0_file=m0_file,
+            mask=mask_file,
+        )
+        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+            results = interface.run(cwd=tmpdir)
 
-    # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
-    metadata = {
-        "ArterialSpinLabelingType": "PASL",
-        "MagneticFieldStrength": 3,
-        "BolusCutOffFlag": True,
-        "BolusCutOffTechnique": "QUIPSSII",
-        "BolusCutOffDelayTime": 0.5,
-        "PostLabelingDelay": single_pld,
-    }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    results = interface.run(cwd=tmpdir)
-    assert os.path.isfile(results.outputs.cbf)
-    cbf_img = nb.load(results.outputs.cbf)
-    assert cbf_img.ndim == 4
-    assert cbf_img.shape[3] == n_deltam
-    assert os.path.isfile(results.outputs.mean_cbf)
-    mean_cbf_img = nb.load(results.outputs.mean_cbf)
-    assert mean_cbf_img.ndim == 3
+        # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
+        metadata = {
+            "BolusCutOffFlag": True,
+            "BolusCutOffTechnique": "Q2TIPS",
+            "BolusCutOffDelayTime": [0.7, 1.6],
+            "PostLabelingDelay": single_pld,
+            **BASE_METADATA,
+            **acq_dict,
+        }
+        interface = cbf_computation.ComputeCBF(
+            cbf_only=False,
+            deltam=asl_file,
+            metadata=metadata,
+            m0scale=1,
+            m0_file=m0_file,
+            mask=mask_file,
+        )
+        with pytest.raises(ValueError, match="Q2TIPS is not supported in ASLPrep."):
+            results = interface.run(cwd=tmpdir)
 
-    # Scenario 6: QUIPSSII PASL with multiple PostLabelingDelays
-    metadata = {
-        "ArterialSpinLabelingType": "PASL",
-        "MagneticFieldStrength": 3,
-        "BolusCutOffFlag": True,
-        "BolusCutOffTechnique": "QUIPSSII",
-        "BolusCutOffDelayTime": 0.5,
-        "PostLabelingDelay": good_multiple_plds,
-    }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
-        results = interface.run(cwd=tmpdir)
-
-    # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
-    metadata = {
-        "ArterialSpinLabelingType": "PASL",
-        "MagneticFieldStrength": 3,
-        "BolusCutOffFlag": True,
-        "BolusCutOffTechnique": "Q2TIPS",
-        "BolusCutOffDelayTime": [0.7, 1.6],
-        "PostLabelingDelay": single_pld,
-    }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    with pytest.raises(ValueError, match="Q2TIPS is not supported in ASLPrep."):
-        results = interface.run(cwd=tmpdir)
-
-    # Scenario 8: Q2TIPS PASL with multiple PostLabelingDelays
-    metadata = {
-        "ArterialSpinLabelingType": "PASL",
-        "MagneticFieldStrength": 3,
-        "BolusCutOffFlag": True,
-        "BolusCutOffTechnique": "Q2TIPS",
-        "BolusCutOffDelayTime": [0.7, 1.6],
-        "PostLabelingDelay": good_multiple_plds,
-    }
-    interface = cbf_computation.ComputeCBF(
-        cbf_only=False,
-        deltam=asl_file,
-        metadata=metadata,
-        m0scale=1,
-        m0_file=m0_file,
-        mask=mask_file,
-    )
-    with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
-        results = interface.run(cwd=tmpdir)
+        # Scenario 8: Q2TIPS PASL with multiple PostLabelingDelays
+        metadata = {
+            "BolusCutOffFlag": True,
+            "BolusCutOffTechnique": "Q2TIPS",
+            "BolusCutOffDelayTime": [0.7, 1.6],
+            "PostLabelingDelay": good_multiple_plds,
+            **BASE_METADATA,
+            **acq_dict,
+        }
+        interface = cbf_computation.ComputeCBF(
+            cbf_only=False,
+            deltam=asl_file,
+            metadata=metadata,
+            m0scale=1,
+            m0_file=m0_file,
+            mask=mask_file,
+        )
+        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+            results = interface.run(cwd=tmpdir)
 
 
 def _save_img(arr, tmpdir, fname):
