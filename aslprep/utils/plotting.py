@@ -11,6 +11,7 @@ from nilearn.plotting import plot_stat_map
 from seaborn import color_palette
 from svgutils.transform import SVGFigure
 
+from aslprep import config
 from aslprep.niworkflows import NIWORKFLOWS_LOG
 from aslprep.niworkflows.viz.plots import _get_tr, confoundplot, plot_carpet, spikesplot
 from aslprep.niworkflows.viz.utils import (
@@ -189,6 +190,12 @@ class CBFPlot(object):
     __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmax"]
 
     def __init__(self, cbf, ref_vol, label, outfile, vmax):
+        config.loggers.interface.warning("")
+        config.loggers.interface.warning(f"cbf: {cbf}")
+        config.loggers.interface.warning(f"ref_vol: {ref_vol}")
+        config.loggers.interface.warning(f"label: {label}")
+        config.loggers.interface.warning(f"outfile: {outfile}")
+
         self.cbf = cbf
         self.ref_vol = ref_vol
         self.label = label
@@ -217,7 +224,9 @@ def plotstatsimg(
     plot_params = {} if plot_params is None else plot_params
 
     image_nii = _3d_in_file(cbf)
+    config.loggers.interface.warning(f"image_nii: {image_nii.shape}")
     data = image_nii.get_fdata()
+    config.loggers.interface.warning(f"data: min={np.min(data)}, max={np.max(data)}")
 
     bbox_nii = threshold_img(nb.load(cbf), 1)
 
