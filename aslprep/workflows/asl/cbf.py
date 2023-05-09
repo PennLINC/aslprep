@@ -326,6 +326,10 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 # BolusCutOffDelayTime is a list, and the first entry should be used.
                 bolus = bolus[0]
 
+        slice_spacing = None
+        if "SliceTiming" in metadata.keys():
+            slice_spacing = metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+
         basilcbf = pe.Node(
             BASILCBF(
                 m0scale=M0Scale,
@@ -334,6 +338,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 pvc=True,
                 tis=tiscbf,
                 pcasl=is_casl,
+                slice_spacing=slice_spacing,
             ),
             name="basilcbf",
             run_without_submitting=True,
@@ -660,6 +665,10 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 # BolusCutOffDelayTime is a list, and the first entry should be used.
                 bolus = bolus[0]
 
+        slice_spacing = None
+        if "SliceTiming" in metadata.keys():
+            slice_spacing = metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+
         basilcbf = pe.Node(
             BASILCBF(
                 m0scale=M0Scale,
@@ -668,6 +677,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 pvc=True,
                 tis=tiscbf,
                 pcasl=is_casl,
+                slice_spacing=slice_spacing,
             ),
             name="basilcbf",
             run_without_submitting=True,

@@ -819,6 +819,11 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=True,
         sep=",",
     )
+    slice_spacing = traits.Float(
+        desc="Slice times",
+        argstr="--slicedt %s",
+        mandatory=False,
+    )
     pvc = traits.Bool(
         desc="Do partial volume correction.",
         mandatory=False,
