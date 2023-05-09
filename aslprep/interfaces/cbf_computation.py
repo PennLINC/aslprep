@@ -515,10 +515,6 @@ class ComputeCBF(SimpleInterface):
         else:
             raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
 
-        perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
-            denom_factor * 2 * labeleff
-        )
-
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask_file)
@@ -540,12 +536,17 @@ class ComputeCBF(SimpleInterface):
             pld_brain = pld_brain + slice_times[None, None, :, None]
             pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
 
-            plds = masker.transform(pld_img).T
+            plds = masker.transform(pld_img).T  # Transpose to SxT
+
+        # Definen perfusion factor
+        perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
+            denom_factor * 2 * labeleff
+        )
 
         # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
         deltam_scaled = deltam_arr / scaled_m0data
 
-        if (perfusion_factor.size > 1) and (perfusion_factor.size != n_volumes):
+        if (perfusion_factor.shape[-1] > 1) and (perfusion_factor.shape[-1] != n_volumes):
             # For future multi-PLD support.
             raise ValueError(
                 f"Number of volumes ({n_volumes}) must match number of PLDs "
