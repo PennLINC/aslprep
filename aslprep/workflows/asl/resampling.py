@@ -305,17 +305,6 @@ def init_asl_std_trans_wf(
         ])
         # fmt:on
 
-    all_inputs = [
-        "cbf_ts",
-        "mean_cbf",
-        "cbf_ts_score",
-        "mean_cbf_score",
-        "mean_cbf_scrub",
-        "mean_cbf_basil",
-        "mean_cbf_gm_basil",
-        "mean_cbf_wm_basil",
-        "att",
-    ]
     inputs_to_warp = [
         "cbf_ts",
         "mean_cbf",
@@ -336,7 +325,7 @@ def init_asl_std_trans_wf(
             "att",
         ]
 
-    output_names = [f"{input_}_std" for input_ in all_inputs]
+    output_names = [f"{input_}_std" for input_ in inputs_to_warp]
     output_names += ["asl_std", "aslref_std", "asl_mask_std", "spatial_reference", "template"]
 
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names), name="poutputnode")
