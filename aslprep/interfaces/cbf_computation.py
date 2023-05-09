@@ -530,17 +530,35 @@ class ComputeCBF(SimpleInterface):
             config.loggers.interface.warning("Adjusting PLD(s) by slice times")
             slice_times = np.array(metadata["SliceTiming"])
             deltam_img = nb.load(deltam_file)
+            config.loggers.interface.warning(
+                f"Image orientation is {''.join(nb.orientations.aff2axcodes(deltam_img.affine))}"
+            )
+
+            slice_encoding_direction = metadata.get("SliceEncodingDirection", "k")
+            slice_encoding_axis = "ijk".index(slice_encoding_direction[0])
+
             shape = deltam_img.shape[:3]
-            if slice_times.size != shape[2]:
+            if slice_times.size != shape[slice_encoding_axis]:
                 raise ValueError(
-                    f"Number of slices ({shape[2]}) != slice times ({slice_times.size})"
+                    f"Number of slices ({shape[slice_encoding_axis]}) != "
+                    f"slice times ({slice_times.size})"
                 )
+
+            if slice_encoding_direction.endswith("-"):
+                # Reverse the slice times
+                slice_times = slice_times[::-1]
+
+            # Determine which dimensions to add to the slice times
+            new_dims = [0, 1, 2, 3]
+            new_dims.pop(slice_encoding_axis)
+            slice_times = np.expand_dims(slice_times, new_dims)
+            config.loggers.interface.warning(f"slice_times: {slice_times.shape}")
 
             pld_brain = np.tile(plds, list(shape) + [1])
             config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
 
             # Assumes XXI orientation?
-            pld_brain = pld_brain + slice_times[None, None, :, None]
+            pld_brain = pld_brain + slice_times
             config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
             pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
 
