@@ -527,12 +527,12 @@ class ComputeCBF(SimpleInterface):
         # Offset PLD(s) by slice times
         if "SliceTiming" in metadata:
             config.loggers.interface.warning("Adjusting PLD(s) by slice times")
-            slice_times = metadata["SliceTiming"]
+            slice_times = np.array(metadata["SliceTiming"])
             deltam_img = nb.load(deltam_file)
             shape = deltam_img.shape[:3]
-            if len(slice_times) != shape[2]:
+            if slice_times.size != shape[2]:
                 raise ValueError(
-                    f"Number of slices ({shape[2]}) != slice times ({len(slice_times)})"
+                    f"Number of slices ({shape[2]}) != slice times ({slice_times.size})"
                 )
 
             pld_brain = np.tile(plds, list(shape) + [1])
