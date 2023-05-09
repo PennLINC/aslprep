@@ -125,7 +125,6 @@ class CBFtsPlot(object):
         vlines=None,
     ):
         self.cbf_file = cbf_file
-        volindex = np.loadtxt(score_outlier_index)
         func_nii = nb.load(cbf_file)
         self.tr = tr if tr is not None else func_nii.header.get_zooms()[-1]
 
@@ -146,7 +145,9 @@ class CBFtsPlot(object):
             fdlist = fdlist[::2]
             # fdlist=np.nan_to_num(fdlist)
             self.fd_file["FD"] = {"values": fdlist}
+
         if score_outlier_index:
+            volindex = np.loadtxt(score_outlier_index)
             self.fd_file["The SCORE index"] = {"values": volindex}
 
     def plot(self, figure=None):
