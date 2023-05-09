@@ -557,13 +557,13 @@ class ComputeCBF(SimpleInterface):
             pld_brain = np.tile(plds, list(shape) + [1])
             config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
 
-            # Assumes XXI orientation?
             pld_brain = pld_brain + slice_times
             config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
             pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
 
             plds = masker.transform(pld_img).T  # Transpose to SxT
             config.loggers.interface.warning(f"plds: {plds.shape}")
+            config.loggers.interface.warning(f"plds: {np.unique(plds)}")
 
         # Definen perfusion factor
         perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
