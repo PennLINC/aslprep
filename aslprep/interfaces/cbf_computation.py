@@ -528,6 +528,20 @@ class ComputeCBF(SimpleInterface):
         m0data = masker.transform(m0_file).T
         scaled_m0data = m0scale * m0data
 
+        # Offset PLD(s) by slice times
+        if "SliceTiming" in metadata:
+            slice_times = metadata["SliceTiming"]
+            deltam_img = nb.load(deltam_file)
+            shape = deltam_img.shape[:3]
+
+            pld_brain = np.tile(plds, list(shape) + [1])
+
+            # Assumes XXI orientation?
+            pld_brain = pld_brain + slice_times[None, None, :, None]
+            pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
+
+            plds = masker.transform(pld_img).T
+
         # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
         deltam_scaled = deltam_arr / scaled_m0data
 
