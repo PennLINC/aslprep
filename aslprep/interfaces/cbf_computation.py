@@ -455,6 +455,7 @@ class ComputeCBF(SimpleInterface):
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
         plds = np.atleast_1d(metadata["PostLabelingDelay"])
+        n_plds = plds.size
         if np.std(plds) > 0:
             raise ValueError(
                 f"{np.unique(plds).size} unique PostLabelingDelay values detected. "
@@ -555,14 +556,14 @@ class ComputeCBF(SimpleInterface):
         # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
         deltam_scaled = deltam_arr / scaled_m0data
 
-        if (perfusion_factor.shape[-1] > 1) and (perfusion_factor.shape[-1] != n_volumes):
+        if (n_plds > 1) and (n_plds != n_volumes):
             # For future multi-PLD support.
             raise ValueError(
                 f"Number of volumes ({n_volumes}) must match number of PLDs "
                 f"({perfusion_factor.size})."
             )
 
-        if (perfusion_factor.size > 1) and (n_volumes > 1):
+        if (n_plds > 1) and (n_volumes > 1):
             # TODO: Make this actually work.
             # Multi-PLD acquisition with multiple control-label pairs.
             # Calculate weighted CBF with multiple PostLabelingDelays.
@@ -576,7 +577,7 @@ class ComputeCBF(SimpleInterface):
                     perfusion_factor[perf_val_idx]
                 )
 
-        elif (perfusion_factor.size > 1) and (n_volumes == 1):
+        elif (n_plds > 1) and (n_volumes == 1):
             # Multi-PLD acquisition with one control-label pair.
             # XXX: How is this possible?
             cbf_ts = np.zeros(deltam_arr.shape, len(perfusion_factor))
