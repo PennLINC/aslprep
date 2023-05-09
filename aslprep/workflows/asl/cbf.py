@@ -328,7 +328,8 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
         slice_spacing = None
         if "SliceTiming" in metadata.keys():
-            slice_spacing = metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            # This won't work for non-ascending slice orders.
+            slice_spacing = abs(metadata["SliceTiming"][1] - metadata["SliceTiming"][0])
 
         basilcbf = pe.Node(
             BASILCBF(
@@ -667,7 +668,8 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
 
         slice_spacing = None
         if "SliceTiming" in metadata.keys():
-            slice_spacing = metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            # This won't work for non-ascending slice orders.
+            slice_spacing = abs(metadata["SliceTiming"][1] - metadata["SliceTiming"][0])
 
         basilcbf = pe.Node(
             BASILCBF(
