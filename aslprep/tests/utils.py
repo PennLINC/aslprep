@@ -31,6 +31,12 @@ def download_test_data(dset, data_dir=None):
         "test_002": "https://upenn.box.com/shared/static/wpuvn06zl4v5nwd9o8tysyfs3kg4a2p0.tar.gz",
         "test_003": "https://upenn.box.com/shared/static/1c64kn7btb5dodksnn06wer2kfk00px5.tar.gz",
     }
+    if dset == "*":
+        for k in URLS.keys():
+            download_test_data(k, data_dir=data_dir)
+
+        return
+
     if dset not in URLS:
         raise ValueError(f"dset ({dset}) must be one of: {', '.join(URLS.keys())}")
 
