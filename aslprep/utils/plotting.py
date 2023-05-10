@@ -8,7 +8,7 @@ from lxml import etree
 from matplotlib import gridspec as mgs
 from nilearn import plotting
 from nilearn.image import threshold_img
-from niworkflows.viz.plots import _get_tr, confoundplot, plot_carpet, spikesplot
+from niworkflows.interfaces.plotting import _get_tr
 from niworkflows.viz.utils import (
     _3d_in_file,
     compose_view,
@@ -20,6 +20,7 @@ from seaborn import color_palette
 from svgutils.transform import SVGFigure
 
 from aslprep.niworkflows import NIWORKFLOWS_LOG
+from aslprep.niworkflows.viz.plots import confoundplot, plot_carpet, spikesplot
 
 
 class ASLPlot:

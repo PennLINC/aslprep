@@ -73,12 +73,12 @@ def init_cbfplot_wf(
         name="resample_parc",
     )
 
-    cbftssummary = pe.Node(
+    cbf_ts_summary = pe.Node(
         CBFtsSummary(tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"])),
         name="cbf_ts_summary",
         mem_gb=2,
     )
-    cbfsummary = pe.Node(CBFSummary(label="cbf", vmax=90), name="cbf_summary", mem_gb=1)
+    cbf_summary = pe.Node(CBFSummary(label="cbf", vmax=90), name="cbf_summary", mem_gb=1)
     ds_report_cbftsplot = pe.Node(
         DerivativesDataSink(desc="cbftsplot", datatype="figures", keep_dtype=True),
         name="ds_report_cbftsplot",
@@ -99,24 +99,24 @@ def init_cbfplot_wf(
         ]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
-        (resample_parc, cbftssummary, [("output_image", "seg_file")]),
-        (inputnode, cbftssummary, [
+        (resample_parc, cbf_ts_summary, [("output_image", "seg_file")]),
+        (inputnode, cbf_ts_summary, [
             ("cbf_ts", "cbf_ts"),
             ("confounds_file", "confounds_file"),
             ("score_outlier_index", "score_outlier_index"),
         ]),
-        (cbftssummary, ds_report_cbftsplot, [("out_file", "in_file")]),
-        (inputnode, cbfsummary, [
+        (cbf_ts_summary, ds_report_cbftsplot, [("out_file", "in_file")]),
+        (inputnode, cbf_summary, [
             ("mean_cbf", "cbf"),
             ("aslref", "ref_vol"),
         ]),
-        (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
+        (cbf_summary, ds_report_cbfplot, [("out_file", "in_file")]),
     ])
     # fmt:on
 
     if scorescrub:
-        scoresummary = pe.Node(CBFSummary(label="score", vmax=90), name="score_summary", mem_gb=1)
-        scrubsummary = pe.Node(CBFSummary(label="scrub", vmax=90), name="scrub_summary", mem_gb=1)
+        score_summary = pe.Node(CBFSummary(label="score", vmax=90), name="score_summary", mem_gb=1)
+        scrub_summary = pe.Node(CBFSummary(label="scrub", vmax=90), name="scrub_summary", mem_gb=1)
         ds_report_scoreplot = pe.Node(
             DerivativesDataSink(desc="scoreplot", datatype="figures", keep_dtype=True),
             name="ds_report_scoreplot",
@@ -131,22 +131,22 @@ def init_cbfplot_wf(
         )
         # fmt:off
         workflow.connect([
-            (inputnode, scoresummary, [
+            (inputnode, score_summary, [
                 ("mean_cbf_score", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-            (scoresummary, ds_report_scoreplot, [("out_file", "in_file")]),
-            (inputnode, scrubsummary, [
+            (score_summary, ds_report_scoreplot, [("out_file", "in_file")]),
+            (inputnode, scrub_summary, [
                 ("mean_cbf_scrub", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-            (scrubsummary, ds_report_scrubplot, [("out_file", "in_file")]),
+            (scrub_summary, ds_report_scrubplot, [("out_file", "in_file")]),
         ])
         # fmt:on
 
     if basil:
-        basilsummary = pe.Node(CBFSummary(label="basil", vmax=100), name="basil_summary", mem_gb=1)
-        pvcsummary = pe.Node(CBFSummary(label="pvc", vmax=120), name="pvc_summary", mem_gb=1)
+        basil_summary = pe.Node(CBFSummary(label="basil", vmax=100), name="basil_summary", mem_gb=1)
+        pvc_summary = pe.Node(CBFSummary(label="pvc", vmax=120), name="pvc_summary", mem_gb=1)
         ds_report_basilplot = pe.Node(
             DerivativesDataSink(desc="basilplot", datatype="figures", keep_dtype=True),
             name="ds_report_basilplot",
@@ -162,16 +162,16 @@ def init_cbfplot_wf(
 
         # fmt:off
         workflow.connect([
-            (inputnode, basilsummary, [
+            (inputnode, basil_summary, [
                 ("mean_cbf_basil", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-            (basilsummary, ds_report_basilplot, [("out_file", "in_file")]),
-            (inputnode, pvcsummary, [
+            (basil_summary, ds_report_basilplot, [("out_file", "in_file")]),
+            (inputnode, pvc_summary, [
                 ("mean_cbf_gm_basil", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-            (pvcsummary, ds_report_pvcplot, [("out_file", "in_file")]),
+            (pvc_summary, ds_report_pvcplot, [("out_file", "in_file")]),
         ])
         # fmt:on
 
@@ -205,7 +205,7 @@ def init_gecbfplot_wf(basil=False, name="cbf_plot"):
         name="inputnode",
     )
 
-    cbfsummary = pe.Node(CBFSummary(label="cbf", vmax=90), name="cbf_summary", mem_gb=1)
+    cbf_summary = pe.Node(CBFSummary(label="cbf", vmax=90), name="cbf_summary", mem_gb=1)
     ds_report_cbfplot = pe.Node(
         DerivativesDataSink(desc="cbfplot", datatype="figures", keep_dtype=True),
         name="ds_report_cbfplot",
@@ -214,17 +214,17 @@ def init_gecbfplot_wf(basil=False, name="cbf_plot"):
     )
     # fmt:off
     workflow.connect([
-        (inputnode, cbfsummary, [
+        (inputnode, cbf_summary, [
             ("mean_cbf", "cbf"),
             ("aslref", "ref_vol"),
         ]),
-        (cbfsummary, ds_report_cbfplot, [("out_file", "in_file")]),
+        (cbf_summary, ds_report_cbfplot, [("out_file", "in_file")]),
     ])
     # fmt:on
 
     if basil:
-        basilsummary = pe.Node(CBFSummary(label="basil", vmax=100), name="basil_summary", mem_gb=1)
-        pvcsummary = pe.Node(CBFSummary(label="pvc", vmax=120), name="pvc_summary", mem_gb=1)
+        basil_summary = pe.Node(CBFSummary(label="basil", vmax=100), name="basil_summary", mem_gb=1)
+        pvc_summary = pe.Node(CBFSummary(label="pvc", vmax=120), name="pvc_summary", mem_gb=1)
         ds_report_basilplot = pe.Node(
             DerivativesDataSink(desc="basilplot", datatype="figures", keep_dtype=True),
             name="ds_report_basilplot",
@@ -240,16 +240,16 @@ def init_gecbfplot_wf(basil=False, name="cbf_plot"):
 
         # fmt:off
         workflow.connect([
-            (inputnode, basilsummary, [
+            (inputnode, basil_summary, [
                 ("mean_cbf_basil", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-            (basilsummary, ds_report_basilplot, [("out_file", "in_file")]),
-            (inputnode, pvcsummary, [
+            (basil_summary, ds_report_basilplot, [("out_file", "in_file")]),
+            (inputnode, pvc_summary, [
                 ("mean_cbf_gm_basil", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-            (pvcsummary, ds_report_pvcplot, [("out_file", "in_file")]),
+            (pvc_summary, ds_report_pvcplot, [("out_file", "in_file")]),
         ])
         # fmt:on
 
