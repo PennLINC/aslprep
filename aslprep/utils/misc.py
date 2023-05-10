@@ -1076,14 +1076,16 @@ def determine_multi_pld(metadata):
     return np.unique(plds).size > 1
 
 
-def estimate_t1blood(metadata):
-    """Estimate the relaxation rate of blood based on magnetic field strength.
+def estimate_t1(metadata):
+    """Estimate the relaxation rates of blood and gray matter based on magnetic field strength.
 
-    T1blood is set based on the scanner's field strength, according to
+    t1blood is set based on the scanner's field strength, according to
     :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
     If recommended values from these publications cannot be used
     (i.e., if the field strength isn't 1.5T, 3T, 7T),
     then the formula from :footcite:t:`zhang2013vivo` will be applied.
+
+    t1tissue is set based on the scanner's field strength as well.
 
     Parameters
     ----------
@@ -1094,6 +1096,8 @@ def estimate_t1blood(metadata):
     -------
     t1blood : :obj:`float`
         Estimated relaxation rate of blood based on magnetic field strength.
+    t1tissue : :obj:`float`
+        Estimated relaxation rate of gray matter based on magnetic field strength.
 
     References
     ----------
@@ -1114,4 +1118,7 @@ def estimate_t1blood(metadata):
         )
         t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
-    return t1blood
+    # TODO: Replace with field strength-dependent values.
+    t1tissue = 1.5
+
+    return t1blood, t1tissue

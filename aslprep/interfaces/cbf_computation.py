@@ -27,7 +27,7 @@ from aslprep.utils.misc import (
     determine_multi_pld,
     estimate_cbf_pcasl_multipld,
     estimate_labeling_efficiency,
-    estimate_t1blood,
+    estimate_t1,
     pcasl_or_pasl,
 )
 
@@ -433,7 +433,7 @@ class ComputeCBF(SimpleInterface):
     --------
     :func:`~aslprep.utils.misc.pcasl_or_pasl`
     :func:`~aslprep.utils.misc.determine_multi_pld`
-    :func:`~aslprep.utils.misc.estimate_t1blood`
+    :func:`~aslprep.utils.misc.estimate_t1`
     :func:`~aslprep.utils.misc.estimate_labeling_efficiency`
     :func:`~aslprep.utils.misc.estimate_cbf_pcasl_multipld`
 
@@ -478,7 +478,7 @@ class ComputeCBF(SimpleInterface):
 
         is_casl = pcasl_or_pasl(metadata=metadata)
         is_multi_pld = determine_multi_pld(metadata=metadata)
-        t1blood = estimate_t1blood(metadata=metadata)
+        t1blood, t1tissue = estimate_t1(metadata=metadata)
 
         # PostLabelingDelay is either a single number or an array of numbers.
         # If it is an array of numbers, then there should be one value for every volume in the
@@ -512,8 +512,8 @@ class ComputeCBF(SimpleInterface):
                     plds,
                     tau,
                     labeleff,
-                    t1blood,
-                    t1tissue=1.3,  # TODO: Replace with Tesla-specific values.
+                    t1blood=t1blood,
+                    t1tissue=t1tissue,
                     unit_conversion=UNIT_CONV,
                     partition_coefficient=PARTITION_COEF,
                 )
