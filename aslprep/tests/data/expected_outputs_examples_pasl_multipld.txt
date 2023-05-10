@@ -69,11 +69,11 @@ aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Schaefer917_desc-basilGM_cbf.
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Schaefer917_desc-basil_cbf.tsv
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Schaefer917_desc-score_cbf.tsv
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Schaefer917_desc-scrub_cbf.tsv
-aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-subcortical_cbf.tsv
-aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-subcortical_desc-basilGM_cbf.tsv
-aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-subcortical_desc-basil_cbf.tsv
-aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-subcortical_desc-score_cbf.tsv
-aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-subcortical_desc-scrub_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Tian_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Tian_desc-basilGM_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Tian_desc-basil_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Tian_desc-score_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Tian_desc-scrub_cbf.tsv
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_att.json
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_att.nii.gz
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_cbf.json
