@@ -531,12 +531,8 @@ class ComputeCBF(SimpleInterface):
         # If there are multiple PLDs, then the second dimension of the PLD array will
         # correspond to volumes in the time series.
         if "SliceTiming" in metadata:
-            config.loggers.interface.warning("Adjusting PLD(s) by slice times")
             slice_times = np.array(metadata["SliceTiming"])
             deltam_img = nb.load(deltam_file)
-            config.loggers.interface.warning(
-                f"Image orientation is {''.join(nb.orientations.aff2axcodes(deltam_img.affine))}"
-            )
 
             slice_encoding_direction = metadata.get("SliceEncodingDirection", "k")
             slice_encoding_axis = "ijk".index(slice_encoding_direction[0])
@@ -558,27 +554,21 @@ class ComputeCBF(SimpleInterface):
             new_dims = [0, 1, 2, 3]
             new_dims.pop(slice_encoding_axis)
             slice_times = np.expand_dims(slice_times, new_dims)
-            config.loggers.interface.warning(f"slice_times: {slice_times.shape}")
 
             # Create a 4D array of PLDs, matching shape of ASL data.
             pld_brain = np.tile(plds, list(shape) + [1])
-            config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
 
             # Shift the PLDs by the appropriate slice times.
             pld_brain = pld_brain + slice_times
-            config.loggers.interface.warning(f"pld_brain: {pld_brain.shape}")
 
             # Mask the PLD array to go from (X, Y, Z, T) to (S, T)
             pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
             plds = masker.transform(pld_img).T  # Transpose to SxT
-            config.loggers.interface.warning(f"plds: {plds.shape}")
-            config.loggers.interface.warning(f"plds: {np.unique(plds)}")
 
         # Define perfusion factor
         perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
             denom_factor * 2 * labeleff
         )
-        config.loggers.interface.warning(f"perfusion_factor: {perfusion_factor.shape}")
 
         # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
         deltam_scaled = deltam_arr / scaled_m0data
@@ -608,11 +598,23 @@ class ComputeCBF(SimpleInterface):
 
         else:
             # Single-PLD acquisition.
-            config.loggers.interface.warning(f"perfusion_factor: {np.unique(perfusion_factor)}")
-            config.loggers.interface.warning(f"perfusion_factor: {perfusion_factor.shape}")
-            config.loggers.interface.warning(f"deltam_scaled: {deltam_scaled.shape}")
-
             cbf = deltam_scaled * perfusion_factor
+
+            perfusion_factor_img = masker.inverse_transform(perfusion_factor.T)
+            perfusion_factor_fname = fname_presuffix(
+                self.inputs.deltam,
+                suffix="_perffactor",
+                newpath=runtime.cwd,
+            )
+            perfusion_factor_img.to_filename(perfusion_factor_fname)
+
+            deltam_scaled_img = masker.inverse_transform(deltam_scaled.T)
+            deltam_scaled_fname = fname_presuffix(
+                self.inputs.deltam,
+                suffix="_scaled",
+                newpath=runtime.cwd,
+            )
+            deltam_scaled_img.to_filename(deltam_scaled_fname)
 
         # Return CBF to niimg.
         cbf = np.nan_to_num(cbf)
