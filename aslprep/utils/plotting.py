@@ -13,7 +13,7 @@ from svgutils.transform import SVGFigure
 
 from aslprep.niworkflows import NIWORKFLOWS_LOG
 from aslprep.niworkflows.viz.plots import _get_tr, confoundplot, plot_carpet, spikesplot
-from aslprep.niworkflows.viz.utils import (
+from niworkflows.viz.utils import (
     _3d_in_file,
     compose_view,
     cuts_from_bbox,
