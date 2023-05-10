@@ -116,7 +116,10 @@ class CBFSummary(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(
-            self.inputs.cbf, suffix="_cbfplot.svg", use_ext=False, newpath=runtime.cwd
+            self.inputs.cbf,
+            suffix="_cbfplot.svg",
+            use_ext=False,
+            newpath=runtime.cwd,
         )
         CBFPlot(
             cbf=self.inputs.cbf,
@@ -125,7 +128,6 @@ class CBFSummary(SimpleInterface):
             vmax=self.inputs.vmax,
             outfile=self._results["out_file"],
         ).plot()
-        # fig.savefig(self._results['out_file'], bbox_inches='tight')
         return runtime
 
 
