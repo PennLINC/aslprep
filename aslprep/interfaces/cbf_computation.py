@@ -532,11 +532,13 @@ class ComputeCBF(SimpleInterface):
         # correspond to volumes in the time series.
         if "SliceTiming" in metadata:
             slice_times = np.array(metadata["SliceTiming"])
-            deltam_img = nb.load(deltam_file)
 
+            # Determine which axis slices come from.
+            # ASL data typically acquires along z axis, from inferior to superior.
             slice_encoding_direction = metadata.get("SliceEncodingDirection", "k")
             slice_encoding_axis = "ijk".index(slice_encoding_direction[0])
 
+            deltam_img = nb.load(deltam_file)
             shape = deltam_img.shape[:3]
             if slice_times.size != shape[slice_encoding_axis]:
                 raise ValueError(
@@ -544,8 +546,8 @@ class ComputeCBF(SimpleInterface):
                     f"slice times ({slice_times.size})"
                 )
 
+            # Reverse the slice times if slices go from maximum index to zero.
             if slice_encoding_direction.endswith("-"):
-                # Reverse the slice times
                 slice_times = slice_times[::-1]
 
             # Determine which dimensions to add to the slice times array,
@@ -555,15 +557,15 @@ class ComputeCBF(SimpleInterface):
             new_dims.pop(slice_encoding_axis)
             slice_times = np.expand_dims(slice_times, new_dims)
 
-            # Create a 4D array of PLDs, matching shape of ASL data.
+            # Create a 4D array of PLDs, matching shape of ASL data (except only one volume).
             pld_brain = np.tile(plds, list(shape) + [1])
 
             # Shift the PLDs by the appropriate slice times.
             pld_brain = pld_brain + slice_times
 
-            # Mask the PLD array to go from (X, Y, Z, T) to (S, T)
+            # Mask the PLD array to go from (X, Y, Z, delay) to (S, delay)
             pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
-            plds = masker.transform(pld_img).T  # Transpose to SxT
+            plds = masker.transform(pld_img).T
 
         # Define perfusion factor
         perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
