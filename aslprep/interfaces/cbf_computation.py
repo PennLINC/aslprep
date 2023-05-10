@@ -608,6 +608,7 @@ class ComputeCBF(SimpleInterface):
 
         else:
             # Single-PLD acquisition.
+            config.loggers.interface.warning(f"perfusion_factor: {np.unique(perfusion_factor)}")
             config.loggers.interface.warning(f"perfusion_factor: {perfusion_factor.shape}")
             config.loggers.interface.warning(f"deltam_scaled: {deltam_scaled.shape}")
 
