@@ -604,9 +604,13 @@ class ComputeCBF(SimpleInterface):
                 cbf[:, i_delay] = np.sum(cbf_ts[:, perf_val_idx], axis=1) / np.sum(
                     perfusion_factor[perf_val_idx]
                 )
+            raise ValueError("This is not currently supported.")
 
         else:
             # Single-PLD acquisition.
+            config.loggers.interface.warning(f"perfusion_factor: {perfusion_factor.shape}")
+            config.loggers.interface.warning(f"deltam_scaled: {deltam_scaled.shape}")
+
             cbf = deltam_scaled * perfusion_factor
 
         # Return CBF to niimg.
