@@ -328,6 +328,56 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             results = interface.run(cwd=tmpdir)
 
 
+def test_compare_slicetiming(datasets, tmp_path_factory):
+    """CBF estimates should be the same with slice-timing modification as not.
+
+    As long as the slice times are all zero, of course.
+    """
+    tmpdir = tmp_path_factory.mktemp("test_computecbf_casl")
+    aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
+
+    aslcontext = pd.read_table(aslcontext_file)
+    n_deltam = aslcontext.loc[aslcontext["volume_type"] == "label"].shape[0]
+
+    # Simulate ASL data and a brain mask.
+    asl_data = np.random.random((30, 30, 30, n_deltam)).astype(np.float32)
+    asl_file = _save_img(asl_data, tmpdir, "asl.nii.gz")
+    asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
+    asl_mask[10:20, 10:20, 10:20] = 1
+    mask_file = _save_img(asl_mask, tmpdir, "mask.nii.gz")
+    m0_file = _save_img(asl_mask, tmpdir, "m0.nii.gz")
+
+    ACQ_DICTS = [
+        {"MRAcquisitionType": "3D"},
+        {
+            "MRAcquisitionType": "2D",
+            "SliceTiming": list(np.zeros(30)),
+        },
+    ]
+
+    cbf_data = []
+    for acq_dict in ACQ_DICTS:
+        metadata = {
+            "ArterialSpinLabelingType": "PCASL",
+            "MagneticFieldStrength": 3,
+            "LabelingDuration": 1.6,
+            "PostLabelingDelay": 1.5,
+            **acq_dict,
+        }
+        interface = cbf_computation.ComputeCBF(
+            cbf_only=False,
+            deltam=asl_file,
+            metadata=metadata,
+            m0scale=1,
+            m0_file=m0_file,
+            mask=mask_file,
+        )
+        results = interface.run(cwd=tmpdir)
+        cbf_data.append(nb.load(results.outputs.cbf).get_fdata())
+
+    assert np.array_equal(cbf_data[0], cbf_data[1])
+
+
 def _save_img(arr, tmpdir, fname):
     img = nb.Nifti1Image(arr, affine=np.eye(4))
     fname = os.path.join(tmpdir, fname)

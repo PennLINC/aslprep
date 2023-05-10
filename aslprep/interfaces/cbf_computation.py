@@ -596,17 +596,21 @@ class ComputeCBF(SimpleInterface):
                 )
             raise ValueError("This is not currently supported.")
 
+        elif (n_plds > 1) and (n_volumes == 1):
+            raise ValueError("How did you get here?")
+
         else:
             # Single-PLD acquisition.
             cbf = deltam_scaled * perfusion_factor
 
-            perfusion_factor_img = masker.inverse_transform(perfusion_factor.T)
-            perfusion_factor_fname = fname_presuffix(
-                self.inputs.deltam,
-                suffix="_perffactor",
-                newpath=runtime.cwd,
-            )
-            perfusion_factor_img.to_filename(perfusion_factor_fname)
+            if "SliceTiming" in metadata:
+                perfusion_factor_img = masker.inverse_transform(perfusion_factor.T)
+                perfusion_factor_fname = fname_presuffix(
+                    self.inputs.deltam,
+                    suffix="_perffactor",
+                    newpath=runtime.cwd,
+                )
+                perfusion_factor_img.to_filename(perfusion_factor_fname)
 
             deltam_scaled_img = masker.inverse_transform(deltam_scaled.T)
             deltam_scaled_fname = fname_presuffix(
