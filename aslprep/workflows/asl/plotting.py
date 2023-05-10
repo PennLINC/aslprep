@@ -145,7 +145,9 @@ def init_cbfplot_wf(
         # fmt:on
 
     if basil:
-        basil_summary = pe.Node(CBFSummary(label="basil", vmax=100), name="basil_summary", mem_gb=1)
+        basil_summary = pe.Node(
+            CBFSummary(label="basil", vmax=100), name="basil_summary", mem_gb=1
+        )
         pvc_summary = pe.Node(CBFSummary(label="pvc", vmax=120), name="pvc_summary", mem_gb=1)
         ds_report_basilplot = pe.Node(
             DerivativesDataSink(desc="basilplot", datatype="figures", keep_dtype=True),
@@ -223,7 +225,9 @@ def init_gecbfplot_wf(basil=False, name="cbf_plot"):
     # fmt:on
 
     if basil:
-        basil_summary = pe.Node(CBFSummary(label="basil", vmax=100), name="basil_summary", mem_gb=1)
+        basil_summary = pe.Node(
+            CBFSummary(label="basil", vmax=100), name="basil_summary", mem_gb=1
+        )
         pvc_summary = pe.Node(CBFSummary(label="pvc", vmax=120), name="pvc_summary", mem_gb=1)
         ds_report_basilplot = pe.Node(
             DerivativesDataSink(desc="basilplot", datatype="figures", keep_dtype=True),
