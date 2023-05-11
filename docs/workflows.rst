@@ -367,9 +367,7 @@ The element which differentiates single-delay PCASL's CBF calculation from the P
 Pulsed ASL
 ----------
 
-.. warning::
-
-    Currently, ASLPrep does not support PASL data without a bolus cut-off technique applied.
+Currently, ASLPrep does not support PASL data without a bolus cut-off technique applied.
 
 
 QUIPSS Modification
