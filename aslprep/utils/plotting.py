@@ -212,7 +212,7 @@ def plot_stat_map(
     ref_vol,
     plot_params=None,
     order=("z", "x", "y"),
-    vmax=90,
+    vmax=100,
     estimate_brightness=False,
     label=None,
     compress="auto",
