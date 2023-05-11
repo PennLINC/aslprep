@@ -351,11 +351,15 @@ The element which differentiates single-delay PCASL's CBF calculation from the P
 Pulsed ASL
 ----------
 
+.. warning::
+
+    Currently, ASLPrep does not support PASL data without a bolus cut-off technique applied.
+
 
 QUIPSS Modification
 ^^^^^^^^^^^^^^^^^^^
 
-For pulsed ASL (PASL) data with the QUIPSS BolusCutOffTechnique,
+For pulsed ASL (PASL) data with the QUIPSS bolus cut-off technique,
 the formula from :footcite:t:`wong1998quantitative` is used.
 
 .. sidebar:: Notation
@@ -407,7 +411,7 @@ except :math:`\Delta{TI}` replaces :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau
 QUIPSS II Modification
 ^^^^^^^^^^^^^^^^^^^^^^
 
-For PASL data with the QUIPSS II BolusCutOffTechnique,
+For PASL data with the QUIPSS II bolus cut-off technique,
 the formula from :footcite:t:`alsop_recommended_2015` is used.
 
 .. math::
@@ -423,7 +427,7 @@ except :math:`TI_{1}` replaces :math:`\Delta{TI}`.
 Q2TIPS Modification
 ^^^^^^^^^^^^^^^^^^^
 
-For PASL data with the Q2TIPS BolusCutOffTechnique,
+For PASL data with the Q2TIPS bolus cut-off technique,
 the formula from the commercial Q2TIPS CBF calculation is used,
 as described in :footcite:t:`noguchi2015technical`.
 
