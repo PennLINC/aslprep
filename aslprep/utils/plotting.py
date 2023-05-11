@@ -236,7 +236,7 @@ def plot_stat_map(
         display = plotting.plot_img(
             img=cbf,
             bg_img=ref_vol,
-            resampling_interpolation="continuous",
+            resampling_interpolation="nearest",
             display_mode=mode,
             cut_coords=cuts[mode],
             vmin=-20,
