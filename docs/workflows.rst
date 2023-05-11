@@ -392,7 +392,7 @@ An example of CBF denoised by SCRUB is shown below.
    Computed CBF maps denoised by SCRUB
 
 *ASLPrep* also includes option of CBF computation by Bayesian Inference for Arterial Spin Labeling
-`(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_.
+(`BASIL <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_).
 BASIL also implements a simple kinetic model as described above,
 but using Bayesian Inference principles :footcite:p:`chappell2008variational`.
 BASIL is mostly suitable for multi-PLD.
