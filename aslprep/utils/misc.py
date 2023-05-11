@@ -1079,13 +1079,16 @@ def determine_multi_pld(metadata):
 def estimate_t1(metadata):
     """Estimate the relaxation rates of blood and gray matter based on magnetic field strength.
 
-    t1blood is set based on the scanner's field strength, according to
-    :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
+    t1blood is set based on the scanner's field strength,
+    according to :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
     If recommended values from these publications cannot be used
     (i.e., if the field strength isn't 1.5T, 3T, 7T),
     then the formula from :footcite:t:`zhang2013vivo` will be applied.
 
-    t1tissue is set based on the scanner's field strength as well.
+    t1tissue is set based on the scanner's field strength as well,
+    according to :footcite:t:`wright2008water`.
+    At the moment, field strengths other than 1.5T, 3T, and 7T are not supported and will
+    raise an exception.
 
     Parameters
     ----------
@@ -1119,6 +1122,15 @@ def estimate_t1(metadata):
         t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
     # TODO: Replace with field strength-dependent values.
-    t1tissue = 1.5
+    T1TISSUE_DICT = {
+        1.5: 1.197,
+        3: 1.607,
+        7: 1.939,
+    }
+    t1tissue = T1TISSUE_DICT.get(metadata["MagneticFieldStrength"])
+    if not t1tissue:
+        raise ValueError(
+            f"T1tissue cannot be inferred for {metadata['MagneticFieldStrength']}T data."
+        )
 
     return t1blood, t1tissue

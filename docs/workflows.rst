@@ -302,10 +302,10 @@ After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control image
     \Delta{M} = M_{C} - M_{L}
 
 
-Single-PLD ASL
-==============
+Single-Delay ASL
+================
 
-The CBF computation of single-PLD (post labeling delay) ASL data is done using a relatively simple model.
+The CBF computation of single-delay (post labeling delay) ASL data is done using a one-compartment model.
 
 
 (Pseudo-)Continuous ASL
@@ -320,11 +320,17 @@ CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
 
    :math:`\lambda` : Brain-blood partition coefficient
 
-   :math:`\alpha` : Labeling efficiency
+   :math:`\alpha` : Labeling efficiency.
+   This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
+   If that field is not set, then :math:`\alpha` will be determined based on the ASL type
+   (PASL, CASL, or PCASL) and the number of background suppression pulses.
 
-   :math:`w` : Post-labeling delay (PLD)
+   :math:`w` : Post-labeling delay (PLD).
+   In BIDS, this is encoded with the ``PostLabelingDelay`` field.
 
-   :math:`T_{1,blood}` : Relaxation time for arterial blood
+   :math:`T_{1,blood}` : Relaxation time for arterial blood.
+   ASLPrep infers this automatically based on the magnetic field strength
+   :footcite:p:`zhang2013vivo,alsop_recommended_2015`.
 
    :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
 
@@ -338,7 +344,7 @@ brain-blood partition coefficient, labeling efficiency, and post-labeling delay 
 In the absence of any of these parameters, standard values are used based on the scan type and
 scanning parameters.
 
-The element which differentiates single-PLD PCASL's CBF calculation from the PASL equivalents is
+The element which differentiates single-delay PCASL's CBF calculation from the PASL equivalents is
 :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
 
 
@@ -356,17 +362,30 @@ the formula from :footcite:t:`wong1998quantitative` is used.
 
    :math:`\lambda` : Brain-blood partition coefficient
 
-   :math:`\alpha` : Labeling efficiency
+   :math:`\alpha` : Labeling efficiency.
+   This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
+   If that field is not set, then :math:`\alpha` will be determined based on the ASL type
+   (PASL, CASL, or PCASL) and the number of background suppression pulses.
 
-   :math:`w` : Post-labeling delay (PLD).
-   In the PASL literature, this is typically referred to as the inversion time (TI).
+   :math:`w`: Post-labeling delay (PLD).
+   In BIDS, this is encoded with the ``PostLabelingDelay`` field.
 
-   :math:`T_{1,blood}` : Relaxation time for arterial blood
+   :math:`TI` : Inversion time.
+   In BIDS, this is encoded with the ``PostLabelingDelay`` field.
+
+   :math:`T_{1,blood}` : Relaxation time for arterial blood.
+   ASLPrep infers this automatically based on the magnetic field strength
+   :footcite:p:`zhang2013vivo,alsop_recommended_2015`.
+
+   :math:`T_{1,tissue}` : Relaxation time for gray matter,
+   used in the two-compartment model for multi-delay data.
+   ASLPrep infers this automatically based on the magnetic field strength
+   :footcite:p:`wright2008water`.
 
    :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
 
    :math:`\Delta{TI}` : Post-labeling delay minus bolus cutoff delay time.
-   Per :footcite:t:`alsop_recommended_2015`, this is QUIPSSII's equivalent to (P)CASL's :math:`w`.
+   Per :footcite:t:`alsop_recommended_2015`, this is QUIPSS II's equivalent to (P)CASL's :math:`w`.
 
    :math:`TI_{1}` : Bolus cutoff delay time.
    For Q2TIPS, this is the *first* bolus cutoff.
@@ -375,12 +394,13 @@ the formula from :footcite:t:`wong1998quantitative` is used.
    The other methods do not have this variable.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T1_{blood} } }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
    {2 \cdot \alpha \cdot M_{0} \cdot \Delta{TI} }
 
 where :math:`\Delta{TI}` is the post-labeling delay (PLD) minus the bolus cutoff delay time.
 
-Note that the formula for QUIPSS is the same as PCASL,
+Given that :math:`TI` is equivalent to :math:`w` in BIDS datasets,
+the formula for QUIPSS is the same as PCASL,
 except :math:`\Delta{TI}` replaces :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
 
 
@@ -391,13 +411,13 @@ For PASL data with the QUIPSS II BolusCutOffTechnique,
 the formula from :footcite:t:`alsop_recommended_2015` is used.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T1_{blood} } }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
    {2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
 where :math:`TI_{1}` is the bolus cutoff delay time.
 
-Note that the formula for QUIPSS II is the same as PCASL,
-except :math:`TI_{1}` replaces :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+Note that the formula for QUIPSS II is the same as the one for QUIPSS,
+except :math:`TI_{1}` replaces :math:`\Delta{TI}`.
 
 
 Q2TIPS Modification
@@ -414,19 +434,22 @@ as described in :footcite:t:`noguchi2015technical`.
 where :math:`TI_{1}` is the first bolus cutoff delay time and
 :math:`TI_{2}` is the last bolus cutoff delay time.
 
-Note that the formula for Q2TIPS is the same as PCASL,
-except :math:`TI_{1}` replaces :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })` and
-:math:`TI_{2}` replaces :math:`w` in the numerator.
+Note that the formula for Q2TIPS is the same as QUIPSS II,
+except :math:`TI_{2}` replaces :math:`TI` in the numerator.
 
 
-Multi-PLD ASL
-=============
+Multi-Delay ASL
+===============
+
+In multi-delay ASL, control-label pairs are acquired for multiple post-labeling delay values.
+This type of acquisition requires more complicated models, but it also results in more accurate CBF estimates.
+Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
 
 
 Pseudo-Continuous ASL
 ---------------------
 
-For multi-PLD PCASL data, the following steps are taken:
+For multi-delay PCASL data, the following steps are taken:
 
 1.  :math:`\Delta{M}` values are first averaged over time for each unique post-labeling delay value.
     We shall call these :math:`\Delta{M}` in the following equations for the sake of readability.
@@ -508,8 +531,8 @@ Pulsed ASL
 ----------
 
 .. warning::
-    As of 0.3.0, ASLPrep has disabled multi-PLD support for PASL data.
-    We plan to properly support multi-PLD PASL data in the near future.
+    As of 0.3.0, ASLPrep has disabled multi-delay support for PASL data.
+    We plan to properly support multi-delay PASL data in the near future.
 
 
 Additional Denoising Options
@@ -572,7 +595,7 @@ is an FSL tool for CBF estimation.
 
 BASIL implements a simple kinetic model as described above,
 but uses Bayesian Inference principles :footcite:p:`chappell2008variational`.
-BASIL is mostly suitable for multi-PLD.
+BASIL is mostly suitable for multi-delay ASL data.
 It includes bolus arrival time estimation with spatial regularization :footcite:p:`groves2009combined`
 and the correction of partial volume effects :footcite:p:`chappell2011partial`.
 
