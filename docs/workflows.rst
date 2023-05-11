@@ -318,47 +318,10 @@ The CBF computation of single-delay (post labeling delay) ASL data is done using
    If that field is not set, then :math:`\alpha` will be determined based on the ASL type
    (PASL, CASL, or PCASL) and the number of background suppression pulses.
 
-   :math:`w` : Post-labeling delay (PLD).
+   :math:`w` : Post-labeling delay (PLD) for PCASL data.
    In BIDS, this is encoded with the ``PostLabelingDelay`` field.
 
-   :math:`T_{1,blood}` : Relaxation time for arterial blood.
-   ASLPrep infers this automatically based on the magnetic field strength
-   :footcite:p:`zhang2013vivo,alsop_recommended_2015`.
-
-   :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
-
-(Pseudo-)Continuous ASL
------------------------
-
-For (P)CASL ([pseudo-]continuous ASL),
-CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
-
-.. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T_{1,blood} } }
-   {2 \cdot \alpha \cdot M_{0} \cdot T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
-
-:math:`\tau`, :math:`\lambda`, :math:`\alpha`, and :math:`w` are labeling duration,
-brain-blood partition coefficient, labeling efficiency, and post-labeling delay (PLD), respectively.
-
-In the absence of any of these parameters, standard values are used based on the scan type and
-scanning parameters.
-
-The element which differentiates single-delay PCASL's CBF calculation from the PASL equivalents is
-:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
-
-.. sidebar:: Notation
-
-   :math:`\lambda` : Brain-blood partition coefficient
-
-   :math:`\alpha` : Labeling efficiency.
-   This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
-   If that field is not set, then :math:`\alpha` will be determined based on the ASL type
-   (PASL, CASL, or PCASL) and the number of background suppression pulses.
-
-   :math:`w`: Post-labeling delay (PLD).
-   In BIDS, this is encoded with the ``PostLabelingDelay`` field.
-
-   :math:`TI` : Inversion time.
+   :math:`TI` : Inversion time for PASL data.
    In BIDS, this is encoded with the ``PostLabelingDelay`` field.
 
    :math:`T_{1,blood}` : Relaxation time for arterial blood.
@@ -380,6 +343,26 @@ The element which differentiates single-delay PCASL's CBF calculation from the P
 
    :math:`TI_{2}` : For Q2TIPS, this is the *last* bolus cutoff delay time.
    The other methods do not have this variable.
+
+(Pseudo-)Continuous ASL
+-----------------------
+
+For (P)CASL ([pseudo-]continuous ASL),
+CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
+
+.. math::
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T_{1,blood} } }
+   {2 \cdot \alpha \cdot M_{0} \cdot T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
+
+:math:`\tau`, :math:`\lambda`, :math:`\alpha`, and :math:`w` are labeling duration,
+brain-blood partition coefficient, labeling efficiency, and post-labeling delay (PLD), respectively.
+
+In the absence of any of these parameters, standard values are used based on the scan type and
+scanning parameters.
+
+The element which differentiates single-delay PCASL's CBF calculation from the PASL equivalents is
+:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+
 
 Pulsed ASL
 ----------
