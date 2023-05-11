@@ -44,9 +44,9 @@ aslprep/sub-01/perf/sub-01_atlas-Schaefer817_desc-scrub_cbf.tsv
 aslprep/sub-01/perf/sub-01_atlas-Schaefer917_cbf.tsv
 aslprep/sub-01/perf/sub-01_atlas-Schaefer917_desc-score_cbf.tsv
 aslprep/sub-01/perf/sub-01_atlas-Schaefer917_desc-scrub_cbf.tsv
-aslprep/sub-01/perf/sub-01_atlas-subcortical_cbf.tsv
-aslprep/sub-01/perf/sub-01_atlas-subcortical_desc-score_cbf.tsv
-aslprep/sub-01/perf/sub-01_atlas-subcortical_desc-scrub_cbf.tsv
+aslprep/sub-01/perf/sub-01_atlas-Tian_cbf.tsv
+aslprep/sub-01/perf/sub-01_atlas-Tian_desc-score_cbf.tsv
+aslprep/sub-01/perf/sub-01_atlas-Tian_desc-scrub_cbf.tsv
 aslprep/sub-01/perf/sub-01_cbf.json
 aslprep/sub-01/perf/sub-01_cbf.nii.gz
 aslprep/sub-01/perf/sub-01_desc-brain_mask.json
