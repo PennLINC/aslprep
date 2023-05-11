@@ -307,13 +307,6 @@ Single-Delay ASL
 
 The CBF computation of single-delay (post labeling delay) ASL data is done using a one-compartment model.
 
-
-(Pseudo-)Continuous ASL
------------------------
-
-For (P)CASL ([pseudo-]continuous ASL),
-CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
-
 .. sidebar:: Notation
 
    :math:`\tau` : Labeling duration
@@ -334,6 +327,12 @@ CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
 
    :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
 
+(Pseudo-)Continuous ASL
+-----------------------
+
+For (P)CASL ([pseudo-]continuous ASL),
+CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
+
 .. math::
    CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T_{1,blood} } }
    {2 \cdot \alpha \cdot M_{0} \cdot T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
@@ -346,21 +345,6 @@ scanning parameters.
 
 The element which differentiates single-delay PCASL's CBF calculation from the PASL equivalents is
 :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
-
-
-Pulsed ASL
-----------
-
-.. warning::
-
-    Currently, ASLPrep does not support PASL data without a bolus cut-off technique applied.
-
-
-QUIPSS Modification
-^^^^^^^^^^^^^^^^^^^
-
-For pulsed ASL (PASL) data with the QUIPSS bolus cut-off technique,
-the formula from :footcite:t:`wong1998quantitative` is used.
 
 .. sidebar:: Notation
 
@@ -396,6 +380,20 @@ the formula from :footcite:t:`wong1998quantitative` is used.
 
    :math:`TI_{2}` : For Q2TIPS, this is the *last* bolus cutoff delay time.
    The other methods do not have this variable.
+
+Pulsed ASL
+----------
+
+.. warning::
+
+    Currently, ASLPrep does not support PASL data without a bolus cut-off technique applied.
+
+
+QUIPSS Modification
+^^^^^^^^^^^^^^^^^^^
+
+For pulsed ASL (PASL) data with the QUIPSS bolus cut-off technique,
+the formula from :footcite:t:`wong1998quantitative` is used.
 
 .. math::
    CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
