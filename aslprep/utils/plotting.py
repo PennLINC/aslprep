@@ -233,17 +233,17 @@ def plot_stat_map(
 
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
-        display = plotting.plot_img(
+        display = plotting.plot_stat_map(
             img=cbf,
             bg_img=ref_vol,
             resampling_interpolation="nearest",
             display_mode=mode,
             cut_coords=cuts[mode],
-            vmin=-20,
             vmax=vmax,
             threshold=0.02,
             draw_cross=False,
             colorbar=True,
+            symmetric_cbar=False,
             cmap="coolwarm",
             title=label if i == 0 else None,
         )
