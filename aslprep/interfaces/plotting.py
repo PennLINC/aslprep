@@ -25,7 +25,9 @@ class _ASLSummaryInputSpec(BaseInterfaceInputSpec):
         traits.Tuple(traits.Str, traits.Either(None, traits.Str), traits.Either(None, traits.Str)),
     )
     confounds_list = traits.List(
-        str_or_tuple, minlen=1, desc="list of headers to extract from the confounds_file"
+        str_or_tuple,
+        minlen=1,
+        desc="list of headers to extract from the confounds_file",
     )
     tr = traits.Either(None, traits.Float, usedefault=True, desc="the repetition time")
 
@@ -45,7 +47,10 @@ class ASLSummary(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(
-            self.inputs.in_func, suffix="_aslplot.svg", use_ext=False, newpath=runtime.cwd
+            self.inputs.in_func,
+            suffix="_aslplot.svg",
+            use_ext=False,
+            newpath=runtime.cwd,
         )
 
         dataframe = pd.read_csv(
@@ -151,7 +156,10 @@ class CBFtsSummary(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(
-            self.inputs.cbf_ts, suffix="_cbfcarpetplot.svg", use_ext=False, newpath=runtime.cwd
+            self.inputs.cbf_ts,
+            suffix="_cbfcarpetplot.svg",
+            use_ext=False,
+            newpath=runtime.cwd,
         )
         fig = CBFtsPlot(
             cbf_file=self.inputs.cbf_ts,
@@ -199,7 +207,7 @@ class CBFByTissueTypePlot(SimpleInterface):
             )
             tissue_type_vals = masking.apply_mask(self.inputs.cbf, mask_img)
             df = pd.DataFrame(
-                columns=["CBF (mL/100 g/min)", "Tissue Type"],
+                columns=["CBF\n(mL/100 g/min)", "Tissue Type"],
                 data=list(
                     map(list, zip(*[tissue_type_vals, [tissue_type] * tissue_type_vals.size]))
                 ),
@@ -209,20 +217,19 @@ class CBFByTissueTypePlot(SimpleInterface):
         df = pd.concat(dfs, axis=0)
 
         # Create the plot
-        with sns.axes_style("whitegrid"), sns.plotting_context(font_scale=2):
+        with sns.axes_style("whitegrid"), sns.plotting_context(font_scale=3):
             fig, ax = plt.subplots(figsize=(16, 8))
             sns.despine(ax=ax, bottom=True, left=True)
-
-            # Plot the orbital period with horizontal boxes
             sns.boxenplot(
                 x="Tissue Type",
-                y="CBF (mL/100 g/min)",
+                y="CBF\n(mL/100 g/min)",
                 data=df,
                 width=0.6,
                 showfliers=True,
                 palette={"GM": "#1b60a5", "WM": "#2da467", "CSF": "#9d8f25"},
                 ax=ax,
             )
+            fig.tight_layout()
             fig.savefig(self._results["out_file"])
 
         return runtime
