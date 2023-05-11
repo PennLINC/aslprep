@@ -771,3 +771,10 @@ def estimate_labeling_efficiency(metadata):
             labeleff *= BS_PULSE_EFF ** metadata.get("BackgroundSuppressionNumberPulses", 1)
 
     return labeleff
+
+
+def get_template_str(template, kwargs):
+    """Get template from templateflow, as a string."""
+    from templateflow.api import get as get_template
+
+    return str(get_template(template, **kwargs))

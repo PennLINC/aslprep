@@ -161,3 +161,68 @@ class CBFtsSummary(SimpleInterface):
         ).plot()
         fig.savefig(self._results["out_file"], bbox_inches="tight")
         return runtime
+
+
+class _CBFByTissueTypePlotInputSpec(BaseInterfaceInputSpec):
+    cbf = File(exists=True, mandatory=True, desc="")
+    seg_file = File(exists=True, mandatory=True, desc="Segmentation file")
+
+
+class _CBFByTissueTypePlotOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc="written file path")
+
+
+class CBFByTissueTypePlot(SimpleInterface):
+    """Prepare an CBF summary plot for the report."""
+
+    input_spec = _CBFByTissueTypePlotInputSpec
+    output_spec = _CBFByTissueTypePlotOutputSpec
+
+    def _run_interface(self, runtime):
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        from nilearn import image, masking
+
+        self._results["out_file"] = fname_presuffix(
+            self.inputs.cbf,
+            suffix="_cbfplot.svg",
+            use_ext=False,
+            newpath=runtime.cwd,
+        )
+
+        dfs = []
+        for i_tissue_type, tissue_type in enumerate(["GM", "WM", "CSF"]):
+            tissue_type_val = i_tissue_type + 1
+            mask_img = image.math_img(
+                f"(img == {tissue_type_val}).astype(int)",
+                img=self.inputs.seg_file,
+            )
+            tissue_type_vals = masking.apply_mask(self.inputs.cbf, mask_img)
+            df = pd.DataFrame(
+                columns=["CBF (mL/100 g/min)", "Tissue Type"],
+                data=list(
+                    map(list, zip(*[tissue_type_vals, [tissue_type] * tissue_type_vals.size]))
+                ),
+            )
+            dfs.append(df)
+
+        df = pd.concat(dfs, axis=0)
+
+        # Create the plot
+        with sns.axes_style("whitegrid"), sns.plotting_context(font_scale=2):
+            fig, ax = plt.subplots(figsize=(16, 8))
+            sns.despine(ax=ax, bottom=True, left=True)
+
+            # Plot the orbital period with horizontal boxes
+            sns.boxenplot(
+                x="Tissue Type",
+                y="CBF (mL/100 g/min)",
+                data=df,
+                width=0.6,
+                showfliers=True,
+                palette={"GM": "#1b60a5", "WM": "#2da467", "CSF": "#9d8f25"},
+                ax=ax,
+            )
+            fig.savefig(self._results["out_file"])
+
+        return runtime

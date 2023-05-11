@@ -21,7 +21,7 @@ from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_w
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
-from aslprep.workflows.asl.plotting import init_cbfplot_wf
+from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 from aslprep.workflows.asl.registration import init_asl_reg_wf, init_asl_t1_trans_wf
 from aslprep.workflows.asl.resampling import (
@@ -841,9 +841,17 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ])
             # fmt:on
 
+    # xform to 'MNI152NLin2009cAsym' is always computed, so this should always be available.
+    select_xform_MNI152NLin2009cAsym_to_t1w = pe.Node(
+        KeySelect(fields=["template_to_anat_xfm"], key="MNI152NLin2009cAsym"),
+        name="carpetplot_select_std",
+        run_without_submitting=True,
+    )
+
     # Plot CBF outputs.
-    plot_cbf_wf = init_cbfplot_wf(
+    plot_cbf_wf = init_plot_cbf_wf(
         metadata=metadata,
+        plot_timeseries=True,
         scorescrub=scorescrub,
         basil=basil,
         name="plot_cbf_wf",
@@ -851,7 +859,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (inputnode, plot_cbf_wf, [("template_to_anat_xfm", "inputnode.template_to_anat_xfm")]),
+        (inputnode, plot_cbf_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
+        (select_xform_MNI152NLin2009cAsym_to_t1w, plot_cbf_wf, [
+            ("template_to_anat_xfm", "inputnode.template_to_anat_xfm"),
+        ]),
         (compute_cbf_wf, plot_cbf_wf, [
             ("outputnode.score_outlier_index", "inputnode.score_outlier_index"),
         ]),
@@ -874,13 +885,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
         ])
         # fmt:on
-
-    # xform to 'MNI152NLin2009cAsym' is always computed, so this should always be available.
-    select_xform_MNI152NLin2009cAsym_to_t1w = pe.Node(
-        KeySelect(fields=["template_to_anat_xfm"], key="MNI152NLin2009cAsym"),
-        name="carpetplot_select_std",
-        run_without_submitting=True,
-    )
 
     carpetplot_wf = init_carpetplot_wf(
         mem_gb=mem_gb["resampled"],
