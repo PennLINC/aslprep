@@ -117,7 +117,8 @@ def init_plot_cbf_wf(
             float=True,
             dimension=3,
             default_value=0,
-            interpolation="MultiLabel",
+            input_image_type=0,
+            interpolation="GenericLabel",
         ),
         name="warp_carpet_dseg_to_aslref",
     )
