@@ -236,7 +236,7 @@ def plot_stat_map(
 
     data = image_nii.get_fdata()
 
-    bbox_nii = image.threshold_img(nb.load(cbf), 1)
+    bbox_nii = image.threshold_img(image_nii, 1)
 
     cuts = cuts_from_bbox(bbox_nii, cuts=7)
 
@@ -247,7 +247,7 @@ def plot_stat_map(
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
         display = plotting.plot_stat_map(
-            stat_map_img=cbf,
+            stat_map_img=image_nii,
             bg_img=ref_vol,
             resampling_interpolation="nearest",
             display_mode=mode,
