@@ -7,9 +7,9 @@ import seaborn as sns
 from lxml import etree
 from matplotlib import gridspec as mgs
 from nilearn import image, plotting
+from nilearn._utils.niimg import load_niimg
 from niworkflows.interfaces.plotting import _get_tr
 from niworkflows.viz.utils import (
-    _3d_in_file,
     compose_view,
     cuts_from_bbox,
     extract_svg,
@@ -230,7 +230,10 @@ def plot_stat_map(
     """Plot statistical map."""
     plot_params = {} if plot_params is None else plot_params
 
-    image_nii = _3d_in_file(cbf)
+    image_nii = load_niimg(cbf)
+    if image_nii.ndim > 3:
+        image_nii = image.mean_img(image_nii)
+
     data = image_nii.get_fdata()
 
     bbox_nii = image.threshold_img(nb.load(cbf), 1)
