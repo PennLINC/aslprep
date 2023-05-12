@@ -308,5 +308,5 @@ def _run_and_fail(parameters):
 
     retval = build_workflow(config_file, retval={})
     aslprep_wf = retval["workflow"]
-    with pytest.raises(NodeExecutionError, match="Multi-delay data are not supported for PASL"):
+    with pytest.raises(ValueError, match="Multi-delay data are not supported for PASL"):
         aslprep_wf.run()
