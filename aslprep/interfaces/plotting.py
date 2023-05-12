@@ -114,7 +114,10 @@ class _CBFSummaryOutputSpec(TraitedSpec):
 
 
 class CBFSummary(SimpleInterface):
-    """Prepare an CBF summary plot for the report."""
+    """Prepare an CBF summary plot for the report.
+
+    This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
+    """
 
     input_spec = _CBFSummaryInputSpec
     output_spec = _CBFSummaryOutputSpec

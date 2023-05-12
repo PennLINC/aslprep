@@ -6,8 +6,7 @@ import pandas as pd
 import seaborn as sns
 from lxml import etree
 from matplotlib import gridspec as mgs
-from nilearn import plotting
-from nilearn.image import threshold_img
+from nilearn import image, plotting
 from niworkflows.interfaces.plotting import _get_tr
 from niworkflows.viz.utils import (
     _3d_in_file,
@@ -185,7 +184,10 @@ class CBFtsPlot(object):
 
 
 class CBFPlot(object):
-    """Generate the CBF Summary Plot."""
+    """Generate the CBF Summary Plot.
+
+    This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
+    """
 
     __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmax"]
 
@@ -197,9 +199,15 @@ class CBFPlot(object):
         self.vmax = vmax
 
     def plot(self):
-        """Generate the plot."""
+        """Generate the plot.
+
+        This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
+        """
+        cbf_img = nb.load(self.cbf)
+        cbf_img_thresh = image.math_img("cbf[cbf < -20] = -20", cbf=cbf_img)
+        cbf_img_thresh = image.math_img("cbf[cbf > 100] = 100", cbf=cbf_img_thresh)
         statfile = plot_stat_map(
-            cbf=self.cbf,
+            cbf=cbf_img_thresh,
             ref_vol=self.ref_vol,
             vmax=self.vmax,
             label=self.label,
@@ -223,7 +231,7 @@ def plot_stat_map(
     image_nii = _3d_in_file(cbf)
     data = image_nii.get_fdata()
 
-    bbox_nii = threshold_img(nb.load(cbf), 1)
+    bbox_nii = image.threshold_img(nb.load(cbf), 1)
 
     cuts = cuts_from_bbox(bbox_nii, cuts=7)
 
