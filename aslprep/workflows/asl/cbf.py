@@ -21,6 +21,7 @@ from aslprep.interfaces.parcellation import ParcellateCBF
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 from aslprep.utils.misc import (
+    determine_multi_pld,
     estimate_labeling_efficiency,
     get_bolus_duration,
     get_inflow_times,
@@ -96,16 +97,85 @@ def init_compute_cbf_wf(
        cbf,score, scrub, pv, and basil
     """
     workflow = Workflow(name=name)
+
     workflow.__desc__ = """
 ### Cerebral blood flow computation and denoising
 
-*ASLPrep* was configured to calculate cerebral blood flow (CBF) using the following methods.
-
-The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
-model [@buxton1998general].
 """
 
-    if
+    is_casl = pcasl_or_pasl(metadata=metadata)
+    is_multi_pld = determine_multi_pld(metadata=metadata)
+    aslcontext_df = pd.read_table(aslcontext)
+    cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
+    if cbf_only and not basil:
+        config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
+    elif cbf_only:
+        config.loggers.workflow.warning(
+            f"Only CBF volumes are detected in {name_source}. "
+            "BASIL will automatically be disabled."
+        )
+        basil = False
+
+    if cbf_only:
+        workflow.__desc__ += """\
+*ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
+"""
+
+    elif is_casl:
+        if is_multi_pld:
+            workflow.__desc__ += f"""\
+*ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
+{metadata['ASLType']} data using the following method.
+
+First, delta-M values were averaged over time for each post-labeling delay (PLD).
+
+Next, arterial transit time (ATT) was estimated on a voxel-wise basis according to
+:footcite:t:`dai2012reduced`.
+
+CBF was then calculated for each delay using the mean delta-M values and the estimated ATT,
+according to the formula from :footcite:t:`fan2017long`.
+
+CBF was then averaged over delays according to :footcite:t:`juttukonda2021characterizing`,
+in which an unweighted average is calculated for each voxel across all delays in which
+PLD + labeling duration > ATT.
+"""
+        else:
+            # Single-delay (P)CASL data
+            workflow.__desc__ += f"""\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay {metadata['ASLType']}
+using a single-compartment general kinetic model [@buxton1998general].
+"""
+
+    else:
+        bcut = metadata.get("BolusCutOffDelayTechnique")
+
+        if is_multi_pld:
+            raise ValueError(
+                "Multi-delay data are not supported for PASL sequences at the moment."
+            )
+
+        # Single-delay PASL data, with different bolus cut-off techniques
+        if bcut == "QUIPSS":
+            workflow.__desc__ += """\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the QUIPSS modification, as described in @wong1998quantitative.
+"""
+        elif bcut == "QUIPSSII":
+            workflow.__desc__ += """\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the QUIPSS II modification, as described in @alsop_recommended_2015.
+"""
+        elif bcut == "Q2TIPS":
+            workflow.__desc__ += """\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the Q2TIPS modification, as described in @noguchi2015technical.
+"""
+        else:
+            # No bolus cutoff delay technique
+            raise ValueError("PASL without a bolus cut-off technique is not supported in ASLPrep.")
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -223,19 +293,6 @@ model [@buxton1998general].
         ]),
     ])
     # fmt:on
-
-    is_casl = pcasl_or_pasl(metadata=metadata)
-
-    aslcontext_df = pd.read_table(aslcontext)
-    cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
-    if cbf_only and not basil:
-        config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
-    elif cbf_only:
-        config.loggers.workflow.warning(
-            f"Only CBF volumes are detected in {name_source}. "
-            "BASIL will automatically be disabled."
-        )
-        basil = False
 
     extract_deltam = pe.Node(
         ExtractCBF(

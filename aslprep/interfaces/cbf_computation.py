@@ -415,9 +415,8 @@ class ComputeCBF(SimpleInterface):
     Notes
     -----
     This interface calculates CBF from deltam and M0 data.
-    It can handle single-PostLabelingDelay and multi-PostLabelingDelay data,
-    single CBF volumes and CBF time series, and
-    PASL and (P)CASL data.
+    It can handle single-delay and multi-delay data, single CBF volumes and CBF time series,
+    and PASL and (P)CASL data.
 
     Single-delay CBF, for both (P)CASL and QUIPSSII PASL
     is calculated according to :footcite:t:`alsop_recommended_2015`.
