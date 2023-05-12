@@ -130,12 +130,12 @@ def init_compute_cbf_wf(
 First, delta-M values were averaged over time for each post-labeling delay (PLD).
 
 Next, arterial transit time (ATT) was estimated on a voxel-wise basis according to
-:footcite:t:`dai2012reduced`.
+@dai2012reduced.
 
 CBF was then calculated for each delay using the mean delta-M values and the estimated ATT,
-according to the formula from :footcite:t:`fan2017long`.
+according to the formula from @fan2017long.
 
-CBF was then averaged over delays according to :footcite:t:`juttukonda2021characterizing`,
+CBF was then averaged over delays according to @juttukonda2021characterizing,
 in which an unweighted average is calculated for each voxel across all delays in which
 PLD + labeling duration > ATT.
 """
