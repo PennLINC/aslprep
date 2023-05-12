@@ -187,7 +187,7 @@ def init_asl_preproc_wf(asl_file):
     is_multi_pld = determine_multi_pld(metadata=metadata)
     if scorescrub and is_multi_pld:
         config.loggers.workflow.warning(
-            f"SCORE/SCRUB processing will be disabled for multi-PLD {asl_file}"
+            f"SCORE/SCRUB processing will be disabled for multi-delay {asl_file}"
         )
         scorescrub = False
 

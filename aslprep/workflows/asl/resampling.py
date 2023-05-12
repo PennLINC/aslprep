@@ -131,9 +131,9 @@ def init_asl_std_trans_wf(
                 "anat_to_template_xfm",
                 # CBF outputs
                 "mean_cbf",
-                # Single-PLD outputs
+                # Single-delay outputs
                 "cbf_ts",
-                # Multi-PLD outputs
+                # Multi-delay outputs
                 "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",

@@ -947,7 +947,7 @@ def estimate_cbf_pcasl_multipld(
     unit_conversion,
     partition_coefficient,
 ):
-    """Estimate CBF and ATT for multi-PLD PCASL data.
+    """Estimate CBF and ATT for multi-delay PCASL data.
 
     Parameters
     ----------
@@ -1060,7 +1060,7 @@ def estimate_cbf_pcasl_multipld(
 
 
 def determine_multi_pld(metadata):
-    """Determine if a run is multi-PLD or not.
+    """Determine if a run is multi-delay or not.
 
     Parameters
     ----------
@@ -1070,7 +1070,7 @@ def determine_multi_pld(metadata):
     Returns
     -------
     :obj:`bool`
-        True if the data are multi-PLD/TI. Fale if not.
+        True if the data are multi-delay/TI. Fale if not.
     """
     plds = np.array(metadata["PostLabelingDelay"])
     return np.unique(plds).size > 1

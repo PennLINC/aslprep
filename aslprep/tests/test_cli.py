@@ -25,7 +25,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
     The BolusCutOffTechnique is Q2TIPS.
 
-    PASL multi-PLD data is not yet supported.
+    PASL multi-delay data is not yet supported.
     """
     TEST_NAME = "examples_pasl_multipld"
     PARTICIPANT_LABEL = "01"
@@ -308,5 +308,5 @@ def _run_and_fail(parameters):
 
     retval = build_workflow(config_file, retval={})
     aslprep_wf = retval["workflow"]
-    with pytest.raises(NodeExecutionError, match="Multi-PLD data are not supported for PASL"):
+    with pytest.raises(NodeExecutionError, match="Multi-delay data are not supported for PASL"):
         aslprep_wf.run()

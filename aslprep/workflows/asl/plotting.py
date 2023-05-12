@@ -45,9 +45,9 @@ def init_plot_cbf_wf(
                 "confounds_file",  # only for non-GE
                 # CBF outputs
                 "mean_cbf",
-                # Single-PLD outputs
+                # Single-delay outputs
                 "cbf_ts",  # only for non-GE
-                # Multi-PLD outputs
+                # Multi-delay outputs
                 "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",  # unused

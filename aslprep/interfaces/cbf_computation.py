@@ -399,13 +399,13 @@ class _ComputeCBFOutputSpec(TraitedSpec):
     cbf_ts = traits.Either(
         File(exists=True),
         None,
-        desc="Quantitative CBF time series, in mL/100g/min. Only generated for single-PLD data.",
+        desc="Quantitative CBF time series, in mL/100g/min. Only generated for single-delay data.",
     )
     mean_cbf = File(exists=True, desc="Quantified CBF, averaged over time.")
     att = traits.Either(
         File(exists=True),
         None,
-        desc="Arterial transit time map, in seconds. Only generated for multi-PLD data.",
+        desc="Arterial transit time map, in seconds. Only generated for multi-delay data.",
     )
 
 
@@ -419,12 +419,12 @@ class ComputeCBF(SimpleInterface):
     single CBF volumes and CBF time series, and
     PASL and (P)CASL data.
 
-    Single-PLD CBF, for both (P)CASL and QUIPSSII PASL
+    Single-delay CBF, for both (P)CASL and QUIPSSII PASL
     is calculated according to :footcite:t:`alsop_recommended_2015`.
-    Multi-PLD CBF is handled using a weighted average,
+    Multi-delay CBF is handled using a weighted average,
     based on :footcite:t:`dai2012reduced,wang2013multi`.
 
-    Multi-PLD CBF is calculated according to :footcite:t:`fan2017long`,
+    Multi-delay CBF is calculated according to :footcite:t:`fan2017long`,
     although CBF is averaged across PLDs according to the method in
     :footcite:t:`juttukonda2021characterizing`.
     Arterial transit time is estimated according to :footcite:t:`dai2012reduced`.
@@ -521,13 +521,13 @@ class ComputeCBF(SimpleInterface):
             else:
                 # Dai's approach can't be used on PASL data, so we'll need another method.
                 raise ValueError(
-                    "Multi-PLD data are not supported for PASL sequences at the moment."
+                    "Multi-delay data are not supported for PASL sequences at the moment."
                 )
 
             mean_cbf_img = masker.inverse_transform(mean_cbf)
             att_img = masker.inverse_transform(att)
 
-            # Multi-PLD data won't produce a CBF time series
+            # Multi-delay data won't produce a CBF time series
             self._results["cbf_ts"] = None
             self._results["att"] = fname_presuffix(
                 self.inputs.deltam,
@@ -536,7 +536,7 @@ class ComputeCBF(SimpleInterface):
             )
             att_img.to_filename(self._results["att"])
 
-        else:  # Single-PLD
+        else:  # Single-delay
             if is_casl:
                 denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
 
@@ -595,7 +595,7 @@ class ComputeCBF(SimpleInterface):
                 newpath=runtime.cwd,
             )
             cbf_ts_img.to_filename(self._results["cbf_ts"])
-            # Single-PLD data won't produce an ATT image
+            # Single-delay data won't produce an ATT image
             self._results["att"] = None
 
         # Mean CBF is returned no matter what

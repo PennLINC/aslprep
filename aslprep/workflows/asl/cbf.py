@@ -104,6 +104,9 @@ def init_compute_cbf_wf(
 The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
 model [@buxton1998general].
 """
+
+    if
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -124,8 +127,8 @@ model [@buxton1998general].
         niu.IdentityInterface(
             fields=[
                 "mean_cbf",
-                "cbf_ts",  # Only calculated for single-PLD data
-                "att",  # Only calculated for multi-PLD data
+                "cbf_ts",  # Only calculated for single-delay data
+                "att",  # Only calculated for multi-delay data
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",

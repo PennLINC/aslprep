@@ -42,7 +42,7 @@ def init_asl_derivatives_wf(
         dictionary with template specifications (e.g., a specification of ``{'resolution': 2}``
         would lead to resampling on a 2mm resolution of the space).
     is_multi_pld = :obj:`bool`
-        True if data are multi-PLD, False otherwise.
+        True if data are multi-delay, False otherwise.
     name : :obj:`str`
         This workflow's identifier (default: ``func_derivatives_wf``).
     """
@@ -343,10 +343,10 @@ def init_asl_derivatives_wf(
 
     base_inputs = ["asl", "aslref", "asl_mask", "mean_cbf"]
     if is_multi_pld:
-        # ATT is only calculated for multi-PLD data
+        # ATT is only calculated for multi-delay data
         base_inputs += ["att"]
     else:
-        # CBF time series is only calculated for single-PLD data
+        # CBF time series is only calculated for single-delay data
         base_inputs += ["cbf_ts"]
 
     if scorescrub:

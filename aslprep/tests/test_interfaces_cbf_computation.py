@@ -239,7 +239,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    with pytest.raises(ValueError, match="Multi-PLD data are not supported for PASL"):
+    with pytest.raises(ValueError, match="Multi-delay data are not supported for PASL"):
         results = interface.run(cwd=tmpdir)
 
     # Scenario 4: QUIPSS PASL with one PostLabelingDelay for each deltam volume (good)
@@ -259,7 +259,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    with pytest.raises(ValueError, match="Multi-PLD data are not supported for PASL"):
+    with pytest.raises(ValueError, match="Multi-delay data are not supported for PASL"):
         results = interface.run(cwd=tmpdir)
 
     # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
@@ -305,7 +305,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    with pytest.raises(ValueError, match="Multi-PLD data are not supported for PASL"):
+    with pytest.raises(ValueError, match="Multi-delay data are not supported for PASL"):
         results = interface.run(cwd=tmpdir)
 
     # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
@@ -351,7 +351,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         m0_file=m0_file,
         mask=mask_file,
     )
-    with pytest.raises(ValueError, match="Multi-PLD data are not supported for PASL"):
+    with pytest.raises(ValueError, match="Multi-delay data are not supported for PASL"):
         results = interface.run(cwd=tmpdir)
 
 
