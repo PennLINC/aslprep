@@ -204,10 +204,12 @@ class CBFPlot(object):
         This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
         """
         cbf_img = nb.load(self.cbf)
-        cbf_img_thresh = image.math_img("cbf[cbf < -20] = -20", cbf=cbf_img)
-        cbf_img_thresh = image.math_img("cbf[cbf > 100] = 100", cbf=cbf_img_thresh)
+        cbf_data = cbf_img.get_fdata()
+        cbf_data[cbf_data < -20] = -20
+        cbf_data[cbf_data > 100] = 100
+        cbf_img = nb.Nifti1Image(cbf_data, affine=cbf_img.affine, header=cbf_img.header)
         statfile = plot_stat_map(
-            cbf=cbf_img_thresh,
+            cbf=cbf_img,
             ref_vol=self.ref_vol,
             vmax=self.vmax,
             label=self.label,
