@@ -3,7 +3,6 @@ import os
 
 import pytest
 from nipype import config as nipype_config
-from nipype.pipeline.engine.nodes import NodeExecutionError
 from pkg_resources import resource_filename as pkgrf
 
 from aslprep.cli.parser import parse_args
