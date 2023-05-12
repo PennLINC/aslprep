@@ -125,7 +125,7 @@ def init_compute_cbf_wf(
         if is_multi_pld:
             workflow.__desc__ += f"""\
 *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
-{metadata['ASLType']} data using the following method.
+{metadata['ArterialSpinLabelingType']} data using the following method.
 
 First, delta-M values were averaged over time for each post-labeling delay (PLD).
 
@@ -142,8 +142,9 @@ PLD + labeling duration > ATT.
         else:
             # Single-delay (P)CASL data
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay {metadata['ASLType']}
-using a single-compartment general kinetic model [@buxton1998general].
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
+{metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
+[@buxton1998general].
 """
 
     else:
