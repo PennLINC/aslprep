@@ -17,7 +17,7 @@ from aslprep.utils.misc import _create_mem_gb, _get_wf_name, determine_multi_pld
 from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf, init_asl_reg_ge_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
-from aslprep.workflows.asl.plotting import init_gecbfplot_wf
+from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
 from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
@@ -582,27 +582,6 @@ effects of other kernels [@lanczos].
             ])
             # fmt:on
 
-    # Plot CBF outputs.
-    plot_cbf_wf = init_gecbfplot_wf(
-        basil=basil,
-        name="plot_cbf_wf",
-    )
-
-    for cbf_deriv in mean_cbf_derivs:
-        # fmt:off
-        workflow.connect([
-            (compute_cbf_wf, plot_cbf_wf, [
-                (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
-            ]),
-        ])
-        # fmt:on
-
-    # fmt:off
-    workflow.connect([
-        (asl_reference_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
-    ])
-    # fmt:on
-
     # xform to 'MNI152NLin2009cAsym' is always computed, so this should always be available.
     select_xform_MNI152NLin2009cAsym_to_t1w = pe.Node(
         KeySelect(fields=["template_to_anat_xfm"], key="MNI152NLin2009cAsym"),
@@ -618,6 +597,38 @@ effects of other kernels [@lanczos].
         ]),
     ])
     # fmt:on
+
+    # Plot CBF outputs.
+    plot_cbf_wf = init_plot_cbf_wf(
+        metadata=metadata,
+        plot_timeseries=False,
+        scorescrub=scorescrub,
+        basil=basil,
+        name="plot_cbf_wf",
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, plot_cbf_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
+        (select_xform_MNI152NLin2009cAsym_to_t1w, plot_cbf_wf, [
+            ("template_to_anat_xfm", "inputnode.template_to_anat_xfm"),
+        ]),
+        (asl_reference_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
+        (asl_reg_wf, plot_cbf_wf, [
+            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+        ]),
+        (refine_mask, plot_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
+    ])
+    # fmt:on
+
+    for cbf_deriv in mean_cbf_derivs:
+        # fmt:off
+        workflow.connect([
+            (compute_cbf_wf, plot_cbf_wf, [
+                (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
+            ]),
+        ])
+        # fmt:on
 
     parcellate_cbf_wf = init_parcellate_cbf_wf(
         scorescrub=scorescrub,

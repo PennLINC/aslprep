@@ -571,13 +571,13 @@ An example of CBF denoised by SCRUB is shown below.
 BASIL
 -----
 
-*ASLPrep* also includes the option to compute CBF using the BASIL.
+*ASLPrep* also includes the option to compute CBF using BASIL.
 
-Bayesian Inference for Arterial Spin Labeling `(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_
+Bayesian Inference for Arterial Spin Labeling (`BASIL <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_)
 is an FSL tool for CBF estimation.
 
 BASIL implements a simple kinetic model as described above,
-but uses Bayesian Inference principles :footcite:p:`chappell2008variational`.
+but uses Bayesian inference principles :footcite:p:`chappell2008variational`.
 BASIL is mostly suitable for multi-delay ASL data.
 It includes bolus arrival time estimation with spatial regularization :footcite:p:`groves2009combined`
 and the correction of partial volume effects :footcite:p:`chappell2011partial`.

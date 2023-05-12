@@ -1134,3 +1134,10 @@ def estimate_t1(metadata):
         )
 
     return t1blood, t1tissue
+
+
+def get_template_str(template, kwargs):
+    """Get template from templateflow, as a string."""
+    from templateflow.api import get as get_template
+
+    return str(get_template(template, **kwargs))

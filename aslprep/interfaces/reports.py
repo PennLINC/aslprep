@@ -144,17 +144,31 @@ class SubjectSummary(SummaryInterface):
 
 class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     distortion_correction = traits.Str(
-        desc="Susceptibility distortion correction method", mandatory=True
+        desc="Susceptibility distortion correction method",
+        mandatory=True,
     )
     pe_direction = traits.Enum(
-        None, "i", "i-", "j", "j-", mandatory=True, desc="Phase-encoding direction detected"
+        None,
+        "i",
+        "i-",
+        "j",
+        "j-",
+        mandatory=True,
+        desc="Phase-encoding direction detected",
     )
     registration = traits.Enum(
-        "FSL", "FreeSurfer", mandatory=True, desc="Functional/anatomical registration method"
+        "FSL",
+        "FreeSurfer",
+        mandatory=True,
+        desc="Functional/anatomical registration method",
     )
     fallback = traits.Bool(desc="Boundary-based registration rejected")
     registration_dof = traits.Enum(
-        6, 9, 12, desc="Registration degrees of freedom", mandatory=True
+        6,
+        9,
+        12,
+        desc="Registration degrees of freedom",
+        mandatory=True,
     )
     registration_init = traits.Enum(
         "register",

@@ -298,7 +298,7 @@ class ROIsPlot(nrc.ReportingInterface):
     input_spec = _ROIsPlotInputSpecRPT
 
     def _generate_report(self):
-        from aslprep.niworkflows.viz.utils import plot_segs, compose_view
+        from niworkflows.viz.utils import plot_segs, compose_view
 
         seg_files = self.inputs.in_rois
         mask_file = None if not isdefined(self.inputs.in_mask) else self.inputs.in_mask
