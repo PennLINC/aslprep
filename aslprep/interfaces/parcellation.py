@@ -68,7 +68,7 @@ class ParcellateCBF(SimpleInterface):
             )
             node_labels_df = node_labels_df.drop(index=[0])
 
-        node_labels = node_labels_df["name"].tolist()
+        node_labels = node_labels_df["label"].tolist()
 
         self._results["timeseries"] = fname_presuffix(
             "timeseries.tsv",
