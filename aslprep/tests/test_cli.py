@@ -305,7 +305,5 @@ def _run_and_fail(parameters):
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.to_filename(config_file)
 
-    retval = build_workflow(config_file, retval={})
-    aslprep_wf = retval["workflow"]
     with pytest.raises(ValueError, match="Multi-delay data are not supported for PASL"):
-        aslprep_wf.run()
+        build_workflow(config_file, retval={})
