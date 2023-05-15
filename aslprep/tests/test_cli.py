@@ -181,6 +181,7 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         "--output-spaces=asl",
         "--basil",
         "--use-syn-sdc",
+        "--m0_scale=10",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -211,6 +212,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         "MNI152NLin2009cAsym",
         "--scorescrub",
         "--use-syn-sdc",
+        "--m0_scale=10",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -271,6 +273,7 @@ def test_test_003(data_dir, output_dir, working_dir):
         "--omp-nthreads=2",
         "--output-spaces=asl",
         "--use-syn-sdc",
+        "--m0_scale=10",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
