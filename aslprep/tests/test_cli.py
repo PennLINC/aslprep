@@ -113,6 +113,7 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
+        "--m0_scale=96",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -243,6 +244,7 @@ def test_test_002(data_dir, output_dir, working_dir):
         "MNI152NLin2009cAsym",
         "--scorescrub",
         "--use-syn-sdc",
+        "--m0_scale=96",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
