@@ -160,7 +160,7 @@ def init_asl_gepreproc_wf(asl_file):
     omp_nthreads = config.nipype.omp_nthreads
     spaces = config.workflow.spaces
     output_dir = str(config.execution.output_dir)
-    mscale = config.workflow.m0_scale
+    m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
     smoothkernel = config.workflow.smooth_kernel
@@ -345,7 +345,7 @@ effects of other kernels [@lanczos].
         metadata=metadata,
         scorescrub=scorescrub,
         basil=basil,
-        M0Scale=mscale,
+        m0_scale=m0_scale,
         mem_gb=mem_gb["filesize"],
         name="compute_cbf_wf",
     )
