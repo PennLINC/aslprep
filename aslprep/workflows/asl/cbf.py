@@ -96,6 +96,12 @@ def init_compute_cbf_wf(
 The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
 model [@buxton1998general].
 """
+
+    if m0_scale != 1:
+        workflow.__desc__ += (
+            f"Prior to calculating CBF, the M0 volumes were scaled by a factor of {m0_scale}."
+        )
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -386,9 +392,15 @@ def init_compute_cbf_ge_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The CBF was quantified from *preproccessed* ASL data using a standard
+The CBF was quantified from *preprocessed* ASL data using a standard
 model [@detre_perfusion_1992;@alsop_recommended_2015].
 """
+
+    if m0_scale != 1:
+        workflow.__desc__ += (
+            f"Prior to calculating CBF, the M0 volumes were scaled by a factor of {m0_scale}."
+        )
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
