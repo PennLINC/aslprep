@@ -22,9 +22,8 @@ def init_asl_hmc_wf(
 ):
     """Estimate head-motion parameters and optionally correct them for intensity differences.
 
-    This workflow first estimates motion parameters using MCFLIRT,
-    then applies the zig-zag regressor method :footcite:p:`wang2012improving`
-    to correct the parameters for intensity differences between control and label volumes.
+    This workflow estimates motion parameters for each unique type of volume
+    (e.g., control, label, deltam, M0, CBF).
 
     Workflow Graph
         .. workflow::
@@ -43,7 +42,7 @@ def init_asl_hmc_wf(
 
     Parameters
     ----------
-    processing_target
+    processing_target : {"controllabel", "deltam", "cbf"}
     m0type
     mem_gb : :obj:`float`
         Size of ASL file in GB
