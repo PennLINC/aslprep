@@ -116,8 +116,8 @@ split into multiple sub-workflows described below.
 .. topic:: Processing GE data
 
    ASLPrep can process data from any of the big three manufacturers (Siemens, Philips, GE),
-   but GE ASL protocols are unique in that they typically only produce a single deltaM or CBF
-   volume (optionally along with an M0 volume).
+   but the GE ASL product sequence is unique in that it typically only produces a single deltaM or
+   CBF volume (optionally along with an M0 volume).
 
    For these short sequences, ASLPrep performs many of the same steps as for a longer sequence,
    but certain steps are dropped, including motion correction.
