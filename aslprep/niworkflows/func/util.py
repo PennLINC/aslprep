@@ -152,9 +152,7 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
         iterfield=["in_file"],
     )
 
-    gen_ref = pe.Node(
-        EstimateReferenceImage, name="gen_ref", mem_gb=1
-    )  # OE: 128x128x128x50 * 64 / 8 ~ 900MB.
+    gen_ref = pe.Node(EstimateReferenceImage(), name="gen_ref", mem_gb=1)
     enhance_and_skullstrip_asl_wf = init_enhance_and_skullstrip_asl_wf(
         brainmask_thresh=brainmask_thresh,
         omp_nthreads=omp_nthreads,
