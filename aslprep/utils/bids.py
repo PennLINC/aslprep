@@ -15,7 +15,6 @@ from aslprep import config
 def collect_data(
     bids_dir,
     participant_label,
-    echo=None,
     bids_validate=False,
     bids_filters=None,
 ):
@@ -38,9 +37,6 @@ def collect_data(
     bids_filters = bids_filters or {}
     for acq, entities in bids_filters.items():
         queries[acq].update(entities)
-
-    if echo:
-        queries["asl"]["echo"] = echo
 
     subj_data = {
         dtype: sorted(
