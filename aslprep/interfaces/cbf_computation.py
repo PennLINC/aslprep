@@ -1038,8 +1038,11 @@ class SplitASLData(SimpleInterface):
 
         self._results["metadata"] = reduce_metadata_lists(self.inputs.metadata, asl_idx)
 
-        raise ValueError(f"asl_idx: {asl_idx}")
-        asl_img = image.index_img(self.inputs.asl_file, asl_idx)
+        try:
+            asl_img = image.index_img(self.inputs.asl_file, asl_idx)
+        except:
+            raise ValueError(f"asl_idx: {asl_idx}")
+
         self._results["asl_file"] = fname_presuffix(
             self.inputs.asl_file,
             suffix="_reduced",
