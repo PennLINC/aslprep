@@ -24,6 +24,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
 
     This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
     The BolusCutOffTechnique is Q2TIPS.
+    The manufacturer is Siemens.
 
     NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
     """
@@ -46,6 +47,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
+        "--m0_scale=10",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -57,6 +59,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_004 ASL-BIDS examples dataset.
 
     This dataset has 48 control-label pairs at 6 different PLDs, along with a separate M0 scan.
+    The manufacturer is Siemens.
 
     NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
     """
@@ -79,6 +82,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
+        "--m0_scale=10",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -122,9 +126,10 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
 
 @pytest.mark.examples_pcasl_singlepld_philips
 def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
-    """Run aslprep on the asl_002 ASL-BIDS examples datasets.
+    """Run aslprep on the asl_002 ASL-BIDS examples dataset.
 
-    This test a Philips session.
+    This test uses a Philips session.
+    The appropriate M0 scale is unknown for this dataset, so CBF values will be inflated.
     """
     TEST_NAME = "examples_pcasl_singlepld_philips"
     PARTICIPANT_LABEL = "103"
@@ -156,9 +161,9 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
 
 @pytest.mark.examples_pcasl_singlepld_siemens
 def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
-    """Run aslprep on the asl_005 ASL-BIDS examples datasets.
+    """Run aslprep on the asl_005 ASL-BIDS examples dataset.
 
-    This test a Siemens session.
+    This test uses a Siemens session.
     """
     TEST_NAME = "examples_pcasl_singlepld_siemens"
     PARTICIPANT_LABEL = "103"
@@ -190,7 +195,10 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
 
 @pytest.mark.test_001
 def test_test_001(data_dir, output_dir, working_dir):
-    """Run aslprep on sub-01 data."""
+    """Run aslprep on sub-01 data.
+
+    This dataset is Siemens.
+    """
     TEST_NAME = "test_001"
     PARTICIPANT_LABEL = "01"
 
@@ -255,7 +263,10 @@ def test_test_002(data_dir, output_dir, working_dir):
 
 @pytest.mark.test_003
 def test_test_003(data_dir, output_dir, working_dir):
-    """Run aslprep on sub-A00086748."""
+    """Run aslprep on sub-A00086748.
+
+    This dataset is Siemens.
+    """
     TEST_NAME = "test_003"
     PARTICIPANT_LABEL = "A00086748"
 
