@@ -104,6 +104,7 @@ model [@buxton1998general].
         workflow.__desc__ += (
             "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
             "basis based on the slice timing."
+        )
 
     if m0_scale != 1:
         workflow.__desc__ += (
@@ -416,6 +417,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         workflow.__desc__ += (
             "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
             "basis based on the slice timing."
+        )
 
     if m0_scale != 1:
         workflow.__desc__ += (
