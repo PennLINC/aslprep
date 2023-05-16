@@ -11,16 +11,6 @@ Execution and the BIDS format
 
 The main input to *ASLPREP* is the path of the dataset that needs processing.
 
-.. note::
-    We have created a simple tool for converting ASL data into currently valid BIDS,
-    available `at PennLINC <https://github.com/PennLINC/aslbids>`_.
-    Note that some of the parameters necessary for running *ASLPrep* cannot be extracted directly
-    from the DICOM header —
-    to obtain these parameters, we recommend consulting the MRI physicist/technician at the scanner.
-    The conversion of ASL into BIDS on `Flywheel <https://flywheel.io/>`_ using
-    `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_ is described
-    `here at fw-heudiconv <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_.
-
 .. important::
     Please note that ASL data in BIDS datasets should
     `already be scaled <https://bids-specification.readthedocs.io/en/v1.8.0/
@@ -109,5 +99,6 @@ https://github.com/PennLINC/aslprep/issues.
 
 If you have a question about using ``aslprep``,
 please create a new topic on `NeuroStars <https://neurostars.org>`_ with
-`the "Software Support" category and the "aslprep" tag <https://neurostars.org/tags/c/software-support/234/aslprep>`_.
+`the "Software Support" category and the "aslprep" tag
+<https://neurostars.org/tags/c/software-support/234/aslprep>`_.
 The ``aslprep`` developers follow NeuroStars, and will be able to answer your question there.

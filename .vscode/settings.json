@@ -1,4 +1,12 @@
 {
-    "restructuredtext.confPath": "${workspaceFolder}/docs",
-    "python.pythonPath": "/Users/adebimpe/anaconda3/bin/python",
+    "[restructuredtext]": {
+        "editor.tabSize": 3,
+        "editor.rulers": [99]
+    },
+    "[python]": {
+        "editor.rulers": [99]
+    },
+    "python.linting.flake8Enabled": true,
+    "python.linting.enabled": true,
+    "python.analysis.typeCheckingMode": "off",
 }
