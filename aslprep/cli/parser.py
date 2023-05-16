@@ -283,7 +283,13 @@ any spatial references.""",
         action="store",
         default=1,
         type=float,
-        help="relative scale between asl and M0.",
+        help=(
+            "Relative scale between ASL and M0. "
+            "M0 scans are multiplied by m0_scale before calculating CBF. "
+            "It is important to note, however, that BIDS expects ASL and M0 data to scaled in "
+            "the raw dataset, so this parameter should only be used if your dataset does not "
+            "have pre-scaled data."
+        ),
     )
     g_conf.add_argument(
         "--random-seed",
