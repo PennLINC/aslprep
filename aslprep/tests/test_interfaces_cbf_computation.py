@@ -60,7 +60,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
-                m0scale=1,
+                m0_scale=1,
                 m0_file=m0_file,
                 mask=mask_file,
             )
@@ -85,7 +85,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
-                m0scale=1,
+                m0_scale=1,
                 m0_file=m0_file,
                 mask=mask_file,
             )
@@ -107,7 +107,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
-                m0scale=1,
+                m0_scale=1,
                 m0_file=m0_file,
                 mask=mask_file,
             )
@@ -169,7 +169,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
-                m0scale=1,
+                m0_scale=1,
                 m0_file=m0_file,
                 mask=mask_file,
             )
@@ -188,7 +188,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
-            m0scale=1,
+            m0_scale=1,
             m0_file=m0_file,
             mask=mask_file,
         )
@@ -214,7 +214,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
-            m0scale=1,
+            m0_scale=1,
             m0_file=m0_file,
             mask=mask_file,
         )
@@ -234,7 +234,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
-            m0scale=1,
+            m0_scale=1,
             m0_file=m0_file,
             mask=mask_file,
         )
@@ -254,7 +254,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
-            m0scale=1,
+            m0_scale=1,
             m0_file=m0_file,
             mask=mask_file,
         )
@@ -280,7 +280,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
-            m0scale=1,
+            m0_scale=1,
             m0_file=m0_file,
             mask=mask_file,
         )
@@ -300,7 +300,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
-            m0scale=1,
+            m0_scale=1,
             m0_file=m0_file,
             mask=mask_file,
         )
@@ -320,7 +320,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
-            m0scale=1,
+            m0_scale=1,
             m0_file=m0_file,
             mask=mask_file,
         )
@@ -368,7 +368,7 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
-            m0scale=1,
+            m0_scale=1,
             m0_file=m0_file,
             mask=mask_file,
         )
