@@ -9,21 +9,22 @@ Usage Notes
 Execution and the BIDS format
 *****************************
 
-The main input to *ASLPREP* is the path of the dataset
-that needs processing.
+The main input to *ASLPREP* is the path of the dataset that needs processing.
 
-.. note::
-    We have created a simple tool for converting ASL data into currently valid BIDS,
-    available `at PennLINC <https://github.com/PennLINC/aslbids>`_.
-    Note that some of the parameters necessary for running *ASLPrep* cannot be extracted directly
-    from the DICOM header —
-    to obtain these parameters, we recommend consulting the MRI physicist/technician at the scanner.
-    The conversion of ASL into BIDS on `Flywheel <https://flywheel.io/>`_ using
-    `fw-heudiconv <https://fw-heudiconv.readthedocs.io>`_ is described
-    `here at fw-heudiconv <https://fw-heudiconv.readthedocs.io/en/latest/tips.html#arterial-spin-labelling-data>`_.
+.. important::
+    Please note that ASL data in BIDS datasets should
+    `already be scaled <https://bids-specification.readthedocs.io/en/v1.8.0/
+    04-modality-specific-files/01-magnetic-resonance-imaging-data.html#scaling>`_.
 
-The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data
-Structure)` format, and it must include at least one T1w structural image.
+    What this means is that the M0 scans in your dataset should preferably be scaled before running ASLPrep.
+
+    Please see `the BIDS starter kit <https://bids-standard.github.io/bids-starter-kit/tutorials/asl.html>`_
+    for information about converting ASL data to BIDS.
+
+    If your data are not already scaled, you should use the ``--m0_scale`` parameter when running ASLPrep.
+
+The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data Structure)` format,
+and it must include at least one T1w structural image.
 We highly recommend that you validate your dataset with the free, online
 `BIDS Validator <http://bids-standard.github.io/bids-validator/>`_.
 
@@ -98,5 +99,6 @@ https://github.com/PennLINC/aslprep/issues.
 
 If you have a question about using ``aslprep``,
 please create a new topic on `NeuroStars <https://neurostars.org>`_ with
-`the "Software Support" category and the "aslprep" tag <https://neurostars.org/tags/c/software-support/234/aslprep>`_.
+`the "Software Support" category and the "aslprep" tag
+<https://neurostars.org/tags/c/software-support/234/aslprep>`_.
 The ``aslprep`` developers follow NeuroStars, and will be able to answer your question there.

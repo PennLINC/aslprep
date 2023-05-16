@@ -44,9 +44,9 @@ flag.
 For instance: ::
 
     $ singularity run --cleanenv aslprep.simg \
-      /work/789/asdf/ $WORK/output \
-      participant \
-      --participant-label 01
+        /work/789/asdf/ $WORK/output \
+        participant \
+        --participant-label 01
 
 **Relevant aspects of the** ``$HOME`` **directory within the container**.
 By default, Singularity will bind the user's ``$HOME`` directory on the host
@@ -60,4 +60,4 @@ specification combining the bind mounts argument (``-B``) with the home overwrit
 argument (``--home``) as follows: ::
 
     $ singularity run -B $HOME:/home/aslprep --home /home/aslprep \
-          --cleanenv aslprep.simg <aslprep arguments>
+        --cleanenv aslprep.simg <aslprep arguments>
