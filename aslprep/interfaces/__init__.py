@@ -3,7 +3,6 @@
 """Nipype interfaces for aslprep."""
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.confounds import GatherConfounds
-from aslprep.interfaces.multiecho import T2SMap
 from aslprep.interfaces.plotting import ASLSummary, CBFSummary, CBFtsSummary
 from aslprep.interfaces.reports import AboutSummary, FunctionalSummary, SubjectSummary
 
@@ -15,6 +14,5 @@ __all__ = [
     "ASLSummary",
     "CBFSummary",
     "CBFtsSummary",
-    "T2SMap",
     "DerivativesDataSink",
 ]
