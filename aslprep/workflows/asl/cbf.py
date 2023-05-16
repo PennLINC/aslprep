@@ -99,6 +99,13 @@ def init_compute_cbf_wf(
 The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
 model [@buxton1998general].
 """
+
+    if "SliceTiming" in metadata:
+        workflow.__desc__ += (
+            "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
+            "basis based on the slice timing."
+        )
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -401,6 +408,12 @@ def init_compute_cbf_ge_wf(
 The CBF was quantified from *preproccessed* ASL data using a standard
 model [@detre_perfusion_1992;@alsop_recommended_2015].
 """
+    if "SliceTiming" in metadata:
+        workflow.__desc__ += (
+            "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
+            "basis based on the slice timing."
+        )
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
