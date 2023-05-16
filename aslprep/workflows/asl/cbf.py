@@ -36,7 +36,7 @@ def init_compute_cbf_wf(
     dummy_vols,
     scorescrub=False,
     basil=False,
-    M0Scale=1,
+    m0_scale=1,
     smooth_kernel=5,
     name="compute_cbf_wf",
 ):
@@ -66,7 +66,7 @@ def init_compute_cbf_wf(
         BIDS metadata for asl file
     scorescrub
     basil
-    M0Scale
+    m0_scale
     smooth_kernel
     name : :obj:`str`
         Name of workflow (default: ``compute_cbf_wf``)
@@ -177,6 +177,11 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         else:
             # No bolus cutoff delay technique
             raise ValueError("PASL without a bolus cut-off technique is not supported in ASLPrep.")
+
+    if m0_scale != 1:
+        workflow.__desc__ += (
+            f"Prior to calculating CBF, the M0 volumes were scaled by a factor of {m0_scale}."
+        )
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -322,7 +327,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
     compute_cbf = pe.Node(
         ComputeCBF(
             cbf_only=cbf_only,
-            m0scale=M0Scale,
+            m0_scale=m0_scale,
         ),
         mem_gb=0.2,
         run_without_submitting=True,
@@ -422,7 +427,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
         basilcbf = pe.Node(
             BASILCBF(
-                m0scale=M0Scale,
+                m0_scale=m0_scale,
                 pvc=True,
                 pcasl=is_casl,
             ),
@@ -462,7 +467,7 @@ def init_compute_cbf_ge_wf(
     aslcontext,
     metadata,
     mem_gb,
-    M0Scale=1,
+    m0_scale=1,
     scorescrub=False,
     basil=False,
     name="compute_cbf_wf",
@@ -484,9 +489,15 @@ def init_compute_cbf_ge_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The CBF was quantified from *preproccessed* ASL data using a standard
+The CBF was quantified from *preprocessed* ASL data using a standard
 model [@detre_perfusion_1992;@alsop_recommended_2015].
 """
+
+    if m0_scale != 1:
+        workflow.__desc__ += (
+            f"Prior to calculating CBF, the M0 volumes were scaled by a factor of {m0_scale}."
+        )
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -646,7 +657,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         compute_cbf = pe.Node(
             ComputeCBF(
                 metadata=metadata,
-                m0scale=M0Scale,
+                m0_scale=m0_scale,
                 cbf_only=cbf_only,
             ),
             mem_gb=mem_gb,
@@ -747,7 +758,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
 
         basilcbf = pe.Node(
             BASILCBF(
-                m0scale=M0Scale,
+                m0_scale=m0_scale,
                 bolus=get_bolus_duration(metadata=metadata, is_casl=is_casl),
                 alpha=estimate_labeling_efficiency(metadata=metadata),
                 pvc=True,

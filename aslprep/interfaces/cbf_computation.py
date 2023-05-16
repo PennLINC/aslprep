@@ -382,7 +382,7 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc="Metadata for the raw CBF file, taken from the raw ASL data's sidecar JSON file.",
     )
-    m0scale = traits.Float(
+    m0_scale = traits.Float(
         exists=True,
         mandatory=True,
         desc="Relative scale between ASL and M0.",
@@ -447,7 +447,7 @@ class ComputeCBF(SimpleInterface):
     def _run_interface(self, runtime):
         metadata = self.inputs.metadata
         m0_file = self.inputs.m0_file
-        m0scale = self.inputs.m0scale
+        m0_scale = self.inputs.m0_scale
         mask_file = self.inputs.mask
         deltam_file = self.inputs.deltam  # control - label signal intensities
 
@@ -495,10 +495,11 @@ class ComputeCBF(SimpleInterface):
         masker = maskers.NiftiMasker(mask_img=mask_file)
         deltam_arr = masker.fit_transform(deltam_file).T  # Transpose to SxT
         assert deltam_arr.ndim == 2, f"deltam is {deltam_arr.ndim}"
+        n_voxels, n_volumes = deltam_arr.shape
         # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
         m0data = np.mean(m0data, axis=0)
-        scaled_m0data = m0scale * m0data
+        scaled_m0data = m0_scale * m0data
 
         if is_casl:
             tau = np.array(metadata["LabelingDuration"])
@@ -752,7 +753,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=True,
     )
     mzero = File(exists=True, argstr="-c %s", desc="m0 scan", mandatory=False)
-    m0scale = traits.Float(desc="calibration of asl", argstr="--cgain %.2f", mandatory=True)
+    m0_scale = traits.Float(desc="calibration of asl", argstr="--cgain %.2f", mandatory=True)
     m0tr = traits.Float(
         desc="The repetition time for the calibration image (the M0 scan).",
         argstr="--tr %.2f",

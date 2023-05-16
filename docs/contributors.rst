@@ -45,10 +45,10 @@ Code-Server Development Environment (Experimental)
 We will use the ``Dockerfile_devel`` file to build
 our development docker image::
 
-    $ mkdir $HOME/projects
-    $ cd $HOME/projects/aslprep
-    $ git clone https://github.com/PennLINC/aslprep.git
-    $ docker build -t aslprep_devel -f Dockerfile_devel .
+   $ mkdir $HOME/projects
+   $ cd $HOME/projects/aslprep
+   $ git clone https://github.com/PennLINC/aslprep.git
+   $ docker build -t aslprep_devel -f Dockerfile_devel .
 
 
 2. Run the Docker image
@@ -56,8 +56,8 @@ our development docker image::
 
 We can start a docker container using the image we built (``aslprep_devel``)::
 
-    $ docker run -it -p 127.0.0.1:8445:8080 -v ${PWD}:/src/aslprep aslprep_devel:latest
+   $ docker run -it -p 127.0.0.1:8445:8080 -v ${PWD}:/src/aslprep aslprep_devel:latest
 
 .. note::
-    If you are using windows shell, ``${PWD}`` may not be defined.
-    Instead, use the absolute path to your *ASLPrep* directory.
+   If you are using windows shell, ``${PWD}`` may not be defined.
+   Instead, use the absolute path to your *ASLPrep* directory.
