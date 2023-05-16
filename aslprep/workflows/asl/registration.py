@@ -173,7 +173,6 @@ def init_asl_t1_trans_wf(
     basil=False,
     generate_reference=True,
     output_t1space=False,
-    multiecho=False,
     use_compression=True,
     name="asl_t1_trans_wf",
 ):
@@ -197,8 +196,6 @@ def init_asl_t1_trans_wf(
 
     Parameters
     ----------
-    multiecho : :obj:`bool`
-        If multiecho data was supplied, HMC already performed
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
@@ -332,45 +329,25 @@ def init_asl_t1_trans_wf(
 
     workflow.connect([(gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")])])
 
-    if not multiecho:
-        # Merge transforms, placing the head motion correction last
-        merge_xforms = pe.Node(
-            niu.Merge(3),
-            name="merge_xforms",
-            run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
-        )
+    # Merge transforms, placing the head motion correction last
+    merge_xforms = pe.Node(
+        niu.Merge(3),
+        name="merge_xforms",
+        run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
 
-        # fmt:off
-        workflow.connect([
-            (inputnode, merge_xforms, [
-                ("aslref_to_anat_xfm", "in1"),
-                ("fieldwarp", "in2"),  # may be "identity"
-                ("hmc_xforms", "in3"),  # may be "identity"
-            ]),
-            (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
-            (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
-        ])
-        # fmt:on
-
-    else:
-        # Optimally combined data will have already undergone HMC+SDC,
-        # so we only need to apply the ASLRef-to-T1w transform.
-        from nipype.interfaces.fsl import Split as FSLSplit
-
-        asl_split = pe.Node(
-            FSLSplit(dimension="t"),
-            name="asl_split",
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, asl_split, [("asl_split", "in_file")]),
-            (asl_split, asl_to_t1w_transform, [("out_files", "input_image")]),
-            (inputnode, asl_to_t1w_transform, [("aslref_to_anat_xfm", "transforms")]),
-        ])
-        # fmt:on
+    # fmt:off
+    workflow.connect([
+        (inputnode, merge_xforms, [
+            ("aslref_to_anat_xfm", "in1"),
+            ("fieldwarp", "in2"),  # may be "identity"
+            ("hmc_xforms", "in3"),  # may be "identity"
+        ]),
+        (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
+        (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
+    ])
+    # fmt:on
 
     # merge 3D volumes into 4D timeseries
     merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb)

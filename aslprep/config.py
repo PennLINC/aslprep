@@ -330,8 +330,6 @@ class execution(_Config):
     """Only generate a boilerplate."""
     debug = False
     """Run in sloppy mode (meaning, suboptimal parameters that minimize run-time)."""
-    echo_idx = None
-    """Select a particular echo for multi-echo EPI datasets."""
     fs_license_file = _fs_license
     """An existing file containing a FreeSurfer license."""
     fs_subjects_dir = None
