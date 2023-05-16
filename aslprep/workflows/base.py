@@ -293,7 +293,6 @@ their manuscripts unchanged. It is released under the unchanged
 
     # Append the functional section to the existing anatomical excerpt
     # That way we do not need to stream down the number of asl datasets
-
     run_str = "runs" if len(subject_data["asl"]) > 1 else "run"
     anat_preproc_wf.__postdesc__ = (
         (anat_preproc_wf.__postdesc__ or "")
@@ -309,16 +308,10 @@ tasks and sessions), the following preprocessing was performed.
     for asl_file in subject_data["asl"]:
         config.loggers.workflow.log(25, f"Processing {asl_file}")
 
-        # If number of volume of ASL is less than 5, motion correction, etc. will be skipped.
-        metadata = layout.get_metadata(asl_file)
+        # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
         n_vols = get_n_volumes(asl_file)
         use_ge = False
-        if metadata.get("Manufacturer") == "GE":
-            config.loggers.workflow.warning(
-                "ASL file is acquired with a GE scanner. Using GE-specific processing."
-            )
-            use_ge = True
-        elif n_vols <= 5:
+        if n_vols <= 5:
             config.loggers.workflow.warning(
                 f"ASL file is very short ({n_vols} volumes). Using GE-specific processing."
             )
