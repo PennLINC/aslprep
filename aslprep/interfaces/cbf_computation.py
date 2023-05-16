@@ -1036,9 +1036,10 @@ class SplitASLData(SimpleInterface):
         else:
             raise ValueError(f"Unknown processing target '{self.inputs.processing_target}'")
 
+        asl_idx = asl_idx.astype(int)
         self._results["metadata"] = reduce_metadata_lists(self.inputs.metadata, asl_idx)
 
-        asl_img = image.index_img(self.inputs.asl_file, asl_idx.astype(int))
+        asl_img = image.index_img(self.inputs.asl_file, asl_idx)
 
         self._results["asl_file"] = fname_presuffix(
             self.inputs.asl_file,
