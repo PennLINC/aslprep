@@ -122,12 +122,6 @@ def _build_parser():
     # "-t", "--task-id", action="store", help="select a specific task to be processed"
     # )
     g_bids.add_argument(
-        "--echo-idx",
-        action="store",
-        type=int,
-        help="select a specific echo to be processed in a multiecho series",
-    )
-    g_bids.add_argument(
         "--bids-filter-file",
         dest="bids_filters",
         action="store",

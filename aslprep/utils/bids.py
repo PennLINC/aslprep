@@ -8,7 +8,6 @@ from pathlib import Path
 
 import yaml
 from bids.layout import BIDSLayout
-from niworkflows.utils.bids import group_multiecho
 
 from aslprep import config
 
@@ -16,7 +15,6 @@ from aslprep import config
 def collect_data(
     bids_dir,
     participant_label,
-    echo=None,
     bids_validate=False,
     bids_filters=None,
 ):
@@ -40,9 +38,6 @@ def collect_data(
     for acq, entities in bids_filters.items():
         queries[acq].update(entities)
 
-    if echo:
-        queries["asl"]["echo"] = echo
-
     subj_data = {
         dtype: sorted(
             layout.get(
@@ -55,14 +50,10 @@ def collect_data(
         for dtype, query in queries.items()
     }
 
-    # Special case: multi-echo BOLD, grouping echos
-    if any("_echo-" in bold for bold in subj_data["asl"]):
-        subj_data["asl"] = group_multiecho(subj_data["asl"])
-
     return subj_data, layout
 
 
-def collect_run_data(layout, asl_file, multiecho):
+def collect_run_data(layout, asl_file):
     """Use pybids to retrieve the input data for a given participant."""
     queries = {
         "aslcontext": {"suffix": "aslcontext", "extension": ".tsv"},
@@ -83,12 +74,6 @@ def collect_run_data(layout, asl_file, multiecho):
 
     if "sbref" in config.workflow.ignore:
         config.loggers.workflow.info("Single-band reference files ignored.")
-        run_data["sbref"] = None
-    elif multiecho:
-        config.loggers.workflow.warning(
-            "Single-band reference found, but not supported in "
-            "multi-echo workflows at this time. Ignoring."
-        )
         run_data["sbref"] = None
 
     # The aslcontext file is required
