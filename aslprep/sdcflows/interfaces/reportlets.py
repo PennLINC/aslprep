@@ -4,7 +4,7 @@
 import numpy as np
 from nilearn.image import threshold_img, load_img
 from ...niworkflows import NIWORKFLOWS_LOG
-from ...niworkflows.viz.utils import cuts_from_bbox, compose_view
+from niworkflows.viz.utils import cuts_from_bbox, compose_view
 from nipype.interfaces.base import File, isdefined, traits
 from nipype.interfaces.mixins import reporting
 

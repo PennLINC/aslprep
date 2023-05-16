@@ -790,3 +790,10 @@ def group_asl_data(aslcontext):
         raise ValueError("aslcontext doesn't have control, label, deltam, or cbf volumes.")
 
     return processing_target
+
+
+def get_template_str(template, kwargs):
+    """Get template from templateflow, as a string."""
+    from templateflow.api import get as get_template
+
+    return str(get_template(template, **kwargs))

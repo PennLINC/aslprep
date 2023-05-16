@@ -6,20 +6,21 @@ import pandas as pd
 import seaborn as sns
 from lxml import etree
 from matplotlib import gridspec as mgs
+from nilearn import plotting
 from nilearn.image import threshold_img
-from nilearn.plotting import plot_stat_map
-from seaborn import color_palette
-from svgutils.transform import SVGFigure
-
-from aslprep.niworkflows import NIWORKFLOWS_LOG
-from aslprep.niworkflows.viz.plots import _get_tr, confoundplot, plot_carpet, spikesplot
-from aslprep.niworkflows.viz.utils import (
+from niworkflows.interfaces.plotting import _get_tr
+from niworkflows.viz.utils import (
     _3d_in_file,
     compose_view,
     cuts_from_bbox,
     extract_svg,
     robust_set_limits,
 )
+from seaborn import color_palette
+from svgutils.transform import SVGFigure
+
+from aslprep.niworkflows import NIWORKFLOWS_LOG
+from aslprep.niworkflows.viz.plots import confoundplot, plot_carpet, spikesplot
 
 
 class ASLPlot:
@@ -197,18 +198,21 @@ class CBFPlot(object):
 
     def plot(self):
         """Generate the plot."""
-        statfile = plotstatsimg(
-            cbf=self.cbf, ref_vol=self.ref_vol, vmax=self.vmax, label=self.label
+        statfile = plot_stat_map(
+            cbf=self.cbf,
+            ref_vol=self.ref_vol,
+            vmax=self.vmax,
+            label=self.label,
         )
         compose_view(bg_svgs=statfile, fg_svgs=None, out_file=self.outfile)
 
 
-def plotstatsimg(
+def plot_stat_map(
     cbf,
     ref_vol,
     plot_params=None,
     order=("z", "x", "y"),
-    vmax=90,
+    vmax=100,
     estimate_brightness=False,
     label=None,
     compress="auto",
@@ -229,22 +233,19 @@ def plotstatsimg(
 
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
-        plot_params["display_mode"] = mode
-        plot_params["cut_coords"] = cuts[mode]
-        plot_params["draw_cross"] = False
-        plot_params["symmetric_cbar"] = True
-        plot_params["vmax"] = vmax
-        plot_params["threshold"] = 0.02
-        plot_params["colorbar"] = True
-        plot_params["cmap"] = "coolwarm"
-        if i == 0:
-            plot_params["title"] = label
-            plot_params["colorbar"] = True
-        else:
-            plot_params["title"] = None
-
-        display = plot_stat_map(
-            stat_map_img=cbf, bg_img=ref_vol, resampling_interpolation="nearest", **plot_params
+        display = plotting.plot_stat_map(
+            stat_map_img=cbf,
+            bg_img=ref_vol,
+            resampling_interpolation="nearest",
+            display_mode=mode,
+            cut_coords=cuts[mode],
+            vmax=vmax,
+            threshold=0.02,
+            draw_cross=False,
+            colorbar=True,
+            symmetric_cbar=False,
+            cmap="coolwarm",
+            title=label if i == 0 else None,
         )
         svg = extract_svg(display, compress=compress)
         display.close()
