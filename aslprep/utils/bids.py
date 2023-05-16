@@ -8,7 +8,6 @@ from pathlib import Path
 
 import yaml
 from bids.layout import BIDSLayout
-from niworkflows.utils.bids import group_multiecho
 
 from aslprep import config
 
@@ -54,10 +53,6 @@ def collect_data(
         )
         for dtype, query in queries.items()
     }
-
-    # Special case: multi-echo BOLD, grouping echos
-    if any("_echo-" in bold for bold in subj_data["asl"]):
-        subj_data["asl"] = group_multiecho(subj_data["asl"])
 
     return subj_data, layout
 

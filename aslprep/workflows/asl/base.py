@@ -365,9 +365,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    # Special steps for multi-echo data
-    # aslbuffer_me: an identity used as a pointer to either the split ASL files and the
-    # ASLRef-space ASL file (if not multi-echo) or the optimally-combined ASL file.
+    # aslbuffer_me: an identity used as a pointer to the split ASL files and the
+    # ASLRef-space ASL file.
     aslbuffer_me = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -509,7 +508,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.epi_brain", "inputnode.ref_asl_brain"),
             ("outputnode.epi_mask", "inputnode.ref_asl_mask"),
         ]),
-        # will not be split into 3D volumes if multi-echo
         (aslbuffer_me, asl_t1_trans_wf, [("asl_split", "inputnode.asl_split")]),
         (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
         (asl_reg_wf, asl_t1_trans_wf, [
@@ -749,13 +747,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
-        # TODO: Replace this with aslbuffer_me.
-        # I think I need to modify init_asl_std_trans_wf to treat multi-echo data the same way
-        # init_asl_t1_trans_wf does (i.e., by skipping HMC and SDC).
-        # Actually, what if I just use xform_buffer and set the xforms to "identity" there?
-        # It's a quandary.
-        # The asl-asl reg workflow needs actual HMC and SDC xforms (when applicable),
-        # but the T1 and std reg workflows would use "identity" for multi-echo data.
         # For GE data, asl-asl, asl-T1, and asl-std should all have "identity" for HMC/SDC.
         # fmt:off
         workflow.connect([
