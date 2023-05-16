@@ -184,7 +184,7 @@ def init_asl_gepreproc_wf(asl_file):
     )
 
     # Collect associated files
-    run_data = collect_run_data(layout, ref_file, multiecho=False)
+    run_data = collect_run_data(layout, ref_file)
     metadata = run_data["asl_metadata"].copy()
 
     # Build workflow
@@ -394,7 +394,6 @@ effects of other kernels [@lanczos].
     nonstd_spaces = set(spaces.get_nonstandard())
 
     asl_t1_trans_wf = init_asl_t1_trans_wf(
-        multiecho=False,
         output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
         scorescrub=scorescrub,
         basil=basil,
@@ -420,7 +419,6 @@ effects of other kernels [@lanczos].
         ]),
         # keeping this separate from the top for symmetry with non-GE workflow
         (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.asl_split")]),
-        # unused if multiecho, but this is safe
         (asl_reg_wf, asl_t1_trans_wf, [
             ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
         ]),

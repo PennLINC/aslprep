@@ -15,7 +15,6 @@ from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.bids import collect_run_data
-from aslprep.utils.meepi import combine_meepi_source
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
@@ -146,7 +145,6 @@ def init_asl_preproc_wf(asl_file):
     """
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
-    multiecho = isinstance(asl_file, list)
 
     # Have some options handy
     layout = config.execution.layout
@@ -160,10 +158,6 @@ def init_asl_preproc_wf(asl_file):
     basil = config.workflow.basil
 
     ref_file = asl_file
-    if multiecho:
-        tes = [layout.get_metadata(echo)["EchoTime"] for echo in asl_file]
-        ref_file = dict(zip(tes, asl_file))[min(tes)]
-
     asl_tlen, mem_gb = _create_mem_gb(ref_file)
 
     wf_name = _get_wf_name(ref_file)
@@ -180,7 +174,7 @@ def init_asl_preproc_wf(asl_file):
     )
 
     # Collect associated files
-    run_data = collect_run_data(layout, ref_file, multiecho=multiecho)
+    run_data = collect_run_data(layout, ref_file)
     sbref_file = run_data["sbref"]
     metadata = run_data["asl_metadata"].copy()
 
@@ -291,16 +285,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     workflow.connect([(aslbuffer_stc, asl_split, [("asl_file", "in_file")])])
 
-    if not multiecho:
-        # fmt:off
-        workflow.connect([
-            (asl_reference_wf, aslbuffer_stc, [("outputnode.asl_file", "asl_file")]),
-        ])
-        # fmt:on
-
-    else:
-        # for meepi, iterate over all meepi echos to aslbuffer_stc
-        aslbuffer_stc.iterables = ("asl_file", asl_file)
+    # fmt:off
+    workflow.connect([
+        (asl_reference_wf, aslbuffer_stc, [("outputnode.asl_file", "asl_file")]),
+    ])
+    # fmt:on
 
     # Head motion correction
     asl_hmc_wf = init_asl_hmc_wf(
@@ -389,53 +378,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         name="aslbuffer_me",
     )
 
-    # XXX: This may not be reachable, since echo is not an allowed entity for ASL data.
-    # XXX: Also, optimal combination via tedana may not be a good idea for multi-echo ASL data.
-    if multiecho:
-        from aslprep.niworkflows.func.util import init_skullstrip_asl_wf
-        from aslprep.workflows.asl.t2s import init_asl_t2s_wf
-
-        skullstrip_asl_wf = init_skullstrip_asl_wf(name="skullstrip_asl_wf")
-
-        inputnode.inputs.asl_file = ref_file  # Replace reference w first echo
-
-        join_echos = pe.JoinNode(
-            niu.IdentityInterface(fields=["asl_files"]),
-            joinsource="aslbuffer_stc",
-            joinfield=["asl_files"],
-            name="join_echos",
-        )
-
-        # create optimal combination, adaptive T2* map
-        asl_t2s_wf = init_asl_t2s_wf(
-            echo_times=tes,
-            name="asl_t2smap_wf",
-        )
-
-        # fmt:off
-        workflow.connect([
-            (asl_asl_trans_wf, skullstrip_asl_wf, [("outputnode.asl", "inputnode.in_file")]),
-            (skullstrip_asl_wf, join_echos, [("outputnode.skull_stripped_file", "asl_files")]),
-            (join_echos, asl_t2s_wf, [("asl_files", "inputnode.asl_file")]),
-            (inputnode, asl_derivatives_wf, [
-                (("asl_file", combine_meepi_source), "inputnode.source_file"),
-            ]),
-            (asl_t2s_wf, aslbuffer_me, [
-                ("outputnode.asl", "asl_file_native"),
-                # NOTE: The 4D optcom ASL file is treated as split 3D ASL files here.
-                ("outputnode.asl", "asl_split"),
-            ]),
-        ])
-        # fmt:on
-
-    else:
-        # fmt:off
-        workflow.connect([
-            (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
-            (asl_asl_trans_wf, aslbuffer_me, [("outputnode.asl", "asl_file_native")]),
-            (asl_split, aslbuffer_me, [("out_files", "asl_split")]),
-        ])
-        # fmt:on
+    # fmt:off
+    workflow.connect([
+        (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
+        (asl_asl_trans_wf, aslbuffer_me, [("outputnode.asl", "asl_file_native")]),
+        (asl_split, aslbuffer_me, [("out_files", "asl_split")]),
+    ])
+    # fmt:on
 
     # get confounds
     asl_confounds_wf = init_asl_confounds_wf(mem_gb=mem_gb["largemem"], name="asl_confounds_wf")
@@ -538,7 +487,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     nonstd_spaces = set(spaces.get_nonstandard())
 
     asl_t1_trans_wf = init_asl_t1_trans_wf(
-        multiecho=multiecho,
         output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
         scorescrub=scorescrub,
         basil=basil,
@@ -563,9 +511,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         # will not be split into 3D volumes if multi-echo
         (aslbuffer_me, asl_t1_trans_wf, [("asl_split", "inputnode.asl_split")]),
-        # unused if multiecho, but this is safe
         (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
-        # unused if multiecho, but this is safe
         (asl_reg_wf, asl_t1_trans_wf, [
             ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
         ]),
@@ -811,22 +757,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # The asl-asl reg workflow needs actual HMC and SDC xforms (when applicable),
         # but the T1 and std reg workflows would use "identity" for multi-echo data.
         # For GE data, asl-asl, asl-T1, and asl-std should all have "identity" for HMC/SDC.
-        if not multiecho:
-            # fmt:off
-            workflow.connect([
-                (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
-            ])
-            # fmt:on
-
-        else:
-            split_opt_comb = asl_split.clone(name="split_opt_comb")
-
-            # fmt:off
-            workflow.connect([
-                (asl_t2s_wf, split_opt_comb, [("outputnode.asl", "in_file")]),
-                (split_opt_comb, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
-            ])
-            # fmt:on
+        # fmt:off
+        workflow.connect([
+            (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
+        ])
+        # fmt:on
 
         # asl_derivatives_wf internally parametrizes over snapshotted spaces.
         for cbf_deriv in cbf_derivs:
@@ -902,9 +837,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (select_xform_MNI152NLin2009cAsym_to_t1w, carpetplot_wf, [
             ("template_to_anat_xfm", "inputnode.template_to_anat_xfm"),
         ]),
-        (asl_asl_trans_wf if not multiecho else asl_t2s_wf, carpetplot_wf, [
-            ("outputnode.asl", "inputnode.asl"),
-        ]),
+        (asl_asl_trans_wf, carpetplot_wf, [("outputnode.asl", "inputnode.asl")]),
         (refine_mask, carpetplot_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, carpetplot_wf, [
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),

@@ -36,7 +36,6 @@ def init_asl_reference_wf(
     sbref_files=None,
     brainmask_thresh=0.1,
     pre_mask=False,
-    multiecho=False,
     name="asl_reference_wf",
     gen_report=False,
 ):
@@ -71,9 +70,6 @@ def init_asl_reference_wf(
     pre_mask : :obj:`bool`
         Indicates whether the ``pre_mask`` input will be set (and thus, step 1
         should be skipped).
-    multiecho : :obj:`bool`
-        If multiecho data was supplied, data from the first echo
-        will be selected
     name : :obj:`str`
         Name of workflow (default: ``asl_reference_wf``)
     gen_report : :obj:`bool`
@@ -157,7 +153,7 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
     )
 
     gen_ref = pe.Node(
-        EstimateReferenceImage(multiecho=multiecho), name="gen_ref", mem_gb=1
+        EstimateReferenceImage, name="gen_ref", mem_gb=1
     )  # OE: 128x128x128x50 * 64 / 8 ~ 900MB.
     enhance_and_skullstrip_asl_wf = init_enhance_and_skullstrip_asl_wf(
         brainmask_thresh=brainmask_thresh,
@@ -228,7 +224,7 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
         # Edit the boilerplate as the SBRef will be the reference
         workflow.__desc__ = f"""\
 First, a reference volume and its skull-stripped version were generated
-by aligning and averaging{' the first echo of' * multiecho}
+by aligning and averaging
 {nsbrefs or ''} single-band references (SBRefs).
 """
 

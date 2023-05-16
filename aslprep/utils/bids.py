@@ -62,7 +62,7 @@ def collect_data(
     return subj_data, layout
 
 
-def collect_run_data(layout, asl_file, multiecho):
+def collect_run_data(layout, asl_file):
     """Use pybids to retrieve the input data for a given participant."""
     queries = {
         "aslcontext": {"suffix": "aslcontext", "extension": ".tsv"},
@@ -83,12 +83,6 @@ def collect_run_data(layout, asl_file, multiecho):
 
     if "sbref" in config.workflow.ignore:
         config.loggers.workflow.info("Single-band reference files ignored.")
-        run_data["sbref"] = None
-    elif multiecho:
-        config.loggers.workflow.warning(
-            "Single-band reference found, but not supported in "
-            "multi-echo workflows at this time. Ignoring."
-        )
         run_data["sbref"] = None
 
     # The aslcontext file is required
