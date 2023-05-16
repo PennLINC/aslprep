@@ -412,6 +412,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             name="determine_inflow_times",
         )
         determine_inflow_times.inputs.is_casl = is_casl
+
         workflow.connect([(extract_deltam, determine_inflow_times, [("metadata", "metadata")])])
 
         # Node to estimate labeling efficiency
@@ -423,6 +424,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             ),
             name="estimate_alpha",
         )
+
         workflow.connect([(extract_deltam, estimate_alpha, [("metadata", "metadata")])])
 
         basilcbf = pe.Node(
