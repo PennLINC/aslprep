@@ -294,6 +294,13 @@ After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control image
 .. math::
    ASL_{signal} = M_{C} - M_{L}
 
+If slice timing is available for the ASL data, then ASLPrep will shift post-labeling delay values
+on a slice-wise basis.
+
+.. figure:: _static/slice_timing_and_pld.svg
+
+   Slice time-shifted post-labeling delay values plotted next to a corresponding delta-M volume.
+
 The CBF computation of either single or multiple PLD (post labelling delay)
 is done using a relatively simple model.
 For P/CASL (pseudo continuous ASL),
