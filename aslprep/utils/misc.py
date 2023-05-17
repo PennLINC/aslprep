@@ -961,7 +961,7 @@ def estimate_cbf_pcasl_multipld(
         P = Post-labeling delay (i.e., volume).
     scaled_m0data : :obj:`numpy.ndarray` of shape (S,)
         The M0 volume, after scaling based on the M0-scale value.
-    plds : :obj:`numpy.ndarray` of shape (P,)
+    plds : :obj:`numpy.ndarray` of shape (P,) or (S, P)
         Post-labeling delays. One value for each volume in ``deltam_arr``.
     tau : :obj:`numpy.ndarray` of shape (P,) or (0,)
         Label duration. May be a single value or may vary across volumes/PLDs.
@@ -1003,10 +1003,15 @@ def estimate_cbf_pcasl_multipld(
     .. footbibliography::
     """
     n_voxels, n_volumes = deltam_arr.shape
-    if plds.size != n_volumes:
+    if plds.ndim == 2:
+        n_voxels_pld, n_plds = plds.shape
+        assert n_voxels_pld == n_voxels
+    elif plds.ndim == 1:
+        n_plds = plds.shape[0]
+
+    if n_plds != n_volumes:
         raise ValueError(
-            f"Number of PostLabelingDelay values ({plds.size}) does not match number of delta-M "
-            "volumes."
+            f"Number of PostLabelingDelays ({n_plds}) does not match number of delta-M volumes."
         )
 
     # Formula from Fan 2017 (equation 2)
