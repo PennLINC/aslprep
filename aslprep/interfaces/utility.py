@@ -1,5 +1,6 @@
 """Utility interfaces for ASLPrep."""
 import pandas as pd
+from nilearn import image
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     File,
@@ -8,6 +9,8 @@ from nipype.interfaces.base import (
     traits,
 )
 from nipype.utils.filemanip import fname_presuffix
+
+from aslprep import config
 
 
 class _CombineMotionParametersInputSpec(BaseInterfaceInputSpec):
@@ -86,5 +89,86 @@ class CombineMotionParameters(SimpleInterface):
         )
         with open(self._results["combined_rms_file"], "w") as fo:
             fo.write("".join(out_rms))
+
+        return runtime
+
+
+class _SplitOutVolumeTypeInputSpec(BaseInterfaceInputSpec):
+    volumetype = traits.Str()
+    aslcontext = File(exists=True)
+    asl_file = File(exists=True)
+
+
+class _SplitOutVolumeTypeOutputSpec(TraitedSpec):
+    out_file = File(exists=True)
+
+
+class SplitOutVolumeType(SimpleInterface):
+    """Split out a specific volume type from the ASL file."""
+
+    input_spec = _SplitOutVolumeTypeInputSpec
+    output_spec = _SplitOutVolumeTypeOutputSpec
+
+    def _run_interface(self, runtime):
+        aslcontext = pd.read_table(self.inputs.aslcontext)
+        volumetype_df = aslcontext.loc[aslcontext["volume_type"] == self.inputs.volumetype]
+        volumetype_idx = volumetype_df.index.tolist()
+        if len(volumetype_idx) == 0:
+            raise ValueError(f"No volumes found for {self.inputs.volumetype}")
+
+        out_img = image.index_img(self.inputs.asl_file, volumetype_idx)
+        self._results["out_file"] = fname_presuffix(
+            self.inputs.asl_file,
+            suffix=f"_{self.inputs.volumetype}",
+            newpath=runtime.cwd,
+            use_ext=True,
+        )
+        out_img.to_filename(self._results["out_file"])
+
+        return runtime
+
+
+class _SplitReferenceTargetInputSpec(BaseInterfaceInputSpec):
+    aslcontext = File(exists=True)
+    asl_file = File(exists=True)
+
+
+class _SplitReferenceTargetOutputSpec(TraitedSpec):
+    out_file = File(exists=True)
+
+
+class SplitReferenceTarget(SimpleInterface):
+    """Split out a specific volume type from the ASL file."""
+
+    input_spec = _SplitReferenceTargetInputSpec
+    output_spec = _SplitReferenceTargetOutputSpec
+
+    def _run_interface(self, runtime):
+        aslcontext = pd.read_table(self.inputs.aslcontext)
+        volume_types = aslcontext["volume_type"].values
+        if "m0scan" in volume_types:
+            ref_target = "m0scan"
+        elif "control" in volume_types:
+            ref_target = "control"
+        elif "deltam" in volume_types:
+            ref_target = "deltam"
+        elif "cbf" in volume_types:
+            ref_target = "cbf"
+        else:
+            raise ValueError(volume_types)
+
+        config.loggers.interface.warning(f"Selected {ref_target} for reference.")
+
+        volumetype_idx = aslcontext["volume_type"].loc[volume_types == ref_target].index.tolist()
+        config.loggers.interface.warning(f"{len(volumetype_idx)} volumes selected")
+
+        out_img = image.index_img(self.inputs.asl_file, volumetype_idx)
+        self._results["out_file"] = fname_presuffix(
+            self.inputs.asl_file,
+            suffix=f"_{ref_target}",
+            newpath=runtime.cwd,
+            use_ext=True,
+        )
+        out_img.to_filename(self._results["out_file"])
 
         return runtime

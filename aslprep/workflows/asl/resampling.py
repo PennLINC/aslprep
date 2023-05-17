@@ -8,7 +8,6 @@ from nipype.pipeline import engine as pe
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.func.util import init_asl_reference_wf
 from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
 from aslprep.niworkflows.interfaces.nilearn import Merge
 from aslprep.niworkflows.interfaces.utility import KeySelect
@@ -21,6 +20,7 @@ from aslprep.utils.misc import (
     _select_template,
     _split_spec,
 )
+from aslprep.workflows.asl.util import init_asl_reference_wf
 
 
 def init_asl_std_trans_wf(
@@ -459,6 +459,7 @@ def init_asl_preproc_trans_wf(
             fields=[
                 "name_source",
                 "asl_file",
+                "aslcontext",
                 "asl_mask",
                 "hmc_xforms",
                 "fieldwarp",
@@ -496,6 +497,7 @@ def init_asl_preproc_trans_wf(
     workflow.connect([
         (inputnode, merge, [("name_source", "header_source")]),
         (asl_transform, merge, [("out_files", "in_files")]),
+        (inputnode, asl_reference_wf, [("aslcontext", "inputnode.aslcontext")]),
         (merge, asl_reference_wf, [("out_file", "inputnode.asl_file")]),
         (merge, outputnode, [("out_file", "asl")]),
         (asl_reference_wf, outputnode, [

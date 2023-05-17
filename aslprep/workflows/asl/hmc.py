@@ -6,7 +6,7 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces.utility import CombineMotionParameters
+from aslprep.interfaces.utility import CombineMotionParameters, SplitOutVolumeType
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces import NormalizeMotionParams
 from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
@@ -84,11 +84,7 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "control_file",
-                "label_file",
-                "deltam_file",
-                "cbf_file",
-                "m0scan_file",
+                "asl_file",
                 "aslcontext",
                 "raw_ref_image",
             ],
@@ -127,6 +123,21 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
         files_to_mcflirt.append(processing_target)
 
     for file_to_mcflirt in files_to_mcflirt:
+        # Split out the appropriate volumes
+        split_out_volumetype = pe.Node(
+            SplitOutVolumeType(volumetype=file_to_mcflirt),
+            name=f"split_out_{file_to_mcflirt}",
+        )
+
+        # fmt:off
+        workflow.connect([
+            (inputnode, split_out_volumetype, [
+                ("asl_file", "asl_file"),
+                ("aslcontext", "aslcontext"),
+            ]),
+        ])
+        # fmt:on
+
         # Head motion correction (hmc)
         mcflirt = pe.Node(
             fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=True),
@@ -136,10 +147,8 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
 
         # fmt:off
         workflow.connect([
-            (inputnode, mcflirt, [
-                ("raw_ref_image", "ref_file"),
-                (f"{file_to_mcflirt}_file", "in_file"),
-            ]),
+            (inputnode, mcflirt, [("raw_ref_image", "ref_file")]),
+            (split_out_volumetype, mcflirt, [("out_file", "in_file")]),
             (mcflirt, combine_motpars, [
                 ("mat_file", f"{file_to_mcflirt}_mat_file"),
                 ("par_file", f"{file_to_mcflirt}_par_file"),

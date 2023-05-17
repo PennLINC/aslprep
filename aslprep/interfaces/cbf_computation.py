@@ -973,43 +973,12 @@ def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_
 
 class _SplitASLDataInputSpec(BaseInterfaceInputSpec):
     asl_file = File(exists=True, mandatory=True, desc="ASL file to split.")
-    m0scan_file = traits.Either(
-        None,
-        File(exists=True),
-        mandatory=True,
-        desc="M0 file. May be None.",
-    )
     aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV.")
     processing_target = traits.Str()
     metadata = traits.Dict()
 
 
 class _SplitASLDataOutputSpec(TraitedSpec):
-    control_file = traits.Either(
-        None,
-        File(exists=True),
-        desc="Time series of control volumes.",
-    )
-    label_file = traits.Either(
-        None,
-        File(exists=True),
-        desc="Time series of label volumes.",
-    )
-    deltam_file = traits.Either(
-        None,
-        File(exists=True),
-        desc="Time series of deltaM volumes.",
-    )
-    cbf_file = traits.Either(
-        None,
-        File(exists=True),
-        desc="Time series of precalculated CBF volumes.",
-    )
-    m0scan_file = traits.Either(
-        None,
-        File(exists=True),
-        desc="Time series of M0 volumes.",
-    )
     asl_file = File(exists=True, desc="Modified ASL file.")
     aslcontext = File(exists=True, desc="Modified aslcontext file.")
     metadata = traits.Dict()
@@ -1023,86 +992,21 @@ class SplitASLData(SimpleInterface):
 
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
-        self._results["control_file"] = None
-        self._results["label_file"] = None
-        self._results["deltam_file"] = None
-        self._results["cbf_file"] = None
-
-        if self.inputs.metadata["M0Type"] == "Included":
-            m0_idx = aslcontext.loc[aslcontext["volume_type"] == "m0scan"].index.values
-            m0_img = image.index_img(self.inputs.asl_file, m0_idx)
-            self._results["m0scan_file"] = fname_presuffix(
-                self.inputs.asl_file,
-                suffix="_m0",
-                newpath=runtime.cwd,
-                use_ext=True,
-            )
-            m0_img.to_filename(self._results["m0scan_file"])
-
-        elif self.inputs.metadata["M0Type"] == "Separate":
-            m0_idx = []
-            self._results["m0scan_file"] = self.inputs.m0scan_file
-            m0_img = nb.load(self.inputs.m0scan_file)
-
-        else:
-            self._results["m0scan_file"] = None
+        asl_img = nb.load(self.inputs.asl_file)
+        assert asl_img.shape[3] == aslcontext.shape[0]
 
         if self.inputs.processing_target == "controllabel":
-            control_idx = aslcontext.loc[aslcontext["volume_type"] == "control"].index.values
-            control_img = image.index_img(self.inputs.asl_file, control_idx)
-            self._results["control_file"] = fname_presuffix(
-                self.inputs.asl_file,
-                suffix="_control",
-                newpath=runtime.cwd,
-                use_ext=True,
-            )
-            control_img.to_filename(self._results["control_file"])
-
-            label_idx = aslcontext.loc[aslcontext["volume_type"] == "label"].index.values
-            label_img = image.index_img(self.inputs.asl_file, label_idx)
-            self._results["label_file"] = fname_presuffix(
-                self.inputs.asl_file,
-                suffix="_label",
-                newpath=runtime.cwd,
-                use_ext=True,
-            )
-            label_img.to_filename(self._results["label_file"])
-
-            asl_idx = np.sort(np.concatenate((control_idx, label_idx, m0_idx)))
-
+            files_to_keep = ["control", "label", "m0scan"]
         elif self.inputs.processing_target == "deltam":
-            deltam_idx = aslcontext.loc[aslcontext["volume_type"] == "deltam"].index.values
-            deltam_img = image.index_img(self.inputs.asl_file, deltam_idx)
-            self._results["deltam_file"] = fname_presuffix(
-                self.inputs.asl_file,
-                suffix="_deltam",
-                newpath=runtime.cwd,
-                use_ext=True,
-            )
-            deltam_img.to_filename(self._results["deltam_file"])
-
-            asl_idx = np.sort(np.concatenate((deltam_idx, m0_idx)))
-
-        elif self.inputs.processing_target == "cbf":
-            cbf_idx = aslcontext.loc[aslcontext["volume_type"] == "cbf"].index.values
-            cbf_img = image.index_img(self.inputs.asl_file, cbf_idx)
-            self._results["cbf_file"] = fname_presuffix(
-                self.inputs.asl_file,
-                suffix="_cbf",
-                newpath=runtime.cwd,
-                use_ext=True,
-            )
-            cbf_img.to_filename(self._results["cbf_file"])
-
-            asl_idx = np.sort(np.concatenate((cbf_idx, m0_idx)))
-
+            files_to_keep = ["deltam", "m0scan"]
         else:
-            raise ValueError(f"Unknown processing target '{self.inputs.processing_target}'")
+            files_to_keep = ["cbf", "m0scan"]
 
+        asl_idx = aslcontext.loc[aslcontext["volume_type"].isin(files_to_keep)].index.values
         asl_idx = asl_idx.astype(int)
         self._results["metadata"] = reduce_metadata_lists(self.inputs.metadata, asl_idx)
 
-        asl_img = image.index_img(self.inputs.asl_file, asl_idx)
+        asl_img = image.index_img(asl_img, asl_idx)
 
         self._results["asl_file"] = fname_presuffix(
             self.inputs.asl_file,

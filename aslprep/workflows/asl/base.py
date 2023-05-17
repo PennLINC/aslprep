@@ -10,7 +10,6 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf_computation import RefineMask, SplitASLData
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.func.util import init_asl_reference_wf
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
@@ -27,7 +26,7 @@ from aslprep.workflows.asl.resampling import (
     init_asl_preproc_trans_wf,
     init_asl_std_trans_wf,
 )
-from aslprep.workflows.asl.util import init_validate_asl_wf
+from aslprep.workflows.asl.util import init_asl_reference_wf, init_validate_asl_wf
 
 
 def init_asl_preproc_wf(asl_file):
@@ -261,6 +260,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         basil=basil,
         output_confounds=True,
     )
+    workflow.connect([(inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")])])
 
     # Split the data into M0, control/label, deltam, and cbf time series.
     # Processing steps depend on which ones are available.
@@ -271,49 +271,43 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     validate_asl_wf = init_validate_asl_wf(name="validate_asl_wf")
     workflow.connect([(inputnode, validate_asl_wf, [("asl_file", "inputnode.asl_file")])])
 
-    # Split up the ASL data into image-type-specific files,
-    # and reduce aslcontext, metadata, and asl_file if necessary.
-    split_asl_data = pe.Node(
+    # Generate a tentative aslref from the most appropriate available image type in the ASL file
+    asl_reference_wf = init_asl_reference_wf(
+        omp_nthreads=omp_nthreads,
+        name="asl_reference_wf",
+    )
+    asl_reference_wf.inputs.inputnode.dummy_scans = 0
+    asl_reference_wf.inputs.inputnode.aslcontext = run_data["aslcontext"]
+
+    # fmt:off
+    workflow.connect([
+        (validate_asl_wf, asl_reference_wf, [("outputnode.asl_file", "inputnode.asl_file")]),
+    ])
+    # fmt:on
+
+    if sbref_file is not None:
+        workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
+
+    reduce_asl_file = pe.Node(
         SplitASLData(
             processing_target=processing_target,
             metadata=metadata,
         ),
-        name="split_asl_data",
+        name="reduce_asl_file",
     )
 
     # fmt:off
     workflow.connect([
-        (inputnode, split_asl_data, [
-            ("aslcontext", "aslcontext"),
-            ("m0_file", "m0scan_file"),
-        ]),
-        (validate_asl_wf, split_asl_data, [("outputnode.asl_file", "asl_file")]),
+        (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
+        (validate_asl_wf, reduce_asl_file, [("outputnode.asl_file", "asl_file")]),
     ])
     # fmt:on
-
-    # Generate a tentative aslref from the most appropriate available image type in the ASL file
-    asl_reference_wf = init_asl_reference_wf(omp_nthreads=omp_nthreads)
-    asl_reference_wf.inputs.inputnode.dummy_scans = 0
-
-    if m0type in ("Included", "Separate"):
-        # Use M0 vols to generate reference if possible.
-        ref_source = "m0scan_file"
-    elif processing_target == "controllabel":
-        ref_source = "control_file"
-    else:
-        # Otherwise use the target volumes.
-        ref_source = f"{processing_target}_file"
-
-    workflow.connect([(split_asl_data, asl_reference_wf, [(ref_source, "inputnode.asl_file")])])
-
-    if sbref_file is not None:
-        workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
 
     # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
     # can be applied with other transforms in single shots.
     asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
 
-    workflow.connect([(split_asl_data, asl_split, [("asl_file", "in_file")])])
+    workflow.connect([(reduce_asl_file, asl_split, [("asl_file", "in_file")])])
 
     # Head motion correction
     asl_hmc_wf = init_asl_hmc_wf(
@@ -326,13 +320,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (split_asl_data, asl_hmc_wf, [
+        (reduce_asl_file, asl_hmc_wf, [
             ("aslcontext", "inputnode.aslcontext"),
-            ("control_file", "inputnode.control_file"),
-            ("label_file", "inputnode.label_file"),
-            ("deltam_file", "inputnode.deltam_file"),
-            ("cbf_file", "inputnode.cbf_file"),
-            ("m0scan_file", "inputnode.m0scan_file"),
+            ("asl_file", "inputnode.asl_file"),
         ]),
         (asl_reference_wf, asl_hmc_wf, [("outputnode.raw_ref_image", "inputnode.raw_ref_image")]),
     ])
@@ -480,7 +470,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("m0scan_metadata", "inputnode.m0scan_metadata"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (split_asl_data, compute_cbf_wf, [("aslcontext", "inputnode.aslcontext")]),
+        (reduce_asl_file, compute_cbf_wf, [("aslcontext", "inputnode.aslcontext")]),
         (asl_asl_trans_wf, compute_cbf_wf, [
             ("outputnode.asl", "inputnode.asl_file"),
             ("outputnode.asl_mask", "inputnode.asl_mask"),
