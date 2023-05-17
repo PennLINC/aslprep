@@ -120,6 +120,7 @@ def init_asl_std_trans_wf(
         niu.IdentityInterface(
             fields=[
                 "name_source",
+                "aslcontext",
                 "asl_split",
                 "asl_mask",
                 "templates",

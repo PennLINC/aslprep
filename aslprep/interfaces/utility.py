@@ -160,8 +160,6 @@ class SplitReferenceTarget(SimpleInterface):
         config.loggers.interface.warning(f"Selected {ref_target} for reference.")
 
         volumetype_idx = aslcontext["volume_type"].loc[volume_types == ref_target].index.tolist()
-        config.loggers.interface.warning(f"{len(volumetype_idx)} volumes selected")
-
         out_img = image.index_img(self.inputs.asl_file, volumetype_idx)
         self._results["out_file"] = fname_presuffix(
             self.inputs.asl_file,
