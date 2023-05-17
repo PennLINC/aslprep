@@ -32,7 +32,7 @@ def download_test_data(dset, data_dir=None):
         "test_003": "https://upenn.box.com/shared/static/1c64kn7btb5dodksnn06wer2kfk00px5.tar.gz",
     }
     if dset == "*":
-        for k in URLS.keys():
+        for k in URLS:
             download_test_data(k, data_dir=data_dir)
 
         return
@@ -41,7 +41,7 @@ def download_test_data(dset, data_dir=None):
         raise ValueError(f"dset ({dset}) must be one of: {', '.join(URLS.keys())}")
 
     if not data_dir:
-        data_dir = os.path.join(get_test_data_path(), "test_data")
+        data_dir = os.path.join(os.path.dirname(get_test_data_path()), "test_data")
 
     out_dir = os.path.join(data_dir, dset)
 
@@ -163,9 +163,8 @@ def check_affines(data_dir, out_dir, input_type):
             nb.load(bold_file)._nifti_header.get_intent()
             == nb.load(denoised_file)._nifti_header.get_intent()
         )
-    else:
-        if not np.array_equal(nb.load(bold_file).affine, nb.load(denoised_file).affine):
-            raise AssertionError(f"Affines do not match:\n\t{bold_file}\n\t{denoised_file}")
+    elif not np.array_equal(nb.load(bold_file).affine, nb.load(denoised_file).affine):
+        raise AssertionError(f"Affines do not match:\n\t{bold_file}\n\t{denoised_file}")
 
     print("No affines changed.")
 

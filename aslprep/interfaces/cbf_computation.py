@@ -565,6 +565,12 @@ class ComputeCBF(SimpleInterface):
 
             # Mask the PLD array to go from (X, Y, Z, delay) to (S, delay)
             pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
+            pld_file = fname_presuffix(
+                deltam_file,
+                suffix="_plds",
+                newpath=runtime.cwd,
+            )
+            pld_img.to_filename(pld_file)
             plds = masker.transform(pld_img).T
 
         # Define perfusion factor
