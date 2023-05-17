@@ -129,8 +129,8 @@ class SplitOutVolumeType(SimpleInterface):
 
 
 class _SplitReferenceTargetInputSpec(BaseInterfaceInputSpec):
-    aslcontext = File(exists=True)
-    asl_file = File(exists=True)
+    aslcontext = File(exists=True, required=True)
+    asl_file = File(exists=True, required=True)
 
 
 class _SplitReferenceTargetOutputSpec(TraitedSpec):

@@ -200,6 +200,7 @@ effects of other kernels [@lanczos].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "aslcontext",
                 "m0scan",
                 "m0scan_metadata",
                 "t1w_preproc",
@@ -214,6 +215,7 @@ effects of other kernels [@lanczos].
         name="inputnode",
     )
     inputnode.inputs.asl_file = asl_file
+    inputnode.inputs.aslcontext = run_data["aslcontext"]
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
@@ -405,6 +407,7 @@ effects of other kernels [@lanczos].
     workflow.connect([
         (inputnode, asl_t1_trans_wf, [
             ("asl_file", "inputnode.name_source"),
+            ("aslcontext", "inputnode.aslcontext"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
         (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
@@ -539,6 +542,7 @@ effects of other kernels [@lanczos].
         # fmt:off
         workflow.connect([
             (inputnode, asl_std_trans_wf, [
+                ("aslcontext", "inputnode.aslcontext"),
                 ("template", "inputnode.templates"),
                 ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
                 ("asl_file", "inputnode.name_source"),

@@ -291,6 +291,7 @@ def init_asl_std_trans_wf(
 
         # fmt:off
         workflow.connect([
+            (inputnode, gen_final_ref, [("aslcontext", "inputnode.aslcontext")]),
             (mask_std_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
             (merge_3d_to_4d, gen_final_ref, [("out_file", "inputnode.asl_file")]),
             (gen_final_ref, reference_buffer, [("outputnode.ref_image", "aslref_std")]),

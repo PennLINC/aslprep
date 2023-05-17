@@ -203,6 +203,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "aslcontext",
                 "m0scan",
                 "m0scan_metadata",
                 "t1w_preproc",
@@ -377,6 +378,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
+        (inputnode, asl_asl_trans_wf, [("aslcontext", "inputnode.aslcontext")]),
         (asl_split, asl_asl_trans_wf, [("out_files", "inputnode.asl_file")]),
         (asl_hmc_wf, asl_asl_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
         (asl_sdc_wf, asl_asl_trans_wf, [
@@ -504,6 +506,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([
         (inputnode, asl_t1_trans_wf, [
             ("asl_file", "inputnode.name_source"),
+            ("aslcontext", "inputnode.aslcontext"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
         (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
@@ -728,6 +731,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (inputnode, asl_std_trans_wf, [
+                ("aslcontext", "inputnode.aslcontext"),
                 ("template", "inputnode.templates"),
                 ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
                 ("asl_file", "inputnode.name_source"),
