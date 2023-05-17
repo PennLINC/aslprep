@@ -495,7 +495,7 @@ class ComputeCBF(SimpleInterface):
         masker = maskers.NiftiMasker(mask_img=mask_file)
         deltam_arr = masker.fit_transform(deltam_file).T  # Transpose to SxT
         assert deltam_arr.ndim == 2, f"deltam is {deltam_arr.ndim}"
-        n_voxels, n_volumes = deltam_arr.shape
+
         # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
         m0data = np.mean(m0data, axis=0)
