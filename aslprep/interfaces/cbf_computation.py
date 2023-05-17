@@ -415,6 +415,8 @@ class ComputeCBF(SimpleInterface):
     Multi-PLD CBF is handled using a weighted average,
     based on :footcite:t:`dai2012reduced,wang2013multi`.
 
+    If slice timing information is detected, then PLDs will be shifted by the slice times.
+
     References
     ----------
     .. footbibliography::
@@ -431,9 +433,7 @@ class ComputeCBF(SimpleInterface):
         deltam_file = self.inputs.deltam  # control - label signal intensities
 
         if self.inputs.cbf_only:
-            config.loggers.interface.debug(
-                "Precalculated CBF data detected. Skipping CBF estimation."
-            )
+            config.loggers.interface.debug("CBF data detected. Skipping CBF estimation.")
             self._results["cbf"] = fname_presuffix(
                 deltam_file,
                 suffix="_meancbf",
@@ -525,14 +525,14 @@ class ComputeCBF(SimpleInterface):
         m0data = masker.transform(m0_file).T
         scaled_m0data = m0_scale * m0data
 
-        # Offset PLD(s) by slice times
-        # This step builds a voxel-wise array of post-labeling delay values,
-        # where voxels from each slice have the appropriately-shifted PLD value.
-        # If there are multiple PLDs, then the second dimension of the PLD array will
-        # correspond to volumes in the time series.
         if "SliceTiming" in metadata:
+            # Offset PLD(s) by slice times
+            # This step builds a voxel-wise array of post-labeling delay values,
+            # where voxels from each slice have the appropriately-shifted PLD value.
+            # If there are multiple PLDs, then the second dimension of the PLD array will
+            # correspond to volumes in the time series.
             config.loggers.interface.info(
-                "2D acquisition detected. "
+                "2D acquisition with slice timing information detected. "
                 "Shifting post-labeling delay values across the brain by slice times."
             )
             slice_times = np.array(metadata["SliceTiming"])
@@ -551,6 +551,8 @@ class ComputeCBF(SimpleInterface):
                 )
 
             # Reverse the slice times if slices go from maximum index to zero.
+            # This probably won't occur with ASL data though, since I --> S makes more sense than
+            # S --> I.
             if slice_encoding_direction.endswith("-"):
                 slice_times = slice_times[::-1]
 
@@ -580,11 +582,12 @@ class ComputeCBF(SimpleInterface):
             pld_img.to_filename(pld_file)
 
         # Define perfusion factor
+        # plds may be shaped (0,), (S,), or (S, D)
         perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
             denom_factor * 2 * labeleff
         )
 
-        # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
+        # Scale difference signal to absolute CBF units by dividing by PD image (M0 * m0_scale).
         deltam_scaled = deltam_arr / scaled_m0data
 
         if (n_plds > 1) and (n_plds != n_volumes):
@@ -610,29 +613,15 @@ class ComputeCBF(SimpleInterface):
                 )
             raise ValueError("This is not currently supported.")
 
-        elif (n_plds > 1) and (n_volumes == 1):
-            raise ValueError("How did you get here?")
-
-        else:
+        elif n_plds == 1:
             # Single-PLD acquisition.
             cbf = deltam_scaled * perfusion_factor
 
-            if "SliceTiming" in metadata:
-                perfusion_factor_img = masker.inverse_transform(perfusion_factor.T)
-                perfusion_factor_fname = fname_presuffix(
-                    self.inputs.deltam,
-                    suffix="_perffactor",
-                    newpath=runtime.cwd,
-                )
-                perfusion_factor_img.to_filename(perfusion_factor_fname)
-
-            deltam_scaled_img = masker.inverse_transform(deltam_scaled.T)
-            deltam_scaled_fname = fname_presuffix(
-                self.inputs.deltam,
-                suffix="_scaled",
-                newpath=runtime.cwd,
+        else:
+            raise ValueError(
+                "ASLPrep cannot support the detected data. "
+                "Please open a topic on NeuroStars with information about your dataset."
             )
-            deltam_scaled_img.to_filename(deltam_scaled_fname)
 
         # Return CBF to niimg.
         cbf = np.nan_to_num(cbf)
