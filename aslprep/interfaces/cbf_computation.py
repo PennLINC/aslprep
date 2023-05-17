@@ -531,6 +531,10 @@ class ComputeCBF(SimpleInterface):
         # If there are multiple PLDs, then the second dimension of the PLD array will
         # correspond to volumes in the time series.
         if "SliceTiming" in metadata:
+            config.loggers.interface.info(
+                "2D acquisition detected. "
+                "Shifting post-labeling delay values across the brain by slice times."
+            )
             slice_times = np.array(metadata["SliceTiming"])
 
             # Determine which axis slices come from.
@@ -565,13 +569,15 @@ class ComputeCBF(SimpleInterface):
 
             # Mask the PLD array to go from (X, Y, Z, delay) to (S, delay)
             pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
+            plds = masker.transform(pld_img).T
+
+            # Write out the slice-shifted PLDs to the working directory, for debugging.
             pld_file = fname_presuffix(
                 deltam_file,
                 suffix="_plds",
                 newpath=runtime.cwd,
             )
             pld_img.to_filename(pld_file)
-            plds = masker.transform(pld_img).T
 
         # Define perfusion factor
         perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
