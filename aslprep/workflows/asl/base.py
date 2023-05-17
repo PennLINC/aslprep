@@ -508,7 +508,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("asl_file", "inputnode.name_source"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (reduce_asl_file, asl_t1_trans_wf, [("aslcontext", "inputnode.aslcontext")])
+        (reduce_asl_file, asl_t1_trans_wf, [("aslcontext", "inputnode.aslcontext")]),
         (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_sdc_wf, asl_t1_trans_wf, [
             ("outputnode.out_warp", "inputnode.fieldwarp"),
