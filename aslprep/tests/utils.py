@@ -1,6 +1,5 @@
 """Utility functions for tests."""
 import os
-import subprocess
 import tarfile
 from contextlib import contextmanager
 from glob import glob
@@ -167,31 +166,6 @@ def check_affines(data_dir, out_dir, input_type):
         raise AssertionError(f"Affines do not match:\n\t{bold_file}\n\t{denoised_file}")
 
     print("No affines changed.")
-
-
-def run_command(command, env=None):
-    """Run a given shell command with certain environment variables set."""
-    merged_env = os.environ
-    if env:
-        merged_env.update(env)
-    process = subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        shell=True,
-        env=merged_env,
-    )
-    while True:
-        line = process.stdout.readline()
-        line = str(line, "utf-8")[:-1]
-        print(line)
-        if line == "" and process.poll() is not None:
-            break
-
-    if process.returncode != 0:
-        raise Exception(
-            f"Non zero return code: {process.returncode}\n" f"{command}\n\n{process.stdout.read()}"
-        )
 
 
 @contextmanager
