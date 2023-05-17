@@ -177,6 +177,11 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         else:
             # No bolus cutoff delay technique
             raise ValueError("PASL without a bolus cut-off technique is not supported in ASLPrep.")
+    if "SliceTiming" in metadata:
+        workflow.__desc__ += (
+            "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
+            "basis based on the slice timing."
+        )
 
     if m0_scale != 1:
         workflow.__desc__ += (
@@ -427,11 +432,19 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
         workflow.connect([(extract_deltam, estimate_alpha, [("metadata", "metadata")])])
 
+        basil_kwargs = {}
+        if "SliceTiming" in metadata.keys():
+            # This won't work for non-ascending slice orders.
+            basil_kwargs["slice_spacing"] = abs(
+                metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            )
+
         basilcbf = pe.Node(
             BASILCBF(
                 m0_scale=m0_scale,
                 pvc=True,
                 pcasl=is_casl,
+                **basil_kwargs,
             ),
             name="basilcbf",
             run_without_submitting=True,
@@ -494,6 +507,11 @@ def init_compute_cbf_ge_wf(
 The CBF was quantified from *preprocessed* ASL data using a standard
 model [@detre_perfusion_1992;@alsop_recommended_2015].
 """
+    if "SliceTiming" in metadata:
+        workflow.__desc__ += (
+            "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
+            "basis based on the slice timing."
+        )
 
     if m0_scale != 1:
         workflow.__desc__ += (
@@ -758,6 +776,13 @@ variability of other model parameters and spatial regularization of the estimate
 perfusion image, including correction of partial volume effects [@chappell_pvc].
 """
 
+        basil_kwargs = {}
+        if "SliceTiming" in metadata.keys():
+            # This won't work for non-ascending slice orders.
+            basil_kwargs["slice_spacing"] = abs(
+                metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            )
+
         basilcbf = pe.Node(
             BASILCBF(
                 m0_scale=m0_scale,
@@ -766,6 +791,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 pvc=True,
                 tis=get_inflow_times(metadata=metadata, is_casl=is_casl),
                 pcasl=is_casl,
+                **basil_kwargs,
             ),
             name="basilcbf",
             run_without_submitting=True,

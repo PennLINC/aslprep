@@ -428,6 +428,8 @@ class ComputeCBF(SimpleInterface):
     :footcite:t:`juttukonda2021characterizing`.
     Arterial transit time is estimated according to :footcite:t:`dai2012reduced`.
 
+    If slice timing information is detected, then PLDs will be shifted by the slice times.
+
     See Also
     --------
     :func:`~aslprep.utils.misc.pcasl_or_pasl`
@@ -452,9 +454,7 @@ class ComputeCBF(SimpleInterface):
         deltam_file = self.inputs.deltam  # control - label signal intensities
 
         if self.inputs.cbf_only:
-            config.loggers.interface.debug(
-                "Precalculated CBF data detected. Skipping CBF estimation."
-            )
+            config.loggers.interface.debug("CBF data detected. Skipping CBF estimation.")
             self._results["cbf_ts"] = fname_presuffix(
                 deltam_file,
                 suffix="_cbf_ts",
@@ -482,7 +482,7 @@ class ComputeCBF(SimpleInterface):
         # PostLabelingDelay is either a single number or an array of numbers.
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
-        plds = np.array(metadata["PostLabelingDelay"])
+        plds = np.atleast_1d(metadata["PostLabelingDelay"])
 
         # Get labeling efficiency (alpha in Alsop 2015).
         labeleff = estimate_labeling_efficiency(metadata=metadata)
@@ -500,6 +500,62 @@ class ComputeCBF(SimpleInterface):
         m0data = masker.transform(m0_file)
         m0data = np.mean(m0data, axis=0)
         scaled_m0data = m0_scale * m0data
+
+        if "SliceTiming" in metadata:
+            # Offset PLD(s) by slice times
+            # This step builds a voxel-wise array of post-labeling delay values,
+            # where voxels from each slice have the appropriately-shifted PLD value.
+            # If there are multiple PLDs, then the second dimension of the PLD array will
+            # correspond to volumes in the time series.
+            config.loggers.interface.info(
+                "2D acquisition with slice timing information detected. "
+                "Shifting post-labeling delay values across the brain by slice times."
+            )
+            slice_times = np.array(metadata["SliceTiming"])
+
+            # Determine which axis slices come from.
+            # ASL data typically acquires along z axis, from inferior to superior.
+            slice_encoding_direction = metadata.get("SliceEncodingDirection", "k")
+            slice_encoding_axis = "ijk".index(slice_encoding_direction[0])
+
+            deltam_img = nb.load(deltam_file)
+            shape = deltam_img.shape[:3]
+            if slice_times.size != shape[slice_encoding_axis]:
+                raise ValueError(
+                    f"Number of slices ({shape[slice_encoding_axis]}) != "
+                    f"slice times ({slice_times.size})"
+                )
+
+            # Reverse the slice times if slices go from maximum index to zero.
+            # This probably won't occur with ASL data though, since I --> S makes more sense than
+            # S --> I.
+            if slice_encoding_direction.endswith("-"):
+                slice_times = slice_times[::-1]
+
+            # Determine which dimensions to add to the slice times array,
+            # so that all 4 dims are 1, except for the slice encoding axis,
+            # which will have the slice times.
+            new_dims = [0, 1, 2, 3]
+            new_dims.pop(slice_encoding_axis)
+            slice_times = np.expand_dims(slice_times, new_dims)
+
+            # Create a 4D array of PLDs, matching shape of ASL data (except only one volume).
+            pld_brain = np.tile(plds, list(shape) + [1])
+
+            # Shift the PLDs by the appropriate slice times.
+            pld_brain = pld_brain + slice_times
+
+            # Mask the PLD array to go from (X, Y, Z, delay) to (S, delay)
+            pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
+            plds = masker.transform(pld_img).T
+
+            # Write out the slice-shifted PLDs to the working directory, for debugging.
+            pld_file = fname_presuffix(
+                deltam_file,
+                suffix="_plds",
+                newpath=runtime.cwd,
+            )
+            pld_img.to_filename(pld_file)
 
         if is_casl:
             tau = np.array(metadata["LabelingDuration"])
@@ -798,6 +854,11 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=True,
         sep=",",
     )
+    slice_spacing = traits.Float(
+        desc="Slice times",
+        argstr="--slicedt %s",
+        mandatory=False,
+    )
     pvc = traits.Bool(
         desc="Do partial volume correction.",
         mandatory=False,
@@ -819,7 +880,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     alpha = traits.Float(
         desc=(
             "Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. "
-            "This is equivalent the BIDS metadata field 'LabelingEfficiency'."
+            "This is equivalent to the BIDS metadata field 'LabelingEfficiency'."
         ),
         argstr="--alpha %.2f",
     )
