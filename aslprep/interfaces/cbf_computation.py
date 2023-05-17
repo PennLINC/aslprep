@@ -415,6 +415,8 @@ class ComputeCBF(SimpleInterface):
     Multi-PLD CBF is handled using a weighted average,
     based on :footcite:t:`dai2012reduced,wang2013multi`.
 
+    If slice timing information is detected, then PLDs will be shifted by the slice times.
+
     References
     ----------
     .. footbibliography::
@@ -431,9 +433,7 @@ class ComputeCBF(SimpleInterface):
         deltam_file = self.inputs.deltam  # control - label signal intensities
 
         if self.inputs.cbf_only:
-            config.loggers.interface.debug(
-                "Precalculated CBF data detected. Skipping CBF estimation."
-            )
+            config.loggers.interface.debug("CBF data detected. Skipping CBF estimation.")
             self._results["cbf"] = fname_presuffix(
                 deltam_file,
                 suffix="_meancbf",
@@ -454,7 +454,8 @@ class ComputeCBF(SimpleInterface):
         # PostLabelingDelay is either a single number or an array of numbers.
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
-        plds = np.array(metadata["PostLabelingDelay"])
+        plds = np.atleast_1d(metadata["PostLabelingDelay"])
+        n_plds = plds.size
         if np.std(plds) > 0:
             raise ValueError(
                 f"{np.unique(plds).size} unique PostLabelingDelay values detected. "
@@ -515,10 +516,6 @@ class ComputeCBF(SimpleInterface):
         else:
             raise ValueError(f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}")
 
-        perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
-            denom_factor * 2 * labeleff
-        )
-
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask_file)
@@ -528,19 +525,82 @@ class ComputeCBF(SimpleInterface):
         m0data = masker.transform(m0_file).T
         scaled_m0data = m0_scale * m0data
 
+        if "SliceTiming" in metadata:
+            # Offset PLD(s) by slice times
+            # This step builds a voxel-wise array of post-labeling delay values,
+            # where voxels from each slice have the appropriately-shifted PLD value.
+            # If there are multiple PLDs, then the second dimension of the PLD array will
+            # correspond to volumes in the time series.
+            config.loggers.interface.info(
+                "2D acquisition with slice timing information detected. "
+                "Shifting post-labeling delay values across the brain by slice times."
+            )
+            slice_times = np.array(metadata["SliceTiming"])
+
+            # Determine which axis slices come from.
+            # ASL data typically acquires along z axis, from inferior to superior.
+            slice_encoding_direction = metadata.get("SliceEncodingDirection", "k")
+            slice_encoding_axis = "ijk".index(slice_encoding_direction[0])
+
+            deltam_img = nb.load(deltam_file)
+            shape = deltam_img.shape[:3]
+            if slice_times.size != shape[slice_encoding_axis]:
+                raise ValueError(
+                    f"Number of slices ({shape[slice_encoding_axis]}) != "
+                    f"slice times ({slice_times.size})"
+                )
+
+            # Reverse the slice times if slices go from maximum index to zero.
+            # This probably won't occur with ASL data though, since I --> S makes more sense than
+            # S --> I.
+            if slice_encoding_direction.endswith("-"):
+                slice_times = slice_times[::-1]
+
+            # Determine which dimensions to add to the slice times array,
+            # so that all 4 dims are 1, except for the slice encoding axis,
+            # which will have the slice times.
+            new_dims = [0, 1, 2, 3]
+            new_dims.pop(slice_encoding_axis)
+            slice_times = np.expand_dims(slice_times, new_dims)
+
+            # Create a 4D array of PLDs, matching shape of ASL data (except only one volume).
+            pld_brain = np.tile(plds, list(shape) + [1])
+
+            # Shift the PLDs by the appropriate slice times.
+            pld_brain = pld_brain + slice_times
+
+            # Mask the PLD array to go from (X, Y, Z, delay) to (S, delay)
+            pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
+            plds = masker.transform(pld_img).T
+
+            # Write out the slice-shifted PLDs to the working directory, for debugging.
+            pld_file = fname_presuffix(
+                deltam_file,
+                suffix="_plds",
+                newpath=runtime.cwd,
+            )
+            pld_img.to_filename(pld_file)
+
+        # Define perfusion factor
+        # plds may be shaped (0,), (S,), or (S, D)
+        perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
+            denom_factor * 2 * labeleff
+        )
+
         # Scale difference signal to absolute CBF units by dividing by PD image (M0 * m0_scale).
         deltam_scaled = deltam_arr / scaled_m0data
 
-        if (perfusion_factor.size > 1) and (perfusion_factor.size != n_volumes):
-            # For future multi-PLD support.
+        if (n_plds > 1) and (n_plds != n_volumes):
+            # Multi-PLD, but the number of PLDs doesn't match the number of volumes.
+            # Technically, the validator should catch this.
             raise ValueError(
                 f"Number of volumes ({n_volumes}) must match number of PLDs "
                 f"({perfusion_factor.size})."
             )
 
-        if (perfusion_factor.size > 1) and (n_volumes > 1):
+        if (n_plds > 1) and (n_volumes > 1):
             # TODO: Make this actually work.
-            # Multi-PLD acquisition with multiple control-label pairs.
+            # Multi-PLD acquisition.
             # Calculate weighted CBF with multiple PostLabelingDelays.
             # Wang et al. (2013): https://doi.org/10.1016%2Fj.nicl.2013.06.017
             # Dai et al. (2012): https://doi.org/10.1002/mrm.23103
@@ -551,19 +611,17 @@ class ComputeCBF(SimpleInterface):
                 cbf[:, i_delay] = np.sum(cbf_ts[:, perf_val_idx], axis=1) / np.sum(
                     perfusion_factor[perf_val_idx]
                 )
+            raise ValueError("This is not currently supported.")
 
-        elif (perfusion_factor.size > 1) and (n_volumes == 1):
-            # Multi-PLD acquisition with one control-label pair.
-            # XXX: How is this possible?
-            cbf_ts = np.zeros(deltam_arr.shape, len(perfusion_factor))
-            for i_delay in len(perfusion_factor):
-                cbf_ts[:, i_delay] = deltam_scaled * perfusion_factor[i_delay]
-
-            cbf = np.sum(cbf_ts, axis=2) / np.sum(perfusion_factor)
+        elif n_plds == 1:
+            # Single-PLD acquisition.
+            cbf = deltam_scaled * perfusion_factor
 
         else:
-            # There is only a single PLD.
-            cbf = deltam_scaled * perfusion_factor
+            raise ValueError(
+                "ASLPrep cannot support the detected data. "
+                "Please open a topic on NeuroStars with information about your dataset."
+            )
 
         # Return CBF to niimg.
         cbf = np.nan_to_num(cbf)
@@ -775,6 +833,11 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=True,
         sep=",",
     )
+    slice_spacing = traits.Float(
+        desc="Slice times",
+        argstr="--slicedt %s",
+        mandatory=False,
+    )
     pvc = traits.Bool(
         desc="Do partial volume correction.",
         mandatory=False,
@@ -796,7 +859,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     alpha = traits.Float(
         desc=(
             "Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. "
-            "This is equivalent the BIDS metadata field 'LabelingEfficiency'."
+            "This is equivalent to the BIDS metadata field 'LabelingEfficiency'."
         ),
         argstr="--alpha %.2f",
     )

@@ -97,6 +97,12 @@ The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a 
 model [@buxton1998general].
 """
 
+    if "SliceTiming" in metadata:
+        workflow.__desc__ += (
+            "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
+            "basis based on the slice timing."
+        )
+
     if m0_scale != 1:
         workflow.__desc__ += (
             f"Prior to calculating CBF, the M0 volumes were scaled by a factor of {m0_scale}."
@@ -328,6 +334,13 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 # BolusCutOffDelayTime is a list, and the first entry should be used.
                 bolus = bolus[0]
 
+        basil_kwargs = {}
+        if "SliceTiming" in metadata.keys():
+            # This won't work for non-ascending slice orders.
+            basil_kwargs["slice_spacing"] = abs(
+                metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            )
+
         basilcbf = pe.Node(
             BASILCBF(
                 m0_scale=m0_scale,
@@ -336,6 +349,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 pvc=True,
                 tis=tiscbf,
                 pcasl=is_casl,
+                **basil_kwargs,
             ),
             name="basilcbf",
             run_without_submitting=True,
@@ -395,6 +409,11 @@ def init_compute_cbf_ge_wf(
 The CBF was quantified from *preprocessed* ASL data using a standard
 model [@detre_perfusion_1992;@alsop_recommended_2015].
 """
+    if "SliceTiming" in metadata:
+        workflow.__desc__ += (
+            "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
+            "basis based on the slice timing."
+        )
 
     if m0_scale != 1:
         workflow.__desc__ += (
@@ -668,6 +687,13 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 # BolusCutOffDelayTime is a list, and the first entry should be used.
                 bolus = bolus[0]
 
+        basil_kwargs = {}
+        if "SliceTiming" in metadata.keys():
+            # This won't work for non-ascending slice orders.
+            basil_kwargs["slice_spacing"] = abs(
+                metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            )
+
         basilcbf = pe.Node(
             BASILCBF(
                 m0_scale=m0_scale,
@@ -676,6 +702,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 pvc=True,
                 tis=tiscbf,
                 pcasl=is_casl,
+                **basil_kwargs,
             ),
             name="basilcbf",
             run_without_submitting=True,

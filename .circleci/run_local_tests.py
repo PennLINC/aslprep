@@ -69,9 +69,9 @@ def run_tests(test_regex, test_mark):
     run_str += "pennlinc/aslprep:unstable "
     run_str += (
         f"{mounted_code}/aslprep "
-        f"--data_dir={mounted_code}/aslprep/tests/data/test_data "
-        f"--output_dir={mounted_code}/aslprep/tests/data/test_data/run_pytests/out "
-        f"--working_dir={mounted_code}/aslprep/tests/data/test_data/run_pytests/work "
+        f"--data_dir={mounted_code}/aslprep/tests/test_data "
+        f"--output_dir={mounted_code}/aslprep/tests/pytests/out "
+        f"--working_dir={mounted_code}/aslprep/tests/pytests/work "
     )
     if test_regex:
         run_str += f"-k {test_regex} "
