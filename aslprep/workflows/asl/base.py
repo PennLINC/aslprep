@@ -219,7 +219,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
     inputnode.inputs.asl_file = asl_file
     inputnode.inputs.aslcontext = run_data["aslcontext"]
-    inputnode.inputs.m0_file = run_data["m0scan"]
+    inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
     if sbref_file is not None:
