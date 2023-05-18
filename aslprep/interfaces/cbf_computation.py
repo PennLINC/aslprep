@@ -557,6 +557,10 @@ class ComputeCBF(SimpleInterface):
             )
             pld_img.to_filename(pld_file)
 
+        elif is_multi_pld:
+            # Broadcast PLDs to voxels by PLDs
+            plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
+
         if is_casl:
             tau = np.array(metadata["LabelingDuration"])
 

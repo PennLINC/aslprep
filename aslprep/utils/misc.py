@@ -821,9 +821,9 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
 
     Parameters
     ----------
-    deltam_arr : :obj:`numpy.ndarray`
-        Delta-M array.
-    plds : :obj:`numpy.ndarray`
+    deltam_arr : :obj:`numpy.ndarray` of shape (S, D)
+        Delta-M array, averaged by PLD.
+    plds : :obj:`numpy.ndarray` of shape (S, D)
         Post-labeling delays. w in Dai 2012.
     lds : :obj:`numpy.ndarray`
         Labeling durations. tau in Dai 2012.
@@ -873,9 +873,9 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     ----------
     .. footbibliography::
     """
-    n_plds = plds.size
-    n_voxels, n_volumes = deltam_arr.shape
-    assert n_volumes == n_plds, f"{n_plds} != {n_volumes}"
+    n_plds = plds.shape[1]
+    n_voxels = deltam_arr.shape[0]
+    assert deltam_arr.shape == plds.shape, f"{deltam_arr.shape} != {plds.shape}"
 
     # Beginning of auxil_asl_gen_wsum
     assert lds.size == n_plds, f"{lds.size} != {n_plds}"
@@ -961,7 +961,7 @@ def estimate_cbf_pcasl_multipld(
         P = Post-labeling delay (i.e., volume).
     scaled_m0data : :obj:`numpy.ndarray` of shape (S,)
         The M0 volume, after scaling based on the M0-scale value.
-    plds : :obj:`numpy.ndarray` of shape (P,) or (S, P)
+    plds : :obj:`numpy.ndarray` of shape (S, P)
         Post-labeling delays. One value for each volume in ``deltam_arr``.
     tau : :obj:`numpy.ndarray` of shape (P,) or (0,)
         Label duration. May be a single value or may vary across volumes/PLDs.
@@ -1003,11 +1003,9 @@ def estimate_cbf_pcasl_multipld(
     .. footbibliography::
     """
     n_voxels, n_volumes = deltam_arr.shape
-    if plds.ndim == 2:
-        n_voxels_pld, n_plds = plds.shape
-        assert n_voxels_pld == n_voxels
-    elif plds.ndim == 1:
-        n_plds = plds.shape[0]
+    n_voxels_pld, n_plds = plds.shape
+    assert n_voxels_pld == n_voxels
+    first_voxel_plds = plds[0, :]
 
     if n_plds != n_volumes:
         raise ValueError(
@@ -1015,21 +1013,26 @@ def estimate_cbf_pcasl_multipld(
         )
 
     # Formula from Fan 2017 (equation 2)
-    unique_plds, unique_pld_idx = np.unique(plds, return_index=True)
+    # Determine unique original post-labeling delays
+    unique_first_voxel_plds, unique_pld_idx = np.unique(first_voxel_plds, return_index=True)
+    unique_plds = plds[:, unique_pld_idx]  # S x unique PLDs
+    n_unique_plds = unique_pld_idx.size
+
+    # tau should be a 1D array, with one volume per unique PLD
     if tau.size > 1:
-        if tau.size != plds.size:
+        if tau.size != n_plds:
             raise ValueError(
-                f"Number of LabelingDuration values {tau.size} != number of "
-                f"PostLabelingDelay values {plds.size}"
+                f"Number of LabelingDurations ({tau.size}) != "
+                f"number of PostLabelingDelays ({n_plds})"
             )
 
         tau = tau[unique_pld_idx]
     else:
-        tau = np.full(unique_plds.size, tau)
+        tau = np.full(n_unique_plds, tau)
 
-    mean_deltam_by_pld = np.zeros((n_voxels, unique_plds.size))
-    for i_pld, pld in enumerate(unique_plds):
-        pld_idx = plds == pld
+    mean_deltam_by_pld = np.zeros((n_voxels, n_unique_plds))
+    for i_pld, first_voxel_pld in enumerate(unique_first_voxel_plds):
+        pld_idx = first_voxel_plds == first_voxel_pld
         mean_deltam_by_pld[:, i_pld] = np.mean(deltam_arr[:, pld_idx], axis=1)
 
     # Estimate ATT for each voxel
@@ -1046,14 +1049,15 @@ def estimate_cbf_pcasl_multipld(
     denom_factor = 2 * labeleff * scaled_m0data * t1blood
 
     # Loop over PLDs and calculate CBF for each, accounting for ATT.
-    cbf_by_pld = np.zeros((n_voxels, unique_plds.size))
-    for i_pld, pld in enumerate(unique_plds):
+    cbf_by_pld = np.zeros((n_voxels, n_unique_plds))
+    for i_pld in range(n_unique_plds):
+        pld_by_voxel = unique_plds[:, i_pld]
         tau_for_pld = tau[i_pld]
 
         pld_num_factor = num_factor * mean_deltam_by_pld[:, i_pld] * np.exp(att_arr / t1blood)
         pld_denom_factor = denom_factor * (
-            np.exp(-np.maximum(pld - att_arr, 0))
-            - np.exp(-np.maximum(tau_for_pld + pld - att_arr, 0))
+            np.exp(-np.maximum(pld_by_voxel - att_arr, 0))
+            - np.exp(-np.maximum(tau_for_pld + pld_by_voxel - att_arr, 0))
         )
         cbf_by_pld[:, i_pld] = pld_num_factor / pld_denom_factor
 
@@ -1061,9 +1065,10 @@ def estimate_cbf_pcasl_multipld(
     # per Juttukonda 2021 (section 2.6).
     cbf = np.zeros(n_voxels)  # mean CBF
     for i_voxel in range(n_voxels):
+        plds_voxel = unique_plds[i_voxel, :]
         cbf_by_pld_voxel = cbf_by_pld[i_voxel, :]
-        arr_voxel = att_arr[i_voxel]
-        cbf[i_voxel] = np.mean(cbf_by_pld_voxel[(unique_plds + tau) > arr_voxel])
+        att_voxel = att_arr[i_voxel]
+        cbf[i_voxel] = np.mean(cbf_by_pld_voxel[(plds_voxel + tau) > att_voxel])
 
     return att_arr, cbf
 
