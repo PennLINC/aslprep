@@ -65,8 +65,8 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 mask=mask_file,
             )
             results = interface.run(cwd=tmpdir)
-            assert os.path.isfile(results.outputs.cbf)
-            cbf_img = nb.load(results.outputs.cbf)
+            assert os.path.isfile(results.outputs.cbf_ts)
+            cbf_img = nb.load(results.outputs.cbf_ts)
             assert cbf_img.ndim == 4
             assert cbf_img.shape[3] == n_deltam
             assert os.path.isfile(results.outputs.mean_cbf)
@@ -193,8 +193,8 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
-        assert os.path.isfile(results.outputs.cbf)
-        cbf_img = nb.load(results.outputs.cbf)
+        assert os.path.isfile(results.outputs.cbf_ts)
+        cbf_img = nb.load(results.outputs.cbf_ts)
         assert cbf_img.ndim == 4
         assert cbf_img.shape[3] == n_deltam
         assert os.path.isfile(results.outputs.mean_cbf)
@@ -259,8 +259,8 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
-        assert os.path.isfile(results.outputs.cbf)
-        cbf_img = nb.load(results.outputs.cbf)
+        assert os.path.isfile(results.outputs.cbf_ts)
+        cbf_img = nb.load(results.outputs.cbf_ts)
         assert cbf_img.ndim == 4
         assert cbf_img.shape[3] == n_deltam
         assert os.path.isfile(results.outputs.mean_cbf)
@@ -373,7 +373,7 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
             mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
-        cbf_data.append(nb.load(results.outputs.cbf).get_fdata())
+        cbf_data.append(nb.load(results.outputs.cbf_ts).get_fdata())
 
     assert np.array_equal(cbf_data[0], cbf_data[1])
 
