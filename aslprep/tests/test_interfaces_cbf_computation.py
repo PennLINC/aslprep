@@ -218,7 +218,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 4: QUIPSS PASL with one PostLabelingDelay for each deltam volume (good)
@@ -238,7 +238,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
@@ -284,7 +284,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
@@ -304,8 +304,14 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Q2TIPS is not supported in ASLPrep."):
-            results = interface.run(cwd=tmpdir)
+        results = interface.run(cwd=tmpdir)
+        assert os.path.isfile(results.outputs.cbf_ts)
+        cbf_img = nb.load(results.outputs.cbf_ts)
+        assert cbf_img.ndim == 4
+        assert cbf_img.shape[3] == n_deltam
+        assert os.path.isfile(results.outputs.mean_cbf)
+        mean_cbf_img = nb.load(results.outputs.mean_cbf)
+        assert mean_cbf_img.ndim == 3
 
         # Scenario 8: Q2TIPS PASL with multiple PostLabelingDelays
         metadata = {
@@ -324,7 +330,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
             results = interface.run(cwd=tmpdir)
 
 
