@@ -8,7 +8,7 @@ from nipype.pipeline import engine as pe
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces.utility import (
     CombineMotionParameters,
-    RMSDiff,
+    PairwiseRMSDiff,
     SplitOutVolumeType,
 )
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -155,7 +155,7 @@ Next, ASLPrep concatenated the motion parameters across volume types.
 
         # Head motion correction (hmc)
         mcflirt = pe.Node(
-            fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=True),
+            fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=False),
             name=f"mcflirt_{file_to_mcflirt}",
             mem_gb=mem_gb * 3,
         )
@@ -165,20 +165,19 @@ Next, ASLPrep concatenated the motion parameters across volume types.
             (inputnode, mcflirt, [("raw_ref_image", "ref_file")]),
             (split_out_volumetype, mcflirt, [("out_file", "in_file")]),
             (mcflirt, combine_motpars, [
-                ("mat_file", f"{file_to_mcflirt}_mat_file"),
+                ("mat_file", f"{file_to_mcflirt}_mat_files"),
                 ("par_file", f"{file_to_mcflirt}_par_file"),
-                # XXX: Typically grabs relative RMS, but I switched to grab absolute.
-                (("rms_files", _select_first_in_list), f"{file_to_mcflirt}_rms_file"),
             ]),
         ])
         # fmt:on
 
-    # TODO: Use rmsdiff to calculate relative rms from transform files.
-    rmsdiff = pe.Node(RMSDiff(), name="rmsdiff")
+    # Use rmsdiff to calculate relative rms from transform files.
+    rmsdiff = pe.Node(PairwiseRMSDiff(), name="rmsdiff")
 
     # fmt:off
     workflow.connect([
-        (combine_motpars, rmsdiff, [("combined_mat_file", "in_files")]),
+        (inputnode, rmsdiff, [("raw_ref_image", "ref_file")]),
+        (combine_motpars, rmsdiff, [("mat_file_list", "in_files")]),
         (rmsdiff, outputnode, [("out_file", "rmsd_file")]),
     ])
     # fmt:on
@@ -191,7 +190,7 @@ Next, ASLPrep concatenated the motion parameters across volume types.
             ("raw_ref_image", "in_source"),
             ("raw_ref_image", "in_reference"),
         ]),
-        (combine_motpars, fsl2itk, [("combined_mat_file", "in_files")]),
+        (combine_motpars, fsl2itk, [("mat_file_list", "in_files")]),
         (fsl2itk, outputnode, [("out_file", "xforms")]),
     ])
     # fmt:on

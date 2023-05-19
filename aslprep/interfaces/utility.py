@@ -9,6 +9,7 @@ from nipype.interfaces.base import (
     TraitedSpec,
     traits,
 )
+from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
@@ -72,31 +73,101 @@ class ReduceASLFiles(SimpleInterface):
         return runtime
 
 
+class _RMSDiffInputSpec(FSLCommandInputSpec):
+    matrixfile1 = File(
+        exists=True,
+        desc="First matrix file.",
+        mandatory=True,
+    )
+    matrixfile2 = File(
+        exists=True,
+        desc="Second matrix file.",
+        mandatory=True,
+    )
+    ref_vol = File(
+        exists=True,
+        desc="Reference volume.",
+        mandatory=True,
+    )
+
+
+class _RMSDiffOutputSpec(TraitedSpec):
+    rmsd = traits.Float()
+
+
+class RMSDiff(FSLCommand):
+    """Run rmsdiff."""
+
+    _cmd = "rmsdiff"
+    input_spec = _RMSDiffInputSpec
+    output_spec = _RMSDiffOutputSpec
+
+
+class _PairwiseRMSDiffInputSpec(BaseInterfaceInputSpec):
+    in_files = traits.List(
+        File(exists=True),
+        desc="Matrix files to compare with each other.",
+        mandatory=True,
+    )
+    ref_file = File(
+        exists=True,
+        desc="Reference volume.",
+        mandatory=True,
+    )
+
+
+class _PairwiseRMSDiffOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc="Output txt file.")
+
+
+class PairwiseRMSDiff(SimpleInterface):
+    """Run rmsdiff."""
+
+    input_spec = _PairwiseRMSDiffInputSpec
+    output_spec = _PairwiseRMSDiffOutputSpec
+
+    def _run_interface(self, runtime):
+        rmsd = []
+        for i_file in range(len(self.inputs.in_files) - 1):
+            j_file = i_file + 1
+            file1 = self.inputs.in_files[i_file]
+            file2 = self.inputs.in_files[j_file]
+            # run rmsdiff
+            rmsdiff = RMSDiff(matrixfile1=file1, matrixfile2=file2, ref_vol=self.inputs.ref_file)
+            res = rmsdiff.run()
+            rmsd.append(res.outputs.rmsd)
+
+        self._results["out_file"] = fname_presuffix(
+            self.inputs.ref_vol,
+            suffix="_rmsd.txt",
+            newpath=runtime.cwd,
+            use_ext=False,
+        )
+        with open(self._results["out_file"], "w") as fo:
+            fo.write("\n".join(rmsd))
+
+        return runtime
+
+
 class _CombineMotionParametersInputSpec(BaseInterfaceInputSpec):
     m0type = traits.Str()
     processing_target = traits.Str()
     aslcontext = File(exists=True)
-    control_mat_file = traits.Either(traits.List(File(exists=True)), None)
+    control_mat_files = traits.Either(traits.List(File(exists=True)), None)
     control_par_file = traits.Either(File(exists=True), None)
-    control_rms_file = traits.Either(File(exists=True), None)
-    label_mat_file = traits.Either(traits.List(File(exists=True)), None)
+    label_mat_files = traits.Either(traits.List(File(exists=True)), None)
     label_par_file = traits.Either(File(exists=True), None)
-    label_rms_file = traits.Either(File(exists=True), None)
-    deltam_mat_file = traits.Either(traits.List(File(exists=True)), None)
+    deltam_mat_files = traits.Either(traits.List(File(exists=True)), None)
     deltam_par_file = traits.Either(File(exists=True), None)
-    deltam_rms_file = traits.Either(File(exists=True), None)
-    cbf_mat_file = traits.Either(traits.List(File(exists=True)), None)
+    cbf_mat_files = traits.Either(traits.List(File(exists=True)), None)
     cbf_par_file = traits.Either(File(exists=True), None)
-    cbf_rms_file = traits.Either(File(exists=True), None)
-    m0scan_mat_file = traits.Either(traits.List(File(exists=True)), None)
+    m0scan_mat_files = traits.Either(traits.List(File(exists=True)), None)
     m0scan_par_file = traits.Either(File(exists=True), None)
-    m0scan_rms_file = traits.Either(File(exists=True), None)
 
 
 class _CombineMotionParametersOutputSpec(TraitedSpec):
-    combined_mat_file = traits.List(File(exists=True))
+    mat_file_list = traits.List(File(exists=True))
     combined_par_file = File(exists=True)
-    combined_rms_file = File(exists=True)
 
 
 class CombineMotionParameters(SimpleInterface):
@@ -113,7 +184,7 @@ class CombineMotionParameters(SimpleInterface):
         out_mat_files = [None] * aslcontext.shape[0]
         out_rms = [None] * aslcontext.shape[0]
         for file_to_combine in files_to_combine:
-            mat_files = getattr(self.inputs, f"{file_to_combine}_mat_file")
+            mat_files = getattr(self.inputs, f"{file_to_combine}_mat_files")
             par_file = getattr(self.inputs, f"{file_to_combine}_par_file")
             rms_file = getattr(self.inputs, f"{file_to_combine}_rms_file")
             idx = aslcontext.loc[aslcontext["volume_type"] == file_to_combine].index.values
@@ -138,16 +209,7 @@ class CombineMotionParameters(SimpleInterface):
         with open(self._results["combined_par_file"], "w") as fo:
             fo.write("".join(out_par))
 
-        self._results["combined_mat_file"] = out_mat_files
-
-        self._results["combined_rms_file"] = fname_presuffix(
-            rms_file,
-            suffix="_combined",
-            newpath=runtime.cwd,
-            use_ext=True,
-        )
-        with open(self._results["combined_rms_file"], "w") as fo:
-            fo.write("".join(out_rms))
+        self._results["mat_file_list"] = out_mat_files
 
         return runtime
 
