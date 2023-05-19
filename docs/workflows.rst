@@ -168,6 +168,8 @@ Head-motion estimation
    from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
    wf = init_asl_hmc_wf(
+      processing_target="controllabel",
+      m0type="Included",
       mem_gb=1,
       omp_nthreads=1,
    )
@@ -274,7 +276,8 @@ CBF Computation in native space
       metadata = json.load(f)
 
    wf = init_compute_cbf_wf(
-      bids_dir=str(bids_dir),
+      name_source="",
+      processing_target="controllabel",
       scorescrub=False,
       basil=False,
       metadata=metadata,
