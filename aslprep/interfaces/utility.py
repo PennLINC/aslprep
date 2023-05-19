@@ -186,23 +186,17 @@ class CombineMotionParameters(SimpleInterface):
 
         out_par = [None] * aslcontext.shape[0]
         out_mat_files = [None] * aslcontext.shape[0]
-        out_rms = [None] * aslcontext.shape[0]
         for file_to_combine in files_to_combine:
             mat_files = getattr(self.inputs, f"{file_to_combine}_mat_files")
             par_file = getattr(self.inputs, f"{file_to_combine}_par_file")
-            rms_file = getattr(self.inputs, f"{file_to_combine}_rms_file")
             idx = aslcontext.loc[aslcontext["volume_type"] == file_to_combine].index.values
 
             with open(par_file, "r") as fo:
                 par = fo.readlines()
 
-            with open(rms_file, "r") as fo:
-                rms = fo.readlines()
-
             for i_vol, vol_idx in enumerate(idx):
                 out_par[vol_idx] = par[i_vol]
                 out_mat_files[vol_idx] = mat_files[i_vol]
-                out_rms[vol_idx] = rms[i_vol]
 
         self._results["combined_par_file"] = fname_presuffix(
             par_file,
