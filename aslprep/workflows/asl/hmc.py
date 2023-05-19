@@ -6,7 +6,7 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces.utility import CombineMotionParameters, SplitOutVolumeType
+from aslprep.interfaces.utility import CombineMotionParameters, RMSDiff, SplitOutVolumeType
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces import NormalizeMotionParams
 from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
@@ -43,7 +43,7 @@ def init_asl_hmc_wf(
     Parameters
     ----------
     processing_target : {"controllabel", "deltam", "cbf"}
-    m0type
+    m0type : {"Separate", "Included", "Absent", "Estimate"}
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
@@ -72,12 +72,24 @@ def init_asl_hmc_wf(
         Framewise displacement as measured by ``fsl_motion_outliers``
     """
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
-Head-motion parameters were estimated to the control-label time series using
+
+    if processing_target == "controllabel":
+        if m0type == "Included":
+            substr = "control, label, and M0"
+        else:
+            substr = "control and label"
+        sep = "separately "
+    elif processing_target == "deltam":
+        substr = f"deltam{' and M0' if m0type == 'Included' else ''}"
+        sep = "separately " if m0type == "Included" else ""
+    elif processing_target == "cbf":
+        substr = f"CBF{' and M0' if m0type == 'Included' else ''}"
+        sep = "separately " if m0type == "Included" else ""
+
+    workflow.__desc__ = f"""\
+Head-motion parameters were {sep}estimated for the {substr} volumes in the ASL time series using
 *FSL*'s `mcflirt` [@mcflirt].
-Next, ASLPrep applied zig-zag regression [@wang2012improving] to correct the motion parameters
-for intensity differences between the control and label volumes.
-ASLPrep wrote the modified head-motion parameters to the ASL run's confound file.
+Next, ASLPrep concatenated the motion parameters across volume types.
 
 """
 
@@ -105,7 +117,6 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
 
     # Combine the motpars files, mat files, and rms files across the different MCFLIRTed files,
     # based on the aslcontext file.
-    # XXX: What about a separate M0 scan?
     combine_motpars = pe.Node(
         CombineMotionParameters(m0type=m0type, processing_target=processing_target),
         name="combine_motpars",
@@ -159,6 +170,15 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
         # fmt:on
 
     # TODO: Use rmsdiff to calculate relative rms from transform files.
+    rmsdiff = pe.Node(RMSDiff(), name="rmsdiff")
+
+    # fmt:off
+    workflow.connect([
+        (combine_motpars, rmsdiff, [("combined_mat_file", "in_files")]),
+        (rmsdiff, outputnode, [("out_file", "rmsd_file")]),
+    ])
+    # fmt:on
+
     fsl2itk = pe.Node(MCFLIRT2ITK(), name="fsl2itk", mem_gb=0.05, n_procs=omp_nthreads)
 
     # fmt:off
@@ -177,13 +197,10 @@ ASLPrep wrote the modified head-motion parameters to the ASL run's confound file
         name="normalize_motion",
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-
-    workflow.connect([(normalize_motion, outputnode, [("out_file", "movpar_file")])])
-
     # fmt:off
     workflow.connect([
         (combine_motpars, normalize_motion, [("combined_par_file", "in_file")]),
-        (combine_motpars, outputnode, [("combined_rms_file", "rmsd_file")]),
+        (normalize_motion, outputnode, [("out_file", "movpar_file")]),
     ])
     # fmt:on
 

@@ -7,8 +7,9 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.interfaces.cbf_computation import RefineMask, SplitASLData
+from aslprep.interfaces.cbf_computation import RefineMask
 from aslprep.interfaces.reports import FunctionalSummary
+from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
@@ -263,8 +264,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
     workflow.connect([(inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")])])
 
-    # Split the data into M0, control/label, deltam, and cbf time series.
-    # Processing steps depend on which ones are available.
+    # Determine which volumes to use in the pipeline
     processing_target = group_asl_data(aslcontext=run_data["aslcontext"])
     m0type = metadata["M0Type"]
 
@@ -278,10 +278,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         name="asl_reference_wf",
     )
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
-    asl_reference_wf.inputs.inputnode.aslcontext = run_data["aslcontext"]
 
     # fmt:off
     workflow.connect([
+        (inputnode, asl_reference_wf, [("aslcontext", "inputnode.aslcontext")]),
         (validate_asl_wf, asl_reference_wf, [("outputnode.asl_file", "inputnode.asl_file")]),
     ])
     # fmt:on
@@ -289,8 +289,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if sbref_file is not None:
         workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
 
+    # Drop volumes in the ASL file that won't be used
+    # (e.g., precalculated CBF volumes if control-label pairs are available).
     reduce_asl_file = pe.Node(
-        SplitASLData(
+        ReduceASLFiles(
             processing_target=processing_target,
             metadata=metadata,
         ),
@@ -322,8 +324,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (reduce_asl_file, asl_hmc_wf, [
-            ("aslcontext", "inputnode.aslcontext"),
             ("asl_file", "inputnode.asl_file"),
+            ("aslcontext", "inputnode.aslcontext"),
         ]),
         (asl_reference_wf, asl_hmc_wf, [("outputnode.raw_ref_image", "inputnode.raw_ref_image")]),
     ])
@@ -467,10 +469,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (inputnode, compute_cbf_wf, [
+            ("t1w_mask", "inputnode.t1w_mask"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("m0scan", "inputnode.m0scan"),
             ("m0scan_metadata", "inputnode.m0scan_metadata"),
-            ("t1w_mask", "inputnode.t1w_mask"),
         ]),
         (reduce_asl_file, compute_cbf_wf, [("aslcontext", "inputnode.aslcontext")]),
         (asl_asl_trans_wf, compute_cbf_wf, [
@@ -731,9 +733,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (inputnode, asl_std_trans_wf, [
+                ("asl_file", "inputnode.name_source"),
                 ("template", "inputnode.templates"),
                 ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
-                ("asl_file", "inputnode.name_source"),
             ]),
             (reduce_asl_file, asl_std_trans_wf, [("aslcontext", "inputnode.aslcontext")]),
             (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),

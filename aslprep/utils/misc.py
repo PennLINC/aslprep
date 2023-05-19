@@ -801,3 +801,27 @@ def get_template_str(template, kwargs):
     from templateflow.api import get as get_template
 
     return str(get_template(template, **kwargs))
+
+
+def reduce_metadata_lists(metadata, metadata_idx):
+    """Reduce any volume-wise metadata fields to only contain values for selected volumes."""
+    # A hardcoded list of fields that may have one value for each volume.
+    VOLUME_WISE_FIELDS = [
+        "PostLabelingDelay",
+        "VascularCrushingVENC",
+        "LabelingDuration",
+        "EchoTime",
+        "FlipAngle",
+        "RepetitionTimePreparation",
+    ]
+
+    for field in VOLUME_WISE_FIELDS:
+        if field not in metadata:
+            continue
+
+        value = metadata[field]
+        if isinstance(value, list):
+            # Reduce to only the selected volumes
+            metadata[field] = [value[i] for i in metadata_idx]
+
+    return metadata

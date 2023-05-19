@@ -1,4 +1,5 @@
 """Utility interfaces for ASLPrep."""
+import nibabel as nb
 import pandas as pd
 from nilearn import image
 from nipype.interfaces.base import (
@@ -11,6 +12,64 @@ from nipype.interfaces.base import (
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
+from aslprep.utils.misc import reduce_metadata_lists
+
+
+class _ReduceASLFilesInputSpec(BaseInterfaceInputSpec):
+    asl_file = File(exists=True, mandatory=True, desc="ASL file to split.")
+    aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV.")
+    processing_target = traits.Str()
+    metadata = traits.Dict()
+
+
+class _ReduceASLFilesOutputSpec(TraitedSpec):
+    asl_file = File(exists=True, desc="Modified ASL file.")
+    aslcontext = File(exists=True, desc="Modified aslcontext file.")
+    metadata = traits.Dict()
+
+
+class ReduceASLFiles(SimpleInterface):
+    """Split ASL data into different files."""
+
+    input_spec = _ReduceASLFilesInputSpec
+    output_spec = _ReduceASLFilesOutputSpec
+
+    def _run_interface(self, runtime):
+        aslcontext = pd.read_table(self.inputs.aslcontext)
+        asl_img = nb.load(self.inputs.asl_file)
+        assert asl_img.shape[3] == aslcontext.shape[0]
+
+        if self.inputs.processing_target == "controllabel":
+            files_to_keep = ["control", "label", "m0scan"]
+        elif self.inputs.processing_target == "deltam":
+            files_to_keep = ["deltam", "m0scan"]
+        else:
+            files_to_keep = ["cbf", "m0scan"]
+
+        asl_idx = aslcontext.loc[aslcontext["volume_type"].isin(files_to_keep)].index.values
+        asl_idx = asl_idx.astype(int)
+        self._results["metadata"] = reduce_metadata_lists(self.inputs.metadata, asl_idx)
+
+        asl_img = image.index_img(asl_img, asl_idx)
+
+        self._results["asl_file"] = fname_presuffix(
+            self.inputs.asl_file,
+            suffix="_reduced",
+            newpath=runtime.cwd,
+            use_ext=True,
+        )
+        asl_img.to_filename(self._results["asl_file"])
+
+        aslcontext = aslcontext.loc[asl_idx]
+        self._results["aslcontext"] = fname_presuffix(
+            self.inputs.aslcontext,
+            suffix="_reduced",
+            newpath=runtime.cwd,
+            use_ext=True,
+        )
+        aslcontext.to_csv(self._results["aslcontext"], sep="\t", index=False)
+
+        return runtime
 
 
 class _CombineMotionParametersInputSpec(BaseInterfaceInputSpec):
