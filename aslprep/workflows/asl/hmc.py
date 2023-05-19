@@ -6,7 +6,11 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces.utility import CombineMotionParameters, RMSDiff, SplitOutVolumeType
+from aslprep.interfaces.utility import (
+    CombineMotionParameters,
+    RMSDiff,
+    SplitOutVolumeType,
+)
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces import NormalizeMotionParams
 from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
