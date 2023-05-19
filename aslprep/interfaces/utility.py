@@ -257,7 +257,11 @@ class _SplitReferenceTargetOutputSpec(TraitedSpec):
 
 
 class SplitReferenceTarget(SimpleInterface):
-    """Split out a specific volume type from the ASL file."""
+    """Split out just the optimal volume type for reference files from the overall ASL file.
+
+    This means grabbing M0 volumes if they're available, or control volumes if *they're* available,
+    or deltams, or cbfs.
+    """
 
     input_spec = _SplitReferenceTargetInputSpec
     output_spec = _SplitReferenceTargetOutputSpec
