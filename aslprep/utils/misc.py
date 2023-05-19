@@ -777,7 +777,7 @@ def estimate_labeling_efficiency(metadata):
     return labeleff
 
 
-def group_asl_data(aslcontext):
+def select_processing_target(aslcontext):
     """Determine how to handle ASL and M0 data based on dataset configuration."""
     import pandas as pd
 

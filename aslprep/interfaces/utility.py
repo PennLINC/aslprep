@@ -1,4 +1,6 @@
 """Utility interfaces for ASLPrep."""
+import os
+
 import nibabel as nb
 import pandas as pd
 from nilearn import image
@@ -10,7 +12,7 @@ from nipype.interfaces.base import (
     traits,
 )
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
-from nipype.utils.filemanip import fname_presuffix
+from nipype.utils.filemanip import fname_presuffix, load_json, save_json
 
 from aslprep import config
 from aslprep.utils.misc import reduce_metadata_lists
@@ -76,16 +78,22 @@ class ReduceASLFiles(SimpleInterface):
 class _RMSDiffInputSpec(FSLCommandInputSpec):
     matrixfile1 = File(
         exists=True,
+        position=0,
+        argstr="%s",
         desc="First matrix file.",
         mandatory=True,
     )
     matrixfile2 = File(
         exists=True,
+        position=1,
+        argstr="%s",
         desc="Second matrix file.",
         mandatory=True,
     )
     ref_vol = File(
         exists=True,
+        position=2,
+        argstr="%s",
         desc="Reference volume.",
         mandatory=True,
     )
@@ -101,6 +109,36 @@ class RMSDiff(FSLCommand):
     _cmd = "rmsdiff"
     input_spec = _RMSDiffInputSpec
     output_spec = _RMSDiffOutputSpec
+
+    def aggregate_outputs(self, runtime=None, needed_outputs=None):  # noqa: U100
+        """Taken from nipype.interfaces.afni.preprocess.ClipLevel."""
+        outputs = self._outputs()
+
+        outfile = os.path.join(os.getcwd(), "stat_result.json")
+
+        if runtime is None:
+            try:
+                rmsd = load_json(outfile)["stat"]
+            except IOError:
+                return self.run().outputs
+        else:
+            rmsd = []
+            for line in runtime.stdout.split("\n"):
+                if line:
+                    values = line.split()
+                    if len(values) > 1:
+                        rmsd.append([float(val) for val in values])
+                    else:
+                        rmsd.extend([float(val) for val in values])
+
+            if len(rmsd) == 1:
+                rmsd = rmsd[0]
+
+            save_json(outfile, dict(stat=rmsd))
+
+        outputs.rmsd = rmsd
+
+        return outputs
 
 
 class _PairwiseRMSDiffInputSpec(BaseInterfaceInputSpec):
@@ -139,7 +177,8 @@ class PairwiseRMSDiff(SimpleInterface):
             # run rmsdiff
             rmsdiff = RMSDiff(matrixfile1=file1, matrixfile2=file2, ref_vol=self.inputs.ref_file)
             res = rmsdiff.run()
-            rmsd.append(res.outputs.rmsd)
+            assert isinstance(res.outputs.rmsd, float)
+            rmsd.append(str(res.outputs.rmsd))
 
         self._results["out_file"] = fname_presuffix(
             self.inputs.ref_file,

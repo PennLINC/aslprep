@@ -15,7 +15,7 @@ from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.bids import collect_run_data
-from aslprep.utils.misc import _create_mem_gb, _get_wf_name, group_asl_data
+from aslprep.utils.misc import _create_mem_gb, _get_wf_name, select_processing_target
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
@@ -265,7 +265,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([(inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")])])
 
     # Determine which volumes to use in the pipeline
-    processing_target = group_asl_data(aslcontext=run_data["aslcontext"])
+    processing_target = select_processing_target(aslcontext=run_data["aslcontext"])
     m0type = metadata["M0Type"]
 
     # Validate the ASL file.
