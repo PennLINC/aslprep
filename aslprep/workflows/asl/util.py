@@ -125,7 +125,8 @@ def init_asl_reference_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.niworkflows.func.util import init_asl_reference_wf
+            from aslprep.workflows.asl.util import init_asl_reference_wf
+
             wf = init_asl_reference_wf(omp_nthreads=1)
 
     Parameters
