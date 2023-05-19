@@ -14,7 +14,6 @@ from aslprep.interfaces.utility import (
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces import NormalizeMotionParams
 from aslprep.niworkflows.interfaces.itk import MCFLIRT2ITK
-from aslprep.utils.misc import _select_first_in_list
 
 
 def init_asl_hmc_wf(
