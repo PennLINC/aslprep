@@ -25,8 +25,9 @@ def init_asl_hmc_wf(
 ):
     """Estimate head-motion parameters and optionally correct them for intensity differences.
 
-    This workflow estimates motion parameters for each unique type of volume
-    (e.g., control, label, deltam, M0, CBF).
+    This workflow separately estimates motion parameters for each unique type of volume
+    (e.g., control, label, deltam, M0, CBF), and then stitches the resulting parameters
+    back together according to the aslcontext file.
 
     Workflow Graph
         .. workflow::
@@ -73,26 +74,33 @@ def init_asl_hmc_wf(
         MCFLIRT motion parameters, normalized to SPM format (X, Y, Z, Rx, Ry, Rz)
     rms_file
         Framewise displacement as measured by ``fsl_motion_outliers``
+
+    Notes
+    -----
+    ASLPrep uses volume type-wise motion correction :footcite:p:`wang2008empirical` instead of the
+    zig-zag regression approach :footcite:p:`wang2012improving` because it is unclear how
+    M0 volumes should be treated in the zig-zag method.
+
+    References
+    ----------
+    .. footbibliography::
     """
     workflow = Workflow(name=name)
 
-    if processing_target == "controllabel":
-        if m0type == "Included":
-            substr = "control, label, and M0"
-        else:
-            substr = "control and label"
-        sep = "separately "
-    elif processing_target == "deltam":
-        substr = f"deltam{' and M0' if m0type == 'Included' else ''}"
-        sep = "separately " if m0type == "Included" else ""
-    elif processing_target == "cbf":
-        substr = f"CBF{' and M0' if m0type == 'Included' else ''}"
-        sep = "separately " if m0type == "Included" else ""
+    separation_substr = ""
+    if processing_target == "controllabel" or m0type == "Included":
+        separation_substr = (
+            "Motion correction was performed separately for each of the volume types "
+            "in order to account for intensity differences between different contrasts, "
+            "which, when motion corrected together, can conflate intensity differences with "
+            "head motions [@wang2008empirical]. "
+            "Next, ASLPrep concatenated the motion parameters across volume types and "
+            "re-calculated relative root mean-squared deviation."
+        )
 
     workflow.__desc__ = f"""\
-Head-motion parameters were {sep}estimated for the {substr} volumes in the ASL time series using
-*FSL*'s `mcflirt` [@mcflirt].
-Next, ASLPrep concatenated the motion parameters across volume types.
+Head-motion parameters were estimated for the ASL data using *FSL*'s `mcflirt` [@mcflirt].
+{separation_substr}
 
 """
 
