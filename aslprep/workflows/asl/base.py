@@ -41,10 +41,11 @@ def init_asl_preproc_wf(asl_file):
             from aslprep.tests.tests import mock_config
             from aslprep import config
             from aslprep.workflows.asl.base import init_asl_preproc_wf
+
             with mock_config():
                 asl_file = (
                     config.execution.bids_dir / 'sub-01' / 'perf' /
-                    'sub-01_task-restEyesOpen_asl.nii.gz'
+                    'sub-01_asl.nii.gz'
                 )
                 wf = init_asl_preproc_wf(str(asl_file))
 
