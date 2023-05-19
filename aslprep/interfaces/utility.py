@@ -142,7 +142,7 @@ class PairwiseRMSDiff(SimpleInterface):
             rmsd.append(res.outputs.rmsd)
 
         self._results["out_file"] = fname_presuffix(
-            self.inputs.ref_vol,
+            self.inputs.ref_file,
             suffix="_rmsd.txt",
             newpath=runtime.cwd,
             use_ext=False,
