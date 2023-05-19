@@ -121,7 +121,11 @@ class _PairwiseRMSDiffOutputSpec(TraitedSpec):
 
 
 class PairwiseRMSDiff(SimpleInterface):
-    """Run rmsdiff."""
+    """Run rmsdiff on each contiguous pair of transform files to build a txt file of rmsd values.
+
+    This interface uses :class:`~aslprep.interfaces.utility.RMSDiff` internally, which may not be
+    a proper nipype pattern.
+    """
 
     input_spec = _PairwiseRMSDiffInputSpec
     output_spec = _PairwiseRMSDiffOutputSpec
