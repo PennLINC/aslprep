@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run tests locally."""
+"""Run tests locally by calling Docker."""
 import argparse
 import os
 import subprocess
@@ -39,6 +39,7 @@ def run_command(command, env=None):
     merged_env = os.environ
     if env:
         merged_env.update(env)
+
     process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
@@ -61,7 +62,7 @@ def run_command(command, env=None):
 
 def run_tests(test_regex, test_mark):
     """Run the tests."""
-    local_patch = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    local_patch = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     mounted_code = "/usr/local/miniconda/lib/python3.8/site-packages/aslprep"
     run_str = "docker run --rm -ti "
     run_str += f"-v {local_patch}:/usr/local/miniconda/lib/python3.8/site-packages/aslprep "
