@@ -891,9 +891,7 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     att_arr = np.empty(n_voxels)
     for i_voxel in range(n_voxels):
         deltam_by_voxel = deltam_arr[i_voxel, :]
-        config.loggers.utils.warning(f"deltam_by_voxel: {deltam_by_voxel}")
         plds_by_voxel = plds[i_voxel, :]
-        config.loggers.utils.warning(f"plds_by_voxel: {plds_by_voxel}")
 
         # Define the possible transit times to evaluate for this voxel
         transit_times = np.arange(
@@ -901,16 +899,13 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
             np.round(np.max(plds_by_voxel), 3) + 0.001,
             0.001,
         )
-        config.loggers.utils.warning(f"transit_times: {transit_times}")
 
         sig_sum = np.zeros((transit_times.size))
         sig_pld_sum = np.zeros((transit_times.size))
 
         for j_pld in range(n_plds):
             pld = plds_by_voxel[j_pld]
-            config.loggers.utils.warning(f"pld: {pld}")
             ld = lds[j_pld]
-            config.loggers.utils.warning(f"ld: {ld}")
 
             # e ^ (-delta / T1a)
             exp_tt_T1b = np.exp(-transit_times / t1blood)
@@ -940,14 +935,10 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
         # Predicted weighted delay values for a range of transit times
         weighted_delay_predicted = sig_pld_sum / sig_sum  # TT
         # End of auxil_asl_gen_wsum
-        config.loggers.utils.warning(f"weighted_delay_predicted: {weighted_delay_predicted.shape}")
-        config.loggers.utils.warning(f"transit_times: {transit_times.shape}")
 
         # Calculate the observed weighted delay for each voxel
         weighted_delay_denom = np.sum(deltam_by_voxel)
-        config.loggers.utils.warning(f"weighted_delay_denom: {weighted_delay_denom}")
         weighted_delay_num = np.sum(deltam_by_voxel * plds_by_voxel)
-        config.loggers.utils.warning(f"weighted_delay_num: {weighted_delay_num}")
         weighted_delay_observed = weighted_delay_num / (
             np.abs(weighted_delay_denom) + np.finfo(float).eps
         )
