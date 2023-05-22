@@ -1027,11 +1027,12 @@ def estimate_cbf_pcasl_multipld(
 
     if n_plds != n_volumes:
         raise ValueError(
-            f"Number of PostLabelingDelays ({n_plds}) does not match number of delta-M volumes."
+            f"Number of PostLabelingDelays ({n_plds}) does not match "
+            f"number of delta-M volumes ({n_volumes})."
         )
 
     # Formula from Fan 2017 (equation 2)
-    # Determine unique original post-labeling delays
+    # Determine unique original post-labeling delays (ignoring slice timing shifts)
     unique_first_voxel_plds, unique_pld_idx = np.unique(first_voxel_plds, return_index=True)
     unique_plds = plds[:, unique_pld_idx]  # S x unique PLDs
     n_unique_plds = unique_pld_idx.size
@@ -1138,8 +1139,6 @@ def estimate_t1(metadata):
     ----------
     .. footbibliography::
     """
-    from aslprep import config
-
     T1BLOOD_DICT = {
         1.5: 1.35,
         3: 1.65,
@@ -1153,7 +1152,7 @@ def estimate_t1(metadata):
         )
         t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
 
-    # TODO: Replace with field strength-dependent values.
+    # TODO: Supplement with formula for other field strengths
     T1TISSUE_DICT = {
         1.5: 1.197,
         3: 1.607,
