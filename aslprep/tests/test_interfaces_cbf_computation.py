@@ -50,6 +50,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
     for asltype in ["PCASL", "CASL"]:
         for acq_dict in ACQ_DICTS:
             # Scenario 1: PCASL with a single PostLabelingDelay
+            # This should produce CBF time series and mean CBF, but no ATT
             metadata = {
                 "ArterialSpinLabelingType": asltype,
                 "PostLabelingDelay": single_pld,
@@ -72,6 +73,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
             assert os.path.isfile(results.outputs.mean_cbf)
             mean_cbf_img = nb.load(results.outputs.mean_cbf)
             assert mean_cbf_img.ndim == 3
+            assert results.outputs.att is None
 
             # Scenario 2: PCASL with one PostLabelingDelay for each volume (bad)
             metadata = {
@@ -93,6 +95,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 results = interface.run(cwd=tmpdir)
 
             # Scenario 3: PCASL with one PostLabelingDelay for each deltam volume (good)
+            # This should produce ATT and mean CBF volumes, but no CBF time series
             metadata = {
                 "ArterialSpinLabelingType": asltype,
                 "PostLabelingDelay": good_multiple_plds,
@@ -109,13 +112,13 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 mask=mask_file,
             )
             results = interface.run(cwd=tmpdir)
-            assert os.path.isfile(results.outputs.cbf_ts)
-            cbf_img = nb.load(results.outputs.cbf_ts)
-            assert cbf_img.ndim == 4
-            assert cbf_img.shape[3] == n_deltam
+            assert results.outputs.cbf_ts is None
             assert os.path.isfile(results.outputs.mean_cbf)
             mean_cbf_img = nb.load(results.outputs.mean_cbf)
             assert mean_cbf_img.ndim == 3
+            assert os.path.isfile(results.outputs.att)
+            att_img = nb.load(results.outputs.att)
+            assert att_img.ndim == 3
 
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
@@ -176,6 +179,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 2: QUIPSS PASL with a single PostLabelingDelay
+        # This should produce CBF time series and mean CBF, but no ATT
         metadata = {
             "BolusCutOffFlag": True,
             "BolusCutOffTechnique": "QUIPSS",
@@ -242,6 +246,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
+        # This should produce CBF time series and mean CBF, but no ATT
         metadata = {
             "BolusCutOffFlag": True,
             "BolusCutOffTechnique": "QUIPSSII",
@@ -288,6 +293,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
+        # This should produce CBF time series and mean CBF, but no ATT
         metadata = {
             "BolusCutOffFlag": True,
             "BolusCutOffTechnique": "Q2TIPS",
