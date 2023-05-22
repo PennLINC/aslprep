@@ -38,7 +38,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: examples_pcasl_singlepld-v1
+          key: examples_pcasl_singlepld-v2
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -46,7 +46,7 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data examples_pcasl_singlepld
       - save_cache:
-          key: examples_pcasl_singlepld-v1
+          key: examples_pcasl_singlepld-v2
           paths:
               - /src/aslprep/.circleci/data
 
@@ -55,7 +55,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: examples_pcasl_multipld-v1
+          key: examples_pcasl_multipld-v2
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -63,7 +63,7 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data examples_pcasl_multipld
       - save_cache:
-          key: examples_pcasl_multipld-v1
+          key: examples_pcasl_multipld-v2
           paths:
               - /src/aslprep/.circleci/data
 
@@ -72,7 +72,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: examples_pasl_multipld-v1
+          key: examples_pasl_multipld-v2
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -80,7 +80,7 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data examples_pasl_multipld
       - save_cache:
-          key: examples_pasl_multipld-v1
+          key: examples_pasl_multipld-v2
           paths:
               - /src/aslprep/.circleci/data
 
@@ -89,7 +89,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: test_001-v1
+          key: test_001-v2
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -97,7 +97,7 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data test_001
       - save_cache:
-          key: test_001-v1
+          key: test_001-v2
           paths:
               - /src/aslprep/.circleci/data
 
@@ -123,7 +123,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: test_003-v1
+          key: test_003-v2
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -131,7 +131,7 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data test_003
       - save_cache:
-          key: test_003-v1
+          key: test_003-v2
           paths:
               - /src/aslprep/.circleci/data
 
@@ -148,7 +148,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v1
+          key: examples_pcasl_singlepld-v2
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_philips dataset
@@ -179,7 +179,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v1
+          key: examples_pcasl_singlepld-v2
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_siemens dataset
@@ -210,7 +210,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v1
+          key: examples_pcasl_singlepld-v2
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld dataset
@@ -241,7 +241,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_multipld-v1
+          key: examples_pcasl_multipld-v2
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_multipld dataset
@@ -272,7 +272,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pasl_multipld-v1
+          key: examples_pasl_multipld-v2
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pasl_multipld dataset
@@ -303,7 +303,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_001-v1
+          key: test_001-v2
       - run: *runinstall
       - run:
           name: Run full aslprep on test_001 dataset
@@ -365,7 +365,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_003-v1
+          key: test_003-v2
       - run: *runinstall
       - run:
           name: Run full aslprep on test_003 dataset
@@ -396,9 +396,9 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_001-v1
+          key: test_001-v2
       - restore_cache:
-          key: test_003-v1
+          key: test_003-v2
       - run: *runinstall
       - run:
           name: Run pytest on the tests directory
