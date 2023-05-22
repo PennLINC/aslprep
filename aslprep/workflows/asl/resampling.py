@@ -514,7 +514,7 @@ def init_asl_preproc_trans_wf(
 
     # Input file is not splitted
     if split_file:
-        asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb * 3)
+        asl_split = pe.Node(Split(dimension="t"), name="asl_split", mem_gb=mem_gb * 3)
         # fmt:off
         workflow.connect([
             (inputnode, asl_split, [("asl_file", "in_file")]),

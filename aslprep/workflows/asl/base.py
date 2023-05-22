@@ -284,7 +284,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
     # can be applied with other transforms in single shots.
-    asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
+    asl_split = pe.Node(Split(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
 
     # aslbuffer_stc: an identity used as a pointer to either the original ASL file
     # (if not multi-echo) or the an iterable list of the original ASL files
