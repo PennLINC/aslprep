@@ -938,8 +938,10 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
             sig_sum += sig
 
         # Predicted weighted delay values for a range of transit times
-        weighted_delay_predicted = sig_pld_sum / sig_sum  # TTxS
+        weighted_delay_predicted = sig_pld_sum / sig_sum  # TT
         # End of auxil_asl_gen_wsum
+        config.loggers.utils.warning(f"weighted_delay_predicted: {weighted_delay_predicted.shape}")
+        config.loggers.utils.warning(f"transit_times: {transit_times.shape}")
 
         # Calculate the observed weighted delay for each voxel
         weighted_delay_denom = np.sum(deltam_by_voxel)
