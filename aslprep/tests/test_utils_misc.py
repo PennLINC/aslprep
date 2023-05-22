@@ -45,7 +45,7 @@ def test_estimate_cbf_pcasl_multipld():
     n_voxels, n_unique_plds, n_slice_times = 1000, 6, 50
     base_plds = np.linspace(0.25, 1.5, n_unique_plds)
     slice_times = np.linspace(0, 3, n_slice_times)
-    slice_shifted_plds = np.dot(slice_times[:, None], base_plds[None, :])
+    slice_shifted_plds = slice_times[:, None] + base_plds[None, :]
     plds = np.repeat(slice_shifted_plds, n_voxels // n_slice_times, axis=0)
     deltam_arr = np.random.random((n_voxels, n_unique_plds))
     scaled_m0data = np.random.random(n_voxels)

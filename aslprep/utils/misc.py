@@ -825,6 +825,10 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
         Delta-M array, averaged by PLD.
     plds : :obj:`numpy.ndarray` of shape (S, D)
         Post-labeling delays. w in Dai 2012.
+        In case of a 2D acquisition, PLDs may vary by slice, and thus the plds array will vary
+        in the spatial dimension.
+        For 3D acquisitions, or 2D acquisitions without slice timing info, plds will only vary
+        along the second dimension.
     lds : :obj:`numpy.ndarray`
         Labeling durations. tau in Dai 2012.
     t1blood : :obj:`float`
@@ -841,9 +845,14 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     -----
     This function was originally written in MATLAB by Jianxun Qu and William Tackett.
     It was translated to Python by Taylor Salo.
+    Taylor Salo modified the code to loop over voxels, in order to account for slice timing-shifted
+    post-labeling delays.
 
     Please see https://shorturl.at/wCO56 and https://shorturl.at/aKQU3 for the original MATLAB
     code.
+
+    The code could probably be improved by operating on arrays, rather than looping over voxels.
+    It is also overkill for 3D acquisitions, where PLD doesn't vary by voxel.
 
     License
     -------
@@ -873,71 +882,87 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     ----------
     .. footbibliography::
     """
-    n_plds = plds.shape[1]
-    n_voxels = deltam_arr.shape[0]
+    n_voxels, n_plds = plds.shape
     assert deltam_arr.shape == plds.shape, f"{deltam_arr.shape} != {plds.shape}"
 
     # Beginning of auxil_asl_gen_wsum
     assert lds.size == n_plds, f"{lds.size} != {n_plds}"
 
-    # Define the possible transit times to evaluate
-    transit_times = np.arange(np.round(np.min(plds), 3), np.round(np.max(plds), 3) + 0.001, 0.001)
+    att_arr = np.empty(n_voxels)
+    for i_voxel in range(n_voxels):
+        deltam_by_voxel = deltam_arr[i_voxel, :]
+        config.loggers.utils.warning(f"deltam_by_voxel: {deltam_by_voxel}")
+        plds_by_voxel = plds[i_voxel, :]
+        config.loggers.utils.warning(f"plds_by_voxel: {plds_by_voxel}")
 
-    sig_sum = np.zeros(transit_times.size)
-    sig_pld_sum = np.zeros(transit_times.size)
+        # Define the possible transit times to evaluate for this voxel
+        transit_times = np.arange(
+            np.round(np.min(plds_by_voxel), 3),
+            np.round(np.max(plds_by_voxel), 3) + 0.001,
+            0.001,
+        )
+        config.loggers.utils.warning(f"transit_times: {transit_times}")
 
-    for i_pld in range(n_plds):
-        pld = plds[:, i_pld]
-        ld = lds[i_pld]
+        sig_sum = np.zeros((transit_times.size))
+        sig_pld_sum = np.zeros((transit_times.size))
 
-        # e ^ (-delta / T1a)
-        exp_tt_T1b = np.exp(-transit_times / t1blood)
-        # e ^ (-max(w - delta, 0) / T1t)
-        exp_pld_tt_T1t = np.exp(-np.maximum(0, pld - transit_times) / t1tissue)
-        # e ^ (-max(tau + w - delta, 0) / T1t)
-        exp_pld_ld_tt_T1t = np.exp(-np.maximum(0, pld + ld - transit_times) / t1tissue)
+        for j_pld in range(n_plds):
+            pld = plds_by_voxel[j_pld]
+            config.loggers.utils.warning(f"pld: {pld}")
+            ld = lds[j_pld]
+            config.loggers.utils.warning(f"ld: {ld}")
 
-        # The combination of exponent terms in Equation 1
-        sig = exp_tt_T1b * (exp_pld_tt_T1t - exp_pld_ld_tt_T1t)
+            # e ^ (-delta / T1a)
+            exp_tt_T1b = np.exp(-transit_times / t1blood)
+            # e ^ (-max(w - delta, 0) / T1t)
+            exp_pld_tt_T1t = np.exp(-np.maximum(0, pld - transit_times) / t1tissue)
+            # e ^ (-max(tau + w - delta, 0) / T1t)
+            exp_pld_ld_tt_T1t = np.exp(-np.maximum(0, pld + ld - transit_times) / t1tissue)
 
-        # The elements in Equation 1 that aren't touched here are:
-        # 2M0t (2 * equilibrium magnetization of brain tissue),
-        # Beta (a term to compensate for static tissue signal loss caused by vessel supp. pulses),
-        # alpha (labeling efficiency),
-        # T1t (t1tissue),
-        # f (CBF; perfusion rate)
-        # lambda (partition coefficient)
-        # It seems like they are cancelled out though, so it's probably fine.
+            # The combination of exponent terms in Equation 1
+            sig = exp_tt_T1b * (exp_pld_tt_T1t - exp_pld_ld_tt_T1t)
 
-        # Numerator in Equation 4, for a range of transit times
-        sig_pld_sum += sig * pld
-        # Denominator in Equation 4, for a range of transit times
-        sig_sum += sig
+            # The elements in Equation 1 that aren't touched here are:
+            # 2M0t (2 * equilibrium magnetization of brain tissue),
+            # Beta (a term to compensate for static tissue signal loss caused by vessel supp.
+            # pulses),
+            # alpha (labeling efficiency),
+            # T1t (t1tissue),
+            # f (CBF; perfusion rate)
+            # lambda (partition coefficient)
+            # It seems like they are cancelled out though, so it's probably fine.
 
-    # Predicted weighted delay values for a range of transit times
-    weighted_delay_predicted = sig_pld_sum / sig_sum
-    # End of auxil_asl_gen_wsum
+            # Numerator in Equation 4, for a range of transit times
+            sig_pld_sum += sig * pld
+            # Denominator in Equation 4, for a range of transit times
+            sig_sum += sig
 
-    # Calculate the observed weighted delay for each voxel
-    weighted_delay_denom = np.sum(deltam_arr, axis=1)
-    weighted_delay_num = np.zeros(n_voxels)
-    for i_pld in range(n_plds):
-        weighted_delay_num += deltam_arr[:, i_pld] * plds[i_pld]
+        # Predicted weighted delay values for a range of transit times
+        weighted_delay_predicted = sig_pld_sum / sig_sum  # TTxS
+        # End of auxil_asl_gen_wsum
 
-    weighted_delay_observed = weighted_delay_num / (
-        np.abs(weighted_delay_denom) + np.finfo(float).eps
-    )
+        # Calculate the observed weighted delay for each voxel
+        weighted_delay_denom = np.sum(deltam_by_voxel)
+        config.loggers.utils.warning(f"weighted_delay_denom: {weighted_delay_denom}")
+        weighted_delay_num = np.sum(deltam_by_voxel * plds_by_voxel)
+        config.loggers.utils.warning(f"weighted_delay_num: {weighted_delay_num}")
+        weighted_delay_observed = weighted_delay_num / (
+            np.abs(weighted_delay_denom) + np.finfo(float).eps
+        )
 
-    # Truncate extreme transit time values to the PLD limits
-    weighted_delay_min = min(weighted_delay_predicted)
-    weighted_delay_max = max(weighted_delay_predicted)
-    weighted_delay_observed[weighted_delay_observed < weighted_delay_min] = weighted_delay_min
-    weighted_delay_observed[weighted_delay_observed > weighted_delay_max] = weighted_delay_max
+        # Truncate extreme transit time value to the PLD limits
+        weighted_delay_min = min(weighted_delay_predicted)
+        weighted_delay_max = max(weighted_delay_predicted)
+        weighted_delay_observed = np.maximum(weighted_delay_observed, weighted_delay_min)
+        weighted_delay_observed = np.minimum(weighted_delay_observed, weighted_delay_max)
 
-    # Use linear interpolation to get the ATT for each weighted delay value (i.e., each voxel),
-    # using the predicted weighted delay and associated transit time arrays.
-    interp_func = interp1d(weighted_delay_predicted, transit_times)
-    return interp_func(weighted_delay_observed)
+        # Use linear interpolation to get the ATT for each weighted delay value (i.e., each voxel),
+        # using the predicted weighted delay and associated transit time arrays.
+        interp_func = interp1d(weighted_delay_predicted, transit_times)
+
+        att_arr[i_voxel] = interp_func(weighted_delay_observed)
+
+    return att_arr
 
 
 def estimate_cbf_pcasl_multipld(
