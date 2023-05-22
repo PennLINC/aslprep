@@ -887,7 +887,7 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     sig_pld_sum = np.zeros(transit_times.size)
 
     for i_pld in range(n_plds):
-        pld = plds[i_pld]
+        pld = plds[:, i_pld]
         ld = lds[i_pld]
 
         # e ^ (-delta / T1a)
