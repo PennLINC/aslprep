@@ -35,7 +35,10 @@ def _get_parser():
 
 
 def run_command(command, env=None):
-    """Run a given shell command with certain environment variables set."""
+    """Run a given shell command with certain environment variables set.
+
+    Keep this out of the real aslprep code so that devs don't need to install ASLPrep to run tests.
+    """
     merged_env = os.environ
     if env:
         merged_env.update(env)
