@@ -185,8 +185,11 @@ def select_target(subject_id, space):
 
 
 def _select_first_in_list(lst):
-    """Select the first element in a list."""
-    return lst[0]
+    """Select the first element in a list.
+
+    If the input isn't a list, then it will return the whole input.
+    """
+    return lst[0] if isinstance(lst, list) else lst
 
 
 def _itk2lta(in_file, src_file, dst_file):
