@@ -102,8 +102,7 @@ def init_compute_cbf_wf(
 
     is_casl = pcasl_or_pasl(metadata=metadata)
     is_multi_pld = determine_multi_pld(metadata=metadata)
-    aslcontext_df = pd.read_table(aslcontext)
-    cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
+    cbf_only = processing_target == "cbf"
     if cbf_only and not basil:
         config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
     elif cbf_only:
