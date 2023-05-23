@@ -45,7 +45,6 @@ averages them into a single reference template.
       spaces=SpatialReferences([
          ("MNI152Lin", {}),
          ("T1w", {}),
-         ("fsnative", {})
       ]),
       skull_strip_fixed_seed=False,
       t1w=["sub-01/anat/sub-01_T1w.nii.gz"],
@@ -130,13 +129,13 @@ split into multiple sub-workflows described below.
 ASL reference image estimation
 ==============================
 
-:py:func:`~aslrep.niworkflows.func.util.init_asl_reference_wf`
+:py:func:`~aslprep.workflows.asl.util.init_asl_reference_wf`
 
 .. workflow::
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.niworkflows.func.util import init_asl_reference_wf
+   from aslprep.workflows.asl.util import init_asl_reference_wf
 
    wf = init_asl_reference_wf(omp_nthreads=1)
 
@@ -168,11 +167,13 @@ Head-motion estimation
    from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
    wf = init_asl_hmc_wf(
+      processing_target="controllabel",
+      m0type="Included",
       mem_gb=1,
       omp_nthreads=1,
    )
 
-Using the previously :ref:`estimated reference scan <aslref>`,
+Using the previously estimated reference scan,
 FSL ``mcflirt`` or AFNI ``3dvolreg`` is used to estimate head-motion.
 As a result, one rigid-body transform with respect to
 the reference image is written for each :abbr:`ASL (Arterial Spin Labelling)`
@@ -269,16 +270,18 @@ CBF Computation in native space
    from aslprep.workflows.asl.cbf import init_compute_cbf_wf
 
    bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+   nii_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
    with open(metadata_file) as f:
       metadata = json.load(f)
 
    wf = init_compute_cbf_wf(
-      bids_dir=str(bids_dir),
+      name_source=str(nii_file),
+      processing_target="controllabel",
       scorescrub=False,
       basil=False,
       metadata=metadata,
-      M0Scale=1,
+      m0_scale=1,
       smooth_kernel=5,
       dummy_vols=0,
    )

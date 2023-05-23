@@ -34,10 +34,11 @@ def init_asl_gepreproc_wf(asl_file):
             from aslprep.tests.tests import mock_config
             from aslprep import config
             from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
+
             with mock_config():
                 asl_file = (
                     config.execution.bids_dir / 'sub-01' / 'perf' /
-                    'sub-01_task-restEyesOpen_asl.nii.gz'
+                    'sub-01_asl.nii.gz'
                 )
                 wf = init_asl_gepreproc_wf(str(asl_file))
 
@@ -137,8 +138,6 @@ def init_asl_gepreproc_wf(asl_file):
 
     See Also
     --------
-    * :py:func:`~aslprep.niworkflows.func.util.init_asl_reference_wf`
-    * :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
     * :py:func:`~aslprep.workflows.asl.registration.init_asl_t1_trans_wf`
     * :py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
     * :py:func:`~aslprep.workflows.asl.confounds.init_asl_confounds_wf`
@@ -202,6 +201,7 @@ effects of other kernels [@lanczos].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "aslcontext",
                 "m0scan",
                 "m0scan_metadata",
                 "t1w_preproc",
@@ -216,6 +216,7 @@ effects of other kernels [@lanczos].
         name="inputnode",
     )
     inputnode.inputs.asl_file = asl_file
+    inputnode.inputs.aslcontext = run_data["aslcontext"]
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
@@ -407,6 +408,7 @@ effects of other kernels [@lanczos].
     workflow.connect([
         (inputnode, asl_t1_trans_wf, [
             ("asl_file", "inputnode.name_source"),
+            ("aslcontext", "inputnode.aslcontext"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
         (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
@@ -541,6 +543,7 @@ effects of other kernels [@lanczos].
         # fmt:off
         workflow.connect([
             (inputnode, asl_std_trans_wf, [
+                ("aslcontext", "inputnode.aslcontext"),
                 ("template", "inputnode.templates"),
                 ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
                 ("asl_file", "inputnode.name_source"),

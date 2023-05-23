@@ -38,7 +38,7 @@ Internal configuration system
    aslprep.workflows.asl.qc
    aslprep.workflows.asl.registration
    aslprep.workflows.asl.resampling
-   aslprep.workflows.asl.t2s
+   aslprep.workflows.asl.util
 
 
 *************************************
@@ -60,10 +60,10 @@ Internal configuration system
    aslprep.interfaces.cbf_computation
    aslprep.interfaces.confounds
    aslprep.interfaces.ge
-   aslprep.interfaces.multiecho
    aslprep.interfaces.parcellation
    aslprep.interfaces.plotting
    aslprep.interfaces.reports
+   aslprep.interfaces.utility
 
 
 *******************************
@@ -83,7 +83,6 @@ Internal configuration system
    aslprep.utils.atlas
    aslprep.utils.bids
    aslprep.utils.confounds
-   aslprep.utils.meepi
    aslprep.utils.misc
    aslprep.utils.plotting
    aslprep.utils.qc

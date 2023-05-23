@@ -33,13 +33,13 @@ def init_asl_reference_ge_wf(
 
             wf = init_asl_reference_ge_wf(
                 metadata={},
-                bids_dir=".",
+                aslcontext="sub-01_aslcontext.tsv",
             )
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 First, a reference volume and its skull-stripped version were generated.
-        """
+    """
 
     inputnode = pe.Node(
         niu.IdentityInterface(

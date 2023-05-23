@@ -25,7 +25,7 @@ from aslprep.utils.misc import estimate_labeling_efficiency, get_tis, pcasl_or_p
 
 def init_compute_cbf_wf(
     name_source,
-    aslcontext,
+    processing_target,
     metadata,
     dummy_vols,
     scorescrub=False,
@@ -45,6 +45,7 @@ def init_compute_cbf_wf(
 
             wf = init_compute_cbf_wf(
                 name_source="",
+                processing_target="controllabel",
                 metadata={},
                 dummy_vols=0,
             )
@@ -53,9 +54,6 @@ def init_compute_cbf_wf(
     ----------
     name_source : :obj:`str`
         Path to the raw ASL file.
-    aslcontext : :obj:`str`
-        Path to the aslcontext file associated with the ASL file being processed.
-        Used to set the aslcontext input.
     metadata : :obj:`dict`
         BIDS metadata for asl file
     scorescrub
@@ -70,7 +68,6 @@ def init_compute_cbf_wf(
     asl_file
         asl series NIfTI file, after preprocessing
     aslcontext : :obj:`str`
-        Defined from the parameter.
     m0scan : :obj:`str` or None
     m0scan_metadata : :obj:`dict` or None
     asl_mask
@@ -115,6 +112,7 @@ model [@buxton1998general].
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "aslcontext",
                 "m0scan",
                 "m0scan_metadata",
                 "asl_mask",
@@ -230,11 +228,9 @@ model [@buxton1998general].
     tiscbf = get_tis(metadata)
     is_casl = pcasl_or_pasl(metadata=metadata)
 
-    aslcontext_df = pd.read_table(aslcontext)
-    cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
-    if cbf_only and not basil:
+    if (processing_target == "cbf") and not basil:
         config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
-    elif cbf_only:
+    elif processing_target == "cbf":
         config.loggers.workflow.warning(
             f"Only CBF volumes are detected in {name_source}. "
             "BASIL will automatically be disabled."
@@ -244,7 +240,6 @@ model [@buxton1998general].
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
-            aslcontext=aslcontext,
             dummy_vols=dummy_vols,
             fwhm=smooth_kernel,
             metadata=metadata,
@@ -258,6 +253,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, extract_deltam, [
             ("asl_file", "asl_file"),
+            ("aslcontext", "aslcontext"),
             ("m0scan", "m0scan"),
             ("m0scan_metadata", "m0scan_metadata"),
         ]),
@@ -267,7 +263,7 @@ model [@buxton1998general].
 
     compute_cbf = pe.Node(
         ComputeCBF(
-            cbf_only=cbf_only,
+            cbf_only=processing_target == "cbf",
             m0_scale=m0_scale,
         ),
         mem_gb=0.2,
