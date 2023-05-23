@@ -492,7 +492,7 @@ class EstimateReferenceImage(SimpleInterface):
         ref_im = nb.squeeze_image(nb.concat_images(ref_im))
 
         # Volumes to discard only makes sense with BOLD inputs.
-        if not is_sbref:
+        if not is_sbref and ref_im.ndim == 4:
             n_volumes_to_discard = _get_vols_to_discard(ref_im)
             out_ref_fname = os.path.join(runtime.cwd, "ref_bold.nii.gz")
         else:

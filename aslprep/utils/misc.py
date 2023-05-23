@@ -1170,8 +1170,51 @@ def estimate_t1(metadata):
     return t1blood, t1tissue
 
 
+def select_processing_target(aslcontext):
+    """Determine how to handle ASL and M0 data based on dataset configuration."""
+    import pandas as pd
+
+    aslcontext_df = pd.read_table(aslcontext)
+    voltypes = aslcontext_df["volume_type"].tolist()
+
+    if "control" in voltypes and "label" in voltypes:
+        processing_target = "controllabel"
+    elif "deltam" in voltypes:
+        processing_target = "deltam"
+    elif "cbf" in voltypes:
+        processing_target = "cbf"
+    else:
+        raise ValueError("aslcontext doesn't have control, label, deltam, or cbf volumes.")
+
+    return processing_target
+
+
 def get_template_str(template, kwargs):
     """Get template from templateflow, as a string."""
     from templateflow.api import get as get_template
 
     return str(get_template(template, **kwargs))
+
+
+def reduce_metadata_lists(metadata, metadata_idx):
+    """Reduce any volume-wise metadata fields to only contain values for selected volumes."""
+    # A hardcoded list of fields that may have one value for each volume.
+    VOLUME_WISE_FIELDS = [
+        "PostLabelingDelay",
+        "VascularCrushingVENC",
+        "LabelingDuration",
+        "EchoTime",
+        "FlipAngle",
+        "RepetitionTimePreparation",
+    ]
+
+    for field in VOLUME_WISE_FIELDS:
+        if field not in metadata:
+            continue
+
+        value = metadata[field]
+        if isinstance(value, list):
+            # Reduce to only the selected volumes
+            metadata[field] = [value[i] for i in metadata_idx]
+
+    return metadata

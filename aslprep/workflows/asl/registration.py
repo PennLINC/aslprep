@@ -13,13 +13,13 @@ from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.func.util import init_asl_reference_wf
 from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
 from aslprep.niworkflows.interfaces.nilearn import Merge
 from aslprep.niworkflows.interfaces.registration import FLIRTRPT
 from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
 from aslprep.niworkflows.utils.images import dseg_label
 from aslprep.utils.misc import _conditional_downsampling, _select_first_in_list
+from aslprep.workflows.asl.util import init_asl_reference_wf
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -256,6 +256,7 @@ def init_asl_t1_trans_wf(
                 "t1w_brain",
                 "t1w_mask",
                 "asl_split",
+                "aslcontext",
                 # Transforms
                 "hmc_xforms",
                 "fieldwarp",
@@ -385,10 +386,14 @@ def init_asl_t1_trans_wf(
 
     if generate_reference:
         # Generate a reference on the target T1w space
-        gen_final_ref = init_asl_reference_wf(omp_nthreads, pre_mask=True)
+        gen_final_ref = init_asl_reference_wf(
+            omp_nthreads=omp_nthreads,
+            pre_mask=True,
+        )
 
         # fmt:off
         workflow.connect([
+            (inputnode, gen_final_ref, [("aslcontext", "inputnode.aslcontext")]),
             (mask_to_t1w_transform, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
             (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
             (gen_final_ref, reference_buffer, [("outputnode.ref_image", "aslref_t1")]),
