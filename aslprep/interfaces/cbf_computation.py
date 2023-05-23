@@ -21,14 +21,16 @@ from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.utils.misc import (
+from aslprep.utils.asl import (
+    determine_multi_pld,
+    estimate_labeling_efficiency,
+    pcasl_or_pasl,
+)
+from aslprep.utils.cbf import (
     _getcbfscore,
     _scrubcbf,
-    determine_multi_pld,
     estimate_cbf_pcasl_multipld,
-    estimate_labeling_efficiency,
     estimate_t1,
-    pcasl_or_pasl,
 )
 
 
@@ -432,11 +434,11 @@ class ComputeCBF(SimpleInterface):
 
     See Also
     --------
-    :func:`~aslprep.utils.misc.pcasl_or_pasl`
-    :func:`~aslprep.utils.misc.determine_multi_pld`
-    :func:`~aslprep.utils.misc.estimate_t1`
-    :func:`~aslprep.utils.misc.estimate_labeling_efficiency`
-    :func:`~aslprep.utils.misc.estimate_cbf_pcasl_multipld`
+    :func:`~aslprep.utils.asl.pcasl_or_pasl`
+    :func:`~aslprep.utils.asl.determine_multi_pld`
+    :func:`~aslprep.utils.cbf.estimate_t1`
+    :func:`~aslprep.utils.asl.estimate_labeling_efficiency`
+    :func:`~aslprep.utils.cbf.estimate_cbf_pcasl_multipld`
 
     References
     ----------

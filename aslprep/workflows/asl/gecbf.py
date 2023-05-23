@@ -12,8 +12,9 @@ from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
+from aslprep.utils.asl import determine_multi_pld
 from aslprep.utils.bids import collect_run_data
-from aslprep.utils.misc import _create_mem_gb, _get_wf_name, determine_multi_pld
+from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf, init_asl_reg_ge_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf

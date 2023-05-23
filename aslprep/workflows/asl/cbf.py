@@ -19,14 +19,14 @@ from aslprep.interfaces.cbf_computation import (
 )
 from aslprep.interfaces.parcellation import ParcellateCBF
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
-from aslprep.utils.misc import (
+from aslprep.utils.asl import (
     determine_multi_pld,
     estimate_labeling_efficiency,
     get_bolus_duration,
     get_inflow_times,
     pcasl_or_pasl,
 )
+from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 
 
 def init_compute_cbf_wf(
