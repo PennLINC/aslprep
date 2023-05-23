@@ -102,17 +102,16 @@ def init_compute_cbf_wf(
 
     is_casl = pcasl_or_pasl(metadata=metadata)
     is_multi_pld = determine_multi_pld(metadata=metadata)
-    cbf_only = processing_target == "cbf"
-    if cbf_only and not basil:
+    if (processing_target == "cbf") and not basil:
         config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
-    elif cbf_only:
+    elif processing_target == "cbf":
         config.loggers.workflow.warning(
             f"Only CBF volumes are detected in {name_source}. "
             "BASIL will automatically be disabled."
         )
         basil = False
 
-    if cbf_only:
+    if processing_target == "cbf":
         workflow.__desc__ += """\
 *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
 """
