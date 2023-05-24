@@ -9,7 +9,7 @@ from templateflow.api import get as get_template
 
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.interfaces.cbf_computation import (
+from aslprep.interfaces.cbf import (
     BASILCBF,
     ComputeCBF,
     ExtractCBF,

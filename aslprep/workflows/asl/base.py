@@ -6,7 +6,7 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.interfaces.cbf_computation import RefineMask
+from aslprep.interfaces.cbf import RefineMask
 from aslprep.interfaces.fsl import Split
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles

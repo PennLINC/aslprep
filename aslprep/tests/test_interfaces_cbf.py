@@ -1,4 +1,4 @@
-"""Tests for the aslprep.interfaces.cbf_computation submodule."""
+"""Tests for the aslprep.interfaces.cbf submodule."""
 import os
 
 import nibabel as nb
@@ -6,11 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from aslprep.interfaces import cbf_computation
+from aslprep.interfaces import cbf
 
 
 def test_computecbf_casl(datasets, tmp_path_factory):
-    """Test aslprep.interfaces.cbf_computation.ComputeCBF with (P)CASL."""
+    """Test aslprep.interfaces.cbf.ComputeCBF with (P)CASL."""
     tmpdir = tmp_path_factory.mktemp("test_computecbf_casl")
     aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
 
@@ -57,7 +57,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 **BASE_METADATA,
                 **acq_dict,
             }
-            interface = cbf_computation.ComputeCBF(
+            interface = cbf.ComputeCBF(
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
@@ -83,7 +83,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 **acq_dict,
             }
 
-            interface = cbf_computation.ComputeCBF(
+            interface = cbf.ComputeCBF(
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
@@ -103,7 +103,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 **acq_dict,
             }
 
-            interface = cbf_computation.ComputeCBF(
+            interface = cbf.ComputeCBF(
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
@@ -122,7 +122,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
 
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
-    """Test aslprep.interfaces.cbf_computation.ComputeCBF with PASL."""
+    """Test aslprep.interfaces.cbf.ComputeCBF with PASL."""
     tmpdir = tmp_path_factory.mktemp("test_computecbf_pasl")
     aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
 
@@ -168,7 +168,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **acq_dict,
         }
         with pytest.raises(ValueError, match="not supported in ASLPrep."):
-            interface = cbf_computation.ComputeCBF(
+            interface = cbf.ComputeCBF(
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
@@ -188,7 +188,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -214,7 +214,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -234,7 +234,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -255,7 +255,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -281,7 +281,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -302,7 +302,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -328,7 +328,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -376,7 +376,7 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
             "PostLabelingDelay": 1.5,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,

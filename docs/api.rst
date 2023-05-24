@@ -57,7 +57,7 @@ Internal configuration system
 
    aslprep.interfaces.ants
    aslprep.interfaces.bids
-   aslprep.interfaces.cbf_computation
+   aslprep.interfaces.cbf
    aslprep.interfaces.confounds
    aslprep.interfaces.ge
    aslprep.interfaces.parcellation
@@ -80,8 +80,10 @@ Internal configuration system
    :toctree: generated/
    :template: module.rst
 
+   aslprep.utils.asl
    aslprep.utils.atlas
    aslprep.utils.bids
+   aslprep.utils.cbf
    aslprep.utils.confounds
    aslprep.utils.misc
    aslprep.utils.plotting
