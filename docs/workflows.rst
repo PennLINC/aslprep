@@ -287,8 +287,7 @@ CBF Computation in native space
    )
 
 ASL data consist of multiple pairs of labeled and control images.
-*ASLPrep* first checks for proton density-weighted volume(s)
-(M0, ``sub-task_xxxx-acq-YYY_m0scan.nii.gz``).
+*ASLPrep* first checks for proton density-weighted volume(s) (M0 scans).
 In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
@@ -297,54 +296,58 @@ After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control image
 .. math::
     \Delta{M} = M_{C} - M_{L}
 
-If slice timing is available for the ASL data, then ASLPrep will shift post-labeling delay values
-on a slice-wise basis.
+.. topic:: 2D Acquisitions and Slice Timing
 
-.. figure:: _static/slice_timing_and_pld.svg
+   If slice timing is available for the ASL data, then ASLPrep will shift post-labeling delay
+   values on a slice-wise basis.
 
-   Slice time-shifted post-labeling delay values plotted next to a corresponding delta-M volume.
+   .. figure:: _static/slice_timing_and_pld.svg
+
+      Slice time-shifted post-labeling delay values plotted next to a corresponding delta-M volume.
 
 
 Single-Delay ASL
 ================
 
-The CBF computation of single-delay (post labeling delay) ASL data is done using a one-compartment model.
+The CBF computation of single-delay (post labeling delay) ASL data is done using a one-compartment
+model :footcite:p:`alsop_recommended_2015`.
 
 .. sidebar:: Notation
 
-   :math:`\tau` : Labeling duration
+   :math:`\tau` : Labeling duration, in seconds.
 
-   :math:`\lambda` : Brain-blood partition coefficient
+   :math:`\lambda` : Brain-blood partition coefficient.
+   Set to 0.9 g/mL :footcite:p:`alsop_recommended_2015`.
 
    :math:`\alpha` : Labeling efficiency.
    This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
    If that field is not set, then :math:`\alpha` will be determined based on the ASL type
    (PASL, CASL, or PCASL) and the number of background suppression pulses.
 
-   :math:`w` : Post-labeling delay (PLD) for PCASL data.
+   :math:`w` : Post-labeling delay (PLD) for PCASL data, in seconds.
    In BIDS, this is encoded with the ``PostLabelingDelay`` field.
 
-   :math:`TI` : Inversion time for PASL data.
+   :math:`TI` : Inversion time for PASL data, in seconds.
    In BIDS, this is encoded with the ``PostLabelingDelay`` field.
 
-   :math:`T_{1,blood}` : Relaxation time for arterial blood.
+   :math:`T_{1,blood}` : Relaxation time for arterial blood, in seconds.
    ASLPrep infers this automatically based on the magnetic field strength
    :footcite:p:`zhang2013vivo,alsop_recommended_2015`.
 
    :math:`T_{1,tissue}` : Relaxation time for gray matter,
-   used in the two-compartment model for multi-delay data.
+   used in the two-compartment model for multi-delay data (in seconds).
    ASLPrep infers this automatically based on the magnetic field strength
    :footcite:p:`wright2008water`.
 
    :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
 
-   :math:`\Delta{TI}` : Post-labeling delay minus bolus cutoff delay time.
+   :math:`\Delta{TI}` : Post-labeling delay minus bolus cutoff delay time, in seconds.
    Per :footcite:t:`alsop_recommended_2015`, this is QUIPSS II's equivalent to (P)CASL's :math:`w`.
 
-   :math:`TI_{1}` : Bolus cutoff delay time.
+   :math:`TI_{1}` : Bolus cutoff delay time, in seconds.
    For Q2TIPS, this is the *first* bolus cutoff.
 
-   :math:`TI_{2}` : For Q2TIPS, this is the *last* bolus cutoff delay time.
+   :math:`TI_{2}` : For Q2TIPS, this is the *last* bolus cutoff delay time, in seconds.
    The other methods do not have this variable.
 
 (Pseudo-)Continuous ASL
@@ -385,9 +388,11 @@ the formula from :footcite:t:`wong1998quantitative` is used.
 
 where :math:`\Delta{TI}` is the post-labeling delay (PLD) minus the bolus cutoff delay time.
 
-Given that :math:`TI` is equivalent to :math:`w` in BIDS datasets,
+Given that :math:`TI` is equivalent to :math:`w` in BIDS datasets
+(i.e., as the ``PostLabelingDelay`` field),
 the formula for QUIPSS is the same as PCASL,
-except :math:`\Delta{TI}` replaces :math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+except :math:`\Delta{TI}` replaces
+:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
 
 
 QUIPSS II Modification
@@ -428,7 +433,8 @@ Multi-Delay ASL
 ===============
 
 In multi-delay ASL, control-label pairs are acquired for multiple post-labeling delay values.
-This type of acquisition requires more complicated models, but it also results in more accurate CBF estimates.
+This type of acquisition requires more complicated models, but it also results in more accurate
+CBF estimates.
 Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
 
 
@@ -437,88 +443,89 @@ Pseudo-Continuous ASL
 
 For multi-delay PCASL data, the following steps are taken:
 
-1.  :math:`\Delta{M}` values are first averaged over time for each unique post-labeling delay value.
-    We shall call these :math:`\Delta{M}` in the following equations for the sake of readability.
+1. :math:`\Delta{M}` values are first averaged over time for each unique post-labeling delay value.
+   We shall call these :math:`\Delta{M}` in the following equations for the sake of readability.
 
-2.  Arterial transit time is estimated on a voxel-wise basis according to :footcite:t:`dai2012reduced`.
+2. Arterial transit time is estimated on a voxel-wise basis according to
+   :footcite:t:`dai2012reduced`.
 
-    1.  Define a set of possible transit times to evaluate.
-        The range is defined as the minimum PLD to the maximum PLD, at increments of 0.001.
+   1. Define a set of possible transit times to evaluate.
+      The range is defined as the minimum PLD to the maximum PLD, at increments of 0.001.
 
-    2.  Calculate the expected weighted delay (:math:`WD_{E}`) for each possible transit time
-        (:math:`\delta`), across PLDs (:math:`w`).
+   2. Calculate the expected weighted delay (:math:`WD_{E}`) for each possible transit time
+      (:math:`\delta`), across PLDs (:math:`w`).
 
-        .. math::
+      .. math::
 
-            WD_{E}(\delta_{t}, w_{i}) = e ^ \frac{ -\delta_{t} } { T_{1,blood} } \cdot
-            \left[
-                e ^ {-\frac{ max( 0, w_{i} - \delta_{t} ) } { T_{1,tissue} }} -
-                e ^ {-\frac{ max( 0, \tau + w_{i} - \delta_{t} ) } { T_{1,tissue} }}
-            \right]
+         WD_{E}(\delta_{t}, w_{i}) = e ^ \frac{ -\delta_{t} } { T_{1,blood} } \cdot
+         \left[
+            e ^ {-\frac{ max( 0, w_{i} - \delta_{t} ) } { T_{1,tissue} }} -
+            e ^ {-\frac{ max( 0, \tau + w_{i} - \delta_{t} ) } { T_{1,tissue} }}
+         \right]
 
-            WD_{E}(\delta_{t}) = \frac{ \sum_{i=1}^{|w|} w_{i} \cdot
-            WD_{E}(\delta_{t},w_{i}) } { \sum_{i=1}^{|w|} WD_{E}(\delta_{t},w_{i}) }
+         WD_{E}(\delta_{t}) = \frac{ \sum_{i=1}^{|w|} w_{i} \cdot
+         WD_{E}(\delta_{t},w_{i}) } { \sum_{i=1}^{|w|} WD_{E}(\delta_{t},w_{i}) }
 
-    3.  Calculate the observed weighted delay (:math:`WD_{O}`) for the actual data, at each voxel :math:`v`.
+   3. Calculate the observed weighted delay (:math:`WD_{O}`) for the actual data, at each voxel :math:`v`.
 
-        .. math::
+      .. math::
 
-            WD_{O}(v) = \frac{
-                \sum_{i=1}^{|w|} w_{i} \cdot \Delta{M}( w_{i},v )
-            }
-            {
-                \sum_{i=1}^{|w|} \Delta{M}( w_{i},v )
-            }
+         WD_{O}(v) = \frac{
+            \sum_{i=1}^{|w|} w_{i} \cdot \Delta{M}( w_{i},v )
+         }
+         {
+            \sum_{i=1}^{|w|} \Delta{M}( w_{i},v )
+         }
 
-    4.  Truncate the observed weighted delays to valid delay values,
-        determined based on the expected weighted delays.
+   4. Truncate the observed weighted delays to valid delay values,
+      determined based on the expected weighted delays.
 
-        .. math::
+      .. math::
 
-            WD_{O}(v) = max[min(WD_{O}(v), max[WD_{E}]), min(WD_{E})]
+         WD_{O}(v) = max[min(WD_{O}(v), max[WD_{E}]), min(WD_{E})]
 
-    5.  Interpolate the expected weighted delay values to infer the appropriate transit time for each voxel,
-        based on its observed weighted delay.
+   5. Interpolate the expected weighted delay values to infer the appropriate transit time for each voxel,
+      based on its observed weighted delay.
 
-3.  CBF is then calculated for each unique PLD value using the 2-compartment model described in
-    :footcite:t:`fan2017long`.
+3. CBF is then calculated for each unique PLD value (:math:`w_{i}`) using the 2-compartment model
+   described in :footcite:t:`fan2017long`.
 
-    .. math::
+   .. math::
 
-        CBF_{i} = 6000 \cdot \lambda \cdot \frac{ \Delta{M}_{i} }{ M_{0} } \cdot
-        \frac{
-            e ^ \frac{ \delta }{ T_{1,blood} }
-        }
-        {
-            2 \cdot \alpha \cdot T_{1,blood} \cdot
-            \left[
-                e ^ { -\frac{ max(w_{i} - \delta, 0) }{ T_{1,tissue} } }
-                -
-                e ^ { -\frac{ max(\tau + w_{i} - \delta, 0) }{ T_{1,tissue} } }
-            \right]
-        }
+      CBF_{i} = 6000 \cdot \lambda \cdot \frac{ \Delta{M}_{i} }{ M_{0} } \cdot
+      \frac{
+         e ^ \frac{ \delta }{ T_{1,blood} }
+      }
+      {
+         2 \cdot \alpha \cdot T_{1,blood} \cdot
+         \left[
+            e ^ { -\frac{ max(w_{i} - \delta, 0) }{ T_{1,tissue} } }
+            -
+            e ^ { -\frac{ max(\tau + w_{i} - \delta, 0) }{ T_{1,tissue} } }
+         \right]
+      }
 
-    .. note::
+   .. note::
 
-        Note that Equation 2 in :footcite:t:`fan2017long` uses different notation.
-        :math:`T_{1,blood}` is referred to as :math:`T_{1a}`,
-        :math:`T_{1,tissue}` is referred to as :math:`T_{1t}`,
-        :math:`\Delta{M}` is referred to as :math:`M`,
-        :math:`w` is referred to as :math:`PLD`,
-        :math:`\delta` is referred to as :math:`ATT`,
-        :math:`\tau` is referred to as :math:`LD`,
-        and :math:`\alpha` is referred to as :math:`\epsilon`.
+      Note that Equation 2 in :footcite:t:`fan2017long` uses different notation.
+      :math:`T_{1,blood}` is referred to as :math:`T_{1a}`,
+      :math:`T_{1,tissue}` is referred to as :math:`T_{1t}`,
+      :math:`\Delta{M}` is referred to as :math:`M`,
+      :math:`w` is referred to as :math:`PLD`,
+      :math:`\delta` is referred to as :math:`ATT`,
+      :math:`\tau` is referred to as :math:`LD`,
+      and :math:`\alpha` is referred to as :math:`\epsilon`.
 
-4.  CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
-    in which an unweighted average is calculated for each voxel across all PLDs (:math:`w`) in which
-    :math:`w + \tau \gt \delta`.
+4. CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
+   in which an unweighted average is calculated for each voxel across all PLDs (:math:`w`) in which
+   :math:`w + \tau \gt \delta`.
 
 Pulsed ASL
 ----------
 
 .. warning::
-    As of 0.3.0, ASLPrep has disabled multi-delay support for PASL data.
-    We plan to properly support multi-delay PASL data in the near future.
+   As of 0.3.0, ASLPrep has disabled multi-delay support for PASL data.
+   We plan to properly support multi-delay PASL data in the near future.
 
 
 Additional Denoising Options
