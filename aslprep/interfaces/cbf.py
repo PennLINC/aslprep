@@ -803,7 +803,7 @@ class ScoreAndScrubCBF(SimpleInterface):
 class _BASILCBFInputSpec(FSLCommandInputSpec):
     # We use position args here as list indices - so a negative number
     # will put something on the end
-    in_file = File(
+    deltam = File(
         exists=True,
         desc=(
             "ASL data after subtracting tag-control or control-tag. "
@@ -816,11 +816,11 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     mask = File(
         exists=True,
         argstr="-m %s",
-        desc="mask in the same space as in_file",
+        desc="mask in the same space as deltam",
         mandatory=True,
     )
     mzero = File(exists=True, argstr="-c %s", desc="m0 scan", mandatory=False)
-    m0scale = traits.Float(desc="calibration of asl", argstr="--cgain %.2f", mandatory=True)
+    m0_scale = traits.Float(desc="calibration of asl", argstr="--cgain %.2f", mandatory=True)
     m0tr = traits.Float(
         desc="The repetition time for the calibration image (the M0 scan).",
         argstr="--tr %.2f",
@@ -865,6 +865,11 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=True,
         sep=",",
     )
+    slice_spacing = traits.Float(
+        desc="Slice times",
+        argstr="--slicedt %s",
+        mandatory=False,
+    )
     pvc = traits.Bool(
         desc="Do partial volume correction.",
         mandatory=False,
@@ -872,13 +877,13 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         default_value=True,
         usedefault=True,
     )
-    pvgm = File(
+    gm_tpm = File(
         exists=True,
         mandatory=False,
         desc="Partial volume estimates for GM. This is just a GM tissue probability map.",
         argstr="--pvgm %s",
     )
-    pvwm = File(
+    wm_tpm = File(
         exists=True,
         mandatory=False,
         desc="Partial volume estimates for WM. This is just a WM tissue probability map.",
@@ -887,7 +892,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     alpha = traits.Float(
         desc=(
             "Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. "
-            "This is equivalent the BIDS metadata field 'LabelingEfficiency'."
+            "This is equivalent to the BIDS metadata field 'LabelingEfficiency'."
         ),
         argstr="--alpha %.2f",
     )
@@ -895,22 +900,22 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
-    mean_cbf = File(exists=True, desc="CBF map in absolute units (ml/100g/min).")
-    mean_cbf_gm = File(
+    mean_cbf_basil = File(exists=True, desc="CBF map in absolute units (ml/100g/min).")
+    mean_cbf_gm_basil = File(
         exists=True,
         desc=(
             "CBF map with gray matter partial volume correction. "
             "This means that the map contains 'pure' GM perfusion estimates, in absolute units."
         ),
     )
-    mean_cbf_wm = File(
+    mean_cbf_wm_basil = File(
         exists=True,
         desc=(
             "CBF map with white matter partial volume correction. "
             "This means that the map contains 'pure' WM perfusion estimates, in absolute units."
         ),
     )
-    att = File(exists=True, desc="Arterial transit time map.")
+    att_basil = File(exists=True, desc="Arterial transit time map.")
 
 
 class BASILCBF(FSLCommand):
@@ -934,8 +939,9 @@ class BASILCBF(FSLCommand):
         return runtime
 
     def _gen_outfilename(self, suffix):
-        if isdefined(self.inputs.in_file):
-            out_file = self._gen_fname(self.inputs.in_file, suffix=suffix)
+        if isdefined(self.inputs.deltam):
+            out_file = self._gen_fname(self.inputs.deltam, suffix=suffix)
+
         return os.path.abspath(out_file)
 
     def _list_outputs(self):
@@ -943,13 +949,13 @@ class BASILCBF(FSLCommand):
 
         outputs = self.output_spec().get()
 
-        outputs["mean_cbf"] = os.path.join(basename, "native_space/perfusion_calib.nii.gz")
-        outputs["att"] = os.path.join(basename, "native_space/arrival.nii.gz")
-        outputs["mean_cbf_gm"] = os.path.join(
+        outputs["mean_cbf_basil"] = os.path.join(basename, "native_space/perfusion_calib.nii.gz")
+        outputs["att_basil"] = os.path.join(basename, "native_space/arrival.nii.gz")
+        outputs["mean_cbf_gm_basil"] = os.path.join(
             basename,
             "native_space/pvcorr/perfusion_calib.nii.gz",
         )
-        outputs["mean_cbf_wm"] = os.path.join(
+        outputs["mean_cbf_wm_basil"] = os.path.join(
             basename,
             "native_space/pvcorr/perfusion_wm_calib.nii.gz",
         )
