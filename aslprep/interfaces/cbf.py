@@ -695,7 +695,7 @@ class _ScoreAndScrubCBFOutputSpec(TraitedSpec):
         exists=True,
         desc="CBF time series after removing outlier volumes flagged by SCORE algorithm.",
     )
-    score_outliers = File(exists=True, desc="Index of removed volumes, in a CSV file.")
+    score_outlier_index = File(exists=True, desc="Index of removed volumes, in a CSV file.")
     mean_cbf_score = File(
         exists=True,
         desc="Mean CBF image calculated from SCORE-censored CBF time series.",
@@ -773,7 +773,7 @@ class ScoreAndScrubCBF(SimpleInterface):
             suffix="_cbfscrub",
             newpath=runtime.cwd,
         )
-        self._results["score_outliers"] = fname_presuffix(
+        self._results["score_outlier_index"] = fname_presuffix(
             self.inputs.cbf_ts,
             suffix="_scoreindex.csv",
             newpath=runtime.cwd,
@@ -790,7 +790,7 @@ class ScoreAndScrubCBF(SimpleInterface):
             affine=cbf_img.affine,
             header=cbf_img.header,
         ).to_filename(self._results["mean_cbf_score"])
-        np.savetxt(self._results["score_outliers"], score_outliers_idx, delimiter=",")
+        np.savetxt(self._results["score_outlier_index"], score_outliers_idx, delimiter=",")
         nb.Nifti1Image(
             dataobj=mean_cbf_scrub,
             affine=cbf_img.affine,
