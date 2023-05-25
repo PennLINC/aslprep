@@ -383,8 +383,8 @@ For pulsed ASL (PASL) data with the QUIPSS bolus cut-off technique,
 the formula from :footcite:t:`wong1998quantitative` is used.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
-   {2 \cdot \alpha \cdot M_{0} \cdot \Delta{TI} }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{ M } \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   { 2 \cdot \alpha \cdot M_{0} \cdot \Delta{TI} }
 
 where :math:`\Delta{TI}` is the post-labeling delay (PLD) minus the bolus cutoff delay time.
 
@@ -519,6 +519,7 @@ For multi-delay PCASL data, the following steps are taken:
 4. CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
    in which an unweighted average is calculated for each voxel across all PLDs (:math:`w`) in which
    :math:`w + \tau \gt \delta`.
+
 
 Pulsed ASL
 ----------
