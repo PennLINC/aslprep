@@ -2,11 +2,11 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for resampling data."""
 from nipype.interfaces import utility as niu
-from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces.ants import ApplyTransforms
+from aslprep.interfaces.fsl import Split
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
 from aslprep.niworkflows.interfaces.nilearn import Merge
@@ -27,6 +27,7 @@ def init_asl_std_trans_wf(
     mem_gb,
     omp_nthreads,
     spaces,
+    is_multi_pld=False,
     scorescrub=False,
     basil=False,
     generate_reference=True,
@@ -130,8 +131,11 @@ def init_asl_std_trans_wf(
                 "aslref_to_anat_xfm",
                 "anat_to_template_xfm",
                 # CBF outputs
-                "cbf_ts",
                 "mean_cbf",
+                # Single-delay outputs
+                "cbf_ts",
+                # Multi-delay outputs
+                "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
@@ -140,7 +144,7 @@ def init_asl_std_trans_wf(
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
-                "att",
+                "att_basil",
             ],
         ),
         name="inputnode",
@@ -307,10 +311,12 @@ def init_asl_std_trans_wf(
         ])
         # fmt:on
 
-    inputs_to_warp = [
-        "cbf_ts",
-        "mean_cbf",
-    ]
+    inputs_to_warp = ["mean_cbf"]
+
+    if is_multi_pld:
+        inputs_to_warp += ["att"]
+    else:
+        inputs_to_warp += ["cbf_ts"]
 
     if scorescrub:
         inputs_to_warp += [
@@ -324,7 +330,7 @@ def init_asl_std_trans_wf(
             "mean_cbf_basil",
             "mean_cbf_gm_basil",
             "mean_cbf_wm_basil",
-            "att",
+            "att_basil",
         ]
 
     output_names = [f"{input_}_std" for input_ in inputs_to_warp]
@@ -512,7 +518,7 @@ def init_asl_preproc_trans_wf(
 
     # Input file is not splitted
     if split_file:
-        asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb * 3)
+        asl_split = pe.Node(Split(dimension="t"), name="asl_split", mem_gb=mem_gb * 3)
         # fmt:off
         workflow.connect([
             (inputnode, asl_split, [("asl_file", "in_file")]),

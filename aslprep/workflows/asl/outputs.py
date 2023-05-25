@@ -16,6 +16,7 @@ def init_asl_derivatives_wf(
     metadata,
     output_dir,
     spaces,
+    is_multi_pld,
     output_confounds=True,
     scorescrub=False,
     basil=False,
@@ -40,6 +41,8 @@ def init_asl_derivatives_wf(
         the TemplateFlow root directory. Each ``Reference`` may also contain a spec, which is a
         dictionary with template specifications (e.g., a specification of ``{'resolution': 2}``
         would lead to resampling on a 2mm resolution of the space).
+    is_multi_pld : :obj:`bool`
+        True if data are multi-delay, False otherwise.
     name : :obj:`str`
         This workflow's identifier (default: ``func_derivatives_wf``).
     """
@@ -73,6 +76,9 @@ def init_asl_derivatives_wf(
                 "mean_cbf_native",
                 "mean_cbf_t1",
                 "mean_cbf_std",
+                "att_native",
+                "att_t1",
+                "att_std",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score_native",
                 "cbf_ts_score_t1",
@@ -93,9 +99,9 @@ def init_asl_derivatives_wf(
                 "mean_cbf_wm_basil_native",
                 "mean_cbf_wm_basil_t1",
                 "mean_cbf_wm_basil_std",
-                "att_native",
-                "att_t1",
-                "att_std",
+                "att_basil_native",
+                "att_basil_t1",
+                "att_basil_std",
                 # Parcellated CBF outputs
                 "atlas_names",
                 "mean_cbf_parcellated",
@@ -292,6 +298,10 @@ def init_asl_derivatives_wf(
             "suffix": "cbf",
             **cbf_metadata,
         },
+        "att": {
+            "suffix": "att",
+            "Units": "s",
+        },
         # SCORE/SCRUB outputs
         "cbf_ts_score": {
             "desc": "scoreTimeseries",
@@ -324,18 +334,26 @@ def init_asl_derivatives_wf(
             "suffix": "cbf",
             **cbf_metadata,
         },
-        "att": {
+        "att_basil": {
+            "desc": "basil",
             "suffix": "att",
             "Units": "s",
         },
     }
 
-    base_inputs = ["asl", "aslref", "asl_mask", "cbf_ts", "mean_cbf"]
+    base_inputs = ["asl", "aslref", "asl_mask", "mean_cbf"]
+    if is_multi_pld:
+        # ATT is only calculated for multi-delay data
+        base_inputs += ["att"]
+    else:
+        # CBF time series is only calculated for single-delay data
+        base_inputs += ["cbf_ts"]
+
     if scorescrub:
         base_inputs += ["cbf_ts_score", "mean_cbf_score", "mean_cbf_scrub"]
 
     if basil:
-        base_inputs += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att"]
+        base_inputs += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att_basil"]
 
     # Native-space derivatives
     if nonstd_spaces.intersection(("func", "run", "asl", "sbref")):

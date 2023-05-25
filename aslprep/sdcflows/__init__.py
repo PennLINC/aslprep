@@ -1,4 +1,8 @@
-"""SDCflows - :abbr:`SDC (susceptibility distortion correction)` by DUMMIES, for dummies."""
+"""SDCflows - :abbr:`SDC (susceptibility distortion correction)` by DUMMIES, for dummies.
+
+The copy of SDCflows used by ASLPrep has been modified by the PennLINC developers.
+Please see the ASLPrep license file for SDCflows's licensing.
+"""
 __packagename__ = "sdcflows"
 __copyright__ = "2020, The NiPreps developers"
 try:

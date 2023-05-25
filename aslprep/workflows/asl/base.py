@@ -2,20 +2,21 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Preprocessing workflows for ASL data."""
 from nipype.interfaces import utility as niu
-from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.interfaces.cbf_computation import RefineMask
+from aslprep.interfaces.cbf import RefineMask
+from aslprep.interfaces.fsl import Split
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
+from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
-from aslprep.utils.misc import _create_mem_gb, _get_wf_name, select_processing_target
+from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
@@ -179,6 +180,13 @@ def init_asl_preproc_wf(asl_file):
     sbref_file = run_data["sbref"]
     metadata = run_data["asl_metadata"].copy()
 
+    is_multi_pld = determine_multi_pld(metadata=metadata)
+    if scorescrub and is_multi_pld:
+        config.loggers.workflow.warning(
+            f"SCORE/SCRUB processing will be disabled for multi-delay {asl_file}"
+        )
+        scorescrub = False
+
     # Find fieldmaps. Options: (phase1|phase2|phasediff|epi|fieldmap|syn)
     fmaps = None
     if "fieldmaps" not in config.workflow.ignore:
@@ -259,6 +267,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         metadata=metadata,
         output_dir=output_dir,
         spaces=spaces,
+        is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
         output_confounds=True,
@@ -309,7 +318,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
     # can be applied with other transforms in single shots.
-    asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
+    asl_split = pe.Node(Split(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
 
     workflow.connect([(reduce_asl_file, asl_split, [("asl_file", "in_file")])])
 
@@ -433,15 +442,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         metadata=metadata,
         name="compute_cbf_wf",
     )
+    cbf_derivs = ["mean_cbf"]
+    mean_cbf_derivs = ["mean_cbf"]
 
-    # Determine the derivatives to pass around to different workflows
-    cbf_derivs = [
-        "cbf_ts",
-        "mean_cbf",
-    ]
-    mean_cbf_derivs = [
-        "mean_cbf",
-    ]
+    if is_multi_pld:
+        cbf_derivs += ["att"]
+    else:
+        cbf_derivs += ["cbf_ts"]
 
     if scorescrub:
         cbf_derivs += [
@@ -459,7 +466,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             "mean_cbf_basil",
             "mean_cbf_gm_basil",
             "mean_cbf_wm_basil",
-            "att",
+            "att_basil",
         ]
         # We don't want mean_cbf_wm_basil for this list.
         mean_cbf_derivs += [
@@ -496,6 +503,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     asl_t1_trans_wf = init_asl_t1_trans_wf(
         output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
+        is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
         generate_reference=True,
@@ -724,6 +732,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             mem_gb=mem_gb["resampled"],
             omp_nthreads=omp_nthreads,
             spaces=spaces,
+            is_multi_pld=is_multi_pld,
             scorescrub=scorescrub,
             basil=basil,
             generate_reference=True,
@@ -788,7 +797,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Plot CBF outputs.
     plot_cbf_wf = init_plot_cbf_wf(
         metadata=metadata,
-        plot_timeseries=True,
+        plot_timeseries=not is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
         name="plot_cbf_wf",

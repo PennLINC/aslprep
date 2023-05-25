@@ -9,7 +9,7 @@ from templateflow.api import get as get_template
 
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.interfaces.cbf_computation import (
+from aslprep.interfaces.cbf import (
     BASILCBF,
     ComputeCBF,
     ExtractCBF,
@@ -19,8 +19,14 @@ from aslprep.interfaces.cbf_computation import (
 )
 from aslprep.interfaces.parcellation import ParcellateCBF
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from aslprep.utils.asl import (
+    determine_multi_pld,
+    estimate_labeling_efficiency,
+    get_bolus_duration,
+    get_inflow_times,
+    pcasl_or_pasl,
+)
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
-from aslprep.utils.misc import estimate_labeling_efficiency, get_tis, pcasl_or_pasl
 
 
 def init_compute_cbf_wf(
@@ -41,14 +47,25 @@ def init_compute_cbf_wf(
             :graph2use: orig
             :simple_form: yes
 
+            import json
+
+            from aslprep.tests.tests import mock_config
+            from aslprep import config
             from aslprep.workflows.asl.cbf import init_compute_cbf_wf
 
-            wf = init_compute_cbf_wf(
-                name_source="",
-                processing_target="controllabel",
-                metadata={},
-                dummy_vols=0,
-            )
+            with mock_config():
+                perf_dir = config.execution.bids_dir / "sub-01" / "perf"
+                with open(perf_dir / "sub-01_asl.json", "r") as fo:
+                    metadata = json.load(fo)
+
+                wf = init_compute_cbf_wf(
+                    name_source=str(perf_dir / "sub-01_asl.nii.gz"),
+                    processing_target="controllabel",
+                    metadata=metadata,
+                    dummy_vols=0,
+                    scorescrub=True,
+                    basil=True,
+                )
 
     Parameters
     ----------
@@ -88,14 +105,84 @@ def init_compute_cbf_wf(
        cbf,score, scrub, pv, and basil
     """
     workflow = Workflow(name=name)
+
     workflow.__desc__ = """
 ### Cerebral blood flow computation and denoising
 
-*ASLPrep* was configured to calculate cerebral blood flow (CBF) using the following methods.
-
-The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
-model [@buxton1998general].
 """
+
+    is_casl = pcasl_or_pasl(metadata=metadata)
+    is_multi_pld = determine_multi_pld(metadata=metadata)
+    if (processing_target == "cbf") and not basil:
+        config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
+    elif processing_target == "cbf":
+        config.loggers.workflow.warning(
+            f"Only CBF volumes are detected in {name_source}. "
+            "BASIL will automatically be disabled."
+        )
+        basil = False
+
+    if processing_target == "cbf":
+        workflow.__desc__ += """\
+*ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
+"""
+
+    elif is_casl:
+        if is_multi_pld:
+            workflow.__desc__ += f"""\
+*ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
+{metadata['ArterialSpinLabelingType']} data using the following method.
+
+First, delta-M values were averaged over time for each post-labeling delay (PLD).
+
+Next, arterial transit time (ATT) was estimated on a voxel-wise basis according to
+@dai2012reduced.
+
+CBF was then calculated for each delay using the mean delta-M values and the estimated ATT,
+according to the formula from @fan2017long.
+
+CBF was then averaged over delays according to @juttukonda2021characterizing,
+in which an unweighted average is calculated for each voxel across all delays in which
+PLD + labeling duration > ATT.
+"""
+        else:
+            # Single-delay (P)CASL data
+            workflow.__desc__ += f"""\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
+{metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
+[@buxton1998general].
+"""
+
+    else:
+        bcut = metadata.get("BolusCutOffDelayTechnique")
+
+        if is_multi_pld:
+            raise ValueError(
+                "Multi-delay data are not supported for PASL sequences at the moment."
+            )
+
+        # Single-delay PASL data, with different bolus cut-off techniques
+        if bcut == "QUIPSS":
+            workflow.__desc__ += """\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the QUIPSS modification, as described in @wong1998quantitative.
+"""
+        elif bcut == "QUIPSSII":
+            workflow.__desc__ += """\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the QUIPSS II modification, as described in @alsop_recommended_2015.
+"""
+        elif bcut == "Q2TIPS":
+            workflow.__desc__ += """\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the Q2TIPS modification, as described in @noguchi2015technical.
+"""
+        else:
+            # No bolus cutoff delay technique
+            raise ValueError("PASL without a bolus cut-off technique is not supported in ASLPrep.")
 
     if "SliceTiming" in metadata:
         workflow.__desc__ += (
@@ -128,8 +215,9 @@ model [@buxton1998general].
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "cbf_ts",
                 "mean_cbf",
+                "cbf_ts",  # Only calculated for single-delay data
+                "att",  # Only calculated for multi-delay data
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
@@ -139,7 +227,7 @@ model [@buxton1998general].
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
-                "att",
+                "att_basil",
             ]
         ),
         name="outputnode",
@@ -225,18 +313,6 @@ model [@buxton1998general].
     ])
     # fmt:on
 
-    tiscbf = get_tis(metadata)
-    is_casl = pcasl_or_pasl(metadata=metadata)
-
-    if (processing_target == "cbf") and not basil:
-        config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
-    elif processing_target == "cbf":
-        config.loggers.workflow.warning(
-            f"Only CBF volumes are detected in {name_source}. "
-            "BASIL will automatically be disabled."
-        )
-        basil = False
-
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
@@ -280,8 +356,9 @@ model [@buxton1998general].
             ("metadata", "metadata"),
         ]),
         (compute_cbf, outputnode, [
-            ("cbf", "cbf_ts"),
+            ("cbf_ts", "cbf_ts"),
             ("mean_cbf", "mean_cbf"),
+            ("att", "att"),
         ]),
     ])
     # fmt:on
@@ -305,7 +382,7 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
         # fmt:off
         workflow.connect([
             (refine_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
-            (compute_cbf, score_and_scrub_cbf, [("cbf", "cbf_ts")]),
+            (compute_cbf, score_and_scrub_cbf, [("cbf_ts", "cbf_ts")]),
             (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
             (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
@@ -326,13 +403,42 @@ CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
 BASIL computes CBF using a spatial regularization of the estimated perfusion image and
 additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 """
-        if is_casl:
-            bolus = metadata["LabelingDuration"]
-        else:  # pasl
-            bolus = metadata["BolusCutOffDelayTime"]
-            if metadata["BolusCutOffTechnique"] == "Q2TIPS":
-                # BolusCutOffDelayTime is a list, and the first entry should be used.
-                bolus = bolus[0]
+        # Node to define bolus
+        determine_bolus_duration = pe.Node(
+            niu.Function(
+                function=get_bolus_duration,
+                input_names=["metadata", "is_casl"],
+                output_names=["bolus"],
+            ),
+            name="determine_bolus_duration",
+        )
+        determine_bolus_duration.inputs.is_casl = is_casl
+        workflow.connect([(extract_deltam, determine_bolus_duration, [("metadata", "metadata")])])
+
+        # Node to define tis
+        determine_inflow_times = pe.Node(
+            niu.Function(
+                function=get_inflow_times,
+                input_names=["metadata", "is_casl"],
+                output_names=["tis"],
+            ),
+            name="determine_inflow_times",
+        )
+        determine_inflow_times.inputs.is_casl = is_casl
+
+        workflow.connect([(extract_deltam, determine_inflow_times, [("metadata", "metadata")])])
+
+        # Node to estimate labeling efficiency
+        estimate_alpha = pe.Node(
+            niu.Function(
+                function=estimate_labeling_efficiency,
+                input_names=["metadata"],
+                output_names=["labeling_efficiency"],
+            ),
+            name="estimate_alpha",
+        )
+
+        workflow.connect([(extract_deltam, estimate_alpha, [("metadata", "metadata")])])
 
         basil_kwargs = {}
         if "SliceTiming" in metadata.keys():
@@ -344,10 +450,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         basilcbf = pe.Node(
             BASILCBF(
                 m0_scale=m0_scale,
-                bolus=bolus,
-                alpha=estimate_labeling_efficiency(metadata),
                 pvc=True,
-                tis=tiscbf,
                 pcasl=is_casl,
                 **basil_kwargs,
             ),
@@ -365,13 +468,16 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),
+            (determine_bolus_duration, basilcbf, [("bolus", "bolus")]),
+            (determine_inflow_times, basilcbf, [("tis", "tis")]),
+            (estimate_alpha, basilcbf, [("labeling_efficiency", "alpha")]),
             (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
             (wm_tfm, basilcbf, [("output_image", "wm_tpm")]),
             (basilcbf, outputnode, [
                 ("mean_cbf_basil", "mean_cbf_basil"),
                 ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
                 ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
-                ("att", "att"),
+                ("att_basil", "att_basil"),
             ]),
         ])
         # fmt:on
@@ -396,13 +502,23 @@ def init_compute_cbf_ge_wf(
             :graph2use: orig
             :simple_form: yes
 
+            import json
+
+            from aslprep.tests.tests import mock_config
+            from aslprep import config
             from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf
 
-            wf = init_compute_cbf_ge_wf(
-                name_source="",
-                metadata={},
-                mem_gb=0.1,
-            )
+            with mock_config():
+                perf_dir = config.execution.bids_dir / "sub-01" / "perf"
+                with open(perf_dir / "sub-01_asl.json", "r") as fo:
+                    metadata = json.load(fo)
+
+                wf = init_compute_cbf_ge_wf(
+                    name_source=str(perf_dir / "sub-01_asl.nii.gz"),
+                    aslcontext=str(perf_dir / "sub-01_aslcontext.tsv"),
+                    metadata=metadata,
+                    mem_gb=0.1,
+                )
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -440,6 +556,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             fields=[
                 "cbf_ts",
                 "mean_cbf",
+                "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
@@ -449,7 +566,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
-                "att",
+                "att_basil",
             ]
         ),
         name="outputnode",
@@ -535,8 +652,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
     control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
 
-    tiscbf = get_tis(metadata)
-
     refine_mask = pe.Node(RefineMask(), mem_gb=1, run_without_submitting=True, name="refine_mask")
 
     # fmt:off
@@ -594,10 +709,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             (extract_deltam, compute_cbf, [("out_file", "deltam")]),
             (extract_deltam, collect_cbf, [("out_file", "deltam")]),
             (refine_mask, compute_cbf, [("out_mask", "mask")]),
-            (compute_cbf, collect_cbf, [("cbf", "cbf")]),
+            (compute_cbf, collect_cbf, [("cbf_ts", "cbf")]),
             (compute_cbf, outputnode, [
-                ("cbf", "cbf_ts"),
+                ("cbf_ts", "cbf_ts"),
                 ("mean_cbf", "mean_cbf"),
+                ("att", "att"),
             ]),
         ])
         # fmt:on
@@ -637,6 +753,9 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             ]),
         ])
         # fmt:on
+
+    else:
+        raise ValueError(f"Unknown processing: {vol_types}")
 
     if scorescrub:
         workflow.__desc__ += """\
@@ -678,15 +797,6 @@ variability of other model parameters and spatial regularization of the estimate
 perfusion image, including correction of partial volume effects [@chappell_pvc].
 """
 
-        if is_casl:
-            bolus = metadata["LabelingDuration"]
-        else:
-            assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
-            bolus = metadata["BolusCutOffDelayTime"]
-            if metadata["BolusCutOffTechnique"] == "Q2TIPS":
-                # BolusCutOffDelayTime is a list, and the first entry should be used.
-                bolus = bolus[0]
-
         basil_kwargs = {}
         if "SliceTiming" in metadata.keys():
             # This won't work for non-ascending slice orders.
@@ -697,10 +807,10 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
         basilcbf = pe.Node(
             BASILCBF(
                 m0_scale=m0_scale,
-                bolus=bolus,
-                alpha=estimate_labeling_efficiency(metadata),
+                bolus=get_bolus_duration(metadata=metadata, is_casl=is_casl),
+                alpha=estimate_labeling_efficiency(metadata=metadata),
                 pvc=True,
-                tis=tiscbf,
+                tis=get_inflow_times(metadata=metadata, is_casl=is_casl),
                 pcasl=is_casl,
                 **basil_kwargs,
             ),
@@ -724,7 +834,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 ("mean_cbf_basil", "mean_cbf_basil"),
                 ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
                 ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
-                ("att", "att"),
+                ("att_basil", "att_basil"),
             ]),
         ])
         # fmt:on

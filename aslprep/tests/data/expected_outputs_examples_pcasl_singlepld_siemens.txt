@@ -48,10 +48,10 @@ aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_atlas-Schaefer917_desc-
 aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_atlas-Tian_cbf.tsv
 aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_atlas-Tian_desc-basilGM_cbf.tsv
 aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_atlas-Tian_desc-basil_cbf.tsv
-aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_att.json
-aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_att.nii.gz
 aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_cbf.json
 aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_cbf.nii.gz
+aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-basil_att.json
+aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-basil_att.nii.gz
 aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-basil_cbf.json
 aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-basil_cbf.nii.gz
 aslprep/sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-brain_mask.json

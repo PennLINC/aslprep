@@ -2,16 +2,17 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """CBF-processing workflows for GE data."""
 from nipype.interfaces import utility as niu
-from nipype.interfaces.fsl import Split as FSLSplit
 from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.interfaces.cbf_computation import RefineMask
+from aslprep.interfaces.cbf import RefineMask
+from aslprep.interfaces.fsl import Split
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
+from aslprep.utils.asl import determine_multi_pld
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cbf_wf
@@ -124,8 +125,10 @@ def init_asl_gepreproc_wf(asl_file):
     -----
     1.  Brain-mask T1w.
     2.  Generate ASL reference image.
+
         -   Extract averaged, smoothed M0 image and reference image
             (which is generally the M0 image).
+
     3.  Register ASL to T1w.
     4.  Calculate CBF.
     5.  Apply the ASL-to-T1w transforms to get T1w-space outputs
@@ -138,7 +141,6 @@ def init_asl_gepreproc_wf(asl_file):
 
     See Also
     --------
-    * :py:func:`~aslprep.workflows.asl.registration.init_asl_t1_trans_wf`
     * :py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
     * :py:func:`~aslprep.workflows.asl.confounds.init_asl_confounds_wf`
     * :py:func:`~aslprep.workflows.asl.confounds.init_ica_aroma_wf`
@@ -220,6 +222,8 @@ effects of other kernels [@lanczos].
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
+    is_multi_pld = determine_multi_pld(metadata)
+
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name="t1w_brain")
 
@@ -245,15 +249,15 @@ effects of other kernels [@lanczos].
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True,
     )
-    # summary.inputs.dummy_scans = 0
 
     asl_derivatives_wf = init_asl_derivatives_wf(
         bids_root=layout.root,
         metadata=metadata,
         output_dir=output_dir,
+        spaces=spaces,
+        is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
-        spaces=spaces,
         output_confounds=False,  # GE workflow doesn't generate volume-wise confounds
     )
 
@@ -283,7 +287,7 @@ effects of other kernels [@lanczos].
     # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
     # can be applied with other transforms in single shots.
     # This will be useful for GE/non-GE integration.
-    asl_split = pe.Node(FSLSplit(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
+    asl_split = pe.Node(Split(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
 
     workflow.connect([(inputnode, asl_split, [("asl_file", "in_file")])])
 
@@ -349,13 +353,13 @@ effects of other kernels [@lanczos].
         mem_gb=mem_gb["filesize"],
         name="compute_cbf_wf",
     )
-    cbf_derivs = [
-        "cbf_ts",
-        "mean_cbf",
-    ]
-    mean_cbf_derivs = [
-        "mean_cbf",
-    ]
+    cbf_derivs = ["mean_cbf"]
+    mean_cbf_derivs = ["mean_cbf"]
+
+    if is_multi_pld:
+        cbf_derivs += ["att"]
+    else:
+        cbf_derivs += ["cbf_ts"]
 
     # SCORE/SCRUB is blocked for GE data.
     if basil:
@@ -363,7 +367,7 @@ effects of other kernels [@lanczos].
             "mean_cbf_basil",
             "mean_cbf_gm_basil",
             "mean_cbf_wm_basil",
-            "att",
+            "att_basil",
         ]
         # We don't want mean_cbf_wm_basil for this list.
         mean_cbf_derivs += [
@@ -395,6 +399,7 @@ effects of other kernels [@lanczos].
 
     asl_t1_trans_wf = init_asl_t1_trans_wf(
         output_t1space=nonstd_spaces.intersection(("T1w", "anat")),
+        is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
         generate_reference=False,  # the GE workflow doesn't generate a new reference
@@ -534,6 +539,7 @@ effects of other kernels [@lanczos].
             mem_gb=4,
             omp_nthreads=omp_nthreads,
             spaces=spaces,
+            is_multi_pld=is_multi_pld,
             scorescrub=scorescrub,
             basil=basil,
             generate_reference=False,

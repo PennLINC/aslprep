@@ -6,11 +6,10 @@ import pandas as pd
 import seaborn as sns
 from lxml import etree
 from matplotlib import gridspec as mgs
-from nilearn import plotting
-from nilearn.image import threshold_img
+from nilearn import image, plotting
+from nilearn._utils.niimg import load_niimg
 from niworkflows.interfaces.plotting import _get_tr
 from niworkflows.viz.utils import (
-    _3d_in_file,
     compose_view,
     cuts_from_bbox,
     extract_svg,
@@ -185,7 +184,10 @@ class CBFtsPlot(object):
 
 
 class CBFPlot(object):
-    """Generate the CBF Summary Plot."""
+    """Generate the CBF Summary Plot.
+
+    This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
+    """
 
     __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmax"]
 
@@ -197,9 +199,17 @@ class CBFPlot(object):
         self.vmax = vmax
 
     def plot(self):
-        """Generate the plot."""
+        """Generate the plot.
+
+        This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
+        """
+        cbf_img = nb.load(self.cbf)
+        cbf_data = cbf_img.get_fdata()
+        cbf_data[cbf_data < -20] = -20
+        cbf_data[cbf_data > 100] = 100
+        cbf_img = nb.Nifti1Image(cbf_data, affine=cbf_img.affine, header=cbf_img.header)
         statfile = plot_stat_map(
-            cbf=self.cbf,
+            cbf=cbf_img,
             ref_vol=self.ref_vol,
             vmax=self.vmax,
             label=self.label,
@@ -220,10 +230,13 @@ def plot_stat_map(
     """Plot statistical map."""
     plot_params = {} if plot_params is None else plot_params
 
-    image_nii = _3d_in_file(cbf)
+    image_nii = load_niimg(cbf)
+    if image_nii.ndim > 3:
+        image_nii = image.mean_img(image_nii)
+
     data = image_nii.get_fdata()
 
-    bbox_nii = threshold_img(nb.load(cbf), 1)
+    bbox_nii = image.threshold_img(image_nii, 1)
 
     cuts = cuts_from_bbox(bbox_nii, cuts=7)
 
@@ -234,7 +247,7 @@ def plot_stat_map(
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
         display = plotting.plot_stat_map(
-            stat_map_img=cbf,
+            stat_map_img=image_nii,
             bg_img=ref_vol,
             resampling_interpolation="nearest",
             display_mode=mode,

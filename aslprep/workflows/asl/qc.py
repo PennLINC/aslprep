@@ -60,7 +60,7 @@ def init_compute_cbf_qc_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """
-The Quality evaluation index (QEI) was computed for each CBF map [@dolui2017automated].
+The quality evaluation index (QEI) was computed for each CBF map [@dolui2017automated].
 QEI is based on the similarity between the CBF and the structural images, the spatial
 variability of the CBF image, and the percentage of grey matter voxels containing
 negative CBF values.

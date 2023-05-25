@@ -1,4 +1,4 @@
-"""Tests for the aslprep.interfaces.cbf_computation submodule."""
+"""Tests for the aslprep.interfaces.cbf submodule."""
 import os
 
 import nibabel as nb
@@ -6,11 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from aslprep.interfaces import cbf_computation
+from aslprep.interfaces import cbf
 
 
 def test_computecbf_casl(datasets, tmp_path_factory):
-    """Test aslprep.interfaces.cbf_computation.ComputeCBF with (P)CASL."""
+    """Test aslprep.interfaces.cbf.ComputeCBF with (P)CASL."""
     tmpdir = tmp_path_factory.mktemp("test_computecbf_casl")
     aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
 
@@ -28,7 +28,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
 
     single_pld = 1.5
     plds = np.zeros(n_volumes)
-    temp_plds = np.linspace(0, 1, n_deltam)
+    temp_plds = np.linspace(0.5, 3.5, n_deltam)
     plds[aslcontext["volume_type"] == "m0scan"] = 0
     plds[aslcontext["volume_type"] == "label"] = temp_plds
     plds[aslcontext["volume_type"] == "control"] = temp_plds
@@ -50,13 +50,14 @@ def test_computecbf_casl(datasets, tmp_path_factory):
     for asltype in ["PCASL", "CASL"]:
         for acq_dict in ACQ_DICTS:
             # Scenario 1: PCASL with a single PostLabelingDelay
+            # This should produce CBF time series and mean CBF, but no ATT
             metadata = {
                 "ArterialSpinLabelingType": asltype,
                 "PostLabelingDelay": single_pld,
                 **BASE_METADATA,
                 **acq_dict,
             }
-            interface = cbf_computation.ComputeCBF(
+            interface = cbf.ComputeCBF(
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
@@ -65,13 +66,14 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 mask=mask_file,
             )
             results = interface.run(cwd=tmpdir)
-            assert os.path.isfile(results.outputs.cbf)
-            cbf_img = nb.load(results.outputs.cbf)
+            assert os.path.isfile(results.outputs.cbf_ts)
+            cbf_img = nb.load(results.outputs.cbf_ts)
             assert cbf_img.ndim == 4
             assert cbf_img.shape[3] == n_deltam
             assert os.path.isfile(results.outputs.mean_cbf)
             mean_cbf_img = nb.load(results.outputs.mean_cbf)
             assert mean_cbf_img.ndim == 3
+            assert results.outputs.att is None
 
             # Scenario 2: PCASL with one PostLabelingDelay for each volume (bad)
             metadata = {
@@ -81,7 +83,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 **acq_dict,
             }
 
-            interface = cbf_computation.ComputeCBF(
+            interface = cbf.ComputeCBF(
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
@@ -89,13 +91,11 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 m0_file=m0_file,
                 mask=mask_file,
             )
-            with pytest.raises(
-                ValueError,
-                match="ASLPrep cannot currently process multi-PLD data.",
-            ):
+            with pytest.raises(ValueError, match="Number of PostLabelingDelays"):
                 results = interface.run(cwd=tmpdir)
 
             # Scenario 3: PCASL with one PostLabelingDelay for each deltam volume (good)
+            # This should produce ATT and mean CBF volumes, but no CBF time series
             metadata = {
                 "ArterialSpinLabelingType": asltype,
                 "PostLabelingDelay": good_multiple_plds,
@@ -103,7 +103,7 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 **acq_dict,
             }
 
-            interface = cbf_computation.ComputeCBF(
+            interface = cbf.ComputeCBF(
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
@@ -111,15 +111,18 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 m0_file=m0_file,
                 mask=mask_file,
             )
-            with pytest.raises(
-                ValueError,
-                match="ASLPrep cannot currently process multi-PLD data.",
-            ):
-                results = interface.run(cwd=tmpdir)
+            results = interface.run(cwd=tmpdir)
+            assert results.outputs.cbf_ts is None
+            assert os.path.isfile(results.outputs.mean_cbf)
+            mean_cbf_img = nb.load(results.outputs.mean_cbf)
+            assert mean_cbf_img.ndim == 3
+            assert os.path.isfile(results.outputs.att)
+            att_img = nb.load(results.outputs.att)
+            assert att_img.ndim == 3
 
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
-    """Test aslprep.interfaces.cbf_computation.ComputeCBF with PASL."""
+    """Test aslprep.interfaces.cbf.ComputeCBF with PASL."""
     tmpdir = tmp_path_factory.mktemp("test_computecbf_pasl")
     aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
 
@@ -137,7 +140,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
 
     single_pld = 1.5
     plds = np.zeros(n_volumes)
-    temp_plds = np.linspace(0, 1, n_deltam)
+    temp_plds = np.linspace(0.5, 3.5, n_deltam)
     plds[aslcontext["volume_type"] == "m0scan"] = 0
     plds[aslcontext["volume_type"] == "label"] = temp_plds
     plds[aslcontext["volume_type"] == "control"] = temp_plds
@@ -165,7 +168,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **acq_dict,
         }
         with pytest.raises(ValueError, match="not supported in ASLPrep."):
-            interface = cbf_computation.ComputeCBF(
+            interface = cbf.ComputeCBF(
                 cbf_only=False,
                 deltam=asl_file,
                 metadata=metadata,
@@ -176,6 +179,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 2: QUIPSS PASL with a single PostLabelingDelay
+        # This should produce CBF time series and mean CBF, but no ATT
         metadata = {
             "BolusCutOffFlag": True,
             "BolusCutOffTechnique": "QUIPSS",
@@ -184,7 +188,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -193,8 +197,8 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
-        assert os.path.isfile(results.outputs.cbf)
-        cbf_img = nb.load(results.outputs.cbf)
+        assert os.path.isfile(results.outputs.cbf_ts)
+        cbf_img = nb.load(results.outputs.cbf_ts)
         assert cbf_img.ndim == 4
         assert cbf_img.shape[3] == n_deltam
         assert os.path.isfile(results.outputs.mean_cbf)
@@ -210,7 +214,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -218,7 +222,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 4: QUIPSS PASL with one PostLabelingDelay for each deltam volume (good)
@@ -230,7 +234,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -238,10 +242,11 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
+        # This should produce CBF time series and mean CBF, but no ATT
         metadata = {
             "BolusCutOffFlag": True,
             "BolusCutOffTechnique": "QUIPSSII",
@@ -250,7 +255,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -259,8 +264,8 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
-        assert os.path.isfile(results.outputs.cbf)
-        cbf_img = nb.load(results.outputs.cbf)
+        assert os.path.isfile(results.outputs.cbf_ts)
+        cbf_img = nb.load(results.outputs.cbf_ts)
         assert cbf_img.ndim == 4
         assert cbf_img.shape[3] == n_deltam
         assert os.path.isfile(results.outputs.mean_cbf)
@@ -276,7 +281,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -284,10 +289,11 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
+        # This should produce CBF time series and mean CBF, but no ATT
         metadata = {
             "BolusCutOffFlag": True,
             "BolusCutOffTechnique": "Q2TIPS",
@@ -296,7 +302,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -304,8 +310,14 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Q2TIPS is not supported in ASLPrep."):
-            results = interface.run(cwd=tmpdir)
+        results = interface.run(cwd=tmpdir)
+        assert os.path.isfile(results.outputs.cbf_ts)
+        cbf_img = nb.load(results.outputs.cbf_ts)
+        assert cbf_img.ndim == 4
+        assert cbf_img.shape[3] == n_deltam
+        assert os.path.isfile(results.outputs.mean_cbf)
+        mean_cbf_img = nb.load(results.outputs.mean_cbf)
+        assert mean_cbf_img.ndim == 3
 
         # Scenario 8: Q2TIPS PASL with multiple PostLabelingDelays
         metadata = {
@@ -316,7 +328,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -324,7 +336,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="ASLPrep cannot currently process multi-PLD data."):
+        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
             results = interface.run(cwd=tmpdir)
 
 
@@ -364,7 +376,7 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
             "PostLabelingDelay": 1.5,
             **acq_dict,
         }
-        interface = cbf_computation.ComputeCBF(
+        interface = cbf.ComputeCBF(
             cbf_only=False,
             deltam=asl_file,
             metadata=metadata,
@@ -373,7 +385,7 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
             mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
-        cbf_data.append(nb.load(results.outputs.cbf).get_fdata())
+        cbf_data.append(nb.load(results.outputs.cbf_ts).get_fdata())
 
     assert np.array_equal(cbf_data[0], cbf_data[1])
 

@@ -3,7 +3,6 @@ import os
 
 import pytest
 from nipype import config as nipype_config
-from nipype.pipeline.engine.nodes import NodeExecutionError
 from pkg_resources import resource_filename as pkgrf
 
 from aslprep.cli.parser import parse_args
@@ -26,7 +25,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     The BolusCutOffTechnique is Q2TIPS.
     The manufacturer is Siemens.
 
-    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
+    PASL multi-delay data is not yet supported.
     """
     TEST_NAME = "examples_pasl_multipld"
     PARTICIPANT_LABEL = "01"
@@ -60,8 +59,6 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
 
     This dataset has 48 control-label pairs at 6 different PLDs, along with a separate M0 scan.
     The manufacturer is Siemens.
-
-    NOTE: MultiPLD is not currently working, so we expect the workflow to fail.
     """
     TEST_NAME = "examples_pcasl_multipld"
     PARTICIPANT_LABEL = "01"
@@ -86,7 +83,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
-    _run_and_fail(parameters)
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 @pytest.mark.examples_pcasl_singlepld_ge
@@ -294,6 +291,7 @@ def test_test_003(data_dir, output_dir, working_dir):
 def _run_and_generate(test_name, participant_label, parameters, out_dir):
     from aslprep import config
 
+    parameters.append("--stop-on-first-crash")
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.loggers.cli.warning(f"Saving config file to {config_file}")
@@ -318,11 +316,10 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
 def _run_and_fail(parameters):
     from aslprep import config
 
+    parameters.append("--stop-on-first-crash")
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.to_filename(config_file)
 
-    retval = build_workflow(config_file, retval={})
-    aslprep_wf = retval["workflow"]
-    with pytest.raises(NodeExecutionError, match="cannot currently process multi-PLD data."):
-        aslprep_wf.run()
+    with pytest.raises(ValueError, match="Multi-delay data are not supported for PASL"):
+        build_workflow(config_file, retval={})

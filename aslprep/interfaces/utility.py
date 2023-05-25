@@ -15,7 +15,7 @@ from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix, load_json, save_json
 
 from aslprep import config
-from aslprep.utils.misc import reduce_metadata_lists
+from aslprep.utils.asl import reduce_metadata_lists
 
 
 class _ReduceASLFilesInputSpec(BaseInterfaceInputSpec):

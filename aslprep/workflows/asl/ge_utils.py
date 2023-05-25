@@ -29,12 +29,21 @@ def init_asl_reference_ge_wf(
             :graph2use: orig
             :simple_form: yes
 
+            import json
+
+            from aslprep.tests.tests import mock_config
+            from aslprep import config
             from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf
 
-            wf = init_asl_reference_ge_wf(
-                metadata={},
-                aslcontext="sub-01_aslcontext.tsv",
-            )
+            with mock_config():
+                perf_dir = config.execution.bids_dir / "sub-01" / "perf"
+                with open(perf_dir / "sub-01_asl.json", "r") as fo:
+                    metadata = json.load(fo)
+
+                wf = init_asl_reference_ge_wf(
+                    metadata=metadata,
+                    aslcontext=str(perf_dir / "sub-01_aslcontext.tsv"),
+                )
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\

@@ -44,8 +44,11 @@ def init_plot_cbf_wf(
                 "template_to_anat_xfm",
                 "confounds_file",  # only for non-GE
                 # CBF outputs
-                "cbf_ts",  # only for non-GE
                 "mean_cbf",
+                # Single-delay outputs
+                "cbf_ts",  # only for non-GE
+                # Multi-delay outputs
+                "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",  # unused
                 "mean_cbf_score",
@@ -55,7 +58,7 @@ def init_plot_cbf_wf(
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",  # unused
-                "att",  # unused
+                "att_basil",  # unused
             ]
         ),
         name="inputnode",
@@ -114,7 +117,8 @@ def init_plot_cbf_wf(
             float=True,
             dimension=3,
             default_value=0,
-            interpolation="MultiLabel",
+            input_image_type=0,
+            interpolation="GenericLabel",
         ),
         name="warp_carpet_dseg_to_aslref",
     )
