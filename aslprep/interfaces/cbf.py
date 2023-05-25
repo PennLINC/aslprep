@@ -27,8 +27,8 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
 )
 from aslprep.utils.cbf import (
-    _getcbfscore,
-    _scrubcbf,
+    _score_cbf,
+    _scrub_cbf,
     estimate_cbf_pcasl_multipld,
     estimate_t1,
 )
@@ -724,7 +724,7 @@ class ScoreAndScrubCBF(SimpleInterface):
         whitem = nb.load(self.inputs.wm_tpm).get_fdata()
         csf = nb.load(self.inputs.csf_tpm).get_fdata()
         if cbf_ts.ndim > 3:
-            cbf_scorets, index_score = _getcbfscore(
+            cbf_scorets, index_score = _score_cbf(
                 cbfts=cbf_ts,
                 wm=whitem,
                 gm=greym,
@@ -732,7 +732,7 @@ class ScoreAndScrubCBF(SimpleInterface):
                 mask=mask,
                 thresh=self.inputs.tpm_threshold,
             )
-            cbfscrub = _scrubcbf(
+            cbfscrub = _scrub_cbf(
                 cbf_ts=cbf_scorets,
                 gm=greym,
                 wm=whitem,
