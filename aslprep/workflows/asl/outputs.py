@@ -41,7 +41,7 @@ def init_asl_derivatives_wf(
         the TemplateFlow root directory. Each ``Reference`` may also contain a spec, which is a
         dictionary with template specifications (e.g., a specification of ``{'resolution': 2}``
         would lead to resampling on a 2mm resolution of the space).
-    is_multi_pld = :obj:`bool`
+    is_multi_pld : :obj:`bool`
         True if data are multi-delay, False otherwise.
     name : :obj:`str`
         This workflow's identifier (default: ``func_derivatives_wf``).

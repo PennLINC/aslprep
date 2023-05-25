@@ -125,8 +125,10 @@ def init_asl_gepreproc_wf(asl_file):
     -----
     1.  Brain-mask T1w.
     2.  Generate ASL reference image.
+
         -   Extract averaged, smoothed M0 image and reference image
             (which is generally the M0 image).
+
     3.  Register ASL to T1w.
     4.  Calculate CBF.
     5.  Apply the ASL-to-T1w transforms to get T1w-space outputs

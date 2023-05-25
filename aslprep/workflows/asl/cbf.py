@@ -47,14 +47,25 @@ def init_compute_cbf_wf(
             :graph2use: orig
             :simple_form: yes
 
+            import json
+
+            from aslprep.tests.tests import mock_config
+            from aslprep import config
             from aslprep.workflows.asl.cbf import init_compute_cbf_wf
 
-            wf = init_compute_cbf_wf(
-                name_source="",
-                processing_target="controllabel",
-                metadata={},
-                dummy_vols=0,
-            )
+            with mock_config():
+                perf_dir = config.execution.bids_dir / "sub-01" / "perf"
+                with open(perf_dir / "sub-01_asl.json", "r") as fo:
+                    metadata = json.load(fo)
+
+                wf = init_compute_cbf_wf(
+                    name_source=str(perf_dir / "sub-01_asl.nii.gz"),
+                    processing_target="controllabel",
+                    metadata=metadata,
+                    dummy_vols=0,
+                    scorescrub=True,
+                    basil=True,
+                )
 
     Parameters
     ----------
@@ -491,13 +502,23 @@ def init_compute_cbf_ge_wf(
             :graph2use: orig
             :simple_form: yes
 
+            import json
+
+            from aslprep.tests.tests import mock_config
+            from aslprep import config
             from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf
 
-            wf = init_compute_cbf_ge_wf(
-                name_source="",
-                metadata={},
-                mem_gb=0.1,
-            )
+            with mock_config():
+                perf_dir = config.execution.bids_dir / "sub-01" / "perf"
+                with open(perf_dir / "sub-01_asl.json", "r") as fo:
+                    metadata = json.load(fo)
+
+                wf = init_compute_cbf_ge_wf(
+                    name_source=str(perf_dir / "sub-01_asl.nii.gz"),
+                    aslcontext=str(perf_dir / "sub-01_aslcontext.tsv"),
+                    metadata=metadata,
+                    mem_gb=0.1,
+                )
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -626,7 +647,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         )
         basil = False
 
-    vol_types = aslcontext_df["volume_type"].tolist()
+    vol_types = aslcontext_df["volume_type"].values()
     deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
     cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
     control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
@@ -732,6 +753,9 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             ]),
         ])
         # fmt:on
+
+    else:
+        raise ValueError(f"Unknown processing: {vol_types}")
 
     if scorescrub:
         workflow.__desc__ += """\
