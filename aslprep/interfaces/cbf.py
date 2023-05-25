@@ -94,11 +94,11 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     in_mask = File(exists=True, mandatory=True, desc="mask")
     dummy_vols = traits.Int(
         default_value=0,
-        use_default=True,
+        usedefault=True,
         mandatory=False,
         desc="remove first n volumes",
     )
-    fwhm = traits.Float(default_value=5, use_default=True, mandatory=False, desc="fwhm")
+    fwhm = traits.Float(default_value=5, usedefault=True, mandatory=False, desc="fwhm")
 
 
 class _ExtractCBFOutputSpec(TraitedSpec):
@@ -672,31 +672,37 @@ class ComputeCBF(SimpleInterface):
 
 
 class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
-    cbf_ts = File(exists=True, mandatory=True, desc="Computed CBF from ComputeCBF.")
-    mask = File(exists=True, mandatory=True, desc="mask")
+    cbf = File(exists=True, mandatory=True, desc="computed CBF from ComputeCBF")
     gm_tpm = File(exists=True, mandatory=True, desc="Gray matter tissue probability map.")
     wm_tpm = File(exists=True, mandatory=True, desc="White matter tissue probability map.")
-    csf_tpm = File(exists=True, mandatory=True, desc="CSF tissue probability map.")
+    csf_tpm = File(exists=True, mandatory=True, desc="Cerebrospinal fluid tissue probability map.")
+    brain_mask = File(exists=True, mandatory=True, desc="Brain mask.")
     tpm_threshold = traits.Float(
         default_value=0.7,
-        usedefault=True,
         mandatory=False,
-        desc="Tissue probability threshold for binarizing GM, WM, and CSF masks.",
+        usedefault=True,
+        desc="Threshold for tissue probability maps.",
     )
     wavelet_function = traits.Str(
-        default_value="huber",
-        usedefault=True,
+        exists=True,
         mandatory=False,
+        default_value="huber",
         option=["bisquare", "andrews", "cauchy", "fair", "logistics", "ols", "talwar", "welsch"],
-        desc="Wavelet function",
+        desc="Wavelet function used in SCRUB.",
     )
 
 
 class _ScoreAndScrubCBFOutputSpec(TraitedSpec):
-    cbf_ts_score = File(exists=False, mandatory=False, desc="score timeseries data")
-    mean_cbf_score = File(exists=False, mandatory=False, desc="average score")
-    mean_cbf_scrub = File(exists=False, mandatory=False, desc="average scrub")
-    score_outlier_index = File(exists=False, mandatory=False, desc="index of volume remove ")
+    cbf_ts_score = File(
+        exists=True,
+        desc="CBF time series after removing outlier volumes flagged by SCORE algorithm.",
+    )
+    score_outliers = File(exists=True, desc="Index of removed volumes, in a CSV file.")
+    mean_cbf_score = File(
+        exists=True,
+        desc="Mean CBF image calculated from SCORE-censored CBF time series.",
+    )
+    mean_cbf_scrub = File(exists=True, desc="average scrub")
 
 
 class ScoreAndScrubCBF(SimpleInterface):
@@ -718,79 +724,80 @@ class ScoreAndScrubCBF(SimpleInterface):
     output_spec = _ScoreAndScrubCBFOutputSpec
 
     def _run_interface(self, runtime):
-        cbf_ts = nb.load(self.inputs.cbf_ts).get_fdata()
-        mask = nb.load(self.inputs.mask).get_fdata()
-        greym = nb.load(self.inputs.gm_tpm).get_fdata()
-        whitem = nb.load(self.inputs.wm_tpm).get_fdata()
-        csf = nb.load(self.inputs.csf_tpm).get_fdata()
-        if cbf_ts.ndim > 3:
-            cbf_scorets, index_score = _score_cbf(
-                cbfts=cbf_ts,
-                wm=whitem,
-                gm=greym,
-                csf=csf,
-                mask=mask,
+        cbf_img = nb.load(self.inputs.cbf)
+        cbf_arr = cbf_img.get_fdata()
+
+        if cbf_arr.ndim > 3:
+            mask_arr = nb.load(self.inputs.brain_mask).get_fdata()
+            gm_tpm_arr = nb.load(self.inputs.gm_tpm).get_fdata()
+            wm_tpm_arr = nb.load(self.inputs.wm_tpm).get_fdata()
+            csf_tpm_arr = nb.load(self.inputs.csf_tpm).get_fdata()
+
+            cbf_ts_score, score_outliers_idx = _score_cbf(
+                cbf_ts=cbf_arr,
+                gm=gm_tpm_arr,
+                wm=wm_tpm_arr,
+                csf=csf_tpm_arr,
+                mask=mask_arr,
                 thresh=self.inputs.tpm_threshold,
             )
-            cbfscrub = _scrub_cbf(
-                cbf_ts=cbf_scorets,
-                gm=greym,
-                wm=whitem,
-                csf=csf,
-                mask=mask,
-                wfun=self.inputs.wavelet_function,
+            mean_cbf_score = np.mean(cbf_ts_score, axis=3)
+            mean_cbf_scrub = _scrub_cbf(
+                cbf_ts=cbf_ts_score,
+                gm=gm_tpm_arr,
+                wm=wm_tpm_arr,
+                csf=csf_tpm_arr,
+                mask=mask_arr,
+                wavelet_function=self.inputs.wavelet_function,
                 thresh=self.inputs.tpm_threshold,
             )
-            mean_cbf_score = np.mean(cbf_scorets, axis=3)
         else:
             config.loggers.interface.warning(
-                f"CBF time series is only {cbf_ts.ndim}D. Skipping SCORE and SCRUB."
+                f"CBF time series is only {cbf_arr.ndim}D. Skipping SCORE and SCRUB."
             )
-            cbf_scorets = cbf_ts
-            index_score = np.array([0])
-            cbfscrub = cbf_ts
-            mean_cbf_score = cbf_ts
+            cbf_ts_score = cbf_arr
+            mean_cbf_score = cbf_arr
+            score_outliers_idx = np.array([0])
+            mean_cbf_scrub = cbf_arr
 
         self._results["cbf_ts_score"] = fname_presuffix(
-            self.inputs.cbf_ts,
+            self.inputs.cbf,
             suffix="_cbfscorets",
             newpath=runtime.cwd,
         )
         self._results["mean_cbf_score"] = fname_presuffix(
-            self.inputs.cbf_ts,
+            self.inputs.cbf,
             suffix="_meancbfscore",
             newpath=runtime.cwd,
         )
         self._results["mean_cbf_scrub"] = fname_presuffix(
-            self.inputs.cbf_ts,
+            self.inputs.cbf,
             suffix="_cbfscrub",
             newpath=runtime.cwd,
         )
-        self._results["score_outlier_index"] = fname_presuffix(
-            self.inputs.cbf_ts,
-            suffix="_scoreindex.txt",
+        self._results["score_outliers"] = fname_presuffix(
+            self.inputs.cbf,
+            suffix="_scoreindex.csv",
             newpath=runtime.cwd,
             use_ext=False,
         )
-        samplecbf = nb.load(self.inputs.mask)
 
         nb.Nifti1Image(
-            dataobj=cbf_scorets,
-            affine=samplecbf.affine,
-            header=samplecbf.header,
+            dataobj=cbf_ts_score,
+            affine=cbf_img.affine,
+            header=cbf_img.header,
         ).to_filename(self._results["cbf_ts_score"])
         nb.Nifti1Image(
             dataobj=mean_cbf_score,
-            affine=samplecbf.affine,
-            header=samplecbf.header,
+            affine=cbf_img.affine,
+            header=cbf_img.header,
         ).to_filename(self._results["mean_cbf_score"])
+        np.savetxt(self._results["score_outliers"], score_outliers_idx, delimiter=",")
         nb.Nifti1Image(
-            dataobj=cbfscrub,
-            affine=samplecbf.affine,
-            header=samplecbf.header,
+            dataobj=mean_cbf_scrub,
+            affine=cbf_img.affine,
+            header=cbf_img.header,
         ).to_filename(self._results["mean_cbf_scrub"])
-
-        np.savetxt(self._results["score_outlier_index"], index_score, delimiter=",")
 
         return runtime
 
@@ -798,7 +805,7 @@ class ScoreAndScrubCBF(SimpleInterface):
 class _BASILCBFInputSpec(FSLCommandInputSpec):
     # We use position args here as list indices - so a negative number
     # will put something on the end
-    deltam = File(
+    in_file = File(
         exists=True,
         desc=(
             "ASL data after subtracting tag-control or control-tag. "
@@ -811,11 +818,11 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     mask = File(
         exists=True,
         argstr="-m %s",
-        desc="mask in the same space as deltam",
+        desc="mask in the same space as in_file",
         mandatory=True,
     )
     mzero = File(exists=True, argstr="-c %s", desc="m0 scan", mandatory=False)
-    m0_scale = traits.Float(desc="calibration of asl", argstr="--cgain %.2f", mandatory=True)
+    m0scale = traits.Float(desc="calibration of asl", argstr="--cgain %.2f", mandatory=True)
     m0tr = traits.Float(
         desc="The repetition time for the calibration image (the M0 scan).",
         argstr="--tr %.2f",
@@ -860,24 +867,20 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=True,
         sep=",",
     )
-    slice_spacing = traits.Float(
-        desc="Slice times",
-        argstr="--slicedt %s",
-        mandatory=False,
-    )
     pvc = traits.Bool(
         desc="Do partial volume correction.",
         mandatory=False,
         argstr="--pvcorr",
         default_value=True,
+        usedefault=True,
     )
-    gm_tpm = File(
+    pvgm = File(
         exists=True,
         mandatory=False,
         desc="Partial volume estimates for GM. This is just a GM tissue probability map.",
         argstr="--pvgm %s",
     )
-    wm_tpm = File(
+    pvwm = File(
         exists=True,
         mandatory=False,
         desc="Partial volume estimates for WM. This is just a WM tissue probability map.",
@@ -886,7 +889,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     alpha = traits.Float(
         desc=(
             "Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. "
-            "This is equivalent to the BIDS metadata field 'LabelingEfficiency'."
+            "This is equivalent the BIDS metadata field 'LabelingEfficiency'."
         ),
         argstr="--alpha %.2f",
     )
@@ -894,13 +897,22 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
-    mean_cbf_basil = File(exists=True, desc="cbf with spatial correction")
-    mean_cbf_gm_basil = File(exists=True, desc="cbf with spatial correction")
-    mean_cbf_wm_basil = File(
+    mean_cbf = File(exists=True, desc="CBF map in absolute units (ml/100g/min).")
+    mean_cbf_gm = File(
         exists=True,
-        desc="cbf with spatial partial volume white matter correction",
+        desc=(
+            "CBF map with gray matter partial volume correction. "
+            "This means that the map contains 'pure' GM perfusion estimates, in absolute units."
+        ),
     )
-    att_basil = File(exists=True, desc="arterial transit time")
+    mean_cbf_wm = File(
+        exists=True,
+        desc=(
+            "CBF map with white matter partial volume correction. "
+            "This means that the map contains 'pure' WM perfusion estimates, in absolute units."
+        ),
+    )
+    att = File(exists=True, desc="Arterial transit time map.")
 
 
 class BASILCBF(FSLCommand):
@@ -924,8 +936,8 @@ class BASILCBF(FSLCommand):
         return runtime
 
     def _gen_outfilename(self, suffix):
-        if isdefined(self.inputs.deltam):
-            out_file = self._gen_fname(self.inputs.deltam, suffix=suffix)
+        if isdefined(self.inputs.in_file):
+            out_file = self._gen_fname(self.inputs.in_file, suffix=suffix)
         return os.path.abspath(out_file)
 
     def _list_outputs(self):
@@ -933,13 +945,13 @@ class BASILCBF(FSLCommand):
 
         outputs = self.output_spec().get()
 
-        outputs["mean_cbf_basil"] = os.path.join(basename, "native_space/perfusion_calib.nii.gz")
-        outputs["att_basil"] = os.path.join(basename, "native_space/arrival.nii.gz")
-        outputs["mean_cbf_gm_basil"] = os.path.join(
+        outputs["mean_cbf"] = os.path.join(basename, "native_space/perfusion_calib.nii.gz")
+        outputs["att"] = os.path.join(basename, "native_space/arrival.nii.gz")
+        outputs["mean_cbf_gm"] = os.path.join(
             basename,
             "native_space/pvcorr/perfusion_calib.nii.gz",
         )
-        outputs["mean_cbf_wm_basil"] = os.path.join(
+        outputs["mean_cbf_wm"] = os.path.join(
             basename,
             "native_space/pvcorr/perfusion_wm_calib.nii.gz",
         )
