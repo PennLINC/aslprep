@@ -6,17 +6,17 @@ ASLPrep Installation
 
 There are two ways to install *ASLPrep*:
 
-* within a `Computer or HPC installation`_
+*  within a `Computer or HPC installation`_
 
-* using container technologies (RECOMMENDED), such as :doc:`docker`
-  or :doc:`singularity`.
+*  using container technologies (RECOMMENDED), such as :doc:`docker`
+   or :doc:`singularity`.
 
 Once the environment is set up (first option above),
 the next step is to execute ``aslprep`` on the command-line.
 The ``aslprep`` command-line options are documented in the :ref:`usage`
 section.:
 
-  $ aslprep  <input_bids_path> <derivatives_path> <analysis_level> <named_options>
+   $ aslprep  <input_bids_path> <derivatives_path> <analysis_level> <named_options>
 
 If you are using a docker or singularity image, the command-line call to ASLPrep
 will require binding configurations and options. The call to the docker or
@@ -25,8 +25,8 @@ the binding configurations must be specified before the ``aslprep`` argument.
 
 The command-line structure is as follows::
 
-  $ <container_command_and_options> <container_image> \
-       <input_bids_path> <derivatives_path> <analysis_level> <ASLPrep_named_options>
+   $ <container_command_and_options> <container_image> \
+      <input_bids_path> <derivatives_path> <analysis_level> <ASLPrep_named_options>
 
 
 ****************************
@@ -49,11 +49,11 @@ Note that FreeSurfer requires a license file, which can be requested
 If Python 3.7 (or above) is installed, along with the ``pip`` command,
 *ASLPRep* can be installed using the following command ::
 
-    $ python -m pip install aslprep
+   $ python -m pip install aslprep
 
 Check your installation with the ``--version`` argument ::
 
-    $ aslprep --version
+   $ aslprep --version
 
 
 External Dependencies

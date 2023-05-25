@@ -5,17 +5,16 @@ ASL processing pipeline details
 ###############################
 
 *ASLPrep* :footcite:p:`aslprep_nature_methods,aslprep_zenodo`
-adapts its pipeline depending on what data and metadata are
-available and are used as inputs.
+adapts its pipeline depending on what data and metadata are available and are used as inputs.
 It requires the input data to be BIDS-valid and include necessary ASL parameters.
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.workflows.base import init_single_subject_wf
+   from aslprep.workflows.base import init_single_subject_wf
 
-    wf = init_single_subject_wf('01')
+   wf = init_single_subject_wf("01")
 
 
 ************************
@@ -28,29 +27,28 @@ to a common voxel size, and, in the case of multiple images,
 averages them into a single reference template.
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
-    from smriprep.workflows.anatomical import init_anat_preproc_wf
-    wf = init_anat_preproc_wf(
-        bids_root='.',
-        freesurfer=False,
-        hires=True,
-        longitudinal=False,
-        omp_nthreads=1,
-        output_dir='.',
-        skull_strip_mode='force',
-        skull_strip_template=Reference('MNI152NLin2009cAsym'),
-        spaces=SpatialReferences([
-            ('MNI152Lin', {}),
+   from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
+   from smriprep.workflows.anatomical import init_anat_preproc_wf
 
-            ('T1w', {}),
-            ('fsnative', {})
-        ]),
-        skull_strip_fixed_seed=False,
-        t1w=['sub-01/anat/sub-01_T1w.nii.gz'],
-    )
+   wf = init_anat_preproc_wf(
+      bids_root=".",
+      freesurfer=False,
+      hires=True,
+      longitudinal=False,
+      omp_nthreads=1,
+      output_dir=".",
+      skull_strip_mode="force",
+      skull_strip_template=Reference("MNI152NLin2009cAsym"),
+      spaces=SpatialReferences([
+         ("MNI152Lin", {}),
+         ("T1w", {}),
+      ]),
+      skull_strip_fixed_seed=False,
+      t1w=["sub-01/anat/sub-01_T1w.nii.gz"],
+   )
 
 See also *sMRIPrep*'s
 :py:func:`~smriprep.workflows.anatomical.init_anat_preproc_wf`.
@@ -64,36 +62,33 @@ the ``antsBrainExtraction.sh`` tool (ANTs), which is an atlas-based
 brain extraction workflow:
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.niworkflows.anat.ants import init_brain_extraction_wf
-    wf = init_brain_extraction_wf()
+   from aslprep.niworkflows.anat.ants import init_brain_extraction_wf
 
+   wf = init_brain_extraction_wf()
 
 An example of brain extraction is shown below:
 
 .. figure:: _static/brainextraction_t1.svg
 
-    Brain extraction
-
+   Brain extraction
 
 Once the brain mask is computed, FSL ``fast`` is used for brain tissue segmentation.
 
 .. figure:: _static/segmentation.svg
 
-    Brain tissue segmentation
-
+   Brain tissue segmentation
 
 Finally, spatial normalization to standard spaces is performed using ANTs' ``antsRegistration``
 in a multiscale, mutual-information based, nonlinear registration scheme.
 See :doc:`spaces` for more information on how standard and nonstandard spaces can
 be set to resample the preprocessed data onto the final output spaces.
 
-
 .. figure:: _static/T1MNINormalization.svg
 
-    Animation showing spatial normalization of T1w onto the ``MNI152NLin2009cAsym`` template
+   Animation showing spatial normalization of T1w onto the ``MNI152NLin2009cAsym`` template.
 
 
 *****************
@@ -103,18 +98,30 @@ ASL preprocessing
 :py:func:`~aslprep.workflows.asl.base.init_asl_preproc_wf`
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.tests.tests import mock_config
-    from aslprep import config
-    from aslprep.workflows.asl.base import init_asl_preproc_wf
-    with mock_config():
-        asl_file = config.execution.bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
-        wf = init_asl_preproc_wf(str(asl_file))
+   from aslprep.tests.tests import mock_config
+   from aslprep import config
+   from aslprep.workflows.asl.base import init_asl_preproc_wf
+
+   with mock_config():
+      asl_file = str(config.execution.bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz")
+      wf = init_asl_preproc_wf(asl_file)
 
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.
+
+.. topic:: Processing GE data
+
+   ASLPrep can process data from any of the big three manufacturers (Siemens, Philips, GE),
+   but the GE ASL product sequence is unique in that it typically only produces a single deltaM or
+   CBF volume (optionally along with an M0 volume).
+
+   For these short sequences, ASLPrep performs many of the same steps as for a longer sequence,
+   but certain steps are dropped, including motion correction.
+   Additionally, SCORE/SCRUB cannot be used with these short sequences,
+   as the denoising method requires a long time series from which to identify outliers.
 
 
 .. _asl_ref:
@@ -122,14 +129,15 @@ split into multiple sub-workflows described below.
 ASL reference image estimation
 ==============================
 
-:py:func:`~aslrep.niworkflows.func.util.init_asl_reference_wf`
+:py:func:`~aslprep.workflows.asl.util.init_asl_reference_wf`
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.niworkflows.func.util import init_asl_reference_wf
-    wf = init_asl_reference_wf(omp_nthreads=1)
+   from aslprep.workflows.asl.util import init_asl_reference_wf
+
+   wf = init_asl_reference_wf(omp_nthreads=1)
 
 This workflow estimates a reference image for an
 :abbr:`ASL (Arterial Spin Labelling)` series.
@@ -142,7 +150,7 @@ ASL series onto the T1w image of the same subject.
 
 .. figure:: _static/brainextraction.svg
 
-    Calculation of a brain mask from the ASL series.
+   Calculation of a brain mask from the ASL series.
 
 
 .. _asl_hmc:
@@ -153,16 +161,19 @@ Head-motion estimation
 :py:func:`~aslprep.workflows.asl.hmc.init_asl_hmc_wf`
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.workflows.asl.hmc import init_asl_hmc_wf
-    wf = init_asl_hmc_wf(
-        mem_gb=1,
-        omp_nthreads=1,
-    )
+   from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
-Using the previously :ref:`estimated reference scan <asl_ref>`,
+   wf = init_asl_hmc_wf(
+      processing_target="controllabel",
+      m0type="Included",
+      mem_gb=1,
+      omp_nthreads=1,
+   )
+
+Using the previously estimated reference scan,
 FSL ``mcflirt`` or AFNI ``3dvolreg`` is used to estimate head-motion.
 As a result, one rigid-body transform with respect to
 the reference image is written for each :abbr:`ASL (Arterial Spin Labelling)`
@@ -173,48 +184,20 @@ three translations) per time-step is written and fed to the
 for a more accurate estimation of head-motion.
 
 
-Slice time correction
-=====================
-
-:py:func:`~aslprep.workflows.asl.stc.init_asl_stc_wf`
-
-.. workflow::
-    :graph2use: orig
-    :simple_form: yes
-
-    from aslprep.workflows.asl.stc import init_asl_stc_wf
-
-    wf = init_asl_stc_wf(
-        metadata={
-            'RepetitionTime': 2.0,
-            'SliceTiming': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-        },
-    )
-
-If the ``SliceTiming`` field is available within the input dataset metadata,
-this workflow performs slice time correction prior to other signal resampling
-processes.
-Slice time correction is performed using AFNI ``3dTShift``.
-All slices are realigned in time to the middle of each TR.
-
-Slice time correction can be disabled with the ``--ignore slicetiming``
-command line argument.
-
-
 .. _asl_confounds:
 
 Confounds estimation
 ====================
 
-:py:func:`~aslprep.workflows.asl.confounds.init_asl_confs_wf`
+:py:func:`~aslprep.workflows.asl.confounds.init_asl_confounds_wf`
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.workflows.asl.confounds import init_asl_confs_wf
+   from aslprep.workflows.asl.confounds import init_asl_confounds_wf
 
-    wf = init_asl_confs_wf(name="confound_wf", mem_gb=1)
+   wf = init_asl_confounds_wf(name="confound_wf", mem_gb=1)
 
 
 Calculated confounds include framewise displacement, 6 motion parameters, and DVARS.
@@ -230,7 +213,7 @@ Please refer to :doc:`sdc` for details on the available workflows.
 
 .. figure:: _static/unwarping.svg
 
-    Applying susceptibility-derived distortion correction, based on fieldmap estimation
+   Applying susceptibility-derived distortion correction, based on fieldmap estimation
 
 See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 
@@ -243,31 +226,29 @@ Preprocessed ASL in native space
 :py:func:`~aslprep.workflows.asl.resampling.init_asl_preproc_trans_wf`
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.workflows.asl.resampling import init_asl_preproc_trans_wf
+   from aslprep.workflows.asl.resampling import init_asl_preproc_trans_wf
 
-    wf = init_asl_preproc_trans_wf(
-        mem_gb=3,
-        omp_nthreads=1,
-    )
+   wf = init_asl_preproc_trans_wf(
+      mem_gb=3,
+      omp_nthreads=1,
+   )
+
 
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
-from either the slice-timing corrected data or the original data (if
-:abbr:`STC (slice-timing correction)` was not applied) in the
-original space.
+from the original data in the original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
-resampled in their native space by concatenating the mappings found in previous
-correction workflows (:abbr:`HMC (head-motion correction)` and
-:abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
+resampled in their native space by concatenating the mappings found in previous correction workflows
+(:abbr:`HMC (head-motion correction)` and :abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
 for a one-shot interpolation process.
 Interpolation uses a Lanczos kernel.
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
 
-    The preprocessed ASL with label and control.
-    The signal plots above the carpet plot are framewise diplacement (FD) and DVRAS.
+   The preprocessed ASL with label and control.
+   The signal plots above the carpet plot are framewise diplacement (FD) and DVRAS.
 
 
 .. _cbf_preproc:
@@ -279,90 +260,294 @@ CBF Computation in native space
 :py:func:`~aslprep.workflows.asl.cbf.init_compute_cbf_wf`
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    import json
-    from pathlib import Path
-    from pkg_resources import resource_filename as pkgrf
+   import json
+   from pathlib import Path
+   from pkg_resources import resource_filename as pkgrf
 
-    from aslprep.workflows.asl.cbf import init_compute_cbf_wf
+   from aslprep.workflows.asl.cbf import init_compute_cbf_wf
 
-    bids_dir = Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
-    metadata_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
-    with open(metadata_file) as f:
-        metadata = json.load(f)
+   bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+   nii_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
+   metadata_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
+   with open(metadata_file) as f:
+      metadata = json.load(f)
 
-    wf = init_compute_cbf_wf(
-        bids_dir=str(bids_dir),
-        scorescrub=False,
-        basil=False,
-        metadata=metadata,
-        M0Scale=1,
-        smooth_kernel=5,
-        dummy_vols=0,
-    )
+   wf = init_compute_cbf_wf(
+      name_source=str(nii_file),
+      processing_target="controllabel",
+      scorescrub=False,
+      basil=False,
+      metadata=metadata,
+      m0_scale=1,
+      smooth_kernel=5,
+      dummy_vols=0,
+   )
 
 ASL data consist of multiple pairs of labeled and control images.
-*ASLPrep* first checks for proton density-weighted volume(s)
-(M0, ``sub-task_xxxx-acq-YYY_m0scan.nii.gz``).
+*ASLPrep* first checks for proton density-weighted volume(s) (M0 scans).
 In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
 After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted:
 
 .. math::
-   ASL_{signal} = M_{C} - M_{L}
+    \Delta{M} = M_{C} - M_{L}
 
-The CBF computation of either single or multiple PLD (post labelling delay)
-is done using a relatively simple model.
-For P/CASL (pseudo continuous ASL),
-CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`:
+.. topic:: 2D Acquisitions and Slice Timing
+
+   If slice timing is available for the ASL data, then ASLPrep will shift post-labeling delay
+   values on a slice-wise basis.
+
+   .. figure:: _static/slice_timing_and_pld.svg
+
+      Slice time-shifted post-labeling delay values plotted next to a corresponding delta-M volume.
+
+
+Single-Delay ASL
+================
+
+The CBF computation of single-delay (post labeling delay) ASL data is done using a one-compartment
+model :footcite:p:`alsop_recommended_2015`.
+
+.. sidebar:: Notation
+
+   :math:`\tau` : Labeling duration, in seconds.
+
+   :math:`\lambda` : Brain-blood partition coefficient.
+   Set to 0.9 g/mL :footcite:p:`alsop_recommended_2015`.
+
+   :math:`\alpha` : Labeling efficiency.
+   This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
+   If that field is not set, then :math:`\alpha` will be determined based on the ASL type
+   (PASL, CASL, or PCASL) and the number of background suppression pulses.
+
+   :math:`w` : Post-labeling delay (PLD) for PCASL data, in seconds.
+   In BIDS, this is encoded with the ``PostLabelingDelay`` field.
+
+   :math:`TI` : Inversion time for PASL data, in seconds.
+   In BIDS, this is encoded with the ``PostLabelingDelay`` field.
+
+   :math:`T_{1,blood}` : Relaxation time for arterial blood, in seconds.
+   ASLPrep infers this automatically based on the magnetic field strength
+   :footcite:p:`zhang2013vivo,alsop_recommended_2015`.
+
+   :math:`T_{1,tissue}` : Relaxation time for gray matter,
+   used in the two-compartment model for multi-delay data (in seconds).
+   ASLPrep infers this automatically based on the magnetic field strength
+   :footcite:p:`wright2008water`.
+
+   :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
+
+   :math:`\Delta{TI}` : Post-labeling delay minus bolus cutoff delay time, in seconds.
+   Per :footcite:t:`alsop_recommended_2015`, this is QUIPSS II's equivalent to (P)CASL's :math:`w`.
+
+   :math:`TI_{1}` : Bolus cutoff delay time, in seconds.
+   For Q2TIPS, this is the *first* bolus cutoff.
+
+   :math:`TI_{2}` : For Q2TIPS, this is the *last* bolus cutoff delay time, in seconds.
+   The other methods do not have this variable.
+
+(Pseudo-)Continuous ASL
+-----------------------
+
+For (P)CASL ([pseudo-]continuous ASL),
+CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
 
 .. math::
-   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ \frac{ PLD }{ T1_{blood} } } {2 * \alpha * T1_{blood}  * M_{0} * (1 - e^{\frac{ - \tau }{ T1_{blood} } }) }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T_{1,blood} } }
+   {2 \cdot \alpha \cdot M_{0} \cdot T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
 
+:math:`\tau`, :math:`\lambda`, :math:`\alpha`, and :math:`w` are labeling duration,
+brain-blood partition coefficient, labeling efficiency, and post-labeling delay (PLD), respectively.
 
-PASL (Pulsed ASL) is also computed by the QUIPSS model :footcite:p:`wong1998quantitative`:
-
-
-.. math::
-   CBF = \frac{ 6000 * \lambda * (M_{C} - M_{L})* e ^ \frac{ PLD }{ T1_{blood} } } {2 * \alpha * TI  * M_{0}}
-
-
-:math:`\tau`, :math:`\lambda`, and :math:`\alpha` are label duration,
-brain-blood partition coefficient, and labeling efficiency, respectively.
 In the absence of any of these parameters, standard values are used based on the scan type and
 scanning parameters.
 
-The computed CBF time series is shown in carpet plot below.
+The element which differentiates single-delay PCASL's CBF calculation from the PASL equivalents is
+:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
 
-.. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbftsplot_asl.svg
 
-    The carpet plot of computed CBF.
-    The step plot above indicated the volume(s) marked by SCORE algorithm to be contaminated by noise.
+Pulsed ASL
+----------
 
-Mean CBF is computed from the average of CBF timeseries.
+Currently, ASLPrep does not support PASL data without a bolus cut-off technique applied.
 
-.. figure:: _static/sub-20589_ses-11245_task-rest_desc-cbfplot_asl.svg
 
-   Computed CBF maps
+QUIPSS Modification
+^^^^^^^^^^^^^^^^^^^
 
-For multi-PLD (Post Labeling Delay) ASL data,
-the CBF is first computed for each PLD and the weighted average CBF is computed
-over all PLDs at time = t :footcite:p:`dai2012reduced`.
+For pulsed ASL (PASL) data with the QUIPSS bolus cut-off technique,
+the formula from :footcite:t:`wong1998quantitative` is used.
 
 .. math::
-   CBF_{t} =\frac {\sum_{i}^{NPLDs} PLD_{i} * CBF_{i}} { \sum_{i}^{NPLDs} PLD_{i} }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{ M } \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   { 2 \cdot \alpha \cdot M_{0} \cdot \Delta{TI} }
 
-ASLPrep includes option of CBF denoising by SCORE and SCRUB.
+where :math:`\Delta{TI}` is the post-labeling delay (PLD) minus the bolus cutoff delay time.
+
+Given that :math:`TI` is equivalent to :math:`w` in BIDS datasets
+(i.e., as the ``PostLabelingDelay`` field),
+the formula for QUIPSS is the same as PCASL,
+except :math:`\Delta{TI}` replaces
+:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+
+
+QUIPSS II Modification
+^^^^^^^^^^^^^^^^^^^^^^
+
+For PASL data with the QUIPSS II bolus cut-off technique,
+the formula from :footcite:t:`alsop_recommended_2015` is used.
+
+.. math::
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   {2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
+
+where :math:`TI_{1}` is the bolus cutoff delay time.
+
+Note that the formula for QUIPSS II is the same as the one for QUIPSS,
+except :math:`TI_{1}` replaces :math:`\Delta{TI}`.
+
+
+Q2TIPS Modification
+^^^^^^^^^^^^^^^^^^^
+
+For PASL data with the Q2TIPS bolus cut-off technique,
+the formula from the commercial Q2TIPS CBF calculation is used,
+as described in :footcite:t:`noguchi2015technical`.
+
+.. math::
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ { \frac{TI_{2} }{ T1_{blood} } } }
+   { 2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
+
+where :math:`TI_{1}` is the first bolus cutoff delay time and
+:math:`TI_{2}` is the last bolus cutoff delay time.
+
+Note that the formula for Q2TIPS is the same as QUIPSS II,
+except :math:`TI_{2}` replaces :math:`TI` in the numerator.
+
+
+Multi-Delay ASL
+===============
+
+In multi-delay ASL, control-label pairs are acquired for multiple post-labeling delay values.
+This type of acquisition requires more complicated models, but it also results in more accurate
+CBF estimates.
+Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
+
+
+Pseudo-Continuous ASL
+---------------------
+
+For multi-delay PCASL data, the following steps are taken:
+
+1. :math:`\Delta{M}` values are first averaged over time for each unique post-labeling delay value.
+   We shall call these :math:`\Delta{M}` in the following equations for the sake of readability.
+
+2. Arterial transit time is estimated on a voxel-wise basis according to
+   :footcite:t:`dai2012reduced`.
+
+   1. Define a set of possible transit times to evaluate.
+      The range is defined as the minimum PLD to the maximum PLD, at increments of 0.001.
+
+   2. Calculate the expected weighted delay (:math:`WD_{E}`) for each possible transit time
+      (:math:`\delta`), across PLDs (:math:`w`).
+
+      .. math::
+
+         WD_{E}(\delta_{t}, w_{i}) = e ^ \frac{ -\delta_{t} } { T_{1,blood} } \cdot
+         \left[
+            e ^ {-\frac{ max( 0, w_{i} - \delta_{t} ) } { T_{1,tissue} }} -
+            e ^ {-\frac{ max( 0, \tau + w_{i} - \delta_{t} ) } { T_{1,tissue} }}
+         \right]
+
+         WD_{E}(\delta_{t}) = \frac{ \sum_{i=1}^{|w|} w_{i} \cdot
+         WD_{E}(\delta_{t},w_{i}) } { \sum_{i=1}^{|w|} WD_{E}(\delta_{t},w_{i}) }
+
+   3. Calculate the observed weighted delay (:math:`WD_{O}`) for the actual data, at each voxel :math:`v`.
+
+      .. math::
+
+         WD_{O}(v) = \frac{
+            \sum_{i=1}^{|w|} w_{i} \cdot \Delta{M}( w_{i},v )
+         }
+         {
+            \sum_{i=1}^{|w|} \Delta{M}( w_{i},v )
+         }
+
+   4. Truncate the observed weighted delays to valid delay values,
+      determined based on the expected weighted delays.
+
+      .. math::
+
+         WD_{O}(v) = max[min(WD_{O}(v), max[WD_{E}]), min(WD_{E})]
+
+   5. Interpolate the expected weighted delay values to infer the appropriate transit time for each voxel,
+      based on its observed weighted delay.
+
+3. CBF is then calculated for each unique PLD value (:math:`w_{i}`) using the 2-compartment model
+   described in :footcite:t:`fan2017long`.
+
+   .. math::
+
+      CBF_{i} = 6000 \cdot \lambda \cdot \frac{ \Delta{M}_{i} }{ M_{0} } \cdot
+      \frac{
+         e ^ \frac{ \delta }{ T_{1,blood} }
+      }
+      {
+         2 \cdot \alpha \cdot T_{1,blood} \cdot
+         \left[
+            e ^ { -\frac{ max(w_{i} - \delta, 0) }{ T_{1,tissue} } }
+            -
+            e ^ { -\frac{ max(\tau + w_{i} - \delta, 0) }{ T_{1,tissue} } }
+         \right]
+      }
+
+   .. note::
+
+      Note that Equation 2 in :footcite:t:`fan2017long` uses different notation.
+      :math:`T_{1,blood}` is referred to as :math:`T_{1a}`,
+      :math:`T_{1,tissue}` is referred to as :math:`T_{1t}`,
+      :math:`\Delta{M}` is referred to as :math:`M`,
+      :math:`w` is referred to as :math:`PLD`,
+      :math:`\delta` is referred to as :math:`ATT`,
+      :math:`\tau` is referred to as :math:`LD`,
+      and :math:`\alpha` is referred to as :math:`\epsilon`.
+
+4. CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
+   in which an unweighted average is calculated for each voxel across all PLDs (:math:`w`) in which
+   :math:`w + \tau \gt \delta`.
+
+
+Pulsed ASL
+----------
+
+.. warning::
+   As of 0.3.0, ASLPrep has disabled multi-delay support for PASL data.
+   We plan to properly support multi-delay PASL data in the near future.
+
+
+Additional Denoising Options
+============================
+
+For cases where data may be especially noisy (e.g., due to motion or a low-SNR protocol),
+ASLPrep includes options to additionally denoise CBF estimates.
+
+The two current options are SCORE/SCRUB and BASIL.
+
+SCORE and SCRUB
+---------------
+
+ASLPrep includes the ability to denoise CBF with SCORE and SCRUB.
+
 Structural Correlation based Outlier Rejection (SCORE) :footcite:p:`dolui2017structural`
 detects and discards extreme outliers in the CBF volume(s) from the CBF time series.
 SCORE first discards CBF volumes whose CBF within grey matter (GM)
 means are 2.5 standard deviations away from the median of the CBF within GM.
 Next, it iteratively removes volumes that are most structurally correlated
-to the intermediate mean CBF map unless the variance within each
-tissue type starts increasing
+to the intermediate mean CBF map unless the variance within each tissue type starts increasing
 (which implies an effect of white noise removal as opposed to outlier rejection).
 
 The mean CBF after denoising by SCORE is plotted below
@@ -379,13 +564,13 @@ The SCRUB algorithm is described below:
 .. math::
    CBF_{SCRUB} =  \arg\max_{\theta} \sum_{t=1}^N \rho(CBF_{t} -\theta)  + \lambda(\theta -\mu)^2
 
-   \mu =\sum_{i \in Tissue type} p *\mu_{i}
+   \mu =\sum_{i \in Tissue type} p \cdot \mu_{i}
 
-:math:`CBF_{t},\quad  \mu,\quad  \theta,\quad  and\quad  p` equal CBF time series
+:math:`CBF_{t}`, :math:`\mu`, :math:`\theta`, and :math:`p` equal CBF time series
 (after any extreme outliers are discarded by SCORE),
 mean CBF, ratio of temporal variance at each voxel to overall variance of all voxels,
 and probability tissue maps, respectively.
-Other variables include :math:`\lambda\quad and\quad \rho` that represent the weighting parameter
+Other variables include :math:`\lambda` and :math:`\rho` that represent the weighting parameter
 and Tukey's bisquare function, respectively.
 
 An example of CBF denoised by SCRUB is shown below.
@@ -394,15 +579,21 @@ An example of CBF denoised by SCRUB is shown below.
 
    Computed CBF maps denoised by SCRUB
 
-*ASLPrep* also includes option of CBF computation by Bayesian Inference for Arterial Spin Labeling
-`(BASIL) <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_.
-BASIL also implements a simple kinetic model as described above,
-but using Bayesian Inference principles :footcite:p:`chappell2008variational`.
-BASIL is mostly suitable for multi-PLD.
+BASIL
+-----
+
+*ASLPrep* also includes the option to compute CBF using BASIL.
+
+Bayesian Inference for Arterial Spin Labeling (`BASIL <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL>`_)
+is an FSL tool for CBF estimation.
+
+BASIL implements a simple kinetic model as described above,
+but uses Bayesian inference principles :footcite:p:`chappell2008variational`.
+BASIL is mostly suitable for multi-delay ASL data.
 It includes bolus arrival time estimation with spatial regularization :footcite:p:`groves2009combined`
 and the correction of partial volume effects :footcite:p:`chappell2011partial`.
 
-The sample of BASIL CBF with spatial regularization is shown below:
+A sample of BASIL CBF with spatial regularization is shown below:
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-basilplot_asl.svg
 
@@ -419,22 +610,22 @@ The CBF map shown below is the result of partial volume corrected CBF computed b
 Quality control measures
 ************************
 
-:py:func:`~aslprep.workflows.asl.qc.init_cbfqc_compt_wf`
+:py:func:`~aslprep.workflows.asl.qc.init_compute_cbf_qc_wf`
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from pathlib import Path
-    from pkg_resources import resource_filename as pkgrf
+   from pathlib import Path
+   from pkg_resources import resource_filename as pkgrf
 
-    from aslprep.workflows.asl.qc import init_cbfqc_compt_wf
+   from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 
-    bids_dir = Path(pkgrf('aslprep', 'tests/data/ds000240')).absolute()
-    asl_file = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.nii.gz'
-    metadata = bids_dir / 'sub-01' / 'perf'/ 'sub-01_asl.json'
+   bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+   asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
+   metadata = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
 
-    wf = init_cbfqc_compt_wf(asl_file=str(asl_file))
+   wf = init_compute_cbf_qc_wf(is_ge=False)
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index,
 and quality evaluation index (QEI) are included for all CBF maps.
@@ -452,16 +643,16 @@ ASL and CBF to T1w registration
 :py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.workflows.asl.registration import init_asl_reg_wf
+   from aslprep.workflows.asl.registration import init_asl_reg_wf
 
-    wf = init_asl_reg_wf(
-        use_bbr=True,
-        asl2t1w_dof=6,
-        asl2t1w_init='register',
-    )
+   wf = init_asl_reg_wf(
+      use_bbr=True,
+      asl2t1w_dof=6,
+      asl2t1w_init="register",
+   )
 
 *ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's
 :abbr:`ASL (arterial spin labelling)` reference image and the reconstructed subject using the
@@ -470,7 +661,7 @@ gray/white matter boundary.
 
 .. figure:: _static/EPIT1Normalization.svg
 
-    Animation showing :abbr:`ASL (arterial spin labelling)` to T1w registration.
+   Animation showing :abbr:`ASL (arterial spin labelling)` to T1w registration.
 
 
 FSL ``flirt`` is run with the :abbr:`BBR (boundary-based registration)` cost function, using the
@@ -489,20 +680,20 @@ Resampling ASL and CBF runs onto standard spaces
 :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
 
 .. workflow::
-    :graph2use: orig
-    :simple_form: yes
+   :graph2use: orig
+   :simple_form: yes
 
-    from aslprep.niworkflows.utils.spaces import SpatialReferences
-    from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
+   from aslprep.niworkflows.utils.spaces import SpatialReferences
+   from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 
-    wf = init_asl_std_trans_wf(
-        mem_gb=3,
-        omp_nthreads=1,
-        spaces=SpatialReferences(
-            spaces=[('MNI152Lin', {})],
-            checkpoint=True,
-        ),
-    )
+   wf = init_asl_std_trans_wf(
+      mem_gb=3,
+      omp_nthreads=1,
+      spaces=SpatialReferences(
+         spaces=[("MNI152Lin", {})],
+         checkpoint=True,
+      ),
+   )
 
 This sub-workflow concatenates the transforms calculated upstream
 (see `Head-motion estimation`_, `Susceptibility Distortion Correction (SDC)`_)
@@ -513,6 +704,7 @@ It also maps the T1w-based mask to each of those standard spaces.
 
 Transforms are concatenated and applied all at once, with one interpolation (Lanczos) step,
 so as little information is lost as possible.
+
 
 References
 ==========

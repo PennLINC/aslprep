@@ -8,16 +8,14 @@ from templateflow.api import get as get_template
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces import ASLSummary, DerivativesDataSink, GatherConfounds
+from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
 from aslprep.niworkflows.interfaces.utils import AddTSVHeader
 
 
-def init_asl_confs_wf(
+def init_asl_confounds_wf(
     mem_gb,
-    name="asl_confs_wf",
+    name="asl_confounds_wf",
 ):
     """Build a workflow to generate and write out confounding signals.
 
@@ -37,8 +35,9 @@ def init_asl_confs_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.confounds import init_asl_confs_wf
-            wf = init_asl_confs_wf(
+            from aslprep.workflows.asl.confounds import init_asl_confounds_wf
+
+            wf = init_asl_confounds_wf(
                 mem_gb=1,
             )
 
@@ -51,13 +50,13 @@ def init_asl_confs_wf(
     metadata : :obj:`dict`
         BIDS metadata for asl file
     name : :obj:`str`
-        Name of workflow (default: ``asl_confs_wf``)
+        Name of workflow (default: ``asl_confounds_wf``)
 
 
     Inputs
     ------
     asl
-        asl image, after the prescribed corrections (STC, HMC and SDC)
+        asl image, after the prescribed corrections (HMC and SDC)
         when available.
     asl_mask
         asl series mask
@@ -71,7 +70,7 @@ def init_asl_confs_wf(
         Mask of the skull-stripped template image
     t1w_tpms
         List of tissue probability maps in T1w space
-    t1_asl_xform
+    anat_to_aslref_xfm
         Affine matrix that maps the T1w space into alignment with
         the native asl space
 
@@ -81,7 +80,6 @@ def init_asl_confs_wf(
         TSV of all aggregated confounds
     confounds_metadata
         Confounds metadata dictionary.
-
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -100,7 +98,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
                 "skip_vols",
                 "t1w_mask",
                 "t1w_tpms",
-                "t1_asl_xform",
+                "anat_to_aslref_xfm",
             ]
         ),
         name="inputnode",
@@ -153,7 +151,10 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     # fmt:off
     workflow.connect([
         # Connect inputnode to each non-anatomical confound node
-        (inputnode, dvars, [("asl", "in_file"), ("asl_mask", "in_mask")]),
+        (inputnode, dvars, [
+            ("asl", "in_file"),
+            ("asl_mask", "in_mask"),
+        ]),
         (inputnode, fdisp, [("movpar_file", "in_file")]),
         # Collate computed confounds together
         (inputnode, add_motion_headers, [("movpar_file", "in_file")]),
@@ -173,7 +174,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     return workflow
 
 
-def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
+def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
     """Build a workflow to generate carpet plots.
 
     Resamples the MNI parcellation (ad-hoc parcellation derived from the
@@ -188,37 +189,37 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
     metadata : :obj:`dict`
         BIDS metadata for ASL file
     name : :obj:`str`
-        Name of workflow (default: ``asl_carpet_wf``)
+        Name of workflow (default: ``carpetplot_wf``)
 
     Inputs
     ------
     asl
-        asl image, after the prescribed corrections (STC, HMC and SDC)
+        asl image, after the prescribed corrections (HMC and SDC)
         when available.
     asl_mask
         ASL series mask
     confounds_file
         TSV of all aggregated confounds
-    t1_asl_xform
+    anat_to_aslref_xfm
         Affine matrix that maps the T1w space into alignment with
         the native ASL space
-    std2anat_xfm
+    template_to_anat_xfm
         ANTs-compatible affine-and-warp transform file
-
-    Outputs
-    -------
-    out_carpetplot
-        Path of the generated SVG file
-
     """
+    workflow = Workflow(name=name)
+
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=["asl", "asl_mask", "confounds_file", "t1_asl_xform", "std2anat_xfm"]
+            fields=[
+                "asl",
+                "asl_mask",
+                "confounds_file",
+                "anat_to_aslref_xfm",
+                "template_to_anat_xfm",
+            ]
         ),
         name="inputnode",
     )
-
-    outputnode = pe.Node(niu.IdentityInterface(fields=["out_carpetplot"]), name="outputnode")
 
     # List transforms
     mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
@@ -259,10 +260,12 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    workflow = Workflow(name=name)
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [("t1_asl_xform", "in1"), ("std2anat_xfm", "in2")]),
+        (inputnode, mrg_xfms, [
+            ("anat_to_aslref_xfm", "in1"),
+            ("template_to_anat_xfm", "in2"),
+        ]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
         # Carpetplot
@@ -273,7 +276,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="asl_carpet_wf"):
         ]),
         (resample_parc, conf_plot, [("output_image", "in_segm")]),
         (conf_plot, ds_report_asl_conf, [("out_file", "in_file")]),
-        (conf_plot, outputnode, [("out_file", "out_carpetplot")]),
     ])
     # fmt:on
+
     return workflow

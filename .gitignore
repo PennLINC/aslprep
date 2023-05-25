@@ -1,4 +1,5 @@
-aslprep/tests/data/test_data
+aslprep/tests/pytests
+aslprep/tests/test_data
 .circleci/local_aslprep_path.txt
 
 .DS_Store

@@ -34,10 +34,11 @@ Internal configuration system
    aslprep.workflows.asl.gecbf
    aslprep.workflows.asl.hmc
    aslprep.workflows.asl.outputs
+   aslprep.workflows.asl.plotting
+   aslprep.workflows.asl.qc
    aslprep.workflows.asl.registration
    aslprep.workflows.asl.resampling
-   aslprep.workflows.asl.stc
-   aslprep.workflows.asl.t2s
+   aslprep.workflows.asl.util
 
 
 *************************************
@@ -54,13 +55,15 @@ Internal configuration system
    :toctree: generated/
    :template: module.rst
 
+   aslprep.interfaces.ants
    aslprep.interfaces.bids
-   aslprep.interfaces.cbf_computation
+   aslprep.interfaces.cbf
    aslprep.interfaces.confounds
    aslprep.interfaces.ge
-   aslprep.interfaces.multiecho
+   aslprep.interfaces.parcellation
    aslprep.interfaces.plotting
    aslprep.interfaces.reports
+   aslprep.interfaces.utility
 
 
 *******************************
@@ -77,9 +80,11 @@ Internal configuration system
    :toctree: generated/
    :template: module.rst
 
+   aslprep.utils.asl
+   aslprep.utils.atlas
    aslprep.utils.bids
+   aslprep.utils.cbf
    aslprep.utils.confounds
-   aslprep.utils.meepi
    aslprep.utils.misc
    aslprep.utils.plotting
    aslprep.utils.qc

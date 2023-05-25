@@ -5,37 +5,38 @@ import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info, MultiImageMaths
 from nipype.pipeline import engine as pe
+from templateflow.api import get as get_template
 
 from aslprep import config
-from aslprep.interfaces.cbf_computation import (
+from aslprep.interfaces.ants import ApplyTransforms
+from aslprep.interfaces.cbf import (
     BASILCBF,
     ComputeCBF,
     ExtractCBF,
     ExtractCBForDeltaM,
-    ParcellateCBF,
     RefineMask,
     ScoreAndScrubCBF,
 )
+from aslprep.interfaces.parcellation import ParcellateCBF
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
-from aslprep.utils.misc import (
+from aslprep.utils.asl import (
+    determine_multi_pld,
     estimate_labeling_efficiency,
-    get_atlas,
-    get_tis,
+    get_bolus_duration,
+    get_inflow_times,
     pcasl_or_pasl,
 )
+from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 
 
 def init_compute_cbf_wf(
     name_source,
-    aslcontext,
+    processing_target,
     metadata,
     dummy_vols,
     scorescrub=False,
     basil=False,
-    M0Scale=1,
+    m0_scale=1,
     smooth_kernel=5,
     name="compute_cbf_wf",
 ):
@@ -46,26 +47,35 @@ def init_compute_cbf_wf(
             :graph2use: orig
             :simple_form: yes
 
+            import json
+
+            from aslprep.tests.tests import mock_config
+            from aslprep import config
             from aslprep.workflows.asl.cbf import init_compute_cbf_wf
 
-            wf = init_compute_cbf_wf(
-                name_source="",
-                metadata={},
-                dummy_vols=0,
-            )
+            with mock_config():
+                perf_dir = config.execution.bids_dir / "sub-01" / "perf"
+                with open(perf_dir / "sub-01_asl.json", "r") as fo:
+                    metadata = json.load(fo)
+
+                wf = init_compute_cbf_wf(
+                    name_source=str(perf_dir / "sub-01_asl.nii.gz"),
+                    processing_target="controllabel",
+                    metadata=metadata,
+                    dummy_vols=0,
+                    scorescrub=True,
+                    basil=True,
+                )
 
     Parameters
     ----------
     name_source : :obj:`str`
         Path to the raw ASL file.
-    aslcontext : :obj:`str`
-        Path to the aslcontext file associated with the ASL file being processed.
-        Used to set the aslcontext input.
     metadata : :obj:`dict`
         BIDS metadata for asl file
     scorescrub
     basil
-    M0Scale
+    m0_scale
     smooth_kernel
     name : :obj:`str`
         Name of workflow (default: ``compute_cbf_wf``)
@@ -75,7 +85,6 @@ def init_compute_cbf_wf(
     asl_file
         asl series NIfTI file, after preprocessing
     aslcontext : :obj:`str`
-        Defined from the parameter.
     m0scan : :obj:`str` or None
     m0scan_metadata : :obj:`dict` or None
     asl_mask
@@ -84,9 +93,9 @@ def init_compute_cbf_wf(
         t1w probability maps
     t1w_mask
         t1w mask Nifti
-    t1_asl_xform
+    anat_to_aslref_xfm
         t1w to asl transformation file
-    itk_asl_to_t1
+    aslref_to_anat_xfm
         asl to t1w transformation file
 
     Outputs
@@ -96,25 +105,108 @@ def init_compute_cbf_wf(
        cbf,score, scrub, pv, and basil
     """
     workflow = Workflow(name=name)
+
     workflow.__desc__ = """
 ### Cerebral blood flow computation and denoising
 
-*ASLPrep* was configured to calculate cerebral blood flow (CBF) using the following methods.
-
-The cerebral blood flow (CBF) was quantified from preprocessed ASL data using a general kinetic
-model [@buxton1998general].
 """
+
+    is_casl = pcasl_or_pasl(metadata=metadata)
+    is_multi_pld = determine_multi_pld(metadata=metadata)
+    if (processing_target == "cbf") and not basil:
+        config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
+    elif processing_target == "cbf":
+        config.loggers.workflow.warning(
+            f"Only CBF volumes are detected in {name_source}. "
+            "BASIL will automatically be disabled."
+        )
+        basil = False
+
+    if processing_target == "cbf":
+        workflow.__desc__ += """\
+*ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
+"""
+
+    elif is_casl:
+        if is_multi_pld:
+            workflow.__desc__ += f"""\
+*ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
+{metadata['ArterialSpinLabelingType']} data using the following method.
+
+First, delta-M values were averaged over time for each post-labeling delay (PLD).
+
+Next, arterial transit time (ATT) was estimated on a voxel-wise basis according to
+@dai2012reduced.
+
+CBF was then calculated for each delay using the mean delta-M values and the estimated ATT,
+according to the formula from @fan2017long.
+
+CBF was then averaged over delays according to @juttukonda2021characterizing,
+in which an unweighted average is calculated for each voxel across all delays in which
+PLD + labeling duration > ATT.
+"""
+        else:
+            # Single-delay (P)CASL data
+            workflow.__desc__ += f"""\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
+{metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
+[@buxton1998general].
+"""
+
+    else:
+        bcut = metadata.get("BolusCutOffDelayTechnique")
+
+        if is_multi_pld:
+            raise ValueError(
+                "Multi-delay data are not supported for PASL sequences at the moment."
+            )
+
+        # Single-delay PASL data, with different bolus cut-off techniques
+        if bcut == "QUIPSS":
+            workflow.__desc__ += """\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the QUIPSS modification, as described in @wong1998quantitative.
+"""
+        elif bcut == "QUIPSSII":
+            workflow.__desc__ += """\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the QUIPSS II modification, as described in @alsop_recommended_2015.
+"""
+        elif bcut == "Q2TIPS":
+            workflow.__desc__ += """\
+*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the Q2TIPS modification, as described in @noguchi2015technical.
+"""
+        else:
+            # No bolus cutoff delay technique
+            raise ValueError("PASL without a bolus cut-off technique is not supported in ASLPrep.")
+
+    if "SliceTiming" in metadata:
+        workflow.__desc__ += (
+            "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
+            "basis based on the slice timing."
+        )
+
+    if m0_scale != 1:
+        workflow.__desc__ += (
+            f"Prior to calculating CBF, the M0 volumes were scaled by a factor of {m0_scale}."
+        )
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "aslcontext",
                 "m0scan",
                 "m0scan_metadata",
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "t1_asl_xform",
-                "itk_asl_to_t1",
+                "anat_to_aslref_xfm",
+                "aslref_to_anat_xfm",
             ]
         ),
         name="inputnode",
@@ -123,13 +215,14 @@ model [@buxton1998general].
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "cbf_ts",
                 "mean_cbf",
+                "cbf_ts",  # Only calculated for single-delay data
+                "att",  # Only calculated for multi-delay data
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
-                "score_outliers",
                 "mean_cbf_score",
                 "mean_cbf_scrub",
+                "score_outlier_index",
                 # BASIL outputs
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
@@ -150,9 +243,9 @@ model [@buxton1998general].
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [
-            ("t1w_mask", "in_t1mask"),
-            ("asl_mask", "in_aslmask"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_mask", "t1w_mask"),
+            ("asl_mask", "asl_mask"),
+            ("anat_to_aslref_xfm", "transforms"),
         ]),
     ])
     # fmt:on
@@ -182,7 +275,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -198,7 +291,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -214,30 +307,15 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
     # fmt:on
 
-    tiscbf = get_tis(metadata)
-    is_casl = pcasl_or_pasl(metadata=metadata)
-
-    aslcontext_df = pd.read_table(aslcontext)
-    cbf_only = all(aslcontext_df["volume_type"].isin(("m0scan", "cbf")))
-    if cbf_only and not basil:
-        config.loggers.workflow.info(f"Only CBF volumes are detected in {name_source}.")
-    elif cbf_only:
-        config.loggers.workflow.warning(
-            f"Only CBF volumes are detected in {name_source}. "
-            "BASIL will automatically be disabled."
-        )
-        basil = False
-
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
-            aslcontext=aslcontext,
             dummy_vols=dummy_vols,
             fwhm=smooth_kernel,
             metadata=metadata,
@@ -251,6 +329,7 @@ model [@buxton1998general].
     workflow.connect([
         (inputnode, extract_deltam, [
             ("asl_file", "asl_file"),
+            ("aslcontext", "aslcontext"),
             ("m0scan", "m0scan"),
             ("m0scan_metadata", "m0scan_metadata"),
         ]),
@@ -260,8 +339,8 @@ model [@buxton1998general].
 
     compute_cbf = pe.Node(
         ComputeCBF(
-            cbf_only=cbf_only,
-            m0scale=M0Scale,
+            cbf_only=processing_target == "cbf",
+            m0_scale=m0_scale,
         ),
         mem_gb=0.2,
         run_without_submitting=True,
@@ -277,8 +356,9 @@ model [@buxton1998general].
             ("metadata", "metadata"),
         ]),
         (compute_cbf, outputnode, [
-            ("cbf", "cbf_ts"),
+            ("cbf_ts", "cbf_ts"),
             ("mean_cbf", "mean_cbf"),
+            ("att", "att"),
         ]),
     ])
     # fmt:on
@@ -301,14 +381,14 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
 """
         # fmt:off
         workflow.connect([
-            (refine_mask, score_and_scrub_cbf, [("out_mask", "brain_mask")]),
-            (compute_cbf, score_and_scrub_cbf, [("cbf", "cbf")]),
+            (refine_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
+            (compute_cbf, score_and_scrub_cbf, [("cbf_ts", "cbf_ts")]),
             (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
             (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
             (score_and_scrub_cbf, outputnode, [
                 ("cbf_ts_score", "cbf_ts_score"),
-                ("score_outliers", "score_outliers"),
+                ("score_outlier_index", "score_outlier_index"),
                 ("mean_cbf_score", "mean_cbf_score"),
                 ("mean_cbf_scrub", "mean_cbf_scrub"),
             ]),
@@ -317,27 +397,62 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
 
     if basil:
         workflow.__desc__ += f"""
-CBF was computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
+
+CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
 [@chappell2008variational], as implemented in *FSL* {Info.version().split(':')[0]}.
 BASIL computes CBF using a spatial regularization of the estimated perfusion image and
 additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 """
-        if is_casl:
-            bolus = metadata["LabelingDuration"]
-        else:  # pasl
-            bolus = metadata["BolusCutOffDelayTime"]
-            if metadata["BolusCutOffTechnique"] == "Q2TIPS":
-                # BolusCutOffDelayTime is a list, and the first entry should be used.
-                bolus = bolus[0]
+        # Node to define bolus
+        determine_bolus_duration = pe.Node(
+            niu.Function(
+                function=get_bolus_duration,
+                input_names=["metadata", "is_casl"],
+                output_names=["bolus"],
+            ),
+            name="determine_bolus_duration",
+        )
+        determine_bolus_duration.inputs.is_casl = is_casl
+        workflow.connect([(extract_deltam, determine_bolus_duration, [("metadata", "metadata")])])
+
+        # Node to define tis
+        determine_inflow_times = pe.Node(
+            niu.Function(
+                function=get_inflow_times,
+                input_names=["metadata", "is_casl"],
+                output_names=["tis"],
+            ),
+            name="determine_inflow_times",
+        )
+        determine_inflow_times.inputs.is_casl = is_casl
+
+        workflow.connect([(extract_deltam, determine_inflow_times, [("metadata", "metadata")])])
+
+        # Node to estimate labeling efficiency
+        estimate_alpha = pe.Node(
+            niu.Function(
+                function=estimate_labeling_efficiency,
+                input_names=["metadata"],
+                output_names=["labeling_efficiency"],
+            ),
+            name="estimate_alpha",
+        )
+
+        workflow.connect([(extract_deltam, estimate_alpha, [("metadata", "metadata")])])
+
+        basil_kwargs = {}
+        if "SliceTiming" in metadata.keys():
+            # This won't work for non-ascending slice orders.
+            basil_kwargs["slice_spacing"] = abs(
+                metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            )
 
         basilcbf = pe.Node(
             BASILCBF(
-                m0scale=M0Scale,
-                bolus=bolus,
-                alpha=estimate_labeling_efficiency(metadata),
+                m0_scale=m0_scale,
                 pvc=True,
-                tis=tiscbf,
                 pcasl=is_casl,
+                **basil_kwargs,
             ),
             name="basilcbf",
             run_without_submitting=True,
@@ -349,17 +464,20 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             (refine_mask, basilcbf, [("out_mask", "mask")]),
             (extract_deltam, basilcbf, [
                 (("m0_file", _getfiledir), "out_basename"),
-                ("out_file", "in_file"),
+                ("out_file", "deltam"),
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),
-            (gm_tfm, basilcbf, [("output_image", "pvgm")]),
-            (wm_tfm, basilcbf, [("output_image", "pvwm")]),
+            (determine_bolus_duration, basilcbf, [("bolus", "bolus")]),
+            (determine_inflow_times, basilcbf, [("tis", "tis")]),
+            (estimate_alpha, basilcbf, [("labeling_efficiency", "alpha")]),
+            (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
+            (wm_tfm, basilcbf, [("output_image", "wm_tpm")]),
             (basilcbf, outputnode, [
-                ("mean_cbf", "mean_cbf_basil"),
-                ("mean_cbf_gm", "mean_cbf_gm_basil"),
-                ("mean_cbf_wm", "mean_cbf_wm_basil"),
-                ("att", "att_basil"),
+                ("mean_cbf_basil", "mean_cbf_basil"),
+                ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
+                ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
+                ("att_basil", "att_basil"),
             ]),
         ])
         # fmt:on
@@ -372,7 +490,7 @@ def init_compute_cbf_ge_wf(
     aslcontext,
     metadata,
     mem_gb,
-    M0Scale=1,
+    m0_scale=1,
     scorescrub=False,
     basil=False,
     name="compute_cbf_wf",
@@ -384,19 +502,40 @@ def init_compute_cbf_ge_wf(
             :graph2use: orig
             :simple_form: yes
 
+            import json
+
+            from aslprep.tests.tests import mock_config
+            from aslprep import config
             from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf
 
-            wf = init_compute_cbf_ge_wf(
-                name_source="",
-                metadata={},
-                mem_gb=0.1,
-            )
+            with mock_config():
+                perf_dir = config.execution.bids_dir / "sub-01" / "perf"
+                with open(perf_dir / "sub-01_asl.json", "r") as fo:
+                    metadata = json.load(fo)
+
+                wf = init_compute_cbf_ge_wf(
+                    name_source=str(perf_dir / "sub-01_asl.nii.gz"),
+                    aslcontext=str(perf_dir / "sub-01_aslcontext.tsv"),
+                    metadata=metadata,
+                    mem_gb=0.1,
+                )
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-The CBF was quantified from *preproccessed* ASL data using a standard
+The CBF was quantified from *preprocessed* ASL data using a standard
 model [@detre_perfusion_1992;@alsop_recommended_2015].
 """
+    if "SliceTiming" in metadata:
+        workflow.__desc__ += (
+            "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
+            "basis based on the slice timing."
+        )
+
+    if m0_scale != 1:
+        workflow.__desc__ += (
+            f"Prior to calculating CBF, the M0 volumes were scaled by a factor of {m0_scale}."
+        )
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -404,8 +543,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "t1_asl_xform",
-                "itk_asl_to_t1",
+                "anat_to_aslref_xfm",
+                "aslref_to_anat_xfm",
                 "m0_file",
                 "m0tr",
             ]
@@ -417,11 +556,12 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             fields=[
                 "cbf_ts",
                 "mean_cbf",
+                "att",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
-                "score_outliers",
                 "mean_cbf_score",
                 "mean_cbf_scrub",
+                "score_outlier_index",
                 # BASIL outputs
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
@@ -458,7 +598,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -474,7 +614,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
@@ -490,7 +630,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("t1_asl_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -512,16 +652,14 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
     control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
 
-    tiscbf = get_tis(metadata)
-
     refine_mask = pe.Node(RefineMask(), mem_gb=1, run_without_submitting=True, name="refine_mask")
 
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [
-            ("t1w_mask", "in_t1mask"),
-            ("asl_mask", "in_aslmask"),
-            ("t1_asl_xform", "transforms"),
+            ("t1w_mask", "t1w_mask"),
+            ("asl_mask", "asl_mask"),
+            ("anat_to_aslref_xfm", "transforms"),
         ]),
     ])
     # fmt:on
@@ -549,7 +687,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             # extract deltaM data
             (inputnode, extract_deltam, [
                 ("asl_file", "asl_file"),
-                ("asl_mask", "in_aslmask"),
+                ("asl_mask", "asl_mask"),
             ]),
         ])
         # fmt:on
@@ -557,7 +695,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         compute_cbf = pe.Node(
             ComputeCBF(
                 metadata=metadata,
-                m0scale=M0Scale,
+                m0_scale=m0_scale,
                 cbf_only=cbf_only,
             ),
             mem_gb=mem_gb,
@@ -571,10 +709,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             (extract_deltam, compute_cbf, [("out_file", "deltam")]),
             (extract_deltam, collect_cbf, [("out_file", "deltam")]),
             (refine_mask, compute_cbf, [("out_mask", "mask")]),
-            (compute_cbf, collect_cbf, [("cbf", "cbf")]),
+            (compute_cbf, collect_cbf, [("cbf_ts", "cbf")]),
             (compute_cbf, outputnode, [
-                ("cbf", "cbf_ts"),
+                ("cbf_ts", "cbf_ts"),
                 ("mean_cbf", "mean_cbf"),
+                ("att", "att"),
             ]),
         ])
         # fmt:on
@@ -590,8 +729,8 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         # fmt:off
         workflow.connect([
             (inputnode, extract_cbf, [
-                ("asl_file", "in_asl"),
-                ("asl_mask", "in_aslmask"),
+                ("asl_file", "asl_file"),
+                ("asl_mask", "asl_mask"),
             ]),
         ])
         # fmt:on
@@ -615,6 +754,9 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         ])
         # fmt:on
 
+    else:
+        raise ValueError(f"Unknown processing: {vol_types}")
+
     if scorescrub:
         workflow.__desc__ += """\
 CBF is susceptible to artifacts due to low signal to noise ratio and high sensitivity to  motion.
@@ -626,20 +768,20 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
         score_and_scrub_cbf = pe.Node(
             ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
             mem_gb=mem_gb,
-            name="scorescrub",
+            name="score_and_scrub_cbf",
             run_without_submitting=True,
         )
 
         # fmt:off
         workflow.connect([
-            (refine_mask, score_and_scrub_cbf, [("out_mask", "brain_mask")]),
+            (refine_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
             (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
             (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
-            (collect_cbf, score_and_scrub_cbf, [("cbf", "cbf")]),
+            (collect_cbf, score_and_scrub_cbf, [("cbf", "cbf_ts")]),
             (score_and_scrub_cbf, outputnode, [
                 ("cbf_ts_score", "cbf_ts_score"),
-                ("score_outliers", "score_outliers"),
+                ("score_outlier_index", "score_outlier_index"),
                 ("mean_cbf_score", "mean_cbf_score"),
                 ("mean_cbf_scrub", "mean_cbf_scrub"),
             ]),
@@ -647,7 +789,7 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
         # fmt:on
 
     if basil:
-        workflow.__desc__ += """
+        workflow.__desc__ += """\
 In addition, CBF was also computed by Bayesian Inference for Arterial Spin Labeling
 (BASIL) as implemented in FSL. BASIL is based on Bayesian inference principles
 [@chappell2008variational], and computed CBF from ASL by incorporating natural
@@ -655,23 +797,22 @@ variability of other model parameters and spatial regularization of the estimate
 perfusion image, including correction of partial volume effects [@chappell_pvc].
 """
 
-        if is_casl:
-            bolus = metadata["LabelingDuration"]
-        else:
-            assert metadata.get("BolusCutOffFlag"), "BolusCutOffFlag must be True for PASL"
-            bolus = metadata["BolusCutOffDelayTime"]
-            if metadata["BolusCutOffTechnique"] == "Q2TIPS":
-                # BolusCutOffDelayTime is a list, and the first entry should be used.
-                bolus = bolus[0]
+        basil_kwargs = {}
+        if "SliceTiming" in metadata.keys():
+            # This won't work for non-ascending slice orders.
+            basil_kwargs["slice_spacing"] = abs(
+                metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
+            )
 
         basilcbf = pe.Node(
             BASILCBF(
-                m0scale=M0Scale,
-                bolus=bolus,
-                alpha=estimate_labeling_efficiency(metadata),
+                m0_scale=m0_scale,
+                bolus=get_bolus_duration(metadata=metadata, is_casl=is_casl),
+                alpha=estimate_labeling_efficiency(metadata=metadata),
                 pvc=True,
-                tis=tiscbf,
+                tis=get_inflow_times(metadata=metadata, is_casl=is_casl),
                 pcasl=is_casl,
+                **basil_kwargs,
             ),
             name="basilcbf",
             run_without_submitting=True,
@@ -685,15 +826,15 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),
-            (collect_cbf, basilcbf, [("deltam", "in_file")]),
-            (gm_tfm, basilcbf, [("output_image", "pvgm")]),
-            (wm_tfm, basilcbf, [("output_image", "pvwm")]),
+            (collect_cbf, basilcbf, [("deltam", "deltam")]),
+            (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
+            (wm_tfm, basilcbf, [("output_image", "wm_tpm")]),
             (refine_mask, basilcbf, [("out_mask", "mask")]),
             (basilcbf, outputnode, [
-                ("mean_cbf", "mean_cbf_basil"),
-                ("mean_cbf_gm", "mean_cbf_gm_basil"),
-                ("mean_cbf_wm", "mean_cbf_wm_basil"),
-                ("att", "att_basil"),
+                ("mean_cbf_basil", "mean_cbf_basil"),
+                ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
+                ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
+                ("att_basil", "att_basil"),
             ]),
         ])
         # fmt:on
@@ -701,17 +842,70 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
     return workflow
 
 
-def init_cbfroiquant_wf(scorescrub=False, basil=False, name="cbf_roiquant"):
+def init_parcellate_cbf_wf(
+    min_coverage=0.5,
+    scorescrub=False,
+    basil=False,
+    mem_gb=0.1,
+    omp_nthreads=1,
+    name="parcellate_cbf_wf",
+):
     """Parcellate CBF results using a set of atlases.
+
+    Atlases are in MNI152NLin6Asym space, but ASLPrep is not guaranteed to generate
+    MNI152NLin6Asym-space derivatives.
+    However, it *is* guaranteed to generate MNI152NLin2009cAsym derivatives,
+    so this workflow warps the atlases to asl reference space via the path:
+    MNI152NLin6Asym --> MNI152NLin2009cAsym --> anat --> asl.
 
     Workflow Graph
         .. workflow::
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.cbf import init_cbfroiquant_wf
+            from aslprep.workflows.asl.cbf import init_parcellate_cbf_wf
 
-            wf = init_cbfroiquant_wf()
+            wf = init_parcellate_cbf_wf()
+
+    Parameters
+    ----------
+    min_coverage
+    scorescrub
+    basil
+    mem_gb
+    omp_nthreads
+    name
+        Default is "parcellate_cbf_wf".
+
+    Inputs
+    ------
+    mean_cbf : str
+    mean_cbf_score : Undefined or str
+    mean_cbf_scrub : Undefined or str
+    mean_cbf_basil : Undefined or str
+    mean_cbf_gm_basil : Undefined or str
+    asl_mask : str
+    anat_to_aslref_xfm : str
+    MNI152NLin2009cAsym_to_anat_xfm : str
+        The transform from MNI152NLin2009cAsym to the subject's anatomical space.
+
+    Outputs
+    -------
+    atlas_names : list of str
+        A list of atlases used for parcellating the CBF results.
+        The list of atlas names is generated by :func:`aslprep.utils.atlas.get_atlas_names`.
+        The atlases include: "Schaefer117", "Schaefer217", "Schaefer317", "Schaefer417",
+        "Schaefer517", "Schaefer617", "Schaefer717", "Schaefer817", "Schaefer917",
+        "Schaefer1017", "Glasser", "Gordon", and "subcortical" (Tian).
+    mean_cbf_parcellated : list of str
+    mean_cbf_score_parcellated : Undefined or list of str
+        Only defined if ``scorescrub`` is True.
+    mean_cbf_scrub_parcellated : Undefined or list of str
+        Only defined if ``scorescrub`` is True.
+    mean_cbf_basil_parcellated : Undefined or list of str
+        Only defined if ``basil`` is True.
+    mean_cbf_gm_basil_parcellated : Undefined or list of str
+        Only defined if ``basil`` is True.
     """
     workflow = Workflow(name=name)
 
@@ -723,14 +917,14 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "cbf",
-                "score",
-                "scrub",
-                "basil",
-                "pvc",
-                "aslmask",
-                "t1_asl_xform",
-                "std2anat_xfm",
+                "mean_cbf",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
+                "asl_mask",
+                "anat_to_aslref_xfm",
+                "MNI152NLin2009cAsym_to_anat_xfm",
             ]
         ),
         name="inputnode",
@@ -738,262 +932,116 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "cbf_hvoxf",
-                "score_hvoxf",
-                "scrub_hvoxf",
-                "basil_hvoxf",
-                "pvc_hvoxf",
-                "cbf_sc207",
-                "score_sc207",
-                "scrub_sc207",
-                "basil_sc207",
-                "pvc_sc207",
-                "cbf_sc217",
-                "score_sc217",
-                "scrub_sc217",
-                "basil_sc217",
-                "pvc_sc217",
-                "cbf_sc407",
-                "score_sc407",
-                "scrub_sc407",
-                "basil_sc407",
-                "pvc_sc407",
-                "cbf_sc417",
-                "score_sc417",
-                "scrub_sc417",
-                "basil_sc417",
-                "pvc_sc417",
-            ]
+                "atlas_names",
+                "mean_cbf_parcellated",
+                "mean_cbf_score_parcellated",
+                "mean_cbf_scrub_parcellated",
+                "mean_cbf_basil_parcellated",
+                "mean_cbf_gm_basil_parcellated",
+            ],
         ),
         name="outputnode",
     )
 
-    hvoxfile, hvoxdata, hvoxlabel = get_atlas(atlasname="HarvardOxford")
-    sc207file, sc207data, sc207label = get_atlas(atlasname="schaefer200x7")
-    sc217file, sc217data, sc217label = get_atlas(atlasname="schaefer200x17")
-    sc407file, sc407data, sc407label = get_atlas(atlasname="schaefer400x7")
-    sc417file, sc417data, sc417label = get_atlas(atlasname="schaefer400x17")
-
-    mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
-    hvoftrans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=hvoxfile,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="hvoftrans",
-    )
-    sc207trans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=sc207file,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="sc207trans",
-    )
-    sc217trans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=sc217file,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="sc217trans",
-    )
-    sc407trans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=sc407file,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="sc407trans",
-    )
-    sc417trans = pe.Node(
-        ApplyTransforms(
-            float=True,
-            input_image=sc417file,
-            dimension=3,
-            default_value=0,
-            interpolation="NearestNeighbor",
-        ),
-        name="sc417trans",
+    atlas_name_grabber = pe.Node(
+        niu.Function(output_names=["atlas_names"], function=get_atlas_names),
+        name="atlas_name_grabber",
     )
 
-    cbfroihv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="cbfroihv")
-    cbfroi207 = pe.Node(ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="cbf207")
-    cbfroi217 = pe.Node(ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="cbf217")
-    cbfroi407 = pe.Node(ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="cbf407")
-    cbfroi417 = pe.Node(ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="cbf417")
-    if scorescrub:
-        scorehv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scorehv")
-        score207 = pe.Node(
-            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data),
-            name="score207",
-        )
-        score217 = pe.Node(
-            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data),
-            name="score217",
-        )
-        score407 = pe.Node(
-            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data),
-            name="score407",
-        )
-        score417 = pe.Node(
-            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data),
-            name="score417",
-        )
-        scrubhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="scrubhv")
-        scrub207 = pe.Node(
-            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data),
-            name="scrub207",
-        )
-        scrub217 = pe.Node(
-            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data),
-            name="scrub217",
-        )
-        scrub407 = pe.Node(
-            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data),
-            name="scrub407",
-        )
-        scrub417 = pe.Node(
-            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data),
-            name="scrub417",
-        )
+    # fmt:off
+    workflow.connect([(atlas_name_grabber, outputnode, [("atlas_names", "atlas_names")])])
+    # fmt:on
 
-    if basil:
-        basilhv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="basilhv")
-        basil207 = pe.Node(
-            ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data),
-            name="basil207",
-        )
-        basil217 = pe.Node(
-            ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data),
-            name="basil217",
-        )
-        basil407 = pe.Node(
-            ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data),
-            name="basil407",
-        )
-        basil417 = pe.Node(
-            ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data),
-            name="basil417",
-        )
-        pvchv = pe.Node(ParcellateCBF(atlaslabel=hvoxlabel, atlasdata=hvoxdata), name="pvchv")
-        pvc207 = pe.Node(ParcellateCBF(atlaslabel=sc207label, atlasdata=sc207data), name="pvc207")
-        pvc217 = pe.Node(ParcellateCBF(atlaslabel=sc217label, atlasdata=sc217data), name="pvc217")
-        pvc407 = pe.Node(ParcellateCBF(atlaslabel=sc407label, atlasdata=sc407data), name="pvc407")
-        pvc417 = pe.Node(ParcellateCBF(atlaslabel=sc417label, atlasdata=sc417data), name="pvc417")
+    # get atlases via pkgrf
+    atlas_file_grabber = pe.MapNode(
+        niu.Function(
+            input_names=["atlas_name"],
+            output_names=["atlas_file", "atlas_labels_file"],
+            function=get_atlas_nifti,
+        ),
+        name="atlas_file_grabber",
+        iterfield=["atlas_name"],
+    )
+
+    # fmt:off
+    workflow.connect([(atlas_name_grabber, atlas_file_grabber, [("atlas_names", "atlas_name")])])
+    # fmt:on
+
+    # Atlases are in MNI152NLin6Asym
+    MNI152NLin6Asym_to_MNI152NLin2009cAsym = str(
+        get_template(
+            template="MNI152NLin2009cAsym",
+            mode="image",
+            suffix="xfm",
+            extension=".h5",
+            **{"from": "MNI152NLin6Asym"},
+        ),
+    )
+
+    # Prepare to warp atlases from MNI152NLin6Asym to ASL reference space.
+    # One of the output spaces selected by the user *may* be MNI152NLin6Asym,
+    # but MNI152NLin2009cAsym is always used, so it's safer to go:
+    # MNI152NLin6Asym --> MNI152NLin2009cAsym --> anat --> asl
+    merge_xforms = pe.Node(niu.Merge(3), name="merge_xforms")
+    merge_xforms.inputs.in1 = MNI152NLin6Asym_to_MNI152NLin2009cAsym
 
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [
-            ("t1_asl_xform", "in2"),
-            ("std2anat_xfm", "in1"),
+        (inputnode, merge_xforms, [
+            ("MNI152NLin2009cAsym_to_anat_xfm", "in2"),
+            ("anat_to_aslref_xfm", "in3"),
         ]),
-        (inputnode, hvoftrans, [("aslmask", "reference_image")]),
-        (mrg_xfms, hvoftrans, [("out", "transforms")]),
-        (inputnode, sc207trans, [("aslmask", "reference_image")]),
-        (mrg_xfms, sc207trans, [("out", "transforms")]),
-        (inputnode, sc217trans, [("aslmask", "reference_image")]),
-        (mrg_xfms, sc217trans, [("out", "transforms")]),
-        (inputnode, sc407trans, [("aslmask", "reference_image")]),
-        (mrg_xfms, sc407trans, [("out", "transforms")]),
-        (inputnode, sc417trans, [("aslmask", "reference_image")]),
-        (mrg_xfms, sc417trans, [("out", "transforms")]),
-        (hvoftrans, cbfroihv, [("output_image", "atlasfile")]),
-        (sc207trans, cbfroi207, [("output_image", "atlasfile")]),
-        (sc217trans, cbfroi217, [("output_image", "atlasfile")]),
-        (sc407trans, cbfroi407, [("output_image", "atlasfile")]),
-        (sc417trans, cbfroi417, [("output_image", "atlasfile")]),
-        (inputnode, cbfroihv, [("cbf", "in_cbf")]),
-        (inputnode, cbfroi207, [("cbf", "in_cbf")]),
-        (inputnode, cbfroi217, [("cbf", "in_cbf")]),
-        (inputnode, cbfroi407, [("cbf", "in_cbf")]),
-        (inputnode, cbfroi417, [("cbf", "in_cbf")]),
-        (cbfroihv, outputnode, [("atlascsv", "cbf_hvoxf")]),
-        (cbfroi207, outputnode, [("atlascsv", "cbf_sc207")]),
-        (cbfroi217, outputnode, [("atlascsv", "cbf_sc217")]),
-        (cbfroi407, outputnode, [("atlascsv", "cbf_sc407")]),
-        (cbfroi417, outputnode, [("atlascsv", "cbf_sc417")]),
     ])
     # fmt:on
 
+    # Using the generated transforms, apply them to get everything in the correct MNI form
+    warp_atlases_to_asl_space = pe.MapNode(
+        ApplyTransforms(
+            interpolation="GenericLabel",
+            input_image_type=3,
+            dimension=3,
+        ),
+        name="warp_atlases_to_asl_space",
+        iterfield=["input_image"],
+        mem_gb=mem_gb,
+        n_procs=omp_nthreads,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, warp_atlases_to_asl_space, [("asl_mask", "reference_image")]),
+        (atlas_file_grabber, warp_atlases_to_asl_space, [("atlas_file", "input_image")]),
+        (merge_xforms, warp_atlases_to_asl_space, [("out", "transforms")]),
+    ])
+    # fmt:on
+
+    cbf_types = ["mean_cbf"]
     if scorescrub:
-        # fmt:off
-        workflow.connect([
-            (hvoftrans, scorehv, [("output_image", "atlasfile")]),
-            (hvoftrans, scrubhv, [("output_image", "atlasfile")]),
-            (sc207trans, score207, [("output_image", "atlasfile")]),
-            (sc207trans, scrub207, [("output_image", "atlasfile")]),
-            (sc217trans, score217, [("output_image", "atlasfile")]),
-            (sc217trans, scrub217, [("output_image", "atlasfile")]),
-            (sc407trans, score407, [("output_image", "atlasfile")]),
-            (sc407trans, scrub407, [("output_image", "atlasfile")]),
-            (sc417trans, score417, [("output_image", "atlasfile")]),
-            (sc417trans, scrub417, [("output_image", "atlasfile")]),
-            (inputnode, scorehv, [("score", "in_cbf")]),
-            (inputnode, scrubhv, [("scrub", "in_cbf")]),
-            (inputnode, score207, [("score", "in_cbf")]),
-            (inputnode, scrub207, [("scrub", "in_cbf")]),
-            (inputnode, score217, [("score", "in_cbf")]),
-            (inputnode, scrub217, [("scrub", "in_cbf")]),
-            (inputnode, score407, [("score", "in_cbf")]),
-            (inputnode, scrub407, [("scrub", "in_cbf")]),
-            (inputnode, score417, [("score", "in_cbf")]),
-            (inputnode, scrub417, [("scrub", "in_cbf")]),
-            (scorehv, outputnode, [("atlascsv", "score_hvoxf")]),
-            (score207, outputnode, [("atlascsv", "score_sc207")]),
-            (score217, outputnode, [("atlascsv", "score_sc217")]),
-            (score407, outputnode, [("atlascsv", "score_sc407")]),
-            (score417, outputnode, [("atlascsv", "score_sc417")]),
-            (scrubhv, outputnode, [("atlascsv", "scrub_hvoxf")]),
-            (scrub207, outputnode, [("atlascsv", "scrub_sc207")]),
-            (scrub217, outputnode, [("atlascsv", "scrub_sc217")]),
-            (scrub407, outputnode, [("atlascsv", "scrub_sc407")]),
-            (scrub417, outputnode, [("atlascsv", "scrub_sc417")]),
-        ])
-        # fmt:on
+        cbf_types += ["mean_cbf_score", "mean_cbf_scrub"]
 
     if basil:
+        cbf_types += ["mean_cbf_basil", "mean_cbf_gm_basil"]
+
+    for cbf_type in cbf_types:
+        parcellate_cbf = pe.MapNode(
+            ParcellateCBF(min_coverage=min_coverage),
+            name=f"parcellate_{cbf_type}",
+            iterfield=["atlas", "atlas_labels"],
+            mem_gb=mem_gb,
+        )
+
         # fmt:off
         workflow.connect([
-            (hvoftrans, basilhv, [("output_image", "atlasfile")]),
-            (hvoftrans, pvchv, [("output_image", "atlasfile")]),
-            (sc207trans, pvc207, [("output_image", "atlasfile")]),
-            (sc207trans, basil207, [("output_image", "atlasfile")]),
-            (sc217trans, pvc217, [("output_image", "atlasfile")]),
-            (sc217trans, basil217, [("output_image", "atlasfile")]),
-            (sc407trans, pvc407, [("output_image", "atlasfile")]),
-            (sc407trans, basil407, [("output_image", "atlasfile")]),
-            (sc417trans, pvc417, [("output_image", "atlasfile")]),
-            (sc417trans, basil417, [("output_image", "atlasfile")]),
-            (inputnode, basilhv, [("basil", "in_cbf")]),
-            (inputnode, pvchv, [("pvc", "in_cbf")]),
-            (inputnode, basil207, [("basil", "in_cbf")]),
-            (inputnode, pvc207, [("pvc", "in_cbf")]),
-            (inputnode, basil217, [("basil", "in_cbf")]),
-            (inputnode, pvc217, [("pvc", "in_cbf")]),
-            (inputnode, basil407, [("basil", "in_cbf")]),
-            (inputnode, pvc407, [("pvc", "in_cbf")]),
-            (inputnode, basil417, [("basil", "in_cbf")]),
-            (inputnode, pvc417, [("pvc", "in_cbf")]),
-            (basilhv, outputnode, [("atlascsv", "basil_hvoxf")]),
-            (basil207, outputnode, [("atlascsv", "basil_sc207")]),
-            (basil217, outputnode, [("atlascsv", "basil_sc217")]),
-            (basil407, outputnode, [("atlascsv", "basil_sc407")]),
-            (basil417, outputnode, [("atlascsv", "basil_sc417")]),
-            (pvchv, outputnode, [("atlascsv", "pvc_hvoxf")]),
-            (pvc207, outputnode, [("atlascsv", "pvc_sc207")]),
-            (pvc217, outputnode, [("atlascsv", "pvc_sc217")]),
-            (pvc407, outputnode, [("atlascsv", "pvc_sc407")]),
-            (pvc417, outputnode, [("atlascsv", "pvc_sc417")]),
+            (inputnode, parcellate_cbf, [
+                (cbf_type, "in_file"),
+                ("asl_mask", "mask"),
+            ]),
+            (atlas_file_grabber, parcellate_cbf, [("atlas_labels_file", "atlas_labels")]),
+            (warp_atlases_to_asl_space, parcellate_cbf, [("output_image", "atlas")]),
+            (parcellate_cbf, outputnode, [
+                ("timeseries", f"{cbf_type}_parcellated"),
+                ("coverage", f"{cbf_type}_coverage"),
+            ]),
         ])
         # fmt:on
 

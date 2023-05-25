@@ -6,20 +6,20 @@ import pandas as pd
 import seaborn as sns
 from lxml import etree
 from matplotlib import gridspec as mgs
-from nilearn.image import threshold_img
-from nilearn.plotting import plot_stat_map
-from seaborn import color_palette
-from svgutils.transform import SVGFigure
-
-from aslprep.niworkflows import NIWORKFLOWS_LOG
-from aslprep.niworkflows.viz.plots import _get_tr, confoundplot, plot_carpet, spikesplot
-from aslprep.niworkflows.viz.utils import (
-    _3d_in_file,
+from nilearn import image, plotting
+from nilearn._utils.niimg import load_niimg
+from niworkflows.interfaces.plotting import _get_tr
+from niworkflows.viz.utils import (
     compose_view,
     cuts_from_bbox,
     extract_svg,
     robust_set_limits,
 )
+from seaborn import color_palette
+from svgutils.transform import SVGFigure
+
+from aslprep.niworkflows import NIWORKFLOWS_LOG
+from aslprep.niworkflows.viz.plots import confoundplot, plot_carpet, spikesplot
 
 
 class ASLPlot:
@@ -32,7 +32,7 @@ class ASLPlot:
         func_file,
         mask_file=None,
         data=None,
-        conf_file=None,
+        confounds_file=None,
         seg_file=None,
         tr=None,
         usecols=None,
@@ -58,8 +58,8 @@ class ASLPlot:
         if vlines is None:
             vlines = {}
         self.confounds = {}
-        if data is None and conf_file:
-            data = pd.read_csv(conf_file, sep=r"[\t\s]+", usecols=usecols, index_col=False)
+        if data is None and confounds_file:
+            data = pd.read_csv(confounds_file, sep=r"[\t\s]+", usecols=usecols, index_col=False)
 
         if data is not None:
             for name in data.columns.ravel():
@@ -117,15 +117,14 @@ class CBFtsPlot(object):
     def __init__(
         self,
         cbf_file,
-        conf_file=None,
+        confounds_file=None,
         seg_file=None,
-        scoreindex=None,
+        score_outlier_index=None,
         tr=None,
         units=None,
         vlines=None,
     ):
         self.cbf_file = cbf_file
-        volindex = np.loadtxt(scoreindex)
         func_nii = nb.load(cbf_file)
         self.tr = tr if tr is not None else func_nii.header.get_zooms()[-1]
 
@@ -140,13 +139,15 @@ class CBFtsPlot(object):
             vlines = {}
 
         self.fd_file = {}
-        if conf_file:
-            data = pd.read_csv(conf_file, sep=r"[\t\s]+", index_col=False)
+        if confounds_file:
+            data = pd.read_csv(confounds_file, sep=r"[\t\s]+", index_col=False)
             fdlist = data["framewise_displacement"].tolist()
             fdlist = fdlist[::2]
             # fdlist=np.nan_to_num(fdlist)
             self.fd_file["FD"] = {"values": fdlist}
-        if scoreindex:
+
+        if score_outlier_index:
+            volindex = np.loadtxt(score_outlier_index)
             self.fd_file["The SCORE index"] = {"values": volindex}
 
     def plot(self, figure=None):
@@ -183,7 +184,10 @@ class CBFtsPlot(object):
 
 
 class CBFPlot(object):
-    """Generate the CBF Summary Plot."""
+    """Generate the CBF Summary Plot.
+
+    This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
+    """
 
     __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmax"]
 
@@ -195,19 +199,30 @@ class CBFPlot(object):
         self.vmax = vmax
 
     def plot(self):
-        """Generate the plot."""
-        statfile = plotstatsimg(
-            cbf=self.cbf, ref_vol=self.ref_vol, vmax=self.vmax, label=self.label
+        """Generate the plot.
+
+        This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
+        """
+        cbf_img = nb.load(self.cbf)
+        cbf_data = cbf_img.get_fdata()
+        cbf_data[cbf_data < -20] = -20
+        cbf_data[cbf_data > 100] = 100
+        cbf_img = nb.Nifti1Image(cbf_data, affine=cbf_img.affine, header=cbf_img.header)
+        statfile = plot_stat_map(
+            cbf=cbf_img,
+            ref_vol=self.ref_vol,
+            vmax=self.vmax,
+            label=self.label,
         )
         compose_view(bg_svgs=statfile, fg_svgs=None, out_file=self.outfile)
 
 
-def plotstatsimg(
+def plot_stat_map(
     cbf,
     ref_vol,
     plot_params=None,
     order=("z", "x", "y"),
-    vmax=90,
+    vmax=100,
     estimate_brightness=False,
     label=None,
     compress="auto",
@@ -215,10 +230,13 @@ def plotstatsimg(
     """Plot statistical map."""
     plot_params = {} if plot_params is None else plot_params
 
-    image_nii = _3d_in_file(cbf)
+    image_nii = load_niimg(cbf)
+    if image_nii.ndim > 3:
+        image_nii = image.mean_img(image_nii)
+
     data = image_nii.get_fdata()
 
-    bbox_nii = threshold_img(nb.load(cbf), 1)
+    bbox_nii = image.threshold_img(image_nii, 1)
 
     cuts = cuts_from_bbox(bbox_nii, cuts=7)
 
@@ -228,22 +246,19 @@ def plotstatsimg(
 
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
-        plot_params["display_mode"] = mode
-        plot_params["cut_coords"] = cuts[mode]
-        plot_params["draw_cross"] = False
-        plot_params["symmetric_cbar"] = True
-        plot_params["vmax"] = vmax
-        plot_params["threshold"] = 0.02
-        plot_params["colorbar"] = True
-        plot_params["cmap"] = "coolwarm"
-        if i == 0:
-            plot_params["title"] = label
-            plot_params["colorbar"] = True
-        else:
-            plot_params["title"] = None
-
-        display = plot_stat_map(
-            stat_map_img=cbf, bg_img=ref_vol, resampling_interpolation="nearest", **plot_params
+        display = plotting.plot_stat_map(
+            stat_map_img=image_nii,
+            bg_img=ref_vol,
+            resampling_interpolation="nearest",
+            display_mode=mode,
+            cut_coords=cuts[mode],
+            vmax=vmax,
+            threshold=0.02,
+            draw_cross=False,
+            colorbar=True,
+            symmetric_cbar=False,
+            cmap="coolwarm",
+            title=label if i == 0 else None,
         )
         svg = extract_svg(display, compress=compress)
         display.close()

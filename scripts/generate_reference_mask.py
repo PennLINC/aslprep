@@ -1,8 +1,9 @@
 #!/usr/bin/env python
+"""This won't work."""
 import sys
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
-from aslprep.niworkflows.func.util import init_asl_reference_wf
+from aslprep.workflows.asl.util import init_asl_reference_wf
 
 
 def sink_mask_file(in_file, orig_file, out_dir):
@@ -15,8 +16,7 @@ def sink_mask_file(in_file, orig_file, out_dir):
 
 
 def init_main_wf(asl_file, out_dir, base_dir=None, name='main_wf'):
-    wf = init_asl_reference_wf(omp_nthreads=4,
-                                name=name)
+    wf = init_asl_reference_wf(omp_nthreads=4, name=name)
     wf.base_dir = base_dir
     wf.inputs.inputnode.asl_file = asl_file
 

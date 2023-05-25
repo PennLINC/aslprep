@@ -28,7 +28,7 @@ of the target template. This can be achieved by applying modifiers to the templa
 separated by a ``:`` character.
 
 For instance, ``--output-spaces MNI152NLin6Asym:res-2`` will generate
-ASL and CBF on standard space (``MNI152NLin6Asym``) with the template's 2mm
+ASL and CBF on standard space (``MNI152NLin6Asym``) with the template's 2 mm
 isotropic resolution.
 
 
@@ -42,10 +42,9 @@ that do not generate *standardized* coordinate spaces:
   * ``T1w`` or ``anat``: can be used to resample data into the individual's anatomical
     reference (e.g., the T1w image).
 
-  * ``func``, ``run``, ``asl`` or ``sbref`` can be used to
-    generate ASL/CBF data in their original grid, after slice-timing,
-    head-motion, and susceptibility-distortion corrections as well as CBF
-    computation.
+  * ``func``, ``run``, ``asl``, or ``sbref`` can be used to
+    generate ASL/CBF data in their original grid, after head-motion
+    and susceptibility-distortion corrections as well as CBF computation.
     These keywords are experimental.
 
 Modifiers are not allowed when providing nonstandard spaces.

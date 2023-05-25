@@ -8,8 +8,9 @@ This page describes the basic steps to run ``ASLPrep`` on a BIDS dataset.
 ``ASLPrep`` is containerized and available via ``pip``, and thus can be run in a variety of ways.
 Here, we provide the most basic and user friendly workflow.
 
-*ASLPrep* requires a valid BIDS dataset, like this example of a BIDS dataset on
-`openneuro <https://openneuro.org/datasets/ds000240/versions/2.0.0/download>`_.
+*ASLPrep* requires a valid BIDS dataset,
+like the Resting State Perfusion in Healthy Aging dataset on
+`OpenNeuro <https://openneuro.org/datasets/ds000240>`_.
 Using Chrome, you can download the data via the browser.
 Note that you might have to create a new folder into which you can download the data.
 You can also acquire data using using ``datalad`` or ``aws``.
@@ -34,30 +35,31 @@ There are two ways to install *ASLPrep*:
 
 1. Installation through Docker or Singularity (**recommended**)
 
-For every new version of ``ASLPrep`` that is released,
-a corresponding Docker image is generated and pushed to `DockerHub <https://hub.docker.com/r/pennlinc/aslprep>`_.
-In order to run *ASLPrep* Docker images,
-the Docker Engine must be `installed <https://docs.docker.com/engine/install/>`_.
+   For every new version of ``ASLPrep`` that is released,
+   a corresponding Docker image is generated and pushed to
+   `DockerHub <https://hub.docker.com/r/pennlinc/aslprep>`_.
+   In order to run *ASLPrep* Docker images,
+   the Docker Engine must be `installed <https://docs.docker.com/engine/install/>`_.
 
-We recommend using Docker or Singularity to run ASLPrep.
-The docker image can be pulled from the ASLPrep DockerHub using the command line::
+   We recommend using Docker or Singularity to run ASLPrep.
+   The docker image can be pulled from the ASLPrep DockerHub using the command line::
 
-    docker pull pennlinc/aslprep:latest
+      docker pull pennlinc/aslprep:latest
 
-To use singularity, a singularity image must be installed directly on the system
-using the following command::
+   To use singularity, a singularity image must be installed directly on the system
+   using the following command::
 
-    singularity build aslprep.sif docker://pennlinc/aslprep:latest
+      singularity build aslprep.sif docker://pennlinc/aslprep:latest
 
-This requires installation of Singularity version >= 2.5
+   This requires installation of Singularity version >= 2.5
 
-See  :doc:`docker`  and  :doc:`singularity` for more information.
+   See  :doc:`docker`  and  :doc:`singularity` for more information.
 
 2. Installation is available via ``pip``::
 
-    python -m pip install aslprep
+      python -m pip install aslprep
 
-This method is not recommended, because it requires external dependencies to be installed.
+   This method is not recommended, because it requires external dependencies to be installed.
 
 
 ***************

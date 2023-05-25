@@ -111,7 +111,6 @@ def init_single_subject_wf(subject_id):
     subject_data, layout = collect_data(
         config.execution.bids_dir,
         subject_id,
-        echo=config.execution.echo_idx,
         bids_filters=config.execution.bids_filters,
     )
 
@@ -291,9 +290,8 @@ their manuscripts unchanged. It is released under the unchanged
     if anat_only:
         return workflow
 
-    # Append the functional section to the existing anatomical exerpt
+    # Append the functional section to the existing anatomical excerpt
     # That way we do not need to stream down the number of asl datasets
-
     run_str = "runs" if len(subject_data["asl"]) > 1 else "run"
     anat_preproc_wf.__postdesc__ = (
         (anat_preproc_wf.__postdesc__ or "")
@@ -309,17 +307,10 @@ tasks and sessions), the following preprocessing was performed.
     for asl_file in subject_data["asl"]:
         config.loggers.workflow.log(25, f"Processing {asl_file}")
 
-        # If number of volume of ASL is less than 5, motion correction,
-        # slice-timing correction, etc. will be skipped.
-        metadata = layout.get_metadata(asl_file)
+        # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
         n_vols = get_n_volumes(asl_file)
         use_ge = False
-        if metadata.get("Manufacturer") == "GE":
-            config.loggers.workflow.warning(
-                "ASL file is acquired with a GE scanner. Using GE-specific processing."
-            )
-            use_ge = True
-        elif n_vols <= 5:
+        if n_vols <= 5:
             config.loggers.workflow.warning(
                 f"ASL file is very short ({n_vols} volumes). Using GE-specific processing."
             )
@@ -336,8 +327,8 @@ tasks and sessions), the following preprocessing was performed.
                 ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
                 ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
                 ("outputnode.template", "inputnode.template"),
-                ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
-                ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
+                ("outputnode.anat2std_xfm", "inputnode.anat_to_template_xfm"),
+                ("outputnode.std2anat_xfm", "inputnode.template_to_anat_xfm"),
             ]),
         ])
         # fmt:on

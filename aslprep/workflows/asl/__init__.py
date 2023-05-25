@@ -10,8 +10,6 @@ from aslprep.workflows.asl import (
     hmc,
     registration,
     resampling,
-    stc,
-    t2s,
 )
 
 __all__ = [
@@ -23,6 +21,4 @@ __all__ = [
     "hmc",
     "registration",
     "resampling",
-    "stc",
-    "t2s",
 ]
