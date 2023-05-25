@@ -104,8 +104,8 @@ class ASLSummary(SimpleInterface):
 
 class _CBFSummaryInputSpec(BaseInterfaceInputSpec):
     cbf = File(exists=True, mandatory=True, desc="")
-    label = traits.Str(exists=True, mandatory=True, desc="label")
-    vmax = traits.Int(exists=True, default_value=90, mandatory=True, desc="max value of asl")
+    label = traits.Str(mandatory=True, desc="label")
+    vmax = traits.Int(default_value=90, mandatory=True, desc="max value of asl")
     ref_vol = File(exists=True, mandatory=True, desc="")
 
 

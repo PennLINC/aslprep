@@ -380,12 +380,10 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         ),
     )
     metadata = traits.Dict(
-        exists=True,
         mandatory=True,
         desc="Metadata for the raw CBF file, taken from the raw ASL data's sidecar JSON file.",
     )
     m0_scale = traits.Float(
-        exists=True,
         mandatory=True,
         desc="Relative scale between ASL and M0.",
     )
@@ -672,7 +670,7 @@ class ComputeCBF(SimpleInterface):
 
 
 class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
-    cbf = File(exists=True, mandatory=True, desc="computed CBF from ComputeCBF")
+    cbf_ts = File(exists=True, mandatory=True, desc="computed CBF from ComputeCBF")
     gm_tpm = File(exists=True, mandatory=True, desc="Gray matter tissue probability map.")
     wm_tpm = File(exists=True, mandatory=True, desc="White matter tissue probability map.")
     csf_tpm = File(exists=True, mandatory=True, desc="Cerebrospinal fluid tissue probability map.")
@@ -684,11 +682,11 @@ class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
         desc="Threshold for tissue probability maps.",
     )
     wavelet_function = traits.Str(
-        exists=True,
         mandatory=False,
         default_value="huber",
         option=["bisquare", "andrews", "cauchy", "fair", "logistics", "ols", "talwar", "welsch"],
         desc="Wavelet function used in SCRUB.",
+        usedefault=True,
     )
 
 
@@ -724,7 +722,7 @@ class ScoreAndScrubCBF(SimpleInterface):
     output_spec = _ScoreAndScrubCBFOutputSpec
 
     def _run_interface(self, runtime):
-        cbf_img = nb.load(self.inputs.cbf)
+        cbf_img = nb.load(self.inputs.cbf_ts)
         cbf_arr = cbf_img.get_fdata()
 
         if cbf_arr.ndim > 3:
@@ -761,22 +759,22 @@ class ScoreAndScrubCBF(SimpleInterface):
             mean_cbf_scrub = cbf_arr
 
         self._results["cbf_ts_score"] = fname_presuffix(
-            self.inputs.cbf,
+            self.inputs.cbf_ts,
             suffix="_cbfscorets",
             newpath=runtime.cwd,
         )
         self._results["mean_cbf_score"] = fname_presuffix(
-            self.inputs.cbf,
+            self.inputs.cbf_ts,
             suffix="_meancbfscore",
             newpath=runtime.cwd,
         )
         self._results["mean_cbf_scrub"] = fname_presuffix(
-            self.inputs.cbf,
+            self.inputs.cbf_ts,
             suffix="_cbfscrub",
             newpath=runtime.cwd,
         )
         self._results["score_outliers"] = fname_presuffix(
-            self.inputs.cbf,
+            self.inputs.cbf_ts,
             suffix="_scoreindex.csv",
             newpath=runtime.cwd,
             use_ext=False,
