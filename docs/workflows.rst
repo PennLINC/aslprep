@@ -206,10 +206,10 @@ Calculated confounds include framewise displacement, 6 motion parameters, and DV
 Susceptibility Distortion Correction (SDC)
 ==========================================
 
-One of the major problems that affects :abbr:`EPI (echo planar imaging)` data
-is the spatial distortion caused by the inhomogeneity of the field inside
-the scanner.
-Please refer to :doc:`sdc` for details on the available workflows.
+One of the major problems that affects ASL data is the spatial distortion caused by the
+inhomogeneity of the field inside the scanner.
+Please refer to the `SDCFlows documentation <www.nipreps.org/sdcflows>`_
+for details on the available workflows.
 
 .. figure:: _static/unwarping.svg
 
