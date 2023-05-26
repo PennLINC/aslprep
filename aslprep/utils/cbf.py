@@ -406,6 +406,27 @@ def _robust_fit(
 def _scrub_cbf(cbf_ts, gm, wm, csf, mask, cost_function="huber", thresh=0.7):
     """Apply SCRUB algorithm to CBF data.
 
+    The SCRUB algorithm uses a Bayesian approach to compute the average CBF over a series of
+    CBF estimates (volumes), while taking into account a prior distribution of CBF values
+    (in the Bayesian sense).
+
+    SCRUB assumes that both the likelihood and prior term in the formula are Gaussian,
+    which means that the tuning parameter (lambda) is equal to the ratio of the variances of the
+    additive noise and the prior probability density.
+    A higher lambda value generally indicates less reliable CBF estimates,
+    driven by higher variance of the additive noise.
+    Basically, temporal variance of the CBF estimates is used as an indicator of unreliable
+    voxels/estimates.
+
+    SCRUB may account for other factors indicating unreliability by adjusting lambda,
+    such as voxels with negative CBF estimates.
+
+    The distribution of CBF is not Gaussian due to frequent presence of outliers.
+    SCRUB adds a data fidelity term to account for large outliers (rho?).
+
+    The prior is mu. The tuning parameter is lambda (consistent across voxels?).
+    The cost function is rho.
+
     Parameters
     ----------
     cbf_ts : 4D numpy.ndarray
@@ -414,8 +435,9 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, cost_function="huber", thresh=0.7):
         Gray matter, white matter, and CSF tissue probability maps.
     mask : 3D numpy.ndarray
         Binary brain mask.
-    wavelet_function : str
-        Wavelet function
+    cost_function : str
+        Wavelet function. This is the data fidelity term, which determines the cost of deviations
+        of CBF estimates from the solution.
     thresh : float
         Tissue probability threshold.
         Voxels in gm, wm, and csf with values greater than or equal to the threshold are
@@ -439,13 +461,17 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, cost_function="huber", thresh=0.7):
 
     mean_cbf = np.mean(cbf_ts, axis=3)
     masked_cbf_ts = cbf_ts[mask, :].T  # TxS array
-    masked_var_map = np.var(masked_cbf_ts, axis=0)  # S array
     n_voxels = masked_cbf_ts.shape[1]
     # "Since μ was designed based on whole brain, we designed the algorithm to only penalize values
     # whose normalized temporal variance is outside 99.99 percentile value (p99.99) of the chi
     # square distribution computed with (Number of brain voxels – 1) degrees of freedom."
-    p_thresh_0001 = chi2.ppf(0.0001, df=n_voxels - 1)
+    # (n - 1) * Sample variance (S squared) / Variance (sigma squared) follows chi-squared
+    # distribution with n - 1 degrees of freedom.
+    p_thresh_9999 = chi2.ppf(0.0001, df=n_voxels - 1)
     thresh1, thresh3 = _getchisquare(n_volumes)
+
+    # Construct voxel-wise prior map (i.e., mu_v)
+    masked_var_map = np.var(masked_cbf_ts, axis=0)  # S array of sigma squared
     mu1 = masked_var_map / (np.median(masked_var_map[gm_idx == 1]) * thresh3)
     mu = (
         ((mu1 > thresh1) & (mu1 < 10 * thresh1)) * (mu1 - thresh1)
@@ -456,6 +482,7 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, cost_function="huber", thresh=0.7):
     mu_map = np.zeros_like(mean_cbf)
     mu_map[mask] = mu
 
+    # Now I guess we work on lambda?
     modrobprior = mu / 10
     gm_idx2 = (
         [gm.flatten() > thresh] and [mu_map.flatten() == 0] and [wm.flatten() > csf.flatten()]
