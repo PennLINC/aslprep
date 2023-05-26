@@ -403,7 +403,7 @@ def _robust_fit(
     return b
 
 
-def _scrub_cbf(cbf_ts, gm, wm, csf, mask, wavelet_function="huber", thresh=0.7):
+def _scrub_cbf(cbf_ts, gm, wm, csf, mask, cost_function="huber", thresh=0.7):
     """Apply SCRUB algorithm to CBF data.
 
     Parameters
@@ -477,7 +477,7 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, wavelet_function="huber", thresh=0.7):
     global_prior_full = c[0] * gm.flatten() + c[1] * wm.flatten()
     global_prior = global_prior_full[mask.flatten() == 1]
 
-    tune = _get_wfun_tuner(wfun=wavelet_function)
+    tune = _get_wfun_tuner(wfun=cost_function)
     masked_mean_cbf_scrub = _robust_fit(
         Y=masked_cbf_ts,
         mu=mu,
@@ -485,7 +485,7 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, wavelet_function="huber", thresh=0.7):
         modrobprior=modrobprior,
         lmd=0,
         localprior=0,
-        wfun=wavelet_function,
+        wfun=cost_function,
         tune=tune,
         flagstd=1,
         flagmodrobust=1,

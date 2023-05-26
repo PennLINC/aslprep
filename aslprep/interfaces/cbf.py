@@ -681,7 +681,7 @@ class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
         usedefault=True,
         desc="Threshold for tissue probability maps.",
     )
-    wavelet_function = traits.Str(
+    cost_function = traits.Str(
         mandatory=False,
         default_value="huber",
         option=["bisquare", "andrews", "cauchy", "fair", "logistics", "ols", "talwar", "welsch"],
@@ -746,7 +746,7 @@ class ScoreAndScrubCBF(SimpleInterface):
                 wm=wm_tpm_arr,
                 csf=csf_tpm_arr,
                 mask=mask_arr,
-                wavelet_function=self.inputs.wavelet_function,
+                cost_function=self.inputs.cost_function,
                 thresh=self.inputs.tpm_threshold,
             )
         else:

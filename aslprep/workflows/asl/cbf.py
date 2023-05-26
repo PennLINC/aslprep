@@ -365,7 +365,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
 
     if scorescrub:
         score_and_scrub_cbf = pe.Node(
-            ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
+            ScoreAndScrubCBF(tpm_threshold=0.7, cost_function="huber"),
             mem_gb=0.2,
             name="score_and_scrub_cbf",
             run_without_submitting=True,
@@ -766,7 +766,7 @@ CBF with structural tissues probability maps [@dolui2017structural;@dolui2016scr
 """
 
         score_and_scrub_cbf = pe.Node(
-            ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
+            ScoreAndScrubCBF(tpm_threshold=0.7, cost_function="huber"),
             mem_gb=mem_gb,
             name="score_and_scrub_cbf",
             run_without_submitting=True,
