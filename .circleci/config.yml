@@ -33,53 +33,109 @@ jobs:
       - checkout
       - run: *runinstall
 
-  download_data:
+  download_pcasl_singlepld:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: data-v4
+          key: examples_pcasl_singlepld-v2
+      - run: *runinstall
       - run:
           name: Get test data and smriprep from box
           command: |
             cd /src/aslprep/.circleci
-            source get_data.sh
-            get_bids_data $PWD downsampled
+            python get_data.py ${PWD}/data examples_pcasl_singlepld
       - save_cache:
-          key: data-v4
+          key: examples_pcasl_singlepld-v2
           paths:
               - /src/aslprep/.circleci/data
 
-  aslprep_sub01:
+  download_pcasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            cd /src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_sub01\]' )" != "" ]]; then
-              echo "Skipping aslprep_sub01 build"
-              circleci step halt
-            fi
       - restore_cache:
-          key: data-v4
+          key: examples_pcasl_multipld-v2
       - run: *runinstall
       - run:
-          name: Run full aslprep on aslprep_sub01 bold
-          no_output_timeout: 5h
+          name: Get test data and smriprep from box
           command: |
-            pytest -rP -o log_cli=true -m "sub01" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.sub01
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data examples_pcasl_multipld
+      - save_cache:
+          key: examples_pcasl_multipld-v2
           paths:
-              - .coverage.sub01
+              - /src/aslprep/.circleci/data
 
-  aslprep_subA00086748:
+  download_pasl_multipld:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: examples_pasl_multipld-v2
+      - run: *runinstall
+      - run:
+          name: Get test data and smriprep from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data examples_pasl_multipld
+      - save_cache:
+          key: examples_pasl_multipld-v2
+          paths:
+              - /src/aslprep/.circleci/data
+
+  download_data_test_001:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: test_001-v2
+      - run: *runinstall
+      - run:
+          name: Get test data and smriprep from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data test_001
+      - save_cache:
+          key: test_001-v2
+          paths:
+              - /src/aslprep/.circleci/data
+
+  download_data_test_002:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: test_002-v3
+      - run: *runinstall
+      - run:
+          name: Get test data and smriprep from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data test_002
+      - save_cache:
+          key: test_002-v3
+          paths:
+              - /src/aslprep/.circleci/data
+
+  download_data_test_003:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: test_003-v2
+      - run: *runinstall
+      - run:
+          name: Get test data and smriprep from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data test_003
+      - save_cache:
+          key: test_003-v2
+          paths:
+              - /src/aslprep/.circleci/data
+
+  pcasl_singlepld_philips:
     <<: *dockersetup
     steps:
       - checkout
@@ -87,26 +143,276 @@ jobs:
           name: Check whether build should be skipped
           command: |
             cd /src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?aslprep_sub01\]' )" != "" ]]; then
-              echo "Skipping aslprep_sub01 build"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld_philips\]' )" != "" ]]; then
+              echo "Skipping examples_pcasl_singlepld_philips build"
               circleci step halt
             fi
       - restore_cache:
-          key: data-v4
+          key: examples_pcasl_singlepld-v2
       - run: *runinstall
       - run:
-          name: Run full aslprep on aslprep_subA00086748 bold
+          name: Run full aslprep on examples_pcasl_singlepld_philips dataset
           no_output_timeout: 5h
           command: |
-            pytest -rP -o log_cli=true -m "subA00086748" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_philips" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.subA00086748
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_philips
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
           root: /src/coverage
           paths:
-              - .coverage.subA00086748
+              - .coverage.examples_pcasl_singlepld_philips
+
+  pcasl_singlepld_siemens:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld_siemens\]' )" != "" ]]; then
+              echo "Skipping examples_pcasl_singlepld_siemens build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: examples_pcasl_singlepld-v2
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on examples_pcasl_singlepld_siemens dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_siemens" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_siemens
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.examples_pcasl_singlepld_siemens
+
+  pcasl_singlepld_ge:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld\]' )" != "" ]]; then
+              echo "Skipping examples_pcasl_singlepld build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: examples_pcasl_singlepld-v2
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on examples_pcasl_singlepld dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_ge" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_ge
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.examples_pcasl_singlepld_ge
+
+  pcasl_multipld:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_multipld\]' )" != "" ]]; then
+              echo "Skipping examples_pcasl_multipld build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: examples_pcasl_multipld-v2
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on examples_pcasl_multipld dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "examples_pcasl_multipld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_multipld
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.examples_pcasl_multipld
+
+  pasl_multipld:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pasl_multipld\]' )" != "" ]]; then
+              echo "Skipping examples_pasl_multipld build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: examples_pasl_multipld-v2
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on examples_pasl_multipld dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "examples_pasl_multipld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pasl_multipld
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.examples_pasl_multipld
+
+  test_001:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_001\]' )" != "" ]]; then
+              echo "Skipping test_001 build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_001-v2
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on test_001 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_001" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_001
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_001
+
+  test_002:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_002\]' )" != "" ]]; then
+              echo "Skipping test_002 build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_002-v3
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on test_002 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_002" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_002
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_002
+
+  test_003:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003\]' )" != "" ]]; then
+              echo "Skipping test_003 build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_003-v2
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on test_003 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_003" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_003
+
+  pytests:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?pytests\]' )" != "" ]]; then
+              echo "Skipping pytests build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_001-v2
+      - restore_cache:
+          key: test_003-v2
+      - run: *runinstall
+      - run:
+          name: Run pytest on the tests directory
+          no_output_timeout: 1h
+          command: |
+            pytest --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep/tests
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.pytests
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.pytests
+      - store_artifacts:
+          path: /src/aslprep/.circleci/
 
   merge_coverage:
     <<: *dockersetup
@@ -191,7 +497,7 @@ workflows:
             tags:
               only: /.*/
 
-      - download_data:
+      - download_pcasl_singlepld:
           filters:
             branches:
               ignore:
@@ -200,9 +506,54 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_sub01:
+      - download_pcasl_multipld:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - download_pasl_multipld:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - download_data_test_001:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - download_data_test_002:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - download_data_test_003:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - pcasl_singlepld_philips:
           requires:
-            - download_data
+            - download_pcasl_singlepld
             - build
           filters:
             branches:
@@ -212,9 +563,95 @@ workflows:
             tags:
               only: /.*/
 
-      - aslprep_subA00086748:
+      - pcasl_singlepld_siemens:
           requires:
-            - download_data
+            - download_pcasl_singlepld
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - pcasl_singlepld_ge:
+          requires:
+            - download_pcasl_singlepld
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - pcasl_multipld:
+          requires:
+            - download_pcasl_multipld
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - pasl_multipld:
+          requires:
+            - download_pasl_multipld
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - test_001:
+          requires:
+            - download_data_test_001
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - test_002:
+          requires:
+            - download_data_test_002
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - test_003:
+          requires:
+            - download_data_test_003
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - pytests:
+          requires:
+            - download_data_test_001
+            - download_data_test_002
+            - download_data_test_003
             - build
           filters:
             branches:
@@ -226,8 +663,15 @@ workflows:
 
       - merge_coverage:
           requires:
-            - aslprep_sub01
-            - aslprep_subA00086748
+            - pcasl_singlepld_philips
+            - pcasl_singlepld_siemens
+            - pcasl_singlepld_ge
+            - pcasl_multipld
+            - pasl_multipld
+            - test_001
+            - test_002
+            - test_003
+            - pytests
           filters:
             branches:
               ignore:
@@ -239,8 +683,14 @@ workflows:
       - deployable:
           requires:
             - build
-            - aslprep_sub01
-            - aslprep_subA00086748
+            - pcasl_singlepld_philips
+            - pcasl_singlepld_siemens
+            - pcasl_singlepld_ge
+            - pcasl_multipld
+            - pasl_multipld
+            - test_001
+            - test_002
+            - test_003
           filters:
             branches:
               only: main

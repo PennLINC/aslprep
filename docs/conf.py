@@ -24,6 +24,7 @@ import os
 import sys
 from datetime import datetime
 
+from m2r import MdInclude
 from packaging import version as pver
 from sphinx import __version__ as sphinxversion
 
@@ -202,10 +203,10 @@ html_theme_path = []
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
-html_title = "aslprep version"
+# html_title = "aslprep version"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-html_short_title = "aslprep version"
+# html_short_title = "ASLPrep"
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
@@ -335,3 +336,11 @@ def setup(app):
     app.add_css_file("theme_overrides.css")
     # We need this for the boilerplate script
     app.add_js_file("https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js")
+    # Fix to https://github.com/sphinx-doc/sphinx/issues/7420
+    # from https://github.com/life4/deal/commit/7f33cbc595ed31519cefdfaaf6f415dada5acd94
+    # from m2r to make `mdinclude` work
+    app.add_config_value("no_underscore_emphasis", False, "env")
+    app.add_config_value("m2r_parse_relative_links", False, "env")
+    app.add_config_value("m2r_anonymous_references", False, "env")
+    app.add_config_value("m2r_disable_inline_math", False, "env")
+    app.add_directive("mdinclude", MdInclude)

@@ -1,12 +1,64 @@
 """Utility functions for tests."""
 import os
-import subprocess
+import tarfile
 from contextlib import contextmanager
 from glob import glob
+from gzip import GzipFile
+from io import BytesIO
 
 import nibabel as nb
 import numpy as np
+import requests
 from bids.layout import BIDSLayout
+
+from aslprep import config
+
+
+def download_test_data(dset, data_dir=None):
+    """Download test data."""
+    URLS = {
+        "examples_pasl_multipld": (
+            "https://upenn.box.com/shared/static/njb5tqs2n53775qumtwc1wyxo5362sp7.tar.gz"
+        ),
+        "examples_pcasl_multipld": (
+            "https://upenn.box.com/shared/static/pm0ysafvg69jimk1bcm3ewtljiwzk899.tar.gz"
+        ),
+        "examples_pcasl_singlepld": (
+            "https://upenn.box.com/shared/static/il6cfea6f0wjnmjjvcpg6baw3e7yrwa3.tar.gz"
+        ),
+        "test_001": "https://upenn.box.com/shared/static/cudw5yyh3j6jwymmlzdw2nwc6knmxdu9.tar.gz",
+        "test_002": "https://upenn.box.com/shared/static/wpuvn06zl4v5nwd9o8tysyfs3kg4a2p0.tar.gz",
+        "test_003": "https://upenn.box.com/shared/static/1c64kn7btb5dodksnn06wer2kfk00px5.tar.gz",
+    }
+    if dset == "*":
+        for k in URLS:
+            download_test_data(k, data_dir=data_dir)
+
+        return
+
+    if dset not in URLS:
+        raise ValueError(f"dset ({dset}) must be one of: {', '.join(URLS.keys())}")
+
+    if not data_dir:
+        data_dir = os.path.join(os.path.dirname(get_test_data_path()), "test_data")
+
+    out_dir = os.path.join(data_dir, dset)
+
+    if os.path.isdir(out_dir):
+        config.loggers.utils.info(
+            f"Dataset {dset} already exists. "
+            "If you need to re-download the data, please delete the folder."
+        )
+        return out_dir
+    else:
+        config.loggers.utils.info(f"Downloading {dset} to {out_dir}")
+
+    os.makedirs(out_dir, exist_ok=True)
+    with requests.get(URLS[dset], stream=True) as req:
+        with tarfile.open(fileobj=GzipFile(fileobj=BytesIO(req.content))) as t:
+            t.extractall(out_dir)
+
+    return out_dir
 
 
 def get_test_data_path():
@@ -110,36 +162,10 @@ def check_affines(data_dir, out_dir, input_type):
             nb.load(bold_file)._nifti_header.get_intent()
             == nb.load(denoised_file)._nifti_header.get_intent()
         )
-    else:
-        if not np.array_equal(nb.load(bold_file).affine, nb.load(denoised_file).affine):
-            raise AssertionError(f"Affines do not match:\n\t{bold_file}\n\t{denoised_file}")
+    elif not np.array_equal(nb.load(bold_file).affine, nb.load(denoised_file).affine):
+        raise AssertionError(f"Affines do not match:\n\t{bold_file}\n\t{denoised_file}")
 
     print("No affines changed.")
-
-
-def run_command(command, env=None):
-    """Run a given shell command with certain environment variables set."""
-    merged_env = os.environ
-    if env:
-        merged_env.update(env)
-    process = subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        shell=True,
-        env=merged_env,
-    )
-    while True:
-        line = process.stdout.readline()
-        line = str(line, "utf-8")[:-1]
-        print(line)
-        if line == "" and process.poll() is not None:
-            break
-
-    if process.returncode != 0:
-        raise Exception(
-            f"Non zero return code: {process.returncode}\n" f"{command}\n\n{process.stdout.read()}"
-        )
 
 
 @contextmanager

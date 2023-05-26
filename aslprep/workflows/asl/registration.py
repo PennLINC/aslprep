@@ -11,17 +11,15 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.func.util import init_asl_reference_wf
-from aslprep.niworkflows.interfaces.fixes import (
-    FixHeaderApplyTransforms as ApplyTransforms,
-)
 from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
 from aslprep.niworkflows.interfaces.nilearn import Merge
 from aslprep.niworkflows.interfaces.registration import FLIRTRPT
 from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
 from aslprep.niworkflows.utils.images import dseg_label
-from aslprep.utils.misc import _conditional_downsampling
+from aslprep.utils.misc import _conditional_downsampling, _select_first_in_list
+from aslprep.workflows.asl.util import init_asl_reference_wf
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
@@ -31,9 +29,9 @@ def init_asl_reg_wf(
     use_bbr,
     asl2t1w_dof,
     asl2t1w_init,
-    name="asl_reg_wf",
     sloppy=False,
     write_report=True,
+    name="asl_reg_wf",
 ):
     """Build a workflow to run same-subject, ASL-to-T1w image-registration.
 
@@ -50,7 +48,7 @@ def init_asl_reg_wf(
             wf = init_asl_reg_wf(
                 use_bbr=True,
                 asl2t1w_dof=9,
-                asl2t1w_init='register',
+                asl2t1w_init="register",
             )
 
     Parameters
@@ -71,8 +69,6 @@ def init_asl_reg_wf(
         Name of workflow (default: ``asl_reg_wf``)
     use_compression : :obj:`bool`
         Save registered ASL series as ``.nii.gz``
-    use_fieldwarp : :obj:`bool`
-        Include SDC warp in single-shot transform from ASL to T1
     write_report : :obj:`bool`
         Whether a reportlet should be stored
 
@@ -89,9 +85,9 @@ def init_asl_reg_wf(
 
     Outputs
     -------
-    itk_asl_to_t1
+    aslref_to_anat_xfm
         Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
-    itk_t1_to_asl
+    anat_to_aslref_xfm
         Affine transform from T1 space to ASL space (ITK format)
     fallback
         Boolean indicating whether BBR was rejected (mri_coreg registration returned)
@@ -116,8 +112,8 @@ def init_asl_reg_wf(
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "itk_asl_to_t1",
-                "itk_t1_to_asl",
+                "aslref_to_anat_xfm",
+                "anat_to_aslref_xfm",
                 "fallback",
             ]
         ),
@@ -139,8 +135,8 @@ def init_asl_reg_wf(
             ("t1w_brain", "inputnode.t1w_brain"),
         ]),
         (bbr_wf, outputnode, [
-            ("outputnode.itk_asl_to_t1", "itk_asl_to_t1"),
-            ("outputnode.itk_t1_to_asl", "itk_t1_to_asl"),
+            ("outputnode.aslref_to_anat_xfm", "aslref_to_anat_xfm"),
+            ("outputnode.anat_to_aslref_xfm", "anat_to_aslref_xfm"),
             ("outputnode.fallback", "fallback"),
         ]),
     ])
@@ -172,16 +168,17 @@ def init_asl_reg_wf(
 def init_asl_t1_trans_wf(
     mem_gb,
     omp_nthreads,
+    is_multi_pld=False,
     scorescrub=False,
     basil=False,
-    cbft1space=False,
-    multiecho=False,
-    use_fieldwarp=False,
+    generate_reference=True,
+    output_t1space=False,
     use_compression=True,
     name="asl_t1_trans_wf",
 ):
-    """
-    Co-register the reference ASL image to T1w-space.
+    """Sample ASL into T1w space with a single-step resampling of the original ASL series.
+
+    TODO: Allow hmc_xforms and fieldwarp to be "identity".
 
     The workflow uses :abbr:`BBR (boundary-based registration)`.
 
@@ -199,10 +196,6 @@ def init_asl_t1_trans_wf(
 
     Parameters
     ----------
-    use_fieldwarp : :obj:`bool`
-        Include SDC warp in single-shot transform from ASLto T1
-    multiecho : :obj:`bool`
-        If multiecho data was supplied, HMC already performed
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
@@ -226,20 +219,23 @@ def init_asl_t1_trans_wf(
         Skull-stripped bias-corrected structural template image
     t1w_mask
         Mask of the skull-stripped template image
-    asl_split
-        Individual 3D ASL volumes, not motion corrected
+    asl_split : list of str
+        Individual 3D ASL volumes, not motion corrected.
+        The individual volumes allow MultiApplyTransforms to apply that volume's specific
+        transforms (namely, the HMC transform, since the other transforms are the same
+        across volumes).
     hmc_xforms
         List of affine transforms aligning each volume to ``ref_image`` in ITK format
-    itk_asl_to_t1
+    aslref_to_anat_xfm
         Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
     fieldwarp
         a :abbr:`DFM (displacements field map)` in ITK format
 
     Outputs
     -------
-    ASL_t1
+    asl_t1
         Motion-corrected ASL series in T1 space
-    asl_t1_ref
+    aslref_t1
         Reference, contrast-enhanced summary of the motion-corrected ASL series in T1w space
     asl_mask_t1
         ASL mask in T1 space
@@ -250,6 +246,7 @@ def init_asl_t1_trans_wf(
 
     """
     workflow = Workflow(name=name)
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -259,19 +256,27 @@ def init_asl_t1_trans_wf(
                 "t1w_brain",
                 "t1w_mask",
                 "asl_split",
-                "fieldwarp",
+                "aslcontext",
+                # Transforms
                 "hmc_xforms",
-                "cbf",
-                "meancbf",
+                "fieldwarp",
+                "aslref_to_anat_xfm",
+                # CBF outputs
+                "mean_cbf",
+                # Single-delay outputs
+                "cbf_ts",
+                # Multi-delay outputs
                 "att",
-                "score",
-                "avgscore",
-                "scrub",
-                "basil",
-                "pv",
-                "pvwm",
-                "itk_asl_to_t1",
-            ]
+                # SCORE/SCRUB outputs
+                "cbf_ts_score",
+                "mean_cbf_score",
+                "mean_cbf_scrub",
+                # BASIL outputs
+                "mean_cbf_basil",
+                "mean_cbf_gm_basil",
+                "mean_cbf_wm_basil",
+                "att_basil",
+            ],
         ),
         name="inputnode",
     )
@@ -280,17 +285,21 @@ def init_asl_t1_trans_wf(
         niu.IdentityInterface(
             fields=[
                 "asl_t1",
-                "asl_t1_ref",
+                "aslref_t1",
                 "asl_mask_t1",
+                # CBF outputs
+                "cbf_ts_t1",
+                "mean_cbf_t1",
                 "att_t1",
-                "cbf_t1",
-                "meancbf_t1",
-                "score_t1",
-                "avgscore_t1",
-                "scrub_t1",
-                "basil_t1",
-                "pv_t1",
-                "pvwm_t1",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score_t1",
+                "mean_cbf_score_t1",
+                "mean_cbf_scrub_t1",
+                # BASIL outputs
+                "mean_cbf_basil_t1",
+                "mean_cbf_gm_basil_t1",
+                "mean_cbf_wm_basil_t1",
+                "att_basil_t1",
             ]
         ),
         name="outputnode",
@@ -302,12 +311,6 @@ def init_asl_t1_trans_wf(
         mem_gb=0.3,
     )  # 256x256x256 * 64 / 8 ~ 150MB
 
-    mask_t1w_tfm = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel"),
-        name="mask_t1w_tfm",
-        mem_gb=0.1,
-    )
-
     # fmt:off
     workflow.connect([
         (inputnode, gen_ref, [
@@ -315,10 +318,6 @@ def init_asl_t1_trans_wf(
             ("t1w_brain", "fixed_image"),
             ("t1w_mask", "fov_mask"),
         ]),
-        (inputnode, mask_t1w_tfm, [("ref_asl_mask", "input_image")]),
-        (gen_ref, mask_t1w_tfm, [("out_file", "reference_image")]),
-        (inputnode, mask_t1w_tfm, [("itk_asl_to_t1", "transforms")]),
-        (mask_t1w_tfm, outputnode, [("output_image", "asl_mask_t1")]),
     ])
     # fmt:on
 
@@ -328,214 +327,133 @@ def init_asl_t1_trans_wf(
         mem_gb=mem_gb * 3 * omp_nthreads,
         n_procs=omp_nthreads,
     )
+
+    workflow.connect([(gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")])])
+
+    # Merge transforms, placing the head motion correction last
+    merge_xforms = pe.Node(
+        niu.Merge(3),
+        name="merge_xforms",
+        run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, merge_xforms, [
+            ("aslref_to_anat_xfm", "in1"),
+            ("fieldwarp", "in2"),  # may be "identity"
+            ("hmc_xforms", "in3"),  # may be "identity"
+        ]),
+        (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
+        (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
+    ])
+    # fmt:on
+
     # merge 3D volumes into 4D timeseries
     merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb)
 
-    # Generate a reference on the target T1w space
-    gen_final_ref = init_asl_reference_wf(omp_nthreads, pre_mask=True)
+    # fmt:off
+    workflow.connect([
+        (inputnode, merge, [("name_source", "header_source")]),
+        (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
+        (merge, outputnode, [("out_file", "asl_t1")]),
+    ])
+    # fmt:on
 
-    if not multiecho:
-        # Merge transforms placing the head motion correction last
-        nforms = 2 + int(use_fieldwarp)
-        merge_xforms = pe.Node(
-            niu.Merge(nforms),
-            name="merge_xforms",
-            run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+    # Warp the ASLRef-space brain mask to T1w space.
+    mask_to_t1w_transform = pe.Node(
+        ApplyTransforms(interpolation="MultiLabel"),
+        name="mask_to_t1w_transform",
+        mem_gb=0.1,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, mask_to_t1w_transform, [
+            ("ref_asl_mask", "input_image"),
+            ("aslref_to_anat_xfm", "transforms"),
+        ]),
+        (gen_ref, mask_to_t1w_transform, [("out_file", "reference_image")]),
+        (mask_to_t1w_transform, outputnode, [("output_image", "asl_mask_t1")]),
+    ])
+    # fmt:on
+
+    reference_buffer = pe.Node(
+        niu.IdentityInterface(fields=["aslref_t1"]),
+        name="reference_buffer",
+    )
+
+    if generate_reference:
+        # Generate a reference on the target T1w space
+        gen_final_ref = init_asl_reference_wf(
+            omp_nthreads=omp_nthreads,
+            pre_mask=True,
         )
-        if use_fieldwarp:
-            # fmt:off
-            workflow.connect([(inputnode, merge_xforms, [("fieldwarp", "in2")])])
-            # fmt:on
 
         # fmt:off
         workflow.connect([
-            # merge transforms
-            (inputnode, merge_xforms, [
-                ("hmc_xforms", f"in{nforms}"),
-                ("itk_asl_to_t1", "in1"),
-            ]),
-            (merge_xforms, asl_to_t1w_transform, [("out", "transforms")]),
-            (inputnode, asl_to_t1w_transform, [("asl_split", "input_image")]),
-            (inputnode, merge, [("name_source", "header_source")]),
-            (gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")]),
-            (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
+            (inputnode, gen_final_ref, [("aslcontext", "inputnode.aslcontext")]),
+            (mask_to_t1w_transform, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
             (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
-            (mask_t1w_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-            (merge, outputnode, [("out_file", "asl_t1")]),
+            (gen_final_ref, reference_buffer, [("outputnode.ref_image", "aslref_t1")]),
         ])
         # fmt:on
-
     else:
-        from nipype.interfaces.fsl import Split as FSLSplit
-
-        asl_split = pe.Node(
-            FSLSplit(dimension="t"),
-            name="asl_split",
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
-        )
-
+        # XXX: Why not use output from gen_ref here?
         # fmt:off
         workflow.connect([
-            (inputnode, asl_split, [("asl_split", "in_file")]),
-            (asl_split, asl_to_t1w_transform, [("out_files", "input_image")]),
-            (inputnode, asl_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (inputnode, merge, [("name_source", "header_source")]),
-            (gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")]),
-            (asl_to_t1w_transform, merge, [("out_files", "in_files")]),
-            (merge, gen_final_ref, [("out_file", "inputnode.asl_file")]),
-            (mask_t1w_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-            (merge, outputnode, [("out_file", "asl_t1")]),
+            (asl_to_t1w_transform, reference_buffer, [
+                (("out_files", _select_first_in_list), "aslref_t1"),
+            ]),
         ])
         # fmt:on
 
-    if cbft1space:
-        cbf_to_t1w_transform = pe.Node(
+    workflow.connect([(reference_buffer, outputnode, [("aslref_t1", "aslref_t1")])])
+
+    if not output_t1space:
+        return workflow
+
+    # Transform CBF derivatives to T1 space.
+    # These derivatives have already undergone HMC+SDC,
+    # so we only need to apply the ASLRef-to-T1w transform.
+    input_names = ["mean_cbf"]
+    if is_multi_pld:
+        input_names += ["att"]
+    else:
+        input_names += ["cbf_ts"]
+
+    if scorescrub:
+        input_names += ["cbf_ts_score", "mean_cbf_score", "mean_cbf_scrub"]
+
+    if basil:
+        input_names += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att_basil"]
+
+    for input_name in input_names:
+        kwargs = {}
+        if input_name in ["cbf_ts", "cbf_ts_score"]:
+            kwargs["dimension"] = 3
+
+        warp_input_to_t1w = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
                 float=True,
                 input_image_type=3,
-                dimension=3,
+                **kwargs,
             ),
-            name="cbf_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        meancbf_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="meancbf_to_t1w_transform",
+            name=f"warp_{input_name}_to_t1w",
             mem_gb=mem_gb * 3 * omp_nthreads,
             n_procs=omp_nthreads,
         )
 
         # fmt:off
         workflow.connect([
-            (gen_final_ref, outputnode, [("outputnode.ref_image", "asl_t1_ref")]),
-            (inputnode, cbf_to_t1w_transform, [("cbf", "input_image")]),
-            (cbf_to_t1w_transform, outputnode, [("output_image", "cbf_t1")]),
-            (inputnode, cbf_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (gen_ref, cbf_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, meancbf_to_t1w_transform, [("meancbf", "input_image")]),
-            (meancbf_to_t1w_transform, outputnode, [("output_image", "meancbf_t1")]),
-            (inputnode, meancbf_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (gen_ref, meancbf_to_t1w_transform, [("out_file", "reference_image")]),
-        ])
-        # fmt:on
-
-    if cbft1space and scorescrub:
-        score_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-                dimension=3,
-            ),
-            name="score_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        avgscore_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="avgscore_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        scrub_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="scrub_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, score_to_t1w_transform, [("score", "input_image")]),
-            (score_to_t1w_transform, outputnode, [("output_image", "score_t1")]),
-            (inputnode, score_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (gen_ref, score_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, avgscore_to_t1w_transform, [("avgscore", "input_image")]),
-            (avgscore_to_t1w_transform, outputnode, [("output_image", "avgscore_t1")]),
-            (inputnode, avgscore_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (gen_ref, avgscore_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, scrub_to_t1w_transform, [("scrub", "input_image")]),
-            (scrub_to_t1w_transform, outputnode, [("output_image", "scrub_t1")]),
-            (inputnode, scrub_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (gen_ref, scrub_to_t1w_transform, [("out_file", "reference_image")]),
-        ])
-        # fmt:on
-
-    if cbft1space and basil:
-        basil_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="basil_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        pv_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="pv_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        pvwm_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="pv_to_t1w_transformwm",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-        att_to_t1w_transform = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-            ),
-            name="att_to_t1w_transform",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, basil_to_t1w_transform, [("basil", "input_image")]),
-            (basil_to_t1w_transform, outputnode, [("output_image", "basil_t1")]),
-            (inputnode, basil_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (gen_ref, basil_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, pv_to_t1w_transform, [("pv", "input_image")]),
-            (pv_to_t1w_transform, outputnode, [("output_image", "pv_t1")]),
-            (inputnode, pv_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (gen_ref, pv_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, pvwm_to_t1w_transform, [("pvwm", "input_image")]),
-            (pvwm_to_t1w_transform, outputnode, [("output_image", "pvwm_t1")]),
-            (inputnode, pvwm_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (gen_ref, pvwm_to_t1w_transform, [("out_file", "reference_image")]),
-            (inputnode, att_to_t1w_transform, [("att", "input_image")]),
-            (att_to_t1w_transform, outputnode, [("output_image", "att_t1")]),
-            (inputnode, att_to_t1w_transform, [("itk_asl_to_t1", "transforms")]),
-            (gen_ref, att_to_t1w_transform, [("out_file", "reference_image")]),
+            (inputnode, warp_input_to_t1w, [
+                (input_name, "input_image"),
+                ("aslref_to_anat_xfm", "transforms"),
+            ]),
+            (gen_ref, warp_input_to_t1w, [("out_file", "reference_image")]),
+            (warp_input_to_t1w, outputnode, [("output_image", f"{input_name}_t1")]),
         ])
         # fmt:on
 
@@ -569,7 +487,7 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
             wf = init_fsl_bbr_wf(
                 use_bbr=True,
                 asl2t1w_dof=9,
-                asl2t1w_init='register',
+                asl2t1w_init="register",
             )
 
 
@@ -598,9 +516,9 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
 
     Outputs
     -------
-    itk_asl_to_t1
+    aslref_to_anat_xfm
         Affine transform from ``ref_asl_brain`` to T1w space (ITK format)
-    itk_t1_to_asl
+    anat_to_aslref_xfm
         Affine transform from T1 space to ASL space (ITK format)
     out_report
         Reportlet for assessing registration quality
@@ -630,8 +548,8 @@ and the overlap between the ASL and reference images (e.g., image coverage).
     outputnode = pe.Node(
         niu.IdentityInterface(
             [
-                "itk_asl_to_t1",
-                "itk_t1_to_asl",
+                "aslref_to_anat_xfm",
+                "anat_to_aslref_xfm",
                 "out_report",
                 "fallback",
             ]
@@ -686,8 +604,8 @@ and the overlap between the ASL and reference images (e.g., image coverage).
             ("t1w_brain", "source_file"),
         ]),
         (invt_bbr, fsl2itk_inv, [("out_file", "transform_file")]),
-        (fsl2itk_fwd, outputnode, [("itk_transform", "itk_asl_to_t1")]),
-        (fsl2itk_inv, outputnode, [("itk_transform", "itk_t1_to_asl")]),
+        (fsl2itk_fwd, outputnode, [("itk_transform", "aslref_to_anat_xfm")]),
+        (fsl2itk_inv, outputnode, [("itk_transform", "anat_to_aslref_xfm")]),
     ])
     # fmt:on
 

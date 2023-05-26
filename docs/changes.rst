@@ -4,4 +4,4 @@
 What's new
 ##########
 
-.. include:: ../CHANGES.rst
+.. mdinclude:: ../CHANGES.md

@@ -67,9 +67,7 @@ def jaccard(input1, input2):
     intersection = np.count_nonzero(input1 & input2)
     union = np.count_nonzero(input1 | input2)
 
-    coef = float(intersection) / float(union)
-
-    return coef
+    return float(intersection) / float(union)
 
 
 def crosscorr(input1, input2):
@@ -78,8 +76,7 @@ def crosscorr(input1, input2):
     input2 = nb.load(input2).get_fdata()
     input1 = np.atleast_1d(input1.astype(bool)).flatten()
     input2 = np.atleast_1d(input2.astype(bool)).flatten()
-    cc = np.corrcoef(input1, input2)[0][1]
-    return cc
+    return np.corrcoef(input1, input2)[0][1]
 
 
 def coverage(input1, input2):
@@ -89,33 +86,39 @@ def coverage(input1, input2):
     input1 = np.atleast_1d(input1.astype(bool))
     input2 = np.atleast_1d(input2.astype(bool))
     intsec = np.count_nonzero(input1 & input2)
-    if np.sum(input1) > np.sum(input2):
-        smallv = np.sum(input2)
-    else:
-        smallv = np.sum(input1)
-    cov = float(intsec) / float(smallv)
-    return cov
+    smallv = np.sum(input2) if np.sum(input1) > np.sum(input2) else np.sum(input1)
+    return intsec / smallv
 
 
-def globalcbf(cbf, gm, wm, csf, thresh=0.7):
-    """Compute global measures of quality, whatever that is."""
+def average_cbf_by_tissue(cbf, gm, wm, csf, thresh):
+    """Compute mean GM, WM, and CSF CBF values.
+
+    Parameters
+    ----------
+    cbf : str
+        Path to CBF file.
+    gm, wm, csf : str
+        Paths to GM, WM, and CSF tissue probability maps, in same space and resolution as cbf.
+    thresh : float
+        Threshold to apply to the TPMs. Default is 0.7.
+
+    Returns
+    -------
+    mean_tissue_cbfs : list of float
+        Mean CBF values from binarized versions of the tissue maps.
+    """
     cbf = nb.load(cbf).get_fdata()
-    gm = nb.load(gm).get_fdata()
-    wm = nb.load(wm).get_fdata()
-    csf = nb.load(csf).get_fdata()
-    b1 = gm < thresh
-    gm[b1] = 0
-    bx = cbf[gm > 0]
-    b2 = wm < thresh
-    wm[b2] = 0
-    by = cbf[wm > 0]
-    b3 = csf < thresh
-    csf[b3] = 0
-    bz = cbf[csf > 0]
-    return np.mean(bx), np.mean(by), np.mean(bz)
+
+    mean_tissue_cbfs = []
+    for tpm in [gm, wm, csf]:
+        tpm_data = nb.load(tpm).get_fdata()
+        mean_tissue_cbf = np.mean(cbf[tpm_data >= thresh])
+        mean_tissue_cbfs.append(mean_tissue_cbf)
+
+    return mean_tissue_cbfs
 
 
-def cbf_qei(gm, wm, csf, img, thresh=0.8):
+def compute_qei(gm, wm, csf, img, thresh):
     """Compute quality evaluation index (QEI) of CBF.
 
     The QEI is based on :footcite:t:`dolui2017automated`.
@@ -137,16 +140,20 @@ def cbf_qei(gm, wm, csf, img, thresh=0.8):
     x2 = [2.8478, 0.5196]
     x4 = [3.0126, 2.4419]
     scbf = smooth_image(nb.load(img), fwhm=5).get_fdata()
-    if len(scbf.shape) > 3:
+
+    # Only use first volume for time series data.
+    if scbf.ndim > 3:
         scbf = scbf[:, :, :, 0]
+
     # load prob maps
     gmm = nb.load(gm).get_fdata()
     wmm = nb.load(wm).get_fdata()
     ccf = nb.load(csf).get_fdata()
-    if len(gmm.shape) > 3:
+    if gmm.ndim > 3:
         gmm = gmm[:, :, :, 0]
         wmm = wmm[:, :, :, 0]
         ccf = ccf[:, :, :, 0]
+
     pbcf = 2.5 * gmm + wmm  # gmm is 2.5 times wm
     msk = np.array((scbf != 0) & (scbf != np.nan) & (pbcf != np.nan)).astype(int)
 
@@ -168,15 +175,15 @@ def cbf_qei(gm, wm, csf, img, thresh=0.8):
     return gmean(Q)
 
 
-def negativevoxel(cbf, gm, thresh=0.7):
+def negativevoxel(cbf, gm, thresh):
     """Compute percentage of negative voxels within grey matter mask."""
     gm = nb.load(gm).get_fdata()
     cbf = nb.load(cbf).get_fdata()
-    gm1 = np.array(gm > thresh)
-    gm1[gm1 > 0] = 1
-    npgm = np.sum(gm1)
-    cbfgm = np.array(cbf < 0)
-    cbfgm[cbfgm < 0] = 1
-    ncbfgm = np.sum(np.multiply(cbfgm, gm1))
-    pernegcbf = np.multiply(np.divide(ncbfgm, npgm), 100)
-    return pernegcbf
+    gm_bin = gm > thresh
+
+    n_gm_voxels = np.sum(gm_bin)
+
+    negative_cbf_bin = cbf < 0
+    n_negative_cbf_voxels_in_gm = np.sum(negative_cbf_bin * gm_bin)
+
+    return 100 * (n_negative_cbf_voxels_in_gm / n_gm_voxels)

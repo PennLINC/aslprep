@@ -14,7 +14,7 @@ more recent version of the image::
 
     $ docker pull pennlinc/aslprep:<latest-version>
 
-*ASLPrep* can be run interacting directly with the Docker Engine via the `docker run`
+*ASLPrep* can be run interacting directly with the Docker Engine via the ``docker run``
 command line, or through a lightweight wrapper that was created for convenience.
 
 

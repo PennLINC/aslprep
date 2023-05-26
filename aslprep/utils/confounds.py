@@ -2,6 +2,7 @@
 import os
 import re
 
+import numpy as np
 import pandas as pd
 from nipype.interfaces.base import isdefined
 
@@ -23,11 +24,23 @@ def _camel_to_snake(name):
 
 def _adjust_indices(left_df, right_df):
     """Force missing values to appear at the beginning of the DataFrame instead of the end."""
-    index_diff = len(left_df.index) - len(right_df.index)
+    index_diff = left_df.shape[0] - right_df.shape[0]
     if index_diff > 0:
-        right_df.index = range(index_diff, len(right_df.index) + index_diff)
+        # right_df is shorter
+        empty_df = pd.DataFrame(
+            np.full((np.abs(index_diff), right_df.shape[1]), np.nan),
+            columns=right_df.columns,
+        )
+        right_df = pd.concat((empty_df, right_df), axis=0).reset_index(drop=True)
     elif index_diff < 0:
-        left_df.index = range(-index_diff, len(left_df.index) - index_diff)
+        # left_df is shorter
+        empty_df = pd.DataFrame(
+            np.full((np.abs(index_diff), left_df.shape[1]), np.nan),
+            columns=left_df.columns,
+        )
+        left_df = pd.concat((empty_df, left_df), axis=0).reset_index(drop=True)
+
+    return left_df, right_df
 
 
 def _gather_confounds(
@@ -39,7 +52,11 @@ def _gather_confounds(
     motion=None,
     newpath=None,
 ):
-    """Load confounds from the filenames, concatenate together horizontally, and save new file."""
+    """Load confounds from the filenames, concatenate together horizontally, and save new file.
+
+    For some confounds (e.g., FD), the number of rows in the file will be one less than the
+    number of volumes. This will be adjusted automatically in this function.
+    """
     all_files = []
     confounds_list = []
     for confound, name in (
@@ -63,7 +80,7 @@ def _gather_confounds(
                 columns={column_name: _camel_to_snake(_less_breakable(column_name))}, inplace=True
             )
 
-        _adjust_indices(confounds_data, new)
+        confounds_data, new = _adjust_indices(confounds_data, new)
         confounds_data = pd.concat((confounds_data, new), axis=1)
 
     if newpath is None:

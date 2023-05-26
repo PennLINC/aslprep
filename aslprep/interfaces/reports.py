@@ -35,7 +35,6 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t<ul class="elem-desc">
 \t\t\t<li>Repetition time (TR): {tr:.03g}s</li>
 \t\t\t<li>Phase-encoding (PE) direction: {pedir}</li>
-\t\t\t<li>Slice timing correction: {stc}</li>
 \t\t\t<li>Susceptibility distortion correction: {sdc}</li>
 \t\t\t<li>Registration: {registration}</li>
 \t\t\t<li>Confounds collected: {confounds}</li>
@@ -43,7 +42,7 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t\t<li>Coregistration quality: {coregindex}</li>
 \t\t\t<li>Normalization quality: {normindex}</li>
 \t\t\t<li>Quality evaluation index : {qei}</li>
-\t\t\t<li>Mean CBF (mL 100/g/min) : {meancbf}</li>
+\t\t\t<li>Mean CBF (mL 100/g/min) : {mean_cbf}</li>
 \t\t\t<li>Percentage of negative voxel : {negvoxel}</li>
 
 \t\t</ul>
@@ -144,21 +143,32 @@ class SubjectSummary(SummaryInterface):
 
 
 class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
-    slice_timing = traits.Enum(
-        False, True, "TooShort", usedefault=True, desc="Slice timing correction used"
-    )
     distortion_correction = traits.Str(
-        desc="Susceptibility distortion correction method", mandatory=True
+        desc="Susceptibility distortion correction method",
+        mandatory=True,
     )
     pe_direction = traits.Enum(
-        None, "i", "i-", "j", "j-", mandatory=True, desc="Phase-encoding direction detected"
+        None,
+        "i",
+        "i-",
+        "j",
+        "j-",
+        mandatory=True,
+        desc="Phase-encoding direction detected",
     )
     registration = traits.Enum(
-        "FSL", "FreeSurfer", mandatory=True, desc="Functional/anatomical registration method"
+        "FSL",
+        "FreeSurfer",
+        mandatory=True,
+        desc="Functional/anatomical registration method",
     )
     fallback = traits.Bool(desc="Boundary-based registration rejected")
     registration_dof = traits.Enum(
-        6, 9, 12, desc="Registration degrees of freedom", mandatory=True
+        6,
+        9,
+        12,
+        desc="Registration degrees of freedom",
+        mandatory=True,
     )
     registration_init = traits.Enum(
         "register",
@@ -179,9 +189,6 @@ class FunctionalSummary(SummaryInterface):
 
     def _generate_segment(self):
         dof = self.inputs.registration_dof
-        stc = {True: "Applied", False: "Not applied", "TooShort": "Skipped (too few volumes)"}[
-            self.inputs.slice_timing
-        ]
         reg = {
             "FSL": [
                 "FSL <code>flirt</code> with boundary-based registration"
@@ -216,7 +223,7 @@ class FunctionalSummary(SummaryInterface):
             f"basil: {round(qcfile['basilQEI'][0], 4)}, "
             f"pvc: {round(qcfile['pvcQEI'][0], 4)} "
         )
-        meancbf = (
+        mean_cbf = (
             f"GM CBF: {round(qcfile['GMmeanCBF'][0], 2)}, "
             f"WM CBF: {round(qcfile['WMmeanCBF'][0], 2)}, "
             f"GM/WM CBF ratio: {round(qcfile['Gm_Wm_CBF_ratio'][0], 2)} "
@@ -245,7 +252,6 @@ class FunctionalSummary(SummaryInterface):
 
         return FUNCTIONAL_TEMPLATE.format(
             pedir=pedir,
-            stc=stc,
             sdc=self.inputs.distortion_correction,
             registration=reg,
             confounds=re.sub(r"[\t ]+", ", ", conflist),
@@ -254,7 +260,7 @@ class FunctionalSummary(SummaryInterface):
             qei=qei,
             coregindex=coregindex,
             normindex=normindex,
-            meancbf=meancbf,
+            mean_cbf=mean_cbf,
             negvoxel=negvoxel,
         )
 

@@ -122,12 +122,6 @@ def _build_parser():
     # "-t", "--task-id", action="store", help="select a specific task to be processed"
     # )
     g_bids.add_argument(
-        "--echo-idx",
-        action="store",
-        type=int,
-        help="select a specific echo to be processed in a multiecho series",
-    )
-    g_bids.add_argument(
         "--bids-filter-file",
         dest="bids_filters",
         action="store",
@@ -208,7 +202,7 @@ def _build_parser():
         dest="verbose_count",
         action="count",
         default=0,
-        help="increases log verbosity for each occurence, debug level is -vvv",
+        help="increases log verbosity for each occurrence, debug level is -vvv",
     )
 
     g_conf = parser.add_argument_group("Workflow configuration")
@@ -218,9 +212,11 @@ def _build_parser():
         action="store",
         nargs="+",
         default=[],
-        choices=["fieldmaps", "slicetiming", "sbref"],
-        help="ignore selected aspects of the input dataset to disable corresponding "
-        "parts of the workflow (a space delimited list)",
+        choices=["fieldmaps", "sbref"],
+        help=(
+            "ignore selected aspects of the input dataset to disable corresponding "
+            "parts of the workflow (a space delimited list)"
+        ),
     )
     g_conf.add_argument(
         "--longitudinal",
@@ -281,7 +277,13 @@ any spatial references.""",
         action="store",
         default=1,
         type=float,
-        help="relative scale between asl and M0.",
+        help=(
+            "Relative scale between ASL and M0. "
+            "M0 scans are multiplied by m0_scale before calculating CBF. "
+            "It is important to note, however, that BIDS expects ASL and M0 data to scaled in "
+            "the raw dataset, so this parameter should only be used if your dataset does not "
+            "have pre-scaled data."
+        ),
     )
     g_conf.add_argument(
         "--random-seed",
