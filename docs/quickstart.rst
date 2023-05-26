@@ -53,8 +53,6 @@ There are two ways to install *ASLPrep*:
 
    This requires installation of Singularity version >= 2.5
 
-   See  :doc:`docker`  and  :doc:`singularity` for more information.
-
 2. Installation is available via ``pip``::
 
       python -m pip install aslprep
@@ -71,7 +69,8 @@ which can be requested `here <https://surfer.nmr.mgh.harvard.edu/registration.ht
 Move this license to a folder in your ``$HOME`` directory
 (to find the path to your home directory in the terminal, echo $HOME) and call it **license**.
 
-In the Docker desktop application, please select Preferences > Resources > Advanced and select at least 12GB for RAM.
+In the Docker desktop application, please select Preferences > Resources > Advanced and select at
+least 12GB for RAM.
 Restart Docker.
 
 Move the data directory to your ``$HOME`` directory
