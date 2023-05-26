@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.stats import median_abs_deviation
+from scipy.stats import chi2, median_abs_deviation
 
 from aslprep import config
 
@@ -440,6 +440,11 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, wavelet_function="huber", thresh=0.7):
     mean_cbf = np.mean(cbf_ts, axis=3)
     masked_cbf_ts = cbf_ts[mask, :].T  # TxS array
     masked_var_map = np.var(masked_cbf_ts, axis=0)  # S array
+    n_voxels = masked_cbf_ts.shape[1]
+    # "Since μ was designed based on whole brain, we designed the algorithm to only penalize values
+    # whose normalized temporal variance is outside 99.99 percentile value (p99.99) of the chi
+    # square distribution computed with (Number of brain voxels – 1) degrees of freedom."
+    p_thresh_0001 = chi2.ppf(0.0001, df=n_voxels - 1)
     thresh1, thresh3 = _getchisquare(n_volumes)
     mu1 = masked_var_map / (np.median(masked_var_map[gm_idx == 1]) * thresh3)
     mu = (
