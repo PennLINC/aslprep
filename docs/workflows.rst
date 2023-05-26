@@ -1,8 +1,8 @@
 .. include:: links.rst
 
-###############################
-ASL processing pipeline details
-###############################
+###########################
+Processing pipeline details
+###########################
 
 *ASLPrep* :footcite:p:`aslprep_nature_methods,aslprep_zenodo`
 adapts its pipeline depending on what data and metadata are available and are used as inputs.

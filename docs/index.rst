@@ -20,11 +20,8 @@ Contents
 
    installation
    usage
-   docker
-   singularity
    quickstart
    workflows
-   sdc
    outputs
    spaces
    contributors
