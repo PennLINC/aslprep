@@ -24,6 +24,7 @@ dependencies = [
     "networkx ~= 2.8.8",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
     "nibabel >= 3.0",
     "niflow-nipype1-workflows",
+    "nilearn == 0.10.0",
     "nipype >= 1.8.5",
     "nitime",
     "nitransforms >= 21.0.0",
@@ -55,6 +56,8 @@ NiPreps = "https://www.nipreps.org/"
 [project.optional-dependencies]
 doc = [
     "doctest-ignore-unicode",
+    "m2r",
+    "mistune < 2",  # just temporary until m2r addresses this issue
     "nbsphinx",
     "packaging",
     "pydot >= 1.2.3",
