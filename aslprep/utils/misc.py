@@ -93,7 +93,7 @@ def _split_spec(in_target):
 
 def _select_template(template):
     """Select template file based on space/template specification."""
-    from aslprep.niworkflows.utils.misc import get_template_specs
+    from niworkflows.utils.misc import get_template_specs
 
     template, specs = template
     template = template.split(":")[0]  # Drop any cohort modifier if present

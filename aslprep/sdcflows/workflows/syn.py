@@ -31,9 +31,11 @@ from nipype.interfaces import fsl, utility as niu
 from nipype.interfaces.image import Rescale
 
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.fixes import (FixHeaderApplyTransforms as ApplyTransforms,
-                                          FixHeaderRegistration as Registration)
-from aslprep.niworkflows.func.util import init_skullstrip_bold_wf
+from niworkflows.interfaces.fixes import (
+    FixHeaderApplyTransforms as ApplyTransforms,
+    FixHeaderRegistration as Registration,
+)
+from niworkflows.func.util import init_skullstrip_bold_wf
 
 DEFAULT_MEMORY_MIN_GB = 0.01
 LOGGER = logging.getLogger('nipype.workflow')

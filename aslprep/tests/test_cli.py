@@ -3,11 +3,11 @@ import os
 
 import pytest
 from nipype import config as nipype_config
+from niworkflows.reports.core import generate_reports
 from pkg_resources import resource_filename as pkgrf
 
 from aslprep.cli.parser import parse_args
 from aslprep.cli.workflow import build_boilerplate, build_workflow
-from aslprep.niworkflows.reports import generate_reports
 from aslprep.tests.utils import (
     check_generated_files,
     download_test_data,
