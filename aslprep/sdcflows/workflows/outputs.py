@@ -3,7 +3,8 @@
 """Writing out outputs."""
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
-from niworkflows.interfaces.bids import DerivativesDataSink
+
+from aslprep.interfaces.bids import DerivativesDataSink
 
 
 def init_sdc_unwarp_report_wf(name='sdc_unwarp_report_wf', forcedsyn=False):
