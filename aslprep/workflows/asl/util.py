@@ -9,9 +9,9 @@ from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
 from niworkflows.utils.connections import listify
 from niworkflows.utils.misc import pass_dummy_scans
 
+from aslprep.interfaces.niworkflows import EstimateReferenceImage
 from aslprep.interfaces.utility import SplitReferenceTarget
 from aslprep.niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
-from aslprep.interfaces.niworkflows import EstimateReferenceImage
 
 DEFAULT_MEMORY_MIN_GB = 0.01
 
