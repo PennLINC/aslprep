@@ -20,41 +20,37 @@ DEFAULT_MEMORY_MIN_GB = 0.01
 
 
 def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullstrip_asl_wf"):
-    """
-    Enhance and run brain extraction on a ASL image.
+    """Enhance and run brain extraction on an ASL image.
 
-    This workflow takes in a :abbr:`ASL (Aretrrail Spin Labeling)`
-     average/summary (e.g., a reference image
-    averaging non-steady-state timepoints), and sharpens the histogram
-    with the application of the N4 algorithm for removing the
-    :abbr:`INU (intensity non-uniformity)` bias field and calculates a signal
-    mask.
+    This workflow takes in an :abbr:`ASL (Arterial Spin Labeling)` average/summary
+    (e.g., a reference image averaging non-steady-state timepoints),
+    and sharpens the histogram with the application of the N4 algorithm for removing the
+    :abbr:`INU (intensity non-uniformity)` bias field and calculates a signal mask.
 
     Steps of this workflow are:
 
-      1. Calculate a tentative mask by registering (9-parameters) to *fMRIPrep*'s
-         :abbr:`EPI (echo-planar imaging)` -*aslref* template, which
-         is in MNI space.
-         The tentative mask is obtained by resampling the MNI template's
-         brainmask into *aslref*-space.
-      2. Binary dilation of the tentative mask with a sphere of 3mm diameter.
-      3. Run ANTs' ``N4BiasFieldCorrection`` on the input
-         :abbr:`ASL (arterial spin labeling)` average, using the
-         mask generated in 1) instead of the internal Otsu thresholding.
-      4. Calculate a loose mask using FSL's ``bet``, with one mathematical morphology
-         dilation of one iteration and a sphere of 6mm as structuring element.
-      5. Mask the :abbr:`INU (intensity non-uniformity)`-corrected image
-         with the latest mask calculated in 3), then use AFNI's ``3dUnifize``
-         to *standardize* the T2* contrast distribution.
-      6. Calculate a mask using AFNI's ``3dAutomask`` after the contrast
-         enhancement of 4).
-      7. Calculate a final mask as the intersection of 4) and 6).
-      8. Apply final mask on the enhanced reference.
+        1.  Calculate a tentative mask by registering (9-parameters) to *fMRIPrep*'s
+            :abbr:`EPI (echo-planar imaging)` -*aslref* template, which
+            is in MNI space.
+            The tentative mask is obtained by resampling the MNI template's
+            brainmask into *aslref*-space.
+        2.  Binary dilation of the tentative mask with a sphere of 3mm diameter.
+        3.  Run ANTs' ``N4BiasFieldCorrection`` on the input
+            :abbr:`ASL (arterial spin labeling)` average, using the
+            mask generated in 1) instead of the internal Otsu thresholding.
+        4.  Calculate a loose mask using FSL's ``bet``, with one mathematical morphology
+            dilation of one iteration and a sphere of 6mm as structuring element.
+        5.  Mask the :abbr:`INU (intensity non-uniformity)`-corrected image
+            with the latest mask calculated in 3), then use AFNI's ``3dUnifize``
+            to *standardize* the T2* contrast distribution.
+        6.  Calculate a mask using AFNI's ``3dAutomask`` after the contrast
+            enhancement of 4).
+        7.  Calculate a final mask as the intersection of 4) and 6).
+        8.  Apply final mask on the enhanced reference.
 
     Step 1 can be skipped if the ``pre_mask`` argument is set to ``True`` and
     a tentative mask is passed in to the workflow throught the ``pre_mask``
     Nipype input.
-
 
     Workflow graph
         .. workflow ::
@@ -70,8 +66,7 @@ def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullst
     Parameters
     ----------
     pre_mask : bool
-        Indicates whether the ``pre_mask`` input will be set (and thus, step 1
-        should be skipped).
+        Indicates whether the ``pre_mask`` input will be set (and thus, step 1 should be skipped).
     name : str
         Name of workflow (default: ``enhance_and_skullstrip_asl_wf``)
 
@@ -83,7 +78,6 @@ def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullst
         A tentative brain mask to initialize the workflow (requires ``pre_mask``
         parameter set ``True``).
 
-
     Outputs
     -------
     bias_corrected_file : str
@@ -94,7 +88,6 @@ def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullst
         mask of the skull-stripped input file
     out_report : str
         reportlet for the skull-stripping
-
     """
     workflow = Workflow(name=name)
     inputnode = pe.Node(niu.IdentityInterface(fields=["in_file", "pre_mask"]), name="inputnode")
@@ -144,9 +137,10 @@ def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullst
     )
     fixhdr_unifize = pe.Node(CopyXForm(), name="fixhdr_unifize", mem_gb=0.1)
 
-    # Run ANFI's 3dAutomask to extract a refined brain mask
+    # Run AFNI's 3dAutomask to extract a refined brain mask
     skullstrip_second_pass = pe.Node(
-        afni.Automask(dilate=1, outputtype="NIFTI_GZ"), name="skullstrip_second_pass"
+        afni.Automask(dilate=1, outputtype="NIFTI_GZ"),
+        name="skullstrip_second_pass",
     )
     fixhdr_skullstrip2 = pe.Node(CopyXForm(), name="fixhdr_skullstrip2", mem_gb=0.1)
 
