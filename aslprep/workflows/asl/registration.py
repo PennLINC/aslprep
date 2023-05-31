@@ -8,11 +8,11 @@ import pkg_resources as pkgr
 from nipype.interfaces import c3, fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
 from aslprep.niworkflows.interfaces.nilearn import Merge
 from aslprep.niworkflows.interfaces.registration import FLIRTRPT

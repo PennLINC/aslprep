@@ -4,11 +4,11 @@
 from nipype.interfaces import fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ge import GeReferenceFile
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.masks import SimpleShowMaskRPT
 from aslprep.workflows.asl.registration import init_fsl_bbr_wf
 

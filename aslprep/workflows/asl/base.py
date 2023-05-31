@@ -3,6 +3,7 @@
 """Preprocessing workflows for ASL data."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
@@ -10,7 +11,6 @@ from aslprep.interfaces.cbf import RefineMask
 from aslprep.interfaces.fsl import Split
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf

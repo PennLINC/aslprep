@@ -3,13 +3,13 @@
 """CBF-processing workflows for GE data."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf import RefineMask
 from aslprep.interfaces.fsl import Split
 from aslprep.interfaces.reports import FunctionalSummary
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.niworkflows.interfaces.nibabel import ApplyMask
 from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.utils.asl import determine_multi_pld
