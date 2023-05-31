@@ -4,15 +4,15 @@
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.itk import MultiApplyTransforms
+from niworkflows.interfaces.nibabel import GenerateSamplingReference
+from niworkflows.interfaces.nilearn import Merge
+from niworkflows.interfaces.utility import KeySelect
+from niworkflows.utils.spaces import format_reference
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.fsl import Split
-from aslprep.niworkflows.interfaces.itk import MultiApplyTransforms
-from aslprep.niworkflows.interfaces.nilearn import Merge
-from aslprep.niworkflows.interfaces.utility import KeySelect
-from aslprep.niworkflows.interfaces.utils import GenerateSamplingReference
-from aslprep.niworkflows.utils.spaces import format_reference
 from aslprep.utils.misc import (
     _aslist,
     _is_native,
