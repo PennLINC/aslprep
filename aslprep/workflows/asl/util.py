@@ -11,7 +11,7 @@ from niworkflows.utils.misc import pass_dummy_scans
 
 from aslprep.interfaces.utility import SplitReferenceTarget
 from aslprep.niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
-from aslprep.niworkflows.interfaces.registration import EstimateReferenceImage
+from aslprep.interfaces.niworkflows import EstimateReferenceImage
 
 DEFAULT_MEMORY_MIN_GB = 0.01
 
