@@ -454,7 +454,7 @@ class workflow(_Config):
     """Skip brain extraction of the T1w image (default is ``force``, meaning that
     *aslprep* will run brain extraction of the T1w)."""
     spaces = None
-    """Keeps the :py:class:`~.niworkflows.utils.spaces.SpatialReferences`
+    """Keeps the :py:class:`~niworkflows.utils.spaces.SpatialReferences`
     instance keeping standard and nonstandard spaces."""
     use_bbr = None
     """Run boundary-based registration for ASL-to-T1w registration."""
