@@ -49,7 +49,7 @@ def init_asl_std_trans_wf(
             :graph2use: colored
             :simple_form: yes
 
-            from aslprep.niworkflows.utils.spaces import SpatialReferences
+            from aslprep.utils.spaces import SpatialReferences
             from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 
             wf = init_asl_std_trans_wf(

@@ -191,7 +191,7 @@ class _Config:
     @classmethod
     def get(cls):
         """Return defined settings."""
-        from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
+        from aslprep.utils.spaces import Reference, SpatialReferences
 
         out = {}
         for k, v in cls.__dict__.items():
@@ -599,7 +599,7 @@ def to_filename(filename):
 
 def init_spaces(checkpoint=True):
     """Initialize the :attr:`~workflow.spaces` setting."""
-    from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
+    from aslprep.utils.spaces import Reference, SpatialReferences
 
     spaces = execution.output_spaces or SpatialReferences()
     if not isinstance(spaces, SpatialReferences):

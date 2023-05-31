@@ -15,7 +15,7 @@ def _build_parser():
     from packaging.version import Version
 
     from aslprep.cli.version import check_latest, is_flagged
-    from aslprep.niworkflows.utils.spaces import OutputReferencesAction, Reference
+    from aslprep.utils.spaces import OutputReferencesAction, Reference
 
     def _path_exists(path, parser):
         """Ensure a given path exists."""
@@ -483,7 +483,7 @@ def parse_args(args=None, namespace=None):
     """Parse args and run further checks on the command line."""
     import logging
 
-    from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
+    from aslprep.utils.spaces import Reference, SpatialReferences
 
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)

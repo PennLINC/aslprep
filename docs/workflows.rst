@@ -30,7 +30,7 @@ averages them into a single reference template.
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
+   from aslprep.utils.spaces import Reference, SpatialReferences
    from smriprep.workflows.anatomical import init_anat_preproc_wf
 
    wf = init_anat_preproc_wf(
@@ -683,7 +683,7 @@ Resampling ASL and CBF runs onto standard spaces
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.niworkflows.utils.spaces import SpatialReferences
+   from aslprep.utils.spaces import SpatialReferences
    from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 
    wf = init_asl_std_trans_wf(
