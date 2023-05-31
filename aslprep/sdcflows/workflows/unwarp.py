@@ -75,8 +75,7 @@ def init_sdc_unwarp_wf(omp_nthreads, debug, name='sdc_unwarp_wf'):
         dimension=3, generate_report=False, float=True,
         interpolation='NearestNeighbor'), name='unwarp_mask')
 
-    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_asl_wf(omp_nthreads=omp_nthreads,
-                                                                         pre_mask=True)
+    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_asl_wf(pre_mask=True)
     workflow.connect([
         (inputnode, unwarp_reference, [
             ('in_warp', 'transforms'),

@@ -292,7 +292,7 @@ def init_asl_std_trans_wf(
         # NOTE: Not in GE workflow.
         # Instead, the GE workflow uses the output of the asl_to_std_transform for the aslref_std.
         # It seems strange to do that, though, since the ASL file should still be 4D.
-        gen_final_ref = init_asl_reference_wf(omp_nthreads=omp_nthreads, pre_mask=True)
+        gen_final_ref = init_asl_reference_wf(pre_mask=True)
 
         # fmt:off
         workflow.connect([
@@ -498,7 +498,7 @@ def init_asl_preproc_trans_wf(
     merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb * 3)
 
     # Generate a new asl reference
-    asl_reference_wf = init_asl_reference_wf(omp_nthreads=omp_nthreads)
+    asl_reference_wf = init_asl_reference_wf()
     asl_reference_wf.__desc__ = None  # Unset description to avoid second appearance
 
     # fmt:off

@@ -1,10 +1,14 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Utility workflows."""
+from nipype.interfaces import afni, fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.header import ValidateImage
+from niworkflows.interfaces.fixes import (
+    FixN4BiasFieldCorrection as N4BiasFieldCorrection,
+)
+from niworkflows.interfaces.header import CopyXForm, ValidateImage
 from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
 from niworkflows.utils.connections import listify
 from niworkflows.utils.misc import pass_dummy_scans
@@ -15,12 +19,7 @@ from aslprep.interfaces.utility import SplitReferenceTarget
 DEFAULT_MEMORY_MIN_GB = 0.01
 
 
-def init_enhance_and_skullstrip_asl_wf(
-    brainmask_thresh=0.5,
-    name="enhance_and_skullstrip_asl_wf",
-    omp_nthreads=1,
-    pre_mask=False,
-):
+def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullstrip_asl_wf"):
     """
     Enhance and run brain extraction on a ASL image.
 
@@ -64,22 +63,17 @@ def init_enhance_and_skullstrip_asl_wf(
 
             from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
-            wf = init_enhance_and_skullstrip_asl_wf(omp_nthreads=1)
+            wf = init_enhance_and_skullstrip_asl_wf()
 
     .. _N4BiasFieldCorrection: https://hdl.handle.net/10380/3053
 
     Parameters
     ----------
-    brainmask_thresh: :obj:`float`
-        Lower threshold for the probabilistic brainmask to obtain
-        the final binary mask (default: 0.5).
-    name : str
-        Name of workflow (default: ``enhance_and_skullstrip_asl_wf``)
-    omp_nthreads : int
-        number of threads available to parallel nodes
     pre_mask : bool
         Indicates whether the ``pre_mask`` input will be set (and thus, step 1
         should be skipped).
+    name : str
+        Name of workflow (default: ``enhance_and_skullstrip_asl_wf``)
 
     Inputs
     ------
@@ -280,10 +274,8 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
 
 
 def init_asl_reference_wf(
-    omp_nthreads,
     asl_file=None,
     sbref_files=None,
-    brainmask_thresh=0.1,
     pre_mask=False,
     name="asl_reference_wf",
     gen_report=False,
@@ -302,21 +294,16 @@ def init_asl_reference_wf(
 
             from aslprep.workflows.asl.util import init_asl_reference_wf
 
-            wf = init_asl_reference_wf(omp_nthreads=1)
+            wf = init_asl_reference_wf()
 
     Parameters
     ----------
-    omp_nthreads : :obj:`int`
-        Maximum number of threads an individual process may use
     asl_file : :obj:`str`
         ASL series NIfTI file
     sbref_files : :obj:`list` or :obj:`bool`
         Single band (as opposed to multi band) reference NIfTI file.
         If ``True`` is passed, the workflow is built to accommodate SBRefs,
         but the input is left undefined (i.e., it is left open for connection)
-    brainmask_thresh: :obj:`float`
-        Lower threshold for the probabilistic brainmask to obtain
-        the final binary mask (default: 0.5).
     pre_mask : :obj:`bool`
         Indicates whether the ``pre_mask`` input will be set (and thus, step 1
         should be skipped).
@@ -438,11 +425,7 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
     ])
     # fmt:on
 
-    enhance_and_skullstrip_asl_wf = init_enhance_and_skullstrip_asl_wf(
-        brainmask_thresh=brainmask_thresh,
-        omp_nthreads=omp_nthreads,
-        pre_mask=pre_mask,
-    )
+    enhance_and_skullstrip_asl_wf = init_enhance_and_skullstrip_asl_wf(pre_mask=pre_mask)
 
     # fmt:off
     workflow.connect([

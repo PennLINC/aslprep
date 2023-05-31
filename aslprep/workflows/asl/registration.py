@@ -386,10 +386,7 @@ def init_asl_t1_trans_wf(
 
     if generate_reference:
         # Generate a reference on the target T1w space
-        gen_final_ref = init_asl_reference_wf(
-            omp_nthreads=omp_nthreads,
-            pre_mask=True,
-        )
+        gen_final_ref = init_asl_reference_wf(pre_mask=True)
 
         # fmt:off
         workflow.connect([
