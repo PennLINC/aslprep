@@ -9,7 +9,8 @@ from lxml import etree
 from matplotlib import gridspec as mgs
 from matplotlib.colors import ListedColormap
 from nilearn import image, plotting
-from nilearn._utils.niimg import _safe_get_data, check_niimg_4d, load_niimg
+from nilearn._utils.niimg import _safe_get_data, load_niimg
+from nilearn._utils.niimg_conversions import check_niimg_4d
 from niworkflows import NIWORKFLOWS_LOG
 from niworkflows.interfaces.plotting import _get_tr
 from niworkflows.viz.plots import confoundplot, spikesplot
