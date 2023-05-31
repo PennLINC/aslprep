@@ -12,7 +12,7 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.itk import MultiApplyTransforms
 from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.interfaces.nilearn import Merge
-from niworkflows.interfaces.registration import FLIRTRPT
+from niworkflows.interfaces.reportlets.registration import FLIRTRPT
 from niworkflows.utils.images import dseg_label
 
 from aslprep import config
