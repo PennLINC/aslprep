@@ -10,8 +10,8 @@ import pytest
 from templateflow.api import get as get_template
 
 from nipype.pipeline import engine as pe
-from aslprep.niworkflows.interfaces.segmentation import FASTRPT, ReconAllRPT
-from aslprep.niworkflows.interfaces.masks import (
+from niworkflows.interfaces.segmentation import FASTRPT, ReconAllRPT
+from niworkflows.interfaces.masks import (
     BETRPT,
     BrainExtractionRPT,
     SimpleShowMaskRPT,

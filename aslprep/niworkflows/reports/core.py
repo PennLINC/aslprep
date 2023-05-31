@@ -267,7 +267,7 @@ class Report:
             )
             self.out_filename = f"sub-{self.subject_id}.html"
 
-        # Default template from aslprep.niworkflows
+        # Default template from niworkflows
         self.template_path = Path(pkgrf("aslprep", "niworkflows/reports/report.tpl"))
         self._load_config(Path(config or pkgrf("aslprep", "niworkflows/reports/default.yml")))
         assert self.template_path.exists()

@@ -159,7 +159,7 @@ class MELODICRPT(fsl.MELODIC):
         return outputs
 
     def _generate_report(self):
-        from aslprep.niworkflows.viz.utils import plot_melodic_components
+        from niworkflows.viz.utils import plot_melodic_components
 
         plot_melodic_components(
             melodic_dir=self._melodic_dir,
@@ -196,7 +196,7 @@ class ICA_AROMARPT(reporting.ReportCapableInterface, fsl.ICA_AROMA):
     output_spec = _ICA_AROMAOutputSpecRPT
 
     def _generate_report(self):
-        from aslprep.niworkflows.viz.utils import plot_melodic_components
+        from niworkflows.viz.utils import plot_melodic_components
 
         plot_melodic_components(
             melodic_dir=self.inputs.melodic_dir,

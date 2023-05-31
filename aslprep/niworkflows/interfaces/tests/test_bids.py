@@ -389,7 +389,7 @@ def test_ReadSidecarJSON_connection(testdata_dir, field):
     """
     from nipype.pipeline import engine as pe
     from nipype.interfaces import utility as niu
-    from aslprep.niworkflows.interfaces.bids import ReadSidecarJSON
+    from niworkflows.interfaces.bids import ReadSidecarJSON
 
     reg_fields = ["RepetitionTime"]
     n = pe.Node(ReadSidecarJSON(fields=reg_fields), name="node")

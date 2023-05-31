@@ -547,7 +547,7 @@ applied."""
 
     # Wipe out existing work_dir
     if opts.clean_workdir and work_dir.exists():
-        from aslprep.niworkflows.utils.misc import clean_directory
+        from niworkflows.utils.misc import clean_directory
 
         build_log.info(f"Clearing previous aslprep working directory: {work_dir}")
         if not clean_directory(work_dir):

@@ -5,13 +5,13 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.header import ValidateImage
+from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
 from niworkflows.utils.connections import listify
+from niworkflows.utils.misc import pass_dummy_scans
 
 from aslprep.interfaces.utility import SplitReferenceTarget
 from aslprep.niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
-from aslprep.niworkflows.interfaces.masks import SimpleShowMaskRPT
 from aslprep.niworkflows.interfaces.registration import EstimateReferenceImage
-from aslprep.niworkflows.utils.misc import pass_dummy_scans as _pass_dummy_scans
 
 DEFAULT_MEMORY_MIN_GB = 0.01
 
@@ -282,7 +282,7 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
     # fmt:on
 
     calc_dummy_scans = pe.Node(
-        niu.Function(function=_pass_dummy_scans, output_names=["skip_vols_num"]),
+        niu.Function(function=pass_dummy_scans, output_names=["skip_vols_num"]),
         name="calc_dummy_scans",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,

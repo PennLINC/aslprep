@@ -38,7 +38,7 @@ class RegistrationRC(reporting.ReportCapableInterface):
 
     def _generate_report(self):
         """Generates the visual report."""
-        from aslprep.niworkflows.viz.utils import plot_registration
+        from niworkflows.viz.utils import plot_registration
 
         NIWORKFLOWS_LOG.info("Generating visual report")
 
@@ -95,7 +95,7 @@ class SegmentationRC(reporting.ReportCapableInterface):
     """An abstract mixin to segmentation nipype interfaces."""
 
     def _generate_report(self):
-        from aslprep.niworkflows.viz.utils import plot_segs
+        from niworkflows.viz.utils import plot_segs
 
         compose_view(
             plot_segs(
@@ -120,7 +120,7 @@ class SurfaceSegmentationRC(reporting.ReportCapableInterface):
 
     def _generate_report(self):
         """Generates the visual report."""
-        from aslprep.niworkflows.viz.utils import plot_registration
+        from niworkflows.viz.utils import plot_registration
 
         NIWORKFLOWS_LOG.info("Generating visual report")
 

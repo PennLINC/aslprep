@@ -78,7 +78,7 @@ def init_brain_extraction_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.niworkflows.anat.ants import init_brain_extraction_wf
+            from niworkflows.anat.ants import init_brain_extraction_wf
             wf = init_brain_extraction_wf()
 
     Parameters
@@ -460,7 +460,7 @@ def init_atropos_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.niworkflows.anat.ants import init_atropos_wf
+            from niworkflows.anat.ants import init_atropos_wf
             wf = init_atropos_wf()
 
     Parameters
@@ -727,7 +727,7 @@ def init_n4_only_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.niworkflows.anat.ants import init_n4_only_wf
+            from niworkflows.anat.ants import init_n4_only_wf
             wf = init_n4_only_wf()
 
     Parameters

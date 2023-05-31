@@ -8,6 +8,7 @@ from lxml import etree
 from matplotlib import gridspec as mgs
 from nilearn import image, plotting
 from nilearn._utils.niimg import load_niimg
+from niworkflows import NIWORKFLOWS_LOG
 from niworkflows.interfaces.plotting import _get_tr
 from niworkflows.viz.utils import (
     compose_view,
@@ -18,7 +19,6 @@ from niworkflows.viz.utils import (
 from seaborn import color_palette
 from svgutils.transform import SVGFigure
 
-from aslprep.niworkflows import NIWORKFLOWS_LOG
 from aslprep.niworkflows.viz.plots import confoundplot, plot_carpet, spikesplot
 
 

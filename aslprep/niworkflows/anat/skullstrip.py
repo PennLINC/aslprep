@@ -22,7 +22,7 @@ def afni_wf(name="AFNISkullStripWorkflow", unifize=False, n4_nthreads=1):
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.niworkflows.anat.skullstrip import afni_wf
+            from niworkflows.anat.skullstrip import afni_wf
             wf = afni_wf()
 
     Parameters
