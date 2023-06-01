@@ -4,6 +4,7 @@ import os
 import nibabel as nb
 import numpy as np
 import pandas as pd
+from nibabel.processing import smooth_image
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     File,
@@ -78,7 +79,7 @@ class GeReferenceFile(SimpleInterface):
                 m0_data = np.mean(m0_data, axis=3)
 
             mean_img = nb.Nifti1Image(m0_data, asl_img.affine, asl_img.header)
-            smoothed_img = nb.processing.smooth_image(mean_img, fwhm=self.inputs.fwhm)
+            smoothed_img = smooth_image(mean_img, fwhm=self.inputs.fwhm)
             smoothed_img.to_filename(m0_file)
 
             self._results["m0_file"] = m0_file
@@ -95,7 +96,7 @@ class GeReferenceFile(SimpleInterface):
             # Average and smooth the M0 data
             mean_m0_data = np.mean(m0_data, axis=3)
             mean_img = nb.Nifti1Image(mean_m0_data, asl_img.affine, asl_img.header)
-            smoothed_img = nb.processing.smooth_image(mean_img, fwhm=self.inputs.fwhm)
+            smoothed_img = smooth_image(mean_img, fwhm=self.inputs.fwhm)
             smoothed_img.to_filename(m0_file)
 
             self._results["m0_file"] = m0_file
@@ -143,7 +144,7 @@ class GeReferenceFile(SimpleInterface):
 
             mean_img = nb.Nifti1Image(m0_data, asl_img.affine, asl_img.header)
             mean_img.to_filename(m0_file)  # XXX: Why not smooth the "M0" image?
-            smoothed_img = nb.processing.smooth_image(mean_img, fwhm=self.inputs.fwhm)
+            smoothed_img = smooth_image(mean_img, fwhm=self.inputs.fwhm)
             smoothed_img.to_filename(ref_file)
 
             self._results["m0_file"] = m0_file
