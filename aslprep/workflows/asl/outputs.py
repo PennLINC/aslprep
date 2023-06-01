@@ -3,12 +3,12 @@
 """Workflows for writing out derivative files."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.utility import KeySelect
 from smriprep.workflows.outputs import _bids_relative
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.utility import KeySelect
 
 
 def init_asl_derivatives_wf(

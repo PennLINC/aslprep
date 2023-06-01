@@ -5,6 +5,7 @@ import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info, MultiImageMaths
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from templateflow.api import get as get_template
 
 from aslprep import config
@@ -18,7 +19,6 @@ from aslprep.interfaces.cbf import (
     ScoreAndScrubCBF,
 )
 from aslprep.interfaces.parcellation import ParcellateCBF
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.utils.asl import (
     determine_multi_pld,
     estimate_labeling_efficiency,

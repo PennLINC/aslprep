@@ -3,6 +3,9 @@
 """Preprocessing workflows for ASL data."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.nibabel import ApplyMask
+from niworkflows.interfaces.utility import KeySelect
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
@@ -10,9 +13,6 @@ from aslprep.interfaces.cbf import RefineMask
 from aslprep.interfaces.fsl import Split
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.nibabel import ApplyMask
-from aslprep.niworkflows.interfaces.utility import KeySelect
 from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
@@ -233,7 +233,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
     if sbref_file is not None:
-        from aslprep.niworkflows.interfaces.images import ValidateImage
+        from niworkflows.interfaces.header import ValidateImage
 
         val_sbref = pe.Node(ValidateImage(in_file=sbref_file), name="val_sbref")
 
@@ -283,10 +283,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([(inputnode, validate_asl_wf, [("asl_file", "inputnode.asl_file")])])
 
     # Generate a tentative aslref from the most appropriate available image type in the ASL file
-    asl_reference_wf = init_asl_reference_wf(
-        omp_nthreads=omp_nthreads,
-        name="asl_reference_wf",
-    )
+    asl_reference_wf = init_asl_reference_wf(name="asl_reference_wf")
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
 
     # fmt:off

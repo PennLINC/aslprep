@@ -21,9 +21,12 @@ import pkg_resources as pkgr
 
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu, fsl
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces.images import IntraModalMerge
-from ...niworkflows.interfaces.registration import ANTSApplyTransformsRPT, ANTSRegistrationRPT
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.images import IntraModalMerge
+from niworkflows.interfaces.reportlets.registration import (
+    ANTSApplyTransformsRPT,
+    ANTSRegistrationRPT,
+)
 
 from ..interfaces.fmap import get_ees as _get_ees, FieldToRadS, FUGUEvsm2ANTSwarp
 from .gre import init_fmap_postproc_wf, init_magnitude_wf
@@ -235,14 +238,14 @@ tools such as ANTs) with FSL's `fugue` and other *SDCflows* tools.
     ])
 
     if generate_report:
-        from aslprep.niworkflows.interfaces.bids import DerivativesDataSink
+        from aslprep.interfaces.bids import DerivativesDataSink
         from ..interfaces.reportlets import FieldmapReportlet
 
         fmap_rpt = pe.Node(FieldmapReportlet(
             reference_label='EPI Reference',
             moving_label='Magnitude', show='both'), name='fmap_rpt')
         ds_report_sdc = pe.Node(
-            DerivativesDataSink(desc='fieldmap', suffix='bold', datatype='figures'),
+            DerivativesDataSink(desc='fieldmap', suffix='asl', datatype='figures'),
             name='ds_report_fmap', mem_gb=0.01, run_without_submitting=True
         )
 

@@ -5,7 +5,7 @@ from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
 from nipype import logging
 
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 
 LOGGER = logging.getLogger('nipype.workflow')

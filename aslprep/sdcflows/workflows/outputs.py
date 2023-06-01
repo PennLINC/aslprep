@@ -3,7 +3,7 @@
 """Writing out outputs."""
 from nipype.pipeline import engine as pe
 from nipype.interfaces import utility as niu
-from ...niworkflows.interfaces.bids import DerivativesDataSink
+from aslprep.interfaces.bids import DerivativesDataSink
 
 
 def init_sdc_unwarp_report_wf(name='sdc_unwarp_report_wf', forcedsyn=False):
@@ -41,9 +41,9 @@ def init_sdc_unwarp_report_wf(name='sdc_unwarp_report_wf', forcedsyn=False):
         Affine transform from T1 space to BOLD space (ITK format)
 
     """
-    from ...niworkflows.interfaces import SimpleBeforeAfter
-    from ...niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-    from ...niworkflows.utils.images import dseg_label as _dseg_label
+    from niworkflows.interfaces.reportlets.registration import SimpleBeforeAfterRPT
+    from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+    from niworkflows.utils.images import dseg_label as _dseg_label
 
     DEFAULT_MEMORY_MIN_GB = 0.01
 
@@ -60,12 +60,18 @@ def init_sdc_unwarp_report_wf(name='sdc_unwarp_report_wf', forcedsyn=False):
                      mem_gb=DEFAULT_MEMORY_MIN_GB)
     sel_wm.inputs.label = 2
 
-    bold_rpt = pe.Node(SimpleBeforeAfter(), name='bold_rpt',
+    bold_rpt = pe.Node(SimpleBeforeAfterRPT(), name='bold_rpt',
                        mem_gb=0.1)
     ds_report_sdc = pe.Node(
-        DerivativesDataSink(desc=('sdc', 'forcedsyn')[forcedsyn], suffix='bold',
-                            datatype='figures'), name='ds_report_sdc',
-        mem_gb=DEFAULT_MEMORY_MIN_GB, run_without_submitting=True
+        DerivativesDataSink(
+            desc=('sdc', 'forcedsyn')[forcedsyn],
+            suffix='asl',
+            datatype='figures',
+            extension=".svg",
+        ),
+        name='ds_report_sdc',
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+        run_without_submitting=True,
     )
 
     workflow.connect([

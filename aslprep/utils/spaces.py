@@ -1,8 +1,9 @@
 """Utilities for tracking and filtering spaces."""
 import argparse
-import attr
 from collections import defaultdict
 from itertools import product
+
+import attr
 from templateflow import api as _tfapi
 
 NONSTANDARD_REFERENCES = [
@@ -146,24 +147,23 @@ class Reference:
         if self.space in self._standard_spaces:
             object.__setattr__(self, "standard", True)
 
-        _cohorts = ["%s" % t for t in _tfapi.TF_LAYOUT.get_cohorts(template=self.space)]
+        _cohorts = [str(t) for t in _tfapi.TF_LAYOUT.get_cohorts(template=self.space)]
         if "cohort" in self.spec:
             if not _cohorts:
                 raise ValueError(
-                    'standard space "%s" does not accept a cohort '
-                    "specification." % self.space
+                    f'standard space "{self.space}" does not accept a cohort specification.'
                 )
 
             if str(self.spec["cohort"]) not in _cohorts:
                 raise ValueError(
-                    'standard space "%s" does not contain any cohort '
-                    'named "%s".' % (self.space, self.spec["cohort"])
+                    f'standard space "{self.space}" does not contain any cohort '
+                    f'named "{self.spec["cohort"]}".'
                 )
         elif _cohorts:
-            _cohorts = ", ".join(['"cohort-%s"' % c for c in _cohorts])
+            _cohorts = ", ".join([f'"cohort-{c}"' for c in _cohorts])
             raise ValueError(
-                'standard space "%s" is not fully defined.\n'
-                "Set a valid cohort selector from: %s." % (self.space, _cohorts)
+                f'standard space "{self.space}" is not fully defined.\n'
+                f"Set a valid cohort selector from: {_cohorts}."
             )
 
     @property
@@ -182,7 +182,7 @@ class Reference:
         """
         if "cohort" not in self.spec:
             return self.space
-        return "%s:cohort-%s" % (self.space, self.spec["cohort"])
+        return f"{self.space}:cohort-{self.spec['cohort']}"
 
     @property
     def legacyname(self):
@@ -213,14 +213,14 @@ class Reference:
             return FSAVERAGE_LEGACY[self.spec["den"]]
 
     @space.validator
-    def _check_name(self, attribute, value):
+    def _check_name(self, attribute, value):  # noqa: U100
         if value.startswith("fsaverage"):
             return
         valid = list(self._standard_spaces) + NONSTANDARD_REFERENCES
         if value not in valid:
             raise ValueError(
-                'space identifier "%s" is invalid.\nValid '
-                "identifiers are: %s" % (value, ", ".join(valid))
+                f'space identifier "{value}" is invalid.\nValid '
+                f"identifiers are: {', '.join(valid)}"
             )
 
     def __str__(self):
@@ -241,11 +241,6 @@ class Reference:
     def from_string(cls, value):
         """
         Parse a string to generate the corresponding list of References.
-
-        .. testsetup::
-
-            >>> if PY_VERSION < (3, 6):
-            ...     pytest.skip("This doctest does not work on python <3.6")
 
         Parameters
         ----------
@@ -498,7 +493,7 @@ class SpatialReferences:
 
         """
         spaces = ", ".join([str(s) for s in self.references]) or "<none>."
-        return "Spatial References: %s" % spaces
+        return f"Spatial References: {spaces}"
 
     @property
     def references(self):
@@ -513,6 +508,7 @@ class SpatialReferences:
         return self._cached
 
     def is_cached(self):
+        """Determine if references are cached or not."""
         return self._cached is not None
 
     def checkpoint(self, force=False):
@@ -532,14 +528,14 @@ class SpatialReferences:
             self._refs += [self.check_space(value)]
             return
 
-        raise ValueError('space "%s" already in spaces.' % str(value))
+        raise ValueError(f'space "{value}" already in spaces.')
 
     def insert(self, index, value, error=True):
         """Concatenate one more space."""
         if value not in self:
             self._refs.insert(index, self.check_space(value))
         elif error is True:
-            raise ValueError('space "%s" already in spaces.' % str(value))
+            raise ValueError(f'space "{value}" already in spaces.')
 
     def get_spaces(self, standard=True, nonstandard=True, dim=(2, 3)):
         """
@@ -610,9 +606,7 @@ class SpatialReferences:
         return [
             s
             for s in self.references
-            if s.standard
-            and s.dim in dim
-            and (hasspec("res", s.spec) or hasspec("den", s.spec))
+            if s.standard and s.dim in dim and (hasspec("res", s.spec) or hasspec("den", s.spec))
         ]
 
     def get_nonstandard(self, full_spec=False, dim=(2, 3)):
@@ -661,7 +655,7 @@ class SpatialReferences:
 class OutputReferencesAction(argparse.Action):
     """Parse spatial references."""
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser, namespace, values, option_string=None):  # noqa: U100
         """Execute parser."""
         spaces = getattr(namespace, self.dest) or SpatialReferences()
         if not values:
@@ -729,9 +723,7 @@ def reference2dict(in_tuple):
 
     """
     tpl_entities = ("space", "cohort")
-    retval = {
-        tpl_entities[i]: v.split("-")[i] for i, v in enumerate(in_tuple[0].split(":"))
-    }
+    retval = {tpl_entities[i]: v.split("-")[i] for i, v in enumerate(in_tuple[0].split(":"))}
     retval.update(
         {
             "resolution" if k == "res" else "density" if k == "den" else k: f"{v}"
@@ -746,12 +738,6 @@ def _expand_entities(entities):
     Generate multiple replacement queries based on all combinations of values.
 
     Ported from PyBIDS
-
-
-    .. testsetup::
-
-        >>> if PY_VERSION < (3, 6):
-        ...     pytest.skip("This doctest does not work on python <3.6")
 
     Examples
     --------
