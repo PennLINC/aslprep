@@ -7,16 +7,16 @@ from copy import deepcopy
 
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.bids import BIDSInfo
+from niworkflows.interfaces.nilearn import NILEARN_VERSION
+from niworkflows.utils.misc import fix_multi_T1w_source_name
+from niworkflows.utils.spaces import Reference
 from smriprep.workflows.anatomical import init_anat_preproc_wf
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
 from aslprep.interfaces.bids import BIDSDataGrabber
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from aslprep.niworkflows.interfaces.bids import BIDSInfo
-from aslprep.niworkflows.interfaces.nilearn import NILEARN_VERSION
-from aslprep.niworkflows.utils.misc import fix_multi_T1w_source_name
-from aslprep.niworkflows.utils.spaces import Reference
 from aslprep.utils.bids import collect_data
 from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.workflows.asl.base import init_asl_preproc_wf

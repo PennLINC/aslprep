@@ -30,7 +30,7 @@ averages them into a single reference template.
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.niworkflows.utils.spaces import Reference, SpatialReferences
+   from aslprep.utils.spaces import Reference, SpatialReferences
    from smriprep.workflows.anatomical import init_anat_preproc_wf
 
    wf = init_anat_preproc_wf(
@@ -65,7 +65,7 @@ brain extraction workflow:
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.niworkflows.anat.ants import init_brain_extraction_wf
+   from niworkflows.anat.ants import init_brain_extraction_wf
 
    wf = init_brain_extraction_wf()
 
@@ -137,13 +137,13 @@ ASL reference image estimation
 
    from aslprep.workflows.asl.util import init_asl_reference_wf
 
-   wf = init_asl_reference_wf(omp_nthreads=1)
+   wf = init_asl_reference_wf()
 
 This workflow estimates a reference image for an
 :abbr:`ASL (Arterial Spin Labelling)` series.
 The reference image is then used to calculate a brain mask for the
 :abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
-:py:func:`~aslprep.niworkflows.func.util.init_enhance_and_skullstrip_asl_wf`.
+:py:func:`~aslprep.workflows.asl.util.init_enhance_and_skullstrip_asl_wf`.
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.
@@ -683,7 +683,7 @@ Resampling ASL and CBF runs onto standard spaces
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.niworkflows.utils.spaces import SpatialReferences
+   from aslprep.utils.spaces import SpatialReferences
    from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 
    wf = init_asl_std_trans_wf(

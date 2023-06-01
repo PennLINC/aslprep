@@ -19,10 +19,16 @@ def check_deps(workflow):
     )
 
 
+def _get_vols_to_discard(img):
+    from nipype.algorithms.confounds import is_outlier
+
+    data_slice = img.dataobj[:, :, :, :50]
+    global_signal = data_slice.mean(axis=0).mean(axis=0).mean(axis=0)
+    return is_outlier(global_signal)
+
+
 def _get_series_len(asl_fname):
     """Determine the number of volumes in an image, after removing outlier volumes."""
-    from aslprep.niworkflows.interfaces.registration import _get_vols_to_discard
-
     img = nb.load(asl_fname)
     if len(img.shape) < 4:
         return 1
@@ -87,7 +93,7 @@ def _split_spec(in_target):
 
 def _select_template(template):
     """Select template file based on space/template specification."""
-    from aslprep.niworkflows.utils.misc import get_template_specs
+    from niworkflows.utils.misc import get_template_specs
 
     template, specs = template
     template = template.split(":")[0]  # Drop any cohort modifier if present

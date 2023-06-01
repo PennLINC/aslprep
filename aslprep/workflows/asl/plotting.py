@@ -3,12 +3,12 @@
 """Workflows for plotting ASLPrep derivatives."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummary, CBFtsSummary
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.utils.misc import get_template_str
 
 

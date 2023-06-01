@@ -135,9 +135,8 @@ def main():
             )
         errno = 0
     finally:
+        from niworkflows.reports.core import generate_reports
         from pkg_resources import resource_filename as pkgrf
-
-        from aslprep.niworkflows.reports import generate_reports
 
         # Generate reports phase
         failed_reports = generate_reports(

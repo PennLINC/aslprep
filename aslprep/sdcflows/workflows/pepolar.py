@@ -14,11 +14,11 @@ This corresponds to `this section of the BIDS specification
 
 import pkg_resources as pkgr
 
-from ...niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from ...niworkflows.interfaces import CopyHeader
-from ...niworkflows.interfaces.freesurfer import StructuralReference
-from ...niworkflows.interfaces.registration import ANTSApplyTransformsRPT
-from ...niworkflows.func.util import init_enhance_and_skullstrip_asl_wf
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.header import CopyHeader
+from niworkflows.interfaces.freesurfer import StructuralReference
+from niworkflows.interfaces.reportlets.registration import ANTSApplyTransformsRPT
+from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
 from nipype.pipeline import engine as pe
 from nipype.interfaces import afni, ants, utility as niu
@@ -136,8 +136,7 @@ directions, with `3dQwarp` @afni (AFNI {afni_ver}).
                                                       interpolation='LanczosWindowedSinc'),
                                name='unwarp_reference')
 
-    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_asl_wf(
-        omp_nthreads=omp_nthreads)
+    enhance_and_skullstrip_bold_wf = init_enhance_and_skullstrip_asl_wf()
 
     workflow.connect([
         (inputnode, qwarp, [(('epi_pe_dir', _qwarp_args), 'args')]),
@@ -237,8 +236,7 @@ def init_prepare_epi_wf(omp_nthreads, matched_pe=False,
                             out_file='template.nii.gz'),
         name='merge_op')
 
-    ref_op_wf = init_enhance_and_skullstrip_asl_wf(
-        omp_nthreads=omp_nthreads, name='ref_op_wf')
+    ref_op_wf = init_enhance_and_skullstrip_asl_wf(name='ref_op_wf')
 
     op2ref_reg = pe.Node(ants.Registration(
         from_file=ants_settings, output_warped_image=True),
@@ -273,8 +271,7 @@ def init_prepare_epi_wf(omp_nthreads, matched_pe=False,
                             out_file='template.nii.gz'),
         name='merge_ma')
 
-    ref_ma_wf = init_enhance_and_skullstrip_asl_wf(
-        omp_nthreads=omp_nthreads, name='ref_ma_wf')
+    ref_ma_wf = init_enhance_and_skullstrip_asl_wf(name='ref_ma_wf')
 
     ma2ref_reg = pe.Node(ants.Registration(
         from_file=ants_settings, output_warped_image=True),
