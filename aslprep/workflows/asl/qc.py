@@ -4,11 +4,11 @@
 from nipype.interfaces import utility as niu
 from nipype.interfaces.afni import Resample
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from templateflow.api import get as get_template
 
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.qc import ComputeCBFQC
-from aslprep.niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep.utils.misc import _select_last_in_list
 
 

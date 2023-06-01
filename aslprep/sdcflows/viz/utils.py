@@ -18,7 +18,7 @@ def plot_registration(anat_nii, div_id, plot_params=None,
     import matplotlib.pyplot as plt
     from nilearn.plotting import plot_anat
     from svgutils.transform import SVGFigure
-    from aslprep.niworkflows.viz.utils import robust_set_limits, extract_svg, SVGNS
+    from niworkflows.viz.utils import robust_set_limits, extract_svg, SVGNS
 
     plot_params = plot_params or {}
 
