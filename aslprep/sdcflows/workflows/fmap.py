@@ -245,7 +245,7 @@ tools such as ANTs) with FSL's `fugue` and other *SDCflows* tools.
             reference_label='EPI Reference',
             moving_label='Magnitude', show='both'), name='fmap_rpt')
         ds_report_sdc = pe.Node(
-            DerivativesDataSink(desc='fieldmap', suffix='bold', datatype='figures'),
+            DerivativesDataSink(desc='fieldmap', suffix='asl', datatype='figures'),
             name='ds_report_fmap', mem_gb=0.01, run_without_submitting=True
         )
 
