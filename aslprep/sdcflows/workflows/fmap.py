@@ -238,7 +238,7 @@ tools such as ANTs) with FSL's `fugue` and other *SDCflows* tools.
     ])
 
     if generate_report:
-        from niworkflows.interfaces.bids import DerivativesDataSink
+        from aslprep.interfaces.bids import DerivativesDataSink
         from ..interfaces.reportlets import FieldmapReportlet
 
         fmap_rpt = pe.Node(FieldmapReportlet(
