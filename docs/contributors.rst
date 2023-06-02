@@ -68,11 +68,11 @@ image yourself.
 7. Push your changes to GitHub.
 
 8. Open a pull request to PennLINC/ASLPrep's ``main`` branch.
-   Please follow `*NiPreps* contributing guidelines <https://www.nipreps.org/community/>`_
+   Please follow `NiPreps contributing guidelines <https://www.nipreps.org/community/>`_
    when preparing a pull request.
 
 
-Running Tests
+Running tests
 =============
 
 While CircleCI will automatically run *ASLPrep*'s tests for any open PRs,
@@ -83,9 +83,9 @@ run selected tests.
 Please use that script to run some tests locally before opening your PR.
 
 
-*******************
-Adding dependencies
-*******************
+********************************
+Adding or modifying dependencies
+********************************
 
 If you think *ASLPrep* needs to use a library (Python or not) that is not installed in the Docker
 image already, then you will need to build a new Docker image to test out your proposed changes.

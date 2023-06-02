@@ -50,9 +50,11 @@ In order to run *ASLPrep* via Docker,
 the Docker Engine `must be installed <https://docs.docker.com/engine/install/>`_.
 
 If you have used *ASLPrep* via Docker in the past, you might need to pull down a more recent
-version of the image: ::
+version of the image:
 
-   $ docker pull pennlinc/aslprep:<version>
+.. code-block:: bash
+
+   docker pull pennlinc/aslprep:<version>
 
 The image can also be found here: https://registry.hub.docker.com/r/pennlinc/aslprep
 
@@ -68,9 +70,11 @@ Singularity Installation
 **Singularity version >= 2.5**:
 If the version of Singularity installed on your :abbr:`HPC (High-Performance Computing)` system is
 modern enough, you can create a Singularity image directly on the system using the following
-command: ::
+command:
 
-   $ singularity build aslprep-<version>.simg docker://pennlinc/aslprep:<version>
+.. code-block:: bash
+
+   singularity build aslprep-<version>.simg docker://pennlinc/aslprep:<version>
 
 where ``<version>`` should be replaced with the version of *ASLPrep* that you want to download.
 
@@ -84,19 +88,23 @@ Manually Prepared Environment (Python 3.8+)
 .. warning::
 
    This method is not recommended!
-   Please use container alternatives in :ref:`run_docker`, and :ref:`run_singularity`.
+   Please use container alternatives described above instead.
 
 ASLPrep requires some `External Dependencies`_.
 These tools must be installed and their binaries available in the system's ``$PATH``.
 
 On a functional Python 3.8 (or above) environment with ``pip`` installed,
-ASLPrep can be installed using the command::
+ASLPrep can be installed using the command:
 
-   $ pip install git+https://github.com/pennlinc/aslprep.git
+.. code-block:: bash
 
-Check your installation with the ``--version`` argument::
+   pip install git+https://github.com/pennlinc/aslprep.git
 
-   $ aslprep --version
+Check your installation with the ``--version`` argument:
+
+.. code-block:: bash
+
+   aslprep --version
 
 
 *********************
