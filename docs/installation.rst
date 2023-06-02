@@ -121,8 +121,7 @@ system (PyPi) used to deploy the ASLPrep package:
 -  `C3D <https://sourceforge.net/projects/c3d/>`_ (version 1.0.0)
 -  FreeSurfer_ (version 6.0.1)
 -  `bids-validator <https://github.com/bids-standard/bids-validator>`_ (version 1.1.0)
--  `connectome-workbench <https://www.humanconnectome.org/software/connectome-workbench>`_
-   (version Debian-1.3.2)
+-  `Connectome Workbench`_ (version Debian-1.3.2)
 
 
 *****************
