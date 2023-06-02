@@ -56,7 +56,14 @@ version of the image:
 
    docker pull pennlinc/aslprep:<version>
 
-The image can also be found here: https://registry.hub.docker.com/r/pennlinc/aslprep
+The image can also be found here: https://registry.hub.docker.com/r/pennlinc/aslprep,
+and a full list of available tags (versions) can be found here:
+https://hub.docker.com/r/pennlinc/aslprep/tags.
+
+In most cases, you will want to install the latest released version, which is the tag ``latest``.
+Less frequently, you might want the latest *unreleased* version
+(i.e., the version which corresponds to the ``main`` branch on GitHub),
+in which case you should use the tag ``unstable``.
 
 *ASLPrep* can be run interacting directly with the Docker Engine via the ``docker run`` command,
 or through a lightweight wrapper that was created for convenience.
