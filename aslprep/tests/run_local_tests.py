@@ -82,7 +82,6 @@ def run_tests(test_regex, test_mark):
     elif test_mark:
         run_str += f"-rP -o log_cli=true -m {test_mark} "
 
-    raise Exception(run_str)
     run_command(run_str)
 
 
