@@ -6,4 +6,12 @@ Should you desire to be considered back as a contributor or maintainer, please r
 
 | **Lastname** | **Name** | **Handle** |
 | --- | --- | --- |
-|  |  |  |
+| Adebimpe | Azeez | @a3sha2 |
+| Bertolero | Max | @mb3152 |
+| Murtha | Kristin | @krmurtha |
+| Ross | Andrew | @andrewrosss |
+| Flounders | Matt | @mflounders |
+| Butler | Ellyn | @butellyn |
+| Joseph | Michael | @josephmje |
+| Covitz | Sydney | @scovitz |
+| Tapera | Tinashe | @TinasheMTapera |

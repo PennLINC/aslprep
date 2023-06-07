@@ -8,14 +8,6 @@ Before every release, unlisted contributors will be invited again to add their n
 
 | **Lastname** | **Name** | **Handle** | **ORCID** | **Affiliation** |
 | --- | --- | --- | --- | --- |
-| Adebimpe | Azeez | @a3sha2 |  |  |
-| Bertolero | Max | @mb3152 |  |  |
-| Salo | Taylor | @tsalo |  |  |
-| Murtha | Kristin | @krmurtha |  |  |
-| Ross | Andrew | @andrewrosss |  |  |
-| Flounders | Matt | @mflounders |  |  |
-| Butler | Ellyn | @butellyn |  |  |
-| Cieslak | Matthew | @mattcieslak |  |  |
-| Joseph | Michael | @josephmje |  |  |
-| Covitz | Sydney | @scovitz |  |  |
-| Tapera | Tinashe | @TinasheMTapera |  |  |
+| Salo | Taylor | @tsalo | 0000-0001-9813-3167 | University of Pennsylvania |
+| Cieslak | Matthew | @mattcieslak | 0000-0002-1931-4734 | University of Pennsylvania |
+| Dolui | Sudipto |  | 0000-0002-9035-3795 | University of Pennsylvania |
