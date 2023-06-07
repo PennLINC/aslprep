@@ -217,7 +217,6 @@ def test_test_001(data_dir, output_dir, working_dir):
         "MNI152NLin2009cAsym",
         "--scorescrub",
         "--use-syn-sdc",
-        "--m0_scale=10",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
