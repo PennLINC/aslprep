@@ -11,24 +11,27 @@ Execution and the BIDS format
 
 The main input to *ASLPREP* is the path of the dataset that needs processing.
 
-.. important::
-    Please note that ASL data in BIDS datasets should
-    `already be scaled <https://bids-specification.readthedocs.io/en/v1.8.0/
-    04-modality-specific-files/01-magnetic-resonance-imaging-data.html#scaling>`_.
-
-    What this means is that the M0 scans in your dataset should preferably be scaled before running ASLPrep.
-
-    Please see `the BIDS starter kit <https://bids-standard.github.io/bids-starter-kit/tutorials/asl.html>`_
-    for information about converting ASL data to BIDS.
-
-    If your data are not already scaled, you should use the ``--m0_scale`` parameter when running ASLPrep.
-
 The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data Structure)` format,
 and it must include at least one T1w structural image.
 We highly recommend that you validate your dataset with the free, online
 `BIDS Validator <http://bids-standard.github.io/bids-validator/>`_.
 
-The exact command to run *ASLPrep* depends on the Installation_ method.
+.. important::
+    Please note that ASL data in BIDS datasets should
+    `already be scaled <https://bids-specification.readthedocs.io/en/v1.8.0/
+    04-modality-specific-files/01-magnetic-resonance-imaging-data.html#scaling>`_.
+
+    What this means is that the M0 scans in your dataset should preferably be scaled before running
+    ASLPrep.
+
+    Please see
+    `the BIDS starter kit <https://bids-standard.github.io/bids-starter-kit/tutorials/asl.html>`_
+    for information about converting ASL data to BIDS.
+
+    If your data are not already scaled, you should use the ``--m0_scale`` parameter when running
+    ASLPrep.
+
+The exact command to run *ASLPrep* depends on the :doc:`installation` method.
 The common parts of the command follow the `BIDS-Apps
 <https://github.com/BIDS-Apps>`_ definition.
 For example: ::

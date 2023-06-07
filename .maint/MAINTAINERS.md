@@ -9,4 +9,4 @@ If you are participating because of your affiliation with another organization (
 
 | **Lastname** | **Name** | **Handle** | **ORCID** | **Affiliation** | **Role** |
 | --- | --- | --- | --- | --- | --- |
-| Salo | Taylor | @tsalo |  | University of Pennsylvania | LD |
+| Salo | Taylor | @tsalo | 0000-0002-1931-4734 | University of Pennsylvania | LD |
