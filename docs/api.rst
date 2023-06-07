@@ -16,15 +16,11 @@ Internal configuration system
 :mod:`aslprep.workflows`: Workflows
 ***********************************
 
-.. automodule:: aslprep.workflows
-   :no-members:
-   :no-inherited-members:
-
 .. currentmodule:: aslprep
 
 .. autosummary::
    :toctree: generated/
-   :template: module.rst
+   :template: function.rst
 
    aslprep.workflows.base
    aslprep.workflows.asl.base
