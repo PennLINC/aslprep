@@ -1,4 +1,5 @@
 """Interfaces for calculating CBF."""
+import json
 import os
 
 import numpy as np
@@ -214,14 +215,175 @@ class ComputeCBFQC(SimpleInterface):
             "NEG_PVC_PERC": [mean_cbf_gm_basil_negvox],
         }
 
-        normalization_metrics_dict = {}
+        qc_metadata = {
+            "FD": {
+                "LongName": "Mean Framewise Displacement",
+                "Description": (
+                    "Average framewise displacement without any motion parameter filtering. "
+                    "This value includes high-motion outliers, but not dummy volumes. "
+                    "FD is calculated according to the Power definition."
+                ),
+                "Units": "mm",
+                "Term URL": "https://doi.org/10.1016/j.neuroimage.2011.10.018",
+            },
+            "rmsd": {
+                "LongName": "Mean Relative Root Mean Squared",
+                "Description": (
+                    "Average relative root mean squared calculated from motion parameters, "
+                    "after removal of dummy volumes and high-motion outliers. "
+                    "Relative in this case means 'relative to the previous scan'."
+                ),
+                "Units": "arbitrary",
+            },
+            "coregDC": {
+                "LongName": "Coregistration Sørensen-Dice Coefficient",
+                "Description": "",
+                "Units": "",
+                "Term URL": "https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient",
+            },
+            "coregJC": {
+                "LongName": "Coregistration Jaccard Index",
+                "Description": "",
+                "Units": "",
+                "Term URL": "https://en.wikipedia.org/wiki/Jaccard_index",
+            },
+            "coregCC": {
+                "LongName": "",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "coregCOV": {
+                "LongName": "",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "cbfQEI": {
+                "LongName": "Cerebral Blood Flow Quality Evaluation Index",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "scoreQEI": {
+                "LongName": "SCORE-Denoised Cerebral Blood Flow Quality Evaluation Index",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "scrubQEI": {
+                "LongName": "SCRUB-Denoised Cerebral Blood Flow Quality Evaluation Index",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "basilQEI": {
+                "LongName": "BASIL Cerebral Blood Flow Quality Evaluation Index",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "pvcQEI": {
+                "LongName": (
+                    "BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation Index"
+                ),
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "GMmeanCBF": {
+                "LongName": "Mean Cerebral Blood Flow of Gray Matter",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "WMmeanCBF": {
+                "LongName": "Mean Cerebral Blood Flow of White Matter",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "Gm_Wm_CBF_ratio": {
+                "LongName": "Mean Gray Matter-White Matter Cerebral Blood Flow Ratio",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "NEG_CBF_PERC": {
+                "LongName": "Percentage of Negative Cerebral Blood Flow Values",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "NEG_SCORE_PERC": {
+                "LongName": "Percentage of Negative SCORE-Denoised Cerebral Blood Flow Values",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "NEG_SCRUB_PERC": {
+                "LongName": "Percentage of Negative SCRUB-Denoised Cerebral Blood Flow Values",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "NEG_BASIL_PERC": {
+                "LongName": "Percentage of Negative BASIL Cerebral Blood Flow Values",
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+            "NEG_PVC_PERC": {
+                "LongName": (
+                    "Percentage of Negative BASIL Partial Volume Corrected Cerebral Blood Flow "
+                    "Values"
+                ),
+                "Description": "",
+                "Units": "",
+                "Term URL": "",
+            },
+        }
+
         if self.inputs.asl_mask_std and self.inputs.template_mask:
-            normalization_metrics_dict = {
-                "normDC": [norm_dice],
-                "normJC": [norm_jaccard],
-                "normCC": [norm_crosscorr],
-                "normCOV": [norm_coverage],
-            }
+            metrics_dict.update(
+                {
+                    "normDC": [norm_dice],
+                    "normJC": [norm_jaccard],
+                    "normCC": [norm_crosscorr],
+                    "normCOV": [norm_coverage],
+                }
+            )
+
+            qc_metadata.update(
+                {
+                    "normDC": {
+                        "LongName": "",
+                        "Description": "",
+                        "Units": "",
+                        "Term URL": (
+                            "https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient"
+                        ),
+                    },
+                    "normJC": {
+                        "LongName": "",
+                        "Description": "",
+                        "Units": "",
+                        "Term URL": "https://en.wikipedia.org/wiki/Jaccard_index",
+                    },
+                    "normCC": {
+                        "LongName": "",
+                        "Description": "",
+                        "Units": "",
+                        "Term URL": "",
+                    },
+                    "normCOV": {
+                        "LongName": "",
+                        "Description": "",
+                        "Units": "",
+                        "Term URL": "",
+                    },
+                }
+            )
 
         # Extract entities from the input file.
         # Useful for identifying ASL files after concatenating the QC files across runs.
@@ -230,7 +392,7 @@ class ComputeCBFQC(SimpleInterface):
         entities_dict = {ent.split("-")[0]: ent.split("-")[1] for ent in entities}
 
         # Combine the dictionaries and convert to a DataFrame.
-        qc_dict = {**entities_dict, **metrics_dict, **normalization_metrics_dict}
+        qc_dict = {**entities_dict, **metrics_dict}
         qc_df = pd.DataFrame(qc_dict)
 
         self._results["qc_file"] = fname_presuffix(
@@ -240,5 +402,14 @@ class ComputeCBFQC(SimpleInterface):
             use_ext=False,
         )
         qc_df.to_csv(self._results["qc_file"], index=False, header=True, na_rep="n/a")
+
+        self._results["qc_metadata"] = fname_presuffix(
+            self.inputs.mean_cbf,
+            suffix="qc_cbf.json",
+            newpath=runtime.cwd,
+            use_ext=False,
+        )
+        with open(self._results["qc_metadata"], "w") as fo:
+            json.dump(qc_metadata, fo, indent=4, sort_keys=True)
 
         return runtime
