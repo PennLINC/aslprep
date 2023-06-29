@@ -310,12 +310,11 @@ tasks and sessions), the following preprocessing was performed.
 
         # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
         n_vols = get_n_volumes(asl_file)
-        use_ge = False
-        if n_vols <= 5:
-            config.loggers.workflow.warning(
-                f"ASL file is very short ({n_vols} volumes). Using GE-specific processing."
-            )
-            use_ge = True
+        use_ge = (
+            config.workflow.use_ge if isinstance(config.workflow.use_ge, bool) else n_vols <= 5
+        )
+        if use_ge:
+            config.loggers.workflow.warning("Using GE-specific processing.")
 
         asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_preproc_wf
         asl_preproc_wf = asl_preproc_func(asl_file)

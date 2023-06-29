@@ -46,6 +46,7 @@ skull_strip_template = "OASIS30ANTs"
 skull_strip_t1w = "force"
 spaces = "func MNI152NLin2009cAsym"
 use_bbr = true
+use_ge = false
 use_syn_sdc = false
 dummy_vols = 0
 smooth_kernel = 5
