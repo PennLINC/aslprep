@@ -458,6 +458,9 @@ class workflow(_Config):
     instance keeping standard and nonstandard spaces."""
     use_bbr = None
     """Run boundary-based registration for ASL-to-T1w registration."""
+    use_ge = None
+    """Run GE-specific processing. False means don't, True means do,
+    None means determine automatically."""
     use_syn_sdc = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation
     in the absence of any alternatives."""
