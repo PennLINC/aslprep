@@ -211,7 +211,7 @@ were met (for participant <{subject_id}>, spaces <{', '.join(std_spaces)}>, \
 
 Arterial spin-labeled MRI images were preprocessed using *ASLPrep* {config.environment.version}
 [@aslprep_nature_methods;@aslprep_zenodo],
-which is based on *fMRIPrep* (@fmriprep1; @fmriprep2; RRID:SCR_016216) and
+which is based on *fMRIPrep* (@esteban2019fmriprep; @esteban2020analysis; RRID:SCR_016216) and
 *Nipype* {config.environment.nipype_version} [@nipype].
 
 """
