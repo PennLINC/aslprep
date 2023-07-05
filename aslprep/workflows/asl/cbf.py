@@ -676,7 +676,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     if deltam_volume_idx or control_volume_idx:
         # If deltaM or label-control pairs are available, then calculate CBF.
         extract_deltam = pe.Node(
-            ExtractCBForDeltaM(file_type="d", aslcontext=aslcontext),
+            ExtractCBForDeltaM(
+                file_type="d",
+                aslcontext=aslcontext,
+                metadata=metadata,
+            ),
             mem_gb=1,
             run_without_submitting=True,
             name="extract_deltam",
