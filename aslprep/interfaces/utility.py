@@ -16,6 +16,7 @@ from nipype.utils.filemanip import fname_presuffix, load_json, save_json
 
 from aslprep import config
 from aslprep.utils.asl import reduce_metadata_lists
+from aslprep.utils.misc import _aslist
 
 
 class _ReduceASLFilesInputSpec(BaseInterfaceInputSpec):
@@ -196,15 +197,35 @@ class _CombineMotionParametersInputSpec(BaseInterfaceInputSpec):
     m0type = traits.Str()
     processing_target = traits.Str()
     aslcontext = File(exists=True)
-    control_mat_files = traits.Either(traits.List(File(exists=True)), None)
+    control_mat_files = traits.Either(
+        traits.List(File(exists=True)),
+        File(exists=True),
+        None,
+    )
     control_par_file = traits.Either(File(exists=True), None)
-    label_mat_files = traits.Either(traits.List(File(exists=True)), None)
+    label_mat_files = traits.Either(
+        traits.List(File(exists=True)),
+        File(exists=True),
+        None,
+    )
     label_par_file = traits.Either(File(exists=True), None)
-    deltam_mat_files = traits.Either(traits.List(File(exists=True)), None)
+    deltam_mat_files = traits.Either(
+        traits.List(File(exists=True)),
+        File(exists=True),
+        None,
+    )
     deltam_par_file = traits.Either(File(exists=True), None)
-    cbf_mat_files = traits.Either(traits.List(File(exists=True)), None)
+    cbf_mat_files = traits.Either(
+        traits.List(File(exists=True)),
+        File(exists=True),
+        None,
+    )
     cbf_par_file = traits.Either(File(exists=True), None)
-    m0scan_mat_files = traits.Either(traits.List(File(exists=True)), None)
+    m0scan_mat_files = traits.Either(
+        traits.List(File(exists=True)),
+        File(exists=True),
+        None,
+    )
     m0scan_par_file = traits.Either(File(exists=True), None)
 
 
@@ -226,7 +247,7 @@ class CombineMotionParameters(SimpleInterface):
         out_par = [None] * aslcontext.shape[0]
         out_mat_files = [None] * aslcontext.shape[0]
         for file_to_combine in files_to_combine:
-            mat_files = getattr(self.inputs, f"{file_to_combine}_mat_files")
+            mat_files = _aslist(getattr(self.inputs, f"{file_to_combine}_mat_files"))
             par_file = getattr(self.inputs, f"{file_to_combine}_par_file")
             idx = aslcontext.loc[aslcontext["volume_type"] == file_to_combine].index.values
 
