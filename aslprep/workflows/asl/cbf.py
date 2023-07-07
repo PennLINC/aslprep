@@ -676,7 +676,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     if deltam_volume_idx or control_volume_idx:
         # If deltaM or label-control pairs are available, then calculate CBF.
         extract_deltam = pe.Node(
-            ExtractCBForDeltaM(file_type="d", aslcontext=aslcontext),
+            ExtractCBForDeltaM(
+                file_type="d",
+                aslcontext=aslcontext,
+                metadata=metadata,
+            ),
             mem_gb=1,
             run_without_submitting=True,
             name="extract_deltam",
@@ -694,7 +698,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
 
         compute_cbf = pe.Node(
             ComputeCBF(
-                metadata=metadata,
                 m0_scale=m0_scale,
                 cbf_only=cbf_only,
             ),
@@ -706,7 +709,10 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         # fmt:off
         workflow.connect([
             (inputnode, compute_cbf, [("m0_file", "m0_file")]),
-            (extract_deltam, compute_cbf, [("out_file", "deltam")]),
+            (extract_deltam, compute_cbf, [
+                ("metadata", "metadata"),
+                ("out_file", "deltam"),
+            ]),
             (extract_deltam, collect_cbf, [("out_file", "deltam")]),
             (refine_mask, compute_cbf, [("out_mask", "mask")]),
             (compute_cbf, collect_cbf, [("cbf_ts", "cbf")]),
@@ -720,7 +726,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
 
     elif cbf_volume_idx:
         extract_cbf = pe.Node(
-            ExtractCBForDeltaM(file_type="c"),
+            ExtractCBForDeltaM(
+                file_type="c",
+                aslcontext=aslcontext,
+                metadata=metadata,
+            ),
             mem_gb=1,
             run_without_submitting=True,
             name="extract_cbf",

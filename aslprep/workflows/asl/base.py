@@ -108,7 +108,7 @@ def init_asl_preproc_wf(asl_file):
     mean_cbf_scrub_std, mean_cbf_gm_basil_std, mean_cbf_basil_std
         scrub, parital volume corrected and basil cbf   in template space
     qc_file
-        quality control meausres
+        quality control measures
 
     Notes
     -----
@@ -124,26 +124,23 @@ def init_asl_preproc_wf(asl_file):
     4.  Susceptibility distortion correction.
         -   Outputs the SDC transform.
         -   Not in GE workflow.
-    5.  If data are multi-echo (which they can't be), skullstrip the ASL data and perform optimal
-        combination.
-        -   Not in GE workflow.
-    6.  Register ASL to T1w.
-    7.  Apply the ASL-to-T1w transforms to get T1w-space outputs
+    5.  Register ASL to T1w.
+    6.  Apply the ASL-to-T1w transforms to get T1w-space outputs
         (passed along to derivatives workflow).
-    8.  Apply the ASL-to-ASLref transforms to get native-space outputs.
+    7.  Apply the ASL-to-ASLref transforms to get native-space outputs.
         -   Not in GE workflow.
-    9.  Calculate confounds.
+    8.  Calculate confounds.
         -   Not in GE workflow.
-    10. Calculate CBF.
-    11. Refine the brain mask.
-    12. Generate distortion correction report.
+    9.  Calculate CBF.
+    10. Refine the brain mask.
+    11. Generate distortion correction report.
         -   Not in GE workflow.
-    13. Apply ASL-to-template transforms to get template-space outputs.
-    14. CBF QC workflow.
-    15. CBF plotting workflow.
-    16. Generate carpet plots.
+    12. Apply ASL-to-template transforms to get template-space outputs.
+    13. CBF QC workflow.
+    14. CBF plotting workflow.
+    15. Generate carpet plots.
         -   Not in GE workflow.
-    17. Parcellate CBF results.
+    16. Parcellate CBF results.
     """
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10

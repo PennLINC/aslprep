@@ -8,7 +8,7 @@ ARG VERSION=0.0.1
 # Force static versioning within container
 RUN echo "${VERSION}" > /src/aslprep/aslprep/VERSION && \
     echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in && \
-    pip install --no-cache-dir "/src/aslprep[all]"
+    pip install --no-cache-dir "/src/aslprep[doc,maint,test]"
 
 RUN find $HOME -type d -exec chmod go=u {} + && \
     find $HOME -type f -exec chmod go=u {} + && \

@@ -256,17 +256,35 @@ any spatial references.""",
         help="Degrees of freedom when registering ASL to T1w images. "
         "6 degrees (rotation and translation) are used by default.",
     )
-    g_conf.add_argument(
+
+    g_use_bbr = g_conf.add_mutually_exclusive_group()
+    g_use_bbr.add_argument(
         "--force-bbr",
         action="store_true",
         dest="use_bbr",
         default=False,
         help="Always use boundary-based registration (no goodness-of-fit checks)",
     )
-    g_conf.add_argument(
+    g_use_bbr.add_argument(
         "--force-no-bbr",
         action="store_false",
         dest="use_bbr",
+        default=None,
+        help="Do not use boundary-based registration (no goodness-of-fit checks)",
+    )
+
+    g_use_ge = g_conf.add_mutually_exclusive_group()
+    g_use_ge.add_argument(
+        "--force-ge",
+        action="store_true",
+        dest="use_ge",
+        default=None,
+        help="Always use boundary-based registration (no goodness-of-fit checks)",
+    )
+    g_use_ge.add_argument(
+        "--force-no-ge",
+        action="store_false",
+        dest="use_ge",
         default=None,
         help="Do not use boundary-based registration (no goodness-of-fit checks)",
     )
