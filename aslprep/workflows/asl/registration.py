@@ -18,13 +18,18 @@ from niworkflows.utils.images import dseg_label
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.utils.misc import _conditional_downsampling, _select_first_in_list
+from aslprep.utils.misc import (
+    _conditional_downsampling,
+    _select_first_in_list,
+    fill_doc,
+)
 from aslprep.workflows.asl.util import init_asl_reference_wf
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
 
 
+@fill_doc
 def init_asl_reg_wf(
     use_bbr,
     asl2t1w_dof,
@@ -61,16 +66,11 @@ def init_asl_reg_wf(
     asl2t1w_init : str, 'header' or 'register'
         If ``'header'``, use header information for initialization of ASL and T1 images.
         If ``'register'``, align volumes by their centers.
-    mem_gb : :obj:`float`
-        Size of ASL file in GB
-    omp_nthreads : :obj:`int`
-        Maximum number of threads an individual process may use
-    name : :obj:`str`
-        Name of workflow (default: ``asl_reg_wf``)
-    use_compression : :obj:`bool`
-        Save registered ASL series as ``.nii.gz``
+    sloppy
     write_report : :obj:`bool`
         Whether a reportlet should be stored
+    %(name)s : :obj:`str`
+        Default is "asl_reg_wf".
 
     Inputs
     ------
@@ -104,7 +104,7 @@ def init_asl_reg_wf(
                 "ref_asl_brain",
                 "t1w_brain",
                 "t1w_dseg",
-            ]
+            ],
         ),
         name="inputnode",
     )
@@ -115,7 +115,7 @@ def init_asl_reg_wf(
                 "aslref_to_anat_xfm",
                 "anat_to_aslref_xfm",
                 "fallback",
-            ]
+            ],
         ),
         name="outputnode",
     )
@@ -165,6 +165,7 @@ def init_asl_reg_wf(
     return workflow
 
 
+@fill_doc
 def init_asl_t1_trans_wf(
     mem_gb,
     omp_nthreads,
@@ -200,16 +201,20 @@ def init_asl_t1_trans_wf(
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
         Maximum number of threads an individual process may use
+    is_multi_pld
+    %(scorescrub)s
+    %(basil)s
+    generate_reference
+    output_t1space
     use_compression : :obj:`bool`
         Save registered ASL series as ``.nii.gz``
-    name : :obj:`str`
-        Name of workflow (default: ``asl_reg_wf``)
+    %(name)s
+        Default is "asl_t1_trans_wf".
 
     Inputs
     ------
-    name_source
-        ASL series NIfTI file
-        Used to recover original information lost during processing
+    %(name_source)s
+        Used to recover original information lost during processing.
     ref_asl_brain
         Reference image to which ASL series is aligned
         If ``fieldwarp == True``, ``ref_asl_brain`` should be unwarped
@@ -243,7 +248,6 @@ def init_asl_t1_trans_wf(
     See also
     --------
       * :py:func:`~aslprep.workflows.asl.registration.init_fsl_bbr_wf`
-
     """
     workflow = Workflow(name=name)
 
@@ -327,7 +331,6 @@ def init_asl_t1_trans_wf(
         mem_gb=mem_gb * 3 * omp_nthreads,
         n_procs=omp_nthreads,
     )
-
     workflow.connect([(gen_ref, asl_to_t1w_transform, [("out_file", "reference_image")])])
 
     # Merge transforms, placing the head motion correction last
@@ -457,6 +460,7 @@ def init_asl_t1_trans_wf(
     return workflow
 
 
+@fill_doc
 def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_bbr_wf"):
     """Build a workflow to run FSL's ``flirt``.
 
@@ -498,8 +502,9 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
     asl2t1w_init : str, 'header' or 'register'
         If ``'header'``, use header information for initialization of ASL and T1 images.
         If ``'register'``, align volumes by their centers.
-    name : :obj:`str`, optional
-        Workflow name (default: fsl_bbr_wf)
+    sloppy
+    %(name)s
+        Default is "fsl_bbr_wf".
 
     Inputs
     ------
@@ -509,7 +514,6 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
         Skull-stripped T1-weighted structural image
     t1w_dseg
         FAST segmentation of ``t1w_brain``
-
 
     Outputs
     -------
@@ -521,7 +525,6 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
         Reportlet for assessing registration quality
     fallback
         Boolean indicating whether BBR was rejected (rigid FLIRT registration returned)
-
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = f"""\
@@ -538,7 +541,7 @@ and the overlap between the ASL and reference images (e.g., image coverage).
                 "in_file",
                 "t1w_dseg",
                 "t1w_brain",
-            ]
+            ],
         ),
         name="inputnode",
     )
@@ -549,7 +552,7 @@ and the overlap between the ASL and reference images (e.g., image coverage).
                 "anat_to_aslref_xfm",
                 "out_report",
                 "fallback",
-            ]
+            ],
         ),
         name="outputnode",
     )
@@ -573,8 +576,7 @@ and the overlap between the ASL and reference images (e.g., image coverage).
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
 
-    # ASL to T1 transform matrix is from fsl, using c3 tools to convert to
-    # something ANTs will like.
+    # ASL to T1 transform matrix is from FSL, using c3 tools to convert to something ANTs will like
     fsl2itk_fwd = pe.Node(
         c3.C3dAffineTool(fsl2ras=True, itk_transform=True),
         name="fsl2itk_fwd",

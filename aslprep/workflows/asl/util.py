@@ -90,12 +90,15 @@ def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullst
         reportlet for the skull-stripping
     """
     workflow = Workflow(name=name)
+
     inputnode = pe.Node(niu.IdentityInterface(fields=["in_file", "pre_mask"]), name="inputnode")
     outputnode = pe.Node(
         niu.IdentityInterface(fields=["mask_file", "skull_stripped_file", "bias_corrected_file"]),
         name="outputnode",
     )
 
+    # This line is only included so we don't get warnings about unused arguments.
+    # I (TS) don't know why pre_mask is an argument, but modified sdcflows functions use it.
     pre_mask = pre_mask
 
     # Ensure mask's header matches reference's
@@ -110,8 +113,20 @@ def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullst
     )
     n4_correct.inputs.rescale_intensities = True
 
+    # fmt:off
+    workflow.connect([
+        (inputnode, n4_correct, [
+            ("in_file", "mask_image"),
+            ("in_file", "input_image"),
+        ]),
+        (n4_correct, outputnode, [("output_image", "bias_corrected_file")]),
+    ])
+    # fmt:on
+
     # Create a generous BET mask out of the bias-corrected EPI
     skullstrip_first_pass = pe.Node(fsl.BET(frac=0.2, mask=True), name="skullstrip_first_pass")
+    workflow.connect([(n4_correct, skullstrip_first_pass, [("output_image", "in_file")])])
+
     bet_dilate = pe.Node(
         fsl.DilateImage(
             operation="max",
@@ -121,7 +136,16 @@ def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullst
         ),
         name="skullstrip_first_dilate",
     )
+    workflow.connect([(skullstrip_first_pass, bet_dilate, [("mask_file", "in_file")])])
+
     bet_mask = pe.Node(fsl.ApplyMask(), name="skullstrip_first_mask")
+
+    # fmt:off
+    workflow.connect([
+        (bet_dilate, bet_mask, [("out_file", "mask_file")]),
+        (skullstrip_first_pass, bet_mask, [("out_file", "in_file")]),
+    ])
+    # fmt:on
 
     # Use AFNI's unifize for T2 constrast & fix header
     unifize = pe.Node(
@@ -135,46 +159,56 @@ def init_enhance_and_skullstrip_asl_wf(pre_mask=False, name="enhance_and_skullst
         ),
         name="unifize",
     )
+    workflow.connect([(bet_mask, unifize, [("out_file", "in_file")])])
+
     fixhdr_unifize = pe.Node(CopyXForm(), name="fixhdr_unifize", mem_gb=0.1)
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, fixhdr_unifize, [("in_file", "hdr_file")]),
+        (unifize, fixhdr_unifize, [("out_file", "in_file")]),
+    ])
+    # fmt:on
 
     # Run AFNI's 3dAutomask to extract a refined brain mask
     skullstrip_second_pass = pe.Node(
         afni.Automask(dilate=1, outputtype="NIFTI_GZ"),
         name="skullstrip_second_pass",
     )
+    workflow.connect([(fixhdr_unifize, skullstrip_second_pass, [("out_file", "in_file")])])
+
     fixhdr_skullstrip2 = pe.Node(CopyXForm(), name="fixhdr_skullstrip2", mem_gb=0.1)
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, fixhdr_skullstrip2, [("in_file", "hdr_file")]),
+        (skullstrip_second_pass, fixhdr_skullstrip2, [("out_file", "in_file")]),
+    ])
+    # fmt:on
 
     # Take intersection of both masks
     combine_masks = pe.Node(fsl.BinaryMaths(operation="mul"), name="combine_masks")
+
+    # fmt:off
+    workflow.connect([
+        (skullstrip_first_pass, combine_masks, [("mask_file", "in_file")]),
+        (fixhdr_skullstrip2, combine_masks, [("out_file", "operand_file")]),
+        (combine_masks, outputnode, [("out_file", "mask_file")]),
+    ])
+    # fmt:on
 
     # Compute masked brain
     apply_mask = pe.Node(fsl.ApplyMask(), name="apply_mask")
 
     # binarize_mask = pe.Node(Binarize(thresh_low=brainmask_thresh), name="binarize_mask")
 
-    # fmt: off
+    # fmt:off
     workflow.connect([
-        (inputnode, n4_correct, [("in_file", "mask_image")]),
-        (inputnode, n4_correct, [("in_file", "input_image")]),
-        (inputnode, fixhdr_unifize, [("in_file", "hdr_file")]),
-        (inputnode, fixhdr_skullstrip2, [("in_file", "hdr_file")]),
-        (n4_correct, skullstrip_first_pass, [("output_image", "in_file")]),
-        (skullstrip_first_pass, bet_dilate, [("mask_file", "in_file")]),
-        (bet_dilate, bet_mask, [("out_file", "mask_file")]),
-        (skullstrip_first_pass, bet_mask, [("out_file", "in_file")]),
-        (bet_mask, unifize, [("out_file", "in_file")]),
-        (unifize, fixhdr_unifize, [("out_file", "in_file")]),
-        (fixhdr_unifize, skullstrip_second_pass, [("out_file", "in_file")]),
-        (skullstrip_first_pass, combine_masks, [("mask_file", "in_file")]),
-        (skullstrip_second_pass, fixhdr_skullstrip2, [("out_file", "in_file")]),
-        (fixhdr_skullstrip2, combine_masks, [("out_file", "operand_file")]),
         (fixhdr_unifize, apply_mask, [("out_file", "in_file")]),
         (combine_masks, apply_mask, [("out_file", "mask_file")]),
-        (combine_masks, outputnode, [("out_file", "mask_file")]),
         (apply_mask, outputnode, [("out_file", "skull_stripped_file")]),
-        (n4_correct, outputnode, [("output_image", "bias_corrected_file")]),
     ])
-    # fmt: on
+    # fmt:on
 
     return workflow
 
@@ -243,7 +277,6 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
         mem_gb=DEFAULT_MEMORY_MIN_GB,
         iterfield=["in_file"],
     )
-
     workflow.connect([(inputnode, val_asl, [(("asl_file", listify), "in_file")])])
 
     asl_1st = pe.Node(niu.Select(index=[0]), name="asl_1st", run_without_submitting=True)
@@ -337,11 +370,6 @@ def init_asl_reference_wf(
         Skull-stripping mask of reference image
     validation_report : str
         HTML reportlet indicating whether ``asl_file`` had a valid affine
-
-
-    Subworkflows
-        * :py:func:`~niworkflows.func.util.init_enhance_and_skullstrip_wf`
-
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -404,7 +432,6 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
         mem_gb=DEFAULT_MEMORY_MIN_GB,
         iterfield=["in_file"],
     )
-
     workflow.connect([(select_reference_volumes, val_asl, [(("out_file", listify), "in_file")])])
 
     gen_ref = pe.Node(EstimateReferenceImage(), name="gen_ref", mem_gb=1)
@@ -439,6 +466,7 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
+
     # fmt:off
     workflow.connect([
         (inputnode, calc_dummy_scans, [("dummy_scans", "dummy_scans")]),
@@ -458,12 +486,12 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
 
     validate_1st = pe.Node(niu.Select(index=[0]), name="validate_1st", run_without_submitting=True)
 
-    # fmt: off
+    # fmt:off
     workflow.connect([
         (val_asl, validate_1st, [(("out_report", listify), "inlist")]),
         (validate_1st, outputnode, [("out", "validation_report")]),
     ])
-    # fmt: on
+    # fmt:on
 
     if sbref_files:
         nsbrefs = 0
@@ -478,12 +506,12 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
             mem_gb=DEFAULT_MEMORY_MIN_GB,
             iterfield=["in_file"],
         )
-        # fmt: off
+        # fmt:off
         workflow.connect([
             (inputnode, val_sbref, [(("sbref_file", listify), "in_file")]),
             (val_sbref, gen_ref, [("out_file", "sbref_file")]),
         ])
-        # fmt: on
+        # fmt:on
 
         # Edit the boilerplate as the SBRef will be the reference
         workflow.__desc__ = f"""\
@@ -494,13 +522,13 @@ by aligning and averaging
 
     if gen_report:
         mask_reportlet = pe.Node(SimpleShowMaskRPT(), name="mask_reportlet")
-        # fmt: off
+        # fmt:off
         workflow.connect([
             (enhance_and_skullstrip_asl_wf, mask_reportlet, [
                 ("outputnode.bias_corrected_file", "background_file"),
                 ("outputnode.mask_file", "mask_file"),
             ]),
         ])
-        # fmt: on
+        # fmt:on
 
     return workflow

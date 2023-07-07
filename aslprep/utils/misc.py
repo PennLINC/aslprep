@@ -137,6 +137,18 @@ def _select_last_in_list(lst):
     return lst[-1]
 
 
+def _pick_gm(files):
+    return files[0]
+
+
+def _pick_wm(files):
+    return files[1]
+
+
+def _pick_csf(files):
+    return files[2]
+
+
 def _conditional_downsampling(in_file, in_mask, zoom_th=4.0):
     """Downsample the input dataset for sloppy mode."""
     from pathlib import Path

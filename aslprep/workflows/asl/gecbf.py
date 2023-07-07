@@ -260,10 +260,7 @@ effects of other kernels [@lanczos].
         basil=basil,
         output_confounds=False,  # GE workflow doesn't generate volume-wise confounds
     )
-
-    # fmt:off
     workflow.connect([(inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")])])
-    # fmt:on
 
     # begin workflow
     # Extract averaged, smoothed M0 image and reference image (which is generally the M0 image).
@@ -288,7 +285,6 @@ effects of other kernels [@lanczos].
     # can be applied with other transforms in single shots.
     # This will be useful for GE/non-GE integration.
     asl_split = pe.Node(Split(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
-
     workflow.connect([(inputnode, asl_split, [("asl_file", "in_file")])])
 
     # Set HMC xforms and fieldwarp to "identity" since neither is performed for GE data.

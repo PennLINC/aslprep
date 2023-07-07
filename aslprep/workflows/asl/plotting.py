@@ -9,9 +9,10 @@ from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummary, CBFtsSummary
-from aslprep.utils.misc import get_template_str
+from aslprep.utils.misc import fill_doc, get_template_str
 
 
+@fill_doc
 def init_plot_cbf_wf(
     metadata,
     plot_timeseries=True,
@@ -31,6 +32,15 @@ def init_plot_cbf_wf(
             wf = init_plot_cbf_wf(
                 metadata={"RepetitionTimePreparation": 4},
             )
+
+    Parameters
+    ----------
+    metadata
+    plot_timeseries
+    %(scorescrub)s
+    %(basil)s
+    %(name)s
+        Default is "plot_cbf_wf".
     """
     workflow = Workflow(name=name)
 
