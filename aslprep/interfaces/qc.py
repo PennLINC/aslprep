@@ -71,8 +71,8 @@ class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
 
 
 class _ComputeCBFQCOutputSpec(TraitedSpec):
-    qc_file = File(exists=False, desc="qc file ")
-    qc_metadata = traits.Dict(desc="qc metadata")
+    qc_file = File(exists=True, desc="qc file")
+    qc_metadata = File(exists=True, desc="qc metadata")
 
 
 class ComputeCBFQC(SimpleInterface):
