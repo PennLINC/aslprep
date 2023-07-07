@@ -31,6 +31,7 @@ def init_compute_cbf_qc_wf(
 
             wf = init_compute_cbf_qc_wf(
                 is_ge=False,
+                output_dir=".",
                 scorescrub=True,
                 basil=True,
                 name="compute_cbf_qc_wf",

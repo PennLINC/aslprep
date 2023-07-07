@@ -623,6 +623,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Generate QC metrics
     compute_cbf_qc_wf = init_compute_cbf_qc_wf(
         is_ge=False,
+        output_dir=output_dir,
         scorescrub=scorescrub,
         basil=basil,
         name="compute_cbf_qc_wf",

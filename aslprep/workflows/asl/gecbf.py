@@ -461,6 +461,7 @@ effects of other kernels [@lanczos].
     # Generate QC metrics
     compute_cbf_qc_wf = init_compute_cbf_qc_wf(
         is_ge=True,
+        output_dir=output_dir,
         scorescrub=scorescrub,
         basil=basil,
         name="compute_cbf_qc_wf",
