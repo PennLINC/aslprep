@@ -9,8 +9,10 @@ from smriprep.workflows.outputs import _bids_relative
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
+from aslprep.utils.misc import fill_doc
 
 
+@fill_doc
 def init_asl_derivatives_wf(
     bids_root,
     metadata,
@@ -30,8 +32,7 @@ def init_asl_derivatives_wf(
         Original BIDS dataset path.
     metadata : :obj:`dict`
         Metadata dictionary associated to the ASL run.
-    output_dir : :obj:`str`
-        Where derivatives should be written out to.
+    %(output_dir)s
     spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
         A container for storing, organizing, and parsing spatial normalizations. Composed of
         :py:class:`~niworkflows.utils.spaces.Reference` objects representing spatial references.
@@ -43,8 +44,11 @@ def init_asl_derivatives_wf(
         would lead to resampling on a 2mm resolution of the space).
     is_multi_pld : :obj:`bool`
         True if data are multi-delay, False otherwise.
-    name : :obj:`str`
-        This workflow's identifier (default: ``func_derivatives_wf``).
+    output_confounds
+    %(scorescrub)s
+    %(basil)s
+    %(name)s
+        Default is "asl_derivatives_wf".
     """
     nonstd_spaces = set(spaces.get_nonstandard())
     workflow = Workflow(name=name)
@@ -119,10 +123,7 @@ def init_asl_derivatives_wf(
 
     raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
     raw_sources.inputs.bids_root = bids_root
-
-    # fmt:off
     workflow.connect([(inputnode, raw_sources, [("source_file", "in_files")])])
-    # fmt:on
 
     if output_confounds:
         ds_confounds = pe.Node(

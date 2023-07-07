@@ -1,6 +1,8 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for calculating CBF."""
+import os
+
 import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info, MultiImageMaths
@@ -27,8 +29,11 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
 )
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
+from aslprep.utils.doc import fill_doc
+from aslprep.utils.misc import _pick_csf, _pick_gm, _pick_wm
 
 
+@fill_doc
 def init_compute_cbf_wf(
     name_source,
     processing_target,
@@ -65,20 +70,24 @@ def init_compute_cbf_wf(
                     dummy_vols=0,
                     scorescrub=True,
                     basil=True,
+                    m0_scale=1,
+                    smooth_kernel=5,
+                    name="compute_cbf_wf",
                 )
 
     Parameters
     ----------
-    name_source : :obj:`str`
-        Path to the raw ASL file.
+    %(name_source)s
+    %(processing_target)s
     metadata : :obj:`dict`
-        BIDS metadata for asl file
-    scorescrub
-    basil
-    m0_scale
-    smooth_kernel
-    name : :obj:`str`
-        Name of workflow (default: ``compute_cbf_wf``)
+        BIDS metadata for ASL file.
+    %(dummy_vols)s
+    %(scorescrub)s
+    %(basil)s
+    %(m0_scale)s
+    %(smooth_kernel)s
+    %(name)s
+        Default is ``compute_cbf_wf``.
 
     Inputs
     ------
@@ -251,20 +260,6 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
     # fmt:on
 
     # Warp tissue probability maps to ASL space
-    def _pick_gm(files):
-        return files[0]
-
-    def _pick_wm(files):
-        return files[1]
-
-    def _pick_csf(files):
-        return files[2]
-
-    def _getfiledir(file):
-        import os
-
-        return os.path.dirname(file)
-
     gm_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),
         name="gm_tfm",
@@ -463,7 +458,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         workflow.connect([
             (refine_mask, basilcbf, [("out_mask", "mask")]),
             (extract_deltam, basilcbf, [
-                (("m0_file", _getfiledir), "out_basename"),
+                (("m0_file", os.path.dirname), "out_basename"),
                 ("out_file", "deltam"),
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
@@ -485,6 +480,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
     return workflow
 
 
+@fill_doc
 def init_compute_cbf_ge_wf(
     name_source,
     aslcontext,
@@ -518,7 +514,23 @@ def init_compute_cbf_ge_wf(
                     aslcontext=str(perf_dir / "sub-01_aslcontext.tsv"),
                     metadata=metadata,
                     mem_gb=0.1,
+                    m0_scale=1,
+                    scorescrub=True,
+                    basil=True,
+                    name="compute_cbf_wf",
                 )
+
+    Parameters
+    ----------
+    %(name_source)s
+    aslcontext
+    metadata
+    %(mem_gb)s
+    %(m0_scale)s
+    %(scorescrub)s
+    %(basil)s
+    %(name)s
+        Default is "compute_cbf_wf",
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -571,20 +583,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         ),
         name="outputnode",
     )
-
-    def _pick_gm(files):
-        return files[0]
-
-    def _pick_wm(files):
-        return files[1]
-
-    def _pick_csf(files):
-        return files[2]
-
-    def _getfiledir(file):
-        import os
-
-        return os.path.dirname(file)
 
     # convert tmps to asl_space
     # extract probability maps
@@ -832,7 +830,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
         # fmt:off
         workflow.connect([
             (inputnode, basilcbf, [
-                (("asl_mask", _getfiledir), "out_basename"),
+                (("asl_mask", os.path.dirname), "out_basename"),
                 ("m0_file", "mzero"),
                 ("m0tr", "m0tr"),
             ]),

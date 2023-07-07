@@ -14,8 +14,10 @@ from aslprep.interfaces.utility import (
     PairwiseRMSDiff,
     SplitOutVolumeType,
 )
+from aslprep.utils.misc import fill_doc
 
 
+@fill_doc
 def init_asl_hmc_wf(
     processing_target,
     m0type,
@@ -46,12 +48,10 @@ def init_asl_hmc_wf(
 
     Parameters
     ----------
-    processing_target : {"controllabel", "deltam", "cbf"}
+    %(processing_target)s
     m0type : {"Separate", "Included", "Absent", "Estimate"}
-    mem_gb : :obj:`float`
-        Size of ASL file in GB
-    omp_nthreads : :obj:`int`
-        Maximum number of threads an individual process may use
+    %(mem_gb)s
+    %(omp_nthreads)s
     name : :obj:`str`
         Name of workflow (default: ``asl_hmc_wf``)
 
@@ -61,8 +61,7 @@ def init_asl_hmc_wf(
         Control-label pair series NIfTI file.
         If an ASL run contains M0 volumes, deltaM volumes, or CBF volumes,
         those volumes should be removed before running this workflow.
-    aslcontext
-        ASL context TSV file.
+    %(aslcontext)s
     raw_ref_image
         Reference image to which ASL series is motion corrected
 
@@ -132,7 +131,6 @@ Head-motion parameters were estimated for the ASL data using *FSL*'s `mcflirt` [
         CombineMotionParameters(m0type=m0type, processing_target=processing_target),
         name="combine_motpars",
     )
-
     workflow.connect([(inputnode, combine_motpars, [("aslcontext", "aslcontext")])])
 
     files_to_mcflirt = []

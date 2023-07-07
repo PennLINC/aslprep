@@ -96,7 +96,7 @@ def init_asl_preproc_wf(asl_file):
     mean_cbf_score_t1
         mean score cbf  in T1w space
     mean_cbf_scrub_t1, mean_cbf_gm_basil_t1, mean_cbf_basil_t1
-        scrub, parital volume corrected and basil cbf   in T1w space
+        scrub, partial volume corrected, and basil cbf in T1w space
     cbf_ts_std
         cbf times series in template space
     mean_cbf_std
@@ -607,9 +607,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 (asl_reg_wf, syn_unwarp_report_wf, [
                     ("outputnode.anat_to_aslref_xfm", "inputnode.in_xfm"),
                 ]),
-                (asl_sdc_wf, syn_unwarp_report_wf, [
-                    ("outputnode.syn_ref", "inputnode.in_post"),
-                ]),
+                (asl_sdc_wf, syn_unwarp_report_wf, [("outputnode.syn_ref", "inputnode.in_post")]),
             ])
             # fmt:on
 
@@ -707,7 +705,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         # NOTE: Can this be bundled into the ASL-T1w transform workflow?
         aslmask_to_t1w = pe.Node(
-            ApplyTransforms(interpolation="MultiLabel"), name="aslmask_to_t1w", mem_gb=0.1
+            ApplyTransforms(interpolation="MultiLabel"),
+            name="aslmask_to_t1w",
+            mem_gb=0.1,
         )
 
         # fmt:off
@@ -763,11 +763,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:on
 
         # For GE data, asl-asl, asl-T1, and asl-std should all have "identity" for HMC/SDC.
-        # fmt:off
-        workflow.connect([
-            (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
-        ])
-        # fmt:on
+        workflow.connect([(asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")])])
 
         # asl_derivatives_wf internally parametrizes over snapshotted spaces.
         for cbf_deriv in cbf_derivs:
@@ -821,9 +817,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     for cbf_deriv in cbf_derivs:
         # fmt:off
         workflow.connect([
-            (compute_cbf_wf, plot_cbf_wf, [
-                (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
-            ]),
+            (compute_cbf_wf, plot_cbf_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
         ])
         # fmt:on
 

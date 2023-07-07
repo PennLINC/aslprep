@@ -10,9 +10,16 @@ from templateflow.api import get as get_template
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.qc import ComputeCBFQC
-from aslprep.utils.misc import _select_last_in_list
+from aslprep.utils.misc import (
+    _pick_csf,
+    _pick_gm,
+    _pick_wm,
+    _select_last_in_list,
+    fill_doc,
+)
 
 
+@fill_doc
 def init_compute_cbf_qc_wf(
     is_ge,
     output_dir,
@@ -40,11 +47,11 @@ def init_compute_cbf_qc_wf(
     Parameters
     ----------
     is_ge : bool
-    output_dir : str
-    scorescrub : bool
-    basil : bool
-    name : :obj:`str`
-        Name of workflow (default: "compute_cbf_qc_wf")
+    %(output_dir)s
+    %(scorescrub)s
+    %(basil)s
+    %(name)s
+        Default is "compute_cbf_qc_wf".
 
     Inputs
     ------
@@ -94,15 +101,6 @@ negative CBF values.
         name="inputnode",
     )
     outputnode = pe.Node(niu.IdentityInterface(fields=["qc_file"]), name="outputnode")
-
-    def _pick_gm(files):
-        return files[0]
-
-    def _pick_wm(files):
-        return files[1]
-
-    def _pick_csf(files):
-        return files[2]
 
     gm_tfm = pe.Node(
         ApplyTransforms(interpolation="NearestNeighbor", float=True),
@@ -168,19 +166,17 @@ negative CBF values.
     ])
     # fmt:on
 
-    brain_mask = str(
-        get_template("MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask")
-    )
-
     resample = pe.Node(
-        Resample(in_file=brain_mask, outputtype="NIFTI_GZ"),
+        Resample(
+            in_file=str(
+                get_template("MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask")
+            ),
+            outputtype="NIFTI_GZ",
+        ),
         name="resample",
         mem_gb=0.1,
     )
-
-    # fmt:off
     workflow.connect([(inputnode, resample, [(("asl_mask_std", _select_last_in_list), "master")])])
-    # fmt:on
 
     compute_qc_metrics = pe.Node(
         ComputeCBFQC(tpm_threshold=0.7),

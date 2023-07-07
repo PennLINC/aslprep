@@ -39,6 +39,7 @@ def init_asl_confounds_wf(
 
             wf = init_asl_confounds_wf(
                 mem_gb=1,
+                name="asl_confounds_wf",
             )
 
     Parameters
@@ -51,7 +52,6 @@ def init_asl_confounds_wf(
         BIDS metadata for asl file
     name : :obj:`str`
         Name of workflow (default: ``asl_confounds_wf``)
-
 
     Inputs
     ------
@@ -99,12 +99,13 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
                 "t1w_mask",
                 "t1w_tpms",
                 "anat_to_aslref_xfm",
-            ]
+            ],
         ),
         name="inputnode",
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["confounds_file", "confounds_metadata"]), name="outputnode"
+        niu.IdentityInterface(fields=["confounds_file", "confounds_metadata"]),
+        name="outputnode",
     )
 
     # DVARS
@@ -113,9 +114,18 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         name="dvars",
         mem_gb=mem_gb,
     )
+    # fmt:off
+    workflow.connect([
+        (inputnode, dvars, [
+            ("asl", "in_file"),
+            ("asl_mask", "in_mask"),
+        ]),
+    ])
+    # fmt:on
 
     # Frame displacement
     fdisp = pe.Node(nac.FramewiseDisplacement(parameter_source="SPM"), name="fdisp", mem_gb=mem_gb)
+    workflow.connect([(inputnode, fdisp, [("movpar_file", "in_file")])])
 
     # Global and segment regressors
     # signals_class_labels = ["csf", "white_matter", "global_signal"]
@@ -127,46 +137,42 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         mem_gb=0.01,
         run_without_submitting=True,
     )
+    workflow.connect([(dvars, add_dvars_header, [("out_nstd", "in_file")])])
+
     add_std_dvars_header = pe.Node(
         AddTSVHeader(columns=["std_dvars"]),
         name="add_std_dvars_header",
         mem_gb=0.01,
         run_without_submitting=True,
     )
+    workflow.connect([(dvars, add_std_dvars_header, [("out_std", "in_file")])])
+
     add_motion_headers = pe.Node(
         AddTSVHeader(columns=["trans_x", "trans_y", "trans_z", "rot_x", "rot_y", "rot_z"]),
         name="add_motion_headers",
         mem_gb=0.01,
         run_without_submitting=True,
     )
+    workflow.connect([(inputnode, add_motion_headers, [("movpar_file", "in_file")])])
+
     add_rmsd_header = pe.Node(
         AddTSVHeader(columns=["rmsd"]),
         name="add_rmsd_header",
         mem_gb=0.01,
         run_without_submitting=True,
     )
+    workflow.connect([(inputnode, add_rmsd_header, [("rmsd_file", "in_file")])])
+
     concat = pe.Node(GatherConfounds(), name="concat", mem_gb=0.01, run_without_submitting=True)
 
     # Expand model to include derivatives and quadratics
     # fmt:off
     workflow.connect([
-        # Connect inputnode to each non-anatomical confound node
-        (inputnode, dvars, [
-            ("asl", "in_file"),
-            ("asl_mask", "in_mask"),
-        ]),
-        (inputnode, fdisp, [("movpar_file", "in_file")]),
-        # Collate computed confounds together
-        (inputnode, add_motion_headers, [("movpar_file", "in_file")]),
-        (inputnode, add_rmsd_header, [("rmsd_file", "in_file")]),
-        (dvars, add_dvars_header, [("out_nstd", "in_file")]),
-        (dvars, add_std_dvars_header, [("out_std", "in_file")]),
         (fdisp, concat, [("out_file", "fd")]),
         (add_motion_headers, concat, [("out_file", "motion")]),
         (add_rmsd_header, concat, [("out_file", "rmsd")]),
         (add_dvars_header, concat, [("out_file", "dvars")]),
         (add_std_dvars_header, concat, [("out_file", "std_dvars")]),
-        # Set outputs
         (concat, outputnode, [("confounds_file", "confounds_file")]),
     ])
     # fmt:on
@@ -224,6 +230,15 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
     # List transforms
     mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
 
+    # fmt:off
+    workflow.connect([
+        (inputnode, mrg_xfms, [
+            ("anat_to_aslref_xfm", "in1"),
+            ("template_to_anat_xfm", "in2"),
+        ]),
+    ])
+    # fmt:on
+
     # Warp segmentation into EPI space
     resample_parc = pe.Node(
         ApplyTransforms(
@@ -244,6 +259,13 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
         name="resample_parc",
     )
 
+    # fmt:off
+    workflow.connect([
+        (inputnode, resample_parc, [("asl_mask", "reference_image")]),
+        (mrg_xfms, resample_parc, [("out", "transforms")]),
+    ])
+    # fmt:on
+
     # Carpetplot and confounds plot
     conf_plot = pe.Node(
         ASLSummary(
@@ -253,30 +275,24 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
         name="conf_plot",
         mem_gb=mem_gb,
     )
-    ds_report_asl_conf = pe.Node(
-        DerivativesDataSink(desc="carpetplot", datatype="figures", keep_dtype=True),
-        name="ds_report_asl_conf",
-        run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
-    )
 
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [
-            ("anat_to_aslref_xfm", "in1"),
-            ("template_to_anat_xfm", "in2"),
-        ]),
-        (inputnode, resample_parc, [("asl_mask", "reference_image")]),
-        (mrg_xfms, resample_parc, [("out", "transforms")]),
-        # Carpetplot
         (inputnode, conf_plot, [
             ("asl", "in_func"),
             ("asl_mask", "in_mask"),
             ("confounds_file", "confounds_file"),
         ]),
         (resample_parc, conf_plot, [("output_image", "in_segm")]),
-        (conf_plot, ds_report_asl_conf, [("out_file", "in_file")]),
     ])
     # fmt:on
+
+    ds_report_asl_conf = pe.Node(
+        DerivativesDataSink(desc="carpetplot", datatype="figures", keep_dtype=True),
+        name="ds_report_asl_conf",
+        run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
+    workflow.connect([(conf_plot, ds_report_asl_conf, [("out_file", "in_file")])])
 
     return workflow

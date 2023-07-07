@@ -10,12 +10,14 @@ from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ge import GeReferenceFile
+from aslprep.utils.misc import fill_doc
 from aslprep.workflows.asl.registration import init_fsl_bbr_wf
 
 DEFAULT_MEMORY_MIN_GB = config.DEFAULT_MEMORY_MIN_GB
 LOGGER = config.loggers.workflow
 
 
+@fill_doc
 def init_asl_reference_ge_wf(
     metadata,
     aslcontext,
@@ -43,7 +45,16 @@ def init_asl_reference_ge_wf(
                 wf = init_asl_reference_ge_wf(
                     metadata=metadata,
                     aslcontext=str(perf_dir / "sub-01_aslcontext.tsv"),
+                    smooth_kernel=5,
+                    name="asl_reference_ge_wf",
                 )
+
+    Parameters
+    ----------
+    metadata
+    %(aslcontext)s
+    %(smooth_kernel)s
+    %(name)s
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -128,6 +139,7 @@ First, a reference volume and its skull-stripped version were generated.
     return workflow
 
 
+@fill_doc
 def init_asl_reg_ge_wf(
     use_bbr,
     asl2t1w_dof,
@@ -150,6 +162,16 @@ def init_asl_reg_ge_wf(
                 asl2t1w_dof=9,
                 asl2t1w_init="register",
             )
+
+    Parameters
+    ----------
+    use_bbr
+    asl2t1w_dof
+    asl2t1w_init
+    sloppy
+    write_report
+    %(name)s:
+        Default is "asl_reg_ge_wf".
     """
     workflow = Workflow(name=name)
     inputnode = pe.Node(
