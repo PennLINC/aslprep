@@ -5,6 +5,7 @@ aslprep/logs/CITATION.md
 aslprep/logs/CITATION.tex
 aslprep/sub-A00086748
 aslprep/sub-A00086748.html
+aslprep/qc.json
 aslprep/sub-A00086748/ses-BAS1
 aslprep/sub-A00086748/ses-BAS1/perf
 aslprep/sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_aslref.json

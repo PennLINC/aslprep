@@ -8,12 +8,14 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from templateflow.api import get as get_template
 
 from aslprep.interfaces.ants import ApplyTransforms
+from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.qc import ComputeCBFQC
 from aslprep.utils.misc import _select_last_in_list
 
 
 def init_compute_cbf_qc_wf(
     is_ge,
+    output_dir,
     scorescrub=False,
     basil=False,
     name="compute_cbf_qc_wf",
@@ -37,6 +39,7 @@ def init_compute_cbf_qc_wf(
     Parameters
     ----------
     is_ge : bool
+    output_dir : str
     scorescrub : bool
     basil : bool
     name : :obj:`str`
@@ -199,6 +202,25 @@ negative CBF values.
         (wm_tfm, compute_qc_metrics, [("output_image", "wm_tpm")]),
         (csf_tfm, compute_qc_metrics, [("output_image", "csf_tpm")]),
         (compute_qc_metrics, outputnode, [("qc_file", "qc_file")]),
+    ])
+    # fmt:on
+
+    ds_qc_metadata = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            dismiss_entities=list(DerivativesDataSink._allowed_entities),
+            allowed_entities=[],
+            suffix="qc",
+            extension=".json",
+        ),
+        name="ds_qc_metadata",
+        run_without_submitting=True,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_qc_metadata, [("name_source", "source_file")]),
+        (compute_qc_metrics, ds_qc_metadata, [("qc_metadata", "in_file")]),
     ])
     # fmt:on
 

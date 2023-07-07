@@ -5,6 +5,7 @@ aslprep/logs/CITATION.md
 aslprep/logs/CITATION.tex
 aslprep/sub-103
 aslprep/sub-103.html
+aslprep/qc.json
 aslprep/sub-103/ses-ge3d
 aslprep/sub-103/ses-ge3d/perf
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_aslref.json
