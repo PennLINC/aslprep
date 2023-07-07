@@ -5,6 +5,7 @@ aslprep/logs/CITATION.md
 aslprep/logs/CITATION.tex
 aslprep/sub-01
 aslprep/sub-01.html
+aslprep/qc.json
 aslprep/sub-01/ses-BAS1
 aslprep/sub-01/ses-BAS1/perf
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_aslref.json

@@ -6,25 +6,37 @@ from scipy.stats import gmean
 
 
 def dice(input1, input2):
-    """Compute Dice coefficient between the binary objects in two images.
+    r"""Calculate Dice coefficient between two arrays.
+
+    Computes the Dice coefficient (also known as Sorensen index) between two binary images.
+
+    The metric is defined as
+
+    .. math::
+
+        DC=\frac{2|A\cap B|}{|A|+|B|}
+
+    , where :math:`A` is the first and :math:`B` the second set of samples (here: binary objects).
+    This method was first proposed in :footcite:t:`dice1945measures` and
+    :footcite:t:`sorensen1948method`.
 
     Parameters
     ----------
-    input1 : str
-        Input data containing objects. Can be any type but will be converted
-        into binary: background where 0, object everywhere else.
-    input2 : str
-        Input data containing objects. Can be any type but will be converted
-        into binary: background where 0, object everywhere else.
+    input1/input2 : :obj:`numpy.ndarray`
+        Numpy arrays to compare.
+        Can be any type but will be converted into binary:
+        False where 0, True everywhere else.
 
     Returns
     -------
-    coef : float
-        The Dice coefficient between the object(s) in ```input1``` and the
-        object(s) in ```input2```. It ranges from 0 (no overlap) to 1 (perfect overlap).
+    coef : :obj:`float`
+        The Dice coefficient between ``input1`` and ``input2``.
+        It ranges from 0 (no overlap) to 1 (perfect overlap).
+
+    References
+    ----------
+    .. footbibliography::
     """
-    input1 = nb.load(input1).get_fdata()
-    input2 = nb.load(input2).get_fdata()
     input1 = np.atleast_1d(input1.astype(bool))
     input2 = np.atleast_1d(input2.astype(bool))
 
@@ -33,10 +45,10 @@ def dice(input1, input2):
     size_i1 = np.count_nonzero(input1)
     size_i2 = np.count_nonzero(input2)
 
-    try:
-        coef = 2.0 * intersection / float(size_i1 + size_i2)
-    except ZeroDivisionError:
-        coef = 0.0
+    if (size_i1 + size_i2) == 0:
+        coef = 0
+    else:
+        coef = (2 * intersection) / (size_i1 + size_i2)
 
     return coef
 
@@ -46,48 +58,84 @@ def jaccard(input1, input2):
 
     Parameters
     ----------
-    input1 : str
-        Input data containing objects. Can be any type but will be converted
-        into binary: background where 0, object everywhere else.
-    input2 : str
-        Input data containing objects. Can be any type but will be converted
-        into binary: background where 0, object everywhere else.
+    input1/input2 : :obj:`numpy.ndarray`
+        Numpy arrays to compare.
+        Can be any type but will be converted into binary:
+        False where 0, True everywhere else.
 
     Returns
     -------
     coef : float
-        The Jaccard coefficient between the object(s) in `input1` and the
-        object(s) in `input2`. It ranges from 0 (no overlap) to 1 (perfect overlap).
+        The Jaccard coefficient between ``input1`` and ``input2``.
+        It ranges from 0 (no overlap) to 1 (perfect overlap).
     """
-    input1 = nb.load(input1).get_fdata()
-    input2 = nb.load(input2).get_fdata()
     input1 = np.atleast_1d(input1.astype(bool))
     input2 = np.atleast_1d(input2.astype(bool))
 
     intersection = np.count_nonzero(input1 & input2)
     union = np.count_nonzero(input1 | input2)
 
-    return float(intersection) / float(union)
+    return intersection / union
 
 
-def crosscorr(input1, input2):
-    """Compute cross correlation between two binary images."""
-    input1 = nb.load(input1).get_fdata()
-    input2 = nb.load(input2).get_fdata()
+def pearson(input1, input2):
+    """Calculate Pearson product moment correlation between two images.
+
+    Parameters
+    ----------
+    input1/input2 : :obj:`numpy.ndarray`
+        Numpy arrays to compare.
+        Can be any type but will be converted into binary:
+        False where 0, True everywhere else.
+
+    Returns
+    -------
+    coef : :obj:`float`
+        Correlation between the two images.
+    """
     input1 = np.atleast_1d(input1.astype(bool)).flatten()
     input2 = np.atleast_1d(input2.astype(bool)).flatten()
-    return np.corrcoef(input1, input2)[0][1]
+
+    return np.corrcoef(input1, input2)[0, 1]
 
 
-def coverage(input1, input2):
-    """Estimate the coverage between two binary images."""
-    input1 = nb.load(input1).get_fdata()
-    input2 = nb.load(input2).get_fdata()
+def overlap(input1, input2):
+    r"""Calculate overlap coefficient between two images.
+
+    The metric is defined as
+
+    .. math::
+
+        DC=\frac{|A \cap B||}{min(|A|,|B|)}
+
+    , where :math:`A` is the first and :math:`B` the second set of samples (here: binary objects).
+
+    The overlap coefficient is also known as the Szymkiewicz-Simpson coefficient
+    :footcite:p:`vijaymeena2016survey`.
+
+    Parameters
+    ----------
+    input1/input2 : :obj:`numpy.ndarray`
+        Numpy arrays to compare.
+        Can be any type but will be converted into binary:
+        False where 0, True everywhere else.
+
+    Returns
+    -------
+    coef : :obj:`float`
+        Coverage between two images.
+
+    References
+    ----------
+    .. footbibliography::
+    """
     input1 = np.atleast_1d(input1.astype(bool))
     input2 = np.atleast_1d(input2.astype(bool))
-    intsec = np.count_nonzero(input1 & input2)
-    smallv = np.sum(input2) if np.sum(input1) > np.sum(input2) else np.sum(input1)
-    return intsec / smallv
+
+    intersection = np.count_nonzero(input1 & input2)
+    smallv = np.minimum(np.sum(input1), np.sum(input2))
+
+    return intersection / smallv
 
 
 def average_cbf_by_tissue(cbf, gm, wm, csf, thresh):
