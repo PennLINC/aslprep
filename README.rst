@@ -30,7 +30,7 @@
    :target: https://zenodo.org/badge/latestdoi/256420694
    :alt: Zenodo DOI
 
-.. image:: https://img.shields.io/github/license/pennlinc/aslprep
+.. image:: https://img.shields.io/badge/License-BSD--3--Clause-green
    :target: https://opensource.org/licenses/BSD-3-Clause
    :alt: License
 
