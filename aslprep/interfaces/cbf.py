@@ -963,17 +963,17 @@ def regmotoasl(asl, m0file, m02asl):
     meanasl = fsl.MeanImage()
     meanasl.inputs.in_file = asl
     meanasl.inputs.out_file = fname_presuffix(asl, suffix="_meanasl")
-    meanasl.run()
+    meanasl_results = meanasl.run()
     meanm0 = fsl.MeanImage()
     meanm0.inputs.in_file = m0file
     meanm0.inputs.out_file = fname_presuffix(asl, suffix="_meanm0")
-    meanm0.run()
+    meanm0_results = meanm0.run()
     flt = fsl.FLIRT(bins=640, cost_func="mutualinfo")
-    flt.inputs.in_file = meanm0.inputs.out_file
-    flt.inputs.reference = meanasl.inputs.out_file
+    flt.inputs.in_file = meanm0_results.outputs.out_file
+    flt.inputs.reference = meanasl_results.outputs.out_file
     flt.inputs.out_file = m02asl
-    flt.run()
-    return m02asl
+    flt_results = flt.run()
+    return flt_results.outputs.out_file
 
 
 def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_mask):
