@@ -1,3 +1,36 @@
+## 0.4.0
+
+This release re-implements multi-delay PCASL and single-delay Q2TIPS PASL support.
+
+Additionally, we have replaced certain BOLD-specific steps with ASL-compatible alternatives. One such case is slice timing correction. Rather than interpolate the ASL time series to perform slice timing correction (as in BOLD preprocessing), ASLPrep now shifts PLDs according to the slice timing. The other major change is to motion correction, which is now performed separately for each image type in the ASL time series (e.g., control, label, and M0 volumes).
+
+Thanks to Sudipto Dolui, Jian Hu, Jan Petr, Manuel Taso, and Kay Jann for their help and feedback.
+
+<!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### 🛠 Breaking Changes
+* Use same TPM threshold for GE and non-GE data by @tsalo in https://github.com/PennLINC/aslprep/pull/263
+* Remove slice-timing correction by @tsalo in https://github.com/PennLINC/aslprep/pull/269
+### 🎉 Exciting New Features
+* Shift PostLabelingDelay(s) by slice times by @tsalo in https://github.com/PennLINC/aslprep/pull/280
+* Perform motion correction separately for each image type by @tsalo in https://github.com/PennLINC/aslprep/pull/275
+* Support single-PLD Q2TIPS PASL and multi-PLD PCASL by @tsalo in https://github.com/PennLINC/aslprep/pull/268
+### 🐛 Bug Fixes
+* Support runs with SCORE/SCRUB disabled by @tsalo in https://github.com/PennLINC/aslprep/pull/279
+* Reorganize atlases and add them to the package data by @tsalo in https://github.com/PennLINC/aslprep/pull/282
+### Other Changes
+* Refactor workflow connections by @tsalo in https://github.com/PennLINC/aslprep/pull/261
+* Refactor more by @tsalo in https://github.com/PennLINC/aslprep/pull/264
+* Remove unused workflows by @tsalo in https://github.com/PennLINC/aslprep/pull/271
+* Remove test-made nifti files before storing artifacts by @tsalo in https://github.com/PennLINC/aslprep/pull/274
+* Improve plots by @tsalo in https://github.com/PennLINC/aslprep/pull/286
+* Remove multi-echo elements by @tsalo in https://github.com/PennLINC/aslprep/pull/294
+* Document M0 scaling by @tsalo in https://github.com/PennLINC/aslprep/pull/292
+
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.3.0...0.4.0
+
 ## 0.3.0
 
 0.3.0 reflects renewed maintenance for ASLPrep.
