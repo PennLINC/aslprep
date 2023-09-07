@@ -154,9 +154,7 @@ class ExtractCBF(SimpleInterface):
         # extract m0 file and register it to ASL if separate
         if metadata["M0Type"] == "Separate":
             m0file = self.inputs.m0scan
-
-            m0_in_asl = fname_presuffix(self.inputs.asl_file, suffix="_m0file")
-            m0_in_asl = regmotoasl(asl=self.inputs.asl_file, m0file=m0file, m02asl=m0_in_asl)
+            m0_in_asl = regmotoasl(asl=self.inputs.asl_file, m0file=m0file)
             m0data_smooth = smooth_image(nb.load(m0_in_asl), fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
                 m0data = mask_data * np.mean(m0data_smooth, axis=3)
@@ -953,7 +951,7 @@ class BASILCBF(FSLCommand):
         return outputs
 
 
-def regmotoasl(asl, m0file, m02asl):
+def regmotoasl(asl, m0file):
     """Calculate mean M0 image and mean ASL image, then FLIRT M0 image to ASL space.
 
     TODO: This should not be a function. It uses interfaces, so it should be a workflow.
@@ -962,16 +960,13 @@ def regmotoasl(asl, m0file, m02asl):
 
     meanasl = fsl.MeanImage()
     meanasl.inputs.in_file = asl
-    meanasl.inputs.out_file = fname_presuffix(asl, suffix="_meanasl")
     meanasl_results = meanasl.run()
     meanm0 = fsl.MeanImage()
     meanm0.inputs.in_file = m0file
-    meanm0.inputs.out_file = fname_presuffix(asl, suffix="_meanm0")
     meanm0_results = meanm0.run()
     flt = fsl.FLIRT(bins=640, cost_func="mutualinfo")
     flt.inputs.in_file = meanm0_results.outputs.out_file
     flt.inputs.reference = meanasl_results.outputs.out_file
-    flt.inputs.out_file = m02asl
     flt_results = flt.run()
     return flt_results.outputs.out_file
 
