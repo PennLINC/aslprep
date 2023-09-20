@@ -851,7 +851,7 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
         # fmt:on
 
         if metadata["M0Type"] != "Estimate":
-            workflow.connect([(extract_deltam, basilcbf, [("m0tr", "m0tr")])])
+            workflow.connect([(inputnode, basilcbf, [("m0tr", "m0tr")])])
 
     return workflow
 
