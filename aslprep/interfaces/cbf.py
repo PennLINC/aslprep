@@ -192,17 +192,23 @@ class ExtractCBF(SimpleInterface):
                 control_img = smooth_image(control_img, fwhm=self.inputs.fwhm).get_fdata()
                 m0data = mask_data * np.mean(control_img, axis=3)
 
+                # Use the control volumes' TR as the M0 TR.
+                if np.array(metadata["RepetitionTimePreparation"]).size > 1:
+                    m0tr = np.array(metadata["RepetitionTimePreparation"])[control_volume_idx[0]]
+                else:
+                    m0tr = metadata["RepetitionTimePreparation"]
+
             elif cbf_volume_idx:
                 # If we have precalculated CBF data, we don't need M0, so we'll just use the mask.
                 m0data = mask_data
+
+                m0tr = None
 
             else:
                 raise RuntimeError(
                     "m0scan is absent, "
                     "and there are no control volumes that can be used as a substitute"
                 )
-
-            m0tr = None
 
         else:
             raise RuntimeError("no pathway to m0scan")
@@ -823,7 +829,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     m0tr = traits.Float(
         desc="The repetition time for the calibration image (the M0 scan).",
         argstr="--tr %.2f",
-        mandatory=True,
+        mandatory=False,
     )
     tis = traits.Either(
         traits.Float(),
