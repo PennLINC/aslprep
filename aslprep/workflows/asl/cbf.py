@@ -466,7 +466,6 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 (("m0_file", _getfiledir), "out_basename"),
                 ("out_file", "deltam"),
                 ("m0_file", "mzero"),
-                ("m0tr", "m0tr"),
             ]),
             (determine_bolus_duration, basilcbf, [("bolus", "bolus")]),
             (determine_inflow_times, basilcbf, [("tis", "tis")]),
@@ -481,6 +480,9 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             ]),
         ])
         # fmt:on
+
+        if metadata["M0Type"] != "Estimate":
+            workflow.connect([(extract_deltam, basilcbf, [("m0tr", "m0tr")])])
 
     return workflow
 
@@ -834,7 +836,6 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
             (inputnode, basilcbf, [
                 (("asl_mask", _getfiledir), "out_basename"),
                 ("m0_file", "mzero"),
-                ("m0tr", "m0tr"),
             ]),
             (collect_cbf, basilcbf, [("deltam", "deltam")]),
             (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
@@ -848,6 +849,9 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
             ]),
         ])
         # fmt:on
+
+        if metadata["M0Type"] != "Estimate":
+            workflow.connect([(inputnode, basilcbf, [("m0tr", "m0tr")])])
 
     return workflow
 
