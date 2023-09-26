@@ -345,7 +345,7 @@ def init_asl_reference_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-First, the middle volume of the ASL timeseries was selected as the refernce volume and
+First, the middle volume of the ASL timeseries was selected as the reference volume and
 brain extracted using *Nipype*'s custom brain extraction workflow.
 """
 
