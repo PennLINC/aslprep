@@ -392,9 +392,6 @@ class execution(_Config):
             from bids.layout import BIDSLayout
             from bids.layout.index import BIDSLayoutIndexer
 
-            _db_path = cls.bids_database_dir or (cls.work_dir / cls.run_uuid / "bids_db")
-            _db_path.mkdir(exist_ok=True, parents=True)
-
             # Recommended after PyBIDS 12.1
             _indexer = BIDSLayoutIndexer(
                 validate=False,
@@ -411,11 +408,8 @@ class execution(_Config):
             )
             cls._layout = BIDSLayout(
                 str(cls.bids_dir),
-                database_path=_db_path,
-                reset_database=cls.bids_database_dir is None,
                 indexer=_indexer,
             )
-            cls.bids_database_dir = _db_path
 
         cls.layout = cls._layout
         if cls.bids_filters:
