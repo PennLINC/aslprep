@@ -111,6 +111,7 @@ def init_compute_cbf_wf(
 
 """
 
+    m0type = metadata["M0Type"]
     is_casl = pcasl_or_pasl(metadata=metadata)
     is_multi_pld = determine_multi_pld(metadata=metadata)
     if (processing_target == "cbf") and not basil:
@@ -121,6 +122,26 @@ def init_compute_cbf_wf(
             "BASIL will automatically be disabled."
         )
         basil = False
+
+    if m0type in ("Included", "Separate"):
+        m0_str = (
+            "Calibration (M0) volumes associated with the ASL scan were smoothed with a "
+            f"Gaussian kernel (FWHM={smooth_kernel}) and the average calibration image was "
+            f"calculated and scaled by {m0_scale}."
+        )
+    elif m0type == "Estimate":
+        m0_str = (
+            f"A single M0 estimate of {metadata} was used to produce a calibration 'image' and "
+            f"was scaled by {m0_scale}."
+        )
+    else:
+        m0_str = (
+            f"As no calibration images or provided M0 estimate was available for the ASL scan, "
+            "the control volumes used as a substitute. "
+            "The control volumes in the ASL scans were smoothed with a "
+            f"Gaussian kernel (FWHM={smooth_kernel}) and the average control image was "
+            f"calculated and scaled by {m0_scale}."
+        )
 
     if processing_target == "cbf":
         workflow.__desc__ += """\
@@ -134,6 +155,7 @@ def init_compute_cbf_wf(
 {metadata['ArterialSpinLabelingType']} data using the following method.
 
 First, delta-M values were averaged over time for each post-labeling delay (PLD).
+{m0_str}
 
 Next, arterial transit time (ATT) was estimated on a voxel-wise basis according to
 @dai2012reduced.
@@ -151,6 +173,7 @@ PLD + labeling duration > ATT.
 *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
 {metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
 [@buxton1998general].
+{m0_str}
 """
 
     else:
@@ -163,22 +186,25 @@ PLD + labeling duration > ATT.
 
         # Single-delay PASL data, with different bolus cut-off techniques
         if bcut == "QUIPSS":
-            workflow.__desc__ += """\
+            workflow.__desc__ += f"""\
 *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the QUIPSS modification, as described in @wong1998quantitative.
+{m0_str}
 """
         elif bcut == "QUIPSSII":
-            workflow.__desc__ += """\
+            workflow.__desc__ += f"""\
 *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the QUIPSS II modification, as described in @alsop_recommended_2015.
+{m0_str}
 """
         elif bcut == "Q2TIPS":
-            workflow.__desc__ += """\
+            workflow.__desc__ += f"""\
 *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the Q2TIPS modification, as described in @noguchi2015technical.
+{m0_str}
 """
         else:
             # No bolus cutoff delay technique
@@ -188,11 +214,6 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         workflow.__desc__ += (
             "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
             "basis based on the slice timing."
-        )
-
-    if m0_scale != 1:
-        workflow.__desc__ += (
-            f"Prior to calculating CBF, the M0 volumes were scaled by a factor of {m0_scale}."
         )
 
     inputnode = pe.Node(
