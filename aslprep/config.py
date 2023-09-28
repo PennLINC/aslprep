@@ -390,23 +390,37 @@ class execution(_Config):
             import re
 
             from bids.layout import BIDSLayout
+            from bids.layout.index import BIDSLayoutIndexer
 
-            work_dir = cls.work_dir / "bids.db"
-            work_dir.mkdir(exist_ok=True, parents=True)
-            cls._layout = BIDSLayout(
-                str(cls.bids_dir),
+            # Recommended after PyBIDS 12.1
+            _indexer = BIDSLayoutIndexer(
                 validate=False,
-                # database_path=str(work_dir),
                 ignore=(
                     "code",
                     "stimuli",
                     "sourcedata",
                     "models",
-                    "derivatives",
-                    re.compile(r"^\."),
+                    re.compile(r"\/\.\w+|^\.\w+"),
+                    re.compile(
+                        r"sub-[a-zA-Z0-9]+(/ses-[a-zA-Z0-9]+)?/(beh|dwi|eeg|ieeg|meg|func)"
+                    ),
                 ),
             )
+            cls._layout = BIDSLayout(
+                str(cls.bids_dir),
+                indexer=_indexer,
+            )
+
         cls.layout = cls._layout
+        if cls.bids_filters:
+            from bids.layout import Query
+
+            # unserialize pybids Query enum values
+            for acq, filters in cls.bids_filters.items():
+                cls.bids_filters[acq] = {
+                    k: getattr(Query, v[7:-4]) if not isinstance(v, Query) and "Query" in v else v
+                    for k, v in filters.items()
+                }
 
 
 # These variables are not necessary anymore
