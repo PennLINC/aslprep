@@ -154,7 +154,7 @@ PLD + labeling duration > ATT.
 """
 
     else:
-        bcut = metadata.get("BolusCutOffDelayTechnique")
+        bcut = metadata.get("BolusCutOffTechnique")
 
         if is_multi_pld:
             raise ValueError(
