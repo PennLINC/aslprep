@@ -131,8 +131,8 @@ def init_compute_cbf_wf(
         )
     elif m0type == "Estimate":
         m0_str = (
-            f"A single M0 estimate of {metadata} was used to produce a calibration 'image' and "
-            f"was scaled by {m0_scale}."
+            f"A single M0 estimate of {metadata['M0Estimate']} was used to produce a calibration "
+            f"'image' and was scaled by {m0_scale}."
         )
     else:
         m0_str = (
@@ -553,29 +553,6 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
             "Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise "
             "basis based on the slice timing."
         )
-
-    m0type = metadata["M0Type"]
-    if m0type in ("Included", "Separate"):
-        m0_str = (
-            "Calibration (M0) volumes associated with the ASL scan were smoothed with a "
-            f"Gaussian kernel (FWHM={smooth_kernel}) and the average calibration image was "
-            f"calculated and scaled by {m0_scale}."
-        )
-    elif m0type == "Estimate":
-        m0_str = (
-            f"A single M0 estimate of {metadata} was used to produce a calibration 'image' and "
-            f"was scaled by {m0_scale}."
-        )
-    else:
-        m0_str = (
-            f"As no calibration images or provided M0 estimate was available for the ASL scan, "
-            "the control volumes used as a substitute. "
-            "The control volumes in the ASL scans were smoothed with a "
-            f"Gaussian kernel (FWHM={smooth_kernel}) and the average control image was "
-            f"calculated and scaled by {m0_scale}."
-        )
-
-    workflow.__desc__ += m0_str
 
     inputnode = pe.Node(
         niu.IdentityInterface(
