@@ -151,7 +151,7 @@ def init_asl_preproc_wf(asl_file):
     spaces = config.workflow.spaces
     output_dir = str(config.execution.output_dir)
     dummyvols = config.workflow.dummy_vols
-    smoothkernel = config.workflow.smooth_kernel
+    smooth_kernel = config.workflow.smooth_kernel
     m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
@@ -432,7 +432,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         m0_scale=m0_scale,
         scorescrub=scorescrub,
         basil=basil,
-        smooth_kernel=smoothkernel,
+        smooth_kernel=smooth_kernel,
         metadata=metadata,
         name="compute_cbf_wf",
     )
