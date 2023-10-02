@@ -63,14 +63,14 @@ First, a reference volume and its skull-stripped version were generated.
     elif m0type == "Estimate":
         ref_str = (
             f"The reference volume was generated from {processing_target} volumes, which were "
-            f"averaged and smoothed with a Gaussian kernel ({smooth_kernel} mm). "
+            f"averaged and smoothed with a Gaussian kernel (FWHM={smooth_kernel} mm). "
             f"A single M0 estimate of {metadata['M0Estimate']} was used to produce a calibration "
             "'image'."
         )
     else:
         ref_str = (
             f"The reference volume was generated from {processing_target} volumes, which were "
-            f"averaged and smoothed with a Gaussian kernel ({smooth_kernel} mm). "
+            f"averaged and smoothed with a Gaussian kernel (FWHM={smooth_kernel} mm). "
             f"As no calibration images or provided M0 estimate was available for the ASL scan, "
             "the reference volume was retained for later use in CBF calculation."
         )
