@@ -153,3 +153,44 @@ which are common outputs from the head-motion correction (also known as *realign
 Confound variables calculated in *ASLprep* are stored separately for each subject,
 session and run in :abbr:`TSV (tab-separated value)` files,
 with one column for each confound variable.
+
+
+***********************
+Parcellated CBF Results
+***********************
+
+*ASLPrep* produces parcellated CBP outputs using a series of atlases.
+
+The atlases currently used in *ASLPrep* can be separated into three groups: subcortical, cortical,
+and combined cortical/subcortical.
+The two subcortical atlases are the Tian atlas (desc-Tian; :footcite:t:`tian2020topographic`) and
+the CIFTI subcortical parcellation (desc-HCP).
+The cortical atlases are the Glasser :footcite:p:`Glasser_2016` and the
+Gordon :footcite:p:`Gordon_2014`.
+The combined cortical/subcortical atlases are 10 different resolutions of the
+4S (Schaefer Supplemented with Subcortical Structures) atlas.
+
+The 4S atlas combines the Schaefer 2018 cortical atlas (version v0143) :footcite:p:`Schaefer_2017`
+at 10 different resolutions (100, 200, 300, 400, 500, 600, 700, 800, 900, and 1000 parcels) with
+the CIT168 subcortical atlas :footcite:p:`pauli2018high`,
+the Diedrichson cerebellar atlas :footcite:p:`king2019functional`,
+and the HCP thalamic atlas :footcite:p:`najdenovska2018vivo`.
+The 4S atlas is used in the same manner across three PennLINC BIDS Apps:
+ASLPrep, QSIPrep_, and XCP-D, to produce synchronized outputs across modalities.
+For more information about the 4S atlas, please see https://github.com/PennLINC/AtlasPack.
+
+MNI152NLin6Asym-space atlases are warped to the ASL reference image space before parcellation.
+*ASLPrep* will output the MNI152NLin6Asym-space atlases to the output directory,
+as outputting the reference image-space versions would produce too many extra outputs.
+
+.. code-block::
+
+   aslprep/
+      atlas-<label>_dseg.json
+      atlas-<label>_dseg.tsv
+      space-MNI152NLin6Asym_atlas-<label>_dseg.nii.gz
+
+      sub-<label>/[ses-<label>/]
+         perf/
+            <source_entities>_space-<label>_atlas-<label>_coverage.tsv
+            <source_entities>_space-<label>_atlas-<label>[_desc-<basil|basilGM|score|scrub>]_cbf.tsv
