@@ -151,7 +151,7 @@ def init_asl_preproc_wf(asl_file):
     spaces = config.workflow.spaces
     output_dir = str(config.execution.output_dir)
     dummyvols = config.workflow.dummy_vols
-    smoothkernel = config.workflow.smooth_kernel
+    smooth_kernel = config.workflow.smooth_kernel
     m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
@@ -280,7 +280,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([(inputnode, validate_asl_wf, [("asl_file", "inputnode.asl_file")])])
 
     # Generate a tentative aslref from the most appropriate available image type in the ASL file
-    asl_reference_wf = init_asl_reference_wf(name="asl_reference_wf")
+    asl_reference_wf = init_asl_reference_wf(
+        aslcontext=run_data["aslcontext"],
+        name="asl_reference_wf",
+    )
     asl_reference_wf.inputs.inputnode.dummy_scans = 0
 
     # fmt:off
@@ -432,7 +435,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         m0_scale=m0_scale,
         scorescrub=scorescrub,
         basil=basil,
-        smooth_kernel=smoothkernel,
+        smooth_kernel=smooth_kernel,
         metadata=metadata,
         name="compute_cbf_wf",
     )

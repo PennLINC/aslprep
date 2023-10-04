@@ -1,6 +1,7 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Utility workflows."""
+import pandas as pd
 from nipype.interfaces import afni, fsl
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
@@ -15,6 +16,7 @@ from niworkflows.utils.misc import pass_dummy_scans
 
 from aslprep.interfaces.niworkflows import EstimateReferenceImage
 from aslprep.interfaces.utility import SplitReferenceTarget
+from aslprep.utils.asl import select_processing_target
 
 DEFAULT_MEMORY_MIN_GB = 0.01
 
@@ -215,7 +217,7 @@ def init_validate_asl_wf(asl_file=None, name="validate_asl_wf"):
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
-First, the middle volume of the ASL timeseries was selected as the refernce volume and
+First, the middle volume of the ASL timeseries was selected as the reference volume and
 brain extracted using *Nipype*'s custom brain extraction workflow.
 """
 
@@ -269,6 +271,7 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
 
 def init_asl_reference_wf(
     asl_file=None,
+    aslcontext=None,
     sbref_files=None,
     pre_mask=False,
     name="asl_reference_wf",
@@ -344,9 +347,19 @@ def init_asl_reference_wf(
 
     """
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
-First, the middle volume of the ASL timeseries was selected as the refernce volume and
-brain extracted using *Nipype*'s custom brain extraction workflow.
+
+    reference_target = ""
+    if aslcontext is not None:
+        reference_target = select_processing_target(aslcontext)
+        aslcontext_df = pd.read_table(aslcontext)
+        if "m0scan" in aslcontext_df["volume_type"].values:
+            reference_target = "M0"
+
+        reference_target += " "
+
+    workflow.__desc__ = f"""\
+First, the middle {reference_target}volume of the ASL timeseries was selected as the
+reference volume and brain extracted using *Nipype*'s custom brain extraction workflow.
 """
 
     inputnode = pe.Node(

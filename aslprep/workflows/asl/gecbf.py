@@ -163,7 +163,7 @@ def init_asl_gepreproc_wf(asl_file):
     m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
-    smoothkernel = config.workflow.smooth_kernel
+    smooth_kernel = config.workflow.smooth_kernel
 
     if scorescrub:
         config.loggers.workflow.warning(f"SCORE/SCRUB processing will be disabled for {asl_file}")
@@ -270,7 +270,7 @@ effects of other kernels [@lanczos].
     asl_reference_wf = init_asl_reference_ge_wf(
         metadata=metadata,
         aslcontext=run_data["aslcontext"],
-        smooth_kernel=smoothkernel,
+        smooth_kernel=smooth_kernel,
         name="asl_reference_ge_wf",
     )
 
