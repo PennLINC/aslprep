@@ -910,6 +910,7 @@ def init_parcellate_cbf_wf(
 
     Inputs
     ------
+    source_file : str
     mean_cbf : str
     mean_cbf_score : Undefined or str
     mean_cbf_scrub : Undefined or str
@@ -948,6 +949,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
+                "source_file",
                 "mean_cbf",
                 "mean_cbf_score",
                 "mean_cbf_scrub",
@@ -1094,7 +1096,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
 
     # fmt:off
     workflow.connect([
-        (inputnode, ds_atlas, [("name_source", "source_file")]),
+        (inputnode, ds_atlas, [("source_file", "source_file")]),
         (atlas_name_grabber, ds_atlas, [("atlas_names", "atlas")]),
         (atlas_file_grabber, ds_atlas, [("atlas_file", "in_file")]),
     ])
@@ -1127,7 +1129,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
 
     # fmt:off
     workflow.connect([
-        (inputnode, ds_atlas_labels_file, [("name_source", "source_file")]),
+        (inputnode, ds_atlas_labels_file, [("source_file", "source_file")]),
         (atlas_name_grabber, ds_atlas_labels_file, [("atlas_names", "atlas")]),
         (atlas_file_grabber, ds_atlas_labels_file, [("atlas_labels_file", "in_file")]),
     ])
@@ -1160,7 +1162,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
 
     # fmt:off
     workflow.connect([
-        (inputnode, ds_atlas_metadata, [("name_source", "source_file")]),
+        (inputnode, ds_atlas_metadata, [("source_file", "source_file")]),
         (atlas_name_grabber, ds_atlas_metadata, [("atlas_names", "atlas")]),
         (atlas_file_grabber, ds_atlas_metadata, [("atlas_metadata_file", "in_file")]),
     ])

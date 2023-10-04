@@ -865,6 +865,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
+        (inputnode, parcellate_cbf_wf, [("asl_file", "inputnode.source_file")]),
         (select_xform_MNI152NLin2009cAsym_to_t1w, parcellate_cbf_wf, [
             ("template_to_anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
         ]),
