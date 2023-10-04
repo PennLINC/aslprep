@@ -37,7 +37,7 @@ def init_asl_hmc_wf(
             from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
             wf = init_asl_hmc_wf(
-                processing_target="controllabel",
+                processing_target="control",
                 m0type="Separate",
                 mem_gb=3,
                 omp_nthreads=1,
@@ -46,7 +46,7 @@ def init_asl_hmc_wf(
 
     Parameters
     ----------
-    processing_target : {"controllabel", "deltam", "cbf"}
+    processing_target : {"control", "deltam", "cbf"}
     m0type : {"Separate", "Included", "Absent", "Estimate"}
     mem_gb : :obj:`float`
         Size of ASL file in GB
@@ -88,7 +88,7 @@ def init_asl_hmc_wf(
     workflow = Workflow(name=name)
 
     separation_substr = ""
-    if processing_target == "controllabel" or m0type == "Included":
+    if processing_target == "control" or m0type == "Included":
         separation_substr = (
             "Motion correction was performed separately for each of the volume types "
             "in order to account for intensity differences between different contrasts, "
@@ -139,7 +139,7 @@ Head-motion parameters were estimated for the ASL data using *FSL*'s `mcflirt` [
     if m0type == "Included":
         files_to_mcflirt.append("m0scan")
 
-    if processing_target == "controllabel":
+    if processing_target == "control":
         files_to_mcflirt += ["control", "label"]
     else:
         files_to_mcflirt.append(processing_target)

@@ -43,7 +43,7 @@ class ReduceASLFiles(SimpleInterface):
         asl_img = nb.load(self.inputs.asl_file)
         assert asl_img.shape[3] == aslcontext.shape[0]
 
-        if self.inputs.processing_target == "controllabel":
+        if self.inputs.processing_target == "control":
             files_to_keep = ["control", "label", "m0scan"]
         elif self.inputs.processing_target == "deltam":
             files_to_keep = ["deltam", "m0scan"]
