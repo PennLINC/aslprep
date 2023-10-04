@@ -941,9 +941,16 @@ def init_parcellate_cbf_wf(
     """
     workflow = Workflow(name=name)
 
-    workflow.__desc__ = """\
-For each CBF map, the ROIs for the following atlases were extracted:
-the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
+    workflow.__desc__ = f"""
+Parcellated CBF estimates were extracted for the following atlases:
+the Schaefer Supplemented with Subcortical Structures (4S) atlas
+[@Schaefer_2017,@pauli2018high,@king2019functional,@najdenovska2018vivo] at 10 different
+resolutions (152, 252, 352, 452, 552, 652, 752, 852, 952, and 1052 parcels),
+the Glasser atlas [@Glasser_2016], the Gordon atlas [@Gordon_2014],
+the Tian subcortical atlas [@tian2020topographic], and the CIFTI subcortical atlas.
+In cases of partial coverage, either uncovered voxels (values of all zeros or NaNs) were
+ignored (when the parcel had >{min_coverage * 100}% coverage)
+or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% coverage).
 """
 
     inputnode = pe.Node(
@@ -958,7 +965,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
                 "asl_mask",
                 "anat_to_aslref_xfm",
                 "MNI152NLin2009cAsym_to_anat_xfm",
-            ]
+            ],
         ),
         name="inputnode",
     )
