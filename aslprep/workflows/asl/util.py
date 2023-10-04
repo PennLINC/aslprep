@@ -271,7 +271,7 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
 
 def init_asl_reference_wf(
     asl_file=None,
-    aslcontext=False,
+    aslcontext=None,
     sbref_files=None,
     pre_mask=False,
     name="asl_reference_wf",
