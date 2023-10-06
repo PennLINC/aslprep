@@ -26,7 +26,6 @@ aslprep/atlas-HCP_dseg.json
 aslprep/atlas-HCP_dseg.tsv
 aslprep/atlas-Tian_dseg.json
 aslprep/atlas-Tian_dseg.tsv
-aslprep/dataset_description.json
 aslprep/logs
 aslprep/logs/CITATION.bib
 aslprep/logs/CITATION.html
