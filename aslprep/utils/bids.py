@@ -128,8 +128,6 @@ def write_derivative_description(bids_dir, deriv_dir):
     """Write derivative dataset_description file."""
     from aslprep.__about__ import DOWNLOAD_URL, __url__, __version__
 
-    config.loggers.workflow.warning("YYZ: write_derivative_description")
-
     bids_dir = Path(bids_dir)
     deriv_dir = Path(deriv_dir)
     desc = {
@@ -170,10 +168,6 @@ def write_derivative_description(bids_dir, deriv_dir):
 
     if "License" in orig_desc:
         desc["License"] = orig_desc["License"]
-
-    config.loggers.workflow.warning(
-        f"YYZ: Writing to {str((deriv_dir / 'dataset_description.json'))}"
-    )
 
     with (deriv_dir / "dataset_description.json").open("w") as fobj:
         json.dump(desc, fobj, indent=4)
