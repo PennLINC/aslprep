@@ -1093,6 +1093,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             check_hdr=False,
             dismiss_entities=["datatype", "subject", "session", "task", "run", "desc"],
             allowed_entities=["space", "res", "den", "atlas", "desc", "cohort"],
+            space="MNI152NLin6Asym",  # hardcoded space
             suffix="dseg",
             extension=".nii.gz",
         ),
@@ -1103,9 +1104,11 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
 
     # fmt:off
     workflow.connect([
-        (inputnode, ds_atlas, [("source_file", "source_file")]),
         (atlas_name_grabber, ds_atlas, [("atlas_names", "atlas")]),
-        (atlas_file_grabber, ds_atlas, [("atlas_file", "in_file")]),
+        (atlas_file_grabber, ds_atlas, [
+            ("atlas_file", "in_file"),
+            ("atlas_file", "source_file"),
+        ]),
     ])
     # fmt:on
 

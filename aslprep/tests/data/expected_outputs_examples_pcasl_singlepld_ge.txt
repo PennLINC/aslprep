@@ -89,6 +89,9 @@ aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-4S852Parcels_desc-basil_cbf
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-4S952Parcels_cbf.tsv
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-4S952Parcels_desc-basilGM_cbf.tsv
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-4S952Parcels_desc-basil_cbf.tsv
+aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-HCP_cbf.tsv
+aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-HCP_desc-basilGM_cbf.tsv
+aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-HCP_desc-basil_cbf.tsv
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-Tian_cbf.tsv
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-Tian_desc-basilGM_cbf.tsv
 aslprep/sub-103/ses-ge3d/perf/sub-103_ses-ge3d_atlas-Tian_desc-basil_cbf.tsv

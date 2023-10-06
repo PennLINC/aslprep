@@ -113,6 +113,11 @@ aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-4S952Parcels_desc-basilGM_cbf
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-4S952Parcels_desc-basil_cbf.tsv
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-4S952Parcels_desc-score_cbf.tsv
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-4S952Parcels_desc-scrub_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-HCP_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-HCP_desc-basilGM_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-HCP_desc-basil_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-HCP_desc-score_cbf.tsv
+aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-HCP_desc-scrub_cbf.tsv
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Tian_cbf.tsv
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Tian_desc-basilGM_cbf.tsv
 aslprep/sub-01/ses-BAS1/perf/sub-01_ses-BAS1_atlas-Tian_desc-basil_cbf.tsv

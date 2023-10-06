@@ -88,6 +88,9 @@ aslprep/sub-01/perf/sub-01_atlas-4S852Parcels_desc-basil_cbf.tsv
 aslprep/sub-01/perf/sub-01_atlas-4S952Parcels_cbf.tsv
 aslprep/sub-01/perf/sub-01_atlas-4S952Parcels_desc-basilGM_cbf.tsv
 aslprep/sub-01/perf/sub-01_atlas-4S952Parcels_desc-basil_cbf.tsv
+aslprep/sub-01/perf/sub-01_atlas-HCP_cbf.tsv
+aslprep/sub-01/perf/sub-01_atlas-HCP_desc-basilGM_cbf.tsv
+aslprep/sub-01/perf/sub-01_atlas-HCP_desc-basil_cbf.tsv
 aslprep/sub-01/perf/sub-01_atlas-Tian_cbf.tsv
 aslprep/sub-01/perf/sub-01_atlas-Tian_desc-basilGM_cbf.tsv
 aslprep/sub-01/perf/sub-01_atlas-Tian_desc-basil_cbf.tsv
