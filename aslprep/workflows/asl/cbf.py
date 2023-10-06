@@ -28,6 +28,7 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
 )
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
+from aslprep.utils.bids import find_atlas_entities
 
 
 def init_compute_cbf_wf(
@@ -1084,6 +1085,18 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         ])
         # fmt:on
 
+    # Get entities from atlas for datasinks
+    get_atlas_entities = pe.MapNode(
+        niu.Function(
+            input_names=["filename"],
+            output_names=["tpl", "atlas", "res", "suffix", "extension"],
+            function=find_atlas_entities,
+        ),
+        name="get_atlas_entities",
+        iterfield=["filename"],
+    )
+    workflow.connect([(atlas_file_grabber, get_atlas_entities, [("atlas_file", "filename")])])
+
     # Write out standard-space atlas file.
     # This won't be in the same space that the data were parcellated in,
     # but it's useful as a reference.
@@ -1093,21 +1106,22 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             check_hdr=False,
             dismiss_entities=["datatype", "subject", "session", "task", "run", "desc"],
             allowed_entities=["space", "res", "den", "atlas", "desc", "cohort"],
-            space="MNI152NLin6Asym",  # hardcoded space
-            suffix="dseg",
-            extension=".nii.gz",
         ),
         name="ds_atlas",
-        iterfield=["atlas", "in_file"],
+        iterfield=["space", "atlas", "resolution", "suffix", "extension", "in_file"],
         run_without_submitting=True,
     )
 
     # fmt:off
     workflow.connect([
-        (atlas_name_grabber, ds_atlas, [("atlas_names", "atlas")]),
-        (atlas_file_grabber, ds_atlas, [
-            ("atlas_file", "in_file"),
-            ("atlas_file", "source_file"),
+        (inputnode, ds_atlas, [("source_file", "source_file")]),
+        (atlas_file_grabber, ds_atlas, [("atlas_file", "in_file")]),
+        (get_atlas_entities, ds_atlas, [
+            ("tpl", "space"),
+            ("atlas", "atlas"),
+            ("res", "resolution"),
+            ("suffix", "suffix"),
+            ("extension", "extension"),
         ]),
     ])
     # fmt:on
@@ -1129,19 +1143,21 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
                 "cohort",
             ],
             allowed_entities=["atlas"],
-            suffix="dseg",
             extension=".tsv",
         ),
         name="ds_atlas_labels_file",
-        iterfield=["atlas", "in_file"],
+        iterfield=["atlas", "suffix", "in_file"],
         run_without_submitting=True,
     )
 
     # fmt:off
     workflow.connect([
         (inputnode, ds_atlas_labels_file, [("source_file", "source_file")]),
-        (atlas_name_grabber, ds_atlas_labels_file, [("atlas_names", "atlas")]),
         (atlas_file_grabber, ds_atlas_labels_file, [("atlas_labels_file", "in_file")]),
+        (get_atlas_entities, ds_atlas, [
+            ("atlas", "atlas"),
+            ("suffix", "suffix"),
+        ]),
     ])
     # fmt:on
 
@@ -1166,7 +1182,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             extension=".json",
         ),
         name="ds_atlas_metadata",
-        iterfield=["atlas", "in_file"],
+        iterfield=["atlas", "suffix", "in_file"],
         run_without_submitting=True,
     )
 

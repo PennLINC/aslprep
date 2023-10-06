@@ -273,3 +273,26 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
 
 def _get_shub_version(singularity_url):  # noqa: U100
     return NotImplemented
+
+
+def find_atlas_entities(filename):
+    """Extract atlas entities from filename."""
+    import os
+
+    fname = os.path.basename(filename)
+    elements = fname.split("_")
+
+    out = []
+    for ent in ("tpl", "atlas", "res"):
+        ent_parts = [ent for ent in elements if ent.startswith(f"{ent}-")]
+        ent_value = None
+        if ent_parts:
+            ent_value = ent_parts[0].split("-")[1]
+
+        out.append(ent_value)
+
+    suffix = elements[-1].split(".")[0]
+    extension = "." + ".".join(elements[-1].split(".")[1:])
+    out += [suffix, extension]
+
+    return tuple(out)
