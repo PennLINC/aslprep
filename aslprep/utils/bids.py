@@ -128,7 +128,7 @@ def write_derivative_description(bids_dir, deriv_dir):
     """Write derivative dataset_description file."""
     from aslprep.__about__ import DOWNLOAD_URL, __url__, __version__
 
-    config.loggers.workflow.warning(f"YYZ: write_derivative_description")
+    config.loggers.workflow.warning("YYZ: write_derivative_description")
 
     bids_dir = Path(bids_dir)
     deriv_dir = Path(deriv_dir)
