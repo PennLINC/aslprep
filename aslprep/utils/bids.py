@@ -284,7 +284,7 @@ def find_atlas_entities(filename):
 
     out = []
     for ent in ("tpl", "atlas", "res"):
-        ent_parts = [ent for ent in elements if ent.startswith(f"{ent}-")]
+        ent_parts = [el for el in elements if el.startswith(f"{ent}-")]
         ent_value = None
         if ent_parts:
             ent_value = ent_parts[0].split("-")[1]
