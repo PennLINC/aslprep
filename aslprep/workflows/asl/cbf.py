@@ -1189,7 +1189,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
     workflow.connect([
         (inputnode, ds_atlas_metadata, [("source_file", "source_file")]),
         (atlas_file_grabber, ds_atlas_metadata, [("atlas_metadata_file", "in_file")]),
-        (get_atlas_entities, ds_atlas_labels_file, [
+        (get_atlas_entities, ds_atlas_metadata, [
             ("atlas", "atlas"),
             ("suffix", "suffix"),
         ]),
