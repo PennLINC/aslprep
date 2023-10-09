@@ -12,6 +12,10 @@ def get_atlas_names(subset):
     ----------
     subset = {"all", "subcortical", "cortical"}
         Description of the subset of atlases to collect.
+        "cortical" atlases are ones with the cortex included, so they can be used for cortical-only
+        data (e.g., cortical thickness).
+        "subcortical" atlases are ones with *only* subcortical regions.
+        "all" combines both lists of atlases.
 
     Returns
     -------
