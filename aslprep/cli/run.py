@@ -147,7 +147,8 @@ def main():
             packagename="aslprep",
         )
         write_derivative_description(
-            config.execution.bids_dir, config.execution.output_dir / "aslprep"
+            config.execution.bids_dir,
+            config.execution.output_dir / "aslprep",
         )
 
         if failed_reports and not config.execution.notrack:

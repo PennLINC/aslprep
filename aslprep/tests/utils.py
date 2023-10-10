@@ -10,8 +10,11 @@ import nibabel as nb
 import numpy as np
 import requests
 from bids.layout import BIDSLayout
+from nipype import logging
 
 from aslprep import config
+
+LOGGER = logging.getLogger("nipype.utils")
 
 
 def download_test_data(dset, data_dir=None):
@@ -180,3 +183,22 @@ def chdir(path):
         yield
     finally:
         os.chdir(oldpwd)
+
+
+def reorder_expected_outputs():
+    """Load each of the expected output files and sort the lines alphabetically.
+
+    This function is called manually by devs when they modify the test outputs.
+    """
+    test_data_path = get_test_data_path()
+    expected_output_files = sorted(glob(os.path.join(test_data_path, "expected_outputs_*.txt")))
+    for expected_output_file in expected_output_files:
+        LOGGER.info(f"Sorting {expected_output_file}")
+
+        with open(expected_output_file, "r") as fo:
+            file_contents = fo.readlines()
+
+        file_contents = sorted(file_contents)
+
+        with open(expected_output_file, "w") as fo:
+            fo.writelines(file_contents)

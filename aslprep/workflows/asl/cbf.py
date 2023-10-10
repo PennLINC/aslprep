@@ -10,6 +10,7 @@ from templateflow.api import get as get_template
 
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
+from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.cbf import (
     BASILCBF,
     ComputeCBF,
@@ -27,6 +28,7 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
 )
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
+from aslprep.utils.bids import find_atlas_entities
 
 
 def init_compute_cbf_wf(
@@ -909,6 +911,7 @@ def init_parcellate_cbf_wf(
 
     Inputs
     ------
+    source_file : str
     mean_cbf : str
     mean_cbf_score : Undefined or str
     mean_cbf_scrub : Undefined or str
@@ -939,14 +942,22 @@ def init_parcellate_cbf_wf(
     """
     workflow = Workflow(name=name)
 
-    workflow.__desc__ = """\
-For each CBF map, the ROIs for the following atlases were extracted:
-the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
+    workflow.__desc__ = f"""
+Parcellated CBF estimates were extracted for the following atlases:
+the Schaefer Supplemented with Subcortical Structures (4S) atlas
+[@Schaefer_2017,@pauli2018high,@king2019functional,@najdenovska2018vivo] at 10 different
+resolutions (152, 252, 352, 452, 552, 652, 752, 852, 952, and 1052 parcels),
+the Glasser atlas [@Glasser_2016], the Gordon atlas [@Gordon_2014],
+the Tian subcortical atlas [@tian2020topographic], and the CIFTI subcortical atlas.
+In cases of partial coverage, either uncovered voxels (values of all zeros or NaNs) were
+ignored (when the parcel had >{min_coverage * 100}% coverage)
+or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% coverage).
 """
 
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
+                "source_file",
                 "mean_cbf",
                 "mean_cbf_score",
                 "mean_cbf_scrub",
@@ -955,7 +966,7 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
                 "asl_mask",
                 "anat_to_aslref_xfm",
                 "MNI152NLin2009cAsym_to_anat_xfm",
-            ]
+            ],
         ),
         name="inputnode",
     )
@@ -974,28 +985,27 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
     )
 
     atlas_name_grabber = pe.Node(
-        niu.Function(output_names=["atlas_names"], function=get_atlas_names),
+        niu.Function(
+            input_names=["subset"],
+            output_names=["atlas_names"],
+            function=get_atlas_names,
+        ),
         name="atlas_name_grabber",
     )
-
-    # fmt:off
+    atlas_name_grabber.inputs.subset = "all"
     workflow.connect([(atlas_name_grabber, outputnode, [("atlas_names", "atlas_names")])])
-    # fmt:on
 
     # get atlases via pkgrf
     atlas_file_grabber = pe.MapNode(
         niu.Function(
             input_names=["atlas_name"],
-            output_names=["atlas_file", "atlas_labels_file"],
+            output_names=["atlas_file", "atlas_labels_file", "atlas_metadata_file"],
             function=get_atlas_nifti,
         ),
         name="atlas_file_grabber",
         iterfield=["atlas_name"],
     )
-
-    # fmt:off
     workflow.connect([(atlas_name_grabber, atlas_file_grabber, [("atlas_names", "atlas_name")])])
-    # fmt:on
 
     # Atlases are in MNI152NLin6Asym
     MNI152NLin6Asym_to_MNI152NLin2009cAsym = str(
@@ -1074,5 +1084,116 @@ the Harvard-Oxford and the Schaefer 200 and 400-parcel resolution atlases.
             ]),
         ])
         # fmt:on
+
+    # Get entities from atlas for datasinks
+    get_atlas_entities = pe.MapNode(
+        niu.Function(
+            input_names=["filename"],
+            output_names=["tpl", "atlas", "res", "suffix", "extension"],
+            function=find_atlas_entities,
+        ),
+        name="get_atlas_entities",
+        iterfield=["filename"],
+    )
+    workflow.connect([(atlas_file_grabber, get_atlas_entities, [("atlas_file", "filename")])])
+
+    # Write out standard-space atlas file.
+    # This won't be in the same space that the data were parcellated in,
+    # but it's useful as a reference.
+    ds_atlas = pe.MapNode(
+        DerivativesDataSink(
+            base_directory=config.execution.output_dir,
+            check_hdr=False,
+            dismiss_entities=["datatype", "subject", "session", "task", "run", "desc"],
+            allowed_entities=["space", "res", "den", "atlas", "desc", "cohort"],
+        ),
+        name="ds_atlas",
+        iterfield=["space", "atlas", "resolution", "suffix", "extension", "in_file"],
+        run_without_submitting=True,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_atlas, [("source_file", "source_file")]),
+        (atlas_file_grabber, ds_atlas, [("atlas_file", "in_file")]),
+        (get_atlas_entities, ds_atlas, [
+            ("tpl", "space"),
+            ("atlas", "atlas"),
+            ("res", "resolution"),
+            ("suffix", "suffix"),
+            ("extension", "extension"),
+        ]),
+    ])
+    # fmt:on
+
+    ds_atlas_labels_file = pe.MapNode(
+        DerivativesDataSink(
+            base_directory=config.execution.output_dir,
+            check_hdr=False,
+            dismiss_entities=[
+                "datatype",
+                "subject",
+                "session",
+                "task",
+                "run",
+                "desc",
+                "space",
+                "res",
+                "den",
+                "cohort",
+            ],
+            allowed_entities=["atlas"],
+            extension=".tsv",
+        ),
+        name="ds_atlas_labels_file",
+        iterfield=["atlas", "suffix", "in_file"],
+        run_without_submitting=True,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_atlas_labels_file, [("source_file", "source_file")]),
+        (atlas_file_grabber, ds_atlas_labels_file, [("atlas_labels_file", "in_file")]),
+        (get_atlas_entities, ds_atlas_labels_file, [
+            ("atlas", "atlas"),
+            ("suffix", "suffix"),
+        ]),
+    ])
+    # fmt:on
+
+    ds_atlas_metadata = pe.MapNode(
+        DerivativesDataSink(
+            base_directory=config.execution.output_dir,
+            check_hdr=False,
+            dismiss_entities=[
+                "datatype",
+                "subject",
+                "session",
+                "task",
+                "run",
+                "desc",
+                "space",
+                "res",
+                "den",
+                "cohort",
+            ],
+            allowed_entities=["atlas"],
+            extension=".json",
+        ),
+        name="ds_atlas_metadata",
+        iterfield=["atlas", "suffix", "in_file"],
+        run_without_submitting=True,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_atlas_metadata, [("source_file", "source_file")]),
+        (atlas_file_grabber, ds_atlas_metadata, [("atlas_metadata_file", "in_file")]),
+        (get_atlas_entities, ds_atlas_metadata, [
+            ("atlas", "atlas"),
+            ("suffix", "suffix"),
+        ]),
+    ])
+    # fmt:on
 
     return workflow

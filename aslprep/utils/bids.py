@@ -165,6 +165,7 @@ def write_derivative_description(bids_dir, deriv_dir):
 
     if "DatasetDOI" in orig_desc:
         desc["SourceDatasetsURLs"] = [f"https://doi.org/{orig_desc['DatasetDOI']}"]
+
     if "License" in orig_desc:
         desc["License"] = orig_desc["License"]
 
@@ -273,3 +274,26 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
 
 def _get_shub_version(singularity_url):  # noqa: U100
     return NotImplemented
+
+
+def find_atlas_entities(filename):
+    """Extract atlas entities from filename."""
+    import os
+
+    fname = os.path.basename(filename)
+    elements = fname.split("_")
+
+    out = []
+    for ent in ("tpl", "atlas", "res"):
+        ent_parts = [el for el in elements if el.startswith(f"{ent}-")]
+        ent_value = None
+        if ent_parts:
+            ent_value = ent_parts[0].split("-")[1]
+
+        out.append(ent_value)
+
+    suffix = elements[-1].split(".")[0]
+    extension = "." + ".".join(elements[-1].split(".")[1:])
+    out += [suffix, extension]
+
+    return tuple(out)
