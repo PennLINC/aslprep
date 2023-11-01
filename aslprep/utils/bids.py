@@ -90,9 +90,9 @@ def collect_run_data(layout, asl_file):
         if len(m0scan_candidates) > 1:
             config.loggers.workflow.warning(
                 f"More than one M0 file found for {asl_file}. "
-                f"Using the first one ({m0scan_candidates[0]})"
+                f"Using the first one ({m0scan_candidates[0].path})"
             )
-        run_data["m0scan"] = m0scan_candidates[0]
+        run_data["m0scan"] = m0scan_candidates[0].path
     else:
         run_data["m0scan"] = None
 
