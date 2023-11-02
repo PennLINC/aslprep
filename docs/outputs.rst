@@ -174,7 +174,9 @@ The 4S atlas combines the Schaefer 2018 cortical atlas (version v0143) :footcite
 at 10 different resolutions (100, 200, 300, 400, 500, 600, 700, 800, 900, and 1000 parcels) with
 the CIT168 subcortical atlas :footcite:p:`pauli2018high`,
 the Diedrichson cerebellar atlas :footcite:p:`king2019functional`,
-and the HCP thalamic atlas :footcite:p:`najdenovska2018vivo`.
+the HCP thalamic atlas :footcite:p:`najdenovska2018vivo`,
+and the amygdala and hippocampus parcels from the HCP CIFTI subcortical parcellation
+:footcite:p:`glasser2013minimal`.
 The 4S atlas is used in the same manner across three PennLINC BIDS Apps:
 ASLPrep, QSIPrep_, and XCP-D, to produce synchronized outputs across modalities.
 For more information about the 4S atlas, please see https://github.com/PennLINC/AtlasPack.
