@@ -203,7 +203,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
     anat_to_aslref_xfm
         Affine matrix that maps the T1w space into alignment with
         the native ASL space
-    template_to_anat_xfm
+    std2anat_xfm
         ANTs-compatible affine-and-warp transform file
     """
     workflow = Workflow(name=name)
@@ -215,7 +215,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
                 "asl_mask",
                 "confounds_file",
                 "anat_to_aslref_xfm",
-                "template_to_anat_xfm",
+                "std2anat_xfm",
             ]
         ),
         name="inputnode",
@@ -264,7 +264,7 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
     workflow.connect([
         (inputnode, mrg_xfms, [
             ("anat_to_aslref_xfm", "in1"),
-            ("template_to_anat_xfm", "in2"),
+            ("std2anat_xfm", "in2"),
         ]),
         (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),

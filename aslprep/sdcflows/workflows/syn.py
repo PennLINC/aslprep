@@ -78,7 +78,7 @@ def init_syn_sdc_wf(omp_nthreads, epi_pe=None,
         skull-stripped reference image
     t1w_brain
         skull-stripped, bias-corrected structural image
-    template_to_anat_xfm
+    std2anat_xfm
         inverse registration transform of T1w image to MNI template
 
     Outputs
@@ -128,7 +128,7 @@ template [@fieldmapless3].
 """.format(ants_ver=Registration().version or '<ver>')
     inputnode = pe.Node(
         niu.IdentityInterface(['in_reference', 'in_reference_brain',
-                               't1w_brain', 'template_to_anat_xfm']),
+                               't1w_brain', 'std2anat_xfm']),
         name='inputnode')
     outputnode = pe.Node(
         niu.IdentityInterface(['out_reference', 'out_reference_brain',
@@ -195,7 +195,7 @@ template [@fieldmapless3].
         (ref_2_t1, t1_2_ref, [('forward_transforms', 'transforms')]),
         (ref_2_t1, transform_list, [('forward_transforms', 'in1')]),
         (inputnode, transform_list, [
-            ('template_to_anat_xfm', 'in2')]),
+            ('std2anat_xfm', 'in2')]),
         (inputnode, atlas_2_ref, [('in_reference', 'reference_image')]),
         (transform_list, atlas_2_ref, [('out', 'transforms')]),
         (atlas_2_ref, threshold_atlas, [('output_image', 'in_file')]),

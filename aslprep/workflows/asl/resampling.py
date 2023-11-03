@@ -78,7 +78,7 @@ def init_asl_std_trans_wf(
 
     Inputs
     ------
-    anat_to_template_xfm
+    anat2std_xfm
         List of anatomical-to-standard space transforms generated during
         spatial normalization.
     asl_mask
@@ -129,7 +129,7 @@ def init_asl_std_trans_wf(
                 "hmc_xforms",  # may be "identity"
                 "fieldwarp",  # may be "identity"
                 "aslref_to_anat_xfm",
-                "anat_to_template_xfm",
+                "anat2std_xfm",
                 # CBF outputs
                 "mean_cbf",
                 # Single-delay outputs
@@ -167,7 +167,7 @@ def init_asl_std_trans_wf(
     workflow.connect([(iterablesource, split_target, [("std_target", "in_target")])])
 
     select_std = pe.Node(
-        KeySelect(fields=["anat_to_template_xfm"]),
+        KeySelect(fields=["anat2std_xfm"]),
         name="select_std",
         run_without_submitting=True,
     )
@@ -175,7 +175,7 @@ def init_asl_std_trans_wf(
     # fmt:off
     workflow.connect([
         (inputnode, select_std, [
-            ("anat_to_template_xfm", "anat_to_template_xfm"),
+            ("anat2std_xfm", "anat2std_xfm"),
             ("templates", "keys"),
         ]),
         (split_target, select_std, [("space", "key")]),
@@ -214,7 +214,7 @@ def init_asl_std_trans_wf(
     # fmt:off
     workflow.connect([
         (inputnode, mask_merge_tfms, [(("aslref_to_anat_xfm", _aslist), "in2")]),
-        (select_std, mask_merge_tfms, [("anat_to_template_xfm", "in1")]),
+        (select_std, mask_merge_tfms, [("anat2std_xfm", "in1")]),
     ])
     # fmt:on
 
@@ -247,7 +247,7 @@ def init_asl_std_trans_wf(
             ("fieldwarp", "in3"),  # may be "identity"
             ("hmc_xforms", "in4"),  # may be "identity"
         ]),
-        (select_std, merge_xforms, [("anat_to_template_xfm", "in1")]),
+        (select_std, merge_xforms, [("anat2std_xfm", "in1")]),
     ])
     # fmt:on
 

@@ -3,9 +3,6 @@
 """Preprocessing workflows for ASL data."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.nibabel import ApplyMask
-from niworkflows.interfaces.utility import KeySelect
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
@@ -13,7 +10,6 @@ from aslprep.interfaces.cbf import RefineMask
 from aslprep.interfaces.fsl import Split
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles
-from aslprep.sdcflows.workflows.base import fieldmap_wrangler, init_sdc_estimate_wf
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
@@ -31,7 +27,7 @@ from aslprep.workflows.asl.resampling import (
 from aslprep.workflows.asl.util import init_asl_reference_wf, init_validate_asl_wf
 
 
-def init_asl_preproc_wf(asl_file):
+def init_asl_preproc_wf(asl_file, has_fieldmap=False):
     """Perform the functional preprocessing stages of ASLPrep.
 
     Workflow Graph
@@ -54,6 +50,8 @@ def init_asl_preproc_wf(asl_file):
     ----------
     asl_file
         asl series NIfTI file
+    has_fieldmap : :obj:`bool`
+        Signals the workflow to use inputnode fieldmap files
 
     Inputs
     ------
@@ -70,9 +68,9 @@ def init_asl_preproc_wf(asl_file):
         List of tissue probability maps in T1w space
     template
         List of templates to target
-    anat_to_template_xfm
+    anat2std_xfm
         List of transform files, collated with templates
-    template_to_anat_xfm
+    std2anat_xfm
         List of inverse transform files, collated with templates
 
     Outputs
@@ -142,11 +140,14 @@ def init_asl_preproc_wf(asl_file):
         -   Not in GE workflow.
     16. Parcellate CBF results.
     """
-    mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
-    asl_tlen = 10
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.nibabel import ApplyMask
+    from niworkflows.interfaces.reportlets.registration import (
+        SimpleBeforeAfterRPT as SimpleBeforeAfter,
+    )
+    from niworkflows.interfaces.utility import KeySelect
 
     # Have some options handy
-    layout = config.execution.layout
     omp_nthreads = config.nipype.omp_nthreads
     spaces = config.workflow.spaces
     output_dir = str(config.execution.output_dir)
@@ -155,8 +156,17 @@ def init_asl_preproc_wf(asl_file):
     m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
+    freesurfer = config.workflow.run_reconall
+    fmriprep_dir = str(config.execution.fmriprep_dir)
+    freesurfer_spaces = spaces.get_fs_spaces()
+    project_goodvoxels = config.workflow.project_goodvoxels and config.workflow.cifti_output
+    layout = config.execution.layout
 
+    # Take first file (only file, because we don't support multi-echo ASL) as reference
     ref_file = asl_file
+    # get original image orientation
+    ref_orientation = get_img_orientation(ref_file)
+
     asl_tlen, mem_gb = _create_mem_gb(ref_file)
 
     wf_name = _get_wf_name(ref_file)
@@ -184,18 +194,26 @@ def init_asl_preproc_wf(asl_file):
         )
         scorescrub = False
 
-    # Find fieldmaps. Options: (phase1|phase2|phasediff|epi|fieldmap|syn)
-    fmaps = None
-    if "fieldmaps" not in config.workflow.ignore:
-        fmaps = fieldmap_wrangler(
-            layout,
-            ref_file,
-            use_syn=config.workflow.use_syn_sdc,
-            force_syn=config.workflow.force_syn,
-        )
-    elif config.workflow.use_syn_sdc or config.workflow.force_syn:
-        # If fieldmaps are not enabled, activate SyN-SDC in unforced (False) mode
-        fmaps = {"syn": False}
+    # Determine which volumes to use in the pipeline
+    processing_target = select_processing_target(aslcontext=run_data["aslcontext"])
+    m0type = metadata["M0Type"]
+
+    if has_fieldmap:
+        from sdcflows import fieldmaps as fm
+
+        # We may have pruned the estimator collection due to `--ignore fieldmaps`
+        estimator_key = [key for key in get_estimator(layout, asl_file) if key in fm._estimators]
+
+        if not estimator_key:
+            has_fieldmap = False
+            config.loggers.workflow.critical(
+                f"None of the available B0 fieldmaps are associated to <{asl_file}>"
+            )
+        else:
+            config.loggers.workflow.info(
+                f"Found usable B0-map (fieldmap) estimator(s) <{', '.join(estimator_key)}> "
+                f"to correct <{asl_file}> for susceptibility-derived distortions."
+            )
 
     # Build workflow
     workflow = Workflow(name=wf_name)
@@ -210,21 +228,35 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "asl_metadata",
                 "aslcontext",
                 "m0scan",
                 "m0scan_metadata",
+                # anatomical data
                 "t1w_preproc",
                 "t1w_mask",
                 "t1w_dseg",
+                "t1w_aseg",
+                "t1w_aparc",
                 "t1w_tpms",
-                "anat_to_template_xfm",
-                "template_to_anat_xfm",
                 "template",
+                "anat2std_xfm",
+                "std2anat_xfm",
+                # Undefined if --fs-no-reconall, but this is safe
+                "subjects_dir",
+                "subject_id",
+                "anat_ribbon",
+                "t1w2fsnative_xfm",
+                "fsnative2t1w_xfm",
+                "surfaces",
+                "morphometrics",
+                "sphere_reg_fsLR",
             ],
         ),
         name="inputnode",
     )
     inputnode.inputs.asl_file = asl_file
+    inputnode.inputs.asl_metadata = metadata
     inputnode.inputs.aslcontext = run_data["aslcontext"]
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
@@ -248,19 +280,24 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     summary = pe.Node(
         FunctionalSummary(
-            registration=("FSL"),
+            registration=("FSL", "FreeSurfer")[freesurfer],
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
             pe_direction=metadata.get("PhaseEncodingDirection"),
             tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"]),
+            orientation=ref_orientation,
         ),
         name="summary",
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True,
     )
+    summary.inputs.dummy_scans = config.workflow.dummy_scans
 
     asl_derivatives_wf = init_asl_derivatives_wf(
         bids_root=layout.root,
+        cifti_output=config.workflow.cifti_output,
+        freesurfer=freesurfer,
+        project_goodvoxels=project_goodvoxels,
         metadata=metadata,
         output_dir=output_dir,
         spaces=spaces,
@@ -269,32 +306,29 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         basil=basil,
         output_confounds=True,
     )
-    workflow.connect([(inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")])])
-
-    # Determine which volumes to use in the pipeline
-    processing_target = select_processing_target(aslcontext=run_data["aslcontext"])
-    m0type = metadata["M0Type"]
+    asl_derivatives_wf.inputs.inputnode.source_file = asl_file
+    asl_derivatives_wf.inputs.inputnode.cifti_density = config.workflow.cifti_output
 
     # Validate the ASL file.
     validate_asl_wf = init_validate_asl_wf(name="validate_asl_wf")
     workflow.connect([(inputnode, validate_asl_wf, [("asl_file", "inputnode.asl_file")])])
 
     # Generate a tentative aslref from the most appropriate available image type in the ASL file
-    asl_reference_wf = init_asl_reference_wf(
+    initial_aslref_wf = init_asl_reference_wf(
+        omp_nthreads=omp_nthreads,
         aslcontext=run_data["aslcontext"],
-        name="asl_reference_wf",
+        name="initial_aslref_wf",
     )
-    asl_reference_wf.inputs.inputnode.dummy_scans = 0
+    initial_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_scans
 
     # fmt:off
     workflow.connect([
-        (inputnode, asl_reference_wf, [("aslcontext", "inputnode.aslcontext")]),
-        (validate_asl_wf, asl_reference_wf, [("outputnode.asl_file", "inputnode.asl_file")]),
+        (validate_asl_wf, initial_aslref_wf, [("outputnode.asl_file", "inputnode.asl_file")]),
     ])
     # fmt:on
 
     if sbref_file is not None:
-        workflow.connect([(val_sbref, asl_reference_wf, [("out_file", "inputnode.sbref_file")])])
+        workflow.connect([(val_sbref, initial_aslref_wf, [("out_file", "inputnode.sbref_file")])])
 
     # Drop volumes in the ASL file that won't be used
     # (e.g., precalculated CBF volumes if control-label pairs are available).
@@ -316,10 +350,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Split 4D ASL file into list of 3D volumes, so that volume-wise transforms (e.g., HMC params)
     # can be applied with other transforms in single shots.
     asl_split = pe.Node(Split(dimension="t"), name="asl_split", mem_gb=mem_gb["filesize"] * 3)
-
     workflow.connect([(reduce_asl_file, asl_split, [("asl_file", "in_file")])])
 
-    # Head motion correction
+    # Head motion correction, performed separately for each retained image type
     asl_hmc_wf = init_asl_hmc_wf(
         processing_target=processing_target,
         m0type=m0type,
@@ -334,27 +367,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("asl_file", "inputnode.asl_file"),
             ("aslcontext", "inputnode.aslcontext"),
         ]),
-        (asl_reference_wf, asl_hmc_wf, [("outputnode.raw_ref_image", "inputnode.raw_ref_image")]),
-    ])
-    # fmt:on
-
-    # Susceptibility distortion correction
-    asl_sdc_wf = init_sdc_estimate_wf(
-        fmaps,
-        metadata,
-        omp_nthreads=omp_nthreads,
-        debug=config.execution.debug,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (t1w_brain, asl_sdc_wf, [("out_file", "inputnode.t1w_brain")]),
-        (asl_reference_wf, asl_sdc_wf, [
-            ("outputnode.ref_image", "inputnode.epi_file"),
-            ("outputnode.ref_image_brain", "inputnode.epi_brain"),
-            ("outputnode.asl_mask", "inputnode.epi_mask"),
-        ]),
-        (asl_sdc_wf, summary, [("outputnode.method", "distortion_correction")]),
+        (initial_aslref_wf, asl_hmc_wf, [("outputnode.raw_ref_image", "inputnode.raw_ref_image")]),
     ])
     # fmt:on
 
@@ -362,9 +375,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_reg_wf = init_asl_reg_wf(
         asl2t1w_dof=config.workflow.asl2t1w_dof,
         asl2t1w_init=config.workflow.asl2t1w_init,
+        freesurfer=freesurfer,
+        mem_gb=mem_gb["resampled"],
         name="asl_reg_wf",
+        omp_nthreads=omp_nthreads,
         sloppy=config.execution.debug,
         use_bbr=config.workflow.use_bbr,
+        use_compression=False,
     )
 
     # fmt:off
@@ -378,10 +395,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Apply transforms (HMC+SDC) to ASLRef space in 1 shot
     asl_asl_trans_wf = init_asl_preproc_trans_wf(
+        name="asl_asl_trans_wf",
+        freesurfer=freesurfer,
         mem_gb=mem_gb["resampled"],
         omp_nthreads=omp_nthreads,
         use_compression=not config.execution.low_mem,
-        name="asl_asl_trans_wf",
     )
     asl_asl_trans_wf.inputs.inputnode.name_source = ref_file
 
@@ -414,7 +432,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_reg_wf, asl_confounds_wf, [
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
-        (asl_reference_wf, asl_confounds_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
+        (initial_aslref_wf, asl_confounds_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
         (asl_asl_trans_wf, asl_confounds_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
             ("outputnode.asl", "inputnode.asl"),
@@ -554,7 +572,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (inputnode, fmap_unwarp_report_wf, [("t1w_dseg", "inputnode.in_seg")]),
-            (asl_reference_wf, fmap_unwarp_report_wf, [
+            (initial_aslref_wf, fmap_unwarp_report_wf, [
                 ("outputnode.ref_image", "inputnode.in_pre"),
             ]),
             (asl_reg_wf, fmap_unwarp_report_wf, [
@@ -580,7 +598,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         if "syn" in fmaps:
             sdc_select_std = pe.Node(
-                KeySelect(fields=["template_to_anat_xfm"], key="MNI152NLin2009cAsym"),
+                KeySelect(fields=["std2anat_xfm"], key="MNI152NLin2009cAsym"),
                 name="sdc_select_std",
                 run_without_submitting=True,
             )
@@ -588,11 +606,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (inputnode, sdc_select_std, [
-                    ("template_to_anat_xfm", "template_to_anat_xfm"),
+                    ("std2anat_xfm", "std2anat_xfm"),
                     ("template", "keys"),
                 ]),
                 (sdc_select_std, asl_sdc_wf, [
-                    ("template_to_anat_xfm", "inputnode.template_to_anat_xfm"),
+                    ("std2anat_xfm", "inputnode.std2anat_xfm"),
                 ]),
             ])
             # fmt:on
@@ -604,7 +622,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (inputnode, syn_unwarp_report_wf, [("t1w_dseg", "inputnode.in_seg")]),
-                (asl_reference_wf, syn_unwarp_report_wf, [
+                (initial_aslref_wf, syn_unwarp_report_wf, [
                     ("outputnode.ref_image", "inputnode.in_pre"),
                 ]),
                 (asl_reg_wf, syn_unwarp_report_wf, [
@@ -743,7 +761,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (inputnode, asl_std_trans_wf, [
                 ("asl_file", "inputnode.name_source"),
                 ("template", "inputnode.templates"),
-                ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
+                ("anat2std_xfm", "inputnode.anat2std_xfm"),
             ]),
             (reduce_asl_file, asl_std_trans_wf, [("aslcontext", "inputnode.aslcontext")]),
             (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
@@ -787,7 +805,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # xform to 'MNI152NLin2009cAsym' is always computed, so this should always be available.
     select_xform_MNI152NLin2009cAsym_to_t1w = pe.Node(
-        KeySelect(fields=["template_to_anat_xfm"], key="MNI152NLin2009cAsym"),
+        KeySelect(fields=["std2anat_xfm"], key="MNI152NLin2009cAsym"),
         name="carpetplot_select_std",
         run_without_submitting=True,
     )
@@ -805,12 +823,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([
         (inputnode, plot_cbf_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
         (select_xform_MNI152NLin2009cAsym_to_t1w, plot_cbf_wf, [
-            ("template_to_anat_xfm", "inputnode.template_to_anat_xfm"),
+            ("std2anat_xfm", "inputnode.std2anat_xfm"),
         ]),
         (compute_cbf_wf, plot_cbf_wf, [
             ("outputnode.score_outlier_index", "inputnode.score_outlier_index"),
         ]),
-        (asl_reference_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
+        (initial_aslref_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
         (asl_reg_wf, plot_cbf_wf, [
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
@@ -840,11 +858,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (inputnode, select_xform_MNI152NLin2009cAsym_to_t1w, [
-            ("template_to_anat_xfm", "template_to_anat_xfm"),
+            ("std2anat_xfm", "std2anat_xfm"),
             ("template", "keys"),
         ]),
         (select_xform_MNI152NLin2009cAsym_to_t1w, carpetplot_wf, [
-            ("template_to_anat_xfm", "inputnode.template_to_anat_xfm"),
+            ("std2anat_xfm", "inputnode.std2anat_xfm"),
         ]),
         (asl_asl_trans_wf, carpetplot_wf, [("outputnode.asl", "inputnode.asl")]),
         (refine_mask, carpetplot_wf, [("out_mask", "inputnode.asl_mask")]),
@@ -867,7 +885,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([
         (inputnode, parcellate_cbf_wf, [("asl_file", "inputnode.source_file")]),
         (select_xform_MNI152NLin2009cAsym_to_t1w, parcellate_cbf_wf, [
-            ("template_to_anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
+            ("std2anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
         ]),
         (asl_asl_trans_wf, parcellate_cbf_wf, [("outputnode.asl_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, parcellate_cbf_wf, [
@@ -914,7 +932,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (summary, ds_report_summary, [("out_report", "in_file")]),
-        (asl_reference_wf, ds_report_validation, [("outputnode.validation_report", "in_file")]),
+        (initial_aslref_wf, ds_report_validation, [("outputnode.validation_report", "in_file")]),
     ])
     # fmt:on
 
@@ -925,3 +943,21 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             workflow.get_node(node).inputs.source_file = ref_file
 
     return workflow
+
+
+def get_estimator(layout, fname):
+    field_source = layout.get_metadata(fname).get("B0FieldSource")
+    if isinstance(field_source, str):
+        field_source = (field_source,)
+
+    if field_source is None:
+        import re
+        from pathlib import Path
+
+        from sdcflows.fieldmaps import get_identifier
+
+        # Fallback to IntendedFor
+        intended_rel = re.sub(r"^sub-[a-zA-Z0-9]*/", "", str(Path(fname).relative_to(layout.root)))
+        field_source = get_identifier(intended_rel)
+
+    return field_source

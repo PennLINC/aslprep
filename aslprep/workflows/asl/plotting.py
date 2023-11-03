@@ -41,7 +41,7 @@ def init_plot_cbf_wf(
                 "asl_mask",
                 "t1w_dseg",
                 "anat_to_aslref_xfm",
-                "template_to_anat_xfm",
+                "std2anat_xfm",
                 "confounds_file",  # only for non-GE
                 # CBF outputs
                 "mean_cbf",
@@ -70,7 +70,7 @@ def init_plot_cbf_wf(
     # fmt:off
     workflow.connect([
         (inputnode, mrg_xfms, [
-            ("template_to_anat_xfm", "in1"),
+            ("std2anat_xfm", "in1"),
             ("anat_to_aslref_xfm", "in2"),
         ]),
     ])

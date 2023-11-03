@@ -67,9 +67,9 @@ def init_asl_gepreproc_wf(asl_file):
         List of tissue probability maps in T1w space
     template
         List of templates to target
-    anat_to_template_xfm
+    anat2std_xfm
         List of transform files, collated with templates
-    template_to_anat_xfm
+    std2anat_xfm
         List of inverse transform files, collated with templates
     subjects_dir
         FreeSurfer SUBJECTS_DIR
@@ -210,8 +210,8 @@ effects of other kernels [@lanczos].
                 "t1w_mask",
                 "t1w_dseg",
                 "t1w_tpms",
-                "anat_to_template_xfm",
-                "template_to_anat_xfm",
+                "anat2std_xfm",
+                "std2anat_xfm",
                 "template",
             ],
         ),
@@ -552,7 +552,7 @@ effects of other kernels [@lanczos].
             (inputnode, asl_std_trans_wf, [
                 ("aslcontext", "inputnode.aslcontext"),
                 ("template", "inputnode.templates"),
-                ("anat_to_template_xfm", "inputnode.anat_to_template_xfm"),
+                ("anat2std_xfm", "inputnode.anat2std_xfm"),
                 ("asl_file", "inputnode.name_source"),
             ]),
             (asl_reg_wf, asl_std_trans_wf, [
@@ -588,7 +588,7 @@ effects of other kernels [@lanczos].
 
     # xform to 'MNI152NLin2009cAsym' is always computed, so this should always be available.
     select_xform_MNI152NLin2009cAsym_to_t1w = pe.Node(
-        KeySelect(fields=["template_to_anat_xfm"], key="MNI152NLin2009cAsym"),
+        KeySelect(fields=["std2anat_xfm"], key="MNI152NLin2009cAsym"),
         name="carpetplot_select_std",
         run_without_submitting=True,
     )
@@ -596,7 +596,7 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (inputnode, select_xform_MNI152NLin2009cAsym_to_t1w, [
-            ("template_to_anat_xfm", "template_to_anat_xfm"),
+            ("std2anat_xfm", "std2anat_xfm"),
             ("template", "keys"),
         ]),
     ])
@@ -615,7 +615,7 @@ effects of other kernels [@lanczos].
     workflow.connect([
         (inputnode, plot_cbf_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
         (select_xform_MNI152NLin2009cAsym_to_t1w, plot_cbf_wf, [
-            ("template_to_anat_xfm", "inputnode.template_to_anat_xfm"),
+            ("std2anat_xfm", "inputnode.std2anat_xfm"),
         ]),
         (asl_reference_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
         (asl_reg_wf, plot_cbf_wf, [
@@ -644,7 +644,7 @@ effects of other kernels [@lanczos].
     workflow.connect([
         (inputnode, parcellate_cbf_wf, [("asl_file", "inputnode.source_file")]),
         (select_xform_MNI152NLin2009cAsym_to_t1w, parcellate_cbf_wf, [
-            ("template_to_anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
+            ("std2anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
         ]),
         (refine_mask, parcellate_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, parcellate_cbf_wf, [

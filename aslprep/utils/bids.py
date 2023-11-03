@@ -57,7 +57,7 @@ def collect_run_data(layout, asl_file):
     """Use pybids to retrieve the input data for a given participant."""
     queries = {
         "aslcontext": {"suffix": "aslcontext", "extension": ".tsv"},
-        "sbref": {"suffix": "sbref"},
+        "sbref": {"suffix": "sbref", "extension": [".nii", ".nii.gz"]},
     }
 
     bids_file = layout.get_file(asl_file)
@@ -297,3 +297,22 @@ def find_atlas_entities(filename):
     out += [suffix, extension]
 
     return tuple(out)
+
+
+def get_estimator(layout, fname):
+    """Identify estimator for a file."""
+    field_source = layout.get_metadata(fname).get("B0FieldSource")
+    if isinstance(field_source, str):
+        field_source = (field_source,)
+
+    if field_source is None:
+        import re
+        from pathlib import Path
+
+        from sdcflows.fieldmaps import get_identifier
+
+        # Fallback to IntendedFor
+        intended_rel = re.sub(r"^sub-[a-zA-Z0-9]*/", "", str(Path(fname).relative_to(layout.root)))
+        field_source = get_identifier(intended_rel)
+
+    return field_source
