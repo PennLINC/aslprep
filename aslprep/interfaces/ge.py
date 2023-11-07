@@ -139,6 +139,11 @@ class GeReferenceFile(SimpleInterface):
             if not control_volume_idx:
                 raise RuntimeError("M0 could not be estimated from control volumes.")
 
+            if metadata["BackgroundSuppression"]:
+                raise ValueError(
+                    "Background-suppressed control volumes cannot be used for calibration."
+                )
+
             control_data = asl_data[:, :, :, control_volume_idx]
             m0_data = np.mean(control_data, axis=3)
 
