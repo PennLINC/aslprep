@@ -7,23 +7,16 @@ import sys
 from pathlib import Path
 
 import yaml
-from bids.layout import BIDSLayout
 
 from aslprep import config
 
 
 def collect_data(
-    bids_dir,
+    layout,
     participant_label,
-    bids_validate=False,
     bids_filters=None,
 ):
     """Use pybids to retrieve the input data for a given participant."""
-    if isinstance(bids_dir, BIDSLayout):
-        layout = bids_dir
-    else:
-        layout = BIDSLayout(str(bids_dir), validate=bids_validate)
-
     queries = {
         "fmap": {"datatype": "fmap"},
         "flair": {"datatype": "anat", "suffix": "FLAIR"},
@@ -50,7 +43,7 @@ def collect_data(
         for dtype, query in queries.items()
     }
 
-    return subj_data, layout
+    return subj_data
 
 
 def collect_run_data(layout, asl_file):
