@@ -1073,12 +1073,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
 
 def get_img_orientation(imgf):
-    """Return the image orientation as a string"""
+    """Return the image orientation as a string."""
     img = nb.load(imgf)
     return "".join(nb.aff2axcodes(img.affine))
 
 
 def get_estimator(layout, fname):
+    """Get B0 estimator(s) for a file."""
     field_source = layout.get_metadata(fname).get("B0FieldSource")
     if isinstance(field_source, str):
         field_source = (field_source,)
