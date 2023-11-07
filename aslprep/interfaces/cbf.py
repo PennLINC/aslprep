@@ -185,6 +185,13 @@ class ExtractCBF(SimpleInterface):
             m0tr = None
 
         elif metadata["M0Type"] == "Absent":
+            if control_volume_idx and not cbf_volume_idx:
+                # BackgroundSuppression is required, so no need to use get().
+                if metadata["BackgroundSuppression"]:
+                    raise ValueError(
+                        "Background-suppressed control volumes cannot be used for calibration."
+                    )
+
             if control_volume_idx:
                 # Estimate M0 using the smoothed mean control volumes.
                 control_data = asl_data[:, :, :, control_volume_idx]

@@ -47,7 +47,7 @@ def select_processing_target(aslcontext):
     try:
         aslcontext_df = pd.read_table(aslcontext)
     except:
-        raise ValueError(aslcontext)
+        raise FileNotFoundError(aslcontext)
 
     voltypes = aslcontext_df["volume_type"].tolist()
 
