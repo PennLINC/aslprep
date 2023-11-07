@@ -2,7 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Preprocessing workflows for ASL data."""
 import nibabel as nb
-from fmriprep.workflows.resampling import (
+from fmriprep.workflows.bold.resampling import (
     init_bold_fsLR_resampling_wf,
     init_bold_grayords_wf,
     init_bold_surf_wf,
