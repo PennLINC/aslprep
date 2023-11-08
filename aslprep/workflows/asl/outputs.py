@@ -9,13 +9,17 @@ from smriprep.workflows.outputs import _bids_relative
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
+from aslprep.utils.spaces import SpatialReferences
 
 
 def init_asl_derivatives_wf(
-    bids_root,
-    metadata,
-    spaces,
-    is_multi_pld,
+    bids_root: str,
+    metadata: dict,
+    spaces: SpatialReferences,
+    cifti_output: bool,
+    freesurfer: bool,
+    project_goodvoxels: bool,
+    is_multi_pld: bool,
     output_confounds=True,
     scorescrub=False,
     basil=False,
@@ -402,6 +406,103 @@ def init_asl_derivatives_wf(
                 (raw_sources, ds_base_input_t1, [("out", "RawSources")]),
             ])
             # fmt:on
+
+    fs_outputs = spaces.cached.get_fs_spaces()
+    if freesurfer and fs_outputs:
+        from niworkflows.interfaces.surf import Path2BIDS
+
+        select_fs_surf = pe.Node(
+            KeySelect(fields=["surfaces", "surf_kwargs"]),
+            name="select_fs_surf",
+            run_without_submitting=True,
+            mem_gb=DEFAULT_MEMORY_MIN_GB,
+        )
+        select_fs_surf.iterables = [("key", fs_outputs)]
+        select_fs_surf.inputs.surf_kwargs = [{"space": s} for s in fs_outputs]
+
+        name_surfs = pe.MapNode(
+            Path2BIDS(pattern=r"(?P<hemi>[lr])h.\w+"),
+            iterfield="in_file",
+            name="name_surfs",
+            run_without_submitting=True,
+        )
+
+        ds_bold_surfs = pe.MapNode(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                extension=".func.gii",
+                TaskName=metadata.get("TaskName"),
+                **timing_parameters,
+            ),
+            iterfield=["in_file", "hemi"],
+            name="ds_bold_surfs",
+            run_without_submitting=True,
+            mem_gb=DEFAULT_MEMORY_MIN_GB,
+        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, select_fs_surf, [
+                ('surf_files', 'surfaces'),
+                ('surf_refs', 'keys')]),
+            (select_fs_surf, name_surfs, [('surfaces', 'in_file')]),
+            (inputnode, ds_bold_surfs, [('source_file', 'source_file')]),
+            (select_fs_surf, ds_bold_surfs, [
+                ('surfaces', 'in_file'),
+                ('key', 'space'),
+            ]),
+            (name_surfs, ds_bold_surfs, [('hemi', 'hemi')]),
+        ])
+        # fmt:on
+
+    if freesurfer and project_goodvoxels:
+        ds_goodvoxels_mask = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                space="T1w",
+                desc="goodvoxels",
+                suffix="mask",
+                Type="ROI",  # Metadata
+                compress=True,
+                dismiss_entities=("echo",),
+            ),
+            name="ds_goodvoxels_mask",
+            run_without_submitting=True,
+            mem_gb=DEFAULT_MEMORY_MIN_GB,
+        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, ds_goodvoxels_mask, [
+                ('source_file', 'source_file'),
+                ('goodvoxels_mask', 'in_file'),
+            ]),
+        ])
+        # fmt:on
+
+    # CIFTI output
+    if cifti_output:
+        ds_bold_cifti = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                suffix="bold",
+                compress=False,
+                TaskName=metadata.get("TaskName"),
+                space="fsLR",
+                **timing_parameters,
+            ),
+            name="ds_bold_cifti",
+            run_without_submitting=True,
+            mem_gb=DEFAULT_MEMORY_MIN_GB,
+        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, ds_bold_cifti, [
+                (('bold_cifti', _unlist), 'in_file'),
+                ('source_file', 'source_file'),
+                ('cifti_density', 'density'),
+                (('cifti_metadata', _read_json), 'meta_dict'),
+            ]),
+        ])
+        # fmt:on
 
     if getattr(spaces, "_cached") is None:
         return workflow
