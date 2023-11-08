@@ -92,7 +92,7 @@ class DerivativesDataSink(BaseDerivativesDataSink):
     A child class of the niworkflows DerivativesDataSink, using aslprep's configuration files.
     """
 
-    out_path_base = "aslprep"
+    out_path_base = ""
     _allowed_entities = set(config_entities)
     _config_entities = config_entities
     _config_entities_dict = merged_entities

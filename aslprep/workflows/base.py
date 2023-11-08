@@ -1,24 +1,18 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """ASLprep base processing workflows."""
-
+import os
 import sys
 from copy import deepcopy
 
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.bids import BIDSInfo
-from niworkflows.interfaces.nilearn import NILEARN_VERSION
 from niworkflows.utils.connections import listify
-from niworkflows.utils.misc import fix_multi_T1w_source_name
-from niworkflows.utils.spaces import Reference
-from smriprep.workflows.anatomical import init_anat_preproc_wf
+from packaging.version import Version
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
-from aslprep.interfaces.bids import BIDSDataGrabber
-from aslprep.utils.bids import collect_data, get_estimator
+from aslprep.utils.bids import get_estimator
 from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.workflows.asl.base import init_asl_preproc_wf
 from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
@@ -44,33 +38,47 @@ def init_aslprep_wf():
                 wf = init_aslprep_wf()
 
     """
-    aslprep_wf = Workflow(name="aslprep_wf")
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.bids import BIDSFreeSurferDir
+
+    ver = Version(config.environment.version)
+
+    aslprep_wf = Workflow(name=f"aslprep_{ver.major}_{ver.minor}_wf")
     aslprep_wf.base_dir = config.execution.work_dir
+
+    freesurfer = config.workflow.run_reconall
+    if freesurfer:
+        fsdir = pe.Node(
+            BIDSFreeSurferDir(
+                derivatives=config.execution.output_dir,
+                freesurfer_home=os.getenv("FREESURFER_HOME"),
+                spaces=config.workflow.spaces.get_fs_spaces(),
+                minimum_fs_version="7.0.0",
+            ),
+            name=f"fsdir_run_{config.execution.run_uuid.replace('-', '_')}",
+            run_without_submitting=True,
+        )
+        if config.execution.fs_subjects_dir is not None:
+            fsdir.inputs.subjects_dir = str(config.execution.fs_subjects_dir.absolute())
 
     for subject_id in config.execution.participant_label:
         single_subject_wf = init_single_subject_wf(subject_id)
 
-        single_subject_wf.config["execution"]["crashdump_dir"] = str(
-            config.execution.output_dir
-            / "aslprep"
-            / "-".join(("sub", subject_id))
-            / "log"
-            / config.execution.run_uuid
+        log_dir = (
+            config.execution.aslprep_dir / f"sub-{subject_id}" / "log" / config.execution.run_uuid
         )
+        log_dir.mkdir(exist_ok=True, parents=True)
+
+        single_subject_wf.config["execution"]["crashdump_dir"] = str(log_dir)
         for node in single_subject_wf._get_all_nodes():
             node.config = deepcopy(single_subject_wf.config)
 
-        aslprep_wf.add_nodes([single_subject_wf])
+        if freesurfer:
+            aslprep_wf.connect(fsdir, "subjects_dir", single_subject_wf, "inputnode.subjects_dir")
+        else:
+            aslprep_wf.add_nodes([single_subject_wf])
 
         # Dump a copy of the config file into the log directory
-        log_dir = (
-            config.execution.output_dir
-            / "aslprep"
-            / f"sub-{subject_id}"
-            / "log"
-            / config.execution.run_uuid
-        )
-        log_dir.mkdir(exist_ok=True, parents=True)
         config.to_filename(log_dir / "aslprep.toml")
 
     return aslprep_wf
@@ -107,6 +115,15 @@ def init_single_subject_wf(subject_id: str):
     subjects_dir : :obj:`str`
         FreeSurfer's ``$SUBJECTS_DIR``.
     """
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
+    from niworkflows.interfaces.nilearn import NILEARN_VERSION
+    from niworkflows.utils.misc import fix_multi_T1w_source_name
+    from niworkflows.utils.spaces import Reference
+    from smriprep.workflows.anatomical import init_anat_preproc_wf
+
+    from aslprep.utils.bids import collect_data
+
     name = f"single_subject_{subject_id}_wf"
     subject_data = collect_data(
         config.execution._layout,
@@ -183,8 +200,6 @@ their manuscripts unchanged. It is released under the unchanged
 
 """
 
-    output_dir = str(config.execution.output_dir)
-
     inputnode = pe.Node(niu.IdentityInterface(fields=["subjects_dir"]), name="inputnode")
 
     bidssrc = pe.Node(
@@ -218,7 +233,7 @@ their manuscripts unchanged. It is released under the unchanged
 
     ds_report_summary = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir,
+            base_directory=config.execution.aslprep_dir,
             desc="summary",
             datatype="figures",
             dismiss_entities=("echo",),
@@ -229,7 +244,7 @@ their manuscripts unchanged. It is released under the unchanged
 
     ds_report_about = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir,
+            base_directory=config.execution.aslprep_dir,
             desc="about",
             datatype="figures",
             dismiss_entities=("echo",),
@@ -249,7 +264,7 @@ their manuscripts unchanged. It is released under the unchanged
         longitudinal=config.workflow.longitudinal,
         omp_nthreads=config.nipype.omp_nthreads,
         msm_sulc=config.workflow.run_msmsulc,
-        output_dir=output_dir,
+        output_dir=config.execution.aslprep_dir,
         skull_strip_fixed_seed=config.workflow.skull_strip_fixed_seed,
         skull_strip_mode=config.workflow.skull_strip_t1w,
         skull_strip_template=Reference.from_string(config.workflow.skull_strip_template)[0],
@@ -453,7 +468,7 @@ tasks and sessions), the following preprocessing was performed.
         debug="fieldmaps" in config.execution.debug,
         estimators=fmap_estimators,
         omp_nthreads=config.nipype.omp_nthreads,
-        output_dir=output_dir,
+        output_dir=config.execution.aslprep_dir,
         subject=subject_id,
     )
     fmap_wf.__desc__ = f"""

@@ -1103,7 +1103,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
     # but it's useful as a reference.
     ds_atlas = pe.MapNode(
         DerivativesDataSink(
-            base_directory=config.execution.output_dir,
+            base_directory=config.execution.aslprep_dir,
             check_hdr=False,
             dismiss_entities=["datatype", "subject", "session", "task", "run", "desc"],
             allowed_entities=["space", "res", "den", "atlas", "desc", "cohort"],
@@ -1129,7 +1129,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
 
     ds_atlas_labels_file = pe.MapNode(
         DerivativesDataSink(
-            base_directory=config.execution.output_dir,
+            base_directory=config.execution.aslprep_dir,
             check_hdr=False,
             dismiss_entities=[
                 "datatype",
@@ -1164,7 +1164,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
 
     ds_atlas_metadata = pe.MapNode(
         DerivativesDataSink(
-            base_directory=config.execution.output_dir,
+            base_directory=config.execution.aslprep_dir,
             check_hdr=False,
             dismiss_entities=[
                 "datatype",

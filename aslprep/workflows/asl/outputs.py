@@ -14,7 +14,6 @@ from aslprep.interfaces import DerivativesDataSink
 def init_asl_derivatives_wf(
     bids_root,
     metadata,
-    output_dir,
     spaces,
     is_multi_pld,
     output_confounds=True,
@@ -30,8 +29,6 @@ def init_asl_derivatives_wf(
         Original BIDS dataset path.
     metadata : :obj:`dict`
         Metadata dictionary associated to the ASL run.
-    output_dir : :obj:`str`
-        Where derivatives should be written out to.
     spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
         A container for storing, organizing, and parsing spatial normalizations. Composed of
         :py:class:`~niworkflows.utils.spaces.Reference` objects representing spatial references.
@@ -127,7 +124,7 @@ def init_asl_derivatives_wf(
     if output_confounds:
         ds_confounds = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir,
+                base_directory=config.execution.aslprep_dir,
                 desc="confounds",
                 suffix="regressors",
             ),
@@ -148,7 +145,7 @@ def init_asl_derivatives_wf(
 
     ds_qcfile = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir,
+            base_directory=config.execution.aslprep_dir,
             desc="qualitycontrol",
             suffix="cbf",
             compress=False,
@@ -170,7 +167,7 @@ def init_asl_derivatives_wf(
     # write transform matrix file between asl native space and T1w
     ds_t1w_to_asl_xform = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir,
+            base_directory=config.execution.aslprep_dir,
             to="scanner",
             mode="image",
             suffix="xfm",
@@ -194,7 +191,7 @@ def init_asl_derivatives_wf(
 
     ds_asl_to_t1w_xform = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir,
+            base_directory=config.execution.aslprep_dir,
             dismiss_entities=("echo",),
             to="T1w",
             mode="image",
@@ -242,7 +239,7 @@ def init_asl_derivatives_wf(
     for parcellated_input in parcellated_inputs:
         ds_parcellated_input = pe.MapNode(
             DerivativesDataSink(
-                base_directory=output_dir,
+                base_directory=config.execution.aslprep_dir,
                 suffix="cbf",
                 compress=False,
                 **PARCELLATED_INPUT_FIELDS[parcellated_input],
@@ -361,7 +358,7 @@ def init_asl_derivatives_wf(
             base_input_native = f"{base_input}_native"
             ds_base_input_native = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir,
+                    base_directory=config.execution.aslprep_dir,
                     compress=True,
                     **BASE_INPUT_FIELDS[base_input],
                 ),
@@ -386,7 +383,7 @@ def init_asl_derivatives_wf(
             base_input_t1 = f"{base_input}_t1"
             ds_base_input_t1 = pe.Node(
                 DerivativesDataSink(
-                    base_directory=output_dir,
+                    base_directory=config.execution.aslprep_dir,
                     compress=True,
                     space="T1w",
                     **BASE_INPUT_FIELDS[base_input],
@@ -439,7 +436,7 @@ def init_asl_derivatives_wf(
         base_input_std = f"{base_input}_std"
         ds_base_input_std = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir,
+                base_directory=config.execution.aslprep_dir,
                 compress=True,
                 **BASE_INPUT_FIELDS[base_input],
             ),

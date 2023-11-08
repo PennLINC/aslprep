@@ -7,6 +7,7 @@ from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from templateflow.api import get as get_template
 
+from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.qc import ComputeCBFQC
@@ -15,7 +16,6 @@ from aslprep.utils.misc import _select_last_in_list
 
 def init_compute_cbf_qc_wf(
     is_ge,
-    output_dir,
     scorescrub=False,
     basil=False,
     name="compute_cbf_qc_wf",
@@ -31,7 +31,6 @@ def init_compute_cbf_qc_wf(
 
             wf = init_compute_cbf_qc_wf(
                 is_ge=False,
-                output_dir=".",
                 scorescrub=True,
                 basil=True,
                 name="compute_cbf_qc_wf",
@@ -40,7 +39,6 @@ def init_compute_cbf_qc_wf(
     Parameters
     ----------
     is_ge : bool
-    output_dir : str
     scorescrub : bool
     basil : bool
     name : :obj:`str`
@@ -208,7 +206,7 @@ negative CBF values.
 
     ds_qc_metadata = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir,
+            base_directory=config.execution.aslprep_dir,
             dismiss_entities=list(DerivativesDataSink._allowed_entities),
             allowed_entities=[],
             suffix="qc",

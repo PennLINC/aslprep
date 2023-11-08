@@ -157,14 +157,12 @@ def init_asl_preproc_wf(asl_file, has_fieldmap=False):
     # Have some options handy
     omp_nthreads = config.nipype.omp_nthreads
     spaces = config.workflow.spaces
-    output_dir = str(config.execution.output_dir)
     dummyvols = config.workflow.dummy_vols
     smooth_kernel = config.workflow.smooth_kernel
     m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
     freesurfer = config.workflow.run_reconall
-    fmriprep_dir = str(config.execution.fmriprep_dir)
     freesurfer_spaces = spaces.get_fs_spaces()
     project_goodvoxels = config.workflow.project_goodvoxels and config.workflow.cifti_output
     layout = config.execution.layout
@@ -306,7 +304,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         freesurfer=freesurfer,
         project_goodvoxels=project_goodvoxels,
         metadata=metadata,
-        output_dir=output_dir,
         spaces=spaces,
         is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
@@ -556,7 +553,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Generate QC metrics
     compute_cbf_qc_wf = init_compute_cbf_qc_wf(
         is_ge=False,
-        output_dir=output_dir,
         scorescrub=scorescrub,
         basil=basil,
         name="compute_cbf_qc_wf",
@@ -865,7 +861,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     ds_report_validation = pe.Node(
         DerivativesDataSink(
-            base_directory=output_dir,
+            base_directory=config.execution.aslprep_dir,
             desc="validation",
             datatype="figures",
             dismiss_entities=("echo",),
@@ -885,7 +881,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Fill-in datasinks of reportlets seen so far
     for node in workflow.list_node_names():
         if node.split(".")[-1].startswith("ds_report"):
-            workflow.get_node(node).inputs.base_directory = output_dir
+            workflow.get_node(node).inputs.base_directory = config.execution.aslprep_dir
             workflow.get_node(node).inputs.source_file = ref_file
 
     if not has_fieldmap:
@@ -956,7 +952,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     ds_report_sdc = pe.Node(
         DerivativesDataSink(
-            base_directory=fmriprep_dir,
+            base_directory=config.execution.aslprep_dir,
             desc="sdc",
             suffix="asl",
             datatype="figures",
@@ -1013,7 +1009,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         )
         ds_report_sdc_coreg = pe.Node(
             DerivativesDataSink(
-                base_directory=fmriprep_dir,
+                base_directory=config.execution.aslprep_dir,
                 datatype="figures",
                 desc="fmapCoreg",
                 dismiss_entities=("echo",),
@@ -1028,7 +1024,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         ds_fmap_report = pe.Node(
             DerivativesDataSink(
-                base_directory=fmriprep_dir,
+                base_directory=config.execution.aslprep_dir,
                 datatype="figures",
                 desc="fieldmap",
                 dismiss_entities=("echo",),

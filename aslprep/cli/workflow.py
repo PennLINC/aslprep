@@ -23,14 +23,16 @@ def build_workflow(config_file, retval):
     config.load(config_file)
     build_log = config.loggers.workflow
 
-    output_dir = config.execution.output_dir
     version = config.environment.version
 
     retval["return_code"] = 1
     retval["workflow"] = None
 
     # warn if older results exist: check for dataset_description.json in output folder
-    msg = check_pipeline_version(version, output_dir / "aslprep" / "dataset_description.json")
+    msg = check_pipeline_version(
+        version,
+        config.execution.aslprep_dir / "dataset_description.json",
+    )
     if msg is not None:
         build_log.warning(msg)
 
@@ -54,7 +56,7 @@ def build_workflow(config_file, retval):
         build_log.log(25, "Running --reports-only on participants %s", ", ".join(subject_list))
         retval["return_code"] = generate_reports(
             subject_list,
-            config.execution.output_dir,
+            config.execution.aslprep_dir,
             config.execution.run_uuid,
             config=pkgrf("aslprep", "data/reports-spec.yml"),
             packagename="aslprep",
@@ -112,7 +114,7 @@ def build_boilerplate(config_file, workflow):
     from aslprep import config
 
     config.load(config_file)
-    logs_path = config.execution.output_dir / "aslprep" / "logs"
+    logs_path = config.execution.aslprep_dir / "logs"
     boilerplate = workflow.visit_desc()
     citation_files = {ext: logs_path / f"CITATION.{ext}" for ext in ("bib", "tex", "md", "html")}
 
