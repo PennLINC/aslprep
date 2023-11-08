@@ -297,7 +297,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True,
     )
-    summary.inputs.dummy_scans = config.workflow.dummy_scans
+    summary.inputs.dummy_scans = config.workflow.dummy_vols
 
     asl_derivatives_wf = init_asl_derivatives_wf(
         bids_root=layout.root,
@@ -324,7 +324,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         aslcontext=run_data["aslcontext"],
         name="initial_aslref_wf",
     )
-    initial_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_scans
+    initial_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_vols
 
     # fmt:off
     workflow.connect([
