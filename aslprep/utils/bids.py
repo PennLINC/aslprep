@@ -117,6 +117,25 @@ def collect_run_data(layout, asl_file):
     return run_data
 
 
+def write_bidsignore(deriv_dir):
+    """Write .bidsignore file."""
+    bids_ignore = (
+        "*.html",
+        "logs/",
+        "figures/",  # Reports
+        "*_xfm.*",  # Unspecified transform files
+        "*.surf.gii",  # Unspecified structural outputs
+        # Unspecified functional outputs
+        "*_aslref.nii.gz",
+        "*_asl.func.gii",
+        "*_mixing.tsv",
+        "*_timeseries.tsv",
+    )
+    ignore_file = Path(deriv_dir) / ".bidsignore"
+
+    ignore_file.write_text("\n".join(bids_ignore) + "\n")
+
+
 def write_derivative_description(bids_dir, deriv_dir):
     """Write derivative dataset_description file."""
     from aslprep.__about__ import DOWNLOAD_URL, __url__, __version__
