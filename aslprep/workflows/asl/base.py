@@ -326,7 +326,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Generate a tentative aslref from the most appropriate available image type in the ASL file
     initial_aslref_wf = init_asl_reference_wf(
-        omp_nthreads=omp_nthreads,
         aslcontext=run_data["aslcontext"],
         name="initial_aslref_wf",
     )
