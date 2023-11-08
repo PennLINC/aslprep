@@ -497,12 +497,13 @@ any spatial references.""",
         "world usage crucial for obtaining funding.",
     )
     g_other.add_argument(
-        "--sloppy",
-        dest="debug",
-        action="store_true",
-        default=False,
-        help="Use low-quality tools for speed - TESTING ONLY",
+        "--debug",
+        action="store",
+        nargs="+",
+        choices=config.DEBUG_MODES + ("all",),
+        help="Debug mode(s) to enable. 'all' is alias for all available modes.",
     )
+
     latest = check_latest()
     if latest is not None and currentv < latest:
         print(
