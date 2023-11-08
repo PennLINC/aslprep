@@ -7,6 +7,7 @@ import re
 import time
 
 import pandas as pd
+from fmriprep.interfaces.reports import get_world_pedir
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     Directory,
@@ -180,6 +181,7 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
     qc_file = File(exists=True, desc="qc file")
     tr = traits.Float(desc="Repetition time", mandatory=True)
+    orientation = traits.Str(mandatory=True, desc='Orientation of the voxel axes')
 
 
 class FunctionalSummary(SummaryInterface):
@@ -201,6 +203,8 @@ class FunctionalSummary(SummaryInterface):
                 f"FreeSurfer <code>mri_coreg</code> - {dof} dof",
             ],
         }[self.inputs.registration][self.inputs.fallback]
+
+        pedir = get_world_pedir(self.inputs.orientation, self.inputs.pe_direction)
 
         qcfile = pd.read_csv(self.inputs.qc_file)
         motionparam = f"FD : {round(qcfile['FD'][0], 4)}, rmsd: {round(qcfile['rmsd'][0], 4)} "
