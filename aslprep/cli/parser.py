@@ -93,8 +93,6 @@ def _build_parser():
     )
 
     # optional arguments
-    parser.add_argument("--version", action="version", version=verstr)
-
     g_bids = parser.add_argument_group("Options for filtering BIDS queries")
     g_bids.add_argument(
         "--skip_bids_validation",
@@ -183,26 +181,26 @@ def _build_parser():
         type=IsFile,
         help="nipype plugin configuration file",
     )
-    g_perfm.add_argument("--anat-only", action="store_true", help="run anatomical workflows only")
     g_perfm.add_argument(
+        "--sloppy",
+        action="store_true",
+        default=False,
+        help="Use low-quality tools for speed - TESTING ONLY",
+    )
+
+    g_subset = parser.add_argument_group("Options for performing only a subset of the workflow")
+    g_subset.add_argument("--anat-only", action="store_true", help="run anatomical workflows only")
+    g_subset.add_argument(
         "--boilerplate_only",
         action="store_true",
         default=False,
         help="generate boilerplate only",
     )
-    g_perfm.add_argument(
+    g_subset.add_argument(
         "--md-only-boilerplate",
         action="store_true",
         default=False,
         help="skip generation of HTML and LaTeX formatted citation with pandoc",
-    )
-    g_perfm.add_argument(
-        "-v",
-        "--verbose",
-        dest="verbose_count",
-        action="count",
-        default=0,
-        help="increases log verbosity for each occurrence, debug level is -vvv",
     )
 
     g_conf = parser.add_argument_group("Workflow configuration")
@@ -433,6 +431,15 @@ any spatial references.""",
     )
 
     g_other = parser.add_argument_group("Other options")
+    g_other.add_argument("--version", action="version", version=verstr)
+    g_other.add_argument(
+        "-v",
+        "--verbose",
+        dest="verbose_count",
+        action="count",
+        default=0,
+        help="increases log verbosity for each occurrence, debug level is -vvv",
+    )
     g_other.add_argument(
         "-w",
         "--work-dir",
@@ -462,11 +469,11 @@ any spatial references.""",
         "aggregation, not reportlet generation for specific nodes.",
     )
     g_other.add_argument(
-        "--run-uuid",
+        "--config-file",
         action="store",
-        default=None,
-        help="Specify UUID of previous run, to include error logs in report. "
-        "No effect without --reports-only.",
+        metavar="FILE",
+        help="Use pre-generated configuration file. Values in file will be overridden "
+        "by command-line arguments.",
     )
     g_other.add_argument(
         "--write-graph",
@@ -529,8 +536,13 @@ def parse_args(args=None, namespace=None):
 
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)
+    if opts.config_file:
+        skip = {} if opts.reports_only else {"execution": ("run_uuid",)}
+        config.load(opts.config_file, skip=skip, init=False)
+        config.loggers.cli.info(f"Loaded previous configuration file {opts.config_file}")
+
     config.execution.log_level = int(max(25 - 5 * opts.verbose_count, logging.DEBUG))
-    config.from_dict(vars(opts))
+    config.from_dict(vars(opts), init=["nipype"])
 
     # Initialize --output-spaces if not defined
     if config.execution.output_spaces is None:
@@ -594,6 +606,12 @@ applied."""
         build_log.info(f"Clearing previous aslprep working directory: {work_dir}")
         if not clean_directory(work_dir):
             build_log.warning(f"Could not clear all contents of working directory: {work_dir}")
+
+    # Update the config with an empty dict to trigger initialization of all config
+    # sections (we used `init=False` above).
+    # This must be done after cleaning the work directory, or we could delete an
+    # open SQLite database
+    config.from_dict({})
 
     # Ensure input and output folders are not the same
     if output_dir == bids_dir:

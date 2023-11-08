@@ -328,6 +328,8 @@ class execution(_Config):
     """A dictionary of BIDS selection filters."""
     boilerplate_only = False
     """Only generate a boilerplate."""
+    sloppy = False
+    """Run in sloppy mode (meaning, suboptimal parameters that minimize run-time)."""
     debug = False
     """Run in sloppy mode (meaning, suboptimal parameters that minimize run-time)."""
     fs_license_file = _fs_license
