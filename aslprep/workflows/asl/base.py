@@ -397,7 +397,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (inputnode, asl_reg_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
+        (inputnode, asl_reg_wf, [
+            ("t1w_dseg", "inputnode.t1w_dseg"),
+            # Undefined if --fs-no-reconall, but this is safe
+            ("subjects_dir", "inputnode.subjects_dir"),
+            ("subject_id", "inputnode.subject_id"),
+            ("fsnative2t1w_xfm", "inputnode.fsnative2t1w_xfm"),
+        ]),
         (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
     ])
