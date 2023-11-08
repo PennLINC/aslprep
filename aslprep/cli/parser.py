@@ -597,7 +597,10 @@ applied."""
     version = config.environment.version
 
     if config.execution.fs_subjects_dir is None:
-        config.execution.fs_subjects_dir = output_dir / "freesurfer"
+        config.execution.fs_subjects_dir = output_dir / "sourcedata" / "freesurfer"
+
+    if config.execution.aslprep_dir is None:
+        config.execution.aslprep_dir = output_dir
 
     # Wipe out existing work_dir
     if opts.clean_workdir and work_dir.exists():

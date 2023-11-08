@@ -332,6 +332,8 @@ class execution(_Config):
     """Run in sloppy mode (meaning, suboptimal parameters that minimize run-time)."""
     debug = False
     """Run in sloppy mode (meaning, suboptimal parameters that minimize run-time)."""
+    aslprep_dir = None
+    """Root of ASLPrep BIDS Derivatives dataset."""
     fs_license_file = _fs_license
     """An existing file containing a FreeSurfer license."""
     fs_subjects_dir = None
