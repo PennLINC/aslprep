@@ -31,6 +31,14 @@ def init_asl_derivatives_wf(
     ----------
     bids_root : :obj:`str`
         Original BIDS dataset path.
+    cifti_output : :obj:`bool`
+        Whether the ``--cifti-output`` flag was set.
+    freesurfer : :obj:`bool`
+        Whether FreeSurfer anatomical processing was run.
+    project_goodvoxels : :obj:`bool`
+        Whether the option was used to exclude voxels with
+        locally high coefficient of variation, or that lie outside the
+        cortical surfaces, from the surface projection.
     metadata : :obj:`dict`
         Metadata dictionary associated to the ASL run.
     spaces : :py:class:`~aslprep.utils.spaces.SpatialReferences`
@@ -407,6 +415,163 @@ def init_asl_derivatives_wf(
             ])
             # fmt:on
 
+        if freesurfer:
+            ds_bold_aseg_t1 = pe.Node(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    space="T1w",
+                    desc="aseg",
+                    suffix="dseg",
+                    compress=True,
+                    dismiss_entities=("echo",),
+                ),
+                name="ds_bold_aseg_t1",
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            ds_bold_aparc_t1 = pe.Node(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    space="T1w",
+                    desc="aparcaseg",
+                    suffix="dseg",
+                    compress=True,
+                    dismiss_entities=("echo",),
+                ),
+                name="ds_bold_aparc_t1",
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            # fmt:off
+            workflow.connect([
+                (inputnode, ds_bold_aseg_t1, [
+                    ("source_file", "source_file"),
+                    ("bold_aseg_t1", "in_file"),
+                ]),
+                (inputnode, ds_bold_aparc_t1, [
+                    ("source_file", "source_file"),
+                    ("bold_aparc_t1", "in_file"),
+                ]),
+            ])
+            # fmt:on
+
+    if getattr(spaces, "_cached") is None:
+        return workflow
+
+    # Store resamplings in standard spaces when listed in --output-spaces
+    if spaces.cached.references:
+        from niworkflows.interfaces.space import SpaceDataSource
+
+        spacesource = pe.Node(SpaceDataSource(), name="spacesource", run_without_submitting=True)
+        spacesource.iterables = (
+            "in_tuple",
+            [(s.fullname, s.spec) for s in spaces.cached.get_standard(dim=(3,))],
+        )
+
+        select_std = pe.Node(
+            KeySelect(fields=[f"{base_input}_std" for base_input in base_inputs] + ["template"]),
+            name="select_std",
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+
+        # fmt:off
+        workflow.connect([
+            (inputnode, select_std, [
+                ("template", "template"),
+                ("spatial_reference", "keys"),
+            ]),
+            (spacesource, select_std, [("uid", "key")]),
+        ])
+        # fmt:on
+
+        for base_input in base_inputs:
+            base_input_std = f"{base_input}_std"
+            ds_base_input_std = pe.Node(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    compress=True,
+                    **BASE_INPUT_FIELDS[base_input],
+                ),
+                name=f"ds_{base_input_std}",
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+
+            # fmt:off
+            workflow.connect([
+                (inputnode, ds_base_input_std, [("source_file", "source_file")]),
+                (raw_sources, ds_base_input_std, [("out", "RawSources")]),
+                (inputnode, select_std, [(base_input_std, base_input_std)]),
+                (select_std, ds_base_input_std, [(base_input_std, "in_file")]),
+                (spacesource, ds_base_input_std, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+            ])
+            # fmt:on
+
+        if freesurfer:
+            select_fs_std = pe.Node(
+                KeySelect(fields=["bold_aseg_std", "bold_aparc_std", "template"]),
+                name="select_fs_std",
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            ds_bold_aseg_std = pe.Node(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    desc="aseg",
+                    suffix="dseg",
+                    compress=True,
+                    dismiss_entities=("echo",),
+                ),
+                name="ds_bold_aseg_std",
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            ds_bold_aparc_std = pe.Node(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    desc="aparcaseg",
+                    suffix="dseg",
+                    compress=True,
+                    dismiss_entities=("echo",),
+                ),
+                name="ds_bold_aparc_std",
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            # fmt:off
+            workflow.connect([
+                (spacesource, select_fs_std, [("uid", "key")]),
+                (inputnode, select_fs_std, [
+                    ("bold_aseg_std", "bold_aseg_std"),
+                    ("bold_aparc_std", "bold_aparc_std"),
+                    ("template", "template"),
+                    ("spatial_reference", "keys"),
+                ]),
+                (select_fs_std, ds_bold_aseg_std, [("bold_aseg_std", "in_file")]),
+                (spacesource, ds_bold_aseg_std, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (select_fs_std, ds_bold_aparc_std, [("bold_aparc_std", "in_file")]),
+                (spacesource, ds_bold_aparc_std, [
+                    ("space", "space"),
+                    ("cohort", "cohort"),
+                    ("resolution", "resolution"),
+                    ("density", "density"),
+                ]),
+                (inputnode, ds_bold_aseg_std, [("source_file", "source_file")]),
+                (inputnode, ds_bold_aparc_std, [("source_file", "source_file")])
+            ])
+            # fmt:on
+
     fs_outputs = spaces.cached.get_fs_spaces()
     if freesurfer and fs_outputs:
         from niworkflows.interfaces.surf import Path2BIDS
@@ -415,7 +580,7 @@ def init_asl_derivatives_wf(
             KeySelect(fields=["surfaces", "surf_kwargs"]),
             name="select_fs_surf",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         select_fs_surf.iterables = [("key", fs_outputs)]
         select_fs_surf.inputs.surf_kwargs = [{"space": s} for s in fs_outputs]
@@ -429,35 +594,35 @@ def init_asl_derivatives_wf(
 
         ds_bold_surfs = pe.MapNode(
             DerivativesDataSink(
-                base_directory=output_dir,
+                base_directory=config.execution.aslprep_dir,
                 extension=".func.gii",
                 TaskName=metadata.get("TaskName"),
-                **timing_parameters,
             ),
             iterfield=["in_file", "hemi"],
             name="ds_bold_surfs",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         # fmt:off
         workflow.connect([
             (inputnode, select_fs_surf, [
-                ('surf_files', 'surfaces'),
-                ('surf_refs', 'keys')]),
-            (select_fs_surf, name_surfs, [('surfaces', 'in_file')]),
-            (inputnode, ds_bold_surfs, [('source_file', 'source_file')]),
-            (select_fs_surf, ds_bold_surfs, [
-                ('surfaces', 'in_file'),
-                ('key', 'space'),
+                ("surf_files", "surfaces"),
+                ("surf_refs", "keys"),
             ]),
-            (name_surfs, ds_bold_surfs, [('hemi', 'hemi')]),
+            (select_fs_surf, name_surfs, [("surfaces", "in_file")]),
+            (inputnode, ds_bold_surfs, [("source_file", "source_file")]),
+            (select_fs_surf, ds_bold_surfs, [
+                ("surfaces", "in_file"),
+                ("key", "space"),
+            ]),
+            (name_surfs, ds_bold_surfs, [("hemi", "hemi")]),
         ])
         # fmt:on
 
     if freesurfer and project_goodvoxels:
         ds_goodvoxels_mask = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir,
+                base_directory=config.execution.aslprep_dir,
                 space="T1w",
                 desc="goodvoxels",
                 suffix="mask",
@@ -467,13 +632,13 @@ def init_asl_derivatives_wf(
             ),
             name="ds_goodvoxels_mask",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         # fmt:off
         workflow.connect([
             (inputnode, ds_goodvoxels_mask, [
-                ('source_file', 'source_file'),
-                ('goodvoxels_mask', 'in_file'),
+                ("source_file", "source_file"),
+                ("goodvoxels_mask", "in_file"),
             ]),
         ])
         # fmt:on
@@ -482,83 +647,32 @@ def init_asl_derivatives_wf(
     if cifti_output:
         ds_bold_cifti = pe.Node(
             DerivativesDataSink(
-                base_directory=output_dir,
+                base_directory=config.execution.aslprep_dir,
                 suffix="bold",
                 compress=False,
                 TaskName=metadata.get("TaskName"),
                 space="fsLR",
-                **timing_parameters,
             ),
             name="ds_bold_cifti",
             run_without_submitting=True,
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         # fmt:off
         workflow.connect([
             (inputnode, ds_bold_cifti, [
-                (('bold_cifti', _unlist), 'in_file'),
-                ('source_file', 'source_file'),
-                ('cifti_density', 'density'),
-                (('cifti_metadata', _read_json), 'meta_dict'),
-            ]),
-        ])
-        # fmt:on
-
-    if getattr(spaces, "_cached") is None:
-        return workflow
-
-    # Standard-space derivatives
-    from niworkflows.interfaces.space import SpaceDataSource
-
-    spacesource = pe.Node(SpaceDataSource(), name="spacesource", run_without_submitting=True)
-    spacesource.iterables = (
-        "in_tuple",
-        [(s.fullname, s.spec) for s in spaces.cached.get_standard(dim=(3,))],
-    )
-
-    select_std = pe.Node(
-        KeySelect(fields=[f"{base_input}_std" for base_input in base_inputs] + ["template"]),
-        name="select_std",
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, select_std, [
-            ("template", "template"),
-            ("spatial_reference", "keys"),
-        ]),
-        (spacesource, select_std, [("uid", "key")]),
-    ])
-    # fmt:on
-
-    for base_input in base_inputs:
-        base_input_std = f"{base_input}_std"
-        ds_base_input_std = pe.Node(
-            DerivativesDataSink(
-                base_directory=config.execution.aslprep_dir,
-                compress=True,
-                **BASE_INPUT_FIELDS[base_input],
-            ),
-            name=f"ds_{base_input_std}",
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, ds_base_input_std, [("source_file", "source_file")]),
-            (raw_sources, ds_base_input_std, [("out", "RawSources")]),
-            (inputnode, select_std, [(base_input_std, base_input_std)]),
-            (select_std, ds_base_input_std, [(base_input_std, "in_file")]),
-            (spacesource, ds_base_input_std, [
-                ("space", "space"),
-                ("cohort", "cohort"),
-                ("resolution", "resolution"),
-                ("density", "density"),
+                ("bold_cifti", "in_file"),
+                ("source_file", "source_file"),
+                ("cifti_density", "density"),
+                (("cifti_metadata", _read_json), "meta_dict"),
             ]),
         ])
         # fmt:on
 
     return workflow
+
+
+def _read_json(in_file):
+    from json import loads
+    from pathlib import Path
+
+    return loads(Path(in_file).read_text())
