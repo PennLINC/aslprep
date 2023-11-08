@@ -5,6 +5,7 @@ import os
 import sys
 from copy import deepcopy
 
+from fmriprep.workflows.bold.base import get_estimator
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.utils.connections import listify
@@ -12,7 +13,6 @@ from packaging.version import Version
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
-from aslprep.utils.bids import get_estimator
 from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.workflows.asl.base import init_asl_preproc_wf
 from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
