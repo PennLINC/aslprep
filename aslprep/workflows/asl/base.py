@@ -315,7 +315,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([
         (inputnode, asl_derivatives_wf, [
             ("asl_file", "inputnode.source_file"),
-            ("surfaces", "inputnode.surfaces"),
+            ("surfaces", "inputnode.surf_files"),
         ]),
     ])
     # fmt:on
