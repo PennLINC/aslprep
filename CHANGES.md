@@ -1,3 +1,39 @@
+
+## 0.5.1
+
+### 🐛 Bug Fixes
+* Make M0 TR optional for BASIL by @tsalo in https://github.com/PennLINC/aslprep/pull/323
+* Fix `BolusCutOffTechnique` typo by @tsalo in https://github.com/PennLINC/aslprep/pull/328
+
+### Other Changes
+* Remove unnecessary dependencies by @tsalo in https://github.com/PennLINC/aslprep/pull/325
+* Document M0 use in reports by @tsalo in https://github.com/PennLINC/aslprep/pull/329
+
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.5.0...0.5.1
+
+## 0.5.0
+
+### 🎉 Exciting New Features
+* Add force-ge and force-no-ge parameters by @tsalo in https://github.com/PennLINC/aslprep/pull/313
+* Write out QC metadata by @tsalo in https://github.com/PennLINC/aslprep/pull/317
+
+### 🐛 Bug Fixes
+* Fix nibabel import by @tsalo in https://github.com/PennLINC/aslprep/pull/301
+* Fix the Docker image by @tsalo in https://github.com/PennLINC/aslprep/pull/312
+* Remove M0 metadata from multi-PLD GE metadata dictionary by @tsalo in https://github.com/PennLINC/aslprep/pull/315
+* Fix CombineMotionParameters to support single-volume volume types by @tsalo in https://github.com/PennLINC/aslprep/pull/316
+* Patch regmotoasl by @tsalo in https://github.com/PennLINC/aslprep/pull/320
+* Patch regmotoasl again by @tsalo in https://github.com/PennLINC/aslprep/pull/321
+
+### Other Changes
+* Replace niworkflows calls with dependency calls (second attempt) by @tsalo in https://github.com/PennLINC/aslprep/pull/299
+* Adopt Nipreps configuration and maintenance docs by @tsalo in https://github.com/PennLINC/aslprep/pull/231
+* Fix Docker build steps by @tsalo in https://github.com/PennLINC/aslprep/pull/309
+
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.4.0...0.5.0
+
 ## 0.4.0
 
 This release re-implements multi-delay PCASL and single-delay Q2TIPS PASL support.
@@ -8,17 +44,19 @@ Thanks to Sudipto Dolui, Jian Hu, Jan Petr, Manuel Taso, and Kay Jann for their 
 
 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
-## What's Changed
 ### 🛠 Breaking Changes
 * Use same TPM threshold for GE and non-GE data by @tsalo in https://github.com/PennLINC/aslprep/pull/263
 * Remove slice-timing correction by @tsalo in https://github.com/PennLINC/aslprep/pull/269
+
 ### 🎉 Exciting New Features
 * Shift PostLabelingDelay(s) by slice times by @tsalo in https://github.com/PennLINC/aslprep/pull/280
 * Perform motion correction separately for each image type by @tsalo in https://github.com/PennLINC/aslprep/pull/275
 * Support single-PLD Q2TIPS PASL and multi-PLD PCASL by @tsalo in https://github.com/PennLINC/aslprep/pull/268
+
 ### 🐛 Bug Fixes
 * Support runs with SCORE/SCRUB disabled by @tsalo in https://github.com/PennLINC/aslprep/pull/279
 * Reorganize atlases and add them to the package data by @tsalo in https://github.com/PennLINC/aslprep/pull/282
+
 ### Other Changes
 * Refactor workflow connections by @tsalo in https://github.com/PennLINC/aslprep/pull/261
 * Refactor more by @tsalo in https://github.com/PennLINC/aslprep/pull/264
@@ -103,7 +141,7 @@ ASLPrep, XCP-D, and QSIPrep, so please be aware of that upcoming change.
 * Collect associated files at beginning of workflow by @tsalo in https://github.com/PennLINC/aslprep/pull/246
 * Refactor confounds and QC metrics by @tsalo in https://github.com/PennLINC/aslprep/pull/256
 
-## New Contributors
+### New Contributors
 * @tsalo made their first contribution in https://github.com/PennLINC/aslprep/pull/204
 * @josephmje made their first contribution in https://github.com/PennLINC/aslprep/pull/192
 
