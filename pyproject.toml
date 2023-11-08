@@ -17,31 +17,27 @@ classifiers = [
 license = {file = "LICENSE.md"}
 requires-python = ">=3.9"
 dependencies = [
-    "fmriprep >= 23.0.0",
     'importlib_resources; python_version < "3.10"',
+    "fmriprep >= 23.0.0",
     "indexed_gzip >= 0.8.8",
-    "jinja2 < 3.1",
-    "looseversion == 1.0.3",
+    "looseversion",
     "networkx ~= 2.8.8",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
-    "nibabel >= 3.0",
-    "niflow-nipype1-workflows",
-    "nilearn == 0.10.0",
+    "nibabel >= 4.0.1",
     "nipype[nipy] >= 1.8.5",
     "nitransforms >= 21.0.0",
-    "niworkflows",
-    "numpy >= 1.17.3",
-    "pandas >= 0.24.0",
-    "patsy",
+    "niworkflows @ git+https://github.com/nipreps/niworkflows.git@master",
+    "numpy >= 1.22",
+    "packaging",
+    "pandas",
     "psutil >= 5.4",
-    "pybids >= 0.13.2",
-    "pyyaml",
-    "scipy == 1.10.1",  # 1.11 introduces backwards incompatible change to scipy.stats.mode that doesn't work with bundled SDCFlows
-    "sdcflows",
+    "pybids >= 0.15.2",
+    "requests",
+    "sdcflows  @ git+https://github.com/nipreps/sdcflows.git@maint/2.5.x",
     "sentry-sdk >= 0.6.9",
-    "smriprep",
-    "svgutils",
-    "templateflow",
+    "smriprep @ git+https://github.com/nipreps/smriprep.git@master",
+    "templateflow >= 23.0.0",
     "toml",
+
 ]
 dynamic = ["version"]
 
