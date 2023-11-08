@@ -67,9 +67,9 @@ def init_asl_std_trans_wf(
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
         Maximum number of threads an individual process may use
-    spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
+    spaces : :py:class:`~aslprep.utils.spaces.SpatialReferences`
         A container for storing, organizing, and parsing spatial normalizations. Composed of
-        :py:class:`~niworkflows.utils.spaces.Reference` objects representing spatial references.
+        :py:class:`~aslprep.utils.spaces.Reference` objects representing spatial references.
         Each ``Reference`` contains a space, which is a string of either TemplateFlow template IDs.
     name : :obj:`str`
         Name of workflow (default: ``asl_std_trans_wf``)

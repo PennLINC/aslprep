@@ -119,10 +119,10 @@ def init_single_subject_wf(subject_id: str):
     from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
     from niworkflows.interfaces.nilearn import NILEARN_VERSION
     from niworkflows.utils.misc import fix_multi_T1w_source_name
-    from niworkflows.utils.spaces import Reference
     from smriprep.workflows.anatomical import init_anat_preproc_wf
 
     from aslprep.utils.bids import collect_data
+    from aslprep.utils.spaces import Reference
 
     name = f"single_subject_{subject_id}_wf"
     subject_data = collect_data(

@@ -29,9 +29,9 @@ def init_asl_derivatives_wf(
         Original BIDS dataset path.
     metadata : :obj:`dict`
         Metadata dictionary associated to the ASL run.
-    spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
+    spaces : :py:class:`~aslprep.utils.spaces.SpatialReferences`
         A container for storing, organizing, and parsing spatial normalizations. Composed of
-        :py:class:`~niworkflows.utils.spaces.Reference` objects representing spatial references.
+        :py:class:`~aslprep.utils.spaces.Reference` objects representing spatial references.
         Each ``Reference`` contains a space, which is a string of either TemplateFlow template IDs
         (e.g., ``MNI152Lin``, ``MNI152NLin6Asym``, ``MNIPediatricAsym``), nonstandard references
         (e.g., ``T1w`` or ``anat``, ``sbref``, ``run``, etc.), or a custom template located in
