@@ -4,6 +4,7 @@
 ### 🐛 Bug Fixes
 * Make M0 TR optional for BASIL by @tsalo in https://github.com/PennLINC/aslprep/pull/323
 * Fix `BolusCutOffTechnique` typo by @tsalo in https://github.com/PennLINC/aslprep/pull/328
+
 ### Other Changes
 * Remove unnecessary dependencies by @tsalo in https://github.com/PennLINC/aslprep/pull/325
 * Document M0 use in reports by @tsalo in https://github.com/PennLINC/aslprep/pull/329
@@ -16,6 +17,7 @@
 ### 🎉 Exciting New Features
 * Add force-ge and force-no-ge parameters by @tsalo in https://github.com/PennLINC/aslprep/pull/313
 * Write out QC metadata by @tsalo in https://github.com/PennLINC/aslprep/pull/317
+
 ### 🐛 Bug Fixes
 * Fix nibabel import by @tsalo in https://github.com/PennLINC/aslprep/pull/301
 * Fix the Docker image by @tsalo in https://github.com/PennLINC/aslprep/pull/312
@@ -23,6 +25,7 @@
 * Fix CombineMotionParameters to support single-volume volume types by @tsalo in https://github.com/PennLINC/aslprep/pull/316
 * Patch regmotoasl by @tsalo in https://github.com/PennLINC/aslprep/pull/320
 * Patch regmotoasl again by @tsalo in https://github.com/PennLINC/aslprep/pull/321
+
 ### Other Changes
 * Replace niworkflows calls with dependency calls (second attempt) by @tsalo in https://github.com/PennLINC/aslprep/pull/299
 * Adopt Nipreps configuration and maintenance docs by @tsalo in https://github.com/PennLINC/aslprep/pull/231
@@ -44,13 +47,16 @@ Thanks to Sudipto Dolui, Jian Hu, Jan Petr, Manuel Taso, and Kay Jann for their 
 ### 🛠 Breaking Changes
 * Use same TPM threshold for GE and non-GE data by @tsalo in https://github.com/PennLINC/aslprep/pull/263
 * Remove slice-timing correction by @tsalo in https://github.com/PennLINC/aslprep/pull/269
+
 ### 🎉 Exciting New Features
 * Shift PostLabelingDelay(s) by slice times by @tsalo in https://github.com/PennLINC/aslprep/pull/280
 * Perform motion correction separately for each image type by @tsalo in https://github.com/PennLINC/aslprep/pull/275
 * Support single-PLD Q2TIPS PASL and multi-PLD PCASL by @tsalo in https://github.com/PennLINC/aslprep/pull/268
+
 ### 🐛 Bug Fixes
 * Support runs with SCORE/SCRUB disabled by @tsalo in https://github.com/PennLINC/aslprep/pull/279
 * Reorganize atlases and add them to the package data by @tsalo in https://github.com/PennLINC/aslprep/pull/282
+
 ### Other Changes
 * Refactor workflow connections by @tsalo in https://github.com/PennLINC/aslprep/pull/261
 * Refactor more by @tsalo in https://github.com/PennLINC/aslprep/pull/264
