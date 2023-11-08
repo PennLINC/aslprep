@@ -524,6 +524,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         niu.IdentityInterface(fields=["asl", "aslref", "mask"]),
         name="asl_final",
     )
+    workflow.connect([(asl_final, asl_reg_wf, [("aslref", "inputnode.ref_asl_brain")])])
 
     # Generate a tentative aslref from the most appropriate available image type in the ASL file
     final_aslref_wf = init_asl_reference_wf(
