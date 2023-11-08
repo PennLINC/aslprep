@@ -181,7 +181,7 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
     qc_file = File(exists=True, desc="qc file")
     tr = traits.Float(desc="Repetition time", mandatory=True)
-    orientation = traits.Str(mandatory=True, desc='Orientation of the voxel axes')
+    orientation = traits.Str(mandatory=True, desc="Orientation of the voxel axes")
 
 
 class FunctionalSummary(SummaryInterface):
