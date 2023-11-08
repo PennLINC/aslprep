@@ -13,6 +13,7 @@ from packaging.version import Version
 
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
+from aslprep.interfaces.bids import BIDSDataGrabber
 from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.workflows.asl.base import init_asl_preproc_wf
 from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
@@ -116,7 +117,7 @@ def init_single_subject_wf(subject_id: str):
         FreeSurfer's ``$SUBJECTS_DIR``.
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
+    from niworkflows.interfaces.bids import BIDSInfo
     from niworkflows.interfaces.nilearn import NILEARN_VERSION
     from niworkflows.utils.misc import fix_multi_T1w_source_name
     from smriprep.workflows.anatomical import init_anat_preproc_wf
