@@ -145,8 +145,7 @@ def init_single_subject_wf(subject_id: str):
     # Make sure we always go through these two checks
     if not anat_only and not subject_data["asl"]:
         raise RuntimeError(
-            f"No ASL images found for participant {subject_id}. "
-            "All workflows require ASL images."
+            f"No ASL images found for participant {subject_id}. All workflows require ASL images."
         )
 
     if anat_derivatives:

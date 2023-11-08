@@ -171,7 +171,7 @@ def _build_parser():
     g_perfm.add_argument(
         "--low-mem",
         action="store_true",
-        help="attempt to reduce memory usage (will increase disk usage " "in working directory)",
+        help="attempt to reduce memory usage (will increase disk usage in working directory)",
     )
     g_perfm.add_argument(
         "--use-plugin",
@@ -485,7 +485,7 @@ any spatial references.""",
         "--stop-on-first-crash",
         action="store_true",
         default=False,
-        help="Force stopping on first crash, even if a work directory" " was specified.",
+        help="Force stopping on first crash, even if a work directory was specified.",
     )
     g_other.add_argument(
         "--notrack",

@@ -37,13 +37,12 @@ class _BIDSDataGrabberInputSpec(BaseInterfaceInputSpec):
 class _BIDSDataGrabberOutputSpec(TraitedSpec):
     out_dict = traits.Dict(desc="output data structure")
     fmap = OutputMultiObject(desc="output fieldmaps")
-    bold = OutputMultiObject(desc="output functional images")
+    asl = OutputMultiObject(desc="output ASL images")
     sbref = OutputMultiObject(desc="output sbrefs")
     t1w = OutputMultiObject(desc="output T1w images")
     roi = OutputMultiObject(desc="output ROI images")
     t2w = OutputMultiObject(desc="output T2w images")
     flair = OutputMultiObject(desc="output FLAIR images")
-    asl = OutputMultiObject(desc="output ASL images")
 
 
 class BIDSDataGrabber(SimpleInterface):
