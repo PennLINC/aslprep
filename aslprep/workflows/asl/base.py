@@ -3,6 +3,7 @@
 """Preprocessing workflows for ASL data."""
 import nibabel as nb
 from fmriprep.workflows.bold.base import get_estimator
+from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from fmriprep.workflows.bold.resampling import (
     init_bold_fsLR_resampling_wf,
     init_bold_grayords_wf,
@@ -27,7 +28,7 @@ from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
-from aslprep.workflows.asl.registration import init_asl_reg_wf, init_asl_t1_trans_wf
+from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
 from aslprep.workflows.asl.resampling import (
     init_asl_preproc_trans_wf,
     init_asl_std_trans_wf,
@@ -382,9 +383,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:on
 
     # Calculate ASL-to-T1 registration
-    asl_reg_wf = init_asl_reg_wf(
-        asl2t1w_dof=config.workflow.asl2t1w_dof,
-        asl2t1w_init=config.workflow.asl2t1w_init,
+    asl_reg_wf = init_bold_reg_wf(
+        bold2t1w_dof=config.workflow.asl2t1w_dof,
+        bold2t1w_init=config.workflow.asl2t1w_init,
         freesurfer=freesurfer,
         mem_gb=mem_gb["resampled"],
         name="asl_reg_wf",
@@ -424,7 +425,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.asl_split")]),
         (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
         (asl_reg_wf, asl_t1_trans_wf, [
-            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+            ("outputnode.itk_bold_to_t1", "inputnode.aslref_to_anat_xfm"),
         ]),
     ])
     # fmt:on
@@ -444,7 +445,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.rmsd_file", "inputnode.rmsd_file"),
         ]),
         (asl_reg_wf, asl_confounds_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
         ]),
         (initial_aslref_wf, asl_confounds_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
         (asl_confounds_wf, asl_derivatives_wf, [
@@ -509,12 +510,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (reduce_asl_file, compute_cbf_wf, [("aslcontext", "inputnode.aslcontext")]),
         (asl_reg_wf, compute_cbf_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
-            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+            ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.itk_bold_to_t1", "inputnode.aslref_to_anat_xfm"),
         ]),
         (asl_reg_wf, asl_derivatives_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
-            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+            ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.itk_bold_to_t1", "inputnode.aslref_to_anat_xfm"),
         ]),
     ])
     # fmt:on
@@ -552,7 +553,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [("t1w_mask", "t1w_mask")]),
-        (asl_reg_wf, refine_mask, [("outputnode.anat_to_aslref_xfm", "transforms")]),
+        (asl_reg_wf, refine_mask, [("outputnode.itk_t1_to_bold", "transforms")]),
     ])
     # fmt:on
 
@@ -574,7 +575,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (refine_mask, compute_cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_hmc_wf, compute_cbf_qc_wf, [("outputnode.rmsd_file", "inputnode.rmsd_file")]),
         (asl_reg_wf, compute_cbf_qc_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
         ]),
         (asl_confounds_wf, compute_cbf_qc_wf, [
             ("outputnode.confounds_file", "inputnode.confounds_file"),
@@ -607,7 +608,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         )
         # fmt:off
         workflow.connect([
-            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref_to_anat_xfm", "transforms")]),
+            (asl_reg_wf, aslmask_to_t1w, [("outputnode.itk_bold_to_t1", "transforms")]),
             (asl_t1_trans_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
             (asl_final, aslmask_to_t1w, [("mask", "input_image")]),
         ])
@@ -636,7 +637,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (asl_final, asl_std_trans_wf, [("mask", "inputnode.asl_mask")]),
             (asl_reg_wf, asl_std_trans_wf, [
-                ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+                ("outputnode.itk_bold_to_t1", "inputnode.aslref_to_anat_xfm"),
             ]),
         ])
         # fmt:on
@@ -784,7 +785,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("mask", "inputnode.bold_mask"),
             ]),
             (asl_reg_wf, carpetplot_wf, [
-                ("outputnode.anat_to_aslref_xfm", "inputnode.t1_bold_xform"),
+                ("outputnode.itk_t1_to_bold", "inputnode.t1_bold_xform"),
             ]),
             (asl_confounds_wf, carpetplot_wf, [
                 ("outputnode.confounds_file", "inputnode.confounds_file"),
@@ -812,7 +813,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (initial_aslref_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
         (asl_reg_wf, plot_cbf_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
         ]),
         (refine_mask, plot_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_confounds_wf, plot_cbf_wf, [
@@ -844,7 +845,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (asl_final, parcellate_cbf_wf, [("mask", "inputnode.asl_mask")]),
         (asl_reg_wf, parcellate_cbf_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
         ]),
         (parcellate_cbf_wf, asl_derivatives_wf, [
             ("outputnode.atlas_names", "inputnode.atlas_names"),
