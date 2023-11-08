@@ -310,8 +310,15 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         basil=basil,
         output_confounds=True,
     )
-    asl_derivatives_wf.inputs.inputnode.source_file = asl_file
     asl_derivatives_wf.inputs.inputnode.cifti_density = config.workflow.cifti_output
+    # fmt:off
+    workflow.connect([
+        (inputnode, asl_derivatives_wf, [
+            ("asl_file", "source_file"),
+            ("surfaces", "inputnode.surfaces"),
+        ]),
+    ])
+    # fmt:on
 
     # Validate the ASL file.
     validate_asl_wf = init_validate_asl_wf(name="validate_asl_wf")
@@ -728,6 +735,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_fsLR_resampling_wf, asl_derivatives_wf, [
                 ("outputnode.goodvoxels_mask", "inputnode.goodvoxels_mask"),
             ]),
+            (asl_grayords_wf, asl_derivatives_wf, [
+                ("outputnode.cifti_bold", "inputnode.asl_cifti"),
+                ("outputnode.cifti_metadata", "inputnode.cifti_metadata"),
+            ]),
         ])
         # fmt:on
 
@@ -748,9 +759,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         if config.workflow.cifti_output:
             # fmt:off
-            workflow.connect(
-                asl_grayords_wf, "outputnode.cifti_bold", carpetplot_wf, "inputnode.cifti_bold",
-            )
+            workflow.connect([
+                (asl_grayords_wf, carpetplot_wf, [
+                    ("outputnode.cifti_bold", "inputnode.cifti_bold"),
+                ]),
+            ])
             # fmt:on
 
         def _last(inlist):
