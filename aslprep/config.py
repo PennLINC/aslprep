@@ -665,10 +665,10 @@ def from_dict(settings, init=True, ignore=None):
     def initialize(x):
         return init if init in (True, False) else x in init
 
-    nipype.load(settings, init=initialize('nipype'), ignore=ignore)
-    execution.load(settings, init=initialize('execution'), ignore=ignore)
-    workflow.load(settings, init=initialize('workflow'), ignore=ignore)
-    seeds.load(settings, init=initialize('seeds'), ignore=ignore)
+    nipype.load(settings, init=initialize("nipype"), ignore=ignore)
+    execution.load(settings, init=initialize("execution"), ignore=ignore)
+    workflow.load(settings, init=initialize("workflow"), ignore=ignore)
+    seeds.load(settings, init=initialize("seeds"), ignore=ignore)
 
     loggers.init()
 

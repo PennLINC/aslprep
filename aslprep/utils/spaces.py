@@ -22,9 +22,10 @@
 #
 """Utilities for tracking and filtering spaces."""
 import argparse
-import attr
 from collections import defaultdict
 from itertools import product
+
+import attr
 from templateflow import api as _tfapi
 
 NONSTANDARD_REFERENCES = [
@@ -235,7 +236,7 @@ class Reference:
             return FSAVERAGE_LEGACY[self.spec["den"]]
 
     @space.validator
-    def _check_name(self, attribute, value):
+    def _check_name(self, attribute, value):  # noqa: U100
         if value.startswith("fsaverage"):
             return
         valid = list(self._standard_spaces) + NONSTANDARD_REFERENCES
@@ -639,9 +640,7 @@ class SpatialReferences:
         return [
             s
             for s in self.references
-            if s.standard
-            and s.dim in dim
-            and (hasspec("res", s.spec) or hasspec("den", s.spec))
+            if s.standard and s.dim in dim and (hasspec("res", s.spec) or hasspec("den", s.spec))
         ]
 
     def get_nonstandard(self, full_spec=False, dim=(2, 3)):
