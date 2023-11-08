@@ -608,8 +608,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         )
         # fmt:off
         workflow.connect([
-            (asl_reg_wf, aslmask_to_t1w, [("outputnode.itk_bold_to_t1", "transforms")]),
-            (asl_t1_trans_wf, aslmask_to_t1w, [("outputnode.bold_mask_t1", "reference_image")]),
+            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref_to_anat_xfm", "transforms")]),
+            (asl_t1_trans_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
             (asl_final, aslmask_to_t1w, [("mask", "input_image")]),
         ])
         # fmt:on
@@ -632,15 +632,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("template", "inputnode.templates"),
                 ("anat2std_xfm", "inputnode.anat2std_xfm"),
                 ("asl_file", "inputnode.name_source"),
-                ("t1w_aseg", "inputnode.bold_aseg"),
-                ("t1w_aparc", "inputnode.bold_aparc"),
+                ("t1w_aseg", "inputnode.asl_aseg"),
+                ("t1w_aparc", "inputnode.asl_aparc"),
             ]),
-            (asl_final, asl_std_trans_wf, [
-                ("mask", "inputnode.bold_mask"),
-                ("t2star", "inputnode.t2star"),
-            ]),
+            (asl_final, asl_std_trans_wf, [("mask", "inputnode.asl_mask")]),
             (asl_reg_wf, asl_std_trans_wf, [
-                ("outputnode.itk_bold_to_t1", "inputnode.itk_bold_to_t1"),
+                ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
             ]),
         ])
         # fmt:on
@@ -649,15 +646,15 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             # fmt:off
             workflow.connect([
                 (asl_std_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.bold_aseg_std", "inputnode.bold_aseg_std"),
-                    ("outputnode.bold_aparc_std", "inputnode.bold_aparc_std"),
+                    ("outputnode.asl_aseg_std", "inputnode.asl_aseg_std"),
+                    ("outputnode.asl_aparc_std", "inputnode.asl_aparc_std"),
                 ]),
             ])
             # fmt:on
 
         # fmt:off
         workflow.connect([
-            (asl_split, asl_std_trans_wf, [("out_files", "inputnode.bold_split")]),
+            (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
             (asl_hmc_wf, asl_std_trans_wf, [
                 ("outputnode.xforms", "inputnode.hmc_xforms"),
             ]),
@@ -670,9 +667,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_std_trans_wf, asl_derivatives_wf, [
                 ("outputnode.template", "inputnode.template"),
                 ("outputnode.spatial_reference", "inputnode.spatial_reference"),
-                ("outputnode.bold_std_ref", "inputnode.bold_std_ref"),
-                ("outputnode.bold_std", "inputnode.bold_std"),
-                ("outputnode.bold_mask_std", "inputnode.bold_mask_std"),
+                ("outputnode.aslref_std", "inputnode.aslref_std"),
+                ("outputnode.asl_std", "inputnode.asl_std"),
+                ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
             ]),
         ])
         # fmt:on
@@ -681,21 +678,21 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Freesurfer
     if freesurfer and freesurfer_spaces:
         config.loggers.workflow.debug("Creating BOLD surface-sampling workflow.")
-        bold_surf_wf = init_bold_surf_wf(
+        asl_surf_wf = init_bold_surf_wf(
             mem_gb=mem_gb["resampled"],
             surface_spaces=freesurfer_spaces,
             medial_surface_nan=config.workflow.medial_surface_nan,
-            name="bold_surf_wf",
+            name="asl_surf_wf",
         )
         # fmt:off
         workflow.connect([
-            (inputnode, bold_surf_wf, [
+            (inputnode, asl_surf_wf, [
                 ("subjects_dir", "inputnode.subjects_dir"),
                 ("subject_id", "inputnode.subject_id"),
                 ("t1w2fsnative_xfm", "inputnode.t1w2fsnative_xfm"),
             ]),
-            (asl_t1_trans_wf, bold_surf_wf, [("outputnode.bold_t1", "inputnode.source_file")]),
-            (bold_surf_wf, asl_derivatives_wf, [("outputnode.target", "inputnode.surf_refs")]),
+            (asl_t1_trans_wf, asl_surf_wf, [("outputnode.asl_t1", "inputnode.source_file")]),
+            (asl_surf_wf, asl_derivatives_wf, [("outputnode.target", "inputnode.surf_refs")]),
         ])
         # fmt:on
 
@@ -707,13 +704,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             omp_nthreads=omp_nthreads,
             mem_gb=mem_gb["resampled"],
         )
-
-        asl_grayords_wf = init_bold_grayords_wf(
-            grayord_density=config.workflow.cifti_output,
-            mem_gb=mem_gb["resampled"],
-            repetition_time=metadata["RepetitionTime"],
-        )
-
         # fmt:off
         workflow.connect([
             (inputnode, asl_fsLR_resampling_wf, [
@@ -725,15 +715,26 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_t1_trans_wf, asl_fsLR_resampling_wf, [
                 ("outputnode.asl_t1", "inputnode.bold_file"),
             ]),
+            (asl_fsLR_resampling_wf, asl_derivatives_wf, [
+                ("outputnode.goodvoxels_mask", "inputnode.goodvoxels_mask"),
+            ]),
+        ])
+        # fmt:on
+
+        asl_grayords_wf = init_bold_grayords_wf(
+            grayord_density=config.workflow.cifti_output,
+            mem_gb=mem_gb["resampled"],
+            repetition_time=metadata["RepetitionTime"],
+        )
+
+        # fmt:off
+        workflow.connect([
             (asl_std_trans_wf, asl_grayords_wf, [
                 ("outputnode.asl_std", "inputnode.bold_std"),
                 ("outputnode.spatial_reference", "inputnode.spatial_reference"),
             ]),
             (asl_fsLR_resampling_wf, asl_grayords_wf, [
                 ("outputnode.asl_fsLR", "inputnode.bold_fsLR"),
-            ]),
-            (asl_fsLR_resampling_wf, asl_derivatives_wf, [
-                ("outputnode.goodvoxels_mask", "inputnode.goodvoxels_mask"),
             ]),
             (asl_grayords_wf, asl_derivatives_wf, [
                 ("outputnode.cifti_bold", "inputnode.asl_cifti"),
@@ -780,11 +781,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (carpetplot_select_std, carpetplot_wf, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
             (asl_final, carpetplot_wf, [
-                ("bold", "inputnode.bold"),
+                ("asl", "inputnode.bold"),
                 ("mask", "inputnode.bold_mask"),
             ]),
             (asl_reg_wf, carpetplot_wf, [
-                ("outputnode.itk_t1_to_bold", "inputnode.t1_bold_xform"),
+                ("outputnode.anat_to_aslref_xfm", "inputnode.t1_bold_xform"),
             ]),
             (asl_confounds_wf, carpetplot_wf, [
                 ("outputnode.confounds_file", "inputnode.confounds_file"),

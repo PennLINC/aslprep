@@ -124,6 +124,8 @@ def init_asl_std_trans_wf(
                 "aslcontext",
                 "asl_split",
                 "asl_mask",
+                "asl_aseg",
+                "asl_aparc",
                 "templates",
                 # Transforms
                 "hmc_xforms",  # may be "identity"
