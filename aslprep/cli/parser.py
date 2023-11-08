@@ -399,13 +399,37 @@ any spatial references.""",
     )
 
     # FreeSurfer options
+    # FreeSurfer options
     g_fs = parser.add_argument_group("Specific options for FreeSurfer preprocessing")
     g_fs.add_argument(
         "--fs-license-file",
         metavar="FILE",
         type=IsFile,
-        help="Path to FreeSurfer license key file. Get it (for free) by registering"
-        " at https://surfer.nmr.mgh.harvard.edu/registration.html",
+        help=(
+            "Path to FreeSurfer license key file. Get it (for free) by registering "
+            "at https://surfer.nmr.mgh.harvard.edu/registration.html"
+        ),
+    )
+    g_fs.add_argument(
+        "--fs-subjects-dir",
+        metavar="PATH",
+        type=Path,
+        help=(
+            "Path to existing FreeSurfer subjects directory to reuse. "
+            "(default: OUTPUT_DIR/freesurfer)"
+        ),
+    )
+    g_fs.add_argument(
+        "--no-submm-recon",
+        action="store_false",
+        dest="hires",
+        help="Disable sub-millimeter (hires) reconstruction",
+    )
+    g_fs.add_argument(
+        "--fs-no-reconall",
+        action="store_false",
+        dest="run_reconall",
+        help="Disable FreeSurfer surface preprocessing.",
     )
 
     g_other = parser.add_argument_group("Other options")

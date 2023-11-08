@@ -460,6 +460,8 @@ class workflow(_Config):
     """Run with the ``--longitudinal`` flag."""
     random_seed = None
     """Master random seed to initialize the Pseudorandom Number Generator (PRNG)"""
+    run_reconall = True
+    """Run FreeSurfer's surface reconstruction."""
     skull_strip_fixed_seed = False
     """Fix a seed for skull-stripping."""
     skull_strip_template = "OASIS30ANTs"

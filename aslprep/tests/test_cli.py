@@ -47,6 +47,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         "--basil",
         "--use-syn-sdc",
         "--m0_scale=10",
+        "--fs-no-reconall",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -80,6 +81,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         "--basil",
         "--use-syn-sdc",
         "--m0_scale=10",
+        "--fs-no-reconall",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -115,6 +117,7 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         "--basil",
         "--use-syn-sdc",
         "--m0_scale=96",
+        "--fs-no-reconall",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -150,6 +153,7 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--use-syn-sdc",
+        "--fs-no-reconall",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -184,6 +188,7 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         "--basil",
         "--use-syn-sdc",
         "--m0_scale=10",
+        "--fs-no-reconall",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -218,6 +223,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--use-syn-sdc",
         "--force-no-ge",
+        "--fs-no-reconall",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -253,6 +259,7 @@ def test_test_002(data_dir, output_dir, working_dir):
         "--use-syn-sdc",
         "--m0_scale=96",
         "--force-ge",
+        "--fs-no-reconall",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
@@ -283,6 +290,7 @@ def test_test_003(data_dir, output_dir, working_dir):
         "--output-spaces=asl",
         "--use-syn-sdc",
         "--m0_scale=10",
+        "--fs-no-reconall",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
