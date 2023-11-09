@@ -654,7 +654,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # ASL-specific reference image workflow using other outputs from that workflow.
         asl_t1_reference_wf = init_asl_reference_wf(
             pre_mask=True,
-            name="initial_aslref_wf",
+            name="asl_t1_reference_wf",
         )
         asl_t1_reference_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_vols
         asl_t1_reference_wf.__desc__ = None
@@ -795,7 +795,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             mem_gb=mem_gb["resampled"],
             repetition_time=metadata["RepetitionTime"],
         )
-
         # fmt:off
         workflow.connect([
             (asl_std_trans_wf, asl_grayords_wf, [
@@ -870,7 +869,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         basil=basil,
         name="plot_cbf_wf",
     )
-
     # fmt:off
     workflow.connect([
         (inputnode, plot_cbf_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),

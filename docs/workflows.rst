@@ -223,20 +223,6 @@ See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 Preprocessed ASL in native space
 ================================
 
-:py:func:`~aslprep.workflows.asl.resampling.init_asl_preproc_trans_wf`
-
-.. workflow::
-   :graph2use: orig
-   :simple_form: yes
-
-   from aslprep.workflows.asl.resampling import init_asl_preproc_trans_wf
-
-   wf = init_asl_preproc_trans_wf(
-      mem_gb=3,
-      omp_nthreads=1,
-   )
-
-
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
 from the original data in the original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are

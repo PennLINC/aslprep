@@ -181,7 +181,9 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         f"--bids-filter-file={filter_file}",
         "--nthreads=2",
         "--omp-nthreads=2",
-        "--output-spaces=asl",
+        "--output-spaces"
+        "asl",
+        "T1w",
         "--basil",
         "--use-syn-sdc",
         "--m0_scale=10",
