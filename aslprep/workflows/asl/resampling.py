@@ -20,19 +20,21 @@ from aslprep.utils.misc import (
     _select_template,
     _split_spec,
 )
+from aslprep.utils.spaces import SpatialReferences
 from aslprep.workflows.asl.util import init_asl_reference_wf
 
 
 def init_asl_std_trans_wf(
-    mem_gb,
-    omp_nthreads,
-    spaces,
-    is_multi_pld=False,
-    scorescrub=False,
-    basil=False,
-    generate_reference=True,
-    use_compression=True,
-    name="asl_std_trans_wf",
+    freesurfer: bool,
+    mem_gb: float,
+    omp_nthreads: int,
+    spaces: SpatialReferences,
+    is_multi_pld: bool,
+    scorescrub: bool,
+    basil: bool,
+    generate_reference: bool,
+    use_compression: bool = True,
+    name: str = "asl_std_trans_wf",
 ):
     """Sample ASL into standard space with a single-step resampling of the original ASL series.
 
@@ -63,6 +65,8 @@ def init_asl_std_trans_wf(
 
     Parameters
     ----------
+    freesurfer : :obj:`bool`
+        Whether to generate FreeSurfer's aseg/aparc segmentations on BOLD space.
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
@@ -81,6 +85,12 @@ def init_asl_std_trans_wf(
     anat2std_xfm
         List of anatomical-to-standard space transforms generated during
         spatial normalization.
+    asl_aparc
+        FreeSurfer's ``aparc+aseg.mgz`` atlas projected into the T1w reference
+        (only if ``recon-all`` was run).
+    asl_aseg
+        FreeSurfer's ``aseg.mgz`` atlas projected into the T1w reference
+        (only if ``recon-all`` was run).
     asl_mask
         Skull-stripping mask of reference image
     asl_split

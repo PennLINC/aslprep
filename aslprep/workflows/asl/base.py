@@ -411,28 +411,31 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Apply ASL to T1w registration
     asl_t1_trans_wf = init_asl_t1_trans_wf(
+        freesurfer=freesurfer,
         is_multi_pld=is_multi_pld,
         scorescrub=scorescrub,
         basil=basil,
         mem_gb=mem_gb["resampled"],
         omp_nthreads=omp_nthreads,
+        generate_reference=True,
         use_compression=False,
         name="asl_t1_trans_wf",
     )
+    asl_t1_trans_wf.inputs.inputnode.fieldwarp = "identity"
 
     # fmt:off
     workflow.connect([
         (inputnode, asl_t1_trans_wf, [
             ("asl_file", "inputnode.name_source"),
             ("t1w_mask", "inputnode.t1w_mask"),
+            ("t1w_aseg", "inputnode.t1w_aseg"),
+            ("t1w_aparc", "inputnode.t1w_aparc"),
         ]),
         (reduce_asl_file, asl_t1_trans_wf, [("aslcontext", "inputnode.aslcontext")]),
         (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.asl_split")]),
         (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
-        (asl_reg_wf, asl_t1_trans_wf, [
-            ("outputnode.itk_bold_to_t1", "inputnode.aslref_to_anat_xfm"),
-        ]),
+        (asl_reg_wf, asl_t1_trans_wf, [("outputnode.itk_bold_to_t1", "inputnode.itk_bold_to_t1")]),
     ])
     # fmt:on
 
@@ -530,7 +533,15 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         niu.IdentityInterface(fields=["asl", "aslref", "mask"]),
         name="asl_final",
     )
-    workflow.connect([(asl_final, asl_reg_wf, [("aslref", "inputnode.ref_bold_brain")])])
+    # fmt:off
+    workflow.connect([
+        (asl_final, asl_reg_wf, [("aslref", "inputnode.ref_bold_brain")]),
+        (asl_final, asl_t1_trans_wf, [
+            ("mask", "inputnode.ref_asl_mask"),
+            ("boldref", "inputnode.ref_asl_brain"),
+        ]),
+    ])
+    # fmt:on
 
     # Generate a tentative aslref from the most appropriate available image type in the ASL file
     final_aslref_wf = init_asl_reference_wf(
@@ -603,9 +614,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Map final ASL mask into T1w space (if required)
     nonstd_spaces = set(spaces.get_nonstandard())
     if nonstd_spaces.intersection(("T1w", "anat")):
-        from niworkflows.interfaces.fixes import (
-            FixHeaderApplyTransforms as ApplyTransforms,
-        )
+        from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 
         aslmask_to_t1w = pe.Node(
             ApplyTransforms(interpolation="MultiLabel"),
@@ -620,6 +629,34 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
+        # Transform CBF derivatives to T1 space.
+        # These derivatives have already undergone HMC+SDC,
+        # so we only need to apply the ASLRef-to-T1w transform.
+        for cbf_deriv in cbf_derivs:
+            kwargs = {}
+            if cbf_deriv in ["cbf_ts", "cbf_ts_score"]:
+                kwargs["dimension"] = 3
+
+            cbf_to_t1w = pe.Node(
+                ApplyTransforms(
+                    interpolation="LanczosWindowedSinc",
+                    float=True,
+                    input_image_type=3,
+                    **kwargs,
+                ),
+                name=f"warp_{cbf_deriv}_to_t1w",
+                mem_gb=mem_gb * 3 * omp_nthreads,
+                n_procs=omp_nthreads,
+            )
+            # fmt:off
+            workflow.connect([
+                (asl_reg_wf, cbf_to_t1w, [("outputnode.itk_bold_to_t1", "transforms")]),
+                (asl_t1_trans_wf, cbf_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
+                (asl_final, cbf_to_t1w, [(cbf_deriv, "input_image")]),
+                (cbf_to_t1w, asl_derivatives_wf, [("output_image", f"inputnode.{cbf_deriv}_t1")]),
+            ])
+            # fmt:on
+
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         # Apply transforms in 1 shot
         asl_std_trans_wf = init_asl_std_trans_wf(
@@ -627,6 +664,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             mem_gb=mem_gb["resampled"],
             omp_nthreads=omp_nthreads,
             spaces=spaces,
+            is_multi_pld=is_multi_pld,
+            scorescrub=scorescrub,
+            basil=basil,
+            generate_reference=True,
             name="asl_std_trans_wf",
             use_compression=not config.execution.low_mem,
         )
@@ -661,14 +702,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
-            (asl_hmc_wf, asl_std_trans_wf, [
-                ("outputnode.xforms", "inputnode.hmc_xforms"),
-            ]),
+            (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
         ])
         # fmt:on
 
-        # fmt:off
         # func_derivatives_wf internally parametrizes over snapshotted spaces.
+        # fmt:off
         workflow.connect([
             (asl_std_trans_wf, asl_derivatives_wf, [
                 ("outputnode.template", "inputnode.template"),
