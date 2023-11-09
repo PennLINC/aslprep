@@ -637,7 +637,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                     **kwargs,
                 ),
                 name=f"warp_{cbf_deriv}_to_t1w",
-                mem_gb=mem_gb * 3 * omp_nthreads,
+                mem_gb=mem_gb["resampled"],
                 n_procs=omp_nthreads,
             )
             # fmt:off
