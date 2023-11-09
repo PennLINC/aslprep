@@ -274,6 +274,91 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
+    outputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=[
+                "template",
+                "spatial_reference",
+                "qc_file",
+                # Preprocessed ASL files
+                "asl_native",
+                "asl_t1",
+                "asl_std",
+                "asl_cifti",
+                "aslref_native",
+                "aslref_t1",
+                "aslref_std",
+                "asl_mask_native",
+                "asl_mask_t1",
+                "asl_mask_std",
+                # Transforms
+                "hmc_xforms",
+                "aslref_to_anat_xfm",
+                "anat_to_aslref_xfm",
+                # Standard CBF outputs
+                "cbf_ts_native",
+                "cbf_ts_t1",
+                "cbf_ts_std",
+                "cbf_ts_cifti",
+                "mean_cbf_native",
+                "mean_cbf_t1",
+                "mean_cbf_std",
+                "mean_cbf_cifti",
+                "att_native",
+                "att_t1",
+                "att_std",
+                "att_cifti",
+                # SCORE/SCRUB outputs
+                "cbf_ts_score_native",
+                "cbf_ts_score_t1",
+                "cbf_ts_score_std",
+                "cbf_ts_score_cifti",
+                "mean_cbf_score_native",
+                "mean_cbf_score_t1",
+                "mean_cbf_score_std",
+                "mean_cbf_score_cifti",
+                "mean_cbf_scrub_native",
+                "mean_cbf_scrub_t1",
+                "mean_cbf_scrub_std",
+                "mean_cbf_scrub_cifti",
+                # BASIL outputs
+                "mean_cbf_basil_native",
+                "mean_cbf_basil_t1",
+                "mean_cbf_basil_std",
+                "mean_cbf_basil_cifti",
+                "mean_cbf_gm_basil_native",
+                "mean_cbf_gm_basil_t1",
+                "mean_cbf_gm_basil_std",
+                "mean_cbf_gm_basil_cifti",
+                "mean_cbf_wm_basil_native",
+                "mean_cbf_wm_basil_t1",
+                "mean_cbf_wm_basil_std",
+                "mean_cbf_wm_basil_cifti",
+                "att_basil_native",
+                "att_basil_t1",
+                "att_basil_std",
+                "att_basil_cifti",
+                # Parcellated CBF outputs
+                "atlas_names",
+                "mean_cbf_parcellated",
+                "mean_cbf_score_parcellated",
+                "mean_cbf_scrub_parcellated",
+                "mean_cbf_basil_parcellated",
+                "mean_cbf_gm_basil_parcellated",
+                # Non-GE outputs
+                "confounds",
+                "confounds_metadata",
+                # CIFTI-related outputs
+                "cifti_metadata",
+                "cifti_density",
+                "goodvoxels_mask",
+                "surfaces",
+                "surf_refs",
+            ],
+        ),
+        name="outputnode",
+    )
+
     cbf_derivs = ["mean_cbf"]
     mean_cbf_derivs = ["mean_cbf"]
 
@@ -352,10 +437,78 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_derivatives_wf.inputs.inputnode.cifti_density = config.workflow.cifti_output
     # fmt:off
     workflow.connect([
-        (inputnode, asl_derivatives_wf, [
-            ("asl_file", "inputnode.source_file"),
+        (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
+        (outputnode, asl_derivatives_wf, [
+            ("template", "inputnode.template"),
+            ("spatial_reference", "inputnode.spatial_reference"),
+            ("qc_file", "inputnode.qc_file"),
+            ("asl_native", "inputnode.asl_native"),
+            ("asl_t1", "inputnode.asl_t1"),
+            ("asl_std", "inputnode.asl_std"),
+            ("asl_cifti", "inputnode.asl_cifti"),
+            ("aslref_native", "inputnode.aslref_native"),
+            ("aslref_t1", "inputnode.aslref_t1"),
+            ("aslref_std", "inputnode.aslref_std"),
+            ("asl_mask_native", "inputnode.asl_mask_native"),
+            ("asl_mask_t1", "inputnode.asl_mask_t1"),
+            ("asl_mask_std", "inputnode.asl_mask_std"),
+            ("hmc_xforms", "inputnode.hmc_xforms"),
+            ("aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+            ("anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("cbf_ts_native", "inputnode.cbf_ts_native"),
+            ("cbf_ts_t1", "inputnode.cbf_ts_t1"),
+            ("cbf_ts_std", "inputnode.cbf_ts_std"),
+            ("cbf_ts_cifti", "inputnode.cbf_ts_cifti"),
+            ("mean_cbf_native", "inputnode.mean_cbf_native"),
+            ("mean_cbf_t1", "inputnode.mean_cbf_t1"),
+            ("mean_cbf_std", "inputnode.mean_cbf_std"),
+            ("mean_cbf_cifti", "inputnode.mean_cbf_cifti"),
+            ("att_native", "inputnode.att_native"),
+            ("att_t1", "inputnode.att_t1"),
+            ("att_std", "inputnode.att_std"),
+            ("att_cifti", "inputnode.att_cifti"),
+            ("cbf_ts_score_native", "inputnode.cbf_ts_score_native"),
+            ("cbf_ts_score_t1", "inputnode.cbf_ts_score_t1"),
+            ("cbf_ts_score_std", "inputnode.cbf_ts_score_std"),
+            ("cbf_ts_score_cifti", "inputnode.cbf_ts_score_cifti"),
+            ("mean_cbf_score_native", "inputnode.mean_cbf_score_native"),
+            ("mean_cbf_score_t1", "inputnode.mean_cbf_score_t1"),
+            ("mean_cbf_score_std", "inputnode.mean_cbf_score_std"),
+            ("mean_cbf_score_cifti", "inputnode.mean_cbf_score_cifti"),
+            ("mean_cbf_scrub_native", "inputnode.mean_cbf_scrub_native"),
+            ("mean_cbf_scrub_t1", "inputnode.mean_cbf_scrub_t1"),
+            ("mean_cbf_scrub_std", "inputnode.mean_cbf_scrub_std"),
+            ("mean_cbf_scrub_cifti", "inputnode.mean_cbf_scrub_cifti"),
+            ("mean_cbf_basil_native", "inputnode.mean_cbf_basil_native"),
+            ("mean_cbf_basil_t1", "inputnode.mean_cbf_basil_t1"),
+            ("mean_cbf_basil_std", "inputnode.mean_cbf_basil_std"),
+            ("mean_cbf_basil_cifti", "inputnode.mean_cbf_basil_cifti"),
+            ("mean_cbf_gm_basil_native", "inputnode.mean_cbf_gm_basil_native"),
+            ("mean_cbf_gm_basil_t1", "inputnode.mean_cbf_gm_basil_t1"),
+            ("mean_cbf_gm_basil_std", "inputnode.mean_cbf_gm_basil_std"),
+            ("mean_cbf_gm_basil_cifti", "inputnode.mean_cbf_gm_basil_cifti"),
+            ("mean_cbf_wm_basil_native", "inputnode.mean_cbf_wm_basil_native"),
+            ("mean_cbf_wm_basil_t1", "inputnode.mean_cbf_wm_basil_t1"),
+            ("mean_cbf_wm_basil_std", "inputnode.mean_cbf_wm_basil_std"),
+            ("mean_cbf_wm_basil_cifti", "inputnode.mean_cbf_wm_basil_cifti"),
+            ("att_basil_native", "inputnode.att_basil_native"),
+            ("att_basil_t1", "inputnode.att_basil_t1"),
+            ("att_basil_std", "inputnode.att_basil_std"),
+            ("att_basil_cifti", "inputnode.att_basil_cifti"),
+            ("atlas_names", "inputnode.atlas_names"),
+            ("mean_cbf_parcellated", "inputnode.mean_cbf_parcellated"),
+            ("mean_cbf_score_parcellated", "inputnode.mean_cbf_score_parcellated"),
+            ("mean_cbf_scrub_parcellated", "inputnode.mean_cbf_scrub_parcellated"),
+            ("mean_cbf_basil_parcellated", "inputnode.mean_cbf_basil_parcellated"),
+            ("mean_cbf_gm_basil_parcellated", "inputnode.mean_cbf_gm_basil_parcellated"),
+            ("confounds", "inputnode.confounds"),
+            ("confounds_metadata", "inputnode.confounds_metadata"),
+            ("cifti_metadata", "inputnode.cifti_metadata"),
+            ("cifti_density", "inputnode.cifti_density"),
+            ("goodvoxels_mask", "inputnode.goodvoxels_mask"),
             ("surfaces", "inputnode.surf_files"),
-        ]),
+            ("surf_refs", "inputnode.surf_refs"),
+        ])
     ])
     # fmt:on
 
@@ -484,9 +637,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
         ]),
         (initial_aslref_wf, asl_confounds_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
-        (asl_confounds_wf, asl_derivatives_wf, [
-            ("outputnode.confounds_file", "inputnode.confounds"),
-            ("outputnode.confounds_metadata", "inputnode.confounds_metadata"),
+        (asl_confounds_wf, outputnode, [
+            ("outputnode.confounds_file", "confounds"),
+            ("outputnode.confounds_metadata", "confounds_metadata"),
         ]),
         (asl_confounds_wf, summary, [("outputnode.confounds_file", "confounds_file")]),
     ])
@@ -517,9 +670,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
             ("outputnode.itk_bold_to_t1", "inputnode.aslref_to_anat_xfm"),
         ]),
-        (asl_reg_wf, asl_derivatives_wf, [
-            ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
-            ("outputnode.itk_bold_to_t1", "inputnode.aslref_to_anat_xfm"),
+        (asl_reg_wf, outputnode, [
+            ("outputnode.itk_t1_to_bold", "anat_to_aslref_xfm"),
+            ("outputnode.itk_bold_to_t1", "aslref_to_anat_xfm"),
         ]),
     ])
     # fmt:on
@@ -587,7 +740,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_confounds_wf, compute_cbf_qc_wf, [
             ("outputnode.confounds_file", "inputnode.confounds_file"),
         ]),
-        (compute_cbf_qc_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
+        (compute_cbf_qc_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
         (compute_cbf_qc_wf, summary, [("outputnode.qc_file", "qc_file")]),
     ])
     # fmt:on
@@ -645,7 +798,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 (asl_reg_wf, cbf_to_t1w, [("outputnode.itk_bold_to_t1", "transforms")]),
                 (asl_t1_trans_wf, cbf_to_t1w, [("outputnode.bold_mask_t1", "reference_image")]),
                 (asl_final, cbf_to_t1w, [(cbf_deriv, "input_image")]),
-                (cbf_to_t1w, asl_derivatives_wf, [("output_image", f"inputnode.{cbf_deriv}_t1")]),
+                (cbf_to_t1w, outputnode, [("output_image", f"{cbf_deriv}_t1")]),
             ])
             # fmt:on
 
@@ -665,9 +818,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.bold_t1", "inputnode.asl_file"),
                 ("outputnode.bold_mask_t1", "inputnode.asl_mask"),
             ]),
-            (asl_t1_reference_wf, asl_derivatives_wf, [
-                ("outputnode.ref_image", "inputnode.aslref_t1"),
-            ]),
+            (asl_t1_reference_wf, outputnode, [("outputnode.ref_image", "aslref_t1")]),
         ])
         # fmt:on
 
@@ -707,9 +858,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         if freesurfer:
             # fmt:off
             workflow.connect([
-                (asl_std_trans_wf, asl_derivatives_wf, [
-                    ("outputnode.asl_aseg_std", "inputnode.asl_aseg_std"),
-                    ("outputnode.asl_aparc_std", "inputnode.asl_aparc_std"),
+                (asl_std_trans_wf, outputnode, [
+                    ("outputnode.asl_aseg_std", "asl_aseg_std"),
+                    ("outputnode.asl_aparc_std", "asl_aparc_std"),
                 ]),
             ])
             # fmt:on
@@ -724,12 +875,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # func_derivatives_wf internally parametrizes over snapshotted spaces.
         # fmt:off
         workflow.connect([
-            (asl_std_trans_wf, asl_derivatives_wf, [
-                ("outputnode.template", "inputnode.template"),
-                ("outputnode.spatial_reference", "inputnode.spatial_reference"),
-                ("outputnode.asl_std", "inputnode.asl_std"),
-                ("outputnode.aslref_std", "inputnode.aslref_std"),
-                ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
+            (asl_std_trans_wf, outputnode, [
+                ("outputnode.template", "template"),
+                ("outputnode.spatial_reference", "spatial_reference"),
+                ("outputnode.asl_std", "asl_std"),
+                ("outputnode.aslref_std", "aslref_std"),
+                ("outputnode.asl_mask_std", "asl_mask_std"),
             ]),
         ])
         # fmt:on
@@ -737,8 +888,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         for cbf_deriv in cbf_derivs:
             # fmt:off
             workflow.connect([
-                (asl_std_trans_wf, asl_derivatives_wf, [
-                    (f"outputnode.{cbf_deriv}_std", f"inputnode.{cbf_deriv}_std"),
+                (asl_std_trans_wf, outputnode, [
+                    (f"outputnode.{cbf_deriv}_std", f"{cbf_deriv}_std"),
                 ]),
             ])
             # fmt:on
@@ -761,7 +912,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("t1w2fsnative_xfm", "inputnode.t1w2fsnative_xfm"),
             ]),
             (asl_t1_trans_wf, asl_surf_wf, [("outputnode.asl_t1", "inputnode.source_file")]),
-            (asl_surf_wf, asl_derivatives_wf, [("outputnode.target", "inputnode.surf_refs")]),
+            (asl_surf_wf, outputnode, [
+                ("outputnode.surfaces", "surfaces"),
+                ("outputnode.target", "surf_refs"),
+            ]),
         ])
         # fmt:on
 
@@ -784,8 +938,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_t1_trans_wf, asl_fsLR_resampling_wf, [
                 ("outputnode.asl_t1", "inputnode.bold_file"),
             ]),
-            (asl_fsLR_resampling_wf, asl_derivatives_wf, [
-                ("outputnode.goodvoxels_mask", "inputnode.goodvoxels_mask"),
+            (asl_fsLR_resampling_wf, outputnode, [
+                ("outputnode.goodvoxels_mask", "goodvoxels_mask"),
             ]),
         ])
         # fmt:on
@@ -804,9 +958,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_fsLR_resampling_wf, asl_grayords_wf, [
                 ("outputnode.asl_fsLR", "inputnode.bold_fsLR"),
             ]),
-            (asl_grayords_wf, asl_derivatives_wf, [
-                ("outputnode.cifti_bold", "inputnode.asl_cifti"),
-                ("outputnode.cifti_metadata", "inputnode.cifti_metadata"),
+            (asl_grayords_wf, outputnode, [
+                ("outputnode.cifti_bold", "asl_cifti"),
+                ("outputnode.cifti_metadata", "cifti_metadata"),
             ]),
         ])
         # fmt:on
@@ -912,9 +1066,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_reg_wf, parcellate_cbf_wf, [
             ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
         ]),
-        (parcellate_cbf_wf, asl_derivatives_wf, [
-            ("outputnode.atlas_names", "inputnode.atlas_names"),
-        ]),
+        (parcellate_cbf_wf, outputnode, [("outputnode.atlas_names", "atlas_names")]),
     ])
     # fmt:on
 
@@ -924,8 +1076,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (compute_cbf_wf, parcellate_cbf_wf, [
                 (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
             ]),
-            (parcellate_cbf_wf, asl_derivatives_wf, [
-                (f"outputnode.{cbf_deriv}_parcellated", f"inputnode.{cbf_deriv}_parcellated"),
+            (parcellate_cbf_wf, outputnode, [
+                (f"outputnode.{cbf_deriv}_parcellated", f"{cbf_deriv}_parcellated"),
             ]),
         ])
         # fmt:on
