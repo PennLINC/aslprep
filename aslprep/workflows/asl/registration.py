@@ -164,17 +164,19 @@ def init_asl_t1_trans_wf(
     freesurfer: bool,
     mem_gb: float,
     omp_nthreads: int,
-    is_multi_pld: bool = False,
-    scorescrub: bool = False,
-    basil: bool = False,
     generate_reference: bool = True,
-    output_t1space: bool = False,
     use_compression: bool = True,
     name: str = "asl_t1_trans_wf",
 ):
     """Sample ASL into T1w space with a single-step resampling of the original ASL series.
 
     The workflow uses :abbr:`BBR (boundary-based registration)`.
+
+    This workflow applies the HMC+SDC+coregistration transforms to the ASL data,
+    the coregistration transform to the brain mask, and the identity transform to aparc and aseg
+    files already in T1w space.
+
+    Other files (e.g., CBF images) are coregistered to T1w space outside of this workflow.
 
     Workflow Graph
         .. workflow::
@@ -268,21 +270,6 @@ def init_asl_t1_trans_wf(
                 "hmc_xforms",
                 "fieldwarp",
                 "itk_bold_to_t1",
-                # CBF outputs
-                "mean_cbf",
-                # Single-delay outputs
-                "cbf_ts",
-                # Multi-delay outputs
-                "att",
-                # SCORE/SCRUB outputs
-                "cbf_ts_score",
-                "mean_cbf_score",
-                "mean_cbf_scrub",
-                # BASIL outputs
-                "mean_cbf_basil",
-                "mean_cbf_gm_basil",
-                "mean_cbf_wm_basil",
-                "att_basil",
             ],
         ),
         name="inputnode",
@@ -296,19 +283,6 @@ def init_asl_t1_trans_wf(
                 "asl_mask_t1",
                 "asl_aseg_t1",
                 "asl_aparc_t1",
-                # CBF outputs
-                "cbf_ts_t1",
-                "mean_cbf_t1",
-                "att_t1",
-                # SCORE/SCRUB outputs
-                "cbf_ts_score_t1",
-                "mean_cbf_score_t1",
-                "mean_cbf_scrub_t1",
-                # BASIL outputs
-                "mean_cbf_basil_t1",
-                "mean_cbf_gm_basil_t1",
-                "mean_cbf_wm_basil_t1",
-                "att_basil_t1",
             ],
         ),
         name="outputnode",
