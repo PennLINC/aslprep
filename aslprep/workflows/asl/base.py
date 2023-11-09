@@ -3,6 +3,7 @@
 """Preprocessing workflows for ASL data."""
 import nibabel as nb
 from fmriprep.workflows.bold.base import get_estimator
+from fmriprep.workflows.bold.confounds import init_carpetplot_wf
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from fmriprep.workflows.bold.resampling import (
     init_bold_fsLR_resampling_wf,
@@ -23,7 +24,7 @@ from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
-from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
+from aslprep.workflows.asl.confounds import init_asl_confounds_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
@@ -834,8 +835,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (asl_confounds_wf, carpetplot_wf, [
                 ("outputnode.confounds_file", "inputnode.confounds_file"),
-                ("outputnode.crown_mask", "inputnode.crown_mask"),
-                (("outputnode.acompcor_masks", _last), "inputnode.acompcor_mask"),
             ]),
         ])
         # fmt:on
