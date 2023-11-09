@@ -449,7 +449,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         freesurfer=freesurfer,
         mem_gb=mem_gb["resampled"],
         omp_nthreads=omp_nthreads,
-        generate_reference=True,
         use_compression=False,
         name="asl_t1_trans_wf",
     )
@@ -463,7 +462,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("t1w_aparc", "inputnode.t1w_aparc"),
         ]),
         (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
-        (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.asl_split")]),
+        (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.bold_split")]),
         (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
         (asl_reg_wf, asl_t1_trans_wf, [("outputnode.itk_bold_to_t1", "inputnode.itk_bold_to_t1")]),
     ])
@@ -533,8 +532,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([
         (asl_final, asl_reg_wf, [("aslref", "inputnode.ref_bold_brain")]),
         (asl_final, asl_t1_trans_wf, [
-            ("mask", "inputnode.ref_asl_mask"),
-            ("boldref", "inputnode.ref_asl_brain"),
+            ("mask", "inputnode.ref_bold_mask"),
+            ("aslref", "inputnode.ref_bold_brain"),
         ]),
     ])
     # fmt:on
