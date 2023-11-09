@@ -2,6 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Preprocessing workflows for ASL data."""
 import nibabel as nb
+import numpy as np
 from fmriprep.workflows.bold.base import get_estimator
 from fmriprep.workflows.bold.confounds import init_carpetplot_wf
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
@@ -194,6 +195,11 @@ def init_asl_preproc_wf(asl_file, has_fieldmap=False):
     run_data = collect_run_data(layout, ref_file)
     sbref_file = run_data["sbref"]
     metadata = run_data["asl_metadata"].copy()
+    # Patch RepetitionTimePreparation into RepetitionTime
+    metadata["RepetitionTime"] = metadata.get(
+        "RepetitionTime",
+        np.mean(metadata["RepetitionTimePreparation"]),
+    )
 
     is_multi_pld = determine_multi_pld(metadata=metadata)
     if scorescrub and is_multi_pld:
