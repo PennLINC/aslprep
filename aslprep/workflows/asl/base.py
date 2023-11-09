@@ -614,7 +614,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Map final ASL mask into T1w space (if required)
     nonstd_spaces = set(spaces.get_nonstandard())
     if nonstd_spaces.intersection(("T1w", "anat")):
-        from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+        from niworkflows.interfaces.fixes import (
+            FixHeaderApplyTransforms as ApplyTransforms,
+        )
 
         aslmask_to_t1w = pe.Node(
             ApplyTransforms(interpolation="MultiLabel"),
