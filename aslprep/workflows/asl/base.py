@@ -600,7 +600,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
         ])
         # fmt:on
-    return workflow
 
     # Map final ASL mask into T1w space (if required)
     nonstd_spaces = set(spaces.get_nonstandard())
@@ -957,7 +956,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (initial_aslref_wf, ds_report_validation, [("outputnode.validation_report", "in_file")]),
     ])
     # fmt:on
-    return workflow
 
     # Fill-in datasinks of reportlets seen so far
     for node in workflow.list_node_names():
