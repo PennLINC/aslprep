@@ -389,7 +389,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ),
         name="reduce_asl_file",
     )
-
     # fmt:off
     workflow.connect([
         (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
@@ -410,7 +409,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         omp_nthreads=omp_nthreads,
         name="asl_hmc_wf",
     )
-
     # fmt:off
     workflow.connect([
         (reduce_asl_file, asl_hmc_wf, [
@@ -433,7 +431,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         use_bbr=config.workflow.use_bbr,
         use_compression=False,
     )
-
     # fmt:off
     workflow.connect([
         (inputnode, asl_reg_wf, [
@@ -458,7 +455,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         name="asl_t1_trans_wf",
     )
     asl_t1_trans_wf.inputs.inputnode.fieldwarp = "identity"
-
     # fmt:off
     workflow.connect([
         (inputnode, asl_t1_trans_wf, [
@@ -477,8 +473,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # get confounds
     asl_confounds_wf = init_asl_confounds_wf(mem_gb=mem_gb["largemem"], name="asl_confounds_wf")
-    asl_confounds_wf.get_node("inputnode").inputs.t1_transform_flags = [False]
-
     # fmt:off
     workflow.connect([
         (inputnode, asl_confounds_wf, [
@@ -513,7 +507,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         metadata=metadata,
         name="compute_cbf_wf",
     )
-
     # fmt:off
     workflow.connect([
         (inputnode, compute_cbf_wf, [
@@ -554,14 +547,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         name="final_aslref_wf",
     )
     final_aslref_wf.__desc__ = None
-
     # fmt:off
     workflow.connect([
         (initial_aslref_wf, final_aslref_wf, [("outputnode.skip_vols", "inputnode.dummy_scans")]),
-        (final_aslref_wf, asl_final, [
-            ("outputnode.ref_image", "aslref"),
-            ("outputnode.asl_mask", "mask"),
-        ]),
+        (final_aslref_wf, asl_final, [("outputnode.ref_image", "aslref")]),
     ])
     # fmt:on
 
@@ -571,11 +560,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         run_without_submitting=True,
         name="refine_mask",
     )
-
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [("t1w_mask", "t1w_mask")]),
         (asl_reg_wf, refine_mask, [("outputnode.itk_t1_to_bold", "transforms")]),
+        (refine_mask, asl_final, [("out_mask", "mask")]),
     ])
     # fmt:on
 
@@ -586,7 +575,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         basil=basil,
         name="compute_cbf_qc_wf",
     )
-
     # fmt:off
     workflow.connect([
         (inputnode, compute_cbf_qc_wf, [
@@ -594,7 +582,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (refine_mask, compute_cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
+        (asl_final, compute_cbf_qc_wf, [("mask", "inputnode.asl_mask")]),
         (asl_hmc_wf, compute_cbf_qc_wf, [("outputnode.rmsd_file", "inputnode.rmsd_file")]),
         (asl_reg_wf, compute_cbf_qc_wf, [
             ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
@@ -969,10 +957,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         workflow.connect([
             # Connect asl_asl_trans_wf
             (inputnode, asl_asl_trans_wf, [("name_source", "inputnode.name_source")]),
-            (asl_split, asl_asl_trans_wf, [("out_files", "inputnode.asl_file")]),
+            (asl_split, asl_asl_trans_wf, [("out_files", "inputnode.bold_file")]),
             (asl_hmc_wf, asl_asl_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
-            (asl_asl_trans_wf, asl_final, [("outputnode.asl", "asl")]),
-            (asl_asl_trans_wf, final_aslref_wf, [("outputnode.asl", "inputnode.asl_file")]),
+            (asl_asl_trans_wf, asl_final, [("outputnode.bold", "bold")]),
+            (asl_asl_trans_wf, final_aslref_wf, [("outputnode.bold", "inputnode.bold_file")]),
         ])
         # fmt:on
 

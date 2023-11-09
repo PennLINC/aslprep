@@ -104,7 +104,8 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         name="inputnode",
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["confounds_file", "confounds_metadata"]), name="outputnode"
+        niu.IdentityInterface(fields=["confounds_file", "confounds_metadata"]),
+        name="outputnode",
     )
 
     # DVARS
