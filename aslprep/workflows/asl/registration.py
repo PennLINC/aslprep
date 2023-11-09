@@ -178,6 +178,10 @@ def init_asl_t1_trans_wf(
 
     Other files (e.g., CBF images) are coregistered to T1w space outside of this workflow.
 
+    One element that keeps me from just using fMRIPrep's ``init_bold_t1_trans_wf`` is that
+    a new reference image is created within the workflow, and ASLPrep and fMRIPrep use different
+    strategies to create reference images.
+
     Workflow Graph
         .. workflow::
             :graph2use: orig

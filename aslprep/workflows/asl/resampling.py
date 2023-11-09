@@ -3,15 +3,10 @@
 """Workflows for resampling data."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.itk import MultiApplyTransforms
-from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.interfaces.nilearn import Merge
-from niworkflows.interfaces.utility import KeySelect
-from niworkflows.utils.spaces import format_reference
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.fsl import Split
 from aslprep.utils.misc import (
     _aslist,
@@ -21,7 +16,6 @@ from aslprep.utils.misc import (
     _split_spec,
 )
 from aslprep.utils.spaces import SpatialReferences
-from aslprep.workflows.asl.util import init_asl_reference_wf
 
 
 def init_asl_std_trans_wf(
@@ -33,10 +27,14 @@ def init_asl_std_trans_wf(
     scorescrub: bool,
     basil: bool,
     generate_reference: bool,
-    use_compression: bool = True,
     name: str = "asl_std_trans_wf",
+    use_compression: bool = True,
 ):
     """Sample ASL into standard space with a single-step resampling of the original ASL series.
+
+    One element that keeps me from just using fMRIPrep's ``init_bold_std_trans_wf`` is that
+    a new reference image is created within the workflow, and ASLPrep and fMRIPrep use different
+    strategies to create reference images.
 
     .. important::
         This workflow provides two outputnodes.
@@ -99,7 +97,7 @@ def init_asl_std_trans_wf(
         a :abbr:`DFM (displacements field map)` in ITK format
     hmc_xforms
         List of affine transforms aligning each volume to ``ref_image`` in ITK format
-    aslref_to_anat_xfm
+    itk_bold_to_t1
         Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
     name_source
         ASL series NIfTI file
@@ -122,6 +120,17 @@ def init_asl_std_trans_wf(
         Template identifiers synchronized correspondingly to previously
         described outputs.
     """
+    from fmriprep.interfaces.maths import Clip
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+    from niworkflows.interfaces.itk import MultiApplyTransforms
+    from niworkflows.interfaces.nibabel import GenerateSamplingReference
+    from niworkflows.interfaces.nilearn import Merge
+    from niworkflows.interfaces.utility import KeySelect
+    from niworkflows.utils.spaces import format_reference
+
+    from aslprep.workflows.asl.util import init_asl_reference_wf
+
     workflow = Workflow(name=name)
     std_vol_references = [
         (s.fullname, s.spec) for s in spaces.references if s.standard and s.dim == 3
@@ -131,7 +140,7 @@ def init_asl_std_trans_wf(
         niu.IdentityInterface(
             fields=[
                 "name_source",
-                "aslcontext",
+                "aslcontext",  # not in the fMRIPrep version
                 "asl_split",
                 "asl_mask",
                 "asl_aseg",
@@ -140,7 +149,7 @@ def init_asl_std_trans_wf(
                 # Transforms
                 "hmc_xforms",  # may be "identity"
                 "fieldwarp",  # may be "identity"
-                "aslref_to_anat_xfm",
+                "itk_bold_to_t1",
                 "anat2std_xfm",
                 # CBF outputs
                 "mean_cbf",
@@ -175,7 +184,6 @@ def init_asl_std_trans_wf(
         run_without_submitting=True,
         name="split_target",
     )
-
     workflow.connect([(iterablesource, split_target, [("std_target", "in_target")])])
 
     select_std = pe.Node(
@@ -183,7 +191,6 @@ def init_asl_std_trans_wf(
         name="select_std",
         run_without_submitting=True,
     )
-
     # fmt:off
     workflow.connect([
         (inputnode, select_std, [
@@ -199,34 +206,19 @@ def init_asl_std_trans_wf(
         name="select_tpl",
         run_without_submitting=True,
     )
-
     workflow.connect([(iterablesource, select_tpl, [("std_target", "template")])])
 
     gen_ref = pe.Node(
         GenerateSamplingReference(),
         name="gen_ref",
-        mem_gb=0.3,
-    )  # 256x256x256 * 64 / 8 ~ 150MB)
+        mem_gb=0.3,  # 256x256x256 * 64 / 8 ~ 150MB)
+    )
 
     # fmt:off
     workflow.connect([
         (inputnode, gen_ref, [(("asl_split", _select_first_in_list), "moving_image")]),
         (select_tpl, gen_ref, [("out", "fixed_image")]),
         (split_target, gen_ref, [(("spec", _is_native), "keep_native")]),
-    ])
-    # fmt:on
-
-    mask_merge_tfms = pe.Node(
-        niu.Merge(2),
-        name="mask_merge_tfms",
-        run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, mask_merge_tfms, [(("aslref_to_anat_xfm", _aslist), "in2")]),
-        (select_std, mask_merge_tfms, [("anat2std_xfm", "in1")]),
     ])
     # fmt:on
 
@@ -240,6 +232,20 @@ def init_asl_std_trans_wf(
     workflow.connect([
         (inputnode, mask_std_tfm, [("asl_mask", "input_image")]),
         (gen_ref, mask_std_tfm, [("out_file", "reference_image")]),
+    ])
+    # fmt:on
+
+    mask_merge_tfms = pe.Node(
+        niu.Merge(2),
+        name="mask_merge_tfms",
+        run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, mask_merge_tfms, [(("itk_bold_to_t1", _aslist), "in2")]),
+        (select_std, mask_merge_tfms, [("anat2std_xfm", "in1")]),
         (mask_merge_tfms, mask_std_tfm, [("out", "transforms")]),
     ])
     # fmt:on
@@ -255,7 +261,7 @@ def init_asl_std_trans_wf(
     # fmt:off
     workflow.connect([
         (inputnode, merge_xforms, [
-            (("aslref_to_anat_xfm", _aslist), "in2"),
+            (("itk_bold_to_t1", _aslist), "in2"),
             ("fieldwarp", "in3"),  # may be "identity"
             ("hmc_xforms", "in4"),  # may be "identity"
         ]),
@@ -278,6 +284,15 @@ def init_asl_std_trans_wf(
     ])
     # fmt:on
 
+    # Interpolation can occasionally produce below-zero values as an artifact
+    threshold = pe.MapNode(
+        Clip(minimum=0),
+        name="threshold",
+        iterfield=["in_file"],
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
+    workflow.connect([(asl_to_std_transform, threshold, [("out_files", "in_file")])])
+
     # NOTE: Not in GE workflow.
     # The GE workflow doesn't apply HMC, so it accepts a 4D ASL file that doesn't need to be
     # re-merged back to 4D like the non-GE 3D files.
@@ -290,7 +305,7 @@ def init_asl_std_trans_wf(
     # fmt:off
     workflow.connect([
         (inputnode, merge_3d_to_4d, [("name_source", "header_source")]),
-        (asl_to_std_transform, merge_3d_to_4d, [("out_files", "in_files")]),
+        (threshold, merge_3d_to_4d, [("out_file", "in_files")]),
     ])
     # fmt:on
 
@@ -347,6 +362,8 @@ def init_asl_std_trans_wf(
 
     output_names = [f"{input_}_std" for input_ in inputs_to_warp]
     output_names += ["asl_std", "aslref_std", "asl_mask_std", "spatial_reference", "template"]
+    if freesurfer:
+        output_names.extend(["asl_aseg_std", "asl_aparc_std"])
 
     poutputnode = pe.Node(niu.IdentityInterface(fields=output_names), name="poutputnode")
 
@@ -360,6 +377,36 @@ def init_asl_std_trans_wf(
         (select_std, poutputnode, [("key", "template")]),
     ])
     # fmt:on
+
+    if freesurfer:
+        # Sample the parcellation files to functional space
+        aseg_std_tfm = pe.Node(
+            ApplyTransforms(interpolation="MultiLabel"),
+            name="aseg_std_tfm",
+            mem_gb=1,
+        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, aseg_std_tfm, [("asl_aseg", "input_image")]),
+            (select_std, aseg_std_tfm, [("anat2std_xfm", "transforms")]),
+            (gen_ref, aseg_std_tfm, [("out_file", "reference_image")]),
+            (aseg_std_tfm, poutputnode, [("output_image", "asl_aseg_std")]),
+        ])
+        # fmt:on
+
+        aparc_std_tfm = pe.Node(
+            ApplyTransforms(interpolation="MultiLabel"),
+            name="aparc_std_tfm",
+            mem_gb=1,
+        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, aparc_std_tfm, [("asl_aparc", "input_image")]),
+            (select_std, aparc_std_tfm, [("anat2std_xfm", "transforms")]),
+            (gen_ref, aparc_std_tfm, [("out_file", "reference_image")]),
+            (aparc_std_tfm, poutputnode, [("output_image", "asl_aparc_std")]),
+        ])
+        # fmt:on
 
     inputs_4d = ["cbf_ts", "cbf_ts_score"]
     for input_name in inputs_to_warp:
@@ -467,6 +514,10 @@ def init_asl_preproc_trans_wf(
         Same as ``aslref``, but once the brain mask has been applied
 
     """
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+
+    from aslprep.workflows.asl.util import init_asl_reference_wf
+
     workflow = Workflow(name=name)
     # workflow.__desc__ = """\
     # The ASL timeseries were resampled onto their original,
