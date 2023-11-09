@@ -9,6 +9,7 @@ from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from fmriprep.workflows.bold.resampling import (
     init_bold_fsLR_resampling_wf,
     init_bold_grayords_wf,
+    init_bold_preproc_trans_wf,
     init_bold_surf_wf,
 )
 from nipype.interfaces import utility as niu
@@ -31,10 +32,7 @@ from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
-from aslprep.workflows.asl.resampling import (
-    init_asl_preproc_trans_wf,
-    init_asl_std_trans_wf,
-)
+from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 from aslprep.workflows.asl.util import init_asl_reference_wf, init_validate_asl_wf
 
 
@@ -195,7 +193,9 @@ def init_asl_preproc_wf(asl_file, has_fieldmap=False):
     run_data = collect_run_data(layout, ref_file)
     sbref_file = run_data["sbref"]
     metadata = run_data["asl_metadata"].copy()
-    # Patch RepetitionTimePreparation into RepetitionTime
+    # Patch RepetitionTimePreparation into RepetitionTime,
+    # for the sake of BOLD-based interfaces and workflows.
+    # This value shouldn't be used for anything except figures and reportlets.
     metadata["RepetitionTime"] = metadata.get(
         "RepetitionTime",
         np.mean(metadata["RepetitionTimePreparation"]),
@@ -953,13 +953,16 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         summary.inputs.distortion_correction = "None"
 
         # Resample in native space in just one shot
-        asl_asl_trans_wf = init_asl_preproc_trans_wf(
+        asl_asl_trans_wf = init_bold_preproc_trans_wf(
             mem_gb=mem_gb["resampled"],
             omp_nthreads=omp_nthreads,
             use_compression=not config.execution.low_mem,
             use_fieldwarp=False,
             name="asl_asl_trans_wf",
         )
+        asl_asl_trans_wf.__desc__ = asl_asl_trans_wf.__desc__.replace(
+            " (including slice-timing correction when applied)", ""
+        ).replace("BOLD", "ASL")
         asl_asl_trans_wf.inputs.inputnode.fieldwarp = "identity"
 
         # fmt:off

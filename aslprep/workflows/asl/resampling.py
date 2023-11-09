@@ -3,11 +3,8 @@
 """Workflows for resampling data."""
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.interfaces.itk import MultiApplyTransforms
-from niworkflows.interfaces.nilearn import Merge
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces.fsl import Split
 from aslprep.utils.misc import (
     _aslist,
     _is_native,
@@ -447,12 +444,12 @@ def init_asl_std_trans_wf(
 
 
 def init_asl_preproc_trans_wf(
-    mem_gb,
-    omp_nthreads,
-    use_compression=True,
-    split_file=False,
-    interpolation="LanczosWindowedSinc",
-    name="asl_preproc_trans_wf",
+    mem_gb: float,
+    omp_nthreads: int,
+    name: str = "asl_preproc_trans_wf",
+    use_compression: bool = True,
+    use_fieldwarp: bool = False,
+    interpolation: str = "LanczosWindowedSinc",
 ):
     """Resample in native (original) space.
 
@@ -514,93 +511,44 @@ def init_asl_preproc_trans_wf(
         Same as ``aslref``, but once the brain mask has been applied
 
     """
+    from fmriprep.interfaces.maths import Clip
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-
-    from aslprep.workflows.asl.util import init_asl_reference_wf
+    from niworkflows.interfaces.itk import MultiApplyTransforms
+    from niworkflows.interfaces.nilearn import Merge
 
     workflow = Workflow(name=name)
-    # workflow.__desc__ = """\
-    # The ASL timeseries were resampled onto their original,
-    # native space by applying the transforms to correct for head-motion.
-    # These resampled ASL timeseries are referred to as preprocessed ASL
-    # """
+    workflow.__desc__ = """\
+The ASL time-series were resampled onto their original, native space by applying
+{transforms}.
+These resampled ASL time-series will be referred to as *preprocessed
+ASL in original space*, or just *preprocessed ASL*.
+""".format(
+        transforms="""\
+a single, composite transform to correct for head-motion and
+susceptibility distortions"""
+        if use_fieldwarp
+        else """\
+the transforms to correct for head-motion"""
+    )
 
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
                 "name_source",
                 "asl_file",
-                "aslcontext",
-                "asl_mask",
                 "hmc_xforms",
                 "fieldwarp",
-            ]
+            ],
         ),
         name="inputnode",
     )
 
     outputnode = pe.Node(
         niu.IdentityInterface(
-            fields=[
-                "asl",
-                "asl_mask",
-                "aslref",
-                "aslref_brain",
-            ]
+            fields=["asl"],
         ),
         name="outputnode",
     )
-
-    asl_transform = pe.Node(
-        MultiApplyTransforms(interpolation=interpolation, float=True, copy_dtype=True),
-        name="asl_transform",
-        mem_gb=mem_gb * 3 * omp_nthreads,
-        n_procs=omp_nthreads,
-    )
-
-    merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb * 3)
-
-    # Generate a new asl reference
-    asl_reference_wf = init_asl_reference_wf()
-    asl_reference_wf.__desc__ = None  # Unset description to avoid second appearance
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, merge, [("name_source", "header_source")]),
-        (asl_transform, merge, [("out_files", "in_files")]),
-        (inputnode, asl_reference_wf, [("aslcontext", "inputnode.aslcontext")]),
-        (merge, asl_reference_wf, [("out_file", "inputnode.asl_file")]),
-        (merge, outputnode, [("out_file", "asl")]),
-        (asl_reference_wf, outputnode, [
-            ("outputnode.ref_image", "aslref"),
-            ("outputnode.ref_image_brain", "aslref_brain"),
-            ("outputnode.asl_mask", "asl_mask"),
-        ]),
-    ])
-    # fmt:on
-
-    # Input file is not splitted
-    if split_file:
-        asl_split = pe.Node(Split(dimension="t"), name="asl_split", mem_gb=mem_gb * 3)
-        # fmt:off
-        workflow.connect([
-            (inputnode, asl_split, [("asl_file", "in_file")]),
-            (asl_split, asl_transform, [
-                ("out_files", "input_image"),
-                (("out_files", _select_first_in_list), "reference_image"),
-            ]),
-        ])
-        # fmt:on
-
-    else:
-        # fmt:off
-        workflow.connect([
-            (inputnode, asl_transform, [
-                ("asl_file", "input_image"),
-                (("asl_file", _select_first_in_list), "reference_image"),
-            ]),
-        ])
-        # fmt:on
 
     merge_xforms = pe.Node(
         niu.Merge(2),
@@ -614,7 +562,39 @@ def init_asl_preproc_trans_wf(
             ("fieldwarp", "in1"),  # may be "identity"
             ("hmc_xforms", "in2"),
         ]),
-        (merge_xforms, asl_transform, [("out", "transforms")]),
+    ])
+    # fmt:on
+
+    asl_transform = pe.Node(
+        MultiApplyTransforms(interpolation=interpolation, float=True, copy_dtype=True),
+        name="asl_transform",
+        mem_gb=mem_gb * 3 * omp_nthreads,
+        n_procs=omp_nthreads,
+    )
+    workflow.connect([(merge_xforms, asl_transform, [("out", "transforms")])])
+
+    # Interpolation can occasionally produce below-zero values as an artifact
+    threshold = pe.MapNode(
+        Clip(minimum=0),
+        name="threshold",
+        iterfield=["in_file"],
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
+    workflow.connect([(asl_transform, threshold, [("out_files", "in_file")])])
+
+    merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb * 3)
+    # fmt:off
+    workflow.connect([
+        (threshold, merge, [("out_file", "in_files")]),
+        (merge, outputnode, [("out_file", "bold")]),
+    ])
+    # fmt:on
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, merge, [("name_source", "header_source")]),
+        (asl_transform, merge, [("out_files", "in_files")]),
+        (merge, outputnode, [("out_file", "asl")]),
     ])
     # fmt:on
 
