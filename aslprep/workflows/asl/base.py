@@ -268,6 +268,38 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
+    cbf_derivs = ["mean_cbf"]
+    mean_cbf_derivs = ["mean_cbf"]
+
+    if is_multi_pld:
+        cbf_derivs += ["att"]
+    else:
+        cbf_derivs += ["cbf_ts"]
+
+    if scorescrub:
+        cbf_derivs += [
+            "cbf_ts_score",
+            "mean_cbf_score",
+            "mean_cbf_scrub",
+        ]
+        mean_cbf_derivs += [
+            "mean_cbf_score",
+            "mean_cbf_scrub",
+        ]
+
+    if basil:
+        cbf_derivs += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+            "mean_cbf_wm_basil",
+            "att_basil",
+        ]
+        # We don't want mean_cbf_wm_basil for this list.
+        mean_cbf_derivs += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+        ]
+
     if sbref_file is not None:
         from niworkflows.interfaces.header import ValidateImage
 
@@ -412,9 +444,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Apply ASL to T1w registration
     asl_t1_trans_wf = init_asl_t1_trans_wf(
         freesurfer=freesurfer,
-        is_multi_pld=is_multi_pld,
-        scorescrub=scorescrub,
-        basil=basil,
         mem_gb=mem_gb["resampled"],
         omp_nthreads=omp_nthreads,
         generate_reference=True,
@@ -477,37 +506,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         metadata=metadata,
         name="compute_cbf_wf",
     )
-    cbf_derivs = ["mean_cbf"]
-    mean_cbf_derivs = ["mean_cbf"]
-
-    if is_multi_pld:
-        cbf_derivs += ["att"]
-    else:
-        cbf_derivs += ["cbf_ts"]
-
-    if scorescrub:
-        cbf_derivs += [
-            "cbf_ts_score",
-            "mean_cbf_score",
-            "mean_cbf_scrub",
-        ]
-        mean_cbf_derivs += [
-            "mean_cbf_score",
-            "mean_cbf_scrub",
-        ]
-
-    if basil:
-        cbf_derivs += [
-            "mean_cbf_basil",
-            "mean_cbf_gm_basil",
-            "mean_cbf_wm_basil",
-            "att_basil",
-        ]
-        # We don't want mean_cbf_wm_basil for this list.
-        mean_cbf_derivs += [
-            "mean_cbf_basil",
-            "mean_cbf_gm_basil",
-        ]
 
     # fmt:off
     workflow.connect([
