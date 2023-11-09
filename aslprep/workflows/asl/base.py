@@ -684,7 +684,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (asl_final, asl_std_trans_wf, [("mask", "inputnode.asl_mask")]),
             (asl_reg_wf, asl_std_trans_wf, [
-                ("outputnode.itk_bold_to_t1", "inputnode.aslref_to_anat_xfm"),
+                ("outputnode.itk_bold_to_t1", "inputnode.itk_bold_to_t1"),
             ]),
         ])
         # fmt:on
