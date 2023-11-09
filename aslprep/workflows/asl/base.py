@@ -1140,7 +1140,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # fmt:off
         workflow.connect([
             # Connect asl_asl_trans_wf
-            (inputnode, asl_asl_trans_wf, [("name_source", "inputnode.name_source")]),
+            (inputnode, asl_asl_trans_wf, [("asl_file", "inputnode.name_source")]),
             (asl_split, asl_asl_trans_wf, [("out_files", "inputnode.bold_file")]),
             (asl_hmc_wf, asl_asl_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
             (asl_asl_trans_wf, asl_final, [("outputnode.bold", "asl")]),
