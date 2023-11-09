@@ -517,20 +517,13 @@ def init_asl_preproc_trans_wf(
     from niworkflows.interfaces.nilearn import Merge
 
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
+    workflow.__desc__ = f"""\
 The ASL time-series were resampled onto their original, native space by applying
-{transforms}.
+{'a single, composite transform to correct for head-motion and susceptibility distortions'
+if use_fieldwarp else 'the transforms to correct for head-motion'}.
 These resampled ASL time-series will be referred to as *preprocessed
 ASL in original space*, or just *preprocessed ASL*.
-""".format(
-        transforms="""\
-a single, composite transform to correct for head-motion and
-susceptibility distortions"""
-        if use_fieldwarp
-        else """\
-the transforms to correct for head-motion"""
-    )
-
+"""
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
