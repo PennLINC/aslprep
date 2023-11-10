@@ -1280,7 +1280,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (final_aslref_wf, sdc_coreg_report, [("outputnode.asl_mask", "wm_seg")]),
             (inputnode, ds_report_sdc_coreg, [("asl_file", "source_file")]),
             (sdc_coreg_report, ds_report_sdc_coreg, [("out_report", "in_file")]),
-            (unwarp_wf, fmap_report, [("outputnode.fieldmap", "fieldmap")]),
+            (unwarp_wf, fmap_report, [(("outputnode.fieldmap", pop_file), "fieldmap")]),
             (coeff2epi_wf, fmap_report, [("coregister.inverse_warped_image", "reference")]),
             (final_aslref_wf, fmap_report, [("outputnode.asl_mask", "mask")]),
             (fmap_report, ds_fmap_report, [("out_report", "in_file")]),
@@ -1295,11 +1295,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (unwarp_wf, final_aslref_wf, [("outputnode.corrected", "inputnode.asl_file")]),
         (unwarp_wf, asl_t1_trans_wf, [
             # TEMPORARY: For the moment we can't use frame-wise fieldmaps
-            ("outputnode.fieldwarp_ref", "inputnode.fieldwarp"),
+            (("outputnode.fieldwarp_ref", pop_file), "inputnode.fieldwarp"),
         ]),
         (unwarp_wf, asl_std_trans_wf, [
             # TEMPORARY: For the moment we can't use frame-wise fieldmaps
-            ("outputnode.fieldwarp_ref", "inputnode.fieldwarp"),
+            (("outputnode.fieldwarp_ref", pop_file), "inputnode.fieldwarp"),
         ]),
     ])
     # fmt:on
