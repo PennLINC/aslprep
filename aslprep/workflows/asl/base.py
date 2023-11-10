@@ -526,7 +526,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         sbref_files=sbref_files,
         name="initial_aslref_wf",
     )
-    initial_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_vols
+    initial_aslref_wf.inputs.inputnode.dummy_scans = 0
 
     # fmt:off
     workflow.connect([
@@ -730,8 +730,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         name="final_aslref_wf",
     )
     final_aslref_wf.__desc__ = None
+    final_aslref_wf.inputs.inputnode.dummy_scans = 0
     # fmt:off
     workflow.connect([
+        (reduce_asl_file, final_aslref_wf, [("aslcontext", "inputnode.aslcontext")]),
         (initial_aslref_wf, final_aslref_wf, [("outputnode.skip_vols", "inputnode.dummy_scans")]),
         (final_aslref_wf, asl_final, [
             ("outputnode.ref_image", "aslref"),
