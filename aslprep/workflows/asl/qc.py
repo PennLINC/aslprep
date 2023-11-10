@@ -54,6 +54,9 @@ def init_compute_cbf_qc_wf(
         t1w probability maps
     anat_to_aslref_xfm
         t1w to asl transformation file
+    asl_mask_std : list
+        Since ASLPrep always includes MNI152NLin2009cAsym as a standard space,
+        this should always be provided.
 
     Outputs
     -------
@@ -170,15 +173,13 @@ negative CBF values.
         get_template("MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask")
     )
 
+    # Resample standard-space brain mask to native space...?
     resample = pe.Node(
         Resample(in_file=brain_mask, outputtype="NIFTI_GZ"),
         name="resample",
         mem_gb=0.1,
     )
-
-    # fmt:off
     workflow.connect([(inputnode, resample, [(("asl_mask_std", _select_last_in_list), "master")])])
-    # fmt:on
 
     compute_qc_metrics = pe.Node(
         ComputeCBFQC(tpm_threshold=0.7),

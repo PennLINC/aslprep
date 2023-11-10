@@ -383,7 +383,7 @@ def init_asl_derivatives_wf(
         base_inputs += ["mean_cbf_basil", "mean_cbf_gm_basil", "mean_cbf_wm_basil", "att_basil"]
 
     # Native-space derivatives
-    if nonstd_spaces.intersection(("func", "run", "asl", "sbref")):
+    if nonstd_spaces.intersection(("run", "asl", "aslref", "sbref")):
         for base_input in base_inputs:
             base_input_native = f"{base_input}_native"
             ds_base_input_native = pe.Node(

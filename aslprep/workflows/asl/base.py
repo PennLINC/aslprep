@@ -191,6 +191,7 @@ def init_asl_preproc_wf(asl_file, has_fieldmap=False):
     # Collect associated files
     run_data = collect_run_data(layout, ref_file)
     sbref_file = run_data["sbref"]
+    sbref_files = False if not sbref_file else [sbref_file]
     metadata = run_data["asl_metadata"].copy()
     # Patch RepetitionTimePreparation into RepetitionTime,
     # for the sake of BOLD-based interfaces and workflows.
@@ -522,13 +523,14 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Generate a tentative aslref from the most appropriate available image type in the ASL file
     initial_aslref_wf = init_asl_reference_wf(
         aslcontext=run_data["aslcontext"],
-        sbref_files=[sbref_file],
+        sbref_files=sbref_files,
         name="initial_aslref_wf",
     )
     initial_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_vols
 
     # fmt:off
     workflow.connect([
+        (inputnode, initial_aslref_wf, [("aslcontext", "inputnode.aslcontext")]),
         (validate_asl_wf, initial_aslref_wf, [("outputnode.asl_file", "inputnode.asl_file")]),
     ])
     # fmt:on
@@ -546,6 +548,21 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([
         (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
         (validate_asl_wf, reduce_asl_file, [("outputnode.asl_file", "asl_file")]),
+    ])
+    # fmt:on
+
+    asl_final = pe.Node(
+        niu.IdentityInterface(fields=["asl", "aslref", "mask"]),
+        name="asl_final",
+    )
+    # fmt:off
+    workflow.connect([
+        # Native-space BOLD files (if calculated)
+        (asl_final, outputnode, [
+            ("asl", "asl_native"),
+            ("aslref", "aslref_native"),
+            ("mask", "asl_mask_native"),
+        ]),
     ])
     # fmt:on
 
@@ -593,6 +610,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("subject_id", "inputnode.subject_id"),
             ("fsnative2t1w_xfm", "inputnode.fsnative2t1w_xfm"),
         ]),
+        (asl_final, asl_reg_wf, [("aslref", "inputnode.ref_bold_brain")]),
         (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
         (asl_reg_wf, outputnode, [
@@ -619,17 +637,39 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("t1w_aseg", "inputnode.t1w_aseg"),
             ("t1w_aparc", "inputnode.t1w_aparc"),
         ]),
+        (asl_final, asl_t1_trans_wf, [
+            ("mask", "inputnode.ref_bold_mask"),
+            ("aslref", "inputnode.ref_bold_brain"),
+        ]),
         (t1w_brain, asl_t1_trans_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.bold_split")]),
         (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
         (asl_reg_wf, asl_t1_trans_wf, [("outputnode.itk_bold_to_t1", "inputnode.itk_bold_to_t1")]),
+        (asl_t1_trans_wf, outputnode, [
+            ("outputnode.bold_t1", "asl_t1"),
+            ("outputnode.bold_mask_t1", "asl_mask_t1"),
+        ]),
     ])
     # fmt:on
+
+    if freesurfer:
+        # fmt:off
+        workflow.connect([
+            (asl_t1_trans_wf, outputnode, [
+                ("outputnode.bold_aseg_t1", "asl_aseg_t1"),
+                ("outputnode.bold_aparc_t1", "asl_aparc_t1"),
+            ]),
+        ])
+        # fmt:on
 
     # get confounds
     asl_confounds_wf = init_asl_confounds_wf(mem_gb=mem_gb["largemem"], name="asl_confounds_wf")
     # fmt:off
     workflow.connect([
+        (asl_final, asl_confounds_wf, [
+            ("asl", "inputnode.asl"),
+            ("mask", "inputnode.asl_mask"),
+        ]),
         (inputnode, asl_confounds_wf, [
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
@@ -678,23 +718,15 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    asl_final = pe.Node(
-        niu.IdentityInterface(fields=["asl", "aslref", "mask"]),
-        name="asl_final",
-    )
-    # fmt:off
-    workflow.connect([
-        (asl_final, asl_reg_wf, [("aslref", "inputnode.ref_bold_brain")]),
-        (asl_final, asl_t1_trans_wf, [
-            ("mask", "inputnode.ref_bold_mask"),
-            ("aslref", "inputnode.ref_bold_brain"),
-        ]),
-    ])
-    # fmt:on
+    for cbf_deriv in cbf_derivs:
+        # fmt:off
+        workflow.connect([
+            (compute_cbf_wf, outputnode, [(f"outputnode.{cbf_deriv}", f"{cbf_deriv}_native")]),
+        ])
+        # fmt:on
 
     # Generate a tentative aslref from the most appropriate available image type in the ASL file
     final_aslref_wf = init_asl_reference_wf(
-        aslcontext=run_data["aslcontext"],
         name="final_aslref_wf",
     )
     final_aslref_wf.__desc__ = None
@@ -827,7 +859,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
-    # Standard-space outputs requested
+    # Standard-space outputs requested.
+    # Since ASLPrep automatically includes MNI152NLin2009cAsym, this should always be reached.
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         # Apply transforms in 1 shot
         asl_std_trans_wf = init_asl_std_trans_wf(
@@ -853,9 +886,22 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("t1w_aseg", "inputnode.asl_aseg"),
                 ("t1w_aparc", "inputnode.asl_aparc"),
             ]),
+            (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
+            (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
             (asl_final, asl_std_trans_wf, [("mask", "inputnode.asl_mask")]),
             (asl_reg_wf, asl_std_trans_wf, [
                 ("outputnode.itk_bold_to_t1", "inputnode.itk_bold_to_t1"),
+            ]),
+            (asl_std_trans_wf, compute_cbf_qc_wf, [
+                ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
+            ]),
+            # func_derivatives_wf internally parametrizes over snapshotted spaces.
+            (asl_std_trans_wf, outputnode, [
+                ("outputnode.template", "template"),
+                ("outputnode.spatial_reference", "spatial_reference"),
+                ("outputnode.asl_std", "asl_std"),
+                ("outputnode.aslref_std", "aslref_std"),
+                ("outputnode.asl_mask_std", "asl_mask_std"),
             ]),
         ])
         # fmt:on
@@ -869,26 +915,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ]),
             ])
             # fmt:on
-
-        # fmt:off
-        workflow.connect([
-            (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
-            (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
-        ])
-        # fmt:on
-
-        # func_derivatives_wf internally parametrizes over snapshotted spaces.
-        # fmt:off
-        workflow.connect([
-            (asl_std_trans_wf, outputnode, [
-                ("outputnode.template", "template"),
-                ("outputnode.spatial_reference", "spatial_reference"),
-                ("outputnode.asl_std", "asl_std"),
-                ("outputnode.aslref_std", "aslref_std"),
-                ("outputnode.asl_mask_std", "asl_mask_std"),
-            ]),
-        ])
-        # fmt:on
 
         for cbf_deriv in cbf_derivs:
             # fmt:off
@@ -970,6 +996,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
+    # Standard-space outputs requested.
+    # Since ASLPrep automatically includes MNI152NLin2009cAsym, this should always be reached.
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         carpetplot_wf = init_carpetplot_wf(
             mem_gb=mem_gb["resampled"],

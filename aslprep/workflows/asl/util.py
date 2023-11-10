@@ -374,6 +374,7 @@ reference volume and brain extracted using *Nipype*'s custom brain extraction wo
         ),
         name="inputnode",
     )
+
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
