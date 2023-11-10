@@ -994,9 +994,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ])
             # fmt:on
 
-        def _last(inlist):
-            return inlist[-1]
-
         # fmt:off
         workflow.connect([
             (initial_aslref_wf, carpetplot_wf, [
