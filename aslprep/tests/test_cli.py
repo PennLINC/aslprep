@@ -185,7 +185,6 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         "asl",
         "T1w",
         "--basil",
-        "--use-syn-sdc",
         "--m0_scale=10",
         "--fs-no-reconall",
         f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
