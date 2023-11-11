@@ -35,17 +35,6 @@ from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 from aslprep.workflows.asl.util import init_asl_reference_wf, init_validate_asl_wf
 
 
-def rename_to_bold(asl_file):
-    import os
-    from shutil import copyfile
-
-    d = os.path.dirname(asl_file)
-    fn = os.path.basename(asl_file)
-    bold_file = os.path.join(d, fn.replace("_asl.", "_bold."))
-    copyfile(asl_file, bold_file)
-    return bold_file
-
-
 def init_asl_preproc_wf(asl_file, has_fieldmap=False):
     """Perform the functional preprocessing stages of ASLPrep.
 
@@ -601,14 +590,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:on
 
     # Calculate ASL-to-T1 registration
-    copy_asl = pe.Node(
-        niu.Function(
-            function=rename_to_bold,
-            input_names=["asl_file"],
-            output_names=["bold_file"],
-        ),
-        name="copy_asl",
-    )
     asl_reg_wf = init_bold_reg_wf(
         bold2t1w_dof=config.workflow.asl2t1w_dof,
         bold2t1w_init=config.workflow.asl2t1w_init,
@@ -618,6 +599,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         omp_nthreads=omp_nthreads,
         sloppy=config.execution.debug,
         use_bbr=config.workflow.use_bbr,
+        write_report=False,
         use_compression=False,
     )
     # fmt:off
@@ -629,8 +611,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("subject_id", "inputnode.subject_id"),
             ("fsnative2t1w_xfm", "inputnode.fsnative2t1w_xfm"),
         ]),
-        (asl_final, copy_asl, [("aslref", "asl_file")]),
-        (copy_asl, asl_reg_wf, [("bold_file", "inputnode.ref_bold_brain")]),
+        (asl_final, asl_reg_wf, [("aslref", "inputnode.ref_bold_brain")]),
         (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
         (asl_reg_wf, outputnode, [
