@@ -752,6 +752,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [("t1w_mask", "t1w_mask")]),
+        (asl_final, refine_mask, [("mask", "asl_mask")]),
         (asl_reg_wf, refine_mask, [("outputnode.itk_t1_to_bold", "transforms")]),
         # the below is circular since asl_reg_wf gets output from asl_final
         # (refine_mask, asl_final, [("out_mask", "mask")]),
