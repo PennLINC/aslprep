@@ -894,6 +894,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("t1w_aseg", "inputnode.asl_aseg"),
                 ("t1w_aparc", "inputnode.asl_aparc"),
             ]),
+            (reduce_asl_file, asl_std_trans_wf, [("aslcontext", "inputnode.aslcontext")]),
             (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
             (asl_hmc_wf, asl_std_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
             (asl_final, asl_std_trans_wf, [("mask", "inputnode.asl_mask")]),
