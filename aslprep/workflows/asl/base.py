@@ -927,6 +927,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         for cbf_deriv in cbf_derivs:
             # fmt:off
             workflow.connect([
+                (compute_cbf_wf, asl_std_trans_wf, [(f"outputnode.{cbf_deriv}", f"{cbf_deriv}")]),
                 (asl_std_trans_wf, outputnode, [
                     (f"outputnode.{cbf_deriv}_std", f"{cbf_deriv}_std"),
                 ]),
