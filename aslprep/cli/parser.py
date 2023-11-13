@@ -642,7 +642,7 @@ applied."""
         validate_input_dir(config.environment.exec_env, opts.bids_dir, opts.participant_label)
 
     # Setup directories
-    config.execution.log_dir = output_dir / "aslprep" / "logs"
+    config.execution.log_dir = config.execution.aslprep_dir / "logs"
     # Check and create output and working directories
     config.execution.log_dir.mkdir(exist_ok=True, parents=True)
     output_dir.mkdir(exist_ok=True, parents=True)
