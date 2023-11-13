@@ -69,9 +69,8 @@ def run_tests(test_regex, test_mark):
     mounted_code = "/usr/local/miniconda/lib/python3.9/site-packages/aslprep"
     run_str = "docker run --rm -ti "
     run_str += f"-v {local_patch}:/usr/local/miniconda/lib/python3.9/site-packages/aslprep "
-    run_str += "-v /Users/taylor/Documents/tsalo/nipype/nipype:/usr/local/miniconda/lib/python3.9/site-packages/nipype "
     run_str += "--entrypoint pytest "
-    run_str += "tsalo/aslprep:unstable "
+    run_str += "pennlinc/aslprep:unstable "
     run_str += (
         f"{mounted_code}/aslprep "
         f"--data_dir={mounted_code}/aslprep/tests/test_data "
