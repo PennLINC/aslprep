@@ -85,6 +85,7 @@ def init_asl_confounds_wf(
     acompcor_masks
     """
     from fmriprep.interfaces.confounds import aCompCorMasks
+    from niworkflows.interfaces.images import SignalExtraction
     from niworkflows.interfaces.morphology import BinaryDilation, BinarySubtraction
     from niworkflows.interfaces.nibabel import ApplyMask, Binarize
 
@@ -141,9 +142,6 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     fdisp = pe.Node(nac.FramewiseDisplacement(parameter_source="SPM"), name="fdisp", mem_gb=mem_gb)
     workflow.connect([(inputnode, fdisp, [("movpar_file", "in_file")])])
 
-    # Global and segment regressors
-    # signals_class_labels = ["csf", "white_matter", "global_signal"]
-
     # Arrange confounds
     add_dvars_header = pe.Node(
         AddTSVHeader(columns=["dvars"]),
@@ -169,7 +167,6 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         mem_gb=0.01,
         run_without_submitting=True,
     )
-    concat = pe.Node(GatherConfounds(), name="concat", mem_gb=0.01, run_without_submitting=True)
 
     # fmt:off
     workflow.connect([
@@ -178,13 +175,6 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         (inputnode, add_rmsd_header, [("rmsd_file", "in_file")]),
         (dvars, add_dvars_header, [("out_nstd", "in_file")]),
         (dvars, add_std_dvars_header, [("out_std", "in_file")]),
-        (fdisp, concat, [("out_file", "fd")]),
-        (add_motion_headers, concat, [("out_file", "motion")]),
-        (add_rmsd_header, concat, [("out_file", "rmsd")]),
-        (add_dvars_header, concat, [("out_file", "dvars")]),
-        (add_std_dvars_header, concat, [("out_file", "std_dvars")]),
-        # Set outputs
-        (concat, outputnode, [("confounds_file", "confounds_file")]),
     ])
     # fmt:on
 
@@ -257,6 +247,45 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     workflow.connect([
         (acc_msk_brain, acc_msk_bin, [("out_file", "in_file")]),
         (acc_msk_bin, outputnode, [("out_file", "acompcor_masks")]),
+    ])
+    # fmt:on
+
+    # Global and segment regressors
+    signals_class_labels = [
+        "global_signal",
+        "csf",
+        "white_matter",
+        "csf_wm",
+    ]
+    merge_rois = pe.Node(
+        niu.Merge(2, ravel_inputs=True),
+        name="merge_rois",
+        run_without_submitting=True,
+    )
+    signals = pe.Node(
+        SignalExtraction(class_labels=signals_class_labels),
+        name="signals",
+        mem_gb=mem_gb,
+    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, merge_rois, [("asl_mask", "in1")]),
+        (acc_msk_bin, merge_rois, [("out_file", "in2")]),
+        (inputnode, signals, [("asl", "in_file")]),
+        (merge_rois, signals, [("out", "label_files")]),
+    ])
+    # fmt:on
+
+    concat = pe.Node(GatherConfounds(), name="concat", mem_gb=0.01, run_without_submitting=True)
+    # fmt:off
+    workflow.connect([
+        (fdisp, concat, [("out_file", "fd")]),
+        (add_motion_headers, concat, [("out_file", "motion")]),
+        (add_rmsd_header, concat, [("out_file", "rmsd")]),
+        (add_dvars_header, concat, [("out_file", "dvars")]),
+        (add_std_dvars_header, concat, [("out_file", "std_dvars")]),
+        (signals, concat, [("out_file", "signals")]),
+        (concat, outputnode, [("confounds_file", "confounds_file")]),
     ])
     # fmt:on
 
