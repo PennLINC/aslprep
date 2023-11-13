@@ -234,5 +234,6 @@ class CBFByTissueTypePlot(SimpleInterface):
             )
             fig.tight_layout()
             fig.savefig(self._results["out_file"])
+            plt.close()
 
         return runtime

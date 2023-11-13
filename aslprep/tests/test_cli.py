@@ -31,7 +31,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
-    out_dir = os.path.join(output_dir, TEST_NAME)
+    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
@@ -65,7 +65,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
-    out_dir = os.path.join(output_dir, TEST_NAME)
+    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
@@ -97,7 +97,7 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "103"
 
     dataset_dir = download_test_data("examples_pcasl_singlepld", data_dir)
-    out_dir = os.path.join(output_dir, TEST_NAME)
+    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
     test_data_dir = get_test_data_path()
     filter_file = os.path.join(test_data_dir, f"{TEST_NAME}_filter.json")
@@ -133,7 +133,7 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "103"
 
     dataset_dir = download_test_data("examples_pcasl_singlepld", data_dir)
-    out_dir = os.path.join(output_dir, TEST_NAME)
+    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
     test_data_dir = get_test_data_path()
     filter_file = os.path.join(test_data_dir, f"{TEST_NAME}_filter.json")
@@ -167,7 +167,7 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "103"
 
     dataset_dir = download_test_data("examples_pcasl_singlepld", data_dir)
-    out_dir = os.path.join(output_dir, TEST_NAME)
+    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
     test_data_dir = get_test_data_path()
     filter_file = os.path.join(test_data_dir, f"{TEST_NAME}_filter.json")
@@ -203,7 +203,7 @@ def test_test_001(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
-    out_dir = os.path.join(output_dir, TEST_NAME)
+    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
@@ -239,7 +239,7 @@ def test_test_002(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "10R01383"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
-    out_dir = os.path.join(output_dir, TEST_NAME)
+    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
@@ -274,7 +274,7 @@ def test_test_003(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "A00086748"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
-    out_dir = os.path.join(output_dir, TEST_NAME)
+    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
 
     parameters = [
