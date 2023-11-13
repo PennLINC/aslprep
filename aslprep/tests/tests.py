@@ -29,6 +29,7 @@ def mock_config():
 
     config.execution.work_dir = Path(mkdtemp())
     config.execution.bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+    raise Exception(os.path.listdir(config.execution.bids_dir))
     config.execution.init()
 
     yield
