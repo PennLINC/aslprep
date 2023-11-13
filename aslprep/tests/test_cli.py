@@ -2,8 +2,8 @@
 import os
 
 import pytest
+from fmriprep.reports.core import generate_reports
 from nipype import config as nipype_config
-from niworkflows.reports.core import generate_reports
 from pkg_resources import resource_filename as pkgrf
 
 from aslprep.cli.parser import parse_args

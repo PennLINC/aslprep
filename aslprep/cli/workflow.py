@@ -12,7 +12,7 @@ a hard-limited memory-scope.
 
 def build_workflow(config_file, retval):
     """Create the Nipype Workflow that supports the whole execution graph."""
-    from niworkflows.reports.core import generate_reports
+    from fmriprep.reports.core import generate_reports
     from niworkflows.utils.bids import check_pipeline_version, collect_participants
     from niworkflows.utils.misc import check_valid_fs_license
 
