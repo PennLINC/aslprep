@@ -69,7 +69,7 @@ class OverrideConfoundsDerivativesDataSink:
         confounds.DerivativesDataSink = DerivativesDataSink
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):  # noqa: U100
         """Exit the context manager and restore the original class definition.
 
         Parameters
