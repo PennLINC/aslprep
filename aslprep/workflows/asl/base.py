@@ -3,6 +3,7 @@
 """Preprocessing workflows for ASL data."""
 import nibabel as nb
 import numpy as np
+from fmriprep.workflows.bold import confounds
 from fmriprep.workflows.bold.base import get_estimator
 from fmriprep.workflows.bold.registration import init_bold_reg_wf, init_bold_t1_trans_wf
 from fmriprep.workflows.bold.resampling import (
@@ -25,13 +26,26 @@ from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
-from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
+from aslprep.workflows.asl.confounds import init_asl_confounds_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 from aslprep.workflows.asl.util import init_asl_reference_wf, init_validate_asl_wf
+
+
+class OverrideConfoundsDerivativesDataSink:
+    def __enter__(self):
+        # Save the original class
+        self.original_class = confounds.DerivativesDataSink
+        # Replace SomeClass with YourOwnClass
+        confounds.DerivativesDataSink = DerivativesDataSink
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Restore the original class
+        confounds.DerivativesDataSink = self.original_class
 
 
 def init_asl_preproc_wf(asl_file, has_fieldmap=False):
@@ -1010,12 +1024,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Standard-space outputs requested.
     # Since ASLPrep automatically includes MNI152NLin2009cAsym, this should always be reached.
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
-        carpetplot_wf = init_carpetplot_wf(
-            mem_gb=mem_gb["resampled"],
-            metadata=metadata,
-            cifti_output=config.workflow.cifti_output,
-            name="carpetplot_wf",
-        )
+        with OverrideConfoundsDerivativesDataSink:
+            carpetplot_wf = confounds.init_carpetplot_wf(
+                mem_gb=mem_gb["resampled"],
+                metadata=metadata,
+                cifti_output=config.workflow.cifti_output,
+                name="carpetplot_wf",
+            )
 
         # Xform to "MNI152NLin2009cAsym" is always computed.
         carpetplot_select_std = pe.Node(
