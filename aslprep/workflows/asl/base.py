@@ -1053,6 +1053,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (asl_confounds_wf, carpetplot_wf, [
                 ("outputnode.confounds_file", "inputnode.confounds_file"),
+                ("outputnode.crown_mask", "inputnode.crown_mask"),
+                (("outputnode.acompcor_masks", _last), "inputnode.acompcor_mask"),
             ]),
         ])
         # fmt:on
@@ -1348,3 +1350,7 @@ def get_img_orientation(imgf):
     """Return the image orientation as a string."""
     img = nb.load(imgf)
     return "".join(nb.aff2axcodes(img.affine))
+
+
+def _last(inlist):
+    return inlist[-1]

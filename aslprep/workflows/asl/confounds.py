@@ -14,8 +14,9 @@ from aslprep.interfaces.ants import ApplyTransforms
 
 
 def init_asl_confounds_wf(
-    mem_gb,
-    name="asl_confounds_wf",
+    mem_gb: float,
+    freesurfer: bool = False,
+    name: str = "asl_confounds_wf",
 ):
     """Build a workflow to generate and write out confounding signals.
 
@@ -47,11 +48,10 @@ def init_asl_confounds_wf(
         Size of asl file in GB - please note that this size
         should be calculated after resamplings that may extend
         the FoV
-    metadata : :obj:`dict`
-        BIDS metadata for asl file
+    freesurfer : :obj:`bool`
+        True if FreeSurfer derivatives were used.
     name : :obj:`str`
         Name of workflow (default: ``asl_confounds_wf``)
-
 
     Inputs
     ------
@@ -80,7 +80,14 @@ def init_asl_confounds_wf(
         TSV of all aggregated confounds
     confounds_metadata
         Confounds metadata dictionary.
+    crown_mask
+        Mask of brain edge voxels
+    acompcor_masks
     """
+    from fmriprep.interfaces.confounds import aCompCorMasks
+    from niworkflows.interfaces.morphology import BinaryDilation, BinarySubtraction
+    from niworkflows.interfaces.nibabel import ApplyMask, Binarize
+
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
 Several confounding timeseries were calculated, including both framewise displacement
@@ -114,9 +121,18 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         name="dvars",
         mem_gb=mem_gb,
     )
+    # fmt:off
+    workflow.connect([
+        (inputnode, dvars, [
+            ("asl", "in_file"),
+            ("asl_mask", "in_mask"),
+        ]),
+    ])
+    # fmt:on
 
     # Frame displacement
     fdisp = pe.Node(nac.FramewiseDisplacement(parameter_source="SPM"), name="fdisp", mem_gb=mem_gb)
+    workflow.connect([(inputnode, fdisp, [("movpar_file", "in_file")])])
 
     # Global and segment regressors
     # signals_class_labels = ["csf", "white_matter", "global_signal"]
@@ -148,15 +164,8 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     )
     concat = pe.Node(GatherConfounds(), name="concat", mem_gb=0.01, run_without_submitting=True)
 
-    # Expand model to include derivatives and quadratics
     # fmt:off
     workflow.connect([
-        # Connect inputnode to each non-anatomical confound node
-        (inputnode, dvars, [
-            ("asl", "in_file"),
-            ("asl_mask", "in_mask"),
-        ]),
-        (inputnode, fdisp, [("movpar_file", "in_file")]),
         # Collate computed confounds together
         (inputnode, add_motion_headers, [("movpar_file", "in_file")]),
         (inputnode, add_rmsd_header, [("rmsd_file", "in_file")]),
@@ -169,6 +178,79 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         (add_std_dvars_header, concat, [("out_file", "std_dvars")]),
         # Set outputs
         (concat, outputnode, [("confounds_file", "confounds_file")]),
+    ])
+    # fmt:on
+
+    # Project T1w mask into BOLD space and merge with BOLD brainmask
+    t1w_mask_tfm = pe.Node(
+        ApplyTransforms(interpolation="MultiLabel"),
+        name="t1w_mask_tfm",
+    )
+    union_mask = pe.Node(niu.Function(function=_binary_union), name="union_mask")
+
+    # Create the crown mask
+    dilated_mask = pe.Node(BinaryDilation(), name="dilated_mask")
+    subtract_mask = pe.Node(BinarySubtraction(), name="subtract_mask")
+
+    # fmt:off
+    workflow.connect([
+        # Brain mask
+        (inputnode, t1w_mask_tfm, [
+            ("t1w_mask", "input_image"),
+            ("bold_mask", "reference_image"),
+            ("t1_bold_xform", "transforms"),
+        ]),
+        (inputnode, union_mask, [("bold_mask", "mask1")]),
+        (t1w_mask_tfm, union_mask, [("output_image", "mask2")]),
+        (union_mask, dilated_mask, [("out", "in_mask")]),
+        (union_mask, subtract_mask, [("out", "in_subtract")]),
+        (dilated_mask, subtract_mask, [("out_mask", "in_base")]),
+        (subtract_mask, outputnode, [("out_mask", "crown_mask")]),
+    ])
+    # fmt:on
+
+    # Generate aCompCor probseg maps
+    acc_masks = pe.Node(aCompCorMasks(is_aseg=freesurfer), name="acc_masks")
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, acc_masks, [
+            ("t1w_tpms", "in_vfs"),
+            (("bold", _get_zooms), "bold_zooms"),
+        ]),
+    ])
+    # fmt:on
+
+    # Resample probseg maps in BOLD space via T1w-to-BOLD transform
+    acc_msk_tfm = pe.MapNode(
+        ApplyTransforms(interpolation="Gaussian"),
+        iterfield=["input_image"],
+        name="acc_msk_tfm",
+        mem_gb=0.1,
+    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, acc_msk_tfm, [
+            ("t1_bold_xform", "transforms"),
+            ("bold_mask", "reference_image"),
+        ]),
+        (acc_masks, acc_msk_tfm, [("out_masks", "input_image")]),
+    ])
+    # fmt:on
+
+    acc_msk_brain = pe.MapNode(ApplyMask(), name="acc_msk_brain", iterfield=["in_file"])
+    # fmt:off
+    workflow.connect([
+        (inputnode, acc_msk_brain, [("bold_mask", "in_mask")]),
+        (acc_msk_tfm, acc_msk_brain, [("output_image", "in_file")]),
+    ])
+    # fmt:on
+
+    acc_msk_bin = pe.MapNode(Binarize(thresh_low=0.99), name="acc_msk_bin", iterfield=["in_file"])
+    # fmt:off
+    workflow.connect([
+        (acc_msk_brain, acc_msk_bin, [("out_file", "in_file")]),
+        (acc_msk_bin, outputnode, [("out_file", "acompcor_masks")]),
     ])
     # fmt:on
 
@@ -281,3 +363,26 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
     # fmt:on
 
     return workflow
+
+
+def _binary_union(mask1, mask2):
+    """Generate the union of two masks."""
+    from pathlib import Path
+
+    import nibabel as nb
+    import numpy as np
+
+    img = nb.load(mask1)
+    mskarr1 = np.asanyarray(img.dataobj, dtype=int) > 0
+    mskarr2 = np.asanyarray(nb.load(mask2).dataobj, dtype=int) > 0
+    out = img.__class__(mskarr1 | mskarr2, img.affine, img.header)
+    out.set_data_dtype("uint8")
+    out_name = Path("mask_union.nii.gz").absolute()
+    out.to_filename(out_name)
+    return str(out_name)
+
+
+def _get_zooms(in_file):
+    import nibabel as nb
+
+    return tuple(nb.load(in_file).header.get_zooms()[:3])
