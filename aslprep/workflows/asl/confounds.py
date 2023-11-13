@@ -106,7 +106,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
                 "t1w_mask",
                 "t1w_tpms",
                 "anat_to_aslref_xfm",
-            ]
+            ],
         ),
         name="inputnode",
     )
@@ -204,10 +204,10 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         # Brain mask
         (inputnode, t1w_mask_tfm, [
             ("t1w_mask", "input_image"),
-            ("bold_mask", "reference_image"),
+            ("asl_mask", "reference_image"),
             ("t1_bold_xform", "transforms"),
         ]),
-        (inputnode, union_mask, [("bold_mask", "mask1")]),
+        (inputnode, union_mask, [("asl_mask", "mask1")]),
         (t1w_mask_tfm, union_mask, [("output_image", "mask2")]),
         (union_mask, dilated_mask, [("out", "in_mask")]),
         (union_mask, subtract_mask, [("out", "in_subtract")]),
@@ -238,7 +238,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     workflow.connect([
         (inputnode, acc_msk_tfm, [
             ("t1_bold_xform", "transforms"),
-            ("bold_mask", "reference_image"),
+            ("asl_mask", "reference_image"),
         ]),
         (acc_masks, acc_msk_tfm, [("out_masks", "input_image")]),
     ])
