@@ -21,6 +21,7 @@ low_mem = false
 md_only_boilerplate = false
 notrack = false
 output_dir = "/tmp"
+aslprep_dir = "/tmp"
 output_spaces = "asl"
 reports_only = false
 run_uuid = "20200811-002648_12faeae6-6667-482b-a7a7-1bae99e79aa0"
