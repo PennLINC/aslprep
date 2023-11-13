@@ -205,7 +205,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         (inputnode, t1w_mask_tfm, [
             ("t1w_mask", "input_image"),
             ("asl_mask", "reference_image"),
-            ("t1_bold_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
         ]),
         (inputnode, union_mask, [("asl_mask", "mask1")]),
         (t1w_mask_tfm, union_mask, [("output_image", "mask2")]),
@@ -222,7 +222,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     workflow.connect([
         (inputnode, acc_masks, [
             ("t1w_tpms", "in_vfs"),
-            (("bold", _get_zooms), "bold_zooms"),
+            (("asl", _get_zooms), "bold_zooms"),
         ]),
     ])
     # fmt:on
@@ -237,7 +237,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     # fmt:off
     workflow.connect([
         (inputnode, acc_msk_tfm, [
-            ("t1_bold_xform", "transforms"),
+            ("anat_to_aslref_xfm", "transforms"),
             ("asl_mask", "reference_image"),
         ]),
         (acc_masks, acc_msk_tfm, [("out_masks", "input_image")]),
