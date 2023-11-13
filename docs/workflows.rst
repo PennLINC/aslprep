@@ -626,18 +626,18 @@ structural similarity, spatial variability, and percentage of voxels in GM with 
 ASL and CBF to T1w registration
 *******************************
 
-:py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
+:py:func:`~fmriprep.workflows.bold.registration.init_bold_reg_wf`
 
 .. workflow::
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.workflows.asl.registration import init_asl_reg_wf
+   from fmriprep.workflows.bold.registration import init_bold_reg_wf
 
-   wf = init_asl_reg_wf(
+   wf = init_bold_reg_wf(
       use_bbr=True,
-      asl2t1w_dof=6,
-      asl2t1w_init="register",
+      func2t1w_dof=6,
+      func2t1w_init="register",
    )
 
 *ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's

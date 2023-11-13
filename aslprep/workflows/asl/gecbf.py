@@ -141,7 +141,6 @@ def init_asl_gepreproc_wf(asl_file):
 
     See Also
     --------
-    * :py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
     * :py:func:`~aslprep.workflows.asl.confounds.init_asl_confounds_wf`
     * :py:func:`~aslprep.workflows.asl.confounds.init_ica_aroma_wf`
     * :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`

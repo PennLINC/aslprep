@@ -27,14 +27,16 @@ def init_compute_cbf_qc_wf(
             :graph2use: orig
             :simple_form: yes
 
+            from aslprep.tests.tests import mock_config
             from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 
-            wf = init_compute_cbf_qc_wf(
-                is_ge=False,
-                scorescrub=True,
-                basil=True,
-                name="compute_cbf_qc_wf",
-            )
+            with mock_config():
+                wf = init_compute_cbf_qc_wf(
+                    is_ge=False,
+                    scorescrub=True,
+                    basil=True,
+                    name="compute_cbf_qc_wf",
+                )
 
     Parameters
     ----------
@@ -90,7 +92,7 @@ negative CBF values.
                 # non-GE inputs
                 "confounds_file",
                 "rmsd_file",
-            ]
+            ],
         ),
         name="inputnode",
     )

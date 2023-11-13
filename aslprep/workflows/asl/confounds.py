@@ -1,6 +1,7 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for calculating confounds for ASL data."""
+from fmriprep.workflows.bold.confounds import _carpet_parcellation
 from nipype.algorithms import confounds as nac
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
@@ -36,11 +37,14 @@ def init_asl_confounds_wf(
             :graph2use: orig
             :simple_form: yes
 
+            from aslprep.tests.tests import mock_config
             from aslprep.workflows.asl.confounds import init_asl_confounds_wf
 
-            wf = init_asl_confounds_wf(
-                mem_gb=1,
-            )
+            with mock_config():
+                wf = init_asl_confounds_wf(
+                    mem_gb=1,
+                    freesurfer=True,
+                )
 
     Parameters
     ----------
@@ -292,8 +296,15 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     return workflow
 
 
-def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
-    """Build a workflow to generate carpet plots.
+def init_carpetplot_wf(
+    mem_gb: float,
+    metadata: dict,
+    cifti_output: bool,
+    name: str = "bold_carpet_wf",
+):
+    """Build a workflow to generate *carpet* plots.
+
+    XXX: Copied from fMRIPrep. Needs to be replaced with some version that works for ASLPrep.
 
     Resamples the MNI parcellation (ad-hoc parcellation derived from the
     Harvard-Oxford template and others).
@@ -301,51 +312,101 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
     Parameters
     ----------
     mem_gb : :obj:`float`
-        Size of ASL file in GB - please note that this size
+        Size of BOLD file in GB - please note that this size
         should be calculated after resamplings that may extend
         the FoV
     metadata : :obj:`dict`
-        BIDS metadata for ASL file
+        BIDS metadata for BOLD file
     name : :obj:`str`
-        Name of workflow (default: ``carpetplot_wf``)
+        Name of workflow (default: ``bold_carpet_wf``)
 
     Inputs
     ------
-    asl
-        asl image, after the prescribed corrections (HMC and SDC)
+    bold
+        BOLD image, after the prescribed corrections (STC, HMC and SDC)
         when available.
-    asl_mask
-        ASL series mask
+    bold_mask
+        BOLD series mask
     confounds_file
         TSV of all aggregated confounds
-    anat_to_aslref_xfm
+    t1_bold_xform
         Affine matrix that maps the T1w space into alignment with
-        the native ASL space
+        the native BOLD space
     std2anat_xfm
         ANTs-compatible affine-and-warp transform file
+    cifti_bold
+        BOLD image in CIFTI format, to be used in place of volumetric BOLD
+    crown_mask
+        Mask of brain edge voxels
+    acompcor_mask
+        Mask of deep WM+CSF
+    dummy_scans
+        Number of nonsteady states to be dropped at the beginning of the timeseries.
+
+    Outputs
+    -------
+    out_carpetplot
+        Path of the generated SVG file
+
     """
-    workflow = Workflow(name=name)
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "asl",
-                "asl_mask",
+                "bold",
+                "bold_mask",
                 "confounds_file",
-                "anat_to_aslref_xfm",
+                "t1_bold_xform",
                 "std2anat_xfm",
+                "cifti_bold",
+                "crown_mask",
+                "acompcor_mask",
+                "dummy_scans",
             ]
         ),
         name="inputnode",
     )
 
+    outputnode = pe.Node(niu.IdentityInterface(fields=["out_carpetplot"]), name="outputnode")
+
+    # Carpetplot and confounds plot
+    conf_plot = pe.Node(
+        ASLSummary(
+            tr=metadata["RepetitionTime"],
+            confounds_list=[
+                ("global_signal", None, "GS"),
+                ("csf", None, "GSCSF"),
+                ("white_matter", None, "GSWM"),
+                ("std_dvars", None, "DVARS"),
+                ("framewise_displacement", "mm", "FD"),
+            ],
+        ),
+        name="conf_plot",
+        mem_gb=mem_gb,
+    )
+    ds_report_bold_conf = pe.Node(
+        DerivativesDataSink(
+            desc="carpetplot",
+            datatype="figures",
+            extension="svg",
+            dismiss_entities=("echo",),
+        ),
+        name="ds_report_bold_conf",
+        run_without_submitting=True,
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    )
+
+    parcels = pe.Node(niu.Function(function=_carpet_parcellation), name="parcels")
+    parcels.inputs.nifti = not cifti_output
     # List transforms
     mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
 
     # Warp segmentation into EPI space
     resample_parc = pe.Node(
         ApplyTransforms(
-            float=True,
+            dimension=3,
             input_image=str(
                 get_template(
                     "MNI152NLin2009cAsym",
@@ -355,48 +416,33 @@ def init_carpetplot_wf(mem_gb, metadata, name="carpetplot_wf"):
                     extension=[".nii", ".nii.gz"],
                 )
             ),
-            dimension=3,
-            default_value=0,
             interpolation="MultiLabel",
+            args="-u int",
         ),
         name="resample_parc",
     )
 
-    # Carpetplot and confounds plot
-    conf_plot = pe.Node(
-        ASLSummary(
-            tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"]),
-            confounds_list=[("std_dvars", None, "DVARS"), ("framewise_displacement", "mm", "FD")],
-        ),
-        name="conf_plot",
-        mem_gb=mem_gb,
-    )
-    ds_report_asl_conf = pe.Node(
-        DerivativesDataSink(desc="carpetplot", datatype="figures", keep_dtype=True),
-        name="ds_report_asl_conf",
-        run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
-    )
+    workflow = Workflow(name=name)
+    if cifti_output:
+        workflow.connect(inputnode, "cifti_bold", conf_plot, "in_cifti")
 
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [
-            ("anat_to_aslref_xfm", "in1"),
-            ("std2anat_xfm", "in2"),
-        ]),
-        (inputnode, resample_parc, [("asl_mask", "reference_image")]),
+        (inputnode, mrg_xfms, [("t1_bold_xform", "in1"),
+                               ("std2anat_xfm", "in2")]),
+        (inputnode, resample_parc, [("bold_mask", "reference_image")]),
+        (inputnode, parcels, [("crown_mask", "crown_mask")]),
+        (inputnode, parcels, [("acompcor_mask", "acompcor_mask")]),
+        (inputnode, conf_plot, [("bold", "in_nifti"),
+                                ("confounds_file", "confounds_file"),
+                                ("dummy_scans", "drop_trs")]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
-        # Carpetplot
-        (inputnode, conf_plot, [
-            ("asl", "in_func"),
-            ("asl_mask", "in_mask"),
-            ("confounds_file", "confounds_file"),
-        ]),
-        (resample_parc, conf_plot, [("output_image", "in_segm")]),
-        (conf_plot, ds_report_asl_conf, [("out_file", "in_file")]),
+        (resample_parc, parcels, [("output_image", "segmentation")]),
+        (parcels, conf_plot, [("out", "in_segm")]),
+        (conf_plot, ds_report_bold_conf, [("out_file", "in_file")]),
+        (conf_plot, outputnode, [("out_file", "out_carpetplot")]),
     ])
     # fmt:on
-
     return workflow
 
 
