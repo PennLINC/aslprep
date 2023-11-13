@@ -463,15 +463,12 @@ class execution(_Config):
                     ),
                 ),
             )
-            try:
-                cls._layout = BIDSLayout(
-                    str(cls.bids_dir),
-                    database_path=_db_path,
-                    reset_database=cls.bids_database_dir is None,
-                    indexer=_indexer,
-                )
-            except:
-                raise ValueError(os.listdir(cls.bids_dir))
+            cls._layout = BIDSLayout(
+                str(cls.bids_dir),
+                database_path=_db_path,
+                reset_database=cls.bids_database_dir is None,
+                indexer=_indexer,
+            )
             cls.bids_database_dir = _db_path
         cls.layout = cls._layout
         if cls.bids_filters:
