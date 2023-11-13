@@ -218,7 +218,6 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
 
     # Generate aCompCor probseg maps
     acc_masks = pe.Node(aCompCorMasks(is_aseg=freesurfer), name="acc_masks")
-
     # fmt:off
     workflow.connect([
         (inputnode, acc_masks, [
@@ -248,7 +247,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     acc_msk_brain = pe.MapNode(ApplyMask(), name="acc_msk_brain", iterfield=["in_file"])
     # fmt:off
     workflow.connect([
-        (inputnode, acc_msk_brain, [("bold_mask", "in_mask")]),
+        (inputnode, acc_msk_brain, [("asl_mask", "in_mask")]),
         (acc_msk_tfm, acc_msk_brain, [("output_image", "in_file")]),
     ])
     # fmt:on
