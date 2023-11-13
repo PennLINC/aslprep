@@ -1065,7 +1065,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Standard-space outputs requested.
     # Since ASLPrep automatically includes MNI152NLin2009cAsym, this should always be reached.
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
-        with OverrideConfoundsDerivativesDataSink:
+        with OverrideConfoundsDerivativesDataSink():
             carpetplot_wf = confounds.init_carpetplot_wf(
                 mem_gb=mem_gb["resampled"],
                 metadata=metadata,
