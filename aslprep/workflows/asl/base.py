@@ -36,7 +36,33 @@ from aslprep.workflows.asl.util import init_asl_reference_wf, init_validate_asl_
 
 
 class OverrideConfoundsDerivativesDataSink:
+    """A context manager for temporarily overriding the definition of SomeClass.
+
+    Parameters
+    ----------
+    None
+
+    Attributes
+    ----------
+    original_class (type): The original class that is replaced during the override.
+
+    Methods
+    -------
+    __enter__()
+        Enters the context manager and performs the class override.
+
+    __exit__(exc_type, exc_value, traceback)
+        Exits the context manager and restores the original class definition.
+    """
+
     def __enter__(self):
+        """Enter the context manager and perform the class override.
+
+        Returns
+        -------
+        OverrideConfoundsDerivativesDataSink
+            The instance of the context manager.
+        """
         # Save the original class
         self.original_class = confounds.DerivativesDataSink
         # Replace SomeClass with YourOwnClass
@@ -44,6 +70,21 @@ class OverrideConfoundsDerivativesDataSink:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        """Exit the context manager and restore the original class definition.
+
+        Parameters
+        ----------
+        exc_type : type
+            The type of the exception (if an exception occurred).
+        exc_value : Exception
+            The exception instance (if an exception occurred).
+        traceback : traceback
+            The traceback information (if an exception occurred).
+
+        Returns
+        -------
+        None
+        """
         # Restore the original class
         confounds.DerivativesDataSink = self.original_class
 
