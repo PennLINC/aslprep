@@ -155,7 +155,7 @@ def main():
         errno = 0
 
     finally:
-        from niworkflows.reports.core import generate_reports
+        from fmriprep.reports.core import generate_reports
         from pkg_resources import resource_filename as pkgrf
 
         # Generate reports phase
