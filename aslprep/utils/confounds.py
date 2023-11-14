@@ -51,6 +51,7 @@ def _gather_confounds(
     rmsd=None,
     motion=None,
     newpath=None,
+    score=None,
 ):
     """Load confounds from the filenames, concatenate together horizontally, and save new file.
 
@@ -66,6 +67,7 @@ def _gather_confounds(
         (fdisp, "Framewise displacement"),
         (rmsd, "RMSD"),
         (motion, "Motion parameters"),
+        (score, "SCORE outlier index"),
     ):
         if confound is not None and isdefined(confound):
             confounds_list.append(name)

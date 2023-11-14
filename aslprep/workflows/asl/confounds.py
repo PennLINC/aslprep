@@ -298,6 +298,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
 
 def init_carpetplot_wf(
     mem_gb: float,
+    confounds_list: list,
     metadata: dict,
     cifti_output: bool,
     name: str = "bold_carpet_wf",
@@ -314,6 +315,7 @@ def init_carpetplot_wf(
         Size of BOLD file in GB - please note that this size
         should be calculated after resamplings that may extend
         the FoV
+    confounds_list : :obj:`list` of length-3 :obj:`tuple` of :obj:`str`
     metadata : :obj:`dict`
         BIDS metadata for BOLD file
     name : :obj:`str`
@@ -374,13 +376,7 @@ def init_carpetplot_wf(
     conf_plot = pe.Node(
         ASLSummary(
             tr=metadata["RepetitionTime"],
-            confounds_list=[
-                ("global_signal", None, "GS"),
-                ("csf", None, "GSCSF"),
-                ("white_matter", None, "GSWM"),
-                ("std_dvars", None, "DVARS"),
-                ("framewise_displacement", "mm", "FD"),
-            ],
+            confounds_list=confounds_list,
         ),
         name="conf_plot",
         mem_gb=mem_gb,

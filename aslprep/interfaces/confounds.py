@@ -48,3 +48,34 @@ class GatherConfounds(SimpleInterface):
         self._results["confounds_file"] = combined_out
         self._results["confounds_list"] = confounds_list
         return runtime
+
+
+class _GatherCBFConfoundsInputSpec(BaseInterfaceInputSpec):
+    score = File(exists=True, desc="SCORE outlier index")
+
+
+class _GatherCBFConfoundsOutputSpec(TraitedSpec):
+    confounds_file = File(exists=True, desc="output confounds file")
+    confounds_list = traits.List(traits.Str, desc="list of headers")
+
+
+class GatherCBFConfounds(SimpleInterface):
+    """Combine various sources of confounds in one TSV file."""
+
+    input_spec = _GatherCBFConfoundsInputSpec
+    output_spec = _GatherCBFConfoundsOutputSpec
+
+    def _run_interface(self, runtime):
+        combined_out, confounds_list = _gather_confounds(
+            signals=None,
+            dvars=None,
+            rmsd=None,
+            std_dvars=None,
+            fdisp=None,
+            motion=None,
+            score=self.inputs.score,
+            newpath=runtime.cwd,
+        )
+        self._results["confounds_file"] = combined_out
+        self._results["confounds_list"] = confounds_list
+        return runtime

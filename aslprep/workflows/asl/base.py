@@ -23,7 +23,7 @@ from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
-from aslprep.utils.misc import _create_mem_gb, _get_wf_name
+from aslprep.utils.misc import _create_mem_gb, _get_wf_name, _select_last_in_list
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
@@ -1012,6 +1012,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         carpetplot_wf = init_carpetplot_wf(
             mem_gb=mem_gb["resampled"],
+            confounds_list=[
+                ("global_signal", None, "GS"),
+                ("csf", None, "GSCSF"),
+                ("white_matter", None, "GSWM"),
+                ("std_dvars", None, "DVARS"),
+                ("framewise_displacement", "mm", "FD"),
+            ],
             metadata=metadata,
             cifti_output=config.workflow.cifti_output,
             name="carpetplot_wf",
@@ -1053,36 +1060,37 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_confounds_wf, carpetplot_wf, [
                 ("outputnode.confounds_file", "inputnode.confounds_file"),
                 ("outputnode.crown_mask", "inputnode.crown_mask"),
-                (("outputnode.acompcor_masks", _last), "inputnode.acompcor_mask"),
+                (("outputnode.acompcor_masks", _select_last_in_list), "inputnode.acompcor_mask"),
             ]),
         ])
         # fmt:on
 
-    # Plot CBF outputs.
-    plot_cbf_wf = init_plot_cbf_wf(
-        metadata=metadata,
-        plot_timeseries=not is_multi_pld,
-        scorescrub=scorescrub,
-        basil=basil,
-        name="plot_cbf_wf",
-    )
-    # fmt:off
-    workflow.connect([
-        (inputnode, plot_cbf_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
-        (carpetplot_select_std, plot_cbf_wf, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
-        (compute_cbf_wf, plot_cbf_wf, [
-            ("outputnode.score_outlier_index", "inputnode.score_outlier_index"),
-        ]),
-        (initial_aslref_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
-        (asl_reg_wf, plot_cbf_wf, [
-            ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
-        ]),
-        (refine_mask, plot_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
-        (asl_confounds_wf, plot_cbf_wf, [
-            ("outputnode.confounds_file", "inputnode.confounds_file"),
-        ]),
-    ])
-    # fmt:on
+        # Plot CBF outputs.
+        plot_cbf_wf = init_plot_cbf_wf(
+            metadata=metadata,
+            plot_timeseries=not is_multi_pld,
+            scorescrub=scorescrub,
+            basil=basil,
+            name="plot_cbf_wf",
+        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, plot_cbf_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
+            (carpetplot_select_std, plot_cbf_wf, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
+            (compute_cbf_wf, plot_cbf_wf, [
+                ("outputnode.score_outlier_index", "inputnode.score_outlier_index"),
+            ]),
+            (initial_aslref_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
+            (asl_reg_wf, plot_cbf_wf, [
+                ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
+            ]),
+            (refine_mask, plot_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
+            (asl_confounds_wf, plot_cbf_wf, [
+                ("outputnode.crown_mask", "inputnode.crown_mask"),
+                (("outputnode.acompcor_masks", _select_last_in_list), "inputnode.acompcor_mask"),
+            ]),
+        ])
+        # fmt:on
 
     for cbf_deriv in cbf_derivs:
         # fmt:off
@@ -1349,7 +1357,3 @@ def get_img_orientation(imgf):
     """Return the image orientation as a string."""
     img = nb.load(imgf)
     return "".join(nb.aff2axcodes(img.affine))
-
-
-def _last(inlist):
-    return inlist[-1]

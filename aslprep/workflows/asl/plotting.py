@@ -8,7 +8,9 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummary, CBFtsSummary
+from aslprep.interfaces.confounds import GatherCBFConfounds
+from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummary
+from aslprep.workflows.asl.confounds import init_carpetplot_wf
 from aslprep.utils.misc import get_template_str
 
 
@@ -42,7 +44,9 @@ def init_plot_cbf_wf(
                 "t1w_dseg",
                 "anat_to_aslref_xfm",
                 "std2anat_xfm",
-                "confounds_file",  # only for non-GE
+                # If plot_timeseries is True
+                "crown_mask",
+                "acompcor_mask",
                 # CBF outputs
                 "mean_cbf",
                 # Single-delay outputs
@@ -133,31 +137,41 @@ def init_plot_cbf_wf(
 
     if plot_timeseries:
         # Time series are only available for non-GE data.
-        cbf_ts_summary = pe.Node(
-            CBFtsSummary(tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"])),
-            name="cbf_ts_summary",
+        carpetplot_wf = init_carpetplot_wf(
             mem_gb=2,
+            confounds_list=[("SCORE outlier index", None, "SCORE Index")],
+            metadata=metadata,
+            cifti_output=False,
+            name="cbf_carpetplot_wf",
         )
+        carpetplot_wf.inputnode.inputs.dummy_scans = 0
 
+        # Create fake confounds file
+        create_cbf_confounds = pe.Node(
+            GatherCBFConfounds(),
+            name="create_cbf_confounds",
+        )
         # fmt:off
         workflow.connect([
-            (inputnode, cbf_ts_summary, [
-                ("cbf_ts", "cbf_ts"),
-                ("confounds_file", "confounds_file"),
-                ("score_outlier_index", "score_outlier_index"),
-            ]),
-            (warp_carpet_dseg_to_aslref, cbf_ts_summary, [("output_image", "seg_file")]),
+            (inputnode, create_cbf_confounds, [("score_outlier_index", "score")]),
         ])
         # fmt:on
 
-        ds_report_cbf_ts_summary = pe.Node(
-            DerivativesDataSink(desc="cbftsplot", datatype="figures", keep_dtype=True),
-            name="ds_report_cbf_ts_summary",
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-        )
-
-        workflow.connect([(cbf_ts_summary, ds_report_cbf_ts_summary, [("out_file", "in_file")])])
+        # fmt:off
+        workflow.connect([
+            (inputnode, carpetplot_wf, [
+                ("std2anat_xfm", "inputnode.std2anat_xfm"),
+                ("cbf_ts", "inputnode.bold"),
+                ("asl_mask", "inputnode.bold_mask"),
+                ("anat_to_aslref_xfm", "inputnode.t1_bold_xform"),
+                ("crown_mask", "inputnode.crown_mask"),
+                ("acompcor_mask", "inputnode.acompcor_mask"),
+            ]),
+            (create_cbf_confounds, carpetplot_wf, [
+                ("confounds_file", "inputnode.confounds_file"),
+            ]),
+        ])
+        # fmt:on
 
     cbf_summary = pe.Node(CBFSummary(label="cbf", vmax=100), name="cbf_summary", mem_gb=1)
 
