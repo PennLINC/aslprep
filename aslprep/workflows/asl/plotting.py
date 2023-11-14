@@ -111,7 +111,7 @@ def init_plot_cbf_wf(
 
         carpetplot_wf = init_carpetplot_wf(
             mem_gb=2,
-            confounds_list=[("score_outlier_index", None, "SCORE Index")],
+            confounds_list=[("score_outlier_index", None, "SCORE Index")] if scorescrub else None,
             metadata=metadata,
             cifti_output=False,
             name="cbf_carpetplot_wf",

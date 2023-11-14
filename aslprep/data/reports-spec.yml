@@ -183,7 +183,7 @@ sections:
       Voxels are grouped into cortical (blue), and subcortical (orange) gray matter, cerebellum (green)
       and white matter and CSF (red), indicated by the color map on the left-hand side.
     subtitle: ASL Summary
-  - bids: {datatype: figures, desc: cbftsplot, suffix: asl}
+  - bids: {datatype: figures, desc: carpetplot, suffix: cbf}
     caption: |
       This carpet plot shows the time series for all voxels within the brain mask for CBF.
       Voxels are grouped into cortical (blue), and subcortical (orange) gray matter,
