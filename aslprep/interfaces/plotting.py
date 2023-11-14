@@ -106,7 +106,10 @@ class ASLSummary(SimpleInterface):
             data = None
             units = None
         else:
-            data = dataframe[headers]
+            try:
+                data = dataframe[headers]
+            except KeyError:
+                raise ValueError(dataframe.columns)
 
         data = data.rename(columns=names)
 
