@@ -120,7 +120,7 @@ class ASLSummary(SimpleInterface):
             paired_carpet=has_cifti,
         ).plot()
         fig.savefig(self._results["out_file"], bbox_inches="tight")
-        fig.close()
+        fig.clf()
         return runtime
 
 
@@ -193,7 +193,7 @@ class CBFtsSummary(SimpleInterface):
             tr=self.inputs.tr,
         ).plot()
         fig.savefig(self._results["out_file"], bbox_inches="tight")
-        fig.close()
+        fig.clf()
         return runtime
 
 
@@ -257,6 +257,6 @@ class CBFByTissueTypePlot(SimpleInterface):
             )
             fig.tight_layout()
             fig.savefig(self._results["out_file"])
-            fig.close()
+            fig.clf()
 
         return runtime
