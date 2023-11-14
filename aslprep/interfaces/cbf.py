@@ -785,7 +785,7 @@ class ScoreAndScrubCBF(SimpleInterface):
         )
         self._results["score_outlier_index"] = fname_presuffix(
             self.inputs.cbf_ts,
-            suffix="_scoreindex.txt",
+            suffix="_scoreindex.tsv",
             newpath=runtime.cwd,
             use_ext=False,
         )
@@ -807,7 +807,8 @@ class ScoreAndScrubCBF(SimpleInterface):
             header=samplecbf.header,
         ).to_filename(self._results["mean_cbf_scrub"])
 
-        np.savetxt(self._results["score_outlier_index"], index_score, delimiter=",")
+        score_outlier_df = pd.DataFrame(columns=["score_outlier_index"], data=index_score)
+        score_outlier_df.to_csv(self._results["score_outlier_index"], sep="\t", index=False)
 
         return runtime
 

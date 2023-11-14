@@ -10,7 +10,6 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.confounds import GatherCBFConfounds
 from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummary
-from aslprep.utils.misc import get_template_str
 from aslprep.workflows.asl.confounds import init_carpetplot_wf
 
 
@@ -98,40 +97,6 @@ def init_plot_cbf_wf(
             ("t1w_dseg", "input_image"),
             ("anat_to_aslref_xfm", "transforms"),
         ]),
-    ])
-    # fmt:on
-
-    grab_carpet_dseg = pe.Node(
-        niu.Function(
-            input_names=["template", "kwargs"],
-            output_names=["carpet_dseg"],
-            function=get_template_str,
-        ),
-        name="grab_carpet_dseg",
-    )
-    grab_carpet_dseg.inputs.template = "MNI152NLin2009cAsym"
-    grab_carpet_dseg.inputs.kwargs = {
-        "resolution": 1,
-        "desc": "carpet",
-        "suffix": "dseg",
-    }
-
-    warp_carpet_dseg_to_aslref = pe.Node(
-        ApplyTransforms(
-            float=True,
-            dimension=3,
-            default_value=0,
-            input_image_type=0,
-            interpolation="GenericLabel",
-        ),
-        name="warp_carpet_dseg_to_aslref",
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, warp_carpet_dseg_to_aslref, [("asl_mask", "reference_image")]),
-        (mrg_xfms, warp_carpet_dseg_to_aslref, [("out", "transforms")]),
-        (grab_carpet_dseg, warp_carpet_dseg_to_aslref, [("carpet_dseg", "input_image")]),
     ])
     # fmt:on
 

@@ -67,7 +67,7 @@ def _gather_confounds(
         (fdisp, "Framewise displacement"),
         (rmsd, "RMSD"),
         (motion, "Motion parameters"),
-        (score, "SCORE Outlier Index"),
+        (score, "score_outlier_index"),
     ):
         if confound is not None and isdefined(confound):
             confounds_list.append(name)
