@@ -193,6 +193,7 @@ class CBFtsSummary(SimpleInterface):
             tr=self.inputs.tr,
         ).plot()
         fig.savefig(self._results["out_file"], bbox_inches="tight")
+        fig.close()
         return runtime
 
 
@@ -256,5 +257,6 @@ class CBFByTissueTypePlot(SimpleInterface):
             )
             fig.tight_layout()
             fig.savefig(self._results["out_file"])
+            fig.close()
 
         return runtime
