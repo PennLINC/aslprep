@@ -183,7 +183,6 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         "--omp-nthreads=2",
         "--output-spaces",
         "asl",
-        "T1w",
         "--basil",
         "--m0_scale=10",
         "--fs-no-reconall",
