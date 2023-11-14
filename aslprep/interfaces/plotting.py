@@ -14,6 +14,8 @@ from nipype.utils.filemanip import fname_presuffix
 from niworkflows.utils.timeseries import _cifti_timeseries, _nifti_timeseries
 from niworkflows.viz.plots import fMRIPlot
 
+from aslprep.utils.plotting import CBFPlot, CBFtsPlot
+
 
 class _ASLSummaryInputSpec(BaseInterfaceInputSpec):
     in_nifti = File(exists=True, mandatory=True, desc="input BOLD (4D NIfTI file)")
