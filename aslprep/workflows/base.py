@@ -317,7 +317,7 @@ their manuscripts unchanged. It is released under the unchanged
     # Overwrite ``out_path_base`` of smriprep's DataSinks
     for node in workflow.list_node_names():
         if node.split(".")[-1].startswith("ds_"):
-            workflow.get_node(node).interface.out_path_base = "aslprep"
+            workflow.get_node(node).interface.out_path_base = ""
 
     if anat_only:
         return workflow
