@@ -137,25 +137,21 @@ def init_plot_cbf_wf(
 
     if plot_timeseries:
         # Time series are only available for non-GE data.
+        # Create confounds file with SCORE index
+        create_cbf_confounds = pe.Node(
+            GatherCBFConfounds(),
+            name="create_cbf_confounds",
+        )
+        workflow.connect([(inputnode, create_cbf_confounds, [("score_outlier_index", "score")])])
+
         carpetplot_wf = init_carpetplot_wf(
             mem_gb=2,
-            confounds_list=[("SCORE outlier index", None, "SCORE Index")],
+            confounds_list=[("score_outlier_index", None, "SCORE Index")],
             metadata=metadata,
             cifti_output=False,
             name="cbf_carpetplot_wf",
         )
         carpetplot_wf.inputs.inputnode.dummy_scans = 0
-
-        # Create fake confounds file
-        create_cbf_confounds = pe.Node(
-            GatherCBFConfounds(),
-            name="create_cbf_confounds",
-        )
-        # fmt:off
-        workflow.connect([
-            (inputnode, create_cbf_confounds, [("score_outlier_index", "score")]),
-        ])
-        # fmt:on
 
         # fmt:off
         workflow.connect([
