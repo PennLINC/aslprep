@@ -10,8 +10,8 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.confounds import GatherCBFConfounds
 from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummary
-from aslprep.workflows.asl.confounds import init_carpetplot_wf
 from aslprep.utils.misc import get_template_str
+from aslprep.workflows.asl.confounds import init_carpetplot_wf
 
 
 def init_plot_cbf_wf(
@@ -144,7 +144,7 @@ def init_plot_cbf_wf(
             cifti_output=False,
             name="cbf_carpetplot_wf",
         )
-        carpetplot_wf.inputnode.inputs.dummy_scans = 0
+        carpetplot_wf.inputs.inputnode.dummy_scans = 0
 
         # Create fake confounds file
         create_cbf_confounds = pe.Node(
