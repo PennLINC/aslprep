@@ -302,10 +302,8 @@ def init_carpetplot_wf(
     cifti_output: bool,
     name: str = "bold_carpet_wf",
 ):
-    """Build a workflow to generate *carpet* plots.
-
-    XXX: Copied from fMRIPrep. Needs to be replaced with some version that works for ASLPrep.
-    TODO: Find a solution that directly uses fMRIPrep's.
+    """
+    Build a workflow to generate *carpet* plots.
 
     Resamples the MNI parcellation (ad-hoc parcellation derived from the
     Harvard-Oxford template and others).
@@ -389,10 +387,7 @@ def init_carpetplot_wf(
     )
     ds_report_bold_conf = pe.Node(
         DerivativesDataSink(
-            desc="carpetplot",
-            datatype="figures",
-            extension="svg",
-            dismiss_entities=("echo",),
+            desc="carpetplot", datatype="figures", extension="svg", dismiss_entities=("echo",)
         ),
         name="ds_report_bold_conf",
         run_without_submitting=True,
