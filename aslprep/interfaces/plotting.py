@@ -12,9 +12,8 @@ from nipype.interfaces.base import (
 )
 from nipype.utils.filemanip import fname_presuffix
 from niworkflows.utils.timeseries import _cifti_timeseries, _nifti_timeseries
-from niworkflows.viz.plots import fMRIPlot
 
-from aslprep.utils.plotting import CBFPlot, CBFtsPlot
+from aslprep.utils.plotting import CBFPlot, CBFtsPlot, fMRIPlot
 
 
 class _ASLSummaryInputSpec(BaseInterfaceInputSpec):
@@ -119,8 +118,6 @@ class ASLSummary(SimpleInterface):
             units=units,
             nskip=self.inputs.drop_trs,
             paired_carpet=has_cifti,
-            # The main change from fMRIPrep's usage is that detrend is False for ASL.
-            detrend=False,
         ).plot()
         fig.savefig(self._results["out_file"], bbox_inches="tight")
         return runtime
