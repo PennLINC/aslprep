@@ -375,7 +375,7 @@ def confoundplotx(
     return ax_ts, gs
 
 
-class fMRIPlot:
+class fMRIPlot:  # noqa:N801
     """Generates the fMRI Summary Plot."""
 
     __slots__ = (
@@ -433,7 +433,7 @@ class fMRIPlot:
                 self.spikes.append((np.loadtxt(sp_file), None, False))
 
     def plot(self, figure=None):
-        """Main plotter"""
+        """Generate fMRI plot."""
         import seaborn as sns
         from niworkflows.viz.plots import plot_carpet
 
