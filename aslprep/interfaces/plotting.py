@@ -120,6 +120,7 @@ class ASLSummary(SimpleInterface):
             paired_carpet=has_cifti,
         ).plot()
         fig.savefig(self._results["out_file"], bbox_inches="tight")
+        fig.close()
         return runtime
 
 

@@ -435,7 +435,7 @@ class fMRIPlot:  # noqa:N801
     def plot(self, figure=None):
         """Generate fMRI plot."""
         import seaborn as sns
-        from niworkflows.viz.plots import plot_carpet
+        from niworkflows.viz.plots import plot_carpet as plt_carpet
 
         sns.set_style("whitegrid")
         sns.set_context("paper", font_scale=0.8)
@@ -467,7 +467,7 @@ class fMRIPlot:  # noqa:N801
             confoundplot(tseries, grid[grid_id], tr=self.tr, color=palette[i], name=name, **kwargs)
             grid_id += 1
 
-        plot_carpet(
+        plt_carpet(
             self.timeseries,
             segments=self.segments,
             subplot=grid[-1],
