@@ -12,6 +12,58 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.utils.spaces import SpatialReferences
 
 
+def init_ds_registration_wf(
+    *,
+    bids_root: str,
+    output_dir: str,
+    source: str,
+    dest: str,
+    name: str,
+) -> pe.Workflow:
+    """Write out registration transform.
+
+    Copied from fMRIPrep next.
+    """
+    workflow = pe.Workflow(name=name)
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=["source_files", "xform"]),
+        name="inputnode",
+    )
+    outputnode = pe.Node(niu.IdentityInterface(fields=["xform"]), name="outputnode")
+
+    raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
+    raw_sources.inputs.bids_root = bids_root
+
+    ds_xform = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            mode="image",
+            suffix="xfm",
+            extension=".txt",
+            dismiss_entities=("echo",),
+            **{"from": source, "to": dest},
+        ),
+        name="ds_xform",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, raw_sources, [("source_files", "in_files")]),
+        (inputnode, ds_xform, [
+            ("xform", "in_file"),
+            ("source_files", "source_file"),
+        ]),
+        (raw_sources, ds_xform, [("out", "RawSources")]),
+        (ds_xform, outputnode, [("out_file", "xform")]),
+    ])
+    # fmt:on
+
+    return workflow
+
+
 def init_asl_derivatives_wf(
     bids_root: str,
     metadata: dict,

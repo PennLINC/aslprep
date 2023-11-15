@@ -1,9 +1,10 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Preprocessing workflows for ASL data."""
+import typing as ty
+
 import nibabel as nb
 import numpy as np
-from fmriprep.workflows.bold.base import get_estimator
 from fmriprep.workflows.bold.registration import init_bold_reg_wf, init_bold_t1_trans_wf
 from fmriprep.workflows.bold.resampling import (
     init_bold_fsLR_resampling_wf,
@@ -13,6 +14,7 @@ from fmriprep.workflows.bold.resampling import (
 )
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.interfaces.nitransforms import ConcatenateXFMs
 from niworkflows.utils.connections import pop_file
 
 from aslprep import config
@@ -27,14 +29,18 @@ from aslprep.utils.misc import _create_mem_gb, _get_wf_name, _select_last_in_lis
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
-from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
+from aslprep.workflows.asl.outputs import init_asl_derivatives_wf, init_ds_registration_wf
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 from aslprep.workflows.asl.util import init_asl_reference_wf, init_validate_asl_wf
 
 
-def init_asl_preproc_wf(asl_file, has_fieldmap=False):
+def init_asl_preproc_wf(
+    *,
+    asl_file: str,
+    fieldmap_id: ty.Optional[str] = None,
+):
     """Perform the functional preprocessing stages of ASLPrep.
 
     Workflow Graph
@@ -48,17 +54,18 @@ def init_asl_preproc_wf(asl_file, has_fieldmap=False):
 
             with mock_config():
                 asl_file = (
-                    config.execution.bids_dir / 'sub-01' / 'perf' /
-                    'sub-01_asl.nii.gz'
+                    config.execution.bids_dir / "sub-01" / "perf" /
+                    "sub-01_asl.nii.gz"
                 )
-                wf = init_asl_preproc_wf(str(asl_file))
+                wf = init_asl_preproc_wf(asl_file=str(asl_file))
 
     Parameters
     ----------
     asl_file
         asl series NIfTI file
-    has_fieldmap : :obj:`bool`
-        Signals the workflow to use inputnode fieldmap files
+    fieldmap_id
+        ID of the fieldmap to use to correct this BOLD series. If :obj:`None`,
+        no correction will be applied.
 
     Inputs
     ------
@@ -73,12 +80,22 @@ def init_asl_preproc_wf(asl_file, has_fieldmap=False):
         gray-matter (GM), white-matter (WM) and cerebrospinal fluid (CSF)
     t1w_tpms
         List of tissue probability maps in T1w space
+    fmap_id
+        Unique identifiers to select fieldmap files
+    fmap
+        List of estimated fieldmaps (collated with fmap_id)
+    fmap_ref
+        List of fieldmap reference files (collated with fmap_id)
+    fmap_coeff
+        List of lists of spline coefficient files (collated with fmap_id)
+    fmap_mask
+        List of fieldmap masks (collated with fmap_id)
+    sdc_method
+        List of fieldmap correction method names (collated with fmap_id)
     template
         List of templates to target
     anat2std_xfm
         List of transform files, collated with templates
-    std2anat_xfm
-        List of inverse transform files, collated with templates
 
     Outputs
     -------
@@ -117,6 +134,11 @@ def init_asl_preproc_wf(asl_file, has_fieldmap=False):
 
     Notes
     -----
+    Note that ``anat2std_xfm``, ``std_space``, ``std_resolution``,
+    ``std_cohort``, ``std_t1w`` and ``std_mask`` are treated as single
+    inputs. In order to resample to multiple target spaces, connect
+    these fields to an iterable.
+
     1.  Brain-mask T1w.
     2.  Generate initial ASL reference image.
         I think this is just the BOLD reference workflow from niworkflows,
@@ -244,23 +266,6 @@ def init_asl_preproc_wf(asl_file, has_fieldmap=False):
             "mean_cbf_gm_basil",
         ]
 
-    if has_fieldmap:
-        from sdcflows import fieldmaps as fm
-
-        # We may have pruned the estimator collection due to `--ignore fieldmaps`
-        estimator_key = [key for key in get_estimator(layout, asl_file) if key in fm._estimators]
-
-        if not estimator_key:
-            has_fieldmap = False
-            config.loggers.workflow.critical(
-                f"None of the available B0 fieldmaps are associated to <{asl_file}>"
-            )
-        else:
-            config.loggers.workflow.info(
-                f"Found usable B0-map (fieldmap) estimator(s) <{', '.join(estimator_key)}> "
-                f"to correct <{asl_file}> for susceptibility-derived distortions."
-            )
-
     # Build workflow
     workflow = Workflow(name=wf_name)
     workflow.__postdesc__ = """\
@@ -278,32 +283,38 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 "aslcontext",
                 "m0scan",
                 "m0scan_metadata",
-                # anatomical data
+                # Anatomical coregistration
                 "t1w_preproc",
                 "t1w_mask",
                 "t1w_dseg",
-                "t1w_aseg",
-                "t1w_aparc",
                 "t1w_tpms",
-                "template",
-                "anat2std_xfm",
-                "std2anat_xfm",
-                # Undefined if --fs-no-reconall, but this is safe
+                # FreeSurfer outputs
                 "subjects_dir",
                 "subject_id",
-                "anat_ribbon",
-                "t1w2fsnative_xfm",
                 "fsnative2t1w_xfm",
+                "sphere_reg_fsLR",
+                "anat_ribbon",
+                # FreeSurfer things not in future fMRIPrep
+                "t1w2fsnative_xfm",
                 "surfaces",
                 "morphometrics",
-                "sphere_reg_fsLR",
-                # Field map stuff
+                # Fieldmap registration
                 "fmap",
                 "fmap_ref",
                 "fmap_coeff",
                 "fmap_mask",
                 "fmap_id",
                 "sdc_method",
+                # Volumetric templates
+                "anat2std_xfm",
+                # Volumetric things not in future fMRIPrep
+                "template",
+                # MNI152NLin6Asym warp, for CIFTI use
+                # MNI152NLin2009cAsym inverse warp, for carpetplotting
+                "mni2009c2anat_xfm",
+                # Not in future fMRIPrep
+                "t1w_aseg",
+                "t1w_aparc",
             ],
         ),
         name="inputnode",
@@ -313,91 +324,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     inputnode.inputs.aslcontext = run_data["aslcontext"]
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
-
-    outputnode = pe.Node(
-        niu.IdentityInterface(
-            fields=[
-                "template",
-                "spatial_reference",
-                "qc_file",
-                # Preprocessed ASL files
-                "asl_native",
-                "asl_t1",
-                "asl_std",
-                "asl_cifti",
-                "aslref_native",
-                "aslref_t1",
-                "aslref_std",
-                "asl_mask_native",
-                "asl_mask_t1",
-                "asl_mask_std",
-                # Transforms
-                "hmc_xforms",
-                "aslref_to_anat_xfm",
-                "anat_to_aslref_xfm",
-                # Standard CBF outputs
-                "cbf_ts_native",
-                "cbf_ts_t1",
-                "cbf_ts_std",
-                "cbf_ts_cifti",
-                "mean_cbf_native",
-                "mean_cbf_t1",
-                "mean_cbf_std",
-                "mean_cbf_cifti",
-                "att_native",
-                "att_t1",
-                "att_std",
-                "att_cifti",
-                # SCORE/SCRUB outputs
-                "cbf_ts_score_native",
-                "cbf_ts_score_t1",
-                "cbf_ts_score_std",
-                "cbf_ts_score_cifti",
-                "mean_cbf_score_native",
-                "mean_cbf_score_t1",
-                "mean_cbf_score_std",
-                "mean_cbf_score_cifti",
-                "mean_cbf_scrub_native",
-                "mean_cbf_scrub_t1",
-                "mean_cbf_scrub_std",
-                "mean_cbf_scrub_cifti",
-                # BASIL outputs
-                "mean_cbf_basil_native",
-                "mean_cbf_basil_t1",
-                "mean_cbf_basil_std",
-                "mean_cbf_basil_cifti",
-                "mean_cbf_gm_basil_native",
-                "mean_cbf_gm_basil_t1",
-                "mean_cbf_gm_basil_std",
-                "mean_cbf_gm_basil_cifti",
-                "mean_cbf_wm_basil_native",
-                "mean_cbf_wm_basil_t1",
-                "mean_cbf_wm_basil_std",
-                "mean_cbf_wm_basil_cifti",
-                "att_basil_native",
-                "att_basil_t1",
-                "att_basil_std",
-                "att_basil_cifti",
-                # Parcellated CBF outputs
-                "atlas_names",
-                "mean_cbf_parcellated",
-                "mean_cbf_score_parcellated",
-                "mean_cbf_scrub_parcellated",
-                "mean_cbf_basil_parcellated",
-                "mean_cbf_gm_basil_parcellated",
-                # Non-GE outputs
-                "confounds",
-                "confounds_metadata",
-                # CIFTI-related outputs
-                "cifti_metadata",
-                "cifti_density",
-                "goodvoxels_mask",
-                "surfaces",
-                "surf_refs",
-            ],
-        ),
-        name="outputnode",
-    )
 
     # Generate a brain-masked version of the t1w
     t1w_brain = pe.Node(ApplyMask(), name="t1w_brain")
@@ -438,82 +364,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         output_confounds=True,
     )
     asl_derivatives_wf.inputs.inputnode.cifti_density = config.workflow.cifti_output
-    # fmt:off
-    workflow.connect([
-        (inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")]),
-        (outputnode, asl_derivatives_wf, [
-            ("template", "inputnode.template"),
-            ("spatial_reference", "inputnode.spatial_reference"),
-            ("qc_file", "inputnode.qc_file"),
-            ("asl_native", "inputnode.asl_native"),
-            ("asl_t1", "inputnode.asl_t1"),
-            ("asl_std", "inputnode.asl_std"),
-            ("asl_cifti", "inputnode.asl_cifti"),
-            ("aslref_native", "inputnode.aslref_native"),
-            ("aslref_t1", "inputnode.aslref_t1"),
-            ("aslref_std", "inputnode.aslref_std"),
-            ("asl_mask_native", "inputnode.asl_mask_native"),
-            ("asl_mask_t1", "inputnode.asl_mask_t1"),
-            ("asl_mask_std", "inputnode.asl_mask_std"),
-            ("hmc_xforms", "inputnode.hmc_xforms"),
-            ("aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
-            ("anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
-            ("cbf_ts_native", "inputnode.cbf_ts_native"),
-            ("cbf_ts_t1", "inputnode.cbf_ts_t1"),
-            ("cbf_ts_std", "inputnode.cbf_ts_std"),
-            ("cbf_ts_cifti", "inputnode.cbf_ts_cifti"),
-            ("mean_cbf_native", "inputnode.mean_cbf_native"),
-            ("mean_cbf_t1", "inputnode.mean_cbf_t1"),
-            ("mean_cbf_std", "inputnode.mean_cbf_std"),
-            ("mean_cbf_cifti", "inputnode.mean_cbf_cifti"),
-            ("att_native", "inputnode.att_native"),
-            ("att_t1", "inputnode.att_t1"),
-            ("att_std", "inputnode.att_std"),
-            ("att_cifti", "inputnode.att_cifti"),
-            ("cbf_ts_score_native", "inputnode.cbf_ts_score_native"),
-            ("cbf_ts_score_t1", "inputnode.cbf_ts_score_t1"),
-            ("cbf_ts_score_std", "inputnode.cbf_ts_score_std"),
-            ("cbf_ts_score_cifti", "inputnode.cbf_ts_score_cifti"),
-            ("mean_cbf_score_native", "inputnode.mean_cbf_score_native"),
-            ("mean_cbf_score_t1", "inputnode.mean_cbf_score_t1"),
-            ("mean_cbf_score_std", "inputnode.mean_cbf_score_std"),
-            ("mean_cbf_score_cifti", "inputnode.mean_cbf_score_cifti"),
-            ("mean_cbf_scrub_native", "inputnode.mean_cbf_scrub_native"),
-            ("mean_cbf_scrub_t1", "inputnode.mean_cbf_scrub_t1"),
-            ("mean_cbf_scrub_std", "inputnode.mean_cbf_scrub_std"),
-            ("mean_cbf_scrub_cifti", "inputnode.mean_cbf_scrub_cifti"),
-            ("mean_cbf_basil_native", "inputnode.mean_cbf_basil_native"),
-            ("mean_cbf_basil_t1", "inputnode.mean_cbf_basil_t1"),
-            ("mean_cbf_basil_std", "inputnode.mean_cbf_basil_std"),
-            ("mean_cbf_basil_cifti", "inputnode.mean_cbf_basil_cifti"),
-            ("mean_cbf_gm_basil_native", "inputnode.mean_cbf_gm_basil_native"),
-            ("mean_cbf_gm_basil_t1", "inputnode.mean_cbf_gm_basil_t1"),
-            ("mean_cbf_gm_basil_std", "inputnode.mean_cbf_gm_basil_std"),
-            ("mean_cbf_gm_basil_cifti", "inputnode.mean_cbf_gm_basil_cifti"),
-            ("mean_cbf_wm_basil_native", "inputnode.mean_cbf_wm_basil_native"),
-            ("mean_cbf_wm_basil_t1", "inputnode.mean_cbf_wm_basil_t1"),
-            ("mean_cbf_wm_basil_std", "inputnode.mean_cbf_wm_basil_std"),
-            ("mean_cbf_wm_basil_cifti", "inputnode.mean_cbf_wm_basil_cifti"),
-            ("att_basil_native", "inputnode.att_basil_native"),
-            ("att_basil_t1", "inputnode.att_basil_t1"),
-            ("att_basil_std", "inputnode.att_basil_std"),
-            ("att_basil_cifti", "inputnode.att_basil_cifti"),
-            ("atlas_names", "inputnode.atlas_names"),
-            ("mean_cbf_parcellated", "inputnode.mean_cbf_parcellated"),
-            ("mean_cbf_score_parcellated", "inputnode.mean_cbf_score_parcellated"),
-            ("mean_cbf_scrub_parcellated", "inputnode.mean_cbf_scrub_parcellated"),
-            ("mean_cbf_basil_parcellated", "inputnode.mean_cbf_basil_parcellated"),
-            ("mean_cbf_gm_basil_parcellated", "inputnode.mean_cbf_gm_basil_parcellated"),
-            ("confounds", "inputnode.confounds"),
-            ("confounds_metadata", "inputnode.confounds_metadata"),
-            ("cifti_metadata", "inputnode.cifti_metadata"),
-            ("cifti_density", "inputnode.cifti_density"),
-            ("goodvoxels_mask", "inputnode.goodvoxels_mask"),
-            ("surfaces", "inputnode.surf_files"),
-            ("surf_refs", "inputnode.surf_refs"),
-        ])
-    ])
-    # fmt:on
+    workflow.connect([(inputnode, asl_derivatives_wf, [("asl_file", "inputnode.source_file")])])
 
     # Validate the ASL file.
     validate_asl_wf = init_validate_asl_wf(name="validate_asl_wf")
@@ -557,10 +408,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # fmt:off
     workflow.connect([
         # Native-space BOLD files (if calculated)
-        (asl_final, outputnode, [
-            ("asl", "asl_native"),
-            ("aslref", "aslref_native"),
-            ("mask", "asl_mask_native"),
+        (asl_final, asl_derivatives_wf, [
+            ("asl", "inputnode.asl_native"),
+            ("aslref", "inputnode.aslref_native"),
+            ("mask", "inputnode.asl_mask_native"),
         ]),
     ])
     # fmt:on
@@ -613,9 +464,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_final, asl_reg_wf, [("aslref", "inputnode.ref_bold_brain")]),
         (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
-        (asl_reg_wf, outputnode, [
-            ("outputnode.itk_t1_to_bold", "anat_to_aslref_xfm"),
-            ("outputnode.itk_bold_to_t1", "aslref_to_anat_xfm"),
+        (asl_reg_wf, asl_derivatives_wf, [
+            ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.itk_bold_to_t1", "inputnode.aslref_to_anat_xfm"),
         ]),
     ])
     # fmt:on
@@ -645,9 +496,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.bold_split")]),
         (asl_hmc_wf, asl_t1_trans_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
         (asl_reg_wf, asl_t1_trans_wf, [("outputnode.itk_bold_to_t1", "inputnode.itk_bold_to_t1")]),
-        (asl_t1_trans_wf, outputnode, [
-            ("outputnode.bold_t1", "asl_t1"),
-            ("outputnode.bold_mask_t1", "asl_mask_t1"),
+        (asl_t1_trans_wf, asl_derivatives_wf, [
+            ("outputnode.bold_t1", "inputnode.asl_t1"),
+            ("outputnode.bold_mask_t1", "inputnode.asl_mask_t1"),
         ]),
     ])
     # fmt:on
@@ -655,9 +506,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     if freesurfer:
         # fmt:off
         workflow.connect([
-            (asl_t1_trans_wf, outputnode, [
-                ("outputnode.bold_aseg_t1", "asl_aseg_t1"),
-                ("outputnode.bold_aparc_t1", "asl_aparc_t1"),
+            (asl_t1_trans_wf, asl_derivatives_wf, [
+                ("outputnode.bold_aseg_t1", "inputnode.asl_aseg_t1"),
+                ("outputnode.bold_aparc_t1", "inputnode.asl_aparc_t1"),
             ]),
         ])
         # fmt:on
@@ -682,9 +533,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
         ]),
         (initial_aslref_wf, asl_confounds_wf, [("outputnode.skip_vols", "inputnode.skip_vols")]),
-        (asl_confounds_wf, outputnode, [
-            ("outputnode.confounds_file", "confounds"),
-            ("outputnode.confounds_metadata", "confounds_metadata"),
+        (asl_confounds_wf, asl_derivatives_wf, [
+            ("outputnode.confounds_file", "inputnode.confounds"),
+            ("outputnode.confounds_metadata", "inputnode.confounds_metadata"),
         ]),
         (asl_confounds_wf, summary, [("outputnode.confounds_file", "confounds_file")]),
     ])
@@ -725,7 +576,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     for cbf_deriv in cbf_derivs:
         # fmt:off
         workflow.connect([
-            (compute_cbf_wf, outputnode, [(f"outputnode.{cbf_deriv}", f"{cbf_deriv}_native")]),
+            (compute_cbf_wf, asl_derivatives_wf, [
+                (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}_native"),
+            ]),
         ])
         # fmt:on
 
@@ -784,7 +637,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_confounds_wf, compute_cbf_qc_wf, [
             ("outputnode.confounds_file", "inputnode.confounds_file"),
         ]),
-        (compute_cbf_qc_wf, outputnode, [("outputnode.qc_file", "qc_file")]),
+        (compute_cbf_qc_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
         (compute_cbf_qc_wf, summary, [("outputnode.qc_file", "qc_file")]),
     ])
     # fmt:on
@@ -842,7 +695,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 (asl_reg_wf, cbf_to_t1w, [("outputnode.itk_bold_to_t1", "transforms")]),
                 (asl_t1_trans_wf, cbf_to_t1w, [("outputnode.bold_mask_t1", "reference_image")]),
                 (compute_cbf_wf, cbf_to_t1w, [(f"outputnode.{cbf_deriv}", "input_image")]),
-                (cbf_to_t1w, outputnode, [("output_image", f"{cbf_deriv}_t1")]),
+                (cbf_to_t1w, asl_derivatives_wf, [("output_image", f"inputnode.{cbf_deriv}_t1")]),
             ])
             # fmt:on
 
@@ -862,7 +715,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.bold_t1", "inputnode.asl_file"),
                 ("outputnode.bold_mask_t1", "inputnode.asl_mask"),
             ]),
-            (asl_t1_reference_wf, outputnode, [("outputnode.ref_image", "aslref_t1")]),
+            (asl_t1_reference_wf, asl_derivatives_wf, [
+                ("outputnode.ref_image", "inputnode.aslref_t1"),
+            ]),
         ])
         # fmt:on
 
@@ -904,12 +759,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
             ]),
             # func_derivatives_wf internally parametrizes over snapshotted spaces.
-            (asl_std_trans_wf, outputnode, [
-                ("outputnode.template", "template"),
-                ("outputnode.spatial_reference", "spatial_reference"),
-                ("outputnode.asl_std", "asl_std"),
-                ("outputnode.aslref_std", "aslref_std"),
-                ("outputnode.asl_mask_std", "asl_mask_std"),
+            (asl_std_trans_wf, asl_derivatives_wf, [
+                ("outputnode.template", "inputnode.template"),
+                ("outputnode.spatial_reference", "inputnode.spatial_reference"),
+                ("outputnode.asl_std", "inputnode.asl_std"),
+                ("outputnode.aslref_std", "inputnode.aslref_std"),
+                ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
             ]),
         ])
         # fmt:on
@@ -917,9 +772,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         if freesurfer:
             # fmt:off
             workflow.connect([
-                (asl_std_trans_wf, outputnode, [
-                    ("outputnode.asl_aseg_std", "asl_aseg_std"),
-                    ("outputnode.asl_aparc_std", "asl_aparc_std"),
+                (asl_std_trans_wf, asl_derivatives_wf, [
+                    ("outputnode.asl_aseg_std", "inputnode.asl_aseg_std"),
+                    ("outputnode.asl_aparc_std", "inputnode.asl_aparc_std"),
                 ]),
             ])
             # fmt:on
@@ -930,8 +785,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 (compute_cbf_wf, asl_std_trans_wf, [
                     (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
                 ]),
-                (asl_std_trans_wf, outputnode, [
-                    (f"outputnode.{cbf_deriv}_std", f"{cbf_deriv}_std"),
+                (asl_std_trans_wf, asl_derivatives_wf, [
+                    (f"outputnode.{cbf_deriv}_std", f"inputnode.{cbf_deriv}_std"),
                 ]),
             ])
             # fmt:on
@@ -954,9 +809,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("t1w2fsnative_xfm", "inputnode.t1w2fsnative_xfm"),
             ]),
             (asl_t1_trans_wf, asl_surf_wf, [("outputnode.asl_t1", "inputnode.source_file")]),
-            (asl_surf_wf, outputnode, [
-                ("outputnode.surfaces", "surfaces"),
-                ("outputnode.target", "surf_refs"),
+            (asl_surf_wf, asl_derivatives_wf, [
+                ("outputnode.surfaces", "inputnode.surfaces"),
+                ("outputnode.target", "inputnode.surf_refs"),
             ]),
         ])
         # fmt:on
@@ -980,8 +835,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_t1_trans_wf, asl_fsLR_resampling_wf, [
                 ("outputnode.asl_t1", "inputnode.bold_file"),
             ]),
-            (asl_fsLR_resampling_wf, outputnode, [
-                ("outputnode.goodvoxels_mask", "goodvoxels_mask"),
+            (asl_fsLR_resampling_wf, asl_derivatives_wf, [
+                ("outputnode.goodvoxels_mask", "inputnode.goodvoxels_mask"),
             ]),
         ])
         # fmt:on
@@ -1000,9 +855,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_fsLR_resampling_wf, asl_grayords_wf, [
                 ("outputnode.asl_fsLR", "inputnode.bold_fsLR"),
             ]),
-            (asl_grayords_wf, outputnode, [
-                ("outputnode.cifti_bold", "asl_cifti"),
-                ("outputnode.cifti_metadata", "cifti_metadata"),
+            (asl_grayords_wf, asl_derivatives_wf, [
+                ("outputnode.cifti_bold", "inputnode.asl_cifti"),
+                ("outputnode.cifti_metadata", "inputnode.cifti_metadata"),
             ]),
         ])
         # fmt:on
@@ -1025,13 +880,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             name="asl_carpetplot_wf",
         )
 
-        # Xform to "MNI152NLin2009cAsym" is always computed.
-        carpetplot_select_std = pe.Node(
-            KeySelect(fields=["std2anat_xfm"], key="MNI152NLin2009cAsym"),
-            name="carpetplot_select_std",
-            run_without_submitting=True,
-        )
-
         if config.workflow.cifti_output:
             # fmt:off
             workflow.connect([
@@ -1046,11 +894,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (initial_aslref_wf, carpetplot_wf, [
                 ("outputnode.skip_vols", "inputnode.dummy_scans"),
             ]),
-            (inputnode, carpetplot_select_std, [
-                ("std2anat_xfm", "std2anat_xfm"),
-                ("template", "keys"),
-            ]),
-            (carpetplot_select_std, carpetplot_wf, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
+            (inputnode, carpetplot_wf, [("mni2009c2anat_xfm", "inputnode.mni2009c2anat_xfm")]),
             (asl_final, carpetplot_wf, [
                 ("asl", "inputnode.bold"),
                 ("mask", "inputnode.bold_mask"),
@@ -1076,8 +920,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         )
         # fmt:off
         workflow.connect([
-            (inputnode, plot_cbf_wf, [("t1w_dseg", "inputnode.t1w_dseg")]),
-            (carpetplot_select_std, plot_cbf_wf, [("std2anat_xfm", "inputnode.std2anat_xfm")]),
+            (inputnode, plot_cbf_wf, [
+                ("t1w_dseg", "inputnode.t1w_dseg"),
+                ("mni2009c2anat_xfm", "inputnode.std2anat_xfm"),
+            ]),
             (compute_cbf_wf, plot_cbf_wf, [
                 ("outputnode.score_outlier_index", "inputnode.score_outlier_index"),
             ]),
@@ -1110,15 +956,17 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # fmt:off
     workflow.connect([
-        (inputnode, parcellate_cbf_wf, [("asl_file", "inputnode.source_file")]),
-        (carpetplot_select_std, parcellate_cbf_wf, [
-            ("std2anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
+        (inputnode, parcellate_cbf_wf, [
+            ("asl_file", "inputnode.source_file"),
+            ("mni2009c2anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
         ]),
         (asl_final, parcellate_cbf_wf, [("mask", "inputnode.asl_mask")]),
         (asl_reg_wf, parcellate_cbf_wf, [
             ("outputnode.itk_t1_to_bold", "inputnode.anat_to_aslref_xfm"),
         ]),
-        (parcellate_cbf_wf, outputnode, [("outputnode.atlas_names", "atlas_names")]),
+        (parcellate_cbf_wf, asl_derivatives_wf, [
+            ("outputnode.atlas_names", "inputnode.atlas_names"),
+        ]),
     ])
     # fmt:on
 
@@ -1128,8 +976,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (compute_cbf_wf, parcellate_cbf_wf, [
                 (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
             ]),
-            (parcellate_cbf_wf, outputnode, [
-                (f"outputnode.{cbf_deriv}_parcellated", f"{cbf_deriv}_parcellated"),
+            (parcellate_cbf_wf, asl_derivatives_wf, [
+                (f"outputnode.{cbf_deriv}_parcellated", f"inputnode.{cbf_deriv}_parcellated"),
             ]),
         ])
         # fmt:on
@@ -1167,7 +1015,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             workflow.get_node(node).inputs.base_directory = config.execution.aslprep_dir
             workflow.get_node(node).inputs.source_file = ref_file
 
-    if not has_fieldmap:
+    if not fieldmap_id:
         # Finalize workflow without SDC connections
         summary.inputs.distortion_correction = "None"
 
@@ -1197,34 +1045,87 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         return workflow
 
-    from niworkflows.interfaces.utility import KeySelect
+    # NOTE: TS: This is mostly copied from init_bold_fit_wf, but I removed
+    # fmapref_buffer and fmapreg_buffer
     from sdcflows.workflows.apply.correction import init_unwarp_wf
     from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 
-    coeff2epi_wf = init_coeff2epi_wf(
+    fmap_select = pe.Node(
+        KeySelect(
+            fields=["fmap_ref", "fmap_coeff", "fmap_mask", "sdc_method"],
+            key=fieldmap_id,
+        ),
+        name="fmap_select",
+        run_without_submitting=True,
+    )
+    fmapreg_wf = init_coeff2epi_wf(
         debug="fieldmaps" in config.execution.debug,
         omp_nthreads=config.nipype.omp_nthreads,
         sloppy=config.execution.sloppy,
-        write_coeff=True,
+        name="fmapreg_wf",
     )
+
+    itk_mat2txt = pe.Node(ConcatenateXFMs(out_fmt="itk"), name="itk_mat2txt")
+
+    ds_fmapreg_wf = init_ds_registration_wf(
+        bids_root=layout.root,
+        output_dir=config.execution.fmriprep_dir,
+        source="aslref",
+        dest=fieldmap_id.replace("_", ""),
+        name="ds_fmapreg_wf",
+    )
+
+    # fmt:off
+    workflow.connect([
+        # fMRIPrep next uses an enhanced reference image here.
+        (initial_aslref_wf, fmapreg_wf, [
+            ("outputnode.ref_image", "inputnode.target_ref"),
+            ("outputnode.asl_mask", "inputnode.target_mask"),
+        ]),
+        (fmap_select, fmapreg_wf, [
+            ("fmap_ref", "inputnode.fmap_ref"),
+            ("fmap_mask", "inputnode.fmap_mask"),
+        ]),
+        (fmapreg_wf, itk_mat2txt, [("outputnode.target2fmap_xfm", "in_xfms")]),
+        (itk_mat2txt, ds_fmapreg_wf, [("out_xfm", "inputnode.xform")]),
+        # This used fmapref_buffer in fMRIPrep
+        (inputnode, ds_fmapreg_wf, [("asl_file", "inputnode.source_files")]),
+    ])
+    # fmt:on
+
     unwarp_wf = init_unwarp_wf(
         free_mem=config.environment.free_mem,
         debug="fieldmaps" in config.execution.debug,
         omp_nthreads=config.nipype.omp_nthreads,
     )
-    unwarp_wf.inputs.inputnode.metadata = metadata
+    unwarp_wf.inputs.inputnode.metadata = layout.get_metadata(asl_file)
 
-    output_select = pe.Node(
-        KeySelect(fields=["fmap", "fmap_ref", "fmap_coeff", "fmap_mask", "sdc_method"]),
-        name="output_select",
-        run_without_submitting=True,
-    )
-    output_select.inputs.key = estimator_key[0]
-    if len(estimator_key) > 1:
-        config.loggers.workflow.warning(
-            f"Several fieldmaps <{', '.join(estimator_key)}> are "
-            f"'IntendedFor' <{asl_file}>, using {estimator_key[0]}"
-        )
+    # fmt:off
+    workflow.connect([
+        (inputnode, fmap_select, [
+            ("fmap_ref", "fmap_ref"),
+            ("fmap_coeff", "fmap_coeff"),
+            ("fmap_mask", "fmap_mask"),
+            ("sdc_method", "sdc_method"),
+            ("fmap_id", "keys"),
+        ]),
+        (fmap_select, unwarp_wf, [("fmap_coeff", "inputnode.fmap_coeff")]),
+        (ds_fmapreg_wf, unwarp_wf, [
+            # This looks backwards, but unwarp_wf describes transforms in
+            # terms of points while we (and init_coeff2epi_wf) describe them
+            # in terms of images. Mapping fieldmap coordinates into boldref
+            # coordinates maps the boldref image onto the fieldmap image.
+            ("outputnode.xform", "inputnode.fmap2data_xfm"),
+        ]),
+        # fMRIPrep next uses the enhanced reference image here
+        (asl_split, unwarp_wf, [("out_files", "inputnode.distorted")]),
+        (fmap_select, summary, [("sdc_method", "distortion_correction")]),
+        (unwarp_wf, asl_final, [("outputnode.corrected", "asl")]),
+        (unwarp_wf, final_aslref_wf, [("outputnode.corrected", "inputnode.asl_file")]),
+        (unwarp_wf, asl_t1_trans_wf, [("outputnode.fieldmap", "inputnode.fieldwarp")]),
+        (unwarp_wf, asl_std_trans_wf, [("outputnode.fieldmap", "inputnode.fieldwarp")]),
+    ])
+    # fmt:on
 
     sdc_report = pe.Node(
         SimpleBeforeAfter(
@@ -1235,6 +1136,16 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         name="sdc_report",
         mem_gb=0.1,
     )
+
+    # fmt:off
+    workflow.connect([
+        (initial_aslref_wf, sdc_report, [("outputnode.ref_image", "before")]),
+        (final_aslref_wf, sdc_report, [
+            ("outputnode.ref_image", "after"),
+            ("outputnode.asl_mask", "wm_seg"),
+        ]),
+    ])
+    # fmt:on
 
     ds_report_sdc = pe.Node(
         DerivativesDataSink(
@@ -1247,99 +1158,16 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         name="ds_report_sdc",
         run_without_submitting=True,
     )
-
     # fmt:off
     workflow.connect([
-        (inputnode, output_select, [
-            ("fmap", "fmap"),
-            ("fmap_ref", "fmap_ref"),
-            ("fmap_coeff", "fmap_coeff"),
-            ("fmap_mask", "fmap_mask"),
-            ("sdc_method", "sdc_method"),
-            ("fmap_id", "keys"),
-        ]),
-        (output_select, coeff2epi_wf, [
-            ("fmap_ref", "inputnode.fmap_ref"),
-            ("fmap_coeff", "inputnode.fmap_coeff"),
-            ("fmap_mask", "inputnode.fmap_mask")]),
-        (output_select, summary, [("sdc_method", "distortion_correction")]),
-        (initial_aslref_wf, coeff2epi_wf, [
-            ("outputnode.ref_image", "inputnode.target_ref"),
-            ("outputnode.asl_mask", "inputnode.target_mask")]),
-        (initial_aslref_wf, unwarp_wf, [("outputnode.ref_image", "inputnode.distorted_ref")]),
-        (coeff2epi_wf, unwarp_wf, [("outputnode.fmap_coeff", "inputnode.fmap_coeff")]),
-        (asl_hmc_wf, unwarp_wf, [("outputnode.xforms", "inputnode.hmc_xforms")]),
-        (initial_aslref_wf, sdc_report, [("outputnode.ref_image", "before")]),
-        (asl_split, unwarp_wf, [("out_files", "inputnode.distorted")]),
-        (final_aslref_wf, sdc_report, [
-            ("outputnode.ref_image", "after"),
-            ("outputnode.asl_mask", "wm_seg")]),
         (inputnode, ds_report_sdc, [("asl_file", "source_file")]),
         (sdc_report, ds_report_sdc, [("out_report", "in_file")]),
-
     ])
     # fmt:on
 
-    if "fieldmaps" in config.execution.debug:
-        # Generate additional reportlets to assess SDC
-        from sdcflows.interfaces.reportlets import FieldmapReportlet
-
-        # First, one for checking the co-registration between fieldmap and EPI
-        sdc_coreg_report = pe.Node(
-            SimpleBeforeAfter(
-                before_label="Distorted target",
-                after_label="Fieldmap ref.",
-            ),
-            name="sdc_coreg_report",
-            mem_gb=0.1,
-        )
-        ds_report_sdc_coreg = pe.Node(
-            DerivativesDataSink(
-                base_directory=config.execution.aslprep_dir,
-                datatype="figures",
-                desc="fmapCoreg",
-                dismiss_entities=("echo",),
-                suffix="asl",
-            ),
-            name="ds_report_sdc_coreg",
-            run_without_submitting=True,
-        )
-
-        # Second, showing the fieldmap reconstructed from coefficients in the EPI space
-        fmap_report = pe.Node(FieldmapReportlet(), "fmap_report")
-
-        ds_fmap_report = pe.Node(
-            DerivativesDataSink(
-                base_directory=config.execution.aslprep_dir,
-                datatype="figures",
-                desc="fieldmap",
-                dismiss_entities=("echo",),
-                suffix="asl",
-            ),
-            name="ds_fmap_report",
-            run_without_submitting=True,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (initial_aslref_wf, sdc_coreg_report, [("outputnode.ref_image", "before")]),
-            (coeff2epi_wf, sdc_coreg_report, [("coregister.inverse_warped_image", "after")]),
-            (final_aslref_wf, sdc_coreg_report, [("outputnode.asl_mask", "wm_seg")]),
-            (inputnode, ds_report_sdc_coreg, [("asl_file", "source_file")]),
-            (sdc_coreg_report, ds_report_sdc_coreg, [("out_report", "in_file")]),
-            (unwarp_wf, fmap_report, [(("outputnode.fieldmap", pop_file), "fieldmap")]),
-            (coeff2epi_wf, fmap_report, [("coregister.inverse_warped_image", "reference")]),
-            (final_aslref_wf, fmap_report, [("outputnode.asl_mask", "mask")]),
-            (fmap_report, ds_fmap_report, [("out_report", "in_file")]),
-            (inputnode, ds_fmap_report, [("asl_file", "source_file")]),
-        ])
-        # fmt:on
-
+    # OLD
     # fmt:off
     workflow.connect([
-        (unwarp_wf, asl_final, [("outputnode.corrected", "asl")]),
-        # remaining workflow connections
-        (unwarp_wf, final_aslref_wf, [("outputnode.corrected", "inputnode.asl_file")]),
         (unwarp_wf, asl_t1_trans_wf, [
             # TEMPORARY: For the moment we can't use frame-wise fieldmaps
             (("outputnode.fieldwarp_ref", pop_file), "inputnode.fieldwarp"),
