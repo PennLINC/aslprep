@@ -425,14 +425,20 @@ def init_carpetplot_wf(
 
     # fmt:off
     workflow.connect([
-        (inputnode, mrg_xfms, [("t1_bold_xform", "in1"),
-                               ("std2anat_xfm", "in2")]),
+        (inputnode, mrg_xfms, [
+            ("t1_bold_xform", "in1"),
+            ("std2anat_xfm", "in2"),
+        ]),
         (inputnode, resample_parc, [("bold_mask", "reference_image")]),
-        (inputnode, parcels, [("crown_mask", "crown_mask")]),
-        (inputnode, parcels, [("acompcor_mask", "acompcor_mask")]),
-        (inputnode, conf_plot, [("bold", "in_nifti"),
-                                ("confounds_file", "confounds_file"),
-                                ("dummy_scans", "drop_trs")]),
+        (inputnode, parcels, [
+            ("crown_mask", "crown_mask"),
+            ("acompcor_mask", "acompcor_mask"),
+        ]),
+        (inputnode, conf_plot, [
+            ("bold", "in_nifti"),
+            ("confounds_file", "confounds_file"),
+            ("dummy_scans", "drop_trs"),
+        ]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
         (resample_parc, parcels, [("output_image", "segmentation")]),
         (parcels, conf_plot, [("out", "in_segm")]),

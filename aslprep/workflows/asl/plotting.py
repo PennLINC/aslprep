@@ -10,6 +10,7 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.confounds import GatherCBFConfounds
 from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummary
+from aslprep.utils.misc import _select_last_in_list
 from aslprep.workflows.asl.confounds import init_carpetplot_wf
 
 
@@ -47,7 +48,7 @@ def init_plot_cbf_wf(
                 "std2anat_xfm",
                 # If plot_timeseries is True
                 "crown_mask",
-                "acompcor_mask",
+                "acompcor_masks",
                 # CBF outputs
                 "mean_cbf",
                 # Single-delay outputs
@@ -124,7 +125,7 @@ def init_plot_cbf_wf(
         workflow.connect([
             (inputnode, merge_rois, [
                 ("asl_mask", "in1"),
-                ("acompcor_mask", "in2"),
+                ("acompcor_masks", "in2"),
             ]),
             (inputnode, signals, [("cbf_ts", "in_file")]),
             (merge_rois, signals, [("out", "label_files")]),
@@ -169,7 +170,7 @@ def init_plot_cbf_wf(
                 ("asl_mask", "inputnode.bold_mask"),
                 ("anat_to_aslref_xfm", "inputnode.t1_bold_xform"),
                 ("crown_mask", "inputnode.crown_mask"),
-                ("acompcor_mask", "inputnode.acompcor_mask"),
+                (("acompcor_mask", _select_last_in_list), "inputnode.acompcor_mask"),
             ]),
             (create_cbf_confounds, carpetplot_wf, [
                 ("confounds_file", "inputnode.confounds_file"),

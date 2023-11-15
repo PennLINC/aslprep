@@ -937,7 +937,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (refine_mask, plot_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
             (asl_confounds_wf, plot_cbf_wf, [
                 ("outputnode.crown_mask", "inputnode.crown_mask"),
-                (("outputnode.acompcor_masks", _select_last_in_list), "inputnode.acompcor_mask"),
+                ("outputnode.acompcor_masks", "inputnode.acompcor_masks"),
             ]),
         ])
         # fmt:on
