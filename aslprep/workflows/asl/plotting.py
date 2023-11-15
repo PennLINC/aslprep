@@ -170,7 +170,7 @@ def init_plot_cbf_wf(
                 ("asl_mask", "inputnode.bold_mask"),
                 ("anat_to_aslref_xfm", "inputnode.t1_bold_xform"),
                 ("crown_mask", "inputnode.crown_mask"),
-                (("acompcor_mask", _select_last_in_list), "inputnode.acompcor_mask"),
+                (("acompcor_masks", _select_last_in_list), "inputnode.acompcor_mask"),
             ]),
             (create_cbf_confounds, carpetplot_wf, [
                 ("confounds_file", "inputnode.confounds_file"),
