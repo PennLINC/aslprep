@@ -29,7 +29,10 @@ from aslprep.utils.misc import _create_mem_gb, _get_wf_name, _select_last_in_lis
 from aslprep.workflows.asl.cbf import init_compute_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
-from aslprep.workflows.asl.outputs import init_asl_derivatives_wf, init_ds_registration_wf
+from aslprep.workflows.asl.outputs import (
+    init_asl_derivatives_wf,
+    init_ds_registration_wf,
+)
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
 from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
@@ -480,6 +483,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         name="asl_t1_trans_wf",
     )
     asl_t1_trans_wf.inputs.inputnode.fieldwarp = "identity"
+
     # fmt:off
     workflow.connect([
         (inputnode, asl_t1_trans_wf, [
@@ -894,7 +898,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (initial_aslref_wf, carpetplot_wf, [
                 ("outputnode.skip_vols", "inputnode.dummy_scans"),
             ]),
-            (inputnode, carpetplot_wf, [("mni2009c2anat_xfm", "inputnode.mni2009c2anat_xfm")]),
+            (inputnode, carpetplot_wf, [("mni2009c2anat_xfm", "inputnode.std2anat_xfm")]),
             (asl_final, carpetplot_wf, [
                 ("asl", "inputnode.bold"),
                 ("mask", "inputnode.bold_mask"),
@@ -1069,7 +1073,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     ds_fmapreg_wf = init_ds_registration_wf(
         bids_root=layout.root,
-        output_dir=config.execution.fmriprep_dir,
+        output_dir=config.execution.aslprep_dir,
         source="aslref",
         dest=fieldmap_id.replace("_", ""),
         name="ds_fmapreg_wf",
@@ -1162,20 +1166,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([
         (inputnode, ds_report_sdc, [("asl_file", "source_file")]),
         (sdc_report, ds_report_sdc, [("out_report", "in_file")]),
-    ])
-    # fmt:on
-
-    # OLD
-    # fmt:off
-    workflow.connect([
-        (unwarp_wf, asl_t1_trans_wf, [
-            # TEMPORARY: For the moment we can't use frame-wise fieldmaps
-            (("outputnode.fieldwarp_ref", pop_file), "inputnode.fieldwarp"),
-        ]),
-        (unwarp_wf, asl_std_trans_wf, [
-            # TEMPORARY: For the moment we can't use frame-wise fieldmaps
-            (("outputnode.fieldwarp_ref", pop_file), "inputnode.fieldwarp"),
-        ]),
     ])
     # fmt:on
 

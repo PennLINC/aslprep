@@ -4,6 +4,7 @@
 import os
 import sys
 from copy import deepcopy
+from typing import Union
 
 import bids
 from nipype.interfaces import utility as niu
@@ -356,7 +357,7 @@ their manuscripts unchanged. It is released under the unchanged
             debug="fieldmaps" in config.execution.debug,
             estimators=fmap_estimators,
             omp_nthreads=config.nipype.omp_nthreads,
-            output_dir=str(config.execution.fmriprep_dir),
+            output_dir=str(config.execution.aslprep_dir),
             subject=subject_id,
         )
         fmap_wf.__desc__ = f"""
@@ -410,9 +411,12 @@ Setting-up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
             elif estimator.method == fm.EstimatorType.ANAT:
                 from sdcflows.workflows.fit.syn import init_syn_preprocessing_wf
 
-                sources = [str(s.path) for s in estimator.sources if s.suffix in ("bold", "sbref")]
+                sources = [
+                    str(s.path) for s in estimator.sources if s.suffix in
+                    ("asl", "m0scan", "sbref")
+                ]
                 source_meta = [
-                    s.metadata for s in estimator.sources if s.suffix in ("bold", "sbref")
+                    s.metadata for s in estimator.sources if s.suffix in ("asl", "m0scan", "sbref")
                 ]
                 syn_preprocessing_wf = init_syn_preprocessing_wf(
                     omp_nthreads=config.nipype.omp_nthreads,
@@ -465,7 +469,7 @@ tasks and sessions), the following preprocessing was performed.
             config.loggers.workflow.warning("Using GE-specific processing.")
 
         asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_preproc_wf
-        asl_preproc_wf = asl_preproc_func(asl_file, fieldmap_id=fieldmap_id)
+        asl_preproc_wf = asl_preproc_func(asl_file=asl_file, fieldmap_id=fieldmap_id)
 
         if asl_preproc_wf is None:
             continue
@@ -482,7 +486,6 @@ tasks and sessions), the following preprocessing was performed.
                 ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
                 ("outputnode.template", "inputnode.template"),
                 ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
-                ("outputnode.std2anat_xfm", "inputnode.std2anat_xfm"),
                 # Undefined if --fs-no-reconall, but this is safe
                 ("outputnode.subjects_dir", "inputnode.subjects_dir"),
                 ("outputnode.subject_id", "inputnode.subject_id"),
@@ -526,10 +529,11 @@ def map_fieldmap_estimation(
     subject_id: str,
     bold_data: list,
     ignore_fieldmaps: bool,
-    use_syn: bool | str,
+    use_syn: Union[bool, str],
     force_syn: bool,
-    filters: dict | None,
+    filters: Union[dict, None],
 ) -> tuple[list, dict]:
+    """Identify field maps to use, if any."""
     if not any((not ignore_fieldmaps, use_syn, force_syn)):
         return [], {}
 
