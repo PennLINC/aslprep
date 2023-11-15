@@ -33,6 +33,8 @@ def init_plot_cbf_wf(
                 metadata={"RepetitionTimePreparation": 4},
             )
     """
+    from niworkflows.interfaces.images import SignalExtraction
+
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -101,17 +103,59 @@ def init_plot_cbf_wf(
     # fmt:on
 
     if plot_timeseries:
+        # Global and segment regressors
+        signals_class_labels = [
+            "global_signal",
+            "csf",
+            "white_matter",
+            "csf_wm",
+        ]
+        merge_rois = pe.Node(
+            niu.Merge(2, ravel_inputs=True),
+            name="merge_rois",
+            run_without_submitting=True,
+        )
+        signals = pe.Node(
+            SignalExtraction(class_labels=signals_class_labels),
+            name="signals",
+            mem_gb=2,
+        )
+        # fmt:off
+        workflow.connect([
+            (inputnode, merge_rois, [
+                ("asl_mask", "in1"),
+                ("acompcor_mask", "in2"),
+            ]),
+            (inputnode, signals, [("asl", "in_file")]),
+            (merge_rois, signals, [("out", "label_files")]),
+        ])
+        # fmt:on
+
         # Time series are only available for non-GE data.
         # Create confounds file with SCORE index
         create_cbf_confounds = pe.Node(
             GatherCBFConfounds(),
             name="create_cbf_confounds",
         )
-        workflow.connect([(inputnode, create_cbf_confounds, [("score_outlier_index", "score")])])
+        # fmt:off
+        workflow.connect([
+            (inputnode, create_cbf_confounds, [("score_outlier_index", "score")]),
+            (signals, create_cbf_confounds, [("out_file", "signals")]),
+        ])
+        # fmt:on
 
         carpetplot_wf = init_carpetplot_wf(
             mem_gb=2,
-            confounds_list=[("score_outlier_index", None, "SCORE Index")] if scorescrub else None,
+            confounds_list=[
+                ("global_signal", None, "GS"),
+                ("csf", None, "GSCSF"),
+                ("white_matter", None, "GSWM"),
+                ("std_dvars", None, "DVARS"),
+                ("framewise_displacement", "mm", "FD"),
+            ]
+            + [("score_outlier_index", None, "SCORE Index")]
+            if scorescrub
+            else [],
             metadata=metadata,
             cifti_output=False,
             suffix="cbf",

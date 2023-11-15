@@ -51,6 +51,7 @@ class GatherConfounds(SimpleInterface):
 
 
 class _GatherCBFConfoundsInputSpec(BaseInterfaceInputSpec):
+    signals = File(exists=True, desc="input signals")
     score = File(exists=True, desc="SCORE outlier index")
 
 
@@ -67,7 +68,7 @@ class GatherCBFConfounds(SimpleInterface):
 
     def _run_interface(self, runtime):
         combined_out, confounds_list = _gather_confounds(
-            signals=None,
+            signals=self.inputs.signals,
             dvars=None,
             rmsd=None,
             std_dvars=None,
