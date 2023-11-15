@@ -27,8 +27,10 @@ class _ASLSummaryInputSpec(BaseInterfaceInputSpec):
         traits.Tuple(traits.Str, traits.Either(None, traits.Str)),
         traits.Tuple(traits.Str, traits.Either(None, traits.Str), traits.Either(None, traits.Str)),
     )
-    confounds_list = traits.List(
-        str_or_tuple, minlen=1, desc="list of headers to extract from the confounds_file"
+    confounds_list = traits.Either(
+        traits.List(str_or_tuple, minlen=1),
+        None,
+        desc="list of headers to extract from the confounds_file",
     )
     tr = traits.Either(None, traits.Float, usedefault=True, desc="the repetition time")
     drop_trs = traits.Int(0, usedefault=True, desc="dummy scans")
@@ -107,8 +109,7 @@ class ASLSummary(SimpleInterface):
             units = None
         else:
             data = dataframe[headers]
-
-        data = data.rename(columns=names)
+            data = data.rename(columns=names)
 
         fig = fMRIPlot(
             dataset,
