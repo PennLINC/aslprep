@@ -15,7 +15,6 @@ from fmriprep.workflows.bold.resampling import (
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.interfaces.nitransforms import ConcatenateXFMs
-from niworkflows.utils.connections import pop_file
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
