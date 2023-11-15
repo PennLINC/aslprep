@@ -126,7 +126,7 @@ def init_plot_cbf_wf(
                 ("asl_mask", "in1"),
                 ("acompcor_mask", "in2"),
             ]),
-            (inputnode, signals, [("asl", "in_file")]),
+            (inputnode, signals, [("cbf_ts", "in_file")]),
             (merge_rois, signals, [("out", "label_files")]),
         ])
         # fmt:on
