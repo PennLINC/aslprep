@@ -151,8 +151,6 @@ def init_plot_cbf_wf(
                 ("global_signal", None, "GS"),
                 ("csf", None, "GSCSF"),
                 ("white_matter", None, "GSWM"),
-                ("std_dvars", None, "DVARS"),
-                ("framewise_displacement", "mm", "FD"),
             ]
             + ([("score_outlier_index", None, "SCORE Index")] if scorescrub else []),
             metadata=metadata,
