@@ -1021,7 +1021,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ],
             metadata=metadata,
             cifti_output=config.workflow.cifti_output,
-            name="carpetplot_wf",
+            suffix="asl",
+            name="asl_carpetplot_wf",
         )
 
         # Xform to "MNI152NLin2009cAsym" is always computed.

@@ -114,6 +114,7 @@ def init_plot_cbf_wf(
             confounds_list=[("score_outlier_index", None, "SCORE Index")] if scorescrub else None,
             metadata=metadata,
             cifti_output=False,
+            suffix="cbf",
             name="cbf_carpetplot_wf",
         )
         carpetplot_wf.inputs.inputnode.dummy_scans = 0

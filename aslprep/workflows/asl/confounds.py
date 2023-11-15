@@ -301,6 +301,7 @@ def init_carpetplot_wf(
     confounds_list: list,
     metadata: dict,
     cifti_output: bool,
+    suffix: str = "asl",
     name: str = "bold_carpet_wf",
 ):
     """
@@ -385,6 +386,7 @@ def init_carpetplot_wf(
         DerivativesDataSink(
             desc="carpetplot",
             datatype="figures",
+            suffix=suffix,
             extension="svg",
             dismiss_entities=("echo",),
         ),
