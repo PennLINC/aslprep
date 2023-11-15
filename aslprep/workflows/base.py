@@ -412,8 +412,9 @@ Setting-up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                 from sdcflows.workflows.fit.syn import init_syn_preprocessing_wf
 
                 sources = [
-                    str(s.path) for s in estimator.sources if s.suffix in
-                    ("asl", "m0scan", "sbref")
+                    str(s.path)
+                    for s in estimator.sources
+                    if s.suffix in ("asl", "m0scan", "sbref")
                 ]
                 source_meta = [
                     s.metadata for s in estimator.sources if s.suffix in ("asl", "m0scan", "sbref")
