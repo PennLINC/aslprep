@@ -153,9 +153,7 @@ def init_plot_cbf_wf(
                 ("std_dvars", None, "DVARS"),
                 ("framewise_displacement", "mm", "FD"),
             ]
-            + [("score_outlier_index", None, "SCORE Index")]
-            if scorescrub
-            else [],
+            + ([("score_outlier_index", None, "SCORE Index")] if scorescrub else []),
             metadata=metadata,
             cifti_output=False,
             suffix="cbf",
