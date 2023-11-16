@@ -1,6 +1,9 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """CBF-processing workflows for GE data."""
+import typing as ty
+
+import numpy as np
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
@@ -15,6 +18,7 @@ from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.utils.asl import determine_multi_pld
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
+from aslprep.workflows.asl.base import get_img_orientation
 from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf, init_asl_reg_ge_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
@@ -24,7 +28,11 @@ from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
 from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 
 
-def init_asl_gepreproc_wf(asl_file):
+def init_asl_gepreproc_wf(
+    *,
+    asl_file: str,
+    fieldmap_id: ty.Optional[str] = None,
+):
     """Manage the functional preprocessing stages of ASLPrep, for GE data.
 
     Workflow Graph
@@ -38,15 +46,18 @@ def init_asl_gepreproc_wf(asl_file):
 
             with mock_config():
                 asl_file = (
-                    config.execution.bids_dir / 'sub-01' / 'perf' /
-                    'sub-01_asl.nii.gz'
+                    config.execution.bids_dir / "sub-01" / "perf" /
+                    "sub-01_asl.nii.gz"
                 )
-                wf = init_asl_gepreproc_wf(str(asl_file))
+                wf = init_asl_gepreproc_wf(asl_file=str(asl_file))
 
     Parameters
     ----------
     asl_file
         asl series NIfTI file
+    fieldmap_id
+        ID of the fieldmap to use to correct this BOLD series. If :obj:`None`,
+        no correction will be applied.
 
     Inputs
     ------
@@ -65,6 +76,18 @@ def init_asl_gepreproc_wf(asl_file):
         Parcellation of structural image, done with FreeSurfer.
     t1w_tpms
         List of tissue probability maps in T1w space
+    fmap_id
+        Unique identifiers to select fieldmap files
+    fmap
+        List of estimated fieldmaps (collated with fmap_id)
+    fmap_ref
+        List of fieldmap reference files (collated with fmap_id)
+    fmap_coeff
+        List of lists of spline coefficient files (collated with fmap_id)
+    fmap_mask
+        List of fieldmap masks (collated with fmap_id)
+    sdc_method
+        List of fieldmap correction method names (collated with fmap_id)
     template
         List of templates to target
     anat2std_xfm
@@ -138,17 +161,6 @@ def init_asl_gepreproc_wf(asl_file):
     8.  CBF plotting workflow.
     9.  CBF QC workflow.
     10. Parcellate CBF results.
-
-    See Also
-    --------
-    * :py:func:`~aslprep.workflows.asl.confounds.init_asl_confounds_wf`
-    * :py:func:`~aslprep.workflows.asl.confounds.init_ica_aroma_wf`
-    * :py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
-    * :py:func:`~sdcflows.workflows.fmap.init_fmap_wf`
-    * :py:func:`~sdcflows.workflows.pepolar.init_pepolar_unwarp_wf`
-    * :py:func:`~sdcflows.workflows.phdiff.init_phdiff_wf`
-    * :py:func:`~sdcflows.workflows.syn.init_syn_sdc_wf`
-    * :py:func:`~sdcflows.workflows.unwarp.init_sdc_unwarp_wf`
     """
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
@@ -159,15 +171,18 @@ def init_asl_gepreproc_wf(asl_file):
     spaces = config.workflow.spaces
     output_dir = str(config.execution.output_dir)
     m0_scale = config.workflow.m0_scale
-    scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
     smooth_kernel = config.workflow.smooth_kernel
 
-    if scorescrub:
+    if config.workflow.scorescrub:
         config.loggers.workflow.warning(f"SCORE/SCRUB processing will be disabled for {asl_file}")
         scorescrub = False
 
+    # Take first file (only file, because we don't support multi-echo ASL) as reference
     ref_file = asl_file
+    # get original image orientation
+    ref_orientation = get_img_orientation(ref_file)
+
     asl_tlen, mem_gb = _create_mem_gb(ref_file)
 
     wf_name = _get_wf_name(ref_file)
@@ -184,6 +199,38 @@ def init_asl_gepreproc_wf(asl_file):
     # Collect associated files
     run_data = collect_run_data(layout, ref_file)
     metadata = run_data["asl_metadata"].copy()
+
+    # Patch RepetitionTimePreparation into RepetitionTime,
+    # for the sake of BOLD-based interfaces and workflows.
+    # This value shouldn't be used for anything except figures and reportlets.
+    metadata["RepetitionTime"] = metadata.get(
+        "RepetitionTime",
+        np.mean(metadata["RepetitionTimePreparation"]),
+    )
+
+    is_multi_pld = determine_multi_pld(metadata=metadata)
+
+    cbf_derivs = ["mean_cbf"]
+    mean_cbf_derivs = ["mean_cbf"]
+
+    if is_multi_pld:
+        cbf_derivs += ["att"]
+    else:
+        cbf_derivs += ["cbf_ts"]
+
+    # SCORE/SCRUB is blocked for GE data.
+    if basil:
+        cbf_derivs += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+            "mean_cbf_wm_basil",
+            "att_basil",
+        ]
+        # We don't want mean_cbf_wm_basil for this list.
+        mean_cbf_derivs += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+        ]
 
     # Build workflow
     workflow = Workflow(name=wf_name)
@@ -219,8 +266,6 @@ effects of other kernels [@lanczos].
     inputnode.inputs.aslcontext = run_data["aslcontext"]
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
-
-    is_multi_pld = determine_multi_pld(metadata)
 
     # Generate a brain-masked conversion of the t1w
     t1w_brain = pe.Node(ApplyMask(), name="t1w_brain")
@@ -351,27 +396,6 @@ effects of other kernels [@lanczos].
         mem_gb=mem_gb["filesize"],
         name="compute_cbf_wf",
     )
-    cbf_derivs = ["mean_cbf"]
-    mean_cbf_derivs = ["mean_cbf"]
-
-    if is_multi_pld:
-        cbf_derivs += ["att"]
-    else:
-        cbf_derivs += ["cbf_ts"]
-
-    # SCORE/SCRUB is blocked for GE data.
-    if basil:
-        cbf_derivs += [
-            "mean_cbf_basil",
-            "mean_cbf_gm_basil",
-            "mean_cbf_wm_basil",
-            "att_basil",
-        ]
-        # We don't want mean_cbf_wm_basil for this list.
-        mean_cbf_derivs += [
-            "mean_cbf_basil",
-            "mean_cbf_gm_basil",
-        ]
 
     # fmt:off
     workflow.connect([
@@ -673,15 +697,12 @@ effects of other kernels [@lanczos].
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
-
-    # fmt:off
     workflow.connect([(summary, ds_report_summary, [("out_report", "in_file")])])
-    # fmt:on
 
     # Fill-in datasinks of reportlets seen so far
     for node in workflow.list_node_names():
         if node.split(".")[-1].startswith("ds_report"):
-            workflow.get_node(node).inputs.base_directory = output_dir
+            workflow.get_node(node).inputs.base_directory = config.execution.aslprep_dir
             workflow.get_node(node).inputs.source_file = ref_file
 
     return workflow
