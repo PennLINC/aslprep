@@ -813,7 +813,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (asl_t1_trans_wf, asl_surf_wf, [("outputnode.bold_t1", "inputnode.source_file")]),
             (asl_surf_wf, asl_derivatives_wf, [
-                ("outputnode.surfaces", "inputnode.surfaces"),
+                ("outputnode.surfaces", "inputnode.surf_files"),
                 ("outputnode.target", "inputnode.surf_refs"),
             ]),
         ])
@@ -856,7 +856,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.spatial_reference", "inputnode.spatial_reference"),
             ]),
             (asl_fsLR_resampling_wf, asl_grayords_wf, [
-                ("outputnode.asl_fsLR", "inputnode.bold_fsLR"),
+                ("outputnode.bold_fsLR", "inputnode.bold_fsLR"),
             ]),
             (asl_grayords_wf, asl_derivatives_wf, [
                 ("outputnode.cifti_bold", "inputnode.asl_cifti"),
