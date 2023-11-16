@@ -811,7 +811,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("subject_id", "inputnode.subject_id"),
                 ("t1w2fsnative_xfm", "inputnode.t1w2fsnative_xfm"),
             ]),
-            (asl_t1_trans_wf, asl_surf_wf, [("outputnode.asl_t1", "inputnode.source_file")]),
+            (asl_t1_trans_wf, asl_surf_wf, [("outputnode.bold_t1", "inputnode.source_file")]),
             (asl_surf_wf, asl_derivatives_wf, [
                 ("outputnode.surfaces", "inputnode.surfaces"),
                 ("outputnode.target", "inputnode.surf_refs"),
@@ -836,7 +836,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("anat_ribbon", "inputnode.anat_ribbon"),
             ]),
             (asl_t1_trans_wf, asl_fsLR_resampling_wf, [
-                ("outputnode.asl_t1", "inputnode.bold_file"),
+                ("outputnode.bold_t1", "inputnode.bold_file"),
             ]),
             (asl_fsLR_resampling_wf, asl_derivatives_wf, [
                 ("outputnode.goodvoxels_mask", "inputnode.goodvoxels_mask"),
