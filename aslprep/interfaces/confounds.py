@@ -77,9 +77,6 @@ class GatherCBFConfounds(SimpleInterface):
             score=self.inputs.score,
             newpath=runtime.cwd,
         )
-        import pandas as pd
-        df = pd.read_table(combined_out)
-        raise Exception(df)
         self._results["confounds_file"] = combined_out
         self._results["confounds_list"] = confounds_list
         return runtime

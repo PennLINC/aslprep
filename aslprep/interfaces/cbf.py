@@ -517,7 +517,6 @@ class ComputeCBF(SimpleInterface):
 
         # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
-        orig_m0data = m0data.copy()
         m0data = np.mean(m0data, axis=0)
         scaled_m0data = m0_scale * m0data
 
@@ -665,23 +664,7 @@ class ComputeCBF(SimpleInterface):
             )
 
             cbf_ts = deltam_scaled * perfusion_factor
-            # cbf_ts = np.nan_to_num(cbf_ts)
-            if np.any(np.isinf(cbf_ts)):
-                config.loggers.interface.warning("Infs detected in CBF time series.")
-                inf_idx = np.where(cbf_ts == np.max(cbf_ts))[0]
-                inf_idx = inf_idx[0]
-                err_str = (
-                    f"idx: {inf_idx}\n"
-                    f"m0data: {m0data[inf_idx]}\n"
-                    f"orig_m0data: {orig_m0data[:, inf_idx]}\n"
-                    f"scaled_m0data: {scaled_m0data[inf_idx]}\n"
-                    f"deltam_arr: {deltam_arr[inf_idx, :]}\n"
-                    f"deltam_scaled: {deltam_scaled[inf_idx, :]}\n"
-                    f"perfusion_factor: {perfusion_factor}\n"
-                    f"cbf_ts: {cbf_ts[inf_idx, :]}"
-                )
-                raise ValueError(err_str)
-
+            cbf_ts = np.nan_to_num(cbf_ts, nan=0, posinf=0, neginf=0)
             cbf_ts_img = masker.inverse_transform(cbf_ts.T)
             mean_cbf_img = image.mean_img(cbf_ts_img)
             self._results["cbf_ts"] = fname_presuffix(
