@@ -9,28 +9,25 @@ templateflow_version = "23.1.0"
 version = "0.6.0rc2.dev109+gbd443e3"
 
 [execution]
-anat_derivatives = "/src/aslprep/.circleci/data/test_001/derivatives/smriprep"
 bids_dir = "ds000240/"
-bids_database_dir = "/src/aslprep/.circleci/work/test_001/20231113-185441_194424c2-d23d-4aeb-8611-82b69df990ad/bids_db"
 bids_description_hash = "d1cefcd38b7b3ab51fa1b78d5cf34a8efb1d07fc3208b8042fc105491bd9b2df"
 boilerplate_only = false
 sloppy = false
 debug = []
-aslprep_dir = "/tmp"
-fs_subjects_dir = "/src/aslprep/.circleci/out/test_001/aslprep/sourcedata/freesurfer"
-layout = "BIDS Layout: ...slprep/.circleci/data/test_001 | Subjects: 1 | Sessions: 0 | Runs: 0"
+fs_license_file = "/opt/freesurfer/license.txt"
+fs_subjects_dir = "/opt/freesurfer/subjects"
 log_dir = "/src/aslprep/.circleci/out/test_001/aslprep/logs"
 log_level = 25
 low_mem = false
 md_only_boilerplate = false
 notrack = false
 output_dir = "/tmp"
-output_spaces = "asl T1w MNI152NLin2009cAsym:res-native"
+output_spaces = "asl T1w MNI152NLin2009cAsym:res-native fsaverage:den-10k fsaverage:den-30k"
 reports_only = false
 run_uuid = "20231113-185441_194424c2-d23d-4aeb-8611-82b69df990ad"
 participant_label = [ "01",]
 templateflow_home = "~/.cache/templateflow"
-work_dir = "/work/"
+work_dir = "work/"
 write_graph = false
 
 [workflow]
