@@ -517,6 +517,7 @@ class ComputeCBF(SimpleInterface):
 
         # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
+        orig_m0data = m0data.copy()
         m0data = np.mean(m0data, axis=0)
         scaled_m0data = m0_scale * m0data
 
@@ -671,6 +672,9 @@ class ComputeCBF(SimpleInterface):
                 inf_idx = inf_idx[0]
                 err_str = (
                     f"idx: {inf_idx}\n"
+                    f"m0data: {m0data[inf_idx]}\n"
+                    f"orig_m0data: {orig_m0data[:, inf_idx]}\n"
+                    f"scaled_m0data: {scaled_m0data[inf_idx]}\n"
                     f"deltam_arr: {deltam_arr[inf_idx, :]}\n"
                     f"deltam_scaled: {deltam_scaled[inf_idx, :]}\n"
                     f"perfusion_factor: {perfusion_factor}\n"
