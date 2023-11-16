@@ -667,13 +667,14 @@ class ComputeCBF(SimpleInterface):
             # cbf_ts = np.nan_to_num(cbf_ts)
             if np.any(np.isinf(cbf_ts)):
                 config.loggers.interface.warning("Infs detected in CBF time series.")
-                inf_idx = np.where(np.isinf(np.mean(cbf_ts, axis=1)))
-                inf_idx = inf_idx[0][0]
+                inf_idx = np.where(cbf_ts == np.max(cbf_ts))[0]
+                inf_idx = inf_idx[0]
                 err_str = (
-                    f"deltam_arr: {deltam_arr[inf_idx[0], :]}\n"
-                    f"deltam_scaled: {deltam_scaled[inf_idx[0], :]}\n"
+                    f"idx: {inf_idx}\n"
+                    f"deltam_arr: {deltam_arr[inf_idx, :]}\n"
+                    f"deltam_scaled: {deltam_scaled[inf_idx, :]}\n"
                     f"perfusion_factor: {perfusion_factor}\n"
-                    f"cbf_ts: {cbf_ts[inf_idx[0], :]}"
+                    f"cbf_ts: {cbf_ts[inf_idx, :]}"
                 )
                 raise ValueError(err_str)
 
