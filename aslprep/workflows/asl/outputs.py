@@ -191,6 +191,11 @@ def init_asl_derivatives_wf(
                 "goodvoxels_mask",
                 "surf_files",
                 "surf_refs",
+                # Freesurfer outputs
+                "asl_aseg_t1",
+                "asl_aseg_std",
+                "asl_aparc_t1",
+                "asl_aparc_std",
             ],
         ),
         name="inputnode",
@@ -486,7 +491,7 @@ def init_asl_derivatives_wf(
             # fmt:on
 
         if freesurfer:
-            ds_bold_aseg_t1 = pe.Node(
+            ds_asl_aseg_t1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=config.execution.aslprep_dir,
                     space="T1w",
@@ -495,11 +500,11 @@ def init_asl_derivatives_wf(
                     compress=True,
                     dismiss_entities=("echo",),
                 ),
-                name="ds_bold_aseg_t1",
+                name="ds_asl_aseg_t1",
                 run_without_submitting=True,
                 mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             )
-            ds_bold_aparc_t1 = pe.Node(
+            ds_asl_aparc_t1 = pe.Node(
                 DerivativesDataSink(
                     base_directory=config.execution.aslprep_dir,
                     space="T1w",
@@ -508,19 +513,19 @@ def init_asl_derivatives_wf(
                     compress=True,
                     dismiss_entities=("echo",),
                 ),
-                name="ds_bold_aparc_t1",
+                name="ds_asl_aparc_t1",
                 run_without_submitting=True,
                 mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             )
             # fmt:off
             workflow.connect([
-                (inputnode, ds_bold_aseg_t1, [
+                (inputnode, ds_asl_aseg_t1, [
                     ("source_file", "source_file"),
-                    ("bold_aseg_t1", "in_file"),
+                    ("asl_aseg_t1", "in_file"),
                 ]),
-                (inputnode, ds_bold_aparc_t1, [
+                (inputnode, ds_asl_aparc_t1, [
                     ("source_file", "source_file"),
-                    ("bold_aparc_t1", "in_file"),
+                    ("asl_aparc_t1", "in_file"),
                 ]),
             ])
             # fmt:on
@@ -585,12 +590,12 @@ def init_asl_derivatives_wf(
 
         if freesurfer:
             select_fs_std = pe.Node(
-                KeySelect(fields=["bold_aseg_std", "bold_aparc_std", "template"]),
+                KeySelect(fields=["asl_aseg_std", "asl_aparc_std", "template"]),
                 name="select_fs_std",
                 run_without_submitting=True,
                 mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             )
-            ds_bold_aseg_std = pe.Node(
+            ds_asl_aseg_std = pe.Node(
                 DerivativesDataSink(
                     base_directory=config.execution.aslprep_dir,
                     desc="aseg",
@@ -598,11 +603,11 @@ def init_asl_derivatives_wf(
                     compress=True,
                     dismiss_entities=("echo",),
                 ),
-                name="ds_bold_aseg_std",
+                name="ds_asl_aseg_std",
                 run_without_submitting=True,
                 mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             )
-            ds_bold_aparc_std = pe.Node(
+            ds_asl_aparc_std = pe.Node(
                 DerivativesDataSink(
                     base_directory=config.execution.aslprep_dir,
                     desc="aparcaseg",
@@ -610,7 +615,7 @@ def init_asl_derivatives_wf(
                     compress=True,
                     dismiss_entities=("echo",),
                 ),
-                name="ds_bold_aparc_std",
+                name="ds_asl_aparc_std",
                 run_without_submitting=True,
                 mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             )
@@ -618,27 +623,27 @@ def init_asl_derivatives_wf(
             workflow.connect([
                 (spacesource, select_fs_std, [("uid", "key")]),
                 (inputnode, select_fs_std, [
-                    ("bold_aseg_std", "bold_aseg_std"),
-                    ("bold_aparc_std", "bold_aparc_std"),
+                    ("asl_aseg_std", "asl_aseg_std"),
+                    ("asl_aparc_std", "asl_aparc_std"),
                     ("template", "template"),
                     ("spatial_reference", "keys"),
                 ]),
-                (select_fs_std, ds_bold_aseg_std, [("bold_aseg_std", "in_file")]),
-                (spacesource, ds_bold_aseg_std, [
+                (select_fs_std, ds_asl_aseg_std, [("asl_aseg_std", "in_file")]),
+                (spacesource, ds_asl_aseg_std, [
                     ("space", "space"),
                     ("cohort", "cohort"),
                     ("resolution", "resolution"),
                     ("density", "density"),
                 ]),
-                (select_fs_std, ds_bold_aparc_std, [("bold_aparc_std", "in_file")]),
-                (spacesource, ds_bold_aparc_std, [
+                (select_fs_std, ds_asl_aparc_std, [("asl_aparc_std", "in_file")]),
+                (spacesource, ds_asl_aparc_std, [
                     ("space", "space"),
                     ("cohort", "cohort"),
                     ("resolution", "resolution"),
                     ("density", "density"),
                 ]),
-                (inputnode, ds_bold_aseg_std, [("source_file", "source_file")]),
-                (inputnode, ds_bold_aparc_std, [("source_file", "source_file")])
+                (inputnode, ds_asl_aseg_std, [("source_file", "source_file")]),
+                (inputnode, ds_asl_aparc_std, [("source_file", "source_file")])
             ])
             # fmt:on
 
@@ -662,14 +667,14 @@ def init_asl_derivatives_wf(
             run_without_submitting=True,
         )
 
-        ds_bold_surfs = pe.MapNode(
+        ds_asl_surfs = pe.MapNode(
             DerivativesDataSink(
                 base_directory=config.execution.aslprep_dir,
                 extension=".func.gii",
                 TaskName=metadata.get("TaskName"),
             ),
             iterfield=["in_file", "hemi"],
-            name="ds_bold_surfs",
+            name="ds_asl_surfs",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
@@ -680,12 +685,12 @@ def init_asl_derivatives_wf(
                 ("surf_refs", "keys"),
             ]),
             (select_fs_surf, name_surfs, [("surfaces", "in_file")]),
-            (inputnode, ds_bold_surfs, [("source_file", "source_file")]),
-            (select_fs_surf, ds_bold_surfs, [
+            (inputnode, ds_asl_surfs, [("source_file", "source_file")]),
+            (select_fs_surf, ds_asl_surfs, [
                 ("surfaces", "in_file"),
                 ("key", "space"),
             ]),
-            (name_surfs, ds_bold_surfs, [("hemi", "hemi")]),
+            (name_surfs, ds_asl_surfs, [("hemi", "hemi")]),
         ])
         # fmt:on
 
@@ -715,22 +720,22 @@ def init_asl_derivatives_wf(
 
     # CIFTI output
     if cifti_output:
-        ds_bold_cifti = pe.Node(
+        ds_asl_cifti = pe.Node(
             DerivativesDataSink(
                 base_directory=config.execution.aslprep_dir,
-                suffix="bold",
+                suffix="asl",
                 compress=False,
                 TaskName=metadata.get("TaskName"),
                 space="fsLR",
             ),
-            name="ds_bold_cifti",
+            name="ds_asl_cifti",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         # fmt:off
         workflow.connect([
-            (inputnode, ds_bold_cifti, [
-                ("bold_cifti", "in_file"),
+            (inputnode, ds_asl_cifti, [
+                ("asl_cifti", "in_file"),
                 ("source_file", "source_file"),
                 ("cifti_density", "density"),
                 (("cifti_metadata", _read_json), "meta_dict"),
