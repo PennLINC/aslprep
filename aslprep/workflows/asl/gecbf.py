@@ -6,9 +6,6 @@ import typing as ty
 import numpy as np
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.nibabel import ApplyMask
-from niworkflows.interfaces.utility import KeySelect
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
@@ -162,6 +159,13 @@ def init_asl_gepreproc_wf(
     9.  CBF QC workflow.
     10. Parcellate CBF results.
     """
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.nibabel import ApplyMask
+    from niworkflows.interfaces.reportlets.registration import (
+        SimpleBeforeAfterRPT as SimpleBeforeAfter,
+    )
+    from niworkflows.interfaces.utility import KeySelect
+
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
     asl_tlen = 10
 
@@ -174,9 +178,9 @@ def init_asl_gepreproc_wf(
     basil = config.workflow.basil
     smooth_kernel = config.workflow.smooth_kernel
 
+    scorescrub = False
     if config.workflow.scorescrub:
         config.loggers.workflow.warning(f"SCORE/SCRUB processing will be disabled for {asl_file}")
-        scorescrub = False
 
     # Take first file (only file, because we don't support multi-echo ASL) as reference
     ref_file = asl_file
@@ -187,8 +191,10 @@ def init_asl_gepreproc_wf(
 
     wf_name = _get_wf_name(ref_file)
     config.loggers.workflow.debug(
-        'Creating asl processing workflow for "%s" (%.2f GB / %d TRs). '
-        "Memory resampled/largemem=%.2f/%.2f GB.",
+        (
+            'Creating asl processing workflow for "%s" (%.2f GB / %d TRs). '
+            "Memory resampled/largemem=%.2f/%.2f GB."
+        ),
         ref_file,
         mem_gb["filesize"],
         asl_tlen,
@@ -198,8 +204,9 @@ def init_asl_gepreproc_wf(
 
     # Collect associated files
     run_data = collect_run_data(layout, ref_file)
+    sbref_file = run_data["sbref"]
+    sbref_files = False if not sbref_file else [sbref_file]
     metadata = run_data["asl_metadata"].copy()
-
     # Patch RepetitionTimePreparation into RepetitionTime,
     # for the sake of BOLD-based interfaces and workflows.
     # This value shouldn't be used for anything except figures and reportlets.

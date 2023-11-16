@@ -469,7 +469,8 @@ tasks and sessions), the following preprocessing was performed.
         if use_ge:
             config.loggers.workflow.warning("Using GE-specific processing.")
 
-        asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_preproc_wf
+        # asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_preproc_wf
+        asl_preproc_func = init_asl_preproc_wf
         asl_preproc_wf = asl_preproc_func(asl_file=asl_file, fieldmap_id=fieldmap_id)
 
         if asl_preproc_wf is None:
