@@ -665,6 +665,17 @@ class ComputeCBF(SimpleInterface):
 
             cbf_ts = deltam_scaled * perfusion_factor
             cbf_ts = np.nan_to_num(cbf_ts)
+            if np.any(np.isinf(cbf_ts)):
+                config.loggers.interface.warning("Infs detected in CBF time series.")
+                inf_idx = np.where(np.isinf(np.mean(cbf_ts, axis=1)))
+                inf_idx = inf_idx[0][0]
+                err_str = (
+                    f"deltam_arr: {deltam_arr[inf_idx[0], :]}\n"
+                    f"deltam_scaled: {deltam_scaled[inf_idx[0], :]}\n"
+                    f"perfusion_factor: {perfusion_factor}\n"
+                    f"cbf_ts: {cbf_ts[inf_idx[0], :]}"
+                )
+                raise ValueError(err_str)
 
             cbf_ts_img = masker.inverse_transform(cbf_ts.T)
             mean_cbf_img = image.mean_img(cbf_ts_img)
