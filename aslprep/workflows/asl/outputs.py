@@ -8,6 +8,7 @@ from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from niworkflows.interfaces.utility import KeySelect
+from niworkflows.utils.images import dseg_label
 from smriprep.workflows.outputs import _bids_relative
 
 from aslprep import config
@@ -70,6 +71,331 @@ BASE_INPUT_FIELDS = {
 }
 
 
+def init_asl_fit_reports_wf(
+    *,
+    sdc_correction: bool,
+    freesurfer: bool,
+    output_dir: str,
+    name="asl_fit_reports_wf",
+) -> pe.Workflow:
+    """Set up a battery of datasinks to store reports in the right location.
+
+    Parameters
+    ----------
+    freesurfer : :obj:`bool`
+        FreeSurfer was enabled
+    output_dir : :obj:`str`
+        Directory in which to save derivatives
+    name : :obj:`str`
+        Workflow name (default: anat_reports_wf)
+
+    Inputs
+    ------
+    source_file
+        Input BOLD images
+
+    std_t1w
+        T1w image resampled to standard space
+    std_mask
+        Mask of skull-stripped template
+    subject_dir
+        FreeSurfer SUBJECTS_DIR
+    subject_id
+        FreeSurfer subject ID
+    t1w_conform_report
+        Conformation report
+    t1w_preproc
+        The T1w reference map, which is calculated as the average of bias-corrected
+        and preprocessed T1w images, defining the anatomical space.
+    t1w_dseg
+        Segmentation in T1w space
+    t1w_mask
+        Brain (binary) mask estimated by brain extraction.
+    template
+        Template space and specifications
+
+    """
+    from niworkflows.interfaces.reportlets.registration import (
+        SimpleBeforeAfterRPT as SimpleBeforeAfter,
+    )
+    from sdcflows.interfaces.reportlets import FieldmapReportlet
+
+    workflow = pe.Workflow(name=name)
+
+    inputfields = [
+        "source_file",
+        "sdc_aslref",
+        "coreg_aslref",
+        "aslref2anat_xfm",
+        "aslref2fmap_xfm",
+        "t1w_preproc",
+        "t1w_mask",
+        "t1w_dseg",
+        "fieldmap",
+        "fmap_ref",
+        # May be missing
+        "subject_id",
+        "subjects_dir",
+        # Report snippets
+        "summary_report",
+        "validation_report",
+    ]
+    inputnode = pe.Node(niu.IdentityInterface(fields=inputfields), name="inputnode")
+
+    ds_summary = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc="summary",
+            datatype="figures",
+            dismiss_entities=("echo",),
+        ),
+        name="ds_report_summary",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+
+    ds_validation = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc="validation",
+            datatype="figures",
+            dismiss_entities=("echo",),
+        ),
+        name="ds_report_validation",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+
+    # Resample anatomical references into BOLD space for plotting
+    t1w_aslref = pe.Node(
+        ApplyTransforms(
+            dimension=3,
+            default_value=0,
+            float=True,
+            invert_transform_flags=[True],
+            interpolation="LanczosWindowedSinc",
+        ),
+        name="t1w_aslref",
+        mem_gb=1,
+    )
+
+    t1w_wm = pe.Node(
+        niu.Function(function=dseg_label),
+        name="t1w_wm",
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    t1w_wm.inputs.label = 2  # BIDS default is WM=2
+
+    aslref_wm = pe.Node(
+        ApplyTransforms(
+            dimension=3,
+            default_value=0,
+            invert_transform_flags=[True],
+            interpolation="NearestNeighbor",
+        ),
+        name="aslref_wm",
+        mem_gb=1,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, ds_summary, [
+            ("source_file", "source_file"),
+            ("summary_report", "in_file"),
+        ]),
+        (inputnode, ds_validation, [
+            ("source_file", "source_file"),
+            ("validation_report", "in_file"),
+        ]),
+        (inputnode, t1w_aslref, [
+            ("t1w_preproc", "input_image"),
+            ("coreg_aslref", "reference_image"),
+            ("aslref2anat_xfm", "transforms"),
+        ]),
+        (inputnode, t1w_wm, [("t1w_dseg", "in_seg")]),
+        (inputnode, aslref_wm, [
+            ("coreg_aslref", "reference_image"),
+            ("aslref2anat_xfm", "transforms"),
+        ]),
+        (t1w_wm, aslref_wm, [("out", "input_image")]),
+    ])
+    # fmt:on
+
+    # Reportlets follow the structure of init_asl_fit_wf stages
+    # - SDC1:
+    #       Before: Pre-SDC aslref
+    #       After: Fieldmap reference resampled on aslref
+    #       Three-way: Fieldmap resampled on aslref
+    # - SDC2:
+    #       Before: Pre-SDC aslref with white matter mask
+    #       After: Post-SDC aslref with white matter mask
+    # - EPI-T1 registration:
+    #       Before: T1w brain with white matter mask
+    #       After: Resampled aslref with white matter mask
+
+    if sdc_correction:
+        fmapref_aslref = pe.Node(
+            ApplyTransforms(
+                dimension=3,
+                default_value=0,
+                float=True,
+                invert_transform_flags=[True],
+                interpolation="LanczosWindowedSinc",
+            ),
+            name="fmapref_aslref",
+            mem_gb=1,
+        )
+
+        # SDC1
+        sdcreg_report = pe.Node(
+            FieldmapReportlet(
+                reference_label="BOLD reference",
+                moving_label="Fieldmap reference",
+                show="both",
+            ),
+            name="sdecreg_report",
+            mem_gb=0.1,
+        )
+
+        ds_sdcreg_report = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                desc="fmapCoreg",
+                suffix="asl",
+                datatype="figures",
+                dismiss_entities=("echo",),
+            ),
+            name="ds_sdcreg_report",
+        )
+
+        # SDC2
+        sdc_report = pe.Node(
+            SimpleBeforeAfter(
+                before_label="Distorted",
+                after_label="Corrected",
+                dismiss_affine=True,
+            ),
+            name="sdc_report",
+            mem_gb=0.1,
+        )
+
+        ds_sdc_report = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                desc="sdc",
+                suffix="asl",
+                datatype="figures",
+                dismiss_entities=("echo",),
+            ),
+            name="ds_sdc_report",
+        )
+
+        # fmt:off
+        workflow.connect([
+            (inputnode, fmapref_aslref, [
+                ("fmap_ref", "input_image"),
+                ("coreg_aslref", "reference_image"),
+                ("aslref2fmap_xfm", "transforms"),
+            ]),
+            (inputnode, sdcreg_report, [
+                ("sdc_aslref", "reference"),
+                ("fieldmap", "fieldmap")
+            ]),
+            (fmapref_aslref, sdcreg_report, [("output_image", "moving")]),
+            (inputnode, ds_sdcreg_report, [("source_file", "source_file")]),
+            (sdcreg_report, ds_sdcreg_report, [("out_report", "in_file")]),
+            (inputnode, sdc_report, [
+                ("sdc_aslref", "before"),
+                ("coreg_aslref", "after"),
+            ]),
+            (aslref_wm, sdc_report, [("output_image", "wm_seg")]),
+            (inputnode, ds_sdc_report, [("source_file", "source_file")]),
+            (sdc_report, ds_sdc_report, [("out_report", "in_file")]),
+        ])
+        # fmt:on
+
+    # EPI-T1 registration
+    # Resample T1w image onto EPI-space
+
+    epi_t1_report = pe.Node(
+        SimpleBeforeAfter(
+            before_label="T1w",
+            after_label="EPI",
+            dismiss_affine=True,
+        ),
+        name="epi_t1_report",
+        mem_gb=0.1,
+    )
+
+    ds_epi_t1_report = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc="coreg",
+            suffix="asl",
+            datatype="figures",
+            dismiss_entities=("echo",),
+        ),
+        name="ds_epi_t1_report",
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, epi_t1_report, [("coreg_aslref", "after")]),
+        (t1w_aslref, epi_t1_report, [("output_image", "before")]),
+        (aslref_wm, epi_t1_report, [("output_image", "wm_seg")]),
+        (inputnode, ds_epi_t1_report, [("source_file", "source_file")]),
+        (epi_t1_report, ds_epi_t1_report, [("out_report", "in_file")]),
+    ])
+    # fmt:on
+
+    return workflow
+
+
+def init_ds_aslref_wf(
+    *,
+    bids_root,
+    output_dir,
+    desc: str,
+    name="ds_aslref_wf",
+) -> pe.Workflow:
+    workflow = pe.Workflow(name=name)
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=["source_files", "aslref"]),
+        name="inputnode",
+    )
+    outputnode = pe.Node(niu.IdentityInterface(fields=["aslref"]), name="outputnode")
+
+    raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
+    raw_sources.inputs.bids_root = bids_root
+
+    ds_aslref = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc=desc,
+            suffix="aslref",
+            compress=True,
+            dismiss_entities=("echo",),
+        ),
+        name="ds_aslref",
+        run_without_submitting=True,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, raw_sources, [("source_files", "in_files")]),
+        (inputnode, ds_aslref, [
+            ("aslref", "in_file"),
+            ("source_files", "source_file"),
+        ]),
+        (raw_sources, ds_aslref, [("out", "RawSources")]),
+        (ds_aslref, outputnode, [("out_file", "aslref")]),
+    ])
+    # fmt:on
+
+    return workflow
+
+
 def init_ds_registration_wf(
     *,
     bids_root: str,
@@ -116,6 +442,52 @@ def init_ds_registration_wf(
         ]),
         (raw_sources, ds_xform, [("out", "RawSources")]),
         (ds_xform, outputnode, [("out_file", "xform")]),
+    ])
+    # fmt:on
+
+    return workflow
+
+
+def init_ds_hmc_wf(
+    *,
+    bids_root,
+    output_dir,
+    name="ds_hmc_wf",
+) -> pe.Workflow:
+    workflow = pe.Workflow(name=name)
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=["source_files", "xforms"]),
+        name="inputnode",
+    )
+    outputnode = pe.Node(niu.IdentityInterface(fields=["xforms"]), name="outputnode")
+
+    raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
+    raw_sources.inputs.bids_root = bids_root
+
+    ds_xforms = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc="hmc",
+            suffix="xfm",
+            extension=".txt",
+            compress=True,
+            dismiss_entities=("echo",),
+            **{"from": "orig", "to": "aslref"},
+        ),
+        name="ds_xforms",
+        run_without_submitting=True,
+    )
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, raw_sources, [("source_files", "in_files")]),
+        (inputnode, ds_xforms, [
+            ("xforms", "in_file"),
+            ("source_files", "source_file"),
+        ]),
+        (raw_sources, ds_xforms, [("out", "RawSources")]),
+        (ds_xforms, outputnode, [("out_file", "xforms")]),
     ])
     # fmt:on
 
@@ -441,7 +813,7 @@ def init_asl_derivatives_wf(
     is_multi_pld : :obj:`bool`
         True if data are multi-delay, False otherwise.
     name : :obj:`str`
-        This workflow's identifier (default: ``func_derivatives_wf``).
+        This workflow's identifier (default: ``asl_derivatives_wf``).
     """
     nonstd_spaces = set(spaces.get_nonstandard())
     workflow = Workflow(name=name)
@@ -902,7 +1274,7 @@ def init_asl_derivatives_wf(
         ds_asl_surfs = pe.MapNode(
             DerivativesDataSink(
                 base_directory=config.execution.aslprep_dir,
-                extension=".func.gii",
+                extension=".asl.gii",
                 TaskName=metadata.get("TaskName"),
             ),
             iterfield=["in_file", "hemi"],
