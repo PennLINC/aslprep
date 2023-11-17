@@ -21,7 +21,6 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.cbf import RefineMask
 from aslprep.interfaces.fsl import Split
 from aslprep.interfaces.reports import FunctionalSummary
-from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name, _select_last_in_list
@@ -236,37 +235,31 @@ def init_asl_preproc_wf(
     m0type = metadata["M0Type"]
 
     # Determine which CBF outputs to expect
-    cbf_derivs = ["mean_cbf"]
-    mean_cbf_derivs = ["mean_cbf"]
+    att_derivs = []
+    cbf_3d_derivs = ["mean_cbf"]
+    cbf_4d_derivs = []
 
     if is_multi_pld:
-        cbf_derivs += ["att"]
+        att_derivs += ["att"]
     else:
-        cbf_derivs += ["cbf_ts"]
+        cbf_4d_derivs += ["cbf_ts"]
 
     if scorescrub:
-        cbf_derivs += [
-            "cbf_ts_score",
-            "mean_cbf_score",
-            "mean_cbf_scrub",
-        ]
-        mean_cbf_derivs += [
+        cbf_4d_derivs += ["cbf_ts_score"]
+        cbf_3d_derivs += [
             "mean_cbf_score",
             "mean_cbf_scrub",
         ]
 
     if basil:
-        cbf_derivs += [
+        cbf_3d_derivs += [
             "mean_cbf_basil",
             "mean_cbf_gm_basil",
             "mean_cbf_wm_basil",
-            "att_basil",
         ]
-        # We don't want mean_cbf_wm_basil for this list.
-        mean_cbf_derivs += [
-            "mean_cbf_basil",
-            "mean_cbf_gm_basil",
-        ]
+        att_derivs += ["att_basil"]
+
+    cbf_derivs = att_derivs + cbf_3d_derivs + cbf_4d_derivs
 
     # Build workflow
     workflow = Workflow(name=wf_name)
@@ -327,6 +320,30 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
+    # Perform minimal preprocessing of the ASL data, including HMC and SDC
+    asl_fit_wf = init_asl_fit_wf(
+        asl_file=asl_file,
+        fieldmap_id=fieldmap_id,
+        omp_nthreads=omp_nthreads,
+    )
+
+    workflow.connect([
+        (inputnode, asl_fit_wf, [
+            ('t1w_preproc', 'inputnode.t1w_preproc'),
+            ('t1w_mask', 'inputnode.t1w_mask'),
+            ('t1w_dseg', 'inputnode.t1w_dseg'),
+            ('subjects_dir', 'inputnode.subjects_dir'),
+            ('subject_id', 'inputnode.subject_id'),
+            ('fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm'),
+            ("fmap", "inputnode.fmap"),
+            ("fmap_ref", "inputnode.fmap_ref"),
+            ("fmap_coeff", "inputnode.fmap_coeff"),
+            ("fmap_mask", "inputnode.fmap_mask"),
+            ("fmap_id", "inputnode.fmap_id"),
+            ("sdc_method", "inputnode.sdc_method"),
+        ]),
+    ])  # fmt:skip
+
     # Generate a brain-masked version of the t1w
     t1w_brain = pe.Node(ApplyMask(), name="t1w_brain")
 
@@ -384,22 +401,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     workflow.connect([
         (inputnode, initial_aslref_wf, [("aslcontext", "inputnode.aslcontext")]),
         (validate_asl_wf, initial_aslref_wf, [("outputnode.asl_file", "inputnode.asl_file")]),
-    ])
-    # fmt:on
-
-    # Drop volumes in the ASL file that won't be used
-    # (e.g., precalculated CBF volumes if control-label pairs are available).
-    reduce_asl_file = pe.Node(
-        ReduceASLFiles(
-            processing_target=processing_target,
-            metadata=metadata,
-        ),
-        name="reduce_asl_file",
-    )
-    # fmt:off
-    workflow.connect([
-        (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
-        (validate_asl_wf, reduce_asl_file, [("outputnode.asl_file", "asl_file")]),
     ])
     # fmt:on
 
@@ -645,7 +646,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    for cbf_deriv in mean_cbf_derivs:
+    for cbf_deriv in cbf_3d_derivs:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, compute_cbf_qc_wf, [
@@ -772,24 +773,45 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])
         # fmt:on
 
+        ds_asl_std_wf = init_ds_volumes_wf(
+            bids_root=str(config.execution.bids_dir),
+            output_dir=config.execution.aslprep_dir,
+            metadata=metadata,
+            name="ds_asl_std_wf",
+        )
+        ds_asl_std_wf.inputs.inputnode.source_files = asl_file
+
+        workflow.connect([
+            (inputnode, ds_asl_std_wf, [
+                ("std_t1w", "inputnode.ref_file"),
+                ("anat2std_xfm", "inputnode.anat2std_xfm"),
+                ("std_space", "inputnode.space"),
+                ("std_resolution", "inputnode.resolution"),
+                ("std_cohort", "inputnode.cohort"),
+            ]),
+            (asl_fit_wf, ds_asl_std_wf, [
+                ("outputnode.asl_mask", "inputnode.asl_mask"),
+                ("outputnode.coreg_aslref", "inputnode.aslref"),
+                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+            ]),
+            (asl_std_trans_wf, ds_asl_std_wf, [("outputnode.asl_file", "inputnode.asl")]),
+        ])  # fmt:skip
+
+        for cbf_deriv in cbf_derivs:
+            # fmt:off
+            workflow.connect([
+                (compute_cbf_wf, ds_asl_std_wf, [
+                    (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
+                ]),
+            ])
+            # fmt:on
+
         if freesurfer:
             # fmt:off
             workflow.connect([
                 (asl_std_trans_wf, asl_derivatives_wf, [
                     ("outputnode.asl_aseg_std", "inputnode.asl_aseg_std"),
                     ("outputnode.asl_aparc_std", "inputnode.asl_aparc_std"),
-                ]),
-            ])
-            # fmt:on
-
-        for cbf_deriv in cbf_derivs:
-            # fmt:off
-            workflow.connect([
-                (compute_cbf_wf, asl_std_trans_wf, [
-                    (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
-                ]),
-                (asl_std_trans_wf, asl_derivatives_wf, [
-                    (f"outputnode.{cbf_deriv}_std", f"inputnode.{cbf_deriv}_std"),
                 ]),
             ])
             # fmt:on
@@ -945,9 +967,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     for cbf_deriv in cbf_derivs:
         # fmt:off
         workflow.connect([
-            (compute_cbf_wf, plot_cbf_wf, [
-                (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
-            ]),
+            (compute_cbf_wf, plot_cbf_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
         ])
         # fmt:on
 
@@ -973,7 +993,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])
     # fmt:on
 
-    for cbf_deriv in mean_cbf_derivs:
+    for cbf_deriv in cbf_3d_derivs:
         # fmt:off
         workflow.connect([
             (compute_cbf_wf, parcellate_cbf_wf, [

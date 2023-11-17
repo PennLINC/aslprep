@@ -1,15 +1,73 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for writing out derivative files."""
+import typing as ty
+
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from niworkflows.interfaces.utility import KeySelect
 from smriprep.workflows.outputs import _bids_relative
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.utils.spaces import SpatialReferences
+
+BASE_INPUT_FIELDS = {
+    "asl": {
+        "desc": "preproc",
+        "suffix": "asl",
+    },
+    "aslref": {
+        "suffix": "aslref",
+    },
+    "asl_mask": {
+        "desc": "brain",
+        "suffix": "mask",
+    },
+    # CBF outputs
+    "cbf_ts": {
+        "desc": "timeseries",
+        "suffix": "cbf",
+    },
+    "mean_cbf": {
+        "suffix": "cbf",
+    },
+    "att": {
+        "suffix": "att",
+    },
+    # SCORE/SCRUB outputs
+    "cbf_ts_score": {
+        "desc": "scoreTimeseries",
+        "suffix": "cbf",
+    },
+    "mean_cbf_score": {
+        "desc": "score",
+        "suffix": "cbf",
+    },
+    "mean_cbf_scrub": {
+        "desc": "scrub",
+        "suffix": "cbf",
+    },
+    # BASIL outputs
+    "mean_cbf_basil": {
+        "desc": "basil",
+        "suffix": "cbf",
+    },
+    "mean_cbf_gm_basil": {
+        "desc": "pvGM",
+        "suffix": "cbf",
+    },
+    "mean_cbf_wm_basil": {
+        "desc": "pvWM",
+        "suffix": "cbf",
+    },
+    "att_basil": {
+        "desc": "basil",
+        "suffix": "att",
+    },
+}
 
 
 def init_ds_registration_wf(
@@ -60,6 +118,217 @@ def init_ds_registration_wf(
         (ds_xform, outputnode, [("out_file", "xform")]),
     ])
     # fmt:on
+
+    return workflow
+
+
+def init_ds_volumes_wf(
+    *,
+    bids_root: str,
+    output_dir: str,
+    metadata: ty.List[dict],
+    cbf_3d: ty.List[str],
+    cbf_4d: ty.List[str],
+    att: ty.List[str],
+    name: str = "ds_volumes_wf",
+) -> pe.Workflow:
+    """Apply transforms from reference to anatomical/standard space and write out derivatives."""
+    workflow = pe.Workflow(name=name)
+    inputnode_fields = [
+        "source_files",
+        "ref_file",
+        "asl",  # Resampled into target space
+        "asl_mask",  # aslref space
+        "aslref",  # aslref space
+        # Anatomical
+        "aslref2anat_xfm",
+        # Template
+        "anat2std_xfm",
+        # Entities
+        "space",
+        "cohort",
+        "resolution",
+    ]
+    inputnode_fields += cbf_3d
+    inputnode_fields += cbf_4d
+    inputnode_fields += att
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=inputnode_fields),
+        name="inputnode",
+    )
+
+    raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
+    raw_sources.inputs.bids_root = bids_root
+    aslref2target = pe.Node(niu.Merge(2), name="aslref2target")
+
+    # BOLD is pre-resampled
+    ds_asl = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc="preproc",
+            compress=True,
+            SkullStripped=True,
+            dismiss_entities=("echo",),
+            **metadata,
+        ),
+        name="ds_asl",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    workflow.connect([
+        (inputnode, raw_sources, [("source_files", "in_files")]),
+        (inputnode, aslref2target, [
+            ("aslref2anat_xfm", "in1"),
+            ("anat2std_xfm", "in2"),
+        ]),
+        (inputnode, ds_asl, [
+            ("source_files", "source_file"),
+            ("asl", "in_file"),
+            ("space", "space"),
+            ("cohort", "cohort"),
+            ("resolution", "resolution"),
+        ]),
+    ])  # fmt:skip
+
+    resample_ref = pe.Node(
+        ApplyTransforms(
+            dimension=3,
+            default_value=0,
+            float=True,
+            interpolation="LanczosWindowedSinc",
+        ),
+        name="resample_ref",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    resample_mask = pe.Node(ApplyTransforms(interpolation="MultiLabel"), name="resample_mask")
+    resamplers = [resample_ref, resample_mask]
+
+    workflow.connect([
+        (inputnode, resample_ref, [("aslref", "input_image")]),
+        (inputnode, resample_mask, [("asl_mask", "input_image")]),
+    ])  # fmt:skip
+
+    ds_ref = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            suffix="aslref",
+            compress=True,
+            dismiss_entities=("echo",),
+        ),
+        name="ds_ref",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    ds_mask = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc="brain",
+            suffix="mask",
+            compress=True,
+            dismiss_entities=("echo",),
+        ),
+        name="ds_mask",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    datasinks = [ds_ref, ds_mask]
+
+    for cbf_name in cbf_4d + cbf_3d:
+        # TODO: Add EstimationReference and EstimationAlgorithm
+        cbf_meta = {
+            "Units": "mL/100 g/min",
+        }
+        fields = BASE_INPUT_FIELDS[cbf_name]
+
+        kwargs = {}
+        if cbf_name in cbf_4d:
+            kwargs["dimension"] = 3
+
+        resample_cbf = pe.Node(
+            ApplyTransforms(
+                interpolation="LanczosWindowedSinc",
+                float=True,
+                input_image_type=3,
+                **kwargs,
+            ),
+            name=f"warp_{cbf_name}_to_std",
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+
+        ds_cbf = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                compress=True,
+                dismiss_entities=("echo",),
+                **fields,
+                **cbf_meta,
+            ),
+            name=f"ds_{cbf_name}",
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        resamplers.append(resample_cbf)
+        datasinks.append(ds_cbf)
+
+        workflow.connect([(inputnode, resample_cbf, [(cbf_name, "input_image")])])
+
+    for att_name in att:
+        # TODO: Add EstimationReference and EstimationAlgorithm
+        att_meta = {
+            "Units": "s",
+        }
+        fields = BASE_INPUT_FIELDS[att_name]
+
+        resample_att = pe.Node(
+            ApplyTransforms(
+                interpolation="LanczosWindowedSinc",
+                float=True,
+                input_image_type=3,
+            ),
+            name=f"warp_{att_name}_to_std",
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+
+        ds_att = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                suffix="att",
+                compress=True,
+                dismiss_entities=("echo",),
+                **fields,
+                **att_meta,
+            ),
+            name=f"ds_{att_name}",
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        resamplers.append(resample_att)
+        datasinks.append(ds_att)
+
+        workflow.connect([(inputnode, resample_att, [(att_name, "input_image")])])
+
+    workflow.connect(
+        [
+            (inputnode, resampler, [("ref_file", "reference_image")])
+            for resampler in resamplers
+        ] + [
+            (aslref2target, resampler, [("out", "transforms")])
+            for resampler in resamplers
+        ] + [
+            (inputnode, datasink, [
+                ("source_files", "source_file"),
+                ("space", "space"),
+                ("cohort", "cohort"),
+                ("resolution", "resolution"),
+            ])
+            for datasink in datasinks
+        ] + [
+            (resampler, datasink, [("output_image", "in_file")])
+            for resampler, datasink in zip(resamplers, datasinks)
+        ]
+    )  # fmt:skip
 
     return workflow
 
@@ -119,61 +388,35 @@ def init_asl_derivatives_wf(
                 "qc_file",
                 # Preprocessed ASL files
                 "asl_native",
-                "asl_t1",
-                "asl_std",
                 "asl_cifti",
                 "aslref_native",
-                "aslref_t1",
-                "aslref_std",
                 "asl_mask_native",
-                "asl_mask_t1",
-                "asl_mask_std",
                 # Transforms
                 "hmc_xforms",
                 "aslref_to_anat_xfm",
                 "anat_to_aslref_xfm",
                 # Standard CBF outputs
                 "cbf_ts_native",
-                "cbf_ts_t1",
-                "cbf_ts_std",
                 "cbf_ts_cifti",
                 "mean_cbf_native",
-                "mean_cbf_t1",
-                "mean_cbf_std",
                 "mean_cbf_cifti",
                 "att_native",
-                "att_t1",
-                "att_std",
                 "att_cifti",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score_native",
-                "cbf_ts_score_t1",
-                "cbf_ts_score_std",
                 "cbf_ts_score_cifti",
                 "mean_cbf_score_native",
-                "mean_cbf_score_t1",
-                "mean_cbf_score_std",
                 "mean_cbf_score_cifti",
                 "mean_cbf_scrub_native",
-                "mean_cbf_scrub_t1",
-                "mean_cbf_scrub_std",
                 "mean_cbf_scrub_cifti",
                 # BASIL outputs
                 "mean_cbf_basil_native",
-                "mean_cbf_basil_t1",
-                "mean_cbf_basil_std",
                 "mean_cbf_basil_cifti",
                 "mean_cbf_gm_basil_native",
-                "mean_cbf_gm_basil_t1",
-                "mean_cbf_gm_basil_std",
                 "mean_cbf_gm_basil_cifti",
                 "mean_cbf_wm_basil_native",
-                "mean_cbf_wm_basil_t1",
-                "mean_cbf_wm_basil_std",
                 "mean_cbf_wm_basil_cifti",
                 "att_basil_native",
-                "att_basil_t1",
-                "att_basil_std",
                 "att_basil_cifti",
                 # Parcellated CBF outputs
                 "atlas_names",
@@ -346,84 +589,6 @@ def init_asl_derivatives_wf(
             ]),
         ])
         # fmt:on
-
-    # Now prepare to write out primary imaging derivatives
-    asl_metadata = {
-        "SkullStripped": False,
-        "RepetitionTime": metadata.get("RepetitionTime"),
-        "RepetitionTimePreparation": metadata.get("RepetitionTimePreparation"),
-    }
-    cbf_metadata = {
-        "Units": "mL/100 g/min",
-    }
-
-    BASE_INPUT_FIELDS = {
-        "asl": {
-            "desc": "preproc",
-            "suffix": "asl",
-            **asl_metadata,
-        },
-        "aslref": {
-            "suffix": "aslref",
-            "dismiss_entities": ("echo",),
-        },
-        "asl_mask": {
-            "desc": "brain",
-            "suffix": "mask",
-            "dismiss_entities": ("echo",),
-        },
-        # CBF outputs
-        "cbf_ts": {
-            "desc": "timeseries",
-            "suffix": "cbf",
-            **cbf_metadata,
-        },
-        "mean_cbf": {
-            "suffix": "cbf",
-            **cbf_metadata,
-        },
-        "att": {
-            "suffix": "att",
-            "Units": "s",
-        },
-        # SCORE/SCRUB outputs
-        "cbf_ts_score": {
-            "desc": "scoreTimeseries",
-            "suffix": "cbf",
-            **cbf_metadata,
-        },
-        "mean_cbf_score": {
-            "desc": "score",
-            "suffix": "cbf",
-            **cbf_metadata,
-        },
-        "mean_cbf_scrub": {
-            "desc": "scrub",
-            "suffix": "cbf",
-            **cbf_metadata,
-        },
-        # BASIL outputs
-        "mean_cbf_basil": {
-            "desc": "basil",
-            "suffix": "cbf",
-            **cbf_metadata,
-        },
-        "mean_cbf_gm_basil": {
-            "desc": "pvGM",
-            "suffix": "cbf",
-            **cbf_metadata,
-        },
-        "mean_cbf_wm_basil": {
-            "desc": "pvWM",
-            "suffix": "cbf",
-            **cbf_metadata,
-        },
-        "att_basil": {
-            "desc": "basil",
-            "suffix": "att",
-            "Units": "s",
-        },
-    }
 
     base_inputs = ["asl", "aslref", "asl_mask", "mean_cbf"]
     if is_multi_pld:
