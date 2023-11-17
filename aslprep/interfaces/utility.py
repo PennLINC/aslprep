@@ -194,39 +194,10 @@ class PairwiseRMSDiff(SimpleInterface):
 
 
 class _CombineMotionParametersInputSpec(BaseInterfaceInputSpec):
-    m0type = traits.Str()
-    processing_target = traits.Str()
     aslcontext = File(exists=True)
-    control_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    control_par_file = traits.Either(File(exists=True), None)
-    label_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    label_par_file = traits.Either(File(exists=True), None)
-    deltam_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    deltam_par_file = traits.Either(File(exists=True), None)
-    cbf_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    cbf_par_file = traits.Either(File(exists=True), None)
-    m0scan_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    m0scan_par_file = traits.Either(File(exists=True), None)
+    volume_types = traits.List(traits.Str())
+    mat_files = traits.List(traits.List(File(exists=True)))
+    par_files = traits.List(File(exists=True))
 
 
 class _CombineMotionParametersOutputSpec(TraitedSpec):
@@ -242,24 +213,24 @@ class CombineMotionParameters(SimpleInterface):
 
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
-        files_to_combine = sorted(list(set(aslcontext["volume_type"].tolist())))
-
         out_par = [None] * aslcontext.shape[0]
         out_mat_files = [None] * aslcontext.shape[0]
-        for file_to_combine in files_to_combine:
-            mat_files = _aslist(getattr(self.inputs, f"{file_to_combine}_mat_files"))
-            par_file = getattr(self.inputs, f"{file_to_combine}_par_file")
-            idx = aslcontext.loc[aslcontext["volume_type"] == file_to_combine].index.values
 
-            with open(par_file, "r") as fo:
+        for i_type, volume_type in enumerate(self.inputs.volume_types):
+            type_mat_files = self.inputs.mat_files[i_type]
+            type_par_file = self.inputs.par_files[i_type]
+
+            type_idx = aslcontext.loc[aslcontext["volume_type"] == volume_type].index.values
+
+            with open(type_par_file, "r") as fo:
                 par = fo.readlines()
 
-            for i_vol, vol_idx in enumerate(idx):
+            for i_vol, vol_idx in enumerate(type_idx):
                 out_par[vol_idx] = par[i_vol]
-                out_mat_files[vol_idx] = mat_files[i_vol]
+                out_mat_files[vol_idx] = type_mat_files[i_vol]
 
         self._results["combined_par_file"] = fname_presuffix(
-            par_file,
+            type_par_file,
             suffix="_combined",
             newpath=runtime.cwd,
             use_ext=True,
@@ -272,37 +243,42 @@ class CombineMotionParameters(SimpleInterface):
         return runtime
 
 
-class _SplitOutVolumeTypeInputSpec(BaseInterfaceInputSpec):
-    volumetype = traits.Str()
+class _SplitByVolumeTypeInputSpec(BaseInterfaceInputSpec):
     aslcontext = File(exists=True)
     asl_file = File(exists=True)
 
 
-class _SplitOutVolumeTypeOutputSpec(TraitedSpec):
-    out_file = File(exists=True)
+class _SplitByVolumeTypeOutputSpec(TraitedSpec):
+    out_files = traits.List(File(exists=True))
+    volume_types = traits.List(traits.Str())
 
 
-class SplitOutVolumeType(SimpleInterface):
+class SplitByVolumeType(SimpleInterface):
     """Split out a specific volume type from the ASL file."""
 
-    input_spec = _SplitOutVolumeTypeInputSpec
-    output_spec = _SplitOutVolumeTypeOutputSpec
+    input_spec = _SplitByVolumeTypeInputSpec
+    output_spec = _SplitByVolumeTypeOutputSpec
 
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
-        volumetype_df = aslcontext.loc[aslcontext["volume_type"] == self.inputs.volumetype]
-        volumetype_idx = volumetype_df.index.tolist()
-        if len(volumetype_idx) == 0:
-            raise ValueError(f"No volumes found for {self.inputs.volumetype}")
+        volume_types = sorted(list(aslcontext["volume_type"].unique()))
+        out_files = []
+        for volume_type in volume_types:
+            volumetype_df = aslcontext.loc[aslcontext["volume_type"] == volume_type]
+            volumetype_idx = volumetype_df.index.tolist()
 
-        out_img = image.index_img(self.inputs.asl_file, volumetype_idx)
-        self._results["out_file"] = fname_presuffix(
-            self.inputs.asl_file,
-            suffix=f"_{self.inputs.volumetype}",
-            newpath=runtime.cwd,
-            use_ext=True,
-        )
-        out_img.to_filename(self._results["out_file"])
+            out_img = image.index_img(self.inputs.asl_file, volumetype_idx)
+            out_file = fname_presuffix(
+                self.inputs.asl_file,
+                suffix=f"_{volume_type}",
+                newpath=runtime.cwd,
+                use_ext=True,
+            )
+            out_img.to_filename(out_file)
+            out_files.append(out_file)
+
+        self._results["out_files"] = out_files
+        self._results["volume_types"] = volume_types
 
         return runtime
 

@@ -122,6 +122,73 @@ def init_ds_registration_wf(
     return workflow
 
 
+def init_ds_asl_native_wf(
+    *,
+    bids_root: str,
+    output_dir: str,
+    asl_output: bool,
+    name="ds_asl_native_wf",
+) -> pe.Workflow:
+    """Write out aslref-space outputs."""
+    workflow = pe.Workflow(name=name)
+    inputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=[
+                "source_files",
+                "asl",
+                "asl_mask",
+            ],
+        ),
+        name="inputnode",
+    )
+
+    raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
+    raw_sources.inputs.bids_root = bids_root
+    workflow.connect(inputnode, "source_files", raw_sources, "in_files")
+
+    # Masks should be output if any other derivatives are output
+    ds_asl_mask = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc="brain",
+            suffix="mask",
+            compress=True,
+            dismiss_entities=("echo",),
+        ),
+        name="ds_asl_mask",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    workflow.connect([
+        (inputnode, ds_asl_mask, [
+            ("source_files", "source_file"),
+            ("asl_mask", "in_file"),
+        ]),
+        (raw_sources, ds_asl_mask, [("out", "RawSources")]),
+    ])  # fmt:skip
+
+    if asl_output:
+        ds_asl = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                desc="preproc",
+                compress=True,
+                SkullStripped=False,
+                dismiss_entities=("echo",),
+            ),
+            name="ds_asl",
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (inputnode, ds_asl, [
+                ("source_files", "source_file"),
+                ("asl", "in_file"),
+            ]),
+        ])  # fmt:skip
+
+    return workflow
+
+
 def init_ds_volumes_wf(
     *,
     bids_root: str,

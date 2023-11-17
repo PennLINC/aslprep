@@ -12,13 +12,11 @@ from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces.utility import (
     CombineMotionParameters,
     PairwiseRMSDiff,
-    SplitOutVolumeType,
+    SplitByVolumeType,
 )
 
 
 def init_asl_hmc_wf(
-    processing_target,
-    m0type,
     mem_gb,
     omp_nthreads,
     name="asl_hmc_wf",
@@ -87,20 +85,14 @@ def init_asl_hmc_wf(
     """
     workflow = Workflow(name=name)
 
-    separation_substr = ""
-    if processing_target == "control" or m0type == "Included":
-        separation_substr = (
-            "Motion correction was performed separately for each of the volume types "
-            "in order to account for intensity differences between different contrasts, "
-            "which, when motion corrected together, can conflate intensity differences with "
-            "head motions [@wang2008empirical]. "
-            "Next, ASLPrep concatenated the motion parameters across volume types and "
-            "re-calculated relative root mean-squared deviation."
-        )
-
-    workflow.__desc__ = f"""\
+    workflow.__desc__ = """\
 Head-motion parameters were estimated for the ASL data using *FSL*'s `mcflirt` [@mcflirt].
-{separation_substr}
+Motion correction was performed separately for each of the volume types
+in order to account for intensity differences between different contrasts,
+which, when motion corrected together, can conflate intensity differences with
+head motions [@wang2008empirical].
+Next, ASLPrep concatenated the motion parameters across volume types and
+re-calculated relative root mean-squared deviation.
 
 """
 
@@ -109,6 +101,7 @@ Head-motion parameters were estimated for the ASL data using *FSL*'s `mcflirt` [
             fields=[
                 "asl_file",
                 "aslcontext",
+                "processing_target",
                 "raw_ref_image",
             ],
         ),
@@ -126,57 +119,42 @@ Head-motion parameters were estimated for the ASL data using *FSL*'s `mcflirt` [
         name="outputnode",
     )
 
+    split_by_volume_type = pe.Node(
+        SplitByVolumeType(),
+        name="split_by_volume_type",
+    )
+    workflow.connect([
+        (inputnode, split_by_volume_type, [
+            ("aslcontext", "aslcontext"),
+            ("asl_file", "asl_file"),
+        ]),
+    ])  # fmt:skip
+
+    mcflirt = pe.MapNode(
+        fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=False),
+        name="mcflirt",
+        mem_gb=mem_gb * 3,
+        iterfield=["in_file"],
+    )
+    workflow.connect([
+        (inputnode, mcflirt, [("raw_ref_image", "ref_file")]),
+        (split_by_volume_type, mcflirt, [("out_files", "in_file")]),
+    ])  # fmt:skip
+
     # Combine the motpars files, mat files, and rms files across the different MCFLIRTed files,
     # based on the aslcontext file.
     combine_motpars = pe.Node(
-        CombineMotionParameters(m0type=m0type, processing_target=processing_target),
+        CombineMotionParameters(),
         name="combine_motpars",
     )
-
-    workflow.connect([(inputnode, combine_motpars, [("aslcontext", "aslcontext")])])
-
-    files_to_mcflirt = []
-    if m0type == "Included":
-        files_to_mcflirt.append("m0scan")
-
-    if processing_target == "control":
-        files_to_mcflirt += ["control", "label"]
-    else:
-        files_to_mcflirt.append(processing_target)
-
-    for file_to_mcflirt in files_to_mcflirt:
-        # Split out the appropriate volumes
-        split_out_volumetype = pe.Node(
-            SplitOutVolumeType(volumetype=file_to_mcflirt),
-            name=f"split_out_{file_to_mcflirt}",
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, split_out_volumetype, [
-                ("asl_file", "asl_file"),
-                ("aslcontext", "aslcontext"),
-            ]),
-        ])
-        # fmt:on
-
-        # Head motion correction (hmc)
-        mcflirt = pe.Node(
-            fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=False),
-            name=f"mcflirt_{file_to_mcflirt}",
-            mem_gb=mem_gb * 3,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, mcflirt, [("raw_ref_image", "ref_file")]),
-            (split_out_volumetype, mcflirt, [("out_file", "in_file")]),
-            (mcflirt, combine_motpars, [
-                ("mat_file", f"{file_to_mcflirt}_mat_files"),
-                ("par_file", f"{file_to_mcflirt}_par_file"),
-            ]),
-        ])
-        # fmt:on
+    workflow.connect([
+        (inputnode, combine_motpars, [("aslcontext", "aslcontext")]),
+        (split_by_volume_type, combine_motpars, [("volume_types", "volume_types")]),
+        (mcflirt, combine_motpars, [
+            ("mat_file", "mat_files"),
+            ("par_file", "par_files"),
+        ]),
+    ])  # fmt:skip
 
     # Use rmsdiff to calculate relative rms from transform files.
     rmsdiff = pe.Node(PairwiseRMSDiff(), name="rmsdiff")

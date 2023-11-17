@@ -351,14 +351,23 @@ def init_asl_fit_wf(
     # fmt:on
 
     # Reduce the ASL series to only include volumes that need to be processed.
-    processing_target = select_processing_target(run_data["aslcontext"])
+    processing_target = pe.Node(
+        niu.Function(
+            function=select_processing_target,
+            input_names=["aslcontext"],
+            output_names=["processing_target"],
+        ),
+        name="processing_target",
+    )
 
     reduce_asl_file = pe.Node(
-        ReduceASLFiles(processing_target=processing_target),
+        ReduceASLFiles(),
         name="reduce_asl_file",
     )
     # fmt:off
     workflow.connect([
+        (inputnode, processing_target, [("aslcontext", "aslcontext")]),
+        (processing_target, reduce_asl_file, [("processing_target", "processing_target")]),
         (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
         (processing_target, reduce_asl_file, [("processing_target", "processing_target")]),
         (hmcref_buffer, reduce_asl_file, [("asl_file", "asl_file")]),
@@ -368,7 +377,9 @@ def init_asl_fit_wf(
     # Stage 2: Estimate head motion
     config.loggers.workflow.info("Stage 2: Adding motion correction workflow")
     asl_hmc_wf = init_asl_hmc_wf(
-        name="asl_hmc_wf", mem_gb=mem_gb["filesize"], omp_nthreads=omp_nthreads
+        name="asl_hmc_wf",
+        mem_gb=mem_gb["filesize"],
+        omp_nthreads=omp_nthreads,
     )
 
     ds_hmc_wf = init_ds_hmc_wf(
@@ -627,8 +638,6 @@ def init_asl_native_wf(
     layout = config.execution.layout
     metadata = layout.get_metadata(asl_file)
 
-    asl_tlen, mem_gb = estimate_asl_mem_usage(asl_file)
-
     workflow = pe.Workflow(name=name)
 
     inputnode = pe.Node(
@@ -675,16 +684,22 @@ def init_asl_native_wf(
 
     # Drop volumes in the ASL file that won't be used
     # (e.g., precalculated CBF volumes if control-label pairs are available).
-    processing_target = select_processing_target(aslcontext=aslcontext)
-    reduce_asl_file = pe.Node(
-        ReduceASLFiles(
-            processing_target=processing_target,
-            metadata=metadata,
+    processing_target = pe.Node(
+        niu.Function(
+            function=select_processing_target,
+            input_names=["aslcontext"],
+            output_names=["processing_target"],
         ),
+        name="processing_target",
+    )
+    reduce_asl_file = pe.Node(
+        ReduceASLFiles(metadata=metadata),
         name="reduce_asl_file",
     )
     # fmt:off
     workflow.connect([
+        (inputnode, processing_target, [("aslcontext", "aslcontext")]),
+        (processing_target, reduce_asl_file, [("processing_target", "processing_target")]),
         (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
         (validate_asl, reduce_asl_file, [("out_file", "asl_file")]),
         (reduce_asl_file, aslbuffer, [("out_file", "asl_file")]),
@@ -704,7 +719,7 @@ def init_asl_native_wf(
         )
 
         distortion_params = pe.Node(
-            DistortionParameters(metadata=metadata, in_file=asl_file),
+            DistortionParameters(),
             name="distortion_params",
             run_without_submitting=True,
         )
@@ -713,6 +728,10 @@ def init_asl_native_wf(
                 ("fmap_ref", "fmap_ref"),
                 ("fmap_coeff", "fmap_coeff"),
                 ("fmap_id", "keys"),
+            ]),
+            (reduce_asl_file, distortion_params, [
+                ("metadata", "metadata"),
+                ("asl_file", "in_file"),
             ]),
             (distortion_params, aslbuffer, [
                 ("readout_time", "ro_time"),

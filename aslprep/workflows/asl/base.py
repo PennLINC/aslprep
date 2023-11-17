@@ -188,7 +188,6 @@ def init_asl_preproc_wf(
 
     # Collect associated files
     run_data = collect_run_data(layout, ref_file)
-    sbref_file = run_data["sbref"]
     metadata = run_data["asl_metadata"].copy()
     # Patch RepetitionTimePreparation into RepetitionTime,
     # for the sake of BOLD-based interfaces and workflows.
@@ -207,7 +206,6 @@ def init_asl_preproc_wf(
 
     # Determine which volumes to use in the pipeline
     processing_target = select_processing_target(aslcontext=run_data["aslcontext"])
-    m0type = metadata["M0Type"]
 
     # Determine which CBF outputs to expect
     att_derivs = []
@@ -248,6 +246,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
+                # ASL-specific elements
                 "asl_file",
                 "asl_metadata",
                 "aslcontext",
@@ -262,12 +261,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 "subjects_dir",
                 "subject_id",
                 "fsnative2t1w_xfm",
+                "white",
+                "midthickness",
+                "pial",
                 "sphere_reg_fsLR",
+                "thickness",
                 "anat_ribbon",
-                # FreeSurfer things not in future fMRIPrep
-                "t1w2fsnative_xfm",
-                "surfaces",
-                "morphometrics",
                 # Fieldmap registration
                 "fmap",
                 "fmap_ref",
@@ -277,14 +276,16 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 "sdc_method",
                 # Volumetric templates
                 "anat2std_xfm",
-                # Volumetric things not in future fMRIPrep
-                "template",
+                "std_t1w",
+                "std_mask",
+                "std_space",
+                "std_resolution",
+                "std_cohort",
                 # MNI152NLin6Asym warp, for CIFTI use
+                "anat2mni6_xfm",
+                "mni6_mask",
                 # MNI152NLin2009cAsym inverse warp, for carpetplotting
                 "mni2009c2anat_xfm",
-                # Not in future fMRIPrep
-                "t1w_aseg",
-                "t1w_aparc",
             ],
         ),
         name="inputnode",
@@ -325,8 +326,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     #
     # Resampling outputs workflow:
-    #   - Resample to native
-    #   - Save native outputs/echos only if requested
+    #   - Resample to aslref space
+    #   - Save aslref-space outputs only if requested
     #
 
     asl_native_wf = init_asl_native_wf(
@@ -335,22 +336,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         omp_nthreads=omp_nthreads,
         name="asl_native_wf",
     )
-    asl_anat_wf = init_asl_volumetric_resample_wf(
-        metadata=metadata,
-        fieldmap_id=fieldmap_id,
-        omp_nthreads=omp_nthreads,
-        name="asl_anat_wf",
-    )
 
     workflow.connect([
         (inputnode, asl_native_wf, [
-            ("fmap_ref", "inputnode.fmap_ref"),
-            ("fmap_coeff", "inputnode.fmap_coeff"),
-            ("fmap_id", "inputnode.fmap_id"),
-        ]),
-        (inputnode, asl_anat_wf, [
-            ("t1w_preproc", "inputnode.target_ref_file"),
-            ("t1w_mask", "inputnode.target_mask"),
             ("fmap_ref", "inputnode.fmap_ref"),
             ("fmap_coeff", "inputnode.fmap_coeff"),
             ("fmap_id", "inputnode.fmap_id"),
@@ -361,6 +349,25 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.motion_xfm", "inputnode.motion_xfm"),
             ("outputnode.aslref2fmap_xfm", "inputnode.aslref2fmap_xfm"),
             ("outputnode.dummy_scans", "inputnode.dummy_scans"),
+        ]),
+    ])  # fmt:skip
+
+    # Resample ASL file to anatomical space.
+    # This doesn't write out the resampled file to the derivatives.
+    asl_anat_wf = init_asl_volumetric_resample_wf(
+        metadata=metadata,
+        fieldmap_id=fieldmap_id,
+        omp_nthreads=omp_nthreads,
+        name="asl_anat_wf",
+    )
+
+    workflow.connect([
+        (inputnode, asl_anat_wf, [
+            ("t1w_preproc", "inputnode.target_ref_file"),
+            ("t1w_mask", "inputnode.target_mask"),
+            ("fmap_ref", "inputnode.fmap_ref"),
+            ("fmap_coeff", "inputnode.fmap_coeff"),
+            ("fmap_id", "inputnode.fmap_id"),
         ]),
         (asl_fit_wf, asl_anat_wf, [
             ("outputnode.coreg_aslref", "inputnode.asl_ref_file"),
@@ -391,17 +398,17 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (inputnode, cbf_wf, [
             ("t1w_mask", "inputnode.t1w_mask"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
-            ("m0scan", "inputnode.m0scan"),
             ("m0scan_metadata", "inputnode.m0scan_metadata"),
         ]),
         (asl_fit_wf, cbf_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
             ("outputnode.aslcontext", "inputnode.aslcontext"),
+            ("outputnode.m0scan", "inputnode.m0scan"),
             # XXX: doesn't exist!
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
             ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
         ]),
-        (asl_native_wf, cbf_wf, [("outputnode.asl_minimal", "inputnode.asl_file")]),
+        (asl_native_wf, cbf_wf, [("outputnode.asl_native", "inputnode.asl_file")]),
     ])
     # fmt:on
 
@@ -414,7 +421,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
             asl_output=aslref_out,
-            metadata=metadata,
         )
         ds_asl_native_wf.inputs.inputnode.source_files = [asl_file]
 
