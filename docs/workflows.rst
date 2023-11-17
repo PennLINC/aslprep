@@ -243,7 +243,7 @@ Interpolation uses a Lanczos kernel.
 CBF Computation in native space
 *******************************
 
-:py:func:`~aslprep.workflows.asl.cbf.init_compute_cbf_wf`
+:py:func:`~aslprep.workflows.asl.cbf.init_cbf_wf`
 
 .. workflow::
    :graph2use: orig
@@ -253,7 +253,7 @@ CBF Computation in native space
    from pathlib import Path
    from pkg_resources import resource_filename as pkgrf
 
-   from aslprep.workflows.asl.cbf import init_compute_cbf_wf
+   from aslprep.workflows.asl.cbf import init_cbf_wf
 
    bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
    nii_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
@@ -261,7 +261,7 @@ CBF Computation in native space
    with open(metadata_file) as f:
       metadata = json.load(f)
 
-   wf = init_compute_cbf_wf(
+   wf = init_cbf_wf(
       name_source=str(nii_file),
       processing_target="control",
       scorescrub=False,
@@ -596,7 +596,7 @@ The CBF map shown below is the result of partial volume corrected CBF computed b
 Quality control measures
 ************************
 
-:py:func:`~aslprep.workflows.asl.qc.init_compute_cbf_qc_wf`
+:py:func:`~aslprep.workflows.asl.qc.init_cbf_qc_wf`
 
 .. workflow::
    :graph2use: orig
@@ -605,13 +605,13 @@ Quality control measures
    from pathlib import Path
    from pkg_resources import resource_filename as pkgrf
 
-   from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
+   from aslprep.workflows.asl.qc import init_cbf_qc_wf
 
    bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
    asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
 
-   wf = init_compute_cbf_qc_wf(is_ge=False, output_dir=".")
+   wf = init_cbf_qc_wf(is_ge=False, output_dir=".")
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index,
 and quality evaluation index (QEI) are included for all CBF maps.

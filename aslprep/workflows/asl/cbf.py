@@ -31,7 +31,7 @@ from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 from aslprep.utils.bids import find_atlas_entities
 
 
-def init_compute_cbf_wf(
+def init_cbf_wf(
     name_source,
     processing_target,
     metadata,
@@ -40,7 +40,7 @@ def init_compute_cbf_wf(
     basil=False,
     m0_scale=1,
     smooth_kernel=5,
-    name="compute_cbf_wf",
+    name="cbf_wf",
 ):
     """Create a workflow for :abbr:`CCBF (compute cbf)`.
 
@@ -53,14 +53,14 @@ def init_compute_cbf_wf(
 
             from aslprep.tests.tests import mock_config
             from aslprep import config
-            from aslprep.workflows.asl.cbf import init_compute_cbf_wf
+            from aslprep.workflows.asl.cbf import init_cbf_wf
 
             with mock_config():
                 perf_dir = config.execution.bids_dir / "sub-01" / "perf"
                 with open(perf_dir / "sub-01_asl.json", "r") as fo:
                     metadata = json.load(fo)
 
-                wf = init_compute_cbf_wf(
+                wf = init_cbf_wf(
                     name_source=str(perf_dir / "sub-01_asl.nii.gz"),
                     processing_target="control",
                     metadata=metadata,
@@ -80,7 +80,7 @@ def init_compute_cbf_wf(
     m0_scale
     smooth_kernel
     name : :obj:`str`
-        Name of workflow (default: ``compute_cbf_wf``)
+        Name of workflow (default: ``cbf_wf``)
 
     Inputs
     ------
@@ -518,7 +518,7 @@ def init_compute_cbf_ge_wf(
     m0_scale=1,
     scorescrub=False,
     basil=False,
-    name="compute_cbf_wf",
+    name="cbf_wf",
 ):
     """Calculate CBF for GE data.
 

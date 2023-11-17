@@ -44,6 +44,7 @@ from fmriprep.utils.bids import extract_entities
 
 # ASL workflows
 from aslprep.interfaces.utility import ReduceASLFiles
+from aslprep.utils.asl import select_processing_target
 from aslprep.utils.misc import estimate_asl_mem_usage
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import (
@@ -244,23 +245,6 @@ def init_asl_fit_wf(
 
     # If all derivatives exist, inputnode could go unconnected, so add explicitly
     workflow.add_nodes([inputnode])
-
-    # Drop volumes in the ASL file that won't be used
-    # (e.g., precalculated CBF volumes if control-label pairs are available).
-    processing_target = select_processing_target(aslcontext=aslcontext)
-    reduce_asl_file = pe.Node(
-        ReduceASLFiles(
-            processing_target=processing_target,
-            metadata=metadata,
-        ),
-        name="reduce_asl_file",
-    )
-    # fmt:off
-    workflow.connect([
-        (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
-        (validate_asl_wf, reduce_asl_file, [("outputnode.asl_file", "asl_file")]),
-    ])
-    # fmt:on
 
     hmcref_buffer = pe.Node(
         niu.IdentityInterface(fields=["aslref", "asl_file", "dummy_scans"]),
@@ -606,6 +590,9 @@ def init_asl_native_wf(
         ASL reference file
     asl_mask
         Mask of ASL reference file
+    m0scan
+        If M0Type is 'Separate', then the M0 file will resampled into ASL reference space.
+        Otherwise, this field will be undefined.
     motion_xfm
         Affine transforms from each ASL volume to ``hmc_aslref``, written
         as concatenated ITK affine transforms.
@@ -627,18 +614,15 @@ def init_asl_native_wf(
     asl_native
         ASL series resampled into ASL reference space.
         Head motion and susceptibility distortion correction will be applied to each file.
+    m0scan_native
+        If M0Type is 'Separate', then the M0 file will resampled into ASL reference space.
+        Otherwise, this field will be undefined.
     metadata
         Metadata dictionary of ASL series with the shortest echo
     motion_xfm
         Motion correction transforms for further correcting asl_minimal.
         For multi-echo data, motion correction has already been applied, so
         this will be undefined.
-    asl_echos
-        The individual, corrected echos, suitable for use in Tedana.
-        (Multi-echo only.)
-    t2star_map
-        The T2\* map estimated by Tedana when calculating the optimal combination.
-        (Multi-echo only.)
     """
     layout = config.execution.layout
     metadata = layout.get_metadata(asl_file)
@@ -653,6 +637,7 @@ def init_asl_native_wf(
                 # ASL fit
                 "aslref",
                 "asl_mask",
+                "m0scan",
                 "motion_xfm",
                 "aslref2fmap_xfm",
                 "dummy_scans",
@@ -670,14 +655,15 @@ def init_asl_native_wf(
             fields=[
                 "asl_minimal",
                 "asl_native",
+                "m0scan_native",
+                "aslcontext",
                 "metadata",
                 # Transforms
                 "motion_xfm",
-            ],  # fmt:skip
+            ],
         ),
         name="outputnode",
     )
-    outputnode.inputs.metadata = metadata
 
     aslbuffer = pe.Node(
         niu.IdentityInterface(fields=["asl_file", "ro_time", "pe_dir"]),
@@ -686,7 +672,28 @@ def init_asl_native_wf(
 
     # Validate the ASL file
     validate_asl = pe.Node(ValidateImage(in_file=asl_file), name="validate_asl")
-    workflow.connect([(validate_asl, aslbuffer, [("out_file", "asl_file")])])
+
+    # Drop volumes in the ASL file that won't be used
+    # (e.g., precalculated CBF volumes if control-label pairs are available).
+    processing_target = select_processing_target(aslcontext=aslcontext)
+    reduce_asl_file = pe.Node(
+        ReduceASLFiles(
+            processing_target=processing_target,
+            metadata=metadata,
+        ),
+        name="reduce_asl_file",
+    )
+    # fmt:off
+    workflow.connect([
+        (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
+        (validate_asl, reduce_asl_file, [("out_file", "asl_file")]),
+        (reduce_asl_file, aslbuffer, [("out_file", "asl_file")]),
+        (reduce_asl_file, outputnode, [
+            ("aslcontext", "aslcontext"),
+            ("metadata", "metadata"),
+        ]),
+    ])
+    # fmt:on
 
     # Prepare fieldmap metadata
     if fieldmap_id:

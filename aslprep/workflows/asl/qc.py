@@ -14,11 +14,11 @@ from aslprep.interfaces.qc import ComputeCBFQC
 from aslprep.utils.misc import _select_last_in_list
 
 
-def init_compute_cbf_qc_wf(
+def init_cbf_qc_wf(
     is_ge,
     scorescrub=False,
     basil=False,
-    name="compute_cbf_qc_wf",
+    name="cbf_qc_wf",
 ):
     """Create a workflow for :abbr:`dolui2017automated (compute cbf)`.
 
@@ -28,14 +28,14 @@ def init_compute_cbf_qc_wf(
             :simple_form: yes
 
             from aslprep.tests.tests import mock_config
-            from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
+            from aslprep.workflows.asl.qc import init_cbf_qc_wf
 
             with mock_config():
-                wf = init_compute_cbf_qc_wf(
+                wf = init_cbf_qc_wf(
                     is_ge=False,
                     scorescrub=True,
                     basil=True,
-                    name="compute_cbf_qc_wf",
+                    name="cbf_qc_wf",
                 )
 
     Parameters
@@ -44,7 +44,7 @@ def init_compute_cbf_qc_wf(
     scorescrub : bool
     basil : bool
     name : :obj:`str`
-        Name of workflow (default: "compute_cbf_qc_wf")
+        Name of workflow (default: "cbf_qc_wf")
 
     Inputs
     ------

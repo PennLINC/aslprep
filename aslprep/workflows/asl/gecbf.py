@@ -20,7 +20,7 @@ from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cb
 from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf, init_asl_reg_ge_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
-from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
+from aslprep.workflows.asl.qc import init_cbf_qc_wf
 from aslprep.workflows.asl.registration import init_asl_t1_trans_wf
 from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
 
@@ -393,7 +393,7 @@ effects of other kernels [@lanczos].
     # fmt:on
 
     # Compute CBF from the raw ASL data.
-    compute_cbf_wf = init_compute_cbf_ge_wf(
+    cbf_wf = init_compute_cbf_ge_wf(
         name_source=asl_file,
         aslcontext=run_data["aslcontext"],
         metadata=metadata,
@@ -401,22 +401,22 @@ effects of other kernels [@lanczos].
         basil=basil,
         m0_scale=m0_scale,
         mem_gb=mem_gb["filesize"],
-        name="compute_cbf_wf",
+        name="cbf_wf",
     )
 
     # fmt:off
     workflow.connect([
-        (inputnode, compute_cbf_wf, [
+        (inputnode, cbf_wf, [
             ("asl_file", "inputnode.asl_file"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (asl_reference_wf, compute_cbf_wf, [
+        (asl_reference_wf, cbf_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
             ("outputnode.m0_file", "inputnode.m0_file"),
             ("outputnode.m0tr", "inputnode.m0tr"),
         ]),
-        (asl_reg_wf, compute_cbf_wf, [
+        (asl_reg_wf, cbf_wf, [
             ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
@@ -463,7 +463,7 @@ effects of other kernels [@lanczos].
     for cbf_deriv in cbf_derivs:
         # fmt:off
         workflow.connect([
-            (compute_cbf_wf, asl_t1_trans_wf, [
+            (cbf_wf, asl_t1_trans_wf, [
                 (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
             ]),
             (asl_t1_trans_wf, asl_derivatives_wf, [
@@ -488,34 +488,34 @@ effects of other kernels [@lanczos].
     # fmt:on
 
     # Generate QC metrics
-    compute_cbf_qc_wf = init_compute_cbf_qc_wf(
+    cbf_qc_wf = init_cbf_qc_wf(
         is_ge=True,
         output_dir=output_dir,
         scorescrub=scorescrub,
         basil=basil,
-        name="compute_cbf_qc_wf",
+        name="cbf_qc_wf",
     )
 
     # fmt:off
     workflow.connect([
-        (inputnode, compute_cbf_qc_wf, [
+        (inputnode, cbf_qc_wf, [
             ("asl_file", "inputnode.name_source"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
         ]),
-        (refine_mask, compute_cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
-        (asl_reg_wf, compute_cbf_qc_wf, [
+        (refine_mask, cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
+        (asl_reg_wf, cbf_qc_wf, [
             ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
         ]),
-        (compute_cbf_qc_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
-        (compute_cbf_qc_wf, summary, [("outputnode.qc_file", "qc_file")]),
+        (cbf_qc_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
+        (cbf_qc_wf, summary, [("outputnode.qc_file", "qc_file")]),
     ])
     # fmt:on
 
     for cbf_deriv in mean_cbf_derivs:
         # fmt:off
         workflow.connect([
-            (compute_cbf_wf, compute_cbf_qc_wf, [
+            (cbf_wf, cbf_qc_wf, [
                 (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
             ]),
         ])
@@ -536,7 +536,7 @@ effects of other kernels [@lanczos].
         for cbf_deriv in cbf_derivs:
             # fmt:off
             workflow.connect([
-                (compute_cbf_wf, asl_derivatives_wf, [
+                (cbf_wf, asl_derivatives_wf, [
                     (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}_native"),
                 ]),
             ])
@@ -589,7 +589,7 @@ effects of other kernels [@lanczos].
             ]),
             (refine_mask, asl_std_trans_wf, [("out_mask", "inputnode.asl_mask")]),
             (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
-            (asl_std_trans_wf, compute_cbf_qc_wf, [
+            (asl_std_trans_wf, cbf_qc_wf, [
                 ("outputnode.asl_mask_std", "inputnode.asl_mask_std"),
             ]),
             (asl_std_trans_wf, asl_derivatives_wf, [
@@ -606,7 +606,7 @@ effects of other kernels [@lanczos].
         for cbf_deriv in cbf_derivs:
             # fmt:off
             workflow.connect([
-                (compute_cbf_wf, asl_std_trans_wf, [
+                (cbf_wf, asl_std_trans_wf, [
                     (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
                 ]),
                 (asl_std_trans_wf, asl_derivatives_wf, [
@@ -657,7 +657,7 @@ effects of other kernels [@lanczos].
     for cbf_deriv in mean_cbf_derivs:
         # fmt:off
         workflow.connect([
-            (compute_cbf_wf, plot_cbf_wf, [
+            (cbf_wf, plot_cbf_wf, [
                 (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
             ]),
         ])
@@ -688,7 +688,7 @@ effects of other kernels [@lanczos].
     for cbf_deriv in mean_cbf_derivs:
         # fmt:off
         workflow.connect([
-            (compute_cbf_wf, parcellate_cbf_wf, [
+            (cbf_wf, parcellate_cbf_wf, [
                 (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
             ]),
             (parcellate_cbf_wf, asl_derivatives_wf, [
