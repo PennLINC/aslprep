@@ -16,7 +16,6 @@ from nipype.utils.filemanip import fname_presuffix, load_json, save_json
 
 from aslprep import config
 from aslprep.utils.asl import reduce_metadata_lists
-from aslprep.utils.misc import _aslist
 
 
 class _ReduceASLFilesInputSpec(BaseInterfaceInputSpec):
