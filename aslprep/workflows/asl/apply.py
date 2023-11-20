@@ -3,13 +3,15 @@ from __future__ import annotations
 
 import nipype.interfaces.utility as niu
 import nipype.pipeline.engine as pe
-from fmriprep.interfaces.resampling import (
+from niworkflows.interfaces.nibabel import GenerateSamplingReference
+from niworkflows.interfaces.utility import KeySelect
+
+# TODO: Replace with fMRIPrep imports once new release is made
+from aslprep.interfaces.resampling import (
     DistortionParameters,
     ReconstructFieldmap,
     ResampleSeries,
 )
-from niworkflows.interfaces.nibabel import GenerateSamplingReference
-from niworkflows.interfaces.utility import KeySelect
 
 
 def init_asl_volumetric_resample_wf(

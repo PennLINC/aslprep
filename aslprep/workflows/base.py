@@ -17,7 +17,6 @@ from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
 from aslprep.interfaces.bids import BIDSDataGrabber
 from aslprep.utils.misc import _prefix, get_n_volumes
 from aslprep.workflows.asl.base import init_asl_preproc_wf
-from aslprep.workflows.asl.gecbf import init_asl_gepreproc_wf
 
 
 def init_aslprep_wf():
