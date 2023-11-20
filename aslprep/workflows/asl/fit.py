@@ -27,7 +27,6 @@ import bids
 import nibabel as nb
 from fmriprep import config
 from fmriprep.interfaces.reports import FunctionalSummary
-from fmriprep.utils.bids import extract_entities
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
@@ -46,6 +45,7 @@ from aslprep.interfaces.resampling import (
 )
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
+from aslprep.utils.bids import extract_entities  # TODO: Replace with fMRIPrep import
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import (
     init_asl_fit_reports_wf,
