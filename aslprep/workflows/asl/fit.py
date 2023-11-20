@@ -25,6 +25,7 @@ import typing as ty
 
 import bids
 import nibabel as nb
+import numpy as np
 from fmriprep.interfaces.reports import FunctionalSummary
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
@@ -193,6 +194,14 @@ def init_asl_fit_wf(
     # Get metadata from ASL file(s)
     entities = extract_entities(asl_file)
     metadata = layout.get_metadata(asl_file)
+    # Patch RepetitionTimePreparation into RepetitionTime,
+    # for the sake of BOLD-based interfaces and workflows.
+    # This value shouldn't be used for anything except figures and reportlets.
+    metadata["RepetitionTime"] = metadata.get(
+        "RepetitionTime",
+        np.mean(metadata["RepetitionTimePreparation"]),
+    )
+
     orientation = "".join(nb.aff2axcodes(nb.load(asl_file).affine))
 
     _, mem_gb = estimate_asl_mem_usage(asl_file)
@@ -273,7 +282,7 @@ def init_asl_fit_wf(
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True,
     )
-    summary.inputs.dummy_scans = config.workflow.dummy_scans
+    summary.inputs.dummy_scans = config.workflow.dummy_vols
 
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         sdc_correction=not (fieldmap_id is None),
