@@ -179,6 +179,7 @@ def init_asl_fit_wf(
 
     from aslprep.utils.misc import estimate_asl_mem_usage
 
+    raise Exception(config.execution.layout)
     layout = config.execution.layout
 
     # Collect asl and sbref files, sorted by EchoTime
