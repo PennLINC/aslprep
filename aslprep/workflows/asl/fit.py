@@ -331,7 +331,7 @@ def init_asl_fit_wf(
         m0scan=(metadata["M0Type"] == "Separate"),
     )
     hmc_aslref_wf.inputs.inputnode.m0scan = m0scan
-    hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_scans
+    hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_vols
 
     ds_hmc_aslref_wf = init_ds_aslref_wf(
         bids_root=layout.root,
