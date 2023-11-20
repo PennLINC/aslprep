@@ -740,8 +740,16 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         carpetplot_wf = init_carpetplot_wf(
             mem_gb=mem_gb["resampled"],
+            confounds_list=[
+                ("global_signal", None, "GS"),
+                ("csf", None, "GSCSF"),
+                ("white_matter", None, "GSWM"),
+                ("std_dvars", None, "DVARS"),
+                ("framewise_displacement", "mm", "FD"),
+            ],
             metadata=metadata,
             cifti_output=config.workflow.cifti_output,
+            suffix="asl",
             name="carpetplot_wf",
         )
 
