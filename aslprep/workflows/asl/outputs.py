@@ -834,8 +834,7 @@ def init_asl_derivatives_wf(
                 "asl_mask_native",
                 # Transforms
                 "hmc_xforms",
-                "aslref_to_anat_xfm",
-                "anat_to_aslref_xfm",
+                "aslref2anat_xfm",
                 # Standard CBF outputs
                 "cbf_ts_native",
                 "cbf_ts_cifti",
@@ -935,31 +934,6 @@ def init_asl_derivatives_wf(
     ])
     # fmt:on
 
-    # write transform matrix file between asl native space and T1w
-    ds_t1w_to_asl_xform = pe.Node(
-        DerivativesDataSink(
-            base_directory=config.execution.aslprep_dir,
-            to="scanner",
-            mode="image",
-            suffix="xfm",
-            extension=".txt",
-            dismiss_entities=("echo",),
-            **{"from": "T1w"},
-        ),
-        name="ds_t1w_to_asl_xform",
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, ds_t1w_to_asl_xform, [
-            ("source_file", "source_file"),
-            ("anat_to_aslref_xfm", "in_file"),
-        ]),
-    ])
-    # fmt:on
-
     ds_asl_to_t1w_xform = pe.Node(
         DerivativesDataSink(
             base_directory=config.execution.aslprep_dir,
@@ -979,7 +953,7 @@ def init_asl_derivatives_wf(
     workflow.connect([
         (inputnode, ds_asl_to_t1w_xform, [
             ("source_file", "source_file"),
-            ("aslref_to_anat_xfm", "in_file"),
+            ("aslref2anat_xfm", "in_file"),
         ]),
     ])
     # fmt:on

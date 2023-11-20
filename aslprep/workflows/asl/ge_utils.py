@@ -184,7 +184,7 @@ def init_asl_reg_ge_wf(
         name="inputnode",
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["aslref_to_anat_xfm", "anat_to_aslref_xfm", "fallback"]),
+        niu.IdentityInterface(fields=["aslref2anat_xfm", "anat2aslref_xfm", "fallback"]),
         name="outputnode",
     )
 
@@ -203,8 +203,8 @@ def init_asl_reg_ge_wf(
             ("t1w_brain", "inputnode.t1w_brain"),
         ]),
         (bbr_wf, outputnode, [
-            ("outputnode.aslref_to_anat_xfm", "aslref_to_anat_xfm"),
-            ("outputnode.anat_to_aslref_xfm", "anat_to_aslref_xfm"),
+            ("outputnode.aslref2anat_xfm", "aslref2anat_xfm"),
+            ("outputnode.anat2aslref_xfm", "anat2aslref_xfm"),
             ("outputnode.fallback", "fallback"),
         ]),
     ])

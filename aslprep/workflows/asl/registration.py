@@ -351,10 +351,10 @@ def init_fsl_bbr_wf(use_bbr, asl2t1w_dof, asl2t1w_init, sloppy=False, name="fsl_
 
     Outputs
     -------
-    aslref_to_anat_xfm
+    aslref2anat_xfm
         Affine transform from ``ref_asl_brain`` to T1w space (ITK format)
-    anat_to_aslref_xfm
-        Affine transform from T1 space to ASL space (ITK format)
+    aslref2anat_xfm
+        Affine transform from ASL space to T1 space (ITK format)
     out_report
         Reportlet for assessing registration quality
     fallback
@@ -383,8 +383,8 @@ and the overlap between the ASL and reference images (e.g., image coverage).
     outputnode = pe.Node(
         niu.IdentityInterface(
             [
-                "aslref_to_anat_xfm",
-                "anat_to_aslref_xfm",
+                "aslref2anat_xfm",
+                "anat2aslref_xfm",
                 "out_report",
                 "fallback",
             ]
@@ -439,8 +439,8 @@ and the overlap between the ASL and reference images (e.g., image coverage).
             ("t1w_brain", "source_file"),
         ]),
         (invt_bbr, fsl2itk_inv, [("out_file", "transform_file")]),
-        (fsl2itk_fwd, outputnode, [("itk_transform", "aslref_to_anat_xfm")]),
-        (fsl2itk_inv, outputnode, [("itk_transform", "anat_to_aslref_xfm")]),
+        (fsl2itk_fwd, outputnode, [("itk_transform", "aslref2anat_xfm")]),
+        (fsl2itk_inv, outputnode, [("itk_transform", "anat2aslref_xfm")]),
     ])
     # fmt:on
 

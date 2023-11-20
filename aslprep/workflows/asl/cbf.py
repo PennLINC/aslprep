@@ -95,9 +95,7 @@ def init_cbf_wf(
         t1w probability maps
     t1w_mask
         t1w mask Nifti
-    anat_to_aslref_xfm
-        t1w to asl transformation file
-    aslref_to_anat_xfm
+    aslref2anat_xfm
         asl to t1w transformation file
 
     Outputs
@@ -228,9 +226,8 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "anat_to_aslref_xfm",
-                "aslref_to_anat_xfm",
-            ]
+                "aslref2anat_xfm",
+            ],
         ),
         name="inputnode",
     )
@@ -268,7 +265,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         (inputnode, refine_mask, [
             ("t1w_mask", "t1w_mask"),
             ("asl_mask", "asl_mask"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "aslref2anat_xfm"),
         ]),
     ])
     # fmt:on
@@ -289,7 +286,11 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         return os.path.dirname(file)
 
     gm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="gm_tfm",
         mem_gb=0.1,
     )
@@ -298,14 +299,18 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
     # fmt:on
 
     wm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="wm_tfm",
         mem_gb=0.1,
     )
@@ -314,14 +319,18 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
     # fmt:on
 
     csf_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="csf_tfm",
         mem_gb=0.1,
     )
@@ -330,7 +339,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
@@ -563,8 +572,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
                 "asl_mask",
                 "t1w_tpms",
                 "t1w_mask",
-                "anat_to_aslref_xfm",
-                "aslref_to_anat_xfm",
+                "aslref2anat_xfm",
                 "m0_file",
                 "m0tr",
             ]
@@ -609,7 +617,11 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     # convert tmps to asl_space
     # extract probability maps
     csf_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="csf_tfm",
         mem_gb=0.1,
     )
@@ -618,14 +630,18 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
     # fmt:on
 
     wm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="wm_tfm",
         mem_gb=0.1,
     )
@@ -634,14 +650,18 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
     # fmt:on
 
     gm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="gm_tfm",
         mem_gb=0.1,
     )
@@ -650,7 +670,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
@@ -679,7 +699,7 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
         (inputnode, refine_mask, [
             ("t1w_mask", "t1w_mask"),
             ("asl_mask", "asl_mask"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "aslref2anat_xfm"),
         ]),
     ])
     # fmt:on
@@ -918,7 +938,7 @@ def init_parcellate_cbf_wf(
     mean_cbf_basil : Undefined or str
     mean_cbf_gm_basil : Undefined or str
     asl_mask : str
-    anat_to_aslref_xfm : str
+    aslref2anat_xfm : str
     MNI152NLin2009cAsym_to_anat_xfm : str
         The transform from MNI152NLin2009cAsym to the subject's anatomical space.
 
@@ -965,7 +985,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
                 "asl_mask",
-                "anat_to_aslref_xfm",
+                "aslref2anat_xfm",
                 "MNI152NLin2009cAsym_to_anat_xfm",
             ],
         ),
@@ -1030,7 +1050,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
     workflow.connect([
         (inputnode, merge_xforms, [
             ("MNI152NLin2009cAsym_to_anat_xfm", "in2"),
-            ("anat_to_aslref_xfm", "in3"),
+            ("aslref2anat_xfm", "in3"),
         ]),
     ])
     # fmt:on
@@ -1041,6 +1061,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             interpolation="GenericLabel",
             input_image_type=3,
             dimension=3,
+            invert_transform_flags=[False, False, True],
         ),
         name="warp_atlases_to_asl_space",
         iterfield=["input_image"],

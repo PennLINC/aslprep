@@ -54,8 +54,8 @@ def init_cbf_qc_wf(
         asl mask NIFTI file
     t1w_tpms
         t1w probability maps
-    anat_to_aslref_xfm
-        t1w to asl transformation file
+    aslref2anat_xfm
+        aslref to t1w transformation file
     asl_mask_std : list
         Since ASLPrep always includes MNI152NLin2009cAsym as a standard space,
         this should always be provided.
@@ -79,7 +79,7 @@ negative CBF values.
                 "asl_mask",
                 "t1w_mask",
                 "t1w_tpms",
-                "anat_to_aslref_xfm",
+                "aslref2anat_xfm",
                 "asl_mask_std",
                 # CBF inputs
                 "mean_cbf",
@@ -108,7 +108,11 @@ negative CBF values.
         return files[2]
 
     gm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="gm_tfm",
         mem_gb=0.1,
     )
@@ -117,14 +121,18 @@ negative CBF values.
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
     ])
     # fmt:on
 
     wm_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="wm_tfm",
         mem_gb=0.1,
     )
@@ -133,14 +141,18 @@ negative CBF values.
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
     ])
     # fmt:on
 
     csf_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="csf_tfm",
         mem_gb=0.1,
     )
@@ -149,14 +161,18 @@ negative CBF values.
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
     ])
     # fmt:on
 
     mask_tfm = pe.Node(
-        ApplyTransforms(interpolation="NearestNeighbor", float=True),
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[True],
+        ),
         name="masktonative",
         mem_gb=0.1,
     )
@@ -165,7 +181,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, mask_tfm, [
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             ("t1w_mask", "input_image"),
         ]),
     ])

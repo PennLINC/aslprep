@@ -38,7 +38,11 @@ from aslprep.utils.cbf import (
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
     t1w_mask = File(exists=True, mandatory=True, desc="t1 mask")
     asl_mask = File(exists=True, mandatory=True, desct="asl mask")
-    transforms = File(exists=True, mandatory=True, desc="transfom")
+    aslref2anat_xfm = File(
+        exists=True,
+        mandatory=True,
+        desc="Transform from reference to anatomical space.",
+    )
 
 
 class _RefineMaskOutputSpec(TraitedSpec):
@@ -67,7 +71,7 @@ class RefineMask(SimpleInterface):
         refine_ref_mask(
             t1w_mask=self.inputs.t1w_mask,
             ref_asl_mask=self.inputs.asl_mask,
-            t12ref_transform=self.inputs.transforms,
+            aslref2anat_xfm=self.inputs.aslref2anat_xfm,
             tmp_mask=self._results["out_tmp"],
             refined_mask=self._results["out_mask"],
         )
@@ -984,7 +988,7 @@ def regmotoasl(asl, m0file):
     return flt_results.outputs.out_file
 
 
-def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_mask):
+def refine_ref_mask(t1w_mask, ref_asl_mask, aslref2anat_xfm, tmp_mask, refined_mask):
     """Warp T1w mask to ASL space, then use it to mask the ASL mask.
 
     TODO: This should not be a function. It uses interfaces, so it should be a workflow.
@@ -995,7 +999,8 @@ def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_
         input_image=t1w_mask,
         interpolation="NearestNeighbor",
         reference_image=ref_asl_mask,
-        transforms=[t12ref_transform],
+        transforms=[aslref2anat_xfm],
+        invert_transform_flags=[True],
         input_image_type=3,
         output_image=tmp_mask,
     )

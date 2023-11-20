@@ -382,8 +382,8 @@ effects of other kernels [@lanczos].
         ]),
         (t1w_brain, asl_reg_wf, [("out_file", "inputnode.t1w_brain")]),
         (asl_reg_wf, asl_derivatives_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
-            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+            ("outputnode.anat2aslref_xfm", "inputnode.anat2aslref_xfm"),
+            ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
         ]),
         (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
     ])
@@ -414,8 +414,8 @@ effects of other kernels [@lanczos].
             ("outputnode.m0tr", "inputnode.m0tr"),
         ]),
         (asl_reg_wf, cbf_wf, [
-            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+            ("outputnode.anat2aslref_xfm", "inputnode.anat2aslref_xfm"),
         ]),
     ])
     # fmt:on
@@ -452,7 +452,7 @@ effects of other kernels [@lanczos].
         # keeping this separate from the top for symmetry with non-GE workflow
         (asl_split, asl_t1_trans_wf, [("out_files", "inputnode.asl_split")]),
         (asl_reg_wf, asl_t1_trans_wf, [
-            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+            ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
         ]),
     ])
     # fmt:on
@@ -479,7 +479,7 @@ effects of other kernels [@lanczos].
     # fmt:off
     workflow.connect([
         (inputnode, refine_mask, [("t1w_mask", "t1w_mask")]),
-        (asl_reg_wf, refine_mask, [("outputnode.anat_to_aslref_xfm", "transforms")]),
+        (asl_reg_wf, refine_mask, [("outputnode.anat2aslref_xfm", "transforms")]),
         (asl_reference_wf, refine_mask, [("outputnode.asl_mask", "asl_mask")]),
     ])
     # fmt:on
@@ -502,7 +502,7 @@ effects of other kernels [@lanczos].
         ]),
         (refine_mask, cbf_qc_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, cbf_qc_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.anat2aslref_xfm", "inputnode.anat2aslref_xfm"),
         ]),
         (cbf_qc_wf, asl_derivatives_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
         (cbf_qc_wf, summary, [("outputnode.qc_file", "qc_file")]),
@@ -552,7 +552,7 @@ effects of other kernels [@lanczos].
 
         # fmt:off
         workflow.connect([
-            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref_to_anat_xfm", "transforms")]),
+            (asl_reg_wf, aslmask_to_t1w, [("outputnode.aslref2anat_xfm", "transforms")]),
             (asl_t1_trans_wf, aslmask_to_t1w, [("outputnode.asl_mask_t1", "reference_image")]),
             (refine_mask, aslmask_to_t1w, [("out_mask", "input_image")]),
             (aslmask_to_t1w, asl_derivatives_wf, [("output_image", "inputnode.asl_mask_t1")]),
@@ -582,7 +582,7 @@ effects of other kernels [@lanczos].
                 ("asl_file", "inputnode.name_source"),
             ]),
             (asl_reg_wf, asl_std_trans_wf, [
-                ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
             (refine_mask, asl_std_trans_wf, [("out_mask", "inputnode.asl_mask")]),
             (asl_split, asl_std_trans_wf, [("out_files", "inputnode.asl_split")]),
@@ -645,7 +645,7 @@ effects of other kernels [@lanczos].
         ]),
         (asl_reference_wf, plot_cbf_wf, [("outputnode.ref_image_brain", "inputnode.aslref")]),
         (asl_reg_wf, plot_cbf_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.anat2aslref_xfm", "inputnode.anat2aslref_xfm"),
         ]),
         (refine_mask, plot_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
     ])
@@ -674,7 +674,7 @@ effects of other kernels [@lanczos].
         ]),
         (refine_mask, parcellate_cbf_wf, [("out_mask", "inputnode.asl_mask")]),
         (asl_reg_wf, parcellate_cbf_wf, [
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.anat2aslref_xfm", "inputnode.anat2aslref_xfm"),
         ]),
         (parcellate_cbf_wf, asl_derivatives_wf, [
             ("outputnode.atlas_names", "inputnode.atlas_names"),

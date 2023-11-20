@@ -402,13 +402,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (asl_fit_wf, cbf_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
-            ("outputnode.aslcontext", "inputnode.aslcontext"),
-            ("outputnode.m0scan", "inputnode.m0scan"),
-            # XXX: doesn't exist!
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
-            ("outputnode.aslref_to_anat_xfm", "inputnode.aslref_to_anat_xfm"),
+            ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
         ]),
-        (asl_native_wf, cbf_wf, [("outputnode.asl_native", "inputnode.asl_file")]),
+        (asl_native_wf, cbf_wf, [
+            ("outputnode.asl_native", "inputnode.asl_file"),
+            ("outputnode.aslcontext", "inputnode.aslcontext"),
+            ("outputnode.m0scan_native", "inputnode.m0scan"),
+        ]),
     ])
     # fmt:on
 
@@ -517,8 +517,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (asl_fit_wf, parcellate_cbf_wf, [
                 ("outputnode.asl_mask", "inputnode.asl_mask"),
-                # XXX: doesn't exist!
-                ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
         ])
         # fmt:on
@@ -692,7 +691,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         ]),
         (asl_fit_wf, cbf_qc_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ("outputnode.rmsd_file", "inputnode.rmsd_file"),
         ]),
         (asl_confounds_wf, cbf_qc_wf, [("outputnode.confounds_file", "inputnode.confounds_file")]),
@@ -724,8 +723,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         ]),
         (asl_fit_wf, plot_cbf_wf, [
             ("outputnode.coreg_aslref", "inputnode.aslref"),
-            # XXX: doesn't exist
-            ("outputnode.anat_to_aslref_xfm", "inputnode.anat_to_aslref_xfm"),
+            ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             # XXX: Used to use the one from refine_mask
             ("inputnode.asl_mask", "inputnode.asl_mask"),
         ]),

@@ -74,7 +74,7 @@ def init_asl_confounds_wf(
         Mask of the skull-stripped template image
     t1w_tpms
         List of tissue probability maps in T1w space
-    anat_to_aslref_xfm
+    aslref2anat_xfm
         Affine matrix that maps the T1w space into alignment with
         the native asl space
 
@@ -110,7 +110,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
                 "skip_vols",
                 "t1w_mask",
                 "t1w_tpms",
-                "anat_to_aslref_xfm",
+                "aslref2anat_xfm",
             ],
         ),
         name="inputnode",
@@ -184,7 +184,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
 
     # Project T1w mask into BOLD space and merge with BOLD brainmask
     t1w_mask_tfm = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel"),
+        ApplyTransforms(interpolation="MultiLabel", invert_transform_flags=[True]),
         name="t1w_mask_tfm",
     )
     union_mask = pe.Node(niu.Function(function=_binary_union), name="union_mask")
@@ -199,7 +199,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         (inputnode, t1w_mask_tfm, [
             ("t1w_mask", "input_image"),
             ("asl_mask", "reference_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
         ]),
         (inputnode, union_mask, [("asl_mask", "mask1")]),
         (t1w_mask_tfm, union_mask, [("output_image", "mask2")]),
@@ -223,7 +223,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
 
     # Resample probseg maps in BOLD space via T1w-to-BOLD transform
     acc_msk_tfm = pe.MapNode(
-        ApplyTransforms(interpolation="Gaussian"),
+        ApplyTransforms(interpolation="Gaussian", invert_transform_flags=[True]),
         iterfield=["input_image"],
         name="acc_msk_tfm",
         mem_gb=0.1,
@@ -231,7 +231,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     # fmt:off
     workflow.connect([
         (inputnode, acc_msk_tfm, [
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
             ("asl_mask", "reference_image"),
         ]),
         (acc_masks, acc_msk_tfm, [("out_masks", "input_image")]),

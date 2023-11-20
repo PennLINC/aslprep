@@ -44,7 +44,7 @@ def init_plot_cbf_wf(
                 "aslref",
                 "asl_mask",
                 "t1w_dseg",
-                "anat_to_aslref_xfm",
+                "aslref2anat_xfm",
                 "std2anat_xfm",
                 # If plot_timeseries is True
                 "crown_mask",
@@ -70,18 +70,6 @@ def init_plot_cbf_wf(
         name="inputnode",
     )
 
-    # String together transforms from MNI152NLin2009cAsym to ASL reference
-    mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, mrg_xfms, [
-            ("std2anat_xfm", "in1"),
-            ("anat_to_aslref_xfm", "in2"),
-        ]),
-    ])
-    # fmt:on
-
     # Warp dseg file from T1w space to ASL reference space
     warp_t1w_dseg_to_aslref = pe.Node(
         ApplyTransforms(
@@ -89,6 +77,7 @@ def init_plot_cbf_wf(
             dimension=3,
             default_value=0,
             interpolation="MultiLabel",
+            invert_transform_flags=[True],
         ),
         name="warp_t1w_dseg_to_aslref",
     )
@@ -98,7 +87,7 @@ def init_plot_cbf_wf(
         (inputnode, warp_t1w_dseg_to_aslref, [
             ("asl_mask", "reference_image"),
             ("t1w_dseg", "input_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
         ]),
     ])
     # fmt:on
@@ -166,7 +155,7 @@ def init_plot_cbf_wf(
                 ("std2anat_xfm", "inputnode.std2anat_xfm"),
                 ("cbf_ts", "inputnode.bold"),
                 ("asl_mask", "inputnode.bold_mask"),
-                ("anat_to_aslref_xfm", "inputnode.t1_bold_xform"),
+                ("aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
                 ("crown_mask", "inputnode.crown_mask"),
                 (("acompcor_masks", _select_last_in_list), "inputnode.acompcor_mask"),
             ]),
