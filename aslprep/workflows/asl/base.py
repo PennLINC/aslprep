@@ -393,7 +393,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         metadata=metadata,
         name="cbf_wf",
     )
-    # fmt:off
     workflow.connect([
         (inputnode, cbf_wf, [
             ("t1w_mask", "inputnode.t1w_mask"),
@@ -409,8 +408,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.aslcontext", "inputnode.aslcontext"),
             ("outputnode.m0scan_native", "inputnode.m0scan"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     # If we want aslref-space outputs, then call the appropriate workflow
     aslref_out = bool(nonstd_spaces.intersection(("func", "run", "asl", "aslref", "sbref")))
@@ -453,6 +451,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_native_wf, ds_asl_t1_wf, [("outputnode.t2star_map", "inputnode.t2star")]),
             (asl_anat_wf, ds_asl_t1_wf, [("outputnode.asl_file", "inputnode.asl")]),
         ])  # fmt:skip
+
+        for cbf_deriv in cbf_3d_derivs:
+            workflow.connect([
+                (cbf_wf, ds_asl_t1_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
+            ])  # fmt:skip
 
     if spaces.cached.get_spaces(nonstandard=False, dim=(3,)):
         # Missing:
@@ -502,12 +505,16 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (asl_fit_wf, ds_asl_std_wf, [
                 ("outputnode.asl_mask", "inputnode.asl_mask"),
-                ("outputnode.coreg_aslref", "inputnode.asl_ref"),
+                ("outputnode.coreg_aslref", "inputnode.aslref"),
                 ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
-            (asl_native_wf, ds_asl_std_wf, [("outputnode.t2star_map", "inputnode.t2star")]),
             (asl_std_wf, ds_asl_std_wf, [("outputnode.asl_file", "inputnode.asl")]),
         ])  # fmt:skip
+
+        for cbf_deriv in cbf_3d_derivs:
+            workflow.connect([
+                (cbf_wf, ds_asl_std_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
+            ])  # fmt:skip
 
         # Parcellate CBF maps and write out parcellated TSV files and atlases
         parcellate_cbf_wf = init_parcellate_cbf_wf(
@@ -515,7 +522,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             name="parcellate_cbf_wf",
         )
         parcellate_cbf_wf.inputs.inputnode.source_files = [asl_file]
-        # fmt:off
         workflow.connect([
             (inputnode, parcellate_cbf_wf, [
                 ("asl_file", "inputnode.source_file"),
@@ -525,16 +531,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.asl_mask", "inputnode.asl_mask"),
                 ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
         for cbf_deriv in cbf_3d_derivs:
-            # fmt:off
             workflow.connect([
                 (cbf_wf, parcellate_cbf_wf, [
                     (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
                 ]),
-            ])
-            # fmt:on
+            ])  # fmt:skip
 
     if config.workflow.run_reconall and freesurfer_spaces:
         workflow.__postdesc__ += """\
@@ -688,7 +691,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         basil=basil,
         name="cbf_qc_wf",
     )
-    # fmt:off
     workflow.connect([
         (inputnode, cbf_qc_wf, [
             ("asl_file", "inputnode.name_source"),
@@ -701,14 +703,11 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ("outputnode.rmsd_file", "inputnode.rmsd_file"),
         ]),
         (asl_confounds_wf, cbf_qc_wf, [("outputnode.confounds_file", "inputnode.confounds_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
     for cbf_deriv in cbf_3d_derivs:
-        # fmt:off
         workflow.connect([
             (cbf_wf, cbf_qc_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
     # Plot CBF outputs.
     plot_cbf_wf = init_plot_cbf_wf(
@@ -718,7 +717,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         basil=basil,
         name="plot_cbf_wf",
     )
-    # fmt:off
     workflow.connect([
         (inputnode, plot_cbf_wf, [
             ("t1w_dseg", "inputnode.t1w_dseg"),
@@ -737,17 +735,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ("outputnode.crown_mask", "inputnode.crown_mask"),
             ("outputnode.acompcor_masks", "inputnode.acompcor_masks"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     for cbf_deriv in cbf_derivs:
-        # fmt:off
         workflow.connect([
             (cbf_wf, plot_cbf_wf, [
                 (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         carpetplot_wf = init_carpetplot_wf(
