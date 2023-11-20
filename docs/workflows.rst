@@ -107,7 +107,7 @@ ASL preprocessing
 
    with mock_config():
       asl_file = str(config.execution.bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz")
-      wf = init_asl_preproc_wf(asl_file)
+      wf = init_asl_preproc_wf(asl_file=asl_file)
 
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.

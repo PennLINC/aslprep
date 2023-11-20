@@ -456,6 +456,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 (cbf_wf, ds_asl_t1_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
             ])  # fmt:skip
 
+    # Should always be reached, since ASLPrep includes MNI152NLin6Asym and MNI152NLin2009cAsym
+    # automatically
     if spaces.cached.get_spaces(nonstandard=False, dim=(3,)):
         # Missing:
         #  * Clipping BOLD after resampling
@@ -737,6 +739,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             (cbf_wf, plot_cbf_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
         ])  # fmt:skip
 
+    # Should always be reached, since ASLPrep includes MNI152NLin6Asym and MNI152NLin2009cAsym
+    # automatically
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         carpetplot_wf = init_carpetplot_wf(
             mem_gb=mem_gb["resampled"],
