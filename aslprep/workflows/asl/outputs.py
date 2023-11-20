@@ -358,6 +358,7 @@ def init_ds_aslref_wf(
     desc: str,
     name="ds_aslref_wf",
 ) -> pe.Workflow:
+    """Write out aslref image."""
     workflow = pe.Workflow(name=name)
 
     inputnode = pe.Node(
@@ -454,6 +455,7 @@ def init_ds_hmc_wf(
     output_dir,
     name="ds_hmc_wf",
 ) -> pe.Workflow:
+    """Write out motion correction derivatives."""
     workflow = pe.Workflow(name=name)
 
     inputnode = pe.Node(

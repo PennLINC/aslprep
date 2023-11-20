@@ -20,17 +20,13 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+"""Fit workflows for ASLPrep."""
 import typing as ty
 
 import bids
 import nibabel as nb
 from fmriprep import config
 from fmriprep.interfaces.reports import FunctionalSummary
-from fmriprep.interfaces.resampling import (
-    DistortionParameters,
-    ReconstructFieldmap,
-    ResampleSeries,
-)
 from fmriprep.utils.bids import extract_entities
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
@@ -42,6 +38,12 @@ from sdcflows.workflows.apply.correction import init_unwarp_wf
 from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 
 # ASL workflows
+# TODO: Replace with fMRIPrep imports once new release is made
+from aslprep.interfaces.resampling import (
+    DistortionParameters,
+    ReconstructFieldmap,
+    ResampleSeries,
+)
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf

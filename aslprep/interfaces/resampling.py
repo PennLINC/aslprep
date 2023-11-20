@@ -621,7 +621,7 @@ def reconstruct_fieldmap(
     target: nb.Nifti1Image,
     transforms: nt.TransformChain,
 ) -> nb.Nifti1Image:
-    """Resample a fieldmap from B-Spline coefficients into a target space
+    """Resample a fieldmap from B-Spline coefficients into a target space.
 
     If the coefficients and target are aligned, the field is reconstructed
     directly in the target space.
@@ -651,7 +651,6 @@ def reconstruct_fieldmap(
         The fieldmap encoded in ``coefficients``, resampled in the same
         space as ``target``
     """
-
     direct = False
     affine_xfm = as_affine(transforms)
     if affine_xfm is not None:

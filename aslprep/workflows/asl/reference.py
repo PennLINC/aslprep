@@ -20,6 +20,7 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+"""Workflows for generating reference images."""
 import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe

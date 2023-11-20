@@ -17,15 +17,16 @@ R = TypeVar("R")
 
 
 async def worker(job: Callable[[], R], semaphore: asyncio.Semaphore) -> R:
+    """Generate a worker."""
     async with semaphore:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, job)
 
 
 def load_transforms(xfm_paths: list[Path], inverse: list[bool]) -> nt.base.TransformBase:
-    """Load a series of transforms as a nitransforms TransformChain
+    """Load a series of transforms as a nitransforms TransformChain.
 
-    An empty list will return an identity transform
+    An empty list will return an identity transform.
     """
     if len(inverse) == 1:
         inverse *= len(xfm_paths)
@@ -61,7 +62,7 @@ FIXED_PARAMS = np.array([
 
 
 def load_ants_h5(filename: Path) -> nt.base.TransformBase:
-    """Load ANTs H5 files as a nitransforms TransformChain"""
+    """Load ANTs H5 files as a nitransforms TransformChain."""
     # Borrowed from https://github.com/feilong/process
     # process.resample.parse_combined_hdf5()
     #
