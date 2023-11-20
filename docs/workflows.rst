@@ -611,7 +611,7 @@ Quality control measures
    asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
 
-   wf = init_cbf_qc_wf(is_ge=False, output_dir=".")
+   wf = init_cbf_qc_wf(is_ge=False)
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index,
 and quality evaluation index (QEI) are included for all CBF maps.
@@ -635,9 +635,14 @@ ASL and CBF to T1w registration
    from fmriprep.workflows.bold.registration import init_bold_reg_wf
 
    wf = init_bold_reg_wf(
+      freesurfer=True,
       use_bbr=True,
-      func2t1w_dof=6,
-      func2t1w_init="register",
+      bold2t1w_dof=6,
+      bold2t1w_init="register",
+      mem_gb=1,
+      omp_nthreads=1,
+      name="bold_reg_wf",
+      sloppy=False,
    )
 
 *ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's
