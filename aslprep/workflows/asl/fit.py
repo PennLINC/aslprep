@@ -91,7 +91,7 @@ def init_asl_fit_wf(
     omp_nthreads: int = 1,
     name: str = "asl_fit_wf",
 ) -> pe.Workflow:
-    """This workflow controls the minimal estimation steps for functional preprocessing.
+    """Control the minimal estimation steps for functional preprocessing.
 
     Workflow Graph
         .. workflow::
@@ -771,7 +771,7 @@ def init_asl_native_wf(
 
 
 def _select_ref(sbref_file, aslref_files):
-    """Select first sbref or aslref file, preferring sbref if available"""
+    """Select first sbref or aslref file, preferring sbref if available."""
     from niworkflows.utils.connections import listify
 
     refs = sbref_file or aslref_files

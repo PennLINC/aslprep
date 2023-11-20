@@ -20,14 +20,21 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.header import ValidateImage
+from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
+from niworkflows.utils.connections import listify
 from niworkflows.utils.misc import pass_dummy_scans
 
 from aslprep import config
+from aslprep.interfaces.niworkflows import EstimateReferenceImage
 from aslprep.interfaces.reference import SelectHighestContrastVolumes
+from aslprep.interfaces.utility import SplitReferenceTarget
+from aslprep.utils.asl import select_processing_target
+from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
 
 def init_raw_aslref_wf(
@@ -296,7 +303,7 @@ reference volume and brain extracted using *Nipype*'s custom brain extraction wo
     val_asl = pe.MapNode(
         ValidateImage(),
         name="val_asl",
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         iterfield=["in_file"],
     )
 
@@ -332,7 +339,7 @@ reference volume and brain extracted using *Nipype*'s custom brain extraction wo
         niu.Function(function=pass_dummy_scans, output_names=["skip_vols_num"]),
         name="calc_dummy_scans",
         run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     # fmt:off
     workflow.connect([
@@ -370,7 +377,7 @@ reference volume and brain extracted using *Nipype*'s custom brain extraction wo
         val_sbref = pe.MapNode(
             ValidateImage(),
             name="val_sbref",
-            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             iterfield=["in_file"],
         )
         # fmt: off
