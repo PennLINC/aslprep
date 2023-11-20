@@ -35,8 +35,6 @@ def init_asl_hmc_wf(
             from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
             wf = init_asl_hmc_wf(
-                processing_target="control",
-                m0type="Separate",
                 mem_gb=3,
                 omp_nthreads=1,
                 name="asl_hmc_wf",

@@ -101,9 +101,10 @@ def init_asl_fit_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.tests import mock_config
+            from aslprep.tests.tests import mock_config
             from aslprep import config
             from aslprep.workflows.asl.fit import init_asl_fit_wf
+
             with mock_config():
                 asl_file = (
                     config.execution.bids_dir / "sub-01" / "perf" /
@@ -585,9 +586,10 @@ def init_asl_native_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.tests import mock_config
+            from aslprep.tests.tests import mock_config
             from aslprep import config
             from aslprep.workflows.asl.fit import init_asl_native_wf
+
             with mock_config():
                 asl_file = (
                     config.execution.bids_dir / "sub-01" / "perf" /

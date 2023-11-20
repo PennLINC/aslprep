@@ -24,7 +24,6 @@ def init_asl_surf_wf(
     mem_gb: float,
     surface_spaces: ty.List[str],
     medial_surface_nan: bool,
-    metadata: dict,
     output_dir: str,
     name: str = "bold_surf_wf",
 ):
@@ -41,13 +40,14 @@ def init_asl_surf_wf(
             :graph2use: colored
             :simple_form: yes
 
-            from fmriprep.workflows.bold import init_bold_surf_wf
-            wf = init_bold_surf_wf(mem_gb=0.1,
-                                   surface_spaces=["fsnative", "fsaverage5"],
-                                   medial_surface_nan=False,
-                                   metadata={},
-                                   output_dir='.',
-                                   )
+            from aslprep.workflows.asl.resampling import init_asl_surf_wf
+
+            wf = init_asl_surf_wf(
+                mem_gb=0.1,
+                surface_spaces=["fsnative", "fsaverage5"],
+                medial_surface_nan=False,
+                output_dir='.',
+            )
 
     Parameters
     ----------

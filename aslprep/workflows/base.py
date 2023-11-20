@@ -35,6 +35,7 @@ def init_aslprep_wf():
 
             from aslprep.tests.tests import mock_config
             from aslprep.workflows.base import init_aslprep_wf
+
             with mock_config():
                 wf = init_aslprep_wf()
 
@@ -482,19 +483,13 @@ tasks and sessions), the following preprocessing was performed.
                 ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
                 ("outputnode.t1w_mask", "inputnode.t1w_mask"),
                 ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
-                ("outputnode.t1w_aseg", "inputnode.t1w_aseg"),
-                ("outputnode.t1w_aparc", "inputnode.t1w_aparc"),
                 ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
-                ("outputnode.template", "inputnode.template"),
                 ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
                 # Undefined if --fs-no-reconall, but this is safe
                 ("outputnode.subjects_dir", "inputnode.subjects_dir"),
                 ("outputnode.subject_id", "inputnode.subject_id"),
                 ("outputnode.anat_ribbon", "inputnode.anat_ribbon"),
-                ("outputnode.t1w2fsnative_xfm", "inputnode.t1w2fsnative_xfm"),
                 ("outputnode.fsnative2t1w_xfm", "inputnode.fsnative2t1w_xfm"),
-                ("outputnode.surfaces", "inputnode.surfaces"),
-                ("outputnode.morphometrics", "inputnode.morphometrics"),
                 ("outputnode.sphere_reg_fsLR", "inputnode.sphere_reg_fsLR"),
             ]),
         ])

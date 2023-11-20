@@ -550,7 +550,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             mem_gb=mem_gb["resampled"],
             surface_spaces=freesurfer_spaces,
             medial_surface_nan=config.workflow.medial_surface_nan,
-            metadata=metadata,
             output_dir=config.execution.aslprep_dir,
             name="asl_surf_wf",
         )
