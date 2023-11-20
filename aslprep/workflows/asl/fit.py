@@ -413,7 +413,7 @@ def init_asl_fit_wf(
 
     # Select initial aslref, enhance contrast, and generate mask
     fmapref_buffer.inputs.sbref_file = sbref_file
-    enhance_aslref_wf = init_enhance_and_skullstrip_asl_wf(omp_nthreads=omp_nthreads)
+    enhance_aslref_wf = init_enhance_and_skullstrip_asl_wf(pre_mask=False)
 
     ds_coreg_aslref_wf = init_ds_aslref_wf(
         bids_root=layout.root,
