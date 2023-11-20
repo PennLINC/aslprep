@@ -351,7 +351,6 @@ def init_asl_fit_wf(
             ("outputnode.aslref", "aslref"),
         ]),
         (hmcref_buffer, ds_hmc_aslref_wf, [("aslref", "inputnode.aslref")]),
-        (hmc_aslref_wf, summary, [("outputnode.algo_dummy_scans", "algo_dummy_scans")]),
         (hmc_aslref_wf, asl_fit_reports_wf, [
             ("outputnode.validation_report", "inputnode.validation_report"),
         ]),
