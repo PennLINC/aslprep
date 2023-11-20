@@ -643,11 +643,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
     asl_confounds_wf = init_asl_confounds_wf(
         mem_gb=mem_gb["largemem"],
-        metadata=metadata,
         freesurfer=config.workflow.run_reconall,
-        regressors_all_comps=config.workflow.regressors_all_comps,
-        regressors_fd_th=config.workflow.regressors_fd_th,
-        regressors_dvars_th=config.workflow.regressors_dvars_th,
         name="asl_confounds_wf",
     )
 
