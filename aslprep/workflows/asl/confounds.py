@@ -216,7 +216,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     workflow.connect([
         (inputnode, acc_masks, [
             ("t1w_tpms", "in_vfs"),
-            (("asl", _get_zooms), "asl_zooms"),
+            (("asl", _get_zooms), "bold_zooms"),
         ]),
     ])
     # fmt:on
