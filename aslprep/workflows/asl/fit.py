@@ -287,7 +287,7 @@ def init_asl_fit_wf(
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         sdc_correction=not (fieldmap_id is None),
         freesurfer=config.workflow.run_reconall,
-        output_dir=config.execution.fmriprep_dir,
+        output_dir=config.execution.aslprep_dir,
     )
 
     # fmt:off
@@ -335,7 +335,7 @@ def init_asl_fit_wf(
 
     ds_hmc_aslref_wf = init_ds_aslref_wf(
         bids_root=layout.root,
-        output_dir=config.execution.fmriprep_dir,
+        output_dir=config.execution.aslprep_dir,
         desc="hmc",
         name="ds_hmc_aslref_wf",
     )
@@ -390,7 +390,7 @@ def init_asl_fit_wf(
 
     ds_hmc_wf = init_ds_hmc_wf(
         bids_root=layout.root,
-        output_dir=config.execution.fmriprep_dir,
+        output_dir=config.execution.aslprep_dir,
     )
     ds_hmc_wf.inputs.inputnode.source_files = [asl_file]
 
@@ -417,7 +417,7 @@ def init_asl_fit_wf(
 
     ds_coreg_aslref_wf = init_ds_aslref_wf(
         bids_root=layout.root,
-        output_dir=config.execution.fmriprep_dir,
+        output_dir=config.execution.aslprep_dir,
         desc="coreg",
         name="ds_coreg_aslref_wf",
     )
@@ -453,7 +453,7 @@ def init_asl_fit_wf(
 
         ds_fmapreg_wf = init_ds_registration_wf(
             bids_root=layout.root,
-            output_dir=config.execution.fmriprep_dir,
+            output_dir=config.execution.aslprep_dir,
             source="aslref",
             dest=fieldmap_id.replace("_", ""),
             name="ds_fmapreg_wf",
@@ -539,7 +539,7 @@ def init_asl_fit_wf(
 
     ds_aslreg_wf = init_ds_registration_wf(
         bids_root=layout.root,
-        output_dir=config.execution.fmriprep_dir,
+        output_dir=config.execution.aslprep_dir,
         source="aslref",
         dest="T1w",
         name="ds_aslreg_wf",
