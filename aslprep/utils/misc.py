@@ -2,6 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Miscellaneous utilities."""
 from __future__ import annotations
+import typing as ty
 
 import os
 
@@ -227,3 +228,22 @@ def get_template_str(template, kwargs):
     from templateflow.api import get as get_template
 
     return str(get_template(template, **kwargs))
+
+
+def estimate_asl_mem_usage(asl_fname: str) -> ty.Tuple[int, dict]:
+    """Estimate ASL memory usage."""
+    import nibabel as nb
+    import numpy as np
+
+    img = nb.load(asl_fname)
+    nvox = int(np.prod(img.shape, dtype="u8"))
+    # Assume tools will coerce to 8-byte floats to be safe
+    asl_size_gb = 8 * nvox / (1024**3)
+    asl_tlen = img.shape[-1]
+    mem_gb = {
+        "filesize": asl_size_gb,
+        "resampled": asl_size_gb * 4,
+        "largemem": asl_size_gb * (max(asl_tlen / 100, 1.0) + 4),
+    }
+
+    return asl_tlen, mem_gb
