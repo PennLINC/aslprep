@@ -107,6 +107,8 @@ for use in head motion correction.
             fields=[
                 "asl_file",
                 "aslref",
+                "m0scan",
+                "dummy_scans",
                 "validation_report",
             ],
         ),
