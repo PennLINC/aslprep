@@ -374,7 +374,6 @@ def init_asl_fit_wf(
     # fmt:off
     workflow.connect([
         (inputnode, processing_target, [("aslcontext", "aslcontext")]),
-        (processing_target, reduce_asl_file, [("processing_target", "processing_target")]),
         (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
         (processing_target, reduce_asl_file, [("processing_target", "processing_target")]),
         (hmcref_buffer, reduce_asl_file, [("asl_file", "asl_file")]),
