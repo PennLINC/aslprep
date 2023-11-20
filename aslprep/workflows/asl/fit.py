@@ -277,6 +277,7 @@ def init_asl_fit_wf(
             echo_idx=entities.get("echo", []),
             tr=metadata["RepetitionTime"],
             orientation=orientation,
+            algo_dummy_scans=0,
         ),
         name="summary",
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
@@ -292,6 +293,8 @@ def init_asl_fit_wf(
 
     # fmt:off
     workflow.connect([
+        # XXX: Was from hmc_aslref_wf
+        (inputnode, hmcref_buffer, [("dummy_scans", "dummy_scans")]),
         (hmcref_buffer, outputnode, [
             ("aslref", "hmc_aslref"),
             ("dummy_scans", "dummy_scans"),
@@ -346,7 +349,6 @@ def init_asl_fit_wf(
         (hmc_aslref_wf, hmcref_buffer, [
             ("outputnode.asl_file", "asl_file"),
             ("outputnode.aslref", "aslref"),
-            ("outputnode.skip_vols", "dummy_scans"),
         ]),
         (hmcref_buffer, ds_hmc_aslref_wf, [("aslref", "inputnode.aslref")]),
         (hmc_aslref_wf, summary, [("outputnode.algo_dummy_scans", "algo_dummy_scans")]),
