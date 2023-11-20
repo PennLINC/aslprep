@@ -710,7 +710,7 @@ def init_asl_native_wf(
         (processing_target, reduce_asl_file, [("processing_target", "processing_target")]),
         (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
         (validate_asl, reduce_asl_file, [("out_file", "asl_file")]),
-        (reduce_asl_file, aslbuffer, [("out_file", "asl_file")]),
+        (reduce_asl_file, aslbuffer, [("asl_file", "asl_file")]),
         (reduce_asl_file, outputnode, [
             ("aslcontext", "aslcontext"),
             ("metadata", "metadata"),
