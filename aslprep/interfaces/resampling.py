@@ -1,4 +1,4 @@
-"""Interfaces for resampling images in a single shot"""
+"""Interfaces for resampling images in a single shot."""
 import asyncio
 import os
 from functools import partial
@@ -20,8 +20,7 @@ from scipy.sparse import hstack as sparse_hstack
 from sdcflows.transform import grid_bspline_weights
 from sdcflows.utils.tools import ensure_positive_cosines
 
-from ..utils.asynctools import worker
-from ..utils.transforms import load_transforms
+from aslprep.utils.fmriprep import load_transforms, worker
 
 
 class ResampleSeriesInputSpec(TraitedSpec):
