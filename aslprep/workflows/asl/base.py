@@ -520,7 +520,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             cbf_3d=cbf_3d_derivs,
             name="parcellate_cbf_wf",
         )
-        parcellate_cbf_wf.inputs.inputnode.source_files = [asl_file]
         workflow.connect([
             (inputnode, parcellate_cbf_wf, [
                 ("asl_file", "inputnode.source_file"),
@@ -739,9 +738,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
     for cbf_deriv in cbf_derivs:
         workflow.connect([
-            (cbf_wf, plot_cbf_wf, [
-                (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
-            ]),
+            (cbf_wf, plot_cbf_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
         ])  # fmt:skip
 
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
