@@ -31,7 +31,10 @@ def init_plot_cbf_wf(
             from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 
             wf = init_plot_cbf_wf(
-                metadata={"RepetitionTimePreparation": 4},
+                metadata={
+                    "RepetitionTime": 4,
+                    "RepetitionTimePreparation": 4,
+                },
             )
     """
     from niworkflows.interfaces.images import SignalExtraction

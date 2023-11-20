@@ -724,7 +724,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ("outputnode.coreg_aslref", "inputnode.aslref"),
             ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             # XXX: Used to use the one from refine_mask
-            ("inputnode.asl_mask", "inputnode.asl_mask"),
+            ("outputnode.asl_mask", "inputnode.asl_mask"),
         ]),
         (asl_confounds_wf, plot_cbf_wf, [
             ("outputnode.crown_mask", "inputnode.crown_mask"),
