@@ -24,14 +24,6 @@ import typing as ty
 
 import bids
 import nibabel as nb
-from nipype.interfaces import utility as niu
-from nipype.pipeline import engine as pe
-from niworkflows.interfaces.header import ValidateImage
-from niworkflows.interfaces.nitransforms import ConcatenateXFMs
-from niworkflows.interfaces.utility import KeySelect
-from sdcflows.workflows.apply.correction import init_unwarp_wf
-from sdcflows.workflows.apply.registration import init_coeff2epi_wf
-
 from fmriprep import config
 from fmriprep.interfaces.reports import FunctionalSummary
 from fmriprep.interfaces.resampling import (
@@ -41,16 +33,23 @@ from fmriprep.interfaces.resampling import (
 )
 from fmriprep.utils.bids import extract_entities
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
+from nipype.interfaces import utility as niu
+from nipype.pipeline import engine as pe
+from niworkflows.interfaces.header import ValidateImage
+from niworkflows.interfaces.nitransforms import ConcatenateXFMs
+from niworkflows.interfaces.utility import KeySelect
+from sdcflows.workflows.apply.correction import init_unwarp_wf
+from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 
 # ASL workflows
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import (
+    init_asl_fit_reports_wf,
     init_ds_aslref_wf,
     init_ds_hmc_wf,
     init_ds_registration_wf,
-    init_asl_fit_reports_wf,
 )
 from aslprep.workflows.asl.reference import init_raw_aslref_wf
 from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf

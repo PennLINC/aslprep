@@ -1,13 +1,13 @@
 """Workflows to apply transforms to data."""
 from __future__ import annotations
 
+import nipype.interfaces.utility as niu
+import nipype.pipeline.engine as pe
 from fmriprep.interfaces.resampling import (
     DistortionParameters,
     ReconstructFieldmap,
     ResampleSeries,
 )
-import nipype.interfaces.utility as niu
-import nipype.pipeline.engine as pe
 from niworkflows.interfaces.nibabel import GenerateSamplingReference
 from niworkflows.interfaces.utility import KeySelect
 
