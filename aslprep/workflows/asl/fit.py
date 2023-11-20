@@ -100,13 +100,15 @@ def init_asl_fit_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from fmriprep.workflows.tests import mock_config
-            from fmriprep import config
-            from fmriprep.workflows.asl.fit import init_asl_fit_wf
+            from aslprep.workflows.tests import mock_config
+            from aslprep import config
+            from aslprep.workflows.asl.fit import init_asl_fit_wf
             with mock_config():
-                asl_file = config.execution.bids_dir / "sub-01" / "func" \
-                    / "sub-01_task-mixedgamblestask_run-01_asl.nii.gz"
-                wf = init_asl_fit_wf(asl_series=[str(asl_file)])
+                asl_file = (
+                    config.execution.bids_dir / "sub-01" / "perf" /
+                    "sub-01_asl.nii.gz"
+                )
+                wf = init_asl_fit_wf(asl_file=str(asl_file))
 
     Parameters
     ----------
@@ -574,13 +576,15 @@ def init_asl_native_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from fmriprep.workflows.tests import mock_config
-            from fmriprep import config
-            from fmriprep.workflows.asl.fit import init_asl_native_wf
+            from aslprep.workflows.tests import mock_config
+            from aslprep import config
+            from aslprep.workflows.asl.fit import init_asl_native_wf
             with mock_config():
-                asl_file = config.execution.bids_dir / "sub-01" / "func" \
-                    / "sub-01_task-mixedgamblestask_run-01_asl.nii.gz"
-                wf = init_asl_native_wf(asl_series=[str(asl_file)])
+                asl_file = (
+                    config.execution.bids_dir / "sub-01" / "perf" /
+                    "sub-01_asl.nii.gz"
+                )
+                wf = init_asl_native_wf(asl_file=str(asl_file))
 
     Parameters
     ----------
