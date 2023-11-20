@@ -15,7 +15,6 @@ from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.utils.asl import determine_multi_pld
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
-from aslprep.workflows.asl.base import get_img_orientation
 from aslprep.workflows.asl.cbf import init_compute_cbf_ge_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.ge_utils import init_asl_reference_ge_wf, init_asl_reg_ge_wf
 from aslprep.workflows.asl.outputs import init_asl_derivatives_wf
@@ -184,8 +183,6 @@ def init_asl_gepreproc_wf(
 
     # Take first file (only file, because we don't support multi-echo ASL) as reference
     ref_file = asl_file
-    # get original image orientation
-    ref_orientation = get_img_orientation(ref_file)
 
     asl_tlen, mem_gb = _create_mem_gb(ref_file)
 
