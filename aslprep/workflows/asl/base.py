@@ -293,12 +293,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     inputnode.inputs.asl_file = asl_file
     inputnode.inputs.asl_metadata = metadata
     inputnode.inputs.aslcontext = run_data["aslcontext"]
-    inputnode.inputs.m0scan = run_data["m0scan"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
     # Perform minimal preprocessing of the ASL data, including HMC and SDC
     asl_fit_wf = init_asl_fit_wf(
         asl_file=asl_file,
+        m0scan=run_data["m0scan"],
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
     )

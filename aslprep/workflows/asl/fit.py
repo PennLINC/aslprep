@@ -88,7 +88,7 @@ def get_sbrefs(
 def init_asl_fit_wf(
     *,
     asl_file: str,
-    m0scan: str,
+    m0scan: ty.Union[str, None],
     fieldmap_id: ty.Optional[str] = None,
     omp_nthreads: int = 1,
     name: str = "asl_fit_wf",
