@@ -531,6 +531,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
         ])  # fmt:skip
+
         for cbf_deriv in cbf_3d_derivs:
             workflow.connect([
                 (cbf_wf, parcellate_cbf_wf, [

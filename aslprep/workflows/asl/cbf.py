@@ -895,9 +895,8 @@ perfusion image, including correction of partial volume effects [@chappell_pvc].
 
 
 def init_parcellate_cbf_wf(
+    cbf_3d,
     min_coverage=0.5,
-    scorescrub=False,
-    basil=False,
     mem_gb=0.1,
     omp_nthreads=1,
     name="parcellate_cbf_wf",
@@ -975,33 +974,20 @@ ignored (when the parcel had >{min_coverage * 100}% coverage)
 or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% coverage).
 """
 
+    input_fields = [
+        "source_file",
+        "asl_mask",
+        "aslref2anat_xfm",
+        "MNI152NLin2009cAsym_to_anat_xfm",
+    ]
+    input_fields += cbf_3d
     inputnode = pe.Node(
-        niu.IdentityInterface(
-            fields=[
-                "source_file",
-                "mean_cbf",
-                "mean_cbf_score",
-                "mean_cbf_scrub",
-                "mean_cbf_basil",
-                "mean_cbf_gm_basil",
-                "asl_mask",
-                "aslref2anat_xfm",
-                "MNI152NLin2009cAsym_to_anat_xfm",
-            ],
-        ),
+        niu.IdentityInterface(fields=input_fields),
         name="inputnode",
     )
+    output_fields = ["atlas_names"] + [f"{field}_parcellated" for field in cbf_3d]
     outputnode = pe.Node(
-        niu.IdentityInterface(
-            fields=[
-                "atlas_names",
-                "mean_cbf_parcellated",
-                "mean_cbf_score_parcellated",
-                "mean_cbf_scrub_parcellated",
-                "mean_cbf_basil_parcellated",
-                "mean_cbf_gm_basil_parcellated",
-            ],
-        ),
+        niu.IdentityInterface(fields=output_fields),
         name="outputnode",
     )
 
@@ -1077,14 +1063,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
     ])
     # fmt:on
 
-    cbf_types = ["mean_cbf"]
-    if scorescrub:
-        cbf_types += ["mean_cbf_score", "mean_cbf_scrub"]
-
-    if basil:
-        cbf_types += ["mean_cbf_basil", "mean_cbf_gm_basil"]
-
-    for cbf_type in cbf_types:
+    for cbf_type in cbf_3d:
         parcellate_cbf = pe.MapNode(
             ParcellateCBF(min_coverage=min_coverage),
             name=f"parcellate_{cbf_type}",
