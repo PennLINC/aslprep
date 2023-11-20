@@ -216,7 +216,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     workflow.connect([
         (inputnode, acc_masks, [
             ("t1w_tpms", "in_vfs"),
-            (("asl", _get_zooms), "bold_zooms"),
+            (("asl", _get_zooms), "asl_zooms"),
         ]),
     ])
     # fmt:on
@@ -302,7 +302,7 @@ def init_carpetplot_wf(
     metadata: dict,
     cifti_output: bool,
     suffix: str = "asl",
-    name: str = "bold_carpet_wf",
+    name: str = "asl_carpet_wf",
 ):
     """
     Build a workflow to generate *carpet* plots.
@@ -320,14 +320,14 @@ def init_carpetplot_wf(
     metadata : :obj:`dict`
         BIDS metadata for BOLD file
     name : :obj:`str`
-        Name of workflow (default: ``bold_carpet_wf``)
+        Name of workflow (default: ``asl_carpet_wf``)
 
     Inputs
     ------
-    bold
+    asl
         BOLD image, after the prescribed corrections (STC, HMC and SDC)
         when available.
-    bold_mask
+    asl_mask
         BOLD series mask
     confounds_file
         TSV of all aggregated confounds
@@ -336,7 +336,7 @@ def init_carpetplot_wf(
         the native BOLD space
     std2anat_xfm
         ANTs-compatible affine-and-warp transform file
-    cifti_bold
+    cifti_asl
         BOLD image in CIFTI format, to be used in place of volumetric BOLD
     crown_mask
         Mask of brain edge voxels
@@ -357,12 +357,12 @@ def init_carpetplot_wf(
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "bold",
-                "bold_mask",
+                "asl",
+                "asl_mask",
                 "confounds_file",
                 "aslref2anat_xfm",
                 "std2anat_xfm",
-                "cifti_bold",
+                "cifti_asl",
                 "crown_mask",
                 "acompcor_mask",
                 "dummy_scans",
@@ -382,7 +382,7 @@ def init_carpetplot_wf(
         name="conf_plot",
         mem_gb=mem_gb,
     )
-    ds_report_bold_conf = pe.Node(
+    ds_report_asl_conf = pe.Node(
         DerivativesDataSink(
             desc="carpetplot",
             datatype="figures",
@@ -390,7 +390,7 @@ def init_carpetplot_wf(
             extension="svg",
             dismiss_entities=("echo",),
         ),
-        name="ds_report_bold_conf",
+        name="ds_report_asl_conf",
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
@@ -422,7 +422,7 @@ def init_carpetplot_wf(
 
     workflow = Workflow(name=name)
     if cifti_output:
-        workflow.connect(inputnode, "cifti_bold", conf_plot, "in_cifti")
+        workflow.connect(inputnode, "cifti_asl", conf_plot, "in_cifti")
 
     # fmt:off
     workflow.connect([
@@ -430,20 +430,20 @@ def init_carpetplot_wf(
             ("aslref2anat_xfm", "in1"),
             ("std2anat_xfm", "in2"),
         ]),
-        (inputnode, resample_parc, [("bold_mask", "reference_image")]),
+        (inputnode, resample_parc, [("asl_mask", "reference_image")]),
         (inputnode, parcels, [
             ("crown_mask", "crown_mask"),
             ("acompcor_mask", "acompcor_mask"),
         ]),
         (inputnode, conf_plot, [
-            ("bold", "in_nifti"),
+            ("asl", "in_nifti"),
             ("confounds_file", "confounds_file"),
             ("dummy_scans", "drop_trs"),
         ]),
         (mrg_xfms, resample_parc, [("out", "transforms")]),
         (resample_parc, parcels, [("output_image", "segmentation")]),
         (parcels, conf_plot, [("out", "in_segm")]),
-        (conf_plot, ds_report_bold_conf, [("out_file", "in_file")]),
+        (conf_plot, ds_report_asl_conf, [("out_file", "in_file")]),
         (conf_plot, outputnode, [("out_file", "out_carpetplot")]),
     ])
     # fmt:on

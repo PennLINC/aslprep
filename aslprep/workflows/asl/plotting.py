@@ -156,8 +156,8 @@ def init_plot_cbf_wf(
         workflow.connect([
             (inputnode, carpetplot_wf, [
                 ("std2anat_xfm", "inputnode.std2anat_xfm"),
-                ("cbf_ts", "inputnode.bold"),
-                ("asl_mask", "inputnode.bold_mask"),
+                ("cbf_ts", "inputnode.asl"),
+                ("asl_mask", "inputnode.asl_mask"),
                 ("aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
                 ("crown_mask", "inputnode.crown_mask"),
                 (("acompcor_masks", _select_last_in_list), "inputnode.acompcor_mask"),
