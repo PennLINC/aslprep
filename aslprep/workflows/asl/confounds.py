@@ -331,7 +331,7 @@ def init_carpetplot_wf(
         BOLD series mask
     confounds_file
         TSV of all aggregated confounds
-    t1_bold_xform
+    aslref2anat_xfm
         Affine matrix that maps the T1w space into alignment with
         the native BOLD space
     std2anat_xfm
@@ -360,7 +360,7 @@ def init_carpetplot_wf(
                 "bold",
                 "bold_mask",
                 "confounds_file",
-                "t1_bold_xform",
+                "aslref2anat_xfm",
                 "std2anat_xfm",
                 "cifti_bold",
                 "crown_mask",
@@ -411,9 +411,10 @@ def init_carpetplot_wf(
                     desc="carpet",
                     suffix="dseg",
                     extension=[".nii", ".nii.gz"],
-                )
+                ),
             ),
             interpolation="MultiLabel",
+            invert_transform_flags=[True, False],
             args="-u int",
         ),
         name="resample_parc",
@@ -426,7 +427,7 @@ def init_carpetplot_wf(
     # fmt:off
     workflow.connect([
         (inputnode, mrg_xfms, [
-            ("t1_bold_xform", "in1"),
+            ("aslref2anat_xfm", "in1"),
             ("std2anat_xfm", "in2"),
         ]),
         (inputnode, resample_parc, [("bold_mask", "reference_image")]),
