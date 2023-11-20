@@ -448,7 +448,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.coreg_aslref", "inputnode.aslref"),
                 ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
-            (asl_native_wf, ds_asl_t1_wf, [("outputnode.t2star_map", "inputnode.t2star")]),
             (asl_anat_wf, ds_asl_t1_wf, [("outputnode.asl_file", "inputnode.asl")]),
         ])  # fmt:skip
 
