@@ -2,9 +2,9 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Miscellaneous utilities."""
 from __future__ import annotations
-import typing as ty
 
 import os
+import typing as ty
 
 import nibabel as nb
 

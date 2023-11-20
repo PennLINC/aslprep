@@ -471,6 +471,7 @@ class execution(_Config):
             )
             cls.bids_database_dir = _db_path
         cls.layout = cls._layout
+        raise Exception(cls.layout)
         if cls.bids_filters:
             from bids.layout import Query
 
