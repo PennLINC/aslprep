@@ -4,7 +4,6 @@
 import typing as ty
 
 import numpy as np
-from fmriprep.workflows.bold.resampling import init_bold_surf_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
@@ -20,6 +19,7 @@ from aslprep.workflows.asl.fit import init_asl_fit_wf, init_asl_native_wf
 from aslprep.workflows.asl.outputs import init_ds_asl_native_wf, init_ds_volumes_wf
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_cbf_qc_wf
+from aslprep.workflows.asl.resampling import init_asl_surf_wf
 
 
 def init_asl_preproc_wf(
@@ -544,7 +544,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 (FreeSurfer).
 """
         config.loggers.workflow.debug("Creating BOLD surface-sampling workflow.")
-        asl_surf_wf = init_bold_surf_wf(
+        asl_surf_wf = init_asl_surf_wf(
             mem_gb=mem_gb["resampled"],
             surface_spaces=freesurfer_spaces,
             medial_surface_nan=config.workflow.medial_surface_nan,
@@ -564,8 +564,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
     if config.workflow.cifti_output:
         from fmriprep.workflows.bold.resampling import (
-            init_asl_fsLR_resampling_wf,
-            init_asl_grayords_wf,
+            init_bold_fsLR_resampling_wf,
+            init_bold_grayords_wf,
         )
 
         asl_MNI6_wf = init_asl_volumetric_resample_wf(
@@ -575,14 +575,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             name="asl_MNI6_wf",
         )
 
-        asl_fsLR_resampling_wf = init_asl_fsLR_resampling_wf(
+        asl_fsLR_resampling_wf = init_bold_fsLR_resampling_wf(
             estimate_goodvoxels=config.workflow.project_goodvoxels,
             grayord_density=config.workflow.cifti_output,
             omp_nthreads=omp_nthreads,
             mem_gb=mem_gb["resampled"],
         )
 
-        asl_grayords_wf = init_asl_grayords_wf(
+        asl_grayords_wf = init_bold_grayords_wf(
             grayord_density=config.workflow.cifti_output,
             mem_gb=mem_gb["resampled"],
             repetition_time=metadata["RepetitionTime"],
