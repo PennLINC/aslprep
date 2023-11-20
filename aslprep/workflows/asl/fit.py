@@ -25,7 +25,6 @@ import typing as ty
 
 import bids
 import nibabel as nb
-from fmriprep import config
 from fmriprep.interfaces.reports import FunctionalSummary
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
@@ -38,6 +37,7 @@ from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 
 # ASL workflows
 # TODO: Replace with fMRIPrep imports once new release is made
+from aslprep import config
 from aslprep.interfaces.resampling import (
     DistortionParameters,
     ReconstructFieldmap,
