@@ -128,7 +128,7 @@ def init_single_subject_wf(subject_id: str):
 
     name = f"single_subject_{subject_id}_wf"
     subject_data = collect_data(
-        config.execution._layout,
+        config.execution.layout,
         subject_id,
         bids_filters=config.execution.bids_filters,
     )
