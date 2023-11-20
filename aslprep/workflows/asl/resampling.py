@@ -102,7 +102,7 @@ The ASL time-series were resampled onto the following surfaces
                 "subject_id",
                 "subjects_dir",
                 "fsnative2t1w_xfm",
-            ]
+            ],
         ),
         name="inputnode",
     )

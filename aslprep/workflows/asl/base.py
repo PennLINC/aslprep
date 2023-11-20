@@ -559,7 +559,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ("subject_id", "inputnode.subject_id"),
                 ("fsnative2t1w_xfm", "inputnode.fsnative2t1w_xfm"),
             ]),
-            (asl_anat_wf, asl_surf_wf, [("outputnode.asl_file", "inputnode.asl_t1w")]),
+            (asl_anat_wf, asl_surf_wf, [("outputnode.asl_file", "inputnode.bold_t1w")]),
         ])  # fmt:skip
 
     if config.workflow.cifti_output:
