@@ -102,6 +102,7 @@ for use in head motion correction.
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "aslcontext",
                 "m0scan",
                 "dummy_scans",
             ],

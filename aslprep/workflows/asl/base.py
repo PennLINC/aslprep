@@ -305,6 +305,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     workflow.connect([
         (inputnode, asl_fit_wf, [
+            ("aslcontext", "inputnode.aslcontext"),
+            # Original inputs from fMRIPrep
             ("t1w_preproc", "inputnode.t1w_preproc"),
             ("t1w_mask", "inputnode.t1w_mask"),
             ("t1w_dseg", "inputnode.t1w_dseg"),

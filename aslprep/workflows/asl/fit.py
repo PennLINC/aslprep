@@ -213,6 +213,7 @@ def init_asl_fit_wf(
         niu.IdentityInterface(
             fields=[
                 "asl_file",
+                "aslcontext",
                 # Fieldmap registration
                 "fmap",
                 "fmap_ref",
@@ -336,6 +337,8 @@ def init_asl_fit_wf(
     )
     hmc_aslref_wf.inputs.inputnode.m0scan = m0scan
     hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_vols
+
+    workflow.connect([(inputnode, hmc_aslref_wf, [("aslcontext", "inputnode.aslcontext")])])
 
     ds_hmc_aslref_wf = init_ds_aslref_wf(
         bids_root=layout.root,
