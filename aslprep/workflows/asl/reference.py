@@ -99,7 +99,13 @@ for use in head motion correction.
 """
 
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=["asl_file", "dummy_scans"]),
+        niu.IdentityInterface(
+            fields=[
+                "asl_file",
+                "m0scan",
+                "dummy_scans",
+            ],
+        ),
         name="inputnode",
     )
     outputnode = pe.Node(
@@ -107,8 +113,6 @@ for use in head motion correction.
             fields=[
                 "asl_file",
                 "aslref",
-                "m0scan",
-                "dummy_scans",
                 "validation_report",
             ],
         ),
