@@ -2,7 +2,6 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for calculating CBF QC metrics."""
 from nipype.interfaces import utility as niu
-from nipype.interfaces.afni import Resample
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from templateflow.api import get as get_template
@@ -11,7 +10,6 @@ from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.qc import ComputeCBFQC
-from aslprep.utils.misc import _select_last_in_list
 
 
 def init_cbf_qc_wf(
@@ -80,6 +78,7 @@ negative CBF values.
                 "t1w_mask",
                 "t1w_tpms",
                 "aslref2anat_xfm",
+                "mni2009c2anat_xfm",
                 # CBF inputs
                 "mean_cbf",
                 # SCORE/SCRUB inputs

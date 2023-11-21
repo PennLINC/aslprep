@@ -26,7 +26,6 @@ import typing as ty
 import bids
 import nibabel as nb
 import numpy as np
-from fmriprep.interfaces.reports import FunctionalSummary
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
@@ -39,6 +38,7 @@ from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 # ASL workflows
 # TODO: Replace with fMRIPrep imports once new release is made
 from aslprep import config
+from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.resampling import (
     DistortionParameters,
     ReconstructFieldmap,
@@ -193,7 +193,6 @@ def init_asl_fit_wf(
     )
 
     # Get metadata from ASL file(s)
-    entities = extract_entities(asl_file)
     metadata = layout.get_metadata(asl_file)
     # Patch RepetitionTimePreparation into RepetitionTime,
     # for the sake of BOLD-based interfaces and workflows.
@@ -279,16 +278,14 @@ def init_asl_fit_wf(
             registration_dof=config.workflow.asl2t1w_dof,
             registration_init=config.workflow.asl2t1w_init,
             pe_direction=metadata.get("PhaseEncodingDirection"),
-            echo_idx=entities.get("echo", []),
             tr=metadata["RepetitionTime"],
             orientation=orientation,
-            algo_dummy_scans=0,
         ),
         name="summary",
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True,
     )
-    workflow.connect([(inputnode, summary, [("dummy_scans", "dummy_scans")])])
+    # workflow.connect([(inputnode, summary, [("dummy_scans", "dummy_scans")])])
 
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         sdc_correction=not (fieldmap_id is None),

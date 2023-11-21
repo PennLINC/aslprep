@@ -695,6 +695,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ("asl_file", "inputnode.name_source"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
+            ("mni2009c2anat_xfm", "inputnode.mni2009c2anat_xfm"),
         ]),
         (asl_fit_wf, cbf_qc_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
