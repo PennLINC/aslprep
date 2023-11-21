@@ -767,6 +767,9 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ])  # fmt:skip
 
         def _last(inlist):
+            if not isinstance(inlist, list):
+                raise ValueError(f"_last: input is not list ({inlist})")
+
             return inlist[-1]
 
         workflow.connect([
@@ -796,5 +799,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 def _read_json(in_file):
     from json import loads
     from pathlib import Path
+
+    if not isinstance(in_file, str):
+        raise ValueError(f"_read_json: input is not str ({in_file})")
 
     return loads(Path(in_file).read_text())

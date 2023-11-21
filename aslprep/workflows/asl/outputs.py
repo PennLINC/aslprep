@@ -518,7 +518,7 @@ def init_ds_asl_native_wf(
 
     raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
     raw_sources.inputs.bids_root = bids_root
-    workflow.connect(inputnode, "source_files", raw_sources, "in_files")
+    workflow.connect([(inputnode, raw_sources, [("source_files", "in_files")])])
 
     # Masks should be output if any other derivatives are output
     ds_asl_mask = pe.Node(

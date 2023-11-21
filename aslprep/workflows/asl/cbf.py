@@ -272,12 +272,18 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
 
     # Warp tissue probability maps to ASL space
     def _pick_gm(files):
+        if not isinstance(files, list):
+            raise ValueError(f"_pick_gm: input is not list ({files})")
         return files[0]
 
     def _pick_wm(files):
+        if not isinstance(files, list):
+            raise ValueError(f"_pick_wm: input is not list ({files})")
         return files[1]
 
     def _pick_csf(files):
+        if not isinstance(files, list):
+            raise ValueError(f"_pick_csf: input is not list ({files})")
         return files[2]
 
     def _getfiledir(file):
@@ -611,6 +617,9 @@ model [@detre_perfusion_1992;@alsop_recommended_2015].
 
     def _getfiledir(file):
         import os
+
+        if not isinstance(file, str):
+            raise ValueError(f"_getfiledir: input is not str ({file})")
 
         return os.path.dirname(file)
 

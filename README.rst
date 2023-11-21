@@ -97,7 +97,13 @@ On the relationship between ASLPrep and fMRIPrep
 ************************************************
 
 ASLPrep is largely based on fMRIPrep, as ASL processing is very similar to fMRI processing.
-There are several crucial differences though:
+fMRIPrep is developed by a larger group and receives more regular feedback on its workflow,
+so we (the ASLPrep developers) try to update ASLPrep in line with fMRIPrep.
+
+ASLPrep and fMRIPrep are both part of the NiPreps community.
+
+There are several crucial differences between ASL and fMRI processing,
+which must be accounted for in ASLPrep:
 
 1. ASL processing does not include slice timing correction.
    Instead, post-labeling delays are shifted based on the slice timing when CBF is calculated.
