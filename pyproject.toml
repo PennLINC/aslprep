@@ -12,13 +12,13 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Image Recognition",
     "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
 ]
 license = {file = "LICENSE.md"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    'importlib_resources; python_version < "3.10"',
-    "fmriprep ~= 23.1.4",  # 23.2.0 requires Python 3.10
+    'importlib_resources; python_version < "3.11"',
+    "fmriprep ~= 23.2.0a1",
     "indexed_gzip >= 0.8.8",
     "looseversion",
     "networkx ~= 2.8.8",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
@@ -141,7 +141,7 @@ skip_gitignore = true
 skip = ["aslprep/niworkflows", "aslprep/pybids", "aslprep/sdcflows", "aslprep/smriprep"]
 
 [tool.flake8]
-max-line-length = "99"
+max-line-length = 99
 doctests = "False"
 exclude = [
     "*build/",

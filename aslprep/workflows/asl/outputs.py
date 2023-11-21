@@ -9,11 +9,12 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from niworkflows.interfaces.utility import KeySelect
 from niworkflows.utils.images import dseg_label
-from smriprep.workflows.outputs import _bids_relative
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.utils.spaces import SpatialReferences
+
+# from smriprep.workflows.outputs import _bids_relative  # fixed in new release, which reqs 3.10
 
 BASE_INPUT_FIELDS = {
     "asl": {
@@ -69,6 +70,20 @@ BASE_INPUT_FIELDS = {
         "suffix": "att",
     },
 }
+
+
+def _bids_relative(in_files, bids_root):
+    from pathlib import Path
+
+    if not isinstance(in_files, (list, tuple)):
+        in_files = [in_files]
+    ret = []
+    for file in in_files:
+        try:
+            ret.append(str(Path(file).relative_to(bids_root)))
+        except ValueError:
+            ret.append(file)
+    return in_files
 
 
 def init_asl_fit_reports_wf(
