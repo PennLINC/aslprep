@@ -133,7 +133,7 @@ for use in head motion correction.
     if m0scan:
         val_m0scan = pe.Node(
             ValidateImage(),
-            name="val_asl",
+            name="val_m0scan",
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([(inputnode, val_m0scan, [("m0scan", "in_file")])])
