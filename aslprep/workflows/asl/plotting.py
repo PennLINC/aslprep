@@ -9,7 +9,8 @@ from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.confounds import GatherCBFConfounds
-from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummary
+from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummaryPlot
+from aslprep.interfaces.reports import CBFSummary
 from aslprep.utils.misc import _select_last_in_list
 from aslprep.workflows.asl.confounds import init_carpetplot_wf
 
@@ -49,6 +50,8 @@ def init_plot_cbf_wf(
                 "t1w_dseg",
                 "aslref2anat_xfm",
                 "std2anat_xfm",
+                "confounds_file",
+                "qc_file",
                 # If plot_timeseries is True
                 "crown_mask",
                 "acompcor_masks",
@@ -68,10 +71,23 @@ def init_plot_cbf_wf(
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",  # unused
                 "att_basil",  # unused
-            ]
+            ],
         ),
         name="inputnode",
     )
+
+    summary = pe.Node(
+        CBFSummary(),
+        name="summary",
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        run_without_submitting=True,
+    )
+    workflow.connect([
+        (inputnode, summary, [
+            ("confounds_file", "confounds_file"),
+            ("qc_file", "qc_file"),
+        ])
+    ])  # fmt:skip
 
     # Warp dseg file from T1w space to ASL reference space
     warp_t1w_dseg_to_aslref = pe.Node(
@@ -168,7 +184,7 @@ def init_plot_cbf_wf(
         ])
         # fmt:on
 
-    cbf_summary = pe.Node(CBFSummary(label="cbf", vmax=100), name="cbf_summary", mem_gb=1)
+    cbf_summary = pe.Node(CBFSummaryPlot(label="cbf", vmax=100), name="cbf_summary", mem_gb=1)
 
     # fmt:off
     workflow.connect([
@@ -211,7 +227,7 @@ def init_plot_cbf_wf(
 
     if scorescrub:
         score_summary = pe.Node(
-            CBFSummary(label="score", vmax=100),
+            CBFSummaryPlot(label="score", vmax=100),
             name="score_summary",
             mem_gb=1,
         )
@@ -260,7 +276,7 @@ def init_plot_cbf_wf(
         # fmt:on
 
         scrub_summary = pe.Node(
-            CBFSummary(label="scrub", vmax=100),
+            CBFSummaryPlot(label="scrub", vmax=100),
             name="scrub_summary",
             mem_gb=1,
         )
@@ -310,7 +326,7 @@ def init_plot_cbf_wf(
 
     if basil:
         basil_summary = pe.Node(
-            CBFSummary(label="basil", vmax=100),
+            CBFSummaryPlot(label="basil", vmax=100),
             name="basil_summary",
             mem_gb=1,
         )
@@ -359,7 +375,7 @@ def init_plot_cbf_wf(
         # fmt:on
 
         pvc_summary = pe.Node(
-            CBFSummary(label="pvc", vmax=120),
+            CBFSummaryPlot(label="pvc", vmax=120),
             name="pvc_summary",
             mem_gb=1,
         )

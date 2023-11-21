@@ -722,9 +722,13 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             ("t1w_dseg", "inputnode.t1w_dseg"),
             ("mni2009c2anat_xfm", "inputnode.std2anat_xfm"),
         ]),
+        (asl_confounds_wf, plot_cbf_wf, [
+            ("outputnode.confounds_file", "inputnode.confounds_file"),
+        ]),
         (cbf_wf, plot_cbf_wf, [
             ("outputnode.score_outlier_index", "inputnode.score_outlier_index"),
         ]),
+        (cbf_qc_wf, plot_cbf_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
         (asl_fit_wf, plot_cbf_wf, [
             ("outputnode.coreg_aslref", "inputnode.aslref"),
             ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),

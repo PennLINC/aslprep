@@ -10,7 +10,7 @@ from niworkflows.interfaces.utility import AddTSVHeader
 from templateflow.api import get as get_template
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces import ASLSummary, DerivativesDataSink, GatherConfounds
+from aslprep.interfaces import ASLCarpetPlot, DerivativesDataSink, GatherConfounds
 from aslprep.interfaces.ants import ApplyTransforms
 
 
@@ -375,7 +375,7 @@ def init_carpetplot_wf(
 
     # Carpetplot and confounds plot
     conf_plot = pe.Node(
-        ASLSummary(
+        ASLCarpetPlot(
             tr=metadata["RepetitionTime"],
             confounds_list=confounds_list,
         ),

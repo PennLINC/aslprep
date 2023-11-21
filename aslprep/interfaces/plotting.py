@@ -16,7 +16,7 @@ from niworkflows.utils.timeseries import _cifti_timeseries, _nifti_timeseries
 from aslprep.utils.plotting import CBFPlot, CBFtsPlot, fMRIPlot
 
 
-class _ASLSummaryInputSpec(BaseInterfaceInputSpec):
+class _ASLCarpetPlotInputSpec(BaseInterfaceInputSpec):
     in_nifti = File(exists=True, mandatory=True, desc="input BOLD (4D NIfTI file)")
     in_cifti = File(exists=True, desc="input BOLD (CIFTI dense timeseries)")
     in_segm = File(exists=True, desc="volumetric segmentation corresponding to in_nifti")
@@ -36,15 +36,17 @@ class _ASLSummaryInputSpec(BaseInterfaceInputSpec):
     drop_trs = traits.Int(0, usedefault=True, desc="dummy scans")
 
 
-class _ASLSummaryOutputSpec(TraitedSpec):
+class _ASLCarpetPlotOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc="written file path")
 
 
-class ASLSummary(SimpleInterface):
-    """Copy the x-form matrices from `hdr_file` to `out_file`."""
+class ASLCarpetPlot(SimpleInterface):
+    """Create a combined carpet/line plot for ASL time series data.
 
-    input_spec = _ASLSummaryInputSpec
-    output_spec = _ASLSummaryOutputSpec
+    Copy the x-form matrices from `hdr_file` to `out_file`."""
+
+    input_spec = _ASLCarpetPlotInputSpec
+    output_spec = _ASLCarpetPlotOutputSpec
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(
@@ -125,25 +127,25 @@ class ASLSummary(SimpleInterface):
         return runtime
 
 
-class _CBFSummaryInputSpec(BaseInterfaceInputSpec):
+class _CBFSummaryPlotInputSpec(BaseInterfaceInputSpec):
     cbf = File(exists=True, mandatory=True, desc="")
     label = traits.Str(exists=True, mandatory=True, desc="label")
     vmax = traits.Int(exists=True, default_value=90, mandatory=True, desc="max value of asl")
     ref_vol = File(exists=True, mandatory=True, desc="")
 
 
-class _CBFSummaryOutputSpec(TraitedSpec):
+class _CBFSummaryPlotOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc="written file path")
 
 
-class CBFSummary(SimpleInterface):
+class CBFSummaryPlot(SimpleInterface):
     """Prepare an CBF summary plot for the report.
 
     This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
     """
 
-    input_spec = _CBFSummaryInputSpec
-    output_spec = _CBFSummaryOutputSpec
+    input_spec = _CBFSummaryPlotInputSpec
+    output_spec = _CBFSummaryPlotOutputSpec
 
     def _run_interface(self, runtime):
         self._results["out_file"] = fname_presuffix(

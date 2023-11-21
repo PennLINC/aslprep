@@ -372,7 +372,7 @@ def init_asl_fit_wf(
     )
 
     reduce_asl_file = pe.Node(
-        ReduceASLFiles(),
+        ReduceASLFiles(metadata=metadata),
         name="reduce_asl_file",
     )
     # fmt:off
@@ -401,7 +401,10 @@ def init_asl_fit_wf(
     # fmt:off
     workflow.connect([
         (hmcref_buffer, asl_hmc_wf, [("aslref", "inputnode.raw_ref_image")]),
-        (reduce_asl_file, asl_hmc_wf, [("asl_file", "inputnode.asl_file")]),
+        (reduce_asl_file, asl_hmc_wf, [
+            ("asl_file", "inputnode.asl_file"),
+            ("aslcontext", "inputnode.aslcontext"),
+        ]),
         (asl_hmc_wf, ds_hmc_wf, [("outputnode.xforms", "inputnode.xforms")]),
         (asl_hmc_wf, hmc_buffer, [
             ("outputnode.xforms", "hmc_xforms"),
