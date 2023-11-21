@@ -228,11 +228,14 @@ def init_asl_fit_wf(
                 "subjects_dir",
                 "subject_id",
                 "fsnative2t1w_xfm",
+                # Other things
+                "dummy_scans",
             ],
         ),
         name="inputnode",
     )
     inputnode.inputs.asl_file = asl_file
+    inputnode.inputs.dummy_scans = config.workflow.dummy_vols
 
     outputnode = pe.Node(
         niu.IdentityInterface(
@@ -285,7 +288,7 @@ def init_asl_fit_wf(
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True,
     )
-    summary.inputs.dummy_scans = config.workflow.dummy_vols
+    workflow.connect([(inputnode, summary, [("dummy_scans", "dummy_scans")])])
 
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         sdc_correction=not (fieldmap_id is None),
