@@ -91,3 +91,26 @@ Acknowledgements
 
 Please acknowledge this work using the citation boilerplate that *ASLPrep* includes
 in the visual report generated for every subject processed.
+
+************************************************
+On the relationship between ASLPrep and fMRIPrep
+************************************************
+
+ASLPrep is largely based on fMRIPrep, as ASL processing is very similar to fMRI processing.
+There are several crucial differences though:
+
+1. ASL processing does not include slice timing correction.
+   Instead, post-labeling delays are shifted based on the slice timing when CBF is calculated.
+2. While ASL motion correction may use the same algorithm as fMRI motion correction,
+   different volume types in the ASL time series exhibit different contrasts, which can introduce
+   artifacts into the motion-corrected data.
+   As such, ASLPrep motion corrects each volume type separately,
+   and then concatenated the corrected time series back together.
+3. ASLPrep includes extra steps to do the following:
+   1. Calculate CBF.
+   2. Calculate CBF QC metrics, paralleling the ASL confound calculation.
+   3. Plot CBF results, paralleling ASL plots.
+   4. Parcellating CBF results with a range of atlases.
+4. fMRIPrep contains a lot of code to handle multi-echo fMRI.
+   While multi-echo ASl does exist, it is very rare, so we do not include any multi-echo-specific
+   elements in ASLPrep.
