@@ -341,6 +341,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     workflow.connect([
         (inputnode, asl_native_wf, [
+            ("aslcontext", "inputnode.aslcontext"),
             ("fmap_ref", "inputnode.fmap_ref"),
             ("fmap_coeff", "inputnode.fmap_coeff"),
             ("fmap_id", "inputnode.fmap_id"),

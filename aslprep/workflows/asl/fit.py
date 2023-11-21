@@ -659,6 +659,7 @@ def init_asl_native_wf(
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
+                "aslcontext",
                 # ASL fit
                 "aslref",
                 "asl_mask",
