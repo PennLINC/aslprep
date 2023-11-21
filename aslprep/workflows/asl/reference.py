@@ -160,7 +160,7 @@ for use in head motion correction.
     # fmt:on
 
     if m0scan:
-        workflow.connect([(val_m0scan, select_highest_contrast_volumes, [("m0scan", "m0scan")])])
+        workflow.connect([(val_m0scan, select_highest_contrast_volumes, [("out_file", "m0scan")])])
 
     return workflow
 

@@ -80,7 +80,6 @@ negative CBF values.
                 "t1w_mask",
                 "t1w_tpms",
                 "aslref2anat_xfm",
-                "asl_mask_std",
                 # CBF inputs
                 "mean_cbf",
                 # SCORE/SCRUB inputs
@@ -167,19 +166,19 @@ negative CBF values.
     ])
     # fmt:on
 
-    mask_tfm = pe.Node(
+    warp_t1w_mask_to_aslref = pe.Node(
         ApplyTransforms(
             interpolation="NearestNeighbor",
             float=True,
             invert_transform_flags=[True],
         ),
-        name="masktonative",
+        name="warp_t1w_mask_to_aslref",
         mem_gb=0.1,
     )
 
     # fmt:off
     workflow.connect([
-        (inputnode, mask_tfm, [
+        (inputnode, warp_t1w_mask_to_aslref, [
             ("asl_mask", "reference_image"),
             ("aslref2anat_xfm", "transforms"),
             ("t1w_mask", "input_image"),
@@ -187,20 +186,46 @@ negative CBF values.
     ])
     # fmt:on
 
-    brain_mask = str(
+    template_brain_mask = str(
         get_template("MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask")
     )
 
-    # Resample standard-space brain mask to native space...?
-    resample = pe.Node(
-        Resample(in_file=brain_mask, outputtype="NIFTI_GZ"),
-        name="resample",
+    aslref2mni152nlin2009casym = pe.Node(niu.Merge(2), name="aslref2mni152nlin2009casym")
+    workflow.connect([
+        (inputnode, aslref2mni152nlin2009casym, [
+            ("aslref2anat_xfm", "in1"),
+            ("mni2009c2anat_xfm", "in2"),
+        ]),
+    ])  # fmt:skip
+
+    warp_asl_mask_to_mni152nlin2009casym = pe.Node(
+        ApplyTransforms(
+            interpolation="NearestNeighbor",
+            float=True,
+            invert_transform_flags=[False, True],
+            reference_image=template_brain_mask,
+        ),
+        name="warp_asl_mask_to_mni152nlin2009casym",
         mem_gb=0.1,
     )
-    workflow.connect([(inputnode, resample, [(("asl_mask_std", _select_last_in_list), "master")])])
+
+    # fmt:off
+    workflow.connect([
+        (inputnode, warp_asl_mask_to_mni152nlin2009casym, [
+            ("asl_mask", "reference_image"),
+            ("asl_mask", "input_image"),
+        ]),
+        (aslref2mni152nlin2009casym, warp_asl_mask_to_mni152nlin2009casym, [
+            ("out", "transforms"),
+        ])
+    ])
+    # fmt:on
 
     compute_qc_metrics = pe.Node(
-        ComputeCBFQC(tpm_threshold=0.7),
+        ComputeCBFQC(
+            tpm_threshold=0.7,
+            template_mask=template_brain_mask,
+        ),
         name="compute_qc_metrics",
         run_without_submitting=True,
         mem_gb=0.2,
@@ -208,14 +233,15 @@ negative CBF values.
 
     # fmt:off
     workflow.connect([
-        (mask_tfm, compute_qc_metrics, [("output_image", "t1w_mask")]),
+        (warp_t1w_mask_to_aslref, compute_qc_metrics, [("output_image", "t1w_mask")]),
         (inputnode, compute_qc_metrics, [
             ("name_source", "name_source"),
             ("asl_mask", "asl_mask"),
-            (("asl_mask_std", _select_last_in_list), "asl_mask_std"),
             ("mean_cbf", "mean_cbf"),
         ]),
-        (resample, compute_qc_metrics, [("out_file", "template_mask")]),
+        (warp_asl_mask_to_mni152nlin2009casym, compute_qc_metrics, [
+            ("output_image", "asl_mask_std"),
+        ]),
         (gm_tfm, compute_qc_metrics, [("output_image", "gm_tpm")]),
         (wm_tfm, compute_qc_metrics, [("output_image", "wm_tpm")]),
         (csf_tfm, compute_qc_metrics, [("output_image", "csf_tpm")]),
