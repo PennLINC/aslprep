@@ -140,7 +140,7 @@ def _build_parser():
         "--derivatives",
         action="store",
         metavar="PATH",
-        type=PathExists,
+        type=Path,
         nargs="*",
         help="Search PATH(s) for pre-computed derivatives.",
     )
