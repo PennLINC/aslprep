@@ -13,10 +13,11 @@ a hard-limited memory-scope.
 def build_workflow(config_file, retval):
     """Create the Nipype Workflow that supports the whole execution graph."""
     from fmriprep.reports.core import generate_reports
-    from niworkflows.utils.bids import check_pipeline_version, collect_participants
+    from fmriprep.utils.bids import check_pipeline_version
+    from niworkflows.utils.bids import collect_participants
     from niworkflows.utils.misc import check_valid_fs_license
 
-    from aslprep import config
+    from aslprep import config, data
     from aslprep.utils.misc import check_deps
     from aslprep.workflows.base import init_aslprep_wf
 
@@ -28,8 +29,19 @@ def build_workflow(config_file, retval):
     retval["return_code"] = 1
     retval["workflow"] = None
 
+    banner = [f"Running ASLPrep version {version}"]
+    notice_path = data.load.readable("NOTICE")
+    if notice_path.exists():
+        banner[0] += "\n"
+        banner += [f"License NOTICE {'#' * 50}"]
+        banner += [f"ASLPrep {version}"]
+        banner += notice_path.read_text().splitlines(keepends=False)[1:]
+        banner += ["#" * len(banner[1])]
+    build_log.log(25, f"\n{' ' * 9}".join(banner))
+
     # warn if older results exist: check for dataset_description.json in output folder
     msg = check_pipeline_version(
+        "ASLPrep",
         version,
         config.execution.aslprep_dir / "dataset_description.json",
     )
@@ -64,17 +76,21 @@ def build_workflow(config_file, retval):
         return retval
 
     # Build main workflow
-    init_msg = f"""
-    Running ASLPREP version {config.environment.version}:
-      * BIDS dataset path: {config.execution.bids_dir}.
-      * Participant list: {subject_list}.
-      * Run identifier: {config.execution.run_uuid}.
-      * Output spaces: {config.execution.output_spaces}."""
+    init_msg = [
+        "Building ASLPrep's workflow:",
+        f"BIDS dataset path: {config.execution.bids_dir}.",
+        f"Participant list: {subject_list}.",
+        f"Run identifier: {config.execution.run_uuid}.",
+        f"Output spaces: {config.execution.output_spaces}.",
+    ]
 
-    if config.execution.anat_derivatives:
-        init_msg += f"""
-      * Anatomical derivatives: {config.execution.anat_derivatives}."""
-    build_log.log(25, init_msg)
+    if config.execution.derivatives:
+        init_msg += [f"Searching for derivatives: {config.execution.derivatives}."]
+
+    if config.execution.fs_subjects_dir:
+        init_msg += [f"Pre-run FreeSurfer's SUBJECTS_DIR: {config.execution.fs_subjects_dir}."]
+
+    build_log.log(25, f"\n{' ' * 11}* ".join(init_msg))
 
     retval["workflow"] = init_aslprep_wf()
 

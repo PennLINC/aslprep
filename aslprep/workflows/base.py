@@ -16,7 +16,7 @@ from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
 from aslprep.interfaces.bids import BIDSDataGrabber
 from aslprep.utils.misc import _prefix, get_n_volumes
-from aslprep.workflows.asl.base import init_asl_preproc_wf
+from aslprep.workflows.asl.base import init_asl_wf
 
 
 def init_aslprep_wf():
@@ -216,7 +216,7 @@ their manuscripts unchanged. It is released under the unchanged
     bidssrc = pe.Node(
         BIDSDataGrabber(
             subject_data=subject_data,
-            anat_only=anat_only,
+            anat_only=config.workflow.anat_only,
             subject_id=subject_id,
         ),
         name="bidssrc",
@@ -592,9 +592,13 @@ tasks and sessions), the following preprocessing was performed.
         if use_ge:
             config.loggers.workflow.warning("Using GE-specific processing.")
 
-        # asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_preproc_wf
-        asl_preproc_func = init_asl_preproc_wf
-        asl_wf = asl_preproc_func(asl_file=asl_file, fieldmap_id=fieldmap_id)
+        # asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_wf
+        asl_preproc_func = init_asl_wf
+        asl_wf = asl_preproc_func(
+            asl_file=asl_file,
+            precomputed=None,  # TODO: Implement functional cache.
+            fieldmap_id=fieldmap_id,
+        )
 
         if asl_wf is None:
             continue

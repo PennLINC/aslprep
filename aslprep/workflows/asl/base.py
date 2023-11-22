@@ -22,7 +22,7 @@ from aslprep.workflows.asl.qc import init_cbf_qc_wf
 from aslprep.workflows.asl.resampling import init_asl_surf_wf
 
 
-def init_asl_preproc_wf(
+def init_asl_wf(
     *,
     asl_file: str,
     fieldmap_id: ty.Optional[str] = None,
@@ -36,14 +36,14 @@ def init_asl_preproc_wf(
 
             from aslprep.tests.tests import mock_config
             from aslprep import config
-            from aslprep.workflows.asl.base import init_asl_preproc_wf
+            from aslprep.workflows.asl.base import init_asl_wf
 
             with mock_config():
                 asl_file = (
                     config.execution.bids_dir / "sub-01" / "perf" /
                     "sub-01_asl.nii.gz"
                 )
-                wf = init_asl_preproc_wf(asl_file=str(asl_file))
+                wf = init_asl_wf(asl_file=str(asl_file))
 
     Parameters
     ----------
@@ -169,17 +169,17 @@ def init_asl_preproc_wf(
     layout = config.execution.layout
 
     # Take first file (only file, because we don't support multi-echo ASL) as reference
-    ref_file = asl_file
+    asl_file = asl_file
 
-    asl_tlen, mem_gb = _create_mem_gb(ref_file)
+    asl_tlen, mem_gb = _create_mem_gb(asl_file)
 
-    wf_name = _get_wf_name(ref_file)
+    wf_name = _get_wf_name(asl_file)
     config.loggers.workflow.debug(
         (
             'Creating asl processing workflow for "%s" (%.2f GB / %d TRs). '
             "Memory resampled/largemem=%.2f/%.2f GB."
         ),
-        ref_file,
+        asl_file,
         mem_gb["filesize"],
         asl_tlen,
         mem_gb["resampled"],
@@ -187,7 +187,7 @@ def init_asl_preproc_wf(
     )
 
     # Collect associated files
-    run_data = collect_run_data(layout, ref_file)
+    run_data = collect_run_data(layout, asl_file)
     metadata = run_data["asl_metadata"].copy()
     # Patch RepetitionTimePreparation into RepetitionTime,
     # for the sake of BOLD-based interfaces and workflows.

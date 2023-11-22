@@ -95,7 +95,7 @@ be set to resample the preprocessed data onto the final output spaces.
 ASL preprocessing
 *****************
 
-:py:func:`~aslprep.workflows.asl.base.init_asl_preproc_wf`
+:py:func:`~aslprep.workflows.asl.base.init_asl_wf`
 
 .. workflow::
    :graph2use: orig
@@ -103,11 +103,11 @@ ASL preprocessing
 
    from aslprep.tests.tests import mock_config
    from aslprep import config
-   from aslprep.workflows.asl.base import init_asl_preproc_wf
+   from aslprep.workflows.asl.base import init_asl_wf
 
    with mock_config():
       asl_file = str(config.execution.bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz")
-      wf = init_asl_preproc_wf(asl_file=asl_file)
+      wf = init_asl_wf(asl_file=asl_file)
 
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.

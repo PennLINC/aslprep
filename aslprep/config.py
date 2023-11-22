@@ -364,10 +364,10 @@ class nipype(_Config):
 class execution(_Config):
     """Configure run-level settings."""
 
-    anat_derivatives = None
-    """A path where anatomical derivatives are found to fast-track *sMRIPrep*."""
     bids_dir = None
     """An existing path to the dataset, which must be BIDS-compliant."""
+    derivatives = []
+    """Path(s) to search for pre-computed derivatives"""
     bids_database_dir = None
     """Path to the directory containing SQLite database indices for the input BIDS dataset."""
     bids_description_hash = None
@@ -421,8 +421,8 @@ class execution(_Config):
     _layout = None
 
     _paths = (
-        "anat_derivatives",
         "bids_dir",
+        "derivatives",
         "bids_database_dir",
         "aslprep_dir",
         "fs_license_file",
@@ -510,6 +510,8 @@ class workflow(_Config):
     """Relative scale between ASL (delta-M) and M0."""
     cifti_output = None
     """Generate HCP Grayordinates, accepts either ``'91k'`` (default) or ``'170k'``."""
+    dummy_vols = 0
+    """Number of label-control volume pairs to delete before CBF computation."""
     fmap_bspline = None
     """Regularize fieldmaps with a field of B-Spline basis."""
     fmap_demean = None
@@ -521,7 +523,9 @@ class workflow(_Config):
     ignore = None
     """Ignore particular steps for *ASLPrep*."""
     level = "full"
-    """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full']."""
+    """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full'].
+    Only 'full' is currently supported.
+    """
     longitudinal = False
     """Run FreeSurfer ``recon-all`` with the ``--longitudinal`` flag."""
     run_msmsulc = True
@@ -544,14 +548,12 @@ class workflow(_Config):
     instance keeping standard and nonstandard spaces."""
     use_bbr = None
     """Run boundary-based registration for ASL-to-T1w registration."""
-    use_ge = None
-    """Run GE-specific processing. False means don't, True means do,
-    None means determine automatically."""
     use_syn_sdc = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation
     in the absence of any alternatives."""
-    dummy_vols = 0
-    """Number of label-control volume pairs to delete before CBF computation."""
+    use_ge = None
+    """Run GE-specific processing. False means don't, True means do,
+    None means determine automatically."""
     smooth_kernel = 5.0
     """Kernel size for smoothing M0."""
     scorescrub = False
