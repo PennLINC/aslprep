@@ -160,7 +160,7 @@ def init_asl_wf(
     # Have some options handy
     omp_nthreads = config.nipype.omp_nthreads
     spaces = config.workflow.spaces
-    dummyvols = config.workflow.dummy_vols
+    dummyvols = config.workflow.dummy_scans
     smooth_kernel = config.workflow.smooth_kernel
     m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
@@ -389,7 +389,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     cbf_wf = init_cbf_wf(
         name_source=asl_file,
         processing_target=processing_target,
-        dummy_vols=dummyvols,
+        dummy_scans=dummyvols,
         m0_scale=m0_scale,
         scorescrub=scorescrub,
         basil=basil,

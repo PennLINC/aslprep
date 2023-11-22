@@ -234,7 +234,7 @@ def init_asl_fit_wf(
         name="inputnode",
     )
     inputnode.inputs.asl_file = asl_file
-    inputnode.inputs.dummy_scans = config.workflow.dummy_vols
+    inputnode.inputs.dummy_scans = config.workflow.dummy_scans
 
     outputnode = pe.Node(
         niu.IdentityInterface(
@@ -336,7 +336,7 @@ def init_asl_fit_wf(
         m0scan=(metadata["M0Type"] == "Separate"),
     )
     hmc_aslref_wf.inputs.inputnode.m0scan = m0scan
-    hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_vols
+    hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_scans
 
     workflow.connect([(inputnode, hmc_aslref_wf, [("aslcontext", "inputnode.aslcontext")])])
 

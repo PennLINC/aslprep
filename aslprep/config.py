@@ -510,7 +510,7 @@ class workflow(_Config):
     """Relative scale between ASL (delta-M) and M0."""
     cifti_output = None
     """Generate HCP Grayordinates, accepts either ``'91k'`` (default) or ``'170k'``."""
-    dummy_vols = 0
+    dummy_scans = 0
     """Number of label-control volume pairs to delete before CBF computation."""
     fmap_bspline = None
     """Regularize fieldmaps with a field of B-Spline basis."""
