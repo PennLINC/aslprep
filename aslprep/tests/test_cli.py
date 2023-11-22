@@ -48,7 +48,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         "--use-syn-sdc",
         "--m0_scale=10",
         "--fs-no-reconall",
-        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"--derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_fail(parameters)
@@ -81,7 +81,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         "--basil",
         "--m0_scale=10",
         "--fs-no-reconall",
-        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"--derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -116,7 +116,7 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         "--basil",
         "--m0_scale=96",
         "--fs-no-reconall",
-        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"--derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -151,7 +151,7 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--fs-no-reconall",
-        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"--derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -186,7 +186,7 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         "--basil",
         "--m0_scale=10",
         "--fs-no-reconall",
-        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"--derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -221,7 +221,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         "--use-syn-sdc",
         "--force-no-ge",
         "--fs-no-reconall",
-        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"--derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -257,7 +257,7 @@ def test_test_002(data_dir, output_dir, working_dir):
         "--m0_scale=96",
         "--force-ge",
         "--fs-no-reconall",
-        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"--derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -288,7 +288,7 @@ def test_test_003(data_dir, output_dir, working_dir):
         "--use-syn-sdc",
         "--m0_scale=10",
         "--fs-no-reconall",
-        f"--anat-derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"--derivatives={os.path.join(dataset_dir, 'derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
