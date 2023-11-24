@@ -620,7 +620,6 @@ tasks and sessions), the following preprocessing was performed.
                 ("outputnode.white", "inputnode.white"),
                 ("outputnode.pial", "inputnode.pial"),
                 ("outputnode.midthickness", "inputnode.midthickness"),
-                ("outputnode.anat_ribbon", "inputnode.anat_ribbon"),
                 (
                     f'outputnode.sphere_reg_{"msm" if msm_sulc else "fsLR"}',
                     "inputnode.sphere_reg_fsLR",
