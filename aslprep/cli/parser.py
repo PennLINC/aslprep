@@ -23,6 +23,12 @@ def _build_parser():
             raise parser.error(f"Path does not exist: <{path}>.")
         return Path(path).absolute()
 
+    def _path_list(paths, parser):
+        out_paths = []
+        for path in paths:
+            out_paths.append(_path_exists(path, parser))
+        return out_paths
+
     def _is_file(path, parser):
         """Ensure a given path exists and it is a file."""
         path = _path_exists(path, parser)
@@ -140,7 +146,7 @@ def _build_parser():
         "--derivatives",
         action="store",
         metavar="PATH",
-        type=Path,
+        type=_path_list,
         nargs="*",
         help="Search PATH(s) for pre-computed derivatives.",
     )
@@ -226,8 +232,10 @@ def _build_parser():
         "--reports-only",
         action="store_true",
         default=False,
-        help="only generate reports, don't run workflows. This will only rerun report "
-        "aggregation, not reportlet generation for specific nodes.",
+        help=(
+            "only generate reports, don't run workflows. This will only rerun report "
+            "aggregation, not reportlet generation for specific nodes."
+        ),
     )
 
     g_conf = parser.add_argument_group("Workflow configuration")
@@ -269,8 +277,10 @@ any spatial references.""",
         action="store",
         default="register",
         choices=["register", "header"],
-        help='Either "register" (the default) to initialize volumes at center or "header"'
-        " to use the header information when coregistering ASL to T1w images.",
+        help=(
+            'Either "register" (the default) to initialize volumes at center or "header" '
+            "to use the header information when coregistering ASL to T1w images."
+        ),
     )
     g_conf.add_argument(
         "--asl2t1w-dof",
@@ -278,8 +288,10 @@ any spatial references.""",
         default=6,
         choices=[6, 9, 12],
         type=int,
-        help="Degrees of freedom when registering ASL to T1w images. "
-        "6 degrees (rotation and translation) are used by default.",
+        help=(
+            "Degrees of freedom when registering ASL to T1w images. "
+            "6 degrees (rotation and translation) are used by default."
+        ),
     )
 
     g_use_bbr = g_conf.add_mutually_exclusive_group()
@@ -370,17 +382,23 @@ any spatial references.""",
         required=False,
         action="store_true",
         default=False,
-        help="Replace medial wall values with NaNs on functional GIFTI files. Only "
-        "performed for GIFTI files mapped to a freesurfer subject (fsaverage or fsnative).",
+        help=(
+            "Replace medial wall values with NaNs on functional GIFTI files. "
+            "Only performed for GIFTI files mapped to a freesurfer subject "
+            "(fsaverage or fsnative)."
+        ),
     )
     g_conf.add_argument(
         "--project-goodvoxels",
         required=False,
         action="store_true",
         default=False,
-        help="Exclude voxels whose timeseries have locally high coefficient of variation "
-        "from surface resampling. Only performed for GIFTI files mapped to a freesurfer subject "
-        "(fsaverage or fsnative).",
+        help=(
+            "Exclude voxels whose timeseries have locally high coefficient of variation "
+            "from surface resampling. "
+            "Only performed for GIFTI files mapped to a freesurfer subject "
+            "(fsaverage or fsnative)."
+        ),
     )
     g_outputs.add_argument(
         "--md-only-boilerplate",
@@ -395,9 +413,11 @@ any spatial references.""",
         default=False,
         choices=("91k", "170k"),
         type=str,
-        help="Output preprocessed BOLD as a CIFTI dense timeseries. "
-        "Optionally, the number of grayordinate can be specified "
-        "(default is 91k, which equates to 2mm resolution)",
+        help=(
+            "Output preprocessed BOLD as a CIFTI dense timeseries. "
+            "Optionally, the number of grayordinate can be specified "
+            "(default is 91k, which equates to 2mm resolution)"
+        ),
     )
     g_outputs.add_argument(
         "--no-msm",
@@ -417,18 +437,22 @@ any spatial references.""",
     g_ants.add_argument(
         "--skull-strip-fixed-seed",
         action="store_true",
-        help="do not use a random seed for skull-stripping - will ensure "
-        "run-to-run replicability when used with --omp-nthreads 1 and "
-        "matching --random-seed <int>",
+        help=(
+            "do not use a random seed for skull-stripping - will ensure "
+            "run-to-run replicability when used with --omp-nthreads 1 and "
+            "matching --random-seed <int>"
+        ),
     )
     g_ants.add_argument(
         "--skull-strip-t1w",
         action="store",
         choices=("auto", "skip", "force"),
         default="force",
-        help="determiner for T1-weighted skull stripping ('force' ensures skull "
-        "stripping, 'skip' ignores skull stripping, and 'auto' applies brain extraction "
-        "based on the outcome of a heuristic to check whether the brain is already masked).",
+        help=(
+            "determiner for T1-weighted skull stripping ('force' ensures skull "
+            "stripping, 'skip' ignores skull stripping, and 'auto' applies brain extraction "
+            "based on the outcome of a heuristic to check whether the brain is already masked)."
+        ),
     )
 
     # Fieldmap options
@@ -458,8 +482,10 @@ any spatial references.""",
         "--force-syn",
         action="store_true",
         default=False,
-        help="EXPERIMENTAL/TEMPORARY: Use SyN correction in addition to "
-        "fieldmap correction, if available",
+        help=(
+            "EXPERIMENTAL/TEMPORARY: Use SyN correction in addition to "
+            "fieldmap correction, if available"
+        ),
     )
 
     # FreeSurfer options
@@ -517,8 +543,10 @@ any spatial references.""",
         "--clean-workdir",
         action="store_true",
         default=False,
-        help="Clears working directory of contents. Use of this flag is not"
-        "recommended when running concurrent processes of aslprep.",
+        help=(
+            "Clears working directory of contents. Use of this flag is not"
+            "recommended when running concurrent processes of aslprep."
+        ),
     )
     g_other.add_argument(
         "--resource-monitor",
@@ -530,8 +558,10 @@ any spatial references.""",
         "--config-file",
         action="store",
         metavar="FILE",
-        help="Use pre-generated configuration file. Values in file will be overridden "
-        "by command-line arguments.",
+        help=(
+            "Use pre-generated configuration file. Values in file will be overridden "
+            "by command-line arguments."
+        ),
     )
     g_other.add_argument(
         "--write-graph",
@@ -549,10 +579,12 @@ any spatial references.""",
         "--notrack",
         action="store_true",
         default=False,
-        help="Opt-out of sending tracking information of this run to "
-        "the aslprep developers. This information helps to "
-        "improve aslprep and provides an indicator of real "
-        "world usage crucial for obtaining funding.",
+        help=(
+            "Opt-out of sending tracking information of this run to "
+            "the aslprep developers. This information helps to "
+            "improve aslprep and provides an indicator of real "
+            "world usage crucial for obtaining funding."
+        ),
     )
     g_other.add_argument(
         "--debug",
