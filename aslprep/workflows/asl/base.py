@@ -25,6 +25,7 @@ from aslprep.workflows.asl.resampling import init_asl_surf_wf
 def init_asl_wf(
     *,
     asl_file: str,
+    precomputed: dict = {},
     fieldmap_id: ty.Optional[str] = None,
 ):
     """Perform the functional preprocessing stages of ASLPrep.
