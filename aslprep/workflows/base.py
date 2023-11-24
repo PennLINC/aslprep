@@ -611,7 +611,6 @@ tasks and sessions), the following preprocessing was performed.
                 ("outputnode.t1w_mask", "inputnode.t1w_mask"),
                 ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
                 ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
-                ("outputnode.anat2std_xfm", "inputnode.anat2std_xfm"),
                 # Undefined if --fs-no-reconall, but this is safe
                 ("outputnode.subjects_dir", "inputnode.subjects_dir"),
                 ("outputnode.subject_id", "inputnode.subject_id"),
