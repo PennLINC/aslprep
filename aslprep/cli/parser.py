@@ -24,6 +24,9 @@ def _build_parser():
         return Path(path).absolute()
 
     def _path_list(paths, parser):
+        from niworkflows.utils.connections import listify
+
+        paths = listify(paths)
         out_paths = []
         for path in paths:
             out_paths.append(_path_exists(path, parser))
