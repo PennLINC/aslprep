@@ -54,13 +54,13 @@ class SelectHighestContrastVolumes(SimpleInterface):
             target_type = "deltam"
         elif "m0scan" in aslcontext_df["volume_type"].tolist():
             target_type = "m0scan"
-        elif isdefined(self.inputs.m0scan_file):
+        elif isdefined(self.inputs.m0scan):
             target_type = "separate_m0scan"
         else:
             target_type = "control"
 
         if target_type == "separate_m0scan":
-            self._results["selected_volumes_file"] = self.inputs.m0scan_file
+            self._results["selected_volumes_file"] = self.inputs.m0scan
             return runtime
 
         # Otherwise, split up the ASL file based on the volume type with the highest contrast.
