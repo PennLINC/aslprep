@@ -223,7 +223,10 @@ class _Config:
             if k in ignore or v is None:
                 continue
             if k in cls._paths:
-                setattr(cls, k, Path(v).absolute())
+                if isinstance(v, (list, tuple)):
+                    setattr(cls, k, [Path(val).absolute() for val in v])
+                else:
+                    setattr(cls, k, Path(v).absolute())
             elif hasattr(cls, k):
                 setattr(cls, k, v)
 
@@ -245,9 +248,12 @@ class _Config:
             if callable(getattr(cls, k)):
                 continue
             if k in cls._paths:
-                v = str(v)
+                if isinstance(v, (list, tuple)):
+                    v = [str(val) for val in v]
+                else:
+                    v = str(v)
             if isinstance(v, SpatialReferences):
-                v = " ".join([str(s) for s in v.references]) or None
+                v = " ".join(str(s) for s in v.references) or None
             if isinstance(v, Reference):
                 v = str(v) or None
             out[k] = v

@@ -23,15 +23,6 @@ def _build_parser():
             raise parser.error(f"Path does not exist: <{path}>.")
         return Path(path).absolute()
 
-    def _path_list(paths, parser):
-        from niworkflows.utils.connections import listify
-
-        paths = listify(paths)
-        out_paths = []
-        for path in paths:
-            out_paths.append(_path_exists(path, parser))
-        return out_paths
-
     def _is_file(path, parser):
         """Ensure a given path exists and it is a file."""
         path = _path_exists(path, parser)
@@ -75,7 +66,6 @@ def _build_parser():
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
     PathExists = partial(_path_exists, parser=parser)
-    PathList = partial(_path_list, parser=parser)
     IsFile = partial(_is_file, parser=parser)
     PositiveInt = partial(_min_one, parser=parser)
 
@@ -150,7 +140,7 @@ def _build_parser():
         "--derivatives",
         action="store",
         metavar="PATH",
-        type=PathList,
+        type=Path,
         nargs="*",
         help="Search PATH(s) for pre-computed derivatives.",
     )
