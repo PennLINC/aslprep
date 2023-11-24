@@ -87,6 +87,7 @@ negative CBF values.
                 # BASIL inputs
                 "mean_cbf_basil",
                 "mean_cbf_gm_basil",
+                "mean_cbf_wm_basil",
                 # non-GE inputs
                 "confounds_file",
                 "rmsd_file",
