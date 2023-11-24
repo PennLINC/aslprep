@@ -302,7 +302,7 @@ their manuscripts unchanged. It is released under the unchanged
         (bidssrc, summary, [
             ("t1w", "t1w"),
             ("t2w", "t2w"),
-            ("bold", "bold"),
+            ("asl", "asl"),
         ]),
         (bids_info, summary, [("subject", "subject_id")]),
         (bidssrc, ds_report_summary, [(("t1w", fix_multi_T1w_source_name), "source_file")]),
