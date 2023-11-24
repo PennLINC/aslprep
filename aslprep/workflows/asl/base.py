@@ -517,7 +517,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_std_wf, ds_asl_std_wf, [("outputnode.asl_file", "inputnode.asl")]),
         ])  # fmt:skip
 
-        for cbf_deriv in cbf_3d_derivs:
+        for cbf_deriv in cbf_derivs:
             workflow.connect([
                 (cbf_wf, ds_asl_std_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
             ])  # fmt:skip
