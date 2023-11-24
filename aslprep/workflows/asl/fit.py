@@ -553,8 +553,8 @@ def init_asl_fit_wf(
     # fmt:off
     workflow.connect([
         (inputnode, asl_reg_wf, [
-            ("t1w_preproc", "inputnode.t1w_brain"),  # TODO: rename to t1w_preproc for next
-            # ("t1w_mask", "inputnode.t1w_mask"),  # TODO: Add back for next
+            ("t1w_preproc", "inputnode.t1w_preproc"),
+            ("t1w_mask", "inputnode.t1w_mask"),  # TODO: Add back for next
             ("t1w_dseg", "inputnode.t1w_dseg"),
             # Undefined if --fs-no-reconall, but this is safe
             ("subjects_dir", "inputnode.subjects_dir"),
