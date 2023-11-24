@@ -540,8 +540,6 @@ def init_asl_fit_wf(
         omp_nthreads=omp_nthreads,
         sloppy=config.execution.sloppy,
         use_bbr=config.workflow.use_bbr,
-        use_compression=False,
-        write_report=False,
     )
 
     ds_aslreg_wf = init_ds_registration_wf(
