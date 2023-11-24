@@ -72,6 +72,7 @@ def _build_parser():
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
     PathExists = partial(_path_exists, parser=parser)
+    PathList = partial(_path_list, parser=parser)
     IsFile = partial(_is_file, parser=parser)
     PositiveInt = partial(_min_one, parser=parser)
 
@@ -146,7 +147,7 @@ def _build_parser():
         "--derivatives",
         action="store",
         metavar="PATH",
-        type=_path_list,
+        type=PathList,
         nargs="*",
         help="Search PATH(s) for pre-computed derivatives.",
     )
