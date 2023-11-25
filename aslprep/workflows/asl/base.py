@@ -514,7 +514,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.coreg_aslref", "inputnode.aslref"),
                 ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
-            (asl_std_wf, ds_asl_std_wf, [("outputnode.asl_file", "inputnode.asl")]),
+            (asl_std_wf, ds_asl_std_wf, [
+                ("outputnode.asl_file", "inputnode.asl"),
+                ("outputnode.resampling_reference", "inputnode.ref_file"),
+            ]),
         ])  # fmt:skip
 
         for cbf_deriv in cbf_derivs:

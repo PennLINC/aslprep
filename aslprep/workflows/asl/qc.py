@@ -211,10 +211,7 @@ negative CBF values.
 
     # fmt:off
     workflow.connect([
-        (inputnode, warp_asl_mask_to_mni152nlin2009casym, [
-            ("asl_mask", "reference_image"),
-            ("asl_mask", "input_image"),
-        ]),
+        (inputnode, warp_asl_mask_to_mni152nlin2009casym, [("asl_mask", "input_image")]),
         (aslref2mni152nlin2009casym, warp_asl_mask_to_mni152nlin2009casym, [
             ("out", "transforms"),
         ])
