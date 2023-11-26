@@ -168,7 +168,7 @@ def init_asl_t1_trans_wf(
 
     # Warp the ASLRef-space brain mask to T1w space.
     mask_to_t1w_transform = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel"),
+        ApplyTransforms(interpolation="MultiLabel", verbose=True),
         name="mask_to_t1w_transform",
         mem_gb=0.1,
     )
@@ -187,7 +187,7 @@ def init_asl_t1_trans_wf(
     if freesurfer:
         # Resample aseg and aparc in T1w space (no transforms needed)
         aseg_t1w_tfm = pe.Node(
-            ApplyTransforms(interpolation="MultiLabel", transforms="identity"),
+            ApplyTransforms(interpolation="MultiLabel", transforms="identity", verbose=True),
             name="aseg_t1w_tfm",
             mem_gb=0.1,
         )
@@ -200,7 +200,7 @@ def init_asl_t1_trans_wf(
         # fmt:on
 
         aparc_t1w_tfm = pe.Node(
-            ApplyTransforms(interpolation="MultiLabel", transforms="identity"),
+            ApplyTransforms(interpolation="MultiLabel", transforms="identity", verbose=True),
             name="aparc_t1w_tfm",
             mem_gb=0.1,
         )

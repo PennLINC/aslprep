@@ -184,7 +184,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
 
     # Project T1w mask into BOLD space and merge with BOLD brainmask
     t1w_mask_tfm = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel", invert_transform_flags=[True]),
+        ApplyTransforms(interpolation="MultiLabel", invert_transform_flags=[True], verbose=True),
         name="t1w_mask_tfm",
     )
     union_mask = pe.Node(niu.Function(function=_binary_union), name="union_mask")
@@ -223,7 +223,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
 
     # Resample probseg maps in BOLD space via T1w-to-BOLD transform
     acc_msk_tfm = pe.MapNode(
-        ApplyTransforms(interpolation="Gaussian", invert_transform_flags=[True]),
+        ApplyTransforms(interpolation="Gaussian", invert_transform_flags=[True], verbose=True),
         iterfield=["input_image"],
         name="acc_msk_tfm",
         mem_gb=0.1,
@@ -415,6 +415,7 @@ def init_carpetplot_wf(
             ),
             interpolation="MultiLabel",
             invert_transform_flags=[True, False],
+            verbose=True,
             args="-u int",
         ),
         name="resample_parc",

@@ -545,7 +545,7 @@ effects of other kernels [@lanczos].
         from aslprep.interfaces.ants import ApplyTransforms
 
         aslmask_to_t1w = pe.Node(
-            ApplyTransforms(interpolation="MultiLabel"),
+            ApplyTransforms(interpolation="MultiLabel", verbose=True),
             name="aslmask_to_t1w",
             mem_gb=0.1,
         )

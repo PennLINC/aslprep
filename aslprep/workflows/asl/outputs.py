@@ -189,6 +189,7 @@ def init_asl_fit_reports_wf(
             float=True,
             invert_transform_flags=[True],
             interpolation="LanczosWindowedSinc",
+            verbose=True,
         ),
         name="t1w_aslref",
         mem_gb=1,
@@ -207,6 +208,7 @@ def init_asl_fit_reports_wf(
             default_value=0,
             invert_transform_flags=[True],
             interpolation="NearestNeighbor",
+            verbose=True,
         ),
         name="aslref_wm",
         mem_gb=1,
@@ -256,6 +258,7 @@ def init_asl_fit_reports_wf(
                 float=True,
                 invert_transform_flags=[True],
                 interpolation="LanczosWindowedSinc",
+                verbose=True,
             ),
             name="fmapref_aslref",
             mem_gb=1,
@@ -652,12 +655,16 @@ def init_ds_volumes_wf(
             default_value=0,
             float=True,
             interpolation="LanczosWindowedSinc",
+            verbose=True,
         ),
         name="resample_ref",
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
-    resample_mask = pe.Node(ApplyTransforms(interpolation="MultiLabel"), name="resample_mask")
+    resample_mask = pe.Node(
+        ApplyTransforms(interpolation="MultiLabel", verbose=True),
+        name="resample_mask",
+    )
     resamplers = [resample_ref, resample_mask]
 
     workflow.connect([
@@ -706,6 +713,7 @@ def init_ds_volumes_wf(
                 interpolation="LanczosWindowedSinc",
                 float=True,
                 input_image_type=3,
+                verbose=True,
                 **kwargs,
             ),
             name=f"warp_{cbf_name}_to_std",
@@ -741,6 +749,7 @@ def init_ds_volumes_wf(
                 interpolation="LanczosWindowedSinc",
                 float=True,
                 input_image_type=3,
+                verbose=True,
             ),
             name=f"warp_{att_name}_to_std",
             run_without_submitting=True,
