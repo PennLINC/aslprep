@@ -250,21 +250,17 @@ brain extracted using *Nipype*'s custom brain extraction workflow.
 
     asl_1st = pe.Node(niu.Select(index=[0]), name="asl_1st", run_without_submitting=True)
 
-    # fmt:off
     workflow.connect([
         (val_asl, asl_1st, [(("out_file", listify), "inlist")]),
         (asl_1st, outputnode, [("out", "asl_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     validate_1st = pe.Node(niu.Select(index=[0]), name="validate_1st", run_without_submitting=True)
 
-    # fmt:off
     workflow.connect([
         (val_asl, validate_1st, [(("out_report", listify), "inlist")]),
         (validate_1st, outputnode, [("out", "validation_report")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     return workflow
 
@@ -403,14 +399,12 @@ reference volume and brain extracted using *Nipype*'s custom brain extraction wo
         name="select_reference_volumes",
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, select_reference_volumes, [
             ("asl_file", "asl_file"),
             ("aslcontext", "aslcontext"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     val_asl = pe.MapNode(
         ValidateImage(),
@@ -423,19 +417,16 @@ reference volume and brain extracted using *Nipype*'s custom brain extraction wo
 
     gen_ref = pe.Node(EstimateReferenceImage(), name="gen_ref", mem_gb=1)
 
-    # fmt:off
     workflow.connect([
         (val_asl, gen_ref, [("out_file", "in_file")]),
         (gen_ref, outputnode, [
             ("ref_image", "raw_ref_image"),
             ("n_volumes_to_discard", "algo_dummy_scans"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     enhance_and_skullstrip_asl_wf = init_enhance_and_skullstrip_asl_wf(pre_mask=pre_mask)
 
-    # fmt:off
     workflow.connect([
         (inputnode, enhance_and_skullstrip_asl_wf, [("asl_mask", "inputnode.pre_mask")]),
         (gen_ref, enhance_and_skullstrip_asl_wf, [("ref_image", "inputnode.in_file")]),
@@ -444,8 +435,7 @@ reference volume and brain extracted using *Nipype*'s custom brain extraction wo
             ("outputnode.mask_file", "asl_mask"),
             ("outputnode.skull_stripped_file", "ref_image_brain"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     calc_dummy_scans = pe.Node(
         niu.Function(function=pass_dummy_scans, output_names=["skip_vols_num"]),
@@ -453,22 +443,18 @@ reference volume and brain extracted using *Nipype*'s custom brain extraction wo
         run_without_submitting=True,
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    # fmt:off
     workflow.connect([
         (inputnode, calc_dummy_scans, [("dummy_scans", "dummy_scans")]),
         (gen_ref, calc_dummy_scans, [("n_volumes_to_discard", "algo_dummy_scans")]),
         (calc_dummy_scans, outputnode, [("skip_vols_num", "skip_vols")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     asl_1st = pe.Node(niu.Select(index=[0]), name="asl_1st", run_without_submitting=True)
 
-    # fmt:off
     workflow.connect([
         (val_asl, asl_1st, [(("out_file", listify), "inlist")]),
         (asl_1st, outputnode, [("out", "asl_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     validate_1st = pe.Node(niu.Select(index=[0]), name="validate_1st", run_without_submitting=True)
 

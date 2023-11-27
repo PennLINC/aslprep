@@ -87,7 +87,7 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     m0scan = traits.Either(
         File(exists=True),
         None,
-        mandatory=True,
+        mandatory=False,
         desc="m0scan file associated with the ASL file. Only defined if M0Type is 'Separate'.",
     )
     m0scan_metadata = traits.Either(

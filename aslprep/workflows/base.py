@@ -512,13 +512,11 @@ BIDS structure for this particular subject.
             run_without_submitting=True,
         )
         if any(estimator.method == fm.EstimatorType.ANAT for estimator in fmap_estimators):
-            # fmt:off
             workflow.connect([
                 (anat_fit_wf, fmap_select_std, [
                     ("outputnode.std2anat_xfm", "std2anat_xfm"),
                     ("outputnode.template", "keys")]),
-            ])
-            # fmt:on
+            ])  # fmt:skip
 
         for estimator in fmap_estimators:
             config.loggers.workflow.info(
@@ -564,7 +562,6 @@ Setting-up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                 syn_preprocessing_wf.inputs.inputnode.in_epis = sources
                 syn_preprocessing_wf.inputs.inputnode.in_meta = source_meta
 
-                # fmt:off
                 workflow.connect([
                     (anat_fit_wf, syn_preprocessing_wf, [
                         ("outputnode.t1w_preproc", "inputnode.in_anat"),
@@ -580,8 +577,7 @@ Setting-up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                         ("outputnode.anat_mask", f"in_{estimator.bids_id}.anat_mask"),
                         ("outputnode.sd_prior", f"in_{estimator.bids_id}.sd_prior"),
                     ]),
-                ])
-                # fmt:on
+                ])  # fmt:skip
 
     # Append the functional section to the existing anatomical excerpt
     # That way we do not need to stream down the number of asl datasets
