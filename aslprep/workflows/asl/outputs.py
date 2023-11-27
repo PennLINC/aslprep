@@ -519,18 +519,25 @@ def init_ds_asl_native_wf(
     bids_root: str,
     output_dir: str,
     asl_output: bool,
+    metadata: ty.List[dict],
+    cbf_3d: ty.List[str],
+    cbf_4d: ty.List[str],
+    att: ty.List[str],
     name="ds_asl_native_wf",
 ) -> pe.Workflow:
     """Write out aslref-space outputs."""
     workflow = pe.Workflow(name=name)
+
+    inputnode_fields = [
+        "source_files",
+        "asl",
+        "asl_mask",
+    ]
+    inputnode_fields += cbf_3d
+    inputnode_fields += cbf_4d
+    inputnode_fields += att
     inputnode = pe.Node(
-        niu.IdentityInterface(
-            fields=[
-                "source_files",
-                "asl",
-                "asl_mask",
-            ],
-        ),
+        niu.IdentityInterface(fields=[inputnode_fields]),
         name="inputnode",
     )
 
@@ -567,16 +574,67 @@ def init_ds_asl_native_wf(
                 compress=True,
                 SkullStripped=False,
                 dismiss_entities=("echo",),
+                **metadata,
             ),
             name="ds_asl",
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-        workflow.connect([
-            (inputnode, ds_asl, [
-                ("source_files", "source_file"),
-                ("asl", "in_file"),
-            ]),
-        ])  # fmt:skip
+        workflow.connect([(inputnode, ds_asl, [("asl", "in_file")])])
+        datasinks = [ds_asl]
+
+        for cbf_name in cbf_4d + cbf_3d:
+            # TODO: Add EstimationReference and EstimationAlgorithm
+            cbf_meta = {
+                "Units": "mL/100 g/min",
+            }
+            fields = BASE_INPUT_FIELDS[cbf_name]
+
+            ds_cbf = pe.Node(
+                DerivativesDataSink(
+                    base_directory=output_dir,
+                    compress=True,
+                    dismiss_entities=("echo",),
+                    **fields,
+                    **cbf_meta,
+                ),
+                name=f"ds_{cbf_name}",
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            datasinks.append(ds_cbf)
+            workflow.connect([(inputnode, ds_cbf, [(cbf_name, "in_file")])])
+
+        for att_name in att:
+            # TODO: Add EstimationReference and EstimationAlgorithm
+            att_meta = {
+                "Units": "s",
+            }
+            fields = BASE_INPUT_FIELDS[att_name]
+
+            ds_att = pe.Node(
+                DerivativesDataSink(
+                    base_directory=output_dir,
+                    suffix="att",
+                    compress=True,
+                    dismiss_entities=("echo",),
+                    **fields,
+                    **att_meta,
+                ),
+                name=f"ds_{att_name}",
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            datasinks.append(ds_att)
+
+            workflow.connect([(inputnode, ds_att, [(att_name, "in_file")])])
+
+        workflow.connect(
+            [
+                (inputnode, datasink, [("source_files", "source_file")]) for datasink in datasinks
+            ] + [
+                (raw_sources, datasink, [("out", "RawSources")]) for datasink in datasinks
+            ]
+        )  # fmt:skip
 
     return workflow
 
