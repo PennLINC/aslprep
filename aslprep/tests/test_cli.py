@@ -332,6 +332,7 @@ def _run_and_fail(parameters):
     from aslprep import config
 
     parameters.append("--stop-on-first-crash")
+    parameters.append("-vv")
     parse_args(parameters)
     config_file = config.execution.work_dir / f"config-{config.execution.run_uuid}.toml"
     config.to_filename(config_file)
