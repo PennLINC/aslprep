@@ -537,7 +537,7 @@ def init_ds_asl_native_wf(
     inputnode_fields += cbf_4d
     inputnode_fields += att
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=[inputnode_fields]),
+        niu.IdentityInterface(fields=inputnode_fields),
         name="inputnode",
     )
 
