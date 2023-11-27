@@ -792,9 +792,13 @@ def init_asl_native_wf(
     ])  # fmt:skip
 
     if m0scan:
+        from pkg_resources import resource_filename as pkgrf
+
         # Resample separate M0 file to aslref
+        # No HMC
+        identity_xfm = pkgrf("aslprep", "data/itkIdentityTransform.txt")
         aslref_m0scan = pe.Node(
-            ResampleSeries(transforms=[], in_file=m0scan),
+            ResampleSeries(transforms=[identity_xfm], in_file=m0scan),
             name="aslref_m0scan",
             n_procs=omp_nthreads,
         )
