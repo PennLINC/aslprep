@@ -794,7 +794,7 @@ def init_asl_native_wf(
     if m0scan:
         # Resample separate M0 file to aslref
         aslref_m0scan = pe.Node(
-            ResampleSeries(transforms=["identity"], in_file=m0scan),
+            ResampleSeries(transforms=[], in_file=m0scan),
             name="aslref_m0scan",
             n_procs=omp_nthreads,
         )
