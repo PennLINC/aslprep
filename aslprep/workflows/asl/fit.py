@@ -576,6 +576,7 @@ def init_asl_fit_wf(
 def init_asl_native_wf(
     *,
     asl_file: str,
+    m0scan: ty.Optional[str] = None,
     fieldmap_id: ty.Optional[str] = None,
     omp_nthreads: int = 1,
     name: str = "asl_native_wf",
@@ -605,6 +606,7 @@ def init_asl_native_wf(
     ----------
     asl_file
         List of paths to NIfTI files.
+    m0scan
     fieldmap_id
         ID of the fieldmap to use to correct this ASL series. If :obj:`None`,
         no correction will be applied.
@@ -754,7 +756,7 @@ def init_asl_native_wf(
             ]),
         ])  # fmt:skip
 
-    # Resample to aslref
+    # Resample ASL to aslref
     aslref_asl = pe.Node(ResampleSeries(), name="aslref_asl", n_procs=omp_nthreads)
 
     workflow.connect([
@@ -788,6 +790,23 @@ def init_asl_native_wf(
         (aslbuffer, outputnode, [("asl_file", "asl_minimal")]),
         (aslref_asl, outputnode, [("out_file", "asl_native")]),
     ])  # fmt:skip
+
+    if m0scan:
+        # Resample separate M0 file to aslref
+        aslref_m0scan = pe.Node(
+            ResampleSeries(transforms=["identity"], in_file=m0scan),
+            name="aslref_m0scan",
+            n_procs=omp_nthreads,
+        )
+
+        workflow.connect([
+            (inputnode, aslref_m0scan, [("aslref", "ref_file")]),
+            (aslbuffer, aslref_m0scan, [
+                ("ro_time", "ro_time"),
+                ("pe_dir", "pe_dir"),
+            ]),
+            (aslref_m0scan, outputnode, [("out_file", "m0scan_native")]),
+        ])  # fmt:skip
 
     return workflow
 

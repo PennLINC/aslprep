@@ -29,7 +29,10 @@ class ResampleSeriesInputSpec(TraitedSpec):
     in_file = File(exists=True, mandatory=True, desc="3D or 4D image file to resample")
     ref_file = File(exists=True, mandatory=True, desc="File to resample in_file to")
     transforms = InputMultiObject(
-        File(exists=True),
+        traits.Either(
+            File(exists=True),
+            traits.Enum("identity"),
+        ),
         mandatory=True,
         desc="Transform files, from in_file to ref_file (image mode)",
     )

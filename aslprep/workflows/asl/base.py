@@ -338,6 +338,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     asl_native_wf = init_asl_native_wf(
         asl_file=asl_file,
+        m0scan=run_data["m0scan"],
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
         name="asl_native_wf",
