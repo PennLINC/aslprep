@@ -614,7 +614,6 @@ def init_ds_asl_native_wf(
             ds_att = pe.Node(
                 DerivativesDataSink(
                     base_directory=output_dir,
-                    suffix="att",
                     compress=True,
                     dismiss_entities=("echo",),
                     **fields,
@@ -817,7 +816,6 @@ def init_ds_volumes_wf(
         ds_att = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,
-                suffix="att",
                 compress=True,
                 dismiss_entities=("echo",),
                 **fields,
