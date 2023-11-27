@@ -407,7 +407,7 @@ def init_asl_std_trans_wf(
     # fmt:on
 
     mask_std_tfm = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel", verbose=True),
+        ApplyTransforms(interpolation="MultiLabel", args="-v"),
         name="mask_std_tfm",
         mem_gb=1,
     )
@@ -565,7 +565,7 @@ def init_asl_std_trans_wf(
     if freesurfer:
         # Sample the parcellation files to functional space
         aseg_std_tfm = pe.Node(
-            ApplyTransforms(interpolation="MultiLabel", verbose=True),
+            ApplyTransforms(interpolation="MultiLabel", args="-v"),
             name="aseg_std_tfm",
             mem_gb=1,
         )
@@ -579,7 +579,7 @@ def init_asl_std_trans_wf(
         # fmt:on
 
         aparc_std_tfm = pe.Node(
-            ApplyTransforms(interpolation="MultiLabel", verbose=True),
+            ApplyTransforms(interpolation="MultiLabel", args="-v"),
             name="aparc_std_tfm",
             mem_gb=1,
         )
@@ -603,7 +603,7 @@ def init_asl_std_trans_wf(
                 interpolation="LanczosWindowedSinc",
                 float=True,
                 input_image_type=3,
-                verbose=True,
+                args="-v",
                 **kwargs,
             ),
             name=f"warp_{input_name}_to_std",

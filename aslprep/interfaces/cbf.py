@@ -1003,7 +1003,7 @@ def refine_ref_mask(t1w_mask, ref_asl_mask, aslref2anat_xfm, tmp_mask, refined_m
         invert_transform_flags=[True],
         input_image_type=3,
         output_image=tmp_mask,
-        verbose=True,
+        args="-v",
     )
     results = warp_t1w_mask_to_asl.run()
 

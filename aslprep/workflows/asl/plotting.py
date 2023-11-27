@@ -97,7 +97,7 @@ def init_plot_cbf_wf(
             default_value=0,
             interpolation="MultiLabel",
             invert_transform_flags=[True],
-            verbose=True,
+            args="-v",
         ),
         name="warp_t1w_dseg_to_aslref",
     )
