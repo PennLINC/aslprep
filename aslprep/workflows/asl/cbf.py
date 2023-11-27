@@ -974,6 +974,24 @@ def init_parcellate_cbf_wf(
     mean_cbf_gm_basil_parcellated : Undefined or list of str
         Only defined if ``basil`` is True.
     """
+    CBF_ENTITIES = {
+        "mean_cbf": {},
+        "mean_cbf_score": {
+            "desc": "score",
+        },
+        "mean_cbf_scrub": {
+            "desc": "scrub",
+        },
+        "mean_cbf_basil": {
+            "desc": "basil",
+        },
+        "mean_cbf_gm_basil": {
+            "desc": "pvGM",
+        },
+        "mean_cbf_wm_basil": {
+            "desc": "pvWM",
+        },
+    }
     workflow = Workflow(name=name)
 
     workflow.__desc__ = f"""
@@ -1095,12 +1113,43 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             ]),
             (atlas_file_grabber, parcellate_cbf, [("atlas_labels_file", "atlas_labels")]),
             (warp_atlases_to_asl_space, parcellate_cbf, [("output_image", "atlas")]),
-            (parcellate_cbf, outputnode, [
-                ("timeseries", f"{cbf_type}_parcellated"),
-                ("coverage", f"{cbf_type}_coverage"),
-            ]),
         ])
         # fmt:on
+
+        ds_cbf = pe.MapNode(
+            DerivativesDataSink(
+                base_directory=config.execution.aslprep_dir,
+                check_hdr=False,
+                suffix="cbf",
+                **CBF_ENTITIES[cbf_type],
+            ),
+            name=f"ds_{cbf_type}",
+            iterfield=["atlas", "in_file"],
+            run_without_submitting=True,
+        )
+        workflow.connect([
+            (inputnode, ds_cbf, [("source_file", "source_file")]),
+            (atlas_name_grabber, ds_cbf, [("atlas_names", "atlas")]),
+            (parcellate_cbf, ds_cbf, [("timeseries", "in_file")]),
+        ])  # fmt:skip
+
+        ds_coverage = pe.MapNode(
+            DerivativesDataSink(
+                base_directory=config.execution.aslprep_dir,
+                check_hdr=False,
+                suffix="coverage",
+                **CBF_ENTITIES[cbf_type],
+            ),
+            name=f"ds_coverage_{cbf_type}",
+            iterfield=["atlas", "in_file"],
+            run_without_submitting=True,
+        )
+
+        workflow.connect([
+            (inputnode, ds_coverage, [("source_file", "source_file")]),
+            (atlas_name_grabber, ds_coverage, [("atlas_names", "atlas")]),
+            (parcellate_cbf, ds_coverage, [("coverage", "in_file")]),
+        ])  # fmt:skip
 
     # Get entities from atlas for datasinks
     get_atlas_entities = pe.MapNode(
