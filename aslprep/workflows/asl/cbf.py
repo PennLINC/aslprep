@@ -1,6 +1,7 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for calculating CBF."""
+import numpy as np
 import pandas as pd
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info, MultiImageMaths
@@ -465,10 +466,18 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
         basil_kwargs = {}
         if "SliceTiming" in metadata.keys():
-            # This won't work for non-ascending slice orders.
-            basil_kwargs["slice_spacing"] = abs(
-                metadata["SliceTiming"][1] - metadata["SliceTiming"][0]
-            )
+            slicetime_diffs = np.unique(np.diff(metadata["SliceTiming"]))
+            # Check if slice times are monotonic
+            monotonic_slicetimes = slicetime_diffs.size == 1
+            # Check if slice times are ascending
+            ascending_slicetimes = np.all(slicetime_diffs > 0)
+            # Only set slicedt for ascending slice orders.
+            if monotonic_slicetimes and ascending_slicetimes:
+                basil_kwargs["slice_spacing"] = slicetime_diffs[0]
+            else:
+                config.loggers.interface.warning(
+                    "Slice times are not ascending. They will be ignored in the BASIL call."
+                )
 
         basilcbf = pe.Node(
             BASILCBF(
