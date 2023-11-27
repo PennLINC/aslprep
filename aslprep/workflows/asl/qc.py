@@ -78,7 +78,7 @@ negative CBF values.
                 "t1w_mask",
                 "t1w_tpms",
                 "aslref2anat_xfm",
-                "mni2009c2anat_xfm",
+                "anat2mni2009c_xfm",
                 # CBF inputs
                 "mean_cbf",
                 # SCORE/SCRUB inputs
@@ -198,7 +198,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, aslref2mni152nlin2009casym, [
             ("aslref2anat_xfm", "in1"),
-            ("mni2009c2anat_xfm", "in2"),
+            ("anat2mni2009c_xfm", "in2"),
         ]),
     ])  # fmt:skip
 
@@ -206,7 +206,6 @@ negative CBF values.
         ApplyTransforms(
             interpolation="NearestNeighbor",
             float=True,
-            invert_transform_flags=[False, True],
             reference_image=template_brain_mask,
             args="-v",
         ),
