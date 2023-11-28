@@ -140,6 +140,17 @@ re-calculated relative root mean-squared deviation.
         (split_by_volume_type, mcflirt, [("out_files", "in_file")]),
     ])  # fmt:skip
 
+    listify_mat_files = pe.MapNode(
+        niu.Function(
+            function=listify,
+            inputnames=["value"],
+            outputnames=["value"],
+        ),
+        name="listify_mat_files",
+        iterfield=["value"],
+    )
+    workflow.connect([(mcflirt, listify_mat_files, [("mat_file", "value")])])
+
     # Combine the motpars files, mat files, and rms files across the different MCFLIRTed files,
     # based on the aslcontext file.
     combine_motpars = pe.Node(
@@ -149,26 +160,21 @@ re-calculated relative root mean-squared deviation.
     workflow.connect([
         (inputnode, combine_motpars, [("aslcontext", "aslcontext")]),
         (split_by_volume_type, combine_motpars, [("volume_types", "volume_types")]),
-        (mcflirt, combine_motpars, [
-            (("mat_file", listify), "mat_files"),
-            ("par_file", "par_files"),
-        ]),
+        (mcflirt, combine_motpars, [("par_file", "par_files")]),
+        (listify_mat_files, combine_motpars, [("value", "mat_files")]),
     ])  # fmt:skip
 
     # Use rmsdiff to calculate relative rms from transform files.
     rmsdiff = pe.Node(PairwiseRMSDiff(), name="rmsdiff")
 
-    # fmt:off
     workflow.connect([
         (inputnode, rmsdiff, [("raw_ref_image", "ref_file")]),
         (combine_motpars, rmsdiff, [("mat_file_list", "in_files")]),
         (rmsdiff, outputnode, [("out_file", "rmsd_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     fsl2itk = pe.Node(MCFLIRT2ITK(), name="fsl2itk", mem_gb=0.05, n_procs=omp_nthreads)
 
-    # fmt:off
     workflow.connect([
         (inputnode, fsl2itk, [
             ("raw_ref_image", "in_source"),
@@ -176,19 +182,16 @@ re-calculated relative root mean-squared deviation.
         ]),
         (combine_motpars, fsl2itk, [("mat_file_list", "in_files")]),
         (fsl2itk, outputnode, [("out_file", "xforms")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     normalize_motion = pe.Node(
         NormalizeMotionParams(format="FSL"),
         name="normalize_motion",
         mem_gb=DEFAULT_MEMORY_MIN_GB,
     )
-    # fmt:off
     workflow.connect([
         (combine_motpars, normalize_motion, [("combined_par_file", "in_file")]),
         (normalize_motion, outputnode, [("out_file", "movpar_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     return workflow

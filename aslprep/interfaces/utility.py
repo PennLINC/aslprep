@@ -215,6 +215,9 @@ class CombineMotionParameters(SimpleInterface):
         out_par = [None] * aslcontext.shape[0]
         out_mat_files = [None] * aslcontext.shape[0]
 
+        assert len(self.inputs.volume_types) == len(self.inputs.mat_files)
+        assert len(self.inputs.volume_types) == len(self.inputs.par_files)
+
         for i_type, volume_type in enumerate(self.inputs.volume_types):
             type_mat_files = self.inputs.mat_files[i_type]
             type_par_file = self.inputs.par_files[i_type]
