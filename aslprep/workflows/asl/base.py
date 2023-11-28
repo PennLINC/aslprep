@@ -49,7 +49,9 @@ def init_asl_wf(
     Parameters
     ----------
     asl_file
-        asl series NIfTI file
+        ASL NIfTI file
+    precomputed
+        Dictionary containing precomputed derivatives to reuse, if possible.
     fieldmap_id
         ID of the fieldmap to use to correct this BOLD series. If :obj:`None`,
         no correction will be applied.
@@ -301,6 +303,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_fit_wf = init_asl_fit_wf(
         asl_file=asl_file,
         m0scan=run_data["m0scan"],
+        precomputed=precomputed,
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
     )

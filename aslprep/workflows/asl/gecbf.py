@@ -160,9 +160,6 @@ def init_asl_gepreproc_wf(
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.nibabel import ApplyMask
-    from niworkflows.interfaces.reportlets.registration import (
-        SimpleBeforeAfterRPT as SimpleBeforeAfter,
-    )
     from niworkflows.interfaces.utility import KeySelect
 
     mem_gb = {"filesize": 1, "resampled": 1, "largemem": 1}
