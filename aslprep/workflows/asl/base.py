@@ -475,8 +475,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 (cbf_wf, ds_asl_t1_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
             ])  # fmt:skip
 
-    # Should always be reached, since ASLPrep includes MNI152NLin6Asym and MNI152NLin2009cAsym
-    # automatically
+    # If standard space outputs are requested.
+    # This is different from having internally-produced standard-space data.
     if spaces.cached.get_spaces(nonstandard=False, dim=(3,)):
         # Missing:
         #  * Clipping BOLD after resampling
@@ -537,29 +537,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         for cbf_deriv in cbf_derivs:
             workflow.connect([
                 (cbf_wf, ds_asl_std_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
-            ])  # fmt:skip
-
-        # Parcellate CBF maps and write out parcellated TSV files and atlases
-        parcellate_cbf_wf = init_parcellate_cbf_wf(
-            cbf_3d=cbf_3d_derivs,
-            name="parcellate_cbf_wf",
-        )
-        workflow.connect([
-            (inputnode, parcellate_cbf_wf, [
-                ("asl_file", "inputnode.source_file"),
-                ("mni2009c2anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
-            ]),
-            (asl_fit_wf, parcellate_cbf_wf, [
-                ("outputnode.asl_mask", "inputnode.asl_mask"),
-                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
-            ]),
-        ])  # fmt:skip
-
-        for cbf_deriv in cbf_3d_derivs:
-            workflow.connect([
-                (cbf_wf, parcellate_cbf_wf, [
-                    (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
-                ]),
             ])  # fmt:skip
 
     if config.workflow.run_reconall and freesurfer_spaces:
@@ -811,6 +788,29 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 (("outputnode.acompcor_masks", _last), "inputnode.acompcor_mask"),
             ]),
         ])  # fmt:skip
+
+        # Parcellate CBF maps and write out parcellated TSV files and atlases
+        parcellate_cbf_wf = init_parcellate_cbf_wf(
+            cbf_3d=cbf_3d_derivs,
+            name="parcellate_cbf_wf",
+        )
+        workflow.connect([
+            (inputnode, parcellate_cbf_wf, [
+                ("asl_file", "inputnode.source_file"),
+                ("mni2009c2anat_xfm", "inputnode.MNI152NLin2009cAsym_to_anat_xfm"),
+            ]),
+            (asl_fit_wf, parcellate_cbf_wf, [
+                ("outputnode.asl_mask", "inputnode.asl_mask"),
+                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+            ]),
+        ])  # fmt:skip
+
+        for cbf_deriv in cbf_3d_derivs:
+            workflow.connect([
+                (cbf_wf, parcellate_cbf_wf, [
+                    (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
+                ]),
+            ])  # fmt:skip
 
     # Fill in datasinks of reportlets seen so far
     for node in workflow.list_node_names():
