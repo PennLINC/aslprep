@@ -144,7 +144,7 @@ re-calculated relative root mean-squared deviation.
         niu.Function(
             function=listify,
             inputnames=["value"],
-            outputnames=["value"],
+            outputnames=["lst"],
         ),
         name="listify_mat_files",
         iterfield=["value"],
@@ -161,7 +161,7 @@ re-calculated relative root mean-squared deviation.
         (inputnode, combine_motpars, [("aslcontext", "aslcontext")]),
         (split_by_volume_type, combine_motpars, [("volume_types", "volume_types")]),
         (mcflirt, combine_motpars, [("par_file", "par_files")]),
-        (listify_mat_files, combine_motpars, [("value", "mat_files")]),
+        (listify_mat_files, combine_motpars, [("lst", "mat_files")]),
     ])  # fmt:skip
 
     # Use rmsdiff to calculate relative rms from transform files.
