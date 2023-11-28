@@ -167,8 +167,7 @@ Head-motion estimation
    from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
    wf = init_asl_hmc_wf(
-      processing_target="control",
-      m0type="Included",
+      name="asl_hmc_wf",
       mem_gb=1,
       omp_nthreads=1,
    )

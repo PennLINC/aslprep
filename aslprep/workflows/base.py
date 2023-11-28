@@ -592,6 +592,9 @@ tasks and sessions), the following preprocessing was performed.
     for asl_file in subject_data["asl"]:
         fieldmap_id = estimator_map.get(asl_file)
 
+        # TODO: Implement functional cache.
+        functional_cache = {}
+
         # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
         n_vols = get_n_volumes(asl_file)
         use_ge = (
@@ -604,7 +607,7 @@ tasks and sessions), the following preprocessing was performed.
         asl_preproc_func = init_asl_wf
         asl_wf = asl_preproc_func(
             asl_file=asl_file,
-            precomputed={},  # TODO: Implement functional cache.
+            precomputed=functional_cache,
             fieldmap_id=fieldmap_id,
         )
 

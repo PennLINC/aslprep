@@ -4,6 +4,8 @@
 import typing as ty
 
 import numpy as np
+from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
+from fmriprep.workflows.bold.resampling import init_bold_surf_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
@@ -12,14 +14,12 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name
-from aslprep.workflows.asl.apply import init_asl_volumetric_resample_wf
 from aslprep.workflows.asl.cbf import init_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.fit import init_asl_fit_wf, init_asl_native_wf
 from aslprep.workflows.asl.outputs import init_ds_asl_native_wf, init_ds_volumes_wf
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_cbf_qc_wf
-from aslprep.workflows.asl.resampling import init_asl_surf_wf
 
 
 def init_asl_wf(
@@ -359,7 +359,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Resample ASL file to anatomical space.
     # This doesn't write out the resampled file to the derivatives.
-    asl_anat_wf = init_asl_volumetric_resample_wf(
+    asl_anat_wf = init_bold_volumetric_resample_wf(
         metadata=metadata,
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
@@ -375,12 +375,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("fmap_id", "inputnode.fmap_id"),
         ]),
         (asl_fit_wf, asl_anat_wf, [
-            ("outputnode.coreg_aslref", "inputnode.asl_ref_file"),
-            ("outputnode.aslref2fmap_xfm", "inputnode.aslref2fmap_xfm"),
-            ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+            ("outputnode.coreg_aslref", "inputnode.bold_ref_file"),
+            ("outputnode.aslref2fmap_xfm", "inputnode.boldref2fmap_xfm"),
+            ("outputnode.aslref2anat_xfm", "inputnode.boldref2anat_xfm"),
         ]),
         (asl_native_wf, asl_anat_wf, [
-            ("outputnode.asl_minimal", "inputnode.asl_file"),
+            ("outputnode.asl_minimal", "inputnode.bold_file"),
             ("outputnode.motion_xfm", "inputnode.motion_xfm"),
         ]),
     ])  # fmt:skip
@@ -464,7 +464,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.coreg_aslref", "inputnode.aslref"),
                 ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
-            (asl_anat_wf, ds_asl_t1_wf, [("outputnode.asl_file", "inputnode.asl")]),
+            (asl_anat_wf, ds_asl_t1_wf, [("outputnode.bold_file", "inputnode.asl")]),
         ])  # fmt:skip
 
         for cbf_deriv in cbf_derivs:
@@ -478,7 +478,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # Missing:
         #  * Clipping BOLD after resampling
         #  * Resampling parcellations
-        asl_std_wf = init_asl_volumetric_resample_wf(
+        asl_std_wf = init_bold_volumetric_resample_wf(
             metadata=metadata,
             fieldmap_id=fieldmap_id,
             omp_nthreads=omp_nthreads,
@@ -506,12 +506,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("fmap_id", "inputnode.fmap_id"),
             ]),
             (asl_fit_wf, asl_std_wf, [
-                ("outputnode.coreg_aslref", "inputnode.asl_ref_file"),
-                ("outputnode.aslref2fmap_xfm", "inputnode.aslref2fmap_xfm"),
-                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+                ("outputnode.coreg_aslref", "inputnode.bold_ref_file"),
+                ("outputnode.aslref2fmap_xfm", "inputnode.boldref2fmap_xfm"),
+                ("outputnode.aslref2anat_xfm", "inputnode.boldref2anat_xfm"),
             ]),
             (asl_native_wf, asl_std_wf, [
-                ("outputnode.asl_minimal", "inputnode.asl_file"),
+                ("outputnode.asl_minimal", "inputnode.bold_file"),
                 ("outputnode.motion_xfm", "inputnode.motion_xfm"),
             ]),
             (inputnode, ds_asl_std_wf, [
@@ -526,7 +526,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
             (asl_std_wf, ds_asl_std_wf, [
-                ("outputnode.asl_file", "inputnode.asl"),
+                ("outputnode.bold_file", "inputnode.asl"),
                 ("outputnode.resampling_reference", "inputnode.ref_file"),
             ]),
         ])  # fmt:skip
@@ -542,13 +542,15 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 (FreeSurfer).
 """
         config.loggers.workflow.debug("Creating BOLD surface-sampling workflow.")
-        asl_surf_wf = init_asl_surf_wf(
+        asl_surf_wf = init_bold_surf_wf(
             mem_gb=mem_gb["resampled"],
+            metadata=metadata,
             surface_spaces=freesurfer_spaces,
             medial_surface_nan=config.workflow.medial_surface_nan,
             output_dir=config.execution.aslprep_dir,
             name="asl_surf_wf",
         )
+        asl_surf_wf.__desc__ = asl_surf_wf.__desc__.replace("BOLD", "ASL")
         asl_surf_wf.inputs.inputnode.source_file = asl_file
         workflow.connect([
             (inputnode, asl_surf_wf, [
@@ -556,7 +558,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ("subject_id", "inputnode.subject_id"),
                 ("fsnative2t1w_xfm", "inputnode.fsnative2t1w_xfm"),
             ]),
-            (asl_anat_wf, asl_surf_wf, [("outputnode.asl_file", "inputnode.bold_t1w")]),
+            (asl_anat_wf, asl_surf_wf, [("outputnode.bold_file", "inputnode.bold_t1w")]),
         ])  # fmt:skip
 
     if config.workflow.cifti_output:
@@ -565,7 +567,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             init_bold_grayords_wf,
         )
 
-        asl_MNI6_wf = init_asl_volumetric_resample_wf(
+        asl_MNI6_wf = init_bold_volumetric_resample_wf(
             metadata=metadata,
             fieldmap_id=fieldmap_id,
             omp_nthreads=omp_nthreads,
@@ -610,12 +612,12 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ("fmap_id", "inputnode.fmap_id"),
             ]),
             (asl_fit_wf, asl_MNI6_wf, [
-                ("outputnode.coreg_aslref", "inputnode.asl_ref_file"),
-                ("outputnode.aslref2fmap_xfm", "inputnode.aslref2fmap_xfm"),
-                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+                ("outputnode.coreg_aslref", "inputnode.bold_ref_file"),
+                ("outputnode.aslref2fmap_xfm", "inputnode.boldref2fmap_xfm"),
+                ("outputnode.aslref2anat_xfm", "inputnode.boldref2anat_xfm"),
             ]),
             (asl_native_wf, asl_MNI6_wf, [
-                ("outputnode.asl_minimal", "inputnode.asl_file"),
+                ("outputnode.asl_minimal", "inputnode.bold_file"),
                 ("outputnode.motion_xfm", "inputnode.motion_xfm"),
             ]),
             # Resample T1w-space BOLD to fsLR surfaces
@@ -628,8 +630,10 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ("cortex_mask", "inputnode.cortex_mask"),
                 ("anat_ribbon", "inputnode.anat_ribbon"),
             ]),
-            (asl_anat_wf, asl_fsLR_resampling_wf, [("outputnode.asl_file", "inputnode.asl_file")]),
-            (asl_MNI6_wf, asl_grayords_wf, [("outputnode.asl_file", "inputnode.asl_std")]),
+            (asl_anat_wf, asl_fsLR_resampling_wf, [
+                ("outputnode.bold_file", "inputnode.asl_file"),
+            ]),
+            (asl_MNI6_wf, asl_grayords_wf, [("outputnode.bold_file", "inputnode.asl_std")]),
             (asl_fsLR_resampling_wf, asl_grayords_wf, [
                 ("outputnode.asl_fsLR", "inputnode.asl_fsLR"),
             ]),
