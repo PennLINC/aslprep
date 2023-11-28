@@ -7,6 +7,7 @@ from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.confounds import NormalizeMotionParams
 from niworkflows.interfaces.itk import MCFLIRT2ITK
+from niworkflows.utils.connections import listify
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
 from aslprep.interfaces.utility import (
@@ -149,7 +150,7 @@ re-calculated relative root mean-squared deviation.
         (inputnode, combine_motpars, [("aslcontext", "aslcontext")]),
         (split_by_volume_type, combine_motpars, [("volume_types", "volume_types")]),
         (mcflirt, combine_motpars, [
-            ("mat_file", "mat_files"),
+            (("mat_file", listify), "mat_files"),
             ("par_file", "par_files"),
         ]),
     ])  # fmt:skip
