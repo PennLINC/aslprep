@@ -12,13 +12,13 @@ from aslprep.interfaces.reports import (
 )
 
 __all__ = [
-    "SubjectSummary",
-    "FunctionalSummary",
     "AboutSummary",
-    "GatherConfounds",
     "ASLCarpetPlot",
     "CBFSummary",
     "CBFSummaryPlot",
     "CBFtsSummary",
     "DerivativesDataSink",
+    "FunctionalSummary",
+    "GatherConfounds",
+    "SubjectSummary",
 ]
