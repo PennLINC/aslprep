@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 """This won't work."""
 import sys
-from nipype.pipeline import engine as pe
+
 from nipype.interfaces import utility as niu
+from nipype.pipeline import engine as pe
+
 from aslprep.workflows.asl.util import init_asl_reference_wf
 
 
 def sink_mask_file(in_file, orig_file, out_dir):
     import os
-    from nipype.utils.filemanip import fname_presuffix, copyfile
+
+    from nipype.utils.filemanip import copyfile, fname_presuffix
 
     os.makedirs(out_dir, exist_ok=True)
     out_file = fname_presuffix(orig_file, suffix="_mask", newpath=out_dir)
