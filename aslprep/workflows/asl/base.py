@@ -166,11 +166,9 @@ def init_asl_wf(
     m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
     basil = config.workflow.basil
+    nonstd_spaces = set(spaces.get_nonstandard())
     freesurfer_spaces = spaces.get_fs_spaces()
     layout = config.execution.layout
-
-    # Take first file (only file, because we don't support multi-echo ASL) as reference
-    asl_file = asl_file
 
     asl_tlen, mem_gb = _create_mem_gb(asl_file)
 
@@ -326,10 +324,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
     ])  # fmt:skip
 
-    spaces = config.workflow.spaces
-    nonstd_spaces = set(spaces.get_nonstandard())
-    freesurfer_spaces = spaces.get_fs_spaces()
-
     #
     # Resampling outputs workflow:
     #   - Resample to aslref space
@@ -446,7 +440,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ]),
             ])  # fmt:skip
 
-    # Full derivatives, including resampled BOLD series
+    # If anatomical-space outputs are requested.
     if nonstd_spaces.intersection(("anat", "T1w")):
         ds_asl_t1_wf = init_ds_volumes_wf(
             bids_root=str(config.execution.bids_dir),
