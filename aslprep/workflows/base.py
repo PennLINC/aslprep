@@ -594,6 +594,19 @@ tasks and sessions), the following preprocessing was performed.
 
         # TODO: Implement functional cache.
         functional_cache = {}
+        if config.execution.derivatives:
+            from aslprep.utils.bids import collect_derivatives, extract_entities
+
+            entities = extract_entities(asl_file)
+
+            for deriv_dir in config.execution.derivatives:
+                functional_cache.update(
+                    collect_derivatives(
+                        derivatives_dir=deriv_dir,
+                        entities=entities,
+                        fieldmap_id=fieldmap_id,
+                    )
+                )
 
         # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
         n_vols = get_n_volumes(asl_file)

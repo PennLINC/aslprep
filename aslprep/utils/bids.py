@@ -1,14 +1,20 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Utilities to handle BIDS inputs."""
+from __future__ import annotations
+
 import json
 import os
 import sys
+import typing as ty
+from collections import defaultdict
 from pathlib import Path
 
 import yaml
+from bids.layout import BIDSLayout
 
 from aslprep import config
+from aslprep.data import load as load_data
 
 
 def collect_data(
@@ -115,6 +121,47 @@ def collect_run_data(layout, asl_file):
     run_data["m0scan_metadata"] = m0scan_metadata
 
     return run_data
+
+
+def collect_derivatives(
+    derivatives_dir: Path,
+    entities: dict,
+    fieldmap_id: str | None,
+    spec: dict | None = None,
+    patterns: ty.List[str] | None = None,
+):
+    """Gather existing derivatives and compose a cache."""
+    if spec is None or patterns is None:
+        _spec, _patterns = tuple(
+            json.loads(load_data.readable("io_spec.json").read_text()).values()
+        )
+
+        if spec is None:
+            spec = _spec
+        if patterns is None:
+            patterns = _patterns
+
+    derivs_cache = defaultdict(list, {})
+    layout = BIDSLayout(derivatives_dir, config=["bids", "derivatives"], validate=False)
+    derivatives_dir = Path(derivatives_dir)
+
+    # search for both boldrefs
+    for k, q in spec["baseline"].items():
+        query = {**q, **entities}
+        item = layout.get(return_type="filename", **query)
+        if not item:
+            continue
+        derivs_cache["%s_boldref" % k] = item[0] if len(item) == 1 else item
+
+    for xfm, q in spec["transforms"].items():
+        query = {**q, **entities}
+        if xfm == "boldref2fmap":
+            query["to"] = fieldmap_id
+        item = layout.get(return_type="filename", **q)
+        if not item:
+            continue
+        derivs_cache[xfm] = item[0] if len(item) == 1 else item
+    return derivs_cache
 
 
 def write_bidsignore(deriv_dir):
