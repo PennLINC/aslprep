@@ -58,11 +58,11 @@ BASE_INPUT_FIELDS = {
         "suffix": "cbf",
     },
     "mean_cbf_gm_basil": {
-        "desc": "pvGM",
+        "desc": "basilGM",
         "suffix": "cbf",
     },
     "mean_cbf_wm_basil": {
-        "desc": "pvWM",
+        "desc": "basilWM",
         "suffix": "cbf",
     },
     "att_basil": {

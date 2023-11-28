@@ -162,10 +162,10 @@ sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-hmc_aslref.json
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-hmc_aslref.nii.gz
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-preproc_asl.json
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-preproc_asl.nii.gz
-sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-pvGM_cbf.json
-sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-pvGM_cbf.nii.gz
-sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-pvWM_cbf.json
-sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-pvWM_cbf.nii.gz
+sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-basilGM_cbf.json
+sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-basilGM_cbf.nii.gz
+sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-basilWM_cbf.json
+sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-basilWM_cbf.nii.gz
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-qualitycontrol_cbf.csv
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-timeseries_cbf.json
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-timeseries_cbf.nii.gz

@@ -986,10 +986,10 @@ def init_parcellate_cbf_wf(
             "desc": "basil",
         },
         "mean_cbf_gm_basil": {
-            "desc": "pvGM",
+            "desc": "basilGM",
         },
         "mean_cbf_wm_basil": {
-            "desc": "pvWM",
+            "desc": "basilWM",
         },
     }
     workflow = Workflow(name=name)

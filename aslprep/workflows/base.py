@@ -15,7 +15,7 @@ from packaging.version import Version
 from aslprep import config
 from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
 from aslprep.interfaces.bids import BIDSDataGrabber
-from aslprep.utils.misc import _prefix, get_n_volumes
+from aslprep.utils.misc import _prefix
 from aslprep.workflows.asl.base import init_asl_wf
 
 
@@ -592,7 +592,6 @@ tasks and sessions), the following preprocessing was performed.
     for asl_file in subject_data["asl"]:
         fieldmap_id = estimator_map.get(asl_file)
 
-        # TODO: Implement functional cache.
         functional_cache = {}
         if config.execution.derivatives:
             from aslprep.utils.bids import collect_derivatives, extract_entities
@@ -607,14 +606,6 @@ tasks and sessions), the following preprocessing was performed.
                         fieldmap_id=fieldmap_id,
                     )
                 )
-
-        # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
-        n_vols = get_n_volumes(asl_file)
-        use_ge = (
-            config.workflow.use_ge if isinstance(config.workflow.use_ge, bool) else n_vols <= 5
-        )
-        if use_ge:
-            config.loggers.workflow.warning("Using GE-specific processing.")
 
         # asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_wf
         asl_preproc_func = init_asl_wf

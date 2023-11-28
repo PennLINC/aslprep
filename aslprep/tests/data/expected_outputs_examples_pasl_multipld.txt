@@ -221,10 +221,10 @@ sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-hmc_aslref.json
 sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-hmc_aslref.nii.gz
 sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-preproc_asl.json
 sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-preproc_asl.nii.gz
-sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-pvGM_cbf.json
-sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-pvGM_cbf.nii.gz
-sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-pvWM_cbf.json
-sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-pvWM_cbf.nii.gz
+sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-basilGM_cbf.json
+sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-basilGM_cbf.nii.gz
+sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-basilWM_cbf.json
+sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-basilWM_cbf.nii.gz
 sub-01/ses-BAS1/perf/sub-01_ses-BAS1_desc-qualitycontrol_cbf.csv
 sub-01/ses-BAS1/perf/sub-01_ses-BAS1_from-aslref_to-T1w_mode-image_xfm.json
 sub-01/ses-BAS1/perf/sub-01_ses-BAS1_from-aslref_to-T1w_mode-image_xfm.txt

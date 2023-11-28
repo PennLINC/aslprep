@@ -13,7 +13,7 @@ from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
-from aslprep.utils.misc import _create_mem_gb, _get_wf_name
+from aslprep.utils.misc import _create_mem_gb, _get_wf_name, get_n_volumes
 from aslprep.workflows.asl.cbf import init_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.fit import init_asl_fit_wf, init_asl_native_wf
@@ -171,6 +171,17 @@ def init_asl_wf(
     nonstd_spaces = set(spaces.get_nonstandard())
     freesurfer_spaces = spaces.get_fs_spaces()
     layout = config.execution.layout
+
+    # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
+    n_vols = get_n_volumes(asl_file)
+    use_ge = config.workflow.use_ge if isinstance(config.workflow.use_ge, bool) else n_vols <= 5
+    if use_ge:
+        config.loggers.workflow.warning("Using GE-specific processing. HMC will be disabled.")
+        if scorescrub:
+            config.loggers.workflow.warning(
+                "SCORE/SCRUB processing is disabled for GE-specific processing"
+            )
+            scorescrub = False
 
     asl_tlen, mem_gb = _create_mem_gb(asl_file)
 
