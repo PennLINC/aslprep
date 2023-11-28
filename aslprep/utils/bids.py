@@ -145,17 +145,17 @@ def collect_derivatives(
     layout = BIDSLayout(derivatives_dir, config=["bids", "derivatives"], validate=False)
     derivatives_dir = Path(derivatives_dir)
 
-    # search for both boldrefs
+    # search for both aslrefs
     for k, q in spec["baseline"].items():
         query = {**q, **entities}
         item = layout.get(return_type="filename", **query)
         if not item:
             continue
-        derivs_cache["%s_boldref" % k] = item[0] if len(item) == 1 else item
+        derivs_cache[f"{k}_aslref"] = item[0] if len(item) == 1 else item
 
     for xfm, q in spec["transforms"].items():
         query = {**q, **entities}
-        if xfm == "boldref2fmap":
+        if xfm == "aslref2fmap":
             query["to"] = fieldmap_id
         item = layout.get(return_type="filename", **q)
         if not item:
