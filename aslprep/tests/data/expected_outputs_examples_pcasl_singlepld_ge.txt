@@ -171,4 +171,5 @@ sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-timeseries_cbf.json
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-timeseries_cbf.nii.gz
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_from-aslref_to-T1w_mode-image_xfm.json
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_from-aslref_to-T1w_mode-image_xfm.txt
-sub-103/ses-ge3d/perf/sub-103_ses-ge3d_from-orig_to-aslref_mode-image_xfm.jsonsub-103/ses-ge3d/perf/sub-103_ses-ge3d_from-orig_to-aslref_mode-image_xfm.txt
+sub-103/ses-ge3d/perf/sub-103_ses-ge3d_from-orig_to-aslref_mode-image_xfm.json
+sub-103/ses-ge3d/perf/sub-103_ses-ge3d_from-orig_to-aslref_mode-image_xfm.txt

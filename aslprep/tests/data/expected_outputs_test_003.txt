@@ -108,4 +108,5 @@ sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-timeseries_cbf.json
 sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_desc-timeseries_cbf.nii.gz
 sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_from-aslref_to-T1w_mode-image_xfm.json
 sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_from-aslref_to-T1w_mode-image_xfm.txt
-sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_from-orig_to-aslref_mode-image_xfm.jsonsub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_from-orig_to-aslref_mode-image_xfm.txt
+sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_from-orig_to-aslref_mode-image_xfm.json
+sub-A00086748/ses-BAS1/perf/sub-A00086748_ses-BAS1_from-orig_to-aslref_mode-image_xfm.txt
