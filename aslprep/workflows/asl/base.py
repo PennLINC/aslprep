@@ -161,7 +161,7 @@ def init_asl_wf(
     # Have some options handy
     omp_nthreads = config.nipype.omp_nthreads
     spaces = config.workflow.spaces
-    dummyvols = config.workflow.dummy_scans
+    dummy_scans = config.workflow.dummy_scans
     smooth_kernel = config.workflow.smooth_kernel
     m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
@@ -387,7 +387,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     cbf_wf = init_cbf_wf(
         name_source=asl_file,
         processing_target=processing_target,
-        dummy_scans=dummyvols,
+        dummy_scans=dummy_scans,
         m0_scale=m0_scale,
         scorescrub=scorescrub,
         basil=basil,
@@ -737,8 +737,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             (cbf_wf, plot_cbf_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
         ])  # fmt:skip
 
-    # Should always be reached, since ASLPrep includes MNI152NLin6Asym and MNI152NLin2009cAsym
-    # automatically
+    # Should always be reached, since ASLPrep includes MNI152NLin2009cAsym automatically
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
         carpetplot_wf = init_carpetplot_wf(
             mem_gb=mem_gb["resampled"],
