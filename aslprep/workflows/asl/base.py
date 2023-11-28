@@ -374,6 +374,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         metadata=metadata,
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
+        mem_gb=mem_gb,
         name="asl_anat_wf",
     )
 
@@ -493,6 +494,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             metadata=metadata,
             fieldmap_id=fieldmap_id,
             omp_nthreads=omp_nthreads,
+            mem_gb=mem_gb,
             name="asl_std_wf",
         )
         ds_asl_std_wf = init_ds_volumes_wf(
@@ -582,6 +584,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             metadata=metadata,
             fieldmap_id=fieldmap_id,
             omp_nthreads=omp_nthreads,
+            mem_gb=mem_gb,
             name="asl_MNI6_wf",
         )
 
