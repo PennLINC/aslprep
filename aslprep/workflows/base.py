@@ -607,9 +607,7 @@ tasks and sessions), the following preprocessing was performed.
                     )
                 )
 
-        # asl_preproc_func = init_asl_gepreproc_wf if use_ge else init_asl_wf
-        asl_preproc_func = init_asl_wf
-        asl_wf = asl_preproc_func(
+        asl_wf = init_asl_wf(
             asl_file=asl_file,
             precomputed=functional_cache,
             fieldmap_id=fieldmap_id,
