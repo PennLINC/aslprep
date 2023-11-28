@@ -64,10 +64,6 @@ sub-103
 sub-103.html
 sub-103/ses-siemens3d
 sub-103/ses-siemens3d/perf
-sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-coreg_aslref.json
-sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-hmc_aslref.json
-sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-coreg_aslref.nii.gz
-sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-hmc_aslref.nii.gz
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_atlas-4S1056Parcels_cbf.tsv
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_atlas-4S1056Parcels_coverage.tsv
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_atlas-4S1056Parcels_desc-basilGM_cbf.tsv
@@ -160,7 +156,11 @@ sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-basil_cbf.json
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-basil_cbf.nii.gz
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-brain_mask.json
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-brain_mask.nii.gz
-sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-confounds_regressors.tsv
+sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-confounds_timeseries.tsv
+sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-coreg_aslref.json
+sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-coreg_aslref.nii.gz
+sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-hmc_aslref.json
+sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-hmc_aslref.nii.gz
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-preproc_asl.json
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-preproc_asl.nii.gz
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-pvGM_cbf.json
@@ -170,4 +170,6 @@ sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-pvWM_cbf.nii.gz
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-qualitycontrol_cbf.csv
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-timeseries_cbf.json
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_desc-timeseries_cbf.nii.gz
+sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_from-aslref_to-T1w_mode-image_xfm.json
 sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_from-aslref_to-T1w_mode-image_xfm.txt
+sub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_from-orig_to-aslref_mode-image_xfm.jsonsub-103/ses-siemens3d/perf/sub-103_ses-siemens3d_from-orig_to-aslref_mode-image_xfm.txt
