@@ -4,7 +4,12 @@
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.confounds import GatherConfounds
 from aslprep.interfaces.plotting import ASLCarpetPlot, CBFSummaryPlot, CBFtsSummary
-from aslprep.interfaces.reports import AboutSummary, CBFSummary, FunctionalSummary, SubjectSummary
+from aslprep.interfaces.reports import (
+    AboutSummary,
+    CBFSummary,
+    FunctionalSummary,
+    SubjectSummary,
+)
 
 __all__ = [
     "SubjectSummary",
