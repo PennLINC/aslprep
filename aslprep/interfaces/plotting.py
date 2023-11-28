@@ -43,7 +43,8 @@ class _ASLCarpetPlotOutputSpec(TraitedSpec):
 class ASLCarpetPlot(SimpleInterface):
     """Create a combined carpet/line plot for ASL time series data.
 
-    Copy the x-form matrices from `hdr_file` to `out_file`."""
+    Copy the x-form matrices from `hdr_file` to `out_file`.
+    """
 
     input_spec = _ASLCarpetPlotInputSpec
     output_spec = _ASLCarpetPlotOutputSpec

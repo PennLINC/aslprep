@@ -86,13 +86,12 @@ def init_asl_surf_wf(
     from aslprep.interfaces import DerivativesDataSink
 
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
+    out_spaces_str = ", ".join([f"*{s}*" for s in surface_spaces])
+    workflow.__desc__ = f"""\
 The ASL time-series were resampled onto the following surfaces
 (FreeSurfer reconstruction nomenclature):
-{out_spaces}.
-""".format(
-        out_spaces=", ".join(["*%s*" % s for s in surface_spaces])
-    )
+{out_spaces_str}.
+"""
 
     inputnode = pe.Node(
         niu.IdentityInterface(
