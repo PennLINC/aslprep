@@ -143,8 +143,8 @@ re-calculated relative root mean-squared deviation.
     listify_mat_files = pe.MapNode(
         niu.Function(
             function=listify,
-            inputnames=["value"],
-            outputnames=["lst"],
+            input_names=["value"],
+            output_names=["lst"],
         ),
         name="listify_mat_files",
         iterfield=["value"],
