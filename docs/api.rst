@@ -26,8 +26,6 @@ Internal configuration system
    aslprep.workflows.asl.base
    aslprep.workflows.asl.cbf
    aslprep.workflows.asl.confounds
-   aslprep.workflows.asl.ge_utils
-   aslprep.workflows.asl.gecbf
    aslprep.workflows.asl.hmc
    aslprep.workflows.asl.outputs
    aslprep.workflows.asl.plotting
