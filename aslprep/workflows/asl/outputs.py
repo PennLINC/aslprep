@@ -89,7 +89,7 @@ def _bids_relative(in_files, bids_root):
 def init_asl_fit_reports_wf(
     *,
     sdc_correction: bool,
-    freesurfer: bool,
+    freesurfer: bool,  # noqa:U100
     output_dir: str,
     name="asl_fit_reports_wf",
 ) -> pe.Workflow:
