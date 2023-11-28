@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs", "nipreps-versions", "numpy"]
+requires = ["hatchling", "hatch-vcs", "nipreps-versions"]
 build-backend = "hatchling.build"
 
 [project]
@@ -23,7 +23,7 @@ dependencies = [
     "looseversion",
     "networkx ~= 2.8.8",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
     "nibabel >= 4.0.1",
-    "nipype[nipy] >= 1.8.5",
+    "nipype >= 1.8.5",
     "nitransforms >= 21.0.0",
     "niworkflows",
     "numpy >= 1.22",
