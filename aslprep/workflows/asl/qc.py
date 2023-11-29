@@ -95,7 +95,6 @@ negative CBF values.
         ),
         name="inputnode",
     )
-    outputnode = pe.Node(niu.IdentityInterface(fields=["qc_file"]), name="outputnode")
 
     def _pick_gm(files):
         return files[0]
@@ -117,15 +116,13 @@ negative CBF values.
         mem_gb=0.1,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
             ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     wm_tfm = pe.Node(
         ApplyTransforms(
@@ -138,15 +135,13 @@ negative CBF values.
         mem_gb=0.1,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
             ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     csf_tfm = pe.Node(
         ApplyTransforms(
@@ -159,15 +154,13 @@ negative CBF values.
         mem_gb=0.1,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
             ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     warp_t1w_mask_to_aslref = pe.Node(
         ApplyTransforms(
@@ -180,15 +173,13 @@ negative CBF values.
         mem_gb=0.1,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, warp_t1w_mask_to_aslref, [
             ("asl_mask", "reference_image"),
             ("aslref2anat_xfm", "transforms"),
             ("t1w_mask", "input_image"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     template_brain_mask = str(
         get_template("MNI152NLin2009cAsym", resolution=2, desc="brain", suffix="mask")
@@ -213,14 +204,12 @@ negative CBF values.
         mem_gb=0.1,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, warp_asl_mask_to_mni152nlin2009casym, [("asl_mask", "input_image")]),
         (aslref2mni152nlin2009casym, warp_asl_mask_to_mni152nlin2009casym, [
             ("out", "transforms"),
         ])
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     compute_qc_metrics = pe.Node(
         ComputeCBFQC(
@@ -232,7 +221,6 @@ negative CBF values.
         mem_gb=0.2,
     )
 
-    # fmt:off
     workflow.connect([
         (warp_t1w_mask_to_aslref, compute_qc_metrics, [("output_image", "t1w_mask")]),
         (inputnode, compute_qc_metrics, [
@@ -246,9 +234,24 @@ negative CBF values.
         (gm_tfm, compute_qc_metrics, [("output_image", "gm_tpm")]),
         (wm_tfm, compute_qc_metrics, [("output_image", "wm_tpm")]),
         (csf_tfm, compute_qc_metrics, [("output_image", "csf_tpm")]),
-        (compute_qc_metrics, outputnode, [("qc_file", "qc_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
+
+    ds_qc = pe.Node(
+        DerivativesDataSink(
+            base_directory=config.execution.aslprep_dir,
+            dismiss_entities=list(DerivativesDataSink._allowed_entities),
+            allowed_entities=[],
+            suffix="qc",
+            extension=".csv",
+        ),
+        name="ds_qc",
+        run_without_submitting=True,
+    )
+
+    workflow.connect([
+        (inputnode, ds_qc, [("name_source", "source_file")]),
+        (compute_qc_metrics, ds_qc, [("qc_file", "in_file")]),
+    ])  # fmt:skip
 
     ds_qc_metadata = pe.Node(
         DerivativesDataSink(
@@ -262,42 +265,34 @@ negative CBF values.
         run_without_submitting=True,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, ds_qc_metadata, [("name_source", "source_file")]),
         (compute_qc_metrics, ds_qc_metadata, [("qc_metadata", "in_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     if not is_ge:
         # The QC node only expects a confounds file and RMSD file for non-GE data.
-        # fmt:off
         workflow.connect([
             (inputnode, compute_qc_metrics, [
                 ("confounds_file", "confounds_file"),
                 ("rmsd_file", "rmsd_file"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
     if scorescrub:
-        # fmt:off
         workflow.connect([
             (inputnode, compute_qc_metrics, [
                 ("mean_cbf_scrub", "mean_cbf_scrub"),
                 ("mean_cbf_score", "mean_cbf_score"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
     if basil:
-        # fmt:off
         workflow.connect([
             (inputnode, compute_qc_metrics, [
                 ("mean_cbf_basil", "mean_cbf_basil"),
                 ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
     return workflow
