@@ -10,7 +10,6 @@ from nipype.interfaces.base import (
     File,
     SimpleInterface,
     TraitedSpec,
-    isdefined,
     traits,
 )
 from nipype.utils.filemanip import fname_presuffix
