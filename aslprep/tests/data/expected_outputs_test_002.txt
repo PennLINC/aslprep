@@ -95,6 +95,7 @@ sub-10R01383/perf/sub-10R01383_cbf.json
 sub-10R01383/perf/sub-10R01383_cbf.nii.gz
 sub-10R01383/perf/sub-10R01383_desc-brain_mask.json
 sub-10R01383/perf/sub-10R01383_desc-brain_mask.nii.gz
+sub-10R01383/perf/sub-10R01383_desc-confounds_timeseries.tsv
 sub-10R01383/perf/sub-10R01383_desc-coreg_aslref.json
 sub-10R01383/perf/sub-10R01383_desc-coreg_aslref.nii.gz
 sub-10R01383/perf/sub-10R01383_desc-hmc_aslref.json

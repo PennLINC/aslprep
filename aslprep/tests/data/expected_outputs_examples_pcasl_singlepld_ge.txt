@@ -184,6 +184,7 @@ sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-basil_cbf.json
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-basil_cbf.nii.gz
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-brain_mask.json
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-brain_mask.nii.gz
+sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-confounds_timeseries.tsv
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-coreg_aslref.json
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-coreg_aslref.nii.gz
 sub-103/ses-ge3d/perf/sub-103_ses-ge3d_desc-hmc_aslref.json
