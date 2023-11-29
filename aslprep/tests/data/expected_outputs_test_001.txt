@@ -31,7 +31,7 @@ logs/CITATION.bib
 logs/CITATION.html
 logs/CITATION.md
 logs/CITATION.tex
-qc.json
+desc-qualitycontrol_cbf.json
 space-MNI152NLin6Asym_atlas-4S1056Parcels_res-01_dseg.json
 space-MNI152NLin6Asym_atlas-4S1056Parcels_res-01_dseg.nii.gz
 space-MNI152NLin6Asym_atlas-4S156Parcels_res-01_dseg.json
