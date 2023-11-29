@@ -658,6 +658,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         ])  # fmt:skip
 
     asl_confounds_wf = init_asl_confounds_wf(
+        n_volumes=n_vols,
         mem_gb=mem_gb["largemem"],
         freesurfer=config.workflow.run_reconall,
         name="asl_confounds_wf",
@@ -724,7 +725,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     # Plot CBF outputs.
     plot_cbf_wf = init_plot_cbf_wf(
         metadata=metadata,
-        plot_timeseries=not is_multi_pld,
+        plot_timeseries=not (is_multi_pld or use_ge),
         scorescrub=scorescrub,
         basil=basil,
         name="plot_cbf_wf",
@@ -760,48 +761,50 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
     # Should always be reached, since ASLPrep includes MNI152NLin2009cAsym automatically
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
-        carpetplot_wf = init_carpetplot_wf(
-            mem_gb=mem_gb["resampled"],
-            confounds_list=[
-                ("global_signal", None, "GS"),
-                ("csf", None, "GSCSF"),
-                ("white_matter", None, "GSWM"),
-                ("std_dvars", None, "DVARS"),
-                ("framewise_displacement", "mm", "FD"),
-            ],
-            metadata=metadata,
-            cifti_output=config.workflow.cifti_output,
-            suffix="asl",
-            name="carpetplot_wf",
-        )
+        # Don't make carpet plots for short or GE data
+        if not use_ge:
+            carpetplot_wf = init_carpetplot_wf(
+                mem_gb=mem_gb["resampled"],
+                confounds_list=[
+                    ("global_signal", None, "GS"),
+                    ("csf", None, "GSCSF"),
+                    ("white_matter", None, "GSWM"),
+                    ("std_dvars", None, "DVARS"),
+                    ("framewise_displacement", "mm", "FD"),
+                ],
+                metadata=metadata,
+                cifti_output=config.workflow.cifti_output,
+                suffix="asl",
+                name="carpetplot_wf",
+            )
 
-        if config.workflow.cifti_output:
+            if config.workflow.cifti_output:
+                workflow.connect([
+                    (asl_grayords_wf, carpetplot_wf, [
+                        ("outputnode.cifti_asl", "inputnode.cifti_asl"),
+                    ]),
+                ])  # fmt:skip
+
+            def _last(inlist):
+                if not isinstance(inlist, list):
+                    raise ValueError(f"_last: input is not list ({inlist})")
+
+                return inlist[-1]
+
             workflow.connect([
-                (asl_grayords_wf, carpetplot_wf, [
-                    ("outputnode.cifti_asl", "inputnode.cifti_asl"),
+                (inputnode, carpetplot_wf, [("mni2009c2anat_xfm", "inputnode.std2anat_xfm")]),
+                (asl_fit_wf, carpetplot_wf, [
+                    ("outputnode.dummy_scans", "inputnode.dummy_scans"),
+                    ("outputnode.asl_mask", "inputnode.asl_mask"),
+                    ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+                ]),
+                (asl_native_wf, carpetplot_wf, [("outputnode.asl_native", "inputnode.asl")]),
+                (asl_confounds_wf, carpetplot_wf, [
+                    ("outputnode.confounds_file", "inputnode.confounds_file"),
+                    ("outputnode.crown_mask", "inputnode.crown_mask"),
+                    (("outputnode.acompcor_masks", _last), "inputnode.acompcor_mask"),
                 ]),
             ])  # fmt:skip
-
-        def _last(inlist):
-            if not isinstance(inlist, list):
-                raise ValueError(f"_last: input is not list ({inlist})")
-
-            return inlist[-1]
-
-        workflow.connect([
-            (inputnode, carpetplot_wf, [("mni2009c2anat_xfm", "inputnode.std2anat_xfm")]),
-            (asl_fit_wf, carpetplot_wf, [
-                ("outputnode.dummy_scans", "inputnode.dummy_scans"),
-                ("outputnode.asl_mask", "inputnode.asl_mask"),
-                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
-            ]),
-            (asl_native_wf, carpetplot_wf, [("outputnode.asl_native", "inputnode.asl")]),
-            (asl_confounds_wf, carpetplot_wf, [
-                ("outputnode.confounds_file", "inputnode.confounds_file"),
-                ("outputnode.crown_mask", "inputnode.crown_mask"),
-                (("outputnode.acompcor_masks", _last), "inputnode.acompcor_mask"),
-            ]),
-        ])  # fmt:skip
 
         # Parcellate CBF maps and write out parcellated TSV files and atlases
         parcellate_cbf_wf = init_parcellate_cbf_wf(
