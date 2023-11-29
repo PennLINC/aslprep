@@ -31,6 +31,8 @@ from fmriprep.interfaces.resampling import (
     ReconstructFieldmap,
     ResampleSeries,
 )
+from fmriprep.utils.bids import extract_entities
+from fmriprep.workflows.bold.outputs import init_ds_hmc_wf, init_ds_registration_wf
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
@@ -41,19 +43,12 @@ from sdcflows.workflows.apply.correction import init_unwarp_wf
 from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 
 # ASL workflows
-# TODO: Replace with fMRIPrep imports once new release is made
 from aslprep import config
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
-from aslprep.utils.bids import extract_entities  # TODO: Replace with fMRIPrep import
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
-from aslprep.workflows.asl.outputs import (
-    init_asl_fit_reports_wf,
-    init_ds_aslref_wf,
-    init_ds_hmc_wf,
-    init_ds_registration_wf,
-)
+from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
 from aslprep.workflows.asl.reference import init_raw_aslref_wf
 from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 

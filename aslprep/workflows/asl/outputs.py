@@ -77,6 +77,10 @@ def init_asl_fit_reports_wf(
 ) -> pe.Workflow:
     """Set up a battery of datasinks to store reports in the right location.
 
+    Copied from fMRIPrep's init_bold_fit_reports_wf.
+    Modifications include changes to fields and variable names, which aren't important,
+    and DerivativesDataSink suffixes, which are.
+
     Parameters
     ----------
     freesurfer : :obj:`bool`
@@ -249,7 +253,7 @@ def init_asl_fit_reports_wf(
         # SDC1
         sdcreg_report = pe.Node(
             FieldmapReportlet(
-                reference_label="BOLD reference",
+                reference_label="ASL reference",
                 moving_label="Fieldmap reference",
                 show="both",
             ),
@@ -391,105 +395,6 @@ def init_ds_aslref_wf(
         ]),
         (raw_sources, ds_aslref, [("out", "RawSources")]),
         (ds_aslref, outputnode, [("out_file", "aslref")]),
-    ])
-    # fmt:on
-
-    return workflow
-
-
-def init_ds_registration_wf(
-    *,
-    bids_root: str,
-    output_dir: str,
-    source: str,
-    dest: str,
-    name: str,
-) -> pe.Workflow:
-    """Write out registration transform.
-
-    Copied from fMRIPrep next.
-    """
-    workflow = pe.Workflow(name=name)
-
-    inputnode = pe.Node(
-        niu.IdentityInterface(fields=["source_files", "xform"]),
-        name="inputnode",
-    )
-    outputnode = pe.Node(niu.IdentityInterface(fields=["xform"]), name="outputnode")
-
-    raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
-    raw_sources.inputs.bids_root = bids_root
-
-    ds_xform = pe.Node(
-        DerivativesDataSink(
-            base_directory=output_dir,
-            mode="image",
-            suffix="xfm",
-            extension=".txt",
-            dismiss_entities=("echo",),
-            **{"from": source, "to": dest},
-        ),
-        name="ds_xform",
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, raw_sources, [("source_files", "in_files")]),
-        (inputnode, ds_xform, [
-            ("xform", "in_file"),
-            ("source_files", "source_file"),
-        ]),
-        (raw_sources, ds_xform, [("out", "RawSources")]),
-        (ds_xform, outputnode, [("out_file", "xform")]),
-    ])
-    # fmt:on
-
-    return workflow
-
-
-def init_ds_hmc_wf(
-    *,
-    bids_root,
-    output_dir,
-    name="ds_hmc_wf",
-) -> pe.Workflow:
-    """Write out motion correction derivatives."""
-    workflow = pe.Workflow(name=name)
-
-    inputnode = pe.Node(
-        niu.IdentityInterface(fields=["source_files", "xforms"]),
-        name="inputnode",
-    )
-    outputnode = pe.Node(niu.IdentityInterface(fields=["xforms"]), name="outputnode")
-
-    raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
-    raw_sources.inputs.bids_root = bids_root
-
-    ds_xforms = pe.Node(
-        DerivativesDataSink(
-            base_directory=output_dir,
-            desc="hmc",
-            suffix="xfm",
-            extension=".txt",
-            compress=True,
-            dismiss_entities=("echo",),
-            **{"from": "orig", "to": "aslref"},
-        ),
-        name="ds_xforms",
-        run_without_submitting=True,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, raw_sources, [("source_files", "in_files")]),
-        (inputnode, ds_xforms, [
-            ("xforms", "in_file"),
-            ("source_files", "source_file"),
-        ]),
-        (raw_sources, ds_xforms, [("out", "RawSources")]),
-        (ds_xforms, outputnode, [("out_file", "xforms")]),
     ])
     # fmt:on
 

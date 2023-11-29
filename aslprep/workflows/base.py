@@ -594,7 +594,9 @@ tasks and sessions), the following preprocessing was performed.
 
         functional_cache = {}
         if config.execution.derivatives:
-            from aslprep.utils.bids import collect_derivatives, extract_entities
+            from fmriprep.utils.bids import extract_entities
+
+            from aslprep.utils.bids import collect_derivatives
 
             entities = extract_entities(asl_file)
 
