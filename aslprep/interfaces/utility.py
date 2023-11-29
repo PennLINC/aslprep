@@ -237,6 +237,7 @@ class CombineMotionParameters(SimpleInterface):
             newpath=runtime.cwd,
             use_ext=True,
         )
+        raise Exception(out_par)
         with open(self._results["combined_par_file"], "w") as fo:
             fo.write("".join(out_par))
 
