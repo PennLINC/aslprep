@@ -241,10 +241,9 @@ negative CBF values.
     ds_qc = pe.Node(
         DerivativesDataSink(
             base_directory=config.execution.aslprep_dir,
-            dismiss_entities=list(DerivativesDataSink._allowed_entities),
-            allowed_entities=[],
-            suffix="qc",
-            extension=".csv",
+            desc="qualitycontrol",
+            suffix="cbf",
+            compress=False,
         ),
         name="ds_qc",
         run_without_submitting=True,
@@ -260,7 +259,8 @@ negative CBF values.
             base_directory=config.execution.aslprep_dir,
             dismiss_entities=list(DerivativesDataSink._allowed_entities),
             allowed_entities=[],
-            suffix="qc",
+            desc="qualitycontrol",
+            suffix="cbf",
             extension=".json",
         ),
         name="ds_qc_metadata",

@@ -24,7 +24,7 @@
     }
   ],
   "default_path_patterns": [
-    "[desc-{desc}_]{suffix<qc>}{extension<.json>|.json}",
+    "[desc-{desc}_]{suffix<cbf>}{extension<.json>|.json}",
     "[space-{space}_]atlas-{atlas}[_cohort-{cohort}][_res-{resolution}][_desc-{desc}]_{suffix<dseg>}{extension<.nii|.nii.gz|.tsv|.json>|.nii.gz}",
     "[space-{space}_]atlas-{atlas}[_cohort-{cohort}][_den-{density}][_desc-{desc}]_{suffix<dseg>}{extension<.dlabel.nii|.tsv|.json>|.dlabel.nii}",
     "sub-{subject}[/ses-{session}]/{datatype<anat>|anat}/sub-{subject}[_ses-{session}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}]_{suffix<T1w|T2w|T1rho|T1map|T2map|T2star|FLAIR|FLASH|PDmap|PD|PDT2|inplaneT[12]|angio>}{extension<.nii|.nii.gz|.json>|.nii.gz}",
