@@ -96,14 +96,21 @@ class _NormalizeMotionParamsOutputSpec(TraitedSpec):
 
 
 class NormalizeMotionParams(SimpleInterface):
-    """Convert input motion parameters into the designated convention."""
+    """Convert input motion parameters into the designated convention.
+
+    NOTE: Modified by Taylor Salo to support 1D arrays.
+    """
 
     input_spec = _NormalizeMotionParamsInputSpec
     output_spec = _NormalizeMotionParamsOutputSpec
 
     def _run_interface(self, runtime):
         mpars = np.loadtxt(self.inputs.in_file)  # mpars is N_t x 6
-        raise Exception(f"mpars.shape: {mpars.shape}\n\n{mpars}")
+
+        # Support single-volume motion parameters
+        if mpars.ndim == 1:
+            mpars = mpars[None, :]
+
         mpars = np.apply_along_axis(
             func1d=normalize_mc_params, axis=1, arr=mpars, source=self.inputs.format
         )
