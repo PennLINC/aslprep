@@ -1,6 +1,9 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Interfaces for calculating and collecting confounds."""
+import os
+
+import numpy as np
 from nipype import logging
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
@@ -9,6 +12,7 @@ from nipype.interfaces.base import (
     TraitedSpec,
     traits,
 )
+from nipype.utils.misc import normalize_mc_params
 
 from aslprep.utils.confounds import _gather_confounds
 
@@ -79,4 +83,30 @@ class GatherCBFConfounds(SimpleInterface):
         )
         self._results["confounds_file"] = combined_out
         self._results["confounds_list"] = confounds_list
+        return runtime
+
+
+class _NormalizeMotionParamsInputSpec(BaseInterfaceInputSpec):
+    in_file = File(exists=True, mandatory=True, desc="the input parameters file")
+    format = traits.Enum("FSL", "AFNI", "FSFAST", "NIPY", usedefault=True, desc="output format")
+
+
+class _NormalizeMotionParamsOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc="written file path")
+
+
+class NormalizeMotionParams(SimpleInterface):
+    """Convert input motion parameters into the designated convention."""
+
+    input_spec = _NormalizeMotionParamsInputSpec
+    output_spec = _NormalizeMotionParamsOutputSpec
+
+    def _run_interface(self, runtime):
+        mpars = np.loadtxt(self.inputs.in_file)  # mpars is N_t x 6
+        raise Exception(f"mpars.shape: {mpars.shape}\n\n{mpars}")
+        mpars = np.apply_along_axis(
+            func1d=normalize_mc_params, axis=1, arr=mpars, source=self.inputs.format
+        )
+        self._results["out_file"] = os.path.join(runtime.cwd, "motion_params.txt")
+        np.savetxt(self._results["out_file"], mpars)
         return runtime
