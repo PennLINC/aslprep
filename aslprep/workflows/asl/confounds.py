@@ -277,12 +277,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     ])  # fmt:skip
 
     concat = pe.Node(
-        GatherConfounds(
-            fd=None,
-            rmsd=None,
-            dvars=None,
-            std_dvars=None,
-        ),
+        GatherConfounds(),
         name="concat",
         mem_gb=0.01,
         run_without_submitting=True,
