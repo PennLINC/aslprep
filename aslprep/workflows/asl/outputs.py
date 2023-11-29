@@ -5,12 +5,12 @@ import typing as ty
 
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
 from niworkflows.utils.images import dseg_label
 from smriprep.workflows.outputs import _bids_relative
 
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.ants import ApplyTransforms
 
 BASE_INPUT_FIELDS = {
     "asl": {

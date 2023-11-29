@@ -354,7 +354,8 @@ def init_carpetplot_wf(
 
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+
+    from aslprep.interfaces.ants import ApplyTransforms
 
     inputnode = pe.Node(
         niu.IdentityInterface(
