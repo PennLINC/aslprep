@@ -701,7 +701,7 @@ def init_ds_volumes_wf(
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     resample_mask = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel", args="-v"),
+        ApplyTransforms(interpolation="GenericLabel", args="-v"),
         name="resample_mask",
     )
     resamplers = [resample_ref, resample_mask]

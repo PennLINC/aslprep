@@ -95,7 +95,7 @@ def init_plot_cbf_wf(
             float=True,
             dimension=3,
             default_value=0,
-            interpolation="MultiLabel",
+            interpolation="GenericLabel",
             invert_transform_flags=[True],
             args="-v",
         ),

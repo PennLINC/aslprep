@@ -192,7 +192,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
 
     # Project T1w mask into BOLD space and merge with BOLD brainmask
     t1w_mask_tfm = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel", invert_transform_flags=[True], args="-v"),
+        ApplyTransforms(interpolation="GenericLabel", invert_transform_flags=[True], args="-v"),
         name="t1w_mask_tfm",
     )
     union_mask = pe.Node(niu.Function(function=_binary_union), name="union_mask")
@@ -415,7 +415,7 @@ def init_carpetplot_wf(
                     extension=[".nii", ".nii.gz"],
                 ),
             ),
-            interpolation="MultiLabel",
+            interpolation="GenericLabel",
             invert_transform_flags=[True, False],
             args="-u int -v",
         ),
