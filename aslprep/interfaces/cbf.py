@@ -126,11 +126,6 @@ class ExtractCBF(SimpleInterface):
     """Extract CBF time series by subtracting label volumes from control volumes.
 
     TODO: Mock up test data and write tests to cover all of the branches in this interface.
-
-    Notes
-    -----
-    The M0 information is extracted in the same way as GeReferenceFile,
-    so there's duplication that could be reduced.
     """
 
     input_spec = _ExtractCBFInputSpec
