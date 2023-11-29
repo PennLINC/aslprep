@@ -95,6 +95,7 @@ negative CBF values.
         ),
         name="inputnode",
     )
+    outputnode = pe.Node(niu.IdentityInterface(fields=["qc_file"]), name="outputnode")
 
     def _pick_gm(files):
         return files[0]
@@ -234,6 +235,7 @@ negative CBF values.
         (gm_tfm, compute_qc_metrics, [("output_image", "gm_tpm")]),
         (wm_tfm, compute_qc_metrics, [("output_image", "wm_tpm")]),
         (csf_tfm, compute_qc_metrics, [("output_image", "csf_tpm")]),
+        (compute_qc_metrics, outputnode, [("qc_file", "qc_file")]),
     ])  # fmt:skip
 
     ds_qc = pe.Node(
