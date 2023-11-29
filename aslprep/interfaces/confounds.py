@@ -98,6 +98,8 @@ class _NormalizeMotionParamsOutputSpec(TraitedSpec):
 class NormalizeMotionParams(SimpleInterface):
     """Convert input motion parameters into the designated convention.
 
+    From niworkflows.interfaces.confounds.NormalizeMotionParams.
+
     NOTE: Modified by Taylor Salo to support 1D arrays.
     """
 
