@@ -141,7 +141,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     )
     workflow.connect([(inputnode, add_motion_headers, [("movpar_file", "in_file")])])
 
-    if n_volumes > 1:
+    if n_volumes > 2:  # set to 2 bc relative arrays will be 1D instead of 2D for 1-volume data
         # DVARS
         dvars = pe.Node(
             nac.ComputeDVARS(save_nstd=True, save_std=True, remove_zerovariance=True),
@@ -292,7 +292,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         (signals, concat, [("out_file", "signals")]),
         (concat, outputnode, [("confounds_file", "confounds_file")]),
     ])  # fmt:skip
-    if n_volumes > 1:
+    if n_volumes > 2:
         workflow.connect([
             (fdisp, concat, [("out_file", "fd")]),
             (add_rmsd_header, concat, [("out_file", "rmsd")]),
