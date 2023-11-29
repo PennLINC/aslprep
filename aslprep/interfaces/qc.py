@@ -89,9 +89,10 @@ class ComputeCBFQC(SimpleInterface):
     def _run_interface(self, runtime):
         thresh = self.inputs.tpm_threshold
 
-        if isdefined(self.inputs.confounds_file):
-            confounds_df = pd.read_table(self.inputs.confounds_file)
-            confounds_df.fillna(0, inplace=True)
+        confounds_df = pd.read_table(self.inputs.confounds_file)
+        confounds_df.fillna(0, inplace=True)
+        if "framewise_displacement" in confounds_df.columns:
+            # FD and RMSD only available for multi-volume datasets
             mean_fd = np.mean(confounds_df["framewise_displacement"])
             mean_rms = pd.read_csv(self.inputs.rmsd_file, header=None).mean().values[0]
         else:
