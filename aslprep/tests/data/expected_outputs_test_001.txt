@@ -175,10 +175,8 @@ sub-01/perf/sub-01_space-MNI152NLin2009cAsym_cbf.json
 sub-01/perf/sub-01_space-MNI152NLin2009cAsym_cbf.nii.gz
 sub-01/perf/sub-01_space-MNI152NLin2009cAsym_desc-brain_mask.json
 sub-01/perf/sub-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz
-sub-01/perf/sub-01_space-MNI152NLin2009cAsym_desc-coreg_aslref.json
-sub-01/perf/sub-01_space-MNI152NLin2009cAsym_desc-coreg_aslref.nii.gz
-sub-01/perf/sub-01_space-MNI152NLin2009cAsym_desc-hmc_aslref.json
-sub-01/perf/sub-01_space-MNI152NLin2009cAsym_desc-hmc_aslref.nii.gz
+sub-01/perf/sub-01_space-MNI152NLin2009cAsym_aslref.json
+sub-01/perf/sub-01_space-MNI152NLin2009cAsym_aslref.nii.gz
 sub-01/perf/sub-01_space-MNI152NLin2009cAsym_desc-preproc_asl.json
 sub-01/perf/sub-01_space-MNI152NLin2009cAsym_desc-preproc_asl.nii.gz
 sub-01/perf/sub-01_space-MNI152NLin2009cAsym_desc-scoreTimeseries_cbf.json
@@ -193,10 +191,8 @@ sub-01/perf/sub-01_space-T1w_cbf.json
 sub-01/perf/sub-01_space-T1w_cbf.nii.gz
 sub-01/perf/sub-01_space-T1w_desc-brain_mask.json
 sub-01/perf/sub-01_space-T1w_desc-brain_mask.nii.gz
-sub-01/perf/sub-01_space-T1w_desc-coreg_aslref.json
-sub-01/perf/sub-01_space-T1w_desc-coreg_aslref.nii.gz
-sub-01/perf/sub-01_space-T1w_desc-hmc_aslref.json
-sub-01/perf/sub-01_space-T1w_desc-hmc_aslref.nii.gz
+sub-01/perf/sub-01_space-T1w_aslref.json
+sub-01/perf/sub-01_space-T1w_aslref.nii.gz
 sub-01/perf/sub-01_space-T1w_desc-preproc_asl.json
 sub-01/perf/sub-01_space-T1w_desc-preproc_asl.nii.gz
 sub-01/perf/sub-01_space-T1w_desc-scoreTimeseries_cbf.json

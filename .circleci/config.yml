@@ -165,6 +165,8 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.examples_pcasl_singlepld_philips
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   pcasl_singlepld_siemens:
     <<: *dockersetup
@@ -196,6 +198,8 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.examples_pcasl_singlepld_siemens
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   pcasl_singlepld_ge:
     <<: *dockersetup
@@ -258,6 +262,8 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.examples_pcasl_multipld
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   pasl_multipld:
     <<: *dockersetup
@@ -320,6 +326,8 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.test_001
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   test_002:
     <<: *dockersetup
@@ -382,6 +390,8 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.test_003
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   pytests:
     <<: *dockersetup
