@@ -26,6 +26,11 @@ import typing as ty
 import bids
 import nibabel as nb
 import numpy as np
+from fmriprep.interfaces.resampling import (
+    DistortionParameters,
+    ReconstructFieldmap,
+    ResampleSeries,
+)
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
@@ -39,11 +44,6 @@ from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 # TODO: Replace with fMRIPrep imports once new release is made
 from aslprep import config
 from aslprep.interfaces.reports import FunctionalSummary
-from aslprep.interfaces.resampling import (
-    DistortionParameters,
-    ReconstructFieldmap,
-    ResampleSeries,
-)
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
 from aslprep.utils.bids import extract_entities  # TODO: Replace with fMRIPrep import
