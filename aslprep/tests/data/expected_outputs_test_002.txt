@@ -62,6 +62,15 @@ space-MNI152NLin6Asym_atlas-Tian_res-02_dseg.json
 space-MNI152NLin6Asym_atlas-Tian_res-02_dseg.nii.gz
 sub-10R01383
 sub-10R01383.html
+sub-10R01383/anat
+sub-10R01383/anat/sub-10R01383_space-MNI152NLin2009cAsym_desc-brain_mask.json
+sub-10R01383/anat/sub-10R01383_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz
+sub-10R01383/anat/sub-10R01383_space-MNI152NLin2009cAsym_desc-preproc_T1w.json
+sub-10R01383/anat/sub-10R01383_space-MNI152NLin2009cAsym_desc-preproc_T1w.nii.gz
+sub-10R01383/anat/sub-10R01383_space-MNI152NLin2009cAsym_desc-preproc_dseg.nii.gz
+sub-10R01383/anat/sub-10R01383_space-MNI152NLin2009cAsym_label-CSF_desc-preproc_probseg.nii.gz
+sub-10R01383/anat/sub-10R01383_space-MNI152NLin2009cAsym_label-GM_desc-preproc_probseg.nii.gz
+sub-10R01383/anat/sub-10R01383_space-MNI152NLin2009cAsym_label-WM_desc-preproc_probseg.nii.gz
 sub-10R01383/perf
 sub-10R01383/perf/sub-10R01383_atlas-4S1056Parcels_cbf.tsv
 sub-10R01383/perf/sub-10R01383_atlas-4S1056Parcels_coverage.tsv
