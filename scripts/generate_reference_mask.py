@@ -5,7 +5,7 @@ import sys
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
-from aslprep.workflows.asl.util import init_asl_reference_wf
+from aslprep.workflows.asl.reference import init_asl_reference_wf
 
 
 def sink_mask_file(in_file, orig_file, out_dir):

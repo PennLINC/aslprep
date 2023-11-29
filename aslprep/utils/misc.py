@@ -28,17 +28,6 @@ def _get_vols_to_discard(img):
     return is_outlier(global_signal)
 
 
-def _get_series_len(asl_fname):
-    """Determine the number of volumes in an image, after removing outlier volumes."""
-    img = nb.load(asl_fname)
-    if len(img.shape) < 4:
-        return 1
-
-    skip_vols = _get_vols_to_discard(img)
-
-    return img.shape[3] - skip_vols
-
-
 def get_n_volumes(fname):
     """Get the number of volumes in a niimg file."""
     img = nb.load(fname)
@@ -85,149 +74,14 @@ def _get_wf_name(asl_fname):
     return name
 
 
-def _split_spec(in_target):
-    """Split space-resolution specification into space, template, and remaining info."""
-    space, spec = in_target
-    template = space.split(":")[0]
-    return space, template, spec
-
-
-def _select_template(template):
-    """Select template file based on space/template specification."""
-    from niworkflows.utils.misc import get_template_specs
-
-    template, specs = template
-    template = template.split(":")[0]  # Drop any cohort modifier if present
-    specs = specs.copy()
-    specs["suffix"] = specs.get("suffix", "T1w")
-
-    # Sanitize resolution
-    res = specs.pop("res", None) or specs.pop("resolution", None) or "native"
-    if res != "native":
-        specs["resolution"] = res
-        return get_template_specs(template, template_spec=specs)[0]
-
-    # Map nonstandard resolutions to existing resolutions
-    specs["resolution"] = 2
-    try:
-        out = get_template_specs(template, template_spec=specs)
-    except RuntimeError:
-        specs["resolution"] = 1
-        out = get_template_specs(template, template_spec=specs)
-
-    return out[0]
-
-
-def _aslist(in_value):
-    """Convert input to a list.
-
-    TODO: Replace with listify from something like NiMARE.
-    """
-    if isinstance(in_value, list):
-        return in_value
-    return [in_value]
-
-
-def _is_native(in_value):
-    """Determine if input dictionary references native-space data."""
-    return in_value.get("resolution") == "native" or in_value.get("res") == "native"
-
-
 def _select_last_in_list(lst):
     """Select the last element in a list."""
     return lst[-1]
 
 
-def _conditional_downsampling(in_file, in_mask, zoom_th=4.0):
-    """Downsample the input dataset for sloppy mode."""
-    from pathlib import Path
-
-    import nibabel as nb
-    import nitransforms as nt
-    import numpy as np
-    from scipy.ndimage.filters import gaussian_filter
-
-    img = nb.load(in_file)
-
-    zooms = np.array(img.header.get_zooms()[:3])
-    if not np.any(zooms < zoom_th):
-        return in_file, in_mask
-
-    out_file = Path("desc-resampled_input.nii.gz").absolute()
-    out_mask = Path("desc-resampled_mask.nii.gz").absolute()
-
-    shape = np.array(img.shape[:3])
-    scaling = zoom_th / zooms
-    newrot = np.diag(scaling).dot(img.affine[:3, :3])
-    newshape = np.ceil(shape / scaling).astype(int)
-    old_center = img.affine.dot(np.hstack((0.5 * (shape - 1), 1.0)))[:3]
-    offset = old_center - newrot.dot((newshape - 1) * 0.5)
-    newaffine = nb.affines.from_matvec(newrot, offset)
-
-    newref = nb.Nifti1Image(np.zeros(newshape, dtype=np.uint8), newaffine)
-    nt.Affine(reference=newref).apply(img).to_filename(out_file)
-
-    mask = nb.load(in_mask)
-    mask.set_data_dtype(float)
-    mdata = gaussian_filter(mask.get_fdata(dtype=float), scaling)
-    floatmask = nb.Nifti1Image(mdata, mask.affine, mask.header)
-    newmask = nt.Affine(reference=newref).apply(floatmask)
-    hdr = newmask.header.copy()
-    hdr.set_data_dtype(np.uint8)
-    newmaskdata = (newmask.get_fdata(dtype=float) > 0.5).astype(np.uint8)
-    nb.Nifti1Image(newmaskdata, newmask.affine, hdr).to_filename(out_mask)
-
-    return str(out_file), str(out_mask)
-
-
-def select_target(subject_id, space):
-    """Get the target subject ID, given a source subject ID and a target space."""
-    return subject_id if space == "fsnative" else space
-
-
-def _select_first_in_list(lst):
-    """Select the first element in a list.
-
-    If the input isn't a list, then it will return the whole input.
-    """
-    return lst[0] if isinstance(lst, list) else lst
-
-
-def _itk2lta(in_file, src_file, dst_file):
-    """Convert ITK file to LTA file."""
-    from pathlib import Path
-
-    import nitransforms as nt
-
-    out_file = Path("out.lta").absolute()
-    lta_object = nt.linear.load(
-        in_file,
-        fmt="fs" if in_file.endswith(".lta") else "itk",
-        reference=src_file,
-    )
-    lta_object.to_filename(out_file, moving=dst_file, fmt="fs")
-    return str(out_file)
-
-
 def _prefix(subid):
     """Add sub- prefix to subject ID, if necessary."""
     return subid if subid.startswith("sub-") else f"sub-{subid}"
-
-
-def readjson(jsonfile):
-    """Read a JSON file into memory."""
-    import json
-
-    with open(jsonfile, "r") as f:
-        data = json.load(f)
-    return data
-
-
-def get_template_str(template, kwargs):
-    """Get template from templateflow, as a string."""
-    from templateflow.api import get as get_template
-
-    return str(get_template(template, **kwargs))
 
 
 def estimate_asl_mem_usage(asl_fname: str) -> ty.Tuple[int, dict]:

@@ -135,7 +135,7 @@ ASL reference image estimation
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.workflows.asl.util import init_asl_reference_wf
+   from aslprep.workflows.asl.reference import init_asl_reference_wf
 
    wf = init_asl_reference_wf()
 

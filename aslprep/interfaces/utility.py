@@ -14,7 +14,6 @@ from nipype.interfaces.base import (
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix, load_json, save_json
 
-from aslprep import config
 from aslprep.utils.asl import reduce_metadata_lists
 
 
@@ -281,53 +280,5 @@ class SplitByVolumeType(SimpleInterface):
 
         self._results["out_files"] = out_files
         self._results["volume_types"] = volume_types
-
-        return runtime
-
-
-class _SplitReferenceTargetInputSpec(BaseInterfaceInputSpec):
-    aslcontext = File(exists=True, required=True)
-    asl_file = File(exists=True, required=True)
-
-
-class _SplitReferenceTargetOutputSpec(TraitedSpec):
-    out_file = File(exists=True)
-
-
-class SplitReferenceTarget(SimpleInterface):
-    """Split out just the optimal volume type for reference files from the overall ASL file.
-
-    This means grabbing M0 volumes if they're available, or control volumes if *they're* available,
-    or deltams, or cbfs.
-    """
-
-    input_spec = _SplitReferenceTargetInputSpec
-    output_spec = _SplitReferenceTargetOutputSpec
-
-    def _run_interface(self, runtime):
-        aslcontext = pd.read_table(self.inputs.aslcontext)
-        volume_types = aslcontext["volume_type"].values
-        if "m0scan" in volume_types:
-            ref_target = "m0scan"
-        elif "control" in volume_types:
-            ref_target = "control"
-        elif "deltam" in volume_types:
-            ref_target = "deltam"
-        elif "cbf" in volume_types:
-            ref_target = "cbf"
-        else:
-            raise ValueError(volume_types)
-
-        config.loggers.interface.warning(f"Selected {ref_target} for reference.")
-
-        volumetype_idx = aslcontext["volume_type"].loc[volume_types == ref_target].index.tolist()
-        out_img = image.index_img(self.inputs.asl_file, volumetype_idx)
-        self._results["out_file"] = fname_presuffix(
-            self.inputs.asl_file,
-            suffix=f"_{ref_target}",
-            newpath=runtime.cwd,
-            use_ext=True,
-        )
-        out_img.to_filename(self._results["out_file"])
 
         return runtime

@@ -25,7 +25,6 @@ from aslprep.utils.asl import (
     determine_multi_pld,
     estimate_labeling_efficiency,
     pcasl_or_pasl,
-    reduce_metadata_lists,
 )
 from aslprep.utils.cbf import (
     _getcbfscore,
@@ -294,97 +293,6 @@ class ExtractCBF(SimpleInterface):
         nb.Nifti1Image(m0data, asl_img.affine, asl_img.header).to_filename(
             self._results["m0_file"]
         )
-
-        return runtime
-
-
-class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
-    asl_file = File(exists=True, mandatory=True, desc="raw asl file")
-    metadata = traits.Dict(mandatory=True, desc="metadata for ASL file")
-    aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
-    asl_mask = File(exists=True, mandatory=True, desct="asl mask")
-    file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
-
-
-class _ExtractCBForDeltaMOutputSpec(TraitedSpec):
-    out_file = File(exists=False, desc="cbf or deltam")
-    metadata = traits.Dict(
-        desc=(
-            "Metadata for the ASL run. "
-            "The dictionary may be modified to only include metadata associated with the selected "
-            "volumes."
-        ),
-    )
-
-
-class ExtractCBForDeltaM(SimpleInterface):
-    """Load an ASL file and grab the CBF or DeltaM volumes from it."""
-
-    input_spec = _ExtractCBForDeltaMInputSpec
-    output_spec = _ExtractCBForDeltaMOutputSpec
-
-    def _run_interface(self, runtime):
-        self._results["out_file"] = fname_presuffix(
-            self.inputs.asl_mask,
-            suffix="_cbfdeltam",
-            newpath=runtime.cwd,
-        )
-        asl_img = nb.load(self.inputs.asl_file)
-        asl_data = asl_img.get_fdata()
-
-        aslcontext = pd.read_table(self.inputs.aslcontext)
-        vol_types = aslcontext["volume_type"].tolist()
-        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
-        label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
-        deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
-        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
-
-        metadata = self.inputs.metadata.copy()
-
-        if len(asl_data.shape) < 4:
-            # 3D volume is written out without any changes.
-            # NOTE: Why not return the original file then?
-            out_img = nb.Nifti1Image(
-                dataobj=asl_data,
-                affine=asl_img.affine,
-                header=asl_img.header,
-            )
-
-        elif self.inputs.file_type == "d":
-            if len(control_volume_idx) > 0:
-                # Grab control and label volumes from ASL file,
-                # then calculate deltaM by subtracting label volumes from control volumes.
-                deltam_data = (
-                    asl_data[:, :, :, control_volume_idx] - asl_data[:, :, :, label_volume_idx]
-                )
-                out_img = nb.Nifti1Image(
-                    dataobj=deltam_data,
-                    affine=asl_img.affine,
-                    header=asl_img.header,
-                )
-                metadata = reduce_metadata_lists(metadata, control_volume_idx)
-            else:
-                # Grab deltaM volumes from ASL file.
-                deltam_data = asl_data[:, :, :, deltam_volume_idx]
-                out_img = nb.Nifti1Image(
-                    dataobj=deltam_data,
-                    affine=asl_img.affine,
-                    header=asl_img.header,
-                )
-                metadata = reduce_metadata_lists(metadata, deltam_volume_idx)
-
-        elif self.inputs.file_type == "c":
-            # Grab CBF volumes from ASL file.
-            cbf_data = asl_data[:, :, :, cbf_volume_idx]
-            out_img = nb.Nifti1Image(
-                dataobj=cbf_data,
-                affine=asl_img.affine,
-                header=asl_img.header,
-            )
-            metadata = reduce_metadata_lists(metadata, cbf_volume_idx)
-
-        out_img.to_filename(self._results["out_file"])
-        self._results["metadata"] = metadata
 
         return runtime
 
