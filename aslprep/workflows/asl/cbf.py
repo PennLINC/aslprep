@@ -5,6 +5,7 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.images import RobustAverage
 from templateflow.api import get as get_template
 
 from aslprep import config
@@ -27,6 +28,7 @@ from aslprep.utils.asl import (
 )
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 from aslprep.utils.bids import find_atlas_entities
+from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
 
 def init_cbf_wf(
@@ -86,6 +88,7 @@ def init_cbf_wf(
         asl series NIfTI file, after preprocessing
     aslcontext : :obj:`str`
     m0scan : :obj:`str` or None
+        An M0 scan (if available as a separate file) in aslref space.
     m0scan_metadata : :obj:`dict` or None
     asl_mask
         asl mask NIFTI file
@@ -251,22 +254,36 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         name="outputnode",
     )
 
-    refine_mask = pe.Node(
+    warp_t1w_mask_to_asl = pe.Node(
+        ApplyTransforms(
+            dimension=3,
+            float=True,
+            interpolation="NearestNeighbor",
+            invert_transform_flags=[True],
+            input_image_type=3,
+            args="-v",
+        ),
+        name="warp_t1w_mask_to_asl",
+    )
+    workflow.connect([
+        (inputnode, warp_t1w_mask_to_asl, [
+            ("asl_mask", "reference_image"),
+            ("t1w_mask", "input_image"),
+            ("aslref2anat_xfm", "transforms"),
+        ]),
+    ])  # fmt:skip
+
+    reduce_mask = pe.Node(
         RefineMask(),
         mem_gb=0.2,
         run_without_submitting=True,
-        name="refine_mask",
+        name="reduce_mask",
     )
 
-    # fmt:off
     workflow.connect([
-        (inputnode, refine_mask, [
-            ("t1w_mask", "t1w_mask"),
-            ("asl_mask", "asl_mask"),
-            ("aslref2anat_xfm", "aslref2anat_xfm"),
-        ]),
-    ])
-    # fmt:on
+        (inputnode, reduce_mask, [("asl_mask", "asl_mask")]),
+        (warp_t1w_mask_to_asl, reduce_mask, [("output_image", "t1w_mask")]),
+    ])  # fmt:skip
 
     # Warp tissue probability maps to ASL space
     def _pick_gm(files):
@@ -300,15 +317,13 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         mem_gb=0.1,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, gm_tfm, [
             ("asl_mask", "reference_image"),
             ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_gm), "input_image"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     wm_tfm = pe.Node(
         ApplyTransforms(
@@ -321,15 +336,13 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         mem_gb=0.1,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, wm_tfm, [
             ("asl_mask", "reference_image"),
             ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_wm), "input_image"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     csf_tfm = pe.Node(
         ApplyTransforms(
@@ -342,15 +355,13 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         mem_gb=0.1,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, csf_tfm, [
             ("asl_mask", "reference_image"),
             ("aslref2anat_xfm", "transforms"),
             (("t1w_tpms", _pick_csf), "input_image"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     extract_deltam = pe.Node(
         ExtractCBF(
@@ -364,17 +375,30 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         name="extract_deltam",
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, extract_deltam, [
             ("asl_file", "asl_file"),
             ("aslcontext", "aslcontext"),
-            ("m0scan", "m0scan"),
             ("m0scan_metadata", "m0scan_metadata"),
         ]),
-        (refine_mask, extract_deltam, [("out_mask", "in_mask")]),
-    ])
-    # fmt:on
+        (reduce_mask, extract_deltam, [("out_mask", "in_mask")]),
+    ])  # fmt:skip
+
+    if metadata["M0Type"] == "Separate":
+        mean_m0 = pe.Node(RobustAverage(), name="mean_m0", mem_gb=1)
+        workflow.connect([
+            (inputnode, mean_m0, [("m0scan", "in_file")]),
+            (mean_m0, extract_deltam, [("out_file", "m0scan")]),
+        ])  # fmt:skip
+
+        enhance_and_skullstrip_m0scan_wf = init_enhance_and_skullstrip_asl_wf(
+            pre_mask=False,
+            name="enhance_and_skullstrip_m0scan_wf",
+        )
+        workflow.connect([
+            (mean_m0, enhance_and_skullstrip_m0scan_wf, [("out_file", "inputnode.in_file")]),
+            (enhance_and_skullstrip_m0scan_wf, reduce_mask, [("outputnode.mask_file", "m0_mask")]),
+        ])  # fmt:skip
 
     compute_cbf = pe.Node(
         ComputeCBF(
@@ -386,9 +410,8 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         name="compute_cbf",
     )
 
-    # fmt:off
     workflow.connect([
-        (refine_mask, compute_cbf, [("out_mask", "mask")]),
+        (reduce_mask, compute_cbf, [("out_mask", "mask")]),
         (extract_deltam, compute_cbf, [
             ("out_file", "deltam"),
             ("m0_file", "m0_file"),
@@ -399,8 +422,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
             ("mean_cbf", "mean_cbf"),
             ("att", "att"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     if scorescrub:
         score_and_scrub_cbf = pe.Node(
@@ -418,9 +440,8 @@ Following SCORE, the Structural Correlation with RobUst Bayesian (SCRUB) algorit
 the CBF maps using structural tissue probability maps to reweight the mean CBF
 [@dolui2017structural;@dolui2016scrub].
 """
-        # fmt:off
         workflow.connect([
-            (refine_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
+            (reduce_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
             (compute_cbf, score_and_scrub_cbf, [("cbf_ts", "cbf_ts")]),
             (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
@@ -431,8 +452,7 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
                 ("mean_cbf_score", "mean_cbf_score"),
                 ("mean_cbf_scrub", "mean_cbf_scrub"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
     if basil:
         workflow.__desc__ += f"""
@@ -498,9 +518,8 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             mem_gb=0.2,
         )
 
-        # fmt:off
         workflow.connect([
-            (refine_mask, basilcbf, [("out_mask", "mask")]),
+            (reduce_mask, basilcbf, [("out_mask", "mask")]),
             (extract_deltam, basilcbf, [
                 (("m0_file", _getfiledir), "out_basename"),
                 ("out_file", "deltam"),
@@ -517,8 +536,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
                 ("att_basil", "att_basil"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
         if metadata["M0Type"] != "Estimate":
             workflow.connect([(extract_deltam, basilcbf, [("m0tr", "m0tr")])])

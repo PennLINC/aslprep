@@ -59,7 +59,7 @@ def init_raw_aslref_wf(
     Parameters
     ----------
     asl_file : :obj:`str`
-        ASL seris NIfTI file
+        ASL series NIfTI file
     m0scan : :obj:`bool`
         True if a separate M0 file is available. False if not.
     use_ge : :obj:`bool`
@@ -71,7 +71,7 @@ def init_raw_aslref_wf(
     Inputs
     ------
     asl_file : str
-        BOLD series NIfTI file
+        ASL series NIfTI file
     dummy_scans : int or None
         Number of non-steady-state volumes specified by user at beginning of ``asl_file``
 

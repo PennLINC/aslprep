@@ -36,44 +36,44 @@ from aslprep.utils.cbf import (
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
     t1w_mask = File(exists=True, mandatory=True, desc="t1 mask")
-    asl_mask = File(exists=True, mandatory=True, desct="asl mask")
-    aslref2anat_xfm = File(
-        exists=True,
-        mandatory=True,
-        desc="Transform from reference to anatomical space.",
-    )
+    asl_mask = File(exists=True, mandatory=True, desc="asl mask")
+    m0_mask = File(exists=True, mandatory=False, desc="M0 mask (if available)")
 
 
 class _RefineMaskOutputSpec(TraitedSpec):
     out_mask = File(exists=False, desc="output mask")
-    out_tmp = File(exists=False, desc="tmp mask")
 
 
 class RefineMask(SimpleInterface):
-    """Reduce the ASL-derived brain mask using the associated T1w mask."""
+    """Reduce the ASL-derived brain mask using the associated T1w mask and possibly an M0 mask."""
 
     input_spec = _RefineMaskInputSpec
     output_spec = _RefineMaskOutputSpec
 
     def _run_interface(self, runtime):
-        self._results["out_tmp"] = fname_presuffix(
-            self.inputs.asl_mask,
-            suffix="_tempmask",
-            newpath=runtime.cwd,
-        )
+        from nilearn import image
+
         self._results["out_mask"] = fname_presuffix(
             self.inputs.asl_mask,
             suffix="_refinemask",
             newpath=runtime.cwd,
         )
 
-        refine_ref_mask(
-            t1w_mask=self.inputs.t1w_mask,
-            ref_asl_mask=self.inputs.asl_mask,
-            aslref2anat_xfm=self.inputs.aslref2anat_xfm,
-            tmp_mask=self._results["out_tmp"],
-            refined_mask=self._results["out_mask"],
-        )
+        if isdefined(self.inputs.m0_mask):
+            out_mask = image.math_img(
+                "img1 * img2 * img3",
+                img1=self.inputs.asl_mask,
+                img2=self.inputs.t1w_mask,
+                img3=self.inputs.m0_mask,
+            )
+        else:
+            out_mask = image.math_img(
+                "img1 * img2",
+                img1=self.inputs.asl_mask,
+                img2=self.inputs.t1w_mask,
+            )
+
+        out_mask.to_filename(self._results["out_mask"])
 
         return runtime
 
@@ -158,8 +158,7 @@ class ExtractCBF(SimpleInterface):
         # extract m0 file and register it to ASL if separate
         if metadata["M0Type"] == "Separate":
             m0file = self.inputs.m0scan
-            m0_in_asl = regmotoasl(asl=self.inputs.asl_file, m0file=m0file)
-            m0data_smooth = smooth_image(nb.load(m0_in_asl), fwhm=self.inputs.fwhm).get_fdata()
+            m0data_smooth = smooth_image(nb.load(m0file), fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
                 m0data = mask_data * np.mean(m0data_smooth, axis=3)
             else:
@@ -875,26 +874,6 @@ class BASILCBF(FSLCommand):
         )
 
         return outputs
-
-
-def regmotoasl(asl, m0file):
-    """Calculate mean M0 image and mean ASL image, then FLIRT M0 image to ASL space.
-
-    TODO: This should not be a function. It uses interfaces, so it should be a workflow.
-    """
-    from nipype.interfaces import fsl
-
-    meanasl = fsl.MeanImage()
-    meanasl.inputs.in_file = asl
-    meanasl_results = meanasl.run()
-    meanm0 = fsl.MeanImage()
-    meanm0.inputs.in_file = m0file
-    meanm0_results = meanm0.run()
-    flt = fsl.FLIRT(bins=640, cost_func="mutualinfo")
-    flt.inputs.in_file = meanm0_results.outputs.out_file
-    flt.inputs.reference = meanasl_results.outputs.out_file
-    flt_results = flt.run()
-    return flt_results.outputs.out_file
 
 
 def refine_ref_mask(t1w_mask, ref_asl_mask, aslref2anat_xfm, tmp_mask, refined_mask):
