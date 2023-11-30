@@ -61,7 +61,7 @@ class SelectHighestContrastVolumes(SimpleInterface):
         else:
             target_type = "control"
 
-        config.loggers.interfaces.info(
+        config.loggers.interface.info(
             f"Selecting {target_type} as highest-contrast volume type for reference volume "
             "generation."
         )
