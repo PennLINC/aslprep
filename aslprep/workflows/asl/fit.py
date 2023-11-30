@@ -209,8 +209,8 @@ def init_asl_fit_wf(
     have_hmcref = "hmc_aslref" in precomputed
     have_coregref = "coreg_aslref" in precomputed
     # Can contain
-    #  1) boldref2fmap
-    #  2) boldref2anat
+    #  1) aslref2fmap
+    #  2) aslref2anat
     #  3) hmc
     transforms = precomputed.get("transforms", {})
     hmc_xforms = transforms.get("hmc")
@@ -378,11 +378,11 @@ def init_asl_fit_wf(
         validate_asl = pe.Node(ValidateImage(), name="validate_asl")
         validate_asl.inputs.in_file = asl_file
 
-        hmcref_buffer.inputs.boldref = precomputed["hmc_aslref"]
+        hmcref_buffer.inputs.aslref = precomputed["hmc_aslref"]
 
         # fmt:off
         workflow.connect([
-            (validate_asl, hmcref_buffer, [("out_file", "bold_file")]),
+            (validate_asl, hmcref_buffer, [("out_file", "asl_file")]),
             (validate_asl, asl_fit_reports_wf, [("out_report", "inputnode.validation_report")]),
         ])
         # fmt:on
