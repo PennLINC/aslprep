@@ -59,18 +59,24 @@ class RefineMask(SimpleInterface):
             newpath=runtime.cwd,
         )
 
+        img1 = nb.load(self.inputs.asl_mask)
+        img1 = nb.func.squeeze_image(img1)
+        img2 = nb.load(self.inputs.t1w_mask)
+        img2 = nb.func.squeeze_image(img2)
         if isdefined(self.inputs.m0_mask):
+            img3 = nb.load(self.inputs.m0_mask)
+            img3 = nb.func.squeeze_image(img3)
             out_mask = image.math_img(
                 "img1 * img2 * img3",
-                img1=self.inputs.asl_mask,
-                img2=self.inputs.t1w_mask,
-                img3=self.inputs.m0_mask,
+                img1=img1,
+                img2=img2,
+                img3=img3,
             )
         else:
             out_mask = image.math_img(
                 "img1 * img2",
-                img1=self.inputs.asl_mask,
-                img2=self.inputs.t1w_mask,
+                img1=img1,
+                img2=img2,
             )
 
         out_mask.to_filename(self._results["out_mask"])
