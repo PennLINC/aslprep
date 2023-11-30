@@ -314,6 +314,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_fit_wf = init_asl_fit_wf(
         asl_file=asl_file,
         m0scan=run_data["m0scan"],
+        use_ge=use_ge,
         precomputed=precomputed,
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,

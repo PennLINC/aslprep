@@ -7,6 +7,7 @@ from nipype.interfaces.base import (
     SimpleInterface,
     TraitedSpec,
     isdefined,
+    traits,
 )
 from nipype.utils.filemanip import fname_presuffix
 
@@ -20,6 +21,10 @@ class _SelectHighestContrastVolumesInputSpec(BaseInterfaceInputSpec):
         exists=True,
         mandatory=False,
         desc="M0 scan file. Only provided if M0Type is 'separate'.",
+    )
+    prioritize_m0 = traits.Bool(
+        mandatory=True,
+        desc="Whether to prioritize the M0 scan (useful for GE data) or not.",
     )
 
 
@@ -50,7 +55,11 @@ class SelectHighestContrastVolumes(SimpleInterface):
         aslcontext_df = pd.read_table(self.inputs.aslcontext)
         assert aslcontext_df.shape[0] == asl_img.shape[3]
 
-        if "cbf" in aslcontext_df["volume_type"].tolist():
+        if "m0scan" in aslcontext_df["volume_type"].tolist() and self.inputs.prioritize_m0:
+            target_type = "m0scan"
+        elif isdefined(self.inputs.m0scan) and self.inputs.prioritize_m0:
+            target_type = "separate_m0scan"
+        elif "cbf" in aslcontext_df["volume_type"].tolist():
             target_type = "cbf"
         elif "deltam" in aslcontext_df["volume_type"].tolist():
             target_type = "deltam"

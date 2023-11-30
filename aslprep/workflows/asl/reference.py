@@ -34,6 +34,7 @@ def init_raw_aslref_wf(
     *,
     asl_file=None,
     m0scan=False,
+    use_ge=False,
     name="raw_aslref_wf",
 ):
     """Build a workflow that generates reference BOLD images for a series.
@@ -60,6 +61,9 @@ def init_raw_aslref_wf(
         ASL seris NIfTI file
     m0scan : :obj:`bool`
         True if a separate M0 file is available. False if not.
+    use_ge : :obj:`bool`
+        If True, the M0 scan (when available) will be prioritized as the volume type for the
+        reference image, as GE deltam volumes exhibit extreme background noise.
     name : :obj:`str`
         Name of workflow (default: ``asl_reference_wf``)
 
@@ -131,7 +135,7 @@ for use in head motion correction.
         workflow.connect([(inputnode, val_m0scan, [("m0scan", "in_file")])])
 
     select_highest_contrast_volumes = pe.Node(
-        SelectHighestContrastVolumes(),
+        SelectHighestContrastVolumes(prioritize_m0=use_ge),
         name="select_highest_contrast_volumes",
         mem_gb=1,
     )

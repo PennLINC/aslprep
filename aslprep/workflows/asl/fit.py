@@ -86,6 +86,7 @@ def init_asl_fit_wf(
     *,
     asl_file: str,
     m0scan: ty.Union[str, None],
+    use_ge: bool,
     precomputed: dict = {},
     fieldmap_id: ty.Optional[str] = None,
     omp_nthreads: int = 1,
@@ -107,7 +108,11 @@ def init_asl_fit_wf(
                     config.execution.bids_dir / "sub-01" / "perf" /
                     "sub-01_asl.nii.gz"
                 )
-                wf = init_asl_fit_wf(asl_file=str(asl_file))
+                wf = init_asl_fit_wf(
+                    asl_file=str(asl_file),
+                    m0scan=None,
+                    use_ge=False,
+                )
 
     Parameters
     ----------
@@ -115,6 +120,9 @@ def init_asl_fit_wf(
         Path to ASL NIfTI file.
     m0scan
         Path to M0 NIfTI file.
+    use_ge
+        If True, the M0 scan (when available) will be prioritized as the volume type for the
+        reference image, as GE deltam volumes exhibit extreme background noise.
     precomputed
         Dictionary containing precomputed derivatives to reuse, if possible.
     fieldmap_id
@@ -348,6 +356,7 @@ def init_asl_fit_wf(
             name="hmc_aslref_wf",
             asl_file=asl_file,
             m0scan=(metadata["M0Type"] == "Separate"),
+            use_ge=use_ge,
         )
         hmc_aslref_wf.inputs.inputnode.m0scan = m0scan
         hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_scans
