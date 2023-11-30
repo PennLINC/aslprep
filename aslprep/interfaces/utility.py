@@ -328,7 +328,12 @@ class Smooth(NilearnBaseInterface, SimpleInterface):
         from nilearn.image import smooth_img
 
         img_smoothed = smooth_img(self.inputs.in_file, fwhm=self.inputs.fwhm)
-        self._results["out_file"] = os.path.join(runtime.cwd, self.inputs.out_file)
+        self._results["out_file"] = fname_presuffix(
+            self.inputs.in_file,
+            suffix="_sm.nii.gz",
+            newpath=runtime.cwd,
+            use_ext=False,
+        )
         img_smoothed.to_filename(self._results["out_file"])
 
         return runtime
