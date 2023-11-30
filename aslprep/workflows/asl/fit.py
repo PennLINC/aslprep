@@ -699,8 +699,12 @@ def init_asl_native_wf(
         For multi-echo data, motion correction has already been applied, so
         this will be undefined.
     """
+    from aslprep.utils.misc import estimate_asl_mem_usage
+
     layout = config.execution.layout
     metadata = layout.get_metadata(asl_file)
+
+    _, mem_gb = estimate_asl_mem_usage(asl_file)
 
     workflow = pe.Workflow(name=name)
 
@@ -805,7 +809,12 @@ def init_asl_native_wf(
         ])  # fmt:skip
 
     # Resample ASL to aslref
-    aslref_asl = pe.Node(ResampleSeries(), name="aslref_asl", n_procs=omp_nthreads)
+    aslref_asl = pe.Node(
+        ResampleSeries(),
+        name="aslref_asl",
+        n_procs=omp_nthreads,
+        mem_gb=mem_gb["resampled"],
+    )
 
     workflow.connect([
         (inputnode, aslref_asl, [
@@ -820,7 +829,7 @@ def init_asl_native_wf(
     ])  # fmt:skip
 
     if fieldmap_id:
-        aslref_fmap = pe.Node(ReconstructFieldmap(inverse=[True]), name="aslref_fmap")
+        aslref_fmap = pe.Node(ReconstructFieldmap(inverse=[True]), name="aslref_fmap", mem_gb=1)
         workflow.connect([
             (inputnode, aslref_fmap, [
                 ("aslref", "target_ref_file"),
