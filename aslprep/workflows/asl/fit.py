@@ -185,7 +185,8 @@ def init_asl_fit_wf(
 
     layout = config.execution.layout
 
-    # Collect asl and sbref files, sorted by EchoTime
+    # Collect asl and sbref files.
+    # sbrefs aren't supported for ASL data, but I think that might change in the future.
     sbref_file = get_sbrefs(
         asl_file,
         entity_overrides=config.execution.get().get("bids_filters", {}).get("sbref", {}),

@@ -10,6 +10,8 @@ from nipype.interfaces.base import (
 )
 from nipype.utils.filemanip import fname_presuffix
 
+from aslprep import config
+
 
 class _SelectHighestContrastVolumesInputSpec(BaseInterfaceInputSpec):
     asl_file = File(exists=True, mandatory=True, desc="ASL file.")
@@ -58,6 +60,11 @@ class SelectHighestContrastVolumes(SimpleInterface):
             target_type = "separate_m0scan"
         else:
             target_type = "control"
+
+        config.loggers.interfaces.info(
+            f"Selecting {target_type} as highest-contrast volume type for reference volume "
+            "generation."
+        )
 
         if target_type == "separate_m0scan":
             self._results["selected_volumes_file"] = self.inputs.m0scan

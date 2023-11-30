@@ -141,6 +141,12 @@ class ExtractCBF(SimpleInterface):
         asl_img = nb.load(self.inputs.asl_file)
         asl_data = asl_img.get_fdata()
 
+        if aslcontext.shape[0] != asl_img.shape[3]:
+            raise ValueError(
+                f"Number of rows in aslcontext ({aslcontext.shape[0]}) != "
+                f"number of volumes in ASL file ({asl_img.shape[3]})"
+            )
+
         # get the control, tag, moscan or label
         vol_types = aslcontext["volume_type"].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
