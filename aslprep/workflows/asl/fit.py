@@ -430,10 +430,12 @@ def init_asl_fit_wf(
             omp_nthreads=omp_nthreads,
         )
 
-        ds_hmc_wf = output_workflows.init_ds_hmc_wf(
-            bids_root=layout.root,
-            output_dir=config.execution.aslprep_dir,
-        )
+        with OverrideDerivativesDataSink(output_workflows):
+            ds_hmc_wf = output_workflows.init_ds_hmc_wf(
+                bids_root=layout.root,
+                output_dir=config.execution.aslprep_dir,
+            )
+
         ds_hmc_wf.get_node("inputnode").inputs.source_files = [asl_file]
         # fMRIPrep will write out an orig-to-boldref transform to anat, so we need to overwrite
         # some fields.
