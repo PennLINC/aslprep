@@ -434,7 +434,10 @@ def init_asl_fit_wf(
             bids_root=layout.root,
             output_dir=config.execution.aslprep_dir,
         )
-        ds_hmc_wf.inputs.inputnode.source_files = [asl_file]
+        ds_hmc_wf.get_node("inputnode").inputs.source_files = [asl_file]
+        # fMRIPrep will write out an orig-to-boldref transform to anat.
+        ds_hmc_wf.get_node("ds_xforms").inputs.datatype = "perf"
+        ds_hmc_wf.get_node("ds_xforms").inputs.to = "aslref"
 
         # fmt:off
         workflow.connect([
