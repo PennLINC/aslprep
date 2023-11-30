@@ -344,7 +344,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.test_002
             # remove nifti files before uploading artifacts
-            # find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:

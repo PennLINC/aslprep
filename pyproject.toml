@@ -32,7 +32,7 @@ dependencies = [
     "pandas >= 0.24.0",
     "patsy",
     "psutil >= 5.4",
-    "pybids >= 0.13.2",
+    "pybids ~= 0.16.4",
     "pyyaml",
     "scipy == 1.10.1",  # 1.11 introduces backwards incompatible change to scipy.stats.mode that doesn't work with bundled SDCFlows
     "sdcflows",
