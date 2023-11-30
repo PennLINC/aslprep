@@ -429,7 +429,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # If we want aslref-space outputs, then call the appropriate workflow
     aslref_out = bool(nonstd_spaces.intersection(("func", "run", "asl", "aslref", "sbref")))
-    aslref_out |= config.workflow.level == "full"
+    aslref_out &= config.workflow.level == "full"
 
     if aslref_out:
         ds_asl_native_wf = init_ds_asl_native_wf(
