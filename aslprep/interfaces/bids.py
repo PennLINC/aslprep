@@ -96,3 +96,68 @@ class DerivativesDataSink(BaseDerivativesDataSink):
     _config_entities = config_entities
     _config_entities_dict = merged_entities
     _file_patterns = aslprep_spec["default_path_patterns"]
+
+
+class OverrideDerivativesDataSink:
+    """A context manager for temporarily overriding the definition of DerivativesDataSink.
+
+    Parameters
+    ----------
+    None
+
+    Attributes
+    ----------
+    original_class (type): The original class that is replaced during the override.
+
+    Methods
+    -------
+    __init__()
+        Initialize the context manager.
+    __enter__()
+        Enters the context manager and performs the class override.
+    __exit__(exc_type, exc_value, traceback)
+        Exits the context manager and restores the original class definition.
+    """
+
+    def __init__(self, module):
+        """Initialize the context manager with the target module.
+
+        Parameters
+        -----------
+        module
+            The module where SomeClass should be overridden.
+        """
+        self.module = module
+
+    def __enter__(self):
+        """Enter the context manager and perform the class override.
+
+        Returns
+        -------
+        OverrideConfoundsDerivativesDataSink
+            The instance of the context manager.
+        """
+        # Save the original class
+        self.original_class = self.module.DerivativesDataSink
+        # Replace SomeClass with YourOwnClass
+        self.module.DerivativesDataSink = DerivativesDataSink
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):  # noqa: U100
+        """Exit the context manager and restore the original class definition.
+
+        Parameters
+        ----------
+        exc_type : type
+            The type of the exception (if an exception occurred).
+        exc_value : Exception
+            The exception instance (if an exception occurred).
+        traceback : traceback
+            The traceback information (if an exception occurred).
+
+        Returns
+        -------
+        None
+        """
+        # Restore the original class
+        self.module.DerivativesDataSink = self.original_class

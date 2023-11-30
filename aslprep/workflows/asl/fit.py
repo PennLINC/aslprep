@@ -32,7 +32,7 @@ from fmriprep.interfaces.resampling import (
     ResampleSeries,
 )
 from fmriprep.utils.bids import extract_entities
-from fmriprep.workflows.bold.outputs import init_ds_hmc_wf, init_ds_registration_wf
+from fmriprep.workflows.bold import outputs as output_workflows
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
@@ -44,6 +44,7 @@ from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 
 # ASL workflows
 from aslprep import config
+from aslprep.interfaces.bids import OverrideDerivativesDataSink
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
@@ -420,7 +421,7 @@ def init_asl_fit_wf(
             omp_nthreads=omp_nthreads,
         )
 
-        ds_hmc_wf = init_ds_hmc_wf(
+        ds_hmc_wf = output_workflows.init_ds_hmc_wf(
             bids_root=layout.root,
             output_dir=config.execution.aslprep_dir,
         )
@@ -491,13 +492,16 @@ def init_asl_fit_wf(
 
                 itk_mat2txt = pe.Node(ConcatenateXFMs(out_fmt="itk"), name="itk_mat2txt")
 
-                ds_fmapreg_wf = init_ds_registration_wf(
-                    bids_root=layout.root,
-                    output_dir=config.execution.aslprep_dir,
-                    source="aslref",
-                    dest=fieldmap_id.replace("_", ""),
-                    name="ds_fmapreg_wf",
-                )
+                # fMRIPrep's init_ds_registration_wf will write out the ASL xfms to `anat` for
+                # some reason, so we must override it.
+                with OverrideDerivativesDataSink(output_workflows):
+                    ds_fmapreg_wf = output_workflows.init_ds_registration_wf(
+                        bids_root=layout.root,
+                        output_dir=config.execution.aslprep_dir,
+                        source="aslref",
+                        dest=fieldmap_id.replace("_", ""),
+                        name="ds_fmapreg_wf",
+                    )
 
                 # fmt:off
                 workflow.connect([
@@ -581,13 +585,16 @@ def init_asl_fit_wf(
             use_bbr=config.workflow.use_bbr,
         )
 
-        ds_aslreg_wf = init_ds_registration_wf(
-            bids_root=layout.root,
-            output_dir=config.execution.aslprep_dir,
-            source="aslref",
-            dest="T1w",
-            name="ds_aslreg_wf",
-        )
+        # fMRIPrep's init_ds_registration_wf will write out the ASL xfms to `anat` for some reason,
+        # so we must override it.
+        with OverrideDerivativesDataSink(output_workflows):
+            ds_aslreg_wf = output_workflows.init_ds_registration_wf(
+                bids_root=layout.root,
+                output_dir=config.execution.aslprep_dir,
+                source="aslref",
+                dest="T1w",
+                name="ds_aslreg_wf",
+            )
 
         # fmt:off
         workflow.connect([
