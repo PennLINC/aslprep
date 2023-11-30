@@ -582,7 +582,6 @@ class ComputeCBF(SimpleInterface):
             )
             pld_img.to_filename(pld_file)
             self._results["plds"] = pld_file
-            raise ValueError(pld_file)
 
         elif is_multi_pld:
             # Broadcast PLDs to voxels by PLDs

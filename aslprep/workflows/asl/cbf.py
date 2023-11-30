@@ -242,6 +242,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
                 "mean_cbf",
                 "cbf_ts",  # Only calculated for single-delay data
                 "att",  # Only calculated for multi-delay data
+                "plds",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
                 "mean_cbf_score",
@@ -383,6 +384,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
             ("cbf_ts", "cbf_ts"),
             ("mean_cbf", "mean_cbf"),
             ("att", "att"),
+            ("plds", "plds"),
         ]),
     ])
     # fmt:on
