@@ -28,6 +28,7 @@ from niworkflows.interfaces.header import ValidateImage
 
 from aslprep import config
 from aslprep.interfaces.reference import SelectHighestContrastVolumes
+from aslprep.interfaces.utility import Smooth
 
 
 def init_raw_aslref_wf(
@@ -125,6 +126,13 @@ for use in head motion correction.
         name="val_asl",
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
+    workflow.connect([
+        (inputnode, val_asl, [("asl_file", "in_file")]),
+        (val_asl, outputnode, [
+            ("out_file", "asl_file"),
+            ("out_report", "validation_report"),
+        ]),
+    ])  # fmt:skip
 
     if m0scan:
         val_m0scan = pe.Node(
@@ -139,23 +147,33 @@ for use in head motion correction.
         name="select_highest_contrast_volumes",
         mem_gb=1,
     )
-    gen_avg = pe.Node(RobustAverage(), name="gen_avg", mem_gb=1)
-
-    # fmt:off
     workflow.connect([
-        (inputnode, val_asl, [("asl_file", "in_file")]),
-        (val_asl, select_highest_contrast_volumes, [("out_file", "asl_file")]),
         (inputnode, select_highest_contrast_volumes, [("aslcontext", "aslcontext")]),
-        (select_highest_contrast_volumes, gen_avg, [("selected_volumes_file", "in_file")]),
-        (val_asl, outputnode, [
-            ("out_file", "asl_file"),
-            ("out_report", "validation_report"),
-        ]),
-        (gen_avg, outputnode, [("out_file", "aslref")]),
-    ])
-    # fmt:on
-
+        (val_asl, select_highest_contrast_volumes, [("out_file", "asl_file")]),
+    ])  # fmt:skip
     if m0scan:
         workflow.connect([(val_m0scan, select_highest_contrast_volumes, [("out_file", "m0scan")])])
+
+    gen_avg = pe.Node(RobustAverage(), name="gen_avg", mem_gb=1)
+    workflow.connect([
+        (select_highest_contrast_volumes, gen_avg, [("selected_volumes_file", "in_file")]),
+    ])  # fmt:skip
+
+    if use_ge and (config.workflow.smooth_kernel > 0):
+        workflow.__desc__ += (
+            "The reference image was then smoothed with a Gaussian kernel "
+            f"(FWHM = {config.workflow.smooth_kernel} mm)."
+        )
+        smooth_reference = pe.Node(
+            Smooth(fwhm=config.workflow.smooth_kernel),
+            name="smooth_reference",
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (gen_avg, smooth_reference, [("out_file", "in_file")]),
+            (smooth_reference, outputnode, [("out_file", "aslref")]),
+        ])  # fmt:skip
+    else:
+        workflow.connect([(gen_avg, outputnode, [("out_file", "aslref")])])
 
     return workflow

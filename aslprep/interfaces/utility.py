@@ -12,6 +12,7 @@ from nipype.interfaces.base import (
     traits,
 )
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
+from nipype.interfaces.nilearn import NilearnBaseInterface
 from nipype.utils.filemanip import fname_presuffix, load_json, save_json
 
 from aslprep.utils.asl import reduce_metadata_lists
@@ -280,5 +281,54 @@ class SplitByVolumeType(SimpleInterface):
 
         self._results["out_files"] = out_files
         self._results["volume_types"] = volume_types
+
+        return runtime
+
+
+class _SmoothInputSpec(BaseInterfaceInputSpec):
+    in_file = File(
+        exists=True,
+        mandatory=True,
+        desc="An image to smooth.",
+    )
+    fwhm = traits.Either(
+        traits.Float(),
+        traits.List(
+            traits.Float(),
+            minlen=3,
+            maxlen=3,
+        ),
+        desc=(
+            "Full width at half maximum. "
+            "Smoothing strength, as a full-width at half maximum, in millimeters."
+        ),
+    )
+    out_file = File(
+        "smooth_img.nii.gz",
+        usedefault=True,
+        exists=False,
+        desc="The name of the smoothed file to write out. smooth_img.nii.gz by default.",
+    )
+
+
+class _SmoothOutputSpec(TraitedSpec):
+    out_file = File(
+        exists=True,
+        desc="Smoothed output file.",
+    )
+
+
+class Smooth(NilearnBaseInterface, SimpleInterface):
+    """Smooth image."""
+
+    input_spec = _SmoothInputSpec
+    output_spec = _SmoothOutputSpec
+
+    def _run_interface(self, runtime):
+        from nilearn.image import smooth_img
+
+        img_smoothed = smooth_img(self.inputs.in_file, fwhm=self.inputs.fwhm)
+        self._results["out_file"] = os.path.join(runtime.cwd, self.inputs.out_file)
+        img_smoothed.to_filename(self._results["out_file"])
 
         return runtime
