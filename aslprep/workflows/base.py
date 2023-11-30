@@ -278,6 +278,7 @@ their manuscripts unchanged. It is released under the unchanged
         msm_sulc=msm_sulc,
         t1w=subject_data["t1w"],
         t2w=subject_data["t2w"],
+        flair=subject_data["flair"],
         skull_strip_mode=config.workflow.skull_strip_t1w,
         skull_strip_template=Reference.from_string(config.workflow.skull_strip_template)[0],
         spaces=spaces,
