@@ -158,7 +158,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_philips
             # remove nifti files before uploading artifacts
-            # find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -191,7 +191,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_siemens
             # remove nifti files before uploading artifacts
-            # find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -224,7 +224,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_ge
             # remove nifti files before uploading artifacts
-            # find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -255,7 +255,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_multipld
             # remove nifti files before uploading artifacts
-            # find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -288,7 +288,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pasl_multipld
             # remove nifti files before uploading artifacts
-            # find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -319,7 +319,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.test_001
             # remove nifti files before uploading artifacts
-            # find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -352,7 +352,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.test_002
             # remove nifti files before uploading artifacts
-            # find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
@@ -383,7 +383,7 @@ jobs:
             mkdir /src/coverage
             mv /src/aslprep/.coverage /src/coverage/.coverage.test_003
             # remove nifti files before uploading artifacts
-            # find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
           path: /src/aslprep/.circleci/out
       - persist_to_workspace:
