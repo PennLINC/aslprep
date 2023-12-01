@@ -646,14 +646,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ("anat_ribbon", "inputnode.anat_ribbon"),
             ]),
             (asl_anat_wf, asl_fsLR_resampling_wf, [
-                ("outputnode.bold_file", "inputnode.asl_file"),
+                ("outputnode.bold_file", "inputnode.bold_file"),
             ]),
-            (asl_MNI6_wf, asl_grayords_wf, [("outputnode.bold_file", "inputnode.asl_std")]),
+            (asl_MNI6_wf, asl_grayords_wf, [("outputnode.bold_file", "inputnode.bold_std")]),
             (asl_fsLR_resampling_wf, asl_grayords_wf, [
-                ("outputnode.asl_fsLR", "inputnode.asl_fsLR"),
+                ("outputnode.bold_fsLR", "inputnode.bold_fsLR"),
             ]),
             (asl_grayords_wf, ds_asl_cifti, [
-                ("outputnode.cifti_asl", "in_file"),
+                ("outputnode.cifti_bold", "in_file"),
                 (("outputnode.cifti_metadata", _read_json), "meta_dict"),
             ]),
         ])  # fmt:skip
@@ -782,7 +782,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             if config.workflow.cifti_output:
                 workflow.connect([
                     (asl_grayords_wf, carpetplot_wf, [
-                        ("outputnode.cifti_asl", "inputnode.cifti_asl"),
+                        ("outputnode.cifti_bold", "inputnode.cifti_asl"),
                     ]),
                 ])  # fmt:skip
 
