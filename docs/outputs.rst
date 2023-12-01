@@ -193,5 +193,5 @@ as outputting the reference image-space versions would produce too many extra ou
 
       sub-<label>/[ses-<label>/]
          perf/
-            <source_entities>_space-<label>_atlas-<label>_coverage.tsv
+            <source_entities>_space-<label>_atlas-<label>[_desc-<basil>]_coverage.tsv
             <source_entities>_space-<label>_atlas-<label>[_desc-<basil|basilGM|basilWM|score|scrub>]_cbf.tsv
