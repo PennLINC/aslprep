@@ -102,15 +102,19 @@ BASIL outputs::
 Volumetric output space labels (``<label>`` above, and in the following) include
 ``T1w`` and ``MNI152NLin2009cAsym`` (default).
 
-**Extracted confounding time series:**
+
+*************
+ASL Confounds
+*************
+
 For each :abbr:`ASL (arterial spin labelling)` run processed with *ASLPrep*, an
 accompanying *confounds* file will be generated.
 `CBF Confounds`_ are saved as a :abbr:`TSV (tab-separated value)` file::
 
    sub-<label>/[ses-<label>/]
       perf/
-         <source_entities>_desc-confounds_regressors.tsv
-         <source_entities>_desc-confounds_regressors.json
+         <source_entities>_desc-confounds_timeseries.tsv
+         <source_entities>_desc-confounds_timeseries.json
 
 These :abbr:`TSV (tab-separated values)` tables look like the example below,
 where each row of the file corresponds to one time point found in the
@@ -121,6 +125,13 @@ corresponding :abbr:`ASL (arterial spin labelling)` time series::
      1.168398	17.575331	0.0721193	0	0.0207752	0.0463124	-0.000270924	0	0
      1.085204	16.323904	0.0348966	0	0	0.0457372	0	0	0
      1.01591	15.281561	0.0333937	0.010164	-0.0103568	0.0424513	0	0	0.00019174
+
+Confounds include the six head-motion parameters (three rotations and three translations),
+which are common outputs from the head-motion correction (also known as *realignment*).
+*ASLPrep* also generates framewise displacement, `DVARS`, and `std_dvars`.
+Confound variables calculated in *ASLprep* are stored separately for each subject,
+session and run in :abbr:`TSV (tab-separated value)` files,
+with one column for each confound variable.
 
 
 *******************
@@ -141,18 +152,6 @@ The quality evaluation index (QEI) was also computed for CBF [Sudipto Dolui 2016
 The QEI is included for objective quality evaluation of CBF maps.
 It quantifies the quality of the CBF image based on structural similarity, spatial variability, and
 percentage of voxels in gray matter with negative CBF values.
-
-
-*************
-CBF Confounds
-*************
-
-Confounds include the six head-motion parameters (three rotations and three translations),
-which are common outputs from the head-motion correction (also known as *realignment*).
-*ASLPrep* also generates framewise displacement, `DVARS`, and `std_dvars`.
-Confound variables calculated in *ASLprep* are stored separately for each subject,
-session and run in :abbr:`TSV (tab-separated value)` files,
-with one column for each confound variable.
 
 
 ***********************
@@ -195,4 +194,4 @@ as outputting the reference image-space versions would produce too many extra ou
       sub-<label>/[ses-<label>/]
          perf/
             <source_entities>_space-<label>_atlas-<label>_coverage.tsv
-            <source_entities>_space-<label>_atlas-<label>[_desc-<basil|basilGM|score|scrub>]_cbf.tsv
+            <source_entities>_space-<label>_atlas-<label>[_desc-<basil|basilGM|basilWM|score|scrub>]_cbf.tsv

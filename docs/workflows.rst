@@ -684,7 +684,6 @@ Resampling ASL and CBF runs onto standard spaces
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.utils.spaces import SpatialReferences
    from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
 
    wf = init_bold_volumetric_resample_wf(

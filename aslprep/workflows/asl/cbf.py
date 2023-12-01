@@ -779,23 +779,28 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             (parcellate_cbf, ds_cbf, [("timeseries", "in_file")]),
         ])  # fmt:skip
 
-        ds_coverage = pe.MapNode(
-            DerivativesDataSink(
-                base_directory=config.execution.aslprep_dir,
-                check_hdr=False,
-                suffix="coverage",
-                **CBF_ENTITIES[cbf_type],
-            ),
-            name=f"ds_coverage_{cbf_type}",
-            iterfield=["atlas", "in_file"],
-            run_without_submitting=True,
-        )
+        if cbf_type in ("mean_cbf", "mean_cbf_basil"):
+            # I think it is easier to only retain the coverage file for the regular CBF estimates.
+            # SCORE/SCRUB CBF should have the same coverage as the regular CBF.
+            # BASIL might have different coverage because it drops any voxels with negative CBF,
+            # but the different PVC types will have the same coverage as the main BASIL CBF.
+            ds_coverage = pe.MapNode(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    check_hdr=False,
+                    suffix="coverage",
+                    **CBF_ENTITIES[cbf_type],
+                ),
+                name=f"ds_coverage_{cbf_type}",
+                iterfield=["atlas", "in_file"],
+                run_without_submitting=True,
+            )
 
-        workflow.connect([
-            (inputnode, ds_coverage, [("source_file", "source_file")]),
-            (atlas_name_grabber, ds_coverage, [("atlas_names", "atlas")]),
-            (parcellate_cbf, ds_coverage, [("coverage", "in_file")]),
-        ])  # fmt:skip
+            workflow.connect([
+                (inputnode, ds_coverage, [("source_file", "source_file")]),
+                (atlas_name_grabber, ds_coverage, [("atlas_names", "atlas")]),
+                (parcellate_cbf, ds_coverage, [("coverage", "in_file")]),
+            ])  # fmt:skip
 
     # Get entities from atlas for datasinks
     get_atlas_entities = pe.MapNode(
