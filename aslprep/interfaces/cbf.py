@@ -426,6 +426,11 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         None,
         desc="Arterial transit time map, in seconds. Only generated for multi-delay data.",
     )
+    plds = traits.Either(
+        File(exists=True),
+        None,
+        desc="Post-labeling delays. Only defined if slice-timing correction is applied.",
+    )
 
 
 class ComputeCBF(SimpleInterface):
@@ -520,6 +525,7 @@ class ComputeCBF(SimpleInterface):
         m0data = np.mean(m0data, axis=0)
         scaled_m0data = m0_scale * m0data
 
+        self._results["plds"] = None
         if "SliceTiming" in metadata:
             # Offset PLD(s) by slice times
             # This step builds a voxel-wise array of post-labeling delay values,
@@ -575,6 +581,7 @@ class ComputeCBF(SimpleInterface):
                 newpath=runtime.cwd,
             )
             pld_img.to_filename(pld_file)
+            self._results["plds"] = pld_file
 
         elif is_multi_pld:
             # Broadcast PLDs to voxels by PLDs
