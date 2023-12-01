@@ -122,8 +122,10 @@ split into multiple sub-workflows described below.
    but the GE ASL product sequence is unique in that it typically only produces a single deltaM or
    CBF volume (optionally along with an M0 volume).
 
-   For these short sequences, ASLPrep performs many of the same steps as for a longer sequence,
-   but certain steps are dropped, including motion correction.
+   For these short sequences, ASLPrep operates in basically the same manner as it does with other
+   sequences, except that the M0 volume (when available) is used as the reference image instead of
+   the deltaM or CBF volume, since GE deltaM volumes tend to have extreme background noise in a
+   circle around the brain.
    Additionally, SCORE/SCRUB cannot be used with these short sequences,
    as the denoising method requires a long time series from which to identify outliers.
 
@@ -143,8 +145,7 @@ ASL reference image estimation
 
    wf = init_raw_aslref_wf()
 
-This workflow estimates a reference image for an
-:abbr:`ASL (Arterial Spin Labelling)` series.
+This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labelling)` series.
 The reference image is then used to calculate a brain mask for the
 :abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
 :py:func:`~aslprep.workflows.asl.util.init_enhance_and_skullstrip_asl_wf`.
