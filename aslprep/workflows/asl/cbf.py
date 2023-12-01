@@ -643,7 +643,7 @@ def init_parcellate_cbf_wf(
     workflow.__desc__ = f"""
 Parcellated CBF estimates were extracted for the following atlases:
 the Schaefer Supplemented with Subcortical Structures (4S) atlas
-[@Schaefer_2017,@pauli2018high,@king2019functional,@najdenovska2018vivo,@glasser2013minimal] at
+[@Schaefer_2017; @pauli2018high; @king2019functional; @najdenovska2018vivo; @glasser2013minimal] at
 10 different resolutions (156, 256, 356, 456, 556, 656, 756, 856, 956, and 1056 parcels),
 the Glasser atlas [@Glasser_2016], the Gordon atlas [@Gordon_2014],
 the Tian subcortical atlas [@tian2020topographic], and the HCP CIFTI subcortical atlas
