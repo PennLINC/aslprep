@@ -31,23 +31,27 @@ averages them into a single reference template.
    :simple_form: yes
 
    from aslprep.utils.spaces import Reference, SpatialReferences
-   from smriprep.workflows.anatomical import init_anat_preproc_wf
+   from smriprep.workflows.anatomical import init_anat_fit_wf
 
-   wf = init_anat_preproc_wf(
+   wf = init_anat_fit_wf(
       bids_root=".",
-      freesurfer=False,
+      output_dir=".",
+      freesurfer=True,
       hires=True,
       longitudinal=False,
-      omp_nthreads=1,
-      output_dir=".",
+      msm_sulc=True,
+      t1w=["sub-01/anat/sub-01_T1w.nii.gz"],
+      t2w=["sub-01/anat/sub-01_T2w.nii.gz"],
+      flair=["sub-01/anat/sub-01_acq-flair_T2w.nii.gz"],
       skull_strip_mode="force",
       skull_strip_template=Reference("MNI152NLin2009cAsym"),
       spaces=SpatialReferences([
-         ("MNI152Lin", {}),
+         ("MNI152Lin6Asym", {}),
          ("T1w", {}),
       ]),
       skull_strip_fixed_seed=False,
-      t1w=["sub-01/anat/sub-01_T1w.nii.gz"],
+      omp_nthreads=1,
+      sloppy=False,
    )
 
 See also *sMRIPrep*'s
@@ -65,9 +69,9 @@ brain extraction workflow:
    :graph2use: orig
    :simple_form: yes
 
-   from niworkflows.anat.ants import init_brain_extraction_wf
+   from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
-   wf = init_brain_extraction_wf()
+   wf = init_enhance_and_skullstrip_asl_wf()
 
 An example of brain extraction is shown below:
 
@@ -135,9 +139,9 @@ ASL reference image estimation
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.workflows.asl.reference import init_asl_reference_wf
+   from aslprep.workflows.asl.reference import init_raw_aslref_wf
 
-   wf = init_asl_reference_wf()
+   wf = init_raw_aslref_wf()
 
 This workflow estimates a reference image for an
 :abbr:`ASL (Arterial Spin Labelling)` series.
@@ -196,7 +200,12 @@ Confounds estimation
 
    from aslprep.workflows.asl.confounds import init_asl_confounds_wf
 
-   wf = init_asl_confounds_wf(name="confound_wf", mem_gb=1)
+   wf = init_asl_confounds_wf(
+      n_volumes=50,
+      mem_gb=1,
+      freesurfer=True,
+      name="confound_wf",
+   )
 
 
 Calculated confounds include framewise displacement, 6 motion parameters, and DVARS.
@@ -214,7 +223,8 @@ for details on the available workflows.
 
    Applying susceptibility-derived distortion correction, based on fieldmap estimation
 
-See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
+See also *SDCFlows*' :py:func:`~sdcflows.workflows.apply.correction.init_unwarp_wf` and
+:py:func:`~sdcflows.workflows.apply.registration.init_coeff2epi_wf`
 
 
 .. _asl_preproc:
@@ -226,7 +236,8 @@ A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
 from the original data in the original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
 resampled in their native space by concatenating the mappings found in previous correction workflows
-(:abbr:`HMC (head-motion correction)` and :abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
+(:abbr:`HMC (head-motion correction)` and
+:abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
 for a one-shot interpolation process.
 Interpolation uses a Lanczos kernel.
 
@@ -667,22 +678,22 @@ registration.
 Resampling ASL and CBF runs onto standard spaces
 ================================================
 
-:py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
+:py:func:`~fmriprep.workflows.bold.apply.init_bold_volumetric_resample_wf`
 
 .. workflow::
    :graph2use: orig
    :simple_form: yes
 
    from aslprep.utils.spaces import SpatialReferences
-   from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
+   from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
 
-   wf = init_asl_std_trans_wf(
-      mem_gb=3,
-      omp_nthreads=1,
-      spaces=SpatialReferences(
-         spaces=[("MNI152Lin", {})],
-         checkpoint=True,
-      ),
+   wf = init_bold_volumetric_resample_wf(
+      metadata={
+         'RepetitionTime': 2.0,
+         'PhaseEncodingDirection': 'j-',
+         'TotalReadoutTime': 0.03,
+      },
+      fieldmap_id='my_fieldmap',
    )
 
 This sub-workflow concatenates the transforms calculated upstream
