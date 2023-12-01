@@ -46,7 +46,7 @@ averages them into a single reference template.
       skull_strip_mode="force",
       skull_strip_template=Reference("MNI152NLin2009cAsym"),
       spaces=SpatialReferences([
-         ("MNI152Lin6Asym", {}),
+         ("MNI152NLin6Asym", {}),
          ("T1w", {}),
       ]),
       skull_strip_fixed_seed=False,
