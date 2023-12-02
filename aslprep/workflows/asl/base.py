@@ -339,6 +339,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
     ])  # fmt:skip
 
+    if config.workflow.level == "minimal":
+        return workflow
+
     #
     # Resampling outputs workflow:
     #   - Resample to aslref space
@@ -455,6 +458,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                     (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
                 ]),
             ])  # fmt:skip
+
+    if config.workflow.level == "resampling":
+        return workflow
 
     # If anatomical-space outputs are requested.
     if nonstd_spaces.intersection(("anat", "T1w")):

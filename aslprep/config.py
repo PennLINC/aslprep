@@ -529,9 +529,7 @@ class workflow(_Config):
     ignore = None
     """Ignore particular steps for *ASLPrep*."""
     level = "full"
-    """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full'].
-    Only 'full' is currently supported.
-    """
+    """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full']."""
     longitudinal = False
     """Run FreeSurfer ``recon-all`` with the ``--longitudinal`` flag."""
     run_msmsulc = True

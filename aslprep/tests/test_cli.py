@@ -270,8 +270,26 @@ def test_test_002(data_dir, output_dir, working_dir):
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
+@pytest.mark.test_003_minimal
+def test_test_003_minimal(data_dir, output_dir, working_dir):
+    """Run ASLPrep minimal workflow on test_003 dataset."""
+    test_test_003(data_dir, output_dir, working_dir, level="minimal")
+
+
+@pytest.mark.test_003_resampling
+def test_test_003_resampling(data_dir, output_dir, working_dir):
+    """Run ASLPrep resampling workflow on test_003 dataset."""
+    test_test_003(data_dir, output_dir, working_dir, level="resampling")
+
+
+@pytest.mark.test_003_full
+def test_test_003_full(data_dir, output_dir, working_dir):
+    """Run ASLPrep full workflow on test_003 dataset."""
+    test_test_003(data_dir, output_dir, working_dir, level="full")
+
+
 @pytest.mark.test_003
-def test_test_003(data_dir, output_dir, working_dir):
+def test_test_003(data_dir, output_dir, working_dir, level):
     """Run aslprep on sub-A00086748.
 
     This dataset is Siemens.
@@ -280,8 +298,9 @@ def test_test_003(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "A00086748"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
-    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
-    work_dir = os.path.join(working_dir, TEST_NAME)
+    level_test_name = f"{TEST_NAME}_{level}"
+    out_dir = os.path.join(output_dir, level_test_name, "aslprep")
+    work_dir = os.path.join(working_dir, level_test_name)
 
     parameters = [
         dataset_dir,
@@ -297,9 +316,10 @@ def test_test_003(data_dir, output_dir, working_dir):
         "--fs-no-reconall",
         "--derivatives",
         f"{os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"--level={level}",
     ]
 
-    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+    _run_and_generate(level_test_name, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 def _run_and_generate(test_name, participant_label, parameters, out_dir):

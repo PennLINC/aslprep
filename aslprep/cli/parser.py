@@ -76,8 +76,10 @@ def _build_parser():
         "bids_dir",
         action="store",
         type=PathExists,
-        help="the root folder of a BIDS valid dataset (sub-XXXXX folders should "
-        "be found at the top level in this folder).",
+        help=(
+            "the root folder of a BIDS valid dataset (sub-XXXXX folders should "
+            "be found at the top level in this folder)."
+        ),
     )
     parser.add_argument(
         "output_dir",
@@ -88,8 +90,10 @@ def _build_parser():
     parser.add_argument(
         "analysis_level",
         choices=["participant"],
-        help='processing stage to be run, only "participant" in the case of '
-        "ASLPREP (see BIDS-Apps specification).",
+        help=(
+            'processing stage to be run, only "participant" in the case of '
+            "ASLPREP (see BIDS-Apps specification)."
+        ),
     )
 
     # optional arguments
@@ -207,12 +211,11 @@ def _build_parser():
         "--level",
         action="store",
         default="full",
-        choices=["full"],
+        choices=["minimal", "resampling", "full"],
         help=(
             "Processing level; may be 'minimal' (nothing that can be recomputed), "
             "'resampling' (recomputable targets that aid in resampling) "
             "or 'full' (all target outputs). "
-            "Only 'full' is supported in ASLPrep at the moment."
         ),
     )
     g_subset.add_argument(
@@ -720,8 +723,7 @@ applied."""
         from aslprep.utils.bids import validate_input_dir
 
         build_log.info(
-            "Making sure the input data is BIDS compliant (warnings can be ignored in most "
-            "cases)."
+            "Making sure the input data is BIDS compliant (warnings can be ignored in most cases)."
         )
         validate_input_dir(config.environment.exec_env, opts.bids_dir, opts.participant_label)
 

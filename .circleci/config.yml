@@ -360,7 +360,7 @@ jobs:
           paths:
               - .coverage.test_002
 
-  test_003:
+  test_003_minimal:
     <<: *dockersetup
     steps:
       - checkout
@@ -368,8 +368,74 @@ jobs:
           name: Check whether build should be skipped
           command: |
             cd /src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003\]' )" != "" ]]; then
-              echo "Skipping test_003 build"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_minimal\]' )" != "" ]]; then
+              echo "Skipping test_003_minimal build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_003-v2
+      - run: *runinstall
+      - run:
+          name: Run minimal aslprep on test_003 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_003_minimal" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003_minimal
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_003_minimal
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
+
+  test_003_resampling:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_resampling\]' )" != "" ]]; then
+              echo "Skipping test_003_resampling build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_003-v2
+      - run: *runinstall
+      - run:
+          name: Run resampling aslprep on test_003 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_003_resampling" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003_resampling
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_003_resampling
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
+
+  test_003_full:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_full\]' )" != "" ]]; then
+              echo "Skipping test_003_full build"
               circleci step halt
             fi
       - restore_cache:
@@ -379,9 +445,9 @@ jobs:
           name: Run full aslprep on test_003 dataset
           no_output_timeout: 5h
           command: |
-            pytest -rP -o log_cli=true -m "test_003" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            pytest -rP -o log_cli=true -m "test_003_full" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003_full
             # remove nifti files before uploading artifacts
             find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
@@ -389,7 +455,7 @@ jobs:
       - persist_to_workspace:
           root: /src/coverage
           paths:
-              - .coverage.test_003
+              - .coverage.test_003_full
     # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
     resource_class: large
 
@@ -639,7 +705,31 @@ workflows:
             tags:
               only: /.*/
 
-      - test_003:
+      - test_003_minimal:
+          requires:
+            - download_data_test_003
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - test_003_resampling:
+          requires:
+            - download_data_test_003
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - test_003_full:
           requires:
             - download_data_test_003
             - build
@@ -674,7 +764,9 @@ workflows:
             - pasl_multipld
             - test_001
             - test_002
-            - test_003
+            - test_003_minimal
+            - test_003_resampling
+            - test_003_full
             - pytests
           filters:
             branches:
@@ -694,7 +786,9 @@ workflows:
             - pasl_multipld
             - test_001
             - test_002
-            - test_003
+            - test_003_minimal
+            - test_003_resampling
+            - test_003_full
           filters:
             branches:
               only: main
