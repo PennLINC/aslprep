@@ -159,7 +159,7 @@ per-file-ignores = [
 ]
 
 [tool.pytest.ini_options]
-addopts = '-m "not examples_pcasl_singlepld_philips and not examples_pcasl_singlepld_siemens and not examples_pcasl_singlepld_ge and not examples_pcasl_multipld and not examples_pasl_multipld and not test_001 and not test_002 and not test_003"'
+addopts = '-m "not examples_pcasl_singlepld_philips and not examples_pcasl_singlepld_siemens and not examples_pcasl_singlepld_ge and not examples_pcasl_multipld and not examples_pasl_multipld and not test_001 and not test_002 and not test_003 and not test_003_minimal and not test_003_resampling and not test_003_full"'
 markers = [
     "examples_pasl_multipld: mark integration test",
     "examples_pcasl_multipld: mark integration test",
