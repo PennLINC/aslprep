@@ -786,10 +786,17 @@ def init_ds_ciftis_wf(
     raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
     raw_sources.inputs.bids_root = bids_root
 
-    for cbf_deriv in cbf_4d + cbf_3d:
+    for cbf_deriv in cbf_4d + cbf_3d + att:
         kwargs = {}
+        extension = "dscalar.nii"
         if cbf_deriv in cbf_4d:
             kwargs["dimension"] = 3
+            extension = "dtseries.nii"
+
+        if cbf_deriv in att:
+            meta = {"Units": "s"}
+        else:
+            meta = {"Units": "mL/100 g/min"}
 
         warp_cbf_to_MNI6 = pe.Node(
             ApplyTransforms(
@@ -831,9 +838,7 @@ def init_ds_ciftis_wf(
             name=f"{cbf_deriv}_grayords_wf",
         )
         workflow.connect([
-            (warp_cbf_to_MNI6, cbf_grayords_wf, [
-                ("outputnode.output_image", "inputnode.bold_std"),
-            ]),
+            (warp_cbf_to_MNI6, cbf_grayords_wf, [("output_image", "inputnode.bold_std")]),
             (cbf_fsLR_resampling_wf, cbf_grayords_wf, [
                 ("outputnode.bold_fsLR", "inputnode.bold_fsLR"),
             ]),
@@ -844,8 +849,10 @@ def init_ds_ciftis_wf(
                 base_directory=output_dir,
                 space="fsLR",
                 density=config.workflow.cifti_output,
-                suffix="cbf",
+                extension=extension,
                 compress=False,
+                **BASE_INPUT_FIELDS[cbf_deriv],
+                **meta,
             ),
             name=f"ds_{cbf_deriv}_cifti",
             run_without_submitting=True,
