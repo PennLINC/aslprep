@@ -617,7 +617,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 density=config.workflow.cifti_output,
                 suffix="asl",
                 compress=False,
-                TaskName=metadata.get("TaskName"),
             ),
             name="ds_asl_cifti",
             run_without_submitting=True,

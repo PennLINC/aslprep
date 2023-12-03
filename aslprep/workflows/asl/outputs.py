@@ -739,3 +739,130 @@ def init_ds_volumes_wf(
     )  # fmt:skip
 
     return workflow
+
+
+def init_ds_ciftis_wf(
+    *,
+    bids_root: str,
+    output_dir: str,
+    metadata: ty.List[dict],
+    cbf_3d: ty.List[str],
+    cbf_4d: ty.List[str],
+    att: ty.List[str],
+    name: str = "ds_ciftis_wf",
+) -> pe.Workflow:
+    """Apply transforms from reference to fsLR space and write out derivatives."""
+    from fmriprep.workflows.bold.resampling import (
+        init_bold_fsLR_resampling_wf,
+        init_bold_grayords_wf,
+    )
+
+    workflow = pe.Workflow(name=name)
+    inputnode_fields = [
+        "source_files",
+        "ref_file",
+        "asl",  # Resampled into target space
+        "asl_mask",  # aslref space
+        "aslref",  # aslref space
+        # Anatomical
+        "aslref2anat_xfm",
+        # Template
+        "anat2std_xfm",
+        # Entities
+        "space",
+        "cohort",
+        "resolution",
+        # T1w-space CBF derivatives
+        "asl_t1w",  # TODO: replace
+    ]
+    inputnode_fields += cbf_3d
+    inputnode_fields += cbf_4d
+    inputnode_fields += att
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=inputnode_fields),
+        name="inputnode",
+    )
+
+    raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
+    raw_sources.inputs.bids_root = bids_root
+
+    for cbf_deriv in cbf_4d + cbf_3d:
+        kwargs = {}
+        if cbf_deriv in cbf_4d:
+            kwargs["dimension"] = 3
+
+        warp_cbf_to_MNI6 = pe.Node(
+            ApplyTransforms(
+                interpolation="LanczosWindowedSinc",
+                float=True,
+                input_image_type=3,
+                args="-v",
+                **kwargs,
+            ),
+            name=f"warp_{cbf_deriv}_to_MNI6",
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([(inputnode, warp_cbf_to_MNI6, [(cbf_deriv, "input_image")])])
+
+        cbf_fsLR_resampling_wf = init_bold_fsLR_resampling_wf(
+            estimate_goodvoxels=False,  # may be done for ASL data. can be passed to here.
+            grayord_density=config.workflow.cifti_output,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            name=f"{cbf_deriv}_fsLR_resampling_wf",
+        )
+        workflow.connect([
+            # Resample T1w-space CBF to fsLR surfaces
+            (inputnode, cbf_fsLR_resampling_wf, [
+                ("white", "inputnode.white"),
+                ("pial", "inputnode.pial"),
+                ("midthickness", "inputnode.midthickness"),
+                ("midthickness_fsLR", "inputnode.midthickness_fsLR"),
+                ("sphere_reg_fsLR", "inputnode.sphere_reg_fsLR"),
+                ("cortex_mask", "inputnode.cortex_mask"),
+                ("anat_ribbon", "inputnode.anat_ribbon"),
+                (f"{cbf_deriv}_t1w", "inputnode.bold_file"),
+            ]),
+        ])  # fmt:skip
+
+        cbf_grayords_wf = init_bold_grayords_wf(
+            grayord_density=config.workflow.cifti_output,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            repetition_time=metadata["RepetitionTime"],
+            name=f"{cbf_deriv}_grayords_wf",
+        )
+        workflow.connect([
+            (warp_cbf_to_MNI6, cbf_grayords_wf, [
+                ("outputnode.output_image", "inputnode.bold_std"),
+            ]),
+            (cbf_fsLR_resampling_wf, cbf_grayords_wf, [
+                ("outputnode.bold_fsLR", "inputnode.bold_fsLR"),
+            ]),
+        ])  # fmt:skip
+
+        ds_cbf_cifti = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                space="fsLR",
+                density=config.workflow.cifti_output,
+                suffix="cbf",
+                compress=False,
+            ),
+            name=f"ds_{cbf_deriv}_cifti",
+            run_without_submitting=True,
+        )
+        workflow.connect([
+            (cbf_grayords_wf, ds_cbf_cifti, [
+                ("outputnode.cifti_bold", "in_file"),
+                (("outputnode.cifti_metadata", _read_json), "meta_dict"),
+            ]),
+        ])  # fmt:skip
+
+
+def _read_json(in_file):
+    from json import loads
+    from pathlib import Path
+
+    if not isinstance(in_file, str):
+        raise ValueError(f"_read_json: input is not str ({in_file})")
+
+    return loads(Path(in_file).read_text())
