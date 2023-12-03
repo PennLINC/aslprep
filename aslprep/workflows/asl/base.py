@@ -600,12 +600,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             grayord_density=config.workflow.cifti_output,
             omp_nthreads=omp_nthreads,
             mem_gb=mem_gb["resampled"],
+            name="asl_fsLR_resampling_wf",
         )
 
         asl_grayords_wf = init_bold_grayords_wf(
             grayord_density=config.workflow.cifti_output,
             mem_gb=mem_gb["resampled"],
             repetition_time=metadata["RepetitionTime"],
+            name="asl_grayords_wf",
         )
 
         ds_asl_cifti = pe.Node(

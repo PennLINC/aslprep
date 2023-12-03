@@ -152,7 +152,7 @@ which is based on *fMRIPrep* (@esteban2019fmriprep; @esteban2020analysis; RRID:S
 Many internal operations of *ASLPrep* use
 *Nilearn* {NILEARN_VERSION} [@nilearn], *NumPy* [@numpy], and *SciPy* [@scipy].
 For more details of the pipeline, see
-[the  *ASLPrep*  documentation.](https://aslprep.readthedocs.io/en/latest/workflows.html).
+[the *ASLPrep* documentation](https://aslprep.readthedocs.io/en/latest/workflows.html).
 
 
 ### Copyright Waiver
