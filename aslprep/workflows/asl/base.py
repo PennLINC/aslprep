@@ -569,7 +569,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 """
         config.loggers.workflow.debug("Creating BOLD surface-sampling workflow.")
 
-        def _fake_params(metadata):
+        def _fake_params(metadata):  # noqa: U100
             return {"SliceTimingCorrected": False}
 
         with FunctionOverrideContext(resampling, "prepare_timing_parameters", _fake_params):
