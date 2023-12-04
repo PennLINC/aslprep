@@ -773,7 +773,7 @@ workflows:
 
       - qtab:
           requires:
-            - download_data_qtab
+            - download_qtab
             - download_anatomical
             - build
           filters:
