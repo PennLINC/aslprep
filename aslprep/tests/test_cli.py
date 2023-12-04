@@ -83,6 +83,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--m0_scale=10",
+        "--fs-no-reconall",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
         "--derivatives",
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
@@ -120,6 +121,7 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--m0_scale=96",
+        "--fs-no-reconall",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
         "--derivatives",
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
@@ -196,6 +198,7 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         "MNI152NLin2009cAsym",
         "--basil",
         "--m0_scale=10",
+        "--fs-no-reconall",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
         "--derivatives",
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
@@ -233,6 +236,7 @@ def test_qtab(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--use-syn-sdc",
         "--force-no-ge",
+        "--fs-no-reconall",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
         "--derivatives",
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
@@ -270,6 +274,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--use-syn-sdc",
         "--force-no-ge",
+        "--fs-no-reconall",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
         "--derivatives",
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
@@ -292,7 +297,6 @@ def test_test_002(data_dir, output_dir, working_dir):
     download_test_data("anatomical", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
-    raise Exception(f"{dataset_dir}\n\n{os.listdir(dataset_dir)}")
 
     parameters = [
         dataset_dir,
@@ -309,6 +313,7 @@ def test_test_002(data_dir, output_dir, working_dir):
         "--use-syn-sdc",
         "--m0_scale=96",
         "--force-ge",
+        "--fs-no-reconall",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
         "--derivatives",
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
