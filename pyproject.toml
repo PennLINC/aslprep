@@ -167,9 +167,11 @@ markers = [
     "examples_pcasl_singlepld_philips: mark integration test",
     "examples_pcasl_singlepld_siemens: mark integration test",
     "qtab: mark integration test",
-    "test_001: mark integration test for subject 01",
-    "test_002: mark integration test for subject 10R01383",
-    "test_003: mark integration test for subject A00086748",
+    "test_001: mark integration test",
+    "test_002: mark integration test",
+    "test_003_minimal: mark integration test",
+    "test_003_resampling: mark integration test",
+    "test_003_full: mark integration test",
 ]
 
 [tool.coverage.run]
