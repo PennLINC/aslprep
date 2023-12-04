@@ -4,13 +4,13 @@
 import typing as ty
 
 import numpy as np
+from fmriprep.workflows.bold import resampling
 from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
-from fmriprep.workflows.bold.resampling import init_bold_surf_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep import config
-from aslprep.interfaces import DerivativesDataSink
+from aslprep.interfaces.bids import DerivativesDataSink, FunctionOverrideContext
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name, get_n_volumes
@@ -568,14 +568,20 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 (FreeSurfer).
 """
         config.loggers.workflow.debug("Creating BOLD surface-sampling workflow.")
-        asl_surf_wf = init_bold_surf_wf(
-            mem_gb=mem_gb["resampled"],
-            metadata=metadata,
-            surface_spaces=freesurfer_spaces,
-            medial_surface_nan=config.workflow.medial_surface_nan,
-            output_dir=config.execution.aslprep_dir,
-            name="asl_surf_wf",
-        )
+
+        def _fake_params(metadata):
+            return {"SliceTimingCorrected": False}
+
+        with FunctionOverrideContext(resampling, "prepare_timing_parameters", _fake_params):
+            asl_surf_wf = resampling.init_bold_surf_wf(
+                mem_gb=mem_gb["resampled"],
+                metadata=metadata,
+                surface_spaces=freesurfer_spaces,
+                medial_surface_nan=config.workflow.medial_surface_nan,
+                output_dir=config.execution.aslprep_dir,
+                name="asl_surf_wf",
+            )
+
         asl_surf_wf.__desc__ = asl_surf_wf.__desc__.replace("BOLD", "ASL")
         asl_surf_wf.inputs.inputnode.source_file = asl_file
         workflow.connect([
@@ -590,7 +596,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
     if config.workflow.cifti_output:
         asl_cifti_resample_wf = init_asl_cifti_resample_wf(
             metadata=metadata,
-            mem_gb=mem_gb["largemem"],
+            mem_gb=mem_gb,
             fieldmap_id=fieldmap_id,
             omp_nthreads=omp_nthreads,
         )
@@ -629,7 +635,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             cbf_3d=cbf_3d_derivs,
             cbf_4d=cbf_4d_derivs,
             att=att_derivs,
-            name="ds_asl_std_wf",
+            omp_nthreads=omp_nthreads,
+            name="ds_asl_cifti_wf",
         )
         ds_asl_cifti_wf.inputs.inputnode.source_files = [asl_file]
         workflow.connect([
@@ -646,12 +653,10 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ("anat_ribbon", "inputnode.anat_ribbon"),
             ]),
             (asl_fit_wf, ds_asl_cifti_wf, [
-                ("outputnode.asl_mask", "inputnode.asl_mask"),
-                ("outputnode.coreg_aslref", "inputnode.aslref"),
                 ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
             (asl_cifti_resample_wf, ds_asl_cifti_wf, [
-                ("outputnode.bold_file", "inputnode.asl"),
+                ("outputnode.asl_cifti", "inputnode.asl_cifti"),
                 ("outputnode.goodvoxels_mask", "inputnode.goodvoxels_mask"),
             ]),
         ])  # fmt:skip
@@ -759,9 +764,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
     if config.workflow.cifti_output and ("cbf_ts" in cbf_4d_derivs):
         workflow.connect([
-            (ds_asl_cifti_wf, plot_cbf_wf, [
-                ("outputnode.cifti_cbf_ts", "inputnode.cifti_cbf_ts"),
-            ]),
+            (ds_asl_cifti_wf, plot_cbf_wf, [("outputnode.cbf_ts", "inputnode.cifti_cbf_ts")]),
         ])  # fmt:skip
 
     for cbf_deriv in cbf_derivs:
@@ -791,7 +794,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
             if config.workflow.cifti_output:
                 workflow.connect([
                     (asl_cifti_resample_wf, carpetplot_wf, [
-                        ("outputnode.cifti_asl", "inputnode.cifti_asl"),
+                        ("outputnode.asl_cifti", "inputnode.cifti_asl"),
                     ]),
                 ])  # fmt:skip
 

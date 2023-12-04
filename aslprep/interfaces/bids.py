@@ -161,3 +161,22 @@ class OverrideDerivativesDataSink:
         """
         # Restore the original class
         self.module.DerivativesDataSink = self.original_class
+
+
+class FunctionOverrideContext:
+    """Override a function in imported code with a context manager."""
+
+    def __init__(self, module, function_name, new_function):
+        self.module = module
+        self.function_name = function_name
+        self.new_function = new_function
+        self.original_function = None
+
+    def __enter__(self):
+        # Override the original function with the new one
+        self.original_function = getattr(self.module, self.function_name)
+        setattr(self.module, self.function_name, self.new_function)
+
+    def __exit__(self, exc_type, exc_value, traceback):  # noqa: U100
+        # Restore the original function
+        setattr(self.module, self.function_name, self.original_function)

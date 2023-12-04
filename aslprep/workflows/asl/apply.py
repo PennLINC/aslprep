@@ -10,7 +10,7 @@ from aslprep import config
 def init_asl_cifti_resample_wf(
     *,
     metadata: dict,
-    mem_gb: str,
+    mem_gb: dict,
     fieldmap_id: str | None = None,
     omp_nthreads: int = 1,
     name: str = "asl_cifti_resample_wf",
@@ -162,7 +162,7 @@ def init_asl_cifti_resample_wf(
         ]),
         # Resample T1w-space BOLD to fsLR surfaces
         (inputnode, asl_fsLR_resampling_wf, [
-            ("asl_anat", "inputnode.bold_file")
+            ("asl_anat", "inputnode.bold_file"),
             ("white", "inputnode.white"),
             ("pial", "inputnode.pial"),
             ("midthickness", "inputnode.midthickness"),

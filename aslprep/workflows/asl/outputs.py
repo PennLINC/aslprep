@@ -749,6 +749,7 @@ def init_ds_ciftis_wf(
     cbf_3d: ty.List[str],
     cbf_4d: ty.List[str],
     att: ty.List[str],
+    omp_nthreads: int,
     name: str = "ds_ciftis_wf",
 ) -> pe.Workflow:
     """Apply transforms from reference to fsLR space and write out derivatives."""
@@ -766,6 +767,7 @@ def init_ds_ciftis_wf(
         "aslref2anat_xfm",
         # Template
         "anat2mni6_xfm",
+        "mni6_mask",
         # Pre-computed goodvoxels mask. May be Undefined.
         "goodvoxels_mask",
         # Other inputs
@@ -812,6 +814,14 @@ def init_ds_ciftis_wf(
     )
     workflow.connect([(inputnode, ds_asl_cifti, [("asl_cifti", "in_file")])])
 
+    aslref2MNI6 = pe.Node(niu.Merge(2), name="aslref2MNI6")
+    workflow.connect([
+        (inputnode, aslref2MNI6, [
+            ("aslref2anat_xfm", "in1"),
+            ("anat2mni6_xfm", "in2"),
+        ]),
+    ])  # fmt:skip
+
     for cbf_deriv in cbf_4d + cbf_3d + att:
         kwargs = {}
         extension = "dscalar.nii"
@@ -843,14 +853,6 @@ def init_ds_ciftis_wf(
             ]),
         ])  # fmt:skip
 
-        aslref2MNI6 = pe.Node(niu.Merge(2), name="aslref2MNI6")
-        workflow.connect([
-            (inputnode, aslref2MNI6, [
-                ("aslref2anat_xfm", "in1"),
-                ("anat2mni6_xfm", "in2"),
-            ]),
-        ])  # fmt:skip
-
         warp_cbf_to_MNI6 = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
@@ -874,6 +876,7 @@ def init_ds_ciftis_wf(
         cbf_fsLR_resampling_wf = init_bold_fsLR_resampling_wf(
             estimate_goodvoxels=False,  # already made from ASL data
             grayord_density=config.workflow.cifti_output,
+            omp_nthreads=omp_nthreads,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             name=f"{cbf_deriv}_fsLR_resampling_wf",
         )
