@@ -140,7 +140,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: test_002-v3
+          key: test_002-v4
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -148,7 +148,7 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data test_002
       - save_cache:
-          key: test_002-v3
+          key: test_002-v4
           paths:
               - /src/aslprep/.circleci/data
 
@@ -409,7 +409,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_002-v3
+          key: test_002-v4
       - run: *runinstall
       - run:
           name: Run full aslprep on test_002 dataset
