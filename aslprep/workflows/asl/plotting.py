@@ -59,6 +59,8 @@ def init_plot_cbf_wf(
                 "mean_cbf",
                 # Single-delay outputs
                 "cbf_ts",  # only for non-GE
+                # If CIFTI is enabled
+                "cifti_cbf_ts",
                 # Multi-delay outputs
                 "att",
                 # SCORE/SCRUB outputs
@@ -178,6 +180,7 @@ def init_plot_cbf_wf(
                 ("aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
                 ("crown_mask", "inputnode.crown_mask"),
                 (("acompcor_masks", _select_last_in_list), "inputnode.acompcor_mask"),
+                ("cifti_cbf_ts", "inputnode.cifti_asl"),
             ]),
             (create_cbf_confounds, carpetplot_wf, [
                 ("confounds_file", "inputnode.confounds_file"),

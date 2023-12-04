@@ -759,21 +759,23 @@ def init_ds_ciftis_wf(
 
     workflow = pe.Workflow(name=name)
     inputnode_fields = [
+        "asl_cifti",
         "source_files",
-        "ref_file",
-        "asl",  # Resampled into target space
-        "asl_mask",  # aslref space
-        "aslref",  # aslref space
         # Anatomical
         "aslref2anat_xfm",
         # Template
-        "anat2std_xfm",
-        # Entities
-        "space",
-        "cohort",
-        "resolution",
-        # T1w-space CBF derivatives
-        "asl_t1w",  # TODO: replace
+        "anat2mni6_xfm",
+        # Pre-computed goodvoxels mask. May be Undefined.
+        "goodvoxels_mask",
+        #
+        "white",
+        "pial",
+        "midthickness",
+        "midthickness_fsLR",
+        "sphere_reg_fsLR",
+        "cortex_mask",
+        "anat_ribbon",
+        "goodvoxels_mask",
     ]
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
@@ -783,8 +785,32 @@ def init_ds_ciftis_wf(
         name="inputnode",
     )
 
+    outputnode_fields = []
+    outputnode_fields += cbf_3d
+    outputnode_fields += cbf_4d
+    outputnode_fields += att
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=outputnode_fields),
+        name="outputnode",
+    )
+
     raw_sources = pe.Node(niu.Function(function=_bids_relative), name="raw_sources")
     raw_sources.inputs.bids_root = bids_root
+    workflow.connect([(inputnode, raw_sources, [("source_files", "in_files")])])
+
+    ds_asl_cifti = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            space="fsLR",
+            density=config.workflow.cifti_output,
+            suffix="asl",
+            extension="dtseries.nii",
+            compress=False,
+        ),
+        name="ds_asl_cifti",
+        run_without_submitting=True,
+    )
+    workflow.connect([(inputnode, ds_asl_cifti, [("asl_cifti", "in_file")])])
 
     for cbf_deriv in cbf_4d + cbf_3d + att:
         kwargs = {}
@@ -798,6 +824,32 @@ def init_ds_ciftis_wf(
         else:
             meta = {"Units": "mL/100 g/min"}
 
+        warp_cbf_to_anat = pe.Node(
+            ApplyTransforms(
+                interpolation="LanczosWindowedSinc",
+                float=True,
+                input_image_type=3,
+                args="-v",
+                **kwargs,
+            ),
+            name=f"warp_{cbf_deriv}_to_anat",
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (inputnode, warp_cbf_to_anat, [
+                (cbf_deriv, "input_image"),
+                ("aslref2anat_xfm", "transforms"),
+            ]),
+        ])  # fmt:skip
+
+        aslref2MNI6 = pe.Node(niu.Merge(2), name="aslref2MNI6")
+        workflow.connect([
+            (inputnode, aslref2MNI6, [
+                ("aslref2anat_xfm", "in1"),
+                ("anat2mni6_xfm", "in2"),
+            ]),
+        ])  # fmt:skip
+
         warp_cbf_to_MNI6 = pe.Node(
             ApplyTransforms(
                 interpolation="LanczosWindowedSinc",
@@ -809,8 +861,12 @@ def init_ds_ciftis_wf(
             name=f"warp_{cbf_deriv}_to_MNI6",
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-        workflow.connect([(inputnode, warp_cbf_to_MNI6, [(cbf_deriv, "input_image")])])
+        workflow.connect([
+            (inputnode, warp_cbf_to_MNI6, [(cbf_deriv, "input_image")]),
+            (aslref2MNI6, warp_cbf_to_MNI6, [("out", "transforms")]),
+        ])  # fmt:skip
 
+        # XXX: Need to add predefined "goodvoxels_mask" support.
         cbf_fsLR_resampling_wf = init_bold_fsLR_resampling_wf(
             estimate_goodvoxels=False,  # may be done for ASL data. can be passed to here.
             grayord_density=config.workflow.cifti_output,
@@ -827,8 +883,9 @@ def init_ds_ciftis_wf(
                 ("sphere_reg_fsLR", "inputnode.sphere_reg_fsLR"),
                 ("cortex_mask", "inputnode.cortex_mask"),
                 ("anat_ribbon", "inputnode.anat_ribbon"),
-                (f"{cbf_deriv}_t1w", "inputnode.bold_file"),
+                ("goodvoxels_mask", "inputnode.goodvoxels_mask"),
             ]),
+            (warp_cbf_to_anat, cbf_fsLR_resampling_wf, [("output_image", "inputnode.bold_file")])
         ])  # fmt:skip
 
         cbf_grayords_wf = init_bold_grayords_wf(
@@ -858,11 +915,15 @@ def init_ds_ciftis_wf(
             run_without_submitting=True,
         )
         workflow.connect([
+            (raw_sources, ds_cbf_cifti, [("out", "RawSources")]),
             (cbf_grayords_wf, ds_cbf_cifti, [
                 ("outputnode.cifti_bold", "in_file"),
                 (("outputnode.cifti_metadata", _read_json), "meta_dict"),
             ]),
+            (ds_cbf_cifti, outputnode, [("out_file", cbf_deriv)])
         ])  # fmt:skip
+
+    return workflow
 
 
 def _read_json(in_file):

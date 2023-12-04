@@ -14,10 +14,15 @@ from aslprep.interfaces import DerivativesDataSink
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name, get_n_volumes
+from aslprep.workflows.asl.apply import init_asl_cifti_resample_wf
 from aslprep.workflows.asl.cbf import init_cbf_wf, init_parcellate_cbf_wf
 from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
 from aslprep.workflows.asl.fit import init_asl_fit_wf, init_asl_native_wf
-from aslprep.workflows.asl.outputs import init_ds_asl_native_wf, init_ds_volumes_wf
+from aslprep.workflows.asl.outputs import (
+    init_ds_asl_native_wf,
+    init_ds_ciftis_wf,
+    init_ds_volumes_wf,
+)
 from aslprep.workflows.asl.plotting import init_plot_cbf_wf
 from aslprep.workflows.asl.qc import init_cbf_qc_wf
 
@@ -424,6 +429,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("outputnode.asl_mask", "inputnode.asl_mask"),
             ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
         ]),
+        # Use post-HMC+SDC ASL as basis for CBF calculation
         (asl_native_wf, cbf_wf, [
             ("outputnode.asl_native", "inputnode.asl_file"),
             ("outputnode.aslcontext", "inputnode.aslcontext"),
@@ -582,68 +588,15 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         ])  # fmt:skip
 
     if config.workflow.cifti_output:
-        from fmriprep.workflows.bold.resampling import (
-            init_bold_fsLR_resampling_wf,
-            init_bold_grayords_wf,
-        )
-
-        asl_MNI6_wf = init_bold_volumetric_resample_wf(
-            metadata=metadata,
-            fieldmap_id=fieldmap_id,
-            omp_nthreads=omp_nthreads,
-            mem_gb=mem_gb,
-            name="asl_MNI6_wf",
-        )
-
-        asl_fsLR_resampling_wf = init_bold_fsLR_resampling_wf(
-            estimate_goodvoxels=config.workflow.project_goodvoxels,
-            grayord_density=config.workflow.cifti_output,
-            omp_nthreads=omp_nthreads,
-            mem_gb=mem_gb["resampled"],
-            name="asl_fsLR_resampling_wf",
-        )
-
-        asl_grayords_wf = init_bold_grayords_wf(
-            grayord_density=config.workflow.cifti_output,
-            mem_gb=mem_gb["resampled"],
-            repetition_time=metadata["RepetitionTime"],
-            name="asl_grayords_wf",
-        )
-
-        ds_asl_cifti = pe.Node(
-            DerivativesDataSink(
-                base_directory=config.execution.aslprep_dir,
-                space="fsLR",
-                density=config.workflow.cifti_output,
-                suffix="asl",
-                compress=False,
-            ),
-            name="ds_asl_cifti",
-            run_without_submitting=True,
-        )
-        ds_asl_cifti.inputs.source_file = asl_file
+        asl_cifti_resample_wf = init_asl_cifti_resample_wf()
 
         workflow.connect([
-            # Resample BOLD to MNI152NLin6Asym, may duplicate asl_std_wf above
-            (inputnode, asl_MNI6_wf, [
-                ("mni6_mask", "inputnode.target_ref_file"),
-                ("mni6_mask", "inputnode.target_mask"),
-                ("anat2mni6_xfm", "inputnode.anat2std_xfm"),
+            (inputnode, asl_cifti_resample_wf, [
+                ("mni6_mask", "inputnode.mni6_mask"),
+                ("anat2mni6_xfm", "inputnode.anat2mni6_xfm"),
                 ("fmap_ref", "inputnode.fmap_ref"),
                 ("fmap_coeff", "inputnode.fmap_coeff"),
                 ("fmap_id", "inputnode.fmap_id"),
-            ]),
-            (asl_fit_wf, asl_MNI6_wf, [
-                ("outputnode.coreg_aslref", "inputnode.bold_ref_file"),
-                ("outputnode.aslref2fmap_xfm", "inputnode.boldref2fmap_xfm"),
-                ("outputnode.aslref2anat_xfm", "inputnode.boldref2anat_xfm"),
-            ]),
-            (asl_native_wf, asl_MNI6_wf, [
-                ("outputnode.asl_minimal", "inputnode.bold_file"),
-                ("outputnode.motion_xfm", "inputnode.motion_xfm"),
-            ]),
-            # Resample T1w-space BOLD to fsLR surfaces
-            (inputnode, asl_fsLR_resampling_wf, [
                 ("white", "inputnode.white"),
                 ("pial", "inputnode.pial"),
                 ("midthickness", "inputnode.midthickness"),
@@ -652,18 +605,53 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
                 ("cortex_mask", "inputnode.cortex_mask"),
                 ("anat_ribbon", "inputnode.anat_ribbon"),
             ]),
-            (asl_anat_wf, asl_fsLR_resampling_wf, [
-                ("outputnode.bold_file", "inputnode.bold_file"),
+            (asl_fit_wf, asl_cifti_resample_wf, [
+                ("outputnode.coreg_aslref", "inputnode.coreg_aslref"),
+                ("outputnode.aslref2fmap_xfm", "inputnode.aslref2fmap_xfm"),
+                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ]),
-            (asl_MNI6_wf, asl_grayords_wf, [("outputnode.bold_file", "inputnode.bold_std")]),
-            (asl_fsLR_resampling_wf, asl_grayords_wf, [
-                ("outputnode.bold_fsLR", "inputnode.bold_fsLR"),
+            (asl_native_wf, asl_cifti_resample_wf, [
+                ("outputnode.asl_minimal", "inputnode.asl_file"),
+                ("outputnode.motion_xfm", "inputnode.motion_xfm"),
             ]),
-            (asl_grayords_wf, ds_asl_cifti, [
-                ("outputnode.cifti_bold", "in_file"),
-                (("outputnode.cifti_metadata", _read_json), "meta_dict"),
+            (asl_anat_wf, asl_cifti_resample_wf, [("outputnode.bold_file", "inputnode.asl_anat")]),
+        ])  # fmt:skip
+
+        ds_asl_cifti_wf = init_ds_ciftis_wf(
+            bids_root=str(config.execution.bids_dir),
+            output_dir=config.execution.aslprep_dir,
+            metadata=metadata,
+            cbf_3d=cbf_3d_derivs,
+            cbf_4d=cbf_4d_derivs,
+            att=att_derivs,
+            name="ds_asl_std_wf",
+        )
+        ds_asl_cifti_wf.inputs.inputnode.source_files = [asl_file]
+        workflow.connect([
+            (inputnode, ds_asl_cifti_wf, [
+                ("anat2mni6_xfm", "inputnode.anat2mni6_xfm"),
+                ("white", "inputnode.white"),
+                ("pial", "inputnode.pial"),
+                ("midthickness", "inputnode.midthickness"),
+                ("midthickness_fsLR", "inputnode.midthickness_fsLR"),
+                ("sphere_reg_fsLR", "inputnode.sphere_reg_fsLR"),
+                ("cortex_mask", "inputnode.cortex_mask"),
+                ("anat_ribbon", "inputnode.anat_ribbon"),
+            ]),
+            (asl_fit_wf, ds_asl_cifti_wf, [
+                ("outputnode.asl_mask", "inputnode.asl_mask"),
+                ("outputnode.coreg_aslref", "inputnode.aslref"),
+                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+            ]),
+            (asl_cifti_resample_wf, ds_asl_cifti_wf, [
+                ("outputnode.bold_file", "inputnode.asl"),
+                ("outputnode.goodvoxels_mask", "inputnode.goodvoxels_mask"),
             ]),
         ])  # fmt:skip
+        for cbf_deriv in cbf_derivs:
+            workflow.connect([
+                (cbf_wf, ds_asl_cifti_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
+            ])  # fmt:skip
 
     asl_confounds_wf = init_asl_confounds_wf(
         n_volumes=n_vols,
@@ -762,6 +750,13 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         ]),
     ])  # fmt:skip
 
+    if config.workflow.cifti_output and ("cbf_ts" in cbf_4d_derivs):
+        workflow.connect([
+            (ds_asl_cifti_wf, plot_cbf_wf, [
+                ("outputnode.cifti_cbf_ts", "inputnode.cifti_cbf_ts"),
+            ]),
+        ])  # fmt:skip
+
     for cbf_deriv in cbf_derivs:
         workflow.connect([
             (cbf_wf, plot_cbf_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
@@ -788,8 +783,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
 
             if config.workflow.cifti_output:
                 workflow.connect([
-                    (asl_grayords_wf, carpetplot_wf, [
-                        ("outputnode.cifti_bold", "inputnode.cifti_asl"),
+                    (asl_cifti_resample_wf, carpetplot_wf, [
+                        ("outputnode.cifti_asl", "inputnode.cifti_asl"),
                     ]),
                 ])  # fmt:skip
 
