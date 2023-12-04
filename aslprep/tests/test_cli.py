@@ -292,6 +292,7 @@ def test_test_002(data_dir, output_dir, working_dir):
     download_test_data("anatomical", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
+    raise Exception(f"{dataset_dir}\n\n{os.listdir(dataset_dir)}")
 
     parameters = [
         dataset_dir,
