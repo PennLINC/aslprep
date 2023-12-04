@@ -776,7 +776,6 @@ def init_ds_ciftis_wf(
         "sphere_reg_fsLR",
         "cortex_mask",
         "anat_ribbon",
-        "goodvoxels_mask",
     ]
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
