@@ -762,12 +762,13 @@ def init_ds_ciftis_wf(
         "asl_cifti",
         "source_files",
         # Anatomical
+        "anat",
         "aslref2anat_xfm",
         # Template
         "anat2mni6_xfm",
         # Pre-computed goodvoxels mask. May be Undefined.
         "goodvoxels_mask",
-        #
+        # Other inputs
         "white",
         "pial",
         "midthickness",
@@ -838,6 +839,7 @@ def init_ds_ciftis_wf(
         workflow.connect([
             (inputnode, warp_cbf_to_anat, [
                 (cbf_deriv, "input_image"),
+                ("anat", "reference_image"),
                 ("aslref2anat_xfm", "transforms"),
             ]),
         ])  # fmt:skip
@@ -862,13 +864,16 @@ def init_ds_ciftis_wf(
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([
-            (inputnode, warp_cbf_to_MNI6, [(cbf_deriv, "input_image")]),
+            (inputnode, warp_cbf_to_MNI6, [
+                ("mni6_mask", "reference_image"),
+                (cbf_deriv, "input_image"),
+            ]),
             (aslref2MNI6, warp_cbf_to_MNI6, [("out", "transforms")]),
         ])  # fmt:skip
 
         # XXX: Need to add predefined "goodvoxels_mask" support.
         cbf_fsLR_resampling_wf = init_bold_fsLR_resampling_wf(
-            estimate_goodvoxels=False,  # may be done for ASL data. can be passed to here.
+            estimate_goodvoxels=False,  # already made from ASL data
             grayord_density=config.workflow.cifti_output,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             name=f"{cbf_deriv}_fsLR_resampling_wf",

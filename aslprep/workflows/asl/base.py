@@ -588,7 +588,12 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         ])  # fmt:skip
 
     if config.workflow.cifti_output:
-        asl_cifti_resample_wf = init_asl_cifti_resample_wf()
+        asl_cifti_resample_wf = init_asl_cifti_resample_wf(
+            metadata=metadata,
+            mem_gb=mem_gb["largemem"],
+            fieldmap_id=fieldmap_id,
+            omp_nthreads=omp_nthreads,
+        )
 
         workflow.connect([
             (inputnode, asl_cifti_resample_wf, [
@@ -629,6 +634,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf`
         ds_asl_cifti_wf.inputs.inputnode.source_files = [asl_file]
         workflow.connect([
             (inputnode, ds_asl_cifti_wf, [
+                ("t1w_preproc", "inputnode.anat"),
+                ("mni6_mask", "inputnode.mni6_mask"),
                 ("anat2mni6_xfm", "inputnode.anat2mni6_xfm"),
                 ("white", "inputnode.white"),
                 ("pial", "inputnode.pial"),
