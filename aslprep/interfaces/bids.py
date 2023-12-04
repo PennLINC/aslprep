@@ -173,10 +173,30 @@ class FunctionOverrideContext:
         self.original_function = None
 
     def __enter__(self):
-        # Override the original function with the new one
+        """Enter the context manager and perform the function override.
+
+        Returns
+        -------
+        FunctionOverrideContext
+            The instance of the context manager.
+        """
         self.original_function = getattr(self.module, self.function_name)
         setattr(self.module, self.function_name, self.new_function)
 
     def __exit__(self, exc_type, exc_value, traceback):  # noqa: U100
-        # Restore the original function
+        """Exit the context manager and restore the original function definition.
+
+        Parameters
+        ----------
+        exc_type : type
+            The type of the exception (if an exception occurred).
+        exc_value : Exception
+            The exception instance (if an exception occurred).
+        traceback : traceback
+            The traceback information (if an exception occurred).
+
+        Returns
+        -------
+        None
+        """
         setattr(self.module, self.function_name, self.original_function)
