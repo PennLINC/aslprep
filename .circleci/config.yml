@@ -38,7 +38,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: anatomical-v3
+          key: anatomical-v5
       - run: *runinstall
       - run:
           name: Get anatomical derivatives from box
@@ -46,16 +46,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data anatomical
       - save_cache:
-          key: anatomical-v3
+          key: anatomical-v5
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/anatomical
 
   download_pcasl_singlepld:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: examples_pcasl_singlepld-v3
+          key: examples_pcasl_singlepld-v5
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -63,16 +63,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data examples_pcasl_singlepld
       - save_cache:
-          key: examples_pcasl_singlepld-v3
+          key: examples_pcasl_singlepld-v5
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/examples_pcasl_singlepld
 
   download_pcasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: examples_pcasl_multipld-v3
+          key: examples_pcasl_multipld-v5
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -80,16 +80,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data examples_pcasl_multipld
       - save_cache:
-          key: examples_pcasl_multipld-v3
+          key: examples_pcasl_multipld-v5
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/examples_pcasl_multipld
 
   download_pasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: examples_pasl_multipld-v3
+          key: examples_pasl_multipld-v5
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -97,16 +97,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data examples_pasl_multipld
       - save_cache:
-          key: examples_pasl_multipld-v3
+          key: examples_pasl_multipld-v5
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/examples_pasl_multipld
 
   download_qtab:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: qtab-v3
+          key: qtab-v5
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -114,16 +114,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data qtab
       - save_cache:
-          key: qtab-v3
+          key: qtab-v5
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/qtab
 
   download_data_test_001:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: test_001-v3
+          key: test_001-v5
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -131,16 +131,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data test_001
       - save_cache:
-          key: test_001-v3
+          key: test_001-v5
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/test_001
 
   download_data_test_002:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: test_002-v4
+          key: test_002-v5
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -148,16 +148,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data test_002
       - save_cache:
-          key: test_002-v4
+          key: test_002-v5
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/test_002
 
   download_data_test_003:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: test_003-v3
+          key: test_003-v5
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -165,9 +165,9 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data test_003
       - save_cache:
-          key: test_003-v3
+          key: test_003-v5
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/test_003
 
   pcasl_singlepld_philips:
     <<: *dockersetup
@@ -182,7 +182,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v3
+          key: examples_pcasl_singlepld-v5
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_philips dataset
@@ -215,7 +215,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v3
+          key: examples_pcasl_singlepld-v5
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_siemens dataset
@@ -248,7 +248,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v3
+          key: examples_pcasl_singlepld-v5
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld dataset
@@ -279,7 +279,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_multipld-v3
+          key: examples_pcasl_multipld-v5
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_multipld dataset
@@ -312,7 +312,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pasl_multipld-v3
+          key: examples_pasl_multipld-v5
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pasl_multipld dataset
@@ -343,7 +343,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: qtab-v3
+          key: qtab-v5
       - run: *runinstall
       - run:
           name: Run full aslprep on qtab dataset
@@ -376,7 +376,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_001-v3
+          key: test_001-v5
       - run: *runinstall
       - run:
           name: Run full aslprep on test_001 dataset
@@ -409,7 +409,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_002-v4
+          key: test_002-v5
       - run: *runinstall
       - run:
           name: Run full aslprep on test_002 dataset
@@ -440,7 +440,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_003-v3
+          key: test_003-v5
       - run: *runinstall
       - run:
           name: Run minimal aslprep on test_003 dataset
@@ -473,7 +473,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_003-v3
+          key: test_003-v5
       - run: *runinstall
       - run:
           name: Run resampling aslprep on test_003 dataset
@@ -506,7 +506,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_003-v3
+          key: test_003-v5
       - run: *runinstall
       - run:
           name: Run full aslprep on test_003 dataset
@@ -539,9 +539,9 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_001-v3
+          key: test_001-v5
       - restore_cache:
-          key: test_003-v3
+          key: test_003-v5
       - run: *runinstall
       - run:
           name: Run pytest on the tests directory
