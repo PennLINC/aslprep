@@ -31,6 +31,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
+    download_test_data("anatomical", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -47,9 +48,9 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         "--basil",
         "--use-syn-sdc",
         "--m0_scale=10",
-        "--fs-no-reconall",
+        f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/derivatives/freesurfer')}",
         "--derivatives",
-        f"{os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"{os.path.join(data_dir, 'anatomical/derivatives/smriprep')}",
     ]
 
     _run_and_fail(parameters)
@@ -66,6 +67,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
+    download_test_data("anatomical", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -81,9 +83,9 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--m0_scale=10",
-        "--fs-no-reconall",
+        f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/derivatives/freesurfer')}",
         "--derivatives",
-        f"{os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"{os.path.join(data_dir, 'anatomical/derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -96,9 +98,10 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
     This test uses a GE session with two volumes: one deltam and one M0.
     """
     TEST_NAME = "examples_pcasl_singlepld_ge"
-    PARTICIPANT_LABEL = "103"
+    PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data("examples_pcasl_singlepld", data_dir)
+    download_test_data("anatomical", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
     test_data_dir = get_test_data_path()
@@ -117,9 +120,9 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--basil",
         "--m0_scale=96",
-        "--fs-no-reconall",
+        f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/derivatives/freesurfer')}",
         "--derivatives",
-        f"{os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"{os.path.join(data_dir, 'anatomical/derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -133,9 +136,10 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
     The appropriate M0 scale is unknown for this dataset, so CBF values will be inflated.
     """
     TEST_NAME = "examples_pcasl_singlepld_philips"
-    PARTICIPANT_LABEL = "103"
+    PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data("examples_pcasl_singlepld", data_dir)
+    download_test_data("anatomical", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
     test_data_dir = get_test_data_path()
@@ -155,9 +159,9 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
         "fsaverage:den-10k",
         "--scorescrub",
         "--basil",
-        "--fs-no-reconall",
+        f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/derivatives/freesurfer')}",
         "--derivatives",
-        f"{os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"{os.path.join(data_dir, 'anatomical/derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -170,9 +174,10 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
     This test uses a Siemens session.
     """
     TEST_NAME = "examples_pcasl_singlepld_siemens"
-    PARTICIPANT_LABEL = "103"
+    PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data("examples_pcasl_singlepld", data_dir)
+    download_test_data("anatomical", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
     test_data_dir = get_test_data_path()
@@ -191,24 +196,25 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         "MNI152NLin2009cAsym",
         "--basil",
         "--m0_scale=10",
-        "--fs-no-reconall",
+        f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/derivatives/freesurfer')}",
         "--derivatives",
-        f"{os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"{os.path.join(data_dir, 'anatomical/derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-@pytest.mark.test_001
-def test_test_001(data_dir, output_dir, working_dir):
-    """Run aslprep on sub-01 data.
+@pytest.mark.test_qtab
+def test_qtab(data_dir, output_dir, working_dir):
+    """Run aslprep on QTAB data.
 
     This dataset is Siemens.
     """
-    TEST_NAME = "test_001"
+    TEST_NAME = "qtab"
     PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
+    download_test_data("anatomical", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -227,9 +233,46 @@ def test_test_001(data_dir, output_dir, working_dir):
         "--scorescrub",
         "--use-syn-sdc",
         "--force-no-ge",
-        "--fs-no-reconall",
+        f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/derivatives/freesurfer')}",
         "--derivatives",
-        f"{os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"{os.path.join(data_dir, 'anatomical/derivatives/smriprep')}",
+    ]
+
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+
+
+@pytest.mark.test_001
+def test_test_001(data_dir, output_dir, working_dir):
+    """Run aslprep on sub-01 data.
+
+    This dataset is Siemens.
+    """
+    TEST_NAME = "test_001"
+    PARTICIPANT_LABEL = "01"
+
+    dataset_dir = download_test_data(TEST_NAME, data_dir)
+    download_test_data("anatomical", data_dir)
+    out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
+    work_dir = os.path.join(working_dir, TEST_NAME)
+
+    parameters = [
+        dataset_dir,
+        out_dir,
+        "participant",
+        f"--participant-label={PARTICIPANT_LABEL}",
+        f"-w={work_dir}",
+        "--nthreads=1",
+        "--omp-nthreads=1",
+        "--output-spaces",
+        "asl",
+        "T1w",
+        "MNI152NLin2009cAsym",
+        "--scorescrub",
+        "--use-syn-sdc",
+        "--force-no-ge",
+        f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/derivatives/freesurfer')}",
+        "--derivatives",
+        f"{os.path.join(data_dir, 'anatomical/derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -243,9 +286,10 @@ def test_test_002(data_dir, output_dir, working_dir):
     There are two ASL volumes (both deltam) and separate M0 scan.
     """
     TEST_NAME = "test_002"
-    PARTICIPANT_LABEL = "10R01383"
+    PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
+    download_test_data("anatomical", data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, "aslprep")
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -264,9 +308,9 @@ def test_test_002(data_dir, output_dir, working_dir):
         "--use-syn-sdc",
         "--m0_scale=96",
         "--force-ge",
-        "--fs-no-reconall",
+        f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/derivatives/freesurfer')}",
         "--derivatives",
-        f"{os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"{os.path.join(data_dir, 'anatomical/derivatives/smriprep')}",
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -297,9 +341,10 @@ def test_test_003(data_dir, output_dir, working_dir, level):
     This dataset is Siemens.
     """
     TEST_NAME = "test_003"
-    PARTICIPANT_LABEL = "A00086748"
+    PARTICIPANT_LABEL = "01"
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
+    download_test_data("anatomical", data_dir)
     level_test_name = f"{TEST_NAME}_{level}"
     out_dir = os.path.join(output_dir, level_test_name, "aslprep")
     work_dir = os.path.join(working_dir, level_test_name)
@@ -315,9 +360,9 @@ def test_test_003(data_dir, output_dir, working_dir, level):
         "--output-spaces=asl",
         "--use-syn-sdc",
         "--m0_scale=10",
-        "--fs-no-reconall",
+        f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/derivatives/freesurfer')}",
         "--derivatives",
-        f"{os.path.join(dataset_dir, 'derivatives/smriprep')}",
+        f"{os.path.join(data_dir, 'anatomical/derivatives/smriprep')}",
         f"--level={level}",
     ]
 
