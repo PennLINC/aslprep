@@ -308,8 +308,7 @@ def init_carpetplot_wf(
     suffix: str = "asl",
     name: str = "asl_carpet_wf",
 ):
-    """
-    Build a workflow to generate *carpet* plots.
+    """Build a workflow to generate *carpet* plots.
 
     Resamples the MNI parcellation (ad-hoc parcellation derived from the
     Harvard-Oxford template and others).
@@ -469,7 +468,7 @@ def init_cbf_confounds_wf(
             :simple_form: yes
 
             from aslprep.tests.tests import mock_config
-            from aslprep.workflows.asl.qc import init_cbf_confounds_wf
+            from aslprep.workflows.asl.confounds import init_cbf_confounds_wf
 
             with mock_config():
                 wf = init_cbf_confounds_wf(

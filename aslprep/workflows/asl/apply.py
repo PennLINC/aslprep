@@ -15,20 +15,23 @@ def init_asl_cifti_resample_wf(
     omp_nthreads: int = 1,
     name: str = "asl_cifti_resample_wf",
 ) -> pe.Workflow:
-    """Resample a BOLD series to a volumetric target space.
+    """Resample an ASL series to a CIFTI target space.
 
-    This workflow collates a sequence of transforms to resample a BOLD series
-    in a single shot, including motion correction and fieldmap correction, if
-    requested.
+    This workflow collates a sequence of transforms to resample an ASL series in a single shot,
+    including motion correction and fieldmap correction, if requested.
 
     .. workflow::
 
-        from fmriprep.workflows.bold.resampling import init_bold_volumetric_resample_wf
-        wf = init_bold_volumetric_resample_wf(
+        from aslprep.workflows.asl.apply import init_asl_cifti_resample_wf
+
+        wf = init_asl_cifti_resample_wf(
             metadata={
                 "RepetitionTime": 2.0,
                 "PhaseEncodingDirection": "j-",
                 "TotalReadoutTime": 0.03
+            },
+            mem_gb={
+                "resampled": 1,
             },
             fieldmap_id="my_fieldmap",
         )
@@ -37,6 +40,7 @@ def init_asl_cifti_resample_wf(
     ----------
     metadata
         BIDS metadata for BOLD file.
+    mem_gb
     fieldmap_id
         Fieldmap identifier, if fieldmap correction is to be applied.
     omp_nthreads
@@ -46,8 +50,8 @@ def init_asl_cifti_resample_wf(
 
     Inputs
     ------
-    bold_file
-        BOLD series to resample.
+    asl_file
+        ASL series to resample.
     bold_ref_file
         Reference image to which BOLD series is aligned.
     target_ref_file

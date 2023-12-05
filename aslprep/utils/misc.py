@@ -20,14 +20,6 @@ def check_deps(workflow):
     )
 
 
-def _get_vols_to_discard(img):
-    from nipype.algorithms.confounds import is_outlier
-
-    data_slice = img.dataobj[:, :, :, :50]
-    global_signal = data_slice.mean(axis=0).mean(axis=0).mean(axis=0)
-    return is_outlier(global_signal)
-
-
 def get_n_volumes(fname):
     """Get the number of volumes in a niimg file."""
     img = nb.load(fname)

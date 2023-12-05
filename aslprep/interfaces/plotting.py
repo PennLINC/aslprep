@@ -13,7 +13,7 @@ from nipype.interfaces.base import (
 from nipype.utils.filemanip import fname_presuffix
 from niworkflows.utils.timeseries import _cifti_timeseries, _nifti_timeseries
 
-from aslprep.utils.plotting import CBFPlot, CBFtsPlot, fMRIPlot
+from aslprep.utils.plotting import CBFPlot, fMRIPlot
 
 
 class _ASLCarpetPlotInputSpec(BaseInterfaceInputSpec):
@@ -162,42 +162,6 @@ class CBFSummaryPlot(SimpleInterface):
             vmax=self.inputs.vmax,
             outfile=self._results["out_file"],
         ).plot()
-        return runtime
-
-
-class _CBFtsSummaryInputSpec(BaseInterfaceInputSpec):
-    cbf_ts = File(exists=True, mandatory=True, desc=" cbf time series")
-    confounds_file = File(exists=True, mandatory=False, desc="confound file ")
-    score_outlier_index = File(exists=True, mandatory=False, desc="scorexindex file ")
-    seg_file = File(exists=True, mandatory=True, desc="seg_file")
-    tr = traits.Float(desc="TR", mandatory=True)
-
-
-class _CBFtsSummaryOutputSpec(TraitedSpec):
-    out_file = File(exists=True, desc="written file path")
-
-
-class CBFtsSummary(SimpleInterface):
-    """Prepare an CBF summary plot for the report."""
-
-    input_spec = _CBFtsSummaryInputSpec
-    output_spec = _CBFtsSummaryOutputSpec
-
-    def _run_interface(self, runtime):
-        self._results["out_file"] = fname_presuffix(
-            self.inputs.cbf_ts,
-            suffix="_cbfcarpetplot.svg",
-            use_ext=False,
-            newpath=runtime.cwd,
-        )
-        fig = CBFtsPlot(
-            cbf_file=self.inputs.cbf_ts,
-            seg_file=self.inputs.seg_file,
-            score_outlier_index=self.inputs.score_outlier_index,
-            tr=self.inputs.tr,
-        ).plot()
-        fig.savefig(self._results["out_file"], bbox_inches="tight")
-        fig.clf()
         return runtime
 
 

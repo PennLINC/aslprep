@@ -23,6 +23,7 @@ Internal configuration system
    :template: function.rst
 
    aslprep.workflows.base
+   aslprep.workflows.asl.apply
    aslprep.workflows.asl.base
    aslprep.workflows.asl.cbf
    aslprep.workflows.asl.confounds
@@ -30,7 +31,6 @@ Internal configuration system
    aslprep.workflows.asl.hmc
    aslprep.workflows.asl.outputs
    aslprep.workflows.asl.plotting
-   aslprep.workflows.asl.qc
    aslprep.workflows.asl.reference
    aslprep.workflows.asl.util
 
@@ -55,7 +55,6 @@ Internal configuration system
    aslprep.interfaces.confounds
    aslprep.interfaces.parcellation
    aslprep.interfaces.plotting
-   aslprep.interfaces.qc
    aslprep.interfaces.reference
    aslprep.interfaces.reports
    aslprep.interfaces.utility
@@ -82,6 +81,5 @@ Internal configuration system
    aslprep.utils.confounds
    aslprep.utils.misc
    aslprep.utils.plotting
-   aslprep.utils.qc
    aslprep.utils.sentry
    aslprep.utils.spaces
