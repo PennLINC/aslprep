@@ -190,61 +190,61 @@ sections:
       cerebellum (green), white matter and CSF (red), indicated by the color map on the left-hand side.
       The SCORE index with values greater than zero indicates which volume(s) are removed by SCORE.
     subtitle: CBF Summary
-  - bids: {datatype: figures, desc: cbfplot, suffix: asl}
+  - bids: {datatype: figures, desc: cbf, suffix: cbf}
     caption: |
       The maps plot cerebral blood flow (CBF) for basic CBF.
       The unit is mL/100 g/min.
-    subtitle: CBF maps
-  - bids: {datatype: figures, desc: cbfByTissueType, suffix: asl}
+    subtitle: CBF
+  - bids: {datatype: figures, desc: cbfByTissueType, suffix: cbf}
     caption: |
       The maps plot the distribution of cerebral blood flow (CBF) values for the basic output,
       separated by tissue type.
       The unit is mL/100 g/min.
     subtitle: Mean CBF by Tissue Type
-  - bids: {datatype: figures, desc: scoreplot, suffix: asl}
+  - bids: {datatype: figures, desc: score, suffix: cbf}
     caption: |
       The maps plot cerebral blood flow (CBF) for SCORE-corrected CBF.
-      The unit is mL/100 g/min
-    subtitle: SCORE CBF maps
-  - bids: {datatype: figures, desc: scoreByTissueType, suffix: asl}
+      The unit is mL/100 g/min.
+    subtitle: SCORE CBF
+  - bids: {datatype: figures, desc: scoreByTissueType, suffix: cbf}
     caption: |
       The maps plot the distribution of cerebral blood flow (CBF) values for the SCORE output,
       separated by tissue type.
       The unit is mL/100 g/min.
     subtitle: SCORE CBF by Tissue Type
-  - bids: {datatype: figures, desc: scrubplot, suffix: asl}
+  - bids: {datatype: figures, desc: scrub, suffix: cbf}
     caption: |
       The maps plot cerebral blood flow (CBF) for SCRUB-corrected CBF.
       The unit is mL/100 g/min.
-    subtitle: SCRUB CBF maps
-  - bids: {datatype: figures, desc: scrubByTissueType, suffix: asl}
+    subtitle: SCRUB CBF
+  - bids: {datatype: figures, desc: scrubByTissueType, suffix: cbf}
     caption: |
       The maps plot the distribution of cerebral blood flow (CBF) values for the SCRUB output,
       separated by tissue type.
       The unit is mL/100 g/min.
     subtitle: SCRUB CBF by Tissue Type
-  - bids: {datatype: figures, desc: basilplot, suffix: asl}
+  - bids: {datatype: figures, desc: basil, suffix: cbf}
     caption: |
       The maps plot cerebral blood flow (CBF) for BASIL-estimated CBF.
       The unit is mL/100 g/min.
-    subtitle: BASIL CBF maps
-  - bids: {datatype: figures, desc: basilByTissueType, suffix: asl}
+    subtitle: BASIL CBF
+  - bids: {datatype: figures, desc: basilByTissueType, suffix: cbf}
     caption: |
       The maps plot the distribution of cerebral blood flow (CBF) values for the BASIL output,
       separated by tissue type.
       The unit is mL/100 g/min.
     subtitle: BASIL CBF by Tissue Type
-  - bids: {datatype: figures, desc: pvcplot, suffix: asl}
+  - bids: {datatype: figures, desc: basilGM, suffix: cbf}
     caption: |
-      The maps plot cerebral blood flow (CBF) for partial volume-corrected CBF.
-      The unit is mL/100 g/min
-    subtitle: PVC CBF maps
-  - bids: {datatype: figures, desc: pvcByTissueType, suffix: asl}
+      The maps plot cerebral blood flow (CBF) for gray matter partial volume-corrected CBF.
+      The unit is mL/100 g/min.
+    subtitle: BASIL GM-PVC CBF
+  - bids: {datatype: figures, desc: basilGMByTissueType, suffix: cbf}
     caption: |
       The maps plot the distribution of cerebral blood flow (CBF) values for the
-      BASIL partial volume-corrected output, separated by tissue type.
+      BASIL gray matter partial volume-corrected output, separated by tissue type.
       The unit is mL/100 g/min.
-    subtitle: PVC CBF by Tissue Type
+    subtitle: BASIL GM-PVC CBF by Tissue Type
 
 - name: About
   reportlets:
