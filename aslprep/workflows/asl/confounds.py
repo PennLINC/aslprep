@@ -455,7 +455,6 @@ def init_carpetplot_wf(
 
 
 def init_cbf_confounds_wf(
-    is_ge,
     scorescrub=False,
     basil=False,
     name="cbf_confounds_wf",
@@ -472,7 +471,6 @@ def init_cbf_confounds_wf(
 
             with mock_config():
                 wf = init_cbf_confounds_wf(
-                    is_ge=False,
                     scorescrub=True,
                     basil=True,
                     name="cbf_confounds_wf",
@@ -480,7 +478,6 @@ def init_cbf_confounds_wf(
 
     Parameters
     ----------
-    is_ge : bool
     scorescrub : bool
     basil : bool
     name : :obj:`str`
@@ -670,6 +667,8 @@ negative CBF values.
             ("name_source", "name_source"),
             ("asl_mask", "asl_mask"),
             ("mean_cbf", "mean_cbf"),
+            ("confounds_file", "confounds_file"),
+            ("rmsd_file", "rmsd_file"),
         ]),
         (warp_asl_mask_to_mni152nlin2009casym, compute_qc_metrics, [
             ("output_image", "asl_mask_std"),
@@ -713,15 +712,6 @@ negative CBF values.
         (inputnode, ds_qc_metadata, [("name_source", "source_file")]),
         (compute_qc_metrics, ds_qc_metadata, [("qc_metadata", "in_file")]),
     ])  # fmt:skip
-
-    if not is_ge:
-        # The QC node only expects a confounds file and RMSD file for non-GE data.
-        workflow.connect([
-            (inputnode, compute_qc_metrics, [
-                ("confounds_file", "confounds_file"),
-                ("rmsd_file", "rmsd_file"),
-            ]),
-        ])  # fmt:skip
 
     if scorescrub:
         workflow.connect([
