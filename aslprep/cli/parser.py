@@ -312,7 +312,11 @@ any spatial references.""",
         action="store",
         default=None,
         type=int,
-        help="Number of nonsteady-state volumes. Overrides automatic detection.",
+        help=(
+            "Number of non-steady-state volumes. "
+            "Note that this indicates the number of volumes, not the number of control-label "
+            "pairs in the ASL file."
+        ),
     )
     g_conf.add_argument(
         "--random-seed",

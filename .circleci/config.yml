@@ -38,7 +38,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: anatomical-v6
+          key: anatomical-v7
       - run: *runinstall
       - run:
           name: Get anatomical derivatives from box
@@ -46,7 +46,7 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data anatomical
       - save_cache:
-          key: anatomical-v6
+          key: anatomical-v7
           paths:
               - /src/aslprep/.circleci/data/anatomical
 
