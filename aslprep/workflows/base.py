@@ -654,6 +654,19 @@ tasks and sessions), the following preprocessing was performed.
                 ]),
             ])  # fmt:skip
 
+        if config.workflow.level in ["resampling", "full"]:
+            # In fMRIPrep, this transform is only needed for the full workflow, but in ASLPrep
+            # we need it for the resampling workflow, for the CBF carpet plot
+            if select_MNI2009c_xfm is not None:
+                workflow.connect([
+                    (select_MNI2009c_xfm, asl_wf, [
+                        ("std2anat_xfm", "inputnode.mni2009c2anat_xfm"),
+                    ]),
+                    (select_MNI2009c_xfm_fw, asl_wf, [
+                        ("anat2std_xfm", "inputnode.anat2mni2009c_xfm"),
+                    ]),
+                ])  # fmt:skip
+
         if config.workflow.level == "full":
             if template_iterator_wf is not None:
                 workflow.connect([
@@ -664,16 +677,6 @@ tasks and sessions), the following preprocessing was performed.
                         ("outputnode.cohort", "inputnode.std_cohort"),
                         ("outputnode.std_t1w", "inputnode.std_t1w"),
                         ("outputnode.std_mask", "inputnode.std_mask"),
-                    ]),
-                ])  # fmt:skip
-
-            if select_MNI2009c_xfm is not None:
-                workflow.connect([
-                    (select_MNI2009c_xfm, asl_wf, [
-                        ("std2anat_xfm", "inputnode.mni2009c2anat_xfm"),
-                    ]),
-                    (select_MNI2009c_xfm_fw, asl_wf, [
-                        ("anat2std_xfm", "inputnode.anat2mni2009c_xfm"),
                     ]),
                 ])  # fmt:skip
 
