@@ -15,12 +15,10 @@ from nipype.interfaces.base import (
     isdefined,
     traits,
 )
-from nipype.interfaces.fsl import MultiImageMaths
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
-from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.utils.asl import (
     determine_multi_pld,
     estimate_labeling_efficiency,
@@ -887,33 +885,3 @@ class BASILCBF(FSLCommand):
         )
 
         return outputs
-
-
-def refine_ref_mask(t1w_mask, ref_asl_mask, aslref2anat_xfm, tmp_mask, refined_mask):
-    """Warp T1w mask to ASL space, then use it to mask the ASL mask.
-
-    TODO: This should not be a function. It uses interfaces, so it should be a workflow.
-    """
-    warp_t1w_mask_to_asl = ApplyTransforms(
-        dimension=3,
-        float=True,
-        input_image=t1w_mask,
-        interpolation="NearestNeighbor",
-        reference_image=ref_asl_mask,
-        transforms=[aslref2anat_xfm],
-        invert_transform_flags=[True],
-        input_image_type=3,
-        output_image=tmp_mask,
-        args="-v",
-    )
-    results = warp_t1w_mask_to_asl.run()
-
-    modify_asl_mask = MultiImageMaths(
-        in_file=results.outputs.output_image,
-        op_string="-mul %s -bin",
-        operand_files=ref_asl_mask,
-        out_file=refined_mask,
-    )
-    results = modify_asl_mask.run()
-
-    return results.outputs.out_file
