@@ -287,7 +287,7 @@ def test_test_001(data_dir, output_dir, working_dir):
 
 @pytest.mark.test_002
 def test_test_002(data_dir, output_dir, working_dir):
-    """Run aslprep on sub-10R01383.
+    """Run aslprep on sub-01.
 
     This dataset contains PCASL data from a GE scanner.
     There are two ASL volumes (both deltam) and separate M0 scan.
@@ -344,7 +344,7 @@ def test_test_003_full(data_dir, output_dir, working_dir):
 
 @pytest.mark.test_003
 def test_test_003(data_dir, output_dir, working_dir, level):
-    """Run aslprep on sub-A00086748.
+    """Run aslprep on sub-01.
 
     This dataset is Siemens.
     """
