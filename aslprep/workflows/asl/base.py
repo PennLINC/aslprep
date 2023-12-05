@@ -16,7 +16,11 @@ from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name, get_n_volumes
 from aslprep.workflows.asl.apply import init_asl_cifti_resample_wf
 from aslprep.workflows.asl.cbf import init_cbf_wf, init_parcellate_cbf_wf
-from aslprep.workflows.asl.confounds import init_asl_confounds_wf, init_carpetplot_wf
+from aslprep.workflows.asl.confounds import (
+    init_asl_confounds_wf,
+    init_carpetplot_wf,
+    init_cbf_confounds_wf,
+)
 from aslprep.workflows.asl.fit import init_asl_fit_wf, init_asl_native_wf
 from aslprep.workflows.asl.outputs import (
     init_ds_asl_native_wf,
@@ -24,7 +28,6 @@ from aslprep.workflows.asl.outputs import (
     init_ds_volumes_wf,
 )
 from aslprep.workflows.asl.plotting import init_cbf_reporting_wf
-from aslprep.workflows.asl.qc import init_cbf_qc_wf
 
 
 def init_asl_wf(
@@ -453,29 +456,31 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     ])  # fmt:skip
 
     # Generate QC metrics
-    cbf_qc_wf = init_cbf_qc_wf(
+    cbf_confounds_wf = init_cbf_confounds_wf(
         is_ge=False,
         scorescrub=scorescrub,
         basil=basil,
-        name="cbf_qc_wf",
+        name="cbf_confounds_wf",
     )
     workflow.connect([
-        (inputnode, cbf_qc_wf, [
+        (inputnode, cbf_confounds_wf, [
             ("asl_file", "inputnode.name_source"),
             ("t1w_tpms", "inputnode.t1w_tpms"),
             ("t1w_mask", "inputnode.t1w_mask"),
             ("anat2mni2009c_xfm", "inputnode.anat2mni2009c_xfm"),
         ]),
-        (asl_fit_wf, cbf_qc_wf, [
+        (asl_fit_wf, cbf_confounds_wf, [
             ("outputnode.asl_mask", "inputnode.asl_mask"),
             ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
             ("outputnode.rmsd_file", "inputnode.rmsd_file"),
         ]),
-        (asl_confounds_wf, cbf_qc_wf, [("outputnode.confounds_file", "inputnode.confounds_file")]),
+        (asl_confounds_wf, cbf_confounds_wf, [
+            ("outputnode.confounds_file", "inputnode.confounds_file"),
+        ]),
     ])  # fmt:skip
     for cbf_deriv in cbf_3d_derivs:
         workflow.connect([
-            (cbf_wf, cbf_qc_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
+            (cbf_wf, cbf_confounds_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
         ])  # fmt:skip
 
     # Plot CBF outputs.
@@ -498,7 +503,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (cbf_wf, cbf_reporting_wf, [
             ("outputnode.score_outlier_index", "inputnode.score_outlier_index"),
         ]),
-        (cbf_qc_wf, cbf_reporting_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
+        (cbf_confounds_wf, cbf_reporting_wf, [("outputnode.qc_file", "inputnode.qc_file")]),
         (asl_fit_wf, cbf_reporting_wf, [
             ("outputnode.coreg_aslref", "inputnode.aslref"),
             ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),

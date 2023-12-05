@@ -607,7 +607,7 @@ The CBF map shown below is the result of partial volume corrected CBF computed b
 Quality control measures
 ************************
 
-:py:func:`~aslprep.workflows.asl.qc.init_cbf_qc_wf`
+:py:func:`~aslprep.workflows.asl.confounds.init_cbf_confounds_wf`
 
 .. workflow::
    :graph2use: orig
@@ -616,13 +616,13 @@ Quality control measures
    from pathlib import Path
    from pkg_resources import resource_filename as pkgrf
 
-   from aslprep.workflows.asl.qc import init_cbf_qc_wf
+   from aslprep.workflows.asl.qc import init_cbf_confounds_wf
 
    bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
    asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
 
-   wf = init_cbf_qc_wf(is_ge=False)
+   wf = init_cbf_confounds_wf(is_ge=False)
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index,
 and quality evaluation index (QEI) are included for all CBF maps.
