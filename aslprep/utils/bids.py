@@ -191,14 +191,14 @@ def write_derivative_description(bids_dir, deriv_dir):
     deriv_dir = Path(deriv_dir)
     desc = {
         "Name": "ASLPrep - ASL PREProcessing workflow",
-        "BIDSVersion": "1.1.1",
+        "BIDSVersion": "1.9.0",
         "PipelineDescription": {
             "Name": "ASLPrep",
             "Version": __version__,
             "CodeURL": DOWNLOAD_URL,
         },
         "CodeURL": __url__,
-        "HowToAcknowledge": "Please cite our paper coming :), "
+        "HowToAcknowledge": "Please cite our paper "
         "and include the generated citation boilerplate within the Methods "
         "section of the text.",
     }
@@ -356,39 +356,3 @@ def find_atlas_entities(filename):
     out += [suffix, extension]
 
     return tuple(out)
-
-
-def extract_entities(file_list):
-    """Return a dictionary of common entities given a list of files.
-
-    TODO: Replace with fMRIPrep import once next is merged and released.
-
-    Examples
-    --------
-    >>> extract_entities("sub-01/anat/sub-01_T1w.nii.gz")
-    {'subject': '01', 'suffix': 'T1w', 'datatype': 'anat', 'extension': '.nii.gz'}
-    >>> extract_entities(["sub-01/anat/sub-01_T1w.nii.gz"] * 2)
-    {'subject': '01', 'suffix': 'T1w', 'datatype': 'anat', 'extension': '.nii.gz'}
-    >>> extract_entities(["sub-01/anat/sub-01_run-1_T1w.nii.gz",
-    ...                   "sub-01/anat/sub-01_run-2_T1w.nii.gz"])
-    {'subject': '01', 'run': [1, 2], 'suffix': 'T1w', 'datatype': 'anat', 'extension': '.nii.gz'}
-
-    """
-    from collections import defaultdict
-
-    from bids.layout import parse_file_entities
-    from niworkflows.utils.connections import listify
-
-    entities = defaultdict(list)
-    for e, v in [
-        ev_pair for f in listify(file_list) for ev_pair in parse_file_entities(f).items()
-    ]:
-        entities[e].append(v)
-
-    def _unique(inlist):
-        inlist = sorted(set(inlist))
-        if len(inlist) == 1:
-            return inlist[0]
-        return inlist
-
-    return {k: _unique(v) for k, v in entities.items()}
