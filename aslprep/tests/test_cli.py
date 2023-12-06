@@ -326,23 +326,45 @@ def test_test_002(data_dir, output_dir, working_dir):
 @pytest.mark.test_003_minimal
 def test_test_003_minimal(data_dir, output_dir, working_dir):
     """Run ASLPrep minimal workflow on test_003 dataset."""
-    test_test_003(data_dir, output_dir, working_dir, level="minimal")
+    test_test_003(
+        data_dir,
+        output_dir,
+        working_dir,
+        level="minimal",
+        extra_params=["--fs-no-reconall"],
+    )
 
 
 @pytest.mark.test_003_resampling
 def test_test_003_resampling(data_dir, output_dir, working_dir):
     """Run ASLPrep resampling workflow on test_003 dataset."""
-    test_test_003(data_dir, output_dir, working_dir, level="resampling")
+    test_test_003(
+        data_dir,
+        output_dir,
+        working_dir,
+        level="resampling",
+        extra_params=["--fs-no-reconall"],
+    )
 
 
 @pytest.mark.test_003_full
 def test_test_003_full(data_dir, output_dir, working_dir):
     """Run ASLPrep full workflow on test_003 dataset."""
-    test_test_003(data_dir, output_dir, working_dir, level="full")
+    test_test_003(
+        data_dir,
+        output_dir,
+        working_dir,
+        level="full",
+        extra_params=[
+            "--project-goodvoxels",
+            "--cifti-output",
+            "91k",
+        ],
+    )
 
 
 @pytest.mark.test_003
-def test_test_003(data_dir, output_dir, working_dir, level):
+def test_test_003(data_dir, output_dir, working_dir, level, extra_params):
     """Run aslprep on sub-01.
 
     This dataset is Siemens.
@@ -366,9 +388,6 @@ def test_test_003(data_dir, output_dir, working_dir, level):
         "--omp-nthreads=1",
         "--output-spaces",
         "asl",
-        "--project-goodvoxels",
-        "--cifti-output",
-        "91k",
         "--use-syn-sdc",
         "--m0_scale=10",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
@@ -376,6 +395,7 @@ def test_test_003(data_dir, output_dir, working_dir, level):
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
         f"--level={level}",
     ]
+    parameters += extra_params
 
     _run_and_generate(level_test_name, PARTICIPANT_LABEL, parameters, out_dir)
 
