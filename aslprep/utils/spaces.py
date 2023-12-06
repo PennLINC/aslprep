@@ -1,3 +1,25 @@
+# emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
+# vi: set ft=python sts=4 ts=4 sw=4 et:
+#
+# Copyright 2021 The NiPreps Developers <nipreps@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# We support and encourage derived works from this project, please read
+# about our expectations at
+#
+#     https://www.nipreps.org/community/licensing/
+#
 """Utilities for tracking and filtering spaces."""
 import argparse
 from collections import defaultdict
@@ -9,11 +31,14 @@ from templateflow import api as _tfapi
 NONSTANDARD_REFERENCES = [
     "T1w",
     "T2w",
-    "asl",
     "anat",
+    "fsnative",
+    "asl",
     "run",
     "sbref",
     "session",
+    "individual",
+    "dwi",
 ]
 """List of supported nonstandard reference spaces."""
 
@@ -33,8 +58,7 @@ FSAVERAGE_LEGACY = {v: k for k, v in FSAVERAGE_DENSITY.items()}
 
 @attr.s(slots=True, frozen=True)
 class Reference:
-    """
-    Represent a (non)standard space specification.
+    """Represent a (non)standard space specification.
 
     Examples
     --------
@@ -57,29 +81,28 @@ class Reference:
     Reference(space='func', spec={})
 
     >>> # Checks spaces with cohorts:
-    >>> Reference('MNIPediatricAsym')
+    >>> Reference('MNIPediatricAsym')  # doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     ValueError: standard space "MNIPediatricAsym" is not fully defined.
     ...
 
-    >>> Reference(space='MNI152Lin', spec={'cohort': 1})
+    >>> Reference(space='MNI152Lin', spec={'cohort': 1})  # doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     ValueError: standard space "MNI152Lin" does not accept ...
 
-    >>> Reference('MNIPediatricAsym', {'cohort': '100'})
+    >>> Reference('MNIPediatricAsym', {'cohort': '100'})  # doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     ValueError: standard space "MNIPediatricAsym" does not contain ...
-    ...
 
-    >>> Reference('MNIPediatricAsym', 'blah')
+    >>> Reference('MNIPediatricAsym', 'blah')  # doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     TypeError: ...
 
-    >>> Reference('shouldraise')
+    >>> Reference('shouldraise')  # doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     ValueError: space identifier "shouldraise" is invalid.
@@ -242,6 +265,11 @@ class Reference:
         """
         Parse a string to generate the corresponding list of References.
 
+        .. testsetup::
+
+            >>> if PY_VERSION < (3, 6):
+            ...     pytest.skip("This doctest does not work on python <3.6")
+
         Parameters
         ----------
         value: :obj:`str`
@@ -276,19 +304,25 @@ class Reference:
         >>> Reference.from_string("MNIPediatricAsym:cohort-1")
         [Reference(space='MNIPediatricAsym', spec={'cohort': '1'})]
 
-        >>> Reference.from_string("MNIPediatricAsym:cohort-1:cohort-2")
+        >>> Reference.from_string(
+        ...     "MNIPediatricAsym:cohort-1:cohort-2"
+        ... )  # doctest: +NORMALIZE_WHITESPACE
         [Reference(space='MNIPediatricAsym', spec={'cohort': '1'}),
          Reference(space='MNIPediatricAsym', spec={'cohort': '2'})]
 
-        >>> Reference.from_string("fsaverage:den-10k:den-164k")
+        >>> Reference.from_string("fsaverage:den-10k:den-164k")  # doctest: +NORMALIZE_WHITESPACE
         [Reference(space='fsaverage', spec={'den': '10k'}),
          Reference(space='fsaverage', spec={'den': '164k'})]
 
-        >>> Reference.from_string("MNIPediatricAsym:cohort-5:cohort-6:res-2")
+        >>> Reference.from_string(
+        ...     "MNIPediatricAsym:cohort-5:cohort-6:res-2"
+        ... )  # doctest: +NORMALIZE_WHITESPACE
         [Reference(space='MNIPediatricAsym', spec={'cohort': '5', 'res': '2'}),
          Reference(space='MNIPediatricAsym', spec={'cohort': '6', 'res': '2'})]
 
-        >>> Reference.from_string("MNIPediatricAsym:cohort-5:cohort-6:res-2:res-iso1.6mm")
+        >>> Reference.from_string(
+        ...     "MNIPediatricAsym:cohort-5:cohort-6:res-2:res-iso1.6mm"
+        ... )  # doctest: +NORMALIZE_WHITESPACE
         [Reference(space='MNIPediatricAsym', spec={'cohort': '5', 'res': '2'}),
          Reference(space='MNIPediatricAsym', spec={'cohort': '5', 'res': 'iso1.6mm'}),
          Reference(space='MNIPediatricAsym', spec={'cohort': '6', 'res': '2'}),
@@ -338,7 +372,7 @@ class SpatialReferences:
     >>> sp.get_fs_spaces()
     ['fsnative', 'fsaverage5', 'fsaverage6']
 
-    >>> sp.get_standard(full_spec=True)
+    >>> sp.get_standard(full_spec=True)  # doctest: +NORMALIZE_WHITESPACE
     [Reference(space='fsaverage', spec={'den': '10k'}),
      Reference(space='fsaverage', spec={'den': '41k'}),
      Reference(space='MNI152NLin2009cAsym', spec={'res': 2}),
@@ -346,7 +380,7 @@ class SpatialReferences:
 
     >>> sp.is_cached()
     False
-    >>> sp.cached
+    >>> sp.cached  # doctest: +ELLIPSIS
     Traceback (most recent call last):
      ...
     ValueError: References have not ...
@@ -354,7 +388,7 @@ class SpatialReferences:
     >>> sp.checkpoint()
     >>> sp.is_cached()
     True
-    >>> sp.cached.references
+    >>> sp.cached.references  # doctest: +NORMALIZE_WHITESPACE
     [Reference(space='func', spec={}),
      Reference(space='fsnative', spec={}),
      Reference(space='MNI152NLin2009cAsym', spec={}),
@@ -372,7 +406,7 @@ class SpatialReferences:
     >>> sp.get_spaces(nonstandard=False, dim=(3,))
     ['MNI152NLin2009cAsym', 'MNIPediatricAsym:cohort-2']
 
-    >>> sp += [('MNIPediatricAsym', {'cohort': '2'})]
+    >>> sp += [('MNIPediatricAsym', {'cohort': '2'})]  # doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     ValueError: space ...
@@ -382,24 +416,24 @@ class SpatialReferences:
     ['MNI152NLin2009cAsym', 'MNIPediatricAsym:cohort-2', 'MNIPediatricAsym:cohort-1']
 
     >>> sp.insert(0, ('MNIPediatricAsym', {'cohort': '3'}))
-    >>> sp.get_spaces(nonstandard=False, dim=(3,))
+    >>> sp.get_spaces(nonstandard=False, dim=(3,))  # doctest: +NORMALIZE_WHITESPACE
     ['MNIPediatricAsym:cohort-3',
      'MNI152NLin2009cAsym',
      'MNIPediatricAsym:cohort-2',
      'MNIPediatricAsym:cohort-1']
 
-    >>> sp.insert(0, ('MNIPediatricAsym', {'cohort': '3'}))
+    >>> sp.insert(0, ('MNIPediatricAsym', {'cohort': '3'}))  # doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
     ValueError: space ...
 
-    >>> sp.checkpoint()
+    >>> sp.checkpoint()  # doctest: +ELLIPSIS
     Traceback (most recent call last):
      ...
     ValueError: References have already ...
 
     >>> sp.checkpoint(force=True)
-    >>> sp.cached.references
+    >>> sp.cached.references  # doctest: +NORMALIZE_WHITESPACE
     [Reference(space='MNIPediatricAsym', spec={'cohort': '3'}),
      Reference(space='func', spec={}),
      Reference(space='fsnative', spec={}),
@@ -687,62 +721,22 @@ def hasspec(value, specs):
     return False
 
 
-def format_reference(in_tuple):
-    """
-    Format a spatial reference given as a tuple.
-
-    Examples
-    --------
-    >>> format_reference(('MNI152Lin', {'res': 1}))
-    'MNI152Lin_res-1'
-    >>> format_reference(('MNIPediatricAsym:cohort-2', {'res': 2}))
-    'MNIPediatricAsym_cohort-2_res-2'
-
-    """
-    out = in_tuple[0].split(":")
-    res = in_tuple[1].get("res", None) or in_tuple[1].get("resolution", None)
-    if res:
-        out.append("-".join(("res", str(res))))
-    return "_".join(out)
-
-
-def reference2dict(in_tuple):
-    """
-    Split a spatial reference given as a tuple into a dictionary.
-
-    Examples
-    --------
-    >>> reference2dict(('MNIPediatricAsym:cohort-2', {'res': 2}))
-    {'space': 'MNIPediatricAsym', 'cohort': '2', 'resolution': '2'}
-
-    >>> reference2dict(('MNIPediatricAsym:cohort-2', {'res': 2, 'resolution': 1}))
-    {'space': 'MNIPediatricAsym', 'cohort': '2', 'resolution': '1'}
-
-    >>> reference2dict(('MNIPediatricAsym:cohort-2', {'res': 2, 'den': '91k'}))
-    {'space': 'MNIPediatricAsym', 'cohort': '2', 'resolution': '2', 'density': '91k'}
-
-    """
-    tpl_entities = ("space", "cohort")
-    retval = {tpl_entities[i]: v.split("-")[i] for i, v in enumerate(in_tuple[0].split(":"))}
-    retval.update(
-        {
-            "resolution" if k == "res" else "density" if k == "den" else k: f"{v}"
-            for k, v in in_tuple[1].items()
-        }
-    )
-    return retval
-
-
 def _expand_entities(entities):
     """
     Generate multiple replacement queries based on all combinations of values.
 
     Ported from PyBIDS
 
+
+    .. testsetup::
+
+        >>> if PY_VERSION < (3, 6):
+        ...     pytest.skip("This doctest does not work on python <3.6")
+
     Examples
     --------
     >>> entities = {'subject': ['01', '02'], 'session': ['1', '2'], 'task': ['rest', 'finger']}
-    >>> _expand_entities(entities)
+    >>> _expand_entities(entities)  # doctest: +NORMALIZE_WHITESPACE
     [{'subject': '01', 'session': '1', 'task': 'rest'},
      {'subject': '01', 'session': '1', 'task': 'finger'},
      {'subject': '01', 'session': '2', 'task': 'rest'},

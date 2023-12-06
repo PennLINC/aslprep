@@ -1,558 +1,444 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
-"""Workflows for resampling data."""
+#
+# Copyright 2023 The NiPreps Developers <nipreps@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# We support and encourage derived works from this project, please read
+# about our expectations at
+#
+#     https://www.nipreps.org/community/licensing/
+#
+"""Resampling workflows for ASLPrep.
+
+TODO: Remove once fMRIPrep releases 23.2.0.
+"""
+from __future__ import annotations
+
+import typing as ty
+
+from fmriprep.interfaces.workbench import MetricDilate, MetricMask, MetricResample
+from nipype.interfaces import freesurfer as fs
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.itk import MultiApplyTransforms
-from niworkflows.interfaces.nibabel import GenerateSamplingReference
-from niworkflows.interfaces.nilearn import Merge
-from niworkflows.interfaces.utility import KeySelect
-from niworkflows.utils.spaces import format_reference
+from niworkflows.interfaces.freesurfer import MedialNaNs
 
-from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.interfaces.fsl import Split
-from aslprep.utils.misc import (
-    _aslist,
-    _is_native,
-    _select_first_in_list,
-    _select_template,
-    _split_spec,
-)
-from aslprep.workflows.asl.util import init_asl_reference_wf
+from aslprep import config
+from aslprep.interfaces.bids import DerivativesDataSink
 
 
-def init_asl_std_trans_wf(
-    mem_gb,
-    omp_nthreads,
-    spaces,
-    is_multi_pld=False,
-    scorescrub=False,
-    basil=False,
-    generate_reference=True,
-    use_compression=True,
-    name="asl_std_trans_wf",
+def init_asl_surf_wf(
+    *,
+    mem_gb: float,
+    surface_spaces: ty.List[str],
+    medial_surface_nan: bool,
+    metadata: dict,  # noqa: U100
+    output_dir: str,
+    name: str = "asl_surf_wf",
 ):
-    """Sample ASL into standard space with a single-step resampling of the original ASL series.
+    """Sample functional images to FreeSurfer surfaces.
 
-    .. important::
-        This workflow provides two outputnodes.
-        One output node (with name ``poutputnode``) will be parameterized in a Nipype sense
-        (see `Nipype iterables
-        <https://miykael.github.io/nipype_tutorial/notebooks/basic_iteration.html>`__), and a
-        second node (``outputnode``) will collapse the parameterized outputs into synchronous
-        lists of the output fields listed below.
+    For each vertex, the cortical ribbon is sampled at six points (spaced 20% of thickness apart)
+    and averaged.
+
+    Outputs are in GIFTI format.
+
+    The two main changes for ASLPrep are: prepare_timing_parameters is dropped and
+    DerivativesDataSink is imported outside the function.
+    The former is because prepare_timing_parameters relies on *fMRIPrep's* config,
+    which will be uninitialized when called by ASLPrep.
+    ASLPrep can work around this with a context manager though.
+    The latter is because, when DerivativesDataSink is imported within the function,
+    ASLPrep can't use a context manager to override it with its own version.
+    TODO: Replace with fMRIPrep workflow once DerivativesDataSink import is moved out.
 
     Workflow Graph
         .. workflow::
             :graph2use: colored
             :simple_form: yes
 
-            from aslprep.utils.spaces import SpatialReferences
-            from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
+            from aslprep.workflows.asl.resampling import init_asl_surf_wf
 
-            wf = init_asl_std_trans_wf(
-                mem_gb=3,
-                omp_nthreads=1,
-                spaces=SpatialReferences(
-                    spaces=['MNI152Lin', ('MNIPediatricAsym', {'cohort': '6'})],
-                    checkpoint=True,
-                ),
+            wf = init_asl_surf_wf(
+                mem_gb=0.1,
+                surface_spaces=["fsnative", "fsaverage5"],
+                medial_surface_nan=False,
+                metadata={},
+                output_dir=".",
             )
 
     Parameters
     ----------
-    mem_gb : :obj:`float`
-        Size of ASL file in GB
-    omp_nthreads : :obj:`int`
-        Maximum number of threads an individual process may use
-    spaces : :py:class:`~niworkflows.utils.spaces.SpatialReferences`
-        A container for storing, organizing, and parsing spatial normalizations. Composed of
-        :py:class:`~niworkflows.utils.spaces.Reference` objects representing spatial references.
-        Each ``Reference`` contains a space, which is a string of either TemplateFlow template IDs.
-    name : :obj:`str`
-        Name of workflow (default: ``asl_std_trans_wf``)
-    use_compression : :obj:`bool`
-        Save registered ASL series as ``.nii.gz``
+    surface_spaces : :obj:`list`
+        List of FreeSurfer surface-spaces (either ``fsaverage{3,4,5,6,}`` or ``fsnative``)
+        the functional images are to be resampled to.
+        For ``fsnative``, images will be resampled to the individual subject's
+        native surface.
+    medial_surface_nan : :obj:`bool`
+        Replace medial wall values with NaNs on functional GIFTI files
 
     Inputs
     ------
-    anat_to_template_xfm
-        List of anatomical-to-standard space transforms generated during
-        spatial normalization.
-    asl_mask
-        Skull-stripping mask of reference image
-    asl_split
-        Individual 3D volumes, not motion corrected
-    fieldwarp
-        a :abbr:`DFM (displacements field map)` in ITK format
-    hmc_xforms
-        List of affine transforms aligning each volume to ``ref_image`` in ITK format
-    aslref_to_anat_xfm
-        Affine transform from ``ref_asl_brain`` to T1 space (ITK format)
-    name_source
-        ASL series NIfTI file
-        Used to recover original information lost during processing
-    templates
-        List of templates that were applied as targets during
-        spatial normalization.
+    source_file
+        Original BOLD series
+    bold_t1w
+        Motion-corrected BOLD series in T1 space
+    subjects_dir
+        FreeSurfer SUBJECTS_DIR
+    subject_id
+        FreeSurfer subject ID
+    fsnative2t1w_xfm
+        ITK-style affine matrix translating from FreeSurfer-conformed subject space to T1w
 
     Outputs
     -------
-    asl_std
-        ASL series, resampled to template space
-    cbf_ts_std, *cbf
-        cbf series, resampled to template space
-    aslref_std
-        Reference, contrast-enhanced summary of the ASL series, resampled to template space
-    asl_mask_std
-        ASL series mask in template space
-    template
-        Template identifiers synchronized correspondingly to previously
-        described outputs.
+    surfaces
+        BOLD series, resampled to FreeSurfer surfaces
+
     """
+    from nipype.interfaces.io import FreeSurferSource
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.nitransforms import ConcatenateXFMs
+    from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
+
+    timing_parameters = {}
+
     workflow = Workflow(name=name)
-    std_vol_references = [
-        (s.fullname, s.spec) for s in spaces.references if s.standard and s.dim == 3
-    ]
+    out_spaces_str = ", ".join([f"*{s}*" for s in surface_spaces])
+    workflow.__desc__ = f"""\
+The ASL time-series were resampled onto the following surfaces
+(FreeSurfer reconstruction nomenclature):
+{out_spaces_str}.
+"""
 
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "name_source",
-                "aslcontext",
-                "asl_split",
-                "asl_mask",
-                "templates",
-                # Transforms
-                "hmc_xforms",  # may be "identity"
-                "fieldwarp",  # may be "identity"
-                "aslref_to_anat_xfm",
-                "anat_to_template_xfm",
-                # CBF outputs
-                "mean_cbf",
-                # Single-delay outputs
-                "cbf_ts",
-                # Multi-delay outputs
-                "att",
-                # SCORE/SCRUB outputs
-                "cbf_ts_score",
-                "mean_cbf_score",
-                "mean_cbf_scrub",
-                # BASIL outputs
-                "mean_cbf_basil",
-                "mean_cbf_gm_basil",
-                "mean_cbf_wm_basil",
-                "att_basil",
-            ],
+                "source_file",
+                "bold_t1w",
+                "subject_id",
+                "subjects_dir",
+                "fsnative2t1w_xfm",
+            ]
         ),
         name="inputnode",
     )
+    itersource = pe.Node(niu.IdentityInterface(fields=["target"]), name="itersource")
+    itersource.iterables = [("target", surface_spaces)]
 
-    iterablesource = pe.Node(niu.IdentityInterface(fields=["std_target"]), name="iterablesource")
-    # Generate conversions for every template+spec at the input
-    iterablesource.iterables = [("std_target", std_vol_references)]
+    get_fsnative = pe.Node(FreeSurferSource(), name="get_fsnative", run_without_submitting=True)
 
-    split_target = pe.Node(
-        niu.Function(
-            function=_split_spec,
-            input_names=["in_target"],
-            output_names=["space", "template", "spec"],
+    def select_target(subject_id, space):
+        """Get the target subject ID, given a source subject ID and a target space."""
+        return subject_id if space == "fsnative" else space
+
+    targets = pe.Node(
+        niu.Function(function=select_target),
+        name="targets",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+
+    itk2lta = pe.Node(
+        ConcatenateXFMs(out_fmt="fs", inverse=True), name="itk2lta", run_without_submitting=True
+    )
+    sampler = pe.MapNode(
+        fs.SampleToSurface(
+            interp_method="trilinear",
+            out_type="gii",
+            override_reg_subj=True,
+            sampling_method="average",
+            sampling_range=(0, 1, 0.2),
+            sampling_units="frac",
         ),
-        run_without_submitting=True,
-        name="split_target",
-    )
-
-    workflow.connect([(iterablesource, split_target, [("std_target", "in_target")])])
-
-    select_std = pe.Node(
-        KeySelect(fields=["anat_to_template_xfm"]),
-        name="select_std",
-        run_without_submitting=True,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, select_std, [
-            ("anat_to_template_xfm", "anat_to_template_xfm"),
-            ("templates", "keys"),
-        ]),
-        (split_target, select_std, [("space", "key")]),
-    ])
-    # fmt:on
-
-    select_tpl = pe.Node(
-        niu.Function(function=_select_template),
-        name="select_tpl",
-        run_without_submitting=True,
-    )
-
-    workflow.connect([(iterablesource, select_tpl, [("std_target", "template")])])
-
-    gen_ref = pe.Node(
-        GenerateSamplingReference(),
-        name="gen_ref",
-        mem_gb=0.3,
-    )  # 256x256x256 * 64 / 8 ~ 150MB)
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, gen_ref, [(("asl_split", _select_first_in_list), "moving_image")]),
-        (select_tpl, gen_ref, [("out", "fixed_image")]),
-        (split_target, gen_ref, [(("spec", _is_native), "keep_native")]),
-    ])
-    # fmt:on
-
-    mask_merge_tfms = pe.Node(
-        niu.Merge(2),
-        name="mask_merge_tfms",
-        run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, mask_merge_tfms, [(("aslref_to_anat_xfm", _aslist), "in2")]),
-        (select_std, mask_merge_tfms, [("anat_to_template_xfm", "in1")]),
-    ])
-    # fmt:on
-
-    mask_std_tfm = pe.Node(
-        ApplyTransforms(interpolation="MultiLabel"),
-        name="mask_std_tfm",
-        mem_gb=1,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, mask_std_tfm, [("asl_mask", "input_image")]),
-        (gen_ref, mask_std_tfm, [("out_file", "reference_image")]),
-        (mask_merge_tfms, mask_std_tfm, [("out", "transforms")]),
-    ])
-    # fmt:on
-
-    # Write corrected file in the designated output dir
-    merge_xforms = pe.Node(
-        niu.Merge(4),
-        name="merge_xforms",
-        run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, merge_xforms, [
-            (("aslref_to_anat_xfm", _aslist), "in2"),
-            ("fieldwarp", "in3"),  # may be "identity"
-            ("hmc_xforms", "in4"),  # may be "identity"
-        ]),
-        (select_std, merge_xforms, [("anat_to_template_xfm", "in1")]),
-    ])
-    # fmt:on
-
-    asl_to_std_transform = pe.Node(
-        MultiApplyTransforms(interpolation="LanczosWindowedSinc", float=True, copy_dtype=True),
-        name="asl_to_std_transform",
-        mem_gb=mem_gb * 3 * omp_nthreads,
-        n_procs=omp_nthreads,
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, asl_to_std_transform, [("asl_split", "input_image")]),
-        (merge_xforms, asl_to_std_transform, [("out", "transforms")]),
-        (gen_ref, asl_to_std_transform, [("out_file", "reference_image")]),
-    ])
-    # fmt:on
-
-    # NOTE: Not in GE workflow.
-    # The GE workflow doesn't apply HMC, so it accepts a 4D ASL file that doesn't need to be
-    # re-merged back to 4D like the non-GE 3D files.
-    merge_3d_to_4d = pe.Node(
-        Merge(compress=use_compression),
-        name="merge_3d_to_4d",
+        iterfield=["hemi"],
+        name="sampler",
         mem_gb=mem_gb * 3,
     )
+    sampler.inputs.hemi = ["lh", "rh"]
 
-    # fmt:off
-    workflow.connect([
-        (inputnode, merge_3d_to_4d, [("name_source", "header_source")]),
-        (asl_to_std_transform, merge_3d_to_4d, [("out_files", "in_files")]),
-    ])
-    # fmt:on
-
-    reference_buffer = pe.Node(
-        niu.IdentityInterface(fields=["aslref_std"]),
-        name="reference_buffer",
+    update_metadata = pe.MapNode(
+        GiftiSetAnatomicalStructure(),
+        iterfield=["in_file"],
+        name="update_metadata",
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
 
-    if generate_reference:
-        # Generate a reference on the target standard space
-        # NOTE: Not in GE workflow.
-        # Instead, the GE workflow uses the output of the asl_to_std_transform for the aslref_std.
-        # It seems strange to do that, though, since the ASL file should still be 4D.
-        gen_final_ref = init_asl_reference_wf(pre_mask=True)
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, gen_final_ref, [("aslcontext", "inputnode.aslcontext")]),
-            (mask_std_tfm, gen_final_ref, [("output_image", "inputnode.asl_mask")]),
-            (merge_3d_to_4d, gen_final_ref, [("out_file", "inputnode.asl_file")]),
-            (gen_final_ref, reference_buffer, [("outputnode.ref_image", "aslref_std")]),
-        ])
-        # fmt:on
-    else:
-        # fmt:off
-        workflow.connect([
-            (asl_to_std_transform, reference_buffer, [
-                (("out_files", _select_first_in_list), "aslref_std"),
-            ]),
-        ])
-        # fmt:on
-
-    inputs_to_warp = ["mean_cbf"]
-
-    if is_multi_pld:
-        inputs_to_warp += ["att"]
-    else:
-        inputs_to_warp += ["cbf_ts"]
-
-    if scorescrub:
-        inputs_to_warp += [
-            "cbf_ts_score",
-            "mean_cbf_score",
-            "mean_cbf_scrub",
-        ]
-
-    if basil:
-        inputs_to_warp += [
-            "mean_cbf_basil",
-            "mean_cbf_gm_basil",
-            "mean_cbf_wm_basil",
-            "att_basil",
-        ]
-
-    output_names = [f"{input_}_std" for input_ in inputs_to_warp]
-    output_names += ["asl_std", "aslref_std", "asl_mask_std", "spatial_reference", "template"]
-
-    poutputnode = pe.Node(niu.IdentityInterface(fields=output_names), name="poutputnode")
-
-    # fmt:off
-    workflow.connect([
-        # Connecting outputnode
-        (iterablesource, poutputnode, [(("std_target", format_reference), "spatial_reference")]),
-        (merge_3d_to_4d, poutputnode, [("out_file", "asl_std")]),
-        (reference_buffer, poutputnode, [("aslref_std", "aslref_std")]),
-        (mask_std_tfm, poutputnode, [("output_image", "asl_mask_std")]),
-        (select_std, poutputnode, [("key", "template")]),
-    ])
-    # fmt:on
-
-    inputs_4d = ["cbf_ts", "cbf_ts_score"]
-    for input_name in inputs_to_warp:
-        kwargs = {}
-        if input_name in inputs_4d:
-            kwargs["dimension"] = 3
-
-        warp_input_to_std = pe.Node(
-            ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
-                float=True,
-                input_image_type=3,
-                **kwargs,
-            ),
-            name=f"warp_{input_name}_to_std",
-            mem_gb=mem_gb * 3 * omp_nthreads,
-            n_procs=omp_nthreads,
-        )
-
-        # fmt:off
-        workflow.connect([
-            (inputnode, warp_input_to_std, [(input_name, "input_image")]),
-            (mask_merge_tfms, warp_input_to_std, [("out", "transforms")]),
-            (gen_ref, warp_input_to_std, [("out_file", "reference_image")]),
-            (warp_input_to_std, poutputnode, [("output_image", f"{input_name}_std")]),
-        ])
-        # fmt:on
-
-    # Connect parametric outputs to a Join outputnode
-    outputnode = pe.JoinNode(
-        niu.IdentityInterface(fields=output_names),
-        name="outputnode",
-        joinsource="iterablesource",
+    ds_bold_surfs = pe.MapNode(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            extension=".func.gii",
+            **timing_parameters,
+        ),
+        iterfield=["in_file", "hemi"],
+        name="ds_bold_surfs",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
-    workflow.connect([(poutputnode, outputnode, [(f, f) for f in output_names])])
+    ds_bold_surfs.inputs.hemi = ["L", "R"]
+
+    workflow.connect([
+        (inputnode, get_fsnative, [
+            ("subject_id", "subject_id"),
+            ("subjects_dir", "subjects_dir")
+        ]),
+        (inputnode, targets, [("subject_id", "subject_id")]),
+        (inputnode, itk2lta, [
+            ("bold_t1w", "moving"),
+            ("fsnative2t1w_xfm", "in_xfms"),
+        ]),
+        (get_fsnative, itk2lta, [("T1", "reference")]),
+        (inputnode, sampler, [
+            ("subjects_dir", "subjects_dir"),
+            ("subject_id", "subject_id"),
+            ("bold_t1w", "source_file"),
+        ]),
+        (itersource, targets, [("target", "space")]),
+        (itk2lta, sampler, [("out_inv", "reg_file")]),
+        (targets, sampler, [("out", "target_subject")]),
+        (inputnode, ds_bold_surfs, [("source_file", "source_file")]),
+        (itersource, ds_bold_surfs, [("target", "space")]),
+        (update_metadata, ds_bold_surfs, [("out_file", "in_file")]),
+    ])  # fmt:skip
+
+    # Refine if medial vertices should be NaNs
+    medial_nans = pe.MapNode(
+        MedialNaNs(),
+        iterfield=["in_file"],
+        name="medial_nans",
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+
+    if medial_surface_nan:
+        # fmt: off
+        workflow.connect([
+            (inputnode, medial_nans, [("subjects_dir", "subjects_dir")]),
+            (sampler, medial_nans, [("out_file", "in_file")]),
+            (medial_nans, update_metadata, [("out_file", "in_file")]),
+        ])
+        # fmt: on
+    else:
+        workflow.connect([(sampler, update_metadata, [("out_file", "in_file")])])
 
     return workflow
 
 
-def init_asl_preproc_trans_wf(
-    mem_gb,
-    omp_nthreads,
-    use_compression=True,
-    split_file=False,
-    interpolation="LanczosWindowedSinc",
-    name="asl_preproc_trans_wf",
+def init_bold_fsLR_resampling_wf(  # noqa: N802
+    grayord_density: ty.Literal["91k", "170k"],
+    omp_nthreads: int,
+    mem_gb: float,
+    name: str = "bold_fsLR_resampling_wf",
 ):
-    """Resample in native (original) space.
+    """Resample BOLD time series to fsLR surface.
 
-    This workflow resamples the input fMRI in its native (original)
-    space in a "single shot" from the original asl series.
+    This workflow is derived heavily from three scripts within the DCAN-HCP pipelines scripts
+
+    Line numbers correspond to the locations of the code in the original scripts, found at:
+    https://github.com/DCAN-Labs/DCAN-HCP/tree/9291324/
 
     Workflow Graph
         .. workflow::
             :graph2use: colored
             :simple_form: yes
 
-            from aslprep.workflows.asl.resampling import init_asl_preproc_trans_wf
-
-            wf = init_asl_preproc_trans_wf(
-                mem_gb=3,
+            from fmriprep.workflows.bold.resampling import init_bold_fsLR_resampling_wf
+            wf = init_bold_fsLR_resampling_wf(
+                grayord_density="92k",
                 omp_nthreads=1,
+                mem_gb=1,
             )
 
     Parameters
     ----------
-    mem_gb : :obj:`float`
-        Size of asl file in GB
-    omp_nthreads : :obj:`int`
+    grayord_density : :class:`str`
+        Either ``"91k"`` or ``"170k"``, representing the total *grayordinates*.
+    omp_nthreads : :class:`int`
         Maximum number of threads an individual process may use
-    name : :obj:`str`
-        Name of workflow (default: ``asl_std_trans_wf``)
-    use_compression : :obj:`bool`
-        Save registered asl series as ``.nii.gz``
-    split_file : :obj:`bool`
-        Whether the input file should be split (it is a 4D file)
-        or it is a list of 3D files (default ``False``, do not split)
-    interpolation : :obj:`str`
-        Interpolation type to be used by ANTs' ``applyTransforms``
-        (default ``'LanczosWindowedSinc'``)
+    mem_gb : :class:`float`
+        Size of BOLD file in GB
+    name : :class:`str`
+        Name of workflow (default: ``bold_fsLR_resampling_wf``)
 
     Inputs
     ------
-    asl_file
-        Individual 3D volumes, not motion corrected
-    asl_mask
-        Skull-stripping mask of reference image
-    name_source
-        asl series NIfTI file
-        Used to recover original information lost during processing
-    hmc_xforms
-        List of affine transforms aligning each volume to ``ref_image`` in ITK format
-    fieldwarp
-        a :abbr:`DFM (displacements field map)` in ITK format
+    bold_file : :class:`str`
+        Path to BOLD file resampled into T1 space
+    white : :class:`list` of :class:`str`
+        Path to left and right hemisphere white matter GIFTI surfaces.
+    pial : :class:`list` of :class:`str`
+        Path to left and right hemisphere pial GIFTI surfaces.
+    midthickness : :class:`list` of :class:`str`
+        Path to left and right hemisphere midthickness GIFTI surfaces.
+    midthickness_fsLR : :class:`list` of :class:`str`
+        Path to left and right hemisphere midthickness GIFTI surfaces in fsLR space.
+    sphere_reg_fsLR : :class:`list` of :class:`str`
+        Path to left and right hemisphere sphere.reg GIFTI surfaces, mapping from subject to fsLR
+    cortex_mask : :class:`list` of :class:`str`
+        Path to left and right hemisphere cortical masks.
+    volume_roi : :class:`str` or Undefined
+        Pre-calculated goodvoxels mask. Not required.
 
     Outputs
     -------
-    asl
-        asl series, resampled in native space, including all preprocessing
-    asl_mask
-        asl series mask calculated with the new time-series
-    aslref
-        asl reference image: an average-like 3D image of the time-series
-    aslref_brain
-        Same as ``aslref``, but once the brain mask has been applied
+    bold_fsLR : :class:`list` of :class:`str`
+        Path to BOLD series resampled as functional GIFTI files in fsLR space
 
     """
+    import templateflow.api as tf
+    from fmriprep.interfaces.workbench import VolumeToSurfaceMapping
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.utility import KeySelect
+    from smriprep import data as smriprep_data
+
+    fslr_density = "32k" if grayord_density == "91k" else "59k"
+
     workflow = Workflow(name=name)
-    # workflow.__desc__ = """\
-    # The ASL timeseries were resampled onto their original,
-    # native space by applying the transforms to correct for head-motion.
-    # These resampled ASL timeseries are referred to as preprocessed ASL
-    # """
+
+    workflow.__desc__ = """\
+The BOLD time-series were resampled onto the left/right-symmetric template
+"fsLR" using the Connectome Workbench [@hcppipelines].
+"""
 
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "name_source",
-                "asl_file",
-                "aslcontext",
-                "asl_mask",
-                "hmc_xforms",
-                "fieldwarp",
+                "bold_file",
+                "white",
+                "pial",
+                "midthickness",
+                "midthickness_fsLR",
+                "sphere_reg_fsLR",
+                "cortex_mask",
+                "volume_roi",
             ]
         ),
         name="inputnode",
     )
 
+    hemisource = pe.Node(
+        niu.IdentityInterface(fields=["hemi"]),
+        name="hemisource",
+        iterables=[("hemi", ["L", "R"])],
+    )
+
+    joinnode = pe.JoinNode(
+        niu.IdentityInterface(fields=["bold_fsLR"]),
+        name="joinnode",
+        joinsource="hemisource",
+    )
+
     outputnode = pe.Node(
-        niu.IdentityInterface(
-            fields=[
-                "asl",
-                "asl_mask",
-                "aslref",
-                "aslref_brain",
-            ]
-        ),
+        niu.IdentityInterface(fields=["bold_fsLR"]),
         name="outputnode",
     )
 
-    asl_transform = pe.Node(
-        MultiApplyTransforms(interpolation=interpolation, float=True, copy_dtype=True),
-        name="asl_transform",
-        mem_gb=mem_gb * 3 * omp_nthreads,
+    # select white, midthickness and pial surfaces based on hemi
+    select_surfaces = pe.Node(
+        KeySelect(
+            fields=[
+                "white",
+                "pial",
+                "midthickness",
+                "midthickness_fsLR",
+                "sphere_reg_fsLR",
+                "template_sphere",
+                "cortex_mask",
+                "template_roi",
+            ],
+            keys=["L", "R"],
+        ),
+        name="select_surfaces",
+        run_without_submitting=True,
+    )
+    select_surfaces.inputs.template_sphere = [
+        str(sphere)
+        for sphere in tf.get(
+            template="fsLR",
+            density=fslr_density,
+            suffix="sphere",
+            space=None,
+            extension=".surf.gii",
+        )
+    ]
+    atlases = smriprep_data.load_resource("atlases")
+    select_surfaces.inputs.template_roi = [
+        str(atlases / "L.atlasroi.32k_fs_LR.shape.gii"),
+        str(atlases / "R.atlasroi.32k_fs_LR.shape.gii"),
+    ]
+
+    # RibbonVolumeToSurfaceMapping.sh
+    # Line 85 thru ...
+    volume_to_surface = pe.Node(
+        VolumeToSurfaceMapping(method="ribbon-constrained"),
+        name="volume_to_surface",
+        mem_gb=mem_gb * 3,
         n_procs=omp_nthreads,
     )
-
-    merge = pe.Node(Merge(compress=use_compression), name="merge", mem_gb=mem_gb * 3)
-
-    # Generate a new asl reference
-    asl_reference_wf = init_asl_reference_wf()
-    asl_reference_wf.__desc__ = None  # Unset description to avoid second appearance
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, merge, [("name_source", "header_source")]),
-        (asl_transform, merge, [("out_files", "in_files")]),
-        (inputnode, asl_reference_wf, [("aslcontext", "inputnode.aslcontext")]),
-        (merge, asl_reference_wf, [("out_file", "inputnode.asl_file")]),
-        (merge, outputnode, [("out_file", "asl")]),
-        (asl_reference_wf, outputnode, [
-            ("outputnode.ref_image", "aslref"),
-            ("outputnode.ref_image_brain", "aslref_brain"),
-            ("outputnode.asl_mask", "asl_mask"),
-        ]),
-    ])
-    # fmt:on
-
-    # Input file is not splitted
-    if split_file:
-        asl_split = pe.Node(Split(dimension="t"), name="asl_split", mem_gb=mem_gb * 3)
-        # fmt:off
-        workflow.connect([
-            (inputnode, asl_split, [("asl_file", "in_file")]),
-            (asl_split, asl_transform, [
-                ("out_files", "input_image"),
-                (("out_files", _select_first_in_list), "reference_image"),
-            ]),
-        ])
-        # fmt:on
-
-    else:
-        # fmt:off
-        workflow.connect([
-            (inputnode, asl_transform, [
-                ("asl_file", "input_image"),
-                (("asl_file", _select_first_in_list), "reference_image"),
-            ]),
-        ])
-        # fmt:on
-
-    merge_xforms = pe.Node(
-        niu.Merge(2),
-        name="merge_xforms",
-        run_without_submitting=True,
-        mem_gb=DEFAULT_MEMORY_MIN_GB,
+    metric_dilate = pe.Node(
+        MetricDilate(distance=10, nearest=True),
+        name="metric_dilate",
+        mem_gb=1,
+        n_procs=omp_nthreads,
     )
-    # fmt:off
+    mask_native = pe.Node(MetricMask(), name="mask_native")
+    resample_to_fsLR = pe.Node(
+        MetricResample(method="ADAP_BARY_AREA", area_surfs=True),
+        name="resample_to_fsLR",
+        mem_gb=1,
+        n_procs=omp_nthreads,
+    )
+    # ... line 89
+    mask_fsLR = pe.Node(MetricMask(), name="mask_fsLR")
+
     workflow.connect([
-        (inputnode, merge_xforms, [
-            ("fieldwarp", "in1"),  # may be "identity"
-            ("hmc_xforms", "in2"),
+        (inputnode, select_surfaces, [
+            ("white", "white"),
+            ("pial", "pial"),
+            ("midthickness", "midthickness"),
+            ("midthickness_fsLR", "midthickness_fsLR"),
+            ("sphere_reg_fsLR", "sphere_reg_fsLR"),
+            ("cortex_mask", "cortex_mask"),
         ]),
-        (merge_xforms, asl_transform, [("out", "transforms")]),
-    ])
-    # fmt:on
+        (hemisource, select_surfaces, [("hemi", "key")]),
+        # Resample BOLD to native surface, dilate and mask
+        (inputnode, volume_to_surface, [
+            ("bold_file", "volume_file"),
+            ("volume_roi", "volume_roi"),
+        ]),
+        (select_surfaces, volume_to_surface, [
+            ("midthickness", "surface_file"),
+            ("white", "inner_surface"),
+            ("pial", "outer_surface"),
+        ]),
+        (select_surfaces, metric_dilate, [("midthickness", "surf_file")]),
+        (select_surfaces, mask_native, [("cortex_mask", "mask")]),
+        (volume_to_surface, metric_dilate, [("out_file", "in_file")]),
+        (metric_dilate, mask_native, [("out_file", "in_file")]),
+        # Resample BOLD to fsLR and mask
+        (select_surfaces, resample_to_fsLR, [
+            ("sphere_reg_fsLR", "current_sphere"),
+            ("template_sphere", "new_sphere"),
+            ("midthickness", "current_area"),
+            ("midthickness_fsLR", "new_area"),
+            ("cortex_mask", "roi_metric"),
+        ]),
+        (mask_native, resample_to_fsLR, [("out_file", "in_file")]),
+        (select_surfaces, mask_fsLR, [("template_roi", "mask")]),
+        (resample_to_fsLR, mask_fsLR, [("out_file", "in_file")]),
+        # Output
+        (mask_fsLR, joinnode, [("out_file", "bold_fsLR")]),
+        (joinnode, outputnode, [("bold_fsLR", "bold_fsLR")]),
+    ])  # fmt:skip
 
     return workflow

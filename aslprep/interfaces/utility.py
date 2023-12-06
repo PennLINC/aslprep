@@ -12,11 +12,10 @@ from nipype.interfaces.base import (
     traits,
 )
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
+from nipype.interfaces.nilearn import NilearnBaseInterface
 from nipype.utils.filemanip import fname_presuffix, load_json, save_json
 
-from aslprep import config
 from aslprep.utils.asl import reduce_metadata_lists
-from aslprep.utils.misc import _aslist
 
 
 class _ReduceASLFilesInputSpec(BaseInterfaceInputSpec):
@@ -194,39 +193,10 @@ class PairwiseRMSDiff(SimpleInterface):
 
 
 class _CombineMotionParametersInputSpec(BaseInterfaceInputSpec):
-    m0type = traits.Str()
-    processing_target = traits.Str()
     aslcontext = File(exists=True)
-    control_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    control_par_file = traits.Either(File(exists=True), None)
-    label_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    label_par_file = traits.Either(File(exists=True), None)
-    deltam_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    deltam_par_file = traits.Either(File(exists=True), None)
-    cbf_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    cbf_par_file = traits.Either(File(exists=True), None)
-    m0scan_mat_files = traits.Either(
-        traits.List(File(exists=True)),
-        File(exists=True),
-        None,
-    )
-    m0scan_par_file = traits.Either(File(exists=True), None)
+    volume_types = traits.List(traits.Str())
+    mat_files = traits.List(traits.List(File(exists=True)))
+    par_files = traits.List(File(exists=True))
 
 
 class _CombineMotionParametersOutputSpec(TraitedSpec):
@@ -242,24 +212,27 @@ class CombineMotionParameters(SimpleInterface):
 
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
-        files_to_combine = sorted(list(set(aslcontext["volume_type"].tolist())))
-
         out_par = [None] * aslcontext.shape[0]
         out_mat_files = [None] * aslcontext.shape[0]
-        for file_to_combine in files_to_combine:
-            mat_files = _aslist(getattr(self.inputs, f"{file_to_combine}_mat_files"))
-            par_file = getattr(self.inputs, f"{file_to_combine}_par_file")
-            idx = aslcontext.loc[aslcontext["volume_type"] == file_to_combine].index.values
 
-            with open(par_file, "r") as fo:
+        assert len(self.inputs.volume_types) == len(self.inputs.mat_files)
+        assert len(self.inputs.volume_types) == len(self.inputs.par_files)
+
+        for i_type, volume_type in enumerate(self.inputs.volume_types):
+            type_mat_files = self.inputs.mat_files[i_type]
+            type_par_file = self.inputs.par_files[i_type]
+
+            type_idx = aslcontext.loc[aslcontext["volume_type"] == volume_type].index.values
+
+            with open(type_par_file, "r") as fo:
                 par = fo.readlines()
 
-            for i_vol, vol_idx in enumerate(idx):
+            for i_vol, vol_idx in enumerate(type_idx):
                 out_par[vol_idx] = par[i_vol]
-                out_mat_files[vol_idx] = mat_files[i_vol]
+                out_mat_files[vol_idx] = type_mat_files[i_vol]
 
         self._results["combined_par_file"] = fname_presuffix(
-            par_file,
+            type_par_file,
             suffix="_combined",
             newpath=runtime.cwd,
             use_ext=True,
@@ -272,84 +245,95 @@ class CombineMotionParameters(SimpleInterface):
         return runtime
 
 
-class _SplitOutVolumeTypeInputSpec(BaseInterfaceInputSpec):
-    volumetype = traits.Str()
+class _SplitByVolumeTypeInputSpec(BaseInterfaceInputSpec):
     aslcontext = File(exists=True)
     asl_file = File(exists=True)
 
 
-class _SplitOutVolumeTypeOutputSpec(TraitedSpec):
-    out_file = File(exists=True)
+class _SplitByVolumeTypeOutputSpec(TraitedSpec):
+    out_files = traits.List(File(exists=True))
+    volume_types = traits.List(traits.Str())
 
 
-class SplitOutVolumeType(SimpleInterface):
+class SplitByVolumeType(SimpleInterface):
     """Split out a specific volume type from the ASL file."""
 
-    input_spec = _SplitOutVolumeTypeInputSpec
-    output_spec = _SplitOutVolumeTypeOutputSpec
+    input_spec = _SplitByVolumeTypeInputSpec
+    output_spec = _SplitByVolumeTypeOutputSpec
 
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
-        volumetype_df = aslcontext.loc[aslcontext["volume_type"] == self.inputs.volumetype]
-        volumetype_idx = volumetype_df.index.tolist()
-        if len(volumetype_idx) == 0:
-            raise ValueError(f"No volumes found for {self.inputs.volumetype}")
+        volume_types = sorted(list(aslcontext["volume_type"].unique()))
+        out_files = []
+        for volume_type in volume_types:
+            volumetype_df = aslcontext.loc[aslcontext["volume_type"] == volume_type]
+            volumetype_idx = volumetype_df.index.tolist()
 
-        out_img = image.index_img(self.inputs.asl_file, volumetype_idx)
-        self._results["out_file"] = fname_presuffix(
-            self.inputs.asl_file,
-            suffix=f"_{self.inputs.volumetype}",
-            newpath=runtime.cwd,
-            use_ext=True,
-        )
-        out_img.to_filename(self._results["out_file"])
+            out_img = image.index_img(self.inputs.asl_file, volumetype_idx)
+            out_file = fname_presuffix(
+                self.inputs.asl_file,
+                suffix=f"_{volume_type}",
+                newpath=runtime.cwd,
+                use_ext=True,
+            )
+            out_img.to_filename(out_file)
+            out_files.append(out_file)
+
+        self._results["out_files"] = out_files
+        self._results["volume_types"] = volume_types
 
         return runtime
 
 
-class _SplitReferenceTargetInputSpec(BaseInterfaceInputSpec):
-    aslcontext = File(exists=True, required=True)
-    asl_file = File(exists=True, required=True)
+class _SmoothInputSpec(BaseInterfaceInputSpec):
+    in_file = File(
+        exists=True,
+        mandatory=True,
+        desc="An image to smooth.",
+    )
+    fwhm = traits.Either(
+        traits.Float(),
+        traits.List(
+            traits.Float(),
+            minlen=3,
+            maxlen=3,
+        ),
+        desc=(
+            "Full width at half maximum. "
+            "Smoothing strength, as a full-width at half maximum, in millimeters."
+        ),
+    )
+    out_file = File(
+        "smooth_img.nii.gz",
+        usedefault=True,
+        exists=False,
+        desc="The name of the smoothed file to write out. smooth_img.nii.gz by default.",
+    )
 
 
-class _SplitReferenceTargetOutputSpec(TraitedSpec):
-    out_file = File(exists=True)
+class _SmoothOutputSpec(TraitedSpec):
+    out_file = File(
+        exists=True,
+        desc="Smoothed output file.",
+    )
 
 
-class SplitReferenceTarget(SimpleInterface):
-    """Split out just the optimal volume type for reference files from the overall ASL file.
+class Smooth(NilearnBaseInterface, SimpleInterface):
+    """Smooth image."""
 
-    This means grabbing M0 volumes if they're available, or control volumes if *they're* available,
-    or deltams, or cbfs.
-    """
-
-    input_spec = _SplitReferenceTargetInputSpec
-    output_spec = _SplitReferenceTargetOutputSpec
+    input_spec = _SmoothInputSpec
+    output_spec = _SmoothOutputSpec
 
     def _run_interface(self, runtime):
-        aslcontext = pd.read_table(self.inputs.aslcontext)
-        volume_types = aslcontext["volume_type"].values
-        if "m0scan" in volume_types:
-            ref_target = "m0scan"
-        elif "control" in volume_types:
-            ref_target = "control"
-        elif "deltam" in volume_types:
-            ref_target = "deltam"
-        elif "cbf" in volume_types:
-            ref_target = "cbf"
-        else:
-            raise ValueError(volume_types)
+        from nilearn.image import smooth_img
 
-        config.loggers.interface.warning(f"Selected {ref_target} for reference.")
-
-        volumetype_idx = aslcontext["volume_type"].loc[volume_types == ref_target].index.tolist()
-        out_img = image.index_img(self.inputs.asl_file, volumetype_idx)
+        img_smoothed = smooth_img(self.inputs.in_file, fwhm=self.inputs.fwhm)
         self._results["out_file"] = fname_presuffix(
-            self.inputs.asl_file,
-            suffix=f"_{ref_target}",
+            self.inputs.in_file,
+            suffix="_sm.nii.gz",
             newpath=runtime.cwd,
-            use_ext=True,
+            use_ext=False,
         )
-        out_img.to_filename(self._results["out_file"])
+        img_smoothed.to_filename(self._results["out_file"])
 
         return runtime

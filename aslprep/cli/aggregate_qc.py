@@ -43,5 +43,5 @@ def main():
 
 if __name__ == "__main__":
     raise RuntimeError(
-        "this should be run after running aslprep;\n" "it required installation of  aslprep"
+        "this should be run after running aslprep;\nit required installation of  aslprep"
     )

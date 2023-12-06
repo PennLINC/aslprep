@@ -7,6 +7,7 @@ import re
 import time
 
 import pandas as pd
+from fmriprep.interfaces.reports import get_world_pedir
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     Directory,
@@ -37,6 +38,12 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t\t<li>Phase-encoding (PE) direction: {pedir}</li>
 \t\t\t<li>Susceptibility distortion correction: {sdc}</li>
 \t\t\t<li>Registration: {registration}</li>
+
+\t\t</ul>
+"""
+
+QC_TEMPLATE = """\t\t<h3 class="elem-title">QC Summary</h3>
+\t\t<ul class="elem-desc">
 \t\t\t<li>Confounds collected: {confounds}</li>
 \t\t\t<li>Motion summary measures: {motionparam}</li>
 \t\t\t<li>Coregistration quality: {coregindex}</li>
@@ -180,6 +187,7 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
     qc_file = File(exists=True, desc="qc file")
     tr = traits.Float(desc="Repetition time", mandatory=True)
+    orientation = traits.Str(mandatory=True, desc="Orientation of the voxel axes")
 
 
 class FunctionalSummary(SummaryInterface):
@@ -202,6 +210,37 @@ class FunctionalSummary(SummaryInterface):
             ],
         }[self.inputs.registration][self.inputs.fallback]
 
+        pedir = get_world_pedir(self.inputs.orientation, self.inputs.pe_direction)
+
+        if self.inputs.pe_direction is None:
+            pedir = "MISSING - Assuming Anterior-Posterior"
+        else:
+            pedir = {"i": "Left-Right", "j": "Anterior-Posterior"}[self.inputs.pe_direction[0]]
+
+        # the number of dummy scans was specified by the user and
+        # it is not equal to the number detected by the algorithm
+
+        # the number of dummy scans was not specified by the user
+
+        return FUNCTIONAL_TEMPLATE.format(
+            pedir=pedir,
+            sdc=self.inputs.distortion_correction,
+            registration=reg,
+            tr=self.inputs.tr,
+        )
+
+
+class _CBFSummaryInputSpec(BaseInterfaceInputSpec):
+    confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
+    qc_file = File(exists=True, desc="qc file")
+
+
+class CBFSummary(SummaryInterface):
+    """A summary of a functional run, with QC measures included."""
+
+    input_spec = _CBFSummaryInputSpec
+
+    def _generate_segment(self):
         qcfile = pd.read_csv(self.inputs.qc_file)
         motionparam = f"FD : {round(qcfile['FD'][0], 4)}, rmsd: {round(qcfile['rmsd'][0], 4)} "
         coregindex = (
@@ -235,10 +274,6 @@ class FunctionalSummary(SummaryInterface):
             f"basil: {round(qcfile['NEG_BASIL_PERC'][0], 2)}, "
             f"pvc: {round(qcfile['NEG_PVC_PERC'][0], 2)} "
         )
-        if self.inputs.pe_direction is None:
-            pedir = "MISSING - Assuming Anterior-Posterior"
-        else:
-            pedir = {"i": "Left-Right", "j": "Anterior-Posterior"}[self.inputs.pe_direction[0]]
 
         if isdefined(self.inputs.confounds_file):
             with open(self.inputs.confounds_file) as cfh:
@@ -250,12 +285,8 @@ class FunctionalSummary(SummaryInterface):
 
         # the number of dummy scans was not specified by the user
 
-        return FUNCTIONAL_TEMPLATE.format(
-            pedir=pedir,
-            sdc=self.inputs.distortion_correction,
-            registration=reg,
+        return QC_TEMPLATE.format(
             confounds=re.sub(r"[\t ]+", ", ", conflist),
-            tr=self.inputs.tr,
             motionparam=motionparam,
             qei=qei,
             coregindex=coregindex,

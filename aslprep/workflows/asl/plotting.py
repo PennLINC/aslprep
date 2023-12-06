@@ -8,30 +8,38 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from aslprep import config
 from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummary, CBFtsSummary
-from aslprep.utils.misc import get_template_str
+from aslprep.interfaces.confounds import GatherCBFConfounds
+from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummaryPlot
+from aslprep.interfaces.reports import CBFSummary
+from aslprep.utils.misc import _select_last_in_list
+from aslprep.workflows.asl.confounds import init_carpetplot_wf
 
 
-def init_plot_cbf_wf(
+def init_cbf_reporting_wf(
     metadata,
     plot_timeseries=True,
     scorescrub=False,
     basil=False,
-    name="plot_cbf_wf",
+    name="cbf_reporting_wf",
 ):
-    """Plot CBF results.
+    """Generate CBF reports.
 
     Workflow Graph
         .. workflow::
             :graph2use: orig
             :simple_form: yes
 
-            from aslprep.workflows.asl.plotting import init_plot_cbf_wf
+            from aslprep.workflows.asl.plotting import init_cbf_reporting_wf
 
-            wf = init_plot_cbf_wf(
-                metadata={"RepetitionTimePreparation": 4},
+            wf = init_cbf_reporting_wf(
+                metadata={
+                    "RepetitionTime": 4,
+                    "RepetitionTimePreparation": 4,
+                },
             )
     """
+    from niworkflows.interfaces.images import SignalExtraction
+
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -40,13 +48,19 @@ def init_plot_cbf_wf(
                 "aslref",
                 "asl_mask",
                 "t1w_dseg",
-                "anat_to_aslref_xfm",
-                "template_to_anat_xfm",
-                "confounds_file",  # only for non-GE
+                "aslref2anat_xfm",
+                "std2anat_xfm",
+                "confounds_file",
+                "qc_file",
+                # If plot_timeseries is True
+                "crown_mask",
+                "acompcor_masks",
                 # CBF outputs
                 "mean_cbf",
                 # Single-delay outputs
                 "cbf_ts",  # only for non-GE
+                # If CIFTI is enabled
+                "cifti_cbf_ts",
                 # Multi-delay outputs
                 "att",
                 # SCORE/SCRUB outputs
@@ -59,22 +73,23 @@ def init_plot_cbf_wf(
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",  # unused
                 "att_basil",  # unused
-            ]
+            ],
         ),
         name="inputnode",
     )
 
-    # String together transforms from MNI152NLin2009cAsym to ASL reference
-    mrg_xfms = pe.Node(niu.Merge(2), name="mrg_xfms")
-
-    # fmt:off
+    summary = pe.Node(
+        CBFSummary(),
+        name="summary",
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        run_without_submitting=True,
+    )
     workflow.connect([
-        (inputnode, mrg_xfms, [
-            ("template_to_anat_xfm", "in1"),
-            ("anat_to_aslref_xfm", "in2"),
-        ]),
-    ])
-    # fmt:on
+        (inputnode, summary, [
+            ("confounds_file", "confounds_file"),
+            ("qc_file", "qc_file"),
+        ])
+    ])  # fmt:skip
 
     # Warp dseg file from T1w space to ASL reference space
     warp_t1w_dseg_to_aslref = pe.Node(
@@ -82,316 +97,291 @@ def init_plot_cbf_wf(
             float=True,
             dimension=3,
             default_value=0,
-            interpolation="MultiLabel",
+            interpolation="GenericLabel",
+            invert_transform_flags=[True],
+            args="-v",
         ),
         name="warp_t1w_dseg_to_aslref",
     )
-
-    # fmt:off
     workflow.connect([
         (inputnode, warp_t1w_dseg_to_aslref, [
             ("asl_mask", "reference_image"),
             ("t1w_dseg", "input_image"),
-            ("anat_to_aslref_xfm", "transforms"),
+            ("aslref2anat_xfm", "transforms"),
         ]),
-    ])
-    # fmt:on
-
-    grab_carpet_dseg = pe.Node(
-        niu.Function(
-            input_names=["template", "kwargs"],
-            output_names=["carpet_dseg"],
-            function=get_template_str,
-        ),
-        name="grab_carpet_dseg",
-    )
-    grab_carpet_dseg.inputs.template = "MNI152NLin2009cAsym"
-    grab_carpet_dseg.inputs.kwargs = {
-        "resolution": 1,
-        "desc": "carpet",
-        "suffix": "dseg",
-    }
-
-    warp_carpet_dseg_to_aslref = pe.Node(
-        ApplyTransforms(
-            float=True,
-            dimension=3,
-            default_value=0,
-            input_image_type=0,
-            interpolation="GenericLabel",
-        ),
-        name="warp_carpet_dseg_to_aslref",
-    )
-
-    # fmt:off
-    workflow.connect([
-        (inputnode, warp_carpet_dseg_to_aslref, [("asl_mask", "reference_image")]),
-        (mrg_xfms, warp_carpet_dseg_to_aslref, [("out", "transforms")]),
-        (grab_carpet_dseg, warp_carpet_dseg_to_aslref, [("carpet_dseg", "input_image")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     if plot_timeseries:
-        # Time series are only available for non-GE data.
-        cbf_ts_summary = pe.Node(
-            CBFtsSummary(tr=metadata.get("RepetitionTime", metadata["RepetitionTimePreparation"])),
-            name="cbf_ts_summary",
+        # Global and segment regressors
+        signals_class_labels = [
+            "global_signal",
+            "csf",
+            "white_matter",
+            "csf_wm",
+        ]
+        merge_rois = pe.Node(
+            niu.Merge(2, ravel_inputs=True),
+            name="merge_rois",
+            run_without_submitting=True,
+        )
+        signals = pe.Node(
+            SignalExtraction(class_labels=signals_class_labels),
+            name="signals",
             mem_gb=2,
         )
-
-        # fmt:off
         workflow.connect([
-            (inputnode, cbf_ts_summary, [
-                ("cbf_ts", "cbf_ts"),
-                ("confounds_file", "confounds_file"),
-                ("score_outlier_index", "score_outlier_index"),
+            (inputnode, merge_rois, [
+                ("asl_mask", "in1"),
+                ("acompcor_masks", "in2"),
             ]),
-            (warp_carpet_dseg_to_aslref, cbf_ts_summary, [("output_image", "seg_file")]),
-        ])
-        # fmt:on
+            (inputnode, signals, [("cbf_ts", "in_file")]),
+            (merge_rois, signals, [("out", "label_files")]),
+        ])  # fmt:skip
 
-        ds_report_cbf_ts_summary = pe.Node(
-            DerivativesDataSink(desc="cbftsplot", datatype="figures", keep_dtype=True),
-            name="ds_report_cbf_ts_summary",
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        # Time series are only available for non-GE data.
+        # Create confounds file with SCORE index
+        cbf_confounds = pe.Node(
+            GatherCBFConfounds(),
+            name="cbf_confounds",
         )
+        workflow.connect([
+            (inputnode, cbf_confounds, [("score_outlier_index", "score")]),
+            (signals, cbf_confounds, [("out_file", "signals")]),
+        ])  # fmt:skip
 
-        workflow.connect([(cbf_ts_summary, ds_report_cbf_ts_summary, [("out_file", "in_file")])])
+        carpetplot_wf = init_carpetplot_wf(
+            mem_gb=2,
+            confounds_list=[
+                ("global_signal", None, "GS"),
+                ("csf", None, "GSCSF"),
+                ("white_matter", None, "GSWM"),
+            ]
+            + ([("score_outlier_index", None, "SCORE Index")] if scorescrub else []),
+            metadata=metadata,
+            cifti_output=False,
+            suffix="cbf",
+            name="cbf_carpetplot_wf",
+        )
+        carpetplot_wf.inputs.inputnode.dummy_scans = 0
+        workflow.connect([
+            (inputnode, carpetplot_wf, [
+                ("std2anat_xfm", "inputnode.std2anat_xfm"),
+                ("cbf_ts", "inputnode.asl"),
+                ("asl_mask", "inputnode.asl_mask"),
+                ("aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+                ("crown_mask", "inputnode.crown_mask"),
+                (("acompcor_masks", _select_last_in_list), "inputnode.acompcor_mask"),
+                ("cifti_cbf_ts", "inputnode.cifti_asl"),
+            ]),
+            (cbf_confounds, carpetplot_wf, [("confounds_file", "inputnode.confounds_file")]),
+        ])  # fmt:skip
 
-    cbf_summary = pe.Node(CBFSummary(label="cbf", vmax=100), name="cbf_summary", mem_gb=1)
-
-    # fmt:off
+    cbf_summary = pe.Node(CBFSummaryPlot(label="cbf", vmax=100), name="cbf_summary", mem_gb=1)
     workflow.connect([
         (inputnode, cbf_summary, [
             ("mean_cbf", "cbf"),
             ("aslref", "ref_vol"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
-    ds_report_cbf_summary = pe.Node(
-        DerivativesDataSink(desc="cbfplot", datatype="figures", keep_dtype=True),
-        name="ds_report_cbf_summary",
+    ds_report_cbf = pe.Node(
+        DerivativesDataSink(datatype="figures", desc="cbf", suffix="cbf", keep_dtype=True),
+        name="ds_report_cbf",
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
-
-    workflow.connect([(cbf_summary, ds_report_cbf_summary, [("out_file", "in_file")])])
+    workflow.connect([(cbf_summary, ds_report_cbf, [("out_file", "in_file")])])
 
     cbf_by_tt_plot = pe.Node(
         CBFByTissueTypePlot(),
         name="cbf_by_tt_plot",
     )
-
-    # fmt:off
     workflow.connect([
         (inputnode, cbf_by_tt_plot, [("mean_cbf", "cbf")]),
         (warp_t1w_dseg_to_aslref, cbf_by_tt_plot, [("output_image", "seg_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
-    ds_report_cbf_to_tt_plot = pe.Node(
-        DerivativesDataSink(desc="cbfByTissueType", datatype="figures", keep_dtype=True),
-        name="ds_report_cbf_to_tt_plot",
+    ds_report_cbf_by_tt = pe.Node(
+        DerivativesDataSink(
+            datatype="figures",
+            desc="cbfByTissueType",
+            suffix="cbf",
+            keep_dtype=True,
+        ),
+        name="ds_report_cbf_by_tt",
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
-
-    workflow.connect([(cbf_by_tt_plot, ds_report_cbf_to_tt_plot, [("out_file", "in_file")])])
+    workflow.connect([(cbf_by_tt_plot, ds_report_cbf_by_tt, [("out_file", "in_file")])])
 
     if scorescrub:
         score_summary = pe.Node(
-            CBFSummary(label="score", vmax=100),
+            CBFSummaryPlot(label="score", vmax=100),
             name="score_summary",
             mem_gb=1,
         )
-
-        # fmt:off
         workflow.connect([
             (inputnode, score_summary, [
                 ("mean_cbf_score", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
-        ds_report_score_summary = pe.Node(
-            DerivativesDataSink(desc="scoreplot", datatype="figures", keep_dtype=True),
-            name="ds_report_score_summary",
+        ds_report_score = pe.Node(
+            DerivativesDataSink(datatype="figures", desc="score", suffix="cbf", keep_dtype=True),
+            name="ds_report_score",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-
-        workflow.connect([(score_summary, ds_report_score_summary, [("out_file", "in_file")])])
+        workflow.connect([(score_summary, ds_report_score, [("out_file", "in_file")])])
 
         score_by_tt_plot = pe.Node(
             CBFByTissueTypePlot(),
             name="score_by_tt_plot",
         )
-
-        # fmt:off
         workflow.connect([
             (inputnode, score_by_tt_plot, [("mean_cbf_score", "cbf")]),
             (warp_t1w_dseg_to_aslref, score_by_tt_plot, [("output_image", "seg_file")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
-        ds_report_score_by_tt_plot = pe.Node(
-            DerivativesDataSink(desc="scoreByTissueType", datatype="figures", keep_dtype=True),
-            name="ds_report_score_by_tt_plot",
+        ds_report_score_by_tt = pe.Node(
+            DerivativesDataSink(
+                datatype="figures",
+                desc="scoreByTissueType",
+                suffix="cbf",
+                keep_dtype=True,
+            ),
+            name="ds_report_score_by_tt",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-
-        # fmt:off
-        workflow.connect([
-            (score_by_tt_plot, ds_report_score_by_tt_plot, [("out_file", "in_file")]),
-        ])
-        # fmt:on
+        workflow.connect([(score_by_tt_plot, ds_report_score_by_tt, [("out_file", "in_file")])])
 
         scrub_summary = pe.Node(
-            CBFSummary(label="scrub", vmax=100),
+            CBFSummaryPlot(label="scrub", vmax=100),
             name="scrub_summary",
             mem_gb=1,
         )
-
-        # fmt:off
         workflow.connect([
             (inputnode, scrub_summary, [
                 ("mean_cbf_scrub", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
-        ds_report_scrub_summary = pe.Node(
-            DerivativesDataSink(desc="scrubplot", datatype="figures", keep_dtype=True),
-            name="ds_report_scrub_summary",
+        ds_report_scrub = pe.Node(
+            DerivativesDataSink(datatype="figures", desc="scrub", suffix="cbf", keep_dtype=True),
+            name="ds_report_scrub",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-
-        workflow.connect([(scrub_summary, ds_report_scrub_summary, [("out_file", "in_file")])])
+        workflow.connect([(scrub_summary, ds_report_scrub, [("out_file", "in_file")])])
 
         scrub_by_tt_plot = pe.Node(
             CBFByTissueTypePlot(),
             name="scrub_by_tt_plot",
         )
-
-        # fmt:off
         workflow.connect([
             (inputnode, scrub_by_tt_plot, [("mean_cbf_scrub", "cbf")]),
             (warp_t1w_dseg_to_aslref, scrub_by_tt_plot, [("output_image", "seg_file")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
-        ds_report_scrub_by_tt_plot = pe.Node(
-            DerivativesDataSink(desc="scrubByTissueType", datatype="figures", keep_dtype=True),
-            name="ds_report_scrub_by_tt_plot",
+        ds_report_scrub_by_tt = pe.Node(
+            DerivativesDataSink(
+                datatype="figures",
+                desc="scrubByTissueType",
+                suffix="cbf",
+                keep_dtype=True,
+            ),
+            name="ds_report_scrub_by_tt",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-
-        # fmt:off
-        workflow.connect([
-            (scrub_by_tt_plot, ds_report_scrub_by_tt_plot, [("out_file", "in_file")]),
-        ])
-        # fmt:on
+        workflow.connect([(scrub_by_tt_plot, ds_report_scrub_by_tt, [("out_file", "in_file")])])
 
     if basil:
         basil_summary = pe.Node(
-            CBFSummary(label="basil", vmax=100),
+            CBFSummaryPlot(label="basil", vmax=100),
             name="basil_summary",
             mem_gb=1,
         )
-
-        # fmt:off
         workflow.connect([
             (inputnode, basil_summary, [
                 ("mean_cbf_basil", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
-        ds_report_basil_summary = pe.Node(
-            DerivativesDataSink(desc="basilplot", datatype="figures", keep_dtype=True),
-            name="ds_report_basil_summary",
+        ds_report_basil = pe.Node(
+            DerivativesDataSink(datatype="figures", desc="basil", suffix="cbf", keep_dtype=True),
+            name="ds_report_basil",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-
-        workflow.connect([(basil_summary, ds_report_basil_summary, [("out_file", "in_file")])])
+        workflow.connect([(basil_summary, ds_report_basil, [("out_file", "in_file")])])
 
         basil_by_tt_plot = pe.Node(
             CBFByTissueTypePlot(),
             name="basil_by_tt_plot",
         )
-
-        # fmt:off
         workflow.connect([
             (inputnode, basil_by_tt_plot, [("mean_cbf_basil", "cbf")]),
             (warp_t1w_dseg_to_aslref, basil_by_tt_plot, [("output_image", "seg_file")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
-        ds_report_basil_by_tt_plot = pe.Node(
-            DerivativesDataSink(desc="basilByTissueType", datatype="figures", keep_dtype=True),
-            name="ds_report_basil_by_tt_plot",
+        ds_report_basil_by_tt = pe.Node(
+            DerivativesDataSink(
+                datatype="figures",
+                desc="basilByTissueType",
+                suffix="cbf",
+                keep_dtype=True,
+            ),
+            name="ds_report_basil_by_tt",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-
-        # fmt:off
-        workflow.connect([
-            (basil_by_tt_plot, ds_report_basil_by_tt_plot, [("out_file", "in_file")]),
-        ])
-        # fmt:on
+        workflow.connect([(basil_by_tt_plot, ds_report_basil_by_tt, [("out_file", "in_file")])])
 
         pvc_summary = pe.Node(
-            CBFSummary(label="pvc", vmax=120),
+            CBFSummaryPlot(label="pvc", vmax=120),
             name="pvc_summary",
             mem_gb=1,
         )
-
-        # fmt:off
         workflow.connect([
             (inputnode, pvc_summary, [
                 ("mean_cbf_gm_basil", "cbf"),
                 ("aslref", "ref_vol"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
-        ds_report_pvc_summary = pe.Node(
-            DerivativesDataSink(desc="pvcplot", datatype="figures", keep_dtype=True),
-            name="ds_report_pvc_summary",
+        ds_report_pvc = pe.Node(
+            DerivativesDataSink(datatype="figures", desc="basilGM", suffix="cbf", keep_dtype=True),
+            name="ds_report_pvc",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-
-        workflow.connect([(pvc_summary, ds_report_pvc_summary, [("out_file", "in_file")])])
+        workflow.connect([(pvc_summary, ds_report_pvc, [("out_file", "in_file")])])
 
         pvc_by_tt_plot = pe.Node(
             CBFByTissueTypePlot(),
             name="pvc_by_tt_plot",
         )
-
-        # fmt:off
         workflow.connect([
             (inputnode, pvc_by_tt_plot, [("mean_cbf_gm_basil", "cbf")]),
             (warp_t1w_dseg_to_aslref, pvc_by_tt_plot, [("output_image", "seg_file")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
-        ds_report_pvc_by_tt_plot = pe.Node(
-            DerivativesDataSink(desc="pvcByTissueType", datatype="figures", keep_dtype=True),
-            name="ds_report_pvc_by_tt_plot",
+        ds_report_pvc_by_tt = pe.Node(
+            DerivativesDataSink(
+                datatype="figures",
+                desc="basilGMByTissueType",
+                suffix="cbf",
+                keep_dtype=True,
+            ),
+            name="ds_report_pvc_by_tt",
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-
-        workflow.connect([(pvc_by_tt_plot, ds_report_pvc_by_tt_plot, [("out_file", "in_file")])])
+        workflow.connect([(pvc_by_tt_plot, ds_report_pvc_by_tt, [("out_file", "in_file")])])
 
     return workflow

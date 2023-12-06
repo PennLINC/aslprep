@@ -12,35 +12,32 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Image Recognition",
     "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
 ]
 license = {file = "LICENSE.md"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    'importlib_resources; python_version < "3.10"',
+    'importlib_resources; python_version < "3.11"',
+    "fmriprep ~= 23.2.0a2",
     "indexed_gzip >= 0.8.8",
-    "jinja2 < 3.1",
-    "looseversion == 1.0.3",
+    "looseversion",
     "networkx ~= 2.8.8",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
-    "nibabel >= 3.0",
-    "niflow-nipype1-workflows",
-    "nilearn == 0.10.0",
-    "nipype[nipy] >= 1.8.5",
+    "nibabel >= 4.0.1",
+    "nipype >= 1.8.5",
     "nitransforms >= 21.0.0",
-    "niworkflows ~= 1.7.3",
-    "numpy >= 1.17.3",
-    "pandas >= 0.24.0",
-    "patsy",
+    "niworkflows",
+    "numpy >= 1.22",
+    "packaging",
+    "pandas",
     "psutil >= 5.4",
     "pybids ~= 0.16.4",
-    "pyyaml",
-    "scipy == 1.10.1",  # 1.11 introduces backwards incompatible change to scipy.stats.mode that doesn't work with bundled SDCFlows
+    "requests",
     "sdcflows",
     "sentry-sdk >= 0.6.9",
-    "smriprep == 0.10",
-    "svgutils",
-    "templateflow ~= 0.8",
+    "smriprep ~= 0.13.1",
+    "templateflow >= 23.0.0",
     "toml",
+
 ]
 dynamic = ["version"]
 
@@ -144,7 +141,7 @@ skip_gitignore = true
 skip = ["aslprep/niworkflows", "aslprep/pybids", "aslprep/sdcflows", "aslprep/smriprep"]
 
 [tool.flake8]
-max-line-length = "99"
+max-line-length = 99
 doctests = "False"
 exclude = [
     "*build/",
@@ -162,16 +159,19 @@ per-file-ignores = [
 ]
 
 [tool.pytest.ini_options]
-addopts = '-m "not examples_pcasl_singlepld_philips and not examples_pcasl_singlepld_siemens and not examples_pcasl_singlepld_ge and not examples_pcasl_multipld and not examples_pasl_multipld and not test_001 and not test_002 and not test_003"'
+addopts = '-m "not examples_pcasl_singlepld_philips and not examples_pcasl_singlepld_siemens and not examples_pcasl_singlepld_ge and not examples_pcasl_multipld and not examples_pasl_multipld and not qtab and not test_001 and not test_002 and not test_003 and not test_003_minimal and not test_003_resampling and not test_003_full"'
 markers = [
     "examples_pasl_multipld: mark integration test",
     "examples_pcasl_multipld: mark integration test",
     "examples_pcasl_singlepld_ge: mark integration test",
     "examples_pcasl_singlepld_philips: mark integration test",
     "examples_pcasl_singlepld_siemens: mark integration test",
-    "test_001: mark integration test for subject 01",
-    "test_002: mark integration test for subject 10R01383",
-    "test_003: mark integration test for subject A00086748",
+    "qtab: mark integration test",
+    "test_001: mark integration test",
+    "test_002: mark integration test",
+    "test_003_minimal: mark integration test",
+    "test_003_resampling: mark integration test",
+    "test_003_full: mark integration test",
 ]
 
 [tool.coverage.run]

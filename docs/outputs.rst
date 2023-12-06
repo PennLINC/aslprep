@@ -42,7 +42,7 @@ The `BIDS Derivatives RC1`_ specification describes the naming and metadata conv
 that we follow.
 
 
-Anatomical derivatives
+Anatomical Derivatives
 ======================
 
 Anatomical derivatives are placed in each subject's ``anat`` subfolder.
@@ -65,11 +65,11 @@ Additionally, the following transforms are saved::
 
    sub-<label>/[ses-<label>/]
       anat/
-         sub-<label>_from-MNI152NLin2009cAsym_to-T1w_mode-image_xfm.h5
-         sub-<label>_from-T1w_to-MNI152NLin2009cAsym_mode-image_xfm.h5
+         sub-<label>_from-<space>_to-T1w_mode-image_xfm.h5
+         sub-<label>_from-T1w_to-<space>_mode-image_xfm.h5
 
 
-ASL and CBF derivatives
+ASL and CBF Derivatives
 =======================
 
 ASL derivatives are stored in the ``perf/`` subfolder.
@@ -78,11 +78,22 @@ these will be indicated with ``[specifiers]``::
 
    sub-<label>/[ses-<label>/]
       perf/
-         <source_entities>[_space-<label>]_aslref.nii.gz  # asl reference image
+         <source_entities>_desc-hmc_aslref.nii.gz  # asl reference image for HMC
+         <source_entities>_desc-coreg_aslref.nii.gz  # asl reference image for coregistration
+         <source_entities>[_space-<label>]_aslref.nii.gz  # asl reference image for normalization
          <source_entities>[_space-<label>]_desc-brain_mask.nii.gz  # asl brain mask
          <source_entities>[_space-<label>]_desc-preproc_asl.nii.gz  # preprocessed asl timeseries
+
+Additionally, the following transforms are saved::
+
+         <source_entities>_from-orig_to-aslref_mode-image_xfm.txt  # HMC transforms from raw ASL to aslref
+         <source_entities>_from-aslref_to-T1w_mode-image_xfm.txt
+
+CBF Outputs::
+
          <source_entities>[_space-<label>]_cbf.nii.gz  # mean CBF
          <source_entities>[_space-<label>]_desc-timeseries_cbf.nii.gz  # computed CBF timeseries
+         <source_entities>[_space-<label>]_att.nii.gz  # arterial transit time (multi-PLD data only)
 
 SCORE and SCRUB Outputs::
 
@@ -93,8 +104,8 @@ SCORE and SCRUB Outputs::
 BASIL outputs::
 
          <source_entities>[_space-<label>]_desc-basil_cbf.nii.gz  # mean CBF computed with BASIL
-         <source_entities>[_space-<label>]_desc-pvGM_cbf.nii.gz  # GM partial volume corrected CBF with BASIL
-         <source_entities>[_space-<label>]_desc-pvWM_cbf.nii.gz  # WM partial volume corrected CBF with BASIL
+         <source_entities>[_space-<label>]_desc-basilGM_cbf.nii.gz  # GM partial volume corrected CBF with BASIL
+         <source_entities>[_space-<label>]_desc-basilWM_cbf.nii.gz  # WM partial volume corrected CBF with BASIL
          <source_entities>[_space-<label>]_att.nii.gz  # bolus arrival time/arterial transit time (in seconds)
 
 
@@ -102,15 +113,19 @@ BASIL outputs::
 Volumetric output space labels (``<label>`` above, and in the following) include
 ``T1w`` and ``MNI152NLin2009cAsym`` (default).
 
-**Extracted confounding time series:**
+
+*************
+ASL Confounds
+*************
+
 For each :abbr:`ASL (arterial spin labelling)` run processed with *ASLPrep*, an
 accompanying *confounds* file will be generated.
 `CBF Confounds`_ are saved as a :abbr:`TSV (tab-separated value)` file::
 
    sub-<label>/[ses-<label>/]
       perf/
-         <source_entities>_desc-confounds_regressors.tsv
-         <source_entities>_desc-confounds_regressors.json
+         <source_entities>_desc-confounds_timeseries.tsv
+         <source_entities>_desc-confounds_timeseries.json
 
 These :abbr:`TSV (tab-separated values)` tables look like the example below,
 where each row of the file corresponds to one time point found in the
@@ -122,9 +137,16 @@ corresponding :abbr:`ASL (arterial spin labelling)` time series::
      1.085204	16.323904	0.0348966	0	0	0.0457372	0	0	0
      1.01591	15.281561	0.0333937	0.010164	-0.0103568	0.0424513	0	0	0.00019174
 
+Confounds include the six head-motion parameters (three rotations and three translations),
+which are common outputs from the head-motion correction (also known as *realignment*).
+*ASLPrep* also generates framewise displacement, `DVARS`, and `std_dvars`.
+Confound variables calculated in *ASLprep* are stored separately for each subject,
+session and run in :abbr:`TSV (tab-separated value)` files,
+with one column for each confound variable.
+
 
 *******************
-CBF quality control
+CBF Quality Control
 *******************
 
 *ASLPrep* produces a quality control (QC) file for each ASL run::
@@ -143,18 +165,6 @@ It quantifies the quality of the CBF image based on structural similarity, spati
 percentage of voxels in gray matter with negative CBF values.
 
 
-*************
-CBF Confounds
-*************
-
-Confounds include the six head-motion parameters (three rotations and three translations),
-which are common outputs from the head-motion correction (also known as *realignment*).
-*ASLPrep* also generates framewise displacement, `DVARS`, and `std_dvars`.
-Confound variables calculated in *ASLprep* are stored separately for each subject,
-session and run in :abbr:`TSV (tab-separated value)` files,
-with one column for each confound variable.
-
-
 ***********************
 Parcellated CBF Results
 ***********************
@@ -163,12 +173,12 @@ Parcellated CBF Results
 
 The atlases currently used in *ASLPrep* can be separated into three groups: subcortical, cortical,
 and combined cortical/subcortical.
-The two subcortical atlases are the Tian atlas (desc-Tian; :footcite:t:`tian2020topographic`) and
-the CIFTI subcortical parcellation (desc-HCP).
+The two subcortical atlases are the Tian atlas (``desc-Tian``; :footcite:t:`tian2020topographic`) and
+the CIFTI subcortical parcellation (``desc-HCP``).
 The cortical atlases are the Glasser :footcite:p:`Glasser_2016` and the
 Gordon :footcite:p:`Gordon_2014`.
 The combined cortical/subcortical atlases are 10 different resolutions of the
-4S (Schaefer Supplemented with Subcortical Structures) atlas.
+4S (Schaefer Supplemented with Subcortical Structures) atlas (``desc-4S<*>56Parcels``).
 
 The 4S atlas combines the Schaefer 2018 cortical atlas (version v0143) :footcite:p:`Schaefer_2017`
 at 10 different resolutions (100, 200, 300, 400, 500, 600, 700, 800, 900, and 1000 parcels) with
@@ -190,9 +200,9 @@ as outputting the reference image-space versions would produce too many extra ou
    aslprep/
       atlas-<label>_dseg.json
       atlas-<label>_dseg.tsv
-      space-MNI152NLin6Asym_atlas-<label>_dseg.nii.gz
+      space-<label>_atlas-<label>_dseg.nii.gz
 
       sub-<label>/[ses-<label>/]
          perf/
-            <source_entities>_space-<label>_atlas-<label>_coverage.tsv
-            <source_entities>_space-<label>_atlas-<label>[_desc-<basil|basilGM|score|scrub>]_cbf.tsv
+            <source_entities>_space-<label>_atlas-<label>[_desc-<basil>]_coverage.tsv
+            <source_entities>_space-<label>_atlas-<label>[_desc-<basil|basilGM|basilWM|score|scrub>]_cbf.tsv

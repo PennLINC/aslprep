@@ -37,10 +37,7 @@ def read_md_table(md_text):
     retval = []
     for line in md_text.splitlines():
         if line.strip().startswith("| --- |"):
-            keys = (
-                k.replace("*", "").strip()
-                for k in prev.split("|")
-            )
+            keys = (k.replace("*", "").strip() for k in prev.split("|"))
             keys = [k.lower() for k in keys if k]
             continue
         elif not keys:
@@ -61,19 +58,13 @@ def sort_contributors(entries, git_lines, exclude=None, last=None):
     last = last or []
     sorted_authors = sorted(entries, key=lambda i: i["name"])
 
-    first_last = [
-        " ".join(val["name"].split(",")[::-1]).strip() for val in sorted_authors
-    ]
-    first_last_excl = [
-        " ".join(val["name"].split(",")[::-1]).strip() for val in exclude or []
-    ]
+    first_last = [" ".join(val["name"].split(",")[::-1]).strip() for val in sorted_authors]
+    first_last_excl = [" ".join(val["name"].split(",")[::-1]).strip() for val in exclude or []]
 
     unmatched = []
     author_matches = []
     for ele in git_lines:
-        matches = process.extract(
-            ele, first_last, scorer=fuzz.token_sort_ratio, limit=2
-        )
+        matches = process.extract(ele, first_last, scorer=fuzz.token_sort_ratio, limit=2)
         # matches is a list [('First match', % Match), ('Second match', % Match)]
         if matches[0][1] > 80:
             val = sorted_authors[first_last.index(matches[0][0])]
@@ -153,8 +144,9 @@ def cli():
 @cli.command()
 @click.option("-z", "--zenodo-file", type=click.Path(exists=True), default=".zenodo.json")
 @click.option("-m", "--maintainers", type=click.Path(exists=True), default=".maint/MAINTAINERS.md")
-@click.option("-c", "--contributors", type=click.Path(exists=True),
-              default=".maint/CONTRIBUTORS.md")
+@click.option(
+    "-c", "--contributors", type=click.Path(exists=True), default=".maint/CONTRIBUTORS.md"
+)
 @click.option("--pi", type=click.Path(exists=True), default=".maint/PIs.md")
 @click.option("-f", "--former-file", type=click.Path(exists=True), default=".maint/FORMER.md")
 def zenodo(
@@ -177,15 +169,13 @@ def zenodo(
     )
 
     zen_contributors, miss_contributors = sort_contributors(
-        _namelast(read_md_table(Path(contributors).read_text())),
-        data,
-        exclude=former
+        _namelast(read_md_table(Path(contributors).read_text())), data, exclude=former
     )
 
     zen_pi = _namelast(
         sorted(
             read_md_table(Path(pi).read_text()),
-            key=lambda v: (int(v.get("position", -1)), v.get("lastname"))
+            key=lambda v: (int(v.get("position", -1)), v.get("lastname")),
         )
     )
 
@@ -195,8 +185,7 @@ def zenodo(
     misses = set(miss_creators).intersection(miss_contributors)
     if misses:
         print(
-            "Some people made commits, but are missing in .maint/ "
-            f"files: {', '.join(misses)}",
+            "Some people made commits, but are missing in .maint/ " f"files: {', '.join(misses)}",
             file=sys.stderr,
         )
 
@@ -215,15 +204,14 @@ def zenodo(
         if isinstance(creator["affiliation"], list):
             creator["affiliation"] = creator["affiliation"][0]
 
-    Path(zenodo_file).write_text(
-        "%s\n" % json.dumps(zenodo, indent=2)
-    )
+    Path(zenodo_file).write_text("%s\n" % json.dumps(zenodo, indent=2))
 
 
 @cli.command()
 @click.option("-m", "--maintainers", type=click.Path(exists=True), default=".maint/MAINTAINERS.md")
-@click.option("-c", "--contributors", type=click.Path(exists=True),
-              default=".maint/CONTRIBUTORS.md")
+@click.option(
+    "-c", "--contributors", type=click.Path(exists=True), default=".maint/CONTRIBUTORS.md"
+)
 @click.option("--pi", type=click.Path(exists=True), default=".maint/PIs.md")
 @click.option("-f", "--former-file", type=click.Path(exists=True), default=".maint/FORMER.md")
 def publication(
@@ -233,9 +221,8 @@ def publication(
     former_file,
 ):
     """Generate the list of authors and affiliations for papers."""
-    members = (
-        _namelast(read_md_table(Path(maintainers).read_text()))
-        + _namelast(read_md_table(Path(contributors).read_text()))
+    members = _namelast(read_md_table(Path(maintainers).read_text())) + _namelast(
+        read_md_table(Path(contributors).read_text())
     )
 
     hits, misses = sort_contributors(
@@ -247,15 +234,12 @@ def publication(
     pi_hits = _namelast(
         sorted(
             read_md_table(Path(pi).read_text()),
-            key=lambda v: (int(v.get("position", -1)), v.get("lastname"))
+            key=lambda v: (int(v.get("position", -1)), v.get("lastname")),
         )
     )
 
     pi_names = [pi["name"] for pi in pi_hits]
-    hits = [
-        hit for hit in hits
-        if hit["name"] not in pi_names
-    ] + pi_hits
+    hits = [hit for hit in hits if hit["name"] not in pi_names] + pi_hits
 
     def _aslist(value):
         if isinstance(value, (list, tuple)):
@@ -282,30 +266,22 @@ def publication(
 
     if misses:
         print(
-            "Some people made commits, but are missing in .maint/ "
-            f"files: {', '.join(misses)}",
+            "Some people made commits, but are missing in .maint/ " f"files: {', '.join(misses)}",
             file=sys.stderr,
         )
 
     print("Authors (%d):" % len(hits))
     print(
         "%s."
-        % "; ".join(
-            [
-                "%s \\ :sup:`%s`\\ " % (i["name"], idx)
-                for i, idx in zip(hits, aff_indexes)
-            ]
-        )
+        % "; ".join(["%s \\ :sup:`%s`\\ " % (i["name"], idx) for i, idx in zip(hits, aff_indexes)])
     )
 
     print(
         "\n\nAffiliations:\n%s"
-        % "\n".join(
-            ["{0: >2}. {1}".format(i + 1, a) for i, a in enumerate(affiliations)]
-        )
+        % "\n".join(["{0: >2}. {1}".format(i + 1, a) for i, a in enumerate(affiliations)])
     )
 
 
 if __name__ == "__main__":
-    """ Install entry-point """
+    """Install entry-point"""
     cli()

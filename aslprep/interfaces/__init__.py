@@ -3,16 +3,21 @@
 """Nipype interfaces for aslprep."""
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.confounds import GatherConfounds
-from aslprep.interfaces.plotting import ASLSummary, CBFSummary, CBFtsSummary
-from aslprep.interfaces.reports import AboutSummary, FunctionalSummary, SubjectSummary
+from aslprep.interfaces.plotting import ASLCarpetPlot, CBFSummaryPlot
+from aslprep.interfaces.reports import (
+    AboutSummary,
+    CBFSummary,
+    FunctionalSummary,
+    SubjectSummary,
+)
 
 __all__ = [
-    "SubjectSummary",
-    "FunctionalSummary",
     "AboutSummary",
-    "GatherConfounds",
-    "ASLSummary",
+    "ASLCarpetPlot",
     "CBFSummary",
-    "CBFtsSummary",
+    "CBFSummaryPlot",
     "DerivativesDataSink",
+    "FunctionalSummary",
+    "GatherConfounds",
+    "SubjectSummary",
 ]

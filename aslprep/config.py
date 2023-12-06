@@ -1,17 +1,37 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
+#
+# Copyright 2023 The NiPreps Developers <nipreps@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# We support and encourage derived works from this project, please read
+# about our expectations at
+#
+#     https://www.nipreps.org/community/licensing/
+#
 r"""
 A Python module to maintain unique, run-wide *aslprep* settings.
 
 This module implements the memory structures to keep a consistent, singleton config.
 Settings are passed across processes via filesystem, and a copy of the settings for
 each run and subject is left under
-``<output_dir>/sub-<participant_id>/log/<run_unique_id>/aslprep.toml``.
+``<aslprep_dir>/sub-<participant_id>/log/<run_unique_id>/aslprep.toml``.
 Settings are stored using :abbr:`ToML (Tom's Markup Language)`.
-The module has a :py:func:`~aslprep.config.to_filename` function to allow writting out
+The module has a :py:func:`~aslprep.config.to_filename` function to allow writing out
 the settings to hard disk in *ToML* format, which looks like:
 
-.. literalinclude:: ../../aslprep/tests/data/config.toml
+.. literalinclude:: ../aslprep/data/tests/config.toml
    :language: toml
    :name: aslprep.toml
    :caption: **Example file representation of aslprep settings**.
@@ -42,7 +62,7 @@ graph is built across processes.
     config.to_filename(config_file)
     # Call build_workflow(config_file, retval) in a subprocess
     with Manager() as mgr:
-        from aslprep.cli import build_workflow
+        from aslprep.cli.workflow import build_workflow
         retval = mgr.dict()
         p = Process(target=build_workflow, args=(str(config_file), retval))
         p.start()
@@ -67,7 +87,15 @@ The :py:mod:`config` is responsible for other conveniency actions.
     :py:class:`~bids.layout.BIDSLayout`, etc.)
 
 """
+import os
 from multiprocessing import set_start_method
+
+# Disable NiPype etelemetry always
+_disable_et = bool(os.getenv("NO_ET") is not None or os.getenv("NIPYPE_NO_ET") is not None)
+os.environ["NIPYPE_NO_ET"] = "1"
+os.environ["NO_ET"] = "1"
+
+CONFIG_FILENAME = "aslprep.toml"
 
 try:
     set_start_method("forkserver")
@@ -76,7 +104,6 @@ except RuntimeError:
 finally:
     # Defer all custom import for after initializing the forkserver and
     # ignoring the most annoying warnings
-    import os
     import random
     import sys
     from pathlib import Path
@@ -84,7 +111,6 @@ finally:
     from uuid import uuid4
 
     from nipype import __version__ as _nipype_ver
-    from nipype import logging as nlogging
     from templateflow import __version__ as _tf_ver
 
     from aslprep import __version__
@@ -96,14 +122,15 @@ if not any(
     (
         "+" in __version__,
         __version__.endswith(".dirty"),
-        os.getenv("aslprep_DEV", "0").lower() in ("1", "on", "true", "y", "yes"),
+        os.getenv("ASLPREP_DEV", "0").lower() in ("1", "on", "true", "y", "yes"),
     )
 ):
     from aslprep._warnings import logging
 
     os.environ["PYTHONWARNINGS"] = "ignore"
-elif os.getenv("aslprep_WARNINGS", "0").lower() in ("1", "on", "true", "y", "yes"):
+elif os.getenv("ASLPREP_WARNINGS", "0").lower() in ("1", "on", "true", "y", "yes"):
     # allow disabling warnings on development versions
+    # https://github.com/nipreps/fmriprep/pull/2080#discussion_r409118765
     from aslprep._warnings import logging
 else:
     import logging
@@ -113,6 +140,19 @@ logging.addLevelName(15, "VERBOSE")  # Add a new level between INFO and DEBUG
 
 DEFAULT_MEMORY_MIN_GB = 0.01
 
+# Ping NiPype eTelemetry once if env var was not set
+# workers on the pool will have the env variable set from the master process
+if not _disable_et:
+    # Just get so analytics track one hit
+    from contextlib import suppress
+
+    from requests import ConnectionError, ReadTimeout
+    from requests import get as _get_url
+
+    with suppress((ConnectionError, ReadTimeout)):
+        _get_url("https://rig.mit.edu/et/projects/nipy/nipype", timeout=0.05)
+
+# Execution environment
 _exec_env = os.name
 _docker_ver = None
 # special variable set in the container
@@ -138,7 +178,7 @@ _templateflow_home = Path(
 try:
     from psutil import virtual_memory
 
-    _free_mem_at_start = round(virtual_memory().free / 1024**3, 1)
+    _free_mem_at_start = round(virtual_memory().available / 1024**3, 1)
 except Exception:
     _free_mem_at_start = None
 
@@ -161,6 +201,11 @@ except Exception:
     pass
 
 
+# Debug modes are names that influence the exposure of internal details to
+# the user, either through additional derivatives or increased verbosity
+DEBUG_MODES = ("pdb",)
+
+
 class _Config:
     """An abstract class forbidding instantiation."""
 
@@ -171,15 +216,18 @@ class _Config:
         raise RuntimeError("Configuration type is not instantiable.")
 
     @classmethod
-    def load(cls, settings, init=True):
+    def load(cls, settings, init=True, ignore=None):
         """Store settings from a dictionary."""
+        ignore = ignore or {}
         for k, v in settings.items():
-            if v is None:
+            if k in ignore or v is None:
                 continue
             if k in cls._paths:
-                setattr(cls, k, Path(v).absolute())
-                continue
-            if hasattr(cls, k):
+                if isinstance(v, (list, tuple)):
+                    setattr(cls, k, [Path(val).absolute() for val in v])
+                else:
+                    setattr(cls, k, Path(v).absolute())
+            elif hasattr(cls, k):
                 setattr(cls, k, v)
 
         if init:
@@ -200,9 +248,12 @@ class _Config:
             if callable(getattr(cls, k)):
                 continue
             if k in cls._paths:
-                v = str(v)
+                if isinstance(v, (list, tuple)):
+                    v = [str(val) for val in v]
+                else:
+                    v = str(v)
             if isinstance(v, SpatialReferences):
-                v = " ".join([str(s) for s in v.references]) or None
+                v = " ".join(str(s) for s in v.references) or None
             if isinstance(v, Reference):
                 v = str(v) or None
             out[k] = v
@@ -214,7 +265,7 @@ class environment(_Config):
     Read-only options regarding the platform and environment.
 
     Crawls runtime descriptive settings (e.g., default FreeSurfer license,
-    execution environment, nipype and *aslprep* versions, etc.).
+    execution environment, nipype and *ASLPrep* versions, etc.).
     The ``environment`` section is not loaded in from file,
     only written out when settings are exported.
     This config section is useful when reporting issues,
@@ -240,7 +291,7 @@ class environment(_Config):
     templateflow_version = _tf_ver
     """The TemplateFlow client version installed."""
     version = __version__
-    """*aslprep*'s version."""
+    """*ASLPrep*'s version."""
 
 
 class nipype(_Config):
@@ -307,6 +358,7 @@ class nipype(_Config):
                     "crashfile_format": cls.crashfile_format,
                     "get_linked_libs": cls.get_linked_libs,
                     "stop_on_first_crash": cls.stop_on_first_crash,
+                    "check_version": False,  # disable future telemetry
                 }
             }
         )
@@ -318,18 +370,24 @@ class nipype(_Config):
 class execution(_Config):
     """Configure run-level settings."""
 
-    anat_derivatives = None
-    """A path where anatomical derivatives are found to fast-track *sMRIPrep*."""
     bids_dir = None
     """An existing path to the dataset, which must be BIDS-compliant."""
+    derivatives = []
+    """Path(s) to search for pre-computed derivatives"""
+    bids_database_dir = None
+    """Path to the directory containing SQLite database indices for the input BIDS dataset."""
     bids_description_hash = None
     """Checksum (SHA256) of the ``dataset_description.json`` of the BIDS dataset."""
     bids_filters = None
     """A dictionary of BIDS selection filters."""
     boilerplate_only = False
     """Only generate a boilerplate."""
-    debug = False
+    sloppy = False
     """Run in sloppy mode (meaning, suboptimal parameters that minimize run-time)."""
+    debug = []
+    """Debug mode(s)."""
+    aslprep_dir = None
+    """Root of ASLPrep BIDS Derivatives dataset."""
     fs_license_file = _fs_license
     """An existing file containing a FreeSurfer license."""
     fs_subjects_dir = None
@@ -345,7 +403,7 @@ class execution(_Config):
     md_only_boilerplate = False
     """Do not convert boilerplate from MarkDown to LaTex and HTML."""
     notrack = False
-    """Do not monitor *aslprep* using Sentry.io."""
+    """Do not collect telemetry information for *ASLPrep*."""
     output_dir = None
     """Folder where derivatives will be stored."""
     output_spaces = None
@@ -369,8 +427,10 @@ class execution(_Config):
     _layout = None
 
     _paths = (
-        "anat_derivatives",
         "bids_dir",
+        "derivatives",
+        "bids_database_dir",
+        "aslprep_dir",
         "fs_license_file",
         "fs_subjects_dir",
         "layout",
@@ -392,6 +452,9 @@ class execution(_Config):
             from bids.layout import BIDSLayout
             from bids.layout.index import BIDSLayoutIndexer
 
+            _db_path = cls.bids_database_dir or (cls.work_dir / cls.run_uuid / "bids_db")
+            _db_path.mkdir(exist_ok=True, parents=True)
+
             # Recommended after PyBIDS 12.1
             _indexer = BIDSLayoutIndexer(
                 validate=False,
@@ -408,9 +471,11 @@ class execution(_Config):
             )
             cls._layout = BIDSLayout(
                 str(cls.bids_dir),
+                database_path=_db_path,
+                reset_database=cls.bids_database_dir is None,
                 indexer=_indexer,
             )
-
+            cls.bids_database_dir = _db_path
         cls.layout = cls._layout
         if cls.bids_filters:
             from bids.layout import Query
@@ -421,6 +486,9 @@ class execution(_Config):
                     k: getattr(Query, v[7:-4]) if not isinstance(v, Query) and "Query" in v else v
                     for k, v in filters.items()
                 }
+
+        if "all" in cls.debug:
+            cls.debug = list(DEBUG_MODES)
 
 
 # These variables are not necessary anymore
@@ -439,13 +507,17 @@ class workflow(_Config):
 
     anat_only = False
     """Execute the anatomical preprocessing only."""
-    asl2t1w_dof = 6
+    asl2t1w_dof = None
     """Degrees of freedom of the ASL-to-T1w registration steps."""
     asl2t1w_init = "register"
     """Whether to use standard coregistration ('register') or to initialize coregistration from the
     ASL image-header ('header')."""
     m0_scale = float(1)
     """Relative scale between ASL (delta-M) and M0."""
+    cifti_output = None
+    """Generate HCP Grayordinates, accepts either ``'91k'`` (default) or ``'170k'``."""
+    dummy_scans = 0
+    """Number of label-control volume pairs to delete before CBF computation."""
     fmap_bspline = None
     """Regularize fieldmaps with a field of B-Spline basis."""
     fmap_demean = None
@@ -453,57 +525,69 @@ class workflow(_Config):
     force_syn = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation."""
     hires = None
-    """Run with the ``--hires`` flag."""
+    """Run FreeSurfer ``recon-all`` with the ``-hires`` flag."""
     ignore = None
-    """Ignore particular steps for *aslprep*, such as sbref and fieldmap."""
+    """Ignore particular steps for *ASLPrep*."""
+    level = "full"
+    """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full']."""
     longitudinal = False
-    """Run with the ``--longitudinal`` flag."""
-    random_seed = None
-    """Master random seed to initialize the Pseudorandom Number Generator (PRNG)"""
+    """Run FreeSurfer ``recon-all`` with the ``--longitudinal`` flag."""
+    run_msmsulc = True
+    """Run Multimodal Surface Matching surface registration."""
+    medial_surface_nan = None
+    """Fill medial surface with :abbr:`NaNs (not-a-number)` when sampling."""
+    project_goodvoxels = False
+    """Exclude voxels with locally high coefficient of variation from sampling."""
+    run_reconall = True
+    """Run FreeSurfer's surface reconstruction."""
     skull_strip_fixed_seed = False
     """Fix a seed for skull-stripping."""
     skull_strip_template = "OASIS30ANTs"
     """Change default brain extraction template."""
     skull_strip_t1w = "force"
     """Skip brain extraction of the T1w image (default is ``force``, meaning that
-    *aslprep* will run brain extraction of the T1w)."""
+    *ASLPrep* will run brain extraction of the T1w)."""
     spaces = None
-    """Keeps the :py:class:`~niworkflows.utils.spaces.SpatialReferences`
+    """Keeps the :py:class:`~aslprep.utils.spaces.SpatialReferences`
     instance keeping standard and nonstandard spaces."""
     use_bbr = None
     """Run boundary-based registration for ASL-to-T1w registration."""
-    use_ge = None
-    """Run GE-specific processing. False means don't, True means do,
-    None means determine automatically."""
     use_syn_sdc = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation
     in the absence of any alternatives."""
-    dummy_vols = 0
-    """Number of label-control volume pairs to delete before CBF computation."""
+    use_ge = None
+    """Run GE-specific processing. False means don't, True means do,
+    None means determine automatically."""
     smooth_kernel = 5.0
     """Kernel size for smoothing M0."""
     scorescrub = False
-    """Run SCORE/SCRUB, Sudipto's algorithms for denoising CBF."""
+    """Run SCORE/SCRUB, Sudipto Dolui's algorithms for denoising CBF."""
     basil = False
     """Run BASIL, FSL utils to compute CBF with spatial regularization and
-       partial volume correction."""
+    partial volume correction."""
+
+    @classmethod
+    def init(cls):
+        # Avoid additional runtime if not required
+        if not cls.cifti_output:
+            cls.run_msmsulc = False
 
 
 class loggers:
     """Keep loggers easily accessible (see :py:func:`init`)."""
 
-    _fmt = "%(asctime)s,%(msecs)d %(name)-2s " "%(levelname)-2s:\n\t %(message)s"
+    _fmt = "%(asctime)s,%(msecs)d %(name)-2s %(levelname)-2s:\n\t %(message)s"
     _datefmt = "%y%m%d-%H:%M:%S"
 
     default = logging.getLogger()
     """The root logger."""
     cli = logging.getLogger("cli")
     """Command-line interface logging."""
-    workflow = nlogging.getLogger("nipype.workflow")
+    workflow = logging.getLogger("nipype.workflow")
     """NiPype's workflow logger."""
-    interface = nlogging.getLogger("nipype.interface")
+    interface = logging.getLogger("nipype.interface")
     """NiPype's interface logger."""
-    utils = nlogging.getLogger("nipype.utils")
+    utils = logging.getLogger("nipype.utils")
     """NiPype's utils logger."""
 
     @classmethod
@@ -518,39 +602,42 @@ class loggers:
         """
         from nipype import config as ncfg
 
-        _handler = logging.StreamHandler(stream=sys.stdout)
-        _handler.setFormatter(logging.Formatter(fmt=cls._fmt, datefmt=cls._datefmt))
-        cls.cli.addHandler(_handler)
+        if not cls.cli.hasHandlers():
+            _handler = logging.StreamHandler(stream=sys.stdout)
+            _handler.setFormatter(logging.Formatter(fmt=cls._fmt, datefmt=cls._datefmt))
+            cls.cli.addHandler(_handler)
         cls.default.setLevel(execution.log_level)
         cls.cli.setLevel(execution.log_level)
         cls.interface.setLevel(execution.log_level)
         cls.workflow.setLevel(execution.log_level)
         cls.utils.setLevel(execution.log_level)
         ncfg.update_config(
-            {
-                "logging": {"log_directory": str(execution.log_dir), "log_to_file": True},
-            }
+            {"logging": {"log_directory": str(execution.log_dir), "log_to_file": True}}
         )
 
 
 class seeds(_Config):
     """Initialize the PRNG and track random seed assignments."""
 
+    _random_seed = None
     master = None
-    """Master seed used to generate all other tracked seeds"""
+    """Master random seed to initialize the Pseudorandom Number Generator (PRNG)."""
     ants = None
-    """Seed used for antsRegistration, antsAI, antsMotionCorr"""
+    """Seed used for antsRegistration, antsAI, antsMotionCorr."""
+    numpy = None
+    """Seed used by NumPy."""
 
     @classmethod
     def init(cls):
         """Initialize a seeds object."""
-        cls.master = workflow.random_seed
+        if cls._random_seed is not None:
+            cls.master = cls._random_seed
         if cls.master is None:
             cls.master = random.randint(1, 65536)
         random.seed(cls.master)  # initialize the PRNG
-
         # functions to set program specific seeds
         cls.ants = _set_ants_seed()
+        cls.numpy = _set_numpy_seed()
 
 
 def _set_ants_seed():
@@ -560,25 +647,67 @@ def _set_ants_seed():
     return val
 
 
-def from_dict(settings):
-    """Read settings from a flat dictionary."""
-    nipype.load(settings)
-    execution.load(settings)
-    workflow.load(settings)
-    seeds.init()
+def _set_numpy_seed():
+    """NumPy's random seed is independent from Python's `random` module"""
+    import numpy as np
+
+    val = random.randint(1, 65536)
+    np.random.seed(val)
+    return val
+
+
+def from_dict(settings, init=True, ignore=None):
+    """Read settings from a flat dictionary.
+
+    Arguments
+    ---------
+    setting : dict
+        Settings to apply to any configuration
+    init : `bool` or :py:class:`~collections.abc.Container`
+        Initialize all, none, or a subset of configurations.
+    ignore : :py:class:`~collections.abc.Container`
+        Collection of keys in ``setting`` to ignore
+    """
+
+    # Accept global True/False or container of configs to initialize
+    def initialize(x):
+        return init if init in (True, False) else x in init
+
+    nipype.load(settings, init=initialize("nipype"), ignore=ignore)
+    execution.load(settings, init=initialize("execution"), ignore=ignore)
+    workflow.load(settings, init=initialize("workflow"), ignore=ignore)
+    seeds.load(settings, init=initialize("seeds"), ignore=ignore)
+
     loggers.init()
 
 
-def load(filename):
-    """Load settings from file."""
+def load(filename, skip=None, init=True):
+    """Load settings from file.
+
+    Arguments
+    ---------
+    filename : :py:class:`os.PathLike`
+        TOML file containing ASLPrep configuration.
+    skip : dict or None
+        Sets of values to ignore during load, keyed by section name
+    init : `bool` or :py:class:`~collections.abc.Container`
+        Initialize all, none, or a subset of configurations.
+    """
     from toml import loads
+
+    skip = skip or {}
+
+    # Accept global True/False or container of configs to initialize
+    def initialize(x):
+        return init if init in (True, False) else x in init
 
     filename = Path(filename)
     settings = loads(filename.read_text())
     for sectionname, configs in settings.items():
         if sectionname != "environment":
             section = getattr(sys.modules[__name__], sectionname)
-            section.load(configs)
+            ignore = skip.get(sectionname)
+            section.load(configs, ignore=ignore, init=initialize(sectionname))
     init_spaces()
 
 
@@ -630,6 +759,15 @@ def init_spaces(checkpoint=True):
     # Add the default standard space if not already present (required by several sub-workflows)
     if "MNI152NLin2009cAsym" not in spaces.get_spaces(nonstandard=False, dim=(3,)):
         spaces.add(Reference("MNI152NLin2009cAsym", {}))
+
+    # Ensure user-defined spatial references for outputs are correctly parsed.
+    # Certain options require normalization to a space not explicitly defined by users.
+    # These spaces will not be included in the final outputs.
+    cifti_output = workflow.cifti_output
+    if cifti_output:
+        # CIFTI grayordinates to corresponding FSL-MNI resolutions.
+        vol_res = "2" if cifti_output == "91k" else "1"
+        spaces.add(Reference("MNI152NLin6Asym", {"res": vol_res}))
 
     # Make the SpatialReferences object available
     workflow.spaces = spaces

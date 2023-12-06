@@ -4,7 +4,7 @@ orbs:
 
 .dockersetup: &dockersetup
   docker:
-    - image: pennlinc/aslprep_build:0.0.4
+    - image: pennlinc/aslprep_build:0.0.7
   working_directory: /src/aslprep
 
 runinstall: &runinstall
@@ -33,12 +33,29 @@ jobs:
       - checkout
       - run: *runinstall
 
+  download_anatomical:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: anatomical-v7
+      - run: *runinstall
+      - run:
+          name: Get anatomical derivatives from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data anatomical
+      - save_cache:
+          key: anatomical-v7
+          paths:
+              - /src/aslprep/.circleci/data/anatomical
+
   download_pcasl_singlepld:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: examples_pcasl_singlepld-v2
+          key: examples_pcasl_singlepld-v6
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -46,16 +63,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data examples_pcasl_singlepld
       - save_cache:
-          key: examples_pcasl_singlepld-v2
+          key: examples_pcasl_singlepld-v6
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/examples_pcasl_singlepld
 
   download_pcasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: examples_pcasl_multipld-v2
+          key: examples_pcasl_multipld-v6
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -63,16 +80,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data examples_pcasl_multipld
       - save_cache:
-          key: examples_pcasl_multipld-v2
+          key: examples_pcasl_multipld-v6
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/examples_pcasl_multipld
 
   download_pasl_multipld:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: examples_pasl_multipld-v2
+          key: examples_pasl_multipld-v6
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -80,16 +97,33 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data examples_pasl_multipld
       - save_cache:
-          key: examples_pasl_multipld-v2
+          key: examples_pasl_multipld-v6
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/examples_pasl_multipld
+
+  download_qtab:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - restore_cache:
+          key: qtab-v6
+      - run: *runinstall
+      - run:
+          name: Get test data and smriprep from box
+          command: |
+            cd /src/aslprep/.circleci
+            python get_data.py ${PWD}/data qtab
+      - save_cache:
+          key: qtab-v6
+          paths:
+              - /src/aslprep/.circleci/data/qtab
 
   download_data_test_001:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: test_001-v2
+          key: test_001-v6
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -97,16 +131,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data test_001
       - save_cache:
-          key: test_001-v2
+          key: test_001-v6
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/test_001
 
   download_data_test_002:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: test_002-v3
+          key: test_002-v7
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -114,16 +148,16 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data test_002
       - save_cache:
-          key: test_002-v3
+          key: test_002-v7
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/test_002
 
   download_data_test_003:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: test_003-v2
+          key: test_003-v6
       - run: *runinstall
       - run:
           name: Get test data and smriprep from box
@@ -131,9 +165,9 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data test_003
       - save_cache:
-          key: test_003-v2
+          key: test_003-v6
           paths:
-              - /src/aslprep/.circleci/data
+              - /src/aslprep/.circleci/data/test_003
 
   pcasl_singlepld_philips:
     <<: *dockersetup
@@ -148,7 +182,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v2
+          key: examples_pcasl_singlepld-v6
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_philips dataset
@@ -165,6 +199,8 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.examples_pcasl_singlepld_philips
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   pcasl_singlepld_siemens:
     <<: *dockersetup
@@ -179,7 +215,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v2
+          key: examples_pcasl_singlepld-v6
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_siemens dataset
@@ -196,6 +232,8 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.examples_pcasl_singlepld_siemens
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   pcasl_singlepld_ge:
     <<: *dockersetup
@@ -210,7 +248,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v2
+          key: examples_pcasl_singlepld-v6
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld dataset
@@ -241,7 +279,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_multipld-v2
+          key: examples_pcasl_multipld-v6
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_multipld dataset
@@ -258,6 +296,8 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.examples_pcasl_multipld
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   pasl_multipld:
     <<: *dockersetup
@@ -272,7 +312,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pasl_multipld-v2
+          key: examples_pasl_multipld-v6
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pasl_multipld dataset
@@ -290,6 +330,39 @@ jobs:
           paths:
               - .coverage.examples_pasl_multipld
 
+  qtab:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?qtab\]' )" != "" ]]; then
+              echo "Skipping qtab build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: qtab-v6
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on qtab dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "qtab" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.qtab
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.qtab
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
+
   test_001:
     <<: *dockersetup
     steps:
@@ -303,7 +376,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_001-v2
+          key: test_001-v6
       - run: *runinstall
       - run:
           name: Run full aslprep on test_001 dataset
@@ -320,6 +393,8 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.test_001
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   test_002:
     <<: *dockersetup
@@ -334,7 +409,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_002-v3
+          key: test_002-v7
       - run: *runinstall
       - run:
           name: Run full aslprep on test_002 dataset
@@ -352,7 +427,7 @@ jobs:
           paths:
               - .coverage.test_002
 
-  test_003:
+  test_003_minimal:
     <<: *dockersetup
     steps:
       - checkout
@@ -360,20 +435,20 @@ jobs:
           name: Check whether build should be skipped
           command: |
             cd /src/aslprep
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003\]' )" != "" ]]; then
-              echo "Skipping test_003 build"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_minimal\]' )" != "" ]]; then
+              echo "Skipping test_003_minimal build"
               circleci step halt
             fi
       - restore_cache:
-          key: test_003-v2
+          key: test_003-v6
       - run: *runinstall
       - run:
-          name: Run full aslprep on test_003 dataset
+          name: Run minimal aslprep on test_003 dataset
           no_output_timeout: 5h
           command: |
-            pytest -rP -o log_cli=true -m "test_003" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            pytest -rP -o log_cli=true -m "test_003_minimal" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
             mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003_minimal
             # remove nifti files before uploading artifacts
             find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
       - store_artifacts:
@@ -381,7 +456,75 @@ jobs:
       - persist_to_workspace:
           root: /src/coverage
           paths:
-              - .coverage.test_003
+              - .coverage.test_003_minimal
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
+
+  test_003_resampling:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_resampling\]' )" != "" ]]; then
+              echo "Skipping test_003_resampling build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_003-v6
+      - run: *runinstall
+      - run:
+          name: Run resampling aslprep on test_003 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_003_resampling" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003_resampling
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_003_resampling
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
+
+  test_003_full:
+    <<: *dockersetup
+    steps:
+      - checkout
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            cd /src/aslprep
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_full\]' )" != "" ]]; then
+              echo "Skipping test_003_full build"
+              circleci step halt
+            fi
+      - restore_cache:
+          key: test_003-v6
+      - run: *runinstall
+      - run:
+          name: Run full aslprep on test_003 dataset
+          no_output_timeout: 5h
+          command: |
+            pytest -rP -o log_cli=true -m "test_003_full" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
+            mkdir /src/coverage
+            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003_full
+            # remove nifti files before uploading artifacts
+            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
+      - store_artifacts:
+          path: /src/aslprep/.circleci/out
+      - persist_to_workspace:
+          root: /src/coverage
+          paths:
+              - .coverage.test_003_full
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
 
   pytests:
     <<: *dockersetup
@@ -396,9 +539,9 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_001-v2
+          key: test_001-v6
       - restore_cache:
-          key: test_003-v2
+          key: test_003-v6
       - run: *runinstall
       - run:
           name: Run pytest on the tests directory
@@ -491,6 +634,15 @@ workflows:
             tags:
               only: /.*/
 
+      - download_anatomical:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
       - download_pcasl_singlepld:
           filters:
             branches:
@@ -510,6 +662,15 @@ workflows:
               only: /.*/
 
       - download_pasl_multipld:
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - download_qtab:
           filters:
             branches:
               ignore:
@@ -548,6 +709,7 @@ workflows:
       - pcasl_singlepld_philips:
           requires:
             - download_pcasl_singlepld
+            - download_anatomical
             - build
           filters:
             branches:
@@ -560,6 +722,7 @@ workflows:
       - pcasl_singlepld_siemens:
           requires:
             - download_pcasl_singlepld
+            - download_anatomical
             - build
           filters:
             branches:
@@ -572,6 +735,7 @@ workflows:
       - pcasl_singlepld_ge:
           requires:
             - download_pcasl_singlepld
+            - download_anatomical
             - build
           filters:
             branches:
@@ -584,6 +748,7 @@ workflows:
       - pcasl_multipld:
           requires:
             - download_pcasl_multipld
+            - download_anatomical
             - build
           filters:
             branches:
@@ -596,6 +761,20 @@ workflows:
       - pasl_multipld:
           requires:
             - download_pasl_multipld
+            - download_anatomical
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - qtab:
+          requires:
+            - download_qtab
+            - download_anatomical
             - build
           filters:
             branches:
@@ -608,6 +787,7 @@ workflows:
       - test_001:
           requires:
             - download_data_test_001
+            - download_anatomical
             - build
           filters:
             branches:
@@ -620,6 +800,7 @@ workflows:
       - test_002:
           requires:
             - download_data_test_002
+            - download_anatomical
             - build
           filters:
             branches:
@@ -629,9 +810,36 @@ workflows:
             tags:
               only: /.*/
 
-      - test_003:
+      - test_003_minimal:
           requires:
             - download_data_test_003
+            - download_anatomical
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - test_003_resampling:
+          requires:
+            - download_data_test_003
+            - download_anatomical
+            - build
+          filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
+            tags:
+              only: /.*/
+
+      - test_003_full:
+          requires:
+            - download_data_test_003
+            - download_anatomical
             - build
           filters:
             branches:
@@ -662,9 +870,12 @@ workflows:
             - pcasl_singlepld_ge
             - pcasl_multipld
             - pasl_multipld
+            - qtab
             - test_001
             - test_002
-            - test_003
+            - test_003_minimal
+            - test_003_resampling
+            - test_003_full
             - pytests
           filters:
             branches:
@@ -682,9 +893,12 @@ workflows:
             - pcasl_singlepld_ge
             - pcasl_multipld
             - pasl_multipld
+            - qtab
             - test_001
             - test_002
-            - test_003
+            - test_003_minimal
+            - test_003_resampling
+            - test_003_full
           filters:
             branches:
               only: main

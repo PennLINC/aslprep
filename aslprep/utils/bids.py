@@ -1,29 +1,28 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Utilities to handle BIDS inputs."""
+from __future__ import annotations
+
 import json
 import os
 import sys
+import typing as ty
+from collections import defaultdict
 from pathlib import Path
 
 import yaml
 from bids.layout import BIDSLayout
 
 from aslprep import config
+from aslprep.data import load as load_data
 
 
 def collect_data(
-    bids_dir,
+    layout,
     participant_label,
-    bids_validate=False,
     bids_filters=None,
 ):
     """Use pybids to retrieve the input data for a given participant."""
-    if isinstance(bids_dir, BIDSLayout):
-        layout = bids_dir
-    else:
-        layout = BIDSLayout(str(bids_dir), validate=bids_validate)
-
     queries = {
         "fmap": {"datatype": "fmap"},
         "flair": {"datatype": "anat", "suffix": "FLAIR"},
@@ -50,14 +49,14 @@ def collect_data(
         for dtype, query in queries.items()
     }
 
-    return subj_data, layout
+    return subj_data
 
 
 def collect_run_data(layout, asl_file):
     """Use pybids to retrieve the input data for a given participant."""
     queries = {
         "aslcontext": {"suffix": "aslcontext", "extension": ".tsv"},
-        "sbref": {"suffix": "sbref"},
+        "sbref": {"suffix": "sbref", "extension": [".nii", ".nii.gz"]},
     }
 
     bids_file = layout.get_file(asl_file)
@@ -124,6 +123,66 @@ def collect_run_data(layout, asl_file):
     return run_data
 
 
+def collect_derivatives(
+    derivatives_dir: Path,
+    entities: dict,
+    fieldmap_id: str | None,
+    spec: dict | None = None,
+    patterns: ty.List[str] | None = None,
+):
+    """Gather existing derivatives and compose a cache."""
+    if spec is None or patterns is None:
+        _spec, _patterns = tuple(
+            json.loads(load_data.readable("io_spec.json").read_text()).values()
+        )
+
+        if spec is None:
+            spec = _spec
+        if patterns is None:
+            patterns = _patterns
+
+    derivs_cache = defaultdict(list, {})
+    layout = BIDSLayout(derivatives_dir, config=["bids", "derivatives"], validate=False)
+    derivatives_dir = Path(derivatives_dir)
+
+    # search for both aslrefs
+    for k, q in spec["baseline"].items():
+        query = {**q, **entities}
+        item = layout.get(return_type="filename", **query)
+        if not item:
+            continue
+        derivs_cache[f"{k}_aslref"] = item[0] if len(item) == 1 else item
+
+    for xfm, q in spec["transforms"].items():
+        query = {**q, **entities}
+        if xfm == "aslref2fmap":
+            query["to"] = fieldmap_id
+        item = layout.get(return_type="filename", **q)
+        if not item:
+            continue
+        derivs_cache[xfm] = item[0] if len(item) == 1 else item
+    return derivs_cache
+
+
+def write_bidsignore(deriv_dir):
+    """Write .bidsignore file."""
+    bids_ignore = (
+        "*.html",
+        "logs/",
+        "figures/",  # Reports
+        "*_xfm.*",  # Unspecified transform files
+        "*.surf.gii",  # Unspecified structural outputs
+        # Unspecified functional outputs
+        "*_aslref.nii.gz",
+        "*_asl.func.gii",
+        "*_mixing.tsv",
+        "*_timeseries.tsv",
+    )
+    ignore_file = Path(deriv_dir) / ".bidsignore"
+
+    ignore_file.write_text("\n".join(bids_ignore) + "\n")
+
+
 def write_derivative_description(bids_dir, deriv_dir):
     """Write derivative dataset_description file."""
     from aslprep.__about__ import DOWNLOAD_URL, __url__, __version__
@@ -132,14 +191,14 @@ def write_derivative_description(bids_dir, deriv_dir):
     deriv_dir = Path(deriv_dir)
     desc = {
         "Name": "ASLPrep - ASL PREProcessing workflow",
-        "BIDSVersion": "1.1.1",
+        "BIDSVersion": "1.9.0",
         "PipelineDescription": {
             "Name": "ASLPrep",
             "Version": __version__,
             "CodeURL": DOWNLOAD_URL,
         },
         "CodeURL": __url__,
-        "HowToAcknowledge": "Please cite our paper coming :), "
+        "HowToAcknowledge": "Please cite our paper "
         "and include the generated citation boilerplate within the Methods "
         "section of the text.",
     }
