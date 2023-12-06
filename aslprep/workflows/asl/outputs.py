@@ -753,10 +753,9 @@ def init_ds_ciftis_wf(
     name: str = "ds_ciftis_wf",
 ) -> pe.Workflow:
     """Apply transforms from reference to fsLR space and write out derivatives."""
-    from fmriprep.workflows.bold.resampling import (
-        init_bold_fsLR_resampling_wf,
-        init_bold_grayords_wf,
-    )
+    from fmriprep.workflows.bold.resampling import init_bold_grayords_wf
+
+    from aslprep.workflows.asl.resampling import init_bold_fsLR_resampling_wf
 
     workflow = pe.Workflow(name=name)
     inputnode_fields = [
@@ -777,7 +776,6 @@ def init_ds_ciftis_wf(
         "midthickness_fsLR",
         "sphere_reg_fsLR",
         "cortex_mask",
-        "anat_ribbon",
     ]
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
@@ -872,9 +870,7 @@ def init_ds_ciftis_wf(
             (aslref2MNI6, warp_cbf_to_MNI6, [("out", "transforms")]),
         ])  # fmt:skip
 
-        # XXX: Need to add predefined "goodvoxels_mask" support.
         cbf_fsLR_resampling_wf = init_bold_fsLR_resampling_wf(
-            estimate_goodvoxels=False,  # already made from ASL data
             grayord_density=config.workflow.cifti_output,
             omp_nthreads=omp_nthreads,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
@@ -889,8 +885,7 @@ def init_ds_ciftis_wf(
                 ("midthickness_fsLR", "inputnode.midthickness_fsLR"),
                 ("sphere_reg_fsLR", "inputnode.sphere_reg_fsLR"),
                 ("cortex_mask", "inputnode.cortex_mask"),
-                ("anat_ribbon", "inputnode.anat_ribbon"),
-                ("goodvoxels_mask", "inputnode.goodvoxels_mask"),
+                ("goodvoxels_mask", "inputnode.volume_roi"),
             ]),
             (warp_cbf_to_anat, cbf_fsLR_resampling_wf, [("output_image", "inputnode.bold_file")])
         ])  # fmt:skip

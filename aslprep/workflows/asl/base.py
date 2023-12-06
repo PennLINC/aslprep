@@ -771,7 +771,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ("midthickness_fsLR", "inputnode.midthickness_fsLR"),
                 ("sphere_reg_fsLR", "inputnode.sphere_reg_fsLR"),
                 ("cortex_mask", "inputnode.cortex_mask"),
-                ("anat_ribbon", "inputnode.anat_ribbon"),
             ]),
             (asl_fit_wf, ds_asl_cifti_wf, [
                 ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),

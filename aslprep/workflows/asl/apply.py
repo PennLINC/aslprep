@@ -86,9 +86,11 @@ def init_asl_cifti_resample_wf(
     """
     from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
     from fmriprep.workflows.bold.resampling import (
-        init_bold_fsLR_resampling_wf,
         init_bold_grayords_wf,
+        init_goodvoxels_bold_mask_wf,
     )
+
+    from aslprep.workflows.asl.resampling import init_bold_fsLR_resampling_wf
 
     workflow = pe.Workflow(name=name)
 
@@ -135,12 +137,32 @@ def init_asl_cifti_resample_wf(
     )
 
     asl_fsLR_resampling_wf = init_bold_fsLR_resampling_wf(
-        estimate_goodvoxels=config.workflow.project_goodvoxels,
         grayord_density=config.workflow.cifti_output,
         omp_nthreads=omp_nthreads,
         mem_gb=mem_gb["resampled"],
         name="asl_fsLR_resampling_wf",
     )
+
+    if config.workflow.project_goodvoxels:
+        goodvoxels_bold_mask_wf = init_goodvoxels_bold_mask_wf(mem_gb["resampled"])
+
+        workflow.connect([
+            (inputnode, goodvoxels_bold_mask_wf, [
+                ("asl_file", "inputnode.bold_file"),
+                ("anat_ribbon", "inputnode.anat_ribbon"),
+            ]),
+            (goodvoxels_bold_mask_wf, asl_fsLR_resampling_wf, [
+                ("outputnode.goodvoxels_mask", "inputnode.volume_roi"),
+            ]),
+            (goodvoxels_bold_mask_wf, outputnode, [
+                ("outputnode.goodvoxels_mask", "goodvoxels_mask"),
+            ]),
+        ])  # fmt:skip
+
+        asl_fsLR_resampling_wf.__desc__ += """\
+            A "goodvoxels" mask was applied during volume-to-surface sampling in fsLR space,
+            excluding voxels whose time-series have a locally high coefficient of variation.
+            """
 
     asl_grayords_wf = init_bold_grayords_wf(
         grayord_density=config.workflow.cifti_output,
@@ -173,13 +195,11 @@ def init_asl_cifti_resample_wf(
             ("midthickness_fsLR", "inputnode.midthickness_fsLR"),
             ("sphere_reg_fsLR", "inputnode.sphere_reg_fsLR"),
             ("cortex_mask", "inputnode.cortex_mask"),
-            ("anat_ribbon", "inputnode.anat_ribbon"),
         ]),
         (asl_MNI6_wf, asl_grayords_wf, [("outputnode.bold_file", "inputnode.bold_std")]),
         (asl_fsLR_resampling_wf, asl_grayords_wf, [
             ("outputnode.bold_fsLR", "inputnode.bold_fsLR"),
         ]),
-        (asl_fsLR_resampling_wf, outputnode, [("outputnode.goodvoxels_mask", "goodvoxels_mask")]),
         (asl_grayords_wf, outputnode, [
             ("outputnode.cifti_bold", "asl_cifti"),
             ("outputnode.cifti_metadata", "cifti_metadata"),
