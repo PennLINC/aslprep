@@ -118,7 +118,7 @@ which must be accounted for in ASLPrep:
    1. Calculate CBF.
    2. Calculate CBF QC metrics, paralleling the ASL confound calculation.
    3. Plot CBF results, paralleling ASL plots.
-   4. Parcellating CBF results with a range of atlases.
+   4. Parcellate CBF results with a range of atlases.
 5. fMRIPrep contains a lot of code to handle multi-echo fMRI.
-   While multi-echo ASl does exist, it is very rare, so we do not include any multi-echo-specific
+   While multi-echo ASL does exist, it is very rare, so we do not include any multi-echo-specific
    elements in ASLPrep at the moment.
