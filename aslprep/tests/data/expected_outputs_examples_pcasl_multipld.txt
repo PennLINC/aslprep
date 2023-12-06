@@ -26,12 +26,12 @@ atlas-HCP_dseg.json
 atlas-HCP_dseg.tsv
 atlas-Tian_dseg.json
 atlas-Tian_dseg.tsv
+desc-qualitycontrol_cbf.json
 logs
 logs/CITATION.bib
 logs/CITATION.html
 logs/CITATION.md
 logs/CITATION.tex
-desc-qualitycontrol_cbf.json
 space-MNI152NLin6Asym_atlas-4S1056Parcels_res-01_dseg.json
 space-MNI152NLin6Asym_atlas-4S1056Parcels_res-01_dseg.nii.gz
 space-MNI152NLin6Asym_atlas-4S156Parcels_res-01_dseg.json
@@ -151,6 +151,10 @@ sub-01/perf/sub-01_att.json
 sub-01/perf/sub-01_att.nii.gz
 sub-01/perf/sub-01_cbf.json
 sub-01/perf/sub-01_cbf.nii.gz
+sub-01/perf/sub-01_desc-basilGM_cbf.json
+sub-01/perf/sub-01_desc-basilGM_cbf.nii.gz
+sub-01/perf/sub-01_desc-basilWM_cbf.json
+sub-01/perf/sub-01_desc-basilWM_cbf.nii.gz
 sub-01/perf/sub-01_desc-basil_att.json
 sub-01/perf/sub-01_desc-basil_att.nii.gz
 sub-01/perf/sub-01_desc-basil_cbf.json
@@ -164,10 +168,6 @@ sub-01/perf/sub-01_desc-hmc_aslref.json
 sub-01/perf/sub-01_desc-hmc_aslref.nii.gz
 sub-01/perf/sub-01_desc-preproc_asl.json
 sub-01/perf/sub-01_desc-preproc_asl.nii.gz
-sub-01/perf/sub-01_desc-basilGM_cbf.json
-sub-01/perf/sub-01_desc-basilGM_cbf.nii.gz
-sub-01/perf/sub-01_desc-basilWM_cbf.json
-sub-01/perf/sub-01_desc-basilWM_cbf.nii.gz
 sub-01/perf/sub-01_desc-qualitycontrol_cbf.csv
 sub-01/perf/sub-01_from-aslref_to-T1w_mode-image_xfm.json
 sub-01/perf/sub-01_from-aslref_to-T1w_mode-image_xfm.txt
