@@ -683,8 +683,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # GIFTI outputs
     if config.workflow.run_reconall and freesurfer_spaces:
         workflow.__postdesc__ += """\
-Non-gridded (surface) resamplings were performed using `mri_vol2surf`
-(FreeSurfer).
+Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfer).
 """
         config.loggers.workflow.debug("Creating BOLD surface-sampling workflow.")
 
