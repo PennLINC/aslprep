@@ -33,7 +33,7 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 
-def init_bold_fsLR_resampling_wf(
+def init_bold_fsLR_resampling_wf(  # noqa: N802
     grayord_density: ty.Literal["91k", "170k"],
     omp_nthreads: int,
     mem_gb: float,
@@ -95,11 +95,10 @@ def init_bold_fsLR_resampling_wf(
 
     """
     import templateflow.api as tf
+    from fmriprep.interfaces.workbench import VolumeToSurfaceMapping
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.utility import KeySelect
     from smriprep import data as smriprep_data
-
-    from fmriprep.interfaces.workbench import VolumeToSurfaceMapping
 
     fslr_density = "32k" if grayord_density == "91k" else "59k"
 
