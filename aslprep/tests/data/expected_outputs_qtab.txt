@@ -208,7 +208,12 @@ sub-01/ses-02/perf/sub-01_ses-02_atlas-4S356Parcels_coverage.tsv
 sub-01/ses-02/perf/sub-01_ses-02_atlas-4S356Parcels_desc-score_cbf.tsv
 sub-01/ses-02/perf/sub-01_ses-02_atlas-4S356Parcels_desc-scrub_cbf.tsv
 sub-01/ses-02/perf/sub-01_ses-02_atlas-4S456Parcels_cbf.tsv
-sub-01/ses-02/perf/sub-01_ses-02_atls-02/perf/sub-01_ses-02_atlas-4S556Parcels_desc-score_cbf.tsv
+sub-01/ses-02/perf/sub-01_ses-02_atlas-4S456Parcels_coverage.tsv
+sub-01/ses-02/perf/sub-01_ses-02_atlas-4S456Parcels_desc-score_cbf.tsv
+sub-01/ses-02/perf/sub-01_ses-02_atlas-4S456Parcels_desc-scrub_cbf.tsv
+sub-01/ses-02/perf/sub-01_ses-02_atlas-4S556Parcels_cbf.tsv
+sub-01/ses-02/perf/sub-01_ses-02_atlas-4S556Parcels_coverage.tsv
+sub-01/ses-02/perf/sub-01_ses-02_atlas-4S556Parcels_desc-score_cbf.tsv
 sub-01/ses-02/perf/sub-01_ses-02_atlas-4S556Parcels_desc-scrub_cbf.tsv
 sub-01/ses-02/perf/sub-01_ses-02_atlas-4S656Parcels_cbf.tsv
 sub-01/ses-02/perf/sub-01_ses-02_atlas-4S656Parcels_coverage.tsv

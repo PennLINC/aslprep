@@ -15,3 +15,6 @@ sub-01/ses-1/perf/sub-01_ses-1_from-aslref_to-T1w_mode-image_xfm.json
 sub-01/ses-1/perf/sub-01_ses-1_from-aslref_to-T1w_mode-image_xfm.txt
 sub-01/ses-1/perf/sub-01_ses-1_from-orig_to-aslref_mode-image_xfm.json
 sub-01/ses-1/perf/sub-01_ses-1_from-orig_to-aslref_mode-image_xfm.txt
+desc-qualitycontrol_cbf.json
+sub-01/ses-1/perf/sub-01_ses-1_desc-confounds_timeseries.tsv
+sub-01/ses-1/perf/sub-01_ses-1_desc-qualitycontrol_cbf.csv
