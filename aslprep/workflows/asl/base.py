@@ -520,35 +520,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (cbf_wf, cbf_reporting_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
         ])  # fmt:skip
 
-    # Resample ASL file to anatomical space.
-    # This doesn't write out the resampled file to the derivatives.
-    asl_anat_wf = init_bold_volumetric_resample_wf(
-        metadata=metadata,
-        fieldmap_id=fieldmap_id,
-        omp_nthreads=omp_nthreads,
-        mem_gb=mem_gb,
-        name="asl_anat_wf",
-    )
-
-    workflow.connect([
-        (inputnode, asl_anat_wf, [
-            ("t1w_preproc", "inputnode.target_ref_file"),
-            ("t1w_mask", "inputnode.target_mask"),
-            ("fmap_ref", "inputnode.fmap_ref"),
-            ("fmap_coeff", "inputnode.fmap_coeff"),
-            ("fmap_id", "inputnode.fmap_id"),
-        ]),
-        (asl_fit_wf, asl_anat_wf, [
-            ("outputnode.coreg_aslref", "inputnode.bold_ref_file"),
-            ("outputnode.aslref2fmap_xfm", "inputnode.boldref2fmap_xfm"),
-            ("outputnode.aslref2anat_xfm", "inputnode.boldref2anat_xfm"),
-        ]),
-        (asl_native_wf, asl_anat_wf, [
-            ("outputnode.asl_minimal", "inputnode.bold_file"),
-            ("outputnode.motion_xfm", "inputnode.motion_xfm"),
-        ]),
-    ])  # fmt:skip
-
     # If we want aslref-space outputs, then call the appropriate workflow
     aslref_out = bool(nonstd_spaces.intersection(("func", "run", "asl", "aslref", "sbref")))
     aslref_out &= config.workflow.level == "full"
@@ -585,6 +556,35 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 workflow.get_node(node).inputs.source_file = asl_file
 
         return workflow
+
+    # Resample ASL file to anatomical space.
+    # This doesn't write out the resampled file to the derivatives.
+    asl_anat_wf = init_bold_volumetric_resample_wf(
+        metadata=metadata,
+        fieldmap_id=fieldmap_id,
+        omp_nthreads=omp_nthreads,
+        mem_gb=mem_gb,
+        name="asl_anat_wf",
+    )
+
+    workflow.connect([
+        (inputnode, asl_anat_wf, [
+            ("t1w_preproc", "inputnode.target_ref_file"),
+            ("t1w_mask", "inputnode.target_mask"),
+            ("fmap_ref", "inputnode.fmap_ref"),
+            ("fmap_coeff", "inputnode.fmap_coeff"),
+            ("fmap_id", "inputnode.fmap_id"),
+        ]),
+        (asl_fit_wf, asl_anat_wf, [
+            ("outputnode.coreg_aslref", "inputnode.bold_ref_file"),
+            ("outputnode.aslref2fmap_xfm", "inputnode.boldref2fmap_xfm"),
+            ("outputnode.aslref2anat_xfm", "inputnode.boldref2anat_xfm"),
+        ]),
+        (asl_native_wf, asl_anat_wf, [
+            ("outputnode.asl_minimal", "inputnode.bold_file"),
+            ("outputnode.motion_xfm", "inputnode.motion_xfm"),
+        ]),
+    ])  # fmt:skip
 
     # Write out anatomical-space derivatives.
     if nonstd_spaces.intersection(("anat", "T1w")):

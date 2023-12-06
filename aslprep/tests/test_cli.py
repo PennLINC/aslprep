@@ -162,7 +162,6 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
         "fsaverage:den-10k",
         "--scorescrub",
         "--basil",
-        "--fs-no-reconall",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
         "--derivatives",
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
