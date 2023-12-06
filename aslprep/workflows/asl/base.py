@@ -4,13 +4,12 @@
 import typing as ty
 
 import numpy as np
-from fmriprep.workflows.bold import resampling
 from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
 from aslprep import config
-from aslprep.interfaces.bids import DerivativesDataSink, FunctionOverrideContext
+from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name, get_n_volumes
@@ -682,28 +681,24 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # GIFTI outputs
     if config.workflow.run_reconall and freesurfer_spaces:
+        from aslprep.workflows.asl.resampling import init_asl_surf_wf
+
         workflow.__postdesc__ += """\
 Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfer).
 """
-        config.loggers.workflow.debug("Creating BOLD surface-sampling workflow.")
-
-        def _fake_params(metadata):  # noqa: U100
-            return {"SliceTimingCorrected": False}
+        config.loggers.workflow.debug("Creating ASL surface-sampling workflow.")
 
         # init_bold_surf_wf uses prepare_timing_parameters, which uses the config object.
         # The uninitialized fMRIPrep config will have config.workflow.ignore set to None
         # instead of a list, which will raise an error.
-        with FunctionOverrideContext(resampling, "prepare_timing_parameters", _fake_params):
-            asl_surf_wf = resampling.init_bold_surf_wf(
-                mem_gb=mem_gb["resampled"],
-                metadata=metadata,
-                surface_spaces=freesurfer_spaces,
-                medial_surface_nan=config.workflow.medial_surface_nan,
-                output_dir=config.execution.aslprep_dir,
-                name="asl_surf_wf",
-            )
-
-        asl_surf_wf.__desc__ = asl_surf_wf.__desc__.replace("BOLD", "ASL")
+        asl_surf_wf = init_asl_surf_wf(
+            mem_gb=mem_gb["resampled"],
+            metadata=metadata,
+            surface_spaces=freesurfer_spaces,
+            medial_surface_nan=config.workflow.medial_surface_nan,
+            output_dir=config.execution.aslprep_dir,
+            name="asl_surf_wf",
+        )
         asl_surf_wf.inputs.inputnode.source_file = asl_file
         workflow.connect([
             (inputnode, asl_surf_wf, [

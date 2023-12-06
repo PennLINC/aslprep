@@ -164,7 +164,30 @@ class OverrideDerivativesDataSink:
 
 
 class FunctionOverrideContext:
-    """Override a function in imported code with a context manager."""
+    """Override a function in imported code with a context manager.
+
+    Even though this class is *currently* unused, I'm keeping it around for when I need to override
+    prepare_timing_parameters once fMRIPrep's init_bold_surf_wf is useable
+    (i.e., once the DerivativesDataSink import is moved out of the function).
+
+    Here's how it worked before:
+
+    def _fake_params(metadata):  # noqa: U100
+        return {"SliceTimingCorrected": False}
+
+    # init_bold_surf_wf uses prepare_timing_parameters, which uses the config object.
+    # The uninitialized fMRIPrep config will have config.workflow.ignore set to None
+    # instead of a list, which will raise an error.
+    with FunctionOverrideContext(resampling, "prepare_timing_parameters", _fake_params):
+        asl_surf_wf = resampling.init_bold_surf_wf(
+            mem_gb=mem_gb["resampled"],
+            metadata=metadata,
+            surface_spaces=freesurfer_spaces,
+            medial_surface_nan=config.workflow.medial_surface_nan,
+            output_dir=config.execution.aslprep_dir,
+            name="asl_surf_wf",
+        )
+    """
 
     def __init__(self, module, function_name, new_function):
         self.module = module

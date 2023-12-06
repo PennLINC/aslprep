@@ -29,8 +29,210 @@ from __future__ import annotations
 import typing as ty
 
 from fmriprep.interfaces.workbench import MetricDilate, MetricMask, MetricResample
+from nipype.interfaces import freesurfer as fs
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.interfaces.freesurfer import MedialNaNs
+
+from aslprep import config
+from aslprep.interfaces.bids import DerivativesDataSink
+
+
+def init_asl_surf_wf(
+    *,
+    mem_gb: float,
+    surface_spaces: ty.List[str],
+    medial_surface_nan: bool,
+    metadata: dict,  # noqa: U100
+    output_dir: str,
+    name: str = "asl_surf_wf",
+):
+    """Sample functional images to FreeSurfer surfaces.
+
+    For each vertex, the cortical ribbon is sampled at six points (spaced 20% of thickness apart)
+    and averaged.
+
+    Outputs are in GIFTI format.
+
+    The two main changes for ASLPrep are: prepare_timing_parameters is dropped and
+    DerivativesDataSink is imported outside the function.
+    The former is because prepare_timing_parameters relies on *fMRIPrep's* config,
+    which will be uninitialized when called by ASLPrep.
+    ASLPrep can work around this with a context manager though.
+    The latter is because, when DerivativesDataSink is imported within the function,
+    ASLPrep can't use a context manager to override it with its own version.
+    TODO: Replace with fMRIPrep workflow once DerivativesDataSink import is moved out.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: colored
+            :simple_form: yes
+
+            from aslprep.workflows.asl.resampling import init_asl_surf_wf
+
+            wf = init_asl_surf_wf(
+                mem_gb=0.1,
+                surface_spaces=["fsnative", "fsaverage5"],
+                medial_surface_nan=False,
+                metadata={},
+                output_dir=".",
+            )
+
+    Parameters
+    ----------
+    surface_spaces : :obj:`list`
+        List of FreeSurfer surface-spaces (either ``fsaverage{3,4,5,6,}`` or ``fsnative``)
+        the functional images are to be resampled to.
+        For ``fsnative``, images will be resampled to the individual subject's
+        native surface.
+    medial_surface_nan : :obj:`bool`
+        Replace medial wall values with NaNs on functional GIFTI files
+
+    Inputs
+    ------
+    source_file
+        Original BOLD series
+    bold_t1w
+        Motion-corrected BOLD series in T1 space
+    subjects_dir
+        FreeSurfer SUBJECTS_DIR
+    subject_id
+        FreeSurfer subject ID
+    fsnative2t1w_xfm
+        ITK-style affine matrix translating from FreeSurfer-conformed subject space to T1w
+
+    Outputs
+    -------
+    surfaces
+        BOLD series, resampled to FreeSurfer surfaces
+
+    """
+    from nipype.interfaces.io import FreeSurferSource
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.nitransforms import ConcatenateXFMs
+    from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
+
+    timing_parameters = {}
+
+    workflow = Workflow(name=name)
+    workflow.__desc__ = """\
+The ASL time-series were resampled onto the following surfaces
+(FreeSurfer reconstruction nomenclature):
+{out_spaces}.
+""".format(
+        out_spaces=", ".join(["*%s*" % s for s in surface_spaces])
+    )
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=[
+                "source_file",
+                "bold_t1w",
+                "subject_id",
+                "subjects_dir",
+                "fsnative2t1w_xfm",
+            ]
+        ),
+        name="inputnode",
+    )
+    itersource = pe.Node(niu.IdentityInterface(fields=["target"]), name="itersource")
+    itersource.iterables = [("target", surface_spaces)]
+
+    get_fsnative = pe.Node(FreeSurferSource(), name="get_fsnative", run_without_submitting=True)
+
+    def select_target(subject_id, space):
+        """Get the target subject ID, given a source subject ID and a target space."""
+        return subject_id if space == "fsnative" else space
+
+    targets = pe.Node(
+        niu.Function(function=select_target),
+        name="targets",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+
+    itk2lta = pe.Node(
+        ConcatenateXFMs(out_fmt="fs", inverse=True), name="itk2lta", run_without_submitting=True
+    )
+    sampler = pe.MapNode(
+        fs.SampleToSurface(
+            interp_method="trilinear",
+            out_type="gii",
+            override_reg_subj=True,
+            sampling_method="average",
+            sampling_range=(0, 1, 0.2),
+            sampling_units="frac",
+        ),
+        iterfield=["hemi"],
+        name="sampler",
+        mem_gb=mem_gb * 3,
+    )
+    sampler.inputs.hemi = ["lh", "rh"]
+
+    update_metadata = pe.MapNode(
+        GiftiSetAnatomicalStructure(),
+        iterfield=["in_file"],
+        name="update_metadata",
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+
+    ds_bold_surfs = pe.MapNode(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            extension=".func.gii",
+            **timing_parameters,
+        ),
+        iterfield=["in_file", "hemi"],
+        name="ds_bold_surfs",
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    ds_bold_surfs.inputs.hemi = ["L", "R"]
+
+    workflow.connect([
+        (inputnode, get_fsnative, [
+            ("subject_id", "subject_id"),
+            ("subjects_dir", "subjects_dir")
+        ]),
+        (inputnode, targets, [("subject_id", "subject_id")]),
+        (inputnode, itk2lta, [
+            ("bold_t1w", "moving"),
+            ("fsnative2t1w_xfm", "in_xfms"),
+        ]),
+        (get_fsnative, itk2lta, [("T1", "reference")]),
+        (inputnode, sampler, [
+            ("subjects_dir", "subjects_dir"),
+            ("subject_id", "subject_id"),
+            ("bold_t1w", "source_file"),
+        ]),
+        (itersource, targets, [("target", "space")]),
+        (itk2lta, sampler, [("out_inv", "reg_file")]),
+        (targets, sampler, [("out", "target_subject")]),
+        (inputnode, ds_bold_surfs, [("source_file", "source_file")]),
+        (itersource, ds_bold_surfs, [("target", "space")]),
+        (update_metadata, ds_bold_surfs, [("out_file", "in_file")]),
+    ])  # fmt:skip
+
+    # Refine if medial vertices should be NaNs
+    medial_nans = pe.MapNode(
+        MedialNaNs(),
+        iterfield=["in_file"],
+        name="medial_nans",
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+
+    if medial_surface_nan:
+        # fmt: off
+        workflow.connect([
+            (inputnode, medial_nans, [("subjects_dir", "subjects_dir")]),
+            (sampler, medial_nans, [("out_file", "in_file")]),
+            (medial_nans, update_metadata, [("out_file", "in_file")]),
+        ])
+        # fmt: on
+    else:
+        workflow.connect([(sampler, update_metadata, [("out_file", "in_file")])])
+
+    return workflow
 
 
 def init_bold_fsLR_resampling_wf(  # noqa: N802
