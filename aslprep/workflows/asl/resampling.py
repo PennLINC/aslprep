@@ -98,8 +98,6 @@ def init_asl_surf_wf(
     ------
     source_file
         Original BOLD series
-    bold_t1w
-        Motion-corrected BOLD series in T1 space
     subjects_dir
         FreeSurfer SUBJECTS_DIR
     subject_id
@@ -173,17 +171,6 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
         (itersource, targets, [("target", "space")]),
     ])  # fmt:skip
 
-    itk2lta = pe.Node(
-        ConcatenateXFMs(out_fmt="fs", inverse=True), name="itk2lta", run_without_submitting=True
-    )
-    workflow.connect([
-        (inputnode, itk2lta, [
-            ("bold_t1w", "moving"),
-            ("fsnative2t1w_xfm", "in_xfms"),
-        ]),
-        (get_fsnative, itk2lta, [("T1", "reference")]),
-    ])  # fmt:skip
-
     for cbf_deriv in cbf_4d + cbf_3d + att:
         fields = BASE_INPUT_FIELDS[cbf_deriv]
 
@@ -213,6 +200,17 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
                 ("anat", "reference_image"),
                 ("aslref2anat_xfm", "transforms"),
             ]),
+        ])  # fmt:skip
+
+        itk2lta = pe.Node(
+            ConcatenateXFMs(out_fmt="fs", inverse=True),
+            name=f"itk2lta_{cbf_deriv}",
+            run_without_submitting=True,
+        )
+        workflow.connect([
+            (inputnode, itk2lta, [("fsnative2t1w_xfm", "in_xfms")]),
+            (warp_cbf_to_anat, itk2lta, [("output_image", "moving")]),
+            (get_fsnative, itk2lta, [("T1", "reference")]),
         ])  # fmt:skip
 
         sampler = pe.MapNode(
