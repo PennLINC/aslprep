@@ -565,6 +565,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         mem_gb=mem_gb,
         name="asl_anat_wf",
     )
+    asl_anat_wf.inputs.inputnode.resolution = "native"
 
     workflow.connect([
         (inputnode, asl_anat_wf, [
