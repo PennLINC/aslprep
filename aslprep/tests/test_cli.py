@@ -326,7 +326,7 @@ def test_test_002(data_dir, output_dir, working_dir):
 @pytest.mark.test_003_minimal
 def test_test_003_minimal(data_dir, output_dir, working_dir):
     """Run ASLPrep minimal workflow on test_003 dataset."""
-    test_test_003(
+    base_test_003(
         data_dir,
         output_dir,
         working_dir,
@@ -338,7 +338,7 @@ def test_test_003_minimal(data_dir, output_dir, working_dir):
 @pytest.mark.test_003_resampling
 def test_test_003_resampling(data_dir, output_dir, working_dir):
     """Run ASLPrep resampling workflow on test_003 dataset."""
-    test_test_003(
+    base_test_003(
         data_dir,
         output_dir,
         working_dir,
@@ -350,7 +350,7 @@ def test_test_003_resampling(data_dir, output_dir, working_dir):
 @pytest.mark.test_003_full
 def test_test_003_full(data_dir, output_dir, working_dir):
     """Run ASLPrep full workflow on test_003 dataset."""
-    test_test_003(
+    base_test_003(
         data_dir,
         output_dir,
         working_dir,
@@ -359,7 +359,7 @@ def test_test_003_full(data_dir, output_dir, working_dir):
     )
 
 
-def test_test_003(data_dir, output_dir, working_dir, level, extra_params):
+def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
     """Run aslprep on sub-01.
 
     This dataset is Siemens.
