@@ -359,7 +359,6 @@ def test_test_003_full(data_dir, output_dir, working_dir):
     )
 
 
-@pytest.mark.test_003
 def test_test_003(data_dir, output_dir, working_dir, level, extra_params):
     """Run aslprep on sub-01.
 
