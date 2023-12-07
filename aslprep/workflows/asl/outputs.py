@@ -69,7 +69,7 @@ BASE_INPUT_FIELDS = {
 
 
 def prepare_timing_parameters(metadata: dict):
-    """Convert initial timing metadata to post-realignment timing metadata
+    """Convert initial timing metadata to post-realignment timing metadata.
 
     In particular, SliceTiming metadata is invalid once STC or any realignment is applied,
     as a matrix of voxels no longer corresponds to an acquisition slice.
@@ -79,7 +79,6 @@ def prepare_timing_parameters(metadata: dict):
 
     Examples
     --------
-
     .. testsetup::
 
         >>> from unittest import mock
