@@ -184,13 +184,6 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
         (get_fsnative, itk2lta, [("T1", "reference")]),
     ])  # fmt:skip
 
-    update_metadata = pe.MapNode(
-        GiftiSetAnatomicalStructure(),
-        iterfield=["in_file"],
-        name="update_metadata",
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
-
     for cbf_deriv in cbf_4d + cbf_3d + att:
         fields = BASE_INPUT_FIELDS[cbf_deriv]
 
@@ -245,6 +238,13 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
             (itk2lta, sampler, [("out_inv", "reg_file")]),
             (targets, sampler, [("out", "target_subject")]),
         ])  # fmt:skip
+
+        update_metadata = pe.MapNode(
+            GiftiSetAnatomicalStructure(),
+            iterfield=["in_file"],
+            name=f"update_{cbf_deriv}_metadata",
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
 
         ds_surfs = pe.MapNode(
             DerivativesDataSink(
