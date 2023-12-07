@@ -380,6 +380,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         processing_target=processing_target,
         dummy_scans=dummy_scans,
         m0_scale=m0_scale,
+        precomputed=precomputed,
         scorescrub=scorescrub,
         basil=basil,
         smooth_kernel=smooth_kernel,

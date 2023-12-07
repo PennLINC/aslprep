@@ -32,11 +32,39 @@ from aslprep.utils.bids import find_atlas_entities
 from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
 
+def determine_expected_cbf(is_multi_pld, scorescrub, basil):
+    """Predict which CBF/ATT derivatives should be generated."""
+    expected_cbf = ["mean_cbf"]
+    if is_multi_pld:
+        expected_cbf.append("att")
+    else:
+        expected_cbf.append("cbf_ts")
+
+    if scorescrub:
+        expected_cbf += [
+            "cbf_ts_score",
+            "mean_cbf_score",
+            "mean_cbf_scrub",
+            "score_outlier_index",
+        ]
+
+    if basil:
+        expected_cbf += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+            "mean_cbf_wm_basil",
+            "att_basil",
+        ]
+
+    return expected_cbf
+
+
 def init_cbf_wf(
     name_source,
     processing_target,
     metadata,
     dummy_scans,
+    precomputed={},
     scorescrub=False,
     basil=False,
     m0_scale=1,
@@ -66,6 +94,7 @@ def init_cbf_wf(
                     processing_target="control",
                     metadata=metadata,
                     dummy_scans=0,
+                    precomputed={},
                     scorescrub=True,
                     basil=True,
                 )
@@ -76,6 +105,7 @@ def init_cbf_wf(
         Path to the raw ASL file.
     metadata : :obj:`dict`
         BIDS metadata for asl file
+    precomputed
     scorescrub
     basil
     m0_scale
@@ -255,6 +285,20 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         ),
         name="outputnode",
     )
+
+    # Can contain
+    #  1) mean_cbf
+    #  2) cbf_ts
+    #  3) att
+    #  4) cbf_ts_score
+    #  5) mean_cbf_score
+    #  6) mean_cbf_scrub
+    #  7) score_outlier_index
+    #  8) mean_cbf_basil
+    #  9) mean_cbf_gm_basil
+    #  10) mean_cbf_wm_basil
+    #  11) att_basil
+    expected_cbf_derivs = determine_expected_cbf(is_multi_pld, scorescrub, basil)
 
     warp_t1w_mask_to_asl = pe.Node(
         ApplyTransforms(
