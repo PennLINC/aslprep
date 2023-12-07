@@ -148,7 +148,7 @@ def init_asl_cifti_resample_wf(
 
         workflow.connect([
             (inputnode, goodvoxels_bold_mask_wf, [
-                ("asl_file", "inputnode.bold_file"),
+                ("asl_anat", "inputnode.bold_file"),
                 ("anat_ribbon", "inputnode.anat_ribbon"),
             ]),
             (goodvoxels_bold_mask_wf, asl_fsLR_resampling_wf, [
