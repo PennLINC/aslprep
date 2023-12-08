@@ -414,7 +414,7 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
         [participant_label],
         out_dir,
         config.execution.run_uuid,
-        config=load_data.readable("reports-spec.yml"),
+        config=load_data("reports-spec.yml"),
         packagename="aslprep",
     )
 
