@@ -42,6 +42,7 @@ def datasets(data_dir):
         "examples_pasl_multipld": os.path.join(data_dir, "examples_pasl_multipld"),
         "examples_pcasl_multipld": os.path.join(data_dir, "examples_pcasl_multipld"),
         "examples_pcasl_singlepld": os.path.join(data_dir, "examples_pcasl_singlepld"),
+        "qtab": os.path.join(data_dir, "qtab"),
         "test_001": os.path.join(data_dir, "test_001"),
         "test_002": os.path.join(data_dir, "test_002"),
         "test_003": os.path.join(data_dir, "test_003"),

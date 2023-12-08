@@ -35,6 +35,7 @@ from nipype.pipeline import engine as pe
 from niworkflows.interfaces.freesurfer import MedialNaNs
 
 from aslprep import config
+from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import DerivativesDataSink
 
 
@@ -44,6 +45,9 @@ def init_asl_surf_wf(
     surface_spaces: ty.List[str],
     medial_surface_nan: bool,
     metadata: dict,  # noqa: U100
+    cbf_3d: ty.List[str],
+    cbf_4d: ty.List[str],
+    att: ty.List[str],
     output_dir: str,
     name: str = "asl_surf_wf",
 ):
@@ -62,6 +66,8 @@ def init_asl_surf_wf(
     The latter is because, when DerivativesDataSink is imported within the function,
     ASLPrep can't use a context manager to override it with its own version.
     TODO: Replace with fMRIPrep workflow once DerivativesDataSink import is moved out.
+
+    I've made a bunch of further changes to write out CBF maps instead.
 
     Workflow Graph
         .. workflow::
@@ -92,8 +98,6 @@ def init_asl_surf_wf(
     ------
     source_file
         Original BOLD series
-    bold_t1w
-        Motion-corrected BOLD series in T1 space
     subjects_dir
         FreeSurfer SUBJECTS_DIR
     subject_id
@@ -112,32 +116,45 @@ def init_asl_surf_wf(
     from niworkflows.interfaces.nitransforms import ConcatenateXFMs
     from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 
-    timing_parameters = {}
+    from aslprep.workflows.asl.outputs import (
+        BASE_INPUT_FIELDS,
+        prepare_timing_parameters,
+    )
+
+    timing_parameters = prepare_timing_parameters(metadata)
 
     workflow = Workflow(name=name)
     out_spaces_str = ", ".join([f"*{s}*" for s in surface_spaces])
     workflow.__desc__ = f"""\
-The ASL time-series were resampled onto the following surfaces
-(FreeSurfer reconstruction nomenclature):
+The CBF maps were resampled onto the following surfaces (FreeSurfer reconstruction nomenclature):
 {out_spaces_str}.
 """
-
+    inputnode_fields = [
+        "source_file",
+        "anat",
+        "aslref2anat_xfm",
+        "subject_id",
+        "subjects_dir",
+        "fsnative2t1w_xfm",
+    ]
+    inputnode_fields += cbf_3d
+    inputnode_fields += cbf_4d
+    inputnode_fields += att
     inputnode = pe.Node(
-        niu.IdentityInterface(
-            fields=[
-                "source_file",
-                "bold_t1w",
-                "subject_id",
-                "subjects_dir",
-                "fsnative2t1w_xfm",
-            ]
-        ),
+        niu.IdentityInterface(fields=inputnode_fields),
         name="inputnode",
     )
+
     itersource = pe.Node(niu.IdentityInterface(fields=["target"]), name="itersource")
     itersource.iterables = [("target", surface_spaces)]
 
     get_fsnative = pe.Node(FreeSurferSource(), name="get_fsnative", run_without_submitting=True)
+    workflow.connect([
+        (inputnode, get_fsnative, [
+            ("subject_id", "subject_id"),
+            ("subjects_dir", "subjects_dir")
+        ]),
+    ])  # fmt:skip
 
     def select_target(subject_id, space):
         """Get the target subject ID, given a source subject ID and a target space."""
@@ -149,87 +166,123 @@ The ASL time-series were resampled onto the following surfaces
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
-
-    itk2lta = pe.Node(
-        ConcatenateXFMs(out_fmt="fs", inverse=True), name="itk2lta", run_without_submitting=True
-    )
-    sampler = pe.MapNode(
-        fs.SampleToSurface(
-            interp_method="trilinear",
-            out_type="gii",
-            override_reg_subj=True,
-            sampling_method="average",
-            sampling_range=(0, 1, 0.2),
-            sampling_units="frac",
-        ),
-        iterfield=["hemi"],
-        name="sampler",
-        mem_gb=mem_gb * 3,
-    )
-    sampler.inputs.hemi = ["lh", "rh"]
-
-    update_metadata = pe.MapNode(
-        GiftiSetAnatomicalStructure(),
-        iterfield=["in_file"],
-        name="update_metadata",
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
-
-    ds_bold_surfs = pe.MapNode(
-        DerivativesDataSink(
-            base_directory=output_dir,
-            extension=".func.gii",
-            **timing_parameters,
-        ),
-        iterfield=["in_file", "hemi"],
-        name="ds_bold_surfs",
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
-    ds_bold_surfs.inputs.hemi = ["L", "R"]
-
     workflow.connect([
-        (inputnode, get_fsnative, [
-            ("subject_id", "subject_id"),
-            ("subjects_dir", "subjects_dir")
-        ]),
         (inputnode, targets, [("subject_id", "subject_id")]),
-        (inputnode, itk2lta, [
-            ("bold_t1w", "moving"),
-            ("fsnative2t1w_xfm", "in_xfms"),
-        ]),
-        (get_fsnative, itk2lta, [("T1", "reference")]),
-        (inputnode, sampler, [
-            ("subjects_dir", "subjects_dir"),
-            ("subject_id", "subject_id"),
-            ("bold_t1w", "source_file"),
-        ]),
         (itersource, targets, [("target", "space")]),
-        (itk2lta, sampler, [("out_inv", "reg_file")]),
-        (targets, sampler, [("out", "target_subject")]),
-        (inputnode, ds_bold_surfs, [("source_file", "source_file")]),
-        (itersource, ds_bold_surfs, [("target", "space")]),
-        (update_metadata, ds_bold_surfs, [("out_file", "in_file")]),
     ])  # fmt:skip
 
-    # Refine if medial vertices should be NaNs
-    medial_nans = pe.MapNode(
-        MedialNaNs(),
-        iterfield=["in_file"],
-        name="medial_nans",
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
+    for cbf_deriv in cbf_4d + cbf_3d + att:
+        fields = BASE_INPUT_FIELDS[cbf_deriv]
 
-    if medial_surface_nan:
-        # fmt: off
+        kwargs = {}
+        if cbf_deriv in cbf_4d:
+            kwargs["dimension"] = 3
+
+        if cbf_deriv in att:
+            meta = {"Units": "s"}
+        else:
+            meta = {"Units": "mL/100 g/min"}
+
+        warp_cbf_to_anat = pe.Node(
+            ApplyTransforms(
+                interpolation="LanczosWindowedSinc",
+                float=True,
+                input_image_type=3,
+                args="-v",
+                **kwargs,
+            ),
+            name=f"warp_{cbf_deriv}_to_anat",
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
         workflow.connect([
-            (inputnode, medial_nans, [("subjects_dir", "subjects_dir")]),
-            (sampler, medial_nans, [("out_file", "in_file")]),
-            (medial_nans, update_metadata, [("out_file", "in_file")]),
-        ])
-        # fmt: on
-    else:
-        workflow.connect([(sampler, update_metadata, [("out_file", "in_file")])])
+            (inputnode, warp_cbf_to_anat, [
+                (cbf_deriv, "input_image"),
+                ("anat", "reference_image"),
+                ("aslref2anat_xfm", "transforms"),
+            ]),
+        ])  # fmt:skip
+
+        itk2lta = pe.Node(
+            ConcatenateXFMs(out_fmt="fs", inverse=True),
+            name=f"itk2lta_{cbf_deriv}",
+            run_without_submitting=True,
+        )
+        workflow.connect([
+            (inputnode, itk2lta, [("fsnative2t1w_xfm", "in_xfms")]),
+            (warp_cbf_to_anat, itk2lta, [("output_image", "moving")]),
+            (get_fsnative, itk2lta, [("T1", "reference")]),
+        ])  # fmt:skip
+
+        sampler = pe.MapNode(
+            fs.SampleToSurface(
+                interp_method="trilinear",
+                out_type="gii",
+                override_reg_subj=True,
+                sampling_method="average",
+                sampling_range=(0, 1, 0.2),
+                sampling_units="frac",
+            ),
+            iterfield=["hemi"],
+            name=f"sampler_{cbf_deriv}",
+            mem_gb=mem_gb * 3,
+        )
+        sampler.inputs.hemi = ["lh", "rh"]
+        workflow.connect([
+            (inputnode, sampler, [
+                ("subjects_dir", "subjects_dir"),
+                ("subject_id", "subject_id"),
+            ]),
+            (warp_cbf_to_anat, sampler, [("output_image", "source_file")]),
+            (itk2lta, sampler, [("out_inv", "reg_file")]),
+            (targets, sampler, [("out", "target_subject")]),
+        ])  # fmt:skip
+
+        update_metadata = pe.MapNode(
+            GiftiSetAnatomicalStructure(),
+            iterfield=["in_file"],
+            name=f"update_{cbf_deriv}_metadata",
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+
+        ds_surfs = pe.MapNode(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                extension=".func.gii",
+                **timing_parameters,
+                **fields,
+                **meta,
+            ),
+            iterfield=["in_file", "hemi"],
+            name=f"ds_{cbf_deriv}_surfs",
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        ds_surfs.inputs.hemi = ["L", "R"]
+
+        workflow.connect([
+            (inputnode, ds_surfs, [("source_file", "source_file")]),
+            (itersource, ds_surfs, [("target", "space")]),
+            (update_metadata, ds_surfs, [("out_file", "in_file")]),
+        ])  # fmt:skip
+
+        # Refine if medial vertices should be NaNs
+        medial_nans = pe.MapNode(
+            MedialNaNs(),
+            iterfield=["in_file"],
+            name=f"medial_nans_{cbf_deriv}",
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+
+        if medial_surface_nan:
+            # fmt: off
+            workflow.connect([
+                (inputnode, medial_nans, [("subjects_dir", "subjects_dir")]),
+                (sampler, medial_nans, [("out_file", "in_file")]),
+                (medial_nans, update_metadata, [("out_file", "in_file")]),
+            ])
+            # fmt: on
+        else:
+            workflow.connect([(sampler, update_metadata, [("out_file", "in_file")])])
 
     return workflow
 
