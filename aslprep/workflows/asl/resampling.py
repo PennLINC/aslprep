@@ -295,6 +295,9 @@ def init_bold_fsLR_resampling_wf(  # noqa: N802
 ):
     """Resample BOLD time series to fsLR surface.
 
+    This is copied from fMRIPrep and can be replaced with an fMRIPrep import once 23.2.0 is
+    released.
+
     This workflow is derived heavily from three scripts within the DCAN-HCP pipelines scripts
 
     Line numbers correspond to the locations of the code in the original scripts, found at:
@@ -426,8 +429,8 @@ The BOLD time-series were resampled onto the left/right-symmetric template
     ]
     atlases = smriprep_data.load_resource("atlases")
     select_surfaces.inputs.template_roi = [
-        str(atlases / "L.atlasroi.32k_fs_LR.shape.gii"),
-        str(atlases / "R.atlasroi.32k_fs_LR.shape.gii"),
+        str(atlases / f"L.atlasroi.{fslr_density}_fs_LR.shape.gii"),
+        str(atlases / f"R.atlasroi.{fslr_density}_fs_LR.shape.gii"),
     ]
 
     # RibbonVolumeToSurfaceMapping.sh
