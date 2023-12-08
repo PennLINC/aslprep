@@ -88,11 +88,11 @@ def get_atlas_nifti(atlas_name):
         atlas_labels_file = join("/AtlasPack", tsv_fname)
         atlas_metadata_file = f"/AtlasPack/tpl-MNI152NLin6Asym_atlas-{atlas_name}_dseg.json"
     else:
-        atlas_file = load_data.readable(f"atlases/{atlas_fname}")
-        atlas_labels_file = load_data.readable(f"atlases/{tsv_fname}")
+        atlas_file = load_data.readable(f"atlases/{atlas_fname}").absolute()
+        atlas_labels_file = load_data.readable(f"atlases/{tsv_fname}").absolute()
         atlas_metadata_file = load_data.readable(
             f"atlases/tpl-MNI152NLin6Asym_atlas-{atlas_name}_dseg.json",
-        )
+        ).absolute()
 
     if not (isfile(atlas_file) and isfile(atlas_labels_file) and isfile(atlas_metadata_file)):
         raise FileNotFoundError(

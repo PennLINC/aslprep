@@ -178,7 +178,7 @@ def build_boilerplate(config_file, workflow):
             "pandoc",
             "-s",
             "--bibliography",
-            load_data.readable("boilerplate.bib"),
+            str(load_data.readable("boilerplate.bib")),
             "--natbib",
             str(citation_files["md"]),
             "-o",
