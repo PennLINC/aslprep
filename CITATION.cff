@@ -90,6 +90,10 @@ authors:
     family-names: Tisdall
   - given-names: Dale
     family-names: Zhou
+  - given-names: Christopher J.
+    family-names: Markiewicz
+    affiliation: Stanford University
+    orcid: 'https://orcid.org/0000-0002-6533-164X'
   - given-names: Oscar
     family-names: Esteban
   - given-names: Russell A.
@@ -116,5 +120,5 @@ keywords:
   - BIDS-App
   - Neuroimaging
 license: BSD-3-Clause
-version: 0.3.0
-date-released: '2023-04-07'
+version: 0.6.0
+date-released: '2023-12-08'

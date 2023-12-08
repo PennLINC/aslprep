@@ -1,4 +1,4 @@
-Preprocessing of arterial spin labeling (ASL)  involves numerous steps to clean and standardize
+Preprocessing of arterial spin labeling (ASL) involves numerous steps to clean and standardize
 the data before statistical analysis.
 Generally, researchers create ad hoc preprocessing workflows for each dataset,
 building upon a large inventory of available tools.
@@ -26,14 +26,14 @@ This pipeline was designed to provide the best software implementation for each 
 preprocessing, and will be updated as newer and better neuroimaging software becomes
 available.
 
-ASLPrep performs basic preprocessing steps (coregistration, normalization, unwarping,segmentation, 
-skullstripping  and computation of  cerebral blood flow (CBF)) providing outputs that can be
+ASLPrep performs basic preprocessing steps (coregistration, normalization, unwarping,segmentation,
+skullstripping and computation of cerebral blood flow [CBF]) providing outputs that can be
 easily submitted to a variety of group level analyses, including task-based or resting-state
 CBF, graph theory measures, surface or volume-based statistics, etc.
 ASLPrep allows you to easily do the following:
 
   * Take ASL data from *unprocessed* (only reconstructed) to ready for analysis.
-  * Compute Cerebral Blood Flow(CBF), denoising and partial volume correction
+  * Compute Cerebral Blood Flow (CBF), denoising, and partial volume correction
   * Implement tools from different software packages.
   * Achieve optimal data processing quality by using the best tools available.
   * Generate preprocessing-assessment reports, with which the user can easily identify problems.
@@ -42,6 +42,4 @@ ASLPrep allows you to easily do the following:
   * Automate and parallelize processing steps, which provides a significant speed-up from
     typical linear, manual processing.
 
-[Documentation  `aslprep.org <https://aslprep.readthedocs.io>`_ ]
-
-
+[Documentation `aslprep.org <https://aslprep.readthedocs.io>`_]

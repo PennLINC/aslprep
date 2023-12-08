@@ -1,8 +1,7 @@
 .. _AFNI: https://afni.nimh.nih.gov/
 .. _ANTs: https://stnava.github.io/ANTs/
 .. _BIDS: http://bids.neuroimaging.io
-.. _`BIDS Derivatives`: https://docs.google.com/document/d/17ebopupQxuRwp7U7TFvS6BH03ALJOgGHufxK8ToAvyI
-.. _`BIDS Derivatives RC1`: https://docs.google.com/document/d/17ebopupQxuRwp7U7TFvS6BH03ALJOgGHufxK8ToAvyI
+.. _`BIDS Derivatives`: https://bids-specification.readthedocs.io/en/stable/derivatives/introduction.html
 .. _`Connectome Workbench`: https://www.humanconnectome.org/software/connectome-workbench.html
 .. _Docker: https://www.docker.com/
 .. _`Docker Engine`: https://www.docker.com/products/container-runtime

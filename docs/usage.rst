@@ -54,8 +54,7 @@ Command-Line Arguments
 Running *ASLPrep* via Docker containers
 ***************************************
 
-For every new version of *ASLPrep* that is released, a corresponding Docker
-image is generated.
+For every new version of *ASLPrep* that is released, a corresponding Docker image is generated.
 
 In order to run *ASLPrep* Docker images, the Docker Engine must be installed.
 
@@ -216,8 +215,8 @@ The documentation of this project is found here: https://aslprep.readthedocs.io.
 All bugs, concerns and enhancement requests for this software can be submitted here:
 https://github.com/PennLINC/aslprep/issues.
 
-If you have a question about using ``aslprep``,
+If you have a question about using *ASLPrep*,
 please create a new topic on `NeuroStars <https://neurostars.org>`_ with
 `the "Software Support" category and the "aslprep" tag
 <https://neurostars.org/tags/c/software-support/234/aslprep>`_.
-The ``aslprep`` developers follow NeuroStars, and will be able to answer your question there.
+The *ASLPrep* developers follow NeuroStars, and will be able to answer your question there.
