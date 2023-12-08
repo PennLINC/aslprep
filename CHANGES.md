@@ -4,7 +4,9 @@ This release makes substantial changes to *ASLPrep*.
 The two main changes are (1) the Schaefer atlases are replaced with the PennLINC team's new 4S atlases,
 which combine the Schaefer cortical atlases and several subcortical atlases,
 and (2) a major rearchitect of the package based on *fMRIPrep* version 23.2.0a2.
-The latter allows *ASLPrep* to write out CIFTI and GIFTI format derivatives, and fixes SDC support
+The latter allows *ASLPrep* to run FreeSurfer reconstruction,
+write out CIFTI and GIFTI format derivatives,
+and correctly apply susceptibility distortion correction with *SDCFlows*
 (although SDC support is dependent on the _next_ *SDCFlows* release, so in practice it won't work just yet).
 
 I'd like to credit Chris Markiewicz (@effigies) for doing the majority of the work in the *fMRIPrep* refactor,
@@ -45,9 +47,6 @@ Output changes:
 * Pin scipy version to 1.10.1 by @tsalo in https://github.com/PennLINC/aslprep/pull/333
 * Raise error if no M0 volume(s)/estimate available and background suppression is enabled by @tsalo in https://github.com/PennLINC/aslprep/pull/337
 * Limit BASIL `--slicedt` argument to ascending slice orders by @tsalo in https://github.com/PennLINC/aslprep/pull/348
-
-### Other Changes
-* Add 0.5.x release notes to changelog by @tsalo in https://github.com/PennLINC/aslprep/pull/339
 
 **Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.5.1...0.6.0
 
