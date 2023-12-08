@@ -27,8 +27,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from tempfile import mkdtemp
 
-from pkg_resources import resource_filename as pkgrf
 from toml import loads
+
+from aslprep.data import load as load_data
 
 
 @contextmanager
@@ -40,7 +41,7 @@ def mock_config():
     if not _old_fs:
         os.environ["FREESURFER_HOME"] = mkdtemp()
 
-    filename = Path(pkgrf("aslprep", "tests/data/config.toml"))
+    filename = Path(load_data("../tests/data/config.toml"))
     settings = loads(filename.read_text())
     for sectionname, configs in settings.items():
         if sectionname != "environment":
@@ -52,7 +53,7 @@ def mock_config():
     config.init_spaces()
 
     config.execution.work_dir = Path(mkdtemp())
-    config.execution.bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+    config.execution.bids_dir = load_data("../tests/data/ds000240").absolute()
     config.execution.aslprep_dir = Path(mkdtemp())
     config.execution.init()
 

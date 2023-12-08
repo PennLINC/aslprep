@@ -83,3 +83,19 @@ Internal configuration system
    aslprep.utils.plotting
    aslprep.utils.sentry
    aslprep.utils.spaces
+
+***********************************
+:mod:`aslprep.data`: Data resources
+***********************************
+
+.. automodule:: aslprep.data
+   :no-members:
+   :no-inherited-members:
+
+.. currentmodule:: aslprep
+
+.. autosummary::
+   :toctree: generated/
+   :template: module.rst
+
+   aslprep.data

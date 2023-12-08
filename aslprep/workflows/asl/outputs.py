@@ -9,8 +9,8 @@ from niworkflows.utils.images import dseg_label
 from smriprep.workflows.outputs import _bids_relative
 
 from aslprep import config
-from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
+from aslprep.interfaces.bids import DerivativesDataSink
 
 BASE_INPUT_FIELDS = {
     "asl": {

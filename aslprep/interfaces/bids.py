@@ -1,6 +1,5 @@
 """Adapted interfaces from Niworkflows."""
 from json import loads
-from pathlib import Path
 
 from bids.layout import Config
 from nipype.interfaces.base import (
@@ -12,12 +11,12 @@ from nipype.interfaces.base import (
     traits,
 )
 from niworkflows.interfaces.bids import DerivativesDataSink as BaseDerivativesDataSink
-from pkg_resources import resource_filename as pkgrf
 
 from aslprep import config
+from aslprep.data import load as load_data
 
 # NOTE: Modified for aslprep's purposes
-aslprep_spec = loads(Path(pkgrf("aslprep", "data/aslprep_bids_config.json")).read_text())
+aslprep_spec = loads(load_data.readable("aslprep_bids_config.json").read_text())
 bids_config = Config.load("bids")
 deriv_config = Config.load("derivatives")
 
