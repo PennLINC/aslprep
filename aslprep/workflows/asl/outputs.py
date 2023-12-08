@@ -177,7 +177,6 @@ def init_asl_fit_reports_wf(
     ------
     source_file
         Input BOLD images
-
     std_t1w
         T1w image resampled to standard space
     std_mask
@@ -893,7 +892,12 @@ def init_ds_ciftis_wf(
         name="ds_asl_cifti",
         run_without_submitting=True,
     )
-    workflow.connect([(inputnode, ds_asl_cifti, [("asl_cifti", "in_file")])])
+    workflow.connect([
+        (inputnode, ds_asl_cifti, [
+            ("asl_cifti", "in_file"),
+            ("source_files", "source_file"),
+        ]),
+    ])  # fmt:skip
 
     aslref2MNI6 = pe.Node(niu.Merge(2), name="aslref2MNI6")
     workflow.connect([
@@ -1000,6 +1004,7 @@ def init_ds_ciftis_wf(
             run_without_submitting=True,
         )
         workflow.connect([
+            (inputnode, ds_cbf_cifti, [("source_files", "source_file")]),
             (raw_sources, ds_cbf_cifti, [("out", "RawSources")]),
             (cbf_grayords_wf, ds_cbf_cifti, [
                 ("outputnode.cifti_bold", "in_file"),
