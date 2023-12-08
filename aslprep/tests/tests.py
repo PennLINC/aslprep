@@ -53,7 +53,7 @@ def mock_config():
     config.init_spaces()
 
     config.execution.work_dir = Path(mkdtemp())
-    config.execution.bids_dir = Path(load_data.as_path("../tests/data/ds000240")).absolute()
+    config.execution.bids_dir = Path(load_data.readable("../tests/data/ds000240")).absolute()
     config.execution.aslprep_dir = Path(mkdtemp())
     config.execution.init()
 

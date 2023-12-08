@@ -17,7 +17,7 @@ from aslprep import config
 from aslprep.data import load as load_data
 
 # NOTE: Modified for aslprep's purposes
-aslprep_spec = loads(Path(load_data.as_path("aslprep_bids_config.json")).read_text())
+aslprep_spec = loads(Path(load_data.readable("aslprep_bids_config.json")).read_text())
 bids_config = Config.load("bids")
 deriv_config = Config.load("derivatives")
 

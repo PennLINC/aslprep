@@ -70,7 +70,7 @@ def build_workflow(config_file, retval):
             subject_list,
             config.execution.aslprep_dir,
             config.execution.run_uuid,
-            config=load_data.as_path("reports-spec.yml"),
+            config=load_data.readable("reports-spec.yml"),
             packagename="aslprep",
         )
         return retval
@@ -157,7 +157,7 @@ def build_boilerplate(config_file, workflow):
             "pandoc",
             "-s",
             "--bibliography",
-            load_data.as_path("boilerplate.bib"),
+            load_data.readable("boilerplate.bib"),
             "--filter",
             "pandoc-citeproc",
             "--metadata",
@@ -178,7 +178,7 @@ def build_boilerplate(config_file, workflow):
             "pandoc",
             "-s",
             "--bibliography",
-            load_data.as_path("boilerplate.bib"),
+            load_data.readable("boilerplate.bib"),
             "--natbib",
             str(citation_files["md"]),
             "-o",
@@ -190,4 +190,4 @@ def build_boilerplate(config_file, workflow):
         except (FileNotFoundError, CalledProcessError, TimeoutExpired):
             config.loggers.cli.warning("Could not generate CITATION.tex file:\n%s", " ".join(cmd))
         else:
-            copyfile(load_data.as_path("boilerplate.bib"), citation_files["bib"])
+            copyfile(load_data.readable("boilerplate.bib"), citation_files["bib"])
