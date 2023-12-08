@@ -262,11 +262,11 @@ CBF Computation in native space
 
    import json
    from pathlib import Path
-   from pkg_resources import resource_filename as pkgrf
 
+   from aslprep.data import load as load_data
    from aslprep.workflows.asl.cbf import init_cbf_wf
 
-   bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+   bids_dir = Path(load_data.as_path("../tests/data/ds000240")).absolute()
    nii_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
    with open(metadata_file) as f:
@@ -614,11 +614,11 @@ Quality control measures
    :simple_form: yes
 
    from pathlib import Path
-   from pkg_resources import resource_filename as pkgrf
 
+   from aslprep.data import load as load_data
    from aslprep.workflows.asl.qc import init_cbf_confounds_wf
 
-   bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+   bids_dir = Path(load_data.as_path("../tests/data/ds000240")).absolute()
    asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
 

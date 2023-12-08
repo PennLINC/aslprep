@@ -47,7 +47,7 @@ def get_atlas_names(subset):
 
 
 def get_atlas_nifti(atlas_name):
-    """Select atlas by name from aslprep/data using pkgrf.
+    """Select atlas by name from aslprep/data using aslprep.data.load.
 
     All atlases are in MNI space.
 
@@ -72,7 +72,7 @@ def get_atlas_nifti(atlas_name):
     """
     from os.path import isfile, join
 
-    from pkg_resources import resource_filename as pkgrf
+    from aslprep.data import load as load_data
 
     if "4S" in atlas_name or atlas_name in ("Glasser", "Gordon"):
         # 1 mm3 atlases
@@ -88,11 +88,10 @@ def get_atlas_nifti(atlas_name):
         atlas_labels_file = join("/AtlasPack", tsv_fname)
         atlas_metadata_file = f"/AtlasPack/tpl-MNI152NLin6Asym_atlas-{atlas_name}_dseg.json"
     else:
-        atlas_file = pkgrf("aslprep", f"data/atlases/{atlas_fname}")
-        atlas_labels_file = pkgrf("aslprep", f"data/atlases/{tsv_fname}")
-        atlas_metadata_file = pkgrf(
-            "aslprep",
-            f"data/atlases/tpl-MNI152NLin6Asym_atlas-{atlas_name}_dseg.json",
+        atlas_file = load_data.as_path(f"atlases/{atlas_fname}")
+        atlas_labels_file = load_data.as_path(f"atlases/{tsv_fname}")
+        atlas_metadata_file = load_data.as_path(
+            f"atlases/tpl-MNI152NLin6Asym_atlas-{atlas_name}_dseg.json",
         )
 
     if not (isfile(atlas_file) and isfile(atlas_labels_file) and isfile(atlas_metadata_file)):
