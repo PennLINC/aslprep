@@ -6,8 +6,8 @@ from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
-from aslprep.interfaces import DerivativesDataSink
 from aslprep.interfaces.ants import ApplyTransforms
+from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.confounds import GatherCBFConfounds
 from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummaryPlot
 from aslprep.interfaces.reports import CBFSummary
