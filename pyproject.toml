@@ -128,17 +128,13 @@ exclude = '''
   | _build
   | build
   | dist
-  | aslprep/niworkflows
-  | aslprep/pybids
-  | aslprep/sdcflows
-  | aslprep/smriprep
 )/
 '''
 
 [tool.isort]
 profile = "black"
 skip_gitignore = true
-skip = ["aslprep/niworkflows", "aslprep/pybids", "aslprep/sdcflows", "aslprep/smriprep"]
+skip = []
 
 [tool.flake8]
 max-line-length = 99
@@ -148,8 +144,6 @@ exclude = [
     "aslprep/_warnings.py",
     "aslprep/config.py",
     "aslprep/data/",
-    "aslprep/niworkflows/",
-    "aslprep/sdcflows/",
     "aslprep/tests/",
 ]
 ignore = ["D107", "E203", "E402", "E722", "W503", "N803", "N806", "N815"]
