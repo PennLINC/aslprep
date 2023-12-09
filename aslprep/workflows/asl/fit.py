@@ -37,6 +37,7 @@ from fmriprep.workflows.bold import outputs as output_workflows
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
 from niworkflows.interfaces.header import ValidateImage
 from niworkflows.interfaces.nitransforms import ConcatenateXFMs
 from niworkflows.interfaces.utility import KeySelect
@@ -52,7 +53,6 @@ from aslprep.utils.asl import select_processing_target
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
 from aslprep.workflows.asl.reference import init_raw_aslref_wf
-from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
 
 def get_sbrefs(
@@ -477,7 +477,10 @@ def init_asl_fit_wf(
 
         # Select initial aslref, enhance contrast, and generate mask
         fmapref_buffer.inputs.sbref_file = sbref_file
-        enhance_aslref_wf = init_enhance_and_skullstrip_asl_wf(pre_mask=False)
+        enhance_aslref_wf = init_enhance_and_skullstrip_bold_wf(
+            pre_mask=False,
+            name="enhance_aslref_wf",
+        )
 
         ds_coreg_aslref_wf = init_ds_aslref_wf(
             bids_root=layout.root,

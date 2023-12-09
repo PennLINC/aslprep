@@ -69,9 +69,9 @@ brain extraction workflow:
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
+   from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
 
-   wf = init_enhance_and_skullstrip_asl_wf()
+   wf = init_enhance_and_skullstrip_bold_wf()
 
 An example of brain extraction is shown below:
 
@@ -148,7 +148,7 @@ ASL reference image estimation
 This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labelling)` series.
 The reference image is then used to calculate a brain mask for the
 :abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
-:py:func:`~aslprep.workflows.asl.util.init_enhance_and_skullstrip_asl_wf`.
+:py:func:`~niworkflows.func.util.init_enhance_and_skullstrip_bold_wf`.
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.
