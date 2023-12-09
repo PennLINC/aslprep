@@ -4,10 +4,10 @@ import os
 import pytest
 from fmriprep.reports.core import generate_reports
 from nipype import config as nipype_config
-from pkg_resources import resource_filename as pkgrf
 
 from aslprep.cli.parser import parse_args
 from aslprep.cli.workflow import build_boilerplate, build_workflow
+from aslprep.data import load as load_data
 from aslprep.tests.utils import (
     check_generated_files,
     download_test_data,
@@ -414,7 +414,7 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
         [participant_label],
         out_dir,
         config.execution.run_uuid,
-        config=pkgrf("aslprep", "data/reports-spec.yml"),
+        config=load_data("reports-spec.yml"),
         packagename="aslprep",
     )
 

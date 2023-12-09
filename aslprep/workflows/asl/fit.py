@@ -21,6 +21,7 @@
 #     https://www.nipreps.org/community/licensing/
 #
 """Fit workflows for ASLPrep."""
+import os
 import typing as ty
 
 import bids
@@ -201,6 +202,14 @@ def init_asl_fit_wf(
         entity_overrides=config.execution.get().get("bids_filters", {}).get("sbref", {}),
         layout=layout,
     )
+    basename = os.path.basename(asl_file)
+    sbref_msg = f"No single-band-reference found for {basename}."
+    if sbref_file and "sbref" in config.workflow.ignore:
+        sbref_msg = f"Single-band reference file(s) found for {basename} and ignored."
+        sbref_file = []
+    elif sbref_file:
+        sbref_msg = f"Using single-band reference file(s) {os.path.basename(sbref_file)}."
+    config.loggers.workflow.info(sbref_msg)
 
     # Get metadata from ASL file(s)
     metadata = layout.get_metadata(asl_file)

@@ -13,8 +13,8 @@ from niworkflows.utils.connections import listify
 from packaging.version import Version
 
 from aslprep import config
-from aslprep.interfaces import AboutSummary, DerivativesDataSink, SubjectSummary
-from aslprep.interfaces.bids import BIDSDataGrabber
+from aslprep.interfaces.bids import BIDSDataGrabber, DerivativesDataSink
+from aslprep.interfaces.reports import AboutSummary, SubjectSummary
 from aslprep.utils.misc import _prefix
 from aslprep.workflows.asl.base import init_asl_wf
 
