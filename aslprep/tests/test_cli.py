@@ -384,6 +384,7 @@ def test_test_003(data_dir, output_dir, working_dir, level, extra_params):
         "--omp-nthreads=1",
         "--output-spaces",
         "asl",
+        "MNI152NLin2009cAsym",
         "--use-syn-sdc",
         "--m0_scale=10",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
