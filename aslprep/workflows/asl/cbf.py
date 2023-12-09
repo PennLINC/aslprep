@@ -738,7 +738,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
     atlas_name_grabber.inputs.subset = "all"
     workflow.connect([(atlas_name_grabber, outputnode, [("atlas_names", "atlas_names")])])
 
-    # get atlases via pkgrf
+    # get atlases via aslprep.data.load
     atlas_file_grabber = pe.MapNode(
         niu.Function(
             input_names=["atlas_name"],

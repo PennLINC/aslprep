@@ -579,6 +579,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         mem_gb=mem_gb,
         name="asl_anat_wf",
     )
+    asl_anat_wf.inputs.inputnode.resolution = "native"
 
     workflow.connect([
         (inputnode, asl_anat_wf, [
@@ -711,17 +712,27 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             surface_spaces=freesurfer_spaces,
             medial_surface_nan=config.workflow.medial_surface_nan,
             output_dir=config.execution.aslprep_dir,
+            cbf_3d=cbf_3d_derivs,
+            cbf_4d=cbf_4d_derivs,
+            att=att_derivs,
             name="asl_surf_wf",
         )
         asl_surf_wf.inputs.inputnode.source_file = asl_file
         workflow.connect([
             (inputnode, asl_surf_wf, [
+                ("t1w_preproc", "inputnode.anat"),
                 ("subjects_dir", "inputnode.subjects_dir"),
                 ("subject_id", "inputnode.subject_id"),
                 ("fsnative2t1w_xfm", "inputnode.fsnative2t1w_xfm"),
             ]),
-            (asl_anat_wf, asl_surf_wf, [("outputnode.bold_file", "inputnode.bold_t1w")]),
+            (asl_fit_wf, asl_surf_wf, [
+                ("outputnode.aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
+            ]),
         ])  # fmt:skip
+        for cbf_deriv in cbf_derivs:
+            workflow.connect([
+                (cbf_wf, asl_surf_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
+            ])  # fmt:skip
 
     if config.workflow.cifti_output:
         asl_cifti_resample_wf = init_asl_cifti_resample_wf(

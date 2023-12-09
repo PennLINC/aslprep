@@ -63,14 +63,14 @@ def build_workflow(config_file, retval):
 
     # Called with reports only
     if config.execution.reports_only:
-        from pkg_resources import resource_filename as pkgrf
+        from aslprep.data import load as load_data
 
         build_log.log(25, "Running --reports-only on participants %s", ", ".join(subject_list))
         retval["return_code"] = generate_reports(
             subject_list,
             config.execution.aslprep_dir,
             config.execution.run_uuid,
-            config=pkgrf("aslprep", "data/reports-spec.yml"),
+            config=load_data("reports-spec.yml"),
             packagename="aslprep",
         )
         return retval
@@ -150,14 +150,14 @@ def build_boilerplate(config_file, workflow):
         from shutil import copyfile
         from subprocess import CalledProcessError, TimeoutExpired, check_call
 
-        from pkg_resources import resource_filename as pkgrf
+        from aslprep.data import load as load_data
 
         # Generate HTML file resolving citations
         cmd = [
             "pandoc",
             "-s",
             "--bibliography",
-            pkgrf("aslprep", "data/boilerplate.bib"),
+            str(load_data("boilerplate.bib")),
             "--filter",
             "pandoc-citeproc",
             "--metadata",
@@ -178,7 +178,7 @@ def build_boilerplate(config_file, workflow):
             "pandoc",
             "-s",
             "--bibliography",
-            pkgrf("aslprep", "data/boilerplate.bib"),
+            str(load_data("boilerplate.bib")),
             "--natbib",
             str(citation_files["md"]),
             "-o",
@@ -190,4 +190,4 @@ def build_boilerplate(config_file, workflow):
         except (FileNotFoundError, CalledProcessError, TimeoutExpired):
             config.loggers.cli.warning("Could not generate CITATION.tex file:\n%s", " ".join(cmd))
         else:
-            copyfile(pkgrf("aslprep", "data/boilerplate.bib"), citation_files["bib"])
+            copyfile(load_data("boilerplate.bib"), citation_files["bib"])

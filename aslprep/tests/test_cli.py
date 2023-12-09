@@ -4,10 +4,10 @@ import os
 import pytest
 from fmriprep.reports.core import generate_reports
 from nipype import config as nipype_config
-from pkg_resources import resource_filename as pkgrf
 
 from aslprep.cli.parser import parse_args
 from aslprep.cli.workflow import build_boilerplate, build_workflow
+from aslprep.data import load as load_data
 from aslprep.tests.utils import (
     check_generated_files,
     download_test_data,
@@ -326,7 +326,7 @@ def test_test_002(data_dir, output_dir, working_dir):
 @pytest.mark.test_003_minimal
 def test_test_003_minimal(data_dir, output_dir, working_dir):
     """Run ASLPrep minimal workflow on test_003 dataset."""
-    test_test_003(
+    base_test_003(
         data_dir,
         output_dir,
         working_dir,
@@ -338,7 +338,7 @@ def test_test_003_minimal(data_dir, output_dir, working_dir):
 @pytest.mark.test_003_resampling
 def test_test_003_resampling(data_dir, output_dir, working_dir):
     """Run ASLPrep resampling workflow on test_003 dataset."""
-    test_test_003(
+    base_test_003(
         data_dir,
         output_dir,
         working_dir,
@@ -350,17 +350,16 @@ def test_test_003_resampling(data_dir, output_dir, working_dir):
 @pytest.mark.test_003_full
 def test_test_003_full(data_dir, output_dir, working_dir):
     """Run ASLPrep full workflow on test_003 dataset."""
-    test_test_003(
+    base_test_003(
         data_dir,
         output_dir,
         working_dir,
         level="full",
-        extra_params=["--fs-no-reconall"],
+        extra_params=["--cifti-output", "91k"],
     )
 
 
-@pytest.mark.test_003
-def test_test_003(data_dir, output_dir, working_dir, level, extra_params):
+def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
     """Run aslprep on sub-01.
 
     This dataset is Siemens.
@@ -416,7 +415,7 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
         [participant_label],
         out_dir,
         config.execution.run_uuid,
-        config=pkgrf("aslprep", "data/reports-spec.yml"),
+        config=load_data("reports-spec.yml"),
         packagename="aslprep",
     )
 

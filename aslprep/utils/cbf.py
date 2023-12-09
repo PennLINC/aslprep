@@ -461,7 +461,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
     X[:, 0] = gm.flatten()[gm.flatten() >= (0)] * idxx
     X[:, 1] = wm.flatten()[wm.flatten() >= (0)] * idxx
     A = (mean_cbf.flatten()[idxx >= 0]) * idxx
-    c = np.linalg.lstsq(X, A)[0]
+    c = np.linalg.lstsq(X, A, rcond=None)[0]
     Globalpriorfull = c[0] * gm.flatten() + c[1] * wm.flatten()
     Globalprior = Globalpriorfull[mask.flatten() == 1]
     localprior = 0
