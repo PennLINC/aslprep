@@ -323,7 +323,6 @@ def init_asl_fit_wf(
         output_dir=config.execution.aslprep_dir,
     )
 
-    # fmt:off
     workflow.connect([
         # XXX: Was from hmc_aslref_wf
         (inputnode, hmcref_buffer, [("dummy_scans", "dummy_scans")]),
@@ -355,8 +354,7 @@ def init_asl_fit_wf(
             ("aslref2anat_xfm", "inputnode.aslref2anat_xfm"),
         ]),
         (summary, asl_fit_reports_wf, [("out_report", "inputnode.summary_report")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     # Stage 1: Generate motion correction aslref
     if not have_hmcref:
@@ -380,7 +378,6 @@ def init_asl_fit_wf(
         )
         ds_hmc_aslref_wf.inputs.inputnode.source_files = [asl_file]
 
-        # fmt:off
         workflow.connect([
             (hmc_aslref_wf, hmcref_buffer, [
                 ("outputnode.asl_file", "asl_file"),
@@ -390,8 +387,7 @@ def init_asl_fit_wf(
             (hmc_aslref_wf, asl_fit_reports_wf, [
                 ("outputnode.validation_report", "inputnode.validation_report"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
     else:
         config.loggers.workflow.info("Found HMC aslref - skipping Stage 1")
 
@@ -400,12 +396,10 @@ def init_asl_fit_wf(
 
         hmcref_buffer.inputs.aslref = precomputed["hmc_aslref"]
 
-        # fmt:off
         workflow.connect([
             (validate_asl, hmcref_buffer, [("out_file", "asl_file")]),
             (validate_asl, asl_fit_reports_wf, [("out_report", "inputnode.validation_report")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
     # Reduce the ASL series to only include volumes that need to be processed.
     processing_target = pe.Node(
@@ -421,14 +415,13 @@ def init_asl_fit_wf(
         ReduceASLFiles(metadata=metadata),
         name="reduce_asl_file",
     )
-    # fmt:off
+
     workflow.connect([
         (inputnode, processing_target, [("aslcontext", "aslcontext")]),
         (inputnode, reduce_asl_file, [("aslcontext", "aslcontext")]),
         (processing_target, reduce_asl_file, [("processing_target", "processing_target")]),
         (hmcref_buffer, reduce_asl_file, [("asl_file", "asl_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     # Stage 2: Estimate head motion
     if not hmc_xforms:
@@ -451,7 +444,6 @@ def init_asl_fit_wf(
         ds_hmc_wf.get_node("ds_xforms").inputs.datatype = "perf"
         ds_hmc_wf.get_node("ds_xforms").inputs.to = "aslref"
 
-        # fmt:off
         workflow.connect([
             (hmcref_buffer, asl_hmc_wf, [("aslref", "inputnode.raw_ref_image")]),
             (reduce_asl_file, asl_hmc_wf, [
@@ -464,8 +456,7 @@ def init_asl_fit_wf(
                 ("outputnode.movpar_file", "movpar_file"),
                 ("outputnode.rmsd_file", "rmsd_file"),
             ]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
     else:
         config.loggers.workflow.info("Found motion correction transforms - skipping Stage 2")
         hmc_buffer.inputs.hmc_xforms = hmc_xforms
@@ -486,15 +477,13 @@ def init_asl_fit_wf(
             name="ds_coreg_aslref_wf",
         )
 
-        # fmt:off
         workflow.connect([
             (hmcref_buffer, fmapref_buffer, [("aslref", "aslref_files")]),
             (fmapref_buffer, enhance_aslref_wf, [("out", "inputnode.in_file")]),
             (fmapref_buffer, ds_coreg_aslref_wf, [("out", "inputnode.source_files")]),
             (ds_coreg_aslref_wf, regref_buffer, [("outputnode.aslref", "aslref")]),
             (fmapref_buffer, asl_fit_reports_wf, [("out", "inputnode.sdc_aslref")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
         if fieldmap_id:
             fmap_select = pe.Node(
@@ -527,7 +516,6 @@ def init_asl_fit_wf(
                         name="ds_fmapreg_wf",
                     )
 
-                # fmt:off
                 workflow.connect([
                     (enhance_aslref_wf, fmapreg_wf, [
                         ("outputnode.bias_corrected_file", "inputnode.target_ref"),
@@ -541,8 +529,7 @@ def init_asl_fit_wf(
                     (itk_mat2txt, ds_fmapreg_wf, [("out_xfm", "inputnode.xform")]),
                     (fmapref_buffer, ds_fmapreg_wf, [("out", "inputnode.source_files")]),
                     (ds_fmapreg_wf, fmapreg_buffer, [("outputnode.xform", "aslref2fmap_xfm")]),
-                ])
-                # fmt:on
+                ])  # fmt:skip
             else:
                 fmapreg_buffer.inputs.aslref2fmap_xfm = aslref2fmap_xform
 
@@ -553,7 +540,6 @@ def init_asl_fit_wf(
             )
             unwarp_wf.inputs.inputnode.metadata = layout.get_metadata(asl_file)
 
-            # fmt:off
             workflow.connect([
                 (inputnode, fmap_select, [
                     ("fmap_ref", "fmap_ref"),
@@ -581,17 +567,14 @@ def init_asl_fit_wf(
                     ("aslref2fmap_xfm", "inputnode.aslref2fmap_xfm"),
                 ]),
                 (unwarp_wf, asl_fit_reports_wf, [("outputnode.fieldmap", "inputnode.fieldmap")]),
-            ])
-            # fmt:on
+            ])  # fmt:skip
         else:
-            # fmt:off
             workflow.connect([
                 (enhance_aslref_wf, ds_coreg_aslref_wf, [
                     ("outputnode.bias_corrected_file", "inputnode.aslref"),
                 ]),
                 (enhance_aslref_wf, regref_buffer, [("outputnode.mask_file", "aslmask")]),
-            ])
-            # fmt:on
+            ])  # fmt:skip
     else:
         config.loggers.workflow.info("Found coregistration reference - skipping Stage 3")
         regref_buffer.inputs.aslref = precomputed["coreg_aslref"]
@@ -620,7 +603,6 @@ def init_asl_fit_wf(
                 name="ds_aslreg_wf",
             )
 
-        # fmt:off
         workflow.connect([
             (inputnode, asl_reg_wf, [
                 ("t1w_preproc", "inputnode.t1w_preproc"),
@@ -637,8 +619,7 @@ def init_asl_fit_wf(
             (asl_reg_wf, ds_aslreg_wf, [("outputnode.itk_bold_to_t1", "inputnode.xform")]),
             (ds_aslreg_wf, outputnode, [("outputnode.xform", "aslref2anat_xfm")]),
             (asl_reg_wf, summary, [("outputnode.fallback", "fallback")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
     else:
         outputnode.inputs.aslref2anat_xfm = aslref2anat_xform
 
@@ -789,7 +770,7 @@ def init_asl_native_wf(
         ReduceASLFiles(metadata=metadata),
         name="reduce_asl_file",
     )
-    # fmt:off
+
     workflow.connect([
         (inputnode, processing_target, [("aslcontext", "aslcontext")]),
         (processing_target, reduce_asl_file, [("processing_target", "processing_target")]),
@@ -800,8 +781,7 @@ def init_asl_native_wf(
             ("aslcontext", "aslcontext"),
             ("metadata", "metadata"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     # Prepare fieldmap metadata
     if fieldmap_id:

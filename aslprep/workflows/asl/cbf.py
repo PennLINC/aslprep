@@ -711,14 +711,12 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
     merge_xforms = pe.Node(niu.Merge(3), name="merge_xforms")
     merge_xforms.inputs.in1 = MNI152NLin6Asym_to_MNI152NLin2009cAsym
 
-    # fmt:off
     workflow.connect([
         (inputnode, merge_xforms, [
             ("MNI152NLin2009cAsym_to_anat_xfm", "in2"),
             ("aslref2anat_xfm", "in3"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     # Using the generated transforms, apply them to get everything in the correct MNI form
     warp_atlases_to_asl_space = pe.MapNode(
@@ -735,13 +733,11 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         n_procs=omp_nthreads,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, warp_atlases_to_asl_space, [("asl_mask", "reference_image")]),
         (atlas_file_grabber, warp_atlases_to_asl_space, [("atlas_file", "input_image")]),
         (merge_xforms, warp_atlases_to_asl_space, [("out", "transforms")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     for cbf_type in cbf_3d:
         parcellate_cbf = pe.MapNode(
@@ -751,7 +747,6 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             mem_gb=mem_gb,
         )
 
-        # fmt:off
         workflow.connect([
             (inputnode, parcellate_cbf, [
                 (cbf_type, "in_file"),
@@ -759,8 +754,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             ]),
             (atlas_file_grabber, parcellate_cbf, [("atlas_labels_file", "atlas_labels")]),
             (warp_atlases_to_asl_space, parcellate_cbf, [("output_image", "atlas")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
         ds_cbf = pe.MapNode(
             DerivativesDataSink(
@@ -829,7 +823,6 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         run_without_submitting=True,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, ds_atlas, [("source_file", "source_file")]),
         (atlas_file_grabber, ds_atlas, [("atlas_file", "in_file")]),
@@ -840,8 +833,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             ("suffix", "suffix"),
             ("extension", "extension"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     ds_atlas_labels_file = pe.MapNode(
         DerivativesDataSink(
@@ -867,7 +859,6 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         run_without_submitting=True,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, ds_atlas_labels_file, [("source_file", "source_file")]),
         (atlas_file_grabber, ds_atlas_labels_file, [("atlas_labels_file", "in_file")]),
@@ -875,8 +866,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             ("atlas", "atlas"),
             ("suffix", "suffix"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     ds_atlas_metadata = pe.MapNode(
         DerivativesDataSink(
@@ -902,7 +892,6 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         run_without_submitting=True,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, ds_atlas_metadata, [("source_file", "source_file")]),
         (atlas_file_grabber, ds_atlas_metadata, [("atlas_metadata_file", "in_file")]),
@@ -910,7 +899,6 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             ("atlas", "atlas"),
             ("suffix", "suffix"),
         ]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     return workflow
