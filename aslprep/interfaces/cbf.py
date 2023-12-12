@@ -736,7 +736,7 @@ class ScoreAndScrubCBF(SimpleInterface):
             header=cbf_img.header,
         ).to_filename(self._results["mean_cbf_scrub"])
 
-        score_outlier_df = pd.DataFrame(columns=["score_outlier_index"], data=index_score)
+        score_outlier_df = pd.DataFrame(columns=["score_outlier_index"], data=score_outliers_idx)
         score_outlier_df.to_csv(self._results["score_outlier_index"], sep="\t", index=False)
 
         return runtime

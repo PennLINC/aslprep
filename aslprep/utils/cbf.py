@@ -461,14 +461,17 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, cost_function="huber", thresh=0.7):
 
     mean_cbf = np.mean(cbf_ts, axis=3)
     masked_cbf_ts = cbf_ts[mask, :].T  # TxS array
-    n_voxels = masked_cbf_ts.shape[1]
     # "Since μ was designed based on whole brain, we designed the algorithm to only penalize values
     # whose normalized temporal variance is outside 99.99 percentile value (p99.99) of the chi
     # square distribution computed with (Number of brain voxels – 1) degrees of freedom."
     # (n - 1) * Sample variance (S squared) / Variance (sigma squared) follows chi-squared
     # distribution with n - 1 degrees of freedom.
-    p_thresh_9999 = chi2.ppf(0.0001, df=n_voxels - 1)
     thresh1, thresh3 = _getchisquare(n_volumes)
+
+    # XXX: It seems like the following should produce the same threshold as _getchisquare,
+    # but it doesn't. I haven't been able to figure out why.
+    # n_voxels = masked_cbf_ts.shape[1]
+    # p_thresh_9999 = chi2.ppf(0.0001, df=n_voxels - 1)
 
     # Construct voxel-wise prior map (i.e., mu_v)
     masked_var_map = np.var(masked_cbf_ts, axis=0)  # S array of sigma squared
