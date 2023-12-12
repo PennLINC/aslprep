@@ -240,7 +240,7 @@ class CBFSummary(SummaryInterface):
     input_spec = _CBFSummaryInputSpec
 
     def _generate_segment(self):
-        qcfile = pd.read_csv(self.inputs.qc_file)
+        qcfile = pd.read_table(self.inputs.qc_file)
         motionparam = (
             f"FD : {round(qcfile['mean_fd'][0], 4)}, rmsd: {round(qcfile['rmsd'][0], 4)} "
         )

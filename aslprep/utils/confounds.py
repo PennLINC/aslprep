@@ -79,7 +79,7 @@ def _gather_confounds(
 
     confounds_data = pd.DataFrame()
     for file_name in all_files:  # assumes they all have headings already
-        new = pd.read_csv(file_name, sep="\t")
+        new = pd.read_table(file_name)
         for column_name in new.columns:
             new.rename(
                 columns={column_name: _camel_to_snake(_less_breakable(column_name))}, inplace=True

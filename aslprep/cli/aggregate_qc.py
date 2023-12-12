@@ -33,9 +33,9 @@ def main():
             if filex.endswith("desc-qualitycontrol_cbf.tsv"):
                 qclist.append(r + "/" + filex)
 
-    datax = pd.read_csv(qclist[0])
+    datax = pd.read_table(qclist[0])
     for i in range(1, len(qclist)):
-        dy = pd.read_csv(qclist[i])
+        dy = pd.read_table(qclist[i])
         datax = pd.concat([datax, dy])
 
     datax.to_csv(outputfile, index=None, sep="\t")
