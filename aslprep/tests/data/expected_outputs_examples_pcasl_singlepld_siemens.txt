@@ -162,7 +162,7 @@ sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-coreg_aslref.json
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-coreg_aslref.nii.gz
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-hmc_aslref.json
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-hmc_aslref.nii.gz
-sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-qualitycontrol_cbf.csv
+sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-qualitycontrol_cbf.tsv
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_from-aslref_to-T1w_mode-image_xfm.json
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_from-aslref_to-T1w_mode-image_xfm.txt
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_from-orig_to-aslref_mode-image_xfm.json
