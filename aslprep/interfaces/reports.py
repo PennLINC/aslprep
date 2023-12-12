@@ -242,37 +242,37 @@ class CBFSummary(SummaryInterface):
 
     def _generate_segment(self):
         qcfile = pd.read_csv(self.inputs.qc_file)
-        motionparam = f"FD : {round(qcfile['FD'][0], 4)}, rmsd: {round(qcfile['rmsd'][0], 4)} "
+        motionparam = (
+            f"FD : {round(qcfile['mean_fd'][0], 4)}, rmsd: {round(qcfile['rmsd'][0], 4)} "
+        )
         coregindex = (
-            f" Dice Index: {round(qcfile['coregDC'][0], 4)}, "
-            f"Jaccard Index: {round(qcfile['coregJC'][0], 4)}, "
-            f"Cross Cor.: {round(qcfile['coregCC'][0], 4)}, "
-            f"Coverage: {round(qcfile['coregCOV'][0], 4)} "
+            f" Dice Index: {round(qcfile['coreg_dice'][0], 4)}, "
+            f"Correlation: {round(qcfile['coreg_correlation'][0], 4)}, "
+            f"Coverage: {round(qcfile['coreg_overlap'][0], 4)} "
         )
         normindex = (
-            f" Dice Index: {round(qcfile['normDC'][0], 4)}, "
-            f"Jaccard Index: {round(qcfile['normJC'][0], 4)}, "
-            f"Cross Cor.: {round(qcfile['normCC'][0], 4)}, "
-            f"Coverage: {round(qcfile['normCOV'][0], 4)} "
+            f" Dice Index: {round(qcfile['norm_dice'][0], 4)}, "
+            f"Correlation: {round(qcfile['norm_correlation'][0], 4)}, "
+            f"Coverage: {round(qcfile['norm_overlap'][0], 4)} "
         )
         qei = (
-            f"cbf: {round(qcfile['cbfQEI'][0], 4)}, "
-            f"score: {round(qcfile['scoreQEI'][0], 4)}, "
-            f"scrub: {round(qcfile['scrubQEI'][0], 4)}, "
-            f"basil: {round(qcfile['basilQEI'][0], 4)}, "
-            f"pvc: {round(qcfile['pvcQEI'][0], 4)} "
+            f"cbf: {round(qcfile['qei_cbf'][0], 4)}, "
+            f"score: {round(qcfile['qei_cbf_score'][0], 4)}, "
+            f"scrub: {round(qcfile['qei_cbf_scrub'][0], 4)}, "
+            f"basil: {round(qcfile['qei_cbf_basil'][0], 4)}, "
+            f"pvc: {round(qcfile['qei_cbf_basil_gm'][0], 4)} "
         )
         mean_cbf = (
-            f"GM CBF: {round(qcfile['GMmeanCBF'][0], 2)}, "
-            f"WM CBF: {round(qcfile['WMmeanCBF'][0], 2)}, "
-            f"GM/WM CBF ratio: {round(qcfile['Gm_Wm_CBF_ratio'][0], 2)} "
+            f"GM CBF: {round(qcfile['mean_gm_cbf'][0], 2)}, "
+            f"WM CBF: {round(qcfile['mean_wm_cbf'][0], 2)}, "
+            f"GM/WM CBF ratio: {round(qcfile['ratio_gm_wm_cbf'][0], 2)} "
         )
         negvoxel = (
-            f"cbf: {round(qcfile['NEG_CBF_PERC'][0], 2)}, "
-            f"score: {round(qcfile['NEG_SCORE_PERC'][0], 2)}, "
-            f"scrub: {round(qcfile['NEG_SCRUB_PERC'][0], 2)}, "
-            f"basil: {round(qcfile['NEG_BASIL_PERC'][0], 2)}, "
-            f"pvc: {round(qcfile['NEG_PVC_PERC'][0], 2)} "
+            f"cbf: {round(qcfile['percentage_negative_cbf'][0], 2)}, "
+            f"score: {round(qcfile['percentage_negative_cbf_score'][0], 2)}, "
+            f"scrub: {round(qcfile['percentage_negative_cbf_scrub'][0], 2)}, "
+            f"basil: {round(qcfile['percentage_negative_cbf_basil'][0], 2)}, "
+            f"pvc: {round(qcfile['percentage_negative_cbf_basil_gm'][0], 2)} "
         )
 
         if isdefined(self.inputs.confounds_file):
