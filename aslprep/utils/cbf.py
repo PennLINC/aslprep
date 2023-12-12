@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.stats import chi2, median_abs_deviation
+from scipy.stats import median_abs_deviation
 
 from aslprep import config
 
@@ -470,6 +470,7 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, cost_function="huber", thresh=0.7):
 
     # XXX: It seems like the following should produce the same threshold as _getchisquare,
     # but it doesn't. I haven't been able to figure out why.
+    # from scipy.stats import chi2
     # n_voxels = masked_cbf_ts.shape[1]
     # p_thresh_9999 = chi2.ppf(0.0001, df=n_voxels - 1)
 
