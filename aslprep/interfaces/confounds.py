@@ -532,11 +532,11 @@ class ComputeCBFQC(SimpleInterface):
 
         self._results["qc_file"] = fname_presuffix(
             self.inputs.mean_cbf,
-            suffix="qc_cbf.csv",
+            suffix="qc_cbf.tsv",
             newpath=runtime.cwd,
             use_ext=False,
         )
-        qc_df.to_csv(self._results["qc_file"], index=False, header=True, na_rep="n/a")
+        qc_df.to_csv(self._results["qc_file"], index=False, header=True, sep="\t", na_rep="n/a")
 
         self._results["qc_metadata"] = fname_presuffix(
             self.inputs.mean_cbf,

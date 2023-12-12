@@ -380,7 +380,7 @@ CBF Quality Control
 
    sub-<label>/[ses-<label>/]
       perf/
-         <source_entities>_desc-qualitycontrol_cbf.csv
+         <source_entities>_desc-qualitycontrol_cbf.tsv
 
 The following QC measures were estimated: framewise displacement and relative root mean square (relRMS).
 Other QC measurers include Dice and Jaccard indices, cross-correlation,
