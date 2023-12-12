@@ -15,12 +15,10 @@ from nipype.interfaces.base import (
     isdefined,
     traits,
 )
-from nipype.interfaces.fsl import MultiImageMaths
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
-from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.utils.asl import (
     determine_multi_pld,
     estimate_labeling_efficiency,
@@ -36,40 +34,50 @@ from aslprep.utils.cbf import (
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
     t1w_mask = File(exists=True, mandatory=True, desc="t1 mask")
-    asl_mask = File(exists=True, mandatory=True, desct="asl mask")
-    transforms = File(exists=True, mandatory=True, desc="transfom")
+    asl_mask = File(exists=True, mandatory=True, desc="asl mask")
+    m0_mask = File(exists=True, mandatory=False, desc="M0 mask (if available)")
 
 
 class _RefineMaskOutputSpec(TraitedSpec):
     out_mask = File(exists=False, desc="output mask")
-    out_tmp = File(exists=False, desc="tmp mask")
 
 
 class RefineMask(SimpleInterface):
-    """Reduce the ASL-derived brain mask using the associated T1w mask."""
+    """Reduce the ASL-derived brain mask using the associated T1w mask and possibly an M0 mask."""
 
     input_spec = _RefineMaskInputSpec
     output_spec = _RefineMaskOutputSpec
 
     def _run_interface(self, runtime):
-        self._results["out_tmp"] = fname_presuffix(
-            self.inputs.asl_mask,
-            suffix="_tempmask",
-            newpath=runtime.cwd,
-        )
+        from nilearn import image
+
         self._results["out_mask"] = fname_presuffix(
             self.inputs.asl_mask,
             suffix="_refinemask",
             newpath=runtime.cwd,
         )
 
-        refine_ref_mask(
-            t1w_mask=self.inputs.t1w_mask,
-            ref_asl_mask=self.inputs.asl_mask,
-            t12ref_transform=self.inputs.transforms,
-            tmp_mask=self._results["out_tmp"],
-            refined_mask=self._results["out_mask"],
-        )
+        img1 = nb.load(self.inputs.asl_mask)
+        img1 = nb.funcs.squeeze_image(img1)
+        img2 = nb.load(self.inputs.t1w_mask)
+        img2 = nb.funcs.squeeze_image(img2)
+        if isdefined(self.inputs.m0_mask):
+            img3 = nb.load(self.inputs.m0_mask)
+            img3 = nb.funcs.squeeze_image(img3)
+            out_mask = image.math_img(
+                "img1 * img2 * img3",
+                img1=img1,
+                img2=img2,
+                img3=img3,
+            )
+        else:
+            out_mask = image.math_img(
+                "img1 * img2",
+                img1=img1,
+                img2=img2,
+            )
+
+        out_mask.to_filename(self._results["out_mask"])
 
         return runtime
 
@@ -82,7 +90,7 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
     m0scan = traits.Either(
         File(exists=True),
         None,
-        mandatory=True,
+        mandatory=False,
         desc="m0scan file associated with the ASL file. Only defined if M0Type is 'Separate'.",
     )
     m0scan_metadata = traits.Either(
@@ -92,7 +100,7 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
         desc="metadata for M0 scan. Only defined if M0Type is 'Separate'.",
     )
     in_mask = File(exists=True, mandatory=True, desc="mask")
-    dummy_vols = traits.Int(
+    dummy_scans = traits.Int(
         default_value=0,
         usedefault=True,
         mandatory=False,
@@ -122,11 +130,6 @@ class ExtractCBF(SimpleInterface):
     """Extract CBF time series by subtracting label volumes from control volumes.
 
     TODO: Mock up test data and write tests to cover all of the branches in this interface.
-
-    Notes
-    -----
-    The M0 information is extracted in the same way as GeReferenceFile,
-    so there's duplication that could be reduced.
     """
 
     input_spec = _ExtractCBFInputSpec
@@ -142,6 +145,12 @@ class ExtractCBF(SimpleInterface):
         asl_img = nb.load(self.inputs.asl_file)
         asl_data = asl_img.get_fdata()
 
+        if aslcontext.shape[0] != asl_img.shape[3]:
+            raise ValueError(
+                f"Number of rows in aslcontext ({aslcontext.shape[0]}) != "
+                f"number of volumes in ASL file ({asl_img.shape[3]})"
+            )
+
         # get the control, tag, moscan or label
         vol_types = aslcontext["volume_type"].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
@@ -153,10 +162,7 @@ class ExtractCBF(SimpleInterface):
         # extract m0 file and register it to ASL if separate
         if metadata["M0Type"] == "Separate":
             m0file = self.inputs.m0scan
-
-            m0_in_asl = fname_presuffix(self.inputs.asl_file, suffix="_m0file")
-            m0_in_asl = regmotoasl(asl=self.inputs.asl_file, m0file=m0file, m02asl=m0_in_asl)
-            m0data_smooth = smooth_image(nb.load(m0_in_asl), fwhm=self.inputs.fwhm).get_fdata()
+            m0data_smooth = smooth_image(nb.load(m0file), fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
                 m0data = mask_data * np.mean(m0data_smooth, axis=3)
             else:
@@ -186,6 +192,13 @@ class ExtractCBF(SimpleInterface):
             m0tr = None
 
         elif metadata["M0Type"] == "Absent":
+            if control_volume_idx and not cbf_volume_idx:
+                # BackgroundSuppression is required, so no need to use get().
+                if metadata["BackgroundSuppression"]:
+                    raise ValueError(
+                        "Background-suppressed control volumes cannot be used for calibration."
+                    )
+
             if control_volume_idx:
                 # Estimate M0 using the smoothed mean control volumes.
                 control_data = asl_data[:, :, :, control_volume_idx]
@@ -193,17 +206,23 @@ class ExtractCBF(SimpleInterface):
                 control_img = smooth_image(control_img, fwhm=self.inputs.fwhm).get_fdata()
                 m0data = mask_data * np.mean(control_img, axis=3)
 
+                # Use the control volumes' TR as the M0 TR.
+                if np.array(metadata["RepetitionTimePreparation"]).size > 1:
+                    m0tr = np.array(metadata["RepetitionTimePreparation"])[control_volume_idx[0]]
+                else:
+                    m0tr = metadata["RepetitionTimePreparation"]
+
             elif cbf_volume_idx:
                 # If we have precalculated CBF data, we don't need M0, so we'll just use the mask.
                 m0data = mask_data
+
+                m0tr = None
 
             else:
                 raise RuntimeError(
                     "m0scan is absent, "
                     "and there are no control volumes that can be used as a substitute"
                 )
-
-            m0tr = None
 
         else:
             raise RuntimeError("no pathway to m0scan")
@@ -230,7 +249,7 @@ class ExtractCBF(SimpleInterface):
         else:
             raise RuntimeError("No valid ASL or CBF image.")
 
-        # Update the metadata as necessary
+        # Remove volume-wise metadata for M0 scans as necessary
         VOLUME_WISE_FIELDS = [
             "PostLabelingDelay",
             "VascularCrushingVENC",
@@ -255,8 +274,8 @@ class ExtractCBF(SimpleInterface):
                 value = [value[i] for i in metadata_idx]
 
                 # Remove dummy volumes as well
-                if self.inputs.dummy_vols != 0:
-                    value = value[self.inputs.dummy_vols :]
+                if self.inputs.dummy_scans != 0:
+                    value = value[self.inputs.dummy_scans :]
 
                 metadata[field] = value
 
@@ -278,92 +297,6 @@ class ExtractCBF(SimpleInterface):
         nb.Nifti1Image(m0data, asl_img.affine, asl_img.header).to_filename(
             self._results["m0_file"]
         )
-
-        return runtime
-
-
-class _ExtractCBForDeltaMInputSpec(BaseInterfaceInputSpec):
-    asl_file = File(exists=True, mandatory=True, desc="raw asl file")
-    aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
-    asl_mask = File(exists=True, mandatory=True, desct="asl mask")
-    file_type = traits.Str(desc="file type, c for cbf, d for deltam", mandatory=True)
-
-
-class _ExtractCBForDeltaMOutputSpec(TraitedSpec):
-    out_file = File(exists=False, desc="cbf or deltam")
-
-
-class ExtractCBForDeltaM(SimpleInterface):
-    """Load an ASL file and grab the CBF or DeltaM volumes from it."""
-
-    input_spec = _ExtractCBForDeltaMInputSpec
-    output_spec = _ExtractCBForDeltaMOutputSpec
-
-    def _run_interface(self, runtime):
-        self._results["out_file"] = fname_presuffix(
-            self.inputs.asl_mask,
-            suffix="_cbfdeltam",
-            newpath=runtime.cwd,
-        )
-        asl_img = nb.load(self.inputs.asl_file)
-        asl_data = asl_img.get_fdata()
-
-        aslcontext = pd.read_table(self.inputs.aslcontext)
-        vol_types = aslcontext["volume_type"].tolist()
-        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
-        label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
-        deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
-        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
-
-        if self.inputs.file_type == "d":
-            if len(control_volume_idx) > 0:
-                # Grab control and label volumes from ASL file,
-                # then calculate deltaM by subtracting label volumes from control volumes.
-                deltam_data = (
-                    asl_data[:, :, :, control_volume_idx] - asl_data[:, :, :, label_volume_idx]
-                )
-                out_img = nb.Nifti1Image(
-                    dataobj=deltam_data,
-                    affine=asl_img.affine,
-                    header=asl_img.header,
-                )
-            else:
-                # Grab deltaM volumes from ASL file.
-                if len(asl_data.shape) < 4:
-                    # 3D volume is written out without any changes.
-                    # NOTE: Why not return the original file then?
-                    out_img = nb.Nifti1Image(
-                        dataobj=asl_data,
-                        affine=asl_img.affine,
-                        header=asl_img.header,
-                    )
-                else:
-                    deltam_data = asl_data[:, :, :, deltam_volume_idx]
-                    out_img = nb.Nifti1Image(
-                        dataobj=deltam_data,
-                        affine=asl_img.affine,
-                        header=asl_img.header,
-                    )
-
-        elif self.inputs.file_type == "c":
-            if len(asl_data.shape) < 4:
-                # 3D volume is written out without any changes.
-                # NOTE: Why not return the original file then?
-                out_img = nb.Nifti1Image(
-                    dataobj=asl_data,
-                    affine=asl_img.affine,
-                    header=asl_img.header,
-                )
-            else:
-                # Grab CBF volumes from ASL file.
-                cbf_data = asl_data[:, :, :, cbf_volume_idx]
-                out_img = nb.Nifti1Image(
-                    dataobj=cbf_data,
-                    affine=asl_img.affine,
-                    header=asl_img.header,
-                )
-
-        out_img.to_filename(self._results["out_file"])
 
         return runtime
 
@@ -406,6 +339,11 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         File(exists=True),
         None,
         desc="Arterial transit time map, in seconds. Only generated for multi-delay data.",
+    )
+    plds = traits.Either(
+        File(exists=True),
+        None,
+        desc="Post-labeling delays. Only defined if slice-timing correction is applied.",
     )
 
 
@@ -501,6 +439,7 @@ class ComputeCBF(SimpleInterface):
         m0data = np.mean(m0data, axis=0)
         scaled_m0data = m0_scale * m0data
 
+        self._results["plds"] = None
         if "SliceTiming" in metadata:
             # Offset PLD(s) by slice times
             # This step builds a voxel-wise array of post-labeling delay values,
@@ -556,6 +495,7 @@ class ComputeCBF(SimpleInterface):
                 newpath=runtime.cwd,
             )
             pld_img.to_filename(pld_file)
+            self._results["plds"] = pld_file
 
         elif is_multi_pld:
             # Broadcast PLDs to voxels by PLDs
@@ -645,8 +585,7 @@ class ComputeCBF(SimpleInterface):
             )
 
             cbf_ts = deltam_scaled * perfusion_factor
-            cbf_ts = np.nan_to_num(cbf_ts)
-
+            cbf_ts = np.nan_to_num(cbf_ts, nan=0, posinf=0, neginf=0)
             cbf_ts_img = masker.inverse_transform(cbf_ts.T)
             mean_cbf_img = image.mean_img(cbf_ts_img)
             self._results["cbf_ts"] = fname_presuffix(
@@ -775,7 +714,7 @@ class ScoreAndScrubCBF(SimpleInterface):
         )
         self._results["score_outlier_index"] = fname_presuffix(
             self.inputs.cbf_ts,
-            suffix="_scoreindex.csv",
+            suffix="_scoreindex.tsv",
             newpath=runtime.cwd,
             use_ext=False,
         )
@@ -796,6 +735,9 @@ class ScoreAndScrubCBF(SimpleInterface):
             affine=cbf_img.affine,
             header=cbf_img.header,
         ).to_filename(self._results["mean_cbf_scrub"])
+
+        score_outlier_df = pd.DataFrame(columns=["score_outlier_index"], data=index_score)
+        score_outlier_df.to_csv(self._results["score_outlier_index"], sep="\t", index=False)
 
         return runtime
 
@@ -824,7 +766,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     m0tr = traits.Float(
         desc="The repetition time for the calibration image (the M0 scan).",
         argstr="--tr %.2f",
-        mandatory=True,
+        mandatory=False,
     )
     tis = traits.Either(
         traits.Float(),
@@ -961,54 +903,3 @@ class BASILCBF(FSLCommand):
         )
 
         return outputs
-
-
-def regmotoasl(asl, m0file, m02asl):
-    """Calculate mean M0 image and mean ASL image, then FLIRT M0 image to ASL space.
-
-    TODO: This should not be a function. It uses interfaces, so it should be a workflow.
-    """
-    from nipype.interfaces import fsl
-
-    meanasl = fsl.MeanImage()
-    meanasl.inputs.in_file = asl
-    meanasl.inputs.out_file = fname_presuffix(asl, suffix="_meanasl")
-    meanasl.run()
-    meanm0 = fsl.MeanImage()
-    meanm0.inputs.in_file = m0file
-    meanm0.inputs.out_file = fname_presuffix(asl, suffix="_meanm0")
-    meanm0.run()
-    flt = fsl.FLIRT(bins=640, cost_func="mutualinfo")
-    flt.inputs.in_file = meanm0.inputs.out_file
-    flt.inputs.reference = meanasl.inputs.out_file
-    flt.inputs.out_file = m02asl
-    flt.run()
-    return m02asl
-
-
-def refine_ref_mask(t1w_mask, ref_asl_mask, t12ref_transform, tmp_mask, refined_mask):
-    """Warp T1w mask to ASL space, then use it to mask the ASL mask.
-
-    TODO: This should not be a function. It uses interfaces, so it should be a workflow.
-    """
-    warp_t1w_mask_to_asl = ApplyTransforms(
-        dimension=3,
-        float=True,
-        input_image=t1w_mask,
-        interpolation="NearestNeighbor",
-        reference_image=ref_asl_mask,
-        transforms=[t12ref_transform],
-        input_image_type=3,
-        output_image=tmp_mask,
-    )
-    results = warp_t1w_mask_to_asl.run()
-
-    modify_asl_mask = MultiImageMaths(
-        in_file=results.outputs.output_image,
-        op_string="-mul %s -bin",
-        operand_files=ref_asl_mask,
-        out_file=refined_mask,
-    )
-    results = modify_asl_mask.run()
-
-    return results.outputs.out_file

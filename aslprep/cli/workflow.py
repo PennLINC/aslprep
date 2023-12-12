@@ -12,25 +12,39 @@ a hard-limited memory-scope.
 
 def build_workflow(config_file, retval):
     """Create the Nipype Workflow that supports the whole execution graph."""
-    from niworkflows.reports.core import generate_reports
-    from niworkflows.utils.bids import check_pipeline_version, collect_participants
+    from fmriprep.reports.core import generate_reports
+    from fmriprep.utils.bids import check_pipeline_version
+    from niworkflows.utils.bids import collect_participants
     from niworkflows.utils.misc import check_valid_fs_license
 
-    from aslprep import config
+    from aslprep import config, data
     from aslprep.utils.misc import check_deps
     from aslprep.workflows.base import init_aslprep_wf
 
     config.load(config_file)
     build_log = config.loggers.workflow
 
-    output_dir = config.execution.output_dir
     version = config.environment.version
 
     retval["return_code"] = 1
     retval["workflow"] = None
 
+    banner = [f"Running ASLPrep version {version}"]
+    notice_path = data.load.readable("NOTICE")
+    if notice_path.exists():
+        banner[0] += "\n"
+        banner += [f"License NOTICE {'#' * 50}"]
+        banner += [f"ASLPrep {version}"]
+        banner += notice_path.read_text().splitlines(keepends=False)[1:]
+        banner += ["#" * len(banner[1])]
+    build_log.log(25, f"\n{' ' * 9}".join(banner))
+
     # warn if older results exist: check for dataset_description.json in output folder
-    msg = check_pipeline_version(version, output_dir / "aslprep" / "dataset_description.json")
+    msg = check_pipeline_version(
+        "ASLPrep",
+        version,
+        config.execution.aslprep_dir / "dataset_description.json",
+    )
     if msg is not None:
         build_log.warning(msg)
 
@@ -49,30 +63,34 @@ def build_workflow(config_file, retval):
 
     # Called with reports only
     if config.execution.reports_only:
-        from pkg_resources import resource_filename as pkgrf
+        from aslprep.data import load as load_data
 
         build_log.log(25, "Running --reports-only on participants %s", ", ".join(subject_list))
         retval["return_code"] = generate_reports(
             subject_list,
-            config.execution.output_dir,
+            config.execution.aslprep_dir,
             config.execution.run_uuid,
-            config=pkgrf("aslprep", "data/reports-spec.yml"),
+            config=load_data("reports-spec.yml"),
             packagename="aslprep",
         )
         return retval
 
     # Build main workflow
-    init_msg = f"""
-    Running ASLPREP version {config.environment.version}:
-      * BIDS dataset path: {config.execution.bids_dir}.
-      * Participant list: {subject_list}.
-      * Run identifier: {config.execution.run_uuid}.
-      * Output spaces: {config.execution.output_spaces}."""
+    init_msg = [
+        "Building ASLPrep's workflow:",
+        f"BIDS dataset path: {config.execution.bids_dir}.",
+        f"Participant list: {subject_list}.",
+        f"Run identifier: {config.execution.run_uuid}.",
+        f"Output spaces: {config.execution.output_spaces}.",
+    ]
 
-    if config.execution.anat_derivatives:
-        init_msg += f"""
-      * Anatomical derivatives: {config.execution.anat_derivatives}."""
-    build_log.log(25, init_msg)
+    if config.execution.derivatives:
+        init_msg += [f"Searching for derivatives: {config.execution.derivatives}."]
+
+    if config.execution.fs_subjects_dir:
+        init_msg += [f"Pre-run FreeSurfer's SUBJECTS_DIR: {config.execution.fs_subjects_dir}."]
+
+    build_log.log(25, f"\n{' ' * 11}* ".join(init_msg))
 
     retval["workflow"] = init_aslprep_wf()
 
@@ -112,7 +130,7 @@ def build_boilerplate(config_file, workflow):
     from aslprep import config
 
     config.load(config_file)
-    logs_path = config.execution.output_dir / "aslprep" / "logs"
+    logs_path = config.execution.aslprep_dir / "logs"
     boilerplate = workflow.visit_desc()
     citation_files = {ext: logs_path / f"CITATION.{ext}" for ext in ("bib", "tex", "md", "html")}
 
@@ -132,14 +150,14 @@ def build_boilerplate(config_file, workflow):
         from shutil import copyfile
         from subprocess import CalledProcessError, TimeoutExpired, check_call
 
-        from pkg_resources import resource_filename as pkgrf
+        from aslprep.data import load as load_data
 
         # Generate HTML file resolving citations
         cmd = [
             "pandoc",
             "-s",
             "--bibliography",
-            pkgrf("aslprep", "data/boilerplate.bib"),
+            str(load_data("boilerplate.bib")),
             "--filter",
             "pandoc-citeproc",
             "--metadata",
@@ -160,7 +178,7 @@ def build_boilerplate(config_file, workflow):
             "pandoc",
             "-s",
             "--bibliography",
-            pkgrf("aslprep", "data/boilerplate.bib"),
+            str(load_data("boilerplate.bib")),
             "--natbib",
             str(citation_files["md"]),
             "-o",
@@ -172,4 +190,4 @@ def build_boilerplate(config_file, workflow):
         except (FileNotFoundError, CalledProcessError, TimeoutExpired):
             config.loggers.cli.warning("Could not generate CITATION.tex file:\n%s", " ".join(cmd))
         else:
-            copyfile(pkgrf("aslprep", "data/boilerplate.bib"), citation_files["bib"])
+            copyfile(load_data("boilerplate.bib"), citation_files["bib"])

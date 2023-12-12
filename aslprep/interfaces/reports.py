@@ -1,12 +1,12 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Interfaces to generate reportlets."""
-
 import os
 import re
 import time
 
 import pandas as pd
+from fmriprep.interfaces.reports import get_world_pedir
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     Directory,
@@ -37,6 +37,12 @@ FUNCTIONAL_TEMPLATE = """\t\t<h3 class="elem-title">Summary</h3>
 \t\t\t<li>Phase-encoding (PE) direction: {pedir}</li>
 \t\t\t<li>Susceptibility distortion correction: {sdc}</li>
 \t\t\t<li>Registration: {registration}</li>
+
+\t\t</ul>
+"""
+
+QC_TEMPLATE = """\t\t<h3 class="elem-title">QC Summary</h3>
+\t\t<ul class="elem-desc">
 \t\t\t<li>Confounds collected: {confounds}</li>
 \t\t\t<li>Motion summary measures: {motionparam}</li>
 \t\t\t<li>Coregistration quality: {coregindex}</li>
@@ -180,6 +186,7 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
     qc_file = File(exists=True, desc="qc file")
     tr = traits.Float(desc="Repetition time", mandatory=True)
+    orientation = traits.Str(mandatory=True, desc="Orientation of the voxel axes")
 
 
 class FunctionalSummary(SummaryInterface):
@@ -202,43 +209,70 @@ class FunctionalSummary(SummaryInterface):
             ],
         }[self.inputs.registration][self.inputs.fallback]
 
-        qcfile = pd.read_csv(self.inputs.qc_file)
-        motionparam = f"FD : {round(qcfile['FD'][0], 4)}, rmsd: {round(qcfile['rmsd'][0], 4)} "
-        coregindex = (
-            f" Dice Index: {round(qcfile['coregDC'][0], 4)}, "
-            f"Jaccard Index: {round(qcfile['coregJC'][0], 4)}, "
-            f"Cross Cor.: {round(qcfile['coregCC'][0], 4)}, "
-            f"Coverage: {round(qcfile['coregCOV'][0], 4)} "
-        )
-        normindex = (
-            f" Dice Index: {round(qcfile['normDC'][0], 4)}, "
-            f"Jaccard Index: {round(qcfile['normJC'][0], 4)}, "
-            f"Cross Cor.: {round(qcfile['normCC'][0], 4)}, "
-            f"Coverage: {round(qcfile['normCOV'][0], 4)} "
-        )
-        qei = (
-            f"cbf: {round(qcfile['cbfQEI'][0], 4)}, "
-            f"score: {round(qcfile['scoreQEI'][0], 4)}, "
-            f"scrub: {round(qcfile['scrubQEI'][0], 4)}, "
-            f"basil: {round(qcfile['basilQEI'][0], 4)}, "
-            f"pvc: {round(qcfile['pvcQEI'][0], 4)} "
-        )
-        mean_cbf = (
-            f"GM CBF: {round(qcfile['GMmeanCBF'][0], 2)}, "
-            f"WM CBF: {round(qcfile['WMmeanCBF'][0], 2)}, "
-            f"GM/WM CBF ratio: {round(qcfile['Gm_Wm_CBF_ratio'][0], 2)} "
-        )
-        negvoxel = (
-            f"cbf: {round(qcfile['NEG_CBF_PERC'][0], 2)}, "
-            f"score: {round(qcfile['NEG_SCORE_PERC'][0], 2)}, "
-            f"scrub: {round(qcfile['NEG_SCRUB_PERC'][0], 2)}, "
-            f"basil: {round(qcfile['NEG_BASIL_PERC'][0], 2)}, "
-            f"pvc: {round(qcfile['NEG_PVC_PERC'][0], 2)} "
-        )
+        pedir = get_world_pedir(self.inputs.orientation, self.inputs.pe_direction)
+
         if self.inputs.pe_direction is None:
             pedir = "MISSING - Assuming Anterior-Posterior"
         else:
             pedir = {"i": "Left-Right", "j": "Anterior-Posterior"}[self.inputs.pe_direction[0]]
+
+        # the number of dummy scans was specified by the user and
+        # it is not equal to the number detected by the algorithm
+
+        # the number of dummy scans was not specified by the user
+
+        return FUNCTIONAL_TEMPLATE.format(
+            pedir=pedir,
+            sdc=self.inputs.distortion_correction,
+            registration=reg,
+            tr=self.inputs.tr,
+        )
+
+
+class _CBFSummaryInputSpec(BaseInterfaceInputSpec):
+    confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
+    qc_file = File(exists=True, desc="qc file")
+
+
+class CBFSummary(SummaryInterface):
+    """A summary of a functional run, with QC measures included."""
+
+    input_spec = _CBFSummaryInputSpec
+
+    def _generate_segment(self):
+        qcfile = pd.read_table(self.inputs.qc_file)
+        motionparam = (
+            f"FD : {round(qcfile['mean_fd'][0], 4)}, rmsd: {round(qcfile['rmsd'][0], 4)} "
+        )
+        coregindex = (
+            f" Dice Index: {round(qcfile['coreg_dice'][0], 4)}, "
+            f"Correlation: {round(qcfile['coreg_correlation'][0], 4)}, "
+            f"Coverage: {round(qcfile['coreg_overlap'][0], 4)} "
+        )
+        normindex = (
+            f" Dice Index: {round(qcfile['norm_dice'][0], 4)}, "
+            f"Correlation: {round(qcfile['norm_correlation'][0], 4)}, "
+            f"Coverage: {round(qcfile['norm_overlap'][0], 4)} "
+        )
+        qei = (
+            f"cbf: {round(qcfile['qei_cbf'][0], 4)}, "
+            f"score: {round(qcfile['qei_cbf_score'][0], 4)}, "
+            f"scrub: {round(qcfile['qei_cbf_scrub'][0], 4)}, "
+            f"basil: {round(qcfile['qei_cbf_basil'][0], 4)}, "
+            f"pvc: {round(qcfile['qei_cbf_basil_gm'][0], 4)} "
+        )
+        mean_cbf = (
+            f"GM CBF: {round(qcfile['mean_gm_cbf'][0], 2)}, "
+            f"WM CBF: {round(qcfile['mean_wm_cbf'][0], 2)}, "
+            f"GM/WM CBF ratio: {round(qcfile['ratio_gm_wm_cbf'][0], 2)} "
+        )
+        negvoxel = (
+            f"cbf: {round(qcfile['percentage_negative_cbf'][0], 2)}, "
+            f"score: {round(qcfile['percentage_negative_cbf_score'][0], 2)}, "
+            f"scrub: {round(qcfile['percentage_negative_cbf_scrub'][0], 2)}, "
+            f"basil: {round(qcfile['percentage_negative_cbf_basil'][0], 2)}, "
+            f"pvc: {round(qcfile['percentage_negative_cbf_basil_gm'][0], 2)} "
+        )
 
         if isdefined(self.inputs.confounds_file):
             with open(self.inputs.confounds_file) as cfh:
@@ -250,12 +284,8 @@ class FunctionalSummary(SummaryInterface):
 
         # the number of dummy scans was not specified by the user
 
-        return FUNCTIONAL_TEMPLATE.format(
-            pedir=pedir,
-            sdc=self.inputs.distortion_correction,
-            registration=reg,
+        return QC_TEMPLATE.format(
             confounds=re.sub(r"[\t ]+", ", ", conflist),
-            tr=self.inputs.tr,
             motionparam=motionparam,
             qei=qei,
             coregindex=coregindex,

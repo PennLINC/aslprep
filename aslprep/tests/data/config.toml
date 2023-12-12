@@ -1,60 +1,65 @@
 [environment]
-cpu_count = 8
+cpu_count = 1
 exec_env = "posix"
 free_mem = 2.3
 overcommit_policy = "heuristic"
 overcommit_limit = "50%"
-nipype_version = "1.5.0"
-templateflow_version = "0.6.3"
-version = "0.2.2+39.gaf10e8d.dirty"
+nipype_version = "1.8.6"
+templateflow_version = "23.1.0"
+version = "0.6.0rc2.dev109+gbd443e3"
 
 [execution]
 bids_dir = "ds000240/"
 bids_description_hash = "d1cefcd38b7b3ab51fa1b78d5cf34a8efb1d07fc3208b8042fc105491bd9b2df"
 boilerplate_only = false
-debug = false
+sloppy = false
+debug = []
 fs_license_file = "/opt/freesurfer/license.txt"
-fs_subjects_dir = "/storage/testxcp/test/freesurfer"
-log_dir = "/storage/testxcp/test/aslprep/logs"
+fs_subjects_dir = "/opt/freesurfer/subjects"
+log_dir = "/src/aslprep/.circleci/out/test_001/aslprep/logs"
 log_level = 25
 low_mem = false
 md_only_boilerplate = false
 notrack = false
 output_dir = "/tmp"
-output_spaces = "asl"
+output_spaces = "asl T1w MNI152NLin2009cAsym:res-native fsaverage:den-10k fsaverage:den-30k"
 reports_only = false
-run_uuid = "20200811-002648_12faeae6-6667-482b-a7a7-1bae99e79aa0"
+run_uuid = "20231113-185441_194424c2-d23d-4aeb-8611-82b69df990ad"
 participant_label = [ "01",]
 templateflow_home = "~/.cache/templateflow"
-work_dir = "/work/"
+work_dir = "work/"
 write_graph = false
 
 [workflow]
 anat_only = false
 asl2t1w_dof = 6
 asl2t1w_init = "register"
-cifti_output = false
+m0_scale = 1
 fmap_bspline = false
 force_syn = false
 hires = true
 ignore = []
 longitudinal = false
-medial_surface_nan = false
+run_msmsulc = false
+project_goodvoxels = false
 run_reconall = true
 skull_strip_fixed_seed = false
 skull_strip_template = "OASIS30ANTs"
 skull_strip_t1w = "force"
-spaces = "func MNI152NLin2009cAsym"
+spaces = "asl T1w MNI152NLin2009cAsym:res-native"
 use_bbr = true
+use_ge = false
 use_syn_sdc = false
-dummy_vols = 0
+dummy_scans = 0
 smooth_kernel = 5
+scorescrub = true
+basil = false
 
 [nipype]
 crashfile_format = "txt"
 get_linked_libs = false
-nprocs = 24
-omp_nthreads = 8
+nprocs = 2
+omp_nthreads = 2
 plugin = "MultiProc"
 resource_monitor = false
 stop_on_first_crash = false
@@ -62,6 +67,7 @@ stop_on_first_crash = false
 [seeds]
 master = 23622
 ants = 9945
+numpy = 47075
 
 [nipype.plugin_args]
 maxtasksperchild = 1

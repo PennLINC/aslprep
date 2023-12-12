@@ -500,7 +500,7 @@ def _scrub_cbf(cbf_ts, gm, wm, csf, mask, cost_function="huber", thresh=0.7):
     X[:, 0] = gm.flatten()[gm.flatten() >= (0)] * idxx
     X[:, 1] = wm.flatten()[wm.flatten() >= (0)] * idxx
     A = (mean_cbf.flatten()[idxx >= 0]) * idxx
-    c = np.linalg.lstsq(X, A)[0]
+    c = np.linalg.lstsq(X, A, rcond=None)[0]
     global_prior_full = c[0] * gm.flatten() + c[1] * wm.flatten()
     global_prior = global_prior_full[mask.flatten() == 1]
 

@@ -2,23 +2,29 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for the ASL processing portions of ASLPrep."""
 from aslprep.workflows.asl import (
+    apply,
     base,
     cbf,
     confounds,
-    ge_utils,
-    gecbf,
+    fit,
     hmc,
-    registration,
+    outputs,
+    plotting,
+    reference,
     resampling,
+    util,
 )
 
 __all__ = [
+    "apply",
     "base",
     "cbf",
     "confounds",
-    "ge_utils",
-    "gecbf",
+    "fit",
     "hmc",
-    "registration",
+    "outputs",
+    "plotting",
+    "reference",
     "resampling",
+    "util",
 ]

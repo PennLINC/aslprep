@@ -44,11 +44,15 @@ def select_processing_target(aslcontext):
     """Determine how to handle ASL and M0 data based on dataset configuration."""
     import pandas as pd
 
-    aslcontext_df = pd.read_table(aslcontext)
+    try:
+        aslcontext_df = pd.read_table(aslcontext)
+    except:
+        raise FileNotFoundError(aslcontext)
+
     voltypes = aslcontext_df["volume_type"].tolist()
 
     if "control" in voltypes and "label" in voltypes:
-        processing_target = "controllabel"
+        processing_target = "control"
     elif "deltam" in voltypes:
         processing_target = "deltam"
     elif "cbf" in voltypes:

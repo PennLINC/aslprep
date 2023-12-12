@@ -1,8 +1,8 @@
 .. include:: links.rst
 
-###############################
-ASL processing pipeline details
-###############################
+###########################
+Processing pipeline details
+###########################
 
 *ASLPrep* :footcite:p:`aslprep_nature_methods,aslprep_zenodo`
 adapts its pipeline depending on what data and metadata are available and are used as inputs.
@@ -31,23 +31,27 @@ averages them into a single reference template.
    :simple_form: yes
 
    from aslprep.utils.spaces import Reference, SpatialReferences
-   from smriprep.workflows.anatomical import init_anat_preproc_wf
+   from smriprep.workflows.anatomical import init_anat_fit_wf
 
-   wf = init_anat_preproc_wf(
+   wf = init_anat_fit_wf(
       bids_root=".",
-      freesurfer=False,
+      output_dir=".",
+      freesurfer=True,
       hires=True,
       longitudinal=False,
-      omp_nthreads=1,
-      output_dir=".",
+      msm_sulc=True,
+      t1w=["sub-01/anat/sub-01_T1w.nii.gz"],
+      t2w=["sub-01/anat/sub-01_T2w.nii.gz"],
+      flair=["sub-01/anat/sub-01_acq-flair_T2w.nii.gz"],
       skull_strip_mode="force",
       skull_strip_template=Reference("MNI152NLin2009cAsym"),
       spaces=SpatialReferences([
-         ("MNI152Lin", {}),
+         ("MNI152NLin6Asym", {}),
          ("T1w", {}),
       ]),
       skull_strip_fixed_seed=False,
-      t1w=["sub-01/anat/sub-01_T1w.nii.gz"],
+      omp_nthreads=1,
+      sloppy=False,
    )
 
 See also *sMRIPrep*'s
@@ -65,9 +69,9 @@ brain extraction workflow:
    :graph2use: orig
    :simple_form: yes
 
-   from niworkflows.anat.ants import init_brain_extraction_wf
+   from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
-   wf = init_brain_extraction_wf()
+   wf = init_enhance_and_skullstrip_asl_wf()
 
 An example of brain extraction is shown below:
 
@@ -95,7 +99,7 @@ be set to resample the preprocessed data onto the final output spaces.
 ASL preprocessing
 *****************
 
-:py:func:`~aslprep.workflows.asl.base.init_asl_preproc_wf`
+:py:func:`~aslprep.workflows.asl.base.init_asl_wf`
 
 .. workflow::
    :graph2use: orig
@@ -103,11 +107,11 @@ ASL preprocessing
 
    from aslprep.tests.tests import mock_config
    from aslprep import config
-   from aslprep.workflows.asl.base import init_asl_preproc_wf
+   from aslprep.workflows.asl.base import init_asl_wf
 
    with mock_config():
       asl_file = str(config.execution.bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz")
-      wf = init_asl_preproc_wf(asl_file)
+      wf = init_asl_wf(asl_file=asl_file)
 
 Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
 split into multiple sub-workflows described below.
@@ -118,8 +122,10 @@ split into multiple sub-workflows described below.
    but the GE ASL product sequence is unique in that it typically only produces a single deltaM or
    CBF volume (optionally along with an M0 volume).
 
-   For these short sequences, ASLPrep performs many of the same steps as for a longer sequence,
-   but certain steps are dropped, including motion correction.
+   For these short sequences, ASLPrep operates in basically the same manner as it does with other
+   sequences, except that the M0 volume (when available) is used as the reference image instead of
+   the deltaM or CBF volume, since GE deltaM volumes tend to have extreme background noise in a
+   circle around the brain.
    Additionally, SCORE/SCRUB cannot be used with these short sequences,
    as the denoising method requires a long time series from which to identify outliers.
 
@@ -135,12 +141,11 @@ ASL reference image estimation
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.workflows.asl.util import init_asl_reference_wf
+   from aslprep.workflows.asl.reference import init_raw_aslref_wf
 
-   wf = init_asl_reference_wf()
+   wf = init_raw_aslref_wf()
 
-This workflow estimates a reference image for an
-:abbr:`ASL (Arterial Spin Labelling)` series.
+This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labelling)` series.
 The reference image is then used to calculate a brain mask for the
 :abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
 :py:func:`~aslprep.workflows.asl.util.init_enhance_and_skullstrip_asl_wf`.
@@ -167,8 +172,7 @@ Head-motion estimation
    from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
    wf = init_asl_hmc_wf(
-      processing_target="controllabel",
-      m0type="Included",
+      name="asl_hmc_wf",
       mem_gb=1,
       omp_nthreads=1,
    )
@@ -197,7 +201,12 @@ Confounds estimation
 
    from aslprep.workflows.asl.confounds import init_asl_confounds_wf
 
-   wf = init_asl_confounds_wf(name="confound_wf", mem_gb=1)
+   wf = init_asl_confounds_wf(
+      n_volumes=50,
+      mem_gb=1,
+      freesurfer=True,
+      name="confound_wf",
+   )
 
 
 Calculated confounds include framewise displacement, 6 motion parameters, and DVARS.
@@ -206,16 +215,17 @@ Calculated confounds include framewise displacement, 6 motion parameters, and DV
 Susceptibility Distortion Correction (SDC)
 ==========================================
 
-One of the major problems that affects :abbr:`EPI (echo planar imaging)` data
-is the spatial distortion caused by the inhomogeneity of the field inside
-the scanner.
-Please refer to :doc:`sdc` for details on the available workflows.
+One of the major problems that affects ASL data is the spatial distortion caused by the
+inhomogeneity of the field inside the scanner.
+Please refer to the `SDCFlows documentation <www.nipreps.org/sdcflows>`_
+for details on the available workflows.
 
 .. figure:: _static/unwarping.svg
 
    Applying susceptibility-derived distortion correction, based on fieldmap estimation
 
-See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
+See also *SDCFlows*' :py:func:`~sdcflows.workflows.apply.correction.init_unwarp_wf` and
+:py:func:`~sdcflows.workflows.apply.registration.init_coeff2epi_wf`
 
 
 .. _asl_preproc:
@@ -223,25 +233,12 @@ See also *SDCFlows*' :py:func:`~sdcflows.workflows.base.init_sdc_estimate_wf`
 Preprocessed ASL in native space
 ================================
 
-:py:func:`~aslprep.workflows.asl.resampling.init_asl_preproc_trans_wf`
-
-.. workflow::
-   :graph2use: orig
-   :simple_form: yes
-
-   from aslprep.workflows.asl.resampling import init_asl_preproc_trans_wf
-
-   wf = init_asl_preproc_trans_wf(
-      mem_gb=3,
-      omp_nthreads=1,
-   )
-
-
 A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
 from the original data in the original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
 resampled in their native space by concatenating the mappings found in previous correction workflows
-(:abbr:`HMC (head-motion correction)` and :abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
+(:abbr:`HMC (head-motion correction)` and
+:abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
 for a one-shot interpolation process.
 Interpolation uses a Lanczos kernel.
 
@@ -257,7 +254,7 @@ Interpolation uses a Lanczos kernel.
 CBF Computation in native space
 *******************************
 
-:py:func:`~aslprep.workflows.asl.cbf.init_compute_cbf_wf`
+:py:func:`~aslprep.workflows.asl.cbf.init_cbf_wf`
 
 .. workflow::
    :graph2use: orig
@@ -265,25 +262,25 @@ CBF Computation in native space
 
    import json
    from pathlib import Path
-   from pkg_resources import resource_filename as pkgrf
 
-   from aslprep.workflows.asl.cbf import init_compute_cbf_wf
+   from aslprep.data import load as load_data
+   from aslprep.workflows.asl.cbf import init_cbf_wf
 
-   bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+   bids_dir = load_data("../tests/data/ds000240").absolute()
    nii_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
    with open(metadata_file) as f:
       metadata = json.load(f)
 
-   wf = init_compute_cbf_wf(
+   wf = init_cbf_wf(
       name_source=str(nii_file),
-      processing_target="controllabel",
+      processing_target="control",
       scorescrub=False,
       basil=False,
       metadata=metadata,
       m0_scale=1,
       smooth_kernel=5,
-      dummy_vols=0,
+      dummy_scans=0,
    )
 
 ASL data consist of multiple pairs of labeled and control images.
@@ -610,22 +607,22 @@ The CBF map shown below is the result of partial volume corrected CBF computed b
 Quality control measures
 ************************
 
-:py:func:`~aslprep.workflows.asl.qc.init_compute_cbf_qc_wf`
+:py:func:`~aslprep.workflows.asl.confounds.init_cbf_confounds_wf`
 
 .. workflow::
    :graph2use: orig
    :simple_form: yes
 
    from pathlib import Path
-   from pkg_resources import resource_filename as pkgrf
 
-   from aslprep.workflows.asl.qc import init_compute_cbf_qc_wf
+   from aslprep.data import load as load_data
+   from aslprep.workflows.asl.qc import init_cbf_confounds_wf
 
-   bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+   bids_dir = load_data("../tests/data/ds000240").absolute()
    asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
 
-   wf = init_compute_cbf_qc_wf(is_ge=False)
+   wf = init_cbf_confounds_wf()
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index,
 and quality evaluation index (QEI) are included for all CBF maps.
@@ -640,18 +637,23 @@ structural similarity, spatial variability, and percentage of voxels in GM with 
 ASL and CBF to T1w registration
 *******************************
 
-:py:func:`~aslprep.workflows.asl.registration.init_asl_reg_wf`
+:py:func:`~fmriprep.workflows.bold.registration.init_bold_reg_wf`
 
 .. workflow::
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.workflows.asl.registration import init_asl_reg_wf
+   from fmriprep.workflows.bold.registration import init_bold_reg_wf
 
-   wf = init_asl_reg_wf(
+   wf = init_bold_reg_wf(
+      freesurfer=True,
       use_bbr=True,
-      asl2t1w_dof=6,
-      asl2t1w_init="register",
+      bold2t1w_dof=6,
+      bold2t1w_init="register",
+      mem_gb=1,
+      omp_nthreads=1,
+      name="bold_reg_wf",
+      sloppy=False,
    )
 
 *ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's
@@ -677,22 +679,21 @@ registration.
 Resampling ASL and CBF runs onto standard spaces
 ================================================
 
-:py:func:`~aslprep.workflows.asl.resampling.init_asl_std_trans_wf`
+:py:func:`~fmriprep.workflows.bold.apply.init_bold_volumetric_resample_wf`
 
 .. workflow::
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.utils.spaces import SpatialReferences
-   from aslprep.workflows.asl.resampling import init_asl_std_trans_wf
+   from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
 
-   wf = init_asl_std_trans_wf(
-      mem_gb=3,
-      omp_nthreads=1,
-      spaces=SpatialReferences(
-         spaces=[("MNI152Lin", {})],
-         checkpoint=True,
-      ),
+   wf = init_bold_volumetric_resample_wf(
+      metadata={
+         'RepetitionTime': 2.0,
+         'PhaseEncodingDirection': 'j-',
+         'TotalReadoutTime': 0.03,
+      },
+      fieldmap_id='my_fieldmap',
    )
 
 This sub-workflow concatenates the transforms calculated upstream

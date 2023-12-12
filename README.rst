@@ -30,7 +30,7 @@
    :target: https://zenodo.org/badge/latestdoi/256420694
    :alt: Zenodo DOI
 
-.. image:: https://img.shields.io/github/license/pennlinc/aslprep
+.. image:: https://img.shields.io/badge/License-BSD--3--Clause-green
    :target: https://opensource.org/licenses/BSD-3-Clause
    :alt: License
 
@@ -91,3 +91,38 @@ Acknowledgements
 
 Please acknowledge this work using the citation boilerplate that *ASLPrep* includes
 in the visual report generated for every subject processed.
+
+************************************************
+On the relationship between ASLPrep and fMRIPrep
+************************************************
+
+ASLPrep is largely based on fMRIPrep, as ASL processing is very similar to fMRI processing.
+fMRIPrep is developed by a larger group and receives more regular feedback on its workflow,
+so we (the ASLPrep developers) try to update ASLPrep in line with fMRIPrep.
+
+ASLPrep and fMRIPrep are both part of the NiPreps community, but ASLPrep is in a unique situation
+because it is owned and maintained by Ted Satterthwaite and his team.
+As such, while we do our best to keep ASLPrep in sync with fMRIPrep, differences may arise
+due to choices by leadership or, more commonly, necessarily differential processing for different
+modalities.
+
+There are several crucial differences between ASL and fMRI processing,
+which must be accounted for in ASLPrep:
+
+1. The ASL reference image is selected from the highest-contrast volume type within the time series,
+   rather than from the first N volumes.
+2. ASL processing does not include slice timing correction.
+   Instead, post-labeling delays are shifted based on the slice timing when CBF is calculated.
+3. While ASL motion correction may use the same algorithm as fMRI motion correction,
+   different volume types in the ASL time series exhibit different contrasts, which can introduce
+   artifacts into the motion-corrected data.
+   As such, ASLPrep motion corrects each volume type separately,
+   and then concatenated the corrected time series back together.
+4. ASLPrep includes extra steps to do the following:
+   1. Calculate CBF.
+   2. Calculate CBF QC metrics, paralleling the ASL confound calculation.
+   3. Plot CBF results, paralleling ASL plots.
+   4. Parcellate CBF results with a range of atlases.
+5. fMRIPrep contains a lot of code to handle multi-echo fMRI.
+   While multi-echo ASL does exist, it is very rare, so we do not include any multi-echo-specific
+   elements in ASLPrep at the moment.

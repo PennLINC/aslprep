@@ -1,6 +1,5 @@
 """Adapted interfaces from Niworkflows."""
 from json import loads
-from pathlib import Path
 
 from bids.layout import Config
 from nipype.interfaces.base import (
@@ -12,12 +11,12 @@ from nipype.interfaces.base import (
     traits,
 )
 from niworkflows.interfaces.bids import DerivativesDataSink as BaseDerivativesDataSink
-from pkg_resources import resource_filename as pkgrf
 
 from aslprep import config
+from aslprep.data import load as load_data
 
 # NOTE: Modified for aslprep's purposes
-aslprep_spec = loads(Path(pkgrf("aslprep", "data/aslprep_bids_config.json")).read_text())
+aslprep_spec = loads(load_data.readable("aslprep_bids_config.json").read_text())
 bids_config = Config.load("bids")
 deriv_config = Config.load("derivatives")
 
@@ -37,13 +36,12 @@ class _BIDSDataGrabberInputSpec(BaseInterfaceInputSpec):
 class _BIDSDataGrabberOutputSpec(TraitedSpec):
     out_dict = traits.Dict(desc="output data structure")
     fmap = OutputMultiObject(desc="output fieldmaps")
-    bold = OutputMultiObject(desc="output functional images")
+    asl = OutputMultiObject(desc="output ASL images")
     sbref = OutputMultiObject(desc="output sbrefs")
     t1w = OutputMultiObject(desc="output T1w images")
     roi = OutputMultiObject(desc="output ROI images")
     t2w = OutputMultiObject(desc="output T2w images")
     flair = OutputMultiObject(desc="output FLAIR images")
-    asl = OutputMultiObject(desc="output ASL images")
 
 
 class BIDSDataGrabber(SimpleInterface):
@@ -92,8 +90,135 @@ class DerivativesDataSink(BaseDerivativesDataSink):
     A child class of the niworkflows DerivativesDataSink, using aslprep's configuration files.
     """
 
-    out_path_base = "aslprep"
+    out_path_base = ""
     _allowed_entities = set(config_entities)
     _config_entities = config_entities
     _config_entities_dict = merged_entities
     _file_patterns = aslprep_spec["default_path_patterns"]
+
+
+class OverrideDerivativesDataSink:
+    """A context manager for temporarily overriding the definition of DerivativesDataSink.
+
+    Parameters
+    ----------
+    None
+
+    Attributes
+    ----------
+    original_class (type): The original class that is replaced during the override.
+
+    Methods
+    -------
+    __init__()
+        Initialize the context manager.
+    __enter__()
+        Enters the context manager and performs the class override.
+    __exit__(exc_type, exc_value, traceback)
+        Exits the context manager and restores the original class definition.
+    """
+
+    def __init__(self, module):
+        """Initialize the context manager with the target module.
+
+        Parameters
+        -----------
+        module
+            The module where SomeClass should be overridden.
+        """
+        self.module = module
+
+    def __enter__(self):
+        """Enter the context manager and perform the class override.
+
+        Returns
+        -------
+        OverrideConfoundsDerivativesDataSink
+            The instance of the context manager.
+        """
+        # Save the original class
+        self.original_class = self.module.DerivativesDataSink
+        # Replace SomeClass with YourOwnClass
+        self.module.DerivativesDataSink = DerivativesDataSink
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):  # noqa: U100
+        """Exit the context manager and restore the original class definition.
+
+        Parameters
+        ----------
+        exc_type : type
+            The type of the exception (if an exception occurred).
+        exc_value : Exception
+            The exception instance (if an exception occurred).
+        traceback : traceback
+            The traceback information (if an exception occurred).
+
+        Returns
+        -------
+        None
+        """
+        # Restore the original class
+        self.module.DerivativesDataSink = self.original_class
+
+
+class FunctionOverrideContext:
+    """Override a function in imported code with a context manager.
+
+    Even though this class is *currently* unused, I'm keeping it around for when I need to override
+    prepare_timing_parameters once fMRIPrep's init_bold_surf_wf is useable
+    (i.e., once the DerivativesDataSink import is moved out of the function).
+
+    Here's how it worked before:
+
+    def _fake_params(metadata):  # noqa: U100
+        return {"SliceTimingCorrected": False}
+
+    # init_bold_surf_wf uses prepare_timing_parameters, which uses the config object.
+    # The uninitialized fMRIPrep config will have config.workflow.ignore set to None
+    # instead of a list, which will raise an error.
+    with FunctionOverrideContext(resampling, "prepare_timing_parameters", _fake_params):
+        asl_surf_wf = resampling.init_bold_surf_wf(
+            mem_gb=mem_gb["resampled"],
+            metadata=metadata,
+            surface_spaces=freesurfer_spaces,
+            medial_surface_nan=config.workflow.medial_surface_nan,
+            output_dir=config.execution.aslprep_dir,
+            name="asl_surf_wf",
+        )
+    """
+
+    def __init__(self, module, function_name, new_function):
+        self.module = module
+        self.function_name = function_name
+        self.new_function = new_function
+        self.original_function = None
+
+    def __enter__(self):
+        """Enter the context manager and perform the function override.
+
+        Returns
+        -------
+        FunctionOverrideContext
+            The instance of the context manager.
+        """
+        self.original_function = getattr(self.module, self.function_name)
+        setattr(self.module, self.function_name, self.new_function)
+
+    def __exit__(self, exc_type, exc_value, traceback):  # noqa: U100
+        """Exit the context manager and restore the original function definition.
+
+        Parameters
+        ----------
+        exc_type : type
+            The type of the exception (if an exception occurred).
+        exc_value : Exception
+            The exception instance (if an exception occurred).
+        traceback : traceback
+            The traceback information (if an exception occurred).
+
+        Returns
+        -------
+        None
+        """
+        setattr(self.module, self.function_name, self.original_function)
