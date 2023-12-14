@@ -763,6 +763,124 @@ def estimate_cbf_pcasl_multipld(
     return att_arr, cbf
 
 
+def calculate_deltam(cbf, att, labeleff, alpha_bs, t1blood, m0_a, m0_b, ld, pld, abat, a_bv):
+    """Specify a model for use with scipy curve fitting.
+
+    The model is fit separately for each voxel.
+
+    Parameters
+    ----------
+    labeleff
+        Labeling efficiency.
+        Used for both deltam_tiss and deltam_art calculation.
+    alpha_bs
+        Total background suppression inversion efficiency.
+        Used for both deltam_tiss and deltam_art calculation.
+    t1blood
+        Longitudinal relaxation time of arterial blood in seconds.
+        Used for both deltam_tiss and deltam_art calculation.
+    m0_a
+        Equilibrium magnetization of arterial blood, calculated as M0a = SIpd / lambda,
+        where SIpd is a proton density weighted image and lambda is the tissue/blood partition
+        coefficient.
+        Used for deltam_tiss calculation.
+    m0_b
+        ???
+        Used for deltam_art calculation.
+    cbf
+        Cerebral blood flow.
+        Used for deltam_tiss calculation.
+    att
+        Arterial transit time.
+        Used for deltam_tiss calculation.
+    ld
+        Labeling duration.
+        Used for both deltam_tiss and deltam_art calculation.
+    pld
+        Post-labeling delay.
+        Used for both deltam_tiss and deltam_art calculation.
+    abat
+        The arterial bolus arrival time, describing the first arrival of the labeled blood water
+        in the voxel within the arterial vessel.
+        Used for deltam_art calculation.
+    a_bv
+        Arterial blood volume. The fraction of the voxel occupied by the arterial vessel.
+        Used for deltam_art calculation.
+
+    Returns
+    -------
+    deltam
+    """
+    if (ld + pld) < att:
+        # 0 < LD + PLD < ATT
+        deltam_tiss = 0
+    elif att < (ld + pld) < (att + ld):
+        # ATT < LD + PLD < ATT + LD
+        deltam_tiss = (
+            (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.exp ** (-att / t1blood)))
+            * (1 - (np.exp ** (-(ld + pld - att) / t1blood)))
+            / 6000
+        )
+    else:
+        # ATT < PLD
+        deltam_tiss = (
+            (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.exp ** (-pld / t1blood)))
+            * (1 - (np.exp ** (-ld / t1blood)))
+            / 6000
+        )
+
+    # Intravascular component
+    if (ld + pld) < abat:
+        # 0 < LD + PLD < aBAT
+        deltam_art = 0
+    elif abat < (ld + pld) < (abat + ld):
+        # aBAT < LD + PLD < aBAT + LD
+        deltam_art = 2 * labeleff * alpha_bs * m0_b * a_bv * (np.exp ** (-abat / t1blood))
+    else:
+        # aBAT < PLD
+        deltam_art = 0
+
+    deltam = deltam_tiss + deltam_art
+    return deltam
+
+
+def fit_deltam(deltam, plds, lds, t1blood, labeleff, scaled_m0data, partition_coefficient):
+    import scipy
+
+    assert deltam.shape == plds.shape
+    assert scaled_m0data.shape == deltam.shape[1]
+
+    m0_a = scaled_m0data / partition_coefficient
+
+    # alpha_bs, m0_b, cbf, att, abat, a_bv
+
+    n_voxels = deltam.shape[1]
+    csf = np.zeros(n_voxels)
+    att = np.zeros(n_voxels)
+    for i_voxel in range(n_voxels):
+        deltam_voxel = deltam[:, i_voxel]
+        plds_voxel = plds[:, i_voxel]
+
+        popt, cov = scipy.optimize.curve_fit(
+            calculate_deltam,
+            deltam_voxel,
+            bounds=((0, 0), (np.inf, np.inf)),
+            ld=lds,
+            pld=plds_voxel,
+            t1blood=t1blood,
+            labeleff=labeleff,
+            m0_a=m0_a,
+            alpha_bs=1,  # TODO: Figure out what this should be.
+            m0_b=m0_a,  # TODO: Figure out what this means and what it should be.
+            abat=1,  # TODO: Figure out what this should be.
+            a_bv=1,  # TODO: Figure out what this should be.
+        )
+        csf[i_voxel] = popt[0]
+        att[i_voxel] = popt[1]
+
+    return csf, att
+
+
 def estimate_t1(metadata):
     """Estimate the relaxation rates of blood and gray matter based on magnetic field strength.
 
