@@ -79,7 +79,7 @@ def _gather_confounds(
 
     confounds_data = pd.DataFrame()
     for file_name in all_files:  # assumes they all have headings already
-        new = pd.read_csv(file_name, sep="\t")
+        new = pd.read_table(file_name)
         for column_name in new.columns:
             new.rename(
                 columns={column_name: _camel_to_snake(_less_breakable(column_name))}, inplace=True
@@ -143,31 +143,6 @@ def dice(input1, input2):
         coef = (2 * intersection) / (size_i1 + size_i2)
 
     return coef
-
-
-def jaccard(input1, input2):
-    """Compute Jaccard coefficient between the binary objects in two images.
-
-    Parameters
-    ----------
-    input1/input2 : :obj:`numpy.ndarray`
-        Numpy arrays to compare.
-        Can be any type but will be converted into binary:
-        False where 0, True everywhere else.
-
-    Returns
-    -------
-    coef : float
-        The Jaccard coefficient between ``input1`` and ``input2``.
-        It ranges from 0 (no overlap) to 1 (perfect overlap).
-    """
-    input1 = np.atleast_1d(input1.astype(bool))
-    input2 = np.atleast_1d(input2.astype(bool))
-
-    intersection = np.count_nonzero(input1 & input2)
-    union = np.count_nonzero(input1 | input2)
-
-    return intersection / union
 
 
 def pearson(input1, input2):

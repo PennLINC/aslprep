@@ -116,7 +116,7 @@ sub-01/ses-1/perf/sub-01_ses-1_desc-hmc_aslref.json
 sub-01/ses-1/perf/sub-01_ses-1_desc-hmc_aslref.nii.gz
 sub-01/ses-1/perf/sub-01_ses-1_desc-preproc_asl.json
 sub-01/ses-1/perf/sub-01_ses-1_desc-preproc_asl.nii.gz
-sub-01/ses-1/perf/sub-01_ses-1_desc-qualitycontrol_cbf.csv
+sub-01/ses-1/perf/sub-01_ses-1_desc-qualitycontrol_cbf.tsv
 sub-01/ses-1/perf/sub-01_ses-1_desc-timeseries_cbf.json
 sub-01/ses-1/perf/sub-01_ses-1_desc-timeseries_cbf.nii.gz
 sub-01/ses-1/perf/sub-01_ses-1_from-aslref_to-T1w_mode-image_xfm.json

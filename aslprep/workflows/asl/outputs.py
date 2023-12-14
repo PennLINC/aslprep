@@ -282,7 +282,6 @@ def init_asl_fit_reports_wf(
         mem_gb=1,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, ds_summary, [
             ("source_file", "source_file"),
@@ -303,8 +302,7 @@ def init_asl_fit_reports_wf(
             ("aslref2anat_xfm", "transforms"),
         ]),
         (t1w_wm, aslref_wm, [("out", "input_image")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     # Reportlets follow the structure of init_asl_fit_wf stages
     # - SDC1:
@@ -376,7 +374,6 @@ def init_asl_fit_reports_wf(
             name="ds_sdc_report",
         )
 
-        # fmt:off
         workflow.connect([
             (inputnode, fmapref_aslref, [
                 ("fmap_ref", "input_image"),
@@ -397,8 +394,7 @@ def init_asl_fit_reports_wf(
             (aslref_wm, sdc_report, [("output_image", "wm_seg")]),
             (inputnode, ds_sdc_report, [("source_file", "source_file")]),
             (sdc_report, ds_sdc_report, [("out_report", "in_file")]),
-        ])
-        # fmt:on
+        ])  # fmt:skip
 
     # EPI-T1 registration
     # Resample T1w image onto EPI-space
@@ -424,15 +420,13 @@ def init_asl_fit_reports_wf(
         name="ds_epi_t1_report",
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, epi_t1_report, [("coreg_aslref", "after")]),
         (t1w_aslref, epi_t1_report, [("output_image", "before")]),
         (aslref_wm, epi_t1_report, [("output_image", "wm_seg")]),
         (inputnode, ds_epi_t1_report, [("source_file", "source_file")]),
         (epi_t1_report, ds_epi_t1_report, [("out_report", "in_file")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     return workflow
 
@@ -468,7 +462,6 @@ def init_ds_aslref_wf(
         run_without_submitting=True,
     )
 
-    # fmt:off
     workflow.connect([
         (inputnode, raw_sources, [("source_files", "in_files")]),
         (inputnode, ds_aslref, [
@@ -477,8 +470,7 @@ def init_ds_aslref_wf(
         ]),
         (raw_sources, ds_aslref, [("out", "RawSources")]),
         (ds_aslref, outputnode, [("out_file", "aslref")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
 
     return workflow
 

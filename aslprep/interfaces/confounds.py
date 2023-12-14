@@ -22,7 +22,6 @@ from aslprep.utils.confounds import (
     average_cbf_by_tissue,
     compute_qei,
     dice,
-    jaccard,
     negativevoxel,
     overlap,
     pearson,
@@ -207,19 +206,17 @@ class ComputeCBFQC(SimpleInterface):
         asl_mask_arr = nb.load(self.inputs.asl_mask).get_fdata()
         t1w_mask_arr = nb.load(self.inputs.t1w_mask).get_fdata()
         coreg_dice = dice(asl_mask_arr, t1w_mask_arr)
-        coreg_jaccard = jaccard(asl_mask_arr, t1w_mask_arr)
-        coreg_crosscorr = pearson(asl_mask_arr, t1w_mask_arr)
-        coreg_coverage = overlap(asl_mask_arr, t1w_mask_arr)
+        coreg_correlation = pearson(asl_mask_arr, t1w_mask_arr)
+        coreg_overlap = overlap(asl_mask_arr, t1w_mask_arr)
 
         if self.inputs.asl_mask_std and self.inputs.template_mask:
             asl_mask_std_arr = nb.load(self.inputs.asl_mask_std).get_fdata()
             template_mask_arr = nb.load(self.inputs.template_mask).get_fdata()
             norm_dice = dice(asl_mask_std_arr, template_mask_arr)
-            norm_jaccard = jaccard(asl_mask_std_arr, template_mask_arr)
-            norm_crosscorr = pearson(asl_mask_std_arr, template_mask_arr)
-            norm_coverage = overlap(asl_mask_std_arr, template_mask_arr)
+            norm_correlation = pearson(asl_mask_std_arr, template_mask_arr)
+            norm_overlap = overlap(asl_mask_std_arr, template_mask_arr)
 
-        mean_cbf_qei = compute_qei(
+        qei_cbf = compute_qei(
             gm=self.inputs.gm_tpm,
             wm=self.inputs.wm_tpm,
             csf=self.inputs.csf_tpm,
@@ -235,100 +232,99 @@ class ComputeCBFQC(SimpleInterface):
         )
 
         if self.inputs.mean_cbf_score:
-            mean_cbf_score_qei = compute_qei(
+            qei_cbf_score = compute_qei(
                 gm=self.inputs.gm_tpm,
                 wm=self.inputs.wm_tpm,
                 csf=self.inputs.csf_tpm,
                 img=self.inputs.mean_cbf_score,
                 thresh=thresh,
             )
-            mean_cbf_scrub_qei = compute_qei(
+            qei_cbf_scrub = compute_qei(
                 gm=self.inputs.gm_tpm,
                 wm=self.inputs.wm_tpm,
                 csf=self.inputs.csf_tpm,
                 img=self.inputs.mean_cbf_scrub,
                 thresh=thresh,
             )
-            mean_cbf_score_negvox = negativevoxel(
+            percentage_negative_cbf_score = negativevoxel(
                 cbf=self.inputs.mean_cbf_score,
                 gm=self.inputs.gm_tpm,
                 thresh=thresh,
             )
-            mean_cbf_scrub_negvox = negativevoxel(
+            percentage_negative_cbf_scrub = negativevoxel(
                 cbf=self.inputs.mean_cbf_scrub,
                 gm=self.inputs.gm_tpm,
                 thresh=thresh,
             )
         else:
             print("no score inputs, setting to np.nan")
-            mean_cbf_score_qei = np.nan
-            mean_cbf_scrub_qei = np.nan
-            mean_cbf_score_negvox = np.nan
-            mean_cbf_scrub_negvox = np.nan
+            qei_cbf_score = np.nan
+            qei_cbf_scrub = np.nan
+            percentage_negative_cbf_score = np.nan
+            percentage_negative_cbf_scrub = np.nan
 
         if self.inputs.mean_cbf_basil:
-            mean_cbf_basil_qei = compute_qei(
+            qei_cbf_basil = compute_qei(
                 gm=self.inputs.gm_tpm,
                 wm=self.inputs.wm_tpm,
                 csf=self.inputs.csf_tpm,
                 img=self.inputs.mean_cbf_basil,
                 thresh=thresh,
             )
-            mean_cbf_gm_basil_qei = compute_qei(
+            qei_cbf_basil_gm = compute_qei(
                 gm=self.inputs.gm_tpm,
                 wm=self.inputs.wm_tpm,
                 csf=self.inputs.csf_tpm,
                 img=self.inputs.mean_cbf_gm_basil,
                 thresh=thresh,
             )
-            mean_cbf_basil_negvox = negativevoxel(
+            percentage_negative_cbf_basil = negativevoxel(
                 cbf=self.inputs.mean_cbf_basil,
                 gm=self.inputs.gm_tpm,
                 thresh=thresh,
             )
-            mean_cbf_gm_basil_negvox = negativevoxel(
+            percentage_negative_cbf_basil_gm = negativevoxel(
                 cbf=self.inputs.mean_cbf_gm_basil,
                 gm=self.inputs.gm_tpm,
                 thresh=thresh,
             )
         else:
             print("no basil inputs, setting to np.nan")
-            mean_cbf_basil_qei = np.nan
-            mean_cbf_gm_basil_qei = np.nan
-            mean_cbf_basil_negvox = np.nan
-            mean_cbf_gm_basil_negvox = np.nan
+            qei_cbf_basil = np.nan
+            qei_cbf_basil_gm = np.nan
+            percentage_negative_cbf_basil = np.nan
+            percentage_negative_cbf_basil_gm = np.nan
 
-        gm_wm_ratio = np.divide(mean_cbf_mean[0], mean_cbf_mean[1])
-        mean_cbf_negvox = negativevoxel(
+        ratio_gm_wm_cbf = np.divide(mean_cbf_mean[0], mean_cbf_mean[1])
+        percentage_negative_cbf = negativevoxel(
             cbf=self.inputs.mean_cbf,
             gm=self.inputs.gm_tpm,
             thresh=thresh,
         )
 
         metrics_dict = {
-            "FD": [mean_fd],
+            "mean_fd": [mean_fd],
             "rmsd": [mean_rms],
-            "coregDC": [coreg_dice],
-            "coregJC": [coreg_jaccard],
-            "coregCC": [coreg_crosscorr],
-            "coregCOV": [coreg_coverage],
-            "cbfQEI": [mean_cbf_qei],
-            "scoreQEI": [mean_cbf_score_qei],
-            "scrubQEI": [mean_cbf_scrub_qei],
-            "basilQEI": [mean_cbf_basil_qei],
-            "pvcQEI": [mean_cbf_gm_basil_qei],
-            "GMmeanCBF": [mean_cbf_mean[0]],
-            "WMmeanCBF": [mean_cbf_mean[1]],
-            "Gm_Wm_CBF_ratio": [gm_wm_ratio],
-            "NEG_CBF_PERC": [mean_cbf_negvox],
-            "NEG_SCORE_PERC": [mean_cbf_score_negvox],
-            "NEG_SCRUB_PERC": [mean_cbf_scrub_negvox],
-            "NEG_BASIL_PERC": [mean_cbf_basil_negvox],
-            "NEG_PVC_PERC": [mean_cbf_gm_basil_negvox],
+            "coreg_dice": [coreg_dice],
+            "coreg_correlation": [coreg_correlation],
+            "coreg_overlap": [coreg_overlap],
+            "qei_cbf": [qei_cbf],
+            "qei_cbf_score": [qei_cbf_score],
+            "qei_cbf_scrub": [qei_cbf_scrub],
+            "qei_cbf_basil": [qei_cbf_basil],
+            "qei_cbf_basil_gm": [qei_cbf_basil_gm],
+            "mean_gm_cbf": [mean_cbf_mean[0]],
+            "mean_wm_cbf": [mean_cbf_mean[1]],
+            "ratio_gm_wm_cbf": [ratio_gm_wm_cbf],
+            "percentage_negative_cbf": [percentage_negative_cbf],
+            "percentage_negative_cbf_score": [percentage_negative_cbf_score],
+            "percentage_negative_cbf_scrub": [percentage_negative_cbf_scrub],
+            "percentage_negative_cbf_basil": [percentage_negative_cbf_basil],
+            "percentage_negative_cbf_basil_gm": [percentage_negative_cbf_basil_gm],
         }
 
         qc_metadata = {
-            "FD": {
+            "mean_fd": {
                 "LongName": "Mean Framewise Displacement",
                 "Description": (
                     "Average framewise displacement without any motion parameter filtering. "
@@ -347,7 +343,7 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 "Units": "arbitrary",
             },
-            "coregDC": {
+            "coreg_dice": {
                 "LongName": "Coregistration Sørensen-Dice Coefficient",
                 "Description": (
                     "The Sørensen-Dice coefficient calculated between the binary brain masks from "
@@ -357,7 +353,7 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 "Term URL": "https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient",
             },
-            "coregJC": {
+            "coreg_jaccard": {
                 "LongName": "Coregistration Jaccard Index",
                 "Description": (
                     "The Jaccard index calculated between the binary brain masks from "
@@ -367,7 +363,7 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 "Term URL": "https://en.wikipedia.org/wiki/Jaccard_index",
             },
-            "coregCC": {
+            "coreg_correlation": {
                 "LongName": "Coregistration Pearson Correlation",
                 "Description": (
                     "The Pearson correlation coefficient calculated between the binary brain "
@@ -377,7 +373,7 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 "Term URL": "https://en.wikipedia.org/wiki/Pearson_correlation_coefficient",
             },
-            "coregCOV": {
+            "coreg_overlap": {
                 "LongName": "Coregistration Overlap Coefficient",
                 "Description": (
                     "The Szymkiewicz-Simpson overlap coefficient calculated between the binary "
@@ -386,27 +382,27 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 "Term URL": "https://en.wikipedia.org/wiki/Overlap_coefficient",
             },
-            "cbfQEI": {
+            "qei_cbf": {
                 "LongName": "Cerebral Blood Flow Quality Evaluation Index",
                 "Description": "QEI calculated on mean CBF image.",
                 "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
             },
-            "scoreQEI": {
+            "qei_cbf_score": {
                 "LongName": "SCORE-Denoised Cerebral Blood Flow Quality Evaluation Index",
                 "Description": "QEI calculated on mean SCORE-denoised CBF image.",
                 "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
             },
-            "scrubQEI": {
+            "qei_cbf_scrub": {
                 "LongName": "SCRUB-Denoised Cerebral Blood Flow Quality Evaluation Index",
                 "Description": "QEI calculated on mean SCRUB-denoised CBF image.",
                 "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
             },
-            "basilQEI": {
+            "qei_cbf_basil": {
                 "LongName": "BASIL Cerebral Blood Flow Quality Evaluation Index",
                 "Description": "QEI calculated on CBF image produced by BASIL.",
                 "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
             },
-            "pvcQEI": {
+            "qei_cbf_basil_gm": {
                 "LongName": (
                     "BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation Index"
                 ),
@@ -415,30 +411,30 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
             },
-            "GMmeanCBF": {
+            "mean_gm_cbf": {
                 "LongName": "Mean Cerebral Blood Flow of Gray Matter",
                 "Description": "Mean CBF value of gray matter.",
                 "Units": "mL/100 g/min",
             },
-            "WMmeanCBF": {
+            "mean_wm_cbf": {
                 "LongName": "Mean Cerebral Blood Flow of White Matter",
                 "Description": "Mean CBF value of white matter.",
                 "Units": "mL/100 g/min",
             },
-            "Gm_Wm_CBF_ratio": {
+            "ratio_gm_wm_cbf": {
                 "LongName": "Mean Gray Matter-White Matter Cerebral Blood Flow Ratio",
                 "Description": (
                     "The ratio between the mean gray matter and mean white matter CBF values."
                 ),
             },
-            "NEG_CBF_PERC": {
+            "percentage_negative_cbf": {
                 "LongName": "Percentage of Negative Cerebral Blood Flow Values",
                 "Description": (
                     "Percentage of negative CBF values, calculated on the mean CBF image."
                 ),
                 "Units": "percent",
             },
-            "NEG_SCORE_PERC": {
+            "percentage_negative_cbf_score": {
                 "LongName": "Percentage of Negative SCORE-Denoised Cerebral Blood Flow Values",
                 "Description": (
                     "Percentage of negative CBF values, calculated on the SCORE-denoised "
@@ -446,7 +442,7 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 "Units": "percent",
             },
-            "NEG_SCRUB_PERC": {
+            "percentage_negative_cbf_scrub": {
                 "LongName": "Percentage of Negative SCRUB-Denoised Cerebral Blood Flow Values",
                 "Description": (
                     "Percentage of negative CBF values, calculated on the SCRUB-denoised "
@@ -454,14 +450,14 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 "Units": "percent",
             },
-            "NEG_BASIL_PERC": {
+            "percentage_negative_cbf_basil": {
                 "LongName": "Percentage of Negative BASIL Cerebral Blood Flow Values",
                 "Description": (
                     "Percentage of negative CBF values, calculated on CBF image produced by BASIL."
                 ),
                 "Units": "percent",
             },
-            "NEG_PVC_PERC": {
+            "percentage_negative_cbf_basil_gm": {
                 "LongName": (
                     "Percentage of Negative BASIL Partial Volume Corrected Cerebral Blood Flow "
                     "Values"
@@ -477,16 +473,15 @@ class ComputeCBFQC(SimpleInterface):
         if self.inputs.asl_mask_std and self.inputs.template_mask:
             metrics_dict.update(
                 {
-                    "normDC": [norm_dice],
-                    "normJC": [norm_jaccard],
-                    "normCC": [norm_crosscorr],
-                    "normCOV": [norm_coverage],
+                    "norm_dice": [norm_dice],
+                    "norm_correlation": [norm_correlation],
+                    "norm_overlap": [norm_overlap],
                 }
             )
 
             qc_metadata.update(
                 {
-                    "normDC": {
+                    "norm_dice": {
                         "LongName": "Normalization Sørensen-Dice Coefficient",
                         "Description": (
                             "The Sørensen-Dice coefficient calculated between the binary brain "
@@ -499,17 +494,7 @@ class ComputeCBFQC(SimpleInterface):
                             "https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient"
                         ),
                     },
-                    "normJC": {
-                        "LongName": "Normalization Jaccard Index",
-                        "Description": (
-                            "The Jaccard index calculated between the binary brain masks from the "
-                            "normalized ASL reference image and the associated template. "
-                            "Values are bounded between 0 and 1, "
-                            "with higher values indicating better normalization."
-                        ),
-                        "Term URL": "https://en.wikipedia.org/wiki/Jaccard_index",
-                    },
-                    "normCC": {
+                    "norm_correlation": {
                         "LongName": "Normalization Pearson Correlation",
                         "Description": (
                             "The Pearson correlation coefficient calculated between the binary "
@@ -522,7 +507,7 @@ class ComputeCBFQC(SimpleInterface):
                             "https://en.wikipedia.org/wiki/Pearson_correlation_coefficient"
                         ),
                     },
-                    "normCOV": {
+                    "norm_overlap": {
                         "LongName": "Normalization Overlap Coefficient",
                         "Description": (
                             "The Szymkiewicz-Simpson overlap coefficient calculated between the "
@@ -547,11 +532,11 @@ class ComputeCBFQC(SimpleInterface):
 
         self._results["qc_file"] = fname_presuffix(
             self.inputs.mean_cbf,
-            suffix="qc_cbf.csv",
+            suffix="qc_cbf.tsv",
             newpath=runtime.cwd,
             use_ext=False,
         )
-        qc_df.to_csv(self._results["qc_file"], index=False, header=True, na_rep="n/a")
+        qc_df.to_csv(self._results["qc_file"], index=False, header=True, sep="\t", na_rep="n/a")
 
         self._results["qc_metadata"] = fname_presuffix(
             self.inputs.mean_cbf,
