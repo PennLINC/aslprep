@@ -416,7 +416,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ds_cbf_native_wf = init_ds_cbf_native_wf(
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
-            asl_output=aslref_out,
             metadata=metadata,
             cbf_3d=cbf_3d_derivs,
             cbf_4d=cbf_4d_derivs,
