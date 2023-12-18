@@ -82,7 +82,6 @@ Internal configuration system
    aslprep.utils.misc
    aslprep.utils.plotting
    aslprep.utils.sentry
-   aslprep.utils.spaces
 
 ***********************************
 :mod:`aslprep.data`: Data resources
