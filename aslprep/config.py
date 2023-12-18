@@ -239,7 +239,7 @@ class _Config:
     @classmethod
     def get(cls):
         """Return defined settings."""
-        from aslprep.utils.spaces import Reference, SpatialReferences
+        from niworkflows.utils.spaces import Reference, SpatialReferences
 
         out = {}
         for k, v in cls.__dict__.items():
@@ -548,7 +548,7 @@ class workflow(_Config):
     """Skip brain extraction of the T1w image (default is ``force``, meaning that
     *ASLPrep* will run brain extraction of the T1w)."""
     spaces = None
-    """Keeps the :py:class:`~aslprep.utils.spaces.SpatialReferences`
+    """Keeps the :py:class:`~niworkflows.utils.spaces.SpatialReferences`
     instance keeping standard and nonstandard spaces."""
     use_bbr = None
     """Run boundary-based registration for ASL-to-T1w registration."""
@@ -745,7 +745,7 @@ def to_filename(filename):
 
 def init_spaces(checkpoint=True):
     """Initialize the :attr:`~workflow.spaces` setting."""
-    from aslprep.utils.spaces import Reference, SpatialReferences
+    from niworkflows.utils.spaces import Reference, SpatialReferences
 
     spaces = execution.output_spaces or SpatialReferences()
     if not isinstance(spaces, SpatialReferences):

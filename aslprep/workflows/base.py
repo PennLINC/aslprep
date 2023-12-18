@@ -122,6 +122,7 @@ def init_single_subject_wf(subject_id: str):
     from niworkflows.interfaces.nilearn import NILEARN_VERSION
     from niworkflows.interfaces.utility import KeySelect
     from niworkflows.utils.misc import fix_multi_T1w_source_name
+    from niworkflows.utils.spaces import Reference
     from smriprep.workflows.anatomical import init_anat_fit_wf
     from smriprep.workflows.outputs import (
         init_ds_anat_volumes_wf,
@@ -136,7 +137,6 @@ def init_single_subject_wf(subject_id: str):
     )
 
     from aslprep.utils.bids import collect_data
-    from aslprep.utils.spaces import Reference
 
     workflow = Workflow(name=f"sub_{subject_id}_wf")
     workflow.__desc__ = f"""
