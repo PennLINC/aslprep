@@ -30,7 +30,7 @@ averages them into a single reference template.
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.utils.spaces import Reference, SpatialReferences
+   from niworkflows.utils.spaces import Reference, SpatialReferences
    from smriprep.workflows.anatomical import init_anat_fit_wf
 
    wf = init_anat_fit_wf(
