@@ -1,15 +1,5 @@
 """Utility functions for aslprep."""
-from aslprep.utils import (
-    asl,
-    atlas,
-    bids,
-    cbf,
-    confounds,
-    misc,
-    plotting,
-    sentry,
-    spaces,
-)
+from aslprep.utils import asl, atlas, bids, cbf, confounds, misc, plotting, sentry
 
 __all__ = [
     "asl",
@@ -20,5 +10,4 @@ __all__ = [
     "misc",
     "plotting",
     "sentry",
-    "spaces",
 ]
