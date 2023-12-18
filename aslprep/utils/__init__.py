@@ -8,7 +8,6 @@ from aslprep.utils import (
     misc,
     plotting,
     sentry,
-    spaces,
 )
 
 __all__ = [
@@ -20,5 +19,4 @@ __all__ = [
     "misc",
     "plotting",
     "sentry",
-    "spaces",
 ]
