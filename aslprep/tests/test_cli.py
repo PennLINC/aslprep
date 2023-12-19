@@ -273,7 +273,6 @@ def test_test_001(data_dir, output_dir, working_dir):
         "T1w",
         "MNI152NLin2009cAsym",
         "--scorescrub",
-        "--use-syn-sdc",
         "--force-no-ge",
         "--fs-no-reconall",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
