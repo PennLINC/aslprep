@@ -562,6 +562,7 @@ Setting-up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                 )
                 syn_preprocessing_wf.inputs.inputnode.in_epis = sources
                 syn_preprocessing_wf.inputs.inputnode.in_meta = source_meta
+                syn_preprocessing_wf.inputs.inputnode.t_masks = [True] * len(subject_data["asl"])
 
                 workflow.connect([
                     (anat_fit_wf, syn_preprocessing_wf, [
