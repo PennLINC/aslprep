@@ -7,6 +7,7 @@ import warnings
 from copy import deepcopy
 
 import bids
+import nibabel as nb
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.utils.connections import listify
@@ -562,6 +563,9 @@ Setting-up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                 )
                 syn_preprocessing_wf.inputs.inputnode.in_epis = sources
                 syn_preprocessing_wf.inputs.inputnode.in_meta = source_meta
+                # Use all volumes of each run.
+                run_lengths = [nb.load(f).shape[3] for f in subject_data["asl"]]
+                syn_preprocessing_wf.inputs.inputnode.t_masks = [[True] * rl for rl in run_lengths]
 
                 workflow.connect([
                     (anat_fit_wf, syn_preprocessing_wf, [
