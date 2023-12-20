@@ -428,7 +428,6 @@ def init_carpetplot_wf(
     if cifti_output:
         workflow.connect(inputnode, "cifti_asl", conf_plot, "in_cifti")
 
-    # fmt:off
     workflow.connect([
         (inputnode, mrg_xfms, [
             ("aslref2anat_xfm", "in1"),
@@ -449,8 +448,7 @@ def init_carpetplot_wf(
         (parcels, conf_plot, [("out", "in_segm")]),
         (conf_plot, ds_report_asl_conf, [("out_file", "in_file")]),
         (conf_plot, outputnode, [("out_file", "out_carpetplot")]),
-    ])
-    # fmt:on
+    ])  # fmt:skip
     return workflow
 
 

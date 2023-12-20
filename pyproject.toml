@@ -21,18 +21,18 @@ dependencies = [
     "fmriprep ~= 23.2.0a2",
     "indexed_gzip >= 0.8.8",
     "looseversion",
-    "networkx ~= 2.8.8",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
+    "networkx ~= 3.2.1",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
     "nibabel >= 4.0.1",
     "nipype >= 1.8.5",
     "nitransforms >= 21.0.0",
-    "niworkflows",
+    "niworkflows ~= 1.10.0",
     "numpy >= 1.22",
     "packaging",
     "pandas",
     "psutil >= 5.4",
     "pybids ~= 0.16.4",
     "requests",
-    "sdcflows",
+    "sdcflows ~= 2.6.0",
     "sentry-sdk >= 0.6.9",
     "smriprep ~= 0.13.1",
     "templateflow >= 23.0.0",
@@ -52,7 +52,7 @@ NiPreps = "https://www.nipreps.org/"
 doc = [
     "doctest-ignore-unicode",
     "m2r",
-    "mistune < 2",  # just temporary until m2r addresses this issue
+    "mistune < 4",  # just temporary until m2r addresses this issue
     "nbsphinx",
     "packaging",
     "pydot >= 1.2.3",

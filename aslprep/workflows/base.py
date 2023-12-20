@@ -7,6 +7,7 @@ import warnings
 from copy import deepcopy
 
 import bids
+import nibabel as nb
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.utils.connections import listify
@@ -122,6 +123,7 @@ def init_single_subject_wf(subject_id: str):
     from niworkflows.interfaces.nilearn import NILEARN_VERSION
     from niworkflows.interfaces.utility import KeySelect
     from niworkflows.utils.misc import fix_multi_T1w_source_name
+    from niworkflows.utils.spaces import Reference
     from smriprep.workflows.anatomical import init_anat_fit_wf
     from smriprep.workflows.outputs import (
         init_ds_anat_volumes_wf,
@@ -136,7 +138,6 @@ def init_single_subject_wf(subject_id: str):
     )
 
     from aslprep.utils.bids import collect_data
-    from aslprep.utils.spaces import Reference
 
     workflow = Workflow(name=f"sub_{subject_id}_wf")
     workflow.__desc__ = f"""
@@ -562,6 +563,9 @@ Setting-up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                 )
                 syn_preprocessing_wf.inputs.inputnode.in_epis = sources
                 syn_preprocessing_wf.inputs.inputnode.in_meta = source_meta
+                # Use all volumes of each run.
+                run_lengths = [nb.load(f).shape[3] for f in subject_data["asl"]]
+                syn_preprocessing_wf.inputs.inputnode.t_masks = [[True] * rl for rl in run_lengths]
 
                 workflow.connect([
                     (anat_fit_wf, syn_preprocessing_wf, [

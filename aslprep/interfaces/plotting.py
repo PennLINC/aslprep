@@ -83,9 +83,8 @@ class ASLCarpetPlot(SimpleInterface):
             else:
                 dataset, segments = cifti_data, cifti_segments
 
-        dataframe = pd.read_csv(
+        dataframe = pd.read_table(
             self.inputs.confounds_file,
-            sep="\t",
             index_col=None,
             dtype="float32",
             na_filter=True,
