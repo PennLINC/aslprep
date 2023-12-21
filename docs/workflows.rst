@@ -446,17 +446,17 @@ Equation 2:
 
 .. math::
 
-   &= 0 \pushright{ 0 < LD + PLD < ATT }
+   &= 0 \hfilll { 0 < LD + PLD < ATT }
 
-   \Delta{M}_tiss &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot
-   e ^ { -\frac{ ATT } { T_{1,blood} } } \cdot \left[
+   \Delta{M}_tiss &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
+   \cdot \left[
       1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,tissue} }}
-   \right] }{ 6000 } \pushright{ ATT < LD + PLD < ATT + LD }
+   \right] }{ 6000 \cdot e ^ { \frac{ ATT } { T_{1,blood} } } } \hfilll { ATT < LD + PLD < ATT + LD }
 
-   &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot
-   e ^ { -\frac{ PLD } { T_{1,blood} } } \cdot \left[
+   &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
+   \cdot \left[
       1 - e ^ {-\frac{ LD } { T_{1,tissue} }}
-   \right] }{ 6000 } \pushright{ ATT < PLD }
+   \right] }{ 6000 e ^ { \frac{ PLD } { T_{1,blood} } } } \hfilll { ATT < PLD }
 
 Equation 4:
 
