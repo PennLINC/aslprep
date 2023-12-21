@@ -763,6 +763,64 @@ def estimate_cbf_pcasl_multipld(
     return att_arr, cbf
 
 
+def estimate_t1(metadata):
+    """Estimate the relaxation rates of blood and gray matter based on magnetic field strength.
+
+    t1blood is set based on the scanner's field strength,
+    according to :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
+    If recommended values from these publications cannot be used
+    (i.e., if the field strength isn't 1.5T, 3T, 7T),
+    then the formula from :footcite:t:`zhang2013vivo` will be applied.
+
+    t1tissue is set based on the scanner's field strength as well,
+    according to :footcite:t:`wright2008water`.
+    At the moment, field strengths other than 1.5T, 3T, and 7T are not supported and will
+    raise an exception.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata from the ASL file.
+
+    Returns
+    -------
+    t1blood : :obj:`float`
+        Estimated relaxation rate of blood based on magnetic field strength.
+    t1tissue : :obj:`float`
+        Estimated relaxation rate of gray matter based on magnetic field strength.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    T1BLOOD_DICT = {
+        1.5: 1.35,
+        3: 1.65,
+        7: 2.087,
+    }
+    t1blood = T1BLOOD_DICT.get(metadata["MagneticFieldStrength"])
+    if not t1blood:
+        config.loggers.interface.warning(
+            f"T1blood cannot be inferred for {metadata['MagneticFieldStrength']}T data. "
+            "Defaulting to formula from Zhang et al. (2013)."
+        )
+        t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
+
+    # TODO: Supplement with formula for other field strengths
+    T1TISSUE_DICT = {
+        1.5: 1.197,
+        3: 1.607,
+        7: 1.939,
+    }
+    t1tissue = T1TISSUE_DICT.get(metadata["MagneticFieldStrength"])
+    if not t1tissue:
+        raise ValueError(
+            f"T1tissue cannot be inferred for {metadata['MagneticFieldStrength']}T data."
+        )
+
+    return t1blood, t1tissue
+
+
 def calculate_deltam(X, cbf, att, abat, abv):
     """Specify a model for use with scipy curve fitting.
 
@@ -917,61 +975,3 @@ def fit_deltam(deltam, plds, lds, t1blood, labeleff, scaled_m0data, partition_co
         abv[i_voxel] = popt[3]
 
     return cbf, att, abat, abv
-
-
-def estimate_t1(metadata):
-    """Estimate the relaxation rates of blood and gray matter based on magnetic field strength.
-
-    t1blood is set based on the scanner's field strength,
-    according to :footcite:t:`zhang2013vivo,alsop_recommended_2015`.
-    If recommended values from these publications cannot be used
-    (i.e., if the field strength isn't 1.5T, 3T, 7T),
-    then the formula from :footcite:t:`zhang2013vivo` will be applied.
-
-    t1tissue is set based on the scanner's field strength as well,
-    according to :footcite:t:`wright2008water`.
-    At the moment, field strengths other than 1.5T, 3T, and 7T are not supported and will
-    raise an exception.
-
-    Parameters
-    ----------
-    metadata : :obj:`dict`
-        Dictionary of metadata from the ASL file.
-
-    Returns
-    -------
-    t1blood : :obj:`float`
-        Estimated relaxation rate of blood based on magnetic field strength.
-    t1tissue : :obj:`float`
-        Estimated relaxation rate of gray matter based on magnetic field strength.
-
-    References
-    ----------
-    .. footbibliography::
-    """
-    T1BLOOD_DICT = {
-        1.5: 1.35,
-        3: 1.65,
-        7: 2.087,
-    }
-    t1blood = T1BLOOD_DICT.get(metadata["MagneticFieldStrength"])
-    if not t1blood:
-        config.loggers.interface.warning(
-            f"T1blood cannot be inferred for {metadata['MagneticFieldStrength']}T data. "
-            "Defaulting to formula from Zhang et al. (2013)."
-        )
-        t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
-
-    # TODO: Supplement with formula for other field strengths
-    T1TISSUE_DICT = {
-        1.5: 1.197,
-        3: 1.607,
-        7: 1.939,
-    }
-    t1tissue = T1TISSUE_DICT.get(metadata["MagneticFieldStrength"])
-    if not t1tissue:
-        raise ValueError(
-            f"T1tissue cannot be inferred for {metadata['MagneticFieldStrength']}T data."
-        )
-
-    return t1blood, t1tissue
