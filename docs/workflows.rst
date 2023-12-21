@@ -446,28 +446,28 @@ Equation 2:
 
 .. math::
 
-   &= 0 \hfill 0 < LD + PLD < ATT
+   &= 0 \pushright{ 0 < LD + PLD < ATT }
 
    \Delta{M}_tiss &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot
    e ^ { -\frac{ ATT } { T_{1,blood} } } \cdot \left[
       1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,tissue} }}
-   \right] }{ 6000 } \hfill ATT < LD + PLD < ATT + LD
+   \right] }{ 6000 } \pushright{ ATT < LD + PLD < ATT + LD }
 
    &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot
    e ^ { -\frac{ PLD } { T_{1,blood} } } \cdot \left[
       1 - e ^ {-\frac{ LD } { T_{1,tissue} }}
-   \right] }{ 6000 } \hfill ATT < PLD
+   \right] }{ 6000 } \pushright{ ATT < PLD }
 
 Equation 4:
 
 .. math::
 
-   &= 0 \hfill 0 < LD + PLD < aBAT
+   &= 0 \pushright{ 0 < LD + PLD < aBAT }
 
    \Delta{M}_{art} &= 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
-   e ^ { -\frac{ aBAT } { T_{1,blood} } } \hfill aBAT < LD + PLD < aBAT + LD
+   e ^ { -\frac{ aBAT } { T_{1,blood} } } \pushright{ aBAT < LD + PLD < aBAT + LD }
 
-   &= 0 \hfill aBAT < PLD
+   &= 0 \pushright{ aBAT < PLD }
 
 For multi-delay PCASL data, the following steps are taken:
 
