@@ -12,7 +12,6 @@ from aslprep.workflows.asl import (
     plotting,
     reference,
     resampling,
-    util,
 )
 
 __all__ = [
@@ -26,5 +25,4 @@ __all__ = [
     "plotting",
     "reference",
     "resampling",
-    "util",
 ]
