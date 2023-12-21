@@ -794,11 +794,12 @@ def calculate_deltam(X, cbf, att, abat, abv):
 
     Returns
     -------
-    deltam
+    deltam : :obj:`float`
+        Delta-M value for the voxel.
 
     Notes
     -----
-    X boils down into seven variables:
+    X breaks down into seven variables:
 
     labeleff : :obj:`float`
         Labeling efficiency.
@@ -874,7 +875,7 @@ def fit_deltam(deltam, plds, lds, t1blood, labeleff, scaled_m0data, partition_co
 
     Returns
     -------
-    csf
+    cbf
     att
     abat
     abv
@@ -889,7 +890,7 @@ def fit_deltam(deltam, plds, lds, t1blood, labeleff, scaled_m0data, partition_co
     # alpha_bs, m0_b, cbf, att, abat, abv
 
     n_voxels = deltam.shape[1]
-    csf = np.zeros(n_voxels)
+    cbf = np.zeros(n_voxels)
     att = np.zeros(n_voxels)
     abat = np.zeros(n_voxels)
     abv = np.zeros(n_voxels)
@@ -903,19 +904,19 @@ def fit_deltam(deltam, plds, lds, t1blood, labeleff, scaled_m0data, partition_co
             deltam_voxel,
             X=(labeleff, labeleff, t1blood, m0_a, m0_a, lds, plds_voxel),
             # initial estimates for DVs
-            csf=1,
+            cbf=1,
             att=1,
             abat=1,
             abv=1,
             # lower and upper bounds for DVs
             bounds=((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)),
         )[0]
-        csf[i_voxel] = popt[0]
+        cbf[i_voxel] = popt[0]
         att[i_voxel] = popt[1]
         abat[i_voxel] = popt[2]
         abv[i_voxel] = popt[3]
 
-    return csf, att, abat, abv
+    return cbf, att, abat, abv
 
 
 def estimate_t1(metadata):
