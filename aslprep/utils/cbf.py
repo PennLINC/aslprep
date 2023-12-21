@@ -763,54 +763,69 @@ def estimate_cbf_pcasl_multipld(
     return att_arr, cbf
 
 
-def calculate_deltam(cbf, att, labeleff, alpha_bs, t1blood, m0_a, m0_b, ld, pld, abat, a_bv):
+def calculate_deltam(X, cbf, att, abat, abv):
     """Specify a model for use with scipy curve fitting.
 
     The model is fit separately for each voxel.
 
+    This model is used to estimate ``cbf``, ``att``, ``abat``, and ``abv``.
+
     Parameters
     ----------
-    labeleff
-        Labeling efficiency.
-        Used for both deltam_tiss and deltam_art calculation.
-    alpha_bs
-        Total background suppression inversion efficiency.
-        Used for both deltam_tiss and deltam_art calculation.
-    t1blood
-        Longitudinal relaxation time of arterial blood in seconds.
-        Used for both deltam_tiss and deltam_art calculation.
-    m0_a
-        Equilibrium magnetization of arterial blood, calculated as M0a = SIpd / lambda,
-        where SIpd is a proton density weighted image and lambda is the tissue/blood partition
-        coefficient.
-        Used for deltam_tiss calculation.
-    m0_b
-        ???
-        Used for deltam_art calculation.
-    cbf
+    cbf : :obj:`float`
         Cerebral blood flow.
         Used for deltam_tiss calculation.
-    att
+        Estimated by the model.
+    att : :obj:`float`
         Arterial transit time.
         Used for deltam_tiss calculation.
-    ld
-        Labeling duration.
-        Used for both deltam_tiss and deltam_art calculation.
-    pld
-        Post-labeling delay.
-        Used for both deltam_tiss and deltam_art calculation.
-    abat
-        The arterial bolus arrival time, describing the first arrival of the labeled blood water
-        in the voxel within the arterial vessel.
+        Estimated by the model.
+    abat : :obj:`float`
+        The arterial bolus arrival time, describing the first arrival of the labeled blood
+        water in the voxel within the arterial vessel. Used for deltam_art calculation.
+        Estimated by the model.
+    abv : :obj:`float`
+        Arterial blood volume.
+        The fraction of the voxel occupied by the arterial vessel.
         Used for deltam_art calculation.
-    a_bv
-        Arterial blood volume. The fraction of the voxel occupied by the arterial vessel.
-        Used for deltam_art calculation.
+        Estimated by the model.
+    X : :obj:`tuple` of length 7
+        Dependent variables.
 
     Returns
     -------
     deltam
+
+    Notes
+    -----
+    X boils down into seven variables:
+
+    labeleff : :obj:`float`
+        Labeling efficiency.
+        Used for both deltam_tiss and deltam_art calculation.
+    alpha_bs : :obj:`float`
+        Total background suppression inversion efficiency.
+        Used for both deltam_tiss and deltam_art calculation.
+    t1blood : :obj:`float`
+        Longitudinal relaxation time of arterial blood in seconds.
+        Used for both deltam_tiss and deltam_art calculation.
+    m0_a : :obj:`float`
+        Equilibrium magnetization of tissue, calculated as M0a = SIpd / lambda,
+        where SIpd is a proton density weighted image and lambda is the tissue/blood partition
+        coefficient.
+        Used for deltam_tiss calculation.
+    m0_b : :obj:`float`
+        Equilibrium magnetization of arterial blood.
+        Used for deltam_art calculation.
+    ld : :obj:`numpy.ndarray`
+        Labeling durations.
+        Used for both deltam_tiss and deltam_art calculation.
+    pld : :obj:`numpy.ndarray`
+        Post-labeling delays.
+        Used for both deltam_tiss and deltam_art calculation.
     """
+    labeleff, alpha_bs, t1blood, m0_a, m0_b, ld, pld = X
+
     if (ld + pld) < att:
         # 0 < LD + PLD < ATT
         deltam_tiss = 0
@@ -835,7 +850,7 @@ def calculate_deltam(cbf, att, labeleff, alpha_bs, t1blood, m0_a, m0_b, ld, pld,
         deltam_art = 0
     elif abat < (ld + pld) < (abat + ld):
         # aBAT < LD + PLD < aBAT + LD
-        deltam_art = 2 * labeleff * alpha_bs * m0_b * a_bv * (np.exp ** (-abat / t1blood))
+        deltam_art = 2 * labeleff * alpha_bs * m0_b * abv * (np.exp ** (-abat / t1blood))
     else:
         # aBAT < PLD
         deltam_art = 0
@@ -845,6 +860,25 @@ def calculate_deltam(cbf, att, labeleff, alpha_bs, t1blood, m0_a, m0_b, ld, pld,
 
 
 def fit_deltam(deltam, plds, lds, t1blood, labeleff, scaled_m0data, partition_coefficient):
+    """Estimate CBF, ATT, aBAT, and aBV from multi-PLD data.
+
+    Parameters
+    ----------
+    deltam
+    plds
+    lds
+    t1blood
+    labeleff
+    scaled_m0data
+    partition_coefficient
+
+    Returns
+    -------
+    csf
+    att
+    abat
+    abv
+    """
     import scipy
 
     assert deltam.shape == plds.shape
@@ -852,33 +886,36 @@ def fit_deltam(deltam, plds, lds, t1blood, labeleff, scaled_m0data, partition_co
 
     m0_a = scaled_m0data / partition_coefficient
 
-    # alpha_bs, m0_b, cbf, att, abat, a_bv
+    # alpha_bs, m0_b, cbf, att, abat, abv
 
     n_voxels = deltam.shape[1]
     csf = np.zeros(n_voxels)
     att = np.zeros(n_voxels)
+    abat = np.zeros(n_voxels)
+    abv = np.zeros(n_voxels)
     for i_voxel in range(n_voxels):
         deltam_voxel = deltam[:, i_voxel]
         plds_voxel = plds[:, i_voxel]
 
-        popt, cov = scipy.optimize.curve_fit(
+        # TODO: Figure out what alpha_bs and m0_b should be.
+        popt = scipy.optimize.curve_fit(
             calculate_deltam,
             deltam_voxel,
-            bounds=((0, 0), (np.inf, np.inf)),
-            ld=lds,
-            pld=plds_voxel,
-            t1blood=t1blood,
-            labeleff=labeleff,
-            m0_a=m0_a,
-            alpha_bs=1,  # TODO: Figure out what this should be.
-            m0_b=m0_a,  # TODO: Figure out what this means and what it should be.
-            abat=1,  # TODO: Figure out what this should be.
-            a_bv=1,  # TODO: Figure out what this should be.
-        )
+            X=(labeleff, labeleff, t1blood, m0_a, m0_a, lds, plds_voxel),
+            # initial estimates for DVs
+            csf=1,
+            att=1,
+            abat=1,
+            abv=1,
+            # lower and upper bounds for DVs
+            bounds=((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)),
+        )[0]
         csf[i_voxel] = popt[0]
         att[i_voxel] = popt[1]
+        abat[i_voxel] = popt[2]
+        abv[i_voxel] = popt[3]
 
-    return csf, att
+    return csf, att, abat, abv
 
 
 def estimate_t1(metadata):
