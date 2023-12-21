@@ -937,7 +937,7 @@ def fit_deltam_pcasl(
     ----------
     deltam
     plds
-    tau
+    tau : :obj:`float` or :obj:`numpy.ndarray`
         Label duration. May be a single value or may vary across volumes/PLDs.
     t1blood
     labeleff
@@ -969,8 +969,13 @@ def fit_deltam_pcasl(
     if scaled_m0data.size != n_voxels:
         raise ValueError(f"scaled_m0data ({scaled_m0data.size}) != deltam_arr ({n_voxels})")
 
-    if tau.size != n_volumes:
-        raise ValueError(f"tau ({tau.shape}) != n_volumes {n_volumes}")
+    if isinstance(tau, float):
+        tau = np.full((n_volumes,), tau)
+    else:
+        tau = np.ndarray(tau)
+
+        if tau.size != n_volumes:
+            raise ValueError(f"tau ({tau.shape}) != n_volumes {n_volumes}")
 
     m0_a = scaled_m0data / partition_coefficient
 

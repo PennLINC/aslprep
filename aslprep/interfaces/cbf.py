@@ -509,7 +509,7 @@ class ComputeCBF(SimpleInterface):
             plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
 
         if is_casl:
-            tau = np.array(metadata["LabelingDuration"])
+            tau = metadata["LabelingDuration"]
 
         if is_multi_pld:
             if is_casl:
