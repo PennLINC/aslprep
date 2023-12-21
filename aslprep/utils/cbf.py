@@ -962,8 +962,13 @@ def fit_deltam_pcasl(
     """
     import scipy
 
-    assert deltam_arr.shape == plds.shape
-    assert scaled_m0data.shape == deltam_arr.shape[1]
+    if deltam_arr.shape != plds.shape:
+        raise ValueError(f"deltam ({deltam_arr.shape}) != plds ({plds.shape})")
+
+    if scaled_m0data.shape != deltam_arr.shape[1]:
+        raise ValueError(
+            f"scaled_m0data ({scaled_m0data.shape}) != deltam_arr ({deltam_arr.shape[1]})"
+        )
 
     m0_a = scaled_m0data / partition_coefficient
 
