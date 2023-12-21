@@ -27,8 +27,8 @@ from aslprep.utils.asl import (
 from aslprep.utils.cbf import (
     _getcbfscore,
     _scrubcbf,
-    estimate_cbf_pcasl_multipld,
     estimate_t1,
+    fit_deltam_pcasl,
 )
 
 
@@ -342,6 +342,16 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         None,
         desc="Arterial transit time map, in seconds. Only generated for multi-delay data.",
     )
+    abat = traits.Either(
+        File(exists=True),
+        None,
+        desc="Arterial bolus arrival time map, in seconds. Only generated for multi-delay data.",
+    )
+    abv = traits.Either(
+        File(exists=True),
+        None,
+        desc="Arterial blood volume map. Only generated for multi-delay data.",
+    )
     plds = traits.Either(
         File(exists=True),
         None,
@@ -508,15 +518,13 @@ class ComputeCBF(SimpleInterface):
 
         if is_multi_pld:
             if is_casl:
-                att, mean_cbf = estimate_cbf_pcasl_multipld(
+                cbf, att, abat, abv = fit_deltam_pcasl(
                     deltam_arr,
                     scaled_m0data,
                     plds,
                     tau,
                     labeleff,
                     t1blood=t1blood,
-                    t1tissue=t1tissue,
-                    unit_conversion=UNIT_CONV,
                     partition_coefficient=PARTITION_COEF,
                 )
 
@@ -526,8 +534,10 @@ class ComputeCBF(SimpleInterface):
                     "Multi-delay data are not supported for PASL sequences at the moment."
                 )
 
-            mean_cbf_img = masker.inverse_transform(mean_cbf)
+            mean_cbf_img = masker.inverse_transform(cbf)
             att_img = masker.inverse_transform(att)
+            abat_img = masker.inverse_transform(abat)
+            abv_img = masker.inverse_transform(abv)
 
             # Multi-delay data won't produce a CBF time series
             self._results["cbf_ts"] = None
@@ -537,6 +547,18 @@ class ComputeCBF(SimpleInterface):
                 newpath=runtime.cwd,
             )
             att_img.to_filename(self._results["att"])
+            self._results["abat"] = fname_presuffix(
+                self.inputs.deltam,
+                suffix="_abat",
+                newpath=runtime.cwd,
+            )
+            abat_img.to_filename(self._results["abat"])
+            self._results["abv"] = fname_presuffix(
+                self.inputs.deltam,
+                suffix="_abv",
+                newpath=runtime.cwd,
+            )
+            abv_img.to_filename(self._results["abv"])
 
         else:  # Single-delay
             if is_casl:

@@ -821,12 +821,13 @@ def estimate_t1(metadata):
     return t1blood, t1tissue
 
 
-def calculate_deltam(X, cbf, att, abat, abv):
+def calculate_deltam_pcasl(X, cbf, att, abat, abv):
     """Specify a model for use with scipy curve fitting.
 
     The model is fit separately for each voxel.
 
-    This model is used to estimate ``cbf``, ``att``, ``abat``, and ``abv``.
+    This model is used to estimate ``cbf``, ``att``, ``abat``, and ``abv`` for multi-PLD PCASL
+    data.
 
     Parameters
     ----------
@@ -876,38 +877,38 @@ def calculate_deltam(X, cbf, att, abat, abv):
     m0_b : :obj:`float`
         Equilibrium magnetization of arterial blood.
         Used for deltam_art calculation.
-    ld : :obj:`numpy.ndarray`
+    tau : :obj:`numpy.ndarray`
         Labeling durations.
         Used for both deltam_tiss and deltam_art calculation.
     pld : :obj:`numpy.ndarray`
         Post-labeling delays.
         Used for both deltam_tiss and deltam_art calculation.
     """
-    labeleff, alpha_bs, t1blood, m0_a, m0_b, ld, pld = X
+    labeleff, alpha_bs, t1blood, m0_a, m0_b, tau, pld = X
 
-    if (ld + pld) < att:
+    if (tau + pld) < att:
         # 0 < LD + PLD < ATT
         deltam_tiss = 0
-    elif att < (ld + pld) < (att + ld):
+    elif att < (tau + pld) < (att + tau):
         # ATT < LD + PLD < ATT + LD
         deltam_tiss = (
             (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.exp ** (-att / t1blood)))
-            * (1 - (np.exp ** (-(ld + pld - att) / t1blood)))
+            * (1 - (np.exp ** (-(tau + pld - att) / t1blood)))
             / 6000
         )
     else:
         # ATT < PLD
         deltam_tiss = (
             (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.exp ** (-pld / t1blood)))
-            * (1 - (np.exp ** (-ld / t1blood)))
+            * (1 - (np.exp ** (-tau / t1blood)))
             / 6000
         )
 
     # Intravascular component
-    if (ld + pld) < abat:
+    if (tau + pld) < abat:
         # 0 < LD + PLD < aBAT
         deltam_art = 0
-    elif abat < (ld + pld) < (abat + ld):
+    elif abat < (tau + pld) < (abat + tau):
         # aBAT < LD + PLD < aBAT + LD
         deltam_art = 2 * labeleff * alpha_bs * m0_b * abv * (np.exp ** (-abat / t1blood))
     else:
@@ -918,14 +919,26 @@ def calculate_deltam(X, cbf, att, abat, abv):
     return deltam
 
 
-def fit_deltam(deltam, plds, lds, t1blood, labeleff, scaled_m0data, partition_coefficient):
-    """Estimate CBF, ATT, aBAT, and aBV from multi-PLD data.
+def fit_deltam_pcasl(
+    deltam_arr,
+    scaled_m0data,
+    plds,
+    tau,
+    labeleff,
+    t1blood,
+    partition_coefficient,
+):
+    """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
+
+    This function uses the general kinetic model specified by
+    :footcite:t:`woods2023recommendations`.
 
     Parameters
     ----------
     deltam
     plds
-    lds
+    tau
+        Label duration. May be a single value or may vary across volumes/PLDs.
     t1blood
     labeleff
     scaled_m0data
@@ -937,30 +950,37 @@ def fit_deltam(deltam, plds, lds, t1blood, labeleff, scaled_m0data, partition_co
     att
     abat
     abv
+
+    Notes
+    -----
+    This model does not include a separate term for T1,tissue, but we could expand it to do so
+    in the future.
+
+    References
+    ----------
+    .. footbibliography::
     """
     import scipy
 
-    assert deltam.shape == plds.shape
-    assert scaled_m0data.shape == deltam.shape[1]
+    assert deltam_arr.shape == plds.shape
+    assert scaled_m0data.shape == deltam_arr.shape[1]
 
     m0_a = scaled_m0data / partition_coefficient
 
-    # alpha_bs, m0_b, cbf, att, abat, abv
-
-    n_voxels = deltam.shape[1]
+    n_voxels = deltam_arr.shape[1]
     cbf = np.zeros(n_voxels)
     att = np.zeros(n_voxels)
     abat = np.zeros(n_voxels)
     abv = np.zeros(n_voxels)
     for i_voxel in range(n_voxels):
-        deltam_voxel = deltam[:, i_voxel]
+        deltam_voxel = deltam_arr[:, i_voxel]
         plds_voxel = plds[:, i_voxel]
 
         # TODO: Figure out what alpha_bs and m0_b should be.
         popt = scipy.optimize.curve_fit(
-            calculate_deltam,
+            calculate_deltam_pcasl,
             deltam_voxel,
-            X=(labeleff, labeleff, t1blood, m0_a, m0_a, lds, plds_voxel),
+            X=(labeleff, labeleff, t1blood, m0_a, m0_a, tau, plds_voxel),
             # initial estimates for DVs
             cbf=1,
             att=1,
