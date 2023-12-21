@@ -962,24 +962,27 @@ def fit_deltam_pcasl(
     """
     import scipy
 
+    n_voxels, n_volumes = deltam_arr.shape
     if deltam_arr.shape != plds.shape:
         raise ValueError(f"deltam ({deltam_arr.shape}) != plds ({plds.shape})")
 
-    if scaled_m0data.shape != deltam_arr.shape[1]:
+    if scaled_m0data.size != n_voxels:
         raise ValueError(
-            f"scaled_m0data ({scaled_m0data.shape}) != deltam_arr ({deltam_arr.shape[1]})"
+            f"scaled_m0data ({scaled_m0data.size}) != deltam_arr ({n_voxels})"
         )
+
+    if tau.size != n_volumes:
+        raise ValueError(f"tau ({tau.shape}) != n_volumes {n_volumes}")
 
     m0_a = scaled_m0data / partition_coefficient
 
-    n_voxels = deltam_arr.shape[1]
     cbf = np.zeros(n_voxels)
     att = np.zeros(n_voxels)
     abat = np.zeros(n_voxels)
     abv = np.zeros(n_voxels)
     for i_voxel in range(n_voxels):
-        deltam_voxel = deltam_arr[:, i_voxel]
-        plds_voxel = plds[:, i_voxel]
+        deltam_voxel = deltam_arr[i_voxel, :]
+        plds_voxel = plds[i_voxel, :]
 
         # TODO: Figure out what alpha_bs and m0_b should be.
         popt = scipy.optimize.curve_fit(
