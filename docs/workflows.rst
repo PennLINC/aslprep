@@ -438,6 +438,37 @@ Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
 Pseudo-Continuous ASL
 ---------------------
 
+For multi-delay PCASL data, ASLPrep uses :func:`scipy.optimize.curvefit` to estimate
+CBF, ATT, aBAT, and aBV values for each voxel using Equations 2 and 4 in
+:footcite:t:`woods2023recommendations`.
+
+Equation 2:
+
+.. math::
+
+   \Delta{M} = 0
+
+   \Delta{M} = \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot
+   e ^ -\frac{ ATT } { T_{1,blood} } \cdot \left[
+      1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,tissue} }}
+   \right] }{ 6000 }
+
+   \Delta{M} = \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot
+   e ^ -\frac{ PLD } { T_{1,blood} } \cdot \left[
+      1 - e ^ {-\frac{ LD } { T_{1,tissue} }}
+   \right] }{ 6000 }
+
+Equation 4:
+
+.. math::
+
+   \Delta{M}_{art} = 0
+
+   \Delta{M}_{art} = 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
+   e ^ -\frac{ aBAT } { T_{1,blood} }
+
+   \Delta{M}_{art} = 0
+
 For multi-delay PCASL data, the following steps are taken:
 
 1. :math:`\Delta{M}` values are first averaged over time for each unique post-labeling delay value.
