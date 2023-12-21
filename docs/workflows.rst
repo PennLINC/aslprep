@@ -448,7 +448,7 @@ Equation 2:
 
    &= 0 \hfilll { 0 < LD + PLD < ATT }
 
-   \Delta{M}_tiss &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
+   \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
    \cdot \left[
       1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,tissue} }}
    \right] }{ 6000 \cdot e ^ { \frac{ ATT } { T_{1,blood} } } } \hfilll { ATT < LD + PLD < ATT + LD }

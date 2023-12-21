@@ -990,8 +990,8 @@ def fit_deltam_pcasl(
         # TODO: Figure out what alpha_bs and m0_b should be.
         popt = scipy.optimize.curve_fit(
             calculate_deltam_pcasl,
-            deltam_voxel,
-            X=(labeleff, labeleff, t1blood, m0_a, m0_a, tau, plds_voxel),
+            xdata=(labeleff, labeleff, t1blood, m0_a, m0_a, tau, plds_voxel),
+            ydata=deltam_voxel,
             # initial estimates for DVs
             cbf=1,
             att=1,
