@@ -24,12 +24,7 @@ from aslprep.utils.asl import (
     estimate_labeling_efficiency,
     pcasl_or_pasl,
 )
-from aslprep.utils.cbf import (
-    _getcbfscore,
-    _scrubcbf,
-    estimate_t1,
-    fit_deltam_pcasl,
-)
+from aslprep.utils.cbf import _getcbfscore, _scrubcbf, estimate_t1, fit_deltam_pcasl
 
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
