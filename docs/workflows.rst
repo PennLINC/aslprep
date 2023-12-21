@@ -446,28 +446,28 @@ Equation 2:
 
 .. math::
 
-   &= 0
+   &= 0 \hfill \text{(if } 0 < LD + PLD < ATT)
 
-   \Delta{M} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot
+   \Delta{M}_tiss &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot
    e ^ -\frac{ ATT } { T_{1,blood} } \cdot \left[
       1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,tissue} }}
-   \right] }{ 6000 }
+   \right] }{ 6000 } \hfill \text{(if } ATT < LD + PLD < ATT + LD)
 
    &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot
    e ^ -\frac{ PLD } { T_{1,blood} } \cdot \left[
       1 - e ^ {-\frac{ LD } { T_{1,tissue} }}
-   \right] }{ 6000 }
+   \right] }{ 6000 } \hfill \text{(if } ATT < PLD)
 
 Equation 4:
 
 .. math::
 
-   \Delta{M}_{art} = 0
+   &= 0
 
-   \Delta{M}_{art} = 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
+   \Delta{M}_{art} &= 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
    e ^ -\frac{ aBAT } { T_{1,blood} }
 
-   \Delta{M}_{art} = 0
+   &= 0
 
 For multi-delay PCASL data, the following steps are taken:
 
