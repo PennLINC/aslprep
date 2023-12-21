@@ -967,9 +967,7 @@ def fit_deltam_pcasl(
         raise ValueError(f"deltam ({deltam_arr.shape}) != plds ({plds.shape})")
 
     if scaled_m0data.size != n_voxels:
-        raise ValueError(
-            f"scaled_m0data ({scaled_m0data.size}) != deltam_arr ({n_voxels})"
-        )
+        raise ValueError(f"scaled_m0data ({scaled_m0data.size}) != deltam_arr ({n_voxels})")
 
     if tau.size != n_volumes:
         raise ValueError(f"tau ({tau.shape}) != n_volumes {n_volumes}")
