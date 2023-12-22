@@ -63,6 +63,8 @@ def init_cbf_reporting_wf(
                 "cifti_cbf_ts",
                 # Multi-delay outputs
                 "att",
+                "abat",
+                "abv",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",  # unused
                 "mean_cbf_score",
