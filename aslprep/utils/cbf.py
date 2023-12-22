@@ -900,15 +900,15 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
     elif att < (tau + pld) < (att + tau):
         # ATT < LD + PLD < ATT + LD
         deltam_tiss = (
-            (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.exp ** (-att / t1blood)))
-            * (1 - (np.exp ** (-(tau + pld - att) / t1blood)))
+            (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.e ** (-att / t1blood)))
+            * (1 - (np.e ** (-(tau + pld - att) / t1blood)))
             / 6000
         )
     else:
         # ATT < PLD
         deltam_tiss = (
-            (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.exp ** (-pld / t1blood)))
-            * (1 - (np.exp ** (-tau / t1blood)))
+            (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.e ** (-pld / t1blood)))
+            * (1 - (np.e ** (-tau / t1blood)))
             / 6000
         )
 
@@ -918,7 +918,7 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
         deltam_art = 0
     elif abat < (tau + pld) < (abat + tau):
         # aBAT < LD + PLD < aBAT + LD
-        deltam_art = 2 * labeleff * alpha_bs * m0_b * abv * (np.exp ** (-abat / t1blood))
+        deltam_art = 2 * labeleff * alpha_bs * m0_b * abv * (np.e ** (-abat / t1blood))
     else:
         # aBAT < PLD
         deltam_art = 0
@@ -1013,10 +1013,7 @@ def fit_deltam_pcasl(
             xdata=xdata,
             ydata=deltam_voxel,
             # initial estimates for DVs
-            cbf=1,
-            att=1,
-            abat=1,
-            abv=1,
+            p0=(1, 1, 1, 1),
             # lower and upper bounds for DVs
             bounds=((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)),
         )[0]
@@ -1026,3 +1023,101 @@ def fit_deltam_pcasl(
         abv[i_voxel] = popt[3]
 
     return cbf, att, abat, abv
+
+
+def calculate_deltam_pasl(X, cbf, att, abat, abv):
+    """Specify a model for use with scipy curve fitting.
+
+    The model is fit separately for each voxel.
+
+    This model is used to estimate ``cbf``, ``att``, ``abat``, and ``abv`` for multi-PLD PCASL
+    data.
+
+    Parameters
+    ----------
+    cbf : :obj:`float`
+        Cerebral blood flow.
+        Used for deltam_tiss calculation.
+        Estimated by the model.
+    att : :obj:`float`
+        Arterial transit time.
+        Used for deltam_tiss calculation.
+        Estimated by the model.
+    abat : :obj:`float`
+        The arterial bolus arrival time, describing the first arrival of the labeled blood
+        water in the voxel within the arterial vessel. Used for deltam_art calculation.
+        Estimated by the model.
+    abv : :obj:`float`
+        Arterial blood volume.
+        The fraction of the voxel occupied by the arterial vessel.
+        Used for deltam_art calculation.
+        Estimated by the model.
+    X : :obj:`tuple` of length 7
+        Dependent variables.
+
+    Returns
+    -------
+    deltam : :obj:`float`
+        Delta-M value for the voxel.
+
+    Notes
+    -----
+    X breaks down into seven variables:
+
+    labeleff : :obj:`float`
+        Labeling efficiency.
+        Used for both deltam_tiss and deltam_art calculation.
+    alpha_bs : :obj:`float`
+        Total background suppression inversion efficiency.
+        Used for both deltam_tiss and deltam_art calculation.
+    t1blood : :obj:`float`
+        Longitudinal relaxation time of arterial blood in seconds.
+        Used for both deltam_tiss and deltam_art calculation.
+    m0_a : :obj:`float`
+        Equilibrium magnetization of tissue, calculated as M0a = SIpd / lambda,
+        where SIpd is a proton density weighted image and lambda is the tissue/blood partition
+        coefficient.
+        Used for deltam_tiss calculation.
+    m0_b : :obj:`float`
+        Equilibrium magnetization of arterial blood.
+        Used for deltam_art calculation.
+    ti : :obj:`numpy.ndarray`
+    ti1 : ???
+    """
+    # float parameters
+    labeleff = X[0, 0]
+    alpha_bs = X[0, 1]
+    t1blood = X[0, 2]
+    m0_a = X[0, 3]
+    m0_b = X[0, 4]
+    # array parameters
+    ti = X[:, 5]
+    ti1 = X[:, 6]
+
+    if ti < att:
+        # 0 < TI < ATT
+        deltam_tiss = 0
+    elif att < ti < (att + ti1):
+        # ATT < TI < ATT + TI1
+        deltam_tiss = (
+            (2 * labeleff * alpha_bs * m0_a * cbf * (np.e ** (-ti / t1blood))) * (ti - att)
+        ) / 6000
+    else:
+        # ATT + TI1 < TI
+        deltam_tiss = (
+            (2 * labeleff * alpha_bs * m0_a * cbf * (np.e ** (-ti / t1blood))) * ti1
+        ) / 6000
+
+    # Intravascular component
+    if ti < abat:
+        # 0 < TI < aBAT
+        deltam_art = 0
+    elif abat < ti < (abat + ti1):
+        # aBAT < TI < aBAT + TI1
+        deltam_art = 2 * labeleff * alpha_bs * m0_b * abv * (np.e ** (-ti / t1blood))
+    else:
+        # aBAT + TI1 < TI
+        deltam_art = 0
+
+    deltam = deltam_tiss + deltam_art
+    return deltam

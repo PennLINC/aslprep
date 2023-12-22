@@ -462,12 +462,12 @@ Equation 4:
 
 .. math::
 
-   &= 0 \pushright{ 0 < LD + PLD < aBAT }
+   &= 0 \hfilll{ 0 < LD + PLD < aBAT }
 
    \Delta{M}_{art} &= 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
-   e ^ { -\frac{ aBAT } { T_{1,blood} } } \pushright{ aBAT < LD + PLD < aBAT + LD }
+   e ^ { -\frac{ aBAT } { T_{1,blood} } } \hfilll{ aBAT < LD + PLD < aBAT + LD }
 
-   &= 0 \pushright{ aBAT < PLD }
+   &= 0 \hfilll{ aBAT < PLD }
 
 For multi-delay PCASL data, the following steps are taken:
 
