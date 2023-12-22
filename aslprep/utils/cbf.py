@@ -884,7 +884,15 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
         Post-labeling delays.
         Used for both deltam_tiss and deltam_art calculation.
     """
-    labeleff, alpha_bs, t1blood, m0_a, m0_b, tau, pld = X
+    # float parameters
+    labeleff = X[0, 0]
+    alpha_bs = X[0, 1]
+    t1blood = X[0, 2]
+    m0_a = X[0, 3]
+    m0_b = X[0, 4]
+    # array parameters
+    tau = X[:, 5]
+    pld = X[:, 6]
 
     if (tau + pld) < att:
         # 0 < LD + PLD < ATT
@@ -987,10 +995,21 @@ def fit_deltam_pcasl(
         deltam_voxel = deltam_arr[i_voxel, :]
         plds_voxel = plds[i_voxel, :]
 
+        # The independent variables used to estimate cbf, etc. are either floats or arrays,
+        # but curve_fit needs them all to be the same size/shape.
+        xdata = np.zeros((n_volumes, 7))
+        xdata[0, 0] = labeleff
+        xdata[0, 1] = labeleff
+        xdata[0, 2] = t1blood
+        xdata[0, 3] = m0_a
+        xdata[0, 4] = m0_a
+        xdata[:, 5] = tau
+        xdata[:, 6] = plds_voxel
+
         # TODO: Figure out what alpha_bs and m0_b should be.
         popt = scipy.optimize.curve_fit(
             calculate_deltam_pcasl,
-            xdata=(labeleff, labeleff, t1blood, m0_a, m0_a, tau, plds_voxel),
+            xdata=xdata,
             ydata=deltam_voxel,
             # initial estimates for DVs
             cbf=1,
