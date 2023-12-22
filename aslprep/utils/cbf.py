@@ -994,6 +994,7 @@ def fit_deltam_pcasl(
     for i_voxel in range(n_voxels):
         deltam_voxel = deltam_arr[i_voxel, :]
         plds_voxel = plds[i_voxel, :]
+        m0_a_voxel = m0_a[i_voxel]
 
         # The independent variables used to estimate cbf, etc. are either floats or arrays,
         # but curve_fit needs them all to be the same size/shape.
@@ -1001,8 +1002,8 @@ def fit_deltam_pcasl(
         xdata[0, 0] = labeleff
         xdata[0, 1] = labeleff
         xdata[0, 2] = t1blood
-        xdata[0, 3] = m0_a
-        xdata[0, 4] = m0_a
+        xdata[0, 3] = m0_a_voxel
+        xdata[0, 4] = m0_a_voxel
         xdata[:, 5] = tau
         xdata[:, 6] = plds_voxel
 
