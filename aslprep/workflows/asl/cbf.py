@@ -182,9 +182,7 @@ PLD + labeling duration > ATT.
         bcut = metadata.get("BolusCutOffTechnique")
 
         if is_multi_pld:
-            raise ValueError(
-                "Multi-delay data are not supported for PASL sequences at the moment."
-            )
+            workflow.__desc__ += """HAHAHAHA!"""
 
         # Single-delay PASL data, with different bolus cut-off techniques
         if bcut == "QUIPSS":
