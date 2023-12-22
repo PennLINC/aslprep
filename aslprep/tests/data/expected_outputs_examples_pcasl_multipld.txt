@@ -149,6 +149,10 @@ sub-01/perf/sub-01_atlas-Tian_desc-basil_cbf.tsv
 sub-01/perf/sub-01_atlas-Tian_desc-basil_coverage.tsv
 sub-01/perf/sub-01_att.json
 sub-01/perf/sub-01_att.nii.gz
+sub-01/perf/sub-01_abat.json
+sub-01/perf/sub-01_abat.nii.gz
+sub-01/perf/sub-01_abv.json
+sub-01/perf/sub-01_abv.nii.gz
 sub-01/perf/sub-01_cbf.json
 sub-01/perf/sub-01_cbf.nii.gz
 sub-01/perf/sub-01_desc-basilGM_cbf.json
