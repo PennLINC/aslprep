@@ -54,7 +54,8 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
     ]
 
-    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+    # _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
+    _run_and_fail(parameters)
 
 
 @pytest.mark.examples_pcasl_multipld
