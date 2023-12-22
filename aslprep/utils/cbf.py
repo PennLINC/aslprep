@@ -853,8 +853,8 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
 
     Returns
     -------
-    deltam : :obj:`float`
-        Delta-M value for the voxel.
+    deltam : :obj:`numpy.ndarray`
+        Delta-M values for the voxel.
 
     Notes
     -----
@@ -891,39 +891,45 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
     m0_a = X[0, 3]
     m0_b = X[0, 4]
     # array parameters
-    tau = X[:, 5]
-    pld = X[:, 6]
+    taus = X[:, 5]
+    plds = X[:, 6]
 
-    if (tau + pld) < att:
-        # 0 < LD + PLD < ATT
-        deltam_tiss = 0
-    elif att < (tau + pld) < (att + tau):
-        # ATT < LD + PLD < ATT + LD
-        deltam_tiss = (
-            (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.e ** (-att / t1blood)))
-            * (1 - (np.e ** (-(tau + pld - att) / t1blood)))
-            / 6000
-        )
-    else:
-        # ATT < PLD
-        deltam_tiss = (
-            (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.e ** (-pld / t1blood)))
-            * (1 - (np.e ** (-tau / t1blood)))
-            / 6000
-        )
+    deltam = np.zeros(plds.size)
 
-    # Intravascular component
-    if (tau + pld) < abat:
-        # 0 < LD + PLD < aBAT
-        deltam_art = 0
-    elif abat < (tau + pld) < (abat + tau):
-        # aBAT < LD + PLD < aBAT + LD
-        deltam_art = 2 * labeleff * alpha_bs * m0_b * abv * (np.e ** (-abat / t1blood))
-    else:
-        # aBAT < PLD
-        deltam_art = 0
+    for i_pld, pld in enumerate(plds):
+        tau = taus[i_pld]
 
-    deltam = deltam_tiss + deltam_art
+        if (tau + pld) < att:
+            # 0 < LD + PLD < ATT
+            deltam_tiss = 0
+        elif att <= (tau + pld) < (att + tau):
+            # ATT < LD + PLD < ATT + LD
+            deltam_tiss = (
+                (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.e ** (-att / t1blood)))
+                * (1 - (np.e ** (-(tau + pld - att) / t1blood)))
+                / 6000
+            )
+        else:
+            # 0 < ATT < PLD
+            deltam_tiss = (
+                (2 * labeleff * alpha_bs * t1blood * m0_a * cbf * (np.e ** (-pld / t1blood)))
+                * (1 - (np.e ** (-tau / t1blood)))
+                / 6000
+            )
+
+        # Intravascular component
+        if (tau + pld) < abat:
+            # 0 < LD + PLD < aBAT
+            deltam_art = 0
+        elif abat < (tau + pld) < (abat + tau):
+            # aBAT < LD + PLD < aBAT + LD
+            deltam_art = 2 * labeleff * alpha_bs * m0_b * abv * (np.e ** (-abat / t1blood))
+        else:
+            # aBAT < PLD
+            deltam_art = 0
+
+        deltam[i_pld] = deltam_tiss + deltam_art
+
     return deltam
 
 
