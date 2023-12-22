@@ -24,13 +24,7 @@ from aslprep.utils.asl import (
     estimate_labeling_efficiency,
     pcasl_or_pasl,
 )
-from aslprep.utils.cbf import (
-    _getcbfscore,
-    _scrubcbf,
-    estimate_t1,
-    fit_deltam_pasl,
-    fit_deltam_pcasl,
-)
+from aslprep.utils.cbf import _getcbfscore, _scrubcbf, estimate_t1, fit_deltam_multipld
 
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
@@ -514,20 +508,11 @@ class ComputeCBF(SimpleInterface):
             # Broadcast PLDs to voxels by PLDs
             plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
 
-        if is_casl:
-            tau = metadata["LabelingDuration"]
-
         if is_multi_pld:
+            ti1 = None
+            tau = None
             if is_casl:
-                cbf, att, abat, abv = fit_deltam_pcasl(
-                    deltam_arr,
-                    scaled_m0data,
-                    plds,
-                    tau,
-                    labeleff,
-                    t1blood=t1blood,
-                    partition_coefficient=PARTITION_COEF,
-                )
+                tau = metadata["LabelingDuration"]
 
             else:
                 if metadata["BolusCutOffTechnique"] == "QUIPSSII":
@@ -548,15 +533,17 @@ class ComputeCBF(SimpleInterface):
                         "for multi-PLD data."
                     )
 
-                cbf, att, abat, abv = fit_deltam_pasl(
-                    deltam_arr,
-                    scaled_m0data,
-                    plds,
-                    ti1,
-                    labeleff,
-                    t1blood=t1blood,
-                    partition_coefficient=PARTITION_COEF,
-                )
+            cbf, att, abat, abv = fit_deltam_multipld(
+                deltam_arr,
+                scaled_m0data,
+                plds,
+                labeleff,
+                t1blood=t1blood,
+                partition_coefficient=PARTITION_COEF,
+                is_casl=is_casl,
+                tau=tau,  # defined for (P)CASL
+                ti1=ti1,  # defined for PASL
+            )
 
             mean_cbf_img = masker.inverse_transform(cbf)
             att_img = masker.inverse_transform(att)
@@ -586,6 +573,7 @@ class ComputeCBF(SimpleInterface):
 
         else:  # Single-delay
             if is_casl:
+                tau = metadata["LabelingDuration"]
                 denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
 
             elif not metadata["BolusCutOffFlag"]:
