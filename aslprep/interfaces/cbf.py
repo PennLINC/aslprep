@@ -24,7 +24,13 @@ from aslprep.utils.asl import (
     estimate_labeling_efficiency,
     pcasl_or_pasl,
 )
-from aslprep.utils.cbf import _getcbfscore, _scrubcbf, estimate_t1, fit_deltam_pcasl
+from aslprep.utils.cbf import (
+    _getcbfscore,
+    _scrubcbf,
+    estimate_t1,
+    fit_deltam_pasl,
+    fit_deltam_pcasl,
+)
 
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
@@ -524,9 +530,32 @@ class ComputeCBF(SimpleInterface):
                 )
 
             else:
-                # Dai's approach can't be used on PASL data, so we'll need another method.
-                raise ValueError(
-                    "Multi-delay data are not supported for PASL sequences at the moment."
+                if metadata["BolusCutOffTechnique"] == "QUIPSSII":
+                    # PASL + QUIPSSII
+                    # Only one BolusCutOffDelayTime allowed.
+                    assert isinstance(metadata["BolusCutOffDelayTime"], Number)
+                    ti1 = metadata["BolusCutOffDelayTime"]
+
+                elif metadata["BolusCutOffTechnique"] == "Q2TIPS":
+                    # PASL + Q2TIPS
+                    # Q2TIPS should have two BolusCutOffDelayTimes.
+                    assert len(metadata["BolusCutOffDelayTime"]) == 2
+                    ti1 = metadata["BolusCutOffDelayTime"][0]
+
+                else:
+                    raise ValueError(
+                        f"Unsupported BolusCutOffTechnique ({metadata['BolusCutOffTechnique']}) "
+                        "for multi-PLD data."
+                    )
+
+                cbf, att, abat, abv = fit_deltam_pasl(
+                    deltam_arr,
+                    scaled_m0data,
+                    plds,
+                    ti1,
+                    labeleff,
+                    t1blood=t1blood,
+                    partition_coefficient=PARTITION_COEF,
                 )
 
             mean_cbf_img = masker.inverse_transform(cbf)

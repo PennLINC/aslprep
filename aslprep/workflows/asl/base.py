@@ -232,7 +232,11 @@ def init_asl_wf(
     cbf_4d_derivs = []
 
     if is_multi_pld:
-        att_derivs += ["att"]
+        att_derivs += [
+            "att",
+            "abat",
+            "abv",
+        ]
     else:
         cbf_4d_derivs += ["cbf_ts"]
 

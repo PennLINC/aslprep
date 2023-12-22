@@ -35,6 +35,12 @@ BASE_INPUT_FIELDS = {
     "att": {
         "suffix": "att",
     },
+    "abat": {
+        "suffix": "abat",
+    },
+    "abv": {
+        "suffix": "abv",
+    },
     # SCORE/SCRUB outputs
     "cbf_ts_score": {
         "desc": "scoreTimeseries",

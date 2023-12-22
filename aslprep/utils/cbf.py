@@ -978,10 +978,16 @@ def fit_deltam_pcasl(
 
     n_voxels, n_volumes = deltam_arr.shape
     if deltam_arr.shape != plds.shape:
-        raise ValueError(f"deltam ({deltam_arr.shape}) != plds ({plds.shape})")
+        raise ValueError(
+            f"Number of PostLabelingDelays ({plds.shape}) does not match "
+            f"number of delta-M volumes ({deltam_arr.shape})."
+        )
 
     if scaled_m0data.size != n_voxels:
-        raise ValueError(f"scaled_m0data ({scaled_m0data.size}) != deltam_arr ({n_voxels})")
+        raise ValueError(
+            f"Number of voxels in M0 data ({scaled_m0data.size}) does not match "
+            f"number of delta-M voxels ({n_voxels})."
+        )
 
     if isinstance(tau, float):
         tau = np.full((n_volumes,), tau)
@@ -989,7 +995,10 @@ def fit_deltam_pcasl(
         tau = np.ndarray(tau)
 
         if tau.size != n_volumes:
-            raise ValueError(f"tau ({tau.shape}) != n_volumes {n_volumes}")
+            raise ValueError(
+                f"Number of values in tau ({tau.shape}) does not match number of "
+                f"delta-M volumes ({n_volumes})."
+            )
 
     m0_a = scaled_m0data / partition_coefficient
 
@@ -1018,7 +1027,7 @@ def fit_deltam_pcasl(
             calculate_deltam_pcasl,
             xdata=xdata,
             ydata=deltam_voxel,
-            # initial estimates for DVs
+            # initial estimates for DVs (cbf, att, abat, abv)
             p0=(1, 1, 1, 1),
             # lower and upper bounds for DVs
             bounds=((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)),
@@ -1127,3 +1136,98 @@ def calculate_deltam_pasl(X, cbf, att, abat, abv):
 
     deltam = deltam_tiss + deltam_art
     return deltam
+
+
+def fit_deltam_pasl(
+    deltam_arr,
+    scaled_m0data,
+    plds,
+    ti1,
+    labeleff,
+    t1blood,
+    partition_coefficient,
+):
+    """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
+
+    This function uses the general kinetic model specified by
+    :footcite:t:`woods2023recommendations`.
+
+    Parameters
+    ----------
+    deltam
+    plds
+    ti1
+    t1blood
+    labeleff
+    scaled_m0data
+    partition_coefficient
+
+    Returns
+    -------
+    cbf
+    att
+    abat
+    abv
+
+    Notes
+    -----
+    This model does not include a separate term for T1,tissue, but we could expand it to do so
+    in the future.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    import scipy
+
+    n_voxels, n_volumes = deltam_arr.shape
+    if deltam_arr.shape != plds.shape:
+        raise ValueError(
+            f"Number of PostLabelingDelays ({plds.shape}) does not match "
+            f"number of delta-M volumes ({deltam_arr.shape})."
+        )
+
+    if scaled_m0data.size != n_voxels:
+        raise ValueError(
+            f"Number of voxels in M0 data ({scaled_m0data.size}) does not match "
+            f"number of delta-M voxels ({n_voxels})."
+        )
+
+    m0_a = scaled_m0data / partition_coefficient
+
+    cbf = np.zeros(n_voxels)
+    att = np.zeros(n_voxels)
+    abat = np.zeros(n_voxels)
+    abv = np.zeros(n_voxels)
+    for i_voxel in range(n_voxels):
+        deltam_voxel = deltam_arr[i_voxel, :]
+        plds_voxel = plds[i_voxel, :]
+        m0_a_voxel = m0_a[i_voxel]
+
+        # The independent variables used to estimate cbf, etc. are either floats or arrays,
+        # but curve_fit needs them all to be the same size/shape.
+        xdata = np.zeros((n_volumes, 7))
+        xdata[0, 0] = labeleff
+        xdata[0, 1] = labeleff
+        xdata[0, 2] = t1blood
+        xdata[0, 3] = m0_a_voxel
+        xdata[0, 4] = m0_a_voxel
+        xdata[0, 5] = ti1
+        xdata[:, 6] = plds_voxel
+
+        # TODO: Figure out what alpha_bs and m0_b should be.
+        popt = scipy.optimize.curve_fit(
+            calculate_deltam_pasl,
+            xdata=xdata,
+            ydata=deltam_voxel,
+            # initial estimates for DVs (cbf, att, abat, abv)
+            p0=(1, 1, 1, 1),
+            # lower and upper bounds for DVs
+            bounds=((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)),
+        )[0]
+        cbf[i_voxel] = popt[0]
+        att[i_voxel] = popt[1]
+        abat[i_voxel] = popt[2]
+        abv[i_voxel] = popt[3]
+
+    return cbf, att, abat, abv
