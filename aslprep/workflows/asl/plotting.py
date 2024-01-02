@@ -240,7 +240,7 @@ def init_cbf_reporting_wf(
                 run_without_submitting=True,
                 mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             )
-            workflow.connect([(cbf_by_tt_plot, ds_report_img_by_tt, [("out_file", "in_file")])])
+            workflow.connect([(img_by_tt_plot, ds_report_img_by_tt, [("out_file", "in_file")])])
 
     if scorescrub:
         score_summary = pe.Node(
