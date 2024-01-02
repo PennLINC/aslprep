@@ -165,8 +165,16 @@ class CBFSummaryPlot(SimpleInterface):
 
 
 class _CBFByTissueTypePlotInputSpec(BaseInterfaceInputSpec):
-    cbf = File(exists=True, mandatory=True, desc="")
+    in_file = File(exists=True, mandatory=True, desc="CBF, ATT, aBAT, or ABV file.")
     seg_file = File(exists=True, mandatory=True, desc="Segmentation file")
+    img_type = traits.Enum(
+        "cbf",
+        "att",
+        "abat",
+        "abv",
+        mandatory=True,
+        desc="Image type",
+    )
 
 
 class _CBFByTissueTypePlotOutputSpec(TraitedSpec):
@@ -185,11 +193,19 @@ class CBFByTissueTypePlot(SimpleInterface):
         from nilearn import image, masking
 
         self._results["out_file"] = fname_presuffix(
-            self.inputs.cbf,
-            suffix="_cbfplot.svg",
+            self.inputs.in_file,
+            suffix=f"_{self.inputs.img_type}plot.svg",
             use_ext=False,
             newpath=runtime.cwd,
         )
+
+        column_names = {
+            "cbf": "CBF\n(mL/100 g/min)",
+            "att": "ATT\n(s)",
+            "abat": "aBAT\n(s)",
+            "abv": "ABV\n(fraction)",
+        }
+        unit_str = column_names[self.inputs.img_type]
 
         dfs = []
         for i_tissue_type, tissue_type in enumerate(["GM", "WM", "CSF"]):
@@ -200,7 +216,7 @@ class CBFByTissueTypePlot(SimpleInterface):
             )
             tissue_type_vals = masking.apply_mask(self.inputs.cbf, mask_img)
             df = pd.DataFrame(
-                columns=["CBF\n(mL/100 g/min)", "Tissue Type"],
+                columns=[unit_str, "Tissue Type"],
                 data=list(
                     map(list, zip(*[tissue_type_vals, [tissue_type] * tissue_type_vals.size]))
                 ),
@@ -214,7 +230,7 @@ class CBFByTissueTypePlot(SimpleInterface):
             fig, ax = plt.subplots(figsize=(16, 8))
             sns.despine(ax=ax, bottom=True, left=True)
             sns.boxenplot(
-                y="CBF\n(mL/100 g/min)",
+                y=unit_str,
                 data=df,
                 width=0.6,
                 showfliers=True,

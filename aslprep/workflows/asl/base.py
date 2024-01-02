@@ -492,6 +492,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         plot_timeseries=not (is_multi_pld or use_ge or (config.workflow.level == "resampling")),
         scorescrub=scorescrub,
         basil=basil,
+        is_multi_pld=is_multi_pld,
         name="cbf_reporting_wf",
     )
     workflow.connect([

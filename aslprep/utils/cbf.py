@@ -1140,9 +1140,11 @@ def fit_deltam_multipld(
             xdata=xdata,
             ydata=deltam_voxel,
             # initial estimates for DVs (cbf, att, abat, abv)
-            p0=(1, 1, 1, 1),
+            # Values provided by Manuel Taso
+            p0=(60, 1.2, 1, 0.02),
             # lower and upper bounds for DVs
-            bounds=((0, 0, 0, 0), (np.inf, np.inf, np.inf, np.inf)),
+            # Upper bounds provided by Manuel Taso
+            bounds=((0, 0, 0, 0), (300, 5, 5, 0.1)),
         )[0]
 
         cbf[i_voxel] = popt[0]
