@@ -214,7 +214,7 @@ class CBFByTissueTypePlot(SimpleInterface):
                 f"(img == {tissue_type_val}).astype(int)",
                 img=self.inputs.seg_file,
             )
-            tissue_type_vals = masking.apply_mask(self.inputs.cbf, mask_img)
+            tissue_type_vals = masking.apply_mask(self.inputs.in_file, mask_img)
             df = pd.DataFrame(
                 columns=[unit_str, "Tissue Type"],
                 data=list(
