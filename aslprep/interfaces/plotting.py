@@ -200,10 +200,10 @@ class CBFByTissueTypePlot(SimpleInterface):
         )
 
         column_names = {
-            "cbf": "CBF\n(mL/100 g/min)",
-            "att": "ATT\n(s)",
-            "abat": "aBAT\n(s)",
-            "abv": "ABV\n(fraction)",
+            "cbf": "Cerebral Blood Flow\n(mL/100 g/min)",
+            "att": "Arterial Transit Time\n(s)",
+            "abat": "Arterial Bolus Arrival Time\n(s)",
+            "abv": "Arterial Blood Volume\n(fraction)",
         }
         unit_str = column_names[self.inputs.img_type]
 
