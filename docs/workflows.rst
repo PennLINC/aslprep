@@ -446,17 +446,17 @@ Equation 2:
 
 .. math::
 
-   &= 0 \hfilll { 0 < LD + PLD < ATT }
+   &= 0 && { 0 < LD + PLD < ATT } \\
 
    \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
    \cdot \left[
       1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,b} }}
-   \right] }{ 6000 \cdot e ^ { \frac{ ATT } { T_{1,b} } } } \hfilll { ATT < LD + PLD < ATT + LD }
+   \right] }{ 6000 \cdot e ^ { \frac{ ATT } { T_{1,b} } } } && { ATT < LD + PLD < ATT + LD } \\
 
    &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
    \cdot \left[
       1 - e ^ {-\frac{ LD } { T_{1,b} }}
-   \right] }{ 6000 \cdot e ^ { \frac{ PLD } { T_{1,b} } } } \hfilll { ATT < PLD }
+   \right] }{ 6000 \cdot e ^ { \frac{ PLD } { T_{1,b} } } } && { ATT < PLD }
 
 Equation 4:
 
@@ -481,7 +481,6 @@ CBF, ATT, aBAT, and aBV values for each voxel using Equations 3 and 5 in
 Equation 3:
 
 .. math::
-
 
    &= 0, && { 0 < TI < ATT } \\
 
