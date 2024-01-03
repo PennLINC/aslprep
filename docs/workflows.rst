@@ -430,21 +430,34 @@ Multi-Delay ASL
 ===============
 
 In multi-delay ASL, control-label pairs are acquired for multiple post-labeling delay values.
-This type of acquisition requires more complicated models, but it also results in more accurate
-CBF estimates.
-Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
+This type of acquisition requires more complicated models,
+but it also results in more accurate CBF estimates.
+Also, multi-delay ASL allows for the estimation of arterial transit time (ATT),
+arterial blood arrival time (aBAT), and arterial blood volume (aBV).
+
+For multi-delay PCASL and Q2TIPS/QUIPSSII PASL data,
+*ASLPrep* uses :func:`scipy.optimize.curvefit` to estimate
+CBF, ATT, aBAT, and aBV values for each voxel according to the two-compartment general kinetic
+model described in :footcite:t:`woods2023recommendations`.
+
+In the two-compartment model, the difference signal (:math:`\Delta{M}`) is decomposed into
+a tissue component (:math:`\Delta{M}_{tiss}`) and
+a macrovascular component (:math:`\Delta{M}_{art}`).
+The combined macrovascular and tissue signal is simply
+:math:`\Delta{M} = \Delta{M}_{tiss} + \Delta{M}_{art}`.
 
 
 Pseudo-Continuous ASL
 ---------------------
 
-For multi-delay PCASL data, *ASLPrep* uses :func:`scipy.optimize.curvefit` to estimate
-CBF, ATT, aBAT, and aBV values for each voxel using Equations 2 and 4 in
-:footcite:t:`woods2023recommendations`.
+The tissue component of the :math:`\Delta{M}` signal is estimated according to
+:eq:`woods_equation_02`, while the macrovascular (i.e., arterial) component is estimated using
+:eq:`woods_equation_04`.
 
 Equation 2:
 
 .. math::
+   :label: woods_equation_02
 
    &= 0 && { 0 < LD + PLD < ATT }
 
@@ -461,6 +474,7 @@ Equation 2:
 Equation 4:
 
 .. math::
+   :label: woods_equation_04
 
    &= 0 && { 0 < LD + PLD < aBAT }
 
@@ -473,14 +487,18 @@ Equation 4:
 Pulsed ASL
 ----------
 
-For multi-delay Q2TIPS or QUIPSSII PCASL data,
-*ASLPrep* uses :func:`scipy.optimize.curvefit` to estimate
-CBF, ATT, aBAT, and aBV values for each voxel using Equations 3 and 5 in
-:footcite:t:`woods2023recommendations`.
+The tissue component of the :math:`\Delta{M}` signal is estimated according to
+:eq:`woods_equation_03`, while the macrovascular (i.e., arterial) component is estimated using
+:eq:`woods_equation_05`.
+
+.. warning::
+
+   Multi-delay QUIPSS PASL is not supported.
 
 Equation 3:
 
 .. math::
+   :label: woods_equation_03
 
    &= 0 && { 0 < TI < ATT }
 
@@ -494,6 +512,7 @@ Equation 3:
 Equation 5:
 
 .. math::
+   :label: woods_equation_05
 
    &= 0 && { 0 < TI < aBAT }
 
