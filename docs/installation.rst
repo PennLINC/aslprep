@@ -6,8 +6,9 @@ Installation
 
 There are two ways to install *ASLPrep*:
 
-* using `Container Technologies`_ (RECOMMENDED)
-* within a `Manually Prepared Environment (Python 3.10+)`_, also known as *bare-metal installation*
+*  using `Container Technologies`_ (RECOMMENDED)
+*  within a `Manually Prepared Environment (Python 3.10)`_
+   also known as *bare-metal installation*
 
 *ASLPrep* is not just a Python package;
 it also depends on a number of other neuroimaging libraries written in other languages.

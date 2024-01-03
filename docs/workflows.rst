@@ -40,6 +40,7 @@ averages them into a single reference template.
       hires=True,
       longitudinal=False,
       msm_sulc=True,
+      precomputed={},
       t1w=["sub-01/anat/sub-01_T1w.nii.gz"],
       t2w=["sub-01/anat/sub-01_T2w.nii.gz"],
       flair=["sub-01/anat/sub-01_acq-flair_T2w.nii.gz"],
@@ -135,7 +136,7 @@ split into multiple sub-workflows described below.
 ASL reference image estimation
 ==============================
 
-:py:func:`~aslprep.workflows.asl.util.init_asl_reference_wf`
+:py:func:`~aslprep.workflows.asl.reference.init_raw_aslref_wf`
 
 .. workflow::
    :graph2use: orig
@@ -354,6 +355,8 @@ For (P)CASL ([pseudo-]continuous ASL),
 CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
 
 .. math::
+   :label: pcasl
+
    CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T_{1,blood} } }
    {2 \cdot \alpha \cdot M_{0} \cdot T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
 
@@ -380,6 +383,8 @@ For pulsed ASL (PASL) data with the QUIPSS bolus cut-off technique,
 the formula from :footcite:t:`wong1998quantitative` is used.
 
 .. math::
+   :label: quipss
+
    CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{ M } \cdot e ^ \frac{ TI }{ T1_{blood} } }
    { 2 \cdot \alpha \cdot M_{0} \cdot \Delta{TI} }
 
@@ -399,6 +404,8 @@ For PASL data with the QUIPSS II bolus cut-off technique,
 the formula from :footcite:t:`alsop_recommended_2015` is used.
 
 .. math::
+   :label: quipssii
+
    CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
    {2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
@@ -416,6 +423,8 @@ the formula from the commercial Q2TIPS CBF calculation is used,
 as described in :footcite:t:`noguchi2015technical`.
 
 .. math::
+   :label: q2tips
+
    CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ { \frac{TI_{2} }{ T1_{blood} } } }
    { 2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
@@ -454,8 +463,6 @@ The tissue component of the :math:`\Delta{M}` signal is estimated according to
 :eq:`woods_equation_02`, while the macrovascular (i.e., arterial) component is estimated using
 :eq:`woods_equation_04`.
 
-Equation 2:
-
 .. math::
    :label: woods_equation_02
 
@@ -470,8 +477,6 @@ Equation 2:
    \cdot \left[
       1 - e ^ {-\frac{ LD } { T_{1,b} }}
    \right] }{ 6000 \cdot e ^ { \frac{ PLD } { T_{1,b} } } } && { ATT < PLD }
-
-Equation 4:
 
 .. math::
    :label: woods_equation_04
@@ -495,8 +500,6 @@ The tissue component of the :math:`\Delta{M}` signal is estimated according to
 
    Multi-delay QUIPSS PASL is not supported.
 
-Equation 3:
-
 .. math::
    :label: woods_equation_03
 
@@ -507,9 +510,6 @@ Equation 3:
 
    &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot TI_{1}
    }{ 6000 \cdot e ^ { \frac{ TI }{ T_{1,b} } } } && { ATT + TI_{1} < TI }
-
-
-Equation 5:
 
 .. math::
    :label: woods_equation_05
@@ -555,6 +555,8 @@ of CBF using iterative reweighted least square method :footcite:p:`dolui2016scru
 The SCRUB algorithm is described below:
 
 .. math::
+   :label: scrub
+
    CBF_{SCRUB} =  \arg\max_{\theta} \sum_{t=1}^N \rho(CBF_{t} -\theta)  + \lambda(\theta -\mu)^2
 
    \mu =\sum_{i \in Tissue type} p \cdot \mu_{i}
@@ -612,7 +614,7 @@ Quality control measures
    from pathlib import Path
 
    from aslprep.data import load as load_data
-   from aslprep.workflows.asl.qc import init_cbf_confounds_wf
+   from aslprep.workflows.asl.confounds import init_cbf_confounds_wf
 
    bids_dir = load_data("../tests/data/ds000240").absolute()
    asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
@@ -690,6 +692,7 @@ Resampling ASL and CBF runs onto standard spaces
          'TotalReadoutTime': 0.03,
       },
       fieldmap_id='my_fieldmap',
+      mem_gb=1,
    )
 
 This sub-workflow concatenates the transforms calculated upstream

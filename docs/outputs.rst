@@ -43,7 +43,7 @@ The outputs will be a `BIDS Derivatives`_ dataset of the form::
 For each participant in the dataset,
 a directory of derivatives (``sub-<label>/``)
 and a visual report (``sub-<label>.html``) are generated.
-The log directory contains `citation boilerplate`_ text.
+The log directory contains citation boilerplate text.
 ``dataset_description.json`` is a metadata file in which ASLPrep
 records metadata recommended by the BIDS standard.
 
@@ -170,7 +170,7 @@ and CIFTI-2::
 .. _fsderivs:
 
 FreeSurfer derivatives
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 If FreeSurfer is run, then a FreeSurfer subjects directory is created in
 ``<output dir>/sourcedata/freesurfer`` or the directory indicated with the
@@ -349,7 +349,7 @@ ASL Confounds
 
 For each :abbr:`ASL (arterial spin labelling)` run processed with *ASLPrep*, an
 accompanying *confounds* file will be generated.
-`CBF Confounds`_ are saved as a :abbr:`TSV (tab-separated value)` file::
+CBF Confounds are saved as a :abbr:`TSV (tab-separated value)` file::
 
    sub-<label>/[ses-<label>/]
       perf/

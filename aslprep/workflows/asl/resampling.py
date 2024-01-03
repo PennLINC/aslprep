@@ -82,6 +82,9 @@ def init_asl_surf_wf(
                 medial_surface_nan=False,
                 metadata={},
                 output_dir=".",
+                cbf_3d=["mean_cbf"],
+                cbf_4d=[],
+                att=["att"],
             )
 
     Parameters
