@@ -482,13 +482,15 @@ Equation 3:
 
 .. math::
 
-   &= 0, \hfilll { 0 < TI < ATT }
+
+   &= 0, && { 0 < TI < ATT } \\
 
    \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot (TI - ATT)}
-   { 6000 \cdot e ^ { -\frac{ TI } { T_{1,b} } }, \hfilll { ATT < TI < ATT + TI_{1} }
+   { 6000 \cdot e ^ { -\frac{ TI } { T_{1,b} } }, && { ATT < TI < ATT + TI_{1} } \\
 
    &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot TI_{1} }
-   { 6000 \cdot e ^ { \frac{ TI } { T_{1,b} } } }, \hfilll { ATT + TI_{1} < TI }
+   { 6000 \cdot e ^ { \frac{ TI } { T_{1,b} } } }, && { ATT + TI_{1} < TI }
+
 
 Equation 5:
 
