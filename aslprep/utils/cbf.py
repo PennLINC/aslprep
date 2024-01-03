@@ -708,8 +708,10 @@ def calculate_deltam_pasl(X, cbf, att, abat, abv):
         Equilibrium magnetization of arterial blood.
         Used for deltam_art calculation.
     tis : :obj:`numpy.ndarray`
+        Inversion times in seconds.
     ti1 : :obj:`float`
-        Bolus cutoff delay time.
+        Bolus cutoff delay time. For Q2TIPS, this is the first delay time.
+        For QUIPSSII, it's the only one.
     """
     # float parameters
     labeleff = X[0, 0]
@@ -768,17 +770,28 @@ def fit_deltam_multipld(
 
     Parameters
     ----------
-    deltam
-    plds
-    tau : :obj:`float` or :obj:`numpy.ndarray`
-        Label duration. May be a single value or may vary across volumes/PLDs.
-    t1blood
+    deltam_arr : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        Subtracted (control - label) signal.
+    scaled_m0data : :obj:`numpy.ndarray` of shape (n_voxels,)
+        M0 data, after any scaling requested by the user.
+    plds : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        Post-labeling delay values. This uses the TI values for PASL data.
     labeleff : :obj:`float`
         Labeling efficiency, also referred to as alpha.
         In the case of background suppression, this combines alpha and alpha_bs,
         so we don't need a separate term for alpha_bs.
-    scaled_m0data
-    partition_coefficient
+    t1blood : :obj:`float`
+        Longitudinal relaxation time of arterial blood in seconds.
+        Used for both deltam_tiss and deltam_art calculation.
+    partition_coefficient : :obj:`float`
+        Brain partition coefficient (lambda in Alsop 2015). Generally 0.9.
+    is_casl : :obj:`bool`
+        True if is (P)CASL sequence.
+    tau : :obj:`float` or :obj:`numpy.ndarray` or None, optional
+        Label duration. May be a single value or may vary across volumes/PLDs.
+        Only defined for (P)CASL data.
+    ti1 : :obj:`float` or None, optional
+        TI1. Only defined for PASL data.
 
     Returns
     -------
@@ -867,9 +880,9 @@ def fit_deltam_multipld(
             # Upper bounds provided by Manuel Taso
             bounds=(
                 (0, 0, 0, 0),
-                # Manuel Taso recommended 5 and 5 for ATT and aBAT,
+                # Manuel Taso recommended 5, 5, 0.2 for ATT, aBAT, and aBV,
                 # but our test data maxed out around 12 when left unbounded.
-                (300, 15, 15, 0.1),
+                (300, 15, 15, 1),
             ),
         )[0]
 

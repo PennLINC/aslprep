@@ -322,6 +322,8 @@ CBF Outputs::
          <source_entities>[_space-<label>]_cbf.nii.gz  # mean CBF
          <source_entities>[_space-<label>]_desc-timeseries_cbf.nii.gz  # computed CBF timeseries
          <source_entities>[_space-<label>]_att.nii.gz  # arterial transit time (multi-PLD data only)
+         <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-PLD data only)
+         <source_entities>[_space-<label>]_abv.nii.gz  # arterial blood volume (multi-PLD data only)
 
 If ``--scorescrub`` is used::
 
@@ -338,7 +340,7 @@ If ``--basil`` is used::
          <source_entities>[_space-<label>]_desc-basil_cbf.nii.gz  # mean CBF computed with BASIL
          <source_entities>[_space-<label>]_desc-basilGM_cbf.nii.gz  # GM partial volume corrected CBF with BASIL
          <source_entities>[_space-<label>]_desc-basilWM_cbf.nii.gz  # WM partial volume corrected CBF with BASIL
-         <source_entities>[_space-<label>]_att.nii.gz  # bolus arrival time/arterial transit time (in seconds)
+         <source_entities>[_space-<label>]_desc-basil_att.nii.gz  # bolus arrival time/arterial transit time (in seconds)
 
 
 *************

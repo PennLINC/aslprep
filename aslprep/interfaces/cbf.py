@@ -502,16 +502,16 @@ class ComputeCBF(SimpleInterface):
             self._results["plds"] = pld_file
 
         elif is_multi_pld:
-            # Broadcast PLDs to voxels by PLDs
+            # Broadcast PLDs to voxels by PLDs, even though there's no slice timing to account for.
             plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
 
         if is_multi_pld:
             ti1 = None
             tau = None
-            if is_casl:
+            if is_casl:  # (P)CASL needs tau, but not ti1
                 tau = metadata["LabelingDuration"]
 
-            else:
+            else:  # PASL needs ti1, but not tau
                 if metadata["BolusCutOffTechnique"] == "QUIPSSII":
                     # PASL + QUIPSSII
                     # Only one BolusCutOffDelayTime allowed.
@@ -531,10 +531,10 @@ class ComputeCBF(SimpleInterface):
                     )
 
             cbf, att, abat, abv = fit_deltam_multipld(
-                deltam_arr,
-                scaled_m0data,
-                plds,
-                labeleff,
+                deltam_arr=deltam_arr,
+                scaled_m0data=scaled_m0data,
+                plds=plds,
+                labeleff=labeleff,
                 t1blood=t1blood,
                 partition_coefficient=PARTITION_COEF,
                 is_casl=is_casl,

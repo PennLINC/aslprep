@@ -34,12 +34,15 @@ BASE_INPUT_FIELDS = {
     },
     "att": {
         "suffix": "att",
+        "Units": "s",
     },
     "abat": {
         "suffix": "abat",
+        "Units": "s",
     },
     "abv": {
         "suffix": "abv",
+        "Units": "fraction",
     },
     # SCORE/SCRUB outputs
     "cbf_ts_score": {
@@ -70,6 +73,7 @@ BASE_INPUT_FIELDS = {
     "att_basil": {
         "desc": "basil",
         "suffix": "att",
+        "Units": "s",
     },
 }
 
@@ -572,10 +576,6 @@ def init_ds_asl_native_wf(
             workflow.connect([(inputnode, ds_cbf, [(cbf_name, "in_file")])])
 
         for att_name in att:
-            # TODO: Add EstimationReference and EstimationAlgorithm
-            att_meta = {
-                "Units": "s",
-            }
             fields = BASE_INPUT_FIELDS[att_name]
 
             ds_att = pe.Node(
@@ -584,7 +584,6 @@ def init_ds_asl_native_wf(
                     compress=True,
                     dismiss_entities=("echo",),
                     **fields,
-                    **att_meta,
                 ),
                 name=f"ds_{att_name}",
                 run_without_submitting=True,
