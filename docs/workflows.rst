@@ -438,7 +438,7 @@ Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
 Pseudo-Continuous ASL
 ---------------------
 
-For multi-delay PCASL data, ASLPrep uses :func:`scipy.optimize.curvefit` to estimate
+For multi-delay PCASL data, *ASLPrep* uses :func:`scipy.optimize.curvefit` to estimate
 CBF, ATT, aBAT, and aBV values for each voxel using Equations 2 and 4 in
 :footcite:t:`woods2023recommendations`.
 
@@ -450,13 +450,13 @@ Equation 2:
 
    \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
    \cdot \left[
-      1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,tissue} }}
-   \right] }{ 6000 \cdot e ^ { \frac{ ATT } { T_{1,blood} } } } \hfilll { ATT < LD + PLD < ATT + LD }
+      1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,b} }}
+   \right] }{ 6000 \cdot e ^ { \frac{ ATT } { T_{1,b} } } } \hfilll { ATT < LD + PLD < ATT + LD }
 
    &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
    \cdot \left[
-      1 - e ^ {-\frac{ LD } { T_{1,tissue} }}
-   \right] }{ 6000 e ^ { \frac{ PLD } { T_{1,blood} } } } \hfilll { ATT < PLD }
+      1 - e ^ {-\frac{ LD } { T_{1,b} }}
+   \right] }{ 6000 \cdot e ^ { \frac{ PLD } { T_{1,b} } } } \hfilll { ATT < PLD }
 
 Equation 4:
 
@@ -465,96 +465,41 @@ Equation 4:
    &= 0 \hfilll{ 0 < LD + PLD < aBAT }
 
    \Delta{M}_{art} &= 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
-   e ^ { -\frac{ aBAT } { T_{1,blood} } } \hfilll{ aBAT < LD + PLD < aBAT + LD }
+   e ^ { -\frac{ aBAT } { T_{1,b} } } \hfilll{ aBAT < LD + PLD < aBAT + LD }
 
    &= 0 \hfilll{ aBAT < PLD }
-
-For multi-delay PCASL data, the following steps are taken:
-
-1. :math:`\Delta{M}` values are first averaged over time for each unique post-labeling delay value.
-   We shall call these :math:`\Delta{M}` in the following equations for the sake of readability.
-
-2. Arterial transit time is estimated on a voxel-wise basis according to
-   :footcite:t:`dai2012reduced`.
-
-   1. Define a set of possible transit times to evaluate.
-      The range is defined as the minimum PLD to the maximum PLD, at increments of 0.001.
-
-   2. Calculate the expected weighted delay (:math:`WD_{E}`) for each possible transit time
-      (:math:`\delta`), across PLDs (:math:`w`).
-
-      .. math::
-
-         WD_{E}(\delta_{t}, w_{i}) = e ^ \frac{ -\delta_{t} } { T_{1,blood} } \cdot
-         \left[
-            e ^ {-\frac{ max( 0, w_{i} - \delta_{t} ) } { T_{1,tissue} }} -
-            e ^ {-\frac{ max( 0, \tau + w_{i} - \delta_{t} ) } { T_{1,tissue} }}
-         \right]
-
-         WD_{E}(\delta_{t}) = \frac{ \sum_{i=1}^{|w|} w_{i} \cdot
-         WD_{E}(\delta_{t},w_{i}) } { \sum_{i=1}^{|w|} WD_{E}(\delta_{t},w_{i}) }
-
-   3. Calculate the observed weighted delay (:math:`WD_{O}`) for the actual data, at each voxel :math:`v`.
-
-      .. math::
-
-         WD_{O}(v) = \frac{
-            \sum_{i=1}^{|w|} w_{i} \cdot \Delta{M}( w_{i},v )
-         }
-         {
-            \sum_{i=1}^{|w|} \Delta{M}( w_{i},v )
-         }
-
-   4. Truncate the observed weighted delays to valid delay values,
-      determined based on the expected weighted delays.
-
-      .. math::
-
-         WD_{O}(v) = max[min(WD_{O}(v), max[WD_{E}]), min(WD_{E})]
-
-   5. Interpolate the expected weighted delay values to infer the appropriate transit time for each voxel,
-      based on its observed weighted delay.
-
-3. CBF is then calculated for each unique PLD value (:math:`w_{i}`) using the 2-compartment model
-   described in :footcite:t:`fan2017long`.
-
-   .. math::
-
-      CBF_{i} = 6000 \cdot \lambda \cdot \frac{ \Delta{M}_{i} }{ M_{0} } \cdot
-      \frac{
-         e ^ \frac{ \delta }{ T_{1,blood} }
-      }
-      {
-         2 \cdot \alpha \cdot T_{1,blood} \cdot
-         \left[
-            e ^ { -\frac{ max(w_{i} - \delta, 0) }{ T_{1,tissue} } }
-            -
-            e ^ { -\frac{ max(\tau + w_{i} - \delta, 0) }{ T_{1,tissue} } }
-         \right]
-      }
-
-   .. note::
-
-      Note that Equation 2 in :footcite:t:`fan2017long` uses different notation.
-      :math:`T_{1,blood}` is referred to as :math:`T_{1a}`,
-      :math:`T_{1,tissue}` is referred to as :math:`T_{1t}`,
-      :math:`\Delta{M}` is referred to as :math:`M`,
-      :math:`w` is referred to as :math:`PLD`,
-      :math:`\delta` is referred to as :math:`ATT`,
-      :math:`\tau` is referred to as :math:`LD`,
-      and :math:`\alpha` is referred to as :math:`\epsilon`.
-
-4. CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
-   in which an unweighted average is calculated for each voxel across all PLDs (:math:`w`) in which
-   :math:`w + \tau \gt \delta`.
 
 
 Pulsed ASL
 ----------
 
-.. warning::
-   As of 0.3.0, ASLPrep has disabled multi-delay support for PASL data.
-   We plan to properly support multi-delay PASL data in the near future.
+For multi-delay Q2TIPS or QUIPSSII PCASL data,
+*ASLPrep* uses :func:`scipy.optimize.curvefit` to estimate
+CBF, ATT, aBAT, and aBV values for each voxel using Equations 3 and 5 in
+:footcite:t:`woods2023recommendations`.
+
+Equation 3:
+
+.. math::
+
+   &= 0 \hfilll { 0 < TI < ATT }
+
+   \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot (TI - ATT) }
+   }{ 6000 \cdot e ^ {-\frac{ TI } { T_{1,b} } } \hfilll { ATT < TI < ATT + TI_{1} }
+
+   &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot TI_{1} }
+   { 6000 \cdot e ^ { \frac{ TI } { T_{1,b} } } } \hfilll { ATT + TI_{1} < TI }
+
+Equation 5:
+
+.. math::
+
+   &= 0 \hfilll{ 0 < TI < aBAT }
+
+   \Delta{M}_{art} &= 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
+   e ^ { -\frac{ TI } { T_{1,b} } } \hfilll{ aBAT < TI < aBAT + TI_{1} }
+
+   &= 0 \hfilll{ aBAT + TI_{1} < TI }
 
 
 Additional Denoising Options

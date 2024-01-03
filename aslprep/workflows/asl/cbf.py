@@ -150,28 +150,24 @@ def init_cbf_wf(
 *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
 """
 
-    elif is_casl:
-        if is_multi_pld:
-            workflow.__desc__ += f"""\
+    elif is_multi_pld:
+        workflow.__desc__ += f"""\
 *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
-{metadata['ArterialSpinLabelingType']} data using the following method.
+{metadata['ArterialSpinLabelingType']} data using the general kinetic model (GKM)
+:footcite:p:`buxton1998general`, as recommended and extended in
+:footcite:t:`woods2023recommendations`.
 
-First, delta-M values were averaged over time for each post-labeling delay (PLD).
 {m0_str}
+The voxel-wise M0 values were used as both M0a and M0b in the GKM.
 
-Next, arterial transit time (ATT) was estimated on a voxel-wise basis according to
-@dai2012reduced.
-
-CBF was then calculated for each delay using the mean delta-M values and the estimated ATT,
-according to the formula from @fan2017long.
-
-CBF was then averaged over delays according to @juttukonda2021characterizing,
-in which an unweighted average is calculated for each voxel across all delays in which
-PLD + labeling duration > ATT.
+CBF, arterial transit time (ATT), arterial bolus arrival time (aBAT),
+and arterial blood volume (aBV) were estimated using a nonlinear model fit with SciPy's
+``curve_fit``.
 """
-        else:
-            # Single-delay (P)CASL data
-            workflow.__desc__ += f"""\
+
+    elif is_casl:
+        # Single-delay (P)CASL data
+        workflow.__desc__ += f"""\
 *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
 {metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
 [@buxton1998general].
@@ -180,9 +176,6 @@ PLD + labeling duration > ATT.
 
     else:
         bcut = metadata.get("BolusCutOffTechnique")
-
-        if is_multi_pld:
-            workflow.__desc__ += """HAHAHAHA!"""
 
         # Single-delay PASL data, with different bolus cut-off techniques
         if bcut == "QUIPSS":

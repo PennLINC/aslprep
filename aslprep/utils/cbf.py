@@ -1139,15 +1139,16 @@ def fit_deltam_multipld(
             func,
             xdata=xdata,
             ydata=deltam_voxel,
-            # initial estimates for DVs (cbf, att, abat, abv)
+            # Initial estimates for DVs (CBF, ATT, aBAT, aBV)
             # Values provided by Manuel Taso
             p0=(60, 1.2, 1, 0.02),
-            # lower and upper bounds for DVs
+            # Lower and upper bounds for DVs
             # Upper bounds provided by Manuel Taso
             bounds=(
                 (0, 0, 0, 0),
-                # (300, 5, 5, 0.1),
-                (np.inf, np.inf, np.inf, np.inf),
+                # Manuel Taso recommended 5 and 5 for ATT and aBAT,
+                # but our test data maxed out around 12 when left unbounded.
+                (300, 15, 15, 0.1),
             ),
         )[0]
 
