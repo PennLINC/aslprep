@@ -365,13 +365,8 @@ class ComputeCBF(SimpleInterface):
 
     Single-delay CBF, for both (P)CASL and QUIPSSII PASL
     is calculated according to :footcite:t:`alsop_recommended_2015`.
-    Multi-delay CBF is handled using a weighted average,
-    based on :footcite:t:`dai2012reduced,wang2013multi`.
 
-    Multi-delay CBF is calculated according to :footcite:t:`fan2017long`,
-    although CBF is averaged across PLDs according to the method in
-    :footcite:t:`juttukonda2021characterizing`.
-    Arterial transit time is estimated according to :footcite:t:`dai2012reduced`.
+    Multi-delay CBF is calculated according to :footcite:t:`woods2023recommendations`.
 
     If slice timing information is detected, then PLDs will be shifted by the slice times.
 
@@ -381,7 +376,9 @@ class ComputeCBF(SimpleInterface):
     :func:`~aslprep.utils.asl.determine_multi_pld`
     :func:`~aslprep.utils.cbf.estimate_t1`
     :func:`~aslprep.utils.asl.estimate_labeling_efficiency`
-    :func:`~aslprep.utils.cbf.estimate_cbf_pcasl_multipld`
+    :func:`~aslprep.utils.cbf.calculate_deltam_pasl`
+    :func:`~aslprep.utils.cbf.calculate_deltam_pcasl`
+    :func:`~aslprep.utils.cbf.fit_deltam_multipld`
 
     References
     ----------
