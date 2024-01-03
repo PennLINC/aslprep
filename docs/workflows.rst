@@ -446,12 +446,12 @@ Equation 2:
 
 .. math::
 
-   &= 0 && { 0 < LD + PLD < ATT } \\
+   &= 0 && { 0 < LD + PLD < ATT }
 
    \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
    \cdot \left[
       1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,b} }}
-   \right] }{ 6000 \cdot e ^ { \frac{ ATT } { T_{1,b} } } } && { ATT < LD + PLD < ATT + LD } \\
+   \right] }{ 6000 \cdot e ^ { \frac{ ATT } { T_{1,b} } } } && { ATT < LD + PLD < ATT + LD }
 
    &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF
    \cdot \left[
@@ -482,25 +482,25 @@ Equation 3:
 
 .. math::
 
-   &= 0, && { 0 < TI < ATT } \\
+   &= 0 && { 0 < TI < ATT }
 
-   \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot (TI - ATT)}
-   { 6000 \cdot e ^ { -\frac{ TI } { T_{1,b} } }, && { ATT < TI < ATT + TI_{1} } \\
+   \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot (TI - ATT) }
+   { 6000 \cdot e ^ { -\frac{ TI } { T_{1,b} } } && { ATT < TI < ATT + TI_{1} }
 
    &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot TI_{1} }
-   { 6000 \cdot e ^ { \frac{ TI } { T_{1,b} } } }, && { ATT + TI_{1} < TI }
+   { 6000 \cdot e ^ { \frac{ TI } { T_{1,b} } } } && { ATT + TI_{1} < TI }
 
 
 Equation 5:
 
 .. math::
 
-   &= 0, \hfilll{ 0 < TI < aBAT }
+   &= 0 && { 0 < TI < aBAT }
 
    \Delta{M}_{art} &= 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
-   e ^ { -\frac{ TI } { T_{1,b} } }, \hfilll{ aBAT < TI < aBAT + TI_{1} }
+   e ^ { -\frac{ TI } { T_{1,b} } } && { aBAT < TI < aBAT + TI_{1} }
 
-   &= 0, \hfilll{ aBAT + TI_{1} < TI }
+   &= 0 && { aBAT + TI_{1} < TI }
 
 
 Additional Denoising Options
