@@ -762,9 +762,6 @@ def init_ds_volumes_wf(
 
     for att_name in att:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        att_meta = {
-            "Units": "s",
-        }
         fields = BASE_INPUT_FIELDS[att_name]
 
         resample_att = pe.Node(
@@ -785,7 +782,6 @@ def init_ds_volumes_wf(
                 compress=True,
                 dismiss_entities=("echo",),
                 **fields,
-                **att_meta,
             ),
             name=f"ds_{att_name}",
             run_without_submitting=True,
