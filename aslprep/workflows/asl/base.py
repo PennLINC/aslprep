@@ -364,7 +364,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("fmap_id", "inputnode.fmap_id"),
             ("sdc_method", "inputnode.sdc_method"),
         ]),
-        (m0scan_buffer, asl_fit_wf, [("m0scan", "m0scan")]),
+        (m0scan_buffer, asl_fit_wf, [("m0scan", "inputnode.m0scan")]),
     ])  # fmt:skip
 
     # Resample to aslref space.
@@ -385,7 +385,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("fmap_coeff", "inputnode.fmap_coeff"),
             ("fmap_id", "inputnode.fmap_id"),
         ]),
-        (m0scan_buffer, asl_native_wf, [("m0scan", "m0scan")]),
+        (m0scan_buffer, asl_native_wf, [("m0scan", "inputnode.m0scan")]),
         (asl_fit_wf, asl_native_wf, [
             ("outputnode.coreg_aslref", "inputnode.aslref"),
             ("outputnode.asl_mask", "inputnode.asl_mask"),

@@ -130,6 +130,7 @@ def init_asl_fit_wf(
     ------
     asl_file
         ASL series NIfTI file
+    m0scan
     t1w_preproc
         Bias-corrected structural template image
     t1w_mask
