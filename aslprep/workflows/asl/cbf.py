@@ -154,8 +154,7 @@ def init_cbf_wf(
         workflow.__desc__ += f"""\
 *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
 {metadata['ArterialSpinLabelingType']} data using the general kinetic model (GKM)
-:footcite:p:`buxton1998general`, as recommended and extended in
-:footcite:t:`woods2023recommendations`.
+[@buxton1998general], as recommended and extended in @woods2023recommendations.
 
 {m0_str}
 The voxel-wise M0 values were used as both M0a and M0b in the GKM.
