@@ -6,6 +6,7 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
 from niworkflows.interfaces.images import RobustAverage
 from templateflow.api import get as get_template
 
@@ -29,7 +30,6 @@ from aslprep.utils.asl import (
 )
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 from aslprep.utils.bids import find_atlas_entities
-from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
 
 
 def init_cbf_wf(
@@ -393,8 +393,9 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
             (mean_m0, extract_deltam, [("out_file", "m0scan")]),
         ])  # fmt:skip
 
-        enhance_and_skullstrip_m0scan_wf = init_enhance_and_skullstrip_asl_wf(
+        enhance_and_skullstrip_m0scan_wf = init_enhance_and_skullstrip_bold_wf(
             pre_mask=False,
+            omp_nthreads=1,
             name="enhance_and_skullstrip_m0scan_wf",
         )
         workflow.connect([
