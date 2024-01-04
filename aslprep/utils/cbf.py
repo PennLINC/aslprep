@@ -847,6 +847,7 @@ def fit_deltam_multipld(
     att = np.zeros(n_voxels)
     abat = np.zeros(n_voxels)
     abv = np.zeros(n_voxels)
+    fail_count = 0
     for i_voxel in range(n_voxels):
         deltam_voxel = deltam_arr[i_voxel, :]
         plds_voxel = plds[i_voxel, :]
@@ -869,26 +870,42 @@ def fit_deltam_multipld(
             xdata[0, 5] = ti1
             func = calculate_deltam_pasl
 
-        popt = scipy.optimize.curve_fit(
-            func,
-            xdata=xdata,
-            ydata=deltam_voxel,
-            # Initial estimates for DVs (CBF, ATT, aBAT, aBV)
-            # Values provided by Manuel Taso
-            p0=(60, 1.2, 1, 0.02),
-            # Lower and upper bounds for DVs
-            # Upper bounds provided by Manuel Taso
-            bounds=(
-                (0, 0, 0, 0),
-                # Manuel Taso recommended 5, 5, 0.2 for ATT, aBAT, and aBV,
-                # but our test data maxed out around 12 when left unbounded.
-                (300, 15, 15, 1),
-            ),
-        )[0]
+        try:
+            popt = scipy.optimize.curve_fit(
+                func,
+                xdata=xdata,
+                ydata=deltam_voxel,
+                # Initial estimates for DVs (CBF, ATT, aBAT, aBV)
+                # Values provided by Manuel Taso
+                p0=(60, 1.2, 1, 0.02),
+                # Lower and upper bounds for DVs
+                # Upper bounds provided by Manuel Taso
+                bounds=(
+                    (0, 0, 0, 0),
+                    # Manuel Taso recommended 5, 5, 0.2 for ATT, aBAT, and aBV,
+                    # but our test data maxed out around 12 when left unbounded.
+                    (300, 15, 15, 1),
+                ),
+            )[0]
+            cbf[i_voxel] = popt[0]
+            att[i_voxel] = popt[1]
+            abat[i_voxel] = popt[2]
+            abv[i_voxel] = popt[3]
 
-        cbf[i_voxel] = popt[0]
-        att[i_voxel] = popt[1]
-        abat[i_voxel] = popt[2]
-        abv[i_voxel] = popt[3]
+        except (RuntimeError, ValueError):
+            # If curve fit fails to converge, set voxel's value to NaN
+            cbf[i_voxel] = np.nan
+            att[i_voxel] = np.nan
+            abat[i_voxel] = np.nan
+            abv[i_voxel] = np.nan
+
+            fail_count += 1
+
+    if fail_count:
+        fail_percent = 100 * fail_count / n_voxels
+        config.loggers.workflow.warning(
+            f"General kinetic model fit failed on "
+            f"{fail_count}/{n_voxels} ({fail_percent:.2f}%) voxel(s)."
+        )
 
     return cbf, att, abat, abv
