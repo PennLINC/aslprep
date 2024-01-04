@@ -86,7 +86,6 @@ def get_sbrefs(
 def init_asl_fit_wf(
     *,
     asl_file: str,
-    m0scan: ty.Union[str, None],
     use_ge: bool,
     precomputed: dict = {},
     fieldmap_id: ty.Optional[str] = None,
@@ -111,7 +110,6 @@ def init_asl_fit_wf(
                 )
                 wf = init_asl_fit_wf(
                     asl_file=str(asl_file),
-                    m0scan=None,
                     use_ge=False,
                 )
 
@@ -119,8 +117,6 @@ def init_asl_fit_wf(
     ----------
     asl_file
         Path to ASL NIfTI file.
-    m0scan
-        Path to M0 NIfTI file.
     use_ge
         If True, the M0 scan (when available) will be prioritized as the volume type for the
         reference image, as GE deltam volumes exhibit extreme background noise.
@@ -243,6 +239,7 @@ def init_asl_fit_wf(
             fields=[
                 "asl_file",
                 "aslcontext",
+                "m0scan",  # only defined if metadata['M0Type'] is Separate
                 # Fieldmap registration
                 "fmap",
                 "fmap_ref",
@@ -365,10 +362,14 @@ def init_asl_fit_wf(
             m0scan=(metadata["M0Type"] == "Separate"),
             use_ge=use_ge,
         )
-        hmc_aslref_wf.inputs.inputnode.m0scan = m0scan
         hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_scans
 
-        workflow.connect([(inputnode, hmc_aslref_wf, [("aslcontext", "inputnode.aslcontext")])])
+        workflow.connect([
+            (inputnode, hmc_aslref_wf, [
+                ("aslcontext", "inputnode.aslcontext"),
+                ("m0scan", "inputnode.m0scan"),
+            ]),
+        ])  # fmt:skip
 
         ds_hmc_aslref_wf = init_ds_aslref_wf(
             bids_root=layout.root,
@@ -632,7 +633,7 @@ def init_asl_fit_wf(
 def init_asl_native_wf(
     *,
     asl_file: str,
-    m0scan: ty.Optional[str] = None,
+    m0type: str,
     fieldmap_id: ty.Optional[str] = None,
     omp_nthreads: int = 1,
     name: str = "asl_native_wf",
@@ -662,7 +663,8 @@ def init_asl_native_wf(
     ----------
     asl_file
         List of paths to NIfTI files.
-    m0scan
+    m0type
+        Type of M0 scan.
     fieldmap_id
         ID of the fieldmap to use to correct this ASL series. If :obj:`None`,
         no correction will be applied.
@@ -855,20 +857,23 @@ def init_asl_native_wf(
         (aslref_asl, outputnode, [("out_file", "asl_native")]),
     ])  # fmt:skip
 
-    if m0scan:
+    if m0type == "Separate":
         from niworkflows import data as nw_data
 
         # Resample separate M0 file to aslref
         # No HMC
         identity_xfm = nw_data.load("itkIdentityTransform.txt")
         aslref_m0scan = pe.Node(
-            ResampleSeries(transforms=[identity_xfm], in_file=m0scan),
+            ResampleSeries(transforms=[identity_xfm]),
             name="aslref_m0scan",
             n_procs=omp_nthreads,
         )
 
         workflow.connect([
-            (inputnode, aslref_m0scan, [("aslref", "ref_file")]),
+            (inputnode, aslref_m0scan, [
+                ("aslref", "ref_file"),
+                ("m0scan", "in_file"),
+            ]),
             (aslbuffer, aslref_m0scan, [
                 ("ro_time", "ro_time"),
                 ("pe_dir", "pe_dir"),

@@ -6,6 +6,7 @@ import typing as ty
 import numpy as np
 from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
 from nipype.interfaces import utility as niu
+from nipype.interfaces.afni.utils import Resample
 from nipype.pipeline import engine as pe
 
 from aslprep import config
@@ -321,10 +322,25 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     inputnode.inputs.aslcontext = run_data["aslcontext"]
     inputnode.inputs.m0scan_metadata = run_data["m0scan_metadata"]
 
+    m0scan_buffer = pe.Node(
+        niu.IdentityInterface(fields=["m0scan"]),
+        name="m0scan_buffer",
+    )
+    # Resample M0 scan to ASL FOV and resolution
+    if metadata["M0Type"] == "Separate":
+        resample = pe.Node(
+            Resample(
+                in_file=run_data["m0scan"],
+                master=asl_file,
+                outputtype="NIFTI",
+            ),
+            name="resample_m0scan_to_asl",
+        )
+        workflow.connect([(resample, m0scan_buffer, [("out_file", "m0scan")])])
+
     # Perform minimal preprocessing of the ASL data, including HMC and SDC
     asl_fit_wf = init_asl_fit_wf(
         asl_file=asl_file,
-        m0scan=run_data["m0scan"],
         use_ge=use_ge,
         precomputed=precomputed,
         fieldmap_id=fieldmap_id,
@@ -348,6 +364,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("fmap_id", "inputnode.fmap_id"),
             ("sdc_method", "inputnode.sdc_method"),
         ]),
+        (resample, asl_fit_wf, [("m0scan", "m0scan")]),
     ])  # fmt:skip
 
     # Resample to aslref space.
@@ -355,7 +372,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # because ASLPrep's main output is CBF and we need aslref-space data to calculate CBF.
     asl_native_wf = init_asl_native_wf(
         asl_file=asl_file,
-        m0scan=run_data["m0scan"],
+        m0type=metadata["M0Type"],
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
         name="asl_native_wf",
@@ -368,6 +385,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ("fmap_coeff", "inputnode.fmap_coeff"),
             ("fmap_id", "inputnode.fmap_id"),
         ]),
+        (resample, asl_native_wf, [("m0scan", "m0scan")]),
         (asl_fit_wf, asl_native_wf, [
             ("outputnode.coreg_aslref", "inputnode.aslref"),
             ("outputnode.asl_mask", "inputnode.asl_mask"),
