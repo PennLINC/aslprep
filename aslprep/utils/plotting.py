@@ -7,15 +7,18 @@ from lxml import etree
 from matplotlib import gridspec as mgs
 from nilearn import image, plotting
 from nilearn._utils.niimg import load_niimg
-from niworkflows import NIWORKFLOWS_LOG
-from niworkflows.viz.plots import confoundplot, spikesplot
-from niworkflows.viz.utils import (
+from nireports.reportlets.nuisance import confoundplot, plot_carpet, spikesplot
+from nireports.reportlets.utils import (
     compose_view,
     cuts_from_bbox,
     extract_svg,
     robust_set_limits,
 )
 from svgutils.transform import SVGFigure
+
+from aslprep import config
+
+NIWORKFLOWS_LOG = config.loggers.utils
 
 
 class CBFPlot(object):
@@ -172,7 +175,6 @@ class fMRIPlot:  # noqa:N801
     def plot(self, figure=None):
         """Generate fMRI plot."""
         import seaborn as sns
-        from niworkflows.viz.plots import plot_carpet as plt_carpet
 
         sns.set_style("whitegrid")
         sns.set_context("paper", font_scale=0.8)
@@ -209,7 +211,7 @@ class fMRIPlot:  # noqa:N801
                 raise ValueError(name)
             grid_id += 1
 
-        plt_carpet(
+        plot_carpet(
             self.timeseries,
             segments=self.segments,
             subplot=grid[-1],
