@@ -35,6 +35,7 @@ The outputs will be a `BIDS Derivatives`_ dataset of the form::
 
    <output_dir>/
       logs/
+      atlases/
       sub-<label>/
       sub-<label>.html
       dataset_description.json
@@ -425,9 +426,11 @@ as outputting the reference image-space versions would produce too many extra ou
 .. code-block::
 
    aslprep/
-      atlas-<label>_dseg.json
-      atlas-<label>_dseg.tsv
-      space-<label>_atlas-<label>_dseg.nii.gz
+      atlases/
+         atlas-<label>/
+            atlas-<label>_dseg.json
+            atlas-<label>_dseg.tsv
+            space-<label>_atlas-<label>_dseg.nii.gz
 
       sub-<label>/[ses-<label>/]
          perf/
