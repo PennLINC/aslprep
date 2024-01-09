@@ -818,6 +818,10 @@ def init_asl_native_wf(
             ]),
         ])  # fmt:skip
 
+    workflow.__desc__ = """\
+The ASL time series was resampled to ASL-reference space.
+"""
+
     # Resample ASL to aslref
     aslref_asl = pe.Node(
         ResampleSeries(),
@@ -860,6 +864,11 @@ def init_asl_native_wf(
 
     if m0type == "Separate":
         from niworkflows import data as nw_data
+
+        workflow.__desc__ += """\
+The separate calibration volume (M0) was resampled to the same resolution and orientation as
+the ASL time series.
+"""
 
         # Resample separate M0 file to aslref
         # No HMC
