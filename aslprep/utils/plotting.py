@@ -89,7 +89,7 @@ def plot_stat_map(
             display_mode=mode,
             cut_coords=cuts[mode],
             vmax=vmax,
-            threshold=0.02,
+            threshold=0.00001,
             draw_cross=False,
             colorbar=True,
             symmetric_cbar=False,
