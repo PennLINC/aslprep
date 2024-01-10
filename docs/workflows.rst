@@ -339,7 +339,7 @@ model :footcite:p:`alsop_recommended_2015`.
 
    :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
 
-   :math:`\Delta{TI}` : Post-labeling delay minus bolus cutoff delay time, in seconds.
+   :term:`:math:`\Delta{TI}`` : Post-labeling delay minus bolus cutoff delay time, in seconds.
    Per :footcite:t:`alsop_recommended_2015`, this is QUIPSS II's equivalent to (P)CASL's :math:`w`.
 
    :math:`TI_{1}` : Bolus cutoff delay time, in seconds.
