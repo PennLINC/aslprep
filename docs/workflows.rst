@@ -367,7 +367,7 @@ In the absence of any of these parameters, standard values are used based on the
 scanning parameters.
 
 The element which differentiates single-delay PCASL's CBF calculation from the PASL equivalents is
-:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+:math:`T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } })`.
 
 
 Pulsed ASL
@@ -385,7 +385,7 @@ the formula from :footcite:t:`wong1998quantitative` is used.
 .. math::
    :label: quipss
 
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{ M } \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{ M } \cdot e ^ \frac{ TI }{ T_{1,blood} } }
    { 2 \cdot \alpha \cdot M_{0} \cdot \Delta{TI} }
 
 where :math:`\Delta{TI}` is the post-labeling delay (PLD) minus the bolus cutoff delay time.
@@ -394,7 +394,7 @@ Given that :math:`TI` is equivalent to :math:`w` in BIDS datasets
 (i.e., as the ``PostLabelingDelay`` field),
 the formula for QUIPSS is the same as PCASL,
 except :math:`\Delta{TI}` replaces
-:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+:math:`T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } })`.
 
 
 QUIPSS II Modification
@@ -406,7 +406,7 @@ the formula from :footcite:t:`alsop_recommended_2015` is used.
 .. math::
    :label: quipssii
 
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T_{1,blood} } }
    {2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
 where :math:`TI_{1}` is the bolus cutoff delay time.
@@ -425,7 +425,7 @@ as described in :footcite:t:`noguchi2015technical`.
 .. math::
    :label: q2tips
 
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ { \frac{TI_{2} }{ T1_{blood} } } }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ { \frac{TI_{2} }{ T_{1,blood} } } }
    { 2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
 where :math:`TI_{1}` is the first bolus cutoff delay time and
