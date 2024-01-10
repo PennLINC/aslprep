@@ -201,18 +201,33 @@ sections:
       separated by tissue type.
       The unit is mL/100 g/min.
     subtitle: Mean CBF by Tissue Type
+  - bids: {datatype: figures, desc: att, suffix: cbf}
+    caption: |
+      The maps plot arterial transit time (ATT) for the basic output.
+      The unit is seconds.
+    subtitle: CBF
   - bids: {datatype: figures, desc: attByTissueType, suffix: att}
     caption: |
       The maps plot the distribution of arterial transit time values for the basic output,
       separated by tissue type.
       The unit is seconds.
     subtitle: ATT by Tissue Type
+  - bids: {datatype: figures, desc: abat, suffix: cbf}
+    caption: |
+      The maps plot arterial bolud arrival time (aBAT) for the basic output.
+      The unit is seconds.
+    subtitle: CBF
   - bids: {datatype: figures, desc: abatByTissueType, suffix: abat}
     caption: |
       The maps plot the distribution of arterial bolus arrival time (aBAT) values for the basic output,
       separated by tissue type.
       The unit is seconds.
     subtitle: aBAT by Tissue Type
+  - bids: {datatype: figures, desc: abv, suffix: cbf}
+    caption: |
+      The maps plot arterial blood volume (aBV) for the basic output.
+      The unit is fraction.
+    subtitle: CBF
   - bids: {datatype: figures, desc: abvByTissueType, suffix: abv}
     caption: |
       The maps plot the distribution of arterial blood volume (aBV) values for the basic output,

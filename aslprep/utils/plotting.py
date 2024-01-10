@@ -26,11 +26,12 @@ class CBFPlot(object):
 
     __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmax"]
 
-    def __init__(self, cbf, ref_vol, label, outfile, vmax):
+    def __init__(self, cbf, ref_vol, label, outfile, vmin, vmax):
         self.cbf = cbf
         self.ref_vol = ref_vol
         self.label = label
         self.outfile = outfile
+        self.vmin = vmin
         self.vmax = vmax
 
     def plot(self):
@@ -40,12 +41,13 @@ class CBFPlot(object):
         """
         cbf_img = nb.load(self.cbf)
         cbf_data = cbf_img.get_fdata()
-        cbf_data[cbf_data < -20] = -20
-        cbf_data[cbf_data > 100] = 100
+        cbf_data[cbf_data < self.vmin] = self.vmin
+        cbf_data[cbf_data > self.vmax] = self.vmax
         cbf_img = nb.Nifti1Image(cbf_data, affine=cbf_img.affine, header=cbf_img.header)
         statfile = plot_stat_map(
             cbf=cbf_img,
             ref_vol=self.ref_vol,
+            vmin=self.vmin,
             vmax=self.vmax,
             label=self.label,
         )

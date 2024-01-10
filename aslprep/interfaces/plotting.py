@@ -130,7 +130,8 @@ class ASLCarpetPlot(SimpleInterface):
 class _CBFSummaryPlotInputSpec(BaseInterfaceInputSpec):
     cbf = File(exists=True, mandatory=True, desc="")
     label = traits.Str(exists=True, mandatory=True, desc="label")
-    vmax = traits.Int(exists=True, default_value=90, mandatory=True, desc="max value of asl")
+    vmin = traits.Int(exists=True, mandatory=True, desc="Minimum value for figure")
+    vmax = traits.Int(exists=True, mandatory=True, desc="Maximum value for figure")
     ref_vol = File(exists=True, mandatory=True, desc="")
 
 
@@ -158,6 +159,7 @@ class CBFSummaryPlot(SimpleInterface):
             cbf=self.inputs.cbf,
             label=self.inputs.label,
             ref_vol=self.inputs.ref_vol,
+            vmin=self.inputs.vmin,
             vmax=self.inputs.vmax,
             outfile=self._results["out_file"],
         ).plot()
@@ -236,7 +238,7 @@ class CBFByTissueTypePlot(SimpleInterface):
                 showfliers=True,
                 palette={"GM": "#1b60a5", "WM": "#2da467", "CSF": "#9d8f25"},
                 hue="Tissue Type",
-                legend=False,
+                legend=True,
                 ax=ax,
             )
             fig.tight_layout()
