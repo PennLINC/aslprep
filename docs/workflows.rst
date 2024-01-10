@@ -289,7 +289,8 @@ ASL data consist of multiple pairs of labeled and control images.
 In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
-After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted:
+After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted
+to calculate :math:`\Delta{M}`:
 
 .. math::
     \Delta{M} = M_{C} - M_{L}
@@ -339,7 +340,7 @@ model :footcite:p:`alsop_recommended_2015`.
 
    :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
 
-   :term:`:math:`\Delta{TI}`` : Post-labeling delay minus bolus cutoff delay time, in seconds.
+   :math:`\Delta{TI}` : Post-labeling delay minus bolus cutoff delay time, in seconds.
    Per :footcite:t:`alsop_recommended_2015`, this is QUIPSS II's equivalent to (P)CASL's :math:`w`.
 
    :math:`TI_{1}` : Bolus cutoff delay time, in seconds.
