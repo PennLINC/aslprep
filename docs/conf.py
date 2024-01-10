@@ -47,6 +47,7 @@ needs_sphinx = "4.2.0"
 # Add any Sphinx extension module names here, as strings.
 # They can be extensions coming with Sphinx (named "sphinx.ext.*") or your custom ones.
 extensions = [
+    "hoverxref.extension",
     "nbsphinx",
     "nipype.sphinxext.apidoc",
     "nipype.sphinxext.plot_workflow",
@@ -329,6 +330,12 @@ bibtex_bibfiles = ["../aslprep/data/boilerplate.bib"]
 bibtex_style = "unsrt"
 bibtex_reference_style = "author_year"
 bibtex_footbibliography_header = ""
+
+# --
+# hoverxref
+# --
+hoverxref_auto_ref = True
+hoverxref_mathjax = True
 
 
 def setup(app):
