@@ -47,7 +47,6 @@ class CBFPlot(object):
         statfile = plot_stat_map(
             cbf=cbf_img,
             ref_vol=self.ref_vol,
-            vmin=self.vmin,
             vmax=self.vmax,
             label=self.label,
         )
@@ -59,7 +58,6 @@ def plot_stat_map(
     ref_vol,
     plot_params=None,
     order=("z", "x", "y"),
-    vmin=0,
     vmax=100,
     estimate_brightness=False,
     label=None,
@@ -90,7 +88,6 @@ def plot_stat_map(
             resampling_interpolation="nearest",
             display_mode=mode,
             cut_coords=cuts[mode],
-            vmin=vmin,
             vmax=vmax,
             threshold=0.02,
             draw_cross=False,
