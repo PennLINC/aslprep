@@ -109,7 +109,7 @@ def init_cbf_wf(
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """
-### Cerebral blood flow computation and denoising
+Cerebral blood flow computation and denoising
 
 """
 
@@ -147,12 +147,12 @@ def init_cbf_wf(
 
     if processing_target == "cbf":
         workflow.__desc__ += """\
-*ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
+: *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
 """
 
     elif is_multi_pld:
         workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
+: *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
 {metadata['ArterialSpinLabelingType']} data using a two-compartment general kinetic model (GKM)
 [@buxton1998general], as recommended and extended in @woods2023recommendations.
 This model contains separate terms for tissue and macrovascular delta-M signals.
@@ -168,7 +168,7 @@ and arterial blood volume (aBV) were estimated using a nonlinear model fit with 
     elif is_casl:
         # Single-delay (P)CASL data
         workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
 {metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
 [@buxton1998general].
 {m0_str}
@@ -184,7 +184,7 @@ and arterial blood volume (aBV) were estimated using a nonlinear model fit with 
         }
 
         workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 {m0_str}
