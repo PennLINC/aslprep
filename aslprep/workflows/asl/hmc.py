@@ -90,7 +90,7 @@ Motion correction was performed separately for each of the volume types
 in order to account for intensity differences between different contrasts,
 which, when motion corrected together, can conflate intensity differences with
 head motions [@wang2008empirical].
-Next, ASLPrep concatenated the motion parameters across volume types and
+Next, *ASLPrep* concatenated the motion parameters across volume types and
 re-calculated relative root mean-squared deviation.
 
 """
