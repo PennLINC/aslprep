@@ -336,6 +336,12 @@ bibtex_footbibliography_header = ""
 # --
 hoverxref_auto_ref = True
 hoverxref_mathjax = True
+hoverxref_roles = [
+    "numref",
+    "confval",
+    "setting",
+    "term",
+]
 
 
 def setup(app):
