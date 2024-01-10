@@ -24,7 +24,7 @@ class CBFPlot(object):
     This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
     """
 
-    __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmax"]
+    __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmin", "vmax"]
 
     def __init__(self, cbf, ref_vol, label, outfile, vmin, vmax):
         self.cbf = cbf
