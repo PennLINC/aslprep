@@ -884,7 +884,7 @@ def fit_deltam_multipld(
                     (0, 0, 0, 0),
                     # Manuel Taso recommended 5, 5, 0.2 for ATT, aBAT, and aBV,
                     # but our test data maxed out around 12 when left unbounded.
-                    (300, 15, 15, 1),
+                    (300, 5, 5, 0.1),
                 ),
             )[0]
             cbf[i_voxel] = popt[0]
