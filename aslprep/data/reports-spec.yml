@@ -11,30 +11,31 @@ sections:
       desc: conform
       extension: [.html]
       suffix: T1w
-  - bids: {datatype: figures, suffix: dseg}
+  - subtitle: Brain mask and brain tissue segmentation of the T1w
+    bids: {datatype: figures, suffix: dseg}
     caption: |
       This panel shows the template T1-weighted image (if several T1w images
       were found), with contours delineating the detected brain mask and brain tissue
       segmentations.
-    subtitle: Brain mask and brain tissue segmentation of the T1w
-  - bids: {datatype: figures, space: .*, suffix: T1w, regex_search: True}
+  - subtitle: Spatial normalization of the anatomical T1w reference
+    bids: {datatype: figures, space: .*, suffix: T1w, regex_search: True}
     caption: Spatial normalization of the T1w image to the <code>{space}</code> template.
     description: |
       Results of nonlinear alignment of the T1w reference one or more template
       space(s). Hover on the panels with the mouse pointer to transition between both
       spaces.
     static: false
-    subtitle: Spatial normalization of the anatomical T1w reference
-  - bids: {datatype: figures, desc: reconall, suffix: T1w}
+  - subtitle: Surface reconstruction
+    bids: {datatype: figures, desc: reconall, suffix: T1w}
     caption: |
       Surfaces (white and pial) reconstructed with FreeSurfer (<code>recon-all</code>)
       overlaid on the participant's T1w template.
-    subtitle: Surface reconstruction
 
 - name: <em>B<sub>0</sub></em> field mapping
   ordering: session,acquisition,run,fmapid
   reportlets:
-  - bids: {datatype: figures, desc: mapped, suffix: fieldmap}
+  - subtitle: "Preprocessed <em>B<sub>0</sub></em> mapping acquisition"
+    bids: {datatype: figures, desc: mapped, suffix: fieldmap}
     caption: |
       Inhomogeneities of the <em>B<sub>0</sub></em> field introduce (oftentimes severe) spatial distortions
       along the phase-encoding direction of the image. Some scanners produce a <em>B<sub>0</sub></em>
@@ -45,8 +46,8 @@ sections:
       Hover over the panels with the mouse pointer to also visualize the intensity of the
       field inhomogeneity in Hertz.
     static: false
-    subtitle: "Preprocessed <em>B<sub>0</sub></em> mapping acquisition"
-  - bids: {datatype: figures, desc: phasediff, suffix: fieldmap}
+  - subtitle: "Preprocessed mapping of phase-difference acquisition"
+    bids: {datatype: figures, desc: phasediff, suffix: fieldmap}
     caption: |
       Inhomogeneities of the <em>B<sub>0</sub></em> field introduce (oftentimes severe) spatial distortions
       along the phase-encoding direction of the image. A Gradient-Recalled Echo (GRE) scheme was included for the
@@ -57,8 +58,8 @@ sections:
       Hover over the panels with the mouse pointer to also visualize the intensity of the
       field inhomogeneity in Hertz.
     static: false
-    subtitle: "Preprocessed mapping of phase-difference acquisition"
-  - bids: {datatype: figures, desc: pepolar, suffix: fieldmap}
+  - subtitle: "Preprocessed estimation with varying Phase-Encoding (PE) blips"
+    bids: {datatype: figures, desc: pepolar, suffix: fieldmap}
     caption: |
       Inhomogeneities of the <em>B<sub>0</sub></em> field introduce (oftentimes severe) spatial distortions
       along the phase-encoding direction of the image. Utilizing two or more images with different
@@ -69,8 +70,8 @@ sections:
       Hover on the panels with the mouse pointer to also visualize the intensity of the
       inhomogeneity of the field in Hertz.
     static: false
-    subtitle: "Preprocessed estimation with varying Phase-Encoding (PE) blips"
-  - bids: {datatype: figures, desc: anat, suffix: fieldmap}
+  - subtitle: "Preprocessed estimation by nonlinear registration to an anatomical scan (&ldquo;<em>fieldmap-less</em>&rdquo;)"
+    bids: {datatype: figures, desc: anat, suffix: fieldmap}
     caption: |
       Inhomogeneities of the <em>B<sub>0</sub></em> field introduce (oftentimes severe) spatial distortions
       along the phase-encoding direction of the image. Utilizing an <em>anatomically-correct</em> acquisition
@@ -81,14 +82,14 @@ sections:
       Hover on the panels with the mouse pointer to also visualize the intensity of the
       inhomogeneity of the field in Hertz.
     static: false
-    subtitle: "Preprocessed estimation by nonlinear registration to an anatomical scan (&ldquo;<em>fieldmap-less</em>&rdquo;)"
 
 - name: Arterial Spin Labeling
   ordering: session,task,acquisition,ceagent,reconstruction,direction,run,echo
   reportlets:
   - bids: {datatype: figures, desc: summary, suffix: asl}
   - bids: {datatype: figures, desc: validation, suffix: asl}
-  - bids: {datatype: figures, desc: fmapCoreg, suffix: asl}
+  - subtitle: Alignment between the anatomical reference of the fieldmap and the target EPI (debug mode)
+    bids: {datatype: figures, desc: fmapCoreg, suffix: asl}
     caption: |
       The estimated fieldmap was aligned to the corresponding EPI reference
       with a rigid-registration process of the anatomical reference of the fieldmap,
@@ -96,8 +97,8 @@ sections:
       Overlaid on top of the co-registration results, the final BOLD mask is represented
       with a red contour for reference.
     static: false
-    subtitle: Alignment between the anatomical reference of the fieldmap and the target EPI (debug mode)
-  - bids: {datatype: figures, desc: fieldmap, suffix: asl}
+  - subtitle: "Reconstructed <em>B<sub>0</sub></em> map in the corresponding run's space (debug mode)"
+    bids: {datatype: figures, desc: fieldmap, suffix: asl}
     caption: |
       Estimated fieldmap, as reconstructed on the target BOLD run space to allow
       the assessment of its alignment with the distorted data.
@@ -109,20 +110,20 @@ sections:
       Therefore, the fieldmap should be positioned relative to the anatomical reference exactly
       as it is positioned in the reportlet above.
     static: false
-    subtitle: "Reconstructed <em>B<sub>0</sub></em> map in the corresponding run's space (debug mode)"
-  - bids: {datatype: figures, desc: sdc, suffix: asl}
+  - subtitle: Susceptibility distortion correction
+    bids: {datatype: figures, desc: sdc, suffix: asl}
     caption: |
       Results of performing susceptibility distortion correction (SDC) on the EPI
     static: false
-    subtitle: Susceptibility distortion correction
-  - bids: {datatype: figures, desc: forcedsyn, suffix: asl}
+  - subtitle: Experimental fieldmap-less susceptibility distortion correction
+    bids: {datatype: figures, desc: forcedsyn, suffix: asl}
     caption: |
       The dataset contained some fieldmap information, but the argument <code>--force-syn</code>
       was used. The higher-priority SDC method was used. Here, we show the results
       of performing SyN-based SDC on the EPI for comparison.
     static: false
-    subtitle: Experimental fieldmap-less susceptibility distortion correction
-  - bids: {datatype: figures, desc: flirtnobbr, suffix: asl}
+  - subtitle: Alignment of functional and anatomical MRI data (volume based)
+    bids: {datatype: figures, desc: flirtnobbr, suffix: asl}
     caption: |
       <code>mri_coreg</code> (FreeSurfer) was used to generate transformations
       from EPI space to T1 Space - BBR refinement using FSL <code>flirt</code> rejected.
@@ -130,8 +131,8 @@ sections:
       highlight potential spin-history and other artifacts, whereas final images are
       resampled using Lanczos interpolation.
     static: false
-    subtitle: Alignment of functional and anatomical MRI data (volume based)
-  - bids: {datatype: figures, desc: coreg, suffix: asl}
+  - subtitle: Alignment of functional and anatomical MRI data (volume based)
+    bids: {datatype: figures, desc: coreg, suffix: asl}
     caption: |
       <code>mri_coreg</code> (FreeSurfer) was used to generate transformations
       from EPI space to T1 Space - <code>bbregister</code> refinement rejected. Note
@@ -139,8 +140,8 @@ sections:
       potential spin-history and other artifacts, whereas final images are resampled
       using Lanczos interpolation.
     static: false
-    subtitle: Alignment of functional and anatomical MRI data (volume based)
-  - bids: {datatype: figures, desc: flirtbbr, suffix: asl}
+  - subtitle: Alignment of functional and anatomical MRI data (surface driven)
+    bids: {datatype: figures, desc: flirtbbr, suffix: asl}
     caption: |
       FSL <code>flirt</code> was used to generate transformations from EPI-space
       to T1w-space - The white matter mask calculated with FSL <code>fast</code> (brain
@@ -148,16 +149,16 @@ sections:
       is used in the reportlets in order to highlight potential spin-history and other
       artifacts, whereas final images are resampled using Lanczos interpolation.
     static: false
-    subtitle: Alignment of functional and anatomical MRI data (surface driven)
-  - bids: {datatype: figures, desc: bbregister, suffix: asl}
+  - subtitle: Alignment of functional and anatomical MRI data (surface driven)
+    bids: {datatype: figures, desc: bbregister, suffix: asl}
     caption: |
       <code>bbregister</code> was used to generate transformations from EPI-space
       to T1w-space. Note that Nearest Neighbor interpolation is used in the reportlets
       in order to highlight potential spin-history and other artifacts, whereas final
       images are resampled using Lanczos interpolation.
     static: false
-    subtitle: Alignment of functional and anatomical MRI data (surface driven)
-  - bids: {datatype: figures, desc: rois, suffix: asl}
+  - subtitle: Brain mask and (anatomical/temporal) CompCor ROIs
+    bids: {datatype: figures, desc: rois, suffix: asl}
     caption: |
       Brain mask calculated on the BOLD signal (red contour), along with the
       regions of interest (ROIs) used for the estimation of physiological and movement
@@ -169,115 +170,120 @@ sections:
       variable voxels within the brain mask.<br />
       The <em>brain edge</em> (or <em>crown</em>) ROI (green contour) picks signals
       outside but close to the brain, which are decomposed into 24 principal components.
-    subtitle: Brain mask and (anatomical/temporal) CompCor ROIs
-  - bids:
-      datatype: figures
-      desc: '[at]compcor'
-      extension: [.html]
-      suffix: asl
-  - bids: {datatype: figures, desc: carpetplot, suffix: asl}
+  - subtitle: ASL Summary
+    bids: {datatype: figures, desc: carpetplot, suffix: asl}
     caption: |
       Summary statistics are plotted, which may reveal trends or artifacts in the ASL data.
       DVARS and FD show the standardized DVARS and framewise-displacement measures for each time point.
       A carpet plot shows the time series for all voxels within the brain mask.
       Voxels are grouped into cortical (blue), and subcortical (orange) gray matter, cerebellum (green)
       and white matter and CSF (red), indicated by the color map on the left-hand side.
-    subtitle: ASL Summary
-  - bids: {datatype: figures, desc: carpetplot, suffix: cbf}
+  - subtitle: CBF Summary
+    bids: {datatype: figures, desc: carpetplot, suffix: cbf}
     caption: |
       This carpet plot shows the time series for all voxels within the brain mask for CBF.
       Voxels are grouped into cortical (blue), and subcortical (orange) gray matter,
       cerebellum (green), white matter and CSF (red), indicated by the color map on the left-hand side.
       The SCORE index with values greater than zero indicates which volume(s) are removed by SCORE.
-    subtitle: CBF Summary
-  - bids: {datatype: figures, desc: cbf, suffix: cbf}
+  - subtitle: Cerebral Blood Flow
+    bids: {datatype: figures, desc: cbf, suffix: cbf}
     caption: |
       The map plots cerebral blood flow (CBF) estimated by the basic model.
       The unit is mL/100 g/min.
-    subtitle: Cerebral Blood Flow
-  - bids: {datatype: figures, desc: cbfByTissueType, suffix: cbf}
+  - subtitle: Mean CBF by Tissue Type
+    bids: {datatype: figures, desc: cbfByTissueType, suffix: cbf}
     caption: |
       The map plots the distribution of cerebral blood flow (CBF) values for the basic output,
       separated by tissue type.
       The unit is mL/100 g/min.
-    subtitle: Mean CBF by Tissue Type
-  - bids: {datatype: figures, desc: att, suffix: cbf}
+  - subtitle: Arterial Transit Time
+    bids: {datatype: figures, desc: att, suffix: cbf}
     caption: |
       The map plots arterial transit time (ATT) estimated by the basic model.
       The unit is seconds.
-    subtitle: Arterial Transit Time
-  - bids: {datatype: figures, desc: attByTissueType, suffix: att}
+  - subtitle: ATT by Tissue Type
+    bids: {datatype: figures, desc: attByTissueType, suffix: att}
     caption: |
       The map plots the distribution of arterial transit time values for the basic output,
       separated by tissue type.
       The unit is seconds.
-    subtitle: ATT by Tissue Type
-  - bids: {datatype: figures, desc: abat, suffix: cbf}
+  - subtitle: Arterial Bolus Arrival Time
+    bids: {datatype: figures, desc: abat, suffix: cbf}
     caption: |
       The map plots arterial bolus arrival time (aBAT) estimated by the basic model.
       The unit is seconds.
-    subtitle: Arterial Bolus Arrival Time
-  - bids: {datatype: figures, desc: abatByTissueType, suffix: abat}
+  - subtitle: aBAT by Tissue Type
+    bids: {datatype: figures, desc: abatByTissueType, suffix: abat}
     caption: |
       The map plots the distribution of arterial bolus arrival time (aBAT) values for the basic output,
       separated by tissue type.
       The unit is seconds.
-    subtitle: aBAT by Tissue Type
-  - bids: {datatype: figures, desc: abv, suffix: cbf}
+  - subtitle: Arterial Blood Volume
+    bids: {datatype: figures, desc: abv, suffix: cbf}
     caption: |
       The map plots arterial blood volume (aBV) estimated by the basic model.
       The unit is fraction.
-    subtitle: Arterial Blood Volume
-  - bids: {datatype: figures, desc: abvByTissueType, suffix: abv}
+  - subtitle: aBV by Tissue Type
+    bids: {datatype: figures, desc: abvByTissueType, suffix: abv}
     caption: |
       The map plots the distribution of arterial blood volume (aBV) values for the basic output,
       separated by tissue type.
       The unit is fraction.
-    subtitle: aBV by Tissue Type
-  - bids: {datatype: figures, desc: score, suffix: cbf}
+  - subtitle: SCORE CBF
+    bids: {datatype: figures, desc: score, suffix: cbf}
     caption: |
       The map plots cerebral blood flow (CBF) for SCORE-corrected CBF.
       The unit is mL/100 g/min.
-    subtitle: SCORE CBF
-  - bids: {datatype: figures, desc: scoreByTissueType, suffix: cbf}
+  - subtitle: SCORE CBF by Tissue Type
+    bids: {datatype: figures, desc: scoreByTissueType, suffix: cbf}
     caption: |
       The map plots the distribution of cerebral blood flow (CBF) values for the SCORE output,
       separated by tissue type.
       The unit is mL/100 g/min.
-    subtitle: SCORE CBF by Tissue Type
-  - bids: {datatype: figures, desc: scrub, suffix: cbf}
+  - subtitle: SCRUB CBF
+    bids: {datatype: figures, desc: scrub, suffix: cbf}
     caption: |
       The map plots cerebral blood flow (CBF) for SCRUB-corrected CBF.
       The unit is mL/100 g/min.
-    subtitle: SCRUB CBF
-  - bids: {datatype: figures, desc: scrubByTissueType, suffix: cbf}
+  - subtitle: SCRUB CBF by Tissue Type
+    bids: {datatype: figures, desc: scrubByTissueType, suffix: cbf}
     caption: |
       The map plots the distribution of cerebral blood flow (CBF) values for the SCRUB output,
       separated by tissue type.
       The unit is mL/100 g/min.
-    subtitle: SCRUB CBF by Tissue Type
-  - bids: {datatype: figures, desc: basil, suffix: cbf}
+  - subtitle: BASIL CBF
+    bids: {datatype: figures, desc: basil, suffix: cbf}
     caption: |
       The map plots cerebral blood flow (CBF) for BASIL-estimated CBF.
       The unit is mL/100 g/min.
-    subtitle: BASIL CBF
-  - bids: {datatype: figures, desc: basilByTissueType, suffix: cbf}
+  - subtitle: BASIL CBF by Tissue Type
+    bids: {datatype: figures, desc: basilByTissueType, suffix: cbf}
     caption: |
       The map plots the distribution of cerebral blood flow (CBF) values for the BASIL output,
       separated by tissue type.
       The unit is mL/100 g/min.
-    subtitle: BASIL CBF by Tissue Type
-  - bids: {datatype: figures, desc: basilGM, suffix: cbf}
+  - subtitle: BASIL GM-PVC CBF
+    bids: {datatype: figures, desc: basilGM, suffix: cbf}
     caption: |
       The map plots cerebral blood flow (CBF) for gray matter partial volume-corrected CBF.
       The unit is mL/100 g/min.
-    subtitle: BASIL GM-PVC CBF
-  - bids: {datatype: figures, desc: basilGMByTissueType, suffix: cbf}
+  - subtitle: BASIL GM-PVC CBF by Tissue Type
+    bids: {datatype: figures, desc: basilGMByTissueType, suffix: cbf}
     caption: |
       The map plots the distribution of cerebral blood flow (CBF) values for the
       BASIL gray matter partial volume-corrected output, separated by tissue type.
       The unit is mL/100 g/min.
-    subtitle: BASIL GM-PVC CBF by Tissue Type
+  - subtitle: BASIL WM-PVC CBF
+    bids: {datatype: figures, desc: basilWM, suffix: cbf}
+    caption: |
+      The map plots cerebral blood flow (CBF) for white matter partial volume-corrected CBF.
+      The unit is mL/100 g/min.
+  - subtitle: BASIL WM-PVC CBF by Tissue Type
+    bids: {datatype: figures, desc: basilWMByTissueType, suffix: cbf}
+    caption: |
+      The map plots the distribution of cerebral blood flow (CBF) values for the
+      BASIL white matter partial volume-corrected output, separated by tissue type.
+      The unit is mL/100 g/min.
 
 - name: About
   reportlets:
