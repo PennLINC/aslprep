@@ -601,7 +601,7 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
         Post-labeling delays.
         Used for both deltam_tiss and deltam_art calculation.
     taus : :obj:`numpy.ndarray`
-        Labeling durations.
+        Labeling durations. Also known as LD.
         Used for both deltam_tiss and deltam_art calculation.
     """
     # float parameters
@@ -618,31 +618,40 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
     for i_pld, pld in enumerate(plds):
         tau = taus[i_pld]
 
-        if (tau + pld) < att:
+        # Equation 2: the tissue component
+        if 0 < (tau + pld) < att:
             # 0 < LD + PLD < ATT
             deltam_tiss = 0
         elif att <= (tau + pld) < (att + tau):
             # ATT < LD + PLD < ATT + LD
             deltam_tiss = (
-                (2 * labeleff * t1blood * m0_a * cbf * (np.e ** (-att / t1blood)))
-                * (1 - (np.e ** (-(tau + pld - att) / t1blood)))
-                / 6000
-            )
+                2
+                * labeleff
+                * t1blood
+                * m0_a
+                * cbf
+                * np.exp(-att / t1blood)
+                * (1 - np.exp(-(tau + pld - att) / t1blood))
+            ) / 6000
         else:
             # 0 < ATT < PLD
             deltam_tiss = (
-                (2 * labeleff * t1blood * m0_a * cbf * (np.e ** (-pld / t1blood)))
-                * (1 - (np.e ** (-tau / t1blood)))
-                / 6000
-            )
+                2
+                * labeleff
+                * t1blood
+                * m0_a
+                * cbf
+                * np.exp(-pld / t1blood)
+                * (1 - np.exp(-tau / t1blood))
+            ) / 6000
 
-        # Intravascular component
-        if (tau + pld) < abat:
+        # Equation 4: the intravascular component
+        if 0 < (tau + pld) < abat:
             # 0 < LD + PLD < aBAT
             deltam_art = 0
-        elif abat < (tau + pld) < (abat + tau):
+        elif abat <= (tau + pld) < (abat + tau):
             # aBAT < LD + PLD < aBAT + LD
-            deltam_art = 2 * labeleff * m0_b * abv * (np.e ** (-abat / t1blood))
+            deltam_art = 2 * labeleff * m0_b * abv * np.exp(-abat / t1blood)
         else:
             # aBAT < PLD
             deltam_art = 0
@@ -703,6 +712,7 @@ def calculate_deltam_pasl(X, cbf, att, abat, abv):
         Equilibrium magnetization of tissue, calculated as M0a = SIpd / lambda,
         where SIpd is a proton density weighted image and lambda is the tissue/blood partition
         coefficient.
+        SIpd is also already scaled by any user-provided scaling factor.
         Used for deltam_tiss calculation.
     m0_b : :obj:`float`
         Equilibrium magnetization of arterial blood.
@@ -724,25 +734,24 @@ def calculate_deltam_pasl(X, cbf, att, abat, abv):
     deltam = np.zeros(tis.size)
 
     for i_ti, ti in enumerate(tis):
-        if ti < att:
+        # Equation 3: the tissue component
+        if 0 < ti < att:
             # 0 < TI < ATT
             deltam_tiss = 0
         elif att < ti < (att + ti1):
             # ATT < TI < ATT + TI1
-            deltam_tiss = (
-                (2 * labeleff * m0_a * cbf * (np.e ** (-ti / t1blood))) * (ti - att)
-            ) / 6000
+            deltam_tiss = (2 * labeleff * m0_a * cbf * np.exp(-ti / t1blood) * (ti - att)) / 6000
         else:
             # ATT + TI1 < TI
-            deltam_tiss = ((2 * labeleff * m0_a * cbf * (np.e ** (-ti / t1blood))) * ti1) / 6000
+            deltam_tiss = (2 * labeleff * m0_a * cbf * np.exp(-ti / t1blood) * ti1) / 6000
 
-        # Intravascular component
-        if ti < abat:
+        # Equation 5: the intravascular component
+        if 0 < ti < abat:
             # 0 < TI < aBAT
             deltam_art = 0
         elif abat < ti < (abat + ti1):
             # aBAT < TI < aBAT + TI1
-            deltam_art = 2 * labeleff * m0_b * abv * (np.e ** (-ti / t1blood))
+            deltam_art = 2 * labeleff * m0_b * abv * np.exp(-ti / t1blood)
         else:
             # aBAT + TI1 < TI
             deltam_art = 0
@@ -853,7 +862,7 @@ def fit_deltam_multipld(
         plds_voxel = plds[i_voxel, :]
         m0_a_voxel = m0_a[i_voxel]
 
-        # TODO: Figure out what alpha_bs and m0_b should be.
+        # TODO: Figure out what m0_b should be.
         # The independent variables used to estimate cbf, etc. are either floats or arrays,
         # but curve_fit needs them all to be the same size/shape.
         xdata = np.zeros((n_volumes, 6))

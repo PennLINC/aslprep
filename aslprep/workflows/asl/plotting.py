@@ -227,10 +227,12 @@ def init_cbf_reporting_wf(
     workflow.connect([(cbf_by_tt_plot, ds_report_cbf_by_tt, [("out_file", "in_file")])])
 
     if is_multi_pld:
+        # Limits for the different figures.
+        # Make sure these match the hardcoded limits in the model-fitting function.
         lims = {
-            "att": (0, 15),
-            "abat": (0, 15),
-            "abv": (0, 1),
+            "att": (0, 5),
+            "abat": (0, 5),
+            "abv": (0, 0.1),
         }
         for img_type in ["att", "abat", "abv"]:
             img_summary = pe.Node(
