@@ -314,7 +314,7 @@ model :footcite:p:`alsop_recommended_2015`.
 
    :math:`\tau` : Labeling duration, in seconds.
 
-   :term:`|lambda|`
+   |:term:`lambda`|
 
    :math:`\alpha` : Labeling efficiency.
    This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
