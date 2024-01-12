@@ -502,9 +502,11 @@ class ComputeCBF(SimpleInterface):
             self._results["plds"] = pld_file
 
         elif is_multi_pld:
+            # 3D acquisition multi-PLD
             # Broadcast PLDs to voxels by PLDs, even though there's no slice timing to account for.
             plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
 
+        # Now estimate CBF and any other metrics
         if is_multi_pld:
             ti1 = None
             tau = None

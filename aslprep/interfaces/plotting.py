@@ -128,11 +128,11 @@ class ASLCarpetPlot(SimpleInterface):
 
 
 class _CBFSummaryPlotInputSpec(BaseInterfaceInputSpec):
-    cbf = File(exists=True, mandatory=True, desc="")
-    label = traits.Str(exists=True, mandatory=True, desc="label")
-    vmin = traits.Int(exists=True, mandatory=True, desc="Minimum value for figure")
-    vmax = traits.Int(exists=True, mandatory=True, desc="Maximum value for figure")
-    ref_vol = File(exists=True, mandatory=True, desc="")
+    cbf = File(exists=True, mandatory=True, desc="Image to plot")
+    label = traits.Str(mandatory=True, desc="label")
+    vmin = traits.Float(mandatory=True, desc="Minimum value for figure")
+    vmax = traits.Float(mandatory=True, desc="Maximum value for figure")
+    ref_vol = File(exists=True, mandatory=True, desc="Reference volume to plot")
 
 
 class _CBFSummaryPlotOutputSpec(TraitedSpec):
