@@ -109,7 +109,7 @@ def init_cbf_wf(
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """
-### Cerebral blood flow computation and denoising
+Cerebral blood flow computation and denoising
 
 """
 
@@ -147,70 +147,48 @@ def init_cbf_wf(
 
     if processing_target == "cbf":
         workflow.__desc__ += """\
-*ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
+: *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
+"""
+
+    elif is_multi_pld:
+        workflow.__desc__ += f"""\
+: *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
+{metadata['ArterialSpinLabelingType']} data using a two-compartment general kinetic model (GKM)
+[@buxton1998general], as recommended and extended in @woods2023recommendations.
+This model contains separate terms for tissue and macrovascular delta-M signals.
+
+{m0_str}
+The voxel-wise M0 values were used as both M0a and M0b in the GKM.
+
+CBF, arterial transit time (ATT), arterial bolus arrival time (aBAT),
+and arterial blood volume (aBV) were estimated using a nonlinear model fit with SciPy's
+``curve_fit``.
 """
 
     elif is_casl:
-        if is_multi_pld:
-            workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
-{metadata['ArterialSpinLabelingType']} data using the following method.
-
-First, delta-M values were averaged over time for each post-labeling delay (PLD).
-{m0_str}
-
-Next, arterial transit time (ATT) was estimated on a voxel-wise basis according to
-@dai2012reduced.
-
-CBF was then calculated for each delay using the mean delta-M values and the estimated ATT,
-according to the formula from @fan2017long.
-
-CBF was then averaged over delays according to @juttukonda2021characterizing,
-in which an unweighted average is calculated for each voxel across all delays in which
-PLD + labeling duration > ATT.
-"""
-        else:
-            # Single-delay (P)CASL data
-            workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
+        # Single-delay (P)CASL data
+        workflow.__desc__ += f"""\
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
 {metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
 [@buxton1998general].
 {m0_str}
 """
 
     else:
-        bcut = metadata.get("BolusCutOffTechnique")
-
-        if is_multi_pld:
-            raise ValueError(
-                "Multi-delay data are not supported for PASL sequences at the moment."
-            )
-
         # Single-delay PASL data, with different bolus cut-off techniques
-        if bcut == "QUIPSS":
-            workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+        bcut = metadata.get("BolusCutOffTechnique")
+        singlepld_pasl_strs = {
+            "QUIPSS": "@wong1998quantitative",
+            "QUIPSSII": "@alsop_recommended_2015",
+            "Q2TIPS": "@noguchi2015technical",
+        }
+
+        workflow.__desc__ += f"""\
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
-using the QUIPSS modification, as described in @wong1998quantitative.
+using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 {m0_str}
 """
-        elif bcut == "QUIPSSII":
-            workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
-using a single-compartment general kinetic model [@buxton1998general]
-using the QUIPSS II modification, as described in @alsop_recommended_2015.
-{m0_str}
-"""
-        elif bcut == "Q2TIPS":
-            workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
-using a single-compartment general kinetic model [@buxton1998general]
-using the Q2TIPS modification, as described in @noguchi2015technical.
-{m0_str}
-"""
-        else:
-            # No bolus cutoff delay technique
-            raise ValueError("PASL without a bolus cut-off technique is not supported in ASLPrep.")
 
     if "SliceTiming" in metadata:
         workflow.__desc__ += (
@@ -240,6 +218,8 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
                 "mean_cbf",
                 "cbf_ts",  # Only calculated for single-delay data
                 "att",  # Only calculated for multi-delay data
+                "abat",  # Only calculated for multi-delay data
+                "abv",  # Only calculated for multi-delay data
                 "plds",
                 # SCORE/SCRUB outputs
                 "cbf_ts_score",
@@ -425,6 +405,8 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
             ("mean_cbf", "mean_cbf"),
             ("att", "att"),
             ("plds", "plds"),
+            ("abat", "abat"),
+            ("abv", "abv"),
         ]),
     ])  # fmt:skip
 

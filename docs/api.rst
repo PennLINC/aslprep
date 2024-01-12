@@ -32,7 +32,6 @@ Internal configuration system
    aslprep.workflows.asl.outputs
    aslprep.workflows.asl.plotting
    aslprep.workflows.asl.reference
-   aslprep.workflows.asl.util
 
 
 *************************************

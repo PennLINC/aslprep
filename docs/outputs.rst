@@ -44,7 +44,7 @@ The outputs will be a `BIDS Derivatives`_ dataset of the form::
 For each participant in the dataset,
 a directory of derivatives (``sub-<label>/``)
 and a visual report (``sub-<label>.html``) are generated.
-The log directory contains `citation boilerplate`_ text.
+The log directory contains citation boilerplate text.
 ``dataset_description.json`` is a metadata file in which ASLPrep
 records metadata recommended by the BIDS standard.
 
@@ -171,7 +171,7 @@ and CIFTI-2::
 .. _fsderivs:
 
 FreeSurfer derivatives
-~~~~~~~~~~~~~~~~~~~~~~
+----------------------
 
 If FreeSurfer is run, then a FreeSurfer subjects directory is created in
 ``<output dir>/sourcedata/freesurfer`` or the directory indicated with the
@@ -323,6 +323,8 @@ CBF Outputs::
          <source_entities>[_space-<label>]_cbf.nii.gz  # mean CBF
          <source_entities>[_space-<label>]_desc-timeseries_cbf.nii.gz  # computed CBF timeseries
          <source_entities>[_space-<label>]_att.nii.gz  # arterial transit time (multi-PLD data only)
+         <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-PLD data only)
+         <source_entities>[_space-<label>]_abv.nii.gz  # arterial blood volume (multi-PLD data only)
 
 If ``--scorescrub`` is used::
 
@@ -339,7 +341,7 @@ If ``--basil`` is used::
          <source_entities>[_space-<label>]_desc-basil_cbf.nii.gz  # mean CBF computed with BASIL
          <source_entities>[_space-<label>]_desc-basilGM_cbf.nii.gz  # GM partial volume corrected CBF with BASIL
          <source_entities>[_space-<label>]_desc-basilWM_cbf.nii.gz  # WM partial volume corrected CBF with BASIL
-         <source_entities>[_space-<label>]_att.nii.gz  # bolus arrival time/arterial transit time (in seconds)
+         <source_entities>[_space-<label>]_desc-basil_att.nii.gz  # bolus arrival time/arterial transit time (in seconds)
 
 
 *************
@@ -348,7 +350,7 @@ ASL Confounds
 
 For each :abbr:`ASL (arterial spin labelling)` run processed with *ASLPrep*, an
 accompanying *confounds* file will be generated.
-`CBF Confounds`_ are saved as a :abbr:`TSV (tab-separated value)` file::
+CBF Confounds are saved as a :abbr:`TSV (tab-separated value)` file::
 
    sub-<label>/[ses-<label>/]
       perf/

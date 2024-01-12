@@ -9,6 +9,8 @@
 .. _`Docker installation`: https://docs.docker.com/install/
 .. _FreeSurfer: https://surfer.nmr.mgh.harvard.edu/
 .. _FSL: https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/
+.. _`HCP Pipelines`: https://humanconnectome.org/software/hcp-mr-pipelines/
 .. _Nipype: http://nipype.readthedocs.io/en/latest/
+.. _QSIPrep: https://qsiprep.readthedocs.io
 .. _Singularity: https://github.com/singularityware/singularity
 .. _SPM: https://www.fil.ion.ucl.ac.uk/spm/software/spm12/

@@ -24,13 +24,14 @@ class CBFPlot(object):
     This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
     """
 
-    __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmax"]
+    __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmin", "vmax"]
 
-    def __init__(self, cbf, ref_vol, label, outfile, vmax):
+    def __init__(self, cbf, ref_vol, label, outfile, vmin, vmax):
         self.cbf = cbf
         self.ref_vol = ref_vol
         self.label = label
         self.outfile = outfile
+        self.vmin = vmin
         self.vmax = vmax
 
     def plot(self):
@@ -40,8 +41,8 @@ class CBFPlot(object):
         """
         cbf_img = nb.load(self.cbf)
         cbf_data = cbf_img.get_fdata()
-        cbf_data[cbf_data < -20] = -20
-        cbf_data[cbf_data > 100] = 100
+        cbf_data[cbf_data < self.vmin] = self.vmin
+        cbf_data[cbf_data > self.vmax] = self.vmax
         cbf_img = nb.Nifti1Image(cbf_data, affine=cbf_img.affine, header=cbf_img.header)
         statfile = plot_stat_map(
             cbf=cbf_img,
@@ -88,7 +89,7 @@ def plot_stat_map(
             display_mode=mode,
             cut_coords=cuts[mode],
             vmax=vmax,
-            threshold=0.02,
+            threshold=0.00001,
             draw_cross=False,
             colorbar=True,
             symmetric_cbar=False,
