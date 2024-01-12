@@ -12,3 +12,5 @@
 .. _Nipype: http://nipype.readthedocs.io/en/latest/
 .. _Singularity: https://github.com/singularityware/singularity
 .. _SPM: https://www.fil.ion.ucl.ac.uk/spm/software/spm12/
+
+.. |Delta-M| replace:: :math:`\Delta{M}`

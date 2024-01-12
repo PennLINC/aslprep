@@ -341,6 +341,7 @@ hoverxref_roles = [
     "confval",
     "setting",
     "term",
+    "footcite",
 ]
 
 
