@@ -14,3 +14,4 @@
 .. _SPM: https://www.fil.ion.ucl.ac.uk/spm/software/spm12/
 
 .. |Delta-M| replace:: :math:`\Delta{M}`
+.. |lambda| replace:: :math:`\lambda`

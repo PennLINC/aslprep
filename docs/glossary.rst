@@ -14,3 +14,13 @@
 
       .. math::
          \Delta{M} = M_{C} - M_{L}
+
+   |lambda|
+      Brain-blood partition coefficient.
+      Set to 0.9 g/mL :footcite:p:`alsop_recommended_2015`.
+
+
+References
+==========
+
+.. footbibliography::

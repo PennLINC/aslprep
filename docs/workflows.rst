@@ -314,8 +314,7 @@ model :footcite:p:`alsop_recommended_2015`.
 
    :math:`\tau` : Labeling duration, in seconds.
 
-   :math:`\lambda` : Brain-blood partition coefficient.
-   Set to 0.9 g/mL :footcite:p:`alsop_recommended_2015`.
+   :term:`|lambda|`
 
    :math:`\alpha` : Labeling efficiency.
    This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
