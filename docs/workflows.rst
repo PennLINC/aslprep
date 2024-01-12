@@ -289,7 +289,7 @@ In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
 After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted
-to produce a :term:`Delta-M` time series:
+to produce a :term:`|Delta-M|` time series:
 
 .. math::
     \Delta{M} = M_{C} - M_{L}
