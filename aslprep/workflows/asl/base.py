@@ -563,6 +563,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
         mem_gb=mem_gb,
+        jacobian="fmap-jacobian" not in config.workflow.ignore,
         name="asl_anat_wf",
     )
     asl_anat_wf.inputs.inputnode.resolution = "native"
@@ -626,6 +627,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             fieldmap_id=fieldmap_id,
             omp_nthreads=omp_nthreads,
             mem_gb=mem_gb,
+            jacobian="fmap-jacobian" not in config.workflow.ignore,
             name="asl_std_wf",
         )
         ds_asl_std_wf = init_ds_volumes_wf(

@@ -133,6 +133,7 @@ def init_asl_cifti_resample_wf(
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
         mem_gb=mem_gb,
+        jacobian="fmap-jacobian" not in config.workflow.ignore,
         name="asl_MNI6_wf",
     )
 

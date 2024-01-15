@@ -242,7 +242,7 @@ def _build_parser():
         action="store",
         nargs="+",
         default=[],
-        choices=["fieldmaps", "sbref", "t2w", "flair"],
+        choices=["fieldmaps", "sbref", "t2w", "flair", "fmap-jacobian"],
         help=(
             "ignore selected aspects of the input dataset to disable corresponding "
             "parts of the workflow (a space delimited list)"
