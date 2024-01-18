@@ -2,7 +2,7 @@
     "queries": {
       "baseline": {
         "hmc": {
-          "datatype": "func",
+          "datatype": "perf",
           "space": null,
           "desc": "hmc",
           "suffix": "aslref",
@@ -12,10 +12,110 @@
           ]
         },
         "coreg": {
-          "datatype": "func",
+          "datatype": "perf",
           "space": null,
           "desc": "coreg",
           "suffix": "aslref",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "mean_cbf": {
+          "datatype": "perf",
+          "space": null,
+          "desc": null,
+          "suffix": "cbf",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "cbf_ts": {
+          "datatype": "perf",
+          "space": null,
+          "desc": "timeseries",
+          "suffix": "cbf",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "att": {
+          "datatype": "perf",
+          "space": null,
+          "desc": null,
+          "suffix": "att",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "cbf_ts_score": {
+          "datatype": "perf",
+          "space": null,
+          "desc": "scoreTimeseries",
+          "suffix": "cbf",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "mean_cbf_score": {
+          "datatype": "perf",
+          "space": null,
+          "desc": "score",
+          "suffix": "cbf",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "mean_cbf_scrub": {
+          "datatype": "perf",
+          "space": null,
+          "desc": "scrub",
+          "suffix": "cbf",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "mean_cbf_basil": {
+          "datatype": "perf",
+          "space": null,
+          "desc": "basil",
+          "suffix": "cbf",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "mean_cbf_gm_basil": {
+          "datatype": "perf",
+          "space": null,
+          "desc": "basilGM",
+          "suffix": "cbf",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "mean_cbf_wm_basil": {
+          "datatype": "perf",
+          "space": null,
+          "desc": "basilWM",
+          "suffix": "cbf",
+          "extension": [
+            ".nii.gz",
+            ".nii"
+          ]
+        },
+        "att_basil": {
+          "datatype": "perf",
+          "space": null,
+          "desc": "basil",
+          "suffix": "att",
           "extension": [
             ".nii.gz",
             ".nii"

@@ -32,11 +32,39 @@ from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 from aslprep.utils.bids import find_atlas_entities
 
 
+def determine_expected_cbf(is_multi_pld, scorescrub, basil):
+    """Predict which CBF/ATT derivatives should be generated."""
+    expected_cbf = ["mean_cbf"]
+    if is_multi_pld:
+        expected_cbf.append("att")
+    else:
+        expected_cbf.append("cbf_ts")
+
+    if scorescrub:
+        expected_cbf += [
+            "cbf_ts_score",
+            "mean_cbf_score",
+            "mean_cbf_scrub",
+            "score_outlier_index",
+        ]
+
+    if basil:
+        expected_cbf += [
+            "mean_cbf_basil",
+            "mean_cbf_gm_basil",
+            "mean_cbf_wm_basil",
+            "att_basil",
+        ]
+
+    return expected_cbf
+
+
 def init_cbf_wf(
     name_source,
     processing_target,
     metadata,
     dummy_scans,
+    precomputed={},
     scorescrub=False,
     basil=False,
     m0_scale=1,
@@ -66,6 +94,7 @@ def init_cbf_wf(
                     processing_target="control",
                     metadata=metadata,
                     dummy_scans=0,
+                    precomputed={},
                     scorescrub=True,
                     basil=True,
                 )
@@ -76,6 +105,7 @@ def init_cbf_wf(
         Path to the raw ASL file.
     metadata : :obj:`dict`
         BIDS metadata for asl file
+    precomputed
     scorescrub
     basil
     m0_scale
@@ -251,10 +281,36 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
                 "mean_cbf_gm_basil",
                 "mean_cbf_wm_basil",
                 "att_basil",
-            ]
+            ],
         ),
         name="outputnode",
     )
+
+    # Can contain
+    #  1) mean_cbf
+    #  2) cbf_ts
+    #  3) att
+    #  4) cbf_ts_score
+    #  5) mean_cbf_score
+    #  6) mean_cbf_scrub
+    #  7) score_outlier_index
+    #  8) mean_cbf_basil
+    #  9) mean_cbf_gm_basil
+    #  10) mean_cbf_wm_basil
+    #  11) att_basil
+    expected_cbf_derivs = determine_expected_cbf(is_multi_pld, scorescrub, basil)
+    cbf_buffer = pe.Node(niu.IdentityInterface(fields=expected_cbf_derivs), name="cbf_buffer")
+    for expected_cbf_deriv in expected_cbf_derivs:
+        if expected_cbf_deriv in precomputed:
+            cbf_buffer.set_input(expected_cbf_deriv, precomputed[expected_cbf_deriv])
+
+        workflow.connect([(cbf_buffer, outputnode, [(expected_cbf_deriv, expected_cbf_deriv)])])
+
+    if all([k in precomputed for k in expected_cbf_derivs]):
+        config.loggers.workflow.info(
+            "Found aslref-space CBF derivatives - skipping CBF calculation"
+        )
+        return workflow
 
     warp_t1w_mask_to_asl = pe.Node(
         ApplyTransforms(
@@ -420,12 +476,12 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
             ("m0_file", "m0_file"),
             ("metadata", "metadata"),
         ]),
-        (compute_cbf, outputnode, [
+        (compute_cbf, cbf_buffer, [
             ("cbf_ts", "cbf_ts"),
             ("mean_cbf", "mean_cbf"),
             ("att", "att"),
-            ("plds", "plds"),
         ]),
+        (compute_cbf, outputnode, [("plds", "plds")]),
     ])  # fmt:skip
 
     if scorescrub:
@@ -450,7 +506,7 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
             (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),
             (csf_tfm, score_and_scrub_cbf, [("output_image", "csf_tpm")]),
-            (score_and_scrub_cbf, outputnode, [
+            (score_and_scrub_cbf, cbf_buffer, [
                 ("cbf_ts_score", "cbf_ts_score"),
                 ("score_outlier_index", "score_outlier_index"),
                 ("mean_cbf_score", "mean_cbf_score"),
@@ -515,7 +571,8 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 basil_kwargs["slice_spacing"] = slicetime_diffs[0]
             else:
                 config.loggers.interface.warning(
-                    "Slice times are not ascending. They will be ignored in the BASIL call."
+                    "Slice times are not monotonically ascending. "
+                    "They will be ignored in the BASIL call."
                 )
 
         basilcbf = pe.Node(
@@ -542,7 +599,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             (estimate_alpha, basilcbf, [("labeling_efficiency", "alpha")]),
             (gm_tfm, basilcbf, [("output_image", "gm_tpm")]),
             (wm_tfm, basilcbf, [("output_image", "wm_tpm")]),
-            (basilcbf, outputnode, [
+            (basilcbf, cbf_buffer, [
                 ("mean_cbf_basil", "mean_cbf_basil"),
                 ("mean_cbf_gm_basil", "mean_cbf_gm_basil"),
                 ("mean_cbf_wm_basil", "mean_cbf_wm_basil"),
