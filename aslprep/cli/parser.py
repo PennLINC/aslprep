@@ -65,11 +65,17 @@ def _build_parser():
                 d[k] = _process_value(v)
         return d
 
-    def _bids_filter(value):
-        from json import loads
+    def _bids_filter(value, parser):
+        from json import JSONDecodeError, loads
 
-        if value and Path(value).exists():
-            return loads(Path(value).read_text(), object_hook=_filter_pybids_none_any)
+        if value:
+            if Path(value).exists():
+                try:
+                    return loads(Path(value).read_text(), object_hook=_filter_pybids_none_any)
+                except JSONDecodeError:
+                    raise parser.error(f"JSON syntax error in: <{value}>.")
+            else:
+                raise parser.error(f"Path does not exist: <{value}>.")
 
     verstr = f"ASLPrep v{config.environment.version}"
     currentv = Version(config.environment.version)
