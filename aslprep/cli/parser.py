@@ -46,10 +46,24 @@ def _build_parser():
     def _drop_sub(value):
         return value[4:] if value.startswith("sub-") else value
 
-    def _filter_pybids_none_any(dct):
-        from bids import layout
+    def _process_value(value):
+        import bids
 
-        return {k: layout.Query.ANY if v == "*" else v for k, v in dct.items()}
+        if value is None:
+            return bids.layout.Query.NONE
+        elif value == "*":
+            return bids.layout.Query.ANY
+        else:
+            return value
+
+    def _filter_pybids_none_any(dct):
+        d = {}
+        for k, v in dct.items():
+            if isinstance(v, list):
+                d[k] = [_process_value(val) for val in v]
+            else:
+                d[k] = _process_value(v)
+        return d
 
     def _bids_filter(value):
         from json import loads
