@@ -8,7 +8,7 @@ from aslprep import config
 
 def _build_parser():
     """Build parser object."""
-    from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+    from argparse import Action, ArgumentDefaultsHelpFormatter, ArgumentParser
     from functools import partial
     from pathlib import Path
 
@@ -16,6 +16,24 @@ def _build_parser():
     from packaging.version import Version
 
     from aslprep.cli.version import check_latest, is_flagged
+
+    deprecations = {
+        # parser attribute name: (replacement flag, version slated to be removed in)
+        "asl2t1w_init": ("--asl2anat-init", "0.8.0"),
+        "asl2t1w_dof": ("--asl2anat-dof", "0.8.0"),
+    }
+
+    class DeprecatedAction(Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            new_opt, rem_vers = deprecations.get(self.dest, (None, None))
+            msg = (
+                f"{self.option_strings} has been deprecated and will be removed in "
+                f"{rem_vers or 'a later version'}."
+            )
+            if new_opt:
+                msg += f" Please use `{new_opt}` instead."
+            print(msg, file=sys.stderr)
+            delattr(namespace, self.dest)
 
     def _path_exists(path, parser):
         """Ensure a given path exists."""
@@ -269,26 +287,46 @@ any spatial references.""",
         help="treat dataset as longitudinal - may increase runtime",
     )
 
-    g_conf.add_argument(
-        "--asl2t1w-init",
-        action="store",
-        default="register",
-        choices=["register", "header"],
+    g_conf_init = g_conf.add_mutually_exclusive_group()
+    g_conf_init.add_argument(
+        "--asl2anat-init",
+        choices=["auto", "t1w", "t2w", "header"],
+        default="auto",
         help=(
-            'Either "register" (the default) to initialize volumes at center or "header" '
-            "to use the header information when coregistering ASL to T1w images."
+            "Method of initial ASL to anatomical coregistration. "
+            "If `auto`, a T2w image is used if available, otherwise the T1w image. "
+            "`t1w` forces use of the T1w, `t2w` forces use of the T2w, "
+            "and `header` uses the ASL header information without an initial registration."
         ),
     )
-    g_conf.add_argument(
-        "--asl2t1w-dof",
+    g_conf_init.add_argument(
+        "--asl2t1w-init",
+        action=DeprecatedAction,
+        dest="asl2anat_init",
+        choices=["register", "header"],
+        help="Deprecated - use `--asl2anat-init` instead.",
+    )
+
+    g_conf_dof = g_conf.add_mutually_exclusive_group()
+    g_conf_dof.add_argument(
+        "--asl2anat-dof",
         action="store",
         default=6,
         choices=[6, 9, 12],
         type=int,
         help=(
-            "Degrees of freedom when registering ASL to T1w images. "
+            "Degrees of freedom when registering ASL to anatomical images. "
             "6 degrees (rotation and translation) are used by default."
         ),
+    )
+    g_conf_dof.add_argument(
+        "--asl2t1w-dof",
+        action=DeprecatedAction,
+        dest="asl2anat_dof",
+        default=6,
+        choices=[6, 9, 12],
+        type=int,
+        help="Deprecated - use `--asl2anat-dof` instead.",
     )
 
     g_use_bbr = g_conf.add_mutually_exclusive_group()
