@@ -24,7 +24,7 @@ def _build_parser():
     }
 
     class DeprecatedAction(Action):
-        def __call__(self, parser, namespace, values, option_string=None):
+        def __call__(self, parser, namespace, values, option_string=None):  # noqa: U100
             new_opt, rem_vers = deprecations.get(self.dest, (None, None))
             msg = (
                 f"{self.option_strings} has been deprecated and will be removed in "
