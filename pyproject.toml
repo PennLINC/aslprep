@@ -60,6 +60,7 @@ doc = [
     "recommonmark",
     "sphinx >= 6.2.1",
     "sphinx-argparse",
+    "sphinx-hoverxref",
     "sphinx-markdown-tables",
     "sphinx_rtd_theme >= 1.2.2",
     "sphinxcontrib-apidoc",

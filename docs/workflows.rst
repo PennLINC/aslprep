@@ -288,7 +288,8 @@ ASL data consist of multiple pairs of labeled and control images.
 In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
-After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted:
+After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted
+to produce a :term:`|Delta-M|` time series:
 
 .. math::
     \Delta{M} = M_{C} - M_{L}
@@ -313,8 +314,9 @@ model :footcite:p:`alsop_recommended_2015`.
 
    :math:`\tau` : Labeling duration, in seconds.
 
-   :math:`\lambda` : Brain-blood partition coefficient.
-   Set to 0.9 g/mL :footcite:p:`alsop_recommended_2015`.
+   :term:`lambda <|lambda|>`
+
+   :term:`|lambda| <lambda>`
 
    :math:`\alpha` : Labeling efficiency.
    This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
