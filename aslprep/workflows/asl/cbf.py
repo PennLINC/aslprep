@@ -430,7 +430,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
 
     if scorescrub:
         score_and_scrub_cbf = pe.Node(
-            ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function="huber"),
+            ScoreAndScrubCBF(tpm_threshold=0.7, cost_function="huber"),
             mem_gb=0.2,
             name="score_and_scrub_cbf",
             run_without_submitting=True,
@@ -445,7 +445,7 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
 [@dolui2017structural;@dolui2016scrub].
 """
         workflow.connect([
-            (reduce_mask, score_and_scrub_cbf, [("out_mask", "mask")]),
+            (reduce_mask, score_and_scrub_cbf, [("out_mask", "brain_mask")]),
             (compute_cbf, score_and_scrub_cbf, [("cbf_ts", "cbf_ts")]),
             (gm_tfm, score_and_scrub_cbf, [("output_image", "gm_tpm")]),
             (wm_tfm, score_and_scrub_cbf, [("output_image", "wm_tpm")]),

@@ -9,57 +9,35 @@ from scipy.stats import median_abs_deviation
 from aslprep import config
 
 
-def _weightfun(x, wfun="huber"):
-    """Get weight fun and tuner."""
-    if wfun == "andrews":
-        tuner = 1.339
-        weight = (np.abs(x) < np.pi) * np.sin(x)
-    elif wfun == "bisquare":
-        tuner = 4.685
-        weight = (np.abs(x) < 1) * np.power((1 - np.power(x, 2)), 2)
-    elif wfun == "cauchy":
-        tuner = 2.385
-        weight = 1 / (1 + np.power(x, 2))
-    elif wfun == "logistic":
-        tuner = 1.205
-        weight = np.tanh(x) / x
-    elif wfun == "ols":
-        tuner = 1
-        weight = np.repeat(1, len(x))
-    elif wfun == "talwar":
-        tuner = 2.795
-        weight = 1 * (np.abs(x) < 1)
-    elif wfun == "welsch":
-        tuner = 2.985
-        weight = np.exp(-(np.power(x, 2)))
-    else:
-        tuner = 1.345
-        weight = 1 / np.abs(x)
-    return weight, tuner
+def _get_wfun_weight(x, wfun="huber"):
+    """Get wavelet function weight."""
+    weights = {
+        "andrews": (np.abs(x) < np.pi) * np.sin(x),
+        "bisquare": (np.abs(x) < 1) * np.power((1 - np.power(x, 2)), 2),
+        "cauchy": 1 / (1 + np.power(x, 2)),
+        "logistic": np.tanh(x) / x,
+        "ols": np.repeat(1, len(x)),
+        "talwar": 1 * (np.abs(x) < 1),
+        "welsch": np.exp(-(np.power(x, 2))),
+    }
+    return weights.get(wfun, 1 / np.abs(x))
 
 
-def _tune(wfun="huber"):
+def _get_wfun_tuner(wfun="huber"):
     """Get weight fun and tuner.
 
     But wait, you might say, the docstring makes no sense! Correct.
     """
-    if wfun == "andrews":
-        tuner = 1.339
-    elif wfun == "bisquare":
-        tuner = 4.685
-    elif wfun == "cauchy":
-        tuner = 2.385
-    elif wfun == "logistic":
-        tuner = 1.205
-    elif wfun == "ols":
-        tuner = 1
-    elif wfun == "talwar":
-        tuner = 2.795
-    elif wfun == "welsch":
-        tuner = 2.985
-    else:
-        tuner = 1.345
-    return tuner
+    weights = {
+        "andrews": 1.339,
+        "bisquare": 4.685,
+        "cauchy": 2.385,
+        "logistic": 1.205,
+        "ols": 1,
+        "talwar": 2.795,
+        "welsch": 2.985,
+    }
+    return weights.get(wfun, 1.345)
 
 
 def _getchisquare(n):
@@ -274,75 +252,99 @@ def _getchisquare(n):
     return a[n - 1], b[n - 1]
 
 
-def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
+def _score_cbf(cbf_ts, wm, gm, csf, mask, thresh=0.7):
     """Apply SCORE algorithm to remove noisy CBF volumes.
 
     Parameters
     ----------
-    cbf_ts
-       nd array of 3D or 4D computed cbf
-    gm,wm,csf
-       numpy array of grey matter, whitematter, and csf
-    mask
-       numpy array of mask
+    cbf_ts : 4D numpy.ndarray
+        CBF time series.
+    gm, wm, csf : 3D numpy.ndarray
+        Gray matter, white matter, and CSF tissue probability maps.
+    mask : 3D numpy.ndarray
+        Binary brain mask.
+    thresh : float
+        Tissue probability threshold.
+        Voxels in gm, wm, and csf with values greater than or equal to the threshold are
+        considered to be of that tissue.
+
+    Returns
+    -------
+    cbf_ts_good_vols : 4D numpy.ndarray
+        CBF time series containing only non-outlier volumes. This time series is also brain-masked.
+    outlier_idx : 1D numpy.ndarray
+        An index of outlier volumes in the CBF time series. Values of 1 indicate outliers.
     """
+    n_volumes = cbf_ts.shape[3]
+
+    # Create binary tissue-type masks
     gm_bin = gm >= thresh
     wm_bin = wm >= thresh
     csf_bin = csf >= thresh
+    tissue_type_masks = [gm_bin, wm_bin, csf_bin]
 
-    # get the total number of voxle within csf,gm and wm
+    # Get the number of voxels within each tissue type, then subtract 1 to get Nk-1.
     n_gm_voxels = np.sum(gm_bin) - 1
     n_wm_voxels = np.sum(wm_bin) - 1
     n_csf_voxels = np.sum(csf_bin) - 1
-    mask1 = gm_bin + wm_bin + csf_bin
+    n_voxels = [n_gm_voxels, n_wm_voxels, n_csf_voxels]
 
-    # mean  of times series cbf within greymatter
-    gm_cbf_ts = np.squeeze(np.mean(cbfts[gm_bin, :], axis=0))
+    # Create a mask only including GM, WM, and CSF
+    tissue_type_mask = (gm_bin + wm_bin + csf_bin).astype(bool)
 
-    # robust mean and median
-    median_gm_cbf = np.median(gm_cbf_ts)
-    mad_gm_cbf = median_abs_deviation(gm_cbf_ts) / 0.675
-    indx = 1 * (np.abs(gm_cbf_ts - median_gm_cbf) > (2.5 * mad_gm_cbf))
-    R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
-    V = (
-        n_gm_voxels * np.var(R[gm == 1])
-        + n_wm_voxels * np.var(R[wm == 1])
-        + n_csf_voxels * np.var(R[csf == 1])
+    # Perform initial outlier exclusion.
+    # Remove volumes with mean GM-CBF outside 2.5 SDs of their means.
+    mean_gb_cbf = np.squeeze(np.mean(cbf_ts[gm_bin, :], axis=0))
+    median_gm_cbf = np.median(mean_gb_cbf)
+    mad_gm_cbf = median_abs_deviation(mean_gb_cbf) / 0.675
+    outlier_idx = np.abs(mean_gb_cbf - median_gm_cbf) > (2.5 * mad_gm_cbf)
+
+    iter_mean_cbf = np.mean(cbf_ts[:, :, :, ~outlier_idx], axis=3)
+    n_voxels_total = np.sum(n_voxels)
+    iter_pooled_variance = (
+        np.sum([n_voxels[k] * np.var(iter_mean_cbf[tissue_type_masks[k]]) for k in range(3)])
+        / n_voxels_total
     )
-    V1 = V + 1
-    while V < V1:
-        V1 = V
-        CC = np.zeros(cbfts.shape[3]) * (-2)
-        for s in range(cbfts.shape[3]):
-            if indx[s] != 0:
-                break
-            else:
-                tmp1 = cbfts[:, :, :, s]
-                CC[s] = np.corrcoef(R[mask1 > 0], tmp1[mask1 > 0])[0][1]
+    last_pooled_variance = iter_pooled_variance + 1  # add 1 to ensure it is >
+    while iter_pooled_variance < last_pooled_variance:
+        # If variance increases from the previous iteration, we interpret this as removing
+        # random noise instead of artifact.
+        last_pooled_variance = iter_pooled_variance
+        volume_wise_correlations = np.full(n_volumes, np.nan)
+        for i_vol in range(n_volumes):
+            if outlier_idx[i_vol]:
+                continue
 
-        inx = np.argmax(CC)
-        indx[inx] = 2
-        R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
-        V = (
-            (n_gm_voxels * np.var(R[gm == 1]))
-            + (n_wm_voxels * np.var(R[wm == 1]))
-            + (n_csf_voxels * np.var(R[csf == 1]))
+            cbf_vol = cbf_ts[:, :, :, i_vol]
+            # Correlate mean CBF's masked values with volume CBF's masked values.
+            volume_wise_correlations[i_vol] = np.corrcoef(
+                iter_mean_cbf[tissue_type_mask],
+                cbf_vol[tissue_type_mask],
+            )[0, 1]
+
+        # The volume with the maximum correlation value is this iteration's outlier.
+        max_correlation_idx = np.nanargmax(volume_wise_correlations)
+        outlier_idx[max_correlation_idx] = True
+
+        # Recalculate mean CBF map and pooled variance.
+        iter_mean_cbf = np.mean(cbf_ts[:, :, :, ~outlier_idx], axis=3)
+        iter_pooled_variance = (
+            np.sum([n_voxels[k] * np.var(iter_mean_cbf[tissue_type_masks[k]]) for k in range(3)])
+            / n_voxels_total
         )
 
-    config.loggers.utils.warning(f"SCORE retains {np.sum(indx == 0)}/{indx.size} volumes")
-    cbfts_recon = cbfts[:, :, :, indx == 0]
-    cbfts_recon1 = np.zeros_like(cbfts_recon)
-    for i in range(cbfts_recon.shape[3]):
-        cbfts_recon1[:, :, :, i] = cbfts_recon[:, :, :, i] * mask
+    # Create CBF time series from just the non-outlier volumes and brain-mask it.
+    cbf_ts_good_vols = cbf_ts[:, :, :, ~outlier_idx]
+    cbf_ts_good_vols *= mask[..., None]
+    cbf_ts_good_vols = np.nan_to_num(cbf_ts_good_vols)
 
-    cbfts_recon1 = np.nan_to_num(cbfts_recon1)
-    return cbfts_recon1, indx
+    return cbf_ts_good_vols, outlier_idx.astype(int)
 
 
 def _robust_fit(
     Y,
     mu,
-    Globalprior,
+    global_prior,
     modrobprior,
     lmd=0,
     localprior=0,
@@ -356,7 +358,7 @@ def _robust_fit(
     priow = np.ones([dimcbf[0], dimcbf[1]])
     sw = 1
     X = priow
-    b = (np.sum(X * Y, axis=0) + mu * Globalprior + lmd * localprior) / (
+    b = (np.sum(X * Y, axis=0) + mu * global_prior + lmd * localprior) / (
         np.sum(X * X, axis=0) + mu + lmd
     )
     b0 = np.repeat(0, len(b))
@@ -367,16 +369,17 @@ def _robust_fit(
     tiny_s = (1e-6) * (np.std(h, axis=0))
     tiny_s[tiny_s == 0] = 1
     D = np.sqrt(np.finfo(float).eps)
-    iter_num = 0
-    interlim = 10
-    while iter_num < interlim:
-        print("iteration  ", iter_num, "\n")
-        iter_num = iter_num + 1
+
+    iter_num, max_iters = 0, 10
+    while iter_num < max_iters:
+        print(f"iteration {iter_num}")
+        iter_num += 1
         check1 = np.subtract(np.abs(b - b0), (D * np.maximum(np.abs(b), np.abs(b0))))
         check1[check1 > 0] = 0
         if any(check1):
-            print(" \n converged after ", iter_num, "iterations\n")
+            print(f"converged after {iter_num} iterations")
             break
+
         r = Y - X * (np.tile(b, (dimcbf[0], 1)))
         radj = r * adjfactor / sw
         if flagstd == 1:
@@ -384,106 +387,145 @@ def _robust_fit(
         else:
             rs = np.sort(np.abs(radj), axis=0)
             s = np.median(rs, axis=0) / 0.6745
+
         rx1 = radj * (1 - flagmodrobust * np.exp(-np.tile(modrobprior, (dimcbf[0], 1))))
         rx2 = np.tile(np.maximum(s, tiny_s) * tune, (dimcbf[0], 1))
         r1 = rx1 / rx2
-        w, _ = _weightfun(r1, wfun)
+        w = _get_wfun_weight(r1, wfun)
         b0 = b
         z = np.sqrt(w)
         x = X * z
         yz = Y * z
-        b = (np.sum(x * yz, axis=0) + mu * Globalprior + lmd * localprior) / (
+        b = (np.sum(x * yz, axis=0) + mu * global_prior + lmd * localprior) / (
             np.sum(x * x, axis=0) + mu + lmd
         )
         b = np.nan_to_num(b)
+
     return b
 
 
-def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
+def _scrub_cbf(cbf_ts, gm, wm, csf, mask, cost_function="huber", thresh=0.7):
     """Apply SCRUB algorithm to CBF data.
+
+    The SCRUB algorithm uses a Bayesian approach to compute the average CBF over a series of
+    CBF estimates (volumes), while taking into account a prior distribution of CBF values
+    (in the Bayesian sense).
+
+    SCRUB assumes that both the likelihood and prior term in the formula are Gaussian,
+    which means that the tuning parameter (lambda) is equal to the ratio of the variances of the
+    additive noise and the prior probability density.
+    A higher lambda value generally indicates less reliable CBF estimates,
+    driven by higher variance of the additive noise.
+    Basically, temporal variance of the CBF estimates is used as an indicator of unreliable
+    voxels/estimates.
+
+    SCRUB may account for other factors indicating unreliability by adjusting lambda,
+    such as voxels with negative CBF estimates.
+
+    The distribution of CBF is not Gaussian due to frequent presence of outliers.
+    SCRUB adds a data fidelity term to account for large outliers (rho?).
+
+    The prior is mu. The tuning parameter is lambda (consistent across voxels?).
+    The cost function is rho.
 
     Parameters
     ----------
-    cbf_ts
-       nd array of 3D or 4D computed cbf
-    gm,wm,csf
-       numpy array of grey matter, whitematter, and csf
-    mask
-       numpy array of mask
-    wf
-      wave function
+    cbf_ts : 4D numpy.ndarray
+        CBF time series. Generally comes after SCORE censoring.
+    gm, wm, csf : 3D numpy.ndarray
+        Gray matter, white matter, and CSF tissue probability maps.
+    mask : 3D numpy.ndarray
+        Binary brain mask.
+    cost_function : str
+        Wavelet function. This is the data fidelity term, which determines the cost of deviations
+        of CBF estimates from the solution.
+    thresh : float
+        Tissue probability threshold.
+        Voxels in gm, wm, and csf with values greater than or equal to the threshold are
+        considered to be of that tissue.
+
+    Returns
+    -------
+    mean_cbf_scrub : 3D numpy.ndarray
+        Mean CBF after denoising with SCRUB.
     """
-    gm = mask * gm
-    gmidx = gm[mask == 1]
-    gmidx[gmidx < thresh] = 0
-    gmidx[gmidx > 0] = 1
+    n_volumes = cbf_ts.shape[3]
 
-    wm = mask * wm
-    wmidx = wm[mask == 1]
-    wmidx[wmidx < thresh] = 0
-    wmidx[wmidx > 0] = 1
-
+    # Mask out non-brain voxels from tissue probability maps
+    mask = mask.astype(bool)
+    gm = gm * mask
+    wm = wm * mask
     csf = csf * mask
-    csfidx = csf[mask == 1]
-    csfidx[csfidx < thresh] = 0
-    csfidx[csfidx > 0] = 1
-    # midx = mask[mask==1]
+
+    gm_bin = gm >= thresh
+    gm_idx = gm_bin[mask]
 
     mean_cbf = np.mean(cbf_ts, axis=3)
-    y = np.transpose(
-        cbf_ts[
-            mask == 1,
-            :,
-        ]
-    )
-    VV = np.var(y, axis=0)
-    thresh1, thresh3 = _getchisquare(y.shape[0])
-    mu1 = VV / (np.median(VV[gmidx == 1]) * thresh3)
+    masked_cbf_ts = cbf_ts[mask, :].T  # TxS array
+    # "Since μ was designed based on whole brain, we designed the algorithm to only penalize values
+    # whose normalized temporal variance is outside 99.99 percentile value (p99.99) of the chi
+    # square distribution computed with (Number of brain voxels – 1) degrees of freedom."
+    # (n - 1) * Sample variance (S squared) / Variance (sigma squared) follows chi-squared
+    # distribution with n - 1 degrees of freedom.
+    thresh1, thresh3 = _getchisquare(n_volumes)
+
+    # XXX: It seems like the following should produce the same threshold as _getchisquare,
+    # but it doesn't. I haven't been able to figure out why.
+    # from scipy.stats import chi2
+    # n_voxels = masked_cbf_ts.shape[1]
+    # p_thresh_9999 = chi2.ppf(0.0001, df=n_voxels - 1)
+
+    # Construct voxel-wise prior map (i.e., mu_v)
+    masked_var_map = np.var(masked_cbf_ts, axis=0)  # S array of sigma squared
+    mu1 = masked_var_map / (np.median(masked_var_map[gm_idx == 1]) * thresh3)
     mu = (
         ((mu1 > thresh1) & (mu1 < 10 * thresh1)) * (mu1 - thresh1)
         + (mu1 >= 10 * thresh1) * (1 / (2 * thresh1 * 10) * np.power(mu1, 2))
         + (thresh1 * 10 / 2 - thresh1)
     )
-    M = mean_cbf * mask
-    M[mask == 1] = mu
+    # Create 3D array from mu
+    mu_map = np.zeros_like(mean_cbf)
+    mu_map[mask] = mu
+
+    # Now I guess we work on lambda?
     modrobprior = mu / 10
-    gmidx2 = (
-        1 * ([gm.flatten() > thresh] and [M.flatten() == 0] and [wm.flatten() > csf.flatten()])[0]
-    )
-    wmidx2 = (
-        1 * ([wm.flatten() > thresh] and [M.flatten() == 0] and [gm.flatten() > csf.flatten()])[0]
-    )
-    if np.sum(gmidx2) == 0 or np.sum(wmidx2) == 0:
-        gmidx2 = 1 * (gm.flatten() > thresh)
-        wmidx2 = 1 * (wm.flatten() > thresh)
-    idxx = gmidx2 + wmidx2
+    gm_idx2 = (
+        [gm.flatten() > thresh] and [mu_map.flatten() == 0] and [wm.flatten() > csf.flatten()]
+    )[0].astype(int)
+    wm_idx2 = (
+        [wm.flatten() > thresh] and [mu_map.flatten() == 0] and [gm.flatten() > csf.flatten()]
+    )[0].astype(int)
+    if np.sum(gm_idx2) == 0 or np.sum(wm_idx2) == 0:
+        gm_idx2 = (gm.flatten() > thresh).astype(int)
+        wm_idx2 = (wm.flatten() > thresh).astype(int)
+
+    idxx = gm_idx2 + wm_idx2
     idxx[idxx > 0] = 1
     X = np.zeros([len(idxx), 2])
     X[:, 0] = gm.flatten()[gm.flatten() >= (0)] * idxx
     X[:, 1] = wm.flatten()[wm.flatten() >= (0)] * idxx
     A = (mean_cbf.flatten()[idxx >= 0]) * idxx
     c = np.linalg.lstsq(X, A, rcond=None)[0]
-    Globalpriorfull = c[0] * gm.flatten() + c[1] * wm.flatten()
-    Globalprior = Globalpriorfull[mask.flatten() == 1]
-    localprior = 0
-    lmd = 0
-    tune = _tune(wfun=wfun)
-    bb = _robust_fit(
-        Y=y,
+    global_prior_full = c[0] * gm.flatten() + c[1] * wm.flatten()
+    global_prior = global_prior_full[mask.flatten() == 1]
+
+    tune = _get_wfun_tuner(wfun=cost_function)
+    masked_mean_cbf_scrub = _robust_fit(
+        Y=masked_cbf_ts,
         mu=mu,
-        Globalprior=Globalprior,
+        global_prior=global_prior,
         modrobprior=modrobprior,
-        lmd=lmd,
-        localprior=localprior,
-        wfun=wfun,
+        lmd=0,
+        localprior=0,
+        wfun=cost_function,
         tune=tune,
         flagstd=1,
         flagmodrobust=1,
     )
-    newcbf = mean_cbf * mask
-    newcbf[mask == 1] = bb
-    newcbf = np.nan_to_num(newcbf)
-    return newcbf
+    mean_cbf_scrub = np.zeros_like(mean_cbf)
+    mean_cbf_scrub[mask] = masked_mean_cbf_scrub
+    mean_cbf_scrub = np.nan_to_num(mean_cbf_scrub)
+    return mean_cbf_scrub
 
 
 def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
