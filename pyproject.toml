@@ -52,6 +52,7 @@ NiPreps = "https://www.nipreps.org/"
 [project.optional-dependencies]
 doc = [
     "doctest-ignore-unicode",
+    "lxml_html_clean",
     "m2r",
     "mistune < 4",  # just temporary until m2r addresses this issue
     "nbsphinx",
