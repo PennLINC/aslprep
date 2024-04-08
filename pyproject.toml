@@ -21,7 +21,7 @@ dependencies = [
     "fmriprep ~= 23.2.0",
     "indexed_gzip >= 0.8.8",
     "looseversion",
-    "networkx ~= 3.2.1",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
+    "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
     "nibabel >= 4.0.1",
     "nilearn ~= 0.10.3",
     "nipype >= 1.8.5",
