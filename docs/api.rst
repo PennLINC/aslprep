@@ -16,10 +16,6 @@ Internal configuration system
 :mod:`aslprep.workflows`: Workflows
 ***********************************
 
-.. automodule:: aslprep.workflows
-   :no-members:
-   :no-inherited-members:
-
 .. currentmodule:: aslprep
 
 .. autosummary::
@@ -43,10 +39,6 @@ Internal configuration system
 :mod:`aslprep.interfaces`: Interfaces
 *************************************
 
-.. automodule:: aslprep.interfaces
-   :no-members:
-   :no-inherited-members:
-
 .. currentmodule:: aslprep
 
 .. autosummary::
@@ -68,10 +60,6 @@ Internal configuration system
 :mod:`aslprep.utils`: Utilities
 *******************************
 
-.. automodule:: aslprep.utils
-   :no-members:
-   :no-inherited-members:
-
 .. currentmodule:: aslprep
 
 .. autosummary::
@@ -90,10 +78,6 @@ Internal configuration system
 ***********************************
 :mod:`aslprep.data`: Data resources
 ***********************************
-
-.. automodule:: aslprep.data
-   :no-members:
-   :no-inherited-members:
 
 .. currentmodule:: aslprep
 
