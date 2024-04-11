@@ -68,10 +68,10 @@ doc = [
     "sphinxcontrib-bibtex",
 ]
 test = [
-    "codecov",
     "coverage",
     "pytest",
     "pytest-cov",
+    "pytest-env",
 ]
 maint = [
     "fuzzywuzzy",
