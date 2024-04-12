@@ -31,7 +31,7 @@ dependencies = [
     "packaging",
     "pandas",
     "psutil <= 5.9",
-    "pybids <= 0.16",
+    "pybids <= 0.16.4",
     "requests",
     "sdcflows <= 2.8.0",
     "sentry-sdk <= 1.40",
