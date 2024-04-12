@@ -1,4 +1,5 @@
 """Test parser."""
+
 import pytest
 from packaging.version import Version
 

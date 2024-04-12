@@ -1,4 +1,5 @@
 """Test version checks."""
+
 from datetime import datetime
 from pathlib import Path
 

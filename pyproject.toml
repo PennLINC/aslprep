@@ -21,8 +21,9 @@ dependencies = [
     "fmriprep ~= 23.2.0",
     "indexed_gzip >= 0.8.8",
     "looseversion",
-    "networkx ~= 3.2.1",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
+    "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
     "nibabel >= 4.0.1",
+    "nilearn ~= 0.10.3",
     "nipype >= 1.8.5",
     "nitransforms >= 21.0.0",
     "niworkflows ~= 1.10.0",
@@ -34,7 +35,7 @@ dependencies = [
     "requests",
     "sdcflows ~= 2.8.0",
     "sentry-sdk >= 0.6.9",
-    "smriprep ~= 0.13.1",
+    "smriprep ~= 0.15.0",
     "templateflow >= 23.0.0",
     "toml",
 
@@ -51,6 +52,7 @@ NiPreps = "https://www.nipreps.org/"
 [project.optional-dependencies]
 doc = [
     "doctest-ignore-unicode",
+    "lxml_html_clean",
     "m2r",
     "mistune < 4",  # just temporary until m2r addresses this issue
     "nbsphinx",
