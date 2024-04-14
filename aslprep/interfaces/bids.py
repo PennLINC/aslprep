@@ -1,4 +1,5 @@
 """Adapted interfaces from Niworkflows."""
+
 from json import loads
 
 from bids.layout import Config

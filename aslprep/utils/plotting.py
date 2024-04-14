@@ -1,4 +1,5 @@
 """Plotting functions and classes."""
+
 import matplotlib.pyplot as plt
 import nibabel as nb
 import numpy as np

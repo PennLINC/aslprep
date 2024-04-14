@@ -824,7 +824,7 @@ The ASL time series was resampled to ASL-reference space.
 
     # Resample ASL to aslref
     aslref_asl = pe.Node(
-        ResampleSeries(),
+        ResampleSeries(jacobian="fmap-jacobian" not in config.workflow.ignore),
         name="aslref_asl",
         n_procs=omp_nthreads,
         mem_gb=mem_gb["resampled"],
@@ -874,7 +874,11 @@ the ASL time series.
         # No HMC
         identity_xfm = nw_data.load("itkIdentityTransform.txt")
         aslref_m0scan = pe.Node(
-            ResampleSeries(transforms=[identity_xfm]),
+            ResampleSeries(
+                jacobian="fmap-jacobian" not in config.workflow.ignore,
+                transforms=[identity_xfm],
+                in_file=m0scan,
+            ),
             name="aslref_m0scan",
             n_procs=omp_nthreads,
         )

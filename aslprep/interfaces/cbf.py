@@ -1,4 +1,5 @@
 """Interfaces for calculating CBF."""
+
 import os
 from numbers import Number
 
