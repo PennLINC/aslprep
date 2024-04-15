@@ -654,9 +654,11 @@ def init_ds_volumes_wf(
     )
     workflow.connect([
         (inputnode, raw_sources, [("source_files", "in_files")]),
+        # Note that ANTs expects transforms in target-to-source order
+        # Reverse this for nitransforms-based resamplers
         (inputnode, aslref2target, [
-            ("aslref2anat_xfm", "in1"),
-            ("anat2std_xfm", "in2"),
+            ("anat2std_xfm", "in1"),
+            ("aslref2anat_xfm", "in2"),
         ]),
         (inputnode, ds_asl, [
             ("source_files", "source_file"),
