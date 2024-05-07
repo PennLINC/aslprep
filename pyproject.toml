@@ -177,7 +177,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-branch = true
+branch = false
 omit = [
     "*/tests/*",
     "*/__init__.py",

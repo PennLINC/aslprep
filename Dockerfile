@@ -1,4 +1,4 @@
-FROM pennlinc/aslprep_build:0.0.7
+FROM pennlinc/aslprep_build:0.0.11
 
 # Install aslprep
 COPY . /src/aslprep
