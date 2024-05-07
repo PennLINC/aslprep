@@ -594,10 +594,6 @@ jobs:
             coverage xml
       - store_artifacts:
           path: /src/coverage
-      - run:
-          # from https://github.com/codecov/codecov-circleci-orb/issues/157#issue-1692263650
-          name: Quick fix for GPG error in Codecov
-          command: mkdir -p ~/.gnupg
       - codecov/upload:
           file: /src/coverage/coverage.xml
 
