@@ -17,7 +17,7 @@ RUN find $HOME -type d -exec chmod go=u {} + && \
 RUN ldconfig
 WORKDIR /tmp/
 
-ENTRYPOINT ["/usr/local/miniconda/bin/aslprep"]
+ENTRYPOINT ["/opt/conda/envs/aslprep/bin/aslprep"]
 
 ARG BUILD_DATE
 ARG VCS_REF
