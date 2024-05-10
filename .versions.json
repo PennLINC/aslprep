@@ -8,6 +8,7 @@
 		"0.2.5": "Ordering of probseg maps was incorrect.",
 		"0.2.6": "Ordering of probseg maps was incorrect.",
 		"0.2.7": "Ordering of probseg maps was incorrect.",
-		"0.2.8": "Ordering of probseg maps was incorrect."
+		"0.2.8": "Ordering of probseg maps was incorrect.",
+		"0.7.0": "Broken entrypoint for Docker/Apptainer."
 	}
 }

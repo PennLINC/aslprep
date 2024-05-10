@@ -1,3 +1,31 @@
+## 0.7.0
+
+### 🛠 Breaking Changes
+
+* Rename QC metrics and output QC files as TSVs by @tsalo in https://github.com/PennLINC/aslprep/pull/375
+* Move atlases into a subfolder by @tsalo in https://github.com/PennLINC/aslprep/pull/377
+
+### 🎉 Exciting New Features
+
+* Add --ignore fmap-jacobian option by @tsalo in https://github.com/PennLINC/aslprep/pull/385
+* Support lists in filter file with `*` or `null` by @tsalo in https://github.com/PennLINC/aslprep/pull/388
+
+### 🐛 Bug Fixes
+
+* Flip order of transforms in `init_ds_volumes_wf` by @tsalo in https://github.com/PennLINC/aslprep/pull/392
+
+### Other Changes
+
+* Use space definitions from niworkflows by @tsalo in https://github.com/PennLINC/aslprep/pull/378
+* Use niworkflows enhance-and-skullstrip workflow by @tsalo in https://github.com/PennLINC/aslprep/pull/371
+* Update Nilearn requirement to 0.10.3 by @tsalo in https://github.com/PennLINC/aslprep/pull/396
+* [ENH] Update docker image by @mattcieslak in https://github.com/PennLINC/aslprep/pull/409
+* [FIX] update to newer docker by @mattcieslak in https://github.com/PennLINC/aslprep/pull/412
+* Update codecov orb version by @tsalo in https://github.com/PennLINC/aslprep/pull/410
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.6.0...0.7.0
+
+
 ## 0.6.0
 
 This release makes substantial changes to *ASLPrep*.
