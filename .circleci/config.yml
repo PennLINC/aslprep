@@ -1,10 +1,10 @@
 version: 2.1
 orbs:
-  codecov: codecov/codecov@1.0.5
+  codecov: codecov/codecov@4.1.0
 
 .dockersetup: &dockersetup
   docker:
-    - image: pennlinc/aslprep_build:0.0.7
+    - image: pennlinc/aslprep_build:0.0.11
   working_directory: /src/aslprep
 
 runinstall: &runinstall
@@ -594,6 +594,10 @@ jobs:
             coverage xml
       - store_artifacts:
           path: /src/coverage
+      - run:
+          # from https://github.com/codecov/codecov-circleci-orb/issues/157#issue-1692263650
+          name: Quick fix for GPG error in Codecov
+          command: mkdir -p ~/.gnupg
       - codecov/upload:
           file: /src/coverage/coverage.xml
 
@@ -612,7 +616,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-         version: 19.03.13
+         version: docker24
          docker_layer_caching: true
       - run:
           name: Build Docker image
