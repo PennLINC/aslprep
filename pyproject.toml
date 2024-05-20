@@ -18,14 +18,14 @@ license = {file = "LICENSE.md"}
 requires-python = ">=3.10"
 dependencies = [
     'importlib_resources; python_version < "3.11"',
-    "fmriprep >= 23.2, <= 24.0",
+    "fmriprep @ git+https://github.com/nipreps/fmriprep.git@master",
     "indexed_gzip <= 1.8.7",
     "looseversion",
     "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
     "nibabel <= 5.2.1",
     "nilearn ~= 0.10.3",
     "nipype >= 1.8.5",
-    "nitransforms >= 21.0.0",
+    "nitransforms @ git+https://github.com/nipreps/niworkflows.git@master",
     "niworkflows ~= 1.10.0",
     "numpy >= 1.26",
     "packaging",
@@ -33,9 +33,9 @@ dependencies = [
     "psutil <= 5.9.8",
     "pybids <= 0.16.4",
     "requests",
-    "sdcflows <= 2.8.1",
+    "sdcflows @ git+https://github.com/nipreps/sdcflows.git@master",
     "sentry-sdk <= 2.2.0",
-    "smriprep <= 0.15",
+    "smriprep @ git+https://github.com/nipreps/smriprep.git@master",
     "templateflow <= 24.2.0",
     "toml",
 
@@ -105,7 +105,6 @@ exclude = [
 
 [tool.hatch.version]
 source = "vcs"
-# raw-options = { version_scheme = "nipreps-calver" }
 
 [tool.hatch.build.hooks.vcs]
 version-file = "aslprep/_version.py"
