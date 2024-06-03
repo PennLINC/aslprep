@@ -129,10 +129,11 @@ class ASLCarpetPlot(SimpleInterface):
 
 
 class _CBFSummaryPlotInputSpec(BaseInterfaceInputSpec):
-    cbf = File(exists=True, mandatory=True, desc="")
-    label = traits.Str(exists=True, mandatory=True, desc="label")
-    vmax = traits.Int(exists=True, default_value=90, mandatory=True, desc="max value of asl")
-    ref_vol = File(exists=True, mandatory=True, desc="")
+    cbf = File(exists=True, mandatory=True, desc="Image to plot")
+    label = traits.Str(mandatory=True, desc="label")
+    vmin = traits.Float(mandatory=True, desc="Minimum value for figure")
+    vmax = traits.Float(mandatory=True, desc="Maximum value for figure")
+    ref_vol = File(exists=True, mandatory=True, desc="Reference volume to plot")
 
 
 class _CBFSummaryPlotOutputSpec(TraitedSpec):
@@ -159,6 +160,7 @@ class CBFSummaryPlot(SimpleInterface):
             cbf=self.inputs.cbf,
             label=self.inputs.label,
             ref_vol=self.inputs.ref_vol,
+            vmin=self.inputs.vmin,
             vmax=self.inputs.vmax,
             outfile=self._results["out_file"],
         ).plot()
@@ -166,8 +168,16 @@ class CBFSummaryPlot(SimpleInterface):
 
 
 class _CBFByTissueTypePlotInputSpec(BaseInterfaceInputSpec):
-    cbf = File(exists=True, mandatory=True, desc="")
+    in_file = File(exists=True, mandatory=True, desc="CBF, ATT, aBAT, or ABV file.")
     seg_file = File(exists=True, mandatory=True, desc="Segmentation file")
+    img_type = traits.Enum(
+        "cbf",
+        "att",
+        "abat",
+        "abv",
+        mandatory=True,
+        desc="Image type",
+    )
 
 
 class _CBFByTissueTypePlotOutputSpec(TraitedSpec):
@@ -186,11 +196,19 @@ class CBFByTissueTypePlot(SimpleInterface):
         from nilearn import image, masking
 
         self._results["out_file"] = fname_presuffix(
-            self.inputs.cbf,
-            suffix="_cbfplot.svg",
+            self.inputs.in_file,
+            suffix=f"_{self.inputs.img_type}plot.svg",
             use_ext=False,
             newpath=runtime.cwd,
         )
+
+        column_names = {
+            "cbf": "Cerebral Blood Flow\n(mL/100 g/min)",
+            "att": "Arterial Transit Time\n(s)",
+            "abat": "Arterial Bolus Arrival Time\n(s)",
+            "abv": "Arterial Blood Volume\n(fraction)",
+        }
+        unit_str = column_names[self.inputs.img_type]
 
         dfs = []
         for i_tissue_type, tissue_type in enumerate(["GM", "WM", "CSF"]):
@@ -199,9 +217,9 @@ class CBFByTissueTypePlot(SimpleInterface):
                 f"(img == {tissue_type_val}).astype(int)",
                 img=self.inputs.seg_file,
             )
-            tissue_type_vals = masking.apply_mask(self.inputs.cbf, mask_img)
+            tissue_type_vals = masking.apply_mask(self.inputs.in_file, mask_img)
             df = pd.DataFrame(
-                columns=["CBF\n(mL/100 g/min)", "Tissue Type"],
+                columns=[unit_str, "Tissue Type"],
                 data=list(
                     map(list, zip(*[tissue_type_vals, [tissue_type] * tissue_type_vals.size]))
                 ),
@@ -215,13 +233,13 @@ class CBFByTissueTypePlot(SimpleInterface):
             fig, ax = plt.subplots(figsize=(16, 8))
             sns.despine(ax=ax, bottom=True, left=True)
             sns.boxenplot(
-                y="CBF\n(mL/100 g/min)",
+                y=unit_str,
                 data=df,
                 width=0.6,
                 showfliers=True,
                 palette={"GM": "#1b60a5", "WM": "#2da467", "CSF": "#9d8f25"},
                 hue="Tissue Type",
-                legend=False,
+                legend=True,
                 ax=ax,
             )
             fig.tight_layout()

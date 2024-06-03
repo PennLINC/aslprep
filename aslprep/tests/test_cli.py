@@ -47,7 +47,6 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         "--output-spaces=asl",
         "--scorescrub",
         "--basil",
-        "--use-syn-sdc",
         "--m0_scale=10",
         "--fs-no-reconall",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
@@ -55,7 +54,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         f"{os.path.join(data_dir, 'anatomical/smriprep')}",
     ]
 
-    _run_and_fail(parameters)
+    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
 @pytest.mark.examples_pcasl_multipld

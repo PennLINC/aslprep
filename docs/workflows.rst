@@ -40,6 +40,7 @@ averages them into a single reference template.
       hires=True,
       longitudinal=False,
       msm_sulc=True,
+      precomputed={},
       t1w=["sub-01/anat/sub-01_T1w.nii.gz"],
       t2w=["sub-01/anat/sub-01_T2w.nii.gz"],
       flair=["sub-01/anat/sub-01_acq-flair_T2w.nii.gz"],
@@ -135,7 +136,7 @@ split into multiple sub-workflows described below.
 ASL reference image estimation
 ==============================
 
-:py:func:`~aslprep.workflows.asl.util.init_asl_reference_wf`
+:py:func:`~aslprep.workflows.asl.reference.init_raw_aslref_wf`
 
 .. workflow::
    :graph2use: orig
@@ -288,7 +289,8 @@ ASL data consist of multiple pairs of labeled and control images.
 In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
-After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted:
+After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted
+to calculate :math:`\Delta{M}`:
 
 .. math::
     \Delta{M} = M_{C} - M_{L}
@@ -354,6 +356,8 @@ For (P)CASL ([pseudo-]continuous ASL),
 CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
 
 .. math::
+   :label: pcasl
+
    CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T_{1,blood} } }
    {2 \cdot \alpha \cdot M_{0} \cdot T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
 
@@ -364,7 +368,7 @@ In the absence of any of these parameters, standard values are used based on the
 scanning parameters.
 
 The element which differentiates single-delay PCASL's CBF calculation from the PASL equivalents is
-:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+:math:`T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } })`.
 
 
 Pulsed ASL
@@ -380,7 +384,9 @@ For pulsed ASL (PASL) data with the QUIPSS bolus cut-off technique,
 the formula from :footcite:t:`wong1998quantitative` is used.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{ M } \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   :label: quipss
+
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{ M } \cdot e ^ \frac{ TI }{ T_{1,blood} } }
    { 2 \cdot \alpha \cdot M_{0} \cdot \Delta{TI} }
 
 where :math:`\Delta{TI}` is the post-labeling delay (PLD) minus the bolus cutoff delay time.
@@ -389,7 +395,7 @@ Given that :math:`TI` is equivalent to :math:`w` in BIDS datasets
 (i.e., as the ``PostLabelingDelay`` field),
 the formula for QUIPSS is the same as PCASL,
 except :math:`\Delta{TI}` replaces
-:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+:math:`T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } })`.
 
 
 QUIPSS II Modification
@@ -399,7 +405,9 @@ For PASL data with the QUIPSS II bolus cut-off technique,
 the formula from :footcite:t:`alsop_recommended_2015` is used.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   :label: quipssii
+
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T_{1,blood} } }
    {2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
 where :math:`TI_{1}` is the bolus cutoff delay time.
@@ -416,7 +424,9 @@ the formula from the commercial Q2TIPS CBF calculation is used,
 as described in :footcite:t:`noguchi2015technical`.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ { \frac{TI_{2} }{ T1_{blood} } } }
+   :label: q2tips
+
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ { \frac{TI_{2} }{ T_{1,blood} } } }
    { 2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
 where :math:`TI_{1}` is the first bolus cutoff delay time and
@@ -430,100 +440,87 @@ Multi-Delay ASL
 ===============
 
 In multi-delay ASL, control-label pairs are acquired for multiple post-labeling delay values.
-This type of acquisition requires more complicated models, but it also results in more accurate
-CBF estimates.
-Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
+This type of acquisition requires more complicated models,
+but it also results in more accurate CBF estimates.
+Also, multi-delay ASL allows for the estimation of arterial transit time (ATT),
+arterial blood arrival time (aBAT), and arterial blood volume (aBV).
+
+For multi-delay PCASL and Q2TIPS/QUIPSSII PASL data,
+*ASLPrep* uses :func:`scipy.optimize.curvefit` to estimate
+CBF, ATT, aBAT, and aBV values for each voxel according to the two-compartment general kinetic
+model described in :footcite:t:`woods2023recommendations`.
+
+In the two-compartment model, the difference signal (:math:`\Delta{M}`) is decomposed into
+a tissue component (:math:`\Delta{M}_{tiss}`) and
+a macrovascular component (:math:`\Delta{M}_{art}`).
+The combined macrovascular and tissue signal is simply
+:math:`\Delta{M} = \Delta{M}_{tiss} + \Delta{M}_{art}`.
 
 
 Pseudo-Continuous ASL
 ---------------------
 
-For multi-delay PCASL data, the following steps are taken:
+The tissue component of the :math:`\Delta{M}` signal is estimated according to
+:eq:`woods_equation_02`, while the macrovascular (i.e., arterial) component is estimated using
+:eq:`woods_equation_04`.
 
-1. :math:`\Delta{M}` values are first averaged over time for each unique post-labeling delay value.
-   We shall call these :math:`\Delta{M}` in the following equations for the sake of readability.
+.. math::
+   :label: woods_equation_02
 
-2. Arterial transit time is estimated on a voxel-wise basis according to
-   :footcite:t:`dai2012reduced`.
+   &= 0 && { 0 < LD + PLD < ATT }
 
-   1. Define a set of possible transit times to evaluate.
-      The range is defined as the minimum PLD to the maximum PLD, at increments of 0.001.
+   \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1,b} \cdot M_{0a} \cdot CBF
+   \cdot \left[
+      1 - e ^ {-\frac{ LD + PLD - ATT } { T_{1,b} }}
+   \right] }{ 6000 \cdot e ^ { \frac{ ATT } { T_{1,b} } } } && { ATT < LD + PLD < ATT + LD }
 
-   2. Calculate the expected weighted delay (:math:`WD_{E}`) for each possible transit time
-      (:math:`\delta`), across PLDs (:math:`w`).
+   &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1,b} \cdot M_{0a} \cdot CBF
+   \cdot \left[
+      1 - e ^ {-\frac{ LD } { T_{1,b} }}
+   \right] }{ 6000 \cdot e ^ { \frac{ PLD } { T_{1,b} } } } && { ATT < PLD }
 
-      .. math::
+.. math::
+   :label: woods_equation_04
 
-         WD_{E}(\delta_{t}, w_{i}) = e ^ \frac{ -\delta_{t} } { T_{1,blood} } \cdot
-         \left[
-            e ^ {-\frac{ max( 0, w_{i} - \delta_{t} ) } { T_{1,tissue} }} -
-            e ^ {-\frac{ max( 0, \tau + w_{i} - \delta_{t} ) } { T_{1,tissue} }}
-         \right]
+   &= 0 && { 0 < LD + PLD < aBAT }
 
-         WD_{E}(\delta_{t}) = \frac{ \sum_{i=1}^{|w|} w_{i} \cdot
-         WD_{E}(\delta_{t},w_{i}) } { \sum_{i=1}^{|w|} WD_{E}(\delta_{t},w_{i}) }
+   \Delta{M}_{art} &= 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
+   e ^ { -\frac{ aBAT } { T_{1,b} } }  && { aBAT < LD + PLD < aBAT + LD }
 
-   3. Calculate the observed weighted delay (:math:`WD_{O}`) for the actual data, at each voxel :math:`v`.
-
-      .. math::
-
-         WD_{O}(v) = \frac{
-            \sum_{i=1}^{|w|} w_{i} \cdot \Delta{M}( w_{i},v )
-         }
-         {
-            \sum_{i=1}^{|w|} \Delta{M}( w_{i},v )
-         }
-
-   4. Truncate the observed weighted delays to valid delay values,
-      determined based on the expected weighted delays.
-
-      .. math::
-
-         WD_{O}(v) = max[min(WD_{O}(v), max[WD_{E}]), min(WD_{E})]
-
-   5. Interpolate the expected weighted delay values to infer the appropriate transit time for each voxel,
-      based on its observed weighted delay.
-
-3. CBF is then calculated for each unique PLD value (:math:`w_{i}`) using the 2-compartment model
-   described in :footcite:t:`fan2017long`.
-
-   .. math::
-
-      CBF_{i} = 6000 \cdot \lambda \cdot \frac{ \Delta{M}_{i} }{ M_{0} } \cdot
-      \frac{
-         e ^ \frac{ \delta }{ T_{1,blood} }
-      }
-      {
-         2 \cdot \alpha \cdot T_{1,blood} \cdot
-         \left[
-            e ^ { -\frac{ max(w_{i} - \delta, 0) }{ T_{1,tissue} } }
-            -
-            e ^ { -\frac{ max(\tau + w_{i} - \delta, 0) }{ T_{1,tissue} } }
-         \right]
-      }
-
-   .. note::
-
-      Note that Equation 2 in :footcite:t:`fan2017long` uses different notation.
-      :math:`T_{1,blood}` is referred to as :math:`T_{1a}`,
-      :math:`T_{1,tissue}` is referred to as :math:`T_{1t}`,
-      :math:`\Delta{M}` is referred to as :math:`M`,
-      :math:`w` is referred to as :math:`PLD`,
-      :math:`\delta` is referred to as :math:`ATT`,
-      :math:`\tau` is referred to as :math:`LD`,
-      and :math:`\alpha` is referred to as :math:`\epsilon`.
-
-4. CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
-   in which an unweighted average is calculated for each voxel across all PLDs (:math:`w`) in which
-   :math:`w + \tau \gt \delta`.
+   &= 0 && { aBAT < PLD }
 
 
 Pulsed ASL
 ----------
 
+The tissue component of the :math:`\Delta{M}` signal is estimated according to
+:eq:`woods_equation_03`, while the macrovascular (i.e., arterial) component is estimated using
+:eq:`woods_equation_05`.
+
 .. warning::
-   As of 0.3.0, ASLPrep has disabled multi-delay support for PASL data.
-   We plan to properly support multi-delay PASL data in the near future.
+
+   Multi-delay QUIPSS PASL is not supported.
+
+.. math::
+   :label: woods_equation_03
+
+   &= 0 && { 0 < TI < ATT }
+
+   \Delta{M}_{tiss} &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot (TI - ATT)
+   }{ 6000 \cdot e ^ { -\frac{ TI }{ T_{1,b} } } } && { ATT < TI < ATT + TI_{1} }
+
+   &= \frac{ 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot TI_{1}
+   }{ 6000 \cdot e ^ { \frac{ TI }{ T_{1,b} } } } && { ATT + TI_{1} < TI }
+
+.. math::
+   :label: woods_equation_05
+
+   &= 0 && { 0 < TI < aBAT }
+
+   \Delta{M}_{art} &= 2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot
+   e ^ { -\frac{ TI } { T_{1,b} } } && { aBAT < TI < aBAT + TI_{1} }
+
+   &= 0 && { aBAT + TI_{1} < TI }
 
 
 Additional Denoising Options
@@ -559,6 +556,8 @@ of CBF using iterative reweighted least square method :footcite:p:`dolui2016scru
 The SCRUB algorithm is described below:
 
 .. math::
+   :label: scrub
+
    CBF_{SCRUB} =  \arg\max_{\theta} \sum_{t=1}^N \rho(CBF_{t} -\theta)  + \lambda(\theta -\mu)^2
 
    \mu =\sum_{i \in Tissue type} p \cdot \mu_{i}
@@ -616,7 +615,7 @@ Quality control measures
    from pathlib import Path
 
    from aslprep.data import load as load_data
-   from aslprep.workflows.asl.qc import init_cbf_confounds_wf
+   from aslprep.workflows.asl.confounds import init_cbf_confounds_wf
 
    bids_dir = load_data("../tests/data/ds000240").absolute()
    asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
@@ -694,6 +693,7 @@ Resampling ASL and CBF runs onto standard spaces
          'TotalReadoutTime': 0.03,
       },
       fieldmap_id='my_fieldmap',
+      mem_gb=1,
    )
 
 This sub-workflow concatenates the transforms calculated upstream

@@ -223,7 +223,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
+        with pytest.raises(ValueError, match="Unsupported BolusCutOffTechnique"):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 4: QUIPSS PASL with one PostLabelingDelay for each deltam volume (good)
@@ -243,7 +243,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
+        with pytest.raises(ValueError, match="Unsupported BolusCutOffTechnique"):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
@@ -290,8 +290,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
-            results = interface.run(cwd=tmpdir)
+        results = interface.run(cwd=tmpdir)
 
         # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
         # This should produce CBF time series and mean CBF, but no ATT
@@ -337,8 +336,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
-            results = interface.run(cwd=tmpdir)
+        results = interface.run(cwd=tmpdir)
 
 
 def test_compare_slicetiming(datasets, tmp_path_factory):

@@ -82,6 +82,9 @@ def init_asl_surf_wf(
                 medial_surface_nan=False,
                 metadata={},
                 output_dir=".",
+                cbf_3d=["mean_cbf"],
+                cbf_4d=[],
+                att=["att"],
             )
 
     Parameters
@@ -179,7 +182,8 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
             kwargs["dimension"] = 3
 
         if cbf_deriv in att:
-            meta = {"Units": "s"}
+            # units provided in another variable
+            meta = {}
         else:
             meta = {"Units": "mL/100 g/min"}
 
