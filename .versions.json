@@ -9,6 +9,8 @@
 		"0.2.6": "Ordering of probseg maps was incorrect.",
 		"0.2.7": "Ordering of probseg maps was incorrect.",
 		"0.2.8": "Ordering of probseg maps was incorrect.",
-		"0.7.0": "Broken entrypoint for Docker/Apptainer."
+		"0.6.0": "GIFTI outputs not separated by hemisphere.",
+		"0.7.0": "Broken entrypoint for Docker/Apptainer. GIFTI outputs not separated by hemisphere.",
+		"0.7.1": "GIFTI outputs not separated by hemisphere."
 	}
 }

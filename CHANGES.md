@@ -1,3 +1,25 @@
+## 0.7.2
+
+A patch release to fix GIFTI outputs.
+
+### 🐛 Bug Fixes
+
+* Split giftis by hemisphere by @tsalo in https://github.com/PennLINC/aslprep/pull/419
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.7.1...0.7.2
+
+
+## 0.7.1
+
+A hotfix release following 0.7.0.
+
+### 🐛 Bug Fixes
+
+* Fix the entrypoint path in the Dockerfile by @tsalo in https://github.com/PennLINC/aslprep/pull/413
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.7.0...0.7.1
+
+
 ## 0.7.0
 
 ### 🛠 Breaking Changes
