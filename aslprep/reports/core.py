@@ -20,6 +20,7 @@
 #
 #     https://www.nipreps.org/community/licensing/
 #
+"""Tools for generating Reports."""
 from pathlib import Path
 
 from nireports.assembler.report import Report
