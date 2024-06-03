@@ -388,6 +388,8 @@ class execution(_Config):
     """Debug mode(s)."""
     aslprep_dir = None
     """Root of ASLPrep BIDS Derivatives dataset."""
+    aggr_ses_reports = None
+    """Maximum number of sessions aggregated in one subject's visual report."""
     fs_license_file = _fs_license
     """An existing file containing a FreeSurfer license."""
     fs_subjects_dir = None

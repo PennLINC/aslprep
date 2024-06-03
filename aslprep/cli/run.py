@@ -174,27 +174,33 @@ def main():
             _copy_any(dseg_tsv, str(config.execution.aslprep_dir / "desc-aparcaseg_dseg.tsv"))
         errno = 0
     finally:
-        from fmriprep.reports.core import generate_reports
+        from aslprep.reports.core import generate_reports
 
-        from aslprep import data
+        # Generate reports phase
+        session_list = (
+            config.execution.get().get("bids_filters", {}).get("bold", {}).get("session")
+        )
 
         # Generate reports phase
         failed_reports = generate_reports(
             config.execution.participant_label,
             config.execution.aslprep_dir,
             config.execution.run_uuid,
-            config=data.load("reports-spec.yml"),
-            packagename="aslprep",
+            session_list=session_list,
         )
         write_derivative_description(config.execution.bids_dir, config.execution.aslprep_dir)
         write_bidsignore(config.execution.aslprep_dir)
 
-        if sentry_sdk is not None and failed_reports:
-            sentry_sdk.capture_message(
-                f"Report generation failed for {failed_reports} subjects",
-                level="error",
+        if failed_reports:
+            msg = (
+                "Report generation was not successful for the following participants "
+                f': {", ".join(failed_reports)}.'
             )
-        sys.exit(int((errno + failed_reports) > 0))
+            config.loggers.cli.error(msg)
+            if sentry_sdk is not None:
+                sentry_sdk.capture_message(msg, level="error")
+
+        sys.exit(int((errno + len(failed_reports)) > 0))
 
 
 if __name__ == "__main__":
