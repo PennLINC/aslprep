@@ -100,7 +100,11 @@ ASLPrep is largely based on fMRIPrep, as ASL processing is very similar to fMRI 
 fMRIPrep is developed by a larger group and receives more regular feedback on its workflow,
 so we (the ASLPrep developers) try to update ASLPrep in line with fMRIPrep.
 
-ASLPrep and fMRIPrep are both part of the NiPreps community.
+ASLPrep and fMRIPrep are both part of the NiPreps community, but ASLPrep is in a unique situation
+because it is owned and maintained by Ted Satterthwaite and his team.
+As such, while we do our best to keep ASLPrep in sync with fMRIPrep, differences may arise
+due to choices by leadership or, more commonly, necessarily differential processing for different
+modalities.
 
 There are several crucial differences between ASL and fMRI processing,
 which must be accounted for in ASLPrep:

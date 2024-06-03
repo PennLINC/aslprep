@@ -12,10 +12,10 @@ def _build_parser():
     from functools import partial
     from pathlib import Path
 
+    from niworkflows.utils.spaces import OutputReferencesAction, Reference
     from packaging.version import Version
 
     from aslprep.cli.version import check_latest, is_flagged
-    from aslprep.utils.spaces import OutputReferencesAction, Reference
 
     def _path_exists(path, parser):
         """Ensure a given path exists."""
@@ -46,16 +46,36 @@ def _build_parser():
     def _drop_sub(value):
         return value[4:] if value.startswith("sub-") else value
 
+    def _process_value(value):
+        import bids
+
+        if value is None:
+            return bids.layout.Query.NONE
+        elif value == "*":
+            return bids.layout.Query.ANY
+        else:
+            return value
+
     def _filter_pybids_none_any(dct):
-        from bids import layout
+        d = {}
+        for k, v in dct.items():
+            if isinstance(v, list):
+                d[k] = [_process_value(val) for val in v]
+            else:
+                d[k] = _process_value(v)
+        return d
 
-        return {k: layout.Query.ANY if v == "*" else v for k, v in dct.items()}
+    def _bids_filter(value, parser):
+        from json import JSONDecodeError, loads
 
-    def _bids_filter(value):
-        from json import loads
-
-        if value and Path(value).exists():
-            return loads(Path(value).read_text(), object_hook=_filter_pybids_none_any)
+        if value:
+            if Path(value).exists():
+                try:
+                    return loads(Path(value).read_text(), object_hook=_filter_pybids_none_any)
+                except JSONDecodeError:
+                    raise parser.error(f"JSON syntax error in: <{value}>.")
+            else:
+                raise parser.error(f"Path does not exist: <{value}>.")
 
     verstr = f"ASLPrep v{config.environment.version}"
     currentv = Version(config.environment.version)
@@ -68,6 +88,7 @@ def _build_parser():
     PathExists = partial(_path_exists, parser=parser)
     IsFile = partial(_is_file, parser=parser)
     PositiveInt = partial(_min_one, parser=parser)
+    BIDSFilter = partial(_bids_filter, parser=parser)
 
     # Arguments as specified by BIDS-Apps
     # required, positional arguments
@@ -129,7 +150,7 @@ def _build_parser():
         "--bids-filter-file",
         dest="bids_filters",
         action="store",
-        type=_bids_filter,
+        type=BIDSFilter,
         metavar="FILE",
         help=(
             "A JSON file describing custom BIDS input filters using PyBIDS. "
@@ -242,7 +263,7 @@ def _build_parser():
         action="store",
         nargs="+",
         default=[],
-        choices=["fieldmaps", "sbref", "t2w", "flair"],
+        choices=["fieldmaps", "sbref", "t2w", "flair", "fmap-jacobian"],
         help=(
             "ignore selected aspects of the input dataset to disable corresponding "
             "parts of the workflow (a space delimited list)"
@@ -624,7 +645,7 @@ def parse_args(args=None, namespace=None):
     """Parse args and run further checks on the command line."""
     import logging
 
-    from aslprep.utils.spaces import Reference, SpatialReferences
+    from niworkflows.utils.spaces import Reference, SpatialReferences
 
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)

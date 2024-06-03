@@ -1,4 +1,5 @@
 """Utility interfaces for ASLPrep."""
+
 import os
 
 import nibabel as nb
@@ -40,7 +41,11 @@ class ReduceASLFiles(SimpleInterface):
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
         asl_img = nb.load(self.inputs.asl_file)
-        assert asl_img.shape[3] == aslcontext.shape[0]
+        if asl_img.shape[3] != aslcontext.shape[0]:
+            raise ValueError(
+                f"Number of volumes in {self.inputs.asl_file} ({asl_img.shape[3]}) doesn't equal "
+                f"number of rows in {self.inputs.aslcontext} ({aslcontext.shape[0]})."
+            )
 
         if self.inputs.processing_target == "control":
             files_to_keep = ["control", "label", "m0scan"]
@@ -49,9 +54,14 @@ class ReduceASLFiles(SimpleInterface):
         else:
             files_to_keep = ["cbf", "m0scan"]
 
+        n_volumes = aslcontext.shape[0]
         asl_idx = aslcontext.loc[aslcontext["volume_type"].isin(files_to_keep)].index.values
         asl_idx = asl_idx.astype(int)
-        self._results["metadata"] = reduce_metadata_lists(self.inputs.metadata, asl_idx)
+        self._results["metadata"] = reduce_metadata_lists(
+            metadata=self.inputs.metadata,
+            n_volumes=n_volumes,
+            keep_idx=asl_idx,
+        )
 
         asl_img = image.index_img(asl_img, asl_idx)
 

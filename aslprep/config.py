@@ -239,7 +239,7 @@ class _Config:
     @classmethod
     def get(cls):
         """Return defined settings."""
-        from aslprep.utils.spaces import Reference, SpatialReferences
+        from niworkflows.utils.spaces import Reference, SpatialReferences
 
         out = {}
         for k, v in cls.__dict__.items():
@@ -480,12 +480,21 @@ class execution(_Config):
         if cls.bids_filters:
             from bids.layout import Query
 
+            def _process_value(value):
+                """Convert string with "Query" in it to Query object."""
+                if isinstance(value, list):
+                    return [_process_value(val) for val in value]
+                else:
+                    return (
+                        getattr(Query, value[7:-4])
+                        if not isinstance(value, Query) and "Query" in value
+                        else value
+                    )
+
             # unserialize pybids Query enum values
             for acq, filters in cls.bids_filters.items():
-                cls.bids_filters[acq] = {
-                    k: getattr(Query, v[7:-4]) if not isinstance(v, Query) and "Query" in v else v
-                    for k, v in filters.items()
-                }
+                for k, v in filters.items():
+                    cls.bids_filters[acq][k] = _process_value(v)
 
         if "all" in cls.debug:
             cls.debug = list(DEBUG_MODES)
@@ -548,7 +557,7 @@ class workflow(_Config):
     """Skip brain extraction of the T1w image (default is ``force``, meaning that
     *ASLPrep* will run brain extraction of the T1w)."""
     spaces = None
-    """Keeps the :py:class:`~aslprep.utils.spaces.SpatialReferences`
+    """Keeps the :py:class:`~niworkflows.utils.spaces.SpatialReferences`
     instance keeping standard and nonstandard spaces."""
     use_bbr = None
     """Run boundary-based registration for ASL-to-T1w registration."""
@@ -745,7 +754,7 @@ def to_filename(filename):
 
 def init_spaces(checkpoint=True):
     """Initialize the :attr:`~workflow.spaces` setting."""
-    from aslprep.utils.spaces import Reference, SpatialReferences
+    from niworkflows.utils.spaces import Reference, SpatialReferences
 
     spaces = execution.output_spaces or SpatialReferences()
     if not isinstance(spaces, SpatialReferences):

@@ -25,20 +25,20 @@ def main():
     opts = get_parser().parse_args()
 
     allsubj_dir = os.path.abspath(opts.aslprep_dir)
-    outputfile = os.getcwd() + "/" + str(opts.output_prefix) + "_allsubjects_qc.csv"
+    outputfile = os.getcwd() + "/" + str(opts.output_prefix) + "_allsubjects_qc.tsv"
 
     qclist = []
     for r, d, f in os.walk(allsubj_dir):
         for filex in f:
-            if filex.endswith("quality_control_cbf.csv"):
+            if filex.endswith("desc-qualitycontrol_cbf.tsv"):
                 qclist.append(r + "/" + filex)
 
-    datax = pd.read_csv(qclist[0])
+    datax = pd.read_table(qclist[0])
     for i in range(1, len(qclist)):
-        dy = pd.read_csv(qclist[i])
+        dy = pd.read_table(qclist[i])
         datax = pd.concat([datax, dy])
 
-    datax.to_csv(outputfile, index=None)
+    datax.to_csv(outputfile, index=None, sep="\t")
 
 
 if __name__ == "__main__":

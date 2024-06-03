@@ -59,12 +59,20 @@ authors:
     family-names: Flounders
   - given-names: Alexandre R.
     family-names: Franco
+  - given-names: Mathias
+    family-names: Goncalves
+    affiliation: Stanford University
+    orcid: 'https://orcid.org/0000-0002-7252-7771'
   - given-names: Raquel E.
     family-names: Gur
   - given-names: Ruben C.
     family-names: Gur
   - given-names: Basma
     family-names: Jaber
+  - given-names: Christopher J.
+    family-names: Markiewicz
+    affiliation: Stanford University
+    orcid: 'https://orcid.org/0000-0002-6533-164X'
   - given-names: Corey
     family-names: McMillian
   - name: "The ALLFTD Consortium"
@@ -116,5 +124,5 @@ keywords:
   - BIDS-App
   - Neuroimaging
 license: BSD-3-Clause
-version: 0.3.0
-date-released: '2023-04-07'
+version: 0.7.0
+date-released: '2024-05-09'

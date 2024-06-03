@@ -1,4 +1,5 @@
 """Functions for working with ASL data."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -164,7 +165,7 @@ def get_bolus_duration(metadata: "dict[str, Any]", is_casl: bool) -> float:
         return metadata["BolusCutOffDelayTime"]
 
 
-def reduce_metadata_lists(metadata, metadata_idx):
+def reduce_metadata_lists(metadata, n_volumes, keep_idx):
     """Reduce any volume-wise metadata fields to only contain values for selected volumes."""
     # A hardcoded list of fields that may have one value for each volume.
     VOLUME_WISE_FIELDS = [
@@ -182,7 +183,12 @@ def reduce_metadata_lists(metadata, metadata_idx):
 
         value = metadata[field]
         if isinstance(value, list):
+            if len(value) != n_volumes:
+                raise ValueError(
+                    f"Number of elements in list-type metadata field {field} ({len(value)}) "
+                    f"doesn't equal the number of volumes in the ASL file ({n_volumes})."
+                )
             # Reduce to only the selected volumes
-            metadata[field] = [value[i] for i in metadata_idx]
+            metadata[field] = [value[i] for i in keep_idx]
 
     return metadata

@@ -30,7 +30,7 @@ averages them into a single reference template.
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.utils.spaces import Reference, SpatialReferences
+   from niworkflows.utils.spaces import Reference, SpatialReferences
    from smriprep.workflows.anatomical import init_anat_fit_wf
 
    wf = init_anat_fit_wf(
@@ -69,9 +69,9 @@ brain extraction workflow:
    :graph2use: orig
    :simple_form: yes
 
-   from aslprep.workflows.asl.util import init_enhance_and_skullstrip_asl_wf
+   from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
 
-   wf = init_enhance_and_skullstrip_asl_wf()
+   wf = init_enhance_and_skullstrip_bold_wf()
 
 An example of brain extraction is shown below:
 
@@ -148,7 +148,7 @@ ASL reference image estimation
 This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labelling)` series.
 The reference image is then used to calculate a brain mask for the
 :abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
-:py:func:`~aslprep.workflows.asl.util.init_enhance_and_skullstrip_asl_wf`.
+:py:func:`~niworkflows.func.util.init_enhance_and_skullstrip_bold_wf`.
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.
@@ -262,11 +262,11 @@ CBF Computation in native space
 
    import json
    from pathlib import Path
-   from pkg_resources import resource_filename as pkgrf
 
+   from aslprep.data import load as load_data
    from aslprep.workflows.asl.cbf import init_cbf_wf
 
-   bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+   bids_dir = load_data("../tests/data/ds000240").absolute()
    nii_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
    with open(metadata_file) as f:
@@ -614,11 +614,11 @@ Quality control measures
    :simple_form: yes
 
    from pathlib import Path
-   from pkg_resources import resource_filename as pkgrf
 
+   from aslprep.data import load as load_data
    from aslprep.workflows.asl.qc import init_cbf_confounds_wf
 
-   bids_dir = Path(pkgrf("aslprep", "tests/data/ds000240")).absolute()
+   bids_dir = load_data("../tests/data/ds000240").absolute()
    asl_file = bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz"
    metadata = bids_dir / "sub-01" / "perf"/ "sub-01_asl.json"
 

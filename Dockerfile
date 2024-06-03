@@ -1,4 +1,4 @@
-FROM pennlinc/aslprep_build:0.0.7
+FROM pennlinc/aslprep_build:0.0.11
 
 # Install aslprep
 COPY . /src/aslprep
@@ -17,7 +17,7 @@ RUN find $HOME -type d -exec chmod go=u {} + && \
 RUN ldconfig
 WORKDIR /tmp/
 
-ENTRYPOINT ["/usr/local/miniconda/bin/aslprep"]
+ENTRYPOINT ["/opt/conda/envs/aslprep/bin/aslprep"]
 
 ARG BUILD_DATE
 ARG VCS_REF

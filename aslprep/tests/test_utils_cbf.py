@@ -1,4 +1,5 @@
 """Tests for the aslprep.utils.cbf module."""
+
 import numpy as np
 
 from aslprep.utils import cbf

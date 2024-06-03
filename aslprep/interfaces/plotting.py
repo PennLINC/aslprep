@@ -1,4 +1,5 @@
 """Plotting interfaces."""
+
 import nibabel as nb
 import numpy as np
 import pandas as pd
@@ -83,9 +84,8 @@ class ASLCarpetPlot(SimpleInterface):
             else:
                 dataset, segments = cifti_data, cifti_segments
 
-        dataframe = pd.read_csv(
+        dataframe = pd.read_table(
             self.inputs.confounds_file,
-            sep="\t",
             index_col=None,
             dtype="float32",
             na_filter=True,
@@ -215,12 +215,13 @@ class CBFByTissueTypePlot(SimpleInterface):
             fig, ax = plt.subplots(figsize=(16, 8))
             sns.despine(ax=ax, bottom=True, left=True)
             sns.boxenplot(
-                x="Tissue Type",
                 y="CBF\n(mL/100 g/min)",
                 data=df,
                 width=0.6,
                 showfliers=True,
                 palette={"GM": "#1b60a5", "WM": "#2da467", "CSF": "#9d8f25"},
+                hue="Tissue Type",
+                legend=False,
                 ax=ax,
             )
             fig.tight_layout()

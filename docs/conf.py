@@ -47,13 +47,10 @@ needs_sphinx = "4.2.0"
 # Add any Sphinx extension module names here, as strings.
 # They can be extensions coming with Sphinx (named "sphinx.ext.*") or your custom ones.
 extensions = [
-    "nbsphinx",
     "nipype.sphinxext.apidoc",
     "nipype.sphinxext.plot_workflow",
     "recommonmark",
     "sphinx.ext.autodoc",
-    "sphinx.ext.autosectionlabel",
-    "sphinx.ext.autosummary",  # standard
     "sphinx.ext.coverage",
     "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",

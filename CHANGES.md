@@ -1,3 +1,83 @@
+## 0.7.0
+
+### 🛠 Breaking Changes
+
+* Rename QC metrics and output QC files as TSVs by @tsalo in https://github.com/PennLINC/aslprep/pull/375
+* Move atlases into a subfolder by @tsalo in https://github.com/PennLINC/aslprep/pull/377
+
+### 🎉 Exciting New Features
+
+* Add --ignore fmap-jacobian option by @tsalo in https://github.com/PennLINC/aslprep/pull/385
+* Support lists in filter file with `*` or `null` by @tsalo in https://github.com/PennLINC/aslprep/pull/388
+
+### 🐛 Bug Fixes
+
+* Flip order of transforms in `init_ds_volumes_wf` by @tsalo in https://github.com/PennLINC/aslprep/pull/392
+
+### Other Changes
+
+* Use space definitions from niworkflows by @tsalo in https://github.com/PennLINC/aslprep/pull/378
+* Use niworkflows enhance-and-skullstrip workflow by @tsalo in https://github.com/PennLINC/aslprep/pull/371
+* Update Nilearn requirement to 0.10.3 by @tsalo in https://github.com/PennLINC/aslprep/pull/396
+* [ENH] Update docker image by @mattcieslak in https://github.com/PennLINC/aslprep/pull/409
+* [FIX] update to newer docker by @mattcieslak in https://github.com/PennLINC/aslprep/pull/412
+* Update codecov orb version by @tsalo in https://github.com/PennLINC/aslprep/pull/410
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.6.0...0.7.0
+
+
+## 0.6.0
+
+This release makes substantial changes to *ASLPrep*.
+The two main changes are (1) the Schaefer atlases are replaced with the PennLINC team's new 4S atlases,
+which combine the Schaefer cortical atlases and several subcortical atlases,
+and (2) a major rearchitect of the package based on *fMRIPrep* version 23.2.0a2.
+The latter allows *ASLPrep* to run FreeSurfer reconstruction,
+write out CIFTI and GIFTI format derivatives,
+and correctly apply susceptibility distortion correction with *SDCFlows*
+(although SDC support is dependent on the _next_ *SDCFlows* release, so in practice it won't work just yet).
+
+I'd like to credit Chris Markiewicz (@effigies) for doing the majority of the work in the *fMRIPrep* refactor,
+which I was able to copy and adapt for *ASLPrep*.
+
+Here's a list of parameter changes with this release:
+
+-   Users must point to the actual output directory.
+    `aslprep` will no longer be appended automatically.
+-   The parameter `--anat-derivatives` is replaced with `--derivatives`,
+    which takes one or more paths to *sMRIPrep* or *ASLPrep* derivatives.
+-   The parameter `--dummy-vols` is now `--dummy-scans` to match *fMRIPrep*.
+-   The following parameters are newly added:
+    `--bids-database-dir`, `--level`, `--medial-surface-nan`, `--project-goodvoxels`,
+    `--cifti-output`, `--no-msm`, `--no-submm-recon`, `--fs-subjects-dir`,
+    `--fs-no-reconall`, and `--config-file`.
+
+Output changes:
+
+-   The native-space `aslref` image is now split into `desc-hmc` and `desc-coreg` versions.
+-   `desc-pvGM_cbf` is renamed to `desc-basilGM_cbf`.
+-   `desc-pvWM_cbf` is renamed to `desc-basilWM_cbf`.
+-   `desc-confounds_regressors.tsv` is renamed to `desc-confounds_timeseries.tsv`.
+-   The transform `from-T1w_to-scanner_mode-image_xfm.txt` is no longer generated.
+    The inverse is invertible, so the information is still available.
+-   The transform `from-scanner_to-T1w_mode-image_xfm.txt` is split into
+    `from-orig_to-aslref_mode-image_xfm.txt` and `from-aslref_to-T1w_mode-image_xfm.txt` files.
+
+### 🛠 Breaking Changes
+* Add AtlasPack atlases by @tsalo in https://github.com/PennLINC/aslprep/pull/330
+* Replace AtlasPack 0.0.5 atlases with AtlasPack 0.1.0 atlases by @tsalo in https://github.com/PennLINC/aslprep/pull/334
+* Remove sdcflows and model ASLPrep on fMRIPrep/next by @tsalo in https://github.com/PennLINC/aslprep/pull/338
+
+### 🎉 Exciting New Features
+* Write out GIFTI and CIFTI CBF maps by @tsalo in https://github.com/PennLINC/aslprep/pull/361
+
+### 🐛 Bug Fixes
+* Pin scipy version to 1.10.1 by @tsalo in https://github.com/PennLINC/aslprep/pull/333
+* Raise error if no M0 volume(s)/estimate available and background suppression is enabled by @tsalo in https://github.com/PennLINC/aslprep/pull/337
+* Limit BASIL `--slicedt` argument to ascending slice orders by @tsalo in https://github.com/PennLINC/aslprep/pull/348
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.5.1...0.6.0
+
 
 ## 0.5.1
 
