@@ -23,6 +23,7 @@ from aslprep.workflows.asl.confounds import (
 from aslprep.workflows.asl.fit import init_asl_fit_wf, init_asl_native_wf
 from aslprep.workflows.asl.outputs import (
     init_ds_asl_native_wf,
+    init_ds_cbf_native_wf,
     init_ds_ciftis_wf,
     init_ds_volumes_wf,
 )
@@ -380,6 +381,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         processing_target=processing_target,
         dummy_scans=dummy_scans,
         m0_scale=m0_scale,
+        precomputed=precomputed,
         scorescrub=scorescrub,
         basil=basil,
         smooth_kernel=smooth_kernel,
@@ -404,6 +406,30 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
     ])  # fmt:skip
 
+    # If we want aslref-space outputs, then call the appropriate workflow
+    aslref_out = bool(nonstd_spaces.intersection(("func", "run", "asl", "aslref", "sbref")))
+    aslref_out &= config.workflow.level == "full"
+
+    # Write out aslref-space CBF derivatives for the minimal and resampling workflows,
+    # or if we want them anyway.
+    if (config.workflow.level != "full") or aslref_out:
+        ds_cbf_native_wf = init_ds_cbf_native_wf(
+            bids_root=str(config.execution.bids_dir),
+            output_dir=config.execution.aslprep_dir,
+            metadata=metadata,
+            cbf_3d=cbf_3d_derivs,
+            cbf_4d=cbf_4d_derivs,
+            att=att_derivs,
+        )
+        ds_cbf_native_wf.inputs.inputnode.source_files = [asl_file]
+
+        for cbf_deriv in cbf_derivs:
+            workflow.connect([
+                (cbf_wf, ds_cbf_native_wf, [
+                    (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
+                ]),
+            ])  # fmt:skip
+
     if config.workflow.level == "minimal":
         return workflow
 
@@ -412,7 +438,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     #   - Calculate ASL confounds and CBF QC metrics.
     #   - Generate plots for CBF.
     #   - Resample to anatomical space.
-    #   - Save aslref-space outputs only if requested.
+    #   - Save aslref-space ASL outputs only if requested.
     #
 
     asl_confounds_wf = init_asl_confounds_wf(
@@ -482,7 +508,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])  # fmt:skip
 
     # Plot CBF outputs.
-    # NOTE: CIFTI input won't be provided unless level is set to 'full'.
+    # NOTE: CIFTI input won't be provided unless level is set to 'full' and CIFTI outputs are
+    # requested.
     cbf_reporting_wf = init_cbf_reporting_wf(
         metadata=metadata,
         plot_timeseries=not (is_multi_pld or use_ge or (config.workflow.level == "resampling")),
@@ -519,19 +546,12 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (cbf_wf, cbf_reporting_wf, [(f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}")]),
         ])  # fmt:skip
 
-    # If we want aslref-space outputs, then call the appropriate workflow
-    aslref_out = bool(nonstd_spaces.intersection(("func", "run", "asl", "aslref", "sbref")))
-    aslref_out &= config.workflow.level == "full"
-
     if aslref_out:
         ds_asl_native_wf = init_ds_asl_native_wf(
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
             asl_output=aslref_out,
             metadata=metadata,
-            cbf_3d=cbf_3d_derivs,
-            cbf_4d=cbf_4d_derivs,
-            att=att_derivs,
         )
         ds_asl_native_wf.inputs.inputnode.source_files = [asl_file]
 
@@ -539,13 +559,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (asl_fit_wf, ds_asl_native_wf, [("outputnode.asl_mask", "inputnode.asl_mask")]),
             (asl_native_wf, ds_asl_native_wf, [("outputnode.asl_native", "inputnode.asl")]),
         ])  # fmt:skip
-
-        for cbf_deriv in cbf_derivs:
-            workflow.connect([
-                (cbf_wf, ds_asl_native_wf, [
-                    (f"outputnode.{cbf_deriv}", f"inputnode.{cbf_deriv}"),
-                ]),
-            ])  # fmt:skip
 
     if config.workflow.level == "resampling":
         # Fill in datasinks of reportlets seen so far

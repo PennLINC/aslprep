@@ -334,6 +334,15 @@ def test_test_003_minimal(data_dir, output_dir, working_dir):
         extra_params=["--fs-no-reconall"],
     )
 
+    base_test_003(
+        data_dir,
+        output_dir,
+        working_dir,
+        level="full",
+        level_name="minimal",
+        extra_params=["--fs-no-reconall"],
+    )
+
 
 @pytest.mark.test_003_resampling
 def test_test_003_resampling(data_dir, output_dir, working_dir):
@@ -359,7 +368,7 @@ def test_test_003_full(data_dir, output_dir, working_dir):
     )
 
 
-def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
+def base_test_003(data_dir, output_dir, working_dir, level, level_name=None, extra_params=None):
     """Run aslprep on sub-01.
 
     This dataset is Siemens.
@@ -369,7 +378,11 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
     download_test_data("anatomical", data_dir)
-    level_test_name = f"{TEST_NAME}_{level}"
+    if level_name:
+        level_test_name = f"{TEST_NAME}_{level_name}"
+    else:
+        level_test_name = f"{TEST_NAME}_{level}"
+
     out_dir = os.path.join(output_dir, level_test_name, "aslprep")
     work_dir = os.path.join(working_dir, level_test_name)
 
@@ -383,6 +396,7 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
         "--omp-nthreads=1",
         "--output-spaces",
         "asl",
+        "MNI152NLin2009cAsym",
         "--use-syn-sdc",
         "--m0_scale=10",
         f"--fs-subjects-dir={os.path.join(data_dir, 'anatomical/freesurfer')}",
