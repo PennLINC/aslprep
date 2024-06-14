@@ -3,12 +3,12 @@
 import os
 
 import pytest
-from fmriprep.reports.core import generate_reports
 from nipype import config as nipype_config
 
 from aslprep.cli.parser import parse_args
 from aslprep.cli.workflow import build_boilerplate, build_workflow
 from aslprep.data import load as load_data
+from aslprep.reports.core import generate_reports
 from aslprep.tests.utils import (
     check_generated_files,
     download_test_data,

@@ -544,6 +544,17 @@ any spatial references.""",
     )
 
     g_other = parser.add_argument_group("Other options")
+    g_other.add_argument(
+        "--aggregate-session-reports",
+        dest="aggr_ses_reports",
+        action="store",
+        type=PositiveInt,
+        default=4,
+        help=(
+            "Maximum number of sessions aggregated in one subject's visual report. "
+            "If exceeded, visual reports are split by session."
+        ),
+    )
     g_other.add_argument("--version", action="version", version=verstr)
     g_other.add_argument(
         "-v",
