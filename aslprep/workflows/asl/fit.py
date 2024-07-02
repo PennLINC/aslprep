@@ -305,8 +305,8 @@ def init_asl_fit_wf(
         FunctionalSummary(
             distortion_correction="None",  # Can override with connection
             registration=("FSL", "FreeSurfer")[config.workflow.run_reconall],
-            registration_dof=config.workflow.asl2t1w_dof,
-            registration_init=config.workflow.asl2t1w_init,
+            registration_dof=config.workflow.asl2anat_dof,
+            registration_init=config.workflow.asl2anat_init,
             pe_direction=metadata.get("PhaseEncodingDirection"),
             tr=metadata["RepetitionTime"],
             orientation=orientation,
@@ -585,8 +585,8 @@ def init_asl_fit_wf(
     if not aslref2anat_xform:
         # calculate ASL registration to T1w
         asl_reg_wf = init_bold_reg_wf(
-            bold2t1w_dof=config.workflow.asl2t1w_dof,
-            bold2t1w_init=config.workflow.asl2t1w_init,
+            bold2anat_dof=config.workflow.asl2anat_dof,
+            bold2anat_init=config.workflow.asl2anat_init,
             freesurfer=config.workflow.run_reconall,
             mem_gb=mem_gb["resampled"],
             name="asl_reg_wf",

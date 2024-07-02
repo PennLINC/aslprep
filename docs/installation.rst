@@ -7,7 +7,7 @@ Installation
 There are two ways to install *ASLPrep*:
 
 * using `Container Technologies`_ (RECOMMENDED)
-* within a `Manually Prepared Environment (Python 3.10+)`_, also known as *bare-metal installation*
+* within a `Manually Prepared Environment (Python 3.11+)`_, also known as *bare-metal installation*
 
 *ASLPrep* is not just a Python package;
 it also depends on a number of other neuroimaging libraries written in other languages.
@@ -89,7 +89,7 @@ where ``<version>`` should be replaced with the version of *ASLPrep* that you wa
 .. _installation_manually_prepared_environment:
 
 *******************************************
-Manually Prepared Environment (Python 3.10)
+Manually Prepared Environment (Python 3.11)
 *******************************************
 
 .. warning::
@@ -100,7 +100,7 @@ Manually Prepared Environment (Python 3.10)
 ASLPrep requires some `External Dependencies`_.
 These tools must be installed and their binaries available in the system's ``$PATH``.
 
-On a functional Python 3.10 environment with ``pip`` installed,
+On a functional Python 3.11 environment with ``pip`` installed,
 ASLPrep can be installed using the command:
 
 .. code-block:: bash
@@ -118,7 +118,7 @@ Check your installation with the ``--version`` argument:
 External Dependencies
 *********************
 
-*ASLPrep* is written using Python 3.10, is based on nipype_,
+*ASLPrep* is written using Python 3.11, is based on nipype_,
 and requires some other neuroimaging software tools that are not handled by Python's packaging
 system (PyPi) used to deploy the ASLPrep package:
 
