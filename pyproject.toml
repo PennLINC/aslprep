@@ -30,7 +30,7 @@ dependencies = [
     "numpy >= 1.26",
     "packaging",
     "pandas",
-    "psutil <= 5.9.8",
+    "psutil <= 6.0.0",
     "pybids <= 0.16.5",
     "requests",
     "sdcflows <= 2.9.0",
