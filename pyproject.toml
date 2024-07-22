@@ -34,7 +34,7 @@ dependencies = [
     "pybids <= 0.16.5",
     "requests",
     "sdcflows <= 2.9.0",
-    "sentry-sdk <= 2.9.0",
+    "sentry-sdk <= 2.10.0",
     "smriprep <= 0.15",
     "templateflow <= 24.2.0",
     "toml",
