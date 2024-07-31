@@ -18,7 +18,7 @@ license = {file = "LICENSE.md"}
 requires-python = ">=3.10"
 dependencies = [
     'importlib_resources; python_version < "3.11"',
-    "fmriprep >= 23.2, <= 24.0",
+    "fmriprep >= 23.2, <= 24.0.1",
     "indexed_gzip <= 1.8.7",
     "looseversion",
     "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
@@ -33,7 +33,7 @@ dependencies = [
     "psutil <= 6.0.0",
     "pybids <= 0.16.5",
     "requests",
-    "sdcflows <= 2.9.0",
+    "sdcflows <= 2.10.0",
     "sentry-sdk <= 2.11.0",
     "smriprep <= 0.15",
     "templateflow <= 24.2.0",
