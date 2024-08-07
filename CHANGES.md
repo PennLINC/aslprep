@@ -1,3 +1,15 @@
+## 0.7.3
+
+This release fixes a bug in multi-PLD PCASL CBF calculation.
+Thanks to @xu-boyan for identifying the problem!
+
+### 🐛 Bug Fixes
+
+* Add `t1tissue` term to multi-delay CBF formula by @tsalo in https://github.com/PennLINC/aslprep/pull/432
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.7.2...0.7.3
+
+
 ## 0.7.2
 
 A patch release to fix GIFTI outputs.
