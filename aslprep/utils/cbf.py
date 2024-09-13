@@ -747,8 +747,8 @@ def estimate_cbf_pcasl_multipld(
 
         pld_num_factor = num_factor * mean_deltam_by_pld[:, i_pld] * np.exp(att_arr / t1blood)
         pld_denom_factor = denom_factor * (
-            np.exp(-np.maximum(pld_by_voxel - att_arr, 0))
-            - np.exp(-np.maximum(tau_for_pld + pld_by_voxel - att_arr, 0))
+            np.exp(-(np.maximum(pld_by_voxel - att_arr, 0) / t1tissue))
+            - np.exp(-(np.maximum(tau_for_pld + pld_by_voxel - att_arr, 0) / t1tissue))
         )
         cbf_by_pld[:, i_pld] = pld_num_factor / pld_denom_factor
 
