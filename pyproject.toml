@@ -36,7 +36,7 @@ dependencies = [
     "sdcflows <= 2.10.0",
     "sentry-sdk <= 2.14.0",
     "smriprep <= 0.16.1",
-    "templateflow <= 24.2.0",
+    "templateflow <= 24.2.2",
     "toml",
 
 ]
