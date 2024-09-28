@@ -177,11 +177,12 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
     )
     registration_init = traits.Enum(
-        "register",
+        "t1w",
+        "t2w",
         "header",
         mandatory=True,
         desc='Whether to initialize registration with the "header"'
-        ' or by centering the volumes ("register")',
+        ' or by centering the volumes ("t1w" or "t2w")',
     )
     confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
     qc_file = File(exists=True, desc="qc file")

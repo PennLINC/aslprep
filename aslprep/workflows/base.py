@@ -331,10 +331,10 @@ their manuscripts unchanged. It is released under the unchanged
                 ]),
                 (anat_fit_wf, ds_std_volumes_wf, [
                     ("outputnode.t1w_valid_list", "inputnode.source_files"),
-                    ("outputnode.t1w_preproc", "inputnode.t1w_preproc"),
-                    ("outputnode.t1w_mask", "inputnode.t1w_mask"),
-                    ("outputnode.t1w_dseg", "inputnode.t1w_dseg"),
-                    ("outputnode.t1w_tpms", "inputnode.t1w_tpms"),
+                    ("outputnode.t1w_preproc", "inputnode.anat_preproc"),
+                    ("outputnode.t1w_mask", "inputnode.anat_mask"),
+                    ("outputnode.t1w_dseg", "inputnode.anat_dseg"),
+                    ("outputnode.t1w_tpms", "inputnode.anat_tpms"),
                 ]),
                 (template_iterator_wf, ds_std_volumes_wf, [
                     ("outputnode.std_t1w", "inputnode.ref_file"),
@@ -592,6 +592,15 @@ ASL data preprocessing
 : For each of the {len(subject_data['asl'])} ASL runs found per subject (across all
 tasks and sessions), the following preprocessing was performed.
 """
+
+    # Before initializing BOLD workflow, select/verify anatomical target for coregistration
+    if config.workflow.asl2anat_init in ("auto", "t2w"):
+        has_t2w = subject_data["t2w"] or "t2w_preproc" in anatomical_cache
+        if config.workflow.asl2anat_init == "t2w" and not has_t2w:
+            raise OSError(
+                "A T2w image is expected for ASL-to-anatomical coregistration and was not found"
+            )
+        config.workflow.asl2anat_init = "t2w" if has_t2w else "t1w"
 
     asl_preproc_wfs = []
     for asl_file in subject_data["asl"]:

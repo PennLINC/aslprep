@@ -12,13 +12,13 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Image Recognition",
     "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 license = {file = "LICENSE.md"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    'importlib_resources; python_version < "3.11"',
-    "fmriprep >= 23.2, <= 24.1.0",
+    'importlib_resources; python_version < "3.12"',
+    "fmriprep == 24.1.0rc2",
     "indexed_gzip <= 1.8.7",
     "looseversion",
     "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
@@ -105,7 +105,6 @@ exclude = [
 
 [tool.hatch.version]
 source = "vcs"
-# raw-options = { version_scheme = "nipreps-calver" }
 
 [tool.hatch.build.hooks.vcs]
 version-file = "aslprep/_version.py"

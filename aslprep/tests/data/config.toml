@@ -32,8 +32,8 @@ write_graph = false
 
 [workflow]
 anat_only = false
-asl2t1w_dof = 6
-asl2t1w_init = "register"
+asl2anat_dof = 6
+asl2anat_init = "auto"
 m0_scale = 1
 fmap_bspline = false
 force_syn = false
