@@ -26,4 +26,4 @@ Contents
    spaces
    contributors
    api
-   ../changes.md
+   ../CHANGES.md
