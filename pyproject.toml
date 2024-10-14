@@ -53,7 +53,7 @@ NiPreps = "https://www.nipreps.org/"
 doc = [
     "doctest-ignore-unicode",
     "lxml_html_clean",
-    "m2r2",
+    "myst_parser",
     "nbsphinx",
     "packaging",
     "pydot >= 1.2.3",

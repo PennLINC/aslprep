@@ -24,7 +24,6 @@ import os
 import sys
 from datetime import datetime
 
-from m2r2 import MdInclude
 from packaging import version as pver
 from sphinx import __version__ as sphinxversion
 
@@ -47,6 +46,7 @@ needs_sphinx = "4.2.0"
 # Add any Sphinx extension module names here, as strings.
 # They can be extensions coming with Sphinx (named "sphinx.ext.*") or your custom ones.
 extensions = [
+    "myst_parser",
     "nipype.sphinxext.apidoc",
     "nipype.sphinxext.plot_workflow",
     "recommonmark",
@@ -333,11 +333,3 @@ def setup(app):
     app.add_css_file("theme_overrides.css")
     # We need this for the boilerplate script
     app.add_js_file("https://cdn.rawgit.com/chrisfilo/zenodo.js/v0.1/zenodo.js")
-    # Fix to https://github.com/sphinx-doc/sphinx/issues/7420
-    # from https://github.com/life4/deal/commit/7f33cbc595ed31519cefdfaaf6f415dada5acd94
-    # from m2r2 to make `mdinclude` work
-    app.add_config_value("no_underscore_emphasis", False, "env")
-    app.add_config_value("m2r_parse_relative_links", False, "env")
-    app.add_config_value("m2r_anonymous_references", False, "env")
-    app.add_config_value("m2r_disable_inline_math", False, "env")
-    app.add_directive("mdinclude", MdInclude)
