@@ -26,4 +26,4 @@ Contents
    spaces
    contributors
    api
-   What's New <https://github.com/PennLINC/aslprep/releases> ↗
+   What's New <https://github.com/PennLINC/aslprep/releases>
