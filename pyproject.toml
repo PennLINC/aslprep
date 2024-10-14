@@ -58,7 +58,6 @@ doc = [
     "packaging",
     "pydot >= 1.2.3",
     "pydotplus",
-    "recommonmark",
     "sphinx >= 6.2.1",
     "sphinx-argparse",
     "sphinx-markdown-tables",

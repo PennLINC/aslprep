@@ -49,7 +49,6 @@ extensions = [
     "myst_parser",
     "nipype.sphinxext.apidoc",
     "nipype.sphinxext.plot_workflow",
-    "recommonmark",
     "sphinx.ext.autodoc",
     "sphinx.ext.coverage",
     "sphinx.ext.doctest",
