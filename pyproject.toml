@@ -64,6 +64,10 @@ doc = [
     "sphinxcontrib-apidoc",
     "sphinxcontrib-bibtex",
 ]
+dev = [
+    "ruff ~= 0.4.3",
+    "pre-commit",
+]
 test = [
     "codecov",
     "coverage",

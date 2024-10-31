@@ -29,17 +29,17 @@ from aslprep.utils.confounds import (
 
 
 class _GatherConfoundsInputSpec(BaseInterfaceInputSpec):
-    signals = File(exists=True, desc="input signals")
-    dvars = File(exists=True, desc="file containing DVARS")
-    rmsd = File(exists=True, desc="input RMS framewise displacement")
-    std_dvars = File(exists=True, desc="file containing standardized DVARS")
-    fd = File(exists=True, desc="input framewise displacement")
-    motion = File(exists=True, desc="input motion parameters")
+    signals = File(exists=True, desc='input signals')
+    dvars = File(exists=True, desc='file containing DVARS')
+    rmsd = File(exists=True, desc='input RMS framewise displacement')
+    std_dvars = File(exists=True, desc='file containing standardized DVARS')
+    fd = File(exists=True, desc='input framewise displacement')
+    motion = File(exists=True, desc='input motion parameters')
 
 
 class _GatherConfoundsOutputSpec(TraitedSpec):
-    confounds_file = File(exists=True, desc="output confounds file")
-    confounds_list = traits.List(traits.Str, desc="list of headers")
+    confounds_file = File(exists=True, desc='output confounds file')
+    confounds_list = traits.List(traits.Str, desc='list of headers')
 
 
 class GatherConfounds(SimpleInterface):
@@ -58,19 +58,19 @@ class GatherConfounds(SimpleInterface):
             motion=self.inputs.motion,
             newpath=runtime.cwd,
         )
-        self._results["confounds_file"] = combined_out
-        self._results["confounds_list"] = confounds_list
+        self._results['confounds_file'] = combined_out
+        self._results['confounds_list'] = confounds_list
         return runtime
 
 
 class _GatherCBFConfoundsInputSpec(BaseInterfaceInputSpec):
-    signals = File(exists=True, desc="input signals")
-    score = File(exists=True, desc="SCORE outlier index")
+    signals = File(exists=True, desc='input signals')
+    score = File(exists=True, desc='SCORE outlier index')
 
 
 class _GatherCBFConfoundsOutputSpec(TraitedSpec):
-    confounds_file = File(exists=True, desc="output confounds file")
-    confounds_list = traits.List(traits.Str, desc="list of headers")
+    confounds_file = File(exists=True, desc='output confounds file')
+    confounds_list = traits.List(traits.Str, desc='list of headers')
 
 
 class GatherCBFConfounds(SimpleInterface):
@@ -90,18 +90,18 @@ class GatherCBFConfounds(SimpleInterface):
             score=self.inputs.score,
             newpath=runtime.cwd,
         )
-        self._results["confounds_file"] = combined_out
-        self._results["confounds_list"] = confounds_list
+        self._results['confounds_file'] = combined_out
+        self._results['confounds_list'] = confounds_list
         return runtime
 
 
 class _NormalizeMotionParamsInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc="the input parameters file")
-    format = traits.Enum("FSL", "AFNI", "FSFAST", "NIPY", usedefault=True, desc="output format")
+    in_file = File(exists=True, mandatory=True, desc='the input parameters file')
+    format = traits.Enum('FSL', 'AFNI', 'FSFAST', 'NIPY', usedefault=True, desc='output format')
 
 
 class _NormalizeMotionParamsOutputSpec(TraitedSpec):
-    out_file = File(exists=True, desc="written file path")
+    out_file = File(exists=True, desc='written file path')
 
 
 class NormalizeMotionParams(SimpleInterface):
@@ -125,8 +125,8 @@ class NormalizeMotionParams(SimpleInterface):
         mpars = np.apply_along_axis(
             func1d=normalize_mc_params, axis=1, arr=mpars, source=self.inputs.format
         )
-        self._results["out_file"] = os.path.join(runtime.cwd, "motion_params.txt")
-        np.savetxt(self._results["out_file"], mpars)
+        self._results['out_file'] = os.path.join(runtime.cwd, 'motion_params.txt')
+        np.savetxt(self._results['out_file'], mpars)
         return runtime
 
 
@@ -134,49 +134,49 @@ class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
     name_source = File(
         exists=True,
         mandatory=True,
-        desc="Original asl_file. Used to extract entity information.",
+        desc='Original asl_file. Used to extract entity information.',
     )
-    mean_cbf = File(exists=True, mandatory=True, desc="Mean CBF from standard CBF calculation.")
+    mean_cbf = File(exists=True, mandatory=True, desc='Mean CBF from standard CBF calculation.')
     # SCORE/SCRUB inputs
-    mean_cbf_score = File(exists=True, mandatory=False, desc="Mean CBF after SCORE censoring.")
-    mean_cbf_scrub = File(exists=True, mandatory=False, desc="Mean CBF after SCRUB denoising.")
+    mean_cbf_score = File(exists=True, mandatory=False, desc='Mean CBF after SCORE censoring.')
+    mean_cbf_scrub = File(exists=True, mandatory=False, desc='Mean CBF after SCRUB denoising.')
     # BASIL inputs
-    mean_cbf_basil = File(exists=True, mandatory=False, desc="Mean CBF produced by BASIL.")
+    mean_cbf_basil = File(exists=True, mandatory=False, desc='Mean CBF produced by BASIL.')
     mean_cbf_gm_basil = File(
         exists=True,
         mandatory=False,
-        desc="GM partial volume corrected CBF with BASIL.",
+        desc='GM partial volume corrected CBF with BASIL.',
     )
     # Tissue probability maps and masks
-    gm_tpm = File(exists=True, mandatory=True, desc="Gray matter tissue probability map")
-    wm_tpm = File(exists=True, mandatory=True, desc="White matter tissue probability map")
-    csf_tpm = File(exists=True, mandatory=True, desc="CSF tissue probability map")
-    asl_mask = File(exists=True, mandatory=True, desc="ASL mask in native ASL reference space")
-    t1w_mask = File(exists=True, mandatory=True, desc="T1w mask in native space")
-    asl_mask_std = File(exists=True, mandatory=False, desc="ASL mask in standard space")
-    template_mask = File(exists=True, mandatory=False, desc="template mask or image")
+    gm_tpm = File(exists=True, mandatory=True, desc='Gray matter tissue probability map')
+    wm_tpm = File(exists=True, mandatory=True, desc='White matter tissue probability map')
+    csf_tpm = File(exists=True, mandatory=True, desc='CSF tissue probability map')
+    asl_mask = File(exists=True, mandatory=True, desc='ASL mask in native ASL reference space')
+    t1w_mask = File(exists=True, mandatory=True, desc='T1w mask in native space')
+    asl_mask_std = File(exists=True, mandatory=False, desc='ASL mask in standard space')
+    template_mask = File(exists=True, mandatory=False, desc='template mask or image')
     tpm_threshold = traits.Float(
         default_value=0.7,
         usedefault=True,
         mandatory=False,
-        desc="Tissue probability threshold for binarizing GM, WM, and CSF masks.",
+        desc='Tissue probability threshold for binarizing GM, WM, and CSF masks.',
     )
     # Non-GE-only inputs
     confounds_file = File(
         exists=True,
         mandatory=False,
-        desc="Confounds file. Will not be defined for GE data.",
+        desc='Confounds file. Will not be defined for GE data.',
     )
     rmsd_file = File(
         exists=True,
         mandatory=False,
-        desc="RMSD file. Will not be defined for GE data.",
+        desc='RMSD file. Will not be defined for GE data.',
     )
 
 
 class _ComputeCBFQCOutputSpec(TraitedSpec):
-    qc_file = File(exists=True, desc="qc file")
-    qc_metadata = File(exists=True, desc="qc metadata")
+    qc_file = File(exists=True, desc='qc file')
+    qc_metadata = File(exists=True, desc='qc metadata')
 
 
 class ComputeCBFQC(SimpleInterface):
@@ -195,9 +195,9 @@ class ComputeCBFQC(SimpleInterface):
 
         confounds_df = pd.read_table(self.inputs.confounds_file)
         confounds_df.fillna(0, inplace=True)
-        if "framewise_displacement" in confounds_df.columns:
+        if 'framewise_displacement' in confounds_df.columns:
             # FD and RMSD only available for multi-volume datasets
-            mean_fd = np.mean(confounds_df["framewise_displacement"])
+            mean_fd = np.mean(confounds_df['framewise_displacement'])
             mean_rms = pd.read_csv(self.inputs.rmsd_file, header=None).mean().values[0]
         else:
             mean_fd = np.nan
@@ -257,7 +257,7 @@ class ComputeCBFQC(SimpleInterface):
                 thresh=thresh,
             )
         else:
-            print("no score inputs, setting to np.nan")
+            print('no score inputs, setting to np.nan')
             qei_cbf_score = np.nan
             qei_cbf_scrub = np.nan
             percentage_negative_cbf_score = np.nan
@@ -289,7 +289,7 @@ class ComputeCBFQC(SimpleInterface):
                 thresh=thresh,
             )
         else:
-            print("no basil inputs, setting to np.nan")
+            print('no basil inputs, setting to np.nan')
             qei_cbf_basil = np.nan
             qei_cbf_basil_gm = np.nan
             percentage_negative_cbf_basil = np.nan
@@ -303,219 +303,219 @@ class ComputeCBFQC(SimpleInterface):
         )
 
         metrics_dict = {
-            "mean_fd": [mean_fd],
-            "rmsd": [mean_rms],
-            "coreg_dice": [coreg_dice],
-            "coreg_correlation": [coreg_correlation],
-            "coreg_overlap": [coreg_overlap],
-            "qei_cbf": [qei_cbf],
-            "qei_cbf_score": [qei_cbf_score],
-            "qei_cbf_scrub": [qei_cbf_scrub],
-            "qei_cbf_basil": [qei_cbf_basil],
-            "qei_cbf_basil_gm": [qei_cbf_basil_gm],
-            "mean_gm_cbf": [mean_cbf_mean[0]],
-            "mean_wm_cbf": [mean_cbf_mean[1]],
-            "ratio_gm_wm_cbf": [ratio_gm_wm_cbf],
-            "percentage_negative_cbf": [percentage_negative_cbf],
-            "percentage_negative_cbf_score": [percentage_negative_cbf_score],
-            "percentage_negative_cbf_scrub": [percentage_negative_cbf_scrub],
-            "percentage_negative_cbf_basil": [percentage_negative_cbf_basil],
-            "percentage_negative_cbf_basil_gm": [percentage_negative_cbf_basil_gm],
+            'mean_fd': [mean_fd],
+            'rmsd': [mean_rms],
+            'coreg_dice': [coreg_dice],
+            'coreg_correlation': [coreg_correlation],
+            'coreg_overlap': [coreg_overlap],
+            'qei_cbf': [qei_cbf],
+            'qei_cbf_score': [qei_cbf_score],
+            'qei_cbf_scrub': [qei_cbf_scrub],
+            'qei_cbf_basil': [qei_cbf_basil],
+            'qei_cbf_basil_gm': [qei_cbf_basil_gm],
+            'mean_gm_cbf': [mean_cbf_mean[0]],
+            'mean_wm_cbf': [mean_cbf_mean[1]],
+            'ratio_gm_wm_cbf': [ratio_gm_wm_cbf],
+            'percentage_negative_cbf': [percentage_negative_cbf],
+            'percentage_negative_cbf_score': [percentage_negative_cbf_score],
+            'percentage_negative_cbf_scrub': [percentage_negative_cbf_scrub],
+            'percentage_negative_cbf_basil': [percentage_negative_cbf_basil],
+            'percentage_negative_cbf_basil_gm': [percentage_negative_cbf_basil_gm],
         }
 
         qc_metadata = {
-            "mean_fd": {
-                "LongName": "Mean Framewise Displacement",
-                "Description": (
-                    "Average framewise displacement without any motion parameter filtering. "
-                    "This value includes high-motion outliers, but not dummy volumes. "
-                    "FD is calculated according to the Power definition."
+            'mean_fd': {
+                'LongName': 'Mean Framewise Displacement',
+                'Description': (
+                    'Average framewise displacement without any motion parameter filtering. '
+                    'This value includes high-motion outliers, but not dummy volumes. '
+                    'FD is calculated according to the Power definition.'
                 ),
-                "Units": "mm",
-                "Term URL": "https://doi.org/10.1016/j.neuroimage.2011.10.018",
+                'Units': 'mm',
+                'Term URL': 'https://doi.org/10.1016/j.neuroimage.2011.10.018',
             },
-            "rmsd": {
-                "LongName": "Mean Relative Root Mean Squared",
-                "Description": (
+            'rmsd': {
+                'LongName': 'Mean Relative Root Mean Squared',
+                'Description': (
                     "Average relative root mean squared calculated from motion parameters, "
                     "after removal of dummy volumes and high-motion outliers. "
                     "Relative in this case means 'relative to the previous scan'."
                 ),
-                "Units": "arbitrary",
+                'Units': 'arbitrary',
             },
-            "coreg_dice": {
-                "LongName": "Coregistration Sørensen-Dice Coefficient",
-                "Description": (
-                    "The Sørensen-Dice coefficient calculated between the binary brain masks from "
-                    "the coregistered anatomical and ASL reference images. "
-                    "Values are bounded between 0 and 1, "
-                    "with higher values indicating better coregistration."
+            'coreg_dice': {
+                'LongName': 'Coregistration Sørensen-Dice Coefficient',
+                'Description': (
+                    'The Sørensen-Dice coefficient calculated between the binary brain masks from '
+                    'the coregistered anatomical and ASL reference images. '
+                    'Values are bounded between 0 and 1, '
+                    'with higher values indicating better coregistration.'
                 ),
-                "Term URL": "https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient",
+                'Term URL': 'https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient',
             },
-            "coreg_jaccard": {
-                "LongName": "Coregistration Jaccard Index",
-                "Description": (
-                    "The Jaccard index calculated between the binary brain masks from "
-                    "the coregistered anatomical and ASL reference images. "
-                    "Values are bounded between 0 and 1, "
-                    "with higher values indicating better coregistration."
+            'coreg_jaccard': {
+                'LongName': 'Coregistration Jaccard Index',
+                'Description': (
+                    'The Jaccard index calculated between the binary brain masks from '
+                    'the coregistered anatomical and ASL reference images. '
+                    'Values are bounded between 0 and 1, '
+                    'with higher values indicating better coregistration.'
                 ),
-                "Term URL": "https://en.wikipedia.org/wiki/Jaccard_index",
+                'Term URL': 'https://en.wikipedia.org/wiki/Jaccard_index',
             },
-            "coreg_correlation": {
-                "LongName": "Coregistration Pearson Correlation",
-                "Description": (
-                    "The Pearson correlation coefficient calculated between the binary brain "
-                    "masks from the coregistered anatomical and ASL reference images. "
-                    "Values are bounded between -1 and 1, "
-                    "with higher values indicating better coregistration."
+            'coreg_correlation': {
+                'LongName': 'Coregistration Pearson Correlation',
+                'Description': (
+                    'The Pearson correlation coefficient calculated between the binary brain '
+                    'masks from the coregistered anatomical and ASL reference images. '
+                    'Values are bounded between -1 and 1, '
+                    'with higher values indicating better coregistration.'
                 ),
-                "Term URL": "https://en.wikipedia.org/wiki/Pearson_correlation_coefficient",
+                'Term URL': 'https://en.wikipedia.org/wiki/Pearson_correlation_coefficient',
             },
-            "coreg_overlap": {
-                "LongName": "Coregistration Overlap Coefficient",
-                "Description": (
-                    "The Szymkiewicz-Simpson overlap coefficient calculated between the binary "
-                    "brain masks from the coregistered anatomical and ASL reference images. "
-                    "Higher values indicate better normalization."
+            'coreg_overlap': {
+                'LongName': 'Coregistration Overlap Coefficient',
+                'Description': (
+                    'The Szymkiewicz-Simpson overlap coefficient calculated between the binary '
+                    'brain masks from the coregistered anatomical and ASL reference images. '
+                    'Higher values indicate better normalization.'
                 ),
-                "Term URL": "https://en.wikipedia.org/wiki/Overlap_coefficient",
+                'Term URL': 'https://en.wikipedia.org/wiki/Overlap_coefficient',
             },
-            "qei_cbf": {
-                "LongName": "Cerebral Blood Flow Quality Evaluation Index",
-                "Description": "QEI calculated on mean CBF image.",
-                "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
+            'qei_cbf': {
+                'LongName': 'Cerebral Blood Flow Quality Evaluation Index',
+                'Description': 'QEI calculated on mean CBF image.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
-            "qei_cbf_score": {
-                "LongName": "SCORE-Denoised Cerebral Blood Flow Quality Evaluation Index",
-                "Description": "QEI calculated on mean SCORE-denoised CBF image.",
-                "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
+            'qei_cbf_score': {
+                'LongName': 'SCORE-Denoised Cerebral Blood Flow Quality Evaluation Index',
+                'Description': 'QEI calculated on mean SCORE-denoised CBF image.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
-            "qei_cbf_scrub": {
-                "LongName": "SCRUB-Denoised Cerebral Blood Flow Quality Evaluation Index",
-                "Description": "QEI calculated on mean SCRUB-denoised CBF image.",
-                "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
+            'qei_cbf_scrub': {
+                'LongName': 'SCRUB-Denoised Cerebral Blood Flow Quality Evaluation Index',
+                'Description': 'QEI calculated on mean SCRUB-denoised CBF image.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
-            "qei_cbf_basil": {
-                "LongName": "BASIL Cerebral Blood Flow Quality Evaluation Index",
-                "Description": "QEI calculated on CBF image produced by BASIL.",
-                "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
+            'qei_cbf_basil': {
+                'LongName': 'BASIL Cerebral Blood Flow Quality Evaluation Index',
+                'Description': 'QEI calculated on CBF image produced by BASIL.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
-            "qei_cbf_basil_gm": {
-                "LongName": (
-                    "BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation Index"
+            'qei_cbf_basil_gm': {
+                'LongName': (
+                    'BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation Index'
                 ),
-                "Description": (
-                    "QEI calculated on partial volume-corrected CBF image produced by BASIL."
+                'Description': (
+                    'QEI calculated on partial volume-corrected CBF image produced by BASIL.'
                 ),
-                "Term URL": "http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html",
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
-            "mean_gm_cbf": {
-                "LongName": "Mean Cerebral Blood Flow of Gray Matter",
-                "Description": "Mean CBF value of gray matter.",
-                "Units": "mL/100 g/min",
+            'mean_gm_cbf': {
+                'LongName': 'Mean Cerebral Blood Flow of Gray Matter',
+                'Description': 'Mean CBF value of gray matter.',
+                'Units': 'mL/100 g/min',
             },
-            "mean_wm_cbf": {
-                "LongName": "Mean Cerebral Blood Flow of White Matter",
-                "Description": "Mean CBF value of white matter.",
-                "Units": "mL/100 g/min",
+            'mean_wm_cbf': {
+                'LongName': 'Mean Cerebral Blood Flow of White Matter',
+                'Description': 'Mean CBF value of white matter.',
+                'Units': 'mL/100 g/min',
             },
-            "ratio_gm_wm_cbf": {
-                "LongName": "Mean Gray Matter-White Matter Cerebral Blood Flow Ratio",
-                "Description": (
-                    "The ratio between the mean gray matter and mean white matter CBF values."
+            'ratio_gm_wm_cbf': {
+                'LongName': 'Mean Gray Matter-White Matter Cerebral Blood Flow Ratio',
+                'Description': (
+                    'The ratio between the mean gray matter and mean white matter CBF values.'
                 ),
             },
-            "percentage_negative_cbf": {
-                "LongName": "Percentage of Negative Cerebral Blood Flow Values",
-                "Description": (
-                    "Percentage of negative CBF values, calculated on the mean CBF image."
+            'percentage_negative_cbf': {
+                'LongName': 'Percentage of Negative Cerebral Blood Flow Values',
+                'Description': (
+                    'Percentage of negative CBF values, calculated on the mean CBF image.'
                 ),
-                "Units": "percent",
+                'Units': 'percent',
             },
-            "percentage_negative_cbf_score": {
-                "LongName": "Percentage of Negative SCORE-Denoised Cerebral Blood Flow Values",
-                "Description": (
-                    "Percentage of negative CBF values, calculated on the SCORE-denoised "
-                    "CBF image."
+            'percentage_negative_cbf_score': {
+                'LongName': 'Percentage of Negative SCORE-Denoised Cerebral Blood Flow Values',
+                'Description': (
+                    'Percentage of negative CBF values, calculated on the SCORE-denoised '
+                    'CBF image.'
                 ),
-                "Units": "percent",
+                'Units': 'percent',
             },
-            "percentage_negative_cbf_scrub": {
-                "LongName": "Percentage of Negative SCRUB-Denoised Cerebral Blood Flow Values",
-                "Description": (
-                    "Percentage of negative CBF values, calculated on the SCRUB-denoised "
-                    "CBF image."
+            'percentage_negative_cbf_scrub': {
+                'LongName': 'Percentage of Negative SCRUB-Denoised Cerebral Blood Flow Values',
+                'Description': (
+                    'Percentage of negative CBF values, calculated on the SCRUB-denoised '
+                    'CBF image.'
                 ),
-                "Units": "percent",
+                'Units': 'percent',
             },
-            "percentage_negative_cbf_basil": {
-                "LongName": "Percentage of Negative BASIL Cerebral Blood Flow Values",
-                "Description": (
-                    "Percentage of negative CBF values, calculated on CBF image produced by BASIL."
+            'percentage_negative_cbf_basil': {
+                'LongName': 'Percentage of Negative BASIL Cerebral Blood Flow Values',
+                'Description': (
+                    'Percentage of negative CBF values, calculated on CBF image produced by BASIL.'
                 ),
-                "Units": "percent",
+                'Units': 'percent',
             },
-            "percentage_negative_cbf_basil_gm": {
-                "LongName": (
-                    "Percentage of Negative BASIL Partial Volume Corrected Cerebral Blood Flow "
-                    "Values"
+            'percentage_negative_cbf_basil_gm': {
+                'LongName': (
+                    'Percentage of Negative BASIL Partial Volume Corrected Cerebral Blood Flow '
+                    'Values'
                 ),
-                "Description": (
-                    "Percentage of negative CBF values, calculated on partial volume-corrected "
-                    "CBF image produced by BASIL."
+                'Description': (
+                    'Percentage of negative CBF values, calculated on partial volume-corrected '
+                    'CBF image produced by BASIL.'
                 ),
-                "Units": "percent",
+                'Units': 'percent',
             },
         }
 
         if self.inputs.asl_mask_std and self.inputs.template_mask:
             metrics_dict.update(
                 {
-                    "norm_dice": [norm_dice],
-                    "norm_correlation": [norm_correlation],
-                    "norm_overlap": [norm_overlap],
+                    'norm_dice': [norm_dice],
+                    'norm_correlation': [norm_correlation],
+                    'norm_overlap': [norm_overlap],
                 }
             )
 
             qc_metadata.update(
                 {
-                    "norm_dice": {
-                        "LongName": "Normalization Sørensen-Dice Coefficient",
-                        "Description": (
-                            "The Sørensen-Dice coefficient calculated between the binary brain "
-                            "masks from the normalized ASL reference image and the associated "
-                            "template. "
-                            "Values are bounded between 0 and 1, "
-                            "with higher values indicating better normalization."
+                    'norm_dice': {
+                        'LongName': 'Normalization Sørensen-Dice Coefficient',
+                        'Description': (
+                            'The Sørensen-Dice coefficient calculated between the binary brain '
+                            'masks from the normalized ASL reference image and the associated '
+                            'template. '
+                            'Values are bounded between 0 and 1, '
+                            'with higher values indicating better normalization.'
                         ),
-                        "Term URL": (
-                            "https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient"
-                        ),
-                    },
-                    "norm_correlation": {
-                        "LongName": "Normalization Pearson Correlation",
-                        "Description": (
-                            "The Pearson correlation coefficient calculated between the binary "
-                            "brain masks from the normalized ASL reference image and the "
-                            "associated template. "
-                            "Values are bounded between -1 and 1, "
-                            "with higher values indicating better coregistration."
-                        ),
-                        "Term URL": (
-                            "https://en.wikipedia.org/wiki/Pearson_correlation_coefficient"
+                        'Term URL': (
+                            'https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient'
                         ),
                     },
-                    "norm_overlap": {
-                        "LongName": "Normalization Overlap Coefficient",
-                        "Description": (
-                            "The Szymkiewicz-Simpson overlap coefficient calculated between the "
-                            "binary brain masks from the normalized ASL reference image and the "
-                            "associated template. "
-                            "Higher values indicate better normalization."
+                    'norm_correlation': {
+                        'LongName': 'Normalization Pearson Correlation',
+                        'Description': (
+                            'The Pearson correlation coefficient calculated between the binary '
+                            'brain masks from the normalized ASL reference image and the '
+                            'associated template. '
+                            'Values are bounded between -1 and 1, '
+                            'with higher values indicating better coregistration.'
                         ),
-                        "Term URL": "https://en.wikipedia.org/wiki/Overlap_coefficient",
+                        'Term URL': (
+                            'https://en.wikipedia.org/wiki/Pearson_correlation_coefficient'
+                        ),
+                    },
+                    'norm_overlap': {
+                        'LongName': 'Normalization Overlap Coefficient',
+                        'Description': (
+                            'The Szymkiewicz-Simpson overlap coefficient calculated between the '
+                            'binary brain masks from the normalized ASL reference image and the '
+                            'associated template. '
+                            'Higher values indicate better normalization.'
+                        ),
+                        'Term URL': 'https://en.wikipedia.org/wiki/Overlap_coefficient',
                     },
                 }
             )
@@ -523,28 +523,28 @@ class ComputeCBFQC(SimpleInterface):
         # Extract entities from the input file.
         # Useful for identifying ASL files after concatenating the QC files across runs.
         base_file = os.path.basename(self.inputs.name_source)
-        entities = base_file.split("_")[:-1]
-        entities_dict = {ent.split("-")[0]: ent.split("-")[1] for ent in entities}
+        entities = base_file.split('_')[:-1]
+        entities_dict = {ent.split('-')[0]: ent.split('-')[1] for ent in entities}
 
         # Combine the dictionaries and convert to a DataFrame.
         qc_dict = {**entities_dict, **metrics_dict}
         qc_df = pd.DataFrame(qc_dict)
 
-        self._results["qc_file"] = fname_presuffix(
+        self._results['qc_file'] = fname_presuffix(
             self.inputs.mean_cbf,
-            suffix="qc_cbf.tsv",
+            suffix='qc_cbf.tsv',
             newpath=runtime.cwd,
             use_ext=False,
         )
-        qc_df.to_csv(self._results["qc_file"], index=False, header=True, sep="\t", na_rep="n/a")
+        qc_df.to_csv(self._results['qc_file'], index=False, header=True, sep='\t', na_rep='n/a')
 
-        self._results["qc_metadata"] = fname_presuffix(
+        self._results['qc_metadata'] = fname_presuffix(
             self.inputs.mean_cbf,
-            suffix="qc_cbf.json",
+            suffix='qc_cbf.json',
             newpath=runtime.cwd,
             use_ext=False,
         )
-        with open(self._results["qc_metadata"], "w") as fo:
+        with open(self._results['qc_metadata'], 'w') as fo:
             json.dump(qc_metadata, fo, indent=4, sort_keys=True)
 
         return runtime

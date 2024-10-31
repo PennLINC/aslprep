@@ -34,13 +34,13 @@ from aslprep.utils.cbf import (
 
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
-    t1w_mask = File(exists=True, mandatory=True, desc="t1 mask")
-    asl_mask = File(exists=True, mandatory=True, desc="asl mask")
-    m0_mask = File(exists=True, mandatory=False, desc="M0 mask (if available)")
+    t1w_mask = File(exists=True, mandatory=True, desc='t1 mask')
+    asl_mask = File(exists=True, mandatory=True, desc='asl mask')
+    m0_mask = File(exists=True, mandatory=False, desc='M0 mask (if available)')
 
 
 class _RefineMaskOutputSpec(TraitedSpec):
-    out_mask = File(exists=False, desc="output mask")
+    out_mask = File(exists=False, desc='output mask')
 
 
 class RefineMask(SimpleInterface):
@@ -52,9 +52,9 @@ class RefineMask(SimpleInterface):
     def _run_interface(self, runtime):
         from nilearn import image
 
-        self._results["out_mask"] = fname_presuffix(
+        self._results['out_mask'] = fname_presuffix(
             self.inputs.asl_mask,
-            suffix="_refinemask",
+            suffix='_refinemask',
             newpath=runtime.cwd,
         )
 
@@ -66,28 +66,28 @@ class RefineMask(SimpleInterface):
             img3 = nb.load(self.inputs.m0_mask)
             img3 = nb.funcs.squeeze_image(img3)
             out_mask = image.math_img(
-                "img1 * img2 * img3",
+                'img1 * img2 * img3',
                 img1=img1,
                 img2=img2,
                 img3=img3,
             )
         else:
             out_mask = image.math_img(
-                "img1 * img2",
+                'img1 * img2',
                 img1=img1,
                 img2=img2,
             )
 
-        out_mask.to_filename(self._results["out_mask"])
+        out_mask.to_filename(self._results['out_mask'])
 
         return runtime
 
 
 class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
-    name_source = File(exists=True, mandatory=True, desc="raw asl file")
-    asl_file = File(exists=True, mandatory=True, desc="preprocessed asl file")
-    metadata = traits.Dict(mandatory=True, desc="metadata for ASL file")
-    aslcontext = File(exists=True, mandatory=True, desc="aslcontext TSV file for run.")
+    name_source = File(exists=True, mandatory=True, desc='raw asl file')
+    asl_file = File(exists=True, mandatory=True, desc='preprocessed asl file')
+    metadata = traits.Dict(mandatory=True, desc='metadata for ASL file')
+    aslcontext = File(exists=True, mandatory=True, desc='aslcontext TSV file for run.')
     m0scan = traits.Either(
         File(exists=True),
         None,
@@ -100,30 +100,30 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc="metadata for M0 scan. Only defined if M0Type is 'Separate'.",
     )
-    in_mask = File(exists=True, mandatory=True, desc="mask")
+    in_mask = File(exists=True, mandatory=True, desc='mask')
     dummy_scans = traits.Int(
         default_value=0,
         usedefault=True,
         mandatory=False,
-        desc="remove first n volumes",
+        desc='remove first n volumes',
     )
-    fwhm = traits.Float(default_value=5, usedefault=True, mandatory=False, desc="fwhm")
+    fwhm = traits.Float(default_value=5, usedefault=True, mandatory=False, desc='fwhm')
 
 
 class _ExtractCBFOutputSpec(TraitedSpec):
-    out_file = File(exists=False, desc="Either CBF or deltaM time series.")
-    m0_file = File(exists=False, desc="Mean M0 image, after smoothing.")
+    out_file = File(exists=False, desc='Either CBF or deltaM time series.')
+    m0_file = File(exists=False, desc='Mean M0 image, after smoothing.')
     metadata = traits.Dict(
         desc=(
-            "Metadata for the ASL run. "
-            "The dictionary may be modified to only include metadata associated with the selected "
-            "volumes."
+            'Metadata for the ASL run. '
+            'The dictionary may be modified to only include metadata associated with the selected '
+            'volumes.'
         ),
     )
     m0tr = traits.Either(
         traits.Float,
         None,
-        desc="RepetitionTimePreparation for M0 scans.",
+        desc='RepetitionTimePreparation for M0 scans.',
     )
 
 
@@ -148,20 +148,20 @@ class ExtractCBF(SimpleInterface):
 
         if aslcontext.shape[0] != asl_img.shape[3]:
             raise ValueError(
-                f"Number of rows in aslcontext ({aslcontext.shape[0]}) != "
-                f"number of volumes in ASL file ({asl_img.shape[3]})"
+                f'Number of rows in aslcontext ({aslcontext.shape[0]}) != '
+                f'number of volumes in ASL file ({asl_img.shape[3]})'
             )
 
         # get the control, tag, moscan or label
-        vol_types = aslcontext["volume_type"].tolist()
-        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "control"]
-        label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "label"]
-        m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "m0scan"]
-        deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "deltam"]
-        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == "cbf"]
+        vol_types = aslcontext['volume_type'].tolist()
+        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'control']
+        label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'label']
+        m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'm0scan']
+        deltam_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'deltam']
+        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'cbf']
 
         # extract m0 file and register it to ASL if separate
-        if metadata["M0Type"] == "Separate":
+        if metadata['M0Type'] == 'Separate':
             m0file = self.inputs.m0scan
             m0data_smooth = smooth_image(nb.load(m0file), fwhm=self.inputs.fwhm).get_fdata()
             if len(m0data_smooth.shape) > 3:
@@ -169,35 +169,35 @@ class ExtractCBF(SimpleInterface):
             else:
                 m0data = mask_data * m0data_smooth
 
-            m0tr = self.inputs.m0scan_metadata["RepetitionTimePreparation"]
+            m0tr = self.inputs.m0scan_metadata['RepetitionTimePreparation']
             if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
-                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
+                raise ValueError('M0 scans have variable TR. ASLPrep does not support this.')
 
-        elif metadata["M0Type"] == "Included":
+        elif metadata['M0Type'] == 'Included':
             m0data = asl_data[:, :, :, m0_volume_idx]
             m0img = nb.Nifti1Image(m0data, asl_img.affine, asl_img.header)
             m0data_smooth = smooth_image(m0img, fwhm=self.inputs.fwhm).get_fdata()
             m0data = mask_data * np.mean(m0data_smooth, axis=3)
 
-            if np.array(metadata["RepetitionTimePreparation"]).size > 1:
-                m0tr = np.array(metadata["RepetitionTimePreparation"])[m0_volume_idx]
+            if np.array(metadata['RepetitionTimePreparation']).size > 1:
+                m0tr = np.array(metadata['RepetitionTimePreparation'])[m0_volume_idx]
             else:
-                m0tr = metadata["RepetitionTimePreparation"]
+                m0tr = metadata['RepetitionTimePreparation']
 
             if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
-                raise ValueError("M0 scans have variable TR. ASLPrep does not support this.")
+                raise ValueError('M0 scans have variable TR. ASLPrep does not support this.')
 
-        elif metadata["M0Type"] == "Estimate":
-            m0data = metadata["M0Estimate"] * mask_data
+        elif metadata['M0Type'] == 'Estimate':
+            m0data = metadata['M0Estimate'] * mask_data
 
             m0tr = None
 
-        elif metadata["M0Type"] == "Absent":
+        elif metadata['M0Type'] == 'Absent':
             if control_volume_idx and not cbf_volume_idx:
                 # BackgroundSuppression is required, so no need to use get().
-                if metadata["BackgroundSuppression"]:
+                if metadata['BackgroundSuppression']:
                     raise ValueError(
-                        "Background-suppressed control volumes cannot be used for calibration."
+                        'Background-suppressed control volumes cannot be used for calibration.'
                     )
 
             if control_volume_idx:
@@ -208,10 +208,10 @@ class ExtractCBF(SimpleInterface):
                 m0data = mask_data * np.mean(control_img, axis=3)
 
                 # Use the control volumes' TR as the M0 TR.
-                if np.array(metadata["RepetitionTimePreparation"]).size > 1:
-                    m0tr = np.array(metadata["RepetitionTimePreparation"])[control_volume_idx[0]]
+                if np.array(metadata['RepetitionTimePreparation']).size > 1:
+                    m0tr = np.array(metadata['RepetitionTimePreparation'])[control_volume_idx[0]]
                 else:
-                    m0tr = metadata["RepetitionTimePreparation"]
+                    m0tr = metadata['RepetitionTimePreparation']
 
             elif cbf_volume_idx:
                 # If we have precalculated CBF data, we don't need M0, so we'll just use the mask.
@@ -221,21 +221,21 @@ class ExtractCBF(SimpleInterface):
 
             else:
                 raise RuntimeError(
-                    "m0scan is absent, "
-                    "and there are no control volumes that can be used as a substitute"
+                    'm0scan is absent, '
+                    'and there are no control volumes that can be used as a substitute'
                 )
 
         else:
-            raise RuntimeError("no pathway to m0scan")
+            raise RuntimeError('no pathway to m0scan')
 
         if deltam_volume_idx:
-            config.loggers.interface.info("Extracting deltaM from ASL file.")
+            config.loggers.interface.info('Extracting deltaM from ASL file.')
             metadata_idx = deltam_volume_idx
             out_data = asl_data[:, :, :, deltam_volume_idx]
 
         elif label_volume_idx:
             config.loggers.interface.info(
-                "Calculating deltaM from label-control pairs in ASL file."
+                'Calculating deltaM from label-control pairs in ASL file.'
             )
             assert len(label_volume_idx) == len(control_volume_idx)
             metadata_idx = control_volume_idx
@@ -248,16 +248,16 @@ class ExtractCBF(SimpleInterface):
             out_data = asl_data[:, :, :, cbf_volume_idx]
 
         else:
-            raise RuntimeError("No valid ASL or CBF image.")
+            raise RuntimeError('No valid ASL or CBF image.')
 
         # Remove volume-wise metadata for M0 scans as necessary
         VOLUME_WISE_FIELDS = [
-            "PostLabelingDelay",
-            "VascularCrushingVENC",
-            "LabelingDuration",
-            "EchoTime",
-            "FlipAngle",
-            "RepetitionTimePreparation",
+            'PostLabelingDelay',
+            'VascularCrushingVENC',
+            'LabelingDuration',
+            'EchoTime',
+            'FlipAngle',
+            'RepetitionTimePreparation',
         ]
 
         for field in VOLUME_WISE_FIELDS:
@@ -267,8 +267,8 @@ class ExtractCBF(SimpleInterface):
             value = metadata[field]
             if isinstance(value, list) and len(value) != asl_data.shape[3]:
                 raise ValueError(
-                    f"{field} is an array, but the number of values ({len(value)}) "
-                    f"does not match the number of volumes in the ASL data ({asl_data.shape[3]})."
+                    f'{field} is an array, but the number of values ({len(value)}) '
+                    f'does not match the number of volumes in the ASL data ({asl_data.shape[3]}).'
                 )
             elif isinstance(value, list):
                 # Reduce to only the selected volumes
@@ -280,23 +280,23 @@ class ExtractCBF(SimpleInterface):
 
                 metadata[field] = value
 
-        self._results["metadata"] = metadata
-        self._results["m0tr"] = m0tr
-        self._results["out_file"] = fname_presuffix(
+        self._results['metadata'] = metadata
+        self._results['m0tr'] = m0tr
+        self._results['out_file'] = fname_presuffix(
             self.inputs.name_source,
-            suffix="_DeltaMOrCBF",
+            suffix='_DeltaMOrCBF',
             newpath=runtime.cwd,
         )
-        self._results["m0_file"] = fname_presuffix(
+        self._results['m0_file'] = fname_presuffix(
             self.inputs.name_source,
-            suffix="_m0file",
+            suffix='_m0file',
             newpath=runtime.cwd,
         )
         nb.Nifti1Image(out_data, asl_img.affine, asl_img.header).to_filename(
-            self._results["out_file"]
+            self._results['out_file']
         )
         nb.Nifti1Image(m0data, asl_img.affine, asl_img.header).to_filename(
-            self._results["m0_file"]
+            self._results['m0_file']
         )
 
         return runtime
@@ -307,10 +307,10 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         exists=True,
         mandatory=True,
         desc=(
-            "NIfTI file containing raw CBF volume(s). "
-            "These raw CBF values are the result of subtracting label volumes from "
-            "control volumes, without any kind of additional scaling. "
-            "This file may be 3D or 4D."
+            'NIfTI file containing raw CBF volume(s). '
+            'These raw CBF values are the result of subtracting label volumes from '
+            'control volumes, without any kind of additional scaling. '
+            'This file may be 3D or 4D.'
         ),
     )
     metadata = traits.Dict(
@@ -321,13 +321,13 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
     m0_scale = traits.Float(
         exists=True,
         mandatory=True,
-        desc="Relative scale between ASL and M0.",
+        desc='Relative scale between ASL and M0.',
     )
-    m0_file = File(exists=True, mandatory=True, desc="M0 nifti file")
-    mask = File(exists=True, mandatory=True, desc="Mask nifti file")
+    m0_file = File(exists=True, mandatory=True, desc='M0 nifti file')
+    mask = File(exists=True, mandatory=True, desc='Mask nifti file')
     cbf_only = traits.Bool(
         mandatory=True,
-        desc="Whether data are deltam (False) or CBF (True).",
+        desc='Whether data are deltam (False) or CBF (True).',
     )
 
 
@@ -335,18 +335,18 @@ class _ComputeCBFOutputSpec(TraitedSpec):
     cbf_ts = traits.Either(
         File(exists=True),
         None,
-        desc="Quantitative CBF time series, in mL/100g/min. Only generated for single-delay data.",
+        desc='Quantitative CBF time series, in mL/100g/min. Only generated for single-delay data.',
     )
-    mean_cbf = File(exists=True, desc="Quantified CBF, averaged over time.")
+    mean_cbf = File(exists=True, desc='Quantified CBF, averaged over time.')
     att = traits.Either(
         File(exists=True),
         None,
-        desc="Arterial transit time map, in seconds. Only generated for multi-delay data.",
+        desc='Arterial transit time map, in seconds. Only generated for multi-delay data.',
     )
     plds = traits.Either(
         File(exists=True),
         None,
-        desc="Post-labeling delays. Only defined if slice-timing correction is applied.",
+        desc='Post-labeling delays. Only defined if slice-timing correction is applied.',
     )
 
 
@@ -395,24 +395,24 @@ class ComputeCBF(SimpleInterface):
         deltam_file = self.inputs.deltam  # control - label signal intensities
 
         if self.inputs.cbf_only:
-            config.loggers.interface.debug("CBF data detected. Skipping CBF estimation.")
-            self._results["cbf_ts"] = fname_presuffix(
+            config.loggers.interface.debug('CBF data detected. Skipping CBF estimation.')
+            self._results['cbf_ts'] = fname_presuffix(
                 deltam_file,
-                suffix="_cbf_ts",
+                suffix='_cbf_ts',
                 newpath=runtime.cwd,
             )
             cbf_img = nb.load(deltam_file)
-            cbf_img.to_filename(self._results["cbf_ts"])
-            self._results["mean_cbf"] = fname_presuffix(
+            cbf_img.to_filename(self._results['cbf_ts'])
+            self._results['mean_cbf'] = fname_presuffix(
                 deltam_file,
-                suffix="_meancbf",
+                suffix='_meancbf',
                 newpath=runtime.cwd,
             )
             mean_cbf_img = image.mean_img(cbf_img)
-            mean_cbf_img.to_filename(self._results["mean_cbf"])
+            mean_cbf_img.to_filename(self._results['mean_cbf'])
 
             # No ATT available for pre-calculated CBF
-            self._results["att"] = None
+            self._results['att'] = None
 
             return runtime
 
@@ -423,7 +423,7 @@ class ComputeCBF(SimpleInterface):
         # PostLabelingDelay is either a single number or an array of numbers.
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
-        plds = np.atleast_1d(metadata["PostLabelingDelay"])
+        plds = np.atleast_1d(metadata['PostLabelingDelay'])
 
         # Get labeling efficiency (alpha in Alsop 2015).
         labeleff = estimate_labeling_efficiency(metadata=metadata)
@@ -435,43 +435,43 @@ class ComputeCBF(SimpleInterface):
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask_file)
         deltam_arr = masker.fit_transform(deltam_file).T  # Transpose to SxT
-        assert deltam_arr.ndim == 2, f"deltam is {deltam_arr.ndim}"
+        assert deltam_arr.ndim == 2, f'deltam is {deltam_arr.ndim}'
 
         # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
         m0data = np.mean(m0data, axis=0)
         scaled_m0data = m0_scale * m0data
 
-        self._results["plds"] = None
-        if "SliceTiming" in metadata:
+        self._results['plds'] = None
+        if 'SliceTiming' in metadata:
             # Offset PLD(s) by slice times
             # This step builds a voxel-wise array of post-labeling delay values,
             # where voxels from each slice have the appropriately-shifted PLD value.
             # If there are multiple PLDs, then the second dimension of the PLD array will
             # correspond to volumes in the time series.
             config.loggers.interface.info(
-                "2D acquisition with slice timing information detected. "
-                "Shifting post-labeling delay values across the brain by slice times."
+                '2D acquisition with slice timing information detected. '
+                'Shifting post-labeling delay values across the brain by slice times.'
             )
-            slice_times = np.array(metadata["SliceTiming"])
+            slice_times = np.array(metadata['SliceTiming'])
 
             # Determine which axis slices come from.
             # ASL data typically acquires along z axis, from inferior to superior.
-            slice_encoding_direction = metadata.get("SliceEncodingDirection", "k")
-            slice_encoding_axis = "ijk".index(slice_encoding_direction[0])
+            slice_encoding_direction = metadata.get('SliceEncodingDirection', 'k')
+            slice_encoding_axis = 'ijk'.index(slice_encoding_direction[0])
 
             deltam_img = nb.load(deltam_file)
             shape = deltam_img.shape[:3]
             if slice_times.size != shape[slice_encoding_axis]:
                 raise ValueError(
-                    f"Number of slices ({shape[slice_encoding_axis]}) != "
-                    f"slice times ({slice_times.size})"
+                    f'Number of slices ({shape[slice_encoding_axis]}) != '
+                    f'slice times ({slice_times.size})'
                 )
 
             # Reverse the slice times if slices go from maximum index to zero.
             # This probably won't occur with ASL data though, since I --> S makes more sense than
             # S --> I.
-            if slice_encoding_direction.endswith("-"):
+            if slice_encoding_direction.endswith('-'):
                 slice_times = slice_times[::-1]
 
             # Determine which dimensions to add to the slice times array,
@@ -494,18 +494,18 @@ class ComputeCBF(SimpleInterface):
             # Write out the slice-shifted PLDs to the working directory, for debugging.
             pld_file = fname_presuffix(
                 deltam_file,
-                suffix="_plds",
+                suffix='_plds',
                 newpath=runtime.cwd,
             )
             pld_img.to_filename(pld_file)
-            self._results["plds"] = pld_file
+            self._results['plds'] = pld_file
 
         elif is_multi_pld:
             # Broadcast PLDs to voxels by PLDs
             plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
 
         if is_casl:
-            tau = np.array(metadata["LabelingDuration"])
+            tau = np.array(metadata['LabelingDuration'])
 
         if is_multi_pld:
             if is_casl:
@@ -524,49 +524,49 @@ class ComputeCBF(SimpleInterface):
             else:
                 # Dai's approach can't be used on PASL data, so we'll need another method.
                 raise ValueError(
-                    "Multi-delay data are not supported for PASL sequences at the moment."
+                    'Multi-delay data are not supported for PASL sequences at the moment.'
                 )
 
             mean_cbf_img = masker.inverse_transform(mean_cbf)
             att_img = masker.inverse_transform(att)
 
             # Multi-delay data won't produce a CBF time series
-            self._results["cbf_ts"] = None
-            self._results["att"] = fname_presuffix(
+            self._results['cbf_ts'] = None
+            self._results['att'] = fname_presuffix(
                 self.inputs.deltam,
-                suffix="_att",
+                suffix='_att',
                 newpath=runtime.cwd,
             )
-            att_img.to_filename(self._results["att"])
+            att_img.to_filename(self._results['att'])
 
         else:  # Single-delay
             if is_casl:
                 denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
 
-            elif not metadata["BolusCutOffFlag"]:
+            elif not metadata['BolusCutOffFlag']:
                 raise ValueError(
-                    "PASL without a bolus cut-off technique is not supported in ASLPrep."
+                    'PASL without a bolus cut-off technique is not supported in ASLPrep.'
                 )
 
-            elif metadata["BolusCutOffTechnique"] == "QUIPSS":
+            elif metadata['BolusCutOffTechnique'] == 'QUIPSS':
                 # PASL + QUIPSS
                 # Only one BolusCutOffDelayTime allowed.
-                assert isinstance(metadata["BolusCutOffDelayTime"], Number)
-                denom_factor = plds - metadata["BolusCutOffDelayTime"]  # delta_TI, per Wong 1998
+                assert isinstance(metadata['BolusCutOffDelayTime'], Number)
+                denom_factor = plds - metadata['BolusCutOffDelayTime']  # delta_TI, per Wong 1998
 
-            elif metadata["BolusCutOffTechnique"] == "QUIPSSII":
+            elif metadata['BolusCutOffTechnique'] == 'QUIPSSII':
                 # PASL + QUIPSSII
                 # Per SD, use PLD as TI for PASL, so we will just use 'plds' in the numerator when
                 # calculating the perfusion factor.
                 # Only one BolusCutOffDelayTime allowed.
-                assert isinstance(metadata["BolusCutOffDelayTime"], Number)
-                denom_factor = metadata["BolusCutOffDelayTime"]  # called TI1 in Alsop 2015
+                assert isinstance(metadata['BolusCutOffDelayTime'], Number)
+                denom_factor = metadata['BolusCutOffDelayTime']  # called TI1 in Alsop 2015
 
-            elif metadata["BolusCutOffTechnique"] == "Q2TIPS":
+            elif metadata['BolusCutOffTechnique'] == 'Q2TIPS':
                 # PASL + Q2TIPS
                 # Q2TIPS should have two BolusCutOffDelayTimes.
-                assert len(metadata["BolusCutOffDelayTime"]) == 2
-                denom_factor = metadata["BolusCutOffDelayTime"][0]  # called TI1 in Noguchi 2015
+                assert len(metadata['BolusCutOffDelayTime']) == 2
+                denom_factor = metadata['BolusCutOffDelayTime'][0]  # called TI1 in Noguchi 2015
 
             else:
                 raise ValueError(
@@ -575,8 +575,8 @@ class ComputeCBF(SimpleInterface):
 
             # Q2TIPS uses TI2 instead of w (PLD), see Noguchi 2015 for this info.
             exp_numerator = (
-                metadata["BolusCutOffDelayTime"][1]
-                if metadata.get("BolusCutOffTechnique") == "Q2TIPS"
+                metadata['BolusCutOffDelayTime'][1]
+                if metadata.get('BolusCutOffTechnique') == 'Q2TIPS'
                 else plds
             )
 
@@ -591,52 +591,52 @@ class ComputeCBF(SimpleInterface):
             cbf_ts = np.nan_to_num(cbf_ts, nan=0, posinf=0, neginf=0)
             cbf_ts_img = masker.inverse_transform(cbf_ts.T)
             mean_cbf_img = image.mean_img(cbf_ts_img)
-            self._results["cbf_ts"] = fname_presuffix(
+            self._results['cbf_ts'] = fname_presuffix(
                 self.inputs.deltam,
-                suffix="_cbf",
+                suffix='_cbf',
                 newpath=runtime.cwd,
             )
-            cbf_ts_img.to_filename(self._results["cbf_ts"])
+            cbf_ts_img.to_filename(self._results['cbf_ts'])
             # Single-delay data won't produce an ATT image
-            self._results["att"] = None
+            self._results['att'] = None
 
         # Mean CBF is returned no matter what
-        self._results["mean_cbf"] = fname_presuffix(
+        self._results['mean_cbf'] = fname_presuffix(
             self.inputs.deltam,
-            suffix="_meancbf",
+            suffix='_meancbf',
             newpath=runtime.cwd,
         )
-        mean_cbf_img.to_filename(self._results["mean_cbf"])
+        mean_cbf_img.to_filename(self._results['mean_cbf'])
 
         return runtime
 
 
 class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
-    cbf_ts = File(exists=True, mandatory=True, desc="Computed CBF from ComputeCBF.")
-    mask = File(exists=True, mandatory=True, desc="mask")
-    gm_tpm = File(exists=True, mandatory=True, desc="Gray matter tissue probability map.")
-    wm_tpm = File(exists=True, mandatory=True, desc="White matter tissue probability map.")
-    csf_tpm = File(exists=True, mandatory=True, desc="CSF tissue probability map.")
+    cbf_ts = File(exists=True, mandatory=True, desc='Computed CBF from ComputeCBF.')
+    mask = File(exists=True, mandatory=True, desc='mask')
+    gm_tpm = File(exists=True, mandatory=True, desc='Gray matter tissue probability map.')
+    wm_tpm = File(exists=True, mandatory=True, desc='White matter tissue probability map.')
+    csf_tpm = File(exists=True, mandatory=True, desc='CSF tissue probability map.')
     tpm_threshold = traits.Float(
         default_value=0.7,
         usedefault=True,
         mandatory=False,
-        desc="Tissue probability threshold for binarizing GM, WM, and CSF masks.",
+        desc='Tissue probability threshold for binarizing GM, WM, and CSF masks.',
     )
     wavelet_function = traits.Str(
-        default_value="huber",
+        default_value='huber',
         usedefault=True,
         mandatory=False,
-        option=["bisquare", "andrews", "cauchy", "fair", "logistics", "ols", "talwar", "welsch"],
-        desc="Wavelet function",
+        option=['bisquare', 'andrews', 'cauchy', 'fair', 'logistics', 'ols', 'talwar', 'welsch'],
+        desc='Wavelet function',
     )
 
 
 class _ScoreAndScrubCBFOutputSpec(TraitedSpec):
-    cbf_ts_score = File(exists=False, mandatory=False, desc="score timeseries data")
-    mean_cbf_score = File(exists=False, mandatory=False, desc="average score")
-    mean_cbf_scrub = File(exists=False, mandatory=False, desc="average scrub")
-    score_outlier_index = File(exists=False, mandatory=False, desc="index of volume remove ")
+    cbf_ts_score = File(exists=False, mandatory=False, desc='score timeseries data')
+    mean_cbf_score = File(exists=False, mandatory=False, desc='average score')
+    mean_cbf_scrub = File(exists=False, mandatory=False, desc='average scrub')
+    score_outlier_index = File(exists=False, mandatory=False, desc='index of volume remove ')
 
 
 class ScoreAndScrubCBF(SimpleInterface):
@@ -684,31 +684,31 @@ class ScoreAndScrubCBF(SimpleInterface):
             mean_cbf_score = np.mean(cbf_scorets, axis=3)
         else:
             config.loggers.interface.warning(
-                f"CBF time series is only {cbf_ts.ndim}D. Skipping SCORE and SCRUB."
+                f'CBF time series is only {cbf_ts.ndim}D. Skipping SCORE and SCRUB.'
             )
             cbf_scorets = cbf_ts
             index_score = np.array([0])
             cbfscrub = cbf_ts
             mean_cbf_score = cbf_ts
 
-        self._results["cbf_ts_score"] = fname_presuffix(
+        self._results['cbf_ts_score'] = fname_presuffix(
             self.inputs.cbf_ts,
-            suffix="_cbfscorets",
+            suffix='_cbfscorets',
             newpath=runtime.cwd,
         )
-        self._results["mean_cbf_score"] = fname_presuffix(
+        self._results['mean_cbf_score'] = fname_presuffix(
             self.inputs.cbf_ts,
-            suffix="_meancbfscore",
+            suffix='_meancbfscore',
             newpath=runtime.cwd,
         )
-        self._results["mean_cbf_scrub"] = fname_presuffix(
+        self._results['mean_cbf_scrub'] = fname_presuffix(
             self.inputs.cbf_ts,
-            suffix="_cbfscrub",
+            suffix='_cbfscrub',
             newpath=runtime.cwd,
         )
-        self._results["score_outlier_index"] = fname_presuffix(
+        self._results['score_outlier_index'] = fname_presuffix(
             self.inputs.cbf_ts,
-            suffix="_scoreindex.tsv",
+            suffix='_scoreindex.tsv',
             newpath=runtime.cwd,
             use_ext=False,
         )
@@ -718,20 +718,20 @@ class ScoreAndScrubCBF(SimpleInterface):
             dataobj=cbf_scorets,
             affine=samplecbf.affine,
             header=samplecbf.header,
-        ).to_filename(self._results["cbf_ts_score"])
+        ).to_filename(self._results['cbf_ts_score'])
         nb.Nifti1Image(
             dataobj=mean_cbf_score,
             affine=samplecbf.affine,
             header=samplecbf.header,
-        ).to_filename(self._results["mean_cbf_score"])
+        ).to_filename(self._results['mean_cbf_score'])
         nb.Nifti1Image(
             dataobj=cbfscrub,
             affine=samplecbf.affine,
             header=samplecbf.header,
-        ).to_filename(self._results["mean_cbf_scrub"])
+        ).to_filename(self._results['mean_cbf_scrub'])
 
-        score_outlier_df = pd.DataFrame(columns=["score_outlier_index"], data=index_score)
-        score_outlier_df.to_csv(self._results["score_outlier_index"], sep="\t", index=False)
+        score_outlier_df = pd.DataFrame(columns=['score_outlier_index'], data=index_score)
+        score_outlier_df.to_csv(self._results['score_outlier_index'], sep='\t', index=False)
 
         return runtime
 
@@ -742,106 +742,106 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     deltam = File(
         exists=True,
         desc=(
-            "ASL data after subtracting tag-control or control-tag. "
-            "This matches with ``--iaf diff``, which is the default."
+            'ASL data after subtracting tag-control or control-tag. '
+            'This matches with ``--iaf diff``, which is the default.'
         ),
-        argstr="-i %s",
+        argstr='-i %s',
         position=0,
         mandatory=True,
     )
     mask = File(
         exists=True,
-        argstr="-m %s",
-        desc="mask in the same space as deltam",
+        argstr='-m %s',
+        desc='mask in the same space as deltam',
         mandatory=True,
     )
-    mzero = File(exists=True, argstr="-c %s", desc="m0 scan", mandatory=False)
-    m0_scale = traits.Float(desc="calibration of asl", argstr="--cgain %.2f", mandatory=True)
+    mzero = File(exists=True, argstr='-c %s', desc='m0 scan', mandatory=False)
+    m0_scale = traits.Float(desc='calibration of asl', argstr='--cgain %.2f', mandatory=True)
     m0tr = traits.Float(
-        desc="The repetition time for the calibration image (the M0 scan).",
-        argstr="--tr %.2f",
+        desc='The repetition time for the calibration image (the M0 scan).',
+        argstr='--tr %.2f',
         mandatory=False,
     )
     tis = traits.Either(
         traits.Float(),
         traits.List(traits.Float()),
         desc=(
-            "The list of inflow times (TIs), a comma separated list of values should be provided "
-            "(that matches the order in the data).\n\n"
-            "Note, the inflow time is the PLD plus bolus duration for pcASL (and cASL), "
-            "it equals the inversion time for pASL. "
-            "If the data contains multiple repeats of the same set of TIs then it is only "
-            "necessary to list the unique TIs.\n\n"
-            "When using the ``--tis=`` you can specify a full list of all TIs/PLDs in the data "
-            "(i.e., as many entries as there are label-control pairs). "
-            "Or, if you have a number of TIs/PLDs repeated multiple times you can just list the "
-            "unique TIs in order and ``oxford_asl`` will automatically replicate that list to "
-            "match the number of repeated measurements in the data. "
-            "If you have a variable number of repeats at each TI/PLD then either list all TIs "
-            "or use the ``--rpts=<csv>`` option (see below)."
+            'The list of inflow times (TIs), a comma separated list of values should be provided '
+            '(that matches the order in the data).\n\n'
+            'Note, the inflow time is the PLD plus bolus duration for pcASL (and cASL), '
+            'it equals the inversion time for pASL. '
+            'If the data contains multiple repeats of the same set of TIs then it is only '
+            'necessary to list the unique TIs.\n\n'
+            'When using the ``--tis=`` you can specify a full list of all TIs/PLDs in the data '
+            '(i.e., as many entries as there are label-control pairs). '
+            'Or, if you have a number of TIs/PLDs repeated multiple times you can just list the '
+            'unique TIs in order and ``oxford_asl`` will automatically replicate that list to '
+            'match the number of repeated measurements in the data. '
+            'If you have a variable number of repeats at each TI/PLD then either list all TIs '
+            'or use the ``--rpts=<csv>`` option (see below).'
         ),
-        argstr="--tis %s",
+        argstr='--tis %s',
         mandatory=True,
-        sep=",",
+        sep=',',
     )
     pcasl = traits.Bool(
         desc=(
-            "Data were acquired using cASL or pcASL labelling "
-            "(pASL labeling is assumed by default)."
+            'Data were acquired using cASL or pcASL labelling '
+            '(pASL labeling is assumed by default).'
         ),
-        argstr="--casl",
+        argstr='--casl',
         mandatory=False,
         default_value=False,
     )
     bolus = traits.Either(
         traits.Float(),
         traits.List(traits.Float()),
-        desc="bolus or tau: label duration",
-        argstr="--bolus %s",
+        desc='bolus or tau: label duration',
+        argstr='--bolus %s',
         mandatory=True,
-        sep=",",
+        sep=',',
     )
     slice_spacing = traits.Float(
-        desc="Slice times",
-        argstr="--slicedt %s",
+        desc='Slice times',
+        argstr='--slicedt %s',
         mandatory=False,
     )
     pvc = traits.Bool(
-        desc="Do partial volume correction.",
+        desc='Do partial volume correction.',
         mandatory=False,
-        argstr="--pvcorr",
+        argstr='--pvcorr',
         default_value=True,
     )
     gm_tpm = File(
         exists=True,
         mandatory=False,
-        desc="Partial volume estimates for GM. This is just a GM tissue probability map.",
-        argstr="--pvgm %s",
+        desc='Partial volume estimates for GM. This is just a GM tissue probability map.',
+        argstr='--pvgm %s',
     )
     wm_tpm = File(
         exists=True,
         mandatory=False,
-        desc="Partial volume estimates for WM. This is just a WM tissue probability map.",
-        argstr="--pvwm %s",
+        desc='Partial volume estimates for WM. This is just a WM tissue probability map.',
+        argstr='--pvwm %s',
     )
     alpha = traits.Float(
         desc=(
             "Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. "
             "This is equivalent to the BIDS metadata field 'LabelingEfficiency'."
         ),
-        argstr="--alpha %.2f",
+        argstr='--alpha %.2f',
     )
-    out_basename = File(desc="base name of output files", argstr="-o %s", mandatory=True)
+    out_basename = File(desc='base name of output files', argstr='-o %s', mandatory=True)
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
-    mean_cbf_basil = File(exists=True, desc="cbf with spatial correction")
-    mean_cbf_gm_basil = File(exists=True, desc="cbf with spatial correction")
+    mean_cbf_basil = File(exists=True, desc='cbf with spatial correction')
+    mean_cbf_gm_basil = File(exists=True, desc='cbf with spatial correction')
     mean_cbf_wm_basil = File(
         exists=True,
-        desc="cbf with spatial partial volume white matter correction",
+        desc='cbf with spatial partial volume white matter correction',
     )
-    att_basil = File(exists=True, desc="arterial transit time")
+    att_basil = File(exists=True, desc='arterial transit time')
 
 
 class BASILCBF(FSLCommand):
@@ -856,7 +856,7 @@ class BASILCBF(FSLCommand):
     See https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL and https://asl-docs.readthedocs.io.
     """
 
-    _cmd = "oxford_asl"
+    _cmd = 'oxford_asl'
     input_spec = _BASILCBFInputSpec
     output_spec = _BASILCBFOutputSpec
 
@@ -874,15 +874,15 @@ class BASILCBF(FSLCommand):
 
         outputs = self.output_spec().get()
 
-        outputs["mean_cbf_basil"] = os.path.join(basename, "native_space/perfusion_calib.nii.gz")
-        outputs["att_basil"] = os.path.join(basename, "native_space/arrival.nii.gz")
-        outputs["mean_cbf_gm_basil"] = os.path.join(
+        outputs['mean_cbf_basil'] = os.path.join(basename, 'native_space/perfusion_calib.nii.gz')
+        outputs['att_basil'] = os.path.join(basename, 'native_space/arrival.nii.gz')
+        outputs['mean_cbf_gm_basil'] = os.path.join(
             basename,
-            "native_space/pvcorr/perfusion_calib.nii.gz",
+            'native_space/pvcorr/perfusion_calib.nii.gz',
         )
-        outputs["mean_cbf_wm_basil"] = os.path.join(
+        outputs['mean_cbf_wm_basil'] = os.path.join(
             basename,
-            "native_space/pvcorr/perfusion_wm_calib.nii.gz",
+            'native_space/pvcorr/perfusion_wm_calib.nii.gz',
         )
 
         return outputs

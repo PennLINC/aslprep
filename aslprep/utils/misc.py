@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import os
-import typing as ty
 
 import nibabel as nb
 
@@ -16,7 +15,7 @@ def check_deps(workflow):
     return sorted(
         (node.interface.__class__.__name__, node.interface._cmd)
         for node in workflow._get_all_nodes()
-        if (hasattr(node.interface, "_cmd") and which(node.interface._cmd.split()[0]) is None)
+        if (hasattr(node.interface, '_cmd') and which(node.interface._cmd.split()[0]) is None)
     )
 
 
@@ -28,7 +27,7 @@ def get_n_volumes(fname):
     elif img.ndim == 4:
         n_volumes = img.shape[3]
     else:
-        raise ValueError(f"Image has {img.ndim} dimensions: {fname}")
+        raise ValueError(f'Image has {img.ndim} dimensions: {fname}')
 
     return n_volumes
 
@@ -38,9 +37,9 @@ def _create_mem_gb(asl_fname):
     asl_size_gb = os.path.getsize(asl_fname) / (1024**3)
     asl_tlen = nb.load(asl_fname).shape[-1]
     mem_gb = {
-        "filesize": asl_size_gb,
-        "resampled": asl_size_gb * 4,
-        "largemem": asl_size_gb * (max(asl_tlen / 100, 1.0) + 4),
+        'filesize': asl_size_gb,
+        'resampled': asl_size_gb * 4,
+        'largemem': asl_size_gb * (max(asl_tlen / 100, 1.0) + 4),
     }
 
     return asl_tlen, mem_gb
@@ -58,10 +57,10 @@ def _get_wf_name(asl_fname):
     from nipype.utils.filemanip import split_filename
 
     fname = split_filename(asl_fname)[1]
-    fname_nosub = "_".join(fname.split("_")[1:])
-    name = "asl_preproc_" + fname_nosub.replace(".", "_").replace(" ", "").replace(
-        "-", "_"
-    ).replace("_asl", "_wf")
+    fname_nosub = '_'.join(fname.split('_')[1:])
+    name = 'asl_preproc_' + fname_nosub.replace('.', '_').replace(' ', '').replace(
+        '-', '_'
+    ).replace('_asl', '_wf')
 
     return name
 
@@ -73,23 +72,23 @@ def _select_last_in_list(lst):
 
 def _prefix(subid):
     """Add sub- prefix to subject ID, if necessary."""
-    return subid if subid.startswith("sub-") else f"sub-{subid}"
+    return subid if subid.startswith('sub-') else f'sub-{subid}'
 
 
-def estimate_asl_mem_usage(asl_fname: str) -> ty.Tuple[int, dict]:
+def estimate_asl_mem_usage(asl_fname: str) -> tuple[int, dict]:
     """Estimate ASL memory usage."""
     import nibabel as nb
     import numpy as np
 
     img = nb.load(asl_fname)
-    nvox = int(np.prod(img.shape, dtype="u8"))
+    nvox = int(np.prod(img.shape, dtype='u8'))
     # Assume tools will coerce to 8-byte floats to be safe
     asl_size_gb = 8 * nvox / (1024**3)
     asl_tlen = img.shape[-1]
     mem_gb = {
-        "filesize": asl_size_gb,
-        "resampled": asl_size_gb * 4,
-        "largemem": asl_size_gb * (max(asl_tlen / 100, 1.0) + 4),
+        'filesize': asl_size_gb,
+        'resampled': asl_size_gb * 4,
+        'largemem': asl_size_gb * (max(asl_tlen / 100, 1.0) + 4),
     }
 
     return asl_tlen, mem_gb

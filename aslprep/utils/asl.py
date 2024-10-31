@@ -9,11 +9,11 @@ import numpy as np
 
 def pcasl_or_pasl(metadata):
     """Determine if metadata indicates a PCASL or ASL scan."""
-    aslt = metadata["ArterialSpinLabelingType"]
+    aslt = metadata['ArterialSpinLabelingType']
 
-    if aslt in ["CASL", "PCASL"]:
+    if aslt in ['CASL', 'PCASL']:
         is_casl = True
-    elif aslt == "PASL":
+    elif aslt == 'PASL':
         is_casl = False
     else:
         raise ValueError(
@@ -37,7 +37,7 @@ def determine_multi_pld(metadata):
     :obj:`bool`
         True if the data are multi-delay/TI. Fale if not.
     """
-    plds = np.array(metadata["PostLabelingDelay"])
+    plds = np.array(metadata['PostLabelingDelay'])
     return np.unique(plds).size > 1
 
 
@@ -50,14 +50,14 @@ def select_processing_target(aslcontext):
     except:
         raise FileNotFoundError(aslcontext)
 
-    voltypes = aslcontext_df["volume_type"].tolist()
+    voltypes = aslcontext_df['volume_type'].tolist()
 
-    if "control" in voltypes and "label" in voltypes:
-        processing_target = "control"
-    elif "deltam" in voltypes:
-        processing_target = "deltam"
-    elif "cbf" in voltypes:
-        processing_target = "cbf"
+    if 'control' in voltypes and 'label' in voltypes:
+        processing_target = 'control'
+    elif 'deltam' in voltypes:
+        processing_target = 'deltam'
+    elif 'cbf' in voltypes:
+        processing_target = 'cbf'
     else:
         raise ValueError("aslcontext doesn't have control, label, deltam, or cbf volumes.")
 
@@ -91,26 +91,26 @@ def estimate_labeling_efficiency(metadata):
     ----------
     .. footbibliography::
     """
-    if "LabelingEfficiency" in metadata.keys():
-        labeleff = metadata["LabelingEfficiency"]
+    if 'LabelingEfficiency' in metadata.keys():
+        labeleff = metadata['LabelingEfficiency']
     else:
         BASE_LABELEFF = {
-            "CASL": 0.68,
-            "PCASL": 0.85,
-            "PASL": 0.98,
+            'CASL': 0.68,
+            'PCASL': 0.85,
+            'PASL': 0.98,
         }
-        labeleff = BASE_LABELEFF[metadata["ArterialSpinLabelingType"]]
+        labeleff = BASE_LABELEFF[metadata['ArterialSpinLabelingType']]
 
-        if metadata.get("BackgroundSuppression", False):
+        if metadata.get('BackgroundSuppression', False):
             BS_PULSE_EFF = 0.95  # hardcoded BackgroundSuppressionPulse efficiency
             # We assume there was one pulse if suppression was applied,
             # but the number of pulses isn't defined.
-            labeleff *= BS_PULSE_EFF ** metadata.get("BackgroundSuppressionNumberPulses", 1)
+            labeleff *= BS_PULSE_EFF ** metadata.get('BackgroundSuppressionNumberPulses', 1)
 
     return labeleff
 
 
-def get_inflow_times(metadata: "dict[str, Any]", is_casl: bool) -> list:
+def get_inflow_times(metadata: dict[str, Any], is_casl: bool) -> list:
     """Determine the appropriate inflow times for BASIL.
 
     For PASL data, the inflow time (TI) is just the post-labeling delay (PLD).
@@ -131,12 +131,12 @@ def get_inflow_times(metadata: "dict[str, Any]", is_casl: bool) -> list:
     import numpy as np
 
     if is_casl:
-        return np.add(metadata["PostLabelingDelay"], metadata["LabelingDuration"]).tolist()
+        return np.add(metadata['PostLabelingDelay'], metadata['LabelingDuration']).tolist()
     else:
-        return np.array(metadata["PostLabelingDelay"]).tolist()
+        return np.array(metadata['PostLabelingDelay']).tolist()
 
 
-def get_bolus_duration(metadata: "dict[str, Any]", is_casl: bool) -> float:
+def get_bolus_duration(metadata: dict[str, Any], is_casl: bool) -> float:
     """Determine the appropriate bolus duration for BASIL.
 
     For PASL data, the bolus cutoff delay is the first BolusCutOffDelayTime.
@@ -155,26 +155,26 @@ def get_bolus_duration(metadata: "dict[str, Any]", is_casl: bool) -> float:
         The bolus value.
     """
     if is_casl:
-        return metadata["LabelingDuration"]
-    elif not metadata["BolusCutOffFlag"]:
-        raise ValueError("PASL without a bolus cutoff technique is not supported.")
-    elif metadata["BolusCutOffTechnique"] == "Q2TIPS":
+        return metadata['LabelingDuration']
+    elif not metadata['BolusCutOffFlag']:
+        raise ValueError('PASL without a bolus cutoff technique is not supported.')
+    elif metadata['BolusCutOffTechnique'] == 'Q2TIPS':
         # BolusCutOffDelayTime is a list, and the first entry should be used.
-        return metadata["BolusCutOffDelayTime"][0]
+        return metadata['BolusCutOffDelayTime'][0]
     else:  # QUIPSS or QUIPSSII
-        return metadata["BolusCutOffDelayTime"]
+        return metadata['BolusCutOffDelayTime']
 
 
 def reduce_metadata_lists(metadata, n_volumes, keep_idx):
     """Reduce any volume-wise metadata fields to only contain values for selected volumes."""
     # A hardcoded list of fields that may have one value for each volume.
     VOLUME_WISE_FIELDS = [
-        "PostLabelingDelay",
-        "VascularCrushingVENC",
-        "LabelingDuration",
-        "EchoTime",
-        "FlipAngle",
-        "RepetitionTimePreparation",
+        'PostLabelingDelay',
+        'VascularCrushingVENC',
+        'LabelingDuration',
+        'EchoTime',
+        'FlipAngle',
+        'RepetitionTimePreparation',
     ]
 
     for field in VOLUME_WISE_FIELDS:

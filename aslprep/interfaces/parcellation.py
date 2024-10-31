@@ -15,29 +15,29 @@ from nipype.interfaces.base import (
 )
 from nipype.utils.filemanip import fname_presuffix
 
-LOGGER = logging.getLogger("nipype.interface")
+LOGGER = logging.getLogger('nipype.interface')
 
 
 class _ParcellateCBFInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc="File to be parcellated.")
-    mask = File(exists=True, mandatory=True, desc="brain mask file")
-    atlas = File(exists=True, mandatory=True, desc="atlas file")
-    atlas_labels = File(exists=True, mandatory=True, desc="atlas labels file")
+    in_file = File(exists=True, mandatory=True, desc='File to be parcellated.')
+    mask = File(exists=True, mandatory=True, desc='brain mask file')
+    atlas = File(exists=True, mandatory=True, desc='atlas file')
+    atlas_labels = File(exists=True, mandatory=True, desc='atlas labels file')
     min_coverage = traits.Float(
         default=0.5,
         usedefault=True,
         desc=(
-            "Coverage threshold to apply to parcels. "
-            "Any parcels with lower coverage than the threshold will be replaced with NaNs. "
-            "Must be a value between zero and one. "
-            "Default is 0.5."
+            'Coverage threshold to apply to parcels. '
+            'Any parcels with lower coverage than the threshold will be replaced with NaNs. '
+            'Must be a value between zero and one. '
+            'Default is 0.5.'
         ),
     )
 
 
 class _ParcellateCBFOutputSpec(TraitedSpec):
-    timeseries = File(exists=True, desc="Parcellated time series file.")
-    coverage = File(exists=True, desc="Parcel-wise coverage file.")
+    timeseries = File(exists=True, desc='Parcellated time series file.')
+    coverage = File(exists=True, desc='Parcel-wise coverage file.')
 
 
 class ParcellateCBF(SimpleInterface):
@@ -56,14 +56,14 @@ class ParcellateCBF(SimpleInterface):
         atlas = self.inputs.atlas
         min_coverage = self.inputs.min_coverage
 
-        node_labels_df = pd.read_table(self.inputs.atlas_labels, index_col="index")
+        node_labels_df = pd.read_table(self.inputs.atlas_labels, index_col='index')
 
         # Fix any nonsequential values or mismatch between atlas and DataFrame.
         atlas_img, node_labels_df = _sanitize_nifti_atlas(atlas, node_labels_df)
-        node_labels = node_labels_df["label"].tolist()
+        node_labels = node_labels_df['label'].tolist()
         # prepend "background" to node labels to satisfy NiftiLabelsMasker
         # The background "label" won't be present in the output timeseries.
-        masker_labels = ["background"] + node_labels
+        masker_labels = ['background'] + node_labels
 
         # Before anything, we need to measure coverage
         atlas_img_bin = nb.Nifti1Image(
@@ -79,7 +79,7 @@ class ParcellateCBF(SimpleInterface):
             mask_img=mask,
             smoothing_fwhm=None,
             standardize=False,
-            strategy="sum",
+            strategy='sum',
             resampling_target=None,  # they should be in the same space/resolution already
         )
         sum_masker_unmasked = NiftiLabelsMasker(
@@ -88,7 +88,7 @@ class ParcellateCBF(SimpleInterface):
             background_label=0,
             smoothing_fwhm=None,
             standardize=False,
-            strategy="sum",
+            strategy='sum',
             resampling_target=None,  # they should be in the same space/resolution already
         )
         n_voxels_in_masked_parcels = sum_masker_masked.fit_transform(atlas_img_bin)
@@ -109,11 +109,11 @@ class ParcellateCBF(SimpleInterface):
 
         if n_found_nodes != n_nodes:
             LOGGER.warning(
-                f"{n_nodes - n_found_nodes}/{n_nodes} of parcels not found in atlas file."
+                f'{n_nodes - n_found_nodes}/{n_nodes} of parcels not found in atlas file.'
             )
 
         if n_bad_nodes:
-            LOGGER.warning(f"{n_bad_nodes}/{n_nodes} of parcels have 0% coverage.")
+            LOGGER.warning(f'{n_bad_nodes}/{n_nodes} of parcels have 0% coverage.')
 
         if n_poor_parcels:
             LOGGER.warning(
@@ -149,7 +149,7 @@ class ParcellateCBF(SimpleInterface):
         timeseries_arr[:, coverage_thresholded] = np.nan
 
         # Region indices in the atlas may not be sequential, so we map them to sequential ints.
-        seq_mapper = {idx: i for i, idx in enumerate(node_labels_df["sanitized_index"].tolist())}
+        seq_mapper = {idx: i for i, idx in enumerate(node_labels_df['sanitized_index'].tolist())}
 
         if n_found_nodes != n_nodes:  # parcels lost by warping/downsampling atlas
             # Fill in any missing nodes in the timeseries array with NaNs.
@@ -175,26 +175,26 @@ class ParcellateCBF(SimpleInterface):
             del new_parcel_coverage
 
         # The time series file is tab-delimited, with node names included in the first row.
-        self._results["timeseries"] = fname_presuffix(
-            "timeseries.tsv",
+        self._results['timeseries'] = fname_presuffix(
+            'timeseries.tsv',
             newpath=runtime.cwd,
             use_ext=True,
         )
         timeseries_df = pd.DataFrame(data=timeseries_arr, columns=node_labels)
-        timeseries_df.to_csv(self._results["timeseries"], sep="\t", na_rep="n/a", index=False)
+        timeseries_df.to_csv(self._results['timeseries'], sep='\t', na_rep='n/a', index=False)
 
         # Save out the coverage tsv
         coverage_df = pd.DataFrame(
             data=parcel_coverage.astype(np.float32),
             index=node_labels,
-            columns=["coverage"],
+            columns=['coverage'],
         )
-        self._results["coverage"] = fname_presuffix(
-            "coverage.tsv",
+        self._results['coverage'] = fname_presuffix(
+            'coverage.tsv',
             newpath=runtime.cwd,
             use_ext=True,
         )
-        coverage_df.to_csv(self._results["coverage"], sep="\t", na_rep="n/a", index_label="Node")
+        coverage_df.to_csv(self._results['coverage'], sep='\t', na_rep='n/a', index_label='Node')
 
         return runtime
 
@@ -214,11 +214,11 @@ def _sanitize_nifti_atlas(atlas, df):
     found_values = np.unique(atlas_data)
     found_values = found_values[found_values != 0]  # drop the background value
     if not np.all(np.isin(found_values, expected_values)):
-        raise ValueError("Atlas file contains values that are not present in the DataFrame.")
+        raise ValueError('Atlas file contains values that are not present in the DataFrame.')
 
     # Map the labels in the DataFrame to sequential values.
     label_mapper = {value: i + 1 for i, value in enumerate(expected_values)}
-    df["sanitized_index"] = [label_mapper[i] for i in df.index.values]
+    df['sanitized_index'] = [label_mapper[i] for i in df.index.values]
 
     # Map the values in the atlas image to sequential values.
     new_atlas_data = np.zeros(atlas_data.shape, dtype=np.int16)

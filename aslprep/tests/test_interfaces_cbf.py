@@ -12,49 +12,49 @@ from aslprep.interfaces import cbf
 
 def test_computecbf_casl(datasets, tmp_path_factory):
     """Test aslprep.interfaces.cbf.ComputeCBF with (P)CASL."""
-    tmpdir = tmp_path_factory.mktemp("test_computecbf_casl")
-    aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
+    tmpdir = tmp_path_factory.mktemp('test_computecbf_casl')
+    aslcontext_file = os.path.join(datasets['test_001'], 'sub-01/perf/sub-01_aslcontext.tsv')
 
     aslcontext = pd.read_table(aslcontext_file)
-    n_deltam = aslcontext.loc[aslcontext["volume_type"] == "label"].shape[0]
+    n_deltam = aslcontext.loc[aslcontext['volume_type'] == 'label'].shape[0]
     n_volumes = aslcontext.shape[0]
 
     # Simulate ASL data and a brain mask.
     asl_data = np.random.random((30, 30, 30, n_deltam)).astype(np.float32)
-    asl_file = _save_img(asl_data, tmpdir, "asl.nii.gz")
+    asl_file = _save_img(asl_data, tmpdir, 'asl.nii.gz')
     asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
     asl_mask[10:20, 10:20, 10:20] = 1
-    mask_file = _save_img(asl_mask, tmpdir, "mask.nii.gz")
-    m0_file = _save_img(asl_mask, tmpdir, "m0.nii.gz")
+    mask_file = _save_img(asl_mask, tmpdir, 'mask.nii.gz')
+    m0_file = _save_img(asl_mask, tmpdir, 'm0.nii.gz')
 
     single_pld = 1.5
     plds = np.zeros(n_volumes)
     temp_plds = np.linspace(0.5, 3.5, n_deltam)
-    plds[aslcontext["volume_type"] == "m0scan"] = 0
-    plds[aslcontext["volume_type"] == "label"] = temp_plds
-    plds[aslcontext["volume_type"] == "control"] = temp_plds
+    plds[aslcontext['volume_type'] == 'm0scan'] = 0
+    plds[aslcontext['volume_type'] == 'label'] = temp_plds
+    plds[aslcontext['volume_type'] == 'control'] = temp_plds
     bad_multiple_plds = plds.tolist()
-    good_multiple_plds = plds[aslcontext["volume_type"] == "control"]
+    good_multiple_plds = plds[aslcontext['volume_type'] == 'control']
 
     BASE_METADATA = {
-        "MagneticFieldStrength": 3,
-        "LabelingDuration": 1.6,
+        'MagneticFieldStrength': 3,
+        'LabelingDuration': 1.6,
     }
     ACQ_DICTS = [
-        {"MRAcquisitionType": "3D"},
+        {'MRAcquisitionType': '3D'},
         {
-            "MRAcquisitionType": "2D",
-            "SliceTiming": list(np.linspace(0.1, 0.5, 30)),
+            'MRAcquisitionType': '2D',
+            'SliceTiming': list(np.linspace(0.1, 0.5, 30)),
         },
     ]
 
-    for asltype in ["PCASL", "CASL"]:
+    for asltype in ['PCASL', 'CASL']:
         for acq_dict in ACQ_DICTS:
             # Scenario 1: PCASL with a single PostLabelingDelay
             # This should produce CBF time series and mean CBF, but no ATT
             metadata = {
-                "ArterialSpinLabelingType": asltype,
-                "PostLabelingDelay": single_pld,
+                'ArterialSpinLabelingType': asltype,
+                'PostLabelingDelay': single_pld,
                 **BASE_METADATA,
                 **acq_dict,
             }
@@ -78,8 +78,8 @@ def test_computecbf_casl(datasets, tmp_path_factory):
 
             # Scenario 2: PCASL with one PostLabelingDelay for each volume (bad)
             metadata = {
-                "ArterialSpinLabelingType": asltype,
-                "PostLabelingDelay": bad_multiple_plds,
+                'ArterialSpinLabelingType': asltype,
+                'PostLabelingDelay': bad_multiple_plds,
                 **BASE_METADATA,
                 **acq_dict,
             }
@@ -92,14 +92,14 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 m0_file=m0_file,
                 mask=mask_file,
             )
-            with pytest.raises(ValueError, match="Number of PostLabelingDelays"):
+            with pytest.raises(ValueError, match='Number of PostLabelingDelays'):
                 results = interface.run(cwd=tmpdir)
 
             # Scenario 3: PCASL with one PostLabelingDelay for each deltam volume (good)
             # This should produce ATT and mean CBF volumes, but no CBF time series
             metadata = {
-                "ArterialSpinLabelingType": asltype,
-                "PostLabelingDelay": good_multiple_plds,
+                'ArterialSpinLabelingType': asltype,
+                'PostLabelingDelay': good_multiple_plds,
                 **BASE_METADATA,
                 **acq_dict,
             }
@@ -124,51 +124,51 @@ def test_computecbf_casl(datasets, tmp_path_factory):
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
     """Test aslprep.interfaces.cbf.ComputeCBF with PASL."""
-    tmpdir = tmp_path_factory.mktemp("test_computecbf_pasl")
-    aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
+    tmpdir = tmp_path_factory.mktemp('test_computecbf_pasl')
+    aslcontext_file = os.path.join(datasets['test_001'], 'sub-01/perf/sub-01_aslcontext.tsv')
 
     aslcontext = pd.read_table(aslcontext_file)
-    n_deltam = aslcontext.loc[aslcontext["volume_type"] == "label"].shape[0]
+    n_deltam = aslcontext.loc[aslcontext['volume_type'] == 'label'].shape[0]
     n_volumes = aslcontext.shape[0]
 
     # Simulate ASL data and a brain mask.
     asl_data = np.random.random((30, 30, 30, n_deltam)).astype(np.float32)
-    asl_file = _save_img(asl_data, tmpdir, "asl.nii.gz")
+    asl_file = _save_img(asl_data, tmpdir, 'asl.nii.gz')
     asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
     asl_mask[10:20, 10:20, 10:20] = 1
-    mask_file = _save_img(asl_mask, tmpdir, "mask.nii.gz")
-    m0_file = _save_img(asl_mask, tmpdir, "m0.nii.gz")
+    mask_file = _save_img(asl_mask, tmpdir, 'mask.nii.gz')
+    m0_file = _save_img(asl_mask, tmpdir, 'm0.nii.gz')
 
     single_pld = 1.5
     plds = np.zeros(n_volumes)
     temp_plds = np.linspace(0.5, 3.5, n_deltam)
-    plds[aslcontext["volume_type"] == "m0scan"] = 0
-    plds[aslcontext["volume_type"] == "label"] = temp_plds
-    plds[aslcontext["volume_type"] == "control"] = temp_plds
+    plds[aslcontext['volume_type'] == 'm0scan'] = 0
+    plds[aslcontext['volume_type'] == 'label'] = temp_plds
+    plds[aslcontext['volume_type'] == 'control'] = temp_plds
     bad_multiple_plds = plds.tolist()
-    good_multiple_plds = plds[aslcontext["volume_type"] == "control"]
+    good_multiple_plds = plds[aslcontext['volume_type'] == 'control']
 
     BASE_METADATA = {
-        "ArterialSpinLabelingType": "PASL",
-        "MagneticFieldStrength": 3,
+        'ArterialSpinLabelingType': 'PASL',
+        'MagneticFieldStrength': 3,
     }
     ACQ_DICTS = [
-        {"MRAcquisitionType": "3D"},
+        {'MRAcquisitionType': '3D'},
         {
-            "MRAcquisitionType": "2D",
-            "SliceTiming": list(np.linspace(0.1, 0.5, 30)),
+            'MRAcquisitionType': '2D',
+            'SliceTiming': list(np.linspace(0.1, 0.5, 30)),
         },
     ]
 
     for acq_dict in ACQ_DICTS:
         # Scenario 1: PASL without BolusCutOff (raises ValueError).
         metadata = {
-            "BolusCutOffFlag": False,
-            "PostLabelingDelay": single_pld,
+            'BolusCutOffFlag': False,
+            'PostLabelingDelay': single_pld,
             **BASE_METADATA,
             **acq_dict,
         }
-        with pytest.raises(ValueError, match="not supported in ASLPrep."):
+        with pytest.raises(ValueError, match='not supported in ASLPrep.'):
             interface = cbf.ComputeCBF(
                 cbf_only=False,
                 deltam=asl_file,
@@ -182,10 +182,10 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         # Scenario 2: QUIPSS PASL with a single PostLabelingDelay
         # This should produce CBF time series and mean CBF, but no ATT
         metadata = {
-            "BolusCutOffFlag": True,
-            "BolusCutOffTechnique": "QUIPSS",
-            "BolusCutOffDelayTime": 0.5,
-            "PostLabelingDelay": single_pld,
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'QUIPSS',
+            'BolusCutOffDelayTime': 0.5,
+            'PostLabelingDelay': single_pld,
             **BASE_METADATA,
             **acq_dict,
         }
@@ -208,10 +208,10 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
 
         # Scenario 3: QUIPSS PASL with one PostLabelingDelay for each volume (bad)
         metadata = {
-            "BolusCutOffFlag": True,
-            "BolusCutOffTechnique": "QUIPSS",
-            "BolusCutOffDelayTime": 0.5,
-            "PostLabelingDelay": bad_multiple_plds,
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'QUIPSS',
+            'BolusCutOffDelayTime': 0.5,
+            'PostLabelingDelay': bad_multiple_plds,
             **BASE_METADATA,
             **acq_dict,
         }
@@ -223,15 +223,15 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
+        with pytest.raises(ValueError, match='Multi-delay data are not supported'):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 4: QUIPSS PASL with one PostLabelingDelay for each deltam volume (good)
         metadata = {
-            "BolusCutOffFlag": True,
-            "BolusCutOffTechnique": "QUIPSS",
-            "BolusCutOffDelayTime": 0.5,
-            "PostLabelingDelay": good_multiple_plds,
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'QUIPSS',
+            'BolusCutOffDelayTime': 0.5,
+            'PostLabelingDelay': good_multiple_plds,
             **BASE_METADATA,
             **acq_dict,
         }
@@ -243,16 +243,16 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
+        with pytest.raises(ValueError, match='Multi-delay data are not supported'):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
         # This should produce CBF time series and mean CBF, but no ATT
         metadata = {
-            "BolusCutOffFlag": True,
-            "BolusCutOffTechnique": "QUIPSSII",
-            "BolusCutOffDelayTime": 0.5,
-            "PostLabelingDelay": single_pld,
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'QUIPSSII',
+            'BolusCutOffDelayTime': 0.5,
+            'PostLabelingDelay': single_pld,
             **BASE_METADATA,
             **acq_dict,
         }
@@ -275,10 +275,10 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
 
         # Scenario 6: QUIPSSII PASL with multiple PostLabelingDelays
         metadata = {
-            "BolusCutOffFlag": True,
-            "BolusCutOffTechnique": "QUIPSSII",
-            "BolusCutOffDelayTime": 0.5,
-            "PostLabelingDelay": good_multiple_plds,
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'QUIPSSII',
+            'BolusCutOffDelayTime': 0.5,
+            'PostLabelingDelay': good_multiple_plds,
             **BASE_METADATA,
             **acq_dict,
         }
@@ -290,16 +290,16 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
+        with pytest.raises(ValueError, match='Multi-delay data are not supported'):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
         # This should produce CBF time series and mean CBF, but no ATT
         metadata = {
-            "BolusCutOffFlag": True,
-            "BolusCutOffTechnique": "Q2TIPS",
-            "BolusCutOffDelayTime": [0.7, 1.6],
-            "PostLabelingDelay": single_pld,
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'Q2TIPS',
+            'BolusCutOffDelayTime': [0.7, 1.6],
+            'PostLabelingDelay': single_pld,
             **BASE_METADATA,
             **acq_dict,
         }
@@ -322,10 +322,10 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
 
         # Scenario 8: Q2TIPS PASL with multiple PostLabelingDelays
         metadata = {
-            "BolusCutOffFlag": True,
-            "BolusCutOffTechnique": "Q2TIPS",
-            "BolusCutOffDelayTime": [0.7, 1.6],
-            "PostLabelingDelay": good_multiple_plds,
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'Q2TIPS',
+            'BolusCutOffDelayTime': [0.7, 1.6],
+            'PostLabelingDelay': good_multiple_plds,
             **BASE_METADATA,
             **acq_dict,
         }
@@ -337,7 +337,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match="Multi-delay data are not supported"):
+        with pytest.raises(ValueError, match='Multi-delay data are not supported'):
             results = interface.run(cwd=tmpdir)
 
 
@@ -346,35 +346,35 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
 
     As long as the slice times are all zero, of course.
     """
-    tmpdir = tmp_path_factory.mktemp("test_computecbf_casl")
-    aslcontext_file = os.path.join(datasets["test_001"], "sub-01/perf/sub-01_aslcontext.tsv")
+    tmpdir = tmp_path_factory.mktemp('test_computecbf_casl')
+    aslcontext_file = os.path.join(datasets['test_001'], 'sub-01/perf/sub-01_aslcontext.tsv')
 
     aslcontext = pd.read_table(aslcontext_file)
-    n_deltam = aslcontext.loc[aslcontext["volume_type"] == "label"].shape[0]
+    n_deltam = aslcontext.loc[aslcontext['volume_type'] == 'label'].shape[0]
 
     # Simulate ASL data and a brain mask.
     asl_data = np.random.random((30, 30, 30, n_deltam)).astype(np.float32)
-    asl_file = _save_img(asl_data, tmpdir, "asl.nii.gz")
+    asl_file = _save_img(asl_data, tmpdir, 'asl.nii.gz')
     asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
     asl_mask[10:20, 10:20, 10:20] = 1
-    mask_file = _save_img(asl_mask, tmpdir, "mask.nii.gz")
-    m0_file = _save_img(asl_mask, tmpdir, "m0.nii.gz")
+    mask_file = _save_img(asl_mask, tmpdir, 'mask.nii.gz')
+    m0_file = _save_img(asl_mask, tmpdir, 'm0.nii.gz')
 
     ACQ_DICTS = [
-        {"MRAcquisitionType": "3D"},
+        {'MRAcquisitionType': '3D'},
         {
-            "MRAcquisitionType": "2D",
-            "SliceTiming": list(np.zeros(30)),
+            'MRAcquisitionType': '2D',
+            'SliceTiming': list(np.zeros(30)),
         },
     ]
 
     cbf_data = []
     for acq_dict in ACQ_DICTS:
         metadata = {
-            "ArterialSpinLabelingType": "PCASL",
-            "MagneticFieldStrength": 3,
-            "LabelingDuration": 1.6,
-            "PostLabelingDelay": 1.5,
+            'ArterialSpinLabelingType': 'PCASL',
+            'MagneticFieldStrength': 3,
+            'LabelingDuration': 1.6,
+            'PostLabelingDelay': 1.5,
             **acq_dict,
         }
         interface = cbf.ComputeCBF(

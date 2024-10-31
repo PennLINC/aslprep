@@ -42,14 +42,14 @@ from aslprep.interfaces.bids import DerivativesDataSink
 def init_asl_surf_wf(
     *,
     mem_gb: float,
-    surface_spaces: ty.List[str],
+    surface_spaces: list[str],
     medial_surface_nan: bool,
     metadata: dict,  # noqa: U100
-    cbf_3d: ty.List[str],
-    cbf_4d: ty.List[str],
-    att: ty.List[str],
+    cbf_3d: list[str],
+    cbf_4d: list[str],
+    att: list[str],
     output_dir: str,
-    name: str = "asl_surf_wf",
+    name: str = 'asl_surf_wf',
 ):
     """Sample functional images to FreeSurfer surfaces.
 
@@ -124,51 +124,51 @@ def init_asl_surf_wf(
     timing_parameters = prepare_timing_parameters(metadata)
 
     workflow = Workflow(name=name)
-    out_spaces_str = ", ".join([f"*{s}*" for s in surface_spaces])
+    out_spaces_str = ', '.join([f'*{s}*' for s in surface_spaces])
     workflow.__desc__ = f"""\
 The CBF maps were resampled onto the following surfaces (FreeSurfer reconstruction nomenclature):
 {out_spaces_str}.
 """
     inputnode_fields = [
-        "source_file",
-        "anat",
-        "aslref2anat_xfm",
-        "subject_id",
-        "subjects_dir",
-        "fsnative2t1w_xfm",
+        'source_file',
+        'anat',
+        'aslref2anat_xfm',
+        'subject_id',
+        'subjects_dir',
+        'fsnative2t1w_xfm',
     ]
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
     inputnode_fields += att
     inputnode = pe.Node(
         niu.IdentityInterface(fields=inputnode_fields),
-        name="inputnode",
+        name='inputnode',
     )
 
-    itersource = pe.Node(niu.IdentityInterface(fields=["target"]), name="itersource")
-    itersource.iterables = [("target", surface_spaces)]
+    itersource = pe.Node(niu.IdentityInterface(fields=['target']), name='itersource')
+    itersource.iterables = [('target', surface_spaces)]
 
-    get_fsnative = pe.Node(FreeSurferSource(), name="get_fsnative", run_without_submitting=True)
+    get_fsnative = pe.Node(FreeSurferSource(), name='get_fsnative', run_without_submitting=True)
     workflow.connect([
         (inputnode, get_fsnative, [
-            ("subject_id", "subject_id"),
-            ("subjects_dir", "subjects_dir")
+            ('subject_id', 'subject_id'),
+            ('subjects_dir', 'subjects_dir')
         ]),
     ])  # fmt:skip
 
     def select_target(subject_id, space):
         """Get the target subject ID, given a source subject ID and a target space."""
-        return subject_id if space == "fsnative" else space
+        return subject_id if space == 'fsnative' else space
 
     targets = pe.Node(
         niu.Function(function=select_target),
-        name="targets",
+        name='targets',
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     workflow.connect([
-        (inputnode, targets, [("subject_id", "subject_id")]),
-        (itersource, targets, [("target", "space")]),
+        (inputnode, targets, [('subject_id', 'subject_id')]),
+        (itersource, targets, [('target', 'space')]),
     ])  # fmt:skip
 
     for cbf_deriv in cbf_4d + cbf_3d + att:
@@ -176,122 +176,122 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
 
         kwargs = {}
         if cbf_deriv in cbf_4d:
-            kwargs["dimension"] = 3
+            kwargs['dimension'] = 3
 
         if cbf_deriv in att:
-            meta = {"Units": "s"}
+            meta = {'Units': 's'}
         else:
-            meta = {"Units": "mL/100 g/min"}
+            meta = {'Units': 'mL/100 g/min'}
 
         warp_cbf_to_anat = pe.Node(
             ApplyTransforms(
-                interpolation="LanczosWindowedSinc",
+                interpolation='LanczosWindowedSinc',
                 float=True,
                 input_image_type=3,
-                args="-v",
+                args='-v',
                 **kwargs,
             ),
-            name=f"warp_{cbf_deriv}_to_anat",
+            name=f'warp_{cbf_deriv}_to_anat',
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([
             (inputnode, warp_cbf_to_anat, [
-                (cbf_deriv, "input_image"),
-                ("anat", "reference_image"),
-                ("aslref2anat_xfm", "transforms"),
+                (cbf_deriv, 'input_image'),
+                ('anat', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
             ]),
         ])  # fmt:skip
 
         itk2lta = pe.Node(
-            ConcatenateXFMs(out_fmt="fs", inverse=True),
-            name=f"itk2lta_{cbf_deriv}",
+            ConcatenateXFMs(out_fmt='fs', inverse=True),
+            name=f'itk2lta_{cbf_deriv}',
             run_without_submitting=True,
         )
         workflow.connect([
-            (inputnode, itk2lta, [("fsnative2t1w_xfm", "in_xfms")]),
-            (warp_cbf_to_anat, itk2lta, [("output_image", "moving")]),
-            (get_fsnative, itk2lta, [("T1", "reference")]),
+            (inputnode, itk2lta, [('fsnative2t1w_xfm', 'in_xfms')]),
+            (warp_cbf_to_anat, itk2lta, [('output_image', 'moving')]),
+            (get_fsnative, itk2lta, [('T1', 'reference')]),
         ])  # fmt:skip
 
         sampler = pe.MapNode(
             fs.SampleToSurface(
-                interp_method="trilinear",
-                out_type="gii",
+                interp_method='trilinear',
+                out_type='gii',
                 override_reg_subj=True,
-                sampling_method="average",
+                sampling_method='average',
                 sampling_range=(0, 1, 0.2),
-                sampling_units="frac",
+                sampling_units='frac',
             ),
-            iterfield=["hemi"],
-            name=f"sampler_{cbf_deriv}",
+            iterfield=['hemi'],
+            name=f'sampler_{cbf_deriv}',
             mem_gb=mem_gb * 3,
         )
-        sampler.inputs.hemi = ["lh", "rh"]
+        sampler.inputs.hemi = ['lh', 'rh']
         workflow.connect([
             (inputnode, sampler, [
-                ("subjects_dir", "subjects_dir"),
-                ("subject_id", "subject_id"),
+                ('subjects_dir', 'subjects_dir'),
+                ('subject_id', 'subject_id'),
             ]),
-            (warp_cbf_to_anat, sampler, [("output_image", "source_file")]),
-            (itk2lta, sampler, [("out_inv", "reg_file")]),
-            (targets, sampler, [("out", "target_subject")]),
+            (warp_cbf_to_anat, sampler, [('output_image', 'source_file')]),
+            (itk2lta, sampler, [('out_inv', 'reg_file')]),
+            (targets, sampler, [('out', 'target_subject')]),
         ])  # fmt:skip
 
         update_metadata = pe.MapNode(
             GiftiSetAnatomicalStructure(),
-            iterfield=["in_file"],
-            name=f"update_{cbf_deriv}_metadata",
+            iterfield=['in_file'],
+            name=f'update_{cbf_deriv}_metadata',
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
 
         ds_surfs = pe.MapNode(
             DerivativesDataSink(
                 base_directory=output_dir,
-                extension=".func.gii",
+                extension='.func.gii',
                 **timing_parameters,
                 **fields,
                 **meta,
             ),
-            iterfield=["in_file", "hemi"],
-            name=f"ds_{cbf_deriv}_surfs",
+            iterfield=['in_file', 'hemi'],
+            name=f'ds_{cbf_deriv}_surfs',
             run_without_submitting=True,
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-        ds_surfs.inputs.hemi = ["L", "R"]
+        ds_surfs.inputs.hemi = ['L', 'R']
 
         workflow.connect([
-            (inputnode, ds_surfs, [("source_file", "source_file")]),
-            (itersource, ds_surfs, [("target", "space")]),
-            (update_metadata, ds_surfs, [("out_file", "in_file")]),
+            (inputnode, ds_surfs, [('source_file', 'source_file')]),
+            (itersource, ds_surfs, [('target', 'space')]),
+            (update_metadata, ds_surfs, [('out_file', 'in_file')]),
         ])  # fmt:skip
 
         # Refine if medial vertices should be NaNs
         medial_nans = pe.MapNode(
             MedialNaNs(),
-            iterfield=["in_file"],
-            name=f"medial_nans_{cbf_deriv}",
+            iterfield=['in_file'],
+            name=f'medial_nans_{cbf_deriv}',
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
 
         if medial_surface_nan:
             # fmt: off
             workflow.connect([
-                (inputnode, medial_nans, [("subjects_dir", "subjects_dir")]),
-                (sampler, medial_nans, [("out_file", "in_file")]),
-                (medial_nans, update_metadata, [("out_file", "in_file")]),
+                (inputnode, medial_nans, [('subjects_dir', 'subjects_dir')]),
+                (sampler, medial_nans, [('out_file', 'in_file')]),
+                (medial_nans, update_metadata, [('out_file', 'in_file')]),
             ])
             # fmt: on
         else:
-            workflow.connect([(sampler, update_metadata, [("out_file", "in_file")])])
+            workflow.connect([(sampler, update_metadata, [('out_file', 'in_file')])])
 
     return workflow
 
 
 def init_bold_fsLR_resampling_wf(  # noqa: N802
-    grayord_density: ty.Literal["91k", "170k"],
+    grayord_density: ty.Literal['91k', '170k'],
     omp_nthreads: int,
     mem_gb: float,
-    name: str = "bold_fsLR_resampling_wf",
+    name: str = 'bold_fsLR_resampling_wf',
 ):
     """Resample BOLD time series to fsLR surface.
 
@@ -357,7 +357,7 @@ def init_bold_fsLR_resampling_wf(  # noqa: N802
     from niworkflows.interfaces.utility import KeySelect
     from smriprep import data as smriprep_data
 
-    fslr_density = "32k" if grayord_density == "91k" else "59k"
+    fslr_density = '32k' if grayord_density == '91k' else '59k'
 
     workflow = Workflow(name=name)
 
@@ -369,132 +369,132 @@ The BOLD time-series were resampled onto the left/right-symmetric template
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "bold_file",
-                "white",
-                "pial",
-                "midthickness",
-                "midthickness_fsLR",
-                "sphere_reg_fsLR",
-                "cortex_mask",
-                "volume_roi",
+                'bold_file',
+                'white',
+                'pial',
+                'midthickness',
+                'midthickness_fsLR',
+                'sphere_reg_fsLR',
+                'cortex_mask',
+                'volume_roi',
             ]
         ),
-        name="inputnode",
+        name='inputnode',
     )
 
     hemisource = pe.Node(
-        niu.IdentityInterface(fields=["hemi"]),
-        name="hemisource",
-        iterables=[("hemi", ["L", "R"])],
+        niu.IdentityInterface(fields=['hemi']),
+        name='hemisource',
+        iterables=[('hemi', ['L', 'R'])],
     )
 
     joinnode = pe.JoinNode(
-        niu.IdentityInterface(fields=["bold_fsLR"]),
-        name="joinnode",
-        joinsource="hemisource",
+        niu.IdentityInterface(fields=['bold_fsLR']),
+        name='joinnode',
+        joinsource='hemisource',
     )
 
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["bold_fsLR"]),
-        name="outputnode",
+        niu.IdentityInterface(fields=['bold_fsLR']),
+        name='outputnode',
     )
 
     # select white, midthickness and pial surfaces based on hemi
     select_surfaces = pe.Node(
         KeySelect(
             fields=[
-                "white",
-                "pial",
-                "midthickness",
-                "midthickness_fsLR",
-                "sphere_reg_fsLR",
-                "template_sphere",
-                "cortex_mask",
-                "template_roi",
+                'white',
+                'pial',
+                'midthickness',
+                'midthickness_fsLR',
+                'sphere_reg_fsLR',
+                'template_sphere',
+                'cortex_mask',
+                'template_roi',
             ],
-            keys=["L", "R"],
+            keys=['L', 'R'],
         ),
-        name="select_surfaces",
+        name='select_surfaces',
         run_without_submitting=True,
     )
     select_surfaces.inputs.template_sphere = [
         str(sphere)
         for sphere in tf.get(
-            template="fsLR",
+            template='fsLR',
             density=fslr_density,
-            suffix="sphere",
+            suffix='sphere',
             space=None,
-            extension=".surf.gii",
+            extension='.surf.gii',
         )
     ]
-    atlases = smriprep_data.load_resource("atlases")
+    atlases = smriprep_data.load_resource('atlases')
     select_surfaces.inputs.template_roi = [
-        str(atlases / f"L.atlasroi.{fslr_density}_fs_LR.shape.gii"),
-        str(atlases / f"R.atlasroi.{fslr_density}_fs_LR.shape.gii"),
+        str(atlases / f'L.atlasroi.{fslr_density}_fs_LR.shape.gii'),
+        str(atlases / f'R.atlasroi.{fslr_density}_fs_LR.shape.gii'),
     ]
 
     # RibbonVolumeToSurfaceMapping.sh
     # Line 85 thru ...
     volume_to_surface = pe.Node(
-        VolumeToSurfaceMapping(method="ribbon-constrained"),
-        name="volume_to_surface",
+        VolumeToSurfaceMapping(method='ribbon-constrained'),
+        name='volume_to_surface',
         mem_gb=mem_gb * 3,
         n_procs=omp_nthreads,
     )
     metric_dilate = pe.Node(
         MetricDilate(distance=10, nearest=True),
-        name="metric_dilate",
+        name='metric_dilate',
         mem_gb=1,
         n_procs=omp_nthreads,
     )
-    mask_native = pe.Node(MetricMask(), name="mask_native")
+    mask_native = pe.Node(MetricMask(), name='mask_native')
     resample_to_fsLR = pe.Node(
-        MetricResample(method="ADAP_BARY_AREA", area_surfs=True),
-        name="resample_to_fsLR",
+        MetricResample(method='ADAP_BARY_AREA', area_surfs=True),
+        name='resample_to_fsLR',
         mem_gb=1,
         n_procs=omp_nthreads,
     )
     # ... line 89
-    mask_fsLR = pe.Node(MetricMask(), name="mask_fsLR")
+    mask_fsLR = pe.Node(MetricMask(), name='mask_fsLR')
 
     workflow.connect([
         (inputnode, select_surfaces, [
-            ("white", "white"),
-            ("pial", "pial"),
-            ("midthickness", "midthickness"),
-            ("midthickness_fsLR", "midthickness_fsLR"),
-            ("sphere_reg_fsLR", "sphere_reg_fsLR"),
-            ("cortex_mask", "cortex_mask"),
+            ('white', 'white'),
+            ('pial', 'pial'),
+            ('midthickness', 'midthickness'),
+            ('midthickness_fsLR', 'midthickness_fsLR'),
+            ('sphere_reg_fsLR', 'sphere_reg_fsLR'),
+            ('cortex_mask', 'cortex_mask'),
         ]),
-        (hemisource, select_surfaces, [("hemi", "key")]),
+        (hemisource, select_surfaces, [('hemi', 'key')]),
         # Resample BOLD to native surface, dilate and mask
         (inputnode, volume_to_surface, [
-            ("bold_file", "volume_file"),
-            ("volume_roi", "volume_roi"),
+            ('bold_file', 'volume_file'),
+            ('volume_roi', 'volume_roi'),
         ]),
         (select_surfaces, volume_to_surface, [
-            ("midthickness", "surface_file"),
-            ("white", "inner_surface"),
-            ("pial", "outer_surface"),
+            ('midthickness', 'surface_file'),
+            ('white', 'inner_surface'),
+            ('pial', 'outer_surface'),
         ]),
-        (select_surfaces, metric_dilate, [("midthickness", "surf_file")]),
-        (select_surfaces, mask_native, [("cortex_mask", "mask")]),
-        (volume_to_surface, metric_dilate, [("out_file", "in_file")]),
-        (metric_dilate, mask_native, [("out_file", "in_file")]),
+        (select_surfaces, metric_dilate, [('midthickness', 'surf_file')]),
+        (select_surfaces, mask_native, [('cortex_mask', 'mask')]),
+        (volume_to_surface, metric_dilate, [('out_file', 'in_file')]),
+        (metric_dilate, mask_native, [('out_file', 'in_file')]),
         # Resample BOLD to fsLR and mask
         (select_surfaces, resample_to_fsLR, [
-            ("sphere_reg_fsLR", "current_sphere"),
-            ("template_sphere", "new_sphere"),
-            ("midthickness", "current_area"),
-            ("midthickness_fsLR", "new_area"),
-            ("cortex_mask", "roi_metric"),
+            ('sphere_reg_fsLR', 'current_sphere'),
+            ('template_sphere', 'new_sphere'),
+            ('midthickness', 'current_area'),
+            ('midthickness_fsLR', 'new_area'),
+            ('cortex_mask', 'roi_metric'),
         ]),
-        (mask_native, resample_to_fsLR, [("out_file", "in_file")]),
-        (select_surfaces, mask_fsLR, [("template_roi", "mask")]),
-        (resample_to_fsLR, mask_fsLR, [("out_file", "in_file")]),
+        (mask_native, resample_to_fsLR, [('out_file', 'in_file')]),
+        (select_surfaces, mask_fsLR, [('template_roi', 'mask')]),
+        (resample_to_fsLR, mask_fsLR, [('out_file', 'in_file')]),
         # Output
-        (mask_fsLR, joinnode, [("out_file", "bold_fsLR")]),
-        (joinnode, outputnode, [("bold_fsLR", "bold_fsLR")]),
+        (mask_fsLR, joinnode, [('out_file', 'bold_fsLR')]),
+        (joinnode, outputnode, [('bold_fsLR', 'bold_fsLR')]),
     ])  # fmt:skip
 
     return workflow

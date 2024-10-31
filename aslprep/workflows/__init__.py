@@ -3,6 +3,6 @@
 from aslprep.workflows import asl, base
 
 __all__ = [
-    "asl",
-    "base",
+    'asl',
+    'base',
 ]

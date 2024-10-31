@@ -14,13 +14,13 @@ from aslprep.interfaces import (
 )
 
 __all__ = [
-    "ants",
-    "bids",
-    "cbf",
-    "confounds",
-    "parcellation",
-    "plotting",
-    "reference",
-    "reports",
-    "utility",
+    'ants',
+    'bids',
+    'cbf',
+    'confounds',
+    'parcellation',
+    'plotting',
+    'reference',
+    'reports',
+    'utility',
 ]

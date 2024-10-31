@@ -15,14 +15,14 @@ from aslprep.workflows.asl import (
 )
 
 __all__ = [
-    "apply",
-    "base",
-    "cbf",
-    "confounds",
-    "fit",
-    "hmc",
-    "outputs",
-    "plotting",
-    "reference",
-    "resampling",
+    'apply',
+    'base',
+    'cbf',
+    'confounds',
+    'fit',
+    'hmc',
+    'outputs',
+    'plotting',
+    'reference',
+    'resampling',
 ]

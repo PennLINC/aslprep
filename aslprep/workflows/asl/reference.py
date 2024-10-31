@@ -36,7 +36,7 @@ def init_raw_aslref_wf(
     asl_file=None,
     m0scan=False,
     use_ge=False,
-    name="raw_aslref_wf",
+    name='raw_aslref_wf',
 ):
     """Build a workflow that generates reference BOLD images for a series.
 
@@ -98,23 +98,23 @@ for use in head motion correction.
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "asl_file",
-                "aslcontext",
-                "m0scan",
-                "dummy_scans",
+                'asl_file',
+                'aslcontext',
+                'm0scan',
+                'dummy_scans',
             ],
         ),
-        name="inputnode",
+        name='inputnode',
     )
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                "asl_file",
-                "aslref",
-                "validation_report",
+                'asl_file',
+                'aslref',
+                'validation_report',
             ],
         ),
-        name="outputnode",
+        name='outputnode',
     )
 
     # Simplify manually setting input image
@@ -123,57 +123,57 @@ for use in head motion correction.
 
     val_asl = pe.Node(
         ValidateImage(),
-        name="val_asl",
+        name='val_asl',
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     workflow.connect([
-        (inputnode, val_asl, [("asl_file", "in_file")]),
+        (inputnode, val_asl, [('asl_file', 'in_file')]),
         (val_asl, outputnode, [
-            ("out_file", "asl_file"),
-            ("out_report", "validation_report"),
+            ('out_file', 'asl_file'),
+            ('out_report', 'validation_report'),
         ]),
     ])  # fmt:skip
 
     if m0scan:
         val_m0scan = pe.Node(
             ValidateImage(),
-            name="val_m0scan",
+            name='val_m0scan',
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-        workflow.connect([(inputnode, val_m0scan, [("m0scan", "in_file")])])
+        workflow.connect([(inputnode, val_m0scan, [('m0scan', 'in_file')])])
 
     select_highest_contrast_volumes = pe.Node(
         SelectHighestContrastVolumes(prioritize_m0=use_ge),
-        name="select_highest_contrast_volumes",
+        name='select_highest_contrast_volumes',
         mem_gb=1,
     )
     workflow.connect([
-        (inputnode, select_highest_contrast_volumes, [("aslcontext", "aslcontext")]),
-        (val_asl, select_highest_contrast_volumes, [("out_file", "asl_file")]),
+        (inputnode, select_highest_contrast_volumes, [('aslcontext', 'aslcontext')]),
+        (val_asl, select_highest_contrast_volumes, [('out_file', 'asl_file')]),
     ])  # fmt:skip
     if m0scan:
-        workflow.connect([(val_m0scan, select_highest_contrast_volumes, [("out_file", "m0scan")])])
+        workflow.connect([(val_m0scan, select_highest_contrast_volumes, [('out_file', 'm0scan')])])
 
-    gen_avg = pe.Node(RobustAverage(), name="gen_avg", mem_gb=1)
+    gen_avg = pe.Node(RobustAverage(), name='gen_avg', mem_gb=1)
     workflow.connect([
-        (select_highest_contrast_volumes, gen_avg, [("selected_volumes_file", "in_file")]),
+        (select_highest_contrast_volumes, gen_avg, [('selected_volumes_file', 'in_file')]),
     ])  # fmt:skip
 
     if use_ge and (config.workflow.smooth_kernel > 0):
         workflow.__desc__ += (
-            "The reference image was then smoothed with a Gaussian kernel "
-            f"(FWHM = {config.workflow.smooth_kernel} mm)."
+            'The reference image was then smoothed with a Gaussian kernel '
+            f'(FWHM = {config.workflow.smooth_kernel} mm).'
         )
         smooth_reference = pe.Node(
             Smooth(fwhm=config.workflow.smooth_kernel),
-            name="smooth_reference",
+            name='smooth_reference',
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([
-            (gen_avg, smooth_reference, [("out_file", "in_file")]),
-            (smooth_reference, outputnode, [("out_file", "aslref")]),
+            (gen_avg, smooth_reference, [('out_file', 'in_file')]),
+            (smooth_reference, outputnode, [('out_file', 'aslref')]),
         ])  # fmt:skip
     else:
-        workflow.connect([(gen_avg, outputnode, [("out_file", "aslref")])])
+        workflow.connect([(gen_avg, outputnode, [('out_file', 'aslref')])])
 
     return workflow

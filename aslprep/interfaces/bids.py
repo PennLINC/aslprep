@@ -17,16 +17,16 @@ from aslprep import config
 from aslprep.data import load as load_data
 
 # NOTE: Modified for aslprep's purposes
-aslprep_spec = loads(load_data.readable("aslprep_bids_config.json").read_text())
-bids_config = Config.load("bids")
-deriv_config = Config.load("derivatives")
+aslprep_spec = loads(load_data.readable('aslprep_bids_config.json').read_text())
+bids_config = Config.load('bids')
+deriv_config = Config.load('derivatives')
 
-aslprep_entities = {v["name"]: v["pattern"] for v in aslprep_spec["entities"]}
+aslprep_entities = {v['name']: v['pattern'] for v in aslprep_spec['entities']}
 merged_entities = {**bids_config.entities, **deriv_config.entities}
 merged_entities = {k: v.pattern for k, v in merged_entities.items()}
 merged_entities = {**merged_entities, **aslprep_entities}
-merged_entities = [{"name": k, "pattern": v} for k, v in merged_entities.items()]
-config_entities = frozenset({e["name"] for e in merged_entities})
+merged_entities = [{'name': k, 'pattern': v} for k, v in merged_entities.items()]
+config_entities = frozenset({e['name'] for e in merged_entities})
 
 
 class _BIDSDataGrabberInputSpec(BaseInterfaceInputSpec):
@@ -35,14 +35,14 @@ class _BIDSDataGrabberInputSpec(BaseInterfaceInputSpec):
 
 
 class _BIDSDataGrabberOutputSpec(TraitedSpec):
-    out_dict = traits.Dict(desc="output data structure")
-    fmap = OutputMultiObject(desc="output fieldmaps")
-    asl = OutputMultiObject(desc="output ASL images")
-    sbref = OutputMultiObject(desc="output sbrefs")
-    t1w = OutputMultiObject(desc="output T1w images")
-    roi = OutputMultiObject(desc="output ROI images")
-    t2w = OutputMultiObject(desc="output T2w images")
-    flair = OutputMultiObject(desc="output FLAIR images")
+    out_dict = traits.Dict(desc='output data structure')
+    fmap = OutputMultiObject(desc='output fieldmaps')
+    asl = OutputMultiObject(desc='output ASL images')
+    sbref = OutputMultiObject(desc='output sbrefs')
+    t1w = OutputMultiObject(desc='output T1w images')
+    roi = OutputMultiObject(desc='output ROI images')
+    t2w = OutputMultiObject(desc='output T2w images')
+    flair = OutputMultiObject(desc='output FLAIR images')
 
 
 class BIDSDataGrabber(SimpleInterface):
@@ -53,7 +53,7 @@ class BIDSDataGrabber(SimpleInterface):
     _require_funcs = True
 
     def __init__(self, *args, **kwargs):
-        anat_only = kwargs.pop("anat_only")
+        anat_only = kwargs.pop('anat_only')
         super(BIDSDataGrabber, self).__init__(*args, **kwargs)
         if anat_only is not None:
             self._require_funcs = not anat_only
@@ -61,20 +61,20 @@ class BIDSDataGrabber(SimpleInterface):
     def _run_interface(self, runtime):
         bids_dict = self.inputs.subject_data
 
-        self._results["out_dict"] = bids_dict
+        self._results['out_dict'] = bids_dict
         self._results.update(bids_dict)
 
-        if not bids_dict["t1w"]:
+        if not bids_dict['t1w']:
             raise FileNotFoundError(
-                f"No T1w images found for subject sub-{self.inputs.subject_id}"
+                f'No T1w images found for subject sub-{self.inputs.subject_id}'
             )
 
-        if self._require_funcs and not bids_dict["asl"]:
+        if self._require_funcs and not bids_dict['asl']:
             raise FileNotFoundError(
-                f"No ASL images found for subject sub-{self.inputs.subject_id}"
+                f'No ASL images found for subject sub-{self.inputs.subject_id}'
             )
 
-        for imtype in ["t2w", "flair", "fmap", "sbref", "roi", "asl"]:
+        for imtype in ['t2w', 'flair', 'fmap', 'sbref', 'roi', 'asl']:
             if not bids_dict[imtype]:
                 config.loggers.interface.info(
                     'No "%s" images found for sub-%s',
@@ -91,11 +91,11 @@ class DerivativesDataSink(BaseDerivativesDataSink):
     A child class of the niworkflows DerivativesDataSink, using aslprep's configuration files.
     """
 
-    out_path_base = ""
+    out_path_base = ''
     _allowed_entities = set(config_entities)
     _config_entities = config_entities
     _config_entities_dict = merged_entities
-    _file_patterns = aslprep_spec["default_path_patterns"]
+    _file_patterns = aslprep_spec['default_path_patterns']
 
 
 class OverrideDerivativesDataSink:

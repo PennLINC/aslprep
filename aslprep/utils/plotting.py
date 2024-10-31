@@ -19,13 +19,13 @@ from niworkflows.viz.utils import (
 from svgutils.transform import SVGFigure
 
 
-class CBFPlot(object):
+class CBFPlot:
     """Generate the CBF Summary Plot.
 
     This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
     """
 
-    __slots__ = ["cbf", "ref_vol", "label", "outfile", "vmax"]
+    __slots__ = ['cbf', 'ref_vol', 'label', 'outfile', 'vmax']
 
     def __init__(self, cbf, ref_vol, label, outfile, vmax):
         self.cbf = cbf
@@ -57,11 +57,11 @@ def plot_stat_map(
     cbf,
     ref_vol,
     plot_params=None,
-    order=("z", "x", "y"),
+    order=('z', 'x', 'y'),
     vmax=100,
     estimate_brightness=False,
     label=None,
-    compress="auto",
+    compress='auto',
 ):
     """Plot statistical map."""
     plot_params = {} if plot_params is None else plot_params
@@ -85,7 +85,7 @@ def plot_stat_map(
         display = plotting.plot_stat_map(
             stat_map_img=image_nii,
             bg_img=ref_vol,
-            resampling_interpolation="nearest",
+            resampling_interpolation='nearest',
             display_mode=mode,
             cut_coords=cuts[mode],
             vmax=vmax,
@@ -93,7 +93,7 @@ def plot_stat_map(
             draw_cross=False,
             colorbar=True,
             symmetric_cbar=False,
-            cmap="coolwarm",
+            cmap='coolwarm',
             title=label if i == 0 else None,
         )
         svg = extract_svg(display, compress=compress)
@@ -117,14 +117,14 @@ class fMRIPlot:  # noqa:N801
     """Generates the fMRI Summary Plot."""
 
     __slots__ = (
-        "timeseries",
-        "segments",
-        "tr",
-        "confounds",
-        "spikes",
-        "nskip",
-        "sort_carpet",
-        "paired_carpet",
+        'timeseries',
+        'segments',
+        'tr',
+        'confounds',
+        'spikes',
+        'nskip',
+        'sort_carpet',
+        'paired_carpet',
     )
 
     def __init__(
@@ -155,14 +155,14 @@ class fMRIPlot:  # noqa:N801
             vlines = {}
         self.confounds = {}
         if confounds is None and conf_file:
-            confounds = pd.read_csv(conf_file, sep=r"[\t\s]+", usecols=usecols, index_col=False)
+            confounds = pd.read_csv(conf_file, sep=r'[\t\s]+', usecols=usecols, index_col=False)
 
         if confounds is not None:
             for name in confounds.columns:
                 self.confounds[name] = {
-                    "values": confounds[[name]].values.squeeze().tolist(),
-                    "units": units.get(name),
-                    "cutoff": vlines.get(name),
+                    'values': confounds[[name]].values.squeeze().tolist(),
+                    'units': units.get(name),
+                    'cutoff': vlines.get(name),
                 }
 
         self.spikes = []
@@ -175,8 +175,8 @@ class fMRIPlot:  # noqa:N801
         import seaborn as sns
         from niworkflows.viz.plots import plot_carpet as plt_carpet
 
-        sns.set_style("whitegrid")
-        sns.set_context("paper", font_scale=0.8)
+        sns.set_style('whitegrid')
+        sns.set_context('paper', font_scale=0.8)
 
         if figure is None:
             figure = plt.gcf()
@@ -198,10 +198,10 @@ class fMRIPlot:  # noqa:N801
         if self.confounds:
             from seaborn import color_palette
 
-            palette = color_palette("husl", nconfounds)
+            palette = color_palette('husl', nconfounds)
 
         for i, (name, kwargs) in enumerate(self.confounds.items()):
-            tseries = kwargs.pop("values")
+            tseries = kwargs.pop('values')
             try:
                 confoundplot(
                     tseries, grid[grid_id], tr=self.tr, color=palette[i], name=name, **kwargs
@@ -217,7 +217,7 @@ class fMRIPlot:  # noqa:N801
             tr=self.tr,
             sort_rows=self.sort_carpet,
             drop_trs=self.nskip,
-            cmap="paired" if self.paired_carpet else None,
+            cmap='paired' if self.paired_carpet else None,
             # This is the only modification we need for ASLPrep
             detrend=False,
         )
