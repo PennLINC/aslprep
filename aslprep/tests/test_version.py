@@ -1,6 +1,6 @@
 """Test version checks."""
 
-from datetime import datetime
+import datetime
 from pathlib import Path
 
 import pytest
@@ -60,7 +60,9 @@ def test_check_latest2(tmpdir, monkeypatch, result, code, json):
     [
         '3laj#r???d|3akajdf#',
         '2.0.0|3akajdf#',
-        '|'.join(('2.0.0', datetime.now(tz=datetime.timezone.utc).strftime(DATE_FMT), '')),
+        '|'.join(
+            ('2.0.0', datetime.datetime.now(tz=datetime.timezone.utc).strftime(DATE_FMT), '')
+        ),
         '',
     ],
 )

@@ -294,9 +294,7 @@ man_show_urls = False
 # The following is used by sphinx.ext.linkcode to provide links to github
 linkcode_resolve = make_linkcode_resolve(
     'aslprep',
-    (
-        'https://github.com/pennlinc/aslprep/blob/' '{revision}/{package}/{path}#L{lineno}'  # noqa: FS003
-    ),
+    'https://github.com/pennlinc/aslprep/blob/{revision}/{package}/{path}#L{lineno}',  # noqa: FS003
 )
 
 # Example configuration for intersphinx: refer to the Python standard library.
