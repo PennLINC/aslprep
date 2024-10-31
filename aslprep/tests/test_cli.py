@@ -18,7 +18,7 @@ from aslprep.tests.utils import (
 nipype_config.enable_debug_mode()
 
 
-@pytest.mark.examples_pasl_multipld()
+@pytest.mark.examples_pasl_multipld
 def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_003 ASL-BIDS examples dataset.
 
@@ -58,7 +58,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     _run_and_fail(parameters)
 
 
-@pytest.mark.examples_pcasl_multipld()
+@pytest.mark.examples_pcasl_multipld
 def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_004 ASL-BIDS examples dataset.
 
@@ -94,7 +94,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-@pytest.mark.examples_pcasl_singlepld_ge()
+@pytest.mark.examples_pcasl_singlepld_ge
 def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_001 ASL-BIDS examples dataset.
 
@@ -132,7 +132,7 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-@pytest.mark.examples_pcasl_singlepld_philips()
+@pytest.mark.examples_pcasl_singlepld_philips
 def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_002 ASL-BIDS examples dataset.
 
@@ -171,7 +171,7 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-@pytest.mark.examples_pcasl_singlepld_siemens()
+@pytest.mark.examples_pcasl_singlepld_siemens
 def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
     """Run aslprep on the asl_005 ASL-BIDS examples dataset.
 
@@ -209,7 +209,7 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-@pytest.mark.qtab()
+@pytest.mark.qtab
 def test_qtab(data_dir, output_dir, working_dir):
     """Run aslprep on QTAB data.
 
@@ -247,7 +247,7 @@ def test_qtab(data_dir, output_dir, working_dir):
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-@pytest.mark.test_001()
+@pytest.mark.test_001
 def test_test_001(data_dir, output_dir, working_dir):
     """Run aslprep on sub-01 data.
 
@@ -284,7 +284,7 @@ def test_test_001(data_dir, output_dir, working_dir):
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-@pytest.mark.test_002()
+@pytest.mark.test_002
 def test_test_002(data_dir, output_dir, working_dir):
     """Run aslprep on sub-01.
 
@@ -323,7 +323,7 @@ def test_test_002(data_dir, output_dir, working_dir):
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-@pytest.mark.test_003_minimal()
+@pytest.mark.test_003_minimal
 def test_test_003_minimal(data_dir, output_dir, working_dir):
     """Run ASLPrep minimal workflow on test_003 dataset."""
     base_test_003(
@@ -335,7 +335,7 @@ def test_test_003_minimal(data_dir, output_dir, working_dir):
     )
 
 
-@pytest.mark.test_003_resampling()
+@pytest.mark.test_003_resampling
 def test_test_003_resampling(data_dir, output_dir, working_dir):
     """Run ASLPrep resampling workflow on test_003 dataset."""
     base_test_003(
@@ -347,7 +347,7 @@ def test_test_003_resampling(data_dir, output_dir, working_dir):
     )
 
 
-@pytest.mark.test_003_full()
+@pytest.mark.test_003_full
 def test_test_003_full(data_dir, output_dir, working_dir):
     """Run ASLPrep full workflow on test_003 dataset."""
     base_test_003(
