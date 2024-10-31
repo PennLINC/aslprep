@@ -17,7 +17,7 @@ def pcasl_or_pasl(metadata):
         is_casl = False
     else:
         raise ValueError(
-            "Labeling type cannot be classified as (P)CASL or PASL based on "
+            'Labeling type cannot be classified as (P)CASL or PASL based on '
             f"ArterialSpinLabelingType: '{aslt}'."
         )
 
@@ -185,7 +185,7 @@ def reduce_metadata_lists(metadata, n_volumes, keep_idx):
         if isinstance(value, list):
             if len(value) != n_volumes:
                 raise ValueError(
-                    f"Number of elements in list-type metadata field {field} ({len(value)}) "
+                    f'Number of elements in list-type metadata field {field} ({len(value)}) '
                     f"doesn't equal the number of volumes in the ASL file ({n_volumes})."
                 )
             # Reduce to only the selected volumes

@@ -21,6 +21,7 @@
 #     https://www.nipreps.org/community/licensing/
 #
 """Workflows for generating reference images."""
+
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow

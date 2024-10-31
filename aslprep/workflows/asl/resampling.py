@@ -24,6 +24,7 @@
 
 TODO: Remove once fMRIPrep releases 23.2.0.
 """
+
 from __future__ import annotations
 
 import typing as ty

@@ -9,6 +9,7 @@ import pytest
 def pytest_addoption(parser):
     """Collect pytest parameters for running tests."""
     import tempfile
+
     parser.addoption('--working_dir', action='store', default=tempfile.mkdtemp())
     parser.addoption('--data_dir', action='store')
     parser.addoption('--output_dir', action='store')

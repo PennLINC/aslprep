@@ -44,7 +44,7 @@ class ReduceASLFiles(SimpleInterface):
         if asl_img.shape[3] != aslcontext.shape[0]:
             raise ValueError(
                 f"Number of volumes in {self.inputs.asl_file} ({asl_img.shape[3]}) doesn't equal "
-                f"number of rows in {self.inputs.aslcontext} ({aslcontext.shape[0]})."
+                f'number of rows in {self.inputs.aslcontext} ({aslcontext.shape[0]}).'
             )
 
         if self.inputs.processing_target == 'control':
@@ -227,13 +227,9 @@ class CombineMotionParameters(SimpleInterface):
         out_mat_files = [None] * aslcontext.shape[0]
 
         if len(self.inputs.volume_types) != len(self.inputs.mat_files):
-            raise ValueError(
-                'Number of volume types and number of mat files must be the same.'
-            )
+            raise ValueError('Number of volume types and number of mat files must be the same.')
         if len(self.inputs.volume_types) != len(self.inputs.par_files):
-            raise ValueError(
-                'Number of volume types and number of par files must be the same.'
-            )
+            raise ValueError('Number of volume types and number of par files must be the same.')
 
         for i_type, volume_type in enumerate(self.inputs.volume_types):
             type_mat_files = self.inputs.mat_files[i_type]

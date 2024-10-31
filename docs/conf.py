@@ -295,8 +295,7 @@ man_show_urls = False
 linkcode_resolve = make_linkcode_resolve(
     'aslprep',
     (
-        'https://github.com/pennlinc/aslprep/blob/'
-        '{revision}/{package}/{path}#L{lineno}'  # noqa: FS003
+        'https://github.com/pennlinc/aslprep/blob/' '{revision}/{package}/{path}#L{lineno}'  # noqa: FS003
     ),
 )
 

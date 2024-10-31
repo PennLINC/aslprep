@@ -1,6 +1,7 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Parser."""
+
 import sys
 
 from aslprep import config
@@ -252,7 +253,7 @@ def _build_parser():
         default=False,
         help=(
             "only generate reports, don't run workflows. This will only rerun report "
-            "aggregation, not reportlet generation for specific nodes."
+            'aggregation, not reportlet generation for specific nodes.'
         ),
     )
 
@@ -473,7 +474,7 @@ any spatial references.""",
         help=(
             "determiner for T1-weighted skull stripping ('force' ensures skull "
             "stripping, 'skip' ignores skull stripping, and 'auto' applies brain extraction "
-            "based on the outcome of a heuristic to check whether the brain is already masked)."
+            'based on the outcome of a heuristic to check whether the brain is already masked).'
         ),
     )
 

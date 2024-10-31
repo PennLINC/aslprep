@@ -1,6 +1,7 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Handling functional connectvity."""
+
 import nibabel as nb
 import numpy as np
 import pandas as pd
@@ -117,16 +118,16 @@ class ParcellateCBF(SimpleInterface):
 
         if n_poor_parcels:
             LOGGER.warning(
-                f"{n_poor_parcels}/{n_nodes} of parcels have <50% coverage. "
+                f'{n_poor_parcels}/{n_nodes} of parcels have <50% coverage. '
                 "These parcels' time series will be replaced with zeros."
             )
 
         if n_partial_parcels:
             LOGGER.warning(
-                f"{n_partial_parcels}/{n_nodes} of parcels have at least one uncovered "
-                "voxel, but have enough good voxels to be usable. "
+                f'{n_partial_parcels}/{n_nodes} of parcels have at least one uncovered '
+                'voxel, but have enough good voxels to be usable. '
                 "The bad voxels will be ignored and the parcels' time series will be "
-                "calculated from the remaining voxels."
+                'calculated from the remaining voxels.'
             )
 
         masker = NiftiLabelsMasker(

@@ -843,7 +843,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     )
     alpha = traits.Float(
         desc=(
-            "Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. "
+            'Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. '
             "This is equivalent to the BIDS metadata field 'LabelingEfficiency'."
         ),
         argstr='--alpha %.2f',
