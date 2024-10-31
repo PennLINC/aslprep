@@ -555,10 +555,12 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     .. footbibliography::
     """
     n_voxels, n_plds = plds.shape
-    assert deltam_arr.shape == plds.shape, f'{deltam_arr.shape} != {plds.shape}'
+    if deltam_arr.shape != plds.shape:
+        raise ValueError(f'{deltam_arr.shape} != {plds.shape}')
 
     # Beginning of auxil_asl_gen_wsum
-    assert lds.size == n_plds, f'{lds.size} != {n_plds}'
+    if lds.size != n_plds:
+        raise ValueError(f'{lds.size} != {n_plds}')
 
     att_arr = np.empty(n_voxels)
     for i_voxel in range(n_voxels):
@@ -694,7 +696,9 @@ def estimate_cbf_pcasl_multipld(
     """
     n_voxels, n_volumes = deltam_arr.shape
     n_voxels_pld, n_plds = plds.shape
-    assert n_voxels_pld == n_voxels
+    if n_voxels_pld != n_voxels:
+        raise ValueError(f'{n_voxels_pld} != {n_voxels}')
+
     first_voxel_plds = plds[0, :]
 
     if n_plds != n_volumes:

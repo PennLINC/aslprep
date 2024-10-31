@@ -22,7 +22,6 @@
 
 import os
 import sys
-from datetime import datetime
 
 from packaging import version as pver
 from sphinx import __version__ as sphinxversion
@@ -133,7 +132,7 @@ master_doc = 'index'
 # General information about the project.
 project = 'aslprep'
 author = 'ASLPrep developers'
-copyright = f'2020-{datetime.now().year}, {author}'
+copyright = f'2020-, {author}'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

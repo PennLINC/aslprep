@@ -187,7 +187,8 @@ class PairwiseRMSDiff(SimpleInterface):
             # run rmsdiff
             rmsdiff = RMSDiff(matrixfile1=file1, matrixfile2=file2, ref_vol=self.inputs.ref_file)
             res = rmsdiff.run()
-            assert isinstance(res.outputs.rmsd, float)
+            if not isinstance(res.outputs.rmsd, float):
+                raise ValueError(f'Expected a float, got {res.outputs.rmsd}')
             rmsd.append(str(res.outputs.rmsd))
 
         self._results['out_file'] = fname_presuffix(
@@ -225,8 +226,14 @@ class CombineMotionParameters(SimpleInterface):
         out_par = [None] * aslcontext.shape[0]
         out_mat_files = [None] * aslcontext.shape[0]
 
-        assert len(self.inputs.volume_types) == len(self.inputs.mat_files)
-        assert len(self.inputs.volume_types) == len(self.inputs.par_files)
+        if len(self.inputs.volume_types) != len(self.inputs.mat_files):
+            raise ValueError(
+                'Number of volume types and number of mat files must be the same.'
+            )
+        if len(self.inputs.volume_types) != len(self.inputs.par_files):
+            raise ValueError(
+                'Number of volume types and number of par files must be the same.'
+            )
 
         for i_type, volume_type in enumerate(self.inputs.volume_types):
             type_mat_files = self.inputs.mat_files[i_type]

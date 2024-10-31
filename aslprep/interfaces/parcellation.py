@@ -141,7 +141,10 @@ class ParcellateCBF(SimpleInterface):
 
         # Use nilearn to parcellate the file
         timeseries_arr = masker.fit_transform(self.inputs.in_file)
-        assert timeseries_arr.shape[1] == n_found_nodes
+        if timeseries_arr.shape[1] != n_found_nodes:
+            raise ValueError(
+                f'Expected {n_found_nodes} parcels, but found {timeseries_arr.shape[1]}.'
+            )
         masker_labels = masker.labels_[:]
         del masker
 

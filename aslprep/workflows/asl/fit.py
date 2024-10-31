@@ -88,7 +88,7 @@ def init_asl_fit_wf(
     asl_file: str,
     m0scan: str | None,
     use_ge: bool,
-    precomputed: dict = {},
+    precomputed: dict = None,
     fieldmap_id: str | None = None,
     omp_nthreads: int = 1,
     name: str = 'asl_fit_wf',

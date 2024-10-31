@@ -237,7 +237,11 @@ class ExtractCBF(SimpleInterface):
             config.loggers.interface.info(
                 'Calculating deltaM from label-control pairs in ASL file.'
             )
-            assert len(label_volume_idx) == len(control_volume_idx)
+            if len(label_volume_idx) != len(control_volume_idx):
+                raise ValueError(
+                    f'Number of label volumes ({len(label_volume_idx)}) != '
+                    f'number of control volumes ({len(control_volume_idx)})'
+                )
             metadata_idx = control_volume_idx
             control_data = asl_data[:, :, :, control_volume_idx]
             label_data = asl_data[:, :, :, label_volume_idx]
@@ -435,7 +439,8 @@ class ComputeCBF(SimpleInterface):
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
         masker = maskers.NiftiMasker(mask_img=mask_file)
         deltam_arr = masker.fit_transform(deltam_file).T  # Transpose to SxT
-        assert deltam_arr.ndim == 2, f'deltam is {deltam_arr.ndim}'
+        if deltam_arr.ndim != 2:
+            raise ValueError(f'deltam is {deltam_arr.ndim}')
 
         # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
@@ -551,7 +556,11 @@ class ComputeCBF(SimpleInterface):
             elif metadata['BolusCutOffTechnique'] == 'QUIPSS':
                 # PASL + QUIPSS
                 # Only one BolusCutOffDelayTime allowed.
-                assert isinstance(metadata['BolusCutOffDelayTime'], Number)
+                if not isinstance(metadata['BolusCutOffDelayTime'], Number):
+                    raise ValueError(
+                        f'Expected a single BolusCutOffDelayTime, but got '
+                        f'{metadata["BolusCutOffDelayTime"]}'
+                    )
                 denom_factor = plds - metadata['BolusCutOffDelayTime']  # delta_TI, per Wong 1998
 
             elif metadata['BolusCutOffTechnique'] == 'QUIPSSII':
@@ -559,13 +568,21 @@ class ComputeCBF(SimpleInterface):
                 # Per SD, use PLD as TI for PASL, so we will just use 'plds' in the numerator when
                 # calculating the perfusion factor.
                 # Only one BolusCutOffDelayTime allowed.
-                assert isinstance(metadata['BolusCutOffDelayTime'], Number)
+                if not isinstance(metadata['BolusCutOffDelayTime'], Number):
+                    raise ValueError(
+                        f'Expected a single BolusCutOffDelayTime, but got '
+                        f'{metadata["BolusCutOffDelayTime"]}'
+                    )
                 denom_factor = metadata['BolusCutOffDelayTime']  # called TI1 in Alsop 2015
 
             elif metadata['BolusCutOffTechnique'] == 'Q2TIPS':
                 # PASL + Q2TIPS
                 # Q2TIPS should have two BolusCutOffDelayTimes.
-                assert len(metadata['BolusCutOffDelayTime']) == 2
+                if len(metadata['BolusCutOffDelayTime']) != 2:
+                    raise ValueError(
+                        f'Expected two BolusCutOffDelayTimes, but got '
+                        f'{metadata["BolusCutOffDelayTime"]}'
+                    )
                 denom_factor = metadata['BolusCutOffDelayTime'][0]  # called TI1 in Noguchi 2015
 
             else:

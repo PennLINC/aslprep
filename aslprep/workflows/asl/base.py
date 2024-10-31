@@ -31,7 +31,7 @@ from aslprep.workflows.asl.plotting import init_cbf_reporting_wf
 def init_asl_wf(
     *,
     asl_file: str,
-    precomputed: dict = {},
+    precomputed: dict = None,
     fieldmap_id: str | None = None,
 ):
     """Perform the functional preprocessing stages of ASLPrep.

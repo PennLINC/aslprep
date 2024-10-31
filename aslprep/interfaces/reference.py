@@ -54,7 +54,12 @@ class SelectHighestContrastVolumes(SimpleInterface):
     def _run_interface(self, runtime):
         asl_img = nb.load(self.inputs.asl_file)
         aslcontext_df = pd.read_table(self.inputs.aslcontext)
-        assert aslcontext_df.shape[0] == asl_img.shape[3]
+        if aslcontext_df.shape[0] != asl_img.shape[3]:
+            raise ValueError(
+                f'Number of volumes in {self.inputs.asl_file} ({asl_img.shape[3]}) '
+                f'does not match the number of rows in {self.inputs.aslcontext} '
+                f'({aslcontext_df.shape[0]})'
+            )
 
         if 'm0scan' in aslcontext_df['volume_type'].tolist() and self.inputs.prioritize_m0:
             target_type = 'm0scan'
