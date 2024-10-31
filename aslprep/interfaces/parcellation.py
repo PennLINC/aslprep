@@ -124,7 +124,7 @@ class ParcellateCBF(SimpleInterface):
         if n_partial_parcels:
             LOGGER.warning(
                 f"{n_partial_parcels}/{n_nodes} of parcels have at least one uncovered "
-                "voxel, but have enough good voxels to be useable. "
+                "voxel, but have enough good voxels to be usable. "
                 "The bad voxels will be ignored and the parcels' time series will be "
                 "calculated from the remaining voxels."
             )

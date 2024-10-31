@@ -113,7 +113,7 @@ def init_asl_wf(
     mean_cbf_score_t1
         mean score cbf  in T1w space
     mean_cbf_scrub_t1, mean_cbf_gm_basil_t1, mean_cbf_basil_t1
-        scrub, parital volume corrected and basil cbf   in T1w space
+        scrub, partial volume corrected and basil cbf in T1w space
     cbf_ts_std
         cbf times series in template space
     mean_cbf_std
@@ -123,7 +123,7 @@ def init_asl_wf(
     mean_cbf_score_std
         mean score cbf  in template space
     mean_cbf_scrub_std, mean_cbf_gm_basil_std, mean_cbf_basil_std
-        scrub, parital volume corrected and basil cbf   in template space
+        scrub, partial volume corrected and basil cbf in template space
     qc_file
         quality control measures
 

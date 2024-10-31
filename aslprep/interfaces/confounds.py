@@ -184,7 +184,7 @@ class ComputeCBFQC(SimpleInterface):
 
     compute qc from confound regressors
     and cbf maps,
-    coregistration and regsitration indexes
+    coregistration and registration indexes
     """
 
     input_spec = _ComputeCBFQCInputSpec
@@ -544,7 +544,7 @@ class ComputeCBFQC(SimpleInterface):
             newpath=runtime.cwd,
             use_ext=False,
         )
-        with open(self._results['qc_metadata'], 'w') as fo:
-            json.dump(qc_metadata, fo, indent=4, sort_keys=True)
+        with open(self._results['qc_metadata'], 'w') as fobj:
+            json.dump(qc_metadata, fobj, indent=4, sort_keys=True)
 
         return runtime

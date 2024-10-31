@@ -89,8 +89,8 @@ def check_generated_files(aslprep_dir, output_list_file):
     # Ignore logs
     found_files = [f for f in found_files if 'log' not in f.split(os.path.sep)]
 
-    with open(output_list_file) as fo:
-        expected_files = fo.readlines()
+    with open(output_list_file) as fobj:
+        expected_files = fobj.readlines()
         expected_files = [f.rstrip() for f in expected_files]
 
     if sorted(found_files) != sorted(expected_files):
@@ -201,10 +201,10 @@ def reorder_expected_outputs():
     for expected_output_file in expected_output_files:
         LOGGER.info(f'Sorting {expected_output_file}')
 
-        with open(expected_output_file) as fo:
-            file_contents = fo.readlines()
+        with open(expected_output_file) as fobj:
+            file_contents = fobj.readlines()
 
         file_contents = sorted(file_contents)
 
-        with open(expected_output_file, 'w') as fo:
-            fo.writelines(file_contents)
+        with open(expected_output_file, 'w') as fobj:
+            fobj.writelines(file_contents)

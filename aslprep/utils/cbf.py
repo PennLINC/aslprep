@@ -280,7 +280,7 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     Parameters
     ----------
     cbf_ts
-       nd array of 3D or 4D computed cbf
+       n-dimensional array of 3D or 4D computed cbf
     gm,wm,csf
        numpy array of grey matter, whitematter, and csf
     mask
@@ -405,7 +405,7 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber', thresh=0.7):
     Parameters
     ----------
     cbf_ts
-       nd array of 3D or 4D computed cbf
+       n-dimensional array of 3D or 4D computed cbf
     gm,wm,csf
        numpy array of grey matter, whitematter, and csf
     mask

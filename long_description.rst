@@ -15,7 +15,7 @@ ASLPrep equips neuroscientists with an easy-to-use and transparent preprocessing
 workflow, which can help ensure the validity of inference and the interpretability
 of results.
 
-The workflow is based on `Nipype <https://nipype.readthedocs.io>`_ and encompases a large
+The workflow is based on `Nipype <https://nipype.readthedocs.io>`_ and encompasses a large
 set of tools from well-known neuroimaging packages, including
 `FSL <https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/>`_,
 `ANTs <https://stnava.github.io/ANTs/>`_,

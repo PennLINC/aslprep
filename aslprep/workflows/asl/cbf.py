@@ -58,8 +58,8 @@ def init_cbf_wf(
 
             with mock_config():
                 perf_dir = config.execution.bids_dir / "sub-01" / "perf"
-                with open(perf_dir / "sub-01_asl.json", "r") as fo:
-                    metadata = json.load(fo)
+                with open(perf_dir / "sub-01_asl.json", "r") as fobj:
+                    metadata = json.load(fobj)
 
                 wf = init_cbf_wf(
                     name_source=str(perf_dir / "sub-01_asl.nii.gz"),

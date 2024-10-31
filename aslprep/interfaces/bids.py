@@ -167,7 +167,7 @@ class FunctionOverrideContext:
     """Override a function in imported code with a context manager.
 
     Even though this class is *currently* unused, I'm keeping it around for when I need to override
-    prepare_timing_parameters once fMRIPrep's init_bold_surf_wf is useable
+    prepare_timing_parameters once fMRIPrep's init_bold_surf_wf is usable
     (i.e., once the DerivativesDataSink import is moved out of the function).
 
     Here's how it worked before:

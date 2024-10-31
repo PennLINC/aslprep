@@ -96,7 +96,8 @@ def get_atlas_nifti(atlas_name):
 
     if not (isfile(atlas_file) and isfile(atlas_labels_file) and isfile(atlas_metadata_file)):
         raise FileNotFoundError(
-            f'File(s) DNE:\n\t{atlas_file}\n\t{atlas_labels_file}\n\t{atlas_metadata_file}'
+            f'File(s) do not exist:\n\t{atlas_file}\n\t{atlas_labels_file}\n\t'
+            f'{atlas_metadata_file}'
         )
 
     return atlas_file, atlas_labels_file, atlas_metadata_file

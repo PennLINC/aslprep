@@ -197,8 +197,8 @@ class PairwiseRMSDiff(SimpleInterface):
             newpath=runtime.cwd,
             use_ext=False,
         )
-        with open(self._results['out_file'], 'w') as fo:
-            fo.write('\n'.join(rmsd))
+        with open(self._results['out_file'], 'w') as fobj:
+            fobj.write('\n'.join(rmsd))
 
         return runtime
 
@@ -241,8 +241,8 @@ class CombineMotionParameters(SimpleInterface):
 
             type_idx = aslcontext.loc[aslcontext['volume_type'] == volume_type].index.values
 
-            with open(type_par_file) as fo:
-                par = fo.readlines()
+            with open(type_par_file) as fobj:
+                par = fobj.readlines()
 
             for i_vol, vol_idx in enumerate(type_idx):
                 out_par[vol_idx] = par[i_vol]
@@ -254,8 +254,8 @@ class CombineMotionParameters(SimpleInterface):
             newpath=runtime.cwd,
             use_ext=True,
         )
-        with open(self._results['combined_par_file'], 'w') as fo:
-            fo.write(''.join(out_par))
+        with open(self._results['combined_par_file'], 'w') as fobj:
+            fobj.write(''.join(out_par))
 
         self._results['mat_file_list'] = out_mat_files
 
