@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Update and sort the creators list of the zenodo record."""
+
 import json
 import sys
 from pathlib import Path
@@ -113,16 +114,17 @@ def get_git_lines(fname='line-contributors.txt'):
     if not lines and git_line_summary_path:
         print('Running git-line-summary on repo')
         lines = sp.check_output([git_line_summary_path]).decode().splitlines()
-        lines = [l for l in lines if 'Not Committed Yet' not in l]
+        lines = [line for line in lines if 'Not Committed Yet' not in line]
         contrib_file.write_text('\n'.join(lines))
 
     if not lines:
         raise RuntimeError(
             """\
-Could not find line-contributors from git repository.%s"""
-            % """ \
+Could not find line-contributors from git repository.{}""".format(
+                """ \
 git-line-summary not found, please install git-extras. """
-            * (git_line_summary_path is None)
+                * (git_line_summary_path is None)
+            )
         )
     return [' '.join(line.strip().split()[1:-1]) for line in lines if '%' in line]
 
@@ -185,7 +187,7 @@ def zenodo(
     misses = set(miss_creators).intersection(miss_contributors)
     if misses:
         print(
-            "Some people made commits, but are missing in .maint/ " f"files: {', '.join(misses)}",
+            f"Some people made commits, but are missing in .maint/ files: {', '.join(misses)}",
             file=sys.stderr,
         )
 
@@ -204,7 +206,7 @@ def zenodo(
         if isinstance(creator['affiliation'], list):
             creator['affiliation'] = creator['affiliation'][0]
 
-    Path(zenodo_file).write_text('%s\n' % json.dumps(zenodo, indent=2))
+    Path(zenodo_file).write_text(f'{json.dumps(zenodo, indent=2)}\n')
 
 
 @cli.command()
@@ -242,7 +244,7 @@ def publication(
     hits = [hit for hit in hits if hit['name'] not in pi_names] + pi_hits
 
     def _aslist(value):
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list | tuple):
             return value
         return [value]
 
@@ -266,22 +268,29 @@ def publication(
 
     if misses:
         print(
-            "Some people made commits, but are missing in .maint/ " f"files: {', '.join(misses)}",
+            f"Some people made commits, but are missing in .maint/ files: {', '.join(misses)}",
             file=sys.stderr,
         )
 
     print('Authors (%d):' % len(hits))
     print(
-        '%s.'
-        % '; '.join(['%s \\ :sup:`%s`\\ ' % (i['name'], idx) for i, idx in zip(hits, aff_indexes, strict=False)])
+        '{}.'.format(
+            '; '.join(
+                [
+                    rf'{i["name"]} \ :sup:`{idx}`\ '
+                    for i, idx in zip(hits, aff_indexes, strict=False)
+                ]
+            )
+        )
     )
 
     print(
-        '\n\nAffiliations:\n%s'
-        % '\n'.join([f'{i + 1: >2}. {a}' for i, a in enumerate(affiliations)])
+        '\n\nAffiliations:\n{}'.format(
+            '\n'.join([f'{i + 1: >2}. {a}' for i, a in enumerate(affiliations)])
+        )
     )
 
 
 if __name__ == '__main__':
-    """Install entry-point"""
+    """ Install entry-point """
     cli()

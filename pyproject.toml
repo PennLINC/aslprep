@@ -18,6 +18,7 @@ license = {file = "LICENSE.md"}
 requires-python = ">=3.10"
 dependencies = [
     'importlib_resources; python_version < "3.11"',
+    "acres",
     "fmriprep >= 24.1.0, <= 24.1.1",
     "indexed_gzip <= 1.8.7",
     "looseversion",

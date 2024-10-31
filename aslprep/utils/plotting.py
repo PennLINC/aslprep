@@ -101,7 +101,7 @@ def plot_stat_map(
 
         # Find and replace the figure_1 id.
         try:
-            xml_data = etree.fromstring(svg)
+            xml_data = etree.fromstring(svg)  # noqa: S320
         except etree.XMLSyntaxError as e:
             NIWORKFLOWS_LOG.info(e)
             return
@@ -206,7 +206,7 @@ class fMRIPlot:  # noqa:N801
                 confoundplot(
                     tseries, grid[grid_id], tr=self.tr, color=palette[i], name=name, **kwargs
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001
                 raise ValueError(name) from None
             grid_id += 1
 

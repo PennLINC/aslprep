@@ -62,9 +62,9 @@ def download_test_data(dset, data_dir=None):
         config.loggers.utils.info(f'Downloading {dset} to {out_dir}')
 
     os.makedirs(out_dir, exist_ok=True)
-    with requests.get(URLS[dset], stream=True) as req:
+    with requests.get(URLS[dset], stream=True, timeout=10) as req:
         with tarfile.open(fileobj=GzipFile(fileobj=BytesIO(req.content))) as t:
-            t.extractall(out_dir)
+            t.extractall(out_dir)  # noqa: S202
 
     return out_dir
 
@@ -94,8 +94,8 @@ def check_generated_files(aslprep_dir, output_list_file):
         expected_files = [f.rstrip() for f in expected_files]
 
     if sorted(found_files) != sorted(expected_files):
-        expected_not_found = sorted(list(set(expected_files) - set(found_files)))
-        found_not_expected = sorted(list(set(found_files) - set(expected_files)))
+        expected_not_found = sorted(set(expected_files) - set(found_files))
+        found_not_expected = sorted(set(found_files) - set(expected_files))
 
         msg = ''
         if expected_not_found:
@@ -165,10 +165,12 @@ def check_affines(data_dir, out_dir, input_type):
     denoised_file = denoised_files[0].path
 
     if input_type == 'cifti':
-        assert (
+        if (
             nb.load(bold_file)._nifti_header.get_intent()
-            == nb.load(denoised_file)._nifti_header.get_intent()
-        )
+            != nb.load(denoised_file)._nifti_header.get_intent()
+        ):
+            raise AssertionError(f'Intents do not match:\n\t{bold_file}\n\t{denoised_file}')
+
     elif not np.array_equal(nb.load(bold_file).affine, nb.load(denoised_file).affine):
         raise AssertionError(f'Affines do not match:\n\t{bold_file}\n\t{denoised_file}')
 

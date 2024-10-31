@@ -168,15 +168,15 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             **BASE_METADATA,
             **acq_dict,
         }
+        interface = cbf.ComputeCBF(
+            cbf_only=False,
+            deltam=asl_file,
+            metadata=metadata,
+            m0_scale=1,
+            m0_file=m0_file,
+            mask=mask_file,
+        )
         with pytest.raises(ValueError, match='not supported in ASLPrep.'):
-            interface = cbf.ComputeCBF(
-                cbf_only=False,
-                deltam=asl_file,
-                metadata=metadata,
-                m0_scale=1,
-                m0_file=m0_file,
-                mask=mask_file,
-            )
             results = interface.run(cwd=tmpdir)
 
         # Scenario 2: QUIPSS PASL with a single PostLabelingDelay

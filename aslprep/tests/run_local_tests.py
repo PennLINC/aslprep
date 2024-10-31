@@ -44,10 +44,10 @@ def run_command(command, env=None):
         merged_env.update(env)
 
     process = subprocess.Popen(
-        command,
+        command.split(),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        shell=True,
+        shell=False,
         env=merged_env,
     )
     while True:

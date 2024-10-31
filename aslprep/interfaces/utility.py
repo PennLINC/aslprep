@@ -144,7 +144,7 @@ class RMSDiff(FSLCommand):
             if len(rmsd) == 1:
                 rmsd = rmsd[0]
 
-            save_json(outfile, dict(stat=rmsd))
+            save_json(outfile, {'stat': rmsd})
 
         outputs.rmsd = rmsd
 
@@ -280,7 +280,7 @@ class SplitByVolumeType(SimpleInterface):
 
     def _run_interface(self, runtime):
         aslcontext = pd.read_table(self.inputs.aslcontext)
-        volume_types = sorted(list(aslcontext['volume_type'].unique()))
+        volume_types = sorted(aslcontext['volume_type'].unique())
         out_files = []
         for volume_type in volume_types:
             volumetype_df = aslcontext.loc[aslcontext['volume_type'] == volume_type]

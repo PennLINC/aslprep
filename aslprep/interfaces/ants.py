@@ -46,5 +46,5 @@ class ApplyTransforms(FixHeaderApplyTransforms):
             newpath=runtime.cwd,
             use_ext=False,
         )
-        runtime = super(ApplyTransforms, self)._run_interface(runtime)
+        runtime = super()._run_interface(runtime)
         return runtime

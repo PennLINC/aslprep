@@ -47,7 +47,7 @@ def select_processing_target(aslcontext):
 
     try:
         aslcontext_df = pd.read_table(aslcontext)
-    except Exception:
+    except Exception:  # noqa: BLE001
         raise FileNotFoundError(aslcontext) from None
 
     voltypes = aslcontext_df['volume_type'].tolist()

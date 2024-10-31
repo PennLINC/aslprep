@@ -42,7 +42,7 @@ def get_atlas_names(subset):
             'HCP',
         ],
     }
-    atlases['all'] = sorted(list(set(atlases['cortical'] + atlases['subcortical'])))
+    atlases['all'] = sorted(set(atlases['cortical'] + atlases['subcortical']))
     return atlases[subset]
 
 

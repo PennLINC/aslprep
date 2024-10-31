@@ -325,7 +325,7 @@ def validate_input_dir(exec_env, bids_dir, participant_label):
         temp.write(json.dumps(validator_config_dict))
         temp.flush()
         try:
-            subprocess.check_call(['bids-validator', bids_dir, '-c', temp.name])
+            subprocess.check_call(['bids-validator', bids_dir, '-c', temp.name])  # noqa: S607
         except FileNotFoundError:
             print('bids-validator does not appear to be installed', file=sys.stderr)
 

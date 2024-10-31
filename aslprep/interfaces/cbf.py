@@ -878,7 +878,7 @@ class BASILCBF(FSLCommand):
     output_spec = _BASILCBFOutputSpec
 
     def _run_interface(self, runtime):
-        runtime = super(BASILCBF, self)._run_interface(runtime)
+        runtime = super()._run_interface(runtime)
         return runtime
 
     def _gen_outfilename(self, suffix):

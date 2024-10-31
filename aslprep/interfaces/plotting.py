@@ -97,7 +97,7 @@ class ASLCarpetPlot(SimpleInterface):
         names = {}
 
         for conf_el in self.inputs.confounds_list:
-            if isinstance(conf_el, (list, tuple)):
+            if isinstance(conf_el, list | tuple):
                 headers.append(conf_el[0])
                 if conf_el[1] is not None:
                     units[conf_el[0]] = conf_el[1]
@@ -203,7 +203,13 @@ class CBFByTissueTypePlot(SimpleInterface):
             df = pd.DataFrame(
                 columns=['CBF\n(mL/100 g/min)', 'Tissue Type'],
                 data=list(
-                    map(list, zip(*[tissue_type_vals, [tissue_type] * tissue_type_vals.size], strict=False))
+                    map(
+                        list,
+                        zip(
+                            *[tissue_type_vals, [tissue_type] * tissue_type_vals.size],
+                            strict=False,
+                        ),
+                    ),
                 ),
             )
             dfs.append(df)

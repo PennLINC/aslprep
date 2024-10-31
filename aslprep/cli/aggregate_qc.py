@@ -27,7 +27,7 @@ def main():
     outputfile = os.getcwd() + '/' + str(opts.output_prefix) + '_allsubjects_qc.tsv'
 
     qclist = []
-    for r, d, f in os.walk(allsubj_dir):
+    for r, _, f in os.walk(allsubj_dir):
         for filex in f:
             if filex.endswith('desc-qualitycontrol_cbf.tsv'):
                 qclist.append(r + '/' + filex)

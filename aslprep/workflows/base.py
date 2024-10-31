@@ -192,6 +192,7 @@ their manuscripts unchanged. It is released under the unchanged
             "Future versions of fMRIPrep will use alternative conventions. "
             "Please refer to the documentation before upgrading.",
             FutureWarning,
+            stacklevel=2,
         )
 
     spaces = config.workflow.spaces

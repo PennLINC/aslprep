@@ -11,7 +11,7 @@ MIN_ARGS = ['data/', 'out/', 'participant']
 
 
 @pytest.mark.parametrize(
-    'args,code',
+    ('args', 'code'),
     [
         ([], 2),
         (MIN_ARGS, 2),  # bids_dir does not exist
@@ -45,7 +45,7 @@ def test_parser_valid(tmp_path, args):
 
 
 @pytest.mark.parametrize(
-    'argval,gb',
+    ('argval', 'gb'),
     [
         ('1G', 1),
         ('1GB', 1),
@@ -74,7 +74,7 @@ def test_memory_arg(tmp_path, argval, gb):
     assert opts.memory_gb == gb
 
 
-@pytest.mark.parametrize('current,latest', [('1.0.0', '1.3.2'), ('1.3.2', '1.3.2')])
+@pytest.mark.parametrize(('current', 'latest'), [('1.0.0', '1.3.2'), ('1.3.2', '1.3.2')])
 def test_get_parser_update(monkeypatch, capsys, current, latest):
     """Make sure the out-of-date banner is shown."""
     expectation = Version(current) < Version(latest)

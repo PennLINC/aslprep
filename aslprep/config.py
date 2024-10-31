@@ -179,7 +179,7 @@ try:
     from psutil import virtual_memory
 
     _free_mem_at_start = round(virtual_memory().available / 1024**3, 1)
-except Exception:
+except Exception:  # noqa: BLE001
     _free_mem_at_start = None
 
 _oc_limit = 'n/a'
@@ -197,7 +197,7 @@ try:
                 _oc_limit = _proc_oc_kbytes.read_text().strip()
             if _oc_limit in ('0', 'n/a') and Path('/proc/sys/vm/overcommit_ratio').exists():
                 _oc_limit = f"{Path('/proc/sys/vm/overcommit_ratio').read_text().strip()}%"
-except Exception:
+except Exception:  # noqa: S110, BLE001
     pass
 
 
@@ -209,7 +209,7 @@ DEBUG_MODES = ('pdb',)
 class _Config:
     """An abstract class forbidding instantiation."""
 
-    _paths = tuple()
+    _paths = ()
 
     def __init__(self):
         """Avert instantiation."""
@@ -223,7 +223,7 @@ class _Config:
             if k in ignore or v is None:
                 continue
             if k in cls._paths:
-                if isinstance(v, (list, tuple)):
+                if isinstance(v, list | tuple):
                     setattr(cls, k, [Path(val).absolute() for val in v])
                 else:
                     setattr(cls, k, Path(v).absolute())
@@ -248,7 +248,7 @@ class _Config:
             if callable(getattr(cls, k)):
                 continue
             if k in cls._paths:
-                if isinstance(v, (list, tuple)):
+                if isinstance(v, list | tuple):
                     v = [str(val) for val in v]
                 else:
                     v = str(v)

@@ -54,7 +54,7 @@ class BIDSDataGrabber(SimpleInterface):
 
     def __init__(self, *args, **kwargs):
         anat_only = kwargs.pop('anat_only')
-        super(BIDSDataGrabber, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         if anat_only is not None:
             self._require_funcs = not anat_only
 
