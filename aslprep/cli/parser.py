@@ -9,7 +9,7 @@ from aslprep import config
 
 def _build_parser():
     """Build parser object."""
-    from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+    from argparse import Action, ArgumentDefaultsHelpFormatter, ArgumentParser
     from functools import partial
     from pathlib import Path
 
@@ -17,6 +17,23 @@ def _build_parser():
     from packaging.version import Version
 
     from aslprep.cli.version import check_latest, is_flagged
+
+    class ToDict(Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            d = {}
+            for spec in values:
+                try:
+                    name, loc = spec.split('=')
+                    loc = Path(loc)
+                except ValueError:
+                    loc = Path(spec)
+                    name = loc.name
+
+                if name in d:
+                    raise ValueError(f'Received duplicate derivative name: {name}')
+
+                d[name] = loc
+            setattr(namespace, self.dest, d)
 
     def _path_exists(path, parser):
         """Ensure a given path exists."""
@@ -164,11 +181,15 @@ def _build_parser():
     g_bids.add_argument(
         '-d',
         '--derivatives',
-        action='store',
-        metavar='PATH',
-        type=Path,
-        nargs='*',
-        help='Search PATH(s) for pre-computed derivatives.',
+        action=ToDict,
+        metavar='PACKAGE=PATH',
+        type=str,
+        nargs='+',
+        help=(
+            'Search PATH(s) for pre-computed derivatives. '
+            'These may be provided as named folders '
+            '(e.g., `--derivatives smriprep=/path/to/smriprep`).'
+        ),
     )
     g_bids.add_argument(
         '--bids-database-dir',
@@ -755,12 +776,18 @@ applied."""
 
     # Validate inputs
     if not opts.skip_bids_validation:
-        from aslprep.utils.bids import validate_input_dir
+        from fmriprep.utils.bids import validate_input_dir
 
         build_log.info(
-            'Making sure the input data is BIDS compliant (warnings can be ignored in most cases).'
+            'Making sure the input data is BIDS compliant (warnings can be ignored in most '
+            'cases).'
         )
-        validate_input_dir(config.environment.exec_env, opts.bids_dir, opts.participant_label)
+        validate_input_dir(
+            config.environment.exec_env,
+            opts.bids_dir,
+            opts.participant_label,
+            need_T1w=not config.execution.derivatives,
+        )
 
     # Setup directories
     config.execution.log_dir = config.execution.aslprep_dir / 'logs'

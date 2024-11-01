@@ -91,6 +91,8 @@ The :py:mod:`config` is responsible for other conveniency actions.
 import os
 from multiprocessing import set_start_method
 
+from templateflow.conf import TF_LAYOUT
+
 # Disable NiPype etelemetry always
 _disable_et = bool(os.getenv('NO_ET') is not None or os.getenv('NIPYPE_NO_ET') is not None)
 os.environ['NIPYPE_NO_ET'] = '1'
@@ -373,7 +375,7 @@ class execution(_Config):
 
     bids_dir = None
     """An existing path to the dataset, which must be BIDS-compliant."""
-    derivatives = []
+    derivatives = {}
     """Path(s) to search for pre-computed derivatives"""
     bids_database_dir = None
     """Path to the directory containing SQLite database indices for the input BIDS dataset."""
@@ -496,6 +498,14 @@ class execution(_Config):
             for acq, filters in cls.bids_filters.items():
                 for k, v in filters.items():
                     cls.bids_filters[acq][k] = _process_value(v)
+
+        dataset_links = {
+            'raw': cls.bids_dir,
+            'templateflow': Path(TF_LAYOUT.root),
+        }
+        for deriv_name, deriv_path in cls.derivatives.items():
+            dataset_links[deriv_name] = deriv_path
+        cls.dataset_links = dataset_links
 
         if 'all' in cls.debug:
             cls.debug = list(DEBUG_MODES)
