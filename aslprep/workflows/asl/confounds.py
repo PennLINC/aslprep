@@ -492,7 +492,7 @@ def init_cbf_confounds_wf(
         t1w probability maps
     aslref2anat_xfm
         aslref to t1w transformation file
-    mni2009c2anat_xfm
+    anat2mni2009c_xfm
     asl_mask_std : list
         Since ASLPrep always includes MNI152NLin2009cAsym as a standard space,
         this should always be provided.
@@ -517,7 +517,7 @@ negative CBF values.
                 't1w_mask',
                 't1w_tpms',
                 'aslref2anat_xfm',
-                'mni2009c2anat_xfm',  # inverted
+                'anat2mni2009c_xfm',
                 # CBF inputs
                 'mean_cbf',
                 # SCORE/SCRUB inputs
@@ -629,7 +629,7 @@ negative CBF values.
     workflow.connect([
         (inputnode, aslref2mni152nlin2009casym, [
             ('aslref2anat_xfm', 'in1'),
-            ('mni2009c2anat_xfm', 'in2'),
+            ('anat2mni2009c_xfm', 'in2'),
         ]),
     ])  # fmt:skip
 
@@ -639,7 +639,6 @@ negative CBF values.
             float=True,
             reference_image=template_brain_mask,
             args='-v',
-            invert_transform_flags=[False, True],
         ),
         name='warp_asl_mask_to_mni152nlin2009casym',
         mem_gb=0.1,

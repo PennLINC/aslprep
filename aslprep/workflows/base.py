@@ -375,6 +375,18 @@ their manuscripts unchanged. It is released under the unchanged
                 ]),
             ])  # fmt:skip
 
+            select_MNI2009c_xfm_fw = pe.Node(
+                KeySelect(fields=['anat2std_xfm'], key='MNI152NLin2009cAsym'),
+                name='select_MNI2009c_xfm_fw',
+                run_without_submitting=True,
+            )
+            workflow.connect([
+                (anat_fit_wf, select_MNI2009c_xfm_fw, [
+                    ('outputnode.anat2std_xfm', 'anat2std_xfm'),
+                    ('outputnode.template', 'keys'),
+                ]),
+            ])  # fmt:skip
+
         # Thread MNI152NLin6Asym standard outputs to CIFTI subworkflow, skipping
         # the iterator, which targets only output spaces.
         # This can lead to duplication in the working directory if people actually
@@ -686,6 +698,9 @@ tasks and sessions), the following preprocessing was performed.
                 workflow.connect([
                     (select_MNI2009c_xfm, asl_wf, [
                         ('std2anat_xfm', 'inputnode.mni2009c2anat_xfm'),
+                    ]),
+                    (select_MNI2009c_xfm_fw, asl_wf, [
+                        ('anat2std_xfm', 'inputnode.anat2mni2009c_xfm'),
                     ]),
                 ])  # fmt:skip
 

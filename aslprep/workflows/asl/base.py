@@ -91,6 +91,7 @@ def init_asl_wf(
         List of templates to target
     anat2std_xfm
         List of transform files, collated with templates
+    std2anat_xfm
 
     Outputs
     -------
@@ -303,8 +304,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 # MNI152NLin6Asym warp, for CIFTI use
                 'anat2mni6_xfm',
                 'mni6_mask',
-                # MNI152NLin2009cAsym inverse warp, for carpetplotting and CBF QC
+                # MNI152NLin2009cAsym inverse warp, for carpetplotting
                 'mni2009c2anat_xfm',
+                # MNI152NLin2009cAsym forward warp, for CBF QC
+                'anat2mni2009c_xfm',
             ],
         ),
         name='inputnode',
@@ -462,7 +465,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ('asl_file', 'inputnode.name_source'),
             ('t1w_tpms', 'inputnode.t1w_tpms'),
             ('t1w_mask', 'inputnode.t1w_mask'),
-            ('mni2009c2anat_xfm', 'inputnode.mni2009c2anat_xfm'),
+            ('anat2mni2009c_xfm', 'inputnode.anat2mni2009c_xfm'),
         ]),
         (asl_fit_wf, cbf_confounds_wf, [
             ('outputnode.asl_mask', 'inputnode.asl_mask'),
