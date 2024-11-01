@@ -66,12 +66,18 @@ def build_workflow(config_file, retval):
         from aslprep.data import load as load_data
 
         build_log.log(25, 'Running --reports-only on participants %s', ', '.join(subject_list))
+        session_list = (
+            config.execution.bids_filters.get('asl', {}).get('session')
+            if config.execution.bids_filters
+            else None
+        )
+
         retval['return_code'] = generate_reports(
             subject_list,
             config.execution.aslprep_dir,
             config.execution.run_uuid,
-            config=load_data('reports-spec.yml'),
-            packagename='aslprep',
+            session_list=session_list,
+            bootstrap_file=load_data('reports-spec.yml'),
         )
         return retval
 

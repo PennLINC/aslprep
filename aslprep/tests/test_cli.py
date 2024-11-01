@@ -410,12 +410,17 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
     aslprep_wf = retval['workflow']
     aslprep_wf.run()
     build_boilerplate(str(config_file), aslprep_wf)
+    session_list = (
+        config.execution.bids_filters.get('asl', {}).get('session')
+        if config.execution.bids_filters
+        else None
+    )
     generate_reports(
         [participant_label],
         out_dir,
         config.execution.run_uuid,
-        config=load_data('reports-spec.yml'),
-        packagename='aslprep',
+        session_list=session_list,
+        bootstrap_file=load_data('reports-spec.yml'),
     )
 
     output_list_file = os.path.join(get_test_data_path(), f'expected_outputs_{test_name}.txt')
