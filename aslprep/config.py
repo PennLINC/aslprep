@@ -413,6 +413,8 @@ class execution(_Config):
     """Do not collect telemetry information for *ASLPrep*."""
     output_dir = None
     """Folder where derivatives will be stored."""
+    aggr_ses_reports = None
+    """Maximum number of sessions aggregated in one subject's visual report."""
     output_spaces = None
     """List of (non)standard spaces designated (with the ``--output-spaces`` flag of
     the command line) as spatial references for outputs."""
