@@ -136,7 +136,7 @@ def get_inflow_times(metadata: dict[str, Any], is_casl: bool) -> list:
         return np.array(metadata['PostLabelingDelay']).tolist()
 
 
-def get_bolus_duration(metadata: dict[str, Any], is_casl: bool) -> float:
+def get_bolus_duration(metadata, is_casl):
     """Determine the appropriate bolus duration for BASIL.
 
     For PASL data, the bolus cutoff delay is the first BolusCutOffDelayTime.
