@@ -189,9 +189,7 @@ def main():
         from aslprep import data
 
         # Generate reports phase
-        session_list = (
-            config.execution.get().get('bids_filters', {}).get('asl', {}).get('session')
-        )
+        session_list = config.execution.get().get('bids_filters', {}).get('asl', {}).get('session')
 
         failed_reports = generate_reports(
             config.execution.participant_label,
