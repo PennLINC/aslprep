@@ -21,6 +21,9 @@ def init_asl_cifti_resample_wf(
     This workflow collates a sequence of transforms to resample an ASL series in a single shot,
     including motion correction and fieldmap correction, if requested.
 
+    This is an ASLPrep-specific workflow collecting steps from
+    fmriprep.workflows.bold.base.init_bold_wf.
+
     .. workflow::
 
         from aslprep.workflows.asl.apply import init_asl_cifti_resample_wf
@@ -87,11 +90,10 @@ def init_asl_cifti_resample_wf(
     """
     from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
     from fmriprep.workflows.bold.resampling import (
+        init_bold_fsLR_resampling_wf,
         init_bold_grayords_wf,
         init_goodvoxels_bold_mask_wf,
     )
-
-    from aslprep.workflows.asl.resampling import init_bold_fsLR_resampling_wf
 
     workflow = pe.Workflow(name=name)
 
@@ -162,9 +164,9 @@ def init_asl_cifti_resample_wf(
         ])  # fmt:skip
 
         asl_fsLR_resampling_wf.__desc__ += """\
-            A "goodvoxels" mask was applied during volume-to-surface sampling in fsLR space,
-            excluding voxels whose time-series have a locally high coefficient of variation.
-            """
+A "goodvoxels" mask was applied during volume-to-surface sampling in fsLR space,
+excluding voxels whose time-series have a locally high coefficient of variation.
+"""
 
     asl_grayords_wf = init_bold_grayords_wf(
         grayord_density=config.workflow.cifti_output,

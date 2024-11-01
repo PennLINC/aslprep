@@ -828,9 +828,10 @@ def init_ds_ciftis_wf(
     name: str = 'ds_ciftis_wf',
 ) -> pe.Workflow:
     """Apply transforms from reference to fsLR space and write out derivatives."""
-    from fmriprep.workflows.bold.resampling import init_bold_grayords_wf
-
-    from aslprep.workflows.asl.resampling import init_bold_fsLR_resampling_wf
+    from fmriprep.workflows.bold.resampling import (
+        init_bold_fsLR_resampling_wf,
+        init_bold_grayords_wf,
+    )
 
     workflow = pe.Workflow(name=name)
     inputnode_fields = [
