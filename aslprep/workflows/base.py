@@ -119,7 +119,7 @@ def init_single_subject_wf(subject_id: str):
         FreeSurfer's ``$SUBJECTS_DIR``.
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
+    from niworkflows.interfaces.bids import BIDSInfo
     from niworkflows.interfaces.nilearn import NILEARN_VERSION
     from niworkflows.interfaces.utility import KeySelect
     from niworkflows.utils.misc import fix_multi_T1w_source_name
@@ -137,6 +137,7 @@ def init_single_subject_wf(subject_id: str):
         init_resample_midthickness_wf,
     )
 
+    from aslprep.interfaces.bids import BIDSDataGrabber
     from aslprep.utils.bids import collect_data
     from aslprep.workflows.asl.base import init_asl_wf
 
