@@ -151,8 +151,7 @@ class SubjectSummary(SummaryInterface):
 
 class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     distortion_correction = traits.Str(
-        desc='Susceptibility distortion correction method',
-        mandatory=True,
+        desc='Susceptibility distortion correction method', mandatory=True
     )
     pe_direction = traits.Enum(
         None,
@@ -160,29 +159,25 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
         'i-',
         'j',
         'j-',
+        'k',
+        'k-',
         mandatory=True,
         desc='Phase-encoding direction detected',
     )
     registration = traits.Enum(
-        'FSL',
-        'FreeSurfer',
-        mandatory=True,
-        desc='Functional/anatomical registration method',
+        'FSL', 'FreeSurfer', mandatory=True, desc='Functional/anatomical registration method'
     )
     fallback = traits.Bool(desc='Boundary-based registration rejected')
     registration_dof = traits.Enum(
-        6,
-        9,
-        12,
-        desc='Registration degrees of freedom',
-        mandatory=True,
+        6, 9, 12, desc='Registration degrees of freedom', mandatory=True
     )
     registration_init = traits.Enum(
-        'register',
+        't1w',
+        't2w',
         'header',
         mandatory=True,
         desc='Whether to initialize registration with the "header"'
-        ' or by centering the volumes ("register")',
+        ' or by centering the volumes ("t1w" or "t2w")',
     )
     confounds_file = File(exists=True, mandatory=False, desc='Confounds file')
     qc_file = File(exists=True, desc='qc file')
@@ -212,21 +207,12 @@ class FunctionalSummary(SummaryInterface):
 
         pedir = get_world_pedir(self.inputs.orientation, self.inputs.pe_direction)
 
-        if self.inputs.pe_direction is None:
-            pedir = 'MISSING - Assuming Anterior-Posterior'
-        else:
-            pedir = {'i': 'Left-Right', 'j': 'Anterior-Posterior'}[self.inputs.pe_direction[0]]
-
-        # the number of dummy scans was specified by the user and
-        # it is not equal to the number detected by the algorithm
-
-        # the number of dummy scans was not specified by the user
-
         return FUNCTIONAL_TEMPLATE.format(
             pedir=pedir,
             sdc=self.inputs.distortion_correction,
             registration=reg,
             tr=self.inputs.tr,
+            ornt=self.inputs.orientation,
         )
 
 
