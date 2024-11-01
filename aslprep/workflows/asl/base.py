@@ -303,10 +303,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 # MNI152NLin6Asym warp, for CIFTI use
                 'anat2mni6_xfm',
                 'mni6_mask',
-                # MNI152NLin2009cAsym inverse warp, for carpetplotting
+                # MNI152NLin2009cAsym inverse warp, for carpetplotting and CBF QC
                 'mni2009c2anat_xfm',
-                # MNI152NLin2009cAsym forward warp, for CBF QC
-                'anat2mni2009c_xfm',
             ],
         ),
         name='inputnode',
@@ -464,7 +462,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ('asl_file', 'inputnode.name_source'),
             ('t1w_tpms', 'inputnode.t1w_tpms'),
             ('t1w_mask', 'inputnode.t1w_mask'),
-            ('anat2mni2009c_xfm', 'inputnode.anat2mni2009c_xfm'),
+            ('mni2009c2anat_xfm', 'inputnode.mni2009c2anat_xfm'),
         ]),
         (asl_fit_wf, cbf_confounds_wf, [
             ('outputnode.asl_mask', 'inputnode.asl_mask'),

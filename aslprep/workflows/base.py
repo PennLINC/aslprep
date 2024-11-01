@@ -15,10 +15,9 @@ from niworkflows.utils.connections import listify
 from packaging.version import Version
 
 from aslprep import config
-from aslprep.interfaces.bids import BIDSDataGrabber, DerivativesDataSink
+from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.reports import AboutSummary, SubjectSummary
 from aslprep.utils.misc import _prefix
-from aslprep.workflows.asl.base import init_asl_wf
 
 
 def init_aslprep_wf():
@@ -120,7 +119,7 @@ def init_single_subject_wf(subject_id: str):
         FreeSurfer's ``$SUBJECTS_DIR``.
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.interfaces.bids import BIDSInfo
+    from niworkflows.interfaces.bids import BIDSDataGrabber, BIDSInfo
     from niworkflows.interfaces.nilearn import NILEARN_VERSION
     from niworkflows.interfaces.utility import KeySelect
     from niworkflows.utils.misc import fix_multi_T1w_source_name
@@ -139,6 +138,7 @@ def init_single_subject_wf(subject_id: str):
     )
 
     from aslprep.utils.bids import collect_data
+    from aslprep.workflows.asl.base import init_asl_wf
 
     workflow = Workflow(name=f'sub_{subject_id}_wf')
     workflow.__desc__ = f"""
@@ -176,7 +176,6 @@ their manuscripts unchanged. It is released under the unchanged
 
     if 'flair' in config.workflow.ignore:
         subject_data['flair'] = []
-
     if 't2w' in config.workflow.ignore:
         subject_data['t2w'] = []
 
@@ -193,7 +192,7 @@ their manuscripts unchanged. It is released under the unchanged
             "Future versions of fMRIPrep will use alternative conventions. "
             "Please refer to the documentation before upgrading.",
             FutureWarning,
-            stacklevel=2,
+            stacklevel=1,
         )
 
     spaces = config.workflow.spaces
@@ -205,7 +204,7 @@ their manuscripts unchanged. It is released under the unchanged
 
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         std_spaces.append('fsnative')
-        for deriv_dir in config.execution.derivatives:
+        for deriv_dir in config.execution.derivatives.values():
             anatomical_cache.update(
                 collect_anat_derivatives(
                     derivatives_dir=deriv_dir,
@@ -221,13 +220,13 @@ their manuscripts unchanged. It is released under the unchanged
             subject_data=subject_data,
             anat_only=config.workflow.anat_only,
             subject_id=subject_id,
+            anat_derivatives=anatomical_cache if anatomical_cache else None,
         ),
         name='bidssrc',
     )
 
     bids_info = pe.Node(
-        BIDSInfo(bids_dir=config.execution.bids_dir, bids_validate=False),
-        name='bids_info',
+        BIDSInfo(bids_dir=config.execution.bids_dir, bids_validate=False), name='bids_info'
     )
 
     summary = pe.Node(
@@ -271,12 +270,13 @@ their manuscripts unchanged. It is released under the unchanged
     aslprep_dir = str(config.execution.aslprep_dir)
     omp_nthreads = config.nipype.omp_nthreads
 
-    # Preprocessing of T1w (includes registration to MNI)
+    # Build the workflow
     anat_fit_wf = init_anat_fit_wf(
         bids_root=bids_root,
         output_dir=aslprep_dir,
         freesurfer=config.workflow.run_reconall,
         hires=config.workflow.hires,
+        fs_no_resume=config.workflow.fs_no_resume,
         longitudinal=config.workflow.longitudinal,
         msm_sulc=msm_sulc,
         t1w=subject_data['t1w'],
@@ -291,9 +291,24 @@ their manuscripts unchanged. It is released under the unchanged
         skull_strip_fixed_seed=config.workflow.skull_strip_fixed_seed,
     )
 
+    # allow to run with anat-fast-track on fMRI-only dataset
+    if 't1w_preproc' in anatomical_cache and not subject_data['t1w']:
+        workflow.connect([
+            (bidssrc, bids_info, [(('asl', fix_multi_T1w_source_name), 'in_file')]),
+            (anat_fit_wf, summary, [('outputnode.t1w_preproc', 't1w')]),
+            (anat_fit_wf, ds_report_summary, [('outputnode.t1w_preproc', 'source_file')]),
+            (anat_fit_wf, ds_report_about, [('outputnode.t1w_preproc', 'source_file')]),
+        ])  # fmt:skip
+    else:
+        workflow.connect([
+            (bidssrc, bids_info, [(('t1w', fix_multi_T1w_source_name), 'in_file')]),
+            (bidssrc, summary, [('t1w', 't1w')]),
+            (bidssrc, ds_report_summary, [(('t1w', fix_multi_T1w_source_name), 'source_file')]),
+            (bidssrc, ds_report_about, [(('t1w', fix_multi_T1w_source_name), 'source_file')]),
+        ])  # fmt:skip
+
     workflow.connect([
         (inputnode, anat_fit_wf, [('subjects_dir', 'inputnode.subjects_dir')]),
-        (bidssrc, bids_info, [(('t1w', fix_multi_T1w_source_name), 'in_file')]),
         (bidssrc, anat_fit_wf, [
             ('t1w', 'inputnode.t1w'),
             ('t2w', 'inputnode.t2w'),
@@ -304,13 +319,10 @@ their manuscripts unchanged. It is released under the unchanged
         # Reporting connections
         (inputnode, summary, [('subjects_dir', 'subjects_dir')]),
         (bidssrc, summary, [
-            ('t1w', 't1w'),
             ('t2w', 't2w'),
             ('asl', 'asl'),
         ]),
         (bids_info, summary, [('subject', 'subject_id')]),
-        (bidssrc, ds_report_summary, [(('t1w', fix_multi_T1w_source_name), 'source_file')]),
-        (bidssrc, ds_report_about, [(('t1w', fix_multi_T1w_source_name), 'source_file')]),
         (summary, ds_report_summary, [('out_report', 'in_file')]),
         (about, ds_report_about, [('out_report', 'in_file')]),
     ])  # fmt:skip
@@ -320,7 +332,9 @@ their manuscripts unchanged. It is released under the unchanged
     select_MNI2009c_xfm = None
     if config.workflow.level == 'full':
         if spaces.cached.get_spaces(nonstandard=False, dim=(3,)):
-            template_iterator_wf = init_template_iterator_wf(spaces=spaces)
+            template_iterator_wf = init_template_iterator_wf(
+                spaces=spaces, sloppy=config.execution.sloppy
+            )
             ds_std_volumes_wf = init_ds_anat_volumes_wf(
                 bids_root=bids_root,
                 output_dir=aslprep_dir,
@@ -333,10 +347,10 @@ their manuscripts unchanged. It is released under the unchanged
                 ]),
                 (anat_fit_wf, ds_std_volumes_wf, [
                     ('outputnode.t1w_valid_list', 'inputnode.source_files'),
-                    ('outputnode.t1w_preproc', 'inputnode.t1w_preproc'),
-                    ('outputnode.t1w_mask', 'inputnode.t1w_mask'),
-                    ('outputnode.t1w_dseg', 'inputnode.t1w_dseg'),
-                    ('outputnode.t1w_tpms', 'inputnode.t1w_tpms'),
+                    ('outputnode.t1w_preproc', 'inputnode.anat_preproc'),
+                    ('outputnode.t1w_mask', 'inputnode.anat_mask'),
+                    ('outputnode.t1w_dseg', 'inputnode.anat_dseg'),
+                    ('outputnode.t1w_tpms', 'inputnode.anat_tpms'),
                 ]),
                 (template_iterator_wf, ds_std_volumes_wf, [
                     ('outputnode.std_t1w', 'inputnode.ref_file'),
@@ -356,18 +370,6 @@ their manuscripts unchanged. It is released under the unchanged
             workflow.connect([
                 (anat_fit_wf, select_MNI2009c_xfm, [
                     ('outputnode.std2anat_xfm', 'std2anat_xfm'),
-                    ('outputnode.template', 'keys'),
-                ]),
-            ])  # fmt:skip
-
-            select_MNI2009c_xfm_fw = pe.Node(
-                KeySelect(fields=['anat2std_xfm'], key='MNI152NLin2009cAsym'),
-                name='select_MNI2009c_xfm_fw',
-                run_without_submitting=True,
-            )
-            workflow.connect([
-                (anat_fit_wf, select_MNI2009c_xfm_fw, [
-                    ('outputnode.anat2std_xfm', 'anat2std_xfm'),
                     ('outputnode.template', 'keys'),
                 ]),
             ])  # fmt:skip
@@ -467,7 +469,7 @@ their manuscripts unchanged. It is released under the unchanged
                 ]),
             ])  # fmt:skip
 
-    if anat_only:
+    if config.workflow.anat_only:
         return clean_datasinks(workflow)
 
     fmap_estimators, estimator_map = map_fieldmap_estimation(
@@ -557,7 +559,7 @@ Setting-up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                     s.metadata for s in estimator.sources if s.suffix in ('asl', 'm0scan', 'sbref')
                 ]
                 syn_preprocessing_wf = init_syn_preprocessing_wf(
-                    omp_nthreads=config.nipype.omp_nthreads,
+                    omp_nthreads=omp_nthreads,
                     debug=config.execution.sloppy,
                     auto_bold_nss=False,  # I don't trust NSS estimation on ASL data
                     t1w_inversion=False,
@@ -595,7 +597,15 @@ ASL data preprocessing
 tasks and sessions), the following preprocessing was performed.
 """
 
-    asl_preproc_wfs = []
+    # Before initializing ASL workflow, select/verify anatomical target for coregistration
+    if config.workflow.bold2anat_init in ('auto', 't2w'):
+        has_t2w = subject_data['t2w'] or 't2w_preproc' in anatomical_cache
+        if config.workflow.bold2anat_init == 't2w' and not has_t2w:
+            raise OSError(
+                'A T2w image is expected for ASL-to-anatomical coregistration and was not found'
+            )
+        config.workflow.bold2anat_init = 't2w' if has_t2w else 't1w'
+
     for asl_file in subject_data['asl']:
         fieldmap_id = estimator_map.get(asl_file)
 
@@ -607,7 +617,7 @@ tasks and sessions), the following preprocessing was performed.
 
             entities = extract_entities(asl_file)
 
-            for deriv_dir in config.execution.derivatives:
+            for deriv_dir in config.execution.derivatives.values():
                 functional_cache.update(
                     collect_derivatives(
                         derivatives_dir=deriv_dir,
@@ -633,21 +643,19 @@ tasks and sessions), the following preprocessing was performed.
                 ('outputnode.t1w_mask', 'inputnode.t1w_mask'),
                 ('outputnode.t1w_dseg', 'inputnode.t1w_dseg'),
                 ('outputnode.t1w_tpms', 'inputnode.t1w_tpms'),
-                # Undefined if --fs-no-reconall, but this is safe
                 ('outputnode.subjects_dir', 'inputnode.subjects_dir'),
                 ('outputnode.subject_id', 'inputnode.subject_id'),
-                ('outputnode.anat_ribbon', 'inputnode.anat_ribbon'),
                 ('outputnode.fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm'),
                 ('outputnode.white', 'inputnode.white'),
                 ('outputnode.pial', 'inputnode.pial'),
                 ('outputnode.midthickness', 'inputnode.midthickness'),
+                ('outputnode.anat_ribbon', 'inputnode.anat_ribbon'),
                 (
                     f'outputnode.sphere_reg_{"msm" if msm_sulc else "fsLR"}',
                     'inputnode.sphere_reg_fsLR',
                 ),
             ]),
         ])  # fmt:skip
-
         if fieldmap_id:
             workflow.connect([
                 (fmap_wf, asl_wf, [
@@ -678,9 +686,6 @@ tasks and sessions), the following preprocessing was performed.
                     (select_MNI2009c_xfm, asl_wf, [
                         ('std2anat_xfm', 'inputnode.mni2009c2anat_xfm'),
                     ]),
-                    (select_MNI2009c_xfm_fw, asl_wf, [
-                        ('anat2std_xfm', 'inputnode.anat2mni2009c_xfm'),
-                    ]),
                 ])  # fmt:skip
 
             # Thread MNI152NLin6Asym standard outputs to CIFTI subworkflow, skipping
@@ -696,8 +701,6 @@ tasks and sessions), the following preprocessing was performed.
                         ('outputnode.midthickness_fsLR', 'inputnode.midthickness_fsLR'),
                     ]),
                 ])  # fmt:skip
-
-        asl_preproc_wfs.append(asl_wf)
 
     return clean_datasinks(workflow)
 
