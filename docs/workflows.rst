@@ -648,8 +648,8 @@ ASL and CBF to T1w registration
    wf = init_bold_reg_wf(
       freesurfer=True,
       use_bbr=True,
-      bold2t1w_dof=6,
-      bold2t1w_init="register",
+      bold2anat_dof=6,
+      bold2anat_init="auto",
       mem_gb=1,
       omp_nthreads=1,
       name="bold_reg_wf",

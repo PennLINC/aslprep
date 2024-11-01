@@ -598,13 +598,13 @@ tasks and sessions), the following preprocessing was performed.
 """
 
     # Before initializing ASL workflow, select/verify anatomical target for coregistration
-    if config.workflow.bold2anat_init in ('auto', 't2w'):
+    if config.workflow.asl2anat_init in ('auto', 't2w'):
         has_t2w = subject_data['t2w'] or 't2w_preproc' in anatomical_cache
-        if config.workflow.bold2anat_init == 't2w' and not has_t2w:
+        if config.workflow.asl2anat_init == 't2w' and not has_t2w:
             raise OSError(
                 'A T2w image is expected for ASL-to-anatomical coregistration and was not found'
             )
-        config.workflow.bold2anat_init = 't2w' if has_t2w else 't1w'
+        config.workflow.asl2anat_init = 't2w' if has_t2w else 't1w'
 
     for asl_file in subject_data['asl']:
         fieldmap_id = estimator_map.get(asl_file)

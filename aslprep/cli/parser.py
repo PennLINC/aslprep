@@ -292,23 +292,25 @@ any spatial references.""",
     )
 
     g_conf.add_argument(
-        '--asl2t1w-init',
+        '--asl2anat-init',
         action='store',
-        default='register',
-        choices=['register', 'header'],
+        choices=['auto', 't1w', 't2w', 'header'],
+        default='auto',
         help=(
-            'Either "register" (the default) to initialize volumes at center or "header" '
-            'to use the header information when coregistering ASL to T1w images.'
+            'Method of initial ASL to anatomical coregistration. If `auto`, a T2w image is used '
+            'if available, otherwise the T1w image. `t1w` forces use of the T1w, `t2w` forces use '
+            'of the T2w, and `header` uses the BOLD header information without an initial '
+            'registration.'
         ),
     )
     g_conf.add_argument(
-        '--asl2t1w-dof',
+        '--asl2anat-dof',
         action='store',
         default=6,
         choices=[6, 9, 12],
         type=int,
         help=(
-            'Degrees of freedom when registering ASL to T1w images. '
+            'Degrees of freedom when registering ASL to anatomical images. '
             '6 degrees (rotation and translation) are used by default.'
         ),
     )
@@ -542,6 +544,13 @@ any spatial references.""",
         action='store_false',
         dest='run_reconall',
         help='Disable FreeSurfer surface preprocessing.',
+    )
+    g_fs.add_argument(
+        '--fs-no-resume',
+        action='store_true',
+        dest='fs_no_resume',
+        help='EXPERT: Import pre-computed FreeSurfer reconstruction without resuming. '
+        'The user is responsible for ensuring that all necessary files are present.',
     )
 
     g_other = parser.add_argument_group('Other options')

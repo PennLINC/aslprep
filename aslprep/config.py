@@ -517,11 +517,12 @@ class workflow(_Config):
 
     anat_only = False
     """Execute the anatomical preprocessing only."""
-    asl2t1w_dof = None
-    """Degrees of freedom of the ASL-to-T1w registration steps."""
-    asl2t1w_init = 'register'
-    """Whether to use standard coregistration ('register') or to initialize coregistration from the
-    ASL image-header ('header')."""
+    asl2anat_dof = None
+    """Degrees of freedom of the ASL-to-anatomical registration steps."""
+    asl2anat_init = 'auto'
+    """Method of initial ASL to anatomical coregistration. If `auto`, a T2w image is used
+    if available, otherwise the T1w image. `t1w` forces use of the T1w, `t2w` forces use of
+    the T2w, and `header` uses the BOLD header information without an initial registration."""
     m0_scale = float(1)
     """Relative scale between ASL (delta-M) and M0."""
     cifti_output = None
@@ -536,6 +537,8 @@ class workflow(_Config):
     """Run *fieldmap-less* susceptibility-derived distortions estimation."""
     hires = None
     """Run FreeSurfer ``recon-all`` with the ``-hires`` flag."""
+    fs_no_resume = None
+    """Adjust pipeline to reuse base template of existing longitudinal freesurfer"""
     ignore = None
     """Ignore particular steps for *ASLPrep*."""
     level = 'full'
