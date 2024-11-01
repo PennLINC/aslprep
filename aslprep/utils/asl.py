@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 
 
@@ -110,7 +108,7 @@ def estimate_labeling_efficiency(metadata):
     return labeleff
 
 
-def get_inflow_times(metadata: dict[str, Any], is_casl: bool) -> list:
+def get_inflow_times(metadata, is_casl):
     """Determine the appropriate inflow times for BASIL.
 
     For PASL data, the inflow time (TI) is just the post-labeling delay (PLD).
