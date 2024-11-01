@@ -184,9 +184,8 @@ def main():
             _copy_any(dseg_tsv, str(config.execution.fmriprep_dir / 'desc-aparcaseg_dseg.tsv'))
         errno = 0
     finally:
-        from fmriprep.reports.core import generate_reports
-
         from aslprep import data
+        from aslprep.reports.core import generate_reports
 
         # Generate reports phase
         session_list = config.execution.get().get('bids_filters', {}).get('asl', {}).get('session')
