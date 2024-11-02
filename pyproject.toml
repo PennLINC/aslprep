@@ -81,7 +81,7 @@ maint = [
 ]
 
 # Aliases
-all = ["aslprep[doc,maint,test]"]
+all = ["aslprep[dev,doc,maint,test]"]
 
 [project.scripts]
 aslprep = "aslprep.cli.run:main"
