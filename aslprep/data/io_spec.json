@@ -33,7 +33,7 @@
       },
       "aslref2anat": {
         "datatype": "func",
-        "from": "orig",
+        "from": "aslref",
         "to": "anat",
         "mode": "image",
         "suffix": "xfm",
@@ -41,7 +41,7 @@
       },
       "aslref2fmap": {
         "datatype": "func",
-        "from": "orig",
+        "from": "aslref",
         "mode": "image",
         "suffix": "xfm",
         "extension": ".txt"
