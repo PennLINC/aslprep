@@ -14,12 +14,15 @@ def init_asl_cifti_resample_wf(
     mem_gb: dict,
     fieldmap_id: str | None = None,
     omp_nthreads: int = 1,
-    name: str = "asl_cifti_resample_wf",
+    name: str = 'asl_cifti_resample_wf',
 ) -> pe.Workflow:
     """Resample an ASL series to a CIFTI target space.
 
     This workflow collates a sequence of transforms to resample an ASL series in a single shot,
     including motion correction and fieldmap correction, if requested.
+
+    This is an ASLPrep-specific workflow collecting steps from
+    fmriprep.workflows.bold.base.init_bold_wf.
 
     .. workflow::
 
@@ -87,11 +90,10 @@ def init_asl_cifti_resample_wf(
     """
     from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
     from fmriprep.workflows.bold.resampling import (
+        init_bold_fsLR_resampling_wf,
         init_bold_grayords_wf,
         init_goodvoxels_bold_mask_wf,
     )
-
-    from aslprep.workflows.asl.resampling import init_bold_fsLR_resampling_wf
 
     workflow = pe.Workflow(name=name)
 
@@ -99,34 +101,34 @@ def init_asl_cifti_resample_wf(
         niu.IdentityInterface(
             fields=[
                 # Raw ASL file (asl_minimal)
-                "asl_file",
+                'asl_file',
                 # ASL file in T1w space
-                "asl_anat",
+                'asl_anat',
                 # Other inputs
-                "mni6_mask",
-                "aslref2fmap_xfm",
-                "aslref2anat_xfm",
-                "anat2mni6_xfm",
-                "fmap_ref",
-                "fmap_coeff",
-                "fmap_id",
-                "motion_xfm",
-                "coreg_aslref",
-                "white",
-                "pial",
-                "midthickness",
-                "midthickness_fsLR",
-                "sphere_reg_fsLR",
-                "cortex_mask",
-                "anat_ribbon",
+                'mni6_mask',
+                'aslref2fmap_xfm',
+                'aslref2anat_xfm',
+                'anat2mni6_xfm',
+                'fmap_ref',
+                'fmap_coeff',
+                'fmap_id',
+                'motion_xfm',
+                'coreg_aslref',
+                'white',
+                'pial',
+                'midthickness',
+                'midthickness_fsLR',
+                'sphere_reg_fsLR',
+                'cortex_mask',
+                'anat_ribbon',
             ],
         ),
-        name="inputnode",
+        name='inputnode',
     )
 
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=["asl_cifti", "cifti_metadata", "goodvoxels_mask"]),
-        name="outputnode",
+        niu.IdentityInterface(fields=['asl_cifti', 'cifti_metadata', 'goodvoxels_mask']),
+        name='outputnode',
     )
 
     asl_MNI6_wf = init_bold_volumetric_resample_wf(
@@ -134,77 +136,77 @@ def init_asl_cifti_resample_wf(
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
         mem_gb=mem_gb,
-        jacobian="fmap-jacobian" not in config.workflow.ignore,
-        name="asl_MNI6_wf",
+        jacobian='fmap-jacobian' not in config.workflow.ignore,
+        name='asl_MNI6_wf',
     )
 
     asl_fsLR_resampling_wf = init_bold_fsLR_resampling_wf(
         grayord_density=config.workflow.cifti_output,
         omp_nthreads=omp_nthreads,
-        mem_gb=mem_gb["resampled"],
-        name="asl_fsLR_resampling_wf",
+        mem_gb=mem_gb['resampled'],
+        name='asl_fsLR_resampling_wf',
     )
 
     if config.workflow.project_goodvoxels:
-        goodvoxels_bold_mask_wf = init_goodvoxels_bold_mask_wf(mem_gb["resampled"])
+        goodvoxels_bold_mask_wf = init_goodvoxels_bold_mask_wf(mem_gb['resampled'])
 
         workflow.connect([
             (inputnode, goodvoxels_bold_mask_wf, [
-                ("asl_anat", "inputnode.bold_file"),
-                ("anat_ribbon", "inputnode.anat_ribbon"),
+                ('asl_anat', 'inputnode.bold_file'),
+                ('anat_ribbon', 'inputnode.anat_ribbon'),
             ]),
             (goodvoxels_bold_mask_wf, asl_fsLR_resampling_wf, [
-                ("outputnode.goodvoxels_mask", "inputnode.volume_roi"),
+                ('outputnode.goodvoxels_mask', 'inputnode.volume_roi'),
             ]),
             (goodvoxels_bold_mask_wf, outputnode, [
-                ("outputnode.goodvoxels_mask", "goodvoxels_mask"),
+                ('outputnode.goodvoxels_mask', 'goodvoxels_mask'),
             ]),
         ])  # fmt:skip
 
         asl_fsLR_resampling_wf.__desc__ += """\
-            A "goodvoxels" mask was applied during volume-to-surface sampling in fsLR space,
-            excluding voxels whose time-series have a locally high coefficient of variation.
-            """
+A "goodvoxels" mask was applied during volume-to-surface sampling in fsLR space,
+excluding voxels whose time-series have a locally high coefficient of variation.
+"""
 
     asl_grayords_wf = init_bold_grayords_wf(
         grayord_density=config.workflow.cifti_output,
-        mem_gb=mem_gb["resampled"],
-        repetition_time=metadata["RepetitionTime"],
-        name="asl_grayords_wf",
+        mem_gb=mem_gb['resampled'],
+        repetition_time=metadata['RepetitionTime'],
+        name='asl_grayords_wf',
     )
 
     workflow.connect([
         # Resample BOLD to MNI152NLin6Asym, may duplicate asl_std_wf above
         (inputnode, asl_MNI6_wf, [
-            ("mni6_mask", "inputnode.target_ref_file"),
-            ("mni6_mask", "inputnode.target_mask"),
-            ("anat2mni6_xfm", "inputnode.anat2std_xfm"),
-            ("fmap_ref", "inputnode.fmap_ref"),
-            ("fmap_coeff", "inputnode.fmap_coeff"),
-            ("fmap_id", "inputnode.fmap_id"),
-            ("asl_file", "inputnode.bold_file"),
-            ("motion_xfm", "inputnode.motion_xfm"),
-            ("coreg_aslref", "inputnode.bold_ref_file"),
-            ("aslref2fmap_xfm", "inputnode.boldref2fmap_xfm"),
-            ("aslref2anat_xfm", "inputnode.boldref2anat_xfm"),
+            ('mni6_mask', 'inputnode.target_ref_file'),
+            ('mni6_mask', 'inputnode.target_mask'),
+            ('anat2mni6_xfm', 'inputnode.anat2std_xfm'),
+            ('fmap_ref', 'inputnode.fmap_ref'),
+            ('fmap_coeff', 'inputnode.fmap_coeff'),
+            ('fmap_id', 'inputnode.fmap_id'),
+            ('asl_file', 'inputnode.bold_file'),
+            ('motion_xfm', 'inputnode.motion_xfm'),
+            ('coreg_aslref', 'inputnode.bold_ref_file'),
+            ('aslref2fmap_xfm', 'inputnode.boldref2fmap_xfm'),
+            ('aslref2anat_xfm', 'inputnode.boldref2anat_xfm'),
         ]),
         # Resample T1w-space BOLD to fsLR surfaces
         (inputnode, asl_fsLR_resampling_wf, [
-            ("asl_anat", "inputnode.bold_file"),
-            ("white", "inputnode.white"),
-            ("pial", "inputnode.pial"),
-            ("midthickness", "inputnode.midthickness"),
-            ("midthickness_fsLR", "inputnode.midthickness_fsLR"),
-            ("sphere_reg_fsLR", "inputnode.sphere_reg_fsLR"),
-            ("cortex_mask", "inputnode.cortex_mask"),
+            ('asl_anat', 'inputnode.bold_file'),
+            ('white', 'inputnode.white'),
+            ('pial', 'inputnode.pial'),
+            ('midthickness', 'inputnode.midthickness'),
+            ('midthickness_fsLR', 'inputnode.midthickness_fsLR'),
+            ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
+            ('cortex_mask', 'inputnode.cortex_mask'),
         ]),
-        (asl_MNI6_wf, asl_grayords_wf, [("outputnode.bold_file", "inputnode.bold_std")]),
+        (asl_MNI6_wf, asl_grayords_wf, [('outputnode.bold_file', 'inputnode.bold_std')]),
         (asl_fsLR_resampling_wf, asl_grayords_wf, [
-            ("outputnode.bold_fsLR", "inputnode.bold_fsLR"),
+            ('outputnode.bold_fsLR', 'inputnode.bold_fsLR'),
         ]),
         (asl_grayords_wf, outputnode, [
-            ("outputnode.cifti_bold", "asl_cifti"),
-            ("outputnode.cifti_metadata", "cifti_metadata"),
+            ('outputnode.cifti_bold', 'asl_cifti'),
+            ('outputnode.cifti_metadata', 'cifti_metadata'),
         ]),
     ])  # fmt:skip
 

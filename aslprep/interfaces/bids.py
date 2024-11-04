@@ -17,16 +17,16 @@ from aslprep import config
 from aslprep.data import load as load_data
 
 # NOTE: Modified for aslprep's purposes
-aslprep_spec = loads(load_data.readable("aslprep_bids_config.json").read_text())
-bids_config = Config.load("bids")
-deriv_config = Config.load("derivatives")
+aslprep_spec = loads(load_data.readable('aslprep_bids_config.json').read_text())
+bids_config = Config.load('bids')
+deriv_config = Config.load('derivatives')
 
-aslprep_entities = {v["name"]: v["pattern"] for v in aslprep_spec["entities"]}
+aslprep_entities = {v['name']: v['pattern'] for v in aslprep_spec['entities']}
 merged_entities = {**bids_config.entities, **deriv_config.entities}
 merged_entities = {k: v.pattern for k, v in merged_entities.items()}
 merged_entities = {**merged_entities, **aslprep_entities}
-merged_entities = [{"name": k, "pattern": v} for k, v in merged_entities.items()]
-config_entities = frozenset({e["name"] for e in merged_entities})
+merged_entities = [{'name': k, 'pattern': v} for k, v in merged_entities.items()]
+config_entities = frozenset({e['name'] for e in merged_entities})
 
 
 class _BIDSDataGrabberInputSpec(BaseInterfaceInputSpec):
@@ -35,51 +35,69 @@ class _BIDSDataGrabberInputSpec(BaseInterfaceInputSpec):
 
 
 class _BIDSDataGrabberOutputSpec(TraitedSpec):
-    out_dict = traits.Dict(desc="output data structure")
-    fmap = OutputMultiObject(desc="output fieldmaps")
-    asl = OutputMultiObject(desc="output ASL images")
-    sbref = OutputMultiObject(desc="output sbrefs")
-    t1w = OutputMultiObject(desc="output T1w images")
-    roi = OutputMultiObject(desc="output ROI images")
-    t2w = OutputMultiObject(desc="output T2w images")
-    flair = OutputMultiObject(desc="output FLAIR images")
+    out_dict = traits.Dict(desc='output data structure')
+    fmap = OutputMultiObject(desc='output fieldmaps')
+    bold = OutputMultiObject(desc='output functional images')
+    sbref = OutputMultiObject(desc='output sbrefs')
+    t1w = OutputMultiObject(desc='output T1w images')
+    roi = OutputMultiObject(desc='output ROI images')
+    t2w = OutputMultiObject(desc='output T2w images')
+    flair = OutputMultiObject(desc='output FLAIR images')
+    pet = OutputMultiObject(desc='output PET images')
+    dwi = OutputMultiObject(desc='output DWI images')
+    asl = OutputMultiObject(desc='output ASL images')
 
 
 class BIDSDataGrabber(SimpleInterface):
-    """Collect files from a BIDS directory structure."""
+    """Collect files from a BIDS directory structure.
+
+    .. testsetup::
+
+        >>> data_dir_canary()
+
+    >>> bids_src = BIDSDataGrabber(anat_only=False)
+    >>> bids_src.inputs.subject_data = bids_collect_data(
+    ...     str(datadir / 'ds114'), '01', bids_validate=False)[0]
+    >>> bids_src.inputs.subject_id = '01'
+    >>> res = bids_src.run()
+    >>> res.outputs.t1w  # doctest: +ELLIPSIS +NORMALIZE_WHITESPACE
+    ['.../ds114/sub-01/ses-retest/anat/sub-01_ses-retest_T1w.nii.gz',
+     '.../ds114/sub-01/ses-test/anat/sub-01_ses-test_T1w.nii.gz']
+
+    """
 
     input_spec = _BIDSDataGrabberInputSpec
     output_spec = _BIDSDataGrabberOutputSpec
     _require_funcs = True
 
     def __init__(self, *args, **kwargs):
-        anat_only = kwargs.pop("anat_only")
-        super(BIDSDataGrabber, self).__init__(*args, **kwargs)
+        anat_only = kwargs.pop('anat_only')
+        anat_derivatives = kwargs.pop('anat_derivatives', None)
+        super().__init__(*args, **kwargs)
         if anat_only is not None:
             self._require_funcs = not anat_only
+        self._require_t1w = anat_derivatives is None
 
     def _run_interface(self, runtime):
         bids_dict = self.inputs.subject_data
 
-        self._results["out_dict"] = bids_dict
+        self._results['out_dict'] = bids_dict
         self._results.update(bids_dict)
 
-        if not bids_dict["t1w"]:
+        if self._require_t1w and not bids_dict['t1w']:
             raise FileNotFoundError(
-                f"No T1w images found for subject sub-{self.inputs.subject_id}"
+                f'No T1w images found for subject sub-{self.inputs.subject_id}'
             )
 
-        if self._require_funcs and not bids_dict["asl"]:
+        if self._require_funcs and not bids_dict['asl']:
             raise FileNotFoundError(
-                f"No ASL images found for subject sub-{self.inputs.subject_id}"
+                f'No ASL images found for subject sub-{self.inputs.subject_id}'
             )
 
-        for imtype in ["t2w", "flair", "fmap", "sbref", "roi", "asl"]:
-            if not bids_dict[imtype]:
+        for imtype in ['bold', 't2w', 'flair', 'fmap', 'sbref', 'roi', 'pet', 'asl']:
+            if not bids_dict.get(imtype):
                 config.loggers.interface.info(
-                    'No "%s" images found for sub-%s',
-                    imtype,
-                    self.inputs.subject_id,
+                    'No "%s" images found for sub-%s', imtype, self.inputs.subject_id
                 )
 
         return runtime
@@ -91,11 +109,11 @@ class DerivativesDataSink(BaseDerivativesDataSink):
     A child class of the niworkflows DerivativesDataSink, using aslprep's configuration files.
     """
 
-    out_path_base = ""
+    out_path_base = ''
     _allowed_entities = set(config_entities)
     _config_entities = config_entities
     _config_entities_dict = merged_entities
-    _file_patterns = aslprep_spec["default_path_patterns"]
+    _file_patterns = aslprep_spec['default_path_patterns']
 
 
 class OverrideDerivativesDataSink:
@@ -167,7 +185,7 @@ class FunctionOverrideContext:
     """Override a function in imported code with a context manager.
 
     Even though this class is *currently* unused, I'm keeping it around for when I need to override
-    prepare_timing_parameters once fMRIPrep's init_bold_surf_wf is useable
+    prepare_timing_parameters once fMRIPrep's init_bold_surf_wf is usable
     (i.e., once the DerivativesDataSink import is moved out of the function).
 
     Here's how it worked before:

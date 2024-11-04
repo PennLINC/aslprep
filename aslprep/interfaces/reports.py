@@ -1,6 +1,7 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Interfaces to generate reportlets."""
+
 import os
 import re
 import time
@@ -64,7 +65,7 @@ ABOUT_TEMPLATE = """\t<ul>
 
 
 class _SummaryOutputSpec(TraitedSpec):
-    out_report = File(exists=True, desc="HTML segment containing summary")
+    out_report = File(exists=True, desc='HTML segment containing summary')
 
 
 class SummaryInterface(SimpleInterface):
@@ -74,10 +75,10 @@ class SummaryInterface(SimpleInterface):
 
     def _run_interface(self, runtime):
         segment = self._generate_segment()
-        fname = os.path.join(runtime.cwd, "report.html")
-        with open(fname, "w") as fobj:
+        fname = os.path.join(runtime.cwd, 'report.html')
+        with open(fname, 'w') as fobj:
             fobj.write(segment)
-        self._results["out_report"] = fname
+        self._results['out_report'] = fname
         return runtime
 
     def _generate_segment(self):
@@ -85,22 +86,22 @@ class SummaryInterface(SimpleInterface):
 
 
 class _SubjectSummaryInputSpec(BaseInterfaceInputSpec):
-    t1w = InputMultiObject(File(exists=True), desc="T1w structural images")
-    t2w = InputMultiObject(File(exists=True), desc="T2w structural images")
-    subjects_dir = Directory(desc="FreeSurfer subjects directory")
-    subject_id = Str(desc="Subject ID")
+    t1w = InputMultiObject(File(exists=True), desc='T1w structural images')
+    t2w = InputMultiObject(File(exists=True), desc='T2w structural images')
+    subjects_dir = Directory(desc='FreeSurfer subjects directory')
+    subject_id = Str(desc='Subject ID')
     asl = InputMultiObject(
         traits.Either(File(exists=True), traits.List(File(exists=True))),
-        desc="ASL functional series",
+        desc='ASL functional series',
     )
-    std_spaces = traits.List(Str, desc="list of standard spaces")
-    nstd_spaces = traits.List(Str, desc="list of non-standard spaces")
+    std_spaces = traits.List(Str, desc='list of standard spaces')
+    nstd_spaces = traits.List(Str, desc='list of non-standard spaces')
 
 
 class _SubjectSummaryOutputSpec(_SummaryOutputSpec):
     # This exists to ensure that the summary is run prior to the first ReconAll
     # call, allowing a determination whether there is a pre-existing directory
-    subject_id = Str(desc="FreeSurfer subject ID")
+    subject_id = Str(desc='FreeSurfer subject ID')
 
 
 class SubjectSummary(SummaryInterface):
@@ -111,27 +112,27 @@ class SubjectSummary(SummaryInterface):
 
     def _run_interface(self, runtime):
         if isdefined(self.inputs.subject_id):
-            self._results["subject_id"] = self.inputs.subject_id
-        return super(SubjectSummary, self)._run_interface(runtime)
+            self._results['subject_id'] = self.inputs.subject_id
+        return super()._run_interface(runtime)
 
     def _generate_segment(self):
         if not isdefined(self.inputs.subjects_dir):
-            freesurfer_status = "Not run"
+            freesurfer_status = 'Not run'
         else:
             recon = ReconAll(
                 subjects_dir=self.inputs.subjects_dir,
-                subject_id="sub-" + self.inputs.subject_id,
+                subject_id='sub-' + self.inputs.subject_id,
                 T1_files=self.inputs.t1w,
-                flags="-noskullstrip",
+                flags='-noskullstrip',
             )
-            if recon.cmdline.startswith("echo"):
-                freesurfer_status = "Pre-existing directory"
+            if recon.cmdline.startswith('echo'):
+                freesurfer_status = 'Pre-existing directory'
             else:
-                freesurfer_status = "Run by ASLPrep"
+                freesurfer_status = 'Run by ASLPrep'
 
-        t2w_seg = ""
+        t2w_seg = ''
         if self.inputs.t2w:
-            t2w_seg = f"(+ {len(self.inputs.t2w):d} T2-weighted)"
+            t2w_seg = f'(+ {len(self.inputs.t2w):d} T2-weighted)'
 
         # Add list of tasks with number of runs
         asl_series = self.inputs.asl if isdefined(self.inputs.asl) else []
@@ -142,51 +143,46 @@ class SubjectSummary(SummaryInterface):
             n_t1s=len(self.inputs.t1w),
             t2w=t2w_seg,
             n_asl=len(asl_series),
-            std_spaces=", ".join(self.inputs.std_spaces),
-            nstd_spaces=", ".join(self.inputs.nstd_spaces),
+            std_spaces=', '.join(self.inputs.std_spaces),
+            nstd_spaces=', '.join(self.inputs.nstd_spaces),
             freesurfer_status=freesurfer_status,
         )
 
 
 class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
     distortion_correction = traits.Str(
-        desc="Susceptibility distortion correction method",
-        mandatory=True,
+        desc='Susceptibility distortion correction method', mandatory=True
     )
     pe_direction = traits.Enum(
         None,
-        "i",
-        "i-",
-        "j",
-        "j-",
+        'i',
+        'i-',
+        'j',
+        'j-',
+        'k',
+        'k-',
         mandatory=True,
-        desc="Phase-encoding direction detected",
+        desc='Phase-encoding direction detected',
     )
     registration = traits.Enum(
-        "FSL",
-        "FreeSurfer",
-        mandatory=True,
-        desc="Functional/anatomical registration method",
+        'FSL', 'FreeSurfer', mandatory=True, desc='Functional/anatomical registration method'
     )
-    fallback = traits.Bool(desc="Boundary-based registration rejected")
+    fallback = traits.Bool(desc='Boundary-based registration rejected')
     registration_dof = traits.Enum(
-        6,
-        9,
-        12,
-        desc="Registration degrees of freedom",
-        mandatory=True,
+        6, 9, 12, desc='Registration degrees of freedom', mandatory=True
     )
     registration_init = traits.Enum(
-        "register",
-        "header",
+        't1w',
+        't2w',
+        'header',
         mandatory=True,
         desc='Whether to initialize registration with the "header"'
-        ' or by centering the volumes ("register")',
+        ' or by centering the volumes ("t1w" or "t2w")',
     )
-    confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
-    qc_file = File(exists=True, desc="qc file")
-    tr = traits.Float(desc="Repetition time", mandatory=True)
-    orientation = traits.Str(mandatory=True, desc="Orientation of the voxel axes")
+    confounds_file = File(exists=True, mandatory=False, desc='Confounds file')
+    qc_file = File(exists=True, desc='qc file')
+    tr = traits.Float(desc='Repetition time', mandatory=True)
+    orientation = traits.Str(mandatory=True, desc='Orientation of the voxel axes')
 
 
 class FunctionalSummary(SummaryInterface):
@@ -197,41 +193,32 @@ class FunctionalSummary(SummaryInterface):
     def _generate_segment(self):
         dof = self.inputs.registration_dof
         reg = {
-            "FSL": [
-                "FSL <code>flirt</code> with boundary-based registration"
-                f" (BBR) metric - {dof} dof",
-                "FSL <code>flirt</code> rigid registration - 6 dof",
+            'FSL': [
+                'FSL <code>flirt</code> with boundary-based registration'
+                f' (BBR) metric - {dof} dof',
+                'FSL <code>flirt</code> rigid registration - 6 dof',
             ],
-            "FreeSurfer": [
-                "FreeSurfer <code>bbregister</code> "
-                f"(boundary-based registration, BBR) - {dof} dof",
-                f"FreeSurfer <code>mri_coreg</code> - {dof} dof",
+            'FreeSurfer': [
+                'FreeSurfer <code>bbregister</code> '
+                f'(boundary-based registration, BBR) - {dof} dof',
+                f'FreeSurfer <code>mri_coreg</code> - {dof} dof',
             ],
         }[self.inputs.registration][self.inputs.fallback]
 
         pedir = get_world_pedir(self.inputs.orientation, self.inputs.pe_direction)
-
-        if self.inputs.pe_direction is None:
-            pedir = "MISSING - Assuming Anterior-Posterior"
-        else:
-            pedir = {"i": "Left-Right", "j": "Anterior-Posterior"}[self.inputs.pe_direction[0]]
-
-        # the number of dummy scans was specified by the user and
-        # it is not equal to the number detected by the algorithm
-
-        # the number of dummy scans was not specified by the user
 
         return FUNCTIONAL_TEMPLATE.format(
             pedir=pedir,
             sdc=self.inputs.distortion_correction,
             registration=reg,
             tr=self.inputs.tr,
+            ornt=self.inputs.orientation,
         )
 
 
 class _CBFSummaryInputSpec(BaseInterfaceInputSpec):
-    confounds_file = File(exists=True, mandatory=False, desc="Confounds file")
-    qc_file = File(exists=True, desc="qc file")
+    confounds_file = File(exists=True, mandatory=False, desc='Confounds file')
+    qc_file = File(exists=True, desc='qc file')
 
 
 class CBFSummary(SummaryInterface):
@@ -276,16 +263,16 @@ class CBFSummary(SummaryInterface):
 
         if isdefined(self.inputs.confounds_file):
             with open(self.inputs.confounds_file) as cfh:
-                conflist = cfh.readline().strip("\n").strip()
+                conflist = cfh.readline().strip('\n').strip()
         else:
-            conflist = "None"
+            conflist = 'None'
         # the number of dummy scans was specified by the user and
         # it is not equal to the number detected by the algorithm
 
         # the number of dummy scans was not specified by the user
 
         return QC_TEMPLATE.format(
-            confounds=re.sub(r"[\t ]+", ", ", conflist),
+            confounds=re.sub(r'[\t ]+', ', ', conflist),
             motionparam=motionparam,
             qei=qei,
             coregindex=coregindex,
@@ -296,8 +283,8 @@ class CBFSummary(SummaryInterface):
 
 
 class _AboutSummaryInputSpec(BaseInterfaceInputSpec):
-    version = Str(desc="ASLPREP version")
-    command = Str(desc="ASLPREP command")
+    version = Str(desc='ASLPREP version')
+    command = Str(desc='ASLPREP command')
     # Date not included - update timestamp only if version or command changes
 
 
@@ -310,5 +297,5 @@ class AboutSummary(SummaryInterface):
         return ABOUT_TEMPLATE.format(
             version=self.inputs.version,
             command=self.inputs.command,
-            date=time.strftime("%Y-%m-%d %H:%M:%S %z"),
+            date=time.strftime('%Y-%m-%d %H:%M:%S %z'),
         )

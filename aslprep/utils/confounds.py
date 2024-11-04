@@ -13,7 +13,7 @@ from scipy.stats import gmean
 
 def _less_breakable(a_string):
     """Harden the string to different environments, whatever that means."""
-    return "".join(a_string.split()).strip("#")
+    return ''.join(a_string.split()).strip('#')
 
 
 def _camel_to_snake(name):
@@ -22,8 +22,8 @@ def _camel_to_snake(name):
     Taken from https://stackoverflow.com/questions/1175208/.
     If we end up using it more than just here, probably worth pulling in a well-tested package.
     """
-    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
 
 def _adjust_indices(left_df, right_df):
@@ -65,13 +65,13 @@ def _gather_confounds(
     all_files = []
     confounds_list = []
     for confound, name in (
-        (signals, "Global signals"),
-        (std_dvars, "Standardized DVARS"),
-        (dvars, "DVARS"),
-        (fdisp, "Framewise displacement"),
-        (rmsd, "RMSD"),
-        (motion, "Motion parameters"),
-        (score, "score_outlier_index"),
+        (signals, 'Global signals'),
+        (std_dvars, 'Standardized DVARS'),
+        (dvars, 'DVARS'),
+        (fdisp, 'Framewise displacement'),
+        (rmsd, 'RMSD'),
+        (motion, 'Motion parameters'),
+        (score, 'score_outlier_index'),
     ):
         if confound is not None and isdefined(confound):
             confounds_list.append(name)
@@ -92,8 +92,8 @@ def _gather_confounds(
     if newpath is None:
         newpath = os.getcwd()
 
-    combined_out = os.path.join(newpath, "confounds.tsv")
-    confounds_data.to_csv(combined_out, sep="\t", index=False, na_rep="n/a")
+    combined_out = os.path.join(newpath, 'confounds.tsv')
+    confounds_data.to_csv(combined_out, sep='\t', index=False, na_rep='n/a')
 
     return combined_out, confounds_list
 

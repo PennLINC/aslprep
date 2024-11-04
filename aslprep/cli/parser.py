@@ -1,6 +1,7 @@
 # emacs: -*- mode: python; py-indent-offset: 4; indent-tabs-mode: nil -*-
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Parser."""
+
 import sys
 
 from aslprep import config
@@ -8,7 +9,7 @@ from aslprep import config
 
 def _build_parser():
     """Build parser object."""
-    from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+    from argparse import Action, ArgumentDefaultsHelpFormatter, ArgumentParser
     from functools import partial
     from pathlib import Path
 
@@ -17,17 +18,34 @@ def _build_parser():
 
     from aslprep.cli.version import check_latest, is_flagged
 
+    class ToDict(Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            d = {}
+            for spec in values:
+                try:
+                    name, loc = spec.split('=')
+                    loc = Path(loc)
+                except ValueError:
+                    loc = Path(spec)
+                    name = loc.name
+
+                if name in d:
+                    raise ValueError(f'Received duplicate derivative name: {name}')
+
+                d[name] = loc
+            setattr(namespace, self.dest, d)
+
     def _path_exists(path, parser):
         """Ensure a given path exists."""
         if path is None or not Path(path).exists():
-            raise parser.error(f"Path does not exist: <{path}>.")
+            raise parser.error(f'Path does not exist: <{path}>.')
         return Path(path).absolute()
 
     def _is_file(path, parser):
         """Ensure a given path exists and it is a file."""
         path = _path_exists(path, parser)
         if not path.is_file():
-            raise parser.error(f"Path should point to a file (or symlink of file): <{path}>.")
+            raise parser.error(f'Path should point to a file (or symlink of file): <{path}>.')
         return path
 
     def _min_one(value, parser):
@@ -38,20 +56,20 @@ def _build_parser():
         return value
 
     def _to_gb(value):
-        scale = {"G": 1, "T": 10**3, "M": 1e-3, "K": 1e-6, "B": 1e-9}
-        digits = "".join([c for c in value if c.isdigit()])
-        units = value[len(digits) :] or "M"
+        scale = {'G': 1, 'T': 10**3, 'M': 1e-3, 'K': 1e-6, 'B': 1e-9}
+        digits = ''.join([c for c in value if c.isdigit()])
+        units = value[len(digits) :] or 'M'
         return int(digits) * scale[units[0]]
 
     def _drop_sub(value):
-        return value[4:] if value.startswith("sub-") else value
+        return value[4:] if value.startswith('sub-') else value
 
     def _process_value(value):
         import bids
 
         if value is None:
             return bids.layout.Query.NONE
-        elif value == "*":
+        elif value == '*':
             return bids.layout.Query.ANY
         else:
             return value
@@ -72,17 +90,17 @@ def _build_parser():
             if Path(value).exists():
                 try:
                     return loads(Path(value).read_text(), object_hook=_filter_pybids_none_any)
-                except JSONDecodeError:
-                    raise parser.error(f"JSON syntax error in: <{value}>.")
+                except JSONDecodeError as e:
+                    raise parser.error(f'JSON syntax error in: <{value}>.') from e
             else:
-                raise parser.error(f"Path does not exist: <{value}>.")
+                raise parser.error(f'Path does not exist: <{value}>.')
 
-    verstr = f"ASLPrep v{config.environment.version}"
+    verstr = f'ASLPrep v{config.environment.version}'
     currentv = Version(config.environment.version)
     is_release = not any((currentv.is_devrelease, currentv.is_prerelease, currentv.is_postrelease))
 
     parser = ArgumentParser(
-        description=f"ASLPrep: ASL PREProcessing workflows v{config.environment.version}",
+        description=f'ASLPrep: ASL PREProcessing workflows v{config.environment.version}',
         formatter_class=ArgumentDefaultsHelpFormatter,
     )
     PathExists = partial(_path_exists, parser=parser)
@@ -94,47 +112,47 @@ def _build_parser():
     # required, positional arguments
     # IMPORTANT: they must go directly with the parser object
     parser.add_argument(
-        "bids_dir",
-        action="store",
+        'bids_dir',
+        action='store',
         type=PathExists,
         help=(
-            "the root folder of a BIDS valid dataset (sub-XXXXX folders should "
-            "be found at the top level in this folder)."
+            'the root folder of a BIDS valid dataset (sub-XXXXX folders should '
+            'be found at the top level in this folder).'
         ),
     )
     parser.add_argument(
-        "output_dir",
-        action="store",
+        'output_dir',
+        action='store',
         type=Path,
-        help="the output path for the outcomes of preprocessing and visual reports",
+        help='the output path for the outcomes of preprocessing and visual reports',
     )
     parser.add_argument(
-        "analysis_level",
-        choices=["participant"],
+        'analysis_level',
+        choices=['participant'],
         help=(
             'processing stage to be run, only "participant" in the case of '
-            "ASLPREP (see BIDS-Apps specification)."
+            'ASLPREP (see BIDS-Apps specification).'
         ),
     )
 
     # optional arguments
-    g_bids = parser.add_argument_group("Options for filtering BIDS queries")
+    g_bids = parser.add_argument_group('Options for filtering BIDS queries')
     g_bids.add_argument(
-        "--skip_bids_validation",
-        "--skip-bids-validation",
-        action="store_true",
+        '--skip_bids_validation',
+        '--skip-bids-validation',
+        action='store_true',
         default=False,
-        help="assume the input dataset is BIDS compliant and skip the validation",
+        help='assume the input dataset is BIDS compliant and skip the validation',
     )
     g_bids.add_argument(
-        "--participant-label",
-        "--participant_label",
-        action="store",
-        nargs="+",
+        '--participant-label',
+        '--participant_label',
+        action='store',
+        nargs='+',
         type=_drop_sub,
         help=(
-            "A space delimited list of participant identifiers or a single identifier "
-            "(the sub- prefix can be removed)"
+            'A space delimited list of participant identifiers or a single identifier '
+            '(the sub- prefix can be removed)'
         ),
     )
     # Re-enable when option is actually implemented
@@ -147,11 +165,11 @@ def _build_parser():
     # "-t", "--task-id", action="store", help="select a specific task to be processed"
     # )
     g_bids.add_argument(
-        "--bids-filter-file",
-        dest="bids_filters",
-        action="store",
+        '--bids-filter-file',
+        dest='bids_filters',
+        action='store',
         type=BIDSFilter,
-        metavar="FILE",
+        metavar='FILE',
         help=(
             "A JSON file describing custom BIDS input filters using PyBIDS. "
             "For further details, please check out "
@@ -161,78 +179,82 @@ def _build_parser():
         ),
     )
     g_bids.add_argument(
-        "-d",
-        "--derivatives",
-        action="store",
-        metavar="PATH",
-        type=Path,
-        nargs="*",
-        help="Search PATH(s) for pre-computed derivatives.",
+        '-d',
+        '--derivatives',
+        action=ToDict,
+        metavar='PACKAGE=PATH',
+        type=str,
+        nargs='+',
+        help=(
+            'Search PATH(s) for pre-computed derivatives. '
+            'These may be provided as named folders '
+            '(e.g., `--derivatives smriprep=/path/to/smriprep`).'
+        ),
     )
     g_bids.add_argument(
-        "--bids-database-dir",
-        metavar="PATH",
+        '--bids-database-dir',
+        metavar='PATH',
         type=Path,
         help=(
-            "Path to a PyBIDS database folder, for faster indexing "
-            "(especially useful for large datasets). "
-            "Will be created if not present."
+            'Path to a PyBIDS database folder, for faster indexing '
+            '(especially useful for large datasets). '
+            'Will be created if not present.'
         ),
     )
 
-    g_perfm = parser.add_argument_group("Options to handle performance")
+    g_perfm = parser.add_argument_group('Options to handle performance')
     g_perfm.add_argument(
-        "--nprocs",
-        "--nthreads",
-        "--n_cpus",
-        "--n-cpus",
-        dest="nprocs",
-        action="store",
+        '--nprocs',
+        '--nthreads',
+        '--n_cpus',
+        '--n-cpus',
+        dest='nprocs',
+        action='store',
         type=PositiveInt,
-        help="maximum number of threads across all processes",
+        help='maximum number of threads across all processes',
     )
     g_perfm.add_argument(
-        "--omp-nthreads",
-        action="store",
+        '--omp-nthreads',
+        action='store',
         type=PositiveInt,
-        help="maximum number of threads per-process",
+        help='maximum number of threads per-process',
     )
     g_perfm.add_argument(
-        "--mem",
-        "--mem_mb",
-        "--mem-mb",
-        dest="memory_gb",
-        action="store",
+        '--mem',
+        '--mem_mb',
+        '--mem-mb',
+        dest='memory_gb',
+        action='store',
         type=_to_gb,
-        help="upper bound memory limit for ASLPrep processes",
+        help='upper bound memory limit for ASLPrep processes',
     )
     g_perfm.add_argument(
-        "--low-mem",
-        action="store_true",
-        help="attempt to reduce memory usage (will increase disk usage in working directory)",
+        '--low-mem',
+        action='store_true',
+        help='attempt to reduce memory usage (will increase disk usage in working directory)',
     )
     g_perfm.add_argument(
-        "--use-plugin",
-        "--nipype-plugin-file",
-        action="store",
-        metavar="FILE",
+        '--use-plugin',
+        '--nipype-plugin-file',
+        action='store',
+        metavar='FILE',
         type=IsFile,
-        help="nipype plugin configuration file",
+        help='nipype plugin configuration file',
     )
     g_perfm.add_argument(
-        "--sloppy",
-        action="store_true",
+        '--sloppy',
+        action='store_true',
         default=False,
-        help="Use low-quality tools for speed - TESTING ONLY",
+        help='Use low-quality tools for speed - TESTING ONLY',
     )
 
-    g_subset = parser.add_argument_group("Options for performing only a subset of the workflow")
-    g_subset.add_argument("--anat-only", action="store_true", help="run anatomical workflows only")
+    g_subset = parser.add_argument_group('Options for performing only a subset of the workflow')
+    g_subset.add_argument('--anat-only', action='store_true', help='run anatomical workflows only')
     g_subset.add_argument(
-        "--level",
-        action="store",
-        default="full",
-        choices=["minimal", "resampling", "full"],
+        '--level',
+        action='store',
+        default='full',
+        choices=['minimal', 'resampling', 'full'],
         help=(
             "Processing level; may be 'minimal' (nothing that can be recomputed), "
             "'resampling' (recomputable targets that aid in resampling) "
@@ -240,38 +262,38 @@ def _build_parser():
         ),
     )
     g_subset.add_argument(
-        "--boilerplate-only",
-        "--boilerplate_only",
-        action="store_true",
+        '--boilerplate-only',
+        '--boilerplate_only',
+        action='store_true',
         default=False,
-        help="generate boilerplate only",
+        help='generate boilerplate only',
     )
     g_subset.add_argument(
-        "--reports-only",
-        action="store_true",
+        '--reports-only',
+        action='store_true',
         default=False,
         help=(
             "only generate reports, don't run workflows. This will only rerun report "
-            "aggregation, not reportlet generation for specific nodes."
+            'aggregation, not reportlet generation for specific nodes.'
         ),
     )
 
-    g_conf = parser.add_argument_group("Workflow configuration")
+    g_conf = parser.add_argument_group('Workflow configuration')
     g_conf.add_argument(
-        "--ignore",
+        '--ignore',
         required=False,
-        action="store",
-        nargs="+",
+        action='store',
+        nargs='+',
         default=[],
-        choices=["fieldmaps", "sbref", "t2w", "flair", "fmap-jacobian"],
+        choices=['fieldmaps', 'sbref', 't2w', 'flair', 'fmap-jacobian'],
         help=(
-            "ignore selected aspects of the input dataset to disable corresponding "
-            "parts of the workflow (a space delimited list)"
+            'ignore selected aspects of the input dataset to disable corresponding '
+            'parts of the workflow (a space delimited list)'
         ),
     )
     g_conf.add_argument(
-        "--output-spaces",
-        nargs="*",
+        '--output-spaces',
+        nargs='*',
         action=OutputReferencesAction,
         help="""\
 Standard and non-standard spaces to resample anatomical and functional images to. \
@@ -285,334 +307,352 @@ the spatial normalization. To generate no ASL outputs, use this option without s
 any spatial references.""",
     )
     g_conf.add_argument(
-        "--longitudinal",
-        action="store_true",
-        help="treat dataset as longitudinal - may increase runtime",
+        '--longitudinal',
+        action='store_true',
+        help='treat dataset as longitudinal - may increase runtime',
     )
 
     g_conf.add_argument(
-        "--asl2t1w-init",
-        action="store",
-        default="register",
-        choices=["register", "header"],
+        '--asl2anat-init',
+        action='store',
+        choices=['auto', 't1w', 't2w', 'header'],
+        default='auto',
         help=(
-            'Either "register" (the default) to initialize volumes at center or "header" '
-            "to use the header information when coregistering ASL to T1w images."
+            'Method of initial ASL to anatomical coregistration. If `auto`, a T2w image is used '
+            'if available, otherwise the T1w image. `t1w` forces use of the T1w, `t2w` forces use '
+            'of the T2w, and `header` uses the BOLD header information without an initial '
+            'registration.'
         ),
     )
     g_conf.add_argument(
-        "--asl2t1w-dof",
-        action="store",
+        '--asl2anat-dof',
+        action='store',
         default=6,
         choices=[6, 9, 12],
         type=int,
         help=(
-            "Degrees of freedom when registering ASL to T1w images. "
-            "6 degrees (rotation and translation) are used by default."
+            'Degrees of freedom when registering ASL to anatomical images. '
+            '6 degrees (rotation and translation) are used by default.'
         ),
     )
 
     g_use_bbr = g_conf.add_mutually_exclusive_group()
     g_use_bbr.add_argument(
-        "--force-bbr",
-        action="store_true",
-        dest="use_bbr",
+        '--force-bbr',
+        action='store_true',
+        dest='use_bbr',
         default=False,
-        help="Always use boundary-based registration (no goodness-of-fit checks)",
+        help='Always use boundary-based registration (no goodness-of-fit checks)',
     )
     g_use_bbr.add_argument(
-        "--force-no-bbr",
-        action="store_false",
-        dest="use_bbr",
+        '--force-no-bbr',
+        action='store_false',
+        dest='use_bbr',
         default=None,
-        help="Do not use boundary-based registration (no goodness-of-fit checks)",
+        help='Do not use boundary-based registration (no goodness-of-fit checks)',
     )
     g_conf.add_argument(
-        "--dummy-scans",
+        '--dummy-scans',
         required=False,
-        action="store",
+        action='store',
         default=None,
         type=int,
         help=(
-            "Number of non-steady-state volumes. "
-            "Note that this indicates the number of volumes, not the number of control-label "
-            "pairs in the ASL file."
+            'Number of non-steady-state volumes. '
+            'Note that this indicates the number of volumes, not the number of control-label '
+            'pairs in the ASL file.'
         ),
     )
     g_conf.add_argument(
-        "--random-seed",
-        dest="_random_seed",
-        action="store",
+        '--random-seed',
+        dest='_random_seed',
+        action='store',
         type=int,
         default=None,
-        help="Initialize the random seed for the workflow",
+        help='Initialize the random seed for the workflow',
     )
 
     g_use_ge = g_conf.add_mutually_exclusive_group()
     g_use_ge.add_argument(
-        "--force-ge",
-        action="store_true",
-        dest="use_ge",
+        '--force-ge',
+        action='store_true',
+        dest='use_ge',
         default=None,
-        help="Always use boundary-based registration (no goodness-of-fit checks)",
+        help='Always use boundary-based registration (no goodness-of-fit checks)',
     )
     g_use_ge.add_argument(
-        "--force-no-ge",
-        action="store_false",
-        dest="use_ge",
+        '--force-no-ge',
+        action='store_false',
+        dest='use_ge',
         default=None,
-        help="Do not use boundary-based registration (no goodness-of-fit checks)",
+        help='Do not use boundary-based registration (no goodness-of-fit checks)',
     )
 
     g_conf.add_argument(
-        "--m0_scale",
+        '--m0_scale',
         required=False,
-        action="store",
+        action='store',
         default=1,
         type=float,
         help=(
-            "Relative scale between ASL and M0. "
-            "M0 scans are multiplied by m0_scale before calculating CBF. "
-            "It is important to note, however, that BIDS expects ASL and M0 data to scaled in "
-            "the raw dataset, so this parameter should only be used if your dataset does not "
-            "have pre-scaled data."
+            'Relative scale between ASL and M0. '
+            'M0 scans are multiplied by m0_scale before calculating CBF. '
+            'It is important to note, however, that BIDS expects ASL and M0 data to scaled in '
+            'the raw dataset, so this parameter should only be used if your dataset does not '
+            'have pre-scaled data.'
         ),
     )
     g_conf.add_argument(
-        "--smooth_kernel",
-        action="store",
+        '--smooth_kernel',
+        action='store',
         default=5,
         type=float,
-        help="Smoothing kernel for the M0 image(s)",
+        help='Smoothing kernel for the M0 image(s)',
     )
     g_conf.add_argument(
-        "--scorescrub",
-        action="store_true",
+        '--scorescrub',
+        action='store_true',
         default=False,
         help="Apply Sudipto Dolui's algorithms for denoising CBF",
     )
     g_conf.add_argument(
-        "--basil",
-        action="store_true",
+        '--basil',
+        action='store_true',
         default=False,
         help="FSL's CBF computation with spatial regularization and partial volume correction",
     )
 
-    g_outputs = parser.add_argument_group("Options for modulating outputs")
+    g_outputs = parser.add_argument_group('Options for modulating outputs')
     g_outputs.add_argument(
-        "--medial-surface-nan",
+        '--aggregate-session-reports',
+        dest='aggr_ses_reports',
+        action='store',
+        type=PositiveInt,
+        default=4,
+        help="Maximum number of sessions aggregated in one subject's visual report. "
+        'If exceeded, visual reports are split by session.',
+    )
+    g_outputs.add_argument(
+        '--medial-surface-nan',
         required=False,
-        action="store_true",
+        action='store_true',
         default=False,
         help=(
-            "Replace medial wall values with NaNs on functional GIFTI files. "
-            "Only performed for GIFTI files mapped to a freesurfer subject "
-            "(fsaverage or fsnative)."
+            'Replace medial wall values with NaNs on functional GIFTI files. '
+            'Only performed for GIFTI files mapped to a freesurfer subject '
+            '(fsaverage or fsnative).'
         ),
     )
     g_conf.add_argument(
-        "--project-goodvoxels",
+        '--project-goodvoxels',
         required=False,
-        action="store_true",
+        action='store_true',
         default=False,
         help=(
-            "Exclude voxels whose timeseries have locally high coefficient of variation "
-            "from surface resampling. "
-            "Only performed for GIFTI files mapped to a freesurfer subject "
-            "(fsaverage or fsnative)."
+            'Exclude voxels whose timeseries have locally high coefficient of variation '
+            'from surface resampling. '
+            'Only performed for GIFTI files mapped to a freesurfer subject '
+            '(fsaverage or fsnative).'
         ),
     )
     g_outputs.add_argument(
-        "--md-only-boilerplate",
-        action="store_true",
+        '--md-only-boilerplate',
+        action='store_true',
         default=False,
-        help="Skip generation of HTML and LaTeX formatted citation with pandoc",
+        help='Skip generation of HTML and LaTeX formatted citation with pandoc',
     )
     g_outputs.add_argument(
-        "--cifti-output",
-        nargs="?",
-        const="91k",
+        '--cifti-output',
+        nargs='?',
+        const='91k',
         default=False,
-        choices=("91k", "170k"),
+        choices=('91k', '170k'),
         type=str,
         help=(
-            "Output preprocessed BOLD as a CIFTI dense timeseries. "
-            "Optionally, the number of grayordinate can be specified "
-            "(default is 91k, which equates to 2mm resolution)"
+            'Output preprocessed BOLD as a CIFTI dense timeseries. '
+            'Optionally, the number of grayordinate can be specified '
+            '(default is 91k, which equates to 2mm resolution)'
         ),
     )
     g_outputs.add_argument(
-        "--no-msm",
-        action="store_false",
-        dest="run_msmsulc",
-        help="Disable Multimodal Surface Matching surface registration.",
+        '--no-msm',
+        action='store_false',
+        dest='run_msmsulc',
+        help='Disable Multimodal Surface Matching surface registration.',
     )
 
     #  ANTs options
-    g_ants = parser.add_argument_group("Specific options for ANTs registrations")
+    g_ants = parser.add_argument_group('Specific options for ANTs registrations')
     g_ants.add_argument(
-        "--skull-strip-template",
-        default="OASIS30ANTs",
+        '--skull-strip-template',
+        default='OASIS30ANTs',
         type=Reference.from_string,
-        help="select a template for skull-stripping with antsBrainExtraction",
+        help='select a template for skull-stripping with antsBrainExtraction',
     )
     g_ants.add_argument(
-        "--skull-strip-fixed-seed",
-        action="store_true",
+        '--skull-strip-fixed-seed',
+        action='store_true',
         help=(
-            "do not use a random seed for skull-stripping - will ensure "
-            "run-to-run replicability when used with --omp-nthreads 1 and "
-            "matching --random-seed <int>"
+            'do not use a random seed for skull-stripping - will ensure '
+            'run-to-run replicability when used with --omp-nthreads 1 and '
+            'matching --random-seed <int>'
         ),
     )
     g_ants.add_argument(
-        "--skull-strip-t1w",
-        action="store",
-        choices=("auto", "skip", "force"),
-        default="force",
+        '--skull-strip-t1w',
+        action='store',
+        choices=('auto', 'skip', 'force'),
+        default='force',
         help=(
             "determiner for T1-weighted skull stripping ('force' ensures skull "
             "stripping, 'skip' ignores skull stripping, and 'auto' applies brain extraction "
-            "based on the outcome of a heuristic to check whether the brain is already masked)."
+            'based on the outcome of a heuristic to check whether the brain is already masked).'
         ),
     )
 
     # Fieldmap options
-    g_fmap = parser.add_argument_group("Specific options for handling fieldmaps")
+    g_fmap = parser.add_argument_group('Specific options for handling fieldmaps')
     g_fmap.add_argument(
-        "--fmap-bspline",
-        action="store_true",
+        '--fmap-bspline',
+        action='store_true',
         default=False,
-        help="fit a B-Spline field using least-squares (experimental)",
+        help='fit a B-Spline field using least-squares (experimental)',
     )
     g_fmap.add_argument(
-        "--fmap-no-demean",
-        action="store_false",
+        '--fmap-no-demean',
+        action='store_false',
         default=True,
-        help="do not remove median (within mask) from fieldmap",
+        help='do not remove median (within mask) from fieldmap',
     )
 
     # SyN-unwarp options
-    g_syn = parser.add_argument_group("Specific options for SyN distortion correction")
+    g_syn = parser.add_argument_group('Specific options for SyN distortion correction')
     g_syn.add_argument(
-        "--use-syn-sdc",
-        action="store_true",
+        '--use-syn-sdc',
+        action='store_true',
         default=False,
-        help="EXPERIMENTAL: Use fieldmap-free distortion correction",
+        help='EXPERIMENTAL: Use fieldmap-free distortion correction',
     )
     g_syn.add_argument(
-        "--force-syn",
-        action="store_true",
+        '--force-syn',
+        action='store_true',
         default=False,
         help=(
-            "EXPERIMENTAL/TEMPORARY: Use SyN correction in addition to "
-            "fieldmap correction, if available"
+            'EXPERIMENTAL/TEMPORARY: Use SyN correction in addition to '
+            'fieldmap correction, if available'
         ),
     )
 
     # FreeSurfer options
-    g_fs = parser.add_argument_group("Specific options for FreeSurfer preprocessing")
+    g_fs = parser.add_argument_group('Specific options for FreeSurfer preprocessing')
     g_fs.add_argument(
-        "--fs-license-file",
-        metavar="FILE",
+        '--fs-license-file',
+        metavar='FILE',
         type=IsFile,
         help=(
-            "Path to FreeSurfer license key file. Get it (for free) by registering "
-            "at https://surfer.nmr.mgh.harvard.edu/registration.html"
+            'Path to FreeSurfer license key file. Get it (for free) by registering '
+            'at https://surfer.nmr.mgh.harvard.edu/registration.html'
         ),
     )
     g_fs.add_argument(
-        "--fs-subjects-dir",
-        metavar="PATH",
+        '--fs-subjects-dir',
+        metavar='PATH',
         type=Path,
         help=(
-            "Path to existing FreeSurfer subjects directory to reuse. "
-            "(default: OUTPUT_DIR/freesurfer)"
+            'Path to existing FreeSurfer subjects directory to reuse. '
+            '(default: OUTPUT_DIR/freesurfer)'
         ),
     )
     g_fs.add_argument(
-        "--no-submm-recon",
-        action="store_false",
-        dest="hires",
-        help="Disable sub-millimeter (hires) reconstruction",
+        '--no-submm-recon',
+        action='store_false',
+        dest='hires',
+        help='Disable sub-millimeter (hires) reconstruction',
     )
     g_fs.add_argument(
-        "--fs-no-reconall",
-        action="store_false",
-        dest="run_reconall",
-        help="Disable FreeSurfer surface preprocessing.",
+        '--fs-no-reconall',
+        action='store_false',
+        dest='run_reconall',
+        help='Disable FreeSurfer surface preprocessing.',
+    )
+    g_fs.add_argument(
+        '--fs-no-resume',
+        action='store_true',
+        dest='fs_no_resume',
+        help='EXPERT: Import pre-computed FreeSurfer reconstruction without resuming. '
+        'The user is responsible for ensuring that all necessary files are present.',
     )
 
-    g_other = parser.add_argument_group("Other options")
-    g_other.add_argument("--version", action="version", version=verstr)
+    g_other = parser.add_argument_group('Other options')
+    g_other.add_argument('--version', action='version', version=verstr)
     g_other.add_argument(
-        "-v",
-        "--verbose",
-        dest="verbose_count",
-        action="count",
+        '-v',
+        '--verbose',
+        dest='verbose_count',
+        action='count',
         default=0,
-        help="increases log verbosity for each occurrence, debug level is -vvv",
+        help='increases log verbosity for each occurrence, debug level is -vvv',
     )
     g_other.add_argument(
-        "-w",
-        "--work-dir",
-        action="store",
+        '-w',
+        '--work-dir',
+        action='store',
         type=Path,
-        default=Path("work").absolute(),
-        help="path where intermediate results should be stored",
+        default=Path('work').absolute(),
+        help='path where intermediate results should be stored',
     )
     g_other.add_argument(
-        "--clean-workdir",
-        action="store_true",
+        '--clean-workdir',
+        action='store_true',
         default=False,
         help=(
-            "Clears working directory of contents. Use of this flag is not"
-            "recommended when running concurrent processes of aslprep."
+            'Clears working directory of contents. Use of this flag is not'
+            'recommended when running concurrent processes of aslprep.'
         ),
     )
     g_other.add_argument(
-        "--resource-monitor",
-        action="store_true",
+        '--resource-monitor',
+        action='store_true',
         default=False,
         help="enable Nipype's resource monitoring to keep track of memory and CPU usage",
     )
     g_other.add_argument(
-        "--config-file",
-        action="store",
-        metavar="FILE",
+        '--config-file',
+        action='store',
+        metavar='FILE',
         help=(
-            "Use pre-generated configuration file. Values in file will be overridden "
-            "by command-line arguments."
+            'Use pre-generated configuration file. Values in file will be overridden '
+            'by command-line arguments.'
         ),
     )
     g_other.add_argument(
-        "--write-graph",
-        action="store_true",
+        '--write-graph',
+        action='store_true',
         default=False,
-        help="Write workflow graph.",
+        help='Write workflow graph.',
     )
     g_other.add_argument(
-        "--stop-on-first-crash",
-        action="store_true",
+        '--stop-on-first-crash',
+        action='store_true',
         default=False,
-        help="Force stopping on first crash, even if a work directory was specified.",
+        help='Force stopping on first crash, even if a work directory was specified.',
     )
     g_other.add_argument(
-        "--notrack",
-        action="store_true",
+        '--notrack',
+        action='store_true',
         default=False,
         help=(
-            "Opt-out of sending tracking information of this run to "
-            "the aslprep developers. This information helps to "
-            "improve aslprep and provides an indicator of real "
-            "world usage crucial for obtaining funding."
+            'Opt-out of sending tracking information of this run to '
+            'the aslprep developers. This information helps to '
+            'improve aslprep and provides an indicator of real '
+            'world usage crucial for obtaining funding.'
         ),
     )
     g_other.add_argument(
-        "--debug",
-        action="store",
-        nargs="+",
-        choices=config.DEBUG_MODES + ("all",),
+        '--debug',
+        action='store',
+        nargs='+',
+        choices=config.DEBUG_MODES + ('all',),
         help="Debug mode(s) to enable. 'all' is alias for all available modes.",
     )
 
@@ -628,7 +668,7 @@ https://aslprep.readthedocs.io/en/latest/faq.html#upgrading""",
 
     _blist = is_flagged()
     if _blist[0]:
-        _reason = _blist[1] or "unknown"
+        _reason = _blist[1] or 'unknown'
         print(
             f"""\
 WARNING: Version {config.environment.version} of aslprep (current) has been FLAGGED
@@ -650,17 +690,17 @@ def parse_args(args=None, namespace=None):
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)
     if opts.config_file:
-        skip = {} if opts.reports_only else {"execution": ("run_uuid",)}
+        skip = {} if opts.reports_only else {'execution': ('run_uuid',)}
         config.load(opts.config_file, skip=skip, init=False)
-        config.loggers.cli.info(f"Loaded previous configuration file {opts.config_file}")
+        config.loggers.cli.info(f'Loaded previous configuration file {opts.config_file}')
 
     config.execution.log_level = int(max(25 - 5 * opts.verbose_count, logging.DEBUG))
-    config.from_dict(vars(opts), init=["nipype"])
+    config.from_dict(vars(opts), init=['nipype'])
 
     # Initialize --output-spaces if not defined
     if config.execution.output_spaces is None:
         config.execution.output_spaces = SpatialReferences(
-            [Reference("MNI152NLin2009cAsym", {"res": "native"})]
+            [Reference('MNI152NLin2009cAsym', {'res': 'native'})]
         )
 
     # Retrieve logging level
@@ -671,13 +711,13 @@ def parse_args(args=None, namespace=None):
         import yaml
 
         with open(opts.use_plugin) as f:
-            plugin_settings = yaml.load(f, Loader=yaml.FullLoader)
-        _plugin = plugin_settings.get("plugin")
+            plugin_settings = yaml.safe_load(f)
+        _plugin = plugin_settings.get('plugin')
         if _plugin:
             config.nipype.plugin = _plugin
-            config.nipype.plugin_args = plugin_settings.get("plugin_args", {})
+            config.nipype.plugin_args = plugin_settings.get('plugin_args', {})
             config.nipype.nprocs = opts.nprocs or config.nipype.plugin_args.get(
-                "n_procs", config.nipype.nprocs
+                'n_procs', config.nipype.nprocs
             )
 
     # Resource management options
@@ -685,12 +725,12 @@ def parse_args(args=None, namespace=None):
     # This may need to be revisited if people try to use batch plugins
     if 1 < config.nipype.nprocs < config.nipype.omp_nthreads:
         build_log.warning(
-            f"Per-process threads (--omp-nthreads={config.nipype.omp_nthreads}) exceed "
-            f"total threads (--nthreads/--n_cpus={config.nipype.nprocs})"
+            f'Per-process threads (--omp-nthreads={config.nipype.omp_nthreads}) exceed '
+            f'total threads (--nthreads/--n_cpus={config.nipype.nprocs})'
         )
 
     # Inform the user about the risk of using brain-extracted images
-    if config.workflow.skull_strip_t1w == "auto":
+    if config.workflow.skull_strip_t1w == 'auto':
         build_log.warning(
             """\
 Option ``--skull-strip-t1w`` was set to 'auto'. A heuristic will be \
@@ -710,7 +750,7 @@ applied."""
     version = config.environment.version
 
     if config.execution.fs_subjects_dir is None:
-        config.execution.fs_subjects_dir = output_dir / "sourcedata" / "freesurfer"
+        config.execution.fs_subjects_dir = output_dir / 'sourcedata' / 'freesurfer'
 
     if config.execution.aslprep_dir is None:
         config.execution.aslprep_dir = output_dir
@@ -719,9 +759,9 @@ applied."""
     if opts.clean_workdir and work_dir.exists():
         from niworkflows.utils.misc import clean_directory
 
-        build_log.info(f"Clearing previous aslprep working directory: {work_dir}")
+        build_log.info(f'Clearing previous aslprep working directory: {work_dir}')
         if not clean_directory(work_dir):
-            build_log.warning(f"Could not clear all contents of working directory: {work_dir}")
+            build_log.warning(f'Could not clear all contents of working directory: {work_dir}')
 
     # Update the config with an empty dict to trigger initialization of all config
     # sections (we used `init=False` above).
@@ -731,29 +771,35 @@ applied."""
 
     # Ensure input and output folders are not the same
     if output_dir == bids_dir:
-        rec_path = bids_dir / "derivatives" / f"aslprep-{version.split('+')[0]}"
+        rec_path = bids_dir / 'derivatives' / f"aslprep-{version.split('+')[0]}"
         parser.error(
-            "The selected output folder is the same as the input BIDS folder. "
-            f"Please modify the output path (suggestion: {rec_path})."
+            'The selected output folder is the same as the input BIDS folder. '
+            f'Please modify the output path (suggestion: {rec_path}).'
         )
 
     if bids_dir in work_dir.parents:
         parser.error(
-            "The selected working directory is a subdirectory of the input BIDS folder. "
-            "Please modify the output path."
+            'The selected working directory is a subdirectory of the input BIDS folder. '
+            'Please modify the output path.'
         )
 
     # Validate inputs
     if not opts.skip_bids_validation:
-        from aslprep.utils.bids import validate_input_dir
+        from fmriprep.utils.bids import validate_input_dir
 
         build_log.info(
-            "Making sure the input data is BIDS compliant (warnings can be ignored in most cases)."
+            'Making sure the input data is BIDS compliant (warnings can be ignored in most '
+            'cases).'
         )
-        validate_input_dir(config.environment.exec_env, opts.bids_dir, opts.participant_label)
+        validate_input_dir(
+            config.environment.exec_env,
+            opts.bids_dir,
+            opts.participant_label,
+            need_T1w=not config.execution.derivatives,
+        )
 
     # Setup directories
-    config.execution.log_dir = config.execution.aslprep_dir / "logs"
+    config.execution.log_dir = config.execution.aslprep_dir / 'logs'
     # Check and create output and working directories
     config.execution.log_dir.mkdir(exist_ok=True, parents=True)
     output_dir.mkdir(exist_ok=True, parents=True)

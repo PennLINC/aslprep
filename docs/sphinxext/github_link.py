@@ -1,7 +1,8 @@
 """
-This script comes from scikit-learn:
+This vendored script comes from scikit-learn:
 https://github.com/scikit-learn/scikit-learn/blob/master/doc/sphinxext/github_link.py
 """
+
 import inspect
 import os
 import subprocess
@@ -9,16 +10,16 @@ import sys
 from functools import partial
 from operator import attrgetter
 
-REVISION_CMD = "git rev-parse --short HEAD"
+REVISION_CMD = 'git rev-parse --short HEAD'
 
 
 def _get_git_revision():
     try:
         revision = subprocess.check_output(REVISION_CMD.split()).strip()
     except (subprocess.CalledProcessError, OSError):
-        print("Failed to execute git to get revision")
+        print('Failed to execute git to get revision')
         return None
-    return revision.decode("utf-8")
+    return revision.decode('utf-8')
 
 
 def _linkcode_resolve(domain, info, package, url_fmt, revision):
@@ -38,17 +39,18 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
 
     if revision is None:
         return
-    if domain not in ("py", "pyx"):
+    if domain not in ('py', 'pyx'):
         return
-    if not info.get("module") or not info.get("fullname"):
+    if not info.get('module') or not info.get('fullname'):
         return
 
-    class_name = info["fullname"].split(".")[0]
-    if type(class_name) != str:
-        # Python 2 only
-        class_name = class_name.encode("utf-8")
-    module = __import__(info["module"], fromlist=[class_name])
-    obj = attrgetter(info["fullname"])(module)
+    class_name = info['fullname'].split('.')[0]
+    module = __import__(info['module'], fromlist=[class_name])
+    obj = attrgetter(info['fullname'])(module)
+
+    # Unwrap the object to get the correct source
+    # file in case that is wrapped by a decorator
+    obj = inspect.unwrap(obj)
 
     try:
         fn = inspect.getsourcefile(obj)
@@ -66,7 +68,7 @@ def _linkcode_resolve(domain, info, package, url_fmt, revision):
     try:
         lineno = inspect.getsourcelines(obj)[1]
     except Exception:
-        lineno = ""
+        lineno = ''
     return url_fmt.format(revision=revision, package=package, path=fn, lineno=lineno)
 
 

@@ -245,7 +245,7 @@ Interpolation uses a Lanczos kernel.
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-carpetplot_asl.svg
 
    The preprocessed ASL with label and control.
-   The signal plots above the carpet plot are framewise diplacement (FD) and DVRAS.
+   The signal plots above the carpet plot are framewise displacement (FD) and DVRAS.
 
 
 .. _cbf_preproc:
@@ -648,8 +648,8 @@ ASL and CBF to T1w registration
    wf = init_bold_reg_wf(
       freesurfer=True,
       use_bbr=True,
-      bold2t1w_dof=6,
-      bold2t1w_init="register",
+      bold2anat_dof=6,
+      bold2anat_init="auto",
       mem_gb=1,
       omp_nthreads=1,
       name="bold_reg_wf",

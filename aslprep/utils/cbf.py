@@ -9,27 +9,27 @@ from scipy.stats import median_abs_deviation
 from aslprep import config
 
 
-def _weightfun(x, wfun="huber"):
+def _weightfun(x, wfun='huber'):
     """Get weight fun and tuner."""
-    if wfun == "andrews":
+    if wfun == 'andrews':
         tuner = 1.339
         weight = (np.abs(x) < np.pi) * np.sin(x)
-    elif wfun == "bisquare":
+    elif wfun == 'bisquare':
         tuner = 4.685
         weight = (np.abs(x) < 1) * np.power((1 - np.power(x, 2)), 2)
-    elif wfun == "cauchy":
+    elif wfun == 'cauchy':
         tuner = 2.385
         weight = 1 / (1 + np.power(x, 2))
-    elif wfun == "logistic":
+    elif wfun == 'logistic':
         tuner = 1.205
         weight = np.tanh(x) / x
-    elif wfun == "ols":
+    elif wfun == 'ols':
         tuner = 1
         weight = np.repeat(1, len(x))
-    elif wfun == "talwar":
+    elif wfun == 'talwar':
         tuner = 2.795
         weight = 1 * (np.abs(x) < 1)
-    elif wfun == "welsch":
+    elif wfun == 'welsch':
         tuner = 2.985
         weight = np.exp(-(np.power(x, 2)))
     else:
@@ -38,24 +38,24 @@ def _weightfun(x, wfun="huber"):
     return weight, tuner
 
 
-def _tune(wfun="huber"):
+def _tune(wfun='huber'):
     """Get weight fun and tuner.
 
     But wait, you might say, the docstring makes no sense! Correct.
     """
-    if wfun == "andrews":
+    if wfun == 'andrews':
         tuner = 1.339
-    elif wfun == "bisquare":
+    elif wfun == 'bisquare':
         tuner = 4.685
-    elif wfun == "cauchy":
+    elif wfun == 'cauchy':
         tuner = 2.385
-    elif wfun == "logistic":
+    elif wfun == 'logistic':
         tuner = 1.205
-    elif wfun == "ols":
+    elif wfun == 'ols':
         tuner = 1
-    elif wfun == "talwar":
+    elif wfun == 'talwar':
         tuner = 2.795
-    elif wfun == "welsch":
+    elif wfun == 'welsch':
         tuner = 2.985
     else:
         tuner = 1.345
@@ -280,7 +280,7 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     Parameters
     ----------
     cbf_ts
-       nd array of 3D or 4D computed cbf
+       n-dimensional array of 3D or 4D computed cbf
     gm,wm,csf
        numpy array of grey matter, whitematter, and csf
     mask
@@ -329,7 +329,7 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
             + (n_csf_voxels * np.var(R[csf == 1]))
         )
 
-    config.loggers.utils.warning(f"SCORE retains {np.sum(indx == 0)}/{indx.size} volumes")
+    config.loggers.utils.warning(f'SCORE retains {np.sum(indx == 0)}/{indx.size} volumes')
     cbfts_recon = cbfts[:, :, :, indx == 0]
     cbfts_recon1 = np.zeros_like(cbfts_recon)
     for i in range(cbfts_recon.shape[3]):
@@ -346,7 +346,7 @@ def _robust_fit(
     modrobprior,
     lmd=0,
     localprior=0,
-    wfun="huber",
+    wfun='huber',
     tune=1.345,
     flagstd=1,
     flagmodrobust=1,
@@ -370,12 +370,12 @@ def _robust_fit(
     iter_num = 0
     interlim = 10
     while iter_num < interlim:
-        print("iteration  ", iter_num, "\n")
+        print('iteration  ', iter_num, '\n')
         iter_num = iter_num + 1
         check1 = np.subtract(np.abs(b - b0), (D * np.maximum(np.abs(b), np.abs(b0))))
         check1[check1 > 0] = 0
         if any(check1):
-            print(" \n converged after ", iter_num, "iterations\n")
+            print(' \n converged after ', iter_num, 'iterations\n')
             break
         r = Y - X * (np.tile(b, (dimcbf[0], 1)))
         radj = r * adjfactor / sw
@@ -399,13 +399,13 @@ def _robust_fit(
     return b
 
 
-def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun="huber", thresh=0.7):
+def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber', thresh=0.7):
     """Apply SCRUB algorithm to CBF data.
 
     Parameters
     ----------
     cbf_ts
-       nd array of 3D or 4D computed cbf
+       n-dimensional array of 3D or 4D computed cbf
     gm,wm,csf
        numpy array of grey matter, whitematter, and csf
     mask
@@ -555,10 +555,12 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
     .. footbibliography::
     """
     n_voxels, n_plds = plds.shape
-    assert deltam_arr.shape == plds.shape, f"{deltam_arr.shape} != {plds.shape}"
+    if deltam_arr.shape != plds.shape:
+        raise ValueError(f'{deltam_arr.shape} != {plds.shape}')
 
     # Beginning of auxil_asl_gen_wsum
-    assert lds.size == n_plds, f"{lds.size} != {n_plds}"
+    if lds.size != n_plds:
+        raise ValueError(f'{lds.size} != {n_plds}')
 
     att_arr = np.empty(n_voxels)
     for i_voxel in range(n_voxels):
@@ -572,8 +574,8 @@ def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
             0.001,
         )
 
-        sig_sum = np.zeros((transit_times.size))
-        sig_pld_sum = np.zeros((transit_times.size))
+        sig_sum = np.zeros(transit_times.size)
+        sig_pld_sum = np.zeros(transit_times.size)
 
         for j_pld in range(n_plds):
             pld = plds_by_voxel[j_pld]
@@ -694,13 +696,15 @@ def estimate_cbf_pcasl_multipld(
     """
     n_voxels, n_volumes = deltam_arr.shape
     n_voxels_pld, n_plds = plds.shape
-    assert n_voxels_pld == n_voxels
+    if n_voxels_pld != n_voxels:
+        raise ValueError(f'{n_voxels_pld} != {n_voxels}')
+
     first_voxel_plds = plds[0, :]
 
     if n_plds != n_volumes:
         raise ValueError(
-            f"Number of PostLabelingDelays ({n_plds}) does not match "
-            f"number of delta-M volumes ({n_volumes})."
+            f'Number of PostLabelingDelays ({n_plds}) does not match '
+            f'number of delta-M volumes ({n_volumes}).'
         )
 
     # Formula from Fan 2017 (equation 2)
@@ -713,8 +717,8 @@ def estimate_cbf_pcasl_multipld(
     if tau.size > 1:
         if tau.size != n_plds:
             raise ValueError(
-                f"Number of LabelingDurations ({tau.size}) != "
-                f"number of PostLabelingDelays ({n_plds})"
+                f'Number of LabelingDurations ({tau.size}) != '
+                f'number of PostLabelingDelays ({n_plds})'
             )
 
         tau = tau[unique_pld_idx]
@@ -799,13 +803,13 @@ def estimate_t1(metadata):
         3: 1.65,
         7: 2.087,
     }
-    t1blood = T1BLOOD_DICT.get(metadata["MagneticFieldStrength"])
+    t1blood = T1BLOOD_DICT.get(metadata['MagneticFieldStrength'])
     if not t1blood:
         config.loggers.interface.warning(
             f"T1blood cannot be inferred for {metadata['MagneticFieldStrength']}T data. "
             "Defaulting to formula from Zhang et al. (2013)."
         )
-        t1blood = (110 * metadata["MagneticFieldStrength"] + 1316) / 1000
+        t1blood = (110 * metadata['MagneticFieldStrength'] + 1316) / 1000
 
     # TODO: Supplement with formula for other field strengths
     T1TISSUE_DICT = {
@@ -813,7 +817,7 @@ def estimate_t1(metadata):
         3: 1.607,
         7: 1.939,
     }
-    t1tissue = T1TISSUE_DICT.get(metadata["MagneticFieldStrength"])
+    t1tissue = T1TISSUE_DICT.get(metadata['MagneticFieldStrength'])
     if not t1tissue:
         raise ValueError(
             f"T1tissue cannot be inferred for {metadata['MagneticFieldStrength']}T data."

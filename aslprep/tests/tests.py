@@ -21,6 +21,7 @@
 #     https://www.nipreps.org/community/licensing/
 #
 """Utilities and mocks for testing and documentation building."""
+
 import os
 import shutil
 from contextlib import contextmanager
@@ -37,14 +38,14 @@ def mock_config():
     """Create a mock config for documentation and testing purposes."""
     from aslprep import config
 
-    _old_fs = os.getenv("FREESURFER_HOME")
+    _old_fs = os.getenv('FREESURFER_HOME')
     if not _old_fs:
-        os.environ["FREESURFER_HOME"] = mkdtemp()
+        os.environ['FREESURFER_HOME'] = mkdtemp()
 
-    filename = Path(load_data("../tests/data/config.toml"))
+    filename = Path(load_data('../tests/data/config.toml'))
     settings = loads(filename.read_text())
     for sectionname, configs in settings.items():
-        if sectionname != "environment":
+        if sectionname != 'environment':
             section = getattr(config, sectionname)
             section.load(configs, init=False)
     config.nipype.omp_nthreads = 1
@@ -53,7 +54,7 @@ def mock_config():
     config.init_spaces()
 
     config.execution.work_dir = Path(mkdtemp())
-    config.execution.bids_dir = load_data("../tests/data/ds000240").absolute()
+    config.execution.bids_dir = load_data('../tests/data/ds000240').absolute()
     config.execution.aslprep_dir = Path(mkdtemp())
     config.execution.init()
 
@@ -63,4 +64,4 @@ def mock_config():
     shutil.rmtree(config.execution.aslprep_dir)
 
     if not _old_fs:
-        del os.environ["FREESURFER_HOME"]
+        del os.environ['FREESURFER_HOME']

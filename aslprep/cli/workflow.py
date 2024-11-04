@@ -12,12 +12,12 @@ a hard-limited memory-scope.
 
 def build_workflow(config_file, retval):
     """Create the Nipype Workflow that supports the whole execution graph."""
-    from fmriprep.reports.core import generate_reports
     from fmriprep.utils.bids import check_pipeline_version
     from niworkflows.utils.bids import collect_participants
     from niworkflows.utils.misc import check_valid_fs_license
 
     from aslprep import config, data
+    from aslprep.reports.core import generate_reports
     from aslprep.utils.misc import check_deps
     from aslprep.workflows.base import init_aslprep_wf
 
@@ -26,30 +26,30 @@ def build_workflow(config_file, retval):
 
     version = config.environment.version
 
-    retval["return_code"] = 1
-    retval["workflow"] = None
+    retval['return_code'] = 1
+    retval['workflow'] = None
 
-    banner = [f"Running ASLPrep version {version}"]
-    notice_path = data.load.readable("NOTICE")
+    banner = [f'Running ASLPrep version {version}']
+    notice_path = data.load.readable('NOTICE')
     if notice_path.exists():
-        banner[0] += "\n"
+        banner[0] += '\n'
         banner += [f"License NOTICE {'#' * 50}"]
-        banner += [f"ASLPrep {version}"]
+        banner += [f'ASLPrep {version}']
         banner += notice_path.read_text().splitlines(keepends=False)[1:]
-        banner += ["#" * len(banner[1])]
+        banner += ['#' * len(banner[1])]
     build_log.log(25, f"\n{' ' * 9}".join(banner))
 
     # warn if older results exist: check for dataset_description.json in output folder
     msg = check_pipeline_version(
-        "ASLPrep",
+        'ASLPrep',
         version,
-        config.execution.aslprep_dir / "dataset_description.json",
+        config.execution.aslprep_dir / 'dataset_description.json',
     )
     if msg is not None:
         build_log.warning(msg)
 
     # Please note this is the input folder's dataset_description.json
-    dset_desc_path = config.execution.bids_dir / "dataset_description.json"
+    dset_desc_path = config.execution.bids_dir / 'dataset_description.json'
     if dset_desc_path.exists():
         from hashlib import sha256
 
@@ -65,34 +65,40 @@ def build_workflow(config_file, retval):
     if config.execution.reports_only:
         from aslprep.data import load as load_data
 
-        build_log.log(25, "Running --reports-only on participants %s", ", ".join(subject_list))
-        retval["return_code"] = generate_reports(
+        build_log.log(25, 'Running --reports-only on participants %s', ', '.join(subject_list))
+        session_list = (
+            config.execution.bids_filters.get('asl', {}).get('session')
+            if config.execution.bids_filters
+            else None
+        )
+
+        retval['return_code'] = generate_reports(
             subject_list,
             config.execution.aslprep_dir,
             config.execution.run_uuid,
-            config=load_data("reports-spec.yml"),
-            packagename="aslprep",
+            session_list=session_list,
+            bootstrap_file=load_data('reports-spec.yml'),
         )
         return retval
 
     # Build main workflow
     init_msg = [
         "Building ASLPrep's workflow:",
-        f"BIDS dataset path: {config.execution.bids_dir}.",
-        f"Participant list: {subject_list}.",
-        f"Run identifier: {config.execution.run_uuid}.",
-        f"Output spaces: {config.execution.output_spaces}.",
+        f'BIDS dataset path: {config.execution.bids_dir}.',
+        f'Participant list: {subject_list}.',
+        f'Run identifier: {config.execution.run_uuid}.',
+        f'Output spaces: {config.execution.output_spaces}.',
     ]
 
     if config.execution.derivatives:
-        init_msg += [f"Searching for derivatives: {config.execution.derivatives}."]
+        init_msg += [f'Searching for derivatives: {config.execution.derivatives}.']
 
     if config.execution.fs_subjects_dir:
         init_msg += [f"Pre-run FreeSurfer's SUBJECTS_DIR: {config.execution.fs_subjects_dir}."]
 
     build_log.log(25, f"\n{' ' * 11}* ".join(init_msg))
 
-    retval["workflow"] = init_aslprep_wf()
+    retval['workflow'] = init_aslprep_wf()
 
     # Check for FS license after building the workflow
     if not check_valid_fs_license():
@@ -103,25 +109,25 @@ license file at several paths, in this order: 1) command line argument ``--fs-li
 2) ``$FS_LICENSE`` environment variable; and 3) the ``$FREESURFER_HOME/license.txt`` path. Get it \
 (for free) by registering at https://surfer.nmr.mgh.harvard.edu/registration.html"""
         )
-        retval["return_code"] = 126  # 126 == Command invoked cannot execute.
+        retval['return_code'] = 126  # 126 == Command invoked cannot execute.
         return retval
 
     # Check workflow for missing commands
-    missing = check_deps(retval["workflow"])
+    missing = check_deps(retval['workflow'])
     if missing:
         build_log.critical(
-            "Cannot run ASLPrep. Missing dependencies:%s",
-            "\n\t* ".join([""] + [f"{cmd} (Interface: {iface})" for iface, cmd in missing]),
+            'Cannot run ASLPrep. Missing dependencies:%s',
+            '\n\t* '.join([''] + [f'{cmd} (Interface: {iface})' for iface, cmd in missing]),
         )
-        retval["return_code"] = 127  # 127 == command not found.
+        retval['return_code'] = 127  # 127 == command not found.
         return retval
 
     config.to_filename(config_file)
     build_log.info(
-        "ASLPrep workflow graph with %d nodes built successfully.",
-        len(retval["workflow"]._get_all_nodes()),
+        'ASLPrep workflow graph with %d nodes built successfully.',
+        len(retval['workflow']._get_all_nodes()),
     )
-    retval["return_code"] = 0
+    retval['return_code'] = 0
     return retval
 
 
@@ -130,9 +136,9 @@ def build_boilerplate(config_file, workflow):
     from aslprep import config
 
     config.load(config_file)
-    logs_path = config.execution.aslprep_dir / "logs"
+    logs_path = config.execution.aslprep_dir / 'logs'
     boilerplate = workflow.visit_desc()
-    citation_files = {ext: logs_path / f"CITATION.{ext}" for ext in ("bib", "tex", "md", "html")}
+    citation_files = {ext: logs_path / f'CITATION.{ext}' for ext in ('bib', 'tex', 'md', 'html')}
 
     if boilerplate:
         # To please git-annex users and also to guarantee consistency
@@ -144,9 +150,9 @@ def build_boilerplate(config_file, workflow):
             except FileNotFoundError:
                 pass
 
-    citation_files["md"].write_text(boilerplate)
+    citation_files['md'].write_text(boilerplate)
 
-    if not config.execution.md_only_boilerplate and citation_files["md"].exists():
+    if not config.execution.md_only_boilerplate and citation_files['md'].exists():
         from shutil import copyfile
         from subprocess import CalledProcessError, TimeoutExpired, check_call
 
@@ -154,39 +160,39 @@ def build_boilerplate(config_file, workflow):
 
         # Generate HTML file resolving citations
         cmd = [
-            "pandoc",
-            "-s",
-            "--bibliography",
-            str(load_data("boilerplate.bib")),
-            "--citeproc",
-            "--metadata",
+            'pandoc',
+            '-s',
+            '--bibliography',
+            str(load_data('boilerplate.bib')),
+            '--citeproc',
+            '--metadata',
             'pagetitle="ASLPrep citation boilerplate"',
-            str(citation_files["md"]),
-            "-o",
-            str(citation_files["html"]),
+            str(citation_files['md']),
+            '-o',
+            str(citation_files['html']),
         ]
 
-        config.loggers.cli.info("Generating an HTML version of the citation boilerplate...")
+        config.loggers.cli.info('Generating an HTML version of the citation boilerplate...')
         try:
             check_call(cmd, timeout=10)
         except (FileNotFoundError, CalledProcessError, TimeoutExpired):
-            config.loggers.cli.warning("Could not generate CITATION.html file:\n%s", " ".join(cmd))
+            config.loggers.cli.warning('Could not generate CITATION.html file:\n%s', ' '.join(cmd))
 
         # Generate LaTex file resolving citations
         cmd = [
-            "pandoc",
-            "-s",
-            "--bibliography",
-            str(load_data("boilerplate.bib")),
-            "--natbib",
-            str(citation_files["md"]),
-            "-o",
-            str(citation_files["tex"]),
+            'pandoc',
+            '-s',
+            '--bibliography',
+            str(load_data('boilerplate.bib')),
+            '--natbib',
+            str(citation_files['md']),
+            '-o',
+            str(citation_files['tex']),
         ]
-        config.loggers.cli.info("Generating a LaTeX version of the citation boilerplate...")
+        config.loggers.cli.info('Generating a LaTeX version of the citation boilerplate...')
         try:
             check_call(cmd, timeout=10)
         except (FileNotFoundError, CalledProcessError, TimeoutExpired):
-            config.loggers.cli.warning("Could not generate CITATION.tex file:\n%s", " ".join(cmd))
+            config.loggers.cli.warning('Could not generate CITATION.tex file:\n%s', ' '.join(cmd))
         else:
-            copyfile(load_data("boilerplate.bib"), citation_files["bib"])
+            copyfile(load_data('boilerplate.bib'), citation_files['bib'])

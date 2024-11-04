@@ -11,17 +11,17 @@ from niworkflows.interfaces.fixes import (
 class _ApplyTransformsInputSpec(_FixTraitApplyTransformsInputSpec):
     # Nipype's version doesn't have GenericLabel
     interpolation = traits.Enum(
-        "Linear",
-        "NearestNeighbor",
-        "CosineWindowedSinc",
-        "WelchWindowedSinc",
-        "HammingWindowedSinc",
-        "LanczosWindowedSinc",
-        "MultiLabel",
-        "Gaussian",
-        "BSpline",
-        "GenericLabel",
-        argstr="%s",
+        'Linear',
+        'NearestNeighbor',
+        'CosineWindowedSinc',
+        'WelchWindowedSinc',
+        'HammingWindowedSinc',
+        'LanczosWindowedSinc',
+        'MultiLabel',
+        'Gaussian',
+        'BSpline',
+        'GenericLabel',
+        argstr='%s',
         usedefault=True,
     )
 
@@ -42,9 +42,9 @@ class ApplyTransforms(FixHeaderApplyTransforms):
         # Run normally
         self.inputs.output_image = fname_presuffix(
             self.inputs.input_image,
-            suffix="_trans.nii.gz",
+            suffix='_trans.nii.gz',
             newpath=runtime.cwd,
             use_ext=False,
         )
-        runtime = super(ApplyTransforms, self)._run_interface(runtime)
+        runtime = super()._run_interface(runtime)
         return runtime

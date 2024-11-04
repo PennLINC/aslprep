@@ -18,7 +18,8 @@ license = {file = "LICENSE.md"}
 requires-python = ">=3.10"
 dependencies = [
     'importlib_resources; python_version < "3.11"',
-    "fmriprep >= 23.2, <= 24.1.0",
+    "acres",
+    "fmriprep >= 24.1.0, <= 24.1.1",
     "indexed_gzip <= 1.8.7",
     "looseversion",
     "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
@@ -38,7 +39,6 @@ dependencies = [
     "smriprep <= 0.16.1",
     "templateflow <= 24.2.2",
     "toml",
-
 ]
 dynamic = ["version"]
 
@@ -65,6 +65,10 @@ doc = [
     "sphinxcontrib-apidoc",
     "sphinxcontrib-bibtex",
 ]
+dev = [
+    "ruff ~= 0.4.3",
+    "pre-commit",
+]
 test = [
     "codecov",
     "coverage",
@@ -77,7 +81,7 @@ maint = [
 ]
 
 # Aliases
-all = ["aslprep[doc,maint,test]"]
+all = ["aslprep[dev,doc,maint,test]"]
 
 [project.scripts]
 aslprep = "aslprep.cli.run:main"
@@ -112,51 +116,54 @@ version-file = "aslprep/_version.py"
 # Developer tool configurations
 #
 
+# Disable black
 [tool.black]
+exclude = ".*"
+
+[tool.ruff]
 line-length = 99
-target-version = ["py38"]
-exclude = '''
-# Directories
-/(
-    \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | venv
-  | _build
-  | build
-  | dist
-  | aslprep/niworkflows
-  | aslprep/pybids
-  | aslprep/sdcflows
-  | aslprep/smriprep
-)/
-'''
 
-[tool.isort]
-profile = "black"
-skip_gitignore = true
-skip = ["aslprep/niworkflows", "aslprep/pybids", "aslprep/sdcflows", "aslprep/smriprep"]
+[tool.ruff.lint]
+extend-select = [
+  "F",
+  "E",
+  "W",
+  "I",
+  "UP",
+  "YTT",
+  "S",
+  "BLE",
+  "B",
+  "A",
+  # "CPY",
+  "C4",
+  "DTZ",
+  "T10",
+  # "EM",
+  "EXE",
+  "FA",
+  "ISC",
+  "ICN",
+  "PT",
+  "Q",
+]
+ignore = [
+  "S311",  # We are not using random for cryptographic purposes
+  "ISC001",
+  "S603",
+]
 
-[tool.flake8]
-max-line-length = 99
-doctests = "False"
-exclude = [
-    "*build/",
-    "aslprep/_warnings.py",
-    "aslprep/config.py",
-    "aslprep/data/",
-    "aslprep/niworkflows/",
-    "aslprep/sdcflows/",
-    "aslprep/tests/",
-]
-ignore = ["D107", "E203", "E402", "E722", "W503", "N803", "N806", "N815"]
-per-file-ignores = [
-    "**/__init__.py : F401",
-    "docs/conf.py : E265",
-]
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"*/test_*.py" = ["S101"]
+"aslprep/utils/debug.py" = ["A002", "T100"]
+"docs/conf.py" = ["A001"]
+"docs/sphinxext/github_link.py" = ["BLE001"]
+
+[tool.ruff.format]
+quote-style = "single"
 
 [tool.pytest.ini_options]
 addopts = '-m "not examples_pcasl_singlepld_philips and not examples_pcasl_singlepld_siemens and not examples_pcasl_singlepld_ge and not examples_pcasl_multipld and not examples_pasl_multipld and not qtab and not test_001 and not test_002 and not test_003_minimal and not test_003_resampling and not test_003_full"'

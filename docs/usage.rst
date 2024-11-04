@@ -76,7 +76,7 @@ In order to run docker smoothly, it is best to prevent permissions issues
 associated with the root file system. Running docker as user on the host is to
 ensure the ownership of files written during the container execution.
 
-*ASLPrep* requires a significant amount of memory, typicaly around 12GB per subject.
+*ASLPrep* requires a significant amount of memory, typically around 12GB per subject.
 If using docker desktop, you can set this in preferences. You can also set it on the command line.
 
 A ``docker`` container can be created using the following command::
