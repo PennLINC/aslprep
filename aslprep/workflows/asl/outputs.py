@@ -838,7 +838,7 @@ def init_ds_ciftis_wf(
         'asl_cifti',
         'source_files',
         # Anatomical
-        'anat_ref_file',
+        'anat',
         'aslref2anat_xfm',
         # Template
         'anat2mni6_xfm',
@@ -927,7 +927,7 @@ def init_ds_ciftis_wf(
         workflow.connect([
             (inputnode, warp_cbf_to_anat, [
                 (cbf_deriv, 'input_image'),
-                ('anat_ref_file', 'reference_image'),
+                ('anat', 'reference_image'),
                 ('aslref2anat_xfm', 'transforms'),
             ]),
         ])  # fmt:skip

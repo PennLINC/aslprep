@@ -770,6 +770,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         ds_asl_cifti_wf.inputs.inputnode.source_files = [asl_file]
         workflow.connect([
             (inputnode, ds_asl_cifti_wf, [
+                ('t1w_preproc', 'inputnode.anat'),
                 ('mni6_mask', 'inputnode.mni6_mask'),
                 ('anat2mni6_xfm', 'inputnode.anat2mni6_xfm'),
                 ('white', 'inputnode.white'),
@@ -778,10 +779,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ('midthickness_fsLR', 'inputnode.midthickness_fsLR'),
                 ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
                 ('cortex_mask', 'inputnode.cortex_mask'),
-            ]),
-            (asl_anat_wf, ds_asl_cifti_wf, [
-                # Used for affine/resolution reference only
-                ('outputnode.resampling_reference', 'inputnode.anat_ref_file'),
             ]),
             (asl_fit_wf, ds_asl_cifti_wf, [
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
