@@ -837,11 +837,12 @@ def init_ds_ciftis_wf(
     inputnode_fields = [
         'asl_cifti',
         'source_files',
-        # Anatomical
+        # ASL-resolution, anatomical-space reference image
         'anat_ref_file',
         'aslref2anat_xfm',
         # Template
         'anat2mni6_xfm',
+        # Template reference image. Resolution depends on CIFTI output resolution
         'mni6_mask',
         # Pre-computed goodvoxels mask. May be Undefined.
         'goodvoxels_mask',
