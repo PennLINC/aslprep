@@ -355,7 +355,7 @@ def test_test_003_full(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         level='full',
-        extra_params=['--cifti-output', '91k'],
+        extra_params=['--cifti-output', '91k', '--project-goodvoxels'],
     )
 
 
