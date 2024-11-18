@@ -20,7 +20,7 @@ dependencies = [
     'importlib_resources; python_version < "3.11"',
     "acres",
     "fmriprep >= 24.1.0, <= 24.1.1",
-    "indexed_gzip <= 1.8.7",
+    "indexed_gzip <= 1.9.1",
     "looseversion",
     "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
     "nibabel <= 5.3.2",
