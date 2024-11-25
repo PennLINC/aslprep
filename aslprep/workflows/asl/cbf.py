@@ -230,6 +230,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
             fields=[
                 'asl_file',
                 'aslcontext',
+                'metadata',
                 'm0scan',
                 'm0scan_metadata',
                 'asl_mask',
