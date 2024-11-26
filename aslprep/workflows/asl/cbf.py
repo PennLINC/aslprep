@@ -76,7 +76,9 @@ def init_cbf_wf(
     name_source : :obj:`str`
         Path to the raw ASL file.
     metadata : :obj:`dict`
-        BIDS metadata for asl file
+        BIDS metadata for asl file.
+        List-type fields in this dict have not been reduced based on selected volumes,
+        so this should only be used for metadata that is not affected by volume selection.
     scorescrub
     basil
     m0_scale
@@ -89,6 +91,10 @@ def init_cbf_wf(
     asl_file
         asl series NIfTI file, after preprocessing
     aslcontext : :obj:`str`
+    metadata : :obj:`dict`
+        Metadata dictionary associated with asl_file, after preprocessing.
+        List-type fields in this dict *have* been reduced based on selected volumes,
+        so this is the dictionary that should be used to select volumes.
     m0scan : :obj:`str` or None
         An M0 scan (if available as a separate file) in aslref space.
     m0scan_metadata : :obj:`dict` or None
@@ -224,6 +230,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
             fields=[
                 'asl_file',
                 'aslcontext',
+                'metadata',
                 'm0scan',
                 'm0scan_metadata',
                 'asl_mask',
@@ -371,7 +378,6 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
             name_source=name_source,
             dummy_scans=dummy_scans,
             fwhm=smooth_kernel,
-            metadata=metadata,
         ),
         mem_gb=0.2,
         run_without_submitting=True,
@@ -381,6 +387,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
     workflow.connect([
         (inputnode, extract_deltam, [
             ('asl_file', 'asl_file'),
+            ('metadata', 'metadata'),
             ('aslcontext', 'aslcontext'),
             ('m0scan_metadata', 'm0scan_metadata'),
         ]),
