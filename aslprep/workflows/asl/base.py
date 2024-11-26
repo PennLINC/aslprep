@@ -400,6 +400,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_native_wf, cbf_wf, [
             ('outputnode.asl_native', 'inputnode.asl_file'),
             ('outputnode.aslcontext', 'inputnode.aslcontext'),
+            ('outputnode.metadata', 'inputnode.metadata'),
             ('outputnode.m0scan_native', 'inputnode.m0scan'),
         ]),
     ])  # fmt:skip
