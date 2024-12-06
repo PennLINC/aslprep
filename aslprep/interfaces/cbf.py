@@ -285,7 +285,7 @@ class ExtractCBF(SimpleInterface):
                 metadata[field] = value
 
         self._results['metadata'] = metadata
-        self._results['m0tr'] = m0tr
+        self._results['m0tr'] = np.mean(m0tr) if m0tr is not None else None
         self._results['out_file'] = fname_presuffix(
             self.inputs.name_source,
             suffix='_DeltaMOrCBF',
