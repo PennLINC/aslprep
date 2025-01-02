@@ -133,6 +133,9 @@ If FreeSurfer reconstructions are used, the following surface files are generate
       sub-<label>_hemi-[LR]_desc-reg_sphere.surf.gii
       sub-<label>_hemi-[LR]_space-fsLR_desc-reg_sphere.surf.gii
       sub-<label>_hemi-[LR]_space-fsLR_desc-msmsulc_sphere.surf.gii
+      sub-<label>_hemi-[LR]_space-fsLR_den-32k_desc-preproc_white.surf.gii
+      sub-<label>_hemi-[LR]_space-fsLR_den-32k_desc-preproc_midthickness.surf.gii
+      sub-<label>_hemi-[LR]_space-fsLR_den-32k_desc-preproc_pial.surf.gii
 
 The registration spheres target ``fsaverage`` and ``fsLR`` spaces. If MSM
 is enabled (i.e., the ``--no-msm`` flag is not passed), then the ``msmsulc``
