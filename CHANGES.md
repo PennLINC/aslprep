@@ -1,5 +1,36 @@
 # What's new
 
+## 0.7.5
+
+### 🛠 Breaking Changes
+
+* Fix volume selection and temporarily remove `--dummy-scans` parameter by @tsalo in https://github.com/PennLINC/aslprep/pull/468
+
+### 🎉 Exciting New Features
+
+* Output fsLR meshes on subject surfaces by @tsalo in https://github.com/PennLINC/aslprep/pull/478
+
+### 🐛 Bug Fixes
+
+* Fix CBF CIFTI generation when `--project-goodvoxels` is enabled by @tsalo in https://github.com/PennLINC/aslprep/pull/460
+* Return the mean M0 TR in ExtractCBF by @tsalo in https://github.com/PennLINC/aslprep/pull/470
+
+### Other Changes
+
+* Upgrade to deno-based BIDS validator by @tsalo in https://github.com/PennLINC/aslprep/pull/467
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.7.4...0.7.5
+
+
+## 0.7.4
+
+### 🛠 Breaking Changes
+
+* Bring up to date with fMRIPrep 24.1.1 by @tsalo in https://github.com/PennLINC/aslprep/pull/455
+
+**Full Changelog**: https://github.com/PennLINC/aslprep/compare/0.7.3...0.7.4
+
+
 ## 0.7.3
 
 This release fixes a bug in multi-PLD PCASL CBF calculation.
