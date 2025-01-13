@@ -140,7 +140,7 @@ def init_cbf_wf(
         )
     elif m0type == 'Estimate':
         m0_str = (
-            f"A single M0 estimate of {metadata['M0Estimate']} was used to produce a calibration "
+            f'A single M0 estimate of {metadata["M0Estimate"]} was used to produce a calibration '
             f"'image' and was scaled by {m0_scale}."
         )
     else:

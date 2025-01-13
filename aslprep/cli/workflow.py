@@ -33,11 +33,11 @@ def build_workflow(config_file, retval):
     notice_path = data.load.readable('NOTICE')
     if notice_path.exists():
         banner[0] += '\n'
-        banner += [f"License NOTICE {'#' * 50}"]
+        banner += [f'License NOTICE {"#" * 50}']
         banner += [f'ASLPrep {version}']
         banner += notice_path.read_text().splitlines(keepends=False)[1:]
         banner += ['#' * len(banner[1])]
-    build_log.log(25, f"\n{' ' * 9}".join(banner))
+    build_log.log(25, f'\n{" " * 9}'.join(banner))
 
     # warn if older results exist: check for dataset_description.json in output folder
     msg = check_pipeline_version(
@@ -96,7 +96,7 @@ def build_workflow(config_file, retval):
     if config.execution.fs_subjects_dir:
         init_msg += [f"Pre-run FreeSurfer's SUBJECTS_DIR: {config.execution.fs_subjects_dir}."]
 
-    build_log.log(25, f"\n{' ' * 11}* ".join(init_msg))
+    build_log.log(25, f'\n{" " * 11}* '.join(init_msg))
 
     retval['workflow'] = init_aslprep_wf()
 

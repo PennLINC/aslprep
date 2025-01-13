@@ -171,11 +171,11 @@ def _build_parser():
         type=BIDSFilter,
         metavar='FILE',
         help=(
-            "A JSON file describing custom BIDS input filters using PyBIDS. "
-            "For further details, please check out "
-            "https://aslprep.readthedocs.io/en/"
-            f"{currentv.base_version if is_release else 'latest'}/faq.html#"
-            "how-do-I-select-only-certain-files-to-be-input-to-ASLPrep"
+            'A JSON file describing custom BIDS input filters using PyBIDS. '
+            'For further details, please check out '
+            'https://aslprep.readthedocs.io/en/'
+            f'{currentv.base_version if is_release else "latest"}/faq.html#'
+            'how-do-I-select-only-certain-files-to-be-input-to-ASLPrep'
         ),
     )
     g_bids.add_argument(
@@ -771,7 +771,7 @@ applied."""
 
     # Ensure input and output folders are not the same
     if output_dir == bids_dir:
-        rec_path = bids_dir / 'derivatives' / f"aslprep-{version.split('+')[0]}"
+        rec_path = bids_dir / 'derivatives' / f'aslprep-{version.split("+")[0]}'
         parser.error(
             'The selected output folder is the same as the input BIDS folder. '
             f'Please modify the output path (suggestion: {rec_path}).'
@@ -788,8 +788,7 @@ applied."""
         from fmriprep.utils.bids import validate_input_dir
 
         build_log.info(
-            'Making sure the input data is BIDS compliant (warnings can be ignored in most '
-            'cases).'
+            'Making sure the input data is BIDS compliant (warnings can be ignored in most cases).'
         )
         validate_input_dir(
             config.environment.exec_env,
@@ -815,8 +814,8 @@ applied."""
     missing_subjects = participant_label - set(all_subjects)
     if missing_subjects:
         parser.error(
-            "One or more participant labels were not found in the BIDS directory: "
-            f"{', '.join(missing_subjects)}."
+            'One or more participant labels were not found in the BIDS directory: '
+            f'{", ".join(missing_subjects)}.'
         )
 
     config.execution.participant_label = sorted(participant_label)

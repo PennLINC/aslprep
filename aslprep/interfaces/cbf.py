@@ -587,7 +587,7 @@ class ComputeCBF(SimpleInterface):
 
             else:
                 raise ValueError(
-                    f"Unknown BolusCutOffTechnique {metadata['BolusCutOffTechnique']}"
+                    f'Unknown BolusCutOffTechnique {metadata["BolusCutOffTechnique"]}'
                 )
 
             # Q2TIPS uses TI2 instead of w (PLD), see Noguchi 2015 for this info.

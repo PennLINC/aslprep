@@ -101,11 +101,11 @@ def collect_run_data(layout, asl_file):
     elif asl_metadata['M0Type'] == 'Separate':
         m0scan_metadata = layout.get_file(run_data['m0scan']).get_metadata()
         if not m0scan_metadata:
-            raise Exception(f"No metadata for m0scan: {run_data['m0scan']}")
+            raise Exception(f'No metadata for m0scan: {run_data["m0scan"]}')
     elif run_data['m0scan']:
         raise ValueError(
-            f"M0Type is {run_data['asl_metadata']['M0Type']}, "
-            f"but an M0 scan was found at {run_data['m0scan']}"
+            f'M0Type is {run_data["asl_metadata"]["M0Type"]}, '
+            f'but an M0 scan was found at {run_data["m0scan"]}'
         )
 
     config.loggers.workflow.info(
@@ -222,7 +222,7 @@ def write_derivative_description(bids_dir, deriv_dir):
             orig_desc = json.load(fobj)
 
     if 'DatasetDOI' in orig_desc:
-        desc['SourceDatasetsURLs'] = [f"https://doi.org/{orig_desc['DatasetDOI']}"]
+        desc['SourceDatasetsURLs'] = [f'https://doi.org/{orig_desc["DatasetDOI"]}']
 
     if 'License' in orig_desc:
         desc['License'] = orig_desc['License']
