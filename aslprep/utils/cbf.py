@@ -806,8 +806,8 @@ def estimate_t1(metadata):
     t1blood = T1BLOOD_DICT.get(metadata['MagneticFieldStrength'])
     if not t1blood:
         config.loggers.interface.warning(
-            f"T1blood cannot be inferred for {metadata['MagneticFieldStrength']}T data. "
-            "Defaulting to formula from Zhang et al. (2013)."
+            f'T1blood cannot be inferred for {metadata["MagneticFieldStrength"]}T data. '
+            'Defaulting to formula from Zhang et al. (2013).'
         )
         t1blood = (110 * metadata['MagneticFieldStrength'] + 1316) / 1000
 
@@ -820,7 +820,7 @@ def estimate_t1(metadata):
     t1tissue = T1TISSUE_DICT.get(metadata['MagneticFieldStrength'])
     if not t1tissue:
         raise ValueError(
-            f"T1tissue cannot be inferred for {metadata['MagneticFieldStrength']}T data."
+            f'T1tissue cannot be inferred for {metadata["MagneticFieldStrength"]}T data.'
         )
 
     return t1blood, t1tissue
