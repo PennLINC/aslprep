@@ -227,7 +227,7 @@ class CBFByTissueTypePlot(SimpleInterface):
                 showfliers=True,
                 palette={'GM': '#1b60a5', 'WM': '#2da467', 'CSF': '#9d8f25'},
                 hue='Tissue Type',
-                legend=False,
+                legend=True,
                 ax=ax,
             )
             fig.tight_layout()
