@@ -302,8 +302,8 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     # robust mean and median
     median_gm_cbf = np.median(gm_cbf_ts)
     mad_gm_cbf = median_abs_deviation(gm_cbf_ts) / 0.675
-    indx = 1 * (np.abs(gm_cbf_ts - median_gm_cbf) > (2.5 * mad_gm_cbf))
-    R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
+    index = 1 * (np.abs(gm_cbf_ts - median_gm_cbf) > (2.5 * mad_gm_cbf))
+    R = np.mean(cbfts[:, :, :, index == 0], axis=3)
     V = (
         n_gm_voxels * np.var(R[gm == 1])
         + n_wm_voxels * np.var(R[wm == 1])
@@ -314,29 +314,29 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
         V1 = V
         CC = np.zeros(cbfts.shape[3]) * (-2)
         for s in range(cbfts.shape[3]):
-            if indx[s] != 0:
+            if index[s] != 0:
                 break
             else:
                 tmp1 = cbfts[:, :, :, s]
                 CC[s] = np.corrcoef(R[mask1 > 0], tmp1[mask1 > 0])[0][1]
 
         inx = np.argmax(CC)
-        indx[inx] = 2
-        R = np.mean(cbfts[:, :, :, indx == 0], axis=3)
+        index[inx] = 2
+        R = np.mean(cbfts[:, :, :, index == 0], axis=3)
         V = (
             (n_gm_voxels * np.var(R[gm == 1]))
             + (n_wm_voxels * np.var(R[wm == 1]))
             + (n_csf_voxels * np.var(R[csf == 1]))
         )
 
-    config.loggers.utils.warning(f'SCORE retains {np.sum(indx == 0)}/{indx.size} volumes')
-    cbfts_recon = cbfts[:, :, :, indx == 0]
+    config.loggers.utils.warning(f'SCORE retains {np.sum(index == 0)}/{index.size} volumes')
+    cbfts_recon = cbfts[:, :, :, index == 0]
     cbfts_recon1 = np.zeros_like(cbfts_recon)
     for i in range(cbfts_recon.shape[3]):
         cbfts_recon1[:, :, :, i] = cbfts_recon[:, :, :, i] * mask
 
     cbfts_recon1 = np.nan_to_num(cbfts_recon1)
-    return cbfts_recon1, indx
+    return cbfts_recon1, index
 
 
 def _robust_fit(
