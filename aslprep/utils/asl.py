@@ -33,7 +33,7 @@ def determine_multi_pld(metadata):
     Returns
     -------
     :obj:`bool`
-        True if the data are multi-delay/TI. Fale if not.
+        True if the data are multi-delay/TI. False if not.
     """
     plds = np.array(metadata['PostLabelingDelay'])
     return np.unique(plds).size > 1
