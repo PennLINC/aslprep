@@ -19,7 +19,7 @@ requires-python = ">=3.10"
 dependencies = [
     'importlib_resources; python_version < "3.11"',
     "acres",
-    "fmriprep >= 24.1.0, <= 24.1.1",
+    "fmriprep >= 24.1.0, <= 25.0.0",
     "indexed_gzip <= 1.9.4",
     "looseversion",
     "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
