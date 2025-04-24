@@ -10,7 +10,7 @@ from niworkflows.interfaces.itk import MCFLIRT2ITK
 from niworkflows.utils.connections import listify
 
 from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces.confounds import NormalizeMotionParams
+from aslprep.interfaces.confounds import CreateFakeMotionOutputs, NormalizeMotionParams
 from aslprep.interfaces.utility import (
     CombineMotionParameters,
     PairwiseRMSDiff,
@@ -19,6 +19,7 @@ from aslprep.interfaces.utility import (
 
 
 def init_asl_hmc_wf(
+    use_ge,
     mem_gb,
     omp_nthreads,
     name='asl_hmc_wf',
@@ -44,8 +45,8 @@ def init_asl_hmc_wf(
 
     Parameters
     ----------
-    processing_target : {"control", "deltam", "cbf"}
-    m0type : {"Separate", "Included", "Absent", "Estimate"}
+    use_ge : :obj:`bool`
+        Disable HMC for GE data.
     mem_gb : :obj:`float`
         Size of ASL file in GB
     omp_nthreads : :obj:`int`
@@ -70,7 +71,7 @@ def init_asl_hmc_wf(
         ITKTransform file aligning each volume to ``ref_image``
     movpar_file
         MCFLIRT motion parameters, normalized to SPM format (X, Y, Z, Rx, Ry, Rz)
-    rms_file
+    rmsd_file
         Framewise displacement as measured by ``fsl_motion_outliers``
 
     Notes
@@ -84,17 +85,6 @@ def init_asl_hmc_wf(
     .. footbibliography::
     """
     workflow = Workflow(name=name)
-
-    workflow.__desc__ = """\
-Head-motion parameters were estimated for the ASL data using *FSL*'s `mcflirt` [@mcflirt].
-Motion correction was performed separately for each of the volume types
-in order to account for intensity differences between different contrasts,
-which, when motion corrected together, can conflate intensity differences with
-head motions [@wang2008empirical].
-Next, ASLPrep concatenated the motion parameters across volume types and
-re-calculated relative root mean-squared deviation.
-
-"""
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -118,6 +108,38 @@ re-calculated relative root mean-squared deviation.
         ),
         name='outputnode',
     )
+
+    if use_ge:
+        # Skip HMC, just mock up movpar and xform files with identity transforms
+        workflow.__desc__ = """\
+Head-motion correction was not performed on the ASL data.
+
+"""
+        create_fake_motion_outputs = pe.Node(
+            CreateFakeMotionOutputs(),
+            name='create_fake_motion_outputs',
+        )
+        workflow.connect([
+            (inputnode, create_fake_motion_outputs, [('asl_file', 'asl_file')]),
+            (create_fake_motion_outputs, [
+                ('movpar_file', 'movpar_file'),
+                ('xforms', 'xforms'),
+                ('rmsd_file', 'rmsd_file'),
+            ])
+        ])  # fmt:skip
+        return workflow
+
+    # Otherwise, perform ASL-specific HMC
+    workflow.__desc__ = """\
+Head-motion parameters were estimated for the ASL data using *FSL*'s `mcflirt` [@mcflirt].
+Motion correction was performed separately for each of the volume types
+in order to account for intensity differences between different contrasts,
+which, when motion corrected together, can conflate intensity differences with
+head motions [@wang2008empirical].
+Next, ASLPrep concatenated the motion parameters across volume types and
+re-calculated relative root mean-squared deviation.
+
+"""
 
     split_by_volume_type = pe.Node(
         SplitByVolumeType(),

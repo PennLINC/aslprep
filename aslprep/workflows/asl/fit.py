@@ -428,6 +428,7 @@ def init_asl_fit_wf(
     if not hmc_xforms:
         config.loggers.workflow.info('Stage 2: Adding motion correction workflow')
         asl_hmc_wf = init_asl_hmc_wf(
+            use_ge=use_ge,
             name='asl_hmc_wf',
             mem_gb=mem_gb['filesize'],
             omp_nthreads=omp_nthreads,

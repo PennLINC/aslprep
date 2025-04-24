@@ -549,3 +549,55 @@ class ComputeCBFQC(SimpleInterface):
             json.dump(qc_metadata, fobj, indent=4, sort_keys=True)
 
         return runtime
+
+
+class _CreateFakeMotionOutputsInputSpec(BaseInterfaceInputSpec):
+    asl_file = File(exists=True, mandatory=True, desc='the input NIfTI file')
+
+
+class _CreateFakeMotionOutputsOutputSpec(TraitedSpec):
+    movpar_file = File(exists=True, desc='FSL-format motion parameters. All zeros.')
+    xforms = File(exists=True, desc='written file path')
+    rmsd_file = File(exists=True, desc='RMSD TSV file. All zeros.')
+
+
+class CreateFakeMotionOutputs(SimpleInterface):
+    """Create outputs expected by HMC workflow without any motion."""
+
+    input_spec = _CreateFakeMotionOutputsInputSpec
+    output_spec = _CreateFakeMotionOutputsOutputSpec
+
+    def _run_interface(self, runtime):
+        import nibabel as nb
+
+        img = nb.load(self.inputs.asl_file)
+        if img.ndim == 3:
+            n_volumes = img.shape[3]
+        else:
+            # Support single-volume images
+            n_volumes = 1
+
+        mpars = np.zeros((n_volumes, 6))  # mpars is N_t x 6
+        rmsd = np.zeros((n_volumes,))
+
+        self._results['movpar_file'] = os.path.join(runtime.cwd, 'motion_params.txt')
+        np.savetxt(self._results['movpar_file'], mpars)
+
+        self._results['rmsd_file'] = os.path.join(runtime.cwd, 'rmsd.txt')
+        np.savetxt(self._results['rmsd_file'], rmsd)
+
+        itk_header = '#Insight Transform File V1.0'
+        base_itk_str = """
+#Transform {i}
+Transform: AffineTransform_float_3_3
+Parameters: 1 0 0 0 1 0 0 0 1 0 0 0
+FixedParameters: 0 0 0
+"""
+        itk_transforms = [base_itk_str.format(i=i) for i in range(n_volumes)]
+        itk_transform_str = '\n\n'.join(itk_transforms)
+        itk_str = f'{itk_header}\n\n{itk_transform_str}'
+        self._results['xforms'] = os.path.join(runtime.cwd, 'itk.txt')
+        with open(self._results['xforms'], 'w') as fo:
+            fo.write(itk_str)
+
+        return runtime
