@@ -121,11 +121,11 @@ Head-motion correction was not performed on the ASL data.
         )
         workflow.connect([
             (inputnode, create_fake_motion_outputs, [('asl_file', 'asl_file')]),
-            (create_fake_motion_outputs, [
+            (create_fake_motion_outputs, outputnode, [
                 ('movpar_file', 'movpar_file'),
                 ('xforms', 'xforms'),
                 ('rmsd_file', 'rmsd_file'),
-            ])
+            ]),
         ])  # fmt:skip
         return workflow
 
