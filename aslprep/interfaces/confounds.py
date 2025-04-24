@@ -597,7 +597,7 @@ FixedParameters: 0 0 0
         itk_transform_str = '\n\n'.join(itk_transforms)
         itk_str = f'{itk_header}\n\n{itk_transform_str}'
         self._results['xforms'] = os.path.join(runtime.cwd, 'itk.txt')
-        with open(self._results['xforms'], 'w') as fo:
-            fo.write(itk_str)
+        with open(self._results['xforms'], 'w') as fobj:
+            fobj.write(itk_str)
 
         return runtime
