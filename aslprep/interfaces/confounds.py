@@ -553,7 +553,11 @@ class ComputeCBFQC(SimpleInterface):
 
 class _CreateFakeMotionOutputsInputSpec(BaseInterfaceInputSpec):
     asl_file = File(exists=True, mandatory=True, desc='the input NIfTI file')
-    xform = File(exists=True, mandatory=True, desc='A single affine ITK transform file')
+    xform = traits.List(
+        File(exists=True),
+        mandatory=True,
+        desc='A single affine ITK transform file',
+    )
 
 
 class _CreateFakeMotionOutputsOutputSpec(TraitedSpec):
@@ -570,6 +574,7 @@ class CreateFakeMotionOutputs(SimpleInterface):
 
     def _run_interface(self, runtime):
         import nibabel as nb
+        from nitransforms.linear import Affine
 
         img = nb.load(self.inputs.asl_file)
         if img.ndim == 3:
@@ -587,7 +592,10 @@ class CreateFakeMotionOutputs(SimpleInterface):
         self._results['rmsd_file'] = os.path.join(runtime.cwd, 'rmsd.txt')
         np.savetxt(self._results['rmsd_file'], rmsd)
 
-        with open(self.inputs.xform) as fobj:
+        xform = Affine.from_filename(self.inputs.xform[0])
+        temp_file = os.path.join(runtime.cwd, 'itk.txt')
+        xform.to_filename(temp_file)
+        with open(temp_file) as fobj:
             xform_strs = fobj.readlines()
 
         xforms_strs = [xform_strs[0]]
