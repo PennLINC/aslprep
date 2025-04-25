@@ -174,6 +174,7 @@ This single transform was then duplicated for each volume in the ASL series.
                 number_of_iterations=[[10000]],
                 write_composite_transform=False,
                 use_histogram_matching=True,
+                transform_parameters=[[0.1]],
             ),
             name='register_reference',
         )
