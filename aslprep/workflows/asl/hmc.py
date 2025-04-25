@@ -168,6 +168,10 @@ This single transform was then duplicated for each volume in the ASL series.
             Registration(
                 transforms=['Rigid'],
                 metric=['Mattes'],
+                metric_weight=[1],
+                shrink_factors=[[4]],
+                smoothing_sigmas=[[0]],
+                number_of_iterations=[[10000]],
                 write_composite_transform=False,
                 use_histogram_matching=True,
             ),
