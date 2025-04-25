@@ -553,11 +553,12 @@ class ComputeCBFQC(SimpleInterface):
 
 class _CreateFakeMotionOutputsInputSpec(BaseInterfaceInputSpec):
     asl_file = File(exists=True, mandatory=True, desc='the input NIfTI file')
+    xform = File(exists=True, mandatory=True, desc='A single affine ITK transform file')
 
 
 class _CreateFakeMotionOutputsOutputSpec(TraitedSpec):
     movpar_file = File(exists=True, desc='FSL-format motion parameters. All zeros.')
-    xforms = File(exists=True, desc='written file path')
+    xforms = File(exists=True, desc='Volume-wise ITK transform files.')
     rmsd_file = File(exists=True, desc='RMSD TSV file. All zeros.')
 
 
@@ -586,18 +587,17 @@ class CreateFakeMotionOutputs(SimpleInterface):
         self._results['rmsd_file'] = os.path.join(runtime.cwd, 'rmsd.txt')
         np.savetxt(self._results['rmsd_file'], rmsd)
 
-        itk_header = '#Insight Transform File V1.0'
-        base_itk_str = """
-#Transform {i}
-Transform: AffineTransform_float_3_3
-Parameters: 1 0 0 0 1 0 0 0 1 0 0 0
-FixedParameters: 0 0 0
-"""
-        itk_transforms = [base_itk_str.format(i=i) for i in range(n_volumes)]
-        itk_transform_str = '\n\n'.join(itk_transforms)
-        itk_str = f'{itk_header}\n\n{itk_transform_str}'
+        with open(self.inputs.xform) as fobj:
+            xform_strs = fobj.readlines()
+
+        xforms_strs = [xform_strs[0]]
+        part2 = '\n'.join(xform_strs[1:])
+        for _ in range(n_volumes):
+            xforms_strs.append(part2)
+        xforms_str = '\n\n'.join(xforms_strs)
+
         self._results['xforms'] = os.path.join(runtime.cwd, 'itk.txt')
         with open(self._results['xforms'], 'w') as fobj:
-            fobj.write(itk_str)
+            fobj.write(xforms_str)
 
         return runtime
