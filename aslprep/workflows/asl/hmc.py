@@ -179,8 +179,8 @@ This single transform was then duplicated for each volume in the ASL series.
             name='register_reference',
         )
         workflow.connect([
-            (reference_buffer, register_reference, [('aslref', 'moving_image')]),
-            (inputnode, register_reference, [('raw_ref_image', 'fixed_image')]),
+            (reference_buffer, register_reference, [('aslref', 'fixed_image')]),
+            (inputnode, register_reference, [('raw_ref_image', 'moving_image')]),
         ])  # fmt:skip
 
         create_fake_motion_outputs = pe.Node(
