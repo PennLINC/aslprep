@@ -594,7 +594,7 @@ class CreateFakeMotionOutputs(SimpleInterface):
 
         xform = Affine.from_filename(self.inputs.xform[0])
         temp_file = os.path.join(runtime.cwd, 'itk.txt')
-        xform.to_filename(temp_file)
+        xform.to_filename(temp_file, fmt='itk')
         with open(temp_file) as fobj:
             xform_strs = fobj.readlines()
 
