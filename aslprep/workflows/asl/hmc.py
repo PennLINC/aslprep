@@ -2,9 +2,8 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for estimating and correcting head motion in ASL images."""
 
-from nipype.interfaces import fsl
+from nipype.interfaces import ants, fsl
 from nipype.interfaces import utility as niu
-from nipype.interfaces.ants import Registration
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.images import RobustAverage
@@ -15,10 +14,13 @@ from aslprep import config
 from aslprep.interfaces.confounds import CreateFakeMotionOutputs, NormalizeMotionParams
 from aslprep.interfaces.reference import SelectHighestContrastVolumes
 from aslprep.interfaces.utility import (
+    C3dAffineToolFix,
     CombineMotionParameters,
+    CombineMotions,
     PairwiseRMSDiff,
     Smooth,
     SplitByVolumeType,
+    TSplit,
 )
 
 
@@ -165,7 +167,7 @@ This single transform was then duplicated for each volume in the ASL series.
 
         # Now register the temporary reference image to the ASL reference image
         register_reference = pe.Node(
-            Registration(
+            ants.Registration(
                 transforms=['Rigid'],
                 metric=['Mattes'],
                 metric_weight=[1],
@@ -284,6 +286,97 @@ re-calculated relative root mean-squared deviation.
     workflow.connect([
         (combine_motpars, normalize_motion, [('combined_par_file', 'in_file')]),
         (normalize_motion, outputnode, [('out_file', 'movpar_file')]),
+    ])  # fmt:skip
+
+    return workflow
+
+
+def init_linear_alignment_workflow(omp_nthreads=1):
+    """Align each of a set of input images to a target image with ANTS.
+
+    This effectively mimics MCFLIRT with a more robust registration method.
+    """
+    workflow = Workflow(name='linear_alignment_wf')
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=['asl_file', 'reference_image']),
+        name='inputnode',
+    )
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['registered_image_paths', 'xform']),
+        name='outputnode',
+    )
+    split_asl = pe.Node(TSplit(), name='split_asl')
+    workflow.connect([(inputnode, split_asl, [('asl_file', 'in_file')])])
+
+    reg = ants.Registration(
+        dimension=3,
+        float=True,
+        winsorize_lower_quantile=0.002,
+        winsorize_upper_quantile=0.998,
+        collapse_output_transforms=True,
+        write_composite_transform=False,
+        use_histogram_matching=[False],
+        transforms=['Rigid'],
+        number_of_iterations=[[1000, 1000]],
+        output_warped_image=True,
+        transform_parameters=[[0.2], [0.15]],
+        convergence_threshold=[[1e-08, 1e-08]],
+        convergence_window_size=[[20, 20]],
+        metric=['Mattes'],
+        sampling_percentage=[0.15],
+        sampling_strategy=['Random'],
+        smoothing_sigmas=[[8.0, 2.0]],
+        sigma_units=['mm'],
+        metric_weight=[1.0],
+        shrink_factors=[[2, 1]],
+        radius_or_number_of_bins=[48],
+        interpolation='BSpline',
+        num_threads=omp_nthreads,
+    )
+    iter_reg = pe.MapNode(
+        reg,
+        name='reg',
+        iterfield=['moving_image'],
+        n_procs=omp_nthreads,
+    )
+    workflow.connect([
+        (inputnode, iter_reg, [('reference_image', 'fixed_image')]),
+        (split_asl, iter_reg, [('out_files', 'moving_image')]),
+    ])  # fmt:skip
+
+    itk2fsl = pe.MapNode(
+        C3dAffineToolFix(ras2fsl=True),
+        name='itk2fsl',
+        iterfield=['in_itk'],
+        n_procs=omp_nthreads,
+    )
+    workflow.connect([
+        (inputnode, itk2fsl, [
+            # use the same image as both source and reference
+            # see https://github.com/PennLINC/qsiprep/pull/301
+            ('reference_image', 'reference_file'),
+            ('reference_image', 'source_file'),
+        ]),
+        (iter_reg, itk2fsl, [('forward_transforms', 'in_itk')]),
+    ])  # fmt:skip
+
+    # Use rmsdiff to calculate relative rms from transform files.
+    rmsdiff = pe.Node(PairwiseRMSDiff(), name='rmsdiff')
+
+    workflow.connect([
+        (inputnode, rmsdiff, [('raw_ref_image', 'ref_file')]),
+        (itk2fsl, rmsdiff, [('out_file', 'in_files')]),
+        (rmsdiff, outputnode, [('out_file', 'rmsd_file')]),
+    ])  # fmt:skip
+
+    combine_motions = pe.Node(
+        CombineMotions(),
+        name='combine_motions',
+    )
+    workflow.connect([
+        (inputnode, combine_motions, [('reference_image', 'ref_file')]),
+        (itk2fsl, combine_motions, [('out_file', 'transform_files')]),
+        (combine_motions, outputnode, [('confounds_file', 'motion_file')]),
     ])  # fmt:skip
 
     return workflow

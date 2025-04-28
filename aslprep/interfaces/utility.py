@@ -8,10 +8,12 @@ from nilearn import image
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     File,
+    InputMultiObject,
     SimpleInterface,
     TraitedSpec,
     traits,
 )
+from nipype.interfaces.c3 import C3dAffineTool, C3dAffineToolInputSpec, C3dAffineToolOutputSpec
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.interfaces.nilearn import NilearnBaseInterface
 from nipype.utils.filemanip import fname_presuffix, load_json, save_json
@@ -258,6 +260,114 @@ class CombineMotionParameters(SimpleInterface):
         return runtime
 
 
+class CombineMotionsInputSpec(BaseInterfaceInputSpec):
+    transform_files = InputMultiObject(
+        File(exists=True),
+        mandatory=True,
+        desc='FSL-format transform files',
+    )
+    ref_file = File(exists=True, mandatory=True, desc='Fixed Image')
+
+
+class CombineMotionsOututSpec(TraitedSpec):
+    full_motion_file = File(exists=True)
+    confounds_file = File(exists=True)
+
+
+class CombineMotions(SimpleInterface):
+    """Combine motion parameters from multiple transform files, from QSIPrep."""
+
+    input_spec = CombineMotionsInputSpec
+    output_spec = CombineMotionsOututSpec
+
+    def _run_interface(self, runtime):
+        import numpy as np
+
+        collected_motion = []
+        full_motion_file = os.path.join(runtime.cwd, 'motion_params.csv')
+        confounds_file = os.path.join(runtime.cwd, 'confounds.tsv')
+        ref_file = self.inputs.ref_file
+        for xform in self.inputs.transform_files:
+            collected_motion.append(get_fsl_motion_params(xform, ref_file))
+
+        final_motion = np.row_stack(collected_motion)
+        cols = [
+            'scaleX',
+            'scaleY',
+            'scaleZ',
+            'shearXY',
+            'shearXZ',
+            'shearYZ',
+            'rot_x',
+            'rot_y',
+            'rot_z',
+            'trans_x',
+            'trans_y',
+            'trans_z',
+        ]
+        full_motion_df = pd.DataFrame(data=final_motion, columns=cols)
+        full_motion_df.to_csv(full_motion_file, index=False)
+        self._results['full_motion_file'] = full_motion_file
+
+        confounds_df = full_motion_df[['trans_x', 'trans_y', 'trans_z', 'rot_x', 'rot_y', 'rot_z']]
+        confounds_df.to_csv(confounds_file, sep='\t', index=False)
+        self._results['motion_file'] = confounds_file
+
+        return runtime
+
+
+def get_fsl_motion_params(xform, src_file):
+    import numpy as np
+    from scipy.spatial.transform import Rotation as R
+    from transforms3d.affines import decompose44
+
+    def get_measures(line):
+        line = line.strip().split()
+        return np.array([float(num) for num in line[-3:]])
+
+    def get_image_center(src_fname):
+        # returns image center in mm
+        src_img = nb.load(src_fname)
+        src_aff = src_img.affine
+        src_center = (np.array(src_img.shape) - 1) / 2
+        src_center_mm = nb.affines.apply_affine(src_aff, src_center)
+        src_offsets = src_aff[0:3, 3]
+        src_center_mm -= src_offsets
+        return src_center_mm
+
+    def get_trans_from_offset(image_center, rotmat):
+        # offset[0] = trans[0] + center[0] - [rot[0,0]*center[0]
+        # +rot[0,1]*center[1] + rot[0,2]*center[2]]
+        trans = np.zeros((3,))
+        offsets = rotmat[0:3, 3]
+        for i in range(3):
+            offpart = offsets[i] - image_center[i]
+            rotpart = (
+                rotmat[i, 0] * image_center[0]
+                + rotmat[i, 1] * image_center[1]
+                + rotmat[i, 2] * image_center[2]
+            )
+            trans[i] = offpart + rotpart
+        return trans
+
+    img_center = get_image_center(src_file)
+    c3d_out_xfm = np.loadtxt(fname=xform, dtype='float')
+    [T, Rotmat, Z, S] = decompose44(c3d_out_xfm)
+    T = get_trans_from_offset(img_center, c3d_out_xfm)
+
+    flip = np.array([1, -1, -1])
+    negflip = np.array([-1, 1, 1])
+    Rotmat_to_convert = R.from_matrix(Rotmat)
+    Rotvec = Rotmat_to_convert.as_rotvec()
+
+    rotation = Rotvec * negflip
+    translation = T * flip
+    scale = Z
+    shear = S
+
+    return np.concatenate([scale, shear, rotation, translation])
+
+
 class _SplitByVolumeTypeInputSpec(BaseInterfaceInputSpec):
     aslcontext = File(exists=True)
     asl_file = File(exists=True)
@@ -294,6 +404,46 @@ class SplitByVolumeType(SimpleInterface):
 
         self._results['out_files'] = out_files
         self._results['volume_types'] = volume_types
+
+        return runtime
+
+
+class _TSplitInputSpec(BaseInterfaceInputSpec):
+    in_file = File(exists=True)
+
+
+class _TSplitOutputSpec(TraitedSpec):
+    out_files = traits.List(File(exists=True))
+
+
+class TSplit(SimpleInterface):
+    """Split out a specific volume type from the ASL file."""
+
+    input_spec = _TSplitInputSpec
+    output_spec = _TSplitOutputSpec
+
+    def _run_interface(self, runtime):
+        out_files = []
+        asl_img = nb.load(self.inputs.in_file)
+        if asl_img.ndim == 4:
+            n_volumes = asl_img.shape[3]
+        else:
+            n_volumes = 1
+
+        digits = len(str(n_volumes)) + 1
+
+        for i_vol in range(n_volumes):
+            out_file = fname_presuffix(
+                self.inputs.in_file,
+                suffix=f'_{i_vol:0{digits}d}',
+                newpath=runtime.cwd,
+                use_ext=True,
+            )
+            out_img = image.index_img(asl_img, i_vol)
+            out_img.to_filename(out_file)
+            out_files.append(out_file)
+
+        self._results['out_files'] = out_files
 
         return runtime
 
@@ -350,3 +500,30 @@ class Smooth(NilearnBaseInterface, SimpleInterface):
         img_smoothed.to_filename(self._results['out_file'])
 
         return runtime
+
+
+class _C3dAffineToolInputSpec(C3dAffineToolInputSpec):
+    in_itk = File(
+        exists=True,
+        mandatory=False,
+        argstr='-itk %s',
+        desc='Input ITK transform file to convert',
+    )
+    out_file = File(
+        exists=False,
+        usedefault=True,
+        desc='Output file',
+    )
+
+
+class _C3dAffineToolOutputSpec(C3dAffineToolOutputSpec):
+    out_file = File(exists=True, desc='Output file')
+
+
+class C3dAffineToolFix(C3dAffineTool):
+    """C3dAffineTool."""
+
+    input_spec = _C3dAffineToolInputSpec
+    output_spec = _C3dAffineToolOutputSpec
+
+    _outputs_filenames = {'out_file': 'affine.xfm'}
