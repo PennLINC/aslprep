@@ -509,6 +509,7 @@ class _C3dAffineToolInputSpec(C3dAffineToolInputSpec):
         argstr='-itk %s',
         desc='Input ITK transform file to convert',
     )
+    ras2fsl = traits.Bool(argstr='-ras2fsl', position=4)
     out_file = File(
         exists=False,
         usedefault=True,
