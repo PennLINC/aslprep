@@ -317,7 +317,7 @@ class CombineMotions(SimpleInterface):
 
 
 class _ConcatITKInputSpec(BaseInterfaceInputSpec):
-    in_list = traits.List(
+    inlist = traits.List(
         File(exists=True),
         mandatory=True,
         desc='ITK-format transform files',
@@ -336,7 +336,7 @@ class ConcatITK(SimpleInterface):
 
     def _run_interface(self, runtime):
         out = []
-        for i_xform, xform in enumerate(self.inputs.in_list):
+        for i_xform, xform in enumerate(self.inputs.inlist):
             with open(xform) as fobj:
                 xform_data = fobj.readlines()
 
