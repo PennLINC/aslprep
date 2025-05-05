@@ -337,8 +337,8 @@ class ConcatITK(SimpleInterface):
     def _run_interface(self, runtime):
         out = []
         for i_xform, xform in enumerate(self.inputs.in_list):
-            with open(xform, 'r') as fo:
-                xform_data = fo.readlines()
+            with open(xform) as fobj:
+                xform_data = fobj.readlines()
 
             if i_xform == 0:
                 out += xform_data
@@ -346,8 +346,8 @@ class ConcatITK(SimpleInterface):
                 out += xform_data[1:]
 
         self._results['out'] = os.path.abspath('out.txt')
-        with open(self._results['out'], 'w') as fo:
-            fo.write('\n'.join(xform_data))
+        with open(self._results['out'], 'w') as fobj:
+            fobj.write('\n'.join(xform_data))
 
         return runtime
 
