@@ -321,7 +321,7 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
         output_warped_image=True,
         transform_parameters=[[0.2], [0.15]],
         convergence_threshold=[1e-08, 1e-08],
-        convergence_window_size=[[20, 20]],
+        convergence_window_size=[20, 20],
         metric=['Mattes'],
         sampling_percentage=[0.15],
         sampling_strategy=['Random'],
