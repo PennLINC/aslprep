@@ -384,7 +384,7 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
     workflow.connect([
         (inputnode, combine_motions, [('raw_ref_image', 'ref_file')]),
         (itk2fsl, combine_motions, [('out_file', 'transform_files')]),
-        (combine_motions, outputnode, [('confounds_file', 'motion_file')]),
+        (combine_motions, outputnode, [('confounds_file', 'movpar_file')]),
     ])  # fmt:skip
 
     return workflow
