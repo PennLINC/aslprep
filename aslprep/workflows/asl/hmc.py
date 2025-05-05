@@ -17,6 +17,7 @@ from aslprep.interfaces.utility import (
     C3dAffineToolFix,
     CombineMotionParameters,
     CombineMotions,
+    ConcatITK,
     PairwiseRMSDiff,
     Smooth,
     SplitByVolumeType,
@@ -350,6 +351,15 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
     workflow.connect([
         (inputnode, iter_reg, [('raw_ref_image', 'fixed_image')]),
         (split_asl, iter_reg, [('out_files', 'moving_image')]),
+    ])  # fmt:skip
+
+    concat_xforms = pe.Node(
+        ConcatITK(),
+        name='concat_xforms',
+    )
+    workflow.connect([
+        (iter_reg, concat_xforms, [('forward_transforms', 'inlist')]),
+        (concat_xforms, outputnode, [('out', 'xforms')]),
     ])  # fmt:skip
 
     itk2fsl = pe.MapNode(

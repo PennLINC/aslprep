@@ -316,6 +316,42 @@ class CombineMotions(SimpleInterface):
         return runtime
 
 
+class _ConcatITKInputSpec(BaseInterfaceInputSpec):
+    in_list = traits.List(
+        File(exists=True),
+        mandatory=True,
+        desc='ITK-format transform files',
+    )
+
+
+class _ConcatITKOututSpec(TraitedSpec):
+    out = File(exists=True)
+
+
+class ConcatITK(SimpleInterface):
+    """Combine motion parameters from multiple transform files, from QSIPrep."""
+
+    input_spec = _ConcatITKInputSpec
+    output_spec = _ConcatITKOututSpec
+
+    def _run_interface(self, runtime):
+        out = []
+        for i_xform, xform in enumerate(self.inputs.in_list):
+            with open(xform, 'r') as fo:
+                xform_data = fo.readlines()
+
+            if i_xform == 0:
+                out += xform_data
+            else:
+                out += xform_data[1:]
+
+        self._results['out'] = os.path.abspath('out.txt')
+        with open(self._results['out'], 'w') as fo:
+            fo.write('\n'.join(xform_data))
+
+        return runtime
+
+
 def get_fsl_motion_params(xform, src_file):
     import numpy as np
     from scipy.spatial.transform import Rotation as R
