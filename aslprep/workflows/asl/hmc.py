@@ -298,7 +298,7 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
     """
     workflow = Workflow(name=name)
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=['asl_file', 'aslcontext', 'reference_image']),
+        niu.IdentityInterface(fields=['asl_file', 'aslcontext', 'raw_ref_image']),
         name='inputnode',
     )
     outputnode = pe.Node(
@@ -348,7 +348,7 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
         mem_gb=mem_gb,
     )
     workflow.connect([
-        (inputnode, iter_reg, [('reference_image', 'fixed_image')]),
+        (inputnode, iter_reg, [('raw_ref_image', 'fixed_image')]),
         (split_asl, iter_reg, [('out_files', 'moving_image')]),
     ])  # fmt:skip
 
@@ -362,8 +362,8 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
         (inputnode, itk2fsl, [
             # use the same image as both source and reference
             # see https://github.com/PennLINC/qsiprep/pull/301
-            ('reference_image', 'reference_file'),
-            ('reference_image', 'source_file'),
+            ('raw_ref_image', 'reference_file'),
+            ('raw_ref_image', 'source_file'),
         ]),
         (iter_reg, itk2fsl, [('forward_transforms', 'in_itk')]),
     ])  # fmt:skip
@@ -382,7 +382,7 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
         name='combine_motions',
     )
     workflow.connect([
-        (inputnode, combine_motions, [('reference_image', 'ref_file')]),
+        (inputnode, combine_motions, [('raw_ref_image', 'ref_file')]),
         (itk2fsl, combine_motions, [('out_file', 'transform_files')]),
         (combine_motions, outputnode, [('confounds_file', 'motion_file')]),
     ])  # fmt:skip
