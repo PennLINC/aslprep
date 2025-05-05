@@ -326,7 +326,7 @@ class _ConcatITKInputSpec(BaseInterfaceInputSpec):
 
 
 class _ConcatITKOututSpec(TraitedSpec):
-    out = File(exists=True)
+    xforms = File(exists=True)
 
 
 class ConcatITK(SimpleInterface):

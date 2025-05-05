@@ -359,7 +359,7 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
     )
     workflow.connect([
         (iter_reg, concat_xforms, [('forward_transforms', 'inlist')]),
-        (concat_xforms, outputnode, [('out', 'xforms')]),
+        (concat_xforms, outputnode, [('xforms', 'xforms')]),
     ])  # fmt:skip
 
     itk2fsl = pe.MapNode(
