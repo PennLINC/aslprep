@@ -51,7 +51,7 @@ from aslprep.interfaces.bids import OverrideDerivativesDataSink
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
-from aslprep.workflows.asl.hmc import init_linear_alignment_workflow
+from aslprep.workflows.asl.hmc import init_linear_alignment_wf
 from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
 from aslprep.workflows.asl.reference import init_raw_aslref_wf
 
@@ -427,7 +427,7 @@ def init_asl_fit_wf(
     # Stage 2: Estimate head motion
     if not hmc_xforms:
         config.loggers.workflow.info('Stage 2: Adding motion correction workflow')
-        asl_hmc_wf = init_linear_alignment_workflow(
+        asl_hmc_wf = init_linear_alignment_wf(
             name='asl_hmc_wf',
             mem_gb=mem_gb['filesize'],
             omp_nthreads=omp_nthreads,

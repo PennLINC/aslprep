@@ -291,12 +291,12 @@ re-calculated relative root mean-squared deviation.
     return workflow
 
 
-def init_linear_alignment_workflow(omp_nthreads=1):
+def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf'):
     """Align each of a set of input images to a target image with ANTS.
 
     This effectively mimics MCFLIRT with a more robust registration method.
     """
-    workflow = Workflow(name='linear_alignment_wf')
+    workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(fields=['asl_file', 'reference_image']),
         name='inputnode',
@@ -338,6 +338,7 @@ def init_linear_alignment_workflow(omp_nthreads=1):
         name='reg',
         iterfield=['moving_image'],
         n_procs=omp_nthreads,
+        mem_gb=mem_gb,
     )
     workflow.connect([
         (inputnode, iter_reg, [('reference_image', 'fixed_image')]),
