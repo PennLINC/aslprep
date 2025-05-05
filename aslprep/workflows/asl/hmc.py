@@ -353,12 +353,22 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
         (split_asl, iter_reg, [('out_files', 'moving_image')]),
     ])  # fmt:skip
 
+    flatten_xforms = pe.Node(
+        niu.Function(
+            function=flatten_list_of_lists,
+            input_names=['in_list'],
+            output_names=['out_list'],
+        ),
+        name='flatten_xforms',
+    )
+    workflow.connect([(iter_reg, flatten_xforms, [('forward_transforms', 'in_list')])])
+
     concat_xforms = pe.Node(
         ConcatITK(),
         name='concat_xforms',
     )
     workflow.connect([
-        (iter_reg, concat_xforms, [('forward_transforms', 'inlist')]),
+        (flatten_xforms, concat_xforms, [('out_list', 'inlist')]),
         (concat_xforms, outputnode, [('xforms', 'xforms')]),
     ])  # fmt:skip
 
@@ -375,7 +385,7 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
             ('raw_ref_image', 'reference_file'),
             ('raw_ref_image', 'source_file'),
         ]),
-        (iter_reg, itk2fsl, [('forward_transforms', 'in_itk')]),
+        (flatten_xforms, itk2fsl, [('out_list', 'in_itk')]),
     ])  # fmt:skip
 
     # Use rmsdiff to calculate relative rms from transform files.
@@ -398,3 +408,8 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
     ])  # fmt:skip
 
     return workflow
+
+
+def flatten_list_of_lists(in_list):
+    """Flatten a list of lists."""
+    return [item for sublist in in_list for item in sublist]
