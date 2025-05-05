@@ -272,6 +272,7 @@ class CombineMotionsInputSpec(BaseInterfaceInputSpec):
 class CombineMotionsOututSpec(TraitedSpec):
     full_motion_file = File(exists=True)
     confounds_file = File(exists=True)
+    xforms = File(exists=True)
 
 
 class CombineMotions(SimpleInterface):
@@ -335,21 +336,30 @@ class ConcatITK(SimpleInterface):
     output_spec = _ConcatITKOututSpec
 
     def _run_interface(self, runtime):
-        out = []
+        from nitransforms.linear import Affine
+
         # flatten nested list of lists
         inlist = [item for sublist in self.inputs.inlist for item in sublist]
-        for i_xform, xform in enumerate(inlist):
-            with open(xform) as fobj:
-                xform_data = fobj.readlines()
+        # Create concatenated itk transform file
+        xform = Affine.from_filename(inlist[0])
+        temp_file = os.path.join(runtime.cwd, 'itk.txt')
+        xform.to_filename(temp_file, fmt='itk')
+        with open(temp_file) as fobj:
+            xform_strs = fobj.readlines()
 
-            if i_xform == 0:
-                out += xform_data
-            else:
-                out += xform_data[1:]
+        for i_vol, xform_file in enumerate(inlist[1:]):
+            xform = Affine.from_filename(xform_file)
+            temp_file = os.path.join(runtime.cwd, f'itk_{i_vol}.txt')
+            xform.to_filename(temp_file, fmt='itk')
+            with open(temp_file) as fobj:
+                temp_strs = fobj.readlines()
 
-        self._results['out'] = os.path.abspath('out.txt')
-        with open(self._results['out'], 'w') as fobj:
-            fobj.write('\n'.join(xform_data))
+            xform_strs.append('\n')
+            xform_strs.append(temp_strs[1:])
+
+        self._results['xforms'] = os.path.join(runtime.cwd, 'itk.txt')
+        with open(self._results['xforms'], 'w') as fobj:
+            fobj.write('\n'.join(xform_strs))
 
         return runtime
 
