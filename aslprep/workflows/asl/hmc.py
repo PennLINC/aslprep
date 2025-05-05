@@ -298,11 +298,18 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
     """
     workflow = Workflow(name=name)
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=['asl_file', 'reference_image']),
+        niu.IdentityInterface(fields=['asl_file', 'aslcontext', 'reference_image']),
         name='inputnode',
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=['registered_image_paths', 'xform']),
+        niu.IdentityInterface(
+            fields=[
+                'registered_image_paths',
+                'xforms',
+                'movpar_file',
+                'rmsd_file',
+            ],
+        ),
         name='outputnode',
     )
     split_asl = pe.Node(TSplit(), name='split_asl')
