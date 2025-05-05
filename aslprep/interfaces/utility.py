@@ -355,7 +355,7 @@ class ConcatITK(SimpleInterface):
                 temp_strs = fobj.readlines()
 
             xform_strs.append('\n')
-            xform_strs.append(temp_strs[1:])
+            xform_strs += temp_strs[1:]
 
         self._results['xforms'] = os.path.join(runtime.cwd, 'itk.txt')
         with open(self._results['xforms'], 'w') as fobj:
