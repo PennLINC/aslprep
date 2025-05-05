@@ -319,7 +319,7 @@ class CombineMotions(SimpleInterface):
 
 class _ConcatITKInputSpec(BaseInterfaceInputSpec):
     inlist = traits.List(
-        traits.List(File(exists=True)),
+        File(exists=True),
         mandatory=True,
         desc='ITK-format transform files',
     )
@@ -338,8 +338,7 @@ class ConcatITK(SimpleInterface):
     def _run_interface(self, runtime):
         from nitransforms.linear import Affine
 
-        # flatten nested list of lists
-        inlist = [item for sublist in self.inputs.inlist for item in sublist]
+        inlist = self.inputs.inlist
         # Create concatenated itk transform file
         xform = Affine.from_filename(inlist[0])
         temp_file = os.path.join(runtime.cwd, 'itk.txt')
