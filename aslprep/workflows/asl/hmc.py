@@ -399,6 +399,15 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
         (rmsdiff, outputnode, [('out_file', 'rmsd_file')]),
     ])  # fmt:skip"""
 
+    calculate_rmsd = pe.Node(
+        CreateFakeMotionOutputs(),
+        name='calculate_rmsd',
+    )
+    workflow.connect([
+        (inputnode, calculate_rmsd, [('asl_file', 'asl_file')]),
+        (calculate_rmsd, outputnode, [('rmsd_file', 'rmsd_file')]),
+    ])  # fmt:skip
+
     combine_motions = pe.Node(
         CombineMotions(),
         name='combine_motions',
