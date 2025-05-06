@@ -567,10 +567,9 @@ class CreateFakeMotionOutputs(SimpleInterface):
 
     def _run_interface(self, runtime):
         import nibabel as nb
-        from nitransforms.linear import Affine
 
         img = nb.load(self.inputs.asl_file)
-        if img.ndim == 3:
+        if img.ndim == 4:
             n_volumes = img.shape[3]
         else:
             # Support single-volume images
