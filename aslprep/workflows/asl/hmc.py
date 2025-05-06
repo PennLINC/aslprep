@@ -374,7 +374,7 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
         (concat_xforms, outputnode, [('xforms', 'xforms')]),
     ])  # fmt:skip
 
-    itk2fsl = pe.MapNode(
+    """itk2fsl = pe.MapNode(
         C3dAffineToolFix(ras2fsl=True),
         name='itk2fsl',
         iterfield=['in_itk'],
@@ -397,7 +397,7 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
         (inputnode, rmsdiff, [('raw_ref_image', 'ref_file')]),
         (itk2fsl, rmsdiff, [('out_file', 'in_files')]),
         (rmsdiff, outputnode, [('out_file', 'rmsd_file')]),
-    ])  # fmt:skip
+    ])  # fmt:skip"""
 
     combine_motions = pe.Node(
         CombineMotions(),
@@ -405,7 +405,8 @@ def init_linear_alignment_wf(mem_gb=1, omp_nthreads=1, name='linear_alignment_wf
     )
     workflow.connect([
         (inputnode, combine_motions, [('raw_ref_image', 'ref_file')]),
-        (itk2fsl, combine_motions, [('out_file', 'transform_files')]),
+        (concat_xforms, combine_motions, [('xforms', 'transform_files')]),
+        # (itk2fsl, combine_motions, [('out_file', 'transform_files')]),
         (combine_motions, outputnode, [('confounds_file', 'movpar_file')]),
     ])  # fmt:skip
 
