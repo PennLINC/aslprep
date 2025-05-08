@@ -3,6 +3,7 @@
 """ASLprep base processing workflows."""
 
 import os
+import re
 import sys
 import warnings
 from copy import deepcopy
@@ -379,6 +380,18 @@ their manuscripts unchanged. It is released under the unchanged
                 ]),
             ])  # fmt:skip
 
+            select_MNI2009c_xfm_fw = pe.Node(
+                KeySelect(fields=['anat2std_xfm'], key='MNI152NLin2009cAsym'),
+                name='select_MNI2009c_xfm_fw',
+                run_without_submitting=True,
+            )
+            workflow.connect([
+                (anat_fit_wf, select_MNI2009c_xfm_fw, [
+                    ('outputnode.anat2std_xfm', 'anat2std_xfm'),
+                    ('outputnode.template', 'keys'),
+                ]),
+            ])  # fmt:skip
+
         # Thread MNI152NLin6Asym standard outputs to CIFTI subworkflow, skipping
         # the iterator, which targets only output spaces.
         # This can lead to duplication in the working directory if people actually
@@ -626,7 +639,7 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
             if estimator.method in (fm.EstimatorType.MAPPED, fm.EstimatorType.PHASEDIFF):
                 continue
 
-            suffices = [s.suffix for s in estimator.sources]
+            suffixes = [s.suffix for s in estimator.sources]
 
             if estimator.method == fm.EstimatorType.PEPOLAR:
                 # "Sophisticated" PEPOLAR schemes should be run "manually" with SDCFlows
@@ -635,8 +648,10 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                 #    (typically, more than two EPI PE directions), or
                 # 2. Two modalities are involved, with at most two images to pass
                 #    into FSL TOPUP.
-                if len(set(suffices)) == 1 or (
-                    len(suffices) == 2 and all(suf in ('epi', 'bold', 'sbref') for suf in suffices)
+                if len(set(suffixes)) == 1 or (
+                    len(suffixes) == 2 and all(
+                        suf in ('epi', 'm0scan', 'sbref') for suf in suffixes
+                    )
                 ):
                     wf_inputs = getattr(fmap_wf.inputs, f'in_{estimator.bids_id}')
                     wf_inputs.in_data = [str(s.path) for s in estimator.sources]
@@ -703,9 +718,8 @@ tasks and sessions), the following preprocessing was performed.
             )
         config.workflow.asl2anat_init = 't2w' if has_t2w else 't1w'
 
-    for bold_series in bold_runs:
-        bold_file = bold_series[0]
-        fieldmap_id = estimator_map.get(bold_file)
+    for asl_file in subject_data['asl']:
+        fieldmap_id = estimator_map.get(asl_file)
         jacobian = False
 
         if fieldmap_id:
@@ -766,7 +780,7 @@ tasks and sessions), the following preprocessing was performed.
         ])  # fmt:skip
 
         workflow.connect([
-            (buffer, bold_wf, [('out', f'inputnode.{field}')])
+            (buffer, asl_wf, [('out', f'inputnode.{field}')])
             for field, buffer in fmap_buffers.items()
         ])  # fmt:skip
 
