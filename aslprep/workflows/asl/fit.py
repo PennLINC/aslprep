@@ -230,8 +230,8 @@ def init_asl_fit_wf(
 
     _, mem_gb = estimate_asl_mem_usage(asl_file)
 
-    hmc_boldref = precomputed.get('hmc_boldref')
-    coreg_boldref = precomputed.get('coreg_boldref')
+    hmc_aslref = precomputed.get('hmc_aslref')
+    coreg_aslref = precomputed.get('coreg_aslref')
     # Can contain
     #  1) aslref2fmap
     #  2) aslref2anat
@@ -306,19 +306,19 @@ def init_asl_fit_wf(
         name='regref_buffer',
     )
 
-    if hmc_boldref:
-        hmcref_buffer.inputs.boldref = hmc_boldref
-        config.loggers.workflow.debug('Reusing motion correction reference: %s', hmc_boldref)
+    if hmc_aslref:
+        hmcref_buffer.inputs.aslref = hmc_aslref
+        config.loggers.workflow.debug('Reusing motion correction reference: %s', hmc_aslref)
     if hmc_xforms:
         hmc_buffer.inputs.hmc_xforms = hmc_xforms
         config.loggers.workflow.debug('Reusing motion correction transforms: %s', hmc_xforms)
-    if boldref2fmap_xform:
-        fmapreg_buffer.inputs.boldref2fmap_xfm = boldref2fmap_xform
-        config.loggers.workflow.debug('Reusing BOLD-to-fieldmap transform: %s', boldref2fmap_xform)
-    if coreg_boldref:
-        regref_buffer.inputs.boldref = coreg_boldref
-        config.loggers.workflow.debug('Reusing coregistration reference: %s', coreg_boldref)
-    fmapref_buffer.inputs.sbref_files = sbref_files
+    if aslref2fmap_xform:
+        fmapreg_buffer.inputs.aslref2fmap_xfm = aslref2fmap_xform
+        config.loggers.workflow.debug('Reusing ASL-to-fieldmap transform: %s', aslref2fmap_xform)
+    if coreg_aslref:
+        regref_buffer.inputs.aslref = coreg_aslref
+        config.loggers.workflow.debug('Reusing coregistration reference: %s', coreg_aslref)
+    fmapref_buffer.inputs.sbref_files = [sbref_file]
 
     summary = pe.Node(
         FunctionalSummary(
@@ -344,7 +344,7 @@ def init_asl_fit_wf(
 
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         # TODO: Enable sdc report even if we find coregref
-        sdc_correction=not (coreg_boldref or fieldmap_id is None),
+        sdc_correction=not (coreg_aslref or fieldmap_id is None),
         freesurfer=config.workflow.run_reconall,
         output_dir=config.execution.aslprep_dir,
     )
@@ -387,12 +387,11 @@ def init_asl_fit_wf(
         niu.IdentityInterface(fields=['in_file']),
         name='hmc_boldref_source_buffer',
     )
-    if not hmc_boldref:
-        config.loggers.workflow.info('Stage 1: Adding HMC boldref workflow')
-        hmc_boldref_wf = init_raw_boldref_wf(
-            name='hmc_boldref_wf',
-            bold_file=bold_file,
-            multiecho=multiecho,
+    if not hmc_aslref:
+        config.loggers.workflow.info('Stage 1: Adding HMC aslref workflow')
+        hmc_aslref_wf = init_raw_aslref_wf(
+            name='hmc_aslref_wf',
+            asl_file=asl_file,
         )
         hmc_aslref_wf.inputs.inputnode.m0scan = m0scan
         hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_scans
@@ -416,24 +415,24 @@ def init_asl_fit_wf(
             (hmc_aslref_wf, asl_fit_reports_wf, [
                 ('outputnode.validation_report', 'inputnode.validation_report'),
             ]),
-            (ds_hmc_boldref_wf, hmc_boldref_source_buffer, [
-                ('outputnode.boldref', 'in_file'),
+            (ds_hmc_aslref_wf, hmc_aslref_source_buffer, [
+                ('outputnode.aslref', 'in_file'),
             ]),
         ])  # fmt:skip
     else:
-        config.loggers.workflow.info('Found HMC boldref - skipping Stage 1')
+        config.loggers.workflow.info('Found HMC aslref - skipping Stage 1')
 
-        validation_and_dummies_wf = init_validation_and_dummies_wf(bold_file=bold_file)
+        validation_and_dummies_wf = init_validation_and_dummies_wf(bold_file=asl_file)
 
         workflow.connect([
             (validation_and_dummies_wf, hmcref_buffer, [
-                ('outputnode.bold_file', 'bold_file'),
+                ('outputnode.bold_file', 'asl_file'),
                 ('outputnode.skip_vols', 'dummy_scans'),
             ]),
-            (validation_and_dummies_wf, func_fit_reports_wf, [
+            (validation_and_dummies_wf, asl_fit_reports_wf, [
                 ('outputnode.validation_report', 'inputnode.validation_report'),
             ]),
-            (hmcref_buffer, hmc_boldref_source_buffer, [('boldref', 'in_file')]),
+            (hmcref_buffer, hmc_aslref_source_buffer, [('aslref', 'in_file')]),
         ])  # fmt:skip
 
     # Reduce the ASL series to only include volumes that need to be processed.
@@ -497,19 +496,18 @@ def init_asl_fit_wf(
 
     # Stage 3: Create coregistration reference
     # Fieldmap correction only happens during fit if this stage is needed
-    if not coreg_boldref:
-        config.loggers.workflow.info('Stage 3: Adding coregistration boldref workflow')
+    if not coreg_aslref:
+        config.loggers.workflow.info('Stage 3: Adding coregistration aslref workflow')
 
         # Select initial boldref, enhance contrast, and generate mask
-        if sbref_files and nb.load(sbref_files[0]).ndim > 3:
-            raw_sbref_wf = init_raw_boldref_wf(
+        if sbref_file and nb.load(sbref_file).ndim > 3:
+            raw_sbref_wf = init_raw_aslref_wf(
                 name='raw_sbref_wf',
-                bold_file=sbref_files[0],
-                multiecho=len(sbref_files) > 1,
+                asl_file=sbref_file,
             )
-            workflow.connect(raw_sbref_wf, 'outputnode.boldref', fmapref_buffer, 'sbref_files')
+            workflow.connect(raw_sbref_wf, 'outputnode.aslref', fmapref_buffer, 'sbref_files')
 
-        enhance_boldref_wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=omp_nthreads)
+        enhance_aslref_wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=omp_nthreads)
 
         ds_coreg_aslref_wf = init_ds_aslref_wf(
             bids_root=layout.root,
@@ -517,22 +515,22 @@ def init_asl_fit_wf(
             desc='coreg',
             name='ds_coreg_aslref_wf',
         )
-        ds_boldmask_wf = init_ds_boldmask_wf(
+        ds_aslmask_wf = init_ds_boldmask_wf(
             output_dir=config.execution.fmriprep_dir,
             desc='brain',
-            name='ds_boldmask_wf',
+            name='ds_aslmask_wf',
         )
-        ds_boldmask_wf.inputs.inputnode.source_files = [bold_file]
+        ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
 
         workflow.connect([
-            (hmcref_buffer, fmapref_buffer, [('boldref', 'boldref_files')]),
-            (fmapref_buffer, enhance_boldref_wf, [('out', 'inputnode.in_file')]),
-            (hmc_boldref_source_buffer, ds_coreg_boldref_wf, [
+            (hmcref_buffer, fmapref_buffer, [('aslref', 'aslref_files')]),
+            (fmapref_buffer, enhance_aslref_wf, [('out', 'inputnode.in_file')]),
+            (hmc_aslref_source_buffer, ds_coreg_aslref_wf, [
                 ('in_file', 'inputnode.source_files'),
             ]),
-            (ds_coreg_boldref_wf, regref_buffer, [('outputnode.boldref', 'boldref')]),
-            (ds_boldmask_wf, regref_buffer, [('outputnode.boldmask', 'boldmask')]),
-            (fmapref_buffer, func_fit_reports_wf, [('out', 'inputnode.sdc_boldref')]),
+            (ds_coreg_aslref_wf, regref_buffer, [('outputnode.aslref', 'aslref')]),
+            (ds_aslmask_wf, regref_buffer, [('outputnode.aslmask', 'aslmask')]),
+            (fmapref_buffer, asl_fit_reports_wf, [('out', 'inputnode.sdc_aslref')]),
         ])  # fmt:skip
 
         if fieldmap_id:
@@ -587,7 +585,7 @@ def init_asl_fit_wf(
             )
             unwarp_wf.inputs.inputnode.metadata = layout.get_metadata(asl_file)
 
-            skullstrip_bold_wf = init_skullstrip_bold_wf()
+            skullstrip_asl_wf = init_skullstrip_bold_wf()
 
             workflow.connect([
                 (inputnode, fmap_select, [
@@ -610,12 +608,8 @@ def init_asl_fit_wf(
                 ]),
                 (unwarp_wf, ds_coreg_aslref_wf, [('outputnode.corrected', 'inputnode.aslref')]),
                 (fmap_select, asl_fit_reports_wf, [('fmap_ref', 'inputnode.fmap_ref')]),
-                (unwarp_wf, skullstrip_bold_wf, [
-                    ('outputnode.corrected', 'inputnode.in_file'),
-                ]),
-                (skullstrip_bold_wf, ds_boldmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.boldmask'),
-                ]),
+                (unwarp_wf, skullstrip_asl_wf, [('outputnode.corrected', 'inputnode.in_file')]),
+                (skullstrip_asl_wf, ds_aslmask_wf, [('outputnode.mask_file', 'inputnode.aslmask')]),
                 (fmap_select, summary, [('sdc_method', 'distortion_correction')]),
                 (fmapreg_buffer, asl_fit_reports_wf, [
                     ('aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
@@ -627,8 +621,8 @@ def init_asl_fit_wf(
                 (enhance_aslref_wf, ds_coreg_aslref_wf, [
                     ('outputnode.bias_corrected_file', 'inputnode.aslref'),
                 ]),
-                (enhance_boldref_wf, ds_boldmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.boldmask'),
+                (enhance_aslref_wf, ds_aslmask_wf, [
+                    ('outputnode.mask_file', 'inputnode.aslmask'),
                 ]),
             ])  # fmt:skip
     else:
@@ -637,12 +631,12 @@ def init_asl_fit_wf(
         # TODO: Allow precomputed bold masks to be passed
         # Also needs consideration for how it interacts above
         skullstrip_precomp_ref_wf = init_skullstrip_bold_wf(name='skullstrip_precomp_ref_wf')
-        skullstrip_precomp_ref_wf.inputs.inputnode.in_file = coreg_boldref
+        skullstrip_precomp_ref_wf.inputs.inputnode.in_file = coreg_aslref
         workflow.connect([
-            (skullstrip_precomp_ref_wf, regref_buffer, [('outputnode.mask_file', 'boldmask')])
+            (skullstrip_precomp_ref_wf, regref_buffer, [('outputnode.mask_file', 'aslmask')])
         ])  # fmt:skip
 
-    if not boldref2anat_xform:
+    if not aslref2anat_xform:
         use_bbr = (
             True
             if 'bbr' in config.workflow.force
@@ -651,9 +645,9 @@ def init_asl_fit_wf(
             else None
         )
         # calculate BOLD registration to T1w
-        bold_reg_wf = init_bold_reg_wf(
-            bold2anat_dof=config.workflow.bold2anat_dof,
-            bold2anat_init=config.workflow.bold2anat_init,
+        asl_reg_wf = init_bold_reg_wf(
+            bold2anat_dof=config.workflow.asl2anat_dof,
+            bold2anat_init=config.workflow.asl2anat_init,
             use_bbr=use_bbr,
             freesurfer=config.workflow.run_reconall,
             omp_nthreads=omp_nthreads,
@@ -862,7 +856,7 @@ def init_asl_native_wf(
         )
 
         distortion_params = pe.Node(
-            DistortionParameters(metadata=metadata, in_file=bold_file),
+            DistortionParameters(metadata=metadata, in_file=asl_file),
             name='distortion_params',
             run_without_submitting=True,
         )
@@ -941,21 +935,21 @@ def init_asl_native_wf(
         # Do NOT set motion_xfm on outputnode
         # This prevents downstream resamplers from double-dipping
         workflow.connect([
-            (inputnode, bold_t2s_wf, [('bold_mask', 'inputnode.bold_mask')]),
-            (boldref_bold, join_echos, [('out_file', 'bold_files')]),
-            (join_echos, bold_t2s_wf, [('bold_files', 'inputnode.bold_file')]),
-            (join_echos, outputnode, [('bold_files', 'bold_echos')]),
-            (bold_t2s_wf, outputnode, [
-                ('outputnode.bold', 'bold_minimal'),
-                ('outputnode.bold', 'bold_native'),
+            (inputnode, asl_t2s_wf, [('asl_mask', 'inputnode.asl_mask')]),
+            (aslref_asl, join_echos, [('out_file', 'asl_files')]),
+            (join_echos, asl_t2s_wf, [('asl_files', 'inputnode.asl_file')]),
+            (join_echos, outputnode, [('asl_files', 'asl_echos')]),
+            (asl_t2s_wf, outputnode, [
+                ('outputnode.asl', 'asl_minimal'),
+                ('outputnode.asl', 'asl_native'),
                 ('outputnode.t2star_map', 't2star_map'),
             ]),
         ])  # fmt:skip
     else:
         workflow.connect([
             (inputnode, outputnode, [('motion_xfm', 'motion_xfm')]),
-            (boldbuffer, outputnode, [('bold_file', 'bold_minimal')]),
-            (boldref_bold, outputnode, [('out_file', 'bold_native')]),
+            (aslbuffer, outputnode, [('asl_file', 'asl_minimal')]),
+            (aslref_asl, outputnode, [('out_file', 'asl_native')]),
         ])  # fmt:skip
 
     return workflow
