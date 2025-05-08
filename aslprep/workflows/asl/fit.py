@@ -91,6 +91,7 @@ def init_asl_fit_wf(
     use_ge: bool,
     precomputed: dict = None,
     fieldmap_id: str | None = None,
+    jacobian: bool = False,
     omp_nthreads: int = 1,
     name: str = 'asl_fit_wf',
 ) -> pe.Workflow:
