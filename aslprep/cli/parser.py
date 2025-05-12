@@ -378,14 +378,17 @@ any spatial references.""",
         action='store_true',
         dest='use_ge',
         default=None,
-        help='Always use boundary-based registration (no goodness-of-fit checks)',
+        help=(
+            'Enable GE-specific processing (no HMC, different reference image) without checking '
+            'number of volumes'
+        ),
     )
     g_use_ge.add_argument(
         '--force-no-ge',
         action='store_false',
         dest='use_ge',
         default=None,
-        help='Do not use boundary-based registration (no goodness-of-fit checks)',
+        help='Disable GE-specific processing without checking number of volumes',
     )
 
     g_conf.add_argument(

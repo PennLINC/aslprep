@@ -549,3 +549,35 @@ class ComputeCBFQC(SimpleInterface):
             json.dump(qc_metadata, fobj, indent=4, sort_keys=True)
 
         return runtime
+
+
+class _CreateFakeMotionOutputsInputSpec(BaseInterfaceInputSpec):
+    asl_file = File(exists=True, mandatory=True, desc='the input NIfTI file')
+
+
+class _CreateFakeMotionOutputsOutputSpec(TraitedSpec):
+    rmsd_file = File(exists=True, desc='RMSD TSV file. All zeros.')
+
+
+class CreateFakeMotionOutputs(SimpleInterface):
+    """Create outputs expected by HMC workflow without any motion."""
+
+    input_spec = _CreateFakeMotionOutputsInputSpec
+    output_spec = _CreateFakeMotionOutputsOutputSpec
+
+    def _run_interface(self, runtime):
+        import nibabel as nb
+
+        img = nb.load(self.inputs.asl_file)
+        if img.ndim == 4:
+            n_volumes = img.shape[3]
+        else:
+            # Support single-volume images
+            n_volumes = 1
+
+        rmsd = np.zeros((n_volumes,))
+
+        self._results['rmsd_file'] = os.path.join(runtime.cwd, 'rmsd.txt')
+        np.savetxt(self._results['rmsd_file'], rmsd)
+
+        return runtime
