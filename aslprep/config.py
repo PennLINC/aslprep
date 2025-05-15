@@ -549,8 +549,6 @@ class workflow(_Config):
     """Regularize fieldmaps with a field of B-Spline basis."""
     fmap_demean = None
     """Remove the mean from fieldmaps."""
-    force_syn = None
-    """Run *fieldmap-less* susceptibility-derived distortions estimation."""
     hires = None
     """Run FreeSurfer ``recon-all`` with the ``-hires`` flag."""
     fs_no_resume = None
@@ -581,14 +579,9 @@ class workflow(_Config):
     spaces = None
     """Keeps the :py:class:`~niworkflows.utils.spaces.SpatialReferences`
     instance keeping standard and nonstandard spaces."""
-    use_bbr = None
-    """Run boundary-based registration for ASL-to-T1w registration."""
     use_syn_sdc = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation
     in the absence of any alternatives."""
-    use_ge = None
-    """Run GE-specific processing. False means don't, True means do,
-    None means determine automatically."""
     smooth_kernel = 5.0
     """Kernel size for smoothing M0."""
     scorescrub = False
