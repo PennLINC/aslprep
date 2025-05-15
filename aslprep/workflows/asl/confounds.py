@@ -284,12 +284,12 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         run_without_submitting=True,
     )
     workflow.connect([
-        (motion_params, concat, [('out_file', 'motion')]),
         (signals, concat, [('out_file', 'signals')]),
         (concat, outputnode, [('confounds_file', 'confounds_file')]),
     ])  # fmt:skip
     if n_volumes > 2:
         workflow.connect([
+            (motion_params, concat, [('out_file', 'motion')]),
             (fdisp, concat, [('out_file', 'fd')]),
             (rmsd, concat, [('out_file', 'rmsd')]),
             (add_dvars_header, concat, [('out_file', 'dvars')]),
