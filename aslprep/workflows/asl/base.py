@@ -476,7 +476,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_fit_wf, cbf_confounds_wf, [
             ('outputnode.asl_mask', 'inputnode.asl_mask'),
             ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
-            ('outputnode.rmsd_file', 'inputnode.rmsd_file'),
         ]),
         (asl_confounds_wf, cbf_confounds_wf, [
             ('outputnode.confounds_file', 'inputnode.confounds_file'),

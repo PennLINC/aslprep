@@ -527,7 +527,6 @@ negative CBF values.
                 'mean_cbf_wm_basil',
                 # non-GE inputs
                 'confounds_file',
-                'rmsd_file',
             ],
         ),
         name='inputnode',
@@ -666,7 +665,6 @@ negative CBF values.
             ('asl_mask', 'asl_mask'),
             ('mean_cbf', 'mean_cbf'),
             ('confounds_file', 'confounds_file'),
-            ('rmsd_file', 'rmsd_file'),
         ]),
         (warp_asl_mask_to_mni152nlin2009casym, compute_qc_metrics, [
             ('output_image', 'asl_mask_std'),
