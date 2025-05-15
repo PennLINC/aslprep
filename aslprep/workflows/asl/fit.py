@@ -35,10 +35,11 @@ from fmriprep.interfaces.resampling import (
 )
 from fmriprep.utils.bids import extract_entities
 from fmriprep.workflows.bold import outputs as output_workflows
+from fmriprep.workflows.bold.reference import init_validation_and_dummies_wf
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
+from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf, init_skullstrip_bold_wf
 from niworkflows.interfaces.header import ValidateImage
 from niworkflows.interfaces.nitransforms import ConcatenateXFMs
 from niworkflows.interfaces.utility import KeySelect
@@ -383,9 +384,9 @@ def init_asl_fit_wf(
     ])  # fmt:skip
 
     # Stage 1: Generate motion correction boldref
-    hmc_boldref_source_buffer = pe.Node(
+    hmc_aslref_source_buffer = pe.Node(
         niu.IdentityInterface(fields=['in_file']),
-        name='hmc_boldref_source_buffer',
+        name='hmc_aslref_source_buffer',
     )
     if not hmc_aslref:
         config.loggers.workflow.info('Stage 1: Adding HMC aslref workflow')
@@ -515,8 +516,8 @@ def init_asl_fit_wf(
             desc='coreg',
             name='ds_coreg_aslref_wf',
         )
-        ds_aslmask_wf = init_ds_boldmask_wf(
-            output_dir=config.execution.fmriprep_dir,
+        ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
+            output_dir=config.execution.aslprep_dir,
             desc='brain',
             name='ds_aslmask_wf',
         )
