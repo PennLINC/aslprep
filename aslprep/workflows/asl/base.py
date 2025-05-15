@@ -182,7 +182,9 @@ def init_asl_wf(
 
     # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
     n_vols = get_n_volumes(asl_file)
-    use_ge = ('ge' in config.workflow.force or n_vols <= 5) and ('no-ge' not in config.workflow.force)
+    use_ge = ('ge' in config.workflow.force or n_vols <= 5) and (
+        'no-ge' not in config.workflow.force
+    )
     if use_ge:
         config.loggers.workflow.warning('Using GE-specific processing. HMC will be disabled.')
         if scorescrub:
