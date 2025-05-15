@@ -933,9 +933,9 @@ def init_asl_native_wf(
     return workflow
 
 
-def _select_ref(sbref_file, aslref_files):
+def _select_ref(sbref_files, aslref_files):
     """Select first sbref or aslref file, preferring sbref if available."""
     from niworkflows.utils.connections import listify
 
-    refs = sbref_file or aslref_files
+    refs = sbref_files or aslref_files
     return listify(refs)[0]
