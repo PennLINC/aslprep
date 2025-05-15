@@ -516,7 +516,7 @@ def init_asl_fit_wf(
                 ('in_file', 'inputnode.source_files'),
             ]),
             (ds_coreg_aslref_wf, regref_buffer, [('outputnode.aslref', 'aslref')]),
-            (ds_aslmask_wf, regref_buffer, [('outputnode.aslmask', 'aslmask')]),
+            (ds_aslmask_wf, regref_buffer, [('outputnode.boldmask', 'aslmask')]),
             (fmapref_buffer, asl_fit_reports_wf, [('out', 'inputnode.sdc_aslref')]),
         ])  # fmt:skip
 
