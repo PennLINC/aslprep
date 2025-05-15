@@ -597,7 +597,7 @@ def init_asl_fit_wf(
                 (fmap_select, asl_fit_reports_wf, [('fmap_ref', 'inputnode.fmap_ref')]),
                 (unwarp_wf, skullstrip_asl_wf, [('outputnode.corrected', 'inputnode.in_file')]),
                 (skullstrip_asl_wf, ds_aslmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.aslmask'),
+                    ('outputnode.mask_file', 'inputnode.boldmask'),
                 ]),
                 (fmap_select, summary, [('sdc_method', 'distortion_correction')]),
                 (fmapreg_buffer, asl_fit_reports_wf, [
@@ -611,7 +611,7 @@ def init_asl_fit_wf(
                     ('outputnode.bias_corrected_file', 'inputnode.aslref'),
                 ]),
                 (enhance_aslref_wf, ds_aslmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.aslmask'),
+                    ('outputnode.mask_file', 'inputnode.boldmask'),
                 ]),
             ])  # fmt:skip
     else:
