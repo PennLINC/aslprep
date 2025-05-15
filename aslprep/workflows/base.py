@@ -649,9 +649,8 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                 # 2. Two modalities are involved, with at most two images to pass
                 #    into FSL TOPUP.
                 if len(set(suffixes)) == 1 or (
-                    len(suffixes) == 2 and all(
-                        suf in ('epi', 'm0scan', 'sbref') for suf in suffixes
-                    )
+                    len(suffixes) == 2
+                    and all(suf in ('epi', 'm0scan', 'sbref') for suf in suffixes)
                 ):
                     wf_inputs = getattr(fmap_wf.inputs, f'in_{estimator.bids_id}')
                     wf_inputs.in_data = [str(s.path) for s in estimator.sources]
