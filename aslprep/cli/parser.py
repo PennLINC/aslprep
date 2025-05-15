@@ -368,6 +368,7 @@ any spatial references.""",
 
     g_use_bbr = g_conf.add_mutually_exclusive_group()
     g_use_bbr.add_argument(
+        '--force-bbr',
         action=DeprecatedAction,
         help='Deprecated - use `--force bbr` instead.',
     )
