@@ -73,10 +73,8 @@ def init_asl_confounds_wf(
         when available.
     asl_mask
         asl series mask
-    movpar_file
-        SPM-formatted motion parameters file
-    rmsd_file
-        Framewise displacement as measured by ``fsl_motion_outliers``.
+    motion_xfm
+        ITK-formatted head motion transforms
     skip_vols
         number of non steady state volumes
     t1w_mask
@@ -97,7 +95,12 @@ def init_asl_confounds_wf(
         Mask of brain edge voxels
     acompcor_masks
     """
-    from fmriprep.interfaces.confounds import aCompCorMasks
+    from fmriprep.interfaces.confounds import (
+        FramewiseDisplacement,
+        FSLMotionParams,
+        FSLRMSDeviation,
+        aCompCorMasks,
+    )
     from niworkflows.interfaces.images import SignalExtraction
     from niworkflows.interfaces.morphology import BinaryDilation, BinarySubtraction
     from niworkflows.interfaces.nibabel import ApplyMask, Binarize
@@ -114,8 +117,8 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
             fields=[
                 'asl',
                 'asl_mask',
-                'movpar_file',
-                'rmsd_file',
+                'hmc_boldref',
+                'motion_xfm',
                 'skip_vols',
                 't1w_mask',
                 't1w_tpms',
@@ -136,14 +139,6 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         name='outputnode',
     )
 
-    add_motion_headers = pe.Node(
-        AddTSVHeader(columns=['trans_x', 'trans_y', 'trans_z', 'rot_x', 'rot_y', 'rot_z']),
-        name='add_motion_headers',
-        mem_gb=0.01,
-        run_without_submitting=True,
-    )
-    workflow.connect([(inputnode, add_motion_headers, [('movpar_file', 'in_file')])])
-
     if n_volumes > 2:  # set to 2 bc relative arrays will be 1D instead of 2D for 1-volume data
         # DVARS
         dvars = pe.Node(
@@ -158,13 +153,23 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
             ]),
         ])  # fmt:skip
 
+        # Motion parameters
+        motion_params = pe.Node(FSLMotionParams(), name='motion_params')
+
         # Frame displacement
-        fdisp = pe.Node(
-            nac.FramewiseDisplacement(parameter_source='SPM'),
-            name='fdisp',
-            mem_gb=mem_gb,
-        )
-        workflow.connect([(inputnode, fdisp, [('movpar_file', 'in_file')])])
+        fdisp = pe.Node(FramewiseDisplacement(), name='fdisp')
+        rmsd = pe.Node(FSLRMSDeviation(), name='rmsd')
+        workflow.connect([
+            (inputnode, motion_params, [
+                ('motion_xfm', 'xfm_file'),
+                ('hmc_boldref', 'boldref_file'),
+            ]),
+            (inputnode, rmsd, [
+                ('motion_xfm', 'xfm_file'),
+                ('hmc_boldref', 'boldref_file'),
+            ]),
+            (motion_params, fdisp, [('out_file', 'in_file')]),
+        ])  # fmt:skip
 
         # Arrange confounds
         add_dvars_header = pe.Node(
@@ -179,16 +184,9 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
             mem_gb=0.01,
             run_without_submitting=True,
         )
-        add_rmsd_header = pe.Node(
-            AddTSVHeader(columns=['rmsd']),
-            name='add_rmsd_header',
-            mem_gb=0.01,
-            run_without_submitting=True,
-        )
 
         workflow.connect([
             # Collate computed confounds together
-            (inputnode, add_rmsd_header, [('rmsd_file', 'in_file')]),
             (dvars, add_dvars_header, [('out_nstd', 'in_file')]),
             (dvars, add_std_dvars_header, [('out_std', 'in_file')]),
         ])  # fmt:skip
@@ -286,14 +284,14 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         run_without_submitting=True,
     )
     workflow.connect([
-        (add_motion_headers, concat, [('out_file', 'motion')]),
+        (motion_params, concat, [('out_file', 'motion')]),
         (signals, concat, [('out_file', 'signals')]),
         (concat, outputnode, [('confounds_file', 'confounds_file')]),
     ])  # fmt:skip
     if n_volumes > 2:
         workflow.connect([
             (fdisp, concat, [('out_file', 'fd')]),
-            (add_rmsd_header, concat, [('out_file', 'rmsd')]),
+            (rmsd, concat, [('out_file', 'rmsd')]),
             (add_dvars_header, concat, [('out_file', 'dvars')]),
             (add_std_dvars_header, concat, [('out_file', 'std_dvars')]),
         ])  # fmt:skip

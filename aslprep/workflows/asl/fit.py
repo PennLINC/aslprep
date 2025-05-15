@@ -185,10 +185,6 @@ def init_asl_fit_wf(
     aslref2fmap_xfm
         Affine transform mapping from ASL reference space to the fieldmap
         space, if applicable.
-    movpar_file
-        MCFLIRT motion parameters, normalized to SPM format (X, Y, Z, Rx, Ry, Rz)
-    rmsd_file
-        Root mean squared deviation as measured by ``fsl_motion_outliers`` [Jenkinson2002]_.
     dummy_scans
         The number of dummy scans declared or detected at the beginning of the series.
     """
@@ -282,8 +278,6 @@ def init_asl_fit_wf(
                 'motion_xfm',
                 'aslref2anat_xfm',
                 'aslref2fmap_xfm',
-                'movpar_file',  # motion parameters file, for confounds and plots
-                'rmsd_file',
             ],
         ),
         name='outputnode',
@@ -362,11 +356,7 @@ def init_asl_fit_wf(
             ('aslmask', 'asl_mask'),
         ]),
         (fmapreg_buffer, outputnode, [('aslref2fmap_xfm', 'aslref2fmap_xfm')]),
-        (hmc_buffer, outputnode, [
-            ('hmc_xforms', 'motion_xfm'),
-            ('movpar_file', 'movpar_file'),
-            ('rmsd_file', 'rmsd_file'),
-        ]),
+        (hmc_buffer, outputnode, [('hmc_xforms', 'motion_xfm')]),
         (inputnode, asl_fit_reports_wf, [
             ('asl_file', 'inputnode.source_file'),
             ('t1w_preproc', 'inputnode.t1w_preproc'),
@@ -486,11 +476,7 @@ def init_asl_fit_wf(
                 ('aslcontext', 'inputnode.aslcontext'),
             ]),
             (asl_hmc_wf, ds_hmc_wf, [('outputnode.xforms', 'inputnode.xforms')]),
-            (asl_hmc_wf, hmc_buffer, [
-                ('outputnode.xforms', 'hmc_xforms'),
-                ('outputnode.movpar_file', 'movpar_file'),
-                ('outputnode.rmsd_file', 'rmsd_file'),
-            ]),
+            (asl_hmc_wf, hmc_buffer, [('outputnode.xforms', 'hmc_xforms')]),
         ])  # fmt:skip
     else:
         config.loggers.workflow.info('Found motion correction transforms - skipping Stage 2')
@@ -927,7 +913,7 @@ def init_asl_native_wf(
         identity_xfm = nw_data.load('itkIdentityTransform.txt')
         aslref_m0scan = pe.Node(
             ResampleSeries(
-                jacobian='fmap-jacobian' not in config.workflow.ignore,
+                jacobian=jacobian,
                 transforms=[identity_xfm],
                 in_file=m0scan,
             ),

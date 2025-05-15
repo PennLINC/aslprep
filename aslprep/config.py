@@ -149,11 +149,10 @@ if not _disable_et:
     # Just get so analytics track one hit
     from contextlib import suppress
 
-    from requests import ConnectionError, ReadTimeout  # noqa: A004
-    from requests import get as _get_url
+    import requests
 
-    with suppress((ConnectionError, ReadTimeout)):
-        _get_url('https://rig.mit.edu/et/projects/nipy/nipype', timeout=0.05)
+    with suppress((requests.ConnectionError, requests.ReadTimeout)):
+        requests.get('https://rig.mit.edu/et/projects/nipy/nipype', timeout=0.05)
 
 # Execution environment
 _exec_env = os.name
@@ -558,6 +557,8 @@ class workflow(_Config):
     """Adjust pipeline to reuse base template of existing longitudinal freesurfer"""
     ignore = None
     """Ignore particular steps for *ASLPrep*."""
+    force = None
+    """Force particular steps for *ASLPrep*."""
     level = 'full'
     """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full']."""
     longitudinal = False

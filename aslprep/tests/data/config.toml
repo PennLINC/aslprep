@@ -36,6 +36,7 @@ asl2anat_dof = 6
 asl2anat_init = "auto"
 m0_scale = 1
 fmap_bspline = false
+force = []
 force_syn = false
 hires = true
 ignore = []

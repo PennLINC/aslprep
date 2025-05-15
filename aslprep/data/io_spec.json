@@ -24,7 +24,7 @@
     },
     "transforms": {
       "hmc": {
-        "datatype": "func",
+        "datatype": "perf",
         "from": "orig",
         "to": "aslref",
         "mode": "image",
@@ -32,15 +32,15 @@
         "extension": ".txt"
       },
       "aslref2anat": {
-        "datatype": "func",
+        "datatype": "perf",
         "from": "aslref",
-        "to": "anat",
+        "to": ["anat", "T1w", "T2w"],
         "mode": "image",
         "suffix": "xfm",
         "extension": ".txt"
       },
       "aslref2fmap": {
-        "datatype": "func",
+        "datatype": "perf",
         "from": "aslref",
         "mode": "image",
         "suffix": "xfm",

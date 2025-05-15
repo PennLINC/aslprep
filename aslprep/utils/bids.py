@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 from collections import defaultdict
+from functools import cache
 from pathlib import Path
 
 import yaml
@@ -14,6 +15,11 @@ from bids.layout import BIDSLayout
 
 from aslprep import config
 from aslprep.data import load as load_data
+
+
+@cache
+def _get_layout(derivatives_dir: Path) -> BIDSLayout:
+    return BIDSLayout(derivatives_dir, config=['bids', 'derivatives'], validate=False)
 
 
 def collect_data(
@@ -125,7 +131,7 @@ def collect_run_data(layout, asl_file):
 def collect_derivatives(
     derivatives_dir: Path,
     entities: dict,
-    fieldmap_id: str | None,
+    fieldmap_id: str | None = None,
     spec: dict | None = None,
     patterns: list[str] | None = None,
 ):
@@ -141,25 +147,32 @@ def collect_derivatives(
             patterns = _patterns
 
     derivs_cache = defaultdict(list, {})
-    layout = BIDSLayout(derivatives_dir, config=['bids', 'derivatives'], validate=False)
+    layout = _get_layout(derivatives_dir)
     derivatives_dir = Path(derivatives_dir)
 
     # search for both aslrefs
     for k, q in spec['baseline'].items():
-        query = {**q, **entities}
+        query = {**entities, **q}
         item = layout.get(return_type='filename', **query)
         if not item:
             continue
         derivs_cache[f'{k}_aslref'] = item[0] if len(item) == 1 else item
 
+    transforms_cache = {}
     for xfm, q in spec['transforms'].items():
-        query = {**q, **entities}
-        if xfm == 'aslref2fmap':
-            query['to'] = fieldmap_id
-        item = layout.get(return_type='filename', **q)
+        # Transform extension will often not match provided entities
+        #   (e.g., ".nii.gz" vs ".txt").
+        # And transform suffixes will be "xfm",
+        #   whereas relevant src file will be "bold".
+        query = {**entities, **q}
+        if xfm == 'boldref2fmap' and fieldmap_id:
+            # fieldmaps have ids like auto_00000
+            query['to'] = fieldmap_id.replace('_', '')
+        item = layout.get(return_type='filename', **query)
         if not item:
             continue
-        derivs_cache[xfm] = item[0] if len(item) == 1 else item
+        transforms_cache[xfm] = item[0] if len(item) == 1 else item
+    derivs_cache['transforms'] = transforms_cache
     return derivs_cache
 
 

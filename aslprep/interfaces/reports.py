@@ -165,7 +165,11 @@ class _FunctionalSummaryInputSpec(BaseInterfaceInputSpec):
         desc='Phase-encoding direction detected',
     )
     registration = traits.Enum(
-        'FSL', 'FreeSurfer', mandatory=True, desc='Functional/anatomical registration method'
+        'FSL',
+        'FreeSurfer',
+        'Precomputed',
+        mandatory=True,
+        desc='Functional/anatomical registration method',
     )
     fallback = traits.Bool(desc='Boundary-based registration rejected')
     registration_dof = traits.Enum(
@@ -192,18 +196,22 @@ class FunctionalSummary(SummaryInterface):
 
     def _generate_segment(self):
         dof = self.inputs.registration_dof
-        reg = {
-            'FSL': [
-                'FSL <code>flirt</code> with boundary-based registration'
-                f' (BBR) metric - {dof} dof',
-                'FSL <code>flirt</code> rigid registration - 6 dof',
-            ],
-            'FreeSurfer': [
-                'FreeSurfer <code>bbregister</code> '
-                f'(boundary-based registration, BBR) - {dof} dof',
-                f'FreeSurfer <code>mri_coreg</code> - {dof} dof',
-            ],
-        }[self.inputs.registration][self.inputs.fallback]
+        # TODO: Add a note about registration_init below?
+        if self.inputs.registration == 'Precomputed':
+            reg = 'Precomputed affine transformation'
+        else:
+            reg = {
+                'FSL': [
+                    'FSL <code>flirt</code> with boundary-based registration'
+                    f' (BBR) metric - {dof} dof',
+                    'FSL <code>flirt</code> rigid registration - 6 dof',
+                ],
+                'FreeSurfer': [
+                    'FreeSurfer <code>bbregister</code> '
+                    f'(boundary-based registration, BBR) - {dof} dof',
+                    f'FreeSurfer <code>mri_coreg</code> - {dof} dof',
+                ],
+            }[self.inputs.registration][self.inputs.fallback]
 
         pedir = get_world_pedir(self.inputs.orientation, self.inputs.pe_direction)
 

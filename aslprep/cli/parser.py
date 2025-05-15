@@ -18,6 +18,25 @@ def _build_parser():
 
     from aslprep.cli.version import check_latest, is_flagged
 
+    deprecations = {
+        # parser attribute name: (replacement flag, version slated to be removed in)
+        'force_bbr': ('--force bbr', '26.0.0'),
+        'force_no_bbr': ('--force no-bbr', '26.0.0'),
+        'force_syn': ('--force syn-sdc', '26.0.0'),
+    }
+
+    class DeprecatedAction(Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            new_opt, rem_vers = deprecations.get(self.dest, (None, None))
+            msg = (
+                f'{self.option_strings} has been deprecated and will be removed in '
+                f'{rem_vers or "a later version"}.'
+            )
+            if new_opt:
+                msg += f' Please use `{new_opt}` instead.'
+            print(msg, file=sys.stderr)
+            delattr(namespace, self.dest)
+
     class ToDict(Action):
         def __call__(self, parser, namespace, values, option_string=None):
             d = {}
@@ -60,9 +79,6 @@ def _build_parser():
         digits = ''.join([c for c in value if c.isdigit()])
         units = value[len(digits) :] or 'M'
         return int(digits) * scale[units[0]]
-
-    def _drop_sub(value):
-        return value[4:] if value.startswith('sub-') else value
 
     def _process_value(value):
         import bids
@@ -138,8 +154,8 @@ def _build_parser():
     # optional arguments
     g_bids = parser.add_argument_group('Options for filtering BIDS queries')
     g_bids.add_argument(
-        '--skip_bids_validation',
         '--skip-bids-validation',
+        '--skip_bids_validation',
         action='store_true',
         default=False,
         help='assume the input dataset is BIDS compliant and skip the validation',
@@ -149,7 +165,7 @@ def _build_parser():
         '--participant_label',
         action='store',
         nargs='+',
-        type=_drop_sub,
+        type=lambda label: label.removeprefix('sub-'),
         help=(
             'A space delimited list of participant identifiers or a single identifier '
             '(the sub- prefix can be removed)'
@@ -292,6 +308,20 @@ def _build_parser():
         ),
     )
     g_conf.add_argument(
+        '--force',
+        required=False,
+        action='store',
+        nargs='+',
+        default=[],
+        choices=['bbr', 'no-bbr', 'syn-sdc', 'fmap-jacobian', 'ge', 'no-ge'],
+        help='Force selected processing choices, overriding automatic selections '
+        '(a space delimited list).\n'
+        ' * [no-]bbr: Use/disable boundary-based registration for BOLD-to-T1w coregistration\n'
+        '             (No goodness-of-fit checks)\n'
+        ' * syn-sdc: Calculate SyN-SDC correction *in addition* to other fieldmaps\n'
+        ' * [no-]ge: Use/disable GE-specific processing\n',
+    )
+    g_conf.add_argument(
         '--output-spaces',
         nargs='*',
         action=OutputReferencesAction,
@@ -338,18 +368,13 @@ any spatial references.""",
 
     g_use_bbr = g_conf.add_mutually_exclusive_group()
     g_use_bbr.add_argument(
-        '--force-bbr',
-        action='store_true',
-        dest='use_bbr',
-        default=False,
-        help='Always use boundary-based registration (no goodness-of-fit checks)',
+        action=DeprecatedAction,
+        help='Deprecated - use `--force bbr` instead.',
     )
     g_use_bbr.add_argument(
         '--force-no-bbr',
-        action='store_false',
-        dest='use_bbr',
-        default=None,
-        help='Do not use boundary-based registration (no goodness-of-fit checks)',
+        action=DeprecatedAction,
+        help='Deprecated - use `--force no-bbr` instead.',
     )
     # g_conf.add_argument(
     #     '--dummy-scans',
@@ -375,20 +400,17 @@ any spatial references.""",
     g_use_ge = g_conf.add_mutually_exclusive_group()
     g_use_ge.add_argument(
         '--force-ge',
-        action='store_true',
-        dest='use_ge',
-        default=None,
-        help='Always use boundary-based registration (no goodness-of-fit checks)',
+        action=DeprecatedAction,
+        help='Deprecated - use `--force ge` instead.',
     )
     g_use_ge.add_argument(
         '--force-no-ge',
-        action='store_false',
-        dest='use_ge',
-        default=None,
-        help='Do not use boundary-based registration (no goodness-of-fit checks)',
+        action=DeprecatedAction,
+        help='Deprecated - use `--force no-ge` instead.',
     )
 
     g_conf.add_argument(
+        '--m0-scale',
         '--m0_scale',
         required=False,
         action='store',
@@ -403,6 +425,7 @@ any spatial references.""",
         ),
     )
     g_conf.add_argument(
+        '--smooth-kernel',
         '--smooth_kernel',
         action='store',
         default=5,
@@ -535,12 +558,9 @@ any spatial references.""",
     )
     g_syn.add_argument(
         '--force-syn',
-        action='store_true',
+        action=DeprecatedAction,
         default=False,
-        help=(
-            'EXPERIMENTAL/TEMPORARY: Use SyN correction in addition to '
-            'fieldmap correction, if available'
-        ),
+        help='Deprecated - use `--force syn-sdc` instead.',
     )
 
     # FreeSurfer options
@@ -696,6 +716,22 @@ def parse_args(args=None, namespace=None):
 
     config.execution.log_level = int(max(25 - 5 * opts.verbose_count, logging.DEBUG))
     config.from_dict(vars(opts), init=['nipype'])
+
+    # Consistency checks
+    force_set = set(config.workflow.force)
+    ignore_set = set(config.workflow.ignore)
+    if {'bbr', 'no-bbr'} <= force_set:
+        msg = (
+            'Cannot force and disable boundary-based registration at the same time. '
+            'Remove `bbr` or `no-bbr` from the `--force` options.'
+        )
+        raise ValueError(msg)
+    if 'fmap-jacobian' in force_set & ignore_set:
+        msg = (
+            'Cannot force and ignore fieldmap Jacobian correction. '
+            'Remove `fmap-jacobian` from either the `--force` or the `--ignore` option.'
+        )
+        raise ValueError(msg)
 
     # Initialize --output-spaces if not defined
     if config.execution.output_spaces is None:
