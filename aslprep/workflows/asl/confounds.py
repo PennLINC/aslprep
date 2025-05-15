@@ -117,7 +117,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
             fields=[
                 'asl',
                 'asl_mask',
-                'hmc_boldref',
+                'hmc_aslref',
                 'motion_xfm',
                 'skip_vols',
                 't1w_mask',
@@ -162,11 +162,11 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         workflow.connect([
             (inputnode, motion_params, [
                 ('motion_xfm', 'xfm_file'),
-                ('hmc_boldref', 'boldref_file'),
+                ('hmc_aslref', 'boldref_file'),
             ]),
             (inputnode, rmsd, [
                 ('motion_xfm', 'xfm_file'),
-                ('hmc_boldref', 'boldref_file'),
+                ('hmc_aslref', 'boldref_file'),
             ]),
             (motion_params, fdisp, [('out_file', 'in_file')]),
         ])  # fmt:skip
