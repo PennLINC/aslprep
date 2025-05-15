@@ -213,6 +213,7 @@ def init_asl_fit_reports_wf(
         't1w_preproc',
         't1w_mask',
         't1w_dseg',
+        'asl_mask',
         'fieldmap',
         'fmap_ref',
         # May be missing
@@ -398,7 +399,7 @@ def init_asl_fit_reports_wf(
             ]),
             (inputnode, sdcreg_report, [
                 ('sdc_aslref', 'reference'),
-                ('mask', 'mask'),
+                ('asl_mask', 'mask'),
             ]),
             (fmapref_aslref, sdcreg_report, [('output_image', 'moving')]),
             (fmap_aslref, sdcreg_report, [('output_image', 'fieldmap')]),

@@ -368,6 +368,7 @@ def init_asl_fit_wf(
         ]),
         (outputnode, asl_fit_reports_wf, [
             ('coreg_aslref', 'inputnode.coreg_aslref'),
+            ('asl_mask', 'inputnode.asl_mask'),
             ('aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
         ]),
         (summary, asl_fit_reports_wf, [('out_report', 'inputnode.summary_report')]),
