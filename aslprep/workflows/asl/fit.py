@@ -205,7 +205,7 @@ def init_asl_fit_wf(
     # sbrefs aren't supported for ASL data, but I think that might change in the future.
     sbref_file = get_sbrefs(
         asl_file,
-        entity_overrides=config.execution.get().get('bids_filters', {}).get('sbref', {}),
+        entity_overrides=bids_filters.get('sbref', {}),
         layout=layout,
     )
     basename = os.path.basename(asl_file)
@@ -610,7 +610,9 @@ def init_asl_fit_wf(
                 (unwarp_wf, ds_coreg_aslref_wf, [('outputnode.corrected', 'inputnode.aslref')]),
                 (fmap_select, asl_fit_reports_wf, [('fmap_ref', 'inputnode.fmap_ref')]),
                 (unwarp_wf, skullstrip_asl_wf, [('outputnode.corrected', 'inputnode.in_file')]),
-                (skullstrip_asl_wf, ds_aslmask_wf, [('outputnode.mask_file', 'inputnode.aslmask')]),
+                (skullstrip_asl_wf, ds_aslmask_wf, [
+                    ('outputnode.mask_file', 'inputnode.aslmask'),
+                ]),
                 (fmap_select, summary, [('sdc_method', 'distortion_correction')]),
                 (fmapreg_buffer, asl_fit_reports_wf, [
                     ('aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
@@ -933,24 +935,13 @@ def init_asl_native_wf(
             n_procs=omp_nthreads,
         )
 
-        # Do NOT set motion_xfm on outputnode
-        # This prevents downstream resamplers from double-dipping
         workflow.connect([
-            (inputnode, asl_t2s_wf, [('asl_mask', 'inputnode.asl_mask')]),
-            (aslref_asl, join_echos, [('out_file', 'asl_files')]),
-            (join_echos, asl_t2s_wf, [('asl_files', 'inputnode.asl_file')]),
-            (join_echos, outputnode, [('asl_files', 'asl_echos')]),
-            (asl_t2s_wf, outputnode, [
-                ('outputnode.asl', 'asl_minimal'),
-                ('outputnode.asl', 'asl_native'),
-                ('outputnode.t2star_map', 't2star_map'),
+            (inputnode, aslref_m0scan, [('aslref', 'ref_file')]),
+            (aslbuffer, aslref_m0scan, [
+                ('ro_time', 'ro_time'),
+                ('pe_dir', 'pe_dir'),
             ]),
-        ])  # fmt:skip
-    else:
-        workflow.connect([
-            (inputnode, outputnode, [('motion_xfm', 'motion_xfm')]),
-            (aslbuffer, outputnode, [('asl_file', 'asl_minimal')]),
-            (aslref_asl, outputnode, [('out_file', 'asl_native')]),
+            (aslref_m0scan, outputnode, [('out_file', 'm0scan_native')]),
         ])  # fmt:skip
 
     return workflow
