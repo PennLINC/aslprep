@@ -13,6 +13,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Recognition",
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 license = {file = "LICENSE.md"}
 requires-python = ">=3.10"
@@ -189,6 +192,12 @@ omit = [
     "*/__init__.py",
     "*/conftest.py",
     "aslprep/_version.py"
+]
+
+[tool.coverage.paths]
+source = [
+  "aslprep",
+  "**/site-packages/aslprep"
 ]
 
 [tool.coverage.report]

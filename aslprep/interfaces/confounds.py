@@ -199,7 +199,7 @@ class ComputeCBFQC(SimpleInterface):
         if 'framewise_displacement' in confounds_df.columns:
             # FD and RMSD only available for multi-volume datasets
             mean_fd = np.mean(confounds_df['framewise_displacement'])
-            mean_rms = pd.read_csv(self.inputs.rmsd_file, header=None).mean().values[0]
+            mean_rms = np.mean(confounds_df['rmsd'])
         else:
             mean_fd = np.nan
             mean_rms = np.nan
