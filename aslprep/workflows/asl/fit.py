@@ -552,7 +552,7 @@ def init_asl_fit_wf(
                         name='ds_fmapreg_wf',
                     )
                 ds_fmapreg_wf.get_node('inputnode').inputs.source_files = [asl_file]
-                ds_fmapreg_wf.get_node('ds_xforms').inputs.datatype = 'perf'
+                ds_fmapreg_wf.get_node('ds_xform').inputs.datatype = 'perf'
 
                 workflow.connect([
                     (enhance_aslref_wf, fmapreg_wf, [
