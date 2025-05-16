@@ -384,6 +384,8 @@ def init_asl_fit_wf(
         hmc_aslref_wf = init_raw_aslref_wf(
             name='hmc_aslref_wf',
             asl_file=asl_file,
+            m0scan=(metadata['M0Type'] == 'Separate'),
+            use_ge=use_ge,
         )
         hmc_aslref_wf.inputs.inputnode.m0scan = m0scan
         hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_scans
@@ -488,6 +490,7 @@ def init_asl_fit_wf(
         config.loggers.workflow.info('Stage 3: Adding coregistration aslref workflow')
 
         # Select initial boldref, enhance contrast, and generate mask
+        # XXX: I'm not sure if this is reachable
         if sbref_files and nb.load(sbref_files[0]).ndim > 3:
             raw_sbref_wf = init_raw_aslref_wf(
                 name='raw_sbref_wf',
