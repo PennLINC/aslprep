@@ -75,7 +75,7 @@ def get_sbrefs(
 
     Returns
     -------
-    sbref_file
+    sbref_files
         List of absolute paths to sbref files associated with input ASL files,
         sorted by EchoTime
     """
@@ -199,18 +199,18 @@ def init_asl_fit_wf(
 
     # Collect asl and sbref files.
     # sbrefs aren't supported for ASL data, but I think that might change in the future.
-    sbref_file = get_sbrefs(
+    sbref_files = get_sbrefs(
         asl_file,
         entity_overrides=bids_filters.get('sbref', {}),
         layout=layout,
     )
     basename = os.path.basename(asl_file)
     sbref_msg = f'No single-band-reference found for {basename}.'
-    if sbref_file and 'sbref' in config.workflow.ignore:
+    if sbref_files and 'sbref' in config.workflow.ignore:
         sbref_msg = f'Single-band reference file(s) found for {basename} and ignored.'
-        sbref_file = []
-    elif sbref_file:
-        sbref_msg = f'Using single-band reference file(s) {os.path.basename(sbref_file)}.'
+        sbref_files = []
+    elif sbref_files:
+        sbref_msg = f'Using single-band reference file(s) {os.path.basename(sbref_files)}.'
     config.loggers.workflow.info(sbref_msg)
 
     # Get metadata from ASL file(s)
@@ -313,7 +313,7 @@ def init_asl_fit_wf(
     if coreg_aslref:
         regref_buffer.inputs.aslref = coreg_aslref
         config.loggers.workflow.debug('Reusing coregistration reference: %s', coreg_aslref)
-    fmapref_buffer.inputs.sbref_files = [sbref_file]
+    fmapref_buffer.inputs.sbref_files = sbref_files
 
     summary = pe.Node(
         FunctionalSummary(
@@ -488,10 +488,10 @@ def init_asl_fit_wf(
         config.loggers.workflow.info('Stage 3: Adding coregistration aslref workflow')
 
         # Select initial boldref, enhance contrast, and generate mask
-        if sbref_file and nb.load(sbref_file).ndim > 3:
+        if sbref_files and nb.load(sbref_files[0]).ndim > 3:
             raw_sbref_wf = init_raw_aslref_wf(
                 name='raw_sbref_wf',
-                asl_file=sbref_file,
+                asl_file=sbref_files[0],
             )
             workflow.connect(raw_sbref_wf, 'outputnode.aslref', fmapref_buffer, 'sbref_files')
 
