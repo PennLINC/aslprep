@@ -551,6 +551,8 @@ def init_asl_fit_wf(
                         dest=fieldmap_id.replace('_', ''),
                         name='ds_fmapreg_wf',
                     )
+                ds_fmapreg_wf.get_node('inputnode').inputs.source_files = [asl_file]
+                ds_fmapreg_wf.get_node('ds_xforms').inputs.datatype = 'perf'
 
                 workflow.connect([
                     (enhance_aslref_wf, fmapreg_wf, [
@@ -655,6 +657,7 @@ def init_asl_fit_wf(
                 dest='T1w',
                 name='ds_aslreg_wf',
             )
+        ds_aslreg_wf.get_node('inputnode').inputs.source_files = [asl_file]
 
         workflow.connect([
             (inputnode, asl_reg_wf, [
