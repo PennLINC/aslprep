@@ -172,6 +172,8 @@ sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_atlas-Tian_desc-basilGM_cbf.tsv
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_atlas-Tian_desc-basilWM_cbf.tsv
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_atlas-Tian_desc-basil_cbf.tsv
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_atlas-Tian_desc-basil_coverage.tsv
+sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-brain_mask.json
+sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-brain_mask.nii.gz
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-confounds_timeseries.tsv
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-coreg_aslref.json
 sub-01/ses-siemens3d/perf/sub-01_ses-siemens3d_desc-coreg_aslref.nii.gz
