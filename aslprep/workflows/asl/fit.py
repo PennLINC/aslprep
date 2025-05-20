@@ -210,7 +210,10 @@ def init_asl_fit_wf(
         sbref_msg = f'Single-band reference file(s) found for {basename} and ignored.'
         sbref_files = []
     elif sbref_files:
-        sbref_msg = f'Using single-band reference file(s) {", ".join(os.path.basename(f) for f in sbref_files)}.'
+        sbref_msg = (
+            'Using single-band reference file(s) '
+            f'{", ".join(os.path.basename(f) for f in sbref_files)}.'
+        )
     config.loggers.workflow.info(sbref_msg)
 
     # Get metadata from ASL file(s)
