@@ -213,6 +213,7 @@ def init_asl_fit_reports_wf(
         't1w_preproc',
         't1w_mask',
         't1w_dseg',
+        'asl_mask',
         'fieldmap',
         'fmap_ref',
         # May be missing
@@ -329,6 +330,18 @@ def init_asl_fit_reports_wf(
             mem_gb=1,
         )
 
+        fmap_aslref = pe.Node(
+            ApplyTransforms(
+                dimension=3,
+                default_value=0,
+                float=True,
+                invert_transform_flags=[True],
+                interpolation='LanczosWindowedSinc',
+            ),
+            name='fmap_aslref',
+            mem_gb=1,
+        )
+
         # SDC1
         sdcreg_report = pe.Node(
             FieldmapReportlet(
@@ -336,7 +349,7 @@ def init_asl_fit_reports_wf(
                 moving_label='Fieldmap reference',
                 show='both',
             ),
-            name='sdecreg_report',
+            name='sdcreg_report',
             mem_gb=0.1,
         )
 
@@ -379,11 +392,17 @@ def init_asl_fit_reports_wf(
                 ('coreg_aslref', 'reference_image'),
                 ('aslref2fmap_xfm', 'transforms'),
             ]),
+            (inputnode, fmap_aslref, [
+                ('fieldmap', 'input_image'),
+                ('coreg_aslref', 'reference_image'),
+                ('aslref2fmap_xfm', 'transforms'),
+            ]),
             (inputnode, sdcreg_report, [
                 ('sdc_aslref', 'reference'),
-                ('fieldmap', 'fieldmap')
+                ('asl_mask', 'mask'),
             ]),
             (fmapref_aslref, sdcreg_report, [('output_image', 'moving')]),
+            (fmap_aslref, sdcreg_report, [('output_image', 'fieldmap')]),
             (inputnode, ds_sdcreg_report, [('source_file', 'source_file')]),
             (sdcreg_report, ds_sdcreg_report, [('out_report', 'in_file')]),
             (inputnode, sdc_report, [

@@ -149,11 +149,10 @@ if not _disable_et:
     # Just get so analytics track one hit
     from contextlib import suppress
 
-    from requests import ConnectionError, ReadTimeout  # noqa: A004
-    from requests import get as _get_url
+    import requests
 
-    with suppress((ConnectionError, ReadTimeout)):
-        _get_url('https://rig.mit.edu/et/projects/nipy/nipype', timeout=0.05)
+    with suppress((requests.ConnectionError, requests.ReadTimeout)):
+        requests.get('https://rig.mit.edu/et/projects/nipy/nipype', timeout=0.05)
 
 # Execution environment
 _exec_env = os.name
@@ -550,14 +549,14 @@ class workflow(_Config):
     """Regularize fieldmaps with a field of B-Spline basis."""
     fmap_demean = None
     """Remove the mean from fieldmaps."""
-    force_syn = None
-    """Run *fieldmap-less* susceptibility-derived distortions estimation."""
     hires = None
     """Run FreeSurfer ``recon-all`` with the ``-hires`` flag."""
     fs_no_resume = None
     """Adjust pipeline to reuse base template of existing longitudinal freesurfer"""
     ignore = None
     """Ignore particular steps for *ASLPrep*."""
+    force = None
+    """Force particular steps for *ASLPrep*."""
     level = 'full'
     """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full']."""
     longitudinal = False
@@ -580,14 +579,9 @@ class workflow(_Config):
     spaces = None
     """Keeps the :py:class:`~niworkflows.utils.spaces.SpatialReferences`
     instance keeping standard and nonstandard spaces."""
-    use_bbr = None
-    """Run boundary-based registration for ASL-to-T1w registration."""
     use_syn_sdc = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation
     in the absence of any alternatives."""
-    use_ge = None
-    """Run GE-specific processing. False means don't, True means do,
-    None means determine automatically."""
     smooth_kernel = 5.0
     """Kernel size for smoothing M0."""
     scorescrub = False
