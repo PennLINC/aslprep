@@ -165,7 +165,7 @@ def collect_derivatives(
         # And transform suffixes will be "xfm",
         #   whereas relevant src file will be "bold".
         query = {**entities, **q}
-        if xfm == 'boldref2fmap' and fieldmap_id:
+        if xfm == 'aslref2fmap' and fieldmap_id:
             # fieldmaps have ids like auto_00000
             query['to'] = fieldmap_id.replace('_', '')
         item = layout.get(return_type='filename', **query)

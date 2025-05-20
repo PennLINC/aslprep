@@ -544,8 +544,9 @@ their manuscripts unchanged. It is released under the unchanged
     if all_estimators:
         # Find precomputed fieldmaps that apply to this workflow
         pared_cache = {}
+        non_alnum_pattern = re.compile(r'[^a-zA-Z0-9]')
         for est in all_estimators:
-            if found := fmap_cache.get(re.sub(r'[^a-zA-Z0-9]', '', est.bids_id)):
+            if found := fmap_cache.get(non_alnum_pattern.sub('', est.bids_id)):
                 pared_cache[est.bids_id] = found
             else:
                 fmap_estimators.append(est)
