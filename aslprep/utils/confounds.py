@@ -147,7 +147,7 @@ def dice(input1, input2):
 
 
 def pearson(input1, input2):
-    """Calculate Pearson product moment correlation between two images.
+    """Calculate Pearson product moment correlation between two mask images.
 
     Parameters
     ----------
@@ -234,10 +234,67 @@ def average_cbf_by_tissue(cbf, gm, wm, csf, thresh):
     return mean_tissue_cbfs
 
 
+def _load_one_image(nii_file):
+    if isinstance(nii_file, str):
+        img = nb.load(nii_file)
+        data = img.get_fdata()
+    else:
+        data = nii_file
+    if data.ndim > 3:
+        return data[:, :, :, 0]
+    return data
+
+
+def structural_pseudocbf_correlation(gm_probseg, wm_probseg, cbf_image, smoothing_fwhm : int = 5):
+    """Compute structural pseudocbf (rho_ss) from :footcite:t:`dolui2017automated`.
+
+    Parameters
+    ----------
+    gm_probseg, wm_probseg : str
+        Paths to GM, WM tissue probability maps, in same space and resolution as cbf.
+    cbf_image : str or :obj:`nibabel.nifti1.Nifti1Image`
+        Path to CBF file or Nifti1Image.
+    smoothing_fwhm : int
+        FWHM of Gaussian smoothing to apply to CBF. If already smoothed, set to 0.
+
+    Returns
+    -------
+    structural_pseudocbf_correlation : :obj:`float`
+        Structural pseudocbf correlation.
+
+    References
+    ----------
+    .. footbibliography
+    """
+    gm_probseg_data = _load_one_image(gm_probseg)
+    wm_probseg_data = _load_one_image(wm_probseg)
+    cbf_data = _load_one_image(cbf_image)
+
+    if smoothing_fwhm > 0:
+        cbf_data = smooth_image(cbf_data, fwhm=smoothing_fwhm)
+
+    structural_pseudocbf = 2.5 * gm_probseg_data + wm_probseg_data
+    msk = (cbf_data != 0) & (cbf_data != np.nan) & (structural_pseudocbf != np.nan)
+    r1 = np.array(
+        [0, np.corrcoef(cbf_data[msk], structural_pseudocbf[msk])[1, 0]]
+    ).max()
+    return 1 - np.exp(-(3.0126) * np.power(r1, 2.4419))
+
+
+
 def compute_qei(gm, wm, csf, img, thresh):
     """Compute quality evaluation index (QEI) of CBF.
 
     The QEI is based on :footcite:t:`dolui2017automated`.
+
+    Parameters
+    ----------
+    gm, wm, csf : str
+        Paths to GM, WM, and CSF tissue probability maps, in same space and resolution as cbf.
+    img : str
+        Path to CBF file.
+    thresh : float
+        Threshold to apply to the TPMs. In aslprep, this is typically 0.7.
 
     References
     ----------
@@ -248,46 +305,29 @@ def compute_qei(gm, wm, csf, img, thresh):
         d1 = np.exp(-(x[0]) * np.power(xdata, x[1]))
         return d1
 
-    def fun2(x, xdata):
-        d1 = 1 - np.exp(-(x[0]) * np.power(xdata, x[1]))
-        return d1
-
     x1 = [0.054, 0.9272]
     x2 = [2.8478, 0.5196]
-    x4 = [3.0126, 2.4419]
-    scbf = smooth_image(nb.load(img), fwhm=5).get_fdata()
+    cbf_data = _load_one_image(img)
+    smoothed_cbf = smooth_image(cbf_data, fwhm=5)
 
-    # Only use first volume for time series data.
-    if scbf.ndim > 3:
-        scbf = scbf[:, :, :, 0]
-
-    # load prob maps
-    gmm = nb.load(gm).get_fdata()
-    wmm = nb.load(wm).get_fdata()
-    ccf = nb.load(csf).get_fdata()
-    if gmm.ndim > 3:
-        gmm = gmm[:, :, :, 0]
-        wmm = wmm[:, :, :, 0]
-        ccf = ccf[:, :, :, 0]
-
-    pbcf = 2.5 * gmm + wmm  # gmm is 2.5 times wm
-    msk = np.array((scbf != 0) & (scbf != np.nan) & (pbcf != np.nan)).astype(int)
-
-    gm1 = np.array(gmm > thresh)
-    wm1 = np.array(wmm > thresh)
-    cc1 = np.array(ccf > thresh)
-    r1 = np.array([0, np.corrcoef(scbf[msk == 1], pbcf[msk == 1])[1, 0]]).max()
+    gm_probseg_data = _load_one_image(gm)
+    wm_probseg_data = _load_one_image(wm)
+    csf_probseg_data = _load_one_image(csf)
+    gm_mask = gm_probseg_data > thresh
+    wm_mask = wm_probseg_data > thresh
+    csf_mask = csf_probseg_data > thresh
 
     V = (
-        (np.sum(gm1) - 1) * np.var(scbf[gm1 > 0])
-        + (np.sum(wm1) - 1) * np.var(scbf[wm1 > 0])
-        + (np.sum(cc1) - 1) * np.var(scbf[cc1 > 0])
-    ) / (np.sum(gm1 > 0) + np.sum(wm1 > 0) + np.sum(cc1 > 0) - 3)
+        (np.sum(gm_mask) - 1) * np.var(smoothed_cbf[gm_mask])
+        + (np.sum(wm_mask) - 1) * np.var(smoothed_cbf[wm_mask])
+        + (np.sum(csf_mask) - 1) * np.var(smoothed_cbf[csf_mask])
+    ) / (np.sum(gm_mask) + np.sum(wm_mask) + np.sum(csf_mask) - 3)
 
-    negGM = np.sum(scbf[gm1] < 0) / (np.sum(gm1))
-    GMCBF = np.mean(scbf[gm1])
+    negGM = np.sum(smoothed_cbf[gm_mask] < 0) / (np.sum(gm_mask))
+    GMCBF = np.mean(smoothed_cbf[gm_mask])
     CV = V / np.abs(GMCBF)
-    Q = [fun1(x1, CV), fun1(x2, negGM), fun2(x4, r1)]
+    rho_ss = structural_pseudocbf_correlation(gm_probseg_data, wm_probseg_data, smoothed_cbf)
+    Q = [fun1(x1, CV), fun1(x2, negGM), rho_ss]
     return gmean(Q)
 
 
