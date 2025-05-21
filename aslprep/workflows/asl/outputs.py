@@ -510,7 +510,6 @@ def init_ds_asl_native_wf(
     inputnode_fields = [
         'source_files',
         'asl',
-        'asl_mask',
     ]
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
@@ -572,6 +571,7 @@ def init_ds_asl_native_wf(
         workflow.connect([(inputnode, ds_att, [(att_name, 'in_file')])])
 
     if asl_output:
+        # Write out the preprocessed ASL time series
         ds_asl = pe.Node(
             DerivativesDataSink(
                 base_directory=output_dir,

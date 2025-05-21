@@ -414,7 +414,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     aslref_out = bool(nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')))
     aslref_out &= config.workflow.level == 'full'
 
-    if (config.workflow.level == 'minimal') or aslref_out:
+    if (config.workflow.level in ['minimal', 'resampling']) or aslref_out:
         ds_asl_native_wf = init_ds_asl_native_wf(
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -427,7 +427,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ds_asl_native_wf.inputs.inputnode.source_files = [asl_file]
 
         workflow.connect([
-            (asl_fit_wf, ds_asl_native_wf, [('outputnode.asl_mask', 'inputnode.asl_mask')]),
             (asl_native_wf, ds_asl_native_wf, [('outputnode.asl_native', 'inputnode.asl')]),
         ])  # fmt:skip
 
