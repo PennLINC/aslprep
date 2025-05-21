@@ -429,8 +429,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         workflow.connect([
             (asl_native_wf, ds_asl_native_wf, [('outputnode.asl_native', 'inputnode.asl')]),
             (cbf_wf, ds_asl_native_wf, [
-                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
-                for cbf_deriv in cbf_derivs
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
             ]),
         ])  # fmt:skip
 
@@ -530,6 +529,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (cbf_wf, cbf_reporting_wf, [
             ('outputnode.score_outlier_index', 'inputnode.score_outlier_index'),
         ]),
+        (cbf_wf, cbf_reporting_wf, [
+            (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+        ]),
         (cbf_confounds_wf, cbf_reporting_wf, [('outputnode.qc_file', 'inputnode.qc_file')]),
         (asl_fit_wf, cbf_reporting_wf, [
             ('outputnode.coreg_aslref', 'inputnode.aslref'),
@@ -542,11 +544,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ('outputnode.acompcor_masks', 'inputnode.acompcor_masks'),
         ]),
     ])  # fmt:skip
-
-    for cbf_deriv in cbf_derivs:
-        workflow.connect([
-            (cbf_wf, cbf_reporting_wf, [(f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')]),
-        ])  # fmt:skip
 
     if config.workflow.level == 'resampling':
         # Fill in datasinks of reportlets seen so far
@@ -610,12 +607,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
             ]),
             (asl_anat_wf, ds_asl_t1_wf, [('outputnode.bold_file', 'inputnode.asl')]),
+            (cbf_wf, ds_asl_t1_wf, [
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+            ]),
         ])  # fmt:skip
-
-        for cbf_deriv in cbf_derivs:
-            workflow.connect([
-                (cbf_wf, ds_asl_t1_wf, [(f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')]),
-            ])  # fmt:skip
 
     # Resample derivatives to standard space and write them out.
     # This is different from having internally-produced standard-space data.
@@ -676,12 +671,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ('outputnode.bold_file', 'inputnode.asl'),
                 ('outputnode.resampling_reference', 'inputnode.ref_file'),
             ]),
+            (cbf_wf, ds_asl_std_wf, [
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+            ]),
         ])  # fmt:skip
-
-        for cbf_deriv in cbf_derivs:
-            workflow.connect([
-                (cbf_wf, ds_asl_std_wf, [(f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')]),
-            ])  # fmt:skip
 
     # GIFTI outputs
     if config.workflow.run_reconall and freesurfer_spaces:
@@ -717,11 +710,10 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             (asl_fit_wf, asl_surf_wf, [
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
             ]),
+            (cbf_wf, asl_surf_wf, [
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+            ]),
         ])  # fmt:skip
-        for cbf_deriv in cbf_derivs:
-            workflow.connect([
-                (cbf_wf, asl_surf_wf, [(f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')]),
-            ])  # fmt:skip
 
     if config.workflow.cifti_output:
         asl_cifti_resample_wf = init_asl_cifti_resample_wf(
@@ -788,15 +780,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             (asl_fit_wf, ds_asl_cifti_wf, [
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
             ]),
+            (cbf_wf, ds_asl_cifti_wf, [
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+            ]),
             (asl_cifti_resample_wf, ds_asl_cifti_wf, [
                 ('outputnode.asl_cifti', 'inputnode.asl_cifti'),
                 ('outputnode.goodvoxels_mask', 'inputnode.goodvoxels_mask'),
             ]),
         ])  # fmt:skip
-        for cbf_deriv in cbf_derivs:
-            workflow.connect([
-                (cbf_wf, ds_asl_cifti_wf, [(f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')]),
-            ])  # fmt:skip
 
         # Feed CIFTI into CBF-reporting workflow
         if 'cbf_ts' in cbf_4d_derivs:
