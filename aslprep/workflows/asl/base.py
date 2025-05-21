@@ -428,14 +428,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         workflow.connect([
             (asl_native_wf, ds_asl_native_wf, [('outputnode.asl_native', 'inputnode.asl')]),
+            (cbf_wf, ds_asl_native_wf, [
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
+                for cbf_deriv in cbf_derivs
+            ]),
         ])  # fmt:skip
-
-        for cbf_deriv in cbf_derivs:
-            workflow.connect([
-                (cbf_wf, ds_asl_native_wf, [
-                    (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),
-                ]),
-            ])  # fmt:skip
 
     if config.workflow.level == 'minimal':
         return workflow
