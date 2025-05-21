@@ -2,10 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Aggregate QC measures across all subjects in dataset."""
 
-import os
 from pathlib import Path
-
-import pandas as pd
 
 from aslprep._warnings import logging
 
