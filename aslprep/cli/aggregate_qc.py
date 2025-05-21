@@ -213,6 +213,8 @@ def collect_aslprep_qc_derivatives(layout):
     qc_data['cbf_qc'] = qc_files
     for qc_file in qc_files:
         # Collect associated files
+        # Standard-space CBF map
+        # We also need the space used so we can grab the right template
         ...
 
     return qc_data
@@ -229,14 +231,12 @@ def main():
     import sys
     from multiprocessing import Manager, Process
     from os import EX_SOFTWARE
-    from pathlib import Path
 
     from aslprep.utils.bids import write_bidsignore, write_derivative_description
 
     opts = parse_args()
     input_dir = opts.aslprep_dir
     output_dir = opts.output_dir
-    work_dir = opts.work_dir
 
     logger = logging.getLogger()
 
@@ -269,44 +269,24 @@ def main():
     # Clean up master process before running workflow, which may create forks
     gc.collect()
 
-    logger.log(25, 'ASLPrep started!')
+    logger.log(25, 'ASLPrep-Group started!')
     errno = 1  # Default is error exit unless otherwise set
     try:
-        aslprep_wf.run(**config.nipype.get_plugin())
+        aslprep_wf.run({'plugin': 'Linear'})
     except Exception as e:
         logger.critical('ASLPrep-Group failed: %s', e)
         raise
     else:
         logger.log(25, 'ASLPrep-Group finished successfully!')
-
-        # Bother users with the boilerplate only iff the workflow went okay.
-        boiler_file = output_dir / 'logs' / 'CITATION.md'
-        if boiler_file.exists():
-            if config.environment.exec_env in (
-                'singularity',
-                'docker',
-                'aslprep-docker',
-            ):
-                boiler_file = Path('<OUTPUT_PATH>') / boiler_file.relative_to(output_dir)
-            logger.log(
-                25,
-                'Works derived from this ASLPrep execution should include the '
-                f'boilerplate text found in {boiler_file}.',
-            )
         errno = 0
     finally:
         from aslprep import data
-        from aslprep.reports.core import generate_reports
+        from aslprep.reports.core import generate_group_report
 
         # Generate reports phase
-        session_list = config.execution.get().get('bids_filters', {}).get('asl', {}).get('session')
-
-        failed_reports = generate_reports(
-            config.execution.participant_label,
-            config.execution.aslprep_dir,
-            config.execution.run_uuid,
-            session_list=session_list,
-            bootstrap_file=data.load('reports-spec.yml'),
+        failed_reports = generate_group_report(
+            output_dir,
+            bootstrap_file=data.load('reports-spec-group.yml'),
         )
         write_derivative_description(input_dir, output_dir)
         write_bidsignore(output_dir)
