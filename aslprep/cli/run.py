@@ -41,7 +41,7 @@ def main():
     parse_args()
 
     if 'pdb' in config.execution.debug:
-        from aslprep.utils.debug import setup_exceptionhook
+        from fmriprep.utils.debug import setup_exceptionhook
 
         setup_exceptionhook()
         config.nipype.plugin = 'Linear'
