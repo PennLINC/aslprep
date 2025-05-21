@@ -512,12 +512,19 @@ their manuscripts unchanged. It is released under the unchanged
 
     fmap_cache = {}
     if config.execution.derivatives:
+        import json
+
         from fmriprep.utils.bids import collect_fieldmaps
+
+        from ..data import load as load_data
+
+        spec = json.loads(load_data.readable('fmap_spec.json').read_text())['queries']
 
         for deriv_dir in config.execution.derivatives.values():
             fmaps = collect_fieldmaps(
                 derivatives_dir=deriv_dir,
                 entities={'subject': subject_id},
+                spec=spec,
             )
             config.loggers.workflow.debug(
                 'Detected precomputed fieldmaps in %s for fieldmap IDs: %s', deriv_dir, list(fmaps)
