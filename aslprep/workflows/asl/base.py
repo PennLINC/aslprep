@@ -410,6 +410,34 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
     ])  # fmt:skip
 
+    # If we want aslref-space outputs, then call the appropriate workflow
+    aslref_out = bool(nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')))
+    aslref_out &= config.workflow.level == 'full'
+
+    if (config.workflow.level == 'minimal') or aslref_out:
+        ds_asl_native_wf = init_ds_asl_native_wf(
+            bids_root=str(config.execution.bids_dir),
+            output_dir=config.execution.aslprep_dir,
+            asl_output=aslref_out,
+            metadata=metadata,
+            cbf_3d=cbf_3d_derivs,
+            cbf_4d=cbf_4d_derivs,
+            att=att_derivs,
+        )
+        ds_asl_native_wf.inputs.inputnode.source_files = [asl_file]
+
+        workflow.connect([
+            (asl_fit_wf, ds_asl_native_wf, [('outputnode.asl_mask', 'inputnode.asl_mask')]),
+            (asl_native_wf, ds_asl_native_wf, [('outputnode.asl_native', 'inputnode.asl')]),
+        ])  # fmt:skip
+
+        for cbf_deriv in cbf_derivs:
+            workflow.connect([
+                (cbf_wf, ds_asl_native_wf, [
+                    (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),
+                ]),
+            ])  # fmt:skip
+
     if config.workflow.level == 'minimal':
         return workflow
 
@@ -523,34 +551,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         workflow.connect([
             (cbf_wf, cbf_reporting_wf, [(f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')]),
         ])  # fmt:skip
-
-    # If we want aslref-space outputs, then call the appropriate workflow
-    aslref_out = bool(nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')))
-    aslref_out &= config.workflow.level == 'full'
-
-    if aslref_out:
-        ds_asl_native_wf = init_ds_asl_native_wf(
-            bids_root=str(config.execution.bids_dir),
-            output_dir=config.execution.aslprep_dir,
-            asl_output=aslref_out,
-            metadata=metadata,
-            cbf_3d=cbf_3d_derivs,
-            cbf_4d=cbf_4d_derivs,
-            att=att_derivs,
-        )
-        ds_asl_native_wf.inputs.inputnode.source_files = [asl_file]
-
-        workflow.connect([
-            (asl_fit_wf, ds_asl_native_wf, [('outputnode.asl_mask', 'inputnode.asl_mask')]),
-            (asl_native_wf, ds_asl_native_wf, [('outputnode.asl_native', 'inputnode.asl')]),
-        ])  # fmt:skip
-
-        for cbf_deriv in cbf_derivs:
-            workflow.connect([
-                (cbf_wf, ds_asl_native_wf, [
-                    (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),
-                ]),
-            ])  # fmt:skip
 
     if config.workflow.level == 'resampling':
         # Fill in datasinks of reportlets seen so far

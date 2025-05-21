@@ -524,26 +524,52 @@ def init_ds_asl_native_wf(
     raw_sources.inputs.bids_root = bids_root
     workflow.connect([(inputnode, raw_sources, [('source_files', 'in_files')])])
 
-    # Masks should be output if any other derivatives are output
-    ds_asl_mask = pe.Node(
-        DerivativesDataSink(
-            base_directory=output_dir,
-            desc='brain',
-            suffix='mask',
-            compress=True,
-            dismiss_entities=('echo',),
-        ),
-        name='ds_asl_mask',
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
-    workflow.connect([
-        (inputnode, ds_asl_mask, [
-            ('source_files', 'source_file'),
-            ('asl_mask', 'in_file'),
-        ]),
-        (raw_sources, ds_asl_mask, [('out', 'RawSources')]),
-    ])  # fmt:skip
+    datasinks = []
+    # Write out CBF and ATT maps in aslref space
+    for cbf_name in cbf_4d + cbf_3d:
+        # TODO: Add EstimationReference and EstimationAlgorithm
+        cbf_meta = {
+            'Units': 'mL/100 g/min',
+        }
+        fields = BASE_INPUT_FIELDS[cbf_name]
+
+        ds_cbf = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                compress=True,
+                dismiss_entities=('echo',),
+                **fields,
+                **cbf_meta,
+            ),
+            name=f'ds_{cbf_name}',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        datasinks.append(ds_cbf)
+        workflow.connect([(inputnode, ds_cbf, [(cbf_name, 'in_file')])])
+
+    for att_name in att:
+        # TODO: Add EstimationReference and EstimationAlgorithm
+        att_meta = {
+            'Units': 's',
+        }
+        fields = BASE_INPUT_FIELDS[att_name]
+
+        ds_att = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                compress=True,
+                dismiss_entities=('echo',),
+                **fields,
+                **att_meta,
+            ),
+            name=f'ds_{att_name}',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        datasinks.append(ds_att)
+
+        workflow.connect([(inputnode, ds_att, [(att_name, 'in_file')])])
 
     if asl_output:
         ds_asl = pe.Node(
@@ -559,60 +585,12 @@ def init_ds_asl_native_wf(
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([(inputnode, ds_asl, [('asl', 'in_file')])])
-        datasinks = [ds_asl]
+        datasinks.append(ds_asl)
 
-        for cbf_name in cbf_4d + cbf_3d:
-            # TODO: Add EstimationReference and EstimationAlgorithm
-            cbf_meta = {
-                'Units': 'mL/100 g/min',
-            }
-            fields = BASE_INPUT_FIELDS[cbf_name]
-
-            ds_cbf = pe.Node(
-                DerivativesDataSink(
-                    base_directory=output_dir,
-                    compress=True,
-                    dismiss_entities=('echo',),
-                    **fields,
-                    **cbf_meta,
-                ),
-                name=f'ds_{cbf_name}',
-                run_without_submitting=True,
-                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-            )
-            datasinks.append(ds_cbf)
-            workflow.connect([(inputnode, ds_cbf, [(cbf_name, 'in_file')])])
-
-        for att_name in att:
-            # TODO: Add EstimationReference and EstimationAlgorithm
-            att_meta = {
-                'Units': 's',
-            }
-            fields = BASE_INPUT_FIELDS[att_name]
-
-            ds_att = pe.Node(
-                DerivativesDataSink(
-                    base_directory=output_dir,
-                    compress=True,
-                    dismiss_entities=('echo',),
-                    **fields,
-                    **att_meta,
-                ),
-                name=f'ds_{att_name}',
-                run_without_submitting=True,
-                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-            )
-            datasinks.append(ds_att)
-
-            workflow.connect([(inputnode, ds_att, [(att_name, 'in_file')])])
-
-        workflow.connect(
-            [
-                (inputnode, datasink, [('source_files', 'source_file')]) for datasink in datasinks
-            ] + [
-                (raw_sources, datasink, [('out', 'RawSources')]) for datasink in datasinks
-            ]
-        )  # fmt:skip
+    workflow.connect(
+        [(inputnode, datasink, [('source_files', 'source_file')]) for datasink in datasinks] +
+        [(raw_sources, datasink, [('out', 'RawSources')]) for datasink in datasinks]
+    )  # fmt:skip
 
     return workflow
 
