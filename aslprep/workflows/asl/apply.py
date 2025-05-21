@@ -13,6 +13,7 @@ def init_asl_cifti_resample_wf(
     metadata: dict,
     mem_gb: dict,
     fieldmap_id: str | None = None,
+    jacobian: bool = False,
     omp_nthreads: int = 1,
     name: str = 'asl_cifti_resample_wf',
 ) -> pe.Workflow:
@@ -134,9 +135,9 @@ def init_asl_cifti_resample_wf(
     asl_MNI6_wf = init_bold_volumetric_resample_wf(
         metadata=metadata,
         fieldmap_id=fieldmap_id,
+        jacobian=jacobian,
         omp_nthreads=omp_nthreads,
         mem_gb=mem_gb,
-        jacobian='fmap-jacobian' not in config.workflow.ignore,
         name='asl_MNI6_wf',
     )
 

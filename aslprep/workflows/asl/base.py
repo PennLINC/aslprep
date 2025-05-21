@@ -33,6 +33,7 @@ def init_asl_wf(
     asl_file: str,
     precomputed: dict = None,
     fieldmap_id: str | None = None,
+    jacobian: bool = False,
 ):
     """Perform the functional preprocessing stages of ASLPrep.
 
@@ -181,7 +182,9 @@ def init_asl_wf(
 
     # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
     n_vols = get_n_volumes(asl_file)
-    use_ge = config.workflow.use_ge if isinstance(config.workflow.use_ge, bool) else n_vols <= 5
+    use_ge = ('ge' in config.workflow.force or n_vols <= 5) and (
+        'no-ge' not in config.workflow.force
+    )
     if use_ge:
         config.loggers.workflow.warning('Using GE-specific processing. HMC will be disabled.')
         if scorescrub:
@@ -324,6 +327,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         use_ge=use_ge,
         precomputed=precomputed,
         fieldmap_id=fieldmap_id,
+        jacobian=jacobian,
         omp_nthreads=omp_nthreads,
     )
 
@@ -353,6 +357,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         asl_file=asl_file,
         m0scan=run_data['m0scan'],
         fieldmap_id=fieldmap_id,
+        jacobian=jacobian,
         omp_nthreads=omp_nthreads,
         name='asl_native_wf',
     )
@@ -443,8 +448,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
         (asl_fit_wf, asl_confounds_wf, [
             ('outputnode.asl_mask', 'inputnode.asl_mask'),
-            ('outputnode.movpar_file', 'inputnode.movpar_file'),
-            ('outputnode.rmsd_file', 'inputnode.rmsd_file'),
+            ('outputnode.hmc_aslref', 'inputnode.hmc_aslref'),
+            ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
             ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
             ('outputnode.dummy_scans', 'inputnode.skip_vols'),
         ]),
@@ -471,7 +476,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_fit_wf, cbf_confounds_wf, [
             ('outputnode.asl_mask', 'inputnode.asl_mask'),
             ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
-            ('outputnode.rmsd_file', 'inputnode.rmsd_file'),
         ]),
         (asl_confounds_wf, cbf_confounds_wf, [
             ('outputnode.confounds_file', 'inputnode.confounds_file'),
@@ -564,7 +568,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
         mem_gb=mem_gb,
-        jacobian='fmap-jacobian' not in config.workflow.ignore,
+        jacobian=jacobian,
         name='asl_anat_wf',
     )
     asl_anat_wf.inputs.inputnode.resolution = 'native'
@@ -628,7 +632,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             fieldmap_id=fieldmap_id,
             omp_nthreads=omp_nthreads,
             mem_gb=mem_gb,
-            jacobian='fmap-jacobian' not in config.workflow.ignore,
+            jacobian=jacobian,
             name='asl_std_wf',
         )
         ds_asl_std_wf = init_ds_volumes_wf(
@@ -728,6 +732,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             metadata=metadata,
             mem_gb=mem_gb,
             fieldmap_id=fieldmap_id,
+            jacobian=jacobian,
             omp_nthreads=omp_nthreads,
         )
 
