@@ -424,7 +424,6 @@ def init_asl_fit_wf(
         workflow.connect([
             (validation_and_dummies_wf, hmcref_buffer, [
                 ('outputnode.bold_file', 'asl_file'),
-                ('outputnode.skip_vols', 'dummy_scans'),
             ]),
             (validation_and_dummies_wf, asl_fit_reports_wf, [
                 ('outputnode.validation_report', 'inputnode.validation_report'),
