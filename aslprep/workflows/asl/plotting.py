@@ -163,7 +163,6 @@ def init_cbf_reporting_wf(
             suffix='cbf',
             name='cbf_carpetplot_wf',
         )
-        carpetplot_wf.inputs.inputnode.dummy_scans = 0
         workflow.connect([
             (inputnode, carpetplot_wf, [
                 ('std2anat_xfm', 'inputnode.std2anat_xfm'),

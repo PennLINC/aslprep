@@ -171,7 +171,6 @@ def init_asl_wf(
     # Have some options handy
     omp_nthreads = config.nipype.omp_nthreads
     spaces = config.workflow.spaces
-    dummy_scans = config.workflow.dummy_scans
     smooth_kernel = config.workflow.smooth_kernel
     m0_scale = config.workflow.m0_scale
     scorescrub = config.workflow.scorescrub
@@ -374,7 +373,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ('outputnode.asl_mask', 'inputnode.asl_mask'),
             ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
             ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
-            ('outputnode.dummy_scans', 'inputnode.dummy_scans'),
         ]),
     ])  # fmt:skip
 
@@ -383,7 +381,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     cbf_wf = init_cbf_wf(
         name_source=asl_file,
         processing_target=processing_target,
-        dummy_scans=dummy_scans,
         m0_scale=m0_scale,
         scorescrub=scorescrub,
         basil=basil,
@@ -466,7 +463,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ('outputnode.hmc_aslref', 'inputnode.hmc_aslref'),
             ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
             ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
-            ('outputnode.dummy_scans', 'inputnode.skip_vols'),
         ]),
         (asl_native_wf, asl_confounds_wf, [('outputnode.asl_native', 'inputnode.asl')]),
         (asl_confounds_wf, ds_confounds, [
@@ -826,7 +822,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             workflow.connect([
                 (inputnode, carpetplot_wf, [('mni2009c2anat_xfm', 'inputnode.std2anat_xfm')]),
                 (asl_fit_wf, carpetplot_wf, [
-                    ('outputnode.dummy_scans', 'inputnode.dummy_scans'),
                     ('outputnode.asl_mask', 'inputnode.asl_mask'),
                     ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
                 ]),

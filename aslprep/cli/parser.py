@@ -378,18 +378,6 @@ any spatial references.""",
         action=DeprecatedAction,
         help='Deprecated - use `--force no-bbr` instead.',
     )
-    # g_conf.add_argument(
-    #     '--dummy-scans',
-    #     required=False,
-    #     action='store',
-    #     default=None,
-    #     type=int,
-    #     help=(
-    #         'Number of non-steady-state volumes. '
-    #         'Note that this indicates the number of volumes, not the number of control-label '
-    #         'pairs in the ASL file.'
-    #     ),
-    # )
     g_conf.add_argument(
         '--random-seed',
         dest='_random_seed',
