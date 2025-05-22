@@ -23,7 +23,6 @@ from aslprep.utils.confounds import (
     average_cbf_by_tissue,
     compute_qei,
     dice,
-    negativevoxel,
     overlap,
     pearson,
 )
@@ -217,7 +216,7 @@ class ComputeCBFQC(SimpleInterface):
             norm_correlation = pearson(asl_mask_std_arr, template_mask_arr)
             norm_overlap = overlap(asl_mask_std_arr, template_mask_arr)
 
-        qei_cbf = compute_qei(
+        qei_cbf,qei_rho_ss, qei_cbf_di, qei_cbf_neg_gm = compute_qei(
             gm=self.inputs.gm_tpm,
             wm=self.inputs.wm_tpm,
             csf=self.inputs.csf_tpm,
