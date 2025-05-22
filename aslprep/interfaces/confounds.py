@@ -498,16 +498,19 @@ class ComputeCBFQC(SimpleInterface):
             },
             'qei_cbf_basil_gm_rho_ss': {
                 'LongName': (
-                    'BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation Index Rho SS'
+                    'BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation '
+                    'Index Rho SS'
                 ),
                 'Description': (
-                    'QEI rho SS calculated on partial volume-corrected CBF image produced by BASIL.'
+                    'QEI rho SS calculated on partial volume-corrected CBF image produced by '
+                    'BASIL.'
                 ),
                 'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
             'qei_cbf_basil_gm_di': {
                 'LongName': (
-                    'BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation Index DI'
+                    'BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation '
+                    'Index DI'
                 ),
                 'Description': (
                     'QEI DI calculated on partial volume-corrected CBF image produced by BASIL.'
