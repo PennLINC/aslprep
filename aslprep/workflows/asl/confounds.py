@@ -375,7 +375,6 @@ def init_carpetplot_wf(
         ASLCarpetPlot(
             tr=metadata['RepetitionTime'],
             confounds_list=confounds_list,
-            drop_trs=0,
         ),
         name='conf_plot',
         mem_gb=mem_gb,

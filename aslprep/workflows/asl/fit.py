@@ -341,7 +341,6 @@ def init_asl_fit_wf(
     )
 
     workflow.connect([
-        # XXX: Was from hmc_aslref_wf
         (hmcref_buffer, outputnode, [('aslref', 'hmc_aslref')]),
         (regref_buffer, outputnode, [
             ('aslref', 'coreg_aslref'),
