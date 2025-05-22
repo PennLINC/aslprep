@@ -414,7 +414,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     aslref_out = bool(nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')))
     aslref_out &= config.workflow.level == 'full'
 
-    if (config.workflow.level in ['minimal', 'resampling']) or aslref_out:
+    if (config.workflow.level in ('minimal', 'resampling')) or aslref_out:
         ds_asl_native_wf = init_ds_asl_native_wf(
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -432,17 +432,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
             ]),
         ])  # fmt:skip
-
-    if config.workflow.level == 'minimal':
-        return workflow
-
-    #
-    # Resampling outputs workflow:
-    #   - Calculate ASL confounds and CBF QC metrics.
-    #   - Generate plots for CBF.
-    #   - Resample to anatomical space.
-    #   - Save aslref-space outputs only if requested.
-    #
 
     asl_confounds_wf = init_asl_confounds_wf(
         n_volumes=n_vols,
@@ -513,7 +502,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # NOTE: CIFTI input won't be provided unless level is set to 'full'.
     cbf_reporting_wf = init_cbf_reporting_wf(
         metadata=metadata,
-        plot_timeseries=not (is_multi_pld or use_ge or (config.workflow.level == 'resampling')),
+        plot_timeseries=not (is_multi_pld or use_ge or (config.workflow.level in ('minimal', 'resampling'))),
         scorescrub=scorescrub,
         basil=basil,
         name='cbf_reporting_wf',
@@ -545,7 +534,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
     ])  # fmt:skip
 
-    if config.workflow.level == 'resampling':
+    if config.workflow.level in ('minimal', 'resampling'):
         # Fill in datasinks of reportlets seen so far
         for node in workflow.list_node_names():
             if node.split('.')[-1].startswith('ds_report'):

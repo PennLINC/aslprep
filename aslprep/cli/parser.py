@@ -275,6 +275,7 @@ def _build_parser():
             "Processing level; may be 'minimal' (nothing that can be recomputed), "
             "'resampling' (recomputable targets that aid in resampling) "
             "or 'full' (all target outputs). "
+            "Currently, 'minimal' and 'resampling' are effectively the same."
         ),
     )
     g_subset.add_argument(
