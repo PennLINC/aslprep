@@ -292,11 +292,14 @@ class ComputeCBFQC(SimpleInterface):
                 img=self.inputs.mean_cbf_gm_basil,
                 thresh=thresh,
             )
-
         else:
             print('no basil inputs, setting to np.nan')
             qei_cbf_basil = np.nan
+            qei_cbf_basil_rho_ss = np.nan
+            qei_cbf_basil_di = np.nan
             qei_cbf_basil_gm = np.nan
+            qei_cbf_basil_gm_rho_ss = np.nan
+            qei_cbf_basil_gm_di = np.nan
             percentage_negative_cbf_basil = np.nan
             percentage_negative_cbf_basil_gm = np.nan
 
