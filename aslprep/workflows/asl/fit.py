@@ -651,7 +651,9 @@ def init_asl_fit_wf(
             (skullstrip_precomp_ref_wf, regref_buffer, [('outputnode.mask_file', 'aslmask')])
         ])  # fmt:skip
 
+    # Stage 5: Register ASL to anatomical space
     if not aslref2anat_xform:
+        config.loggers.workflow.info('Stage 5: Adding coregistration workflow')
         use_bbr = (
             True
             if 'bbr' in config.workflow.force
@@ -700,6 +702,7 @@ def init_asl_fit_wf(
             (asl_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
         ])  # fmt:skip
     else:
+        config.loggers.workflow.info('Found coregistration transform - skipping Stage 5')
         outputnode.inputs.aslref2anat_xfm = aslref2anat_xform
 
     return workflow
