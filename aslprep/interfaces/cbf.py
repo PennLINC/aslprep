@@ -328,6 +328,7 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         desc='Relative scale between ASL and M0.',
     )
     m0_file = File(exists=True, mandatory=True, desc='M0 nifti file')
+    m0tr = traits.Float(mandatory=False, desc='M0 TR, in seconds.')
     mask = File(exists=True, mandatory=True, desc='Mask nifti file')
     cbf_only = traits.Bool(
         mandatory=True,
@@ -444,7 +445,16 @@ class ComputeCBF(SimpleInterface):
 
         # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
+        # TODO: Scale each M0 volume by its TR separately instead of averaging.
         m0data = np.mean(m0data, axis=0)
+        if isinstance(self.inputs.m0tr, Number) and self.inputs.m0tr < 5:
+            config.loggers.interface.warning(
+                'M0 TR is less than 5 seconds, so ASLPrep will scale the M0 data according to '
+                'Alsop 2015.'
+            )
+            # Alsop 2015, page 113
+            m0data = m0data * (1 / (1 - np.exp(-self.inputs.m0tr / t1tissue)))
+
         scaled_m0data = m0_scale * m0data
 
         self._results['plds'] = None

@@ -426,6 +426,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         (extract_deltam, compute_cbf, [
             ('out_file', 'deltam'),
             ('m0_file', 'm0_file'),
+            ('m0tr', 'm0tr'),
             ('metadata', 'metadata'),
         ]),
         (compute_cbf, outputnode, [
