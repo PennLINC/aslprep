@@ -131,7 +131,7 @@ re-calculated relative root mean-squared deviation.
     ])  # fmt:skip
 
     mcflirt = pe.MapNode(
-        fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=False),
+        fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=False, cost='mutualinfo'),
         name='mcflirt',
         mem_gb=mem_gb * 3,
         iterfield=['in_file'],
