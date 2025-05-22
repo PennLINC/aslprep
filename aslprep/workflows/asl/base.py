@@ -502,7 +502,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # NOTE: CIFTI input won't be provided unless level is set to 'full'.
     cbf_reporting_wf = init_cbf_reporting_wf(
         metadata=metadata,
-        plot_timeseries=not (is_multi_pld or use_ge or (config.workflow.level in ('minimal', 'resampling'))),
+        plot_timeseries=not (
+            is_multi_pld or use_ge or (config.workflow.level in ('minimal', 'resampling'))
+        ),
         scorescrub=scorescrub,
         basil=basil,
         name='cbf_reporting_wf',
