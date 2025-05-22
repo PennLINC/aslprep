@@ -558,7 +558,9 @@ class workflow(_Config):
     force = None
     """Force particular steps for *ASLPrep*."""
     level = 'full'
-    """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full']."""
+    """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full'].
+    'minimal' and 'resampling' are effectively the same at the moment.
+    """
     longitudinal = False
     """Run FreeSurfer ``recon-all`` with the ``--longitudinal`` flag."""
     run_msmsulc = True
