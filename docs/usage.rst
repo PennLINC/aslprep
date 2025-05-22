@@ -142,7 +142,7 @@ Handling environment variables
 
 By default, Singularity interacts with all environment variables from the host.
 The host libraries could accidentally conflict with singularity variables.
-To avoid such a situation, it is recommended that you sue the ``--cleanenv or -e``
+To avoid such a situation, it is recommended that you use the ``--cleanenv or -e``
 flag.
 For instance: ::
 
