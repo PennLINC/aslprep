@@ -360,8 +360,7 @@ def compute_qei(
     ----------
     .. footbibliography
     """
-    cbf_data = _load_one_image(img)
-    smoothed_cbf = smooth_image(cbf_data, fwhm=5)
+    smoothed_cbf = _load_one_image(smooth_image(nb.load(img), fwhm=5))
 
     gm_probseg_data = _load_one_image(gm)
     wm_probseg_data = _load_one_image(wm)
