@@ -626,7 +626,7 @@ Quality control measures
 
 Quality control (QC) measures such as FD (framewise displacement), coregistration, normalization index,
 and quality evaluation index (QEI) are included for all CBF maps.
-The QEI :footcite:p:`dolui2017automated` evaluates the quality of the computed CBF maps considering
+The QEI :footcite:p:`dolui2024automated` evaluates the quality of the computed CBF maps considering
 three factors:
 structural similarity, spatial variability, and percentage of voxels in GM with negative CBF.
 

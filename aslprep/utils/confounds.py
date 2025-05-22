@@ -245,7 +245,7 @@ def _load_one_image(nii_file):
 
 
 def structural_pseudocbf_correlation(gm_probseg, wm_probseg, cbf_image):
-    """Compute structural pseudocbf (rho_ss) from :footcite:t:`dolui2017automated`.
+    """Compute structural pseudocbf (rho_ss) from :footcite:t:`dolui2024automated`.
 
     Parameters
     ----------
@@ -274,7 +274,7 @@ def structural_pseudocbf_correlation(gm_probseg, wm_probseg, cbf_image):
 
 
 def dispersion_index(wm_mask, gm_mask, csf_mask, cbf_image):
-    """Calculate the dispersion index (DI) from :footcite:t:`dolui2017automated`.
+    """Calculate the dispersion index (DI) from :footcite:t:`dolui2024automated`.
 
     Parameters
     ----------
@@ -325,7 +325,7 @@ def compute_qei(
 ):
     r"""Compute quality evaluation index (QEI) using the individual components.
 
-    The QEI is based on :footcite:t:`dolui2017automated`.
+    The QEI is based on :footcite:t:`dolui2024automated`.
 
     .. math::
 
@@ -360,7 +360,7 @@ def compute_qei(
     ----------
     .. footbibliography
     """
-    smoothed_cbf = _load_one_image(smooth_image(nb.load(img), fwhm=5))
+    smoothed_cbf = _load_one_image(smooth_image(nb.load(img), fwhm=5).get_fdata())
 
     gm_probseg_data = _load_one_image(gm)
     wm_probseg_data = _load_one_image(wm)
