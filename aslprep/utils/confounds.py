@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 from nibabel.processing import smooth_image
 from nipype.interfaces.base import isdefined
-from scipy.stats import gmean
 
 
 def _less_breakable(a_string):
@@ -245,7 +244,7 @@ def _load_one_image(nii_file):
     return data
 
 
-def structural_pseudocbf_correlation(gm_probseg, wm_probseg, cbf_image, smoothing_fwhm: int = 5):
+def structural_pseudocbf_correlation(gm_probseg, wm_probseg, cbf_image):
     """Compute structural pseudocbf (rho_ss) from :footcite:t:`dolui2017automated`.
 
     Parameters
@@ -254,8 +253,7 @@ def structural_pseudocbf_correlation(gm_probseg, wm_probseg, cbf_image, smoothin
         Paths to GM, WM tissue probability maps, in same space and resolution as cbf.
     cbf_image : str or :obj:`nibabel.nifti1.Nifti1Image`
         Path to CBF file or Nifti1Image.
-    smoothing_fwhm : int
-        FWHM of Gaussian smoothing to apply to CBF. If already smoothed, set to 0.
+        This image should be smoothed prior use in this function.
 
     Returns
     -------
@@ -270,18 +268,32 @@ def structural_pseudocbf_correlation(gm_probseg, wm_probseg, cbf_image, smoothin
     wm_probseg_data = _load_one_image(wm_probseg)
     cbf_data = _load_one_image(cbf_image)
 
-    if smoothing_fwhm > 0:
-        cbf_data = smooth_image(cbf_data, fwhm=smoothing_fwhm)
-
     structural_pseudocbf = 2.5 * gm_probseg_data + wm_probseg_data
     msk = (cbf_data != 0) & (cbf_data != np.nan) & (structural_pseudocbf != np.nan)
     return np.clip(np.corrcoef(cbf_data[msk], structural_pseudocbf[msk])[1, 0], 0, None)
 
 
-def dispersion_index(wm_mask, gm_mask, csf_mask, cbf_image, smoothing_fwhm: int = 5):
+def dispersion_index(wm_mask, gm_mask, csf_mask, cbf_image):
+    """Calculate the dispersion index (DI) from :footcite:t:`dolui2017automated`.
+
+    Parameters
+    ----------
+    wm_mask, gm_mask, csf_mask : :obj:`numpy.ndarray`
+        Binary masks for WM, GM, and CSF.
+    cbf_image : str or :obj:`nibabel.nifti1.Nifti1Image`
+        Path to CBF file or Nifti1Image.
+        This image should be smoothed prior use in this function.
+
+    Returns
+    -------
+    di : :obj:`float`
+        Dispersion index.
+
+    References
+    ----------
+    .. footbibliography
+    """
     cbf_data = _load_one_image(cbf_image)
-    if smoothing_fwhm > 0:
-        cbf_data = smooth_image(cbf_data, fwhm=smoothing_fwhm)
 
     n_gm = np.sum(gm_mask)
     n_wm = np.sum(wm_mask)
@@ -299,7 +311,11 @@ def dispersion_index(wm_mask, gm_mask, csf_mask, cbf_image, smoothing_fwhm: int 
 
 
 def compute_qei(
-    gm, wm, csf, img, thresh,
+    gm,
+    wm,
+    csf,
+    img,
+    thresh,
     alpha=-3.0126,
     beta=2.4419,
     gamma=0.054,
@@ -316,14 +332,18 @@ def compute_qei(
         QEI = \sqrt[3]{(1 - e^{\alpha\rho_{ss}^{\beta}})
               e^{-\left(\gamma\text{DI}^{\delta} + \epsilon\text{negGM}^{\zeta}\right)}}
 
+    The constants used here differ slightlyfrom those in the paper, but match the actual values
+    used in the original QEI implementation.
+
     Parameters
     ----------
-    rho_ss : float
-        Structural pseudocbf correlation.
-    dispersion_index : float
-        Dispersion index (DI).
-    neg_gm : float
-        Proportion of negative voxels within grey matter mask.
+    gm, wm, csf : str
+        Paths to GM, WM, and CSF tissue probability maps, in same space and resolution as cbf.
+    img : str or :obj:`nibabel.nifti1.Nifti1Image`
+        Path to CBF file or Nifti1Image.
+        This image should NOT be smoothed prior use in this function.
+    thresh : float
+        Threshold to apply to the TPMs. Default is 0.7.
 
     Returns
     -------
@@ -335,6 +355,10 @@ def compute_qei(
         Dispersion index (DI).
     neg_gm : float
         Percentage of negative voxels within grey matter mask.
+
+    References
+    ----------
+    .. footbibliography
     """
     cbf_data = _load_one_image(img)
     smoothed_cbf = smooth_image(cbf_data, fwhm=5)
@@ -347,7 +371,7 @@ def compute_qei(
     csf_mask = csf_probseg_data > thresh
 
     # Calculate the components of the QEI equation
-    di = dispersion_index(wm_mask, gm_mask, csf_mask, smoothed_cbf, 0)
+    di = dispersion_index(wm_mask, gm_mask, csf_mask, smoothed_cbf)
     neg_gm = np.sum(smoothed_cbf[gm_mask] < 0) / (np.sum(gm_mask))
     rho_ss = structural_pseudocbf_correlation(gm_probseg_data, wm_probseg_data, smoothed_cbf)
 
