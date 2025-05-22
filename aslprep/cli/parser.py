@@ -370,12 +370,12 @@ any spatial references.""",
     g_use_bbr.add_argument(
         '--force-bbr',
         action=DeprecatedAction,
-        help='Deprecated - use `--force bbr` instead.',
+        help='Deprecated - use `--force bbr` instead. See `--force` for more details.',
     )
     g_use_bbr.add_argument(
         '--force-no-bbr',
         action=DeprecatedAction,
-        help='Deprecated - use `--force no-bbr` instead.',
+        help='Deprecated - use `--force no-bbr` instead. See `--force` for more details.',
     )
     # g_conf.add_argument(
     #     '--dummy-scans',
@@ -402,12 +402,12 @@ any spatial references.""",
     g_use_ge.add_argument(
         '--force-ge',
         action=DeprecatedAction,
-        help='Deprecated - use `--force ge` instead.',
+        help='Deprecated - use `--force ge` instead. See `--force` for more details.',
     )
     g_use_ge.add_argument(
         '--force-no-ge',
         action=DeprecatedAction,
-        help='Deprecated - use `--force no-ge` instead.',
+        help='Deprecated - use `--force no-ge` instead. See `--force` for more details.',
     )
 
     g_conf.add_argument(
@@ -561,7 +561,7 @@ any spatial references.""",
         '--force-syn',
         action=DeprecatedAction,
         default=False,
-        help='Deprecated - use `--force syn-sdc` instead.',
+        help='Deprecated - use `--force syn-sdc` instead. See `--force` for more details.',
     )
 
     # FreeSurfer options
