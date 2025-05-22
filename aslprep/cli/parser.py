@@ -202,9 +202,11 @@ def _build_parser():
         type=str,
         nargs='+',
         help=(
-            'Search PATH(s) for pre-computed derivatives. '
+            'Search PATH(s) for pre-computed BIDS derivatives. '
             'These may be provided as named folders '
-            '(e.g., `--derivatives smriprep=/path/to/smriprep`).'
+            '(e.g., `--derivatives smriprep=/path/to/smriprep`). '
+            'Note: If your FreeSurfer outputs are not BIDS-compliant '
+            '(e.g., not created by sMRIPrep), use `--fs-subjects-dir` instead.'
         ),
     )
     g_bids.add_argument(
