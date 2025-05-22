@@ -410,7 +410,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ]),
     ])  # fmt:skip
 
-    # If we want aslref-space outputs, then call the appropriate workflow
+    # In minimal or resampling mode, aslref-space CBF derivatives are always written out.
+    # In full mode, they are only written out if aslref is a requested output space.
+    # Additionally, the preprocessed ASL data is only written out if it is a requested output
+    # space and full mode is enabled.
     aslref_out = bool(nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')))
     aslref_out &= config.workflow.level == 'full'
 
