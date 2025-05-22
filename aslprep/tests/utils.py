@@ -204,7 +204,7 @@ def reorder_expected_outputs():
         with open(expected_output_file) as fobj:
             file_contents = fobj.readlines()
 
-        file_contents = sorted(file_contents)
+        file_contents = sorted(set(file_contents))
 
         with open(expected_output_file, 'w') as fobj:
             fobj.writelines(file_contents)
