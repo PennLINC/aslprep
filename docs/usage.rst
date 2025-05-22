@@ -28,6 +28,8 @@ We highly recommend that you validate your dataset with the free, online
     Please see
     `the BIDS starter kit <https://bids-standard.github.io/bids-starter-kit/tutorials/asl.html>`_
     for information about converting ASL data to BIDS.
+    
+    Please see `the BIDS specification for ASL <https://bids-specification.readthedocs.io/en/stable/modality-specific-files/magnetic-resonance-imaging-data.html#arterial-spin-labeling-perfusion-data>`_ to view the required metadata for ASL data.
 
     If your data are not already scaled, you should use the ``--m0_scale`` parameter when running
     ASLPrep.
