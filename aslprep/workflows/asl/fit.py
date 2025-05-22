@@ -185,8 +185,6 @@ def init_asl_fit_wf(
     aslref2fmap_xfm
         Affine transform mapping from ASL reference space to the fieldmap
         space, if applicable.
-    dummy_scans
-        The number of dummy scans declared or detected at the beginning of the series.
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
@@ -262,19 +260,15 @@ def init_asl_fit_wf(
                 'subjects_dir',
                 'subject_id',
                 'fsnative2t1w_xfm',
-                # Other things
-                'dummy_scans',
             ],
         ),
         name='inputnode',
     )
     inputnode.inputs.asl_file = asl_file
-    inputnode.inputs.dummy_scans = config.workflow.dummy_scans
 
     outputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                'dummy_scans',
                 'hmc_aslref',
                 'coreg_aslref',
                 'asl_mask',
@@ -290,7 +284,7 @@ def init_asl_fit_wf(
     workflow.add_nodes([inputnode])
 
     hmcref_buffer = pe.Node(
-        niu.IdentityInterface(fields=['aslref', 'asl_file', 'dummy_scans']),
+        niu.IdentityInterface(fields=['aslref', 'asl_file']),
         name='hmcref_buffer',
     )
     fmapref_buffer = pe.Node(niu.Function(function=_select_ref), name='fmapref_buffer')
@@ -338,7 +332,6 @@ def init_asl_fit_wf(
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         run_without_submitting=True,
     )
-    # workflow.connect([(inputnode, summary, [("dummy_scans", "dummy_scans")])])
 
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         # TODO: Enable sdc report even if we find coregref
@@ -349,11 +342,7 @@ def init_asl_fit_wf(
 
     workflow.connect([
         # XXX: Was from hmc_aslref_wf
-        (inputnode, hmcref_buffer, [('dummy_scans', 'dummy_scans')]),
-        (hmcref_buffer, outputnode, [
-            ('aslref', 'hmc_aslref'),
-            ('dummy_scans', 'dummy_scans'),
-        ]),
+        (hmcref_buffer, outputnode, [('aslref', 'hmc_aslref')]),
         (regref_buffer, outputnode, [
             ('aslref', 'coreg_aslref'),
             ('aslmask', 'asl_mask'),
@@ -391,7 +380,6 @@ def init_asl_fit_wf(
             use_ge=use_ge,
         )
         hmc_aslref_wf.inputs.inputnode.m0scan = m0scan
-        hmc_aslref_wf.inputs.inputnode.dummy_scans = config.workflow.dummy_scans
 
         workflow.connect([(inputnode, hmc_aslref_wf, [('aslcontext', 'inputnode.aslcontext')])])
 
@@ -422,10 +410,7 @@ def init_asl_fit_wf(
         validation_and_dummies_wf = init_validation_and_dummies_wf(bold_file=asl_file)
 
         workflow.connect([
-            (validation_and_dummies_wf, hmcref_buffer, [
-                ('outputnode.bold_file', 'asl_file'),
-                ('outputnode.skip_vols', 'dummy_scans'),
-            ]),
+            (validation_and_dummies_wf, hmcref_buffer, [('outputnode.bold_file', 'asl_file')]),
             (validation_and_dummies_wf, asl_fit_reports_wf, [
                 ('outputnode.validation_report', 'inputnode.validation_report'),
             ]),
@@ -786,7 +771,6 @@ def init_asl_native_wf(
                 'm0scan',
                 'motion_xfm',
                 'aslref2fmap_xfm',
-                'dummy_scans',
                 # Fieldmap fit
                 'fmap_ref',
                 'fmap_coeff',

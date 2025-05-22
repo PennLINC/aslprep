@@ -101,12 +101,6 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
         desc="metadata for M0 scan. Only defined if M0Type is 'Separate'.",
     )
     in_mask = File(exists=True, mandatory=True, desc='mask')
-    dummy_scans = traits.Int(
-        default_value=0,
-        usedefault=True,
-        mandatory=False,
-        desc='remove first n volumes',
-    )
     fwhm = traits.Float(default_value=5, usedefault=True, mandatory=False, desc='fwhm')
 
 
@@ -277,10 +271,6 @@ class ExtractCBF(SimpleInterface):
             elif isinstance(value, list):
                 # Reduce to only the selected volumes
                 value = [value[i] for i in metadata_idx]
-
-                # Remove dummy volumes as well
-                if self.inputs.dummy_scans != 0:
-                    value = value[self.inputs.dummy_scans :]
 
                 metadata[field] = value
 

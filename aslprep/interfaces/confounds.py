@@ -329,7 +329,7 @@ class ComputeCBFQC(SimpleInterface):
                 'LongName': 'Mean Framewise Displacement',
                 'Description': (
                     'Average framewise displacement without any motion parameter filtering. '
-                    'This value includes high-motion outliers, but not dummy volumes. '
+                    'This value includes high-motion outliers. '
                     'FD is calculated according to the Power definition.'
                 ),
                 'Units': 'mm',
@@ -338,8 +338,7 @@ class ComputeCBFQC(SimpleInterface):
             'rmsd': {
                 'LongName': 'Mean Relative Root Mean Squared',
                 'Description': (
-                    'Average relative root mean squared calculated from motion parameters, '
-                    'after removal of dummy volumes and high-motion outliers. '
+                    'Average relative root mean squared calculated from motion parameters. '
                     "Relative in this case means 'relative to the previous scan'."
                 ),
                 'Units': 'arbitrary',
