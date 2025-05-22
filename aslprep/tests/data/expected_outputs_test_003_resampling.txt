@@ -13,6 +13,7 @@ sub-01/ses-1/perf/sub-01_ses-1_cbf.nii.gz
 sub-01/ses-1/perf/sub-01_ses-1_desc-brain_mask.json
 sub-01/ses-1/perf/sub-01_ses-1_desc-brain_mask.nii.gz
 sub-01/ses-1/perf/sub-01_ses-1_desc-confounds_timeseries.tsv
+sub-01/ses-1/perf/sub-01_ses-1_desc-confounds_timeseries.tsv
 sub-01/ses-1/perf/sub-01_ses-1_desc-coreg_aslref.json
 sub-01/ses-1/perf/sub-01_ses-1_desc-coreg_aslref.nii.gz
 sub-01/ses-1/perf/sub-01_ses-1_desc-hmc_aslref.json
@@ -24,5 +25,3 @@ sub-01/ses-1/perf/sub-01_ses-1_from-aslref_to-T1w_mode-image_xfm.json
 sub-01/ses-1/perf/sub-01_ses-1_from-aslref_to-T1w_mode-image_xfm.txt
 sub-01/ses-1/perf/sub-01_ses-1_from-orig_to-aslref_mode-image_xfm.json
 sub-01/ses-1/perf/sub-01_ses-1_from-orig_to-aslref_mode-image_xfm.txt
-sub-01/ses-1/perf/sub-01_ses-1_desc-confounds_timeseries.tsv
-sub-01/ses-1/perf/sub-01_ses-1_desc-qualitycontrol_cbf.tsv
