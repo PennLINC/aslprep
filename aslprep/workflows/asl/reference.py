@@ -73,8 +73,6 @@ def init_raw_aslref_wf(
     ------
     asl_file : str
         ASL series NIfTI file
-    dummy_scans : int or None
-        Number of non-steady-state volumes specified by user at beginning of ``asl_file``
 
     Outputs
     -------
@@ -82,8 +80,6 @@ def init_raw_aslref_wf(
         Validated BOLD series NIfTI file
     aslref : str
         Reference image to which BOLD series is motion corrected
-    skip_vols : int
-        Number of non-steady-state volumes selected at beginning of ``asl_file``
     algo_dummy_scans : int
         Number of non-steady-state volumes algorithmically detected at
         beginning of ``asl_file``
@@ -102,7 +98,6 @@ for use in head motion correction.
                 'asl_file',
                 'aslcontext',
                 'm0scan',
-                'dummy_scans',
             ],
         ),
         name='inputnode',

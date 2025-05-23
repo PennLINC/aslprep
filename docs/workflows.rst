@@ -280,7 +280,6 @@ CBF Computation in native space
       metadata=metadata,
       m0_scale=1,
       smooth_kernel=5,
-      dummy_scans=0,
    )
 
 ASL data consist of multiple pairs of labeled and control images.

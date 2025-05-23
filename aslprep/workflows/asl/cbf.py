@@ -43,7 +43,6 @@ def init_cbf_wf(
     aslcontext,
     metadata,
     m0scan_metadata=None,
-    dummy_scans,
     scorescrub=False,
     basil=False,
     m0_scale=1,
@@ -72,7 +71,6 @@ def init_cbf_wf(
                     name_source=str(perf_dir / "sub-01_asl.nii.gz"),
                     processing_target="control",
                     metadata=metadata,
-                    dummy_scans=0,
                     scorescrub=True,
                     basil=True,
                 )
@@ -392,7 +390,6 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
-            dummy_scans=dummy_scans,
             fwhm=smooth_kernel,
         ),
         mem_gb=0.2,

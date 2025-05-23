@@ -75,8 +75,6 @@ def init_asl_confounds_wf(
         asl series mask
     motion_xfm
         ITK-formatted head motion transforms
-    skip_vols
-        number of non steady state volumes
     t1w_mask
         Mask of the skull-stripped template image
     t1w_tpms
@@ -119,7 +117,6 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
                 'asl_mask',
                 'hmc_aslref',
                 'motion_xfm',
-                'skip_vols',
                 't1w_mask',
                 't1w_tpms',
                 'aslref2anat_xfm',
@@ -344,8 +341,6 @@ def init_carpetplot_wf(
         Mask of brain edge voxels
     acompcor_mask
         Mask of deep WM+CSF
-    dummy_scans
-        Number of nonsteady states to be dropped at the beginning of the timeseries.
 
     Outputs
     -------
@@ -368,7 +363,6 @@ def init_carpetplot_wf(
                 'cifti_asl',
                 'crown_mask',
                 'acompcor_mask',
-                'dummy_scans',
             ]
         ),
         name='inputnode',
@@ -440,7 +434,6 @@ def init_carpetplot_wf(
         (inputnode, conf_plot, [
             ('asl', 'in_nifti'),
             ('confounds_file', 'confounds_file'),
-            ('dummy_scans', 'drop_trs'),
         ]),
         (mrg_xfms, resample_parc, [('out', 'transforms')]),
         (resample_parc, parcels, [('output_image', 'segmentation')]),

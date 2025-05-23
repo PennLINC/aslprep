@@ -60,12 +60,12 @@ As of version 0.6.0, ASLPrep supports three levels of derivatives:
   processing results to be deterministically generated.
   Most components of the `visual reports`_ can be generated at this level,
   so the quality of preprocessing can be assessed.
-  Because no resampling is done, confounds and carpetplots will be missing from the reports.
   ASL-reference-space CBF derivatives will automatically be generated if this level is selected.
 * ``--level resampling``: This processing mode aims to produce additional
-  derivatives that enable third-party resampling, resampling BOLD series
+  derivatives that enable third-party resampling, resampling ASL series
   in the working directory as needed, but these are not saved to the output directory.
   ASL-reference-space CBF derivatives will automatically be generated if this level is selected.
+  Currently, 'minimal' and 'resampling' are effectively the same.
 * ``--level full``: This processing mode aims to produce all derivatives
   that have previously been a part of the ASLPrep output dataset.
   This is the default processing level.
@@ -179,7 +179,7 @@ FreeSurfer derivatives
 If FreeSurfer is run, then a FreeSurfer subjects directory is created in
 ``<output dir>/sourcedata/freesurfer`` or the directory indicated with the
 ``--fs-subjects-dir`` flag.
-Additionally, FreeSurfer segmentations are resampled into the BOLD space,
+Additionally, FreeSurfer segmentations are resampled into the ASL reference space,
 and lookup tables are provided. ::
 
     <output_dir>/

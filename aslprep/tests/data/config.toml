@@ -48,7 +48,6 @@ skull_strip_template = "OASIS30ANTs"
 skull_strip_t1w = "force"
 spaces = "asl T1w MNI152NLin2009cAsym:res-native"
 use_syn_sdc = false
-dummy_scans = 0
 smooth_kernel = 5
 scorescrub = true
 basil = false

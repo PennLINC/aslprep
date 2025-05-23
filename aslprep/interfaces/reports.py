@@ -274,10 +274,6 @@ class CBFSummary(SummaryInterface):
                 conflist = cfh.readline().strip('\n').strip()
         else:
             conflist = 'None'
-        # the number of dummy scans was specified by the user and
-        # it is not equal to the number detected by the algorithm
-
-        # the number of dummy scans was not specified by the user
 
         return QC_TEMPLATE.format(
             confounds=re.sub(r'[\t ]+', ', ', conflist),

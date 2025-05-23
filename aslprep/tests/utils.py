@@ -93,7 +93,7 @@ def check_generated_files(aslprep_dir, output_list_file):
         expected_files = fobj.readlines()
         expected_files = [f.rstrip() for f in expected_files]
 
-    if sorted(found_files) != sorted(expected_files):
+    if sorted(set(found_files)) != sorted(set(expected_files)):
         expected_not_found = sorted(set(expected_files) - set(found_files))
         found_not_expected = sorted(set(found_files) - set(expected_files))
 
@@ -204,7 +204,7 @@ def reorder_expected_outputs():
         with open(expected_output_file) as fobj:
             file_contents = fobj.readlines()
 
-        file_contents = sorted(file_contents)
+        file_contents = sorted(set(file_contents))
 
         with open(expected_output_file, 'w') as fobj:
             fobj.writelines(file_contents)

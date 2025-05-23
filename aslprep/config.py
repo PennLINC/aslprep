@@ -542,9 +542,6 @@ class workflow(_Config):
     """Relative scale between ASL (delta-M) and M0."""
     cifti_output = None
     """Generate HCP Grayordinates, accepts either ``'91k'`` (default) or ``'170k'``."""
-    dummy_scans = 0
-    """Number of label-control volume pairs to delete before CBF computation. Not currently used.
-    """
     fmap_bspline = None
     """Regularize fieldmaps with a field of B-Spline basis."""
     fmap_demean = None
@@ -558,7 +555,9 @@ class workflow(_Config):
     force = None
     """Force particular steps for *ASLPrep*."""
     level = 'full'
-    """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full']."""
+    """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full'].
+    'minimal' and 'resampling' are effectively the same at the moment.
+    """
     longitudinal = False
     """Run FreeSurfer ``recon-all`` with the ``--longitudinal`` flag."""
     run_msmsulc = True
