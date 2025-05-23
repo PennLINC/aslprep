@@ -575,7 +575,7 @@ their manuscripts unchanged. It is released under the unchanged
             fmap_buffers['fmap_ref'].inputs.in1 = refs
             fmap_buffers['fmap_coeff'].inputs.in1 = coeffs
 
-            # Note that masks are not emitted. The BOLD-fmap transforms cannot be
+            # Note that masks are not emitted. The ASL-fmap transforms cannot be
             # computed with precomputed fieldmaps until we either start emitting masks
             # or start skull-stripping references on the fly.
             fmap_buffers['fmap_mask'].inputs.in1 = [
@@ -653,7 +653,7 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                 # "Sophisticated" PEPOLAR schemes should be run "manually" with SDCFlows
                 # The following two cases are not considered sophisticated:
                 # 1. All PEPOLAR entities are the same modality
-                #    (typically, more than two EPI PE directions), or
+                #    (typically, more than two M0 PE directions), or
                 # 2. Two modalities are involved, with at most two images to pass
                 #    into FSL TOPUP.
                 if len(set(suffixes)) == 1 or (
@@ -851,7 +851,7 @@ def map_fieldmap_estimation(
     # SDCFlows `find_estimators` still receives a full layout (which includes the fmap modality)
     # and will not calculate fmapless schemes.
     # Similarly, if fieldmaps are ignored and `--force syn-sdc` is requested,
-    # `fmapless` should be set to True to ensure BOLD targets are found to be corrected.
+    # `fmapless` should be set to True to ensure ASL targets are found to be corrected.
     fmap_estimators = find_estimators(
         layout=layout,
         subject=subject_id,
@@ -896,7 +896,7 @@ def map_fieldmap_estimation(
             )
             estimator_key[1:] = []
 
-    # Final, 1-1 map, dropping uncorrected BOLD
+    # Final, 1-1 map, dropping uncorrected ASL
     estimator_map = {
         bold_file: estimator_key[0]
         for bold_file, estimator_key in all_estimators.items()

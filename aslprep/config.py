@@ -537,7 +537,7 @@ class workflow(_Config):
     asl2anat_init = 'auto'
     """Method of initial ASL to anatomical coregistration. If `auto`, a T2w image is used
     if available, otherwise the T1w image. `t1w` forces use of the T1w, `t2w` forces use of
-    the T2w, and `header` uses the BOLD header information without an initial registration."""
+    the T2w, and `header` uses the ASL header information without an initial registration."""
     m0_scale = float(1)
     """Relative scale between ASL (delta-M) and M0."""
     cifti_output = None

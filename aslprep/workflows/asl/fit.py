@@ -217,7 +217,7 @@ def init_asl_fit_wf(
     # Get metadata from ASL file(s)
     metadata = layout.get_metadata(asl_file)
     # Patch RepetitionTimePreparation into RepetitionTime,
-    # for the sake of BOLD-based interfaces and workflows.
+    # for the sake of ASL-based interfaces and workflows.
     # This value shouldn't be used for anything except figures and reportlets.
     metadata['RepetitionTime'] = metadata.get(
         'RepetitionTime',
@@ -626,7 +626,7 @@ def init_asl_fit_wf(
             if 'no-bbr' in config.workflow.force
             else None
         )
-        # calculate BOLD registration to T1w
+        # calculate ASL registration to T1w
         asl_reg_wf = init_bold_reg_wf(
             bold2anat_dof=config.workflow.asl2anat_dof,
             bold2anat_init=config.workflow.asl2anat_init,

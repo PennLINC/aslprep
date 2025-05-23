@@ -317,7 +317,7 @@ def _build_parser():
         choices=['bbr', 'no-bbr', 'syn-sdc', 'fmap-jacobian', 'ge', 'no-ge'],
         help='Force selected processing choices, overriding automatic selections '
         '(a space delimited list).\n'
-        ' * [no-]bbr: Use/disable boundary-based registration for BOLD-to-T1w coregistration\n'
+        ' * [no-]bbr: Use/disable boundary-based registration for ASL-to-T1w coregistration\n'
         '             (No goodness-of-fit checks)\n'
         ' * syn-sdc: Calculate SyN-SDC correction *in addition* to other fieldmaps\n'
         ' * [no-]ge: Use/disable GE-specific processing\n',
@@ -351,7 +351,7 @@ any spatial references.""",
         help=(
             'Method of initial ASL to anatomical coregistration. If `auto`, a T2w image is used '
             'if available, otherwise the T1w image. `t1w` forces use of the T1w, `t2w` forces use '
-            'of the T2w, and `header` uses the BOLD header information without an initial '
+            'of the T2w, and `header` uses the ASL header information without an initial '
             'registration.'
         ),
     )
@@ -482,7 +482,7 @@ any spatial references.""",
         choices=('91k', '170k'),
         type=str,
         help=(
-            'Output preprocessed BOLD as a CIFTI dense timeseries. '
+            'Output preprocessed ASL as a CIFTI dense timeseries. '
             'Optionally, the number of grayordinate can be specified '
             '(default is 91k, which equates to 2mm resolution)'
         ),
