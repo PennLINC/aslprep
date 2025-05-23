@@ -41,15 +41,13 @@ There are three relevant repetition time fields in ASL data:
    it was decided that the RepetitionTime field would not be changed to allow arrays of values,
    as is needed for ASL data. Instead, they created the RepetitionTimePreparation field, which
    can be either a single value or an array of values (one value per volume in the ASL file).
-1. RepetitionTimePreparation: This is effectively the same as RepetitionTime, but can be an array.
+2. RepetitionTimePreparation: This is effectively the same as RepetitionTime, but can be an array.
 
    - This value (especially for the M0 scan) may be useful for calculating CBF.
      It's not used in ASLPrep, but other tools may use it.
 
-1. RepetitionTimeExcitation: The "true" time between the beginning of the first excitation pulse
+3. RepetitionTimeExcitation: The "true" time between the beginning of the first excitation pulse
    and the last one.
-
-   - One quirk of ASL is that... who knows?
 
 
 **********
@@ -69,8 +67,8 @@ the M0 volumes.
 .. tip::
 
    If you are working with a BIDS dataset where it is not clear if the M0 volumes have been scaled,
-   and, if they have not, it's not clear how much they need to be scaled,
-   do what Sudipto says.
+   and, if they have not, it's not clear how much they need to be scaled, you can compute CBF based
+   on M0 scale = 1 and then try to figure out the actual value if the values look out of range.
 
 
 *********************************************
