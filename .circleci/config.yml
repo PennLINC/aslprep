@@ -171,6 +171,10 @@ jobs:
 
   pcasl_singlepld_philips:
     <<: *dockersetup
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
+    environment:
+      CIRCLE_CPUS: 4
     steps:
       - checkout
       - run:
@@ -201,11 +205,13 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.examples_pcasl_singlepld_philips
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
 
   pcasl_singlepld_siemens:
     <<: *dockersetup
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
+    environment:
+      CIRCLE_CPUS: 4
     steps:
       - checkout
       - run:
@@ -236,11 +242,11 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.examples_pcasl_singlepld_siemens
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
 
   pcasl_singlepld_ge:
     <<: *dockersetup
+    environment:
+      CIRCLE_CPUS: 2
     steps:
       - checkout
       - run:
@@ -274,6 +280,10 @@ jobs:
 
   pcasl_multipld:
     <<: *dockersetup
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
+    environment:
+      CIRCLE_CPUS: 4
     steps:
       - checkout
       - run:
@@ -304,11 +314,11 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.examples_pcasl_multipld
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
 
   pasl_multipld:
     <<: *dockersetup
+    environment:
+      CIRCLE_CPUS: 2
     steps:
       - checkout
       - run:
@@ -342,6 +352,10 @@ jobs:
 
   qtab:
     <<: *dockersetup
+    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
+    resource_class: large
+    environment:
+      CIRCLE_CPUS: 4
     steps:
       - checkout
       - run:
@@ -372,11 +386,11 @@ jobs:
           root: /src/coverage
           paths:
               - .coverage.qtab
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
 
   test_001:
     <<: *dockersetup
+    environment:
+      CIRCLE_CPUS: 4
     steps:
       - checkout
       - run:
@@ -412,6 +426,8 @@ jobs:
 
   test_002:
     <<: *dockersetup
+    environment:
+      CIRCLE_CPUS: 2
     steps:
       - checkout
       - run:
@@ -445,6 +461,8 @@ jobs:
 
   test_003_minimal:
     <<: *dockersetup
+    environment:
+      CIRCLE_CPUS: 4
     steps:
       - checkout
       - run:
@@ -480,6 +498,8 @@ jobs:
 
   test_003_resampling:
     <<: *dockersetup
+    environment:
+      CIRCLE_CPUS: 4
     steps:
       - checkout
       - run:
@@ -515,6 +535,8 @@ jobs:
 
   test_003_full:
     <<: *dockersetup
+    environment:
+      CIRCLE_CPUS: 4
     steps:
       - checkout
       - run:
@@ -550,6 +572,8 @@ jobs:
 
   pytests:
     <<: *dockersetup
+    environment:
+      CIRCLE_CPUS: 2
     steps:
       - checkout
       - run:
