@@ -206,7 +206,7 @@ def _build_parser():
             'These may be provided as named folders '
             '(e.g., `--derivatives smriprep=/path/to/smriprep`). '
             'Note: This does not apply to non-BIDS data, like FreeSurfer outputs. '
-            'To re-use FreeSurfer outputs, use `--fs-subjects-dir` instead.'
+            'To reuse FreeSurfer outputs, use `--fs-subjects-dir` instead.'
         ),
     )
     g_bids.add_argument(
