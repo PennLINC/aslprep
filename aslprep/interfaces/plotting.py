@@ -12,9 +12,10 @@ from nipype.interfaces.base import (
     traits,
 )
 from nipype.utils.filemanip import fname_presuffix
+from nireports.reportlets.modality.func import fMRIPlot
 from niworkflows.utils.timeseries import _cifti_timeseries, _nifti_timeseries
 
-from aslprep.utils.plotting import CBFPlot, fMRIPlot
+from aslprep.utils.plotting import CBFPlot
 
 
 class _ASLCarpetPlotInputSpec(BaseInterfaceInputSpec):
