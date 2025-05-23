@@ -672,6 +672,10 @@ def init_asl_fit_wf(
             sloppy=config.execution.sloppy,
         )
 
+        if config.execution.sloppy and config.workflow.run_reconall:
+            coreg_node = asl_reg_wf.get_node('bbreg_wf.bbregister')
+            coreg_node.inputs.args = ['--nmax 5', '--subsamp 4']
+
         # fMRIPrep's init_ds_registration_wf will write out the ASL xfms to `anat` for some reason,
         # so we must override it.
         with OverrideDerivativesDataSink(output_workflows):
