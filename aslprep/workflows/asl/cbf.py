@@ -316,7 +316,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
 
     gm_tfm = pe.Node(
         ApplyTransforms(
-            interpolation='NearestNeighbor',
+            interpolation='Gaussian',
             float=True,
             invert_transform_flags=[True],
             args='-v',
@@ -335,7 +335,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
 
     wm_tfm = pe.Node(
         ApplyTransforms(
-            interpolation='NearestNeighbor',
+            interpolation='Gaussian',
             float=True,
             invert_transform_flags=[True],
             args='-v',
@@ -354,7 +354,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
 
     csf_tfm = pe.Node(
         ApplyTransforms(
-            interpolation='NearestNeighbor',
+            interpolation='Gaussian',
             float=True,
             invert_transform_flags=[True],
             args='-v',
