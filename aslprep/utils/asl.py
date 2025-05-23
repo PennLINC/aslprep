@@ -266,3 +266,5 @@ def infer_m0tr(
 
     else:
         raise RuntimeError('no pathway to m0scan')
+
+    return m0tr

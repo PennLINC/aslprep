@@ -439,8 +439,8 @@ class ComputeCBF(SimpleInterface):
         m0data = np.mean(m0data, axis=0)
         if isinstance(self.inputs.m0tr, Number) and self.inputs.m0tr < 5:
             config.loggers.interface.warning(
-                'M0 TR is less than 5 seconds, so ASLPrep will scale the M0 data according to '
-                'Alsop 2015.'
+                f'M0 TR is less than 5 seconds ({self.inputs.m0tr}), '
+                'so ASLPrep will scale the M0 data according to Alsop 2015.'
             )
             # Alsop 2015, page 113
             m0data = m0data * (1 / (1 - np.exp(-self.inputs.m0tr / t1tissue)))
