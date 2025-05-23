@@ -1,7 +1,5 @@
 .. include:: links.rst
 
-.. _preparing-bids-data:
-
 ###################
 Preparing BIDS Data
 ###################

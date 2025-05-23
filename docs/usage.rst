@@ -22,14 +22,14 @@ We highly recommend that you validate your dataset with the free, online
     04-modality-specific-files/01-magnetic-resonance-imaging-data.html#scaling>`_.
 
     What this means is that the M0 scans in your dataset should preferably be scaled before running
-    ASLPrep. This depends on whether or not your scans are already scaled is not readily available from DICOMs; 
-    you should ask your MRI tech if it is scaled. Refer to `Preparing BIDS Data`_ for more details on setting up your BIDS Data
-    such that ASLPrep can run successfully.
+    ASLPrep. This depends on whether or not your scans are already scaled is not readily available from DICOMs;
+    you should ask your MRI tech if it is scaled.
+    Refer to :doc:`bids` for this and other quirks in BIDS for ASL data.
 
     Please see
     `the BIDS starter kit <https://bids-standard.github.io/bids-starter-kit/tutorials/asl.html>`_
     for information about converting ASL data to BIDS.
-    
+
     Please see `the BIDS specification for ASL <https://bids-specification.readthedocs.io/en/stable/modality-specific-files/magnetic-resonance-imaging-data.html#arterial-spin-labeling-perfusion-data>`_ to view the required metadata for ASL data.
 
     If your data are not already scaled, you should use the ``--m0_scale`` parameter when running
