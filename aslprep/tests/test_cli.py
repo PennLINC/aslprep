@@ -13,6 +13,7 @@ from aslprep.tests.utils import (
     check_generated_files,
     download_test_data,
     get_test_data_path,
+    update_resources,
 )
 
 nipype_config.enable_debug_mode()
@@ -388,7 +389,6 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        '--sloppy',
         '--nthreads=1',
         '--omp-nthreads=1',
         '--output-spaces',
@@ -408,9 +408,14 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
 def _run_and_generate(test_name, participant_label, parameters, out_dir):
     from aslprep import config
 
+    parameters.append('--sloppy')
     parameters.append('--stop-on-first-crash')
     parameters.append('--clean-workdir')
     parameters.append('-vv')
+
+    # Add concurrency options if they're not already specified
+    parameters = update_resources(parameters)
+
     parse_args(parameters)
     config_file = config.execution.work_dir / f'config-{config.execution.run_uuid}.toml'
     config.loggers.cli.warning(f'Saving config file to {config_file}')
@@ -440,6 +445,7 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
 def _run_and_fail(parameters):
     from aslprep import config
 
+    parameters.append('--sloppy')
     parameters.append('--stop-on-first-crash')
     parameters.append('-vv')
     parse_args(parameters)
