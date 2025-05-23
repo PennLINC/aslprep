@@ -107,4 +107,6 @@ Ask your physicist for the correct values for the following fields:
 - The order of volumes in the ASL file.
   The aslcontext.tsv is not automatically generated and is not something that can be inferred
   from the DICOMs (at least not easily).
-- Potentially others.
+
+The list above is not comprehensive.
+There may be other fields or elements that need to be manually added to the dataset before it is useable.
