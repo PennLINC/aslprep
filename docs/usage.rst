@@ -23,7 +23,8 @@ We highly recommend that you validate your dataset with the free, online
 
     What this means is that the M0 scans in your dataset should preferably be scaled before running
     ASLPrep. This depends on whether or not your scans are already scaled is not readily available from DICOMs; 
-    you should ask your MRI tech if it is scaled.
+    you should ask your MRI tech if it is scaled. Refer to <preparing-bids-data_>`_ for more details on setting up your BIDS Data
+    such that ASLPrep can run successfully.
 
     Please see
     `the BIDS starter kit <https://bids-standard.github.io/bids-starter-kit/tutorials/asl.html>`_
