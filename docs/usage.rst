@@ -22,7 +22,7 @@ We highly recommend that you validate your dataset with the free, online
     04-modality-specific-files/01-magnetic-resonance-imaging-data.html#scaling>`_.
 
     What this means is that the M0 scans in your dataset should preferably be scaled before running
-    ASLPrep. This data on whether or not your scans are already scaled is not readily available from DICOMs; 
+    ASLPrep. This depends on whether or not your scans are already scaled is not readily available from DICOMs; 
     you should ask your MRI tech if it is scaled.
 
     Please see
