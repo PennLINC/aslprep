@@ -388,7 +388,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         scorescrub=scorescrub,
         basil=basil,
         smooth_kernel=smooth_kernel,
+        aslcontext=run_data['aslcontext'],
         metadata=metadata,
+        m0scan_metadata=run_data['m0scan_metadata'],
         name='cbf_wf',
     )
     workflow.connect([

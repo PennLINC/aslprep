@@ -190,3 +190,79 @@ def reduce_metadata_lists(metadata, n_volumes, keep_idx):
             metadata[field] = [value[i] for i in keep_idx]
 
     return metadata
+
+
+def infer_m0tr(
+    *,
+    aslcontext,
+    metadata,
+    m0scan_metadata,
+):
+    """Infer the repetition time of the M0 volumes based on metadata.
+
+    Parameters
+    ----------
+    aslcontext : str
+        Path to aslcontext file.
+    metadata : dict
+        Metadata for ASL file.
+    m0scan_metadata : dict or None
+        Metadata for M0 file, if one exists. Otherwise None.
+
+    Returns
+    -------
+    m0tr : float or None
+        The TR of the M0 scan, if available.
+    """
+    import pandas as pd
+
+    if metadata['M0Type'] == 'Separate':
+        m0tr = m0scan_metadata['RepetitionTimePreparation']
+        if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+            raise ValueError('M0 scans have variable TR. ASLPrep does not support this.')
+
+    elif metadata['M0Type'] == 'Included':
+        aslcontext = pd.read_table(aslcontext)
+        vol_types = aslcontext['volume_type'].tolist()
+        m0_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'm0scan']
+        if np.array(metadata['RepetitionTimePreparation']).size > 1:
+            m0tr = np.array(metadata['RepetitionTimePreparation'])[m0_volume_idx]
+        else:
+            m0tr = metadata['RepetitionTimePreparation']
+
+        if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
+            raise ValueError('M0 scans have variable TR. ASLPrep does not support this.')
+
+    elif metadata['M0Type'] == 'Estimate':
+        m0tr = None
+
+    elif metadata['M0Type'] == 'Absent':
+        aslcontext = pd.read_table(aslcontext)
+        vol_types = aslcontext['volume_type'].tolist()
+        control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'control']
+        cbf_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'cbf']
+        if control_volume_idx and not cbf_volume_idx:
+            # BackgroundSuppression is required, so no need to use get().
+            if metadata['BackgroundSuppression']:
+                raise ValueError(
+                    'Background-suppressed control volumes cannot be used for calibration.'
+                )
+
+        if control_volume_idx:
+            # Use the control volumes' TR as the M0 TR.
+            if np.array(metadata['RepetitionTimePreparation']).size > 1:
+                m0tr = np.array(metadata['RepetitionTimePreparation'])[control_volume_idx[0]]
+            else:
+                m0tr = metadata['RepetitionTimePreparation']
+
+        elif cbf_volume_idx:
+            m0tr = None
+
+        else:
+            raise RuntimeError(
+                'm0scan is absent, '
+                'and there are no control volumes that can be used as a substitute'
+            )
+
+    else:
+        raise RuntimeError('no pathway to m0scan')

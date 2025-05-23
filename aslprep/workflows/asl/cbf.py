@@ -2,6 +2,8 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for calculating CBF."""
 
+from numbers import Number
+
 import numpy as np
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
@@ -27,6 +29,7 @@ from aslprep.utils.asl import (
     estimate_labeling_efficiency,
     get_bolus_duration,
     get_inflow_times,
+    infer_m0tr,
     pcasl_or_pasl,
 )
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
@@ -34,9 +37,12 @@ from aslprep.utils.bids import find_atlas_entities
 
 
 def init_cbf_wf(
+    *,
     name_source,
     processing_target,
+    aslcontext,
     metadata,
+    m0scan_metadata=None,
     dummy_scans,
     scorescrub=False,
     basil=False,
@@ -121,6 +127,7 @@ def init_cbf_wf(
 """
 
     m0type = metadata['M0Type']
+    m0tr = infer_m0tr(aslcontext=aslcontext, metadata=metadata, m0scan_metadata=m0scan_metadata)
     is_casl = pcasl_or_pasl(metadata=metadata)
     is_multi_pld = determine_multi_pld(metadata=metadata)
     if (processing_target == 'cbf') and not basil:
@@ -136,8 +143,17 @@ def init_cbf_wf(
         m0_str = (
             'Calibration (M0) volumes associated with the ASL scan were smoothed with a '
             f'Gaussian kernel (FWHM={smooth_kernel} mm) and the average calibration image was '
-            f'calculated and scaled by {m0_scale}.'
+            f'calculated. '
         )
+        if isinstance(m0tr, Number) and m0tr < 5:
+            m0_str += (
+                f'As the TR of the calibration volumes was less than 5 seconds ({m0tr}), '
+                'the average calibration volume was scaled by the T1tissue estimate in order to '
+                'compensate for T1 relaxation, as recommended in @alsop_recommended_2015. '
+            )
+
+        m0_str += f'The calibration volume was then scaled by {m0_scale}.'
+
     elif m0type == 'Estimate':
         m0_str = (
             f'A single M0 estimate of {metadata["M0Estimate"]} was used to produce a calibration '
