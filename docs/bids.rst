@@ -109,4 +109,4 @@ Ask your physicist for the correct values for the following fields:
   from the DICOMs (at least not easily).
 
 The list above is not comprehensive.
-There may be other fields or elements that need to be manually added to the dataset before it is useable.
+There may be other fields or elements that need to be manually added to the dataset before it is usable.
