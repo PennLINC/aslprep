@@ -49,7 +49,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         '--basil',
         '--use-syn-sdc',
         '--m0_scale=10',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -85,7 +85,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         '--scorescrub',
         '--basil',
         '--m0_scale=10',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -123,7 +123,7 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         '--scorescrub',
         '--basil',
         '--m0_scale=96',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -200,7 +200,7 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         'MNI152NLin2009cAsym',
         '--basil',
         '--m0_scale=10',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -239,7 +239,7 @@ def test_qtab(data_dir, output_dir, working_dir):
         '--use-syn-sdc',
         '--force',
         'no-ge',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -277,7 +277,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         '--scorescrub',
         '--force',
         'no-ge',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -317,7 +317,7 @@ def test_test_002(data_dir, output_dir, working_dir):
         '--m0_scale=96',
         '--force',
         'ge',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -334,7 +334,7 @@ def test_test_003_minimal(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         level='minimal',
-        extra_params=['--fs-no-reconall'],
+        extra_params=['--fs-no-resume'],
     )
 
 
@@ -346,7 +346,7 @@ def test_test_003_resampling(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         level='resampling',
-        extra_params=['--fs-no-reconall'],
+        extra_params=['--fs-no-resume'],
     )
 
 
@@ -358,7 +358,13 @@ def test_test_003_full(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         level='full',
-        extra_params=['--cifti-output', '91k', '--project-goodvoxels'],
+        extra_params=[
+            '--fs-no-resume',
+            '--cifti-output',
+            '91k',
+            '--project-goodvoxels',
+            '--no-msm',
+        ],
     )
 
 
