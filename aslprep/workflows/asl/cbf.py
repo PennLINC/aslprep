@@ -122,7 +122,7 @@ def init_cbf_wf(
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """
-### Cerebral blood flow computation and denoising
+Cerebral blood flow computation and denoising
 
 """
 
@@ -170,13 +170,13 @@ def init_cbf_wf(
 
     if processing_target == 'cbf':
         workflow.__desc__ += """\
-*ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
+: *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
 """
 
     elif is_casl:
         if is_multi_pld:
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
+: *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
 {metadata['ArterialSpinLabelingType']} data using the following method.
 
 First, delta-M values were averaged over time for each post-labeling delay (PLD).
@@ -195,7 +195,7 @@ PLD + labeling duration > ATT.
         else:
             # Single-delay (P)CASL data
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
 {metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
 [@buxton1998general].
 {m0_str}
@@ -212,21 +212,21 @@ PLD + labeling duration > ATT.
         # Single-delay PASL data, with different bolus cut-off techniques
         if bcut == 'QUIPSS':
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the QUIPSS modification, as described in @wong1998quantitative.
 {m0_str}
 """
         elif bcut == 'QUIPSSII':
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the QUIPSS II modification, as described in @alsop_recommended_2015.
 {m0_str}
 """
         elif bcut == 'Q2TIPS':
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the Q2TIPS modification, as described in @noguchi2015technical.
 {m0_str}
