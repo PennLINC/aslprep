@@ -382,6 +382,7 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
+        '--sloppy',
         '--nthreads=1',
         '--omp-nthreads=1',
         '--output-spaces',
