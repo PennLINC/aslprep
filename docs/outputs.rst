@@ -46,7 +46,8 @@ a directory of derivatives (``sub-<label>/``)
 and a visual report (``sub-<label>.html``) are generated.
 The log directory contains `citation boilerplate`_ text.
 ``dataset_description.json`` is a metadata file in which ASLPrep
-records metadata recommended by the BIDS standard. The atlases directory contains the relevant json, tsv, and nifti files
+records metadata recommended by the BIDS standard. 
+The atlases directory contains the relevant json, tsv, and nifti files
 for each atlas, and the .bidsignore file contains a record of the files that bids-validator ignored.
 
 
