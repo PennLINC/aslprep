@@ -673,7 +673,7 @@ def init_asl_fit_wf(
         )
 
         if config.execution.sloppy and config.workflow.run_reconall:
-            asl_reg_wf.inputs.bbreg_wf.bbregister.args = "--nmax 5 --subsamp 4"
+            asl_reg_wf.inputs.bbreg_wf.bbregister.args = '--nmax 5 --subsamp 4'
 
         # fMRIPrep's init_ds_registration_wf will write out the ASL xfms to `anat` for some reason,
         # so we must override it.
