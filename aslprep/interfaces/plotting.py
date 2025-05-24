@@ -123,6 +123,7 @@ class ASLCarpetPlot(SimpleInterface):
             units=units,
             nskip=self.inputs.drop_trs,
             paired_carpet=has_cifti,
+            detrend=False,
         ).plot()
         fig.savefig(self._results['out_file'], bbox_inches='tight')
         fig.clf()

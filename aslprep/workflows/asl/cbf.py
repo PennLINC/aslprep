@@ -2,6 +2,8 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for calculating CBF."""
 
+from numbers import Number
+
 import numpy as np
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
@@ -27,6 +29,7 @@ from aslprep.utils.asl import (
     estimate_labeling_efficiency,
     get_bolus_duration,
     get_inflow_times,
+    infer_m0tr,
     pcasl_or_pasl,
 )
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
@@ -34,9 +37,12 @@ from aslprep.utils.bids import find_atlas_entities
 
 
 def init_cbf_wf(
+    *,
     name_source,
     processing_target,
+    aslcontext,
     metadata,
+    m0scan_metadata=None,
     scorescrub=False,
     basil=False,
     m0_scale=1,
@@ -114,11 +120,12 @@ def init_cbf_wf(
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """
-### Cerebral blood flow computation and denoising
+Cerebral blood flow computation and denoising
 
 """
 
     m0type = metadata['M0Type']
+    m0tr = infer_m0tr(aslcontext=aslcontext, metadata=metadata, m0scan_metadata=m0scan_metadata)
     is_casl = pcasl_or_pasl(metadata=metadata)
     is_multi_pld = determine_multi_pld(metadata=metadata)
     if (processing_target == 'cbf') and not basil:
@@ -134,8 +141,17 @@ def init_cbf_wf(
         m0_str = (
             'Calibration (M0) volumes associated with the ASL scan were smoothed with a '
             f'Gaussian kernel (FWHM={smooth_kernel} mm) and the average calibration image was '
-            f'calculated and scaled by {m0_scale}.'
+            f'calculated. '
         )
+        if isinstance(m0tr, Number) and m0tr < 5:
+            m0_str += (
+                f'As the TR of the calibration volumes was less than 5 seconds ({m0tr}), '
+                'the average calibration volume was scaled by the T1tissue estimate in order to '
+                'compensate for T1 relaxation, as recommended in @alsop_recommended_2015. '
+            )
+
+        m0_str += f'The calibration volume was then scaled by {m0_scale}.'
+
     elif m0type == 'Estimate':
         m0_str = (
             f'A single M0 estimate of {metadata["M0Estimate"]} was used to produce a calibration '
@@ -152,13 +168,13 @@ def init_cbf_wf(
 
     if processing_target == 'cbf':
         workflow.__desc__ += """\
-*ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
+: *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
 """
 
     elif is_casl:
         if is_multi_pld:
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
+: *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
 {metadata['ArterialSpinLabelingType']} data using the following method.
 
 First, delta-M values were averaged over time for each post-labeling delay (PLD).
@@ -177,7 +193,7 @@ PLD + labeling duration > ATT.
         else:
             # Single-delay (P)CASL data
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
 {metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
 [@buxton1998general].
 {m0_str}
@@ -194,21 +210,21 @@ PLD + labeling duration > ATT.
         # Single-delay PASL data, with different bolus cut-off techniques
         if bcut == 'QUIPSS':
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the QUIPSS modification, as described in @wong1998quantitative.
 {m0_str}
 """
         elif bcut == 'QUIPSSII':
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the QUIPSS II modification, as described in @alsop_recommended_2015.
 {m0_str}
 """
         elif bcut == 'Q2TIPS':
             workflow.__desc__ += f"""\
-*ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
 using a single-compartment general kinetic model [@buxton1998general]
 using the Q2TIPS modification, as described in @noguchi2015technical.
 {m0_str}
@@ -423,6 +439,7 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
         (extract_deltam, compute_cbf, [
             ('out_file', 'deltam'),
             ('m0_file', 'm0_file'),
+            ('m0tr', 'm0tr'),
             ('metadata', 'metadata'),
         ]),
         (compute_cbf, outputnode, [
