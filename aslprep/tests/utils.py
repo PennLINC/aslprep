@@ -234,8 +234,8 @@ def update_resources(parameters):
     this variable doesn't work, just set it to 4.
     """
     nthreads = get_cpu_count()
-    if not _check_arg_specified('--nthreads', parameters):
-        parameters.append(f'--nthreads={nthreads}')
+    if not _check_arg_specified('--nprocs', parameters):
+        parameters.append(f'--nprocs={nthreads}')
     if not _check_arg_specified('--omp-nthreads', parameters):
         parameters.append(f'--omp-nthreads={nthreads}')
     return parameters

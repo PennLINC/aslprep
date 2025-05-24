@@ -405,7 +405,7 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
 
     retval = build_workflow(config_file, retval={})
     aslprep_wf = retval['workflow']
-    aslprep_wf.run()
+    aslprep_wf.run(**config.nipype.get_plugin())
     build_boilerplate(str(config_file), aslprep_wf)
     session_list = (
         config.execution.bids_filters.get('asl', {}).get('session')
