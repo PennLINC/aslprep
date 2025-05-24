@@ -43,7 +43,6 @@ from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf, init_skul
 from niworkflows.interfaces.header import ValidateImage
 from niworkflows.interfaces.nitransforms import ConcatenateXFMs
 from niworkflows.interfaces.utility import KeySelect
-from sdcflows.workflows.apply.correction import init_unwarp_wf
 from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 
 # ASL workflows
@@ -335,12 +334,13 @@ def init_asl_fit_wf(
 
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         # TODO: Enable sdc report even if we find coregref
-        sdc_correction=not (coreg_aslref or fieldmap_id is None),
+        sdc_correction=fieldmap_id is not None,
         freesurfer=config.workflow.run_reconall,
         output_dir=config.execution.aslprep_dir,
     )
 
     workflow.connect([
+        (hmcref_buffer, fmapref_buffer, [('aslref', 'aslref_files')]),
         (hmcref_buffer, outputnode, [('aslref', 'hmc_aslref')]),
         (regref_buffer, outputnode, [
             ('aslref', 'coreg_aslref'),
@@ -471,10 +471,87 @@ def init_asl_fit_wf(
     else:
         config.loggers.workflow.info('Found motion correction transforms - skipping Stage 2')
 
-    # Stage 3: Create coregistration reference
+    # Stage 3: Register fieldmap to aslref and reconstruct in ASL space
+    if fieldmap_id:
+        config.loggers.workflow.info('Stage 3: Adding fieldmap reconstruction workflow')
+        fmap_select = pe.Node(
+            KeySelect(
+                fields=['fmap_ref', 'fmap_coeff', 'fmap_mask', 'sdc_method'],
+                key=fieldmap_id,
+            ),
+            name='fmap_select',
+            run_without_submitting=True,
+        )
+
+        aslref_fmap = pe.Node(ReconstructFieldmap(inverse=[True]), name='aslref_fmap', mem_gb=1)
+
+        workflow.connect([
+            (inputnode, fmap_select, [
+                ('fmap_ref', 'fmap_ref'),
+                ('fmap_coeff', 'fmap_coeff'),
+                ('fmap_mask', 'fmap_mask'),
+                ('sdc_method', 'sdc_method'),
+                ('fmap_id', 'keys'),
+            ]),
+            (fmapref_buffer, aslref_fmap, [('out', 'target_ref_file')]),
+            (fmapreg_buffer, aslref_fmap, [('aslref2fmap_xfm', 'transforms')]),
+            (fmap_select, aslref_fmap, [
+                ('fmap_coeff', 'in_coeffs'),
+                ('fmap_ref', 'fmap_ref_file'),
+            ]),
+            (fmap_select, asl_fit_reports_wf, [('fmap_ref', 'inputnode.fmap_ref')]),
+            (fmap_select, summary, [('sdc_method', 'distortion_correction')]),
+            (fmapref_buffer, asl_fit_reports_wf, [('out', 'inputnode.sdc_aslref')]),
+            (fmapreg_buffer, asl_fit_reports_wf, [
+                ('aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
+            ]),
+            (aslref_fmap, asl_fit_reports_wf, [('out_file', 'inputnode.fieldmap')]),
+        ])  # fmt:skip
+
+        if not aslref2fmap_xform:
+            config.loggers.workflow.info('Stage 3: Registering fieldmap to aslref')
+            fmapreg_wf = init_coeff2epi_wf(
+                debug='fieldmaps' in config.execution.debug,
+                omp_nthreads=config.nipype.omp_nthreads,
+                sloppy=config.execution.sloppy,
+                name='fmapreg_wf',
+            )
+
+            itk_mat2txt = pe.Node(ConcatenateXFMs(out_fmt='itk'), name='itk_mat2txt')
+
+            # fMRIPrep's init_ds_registration_wf will write out the ASL xfms to `anat` for
+            # some reason, so we must override it.
+            with OverrideDerivativesDataSink(output_workflows):
+                ds_fmapreg_wf = output_workflows.init_ds_registration_wf(
+                    bids_root=layout.root,
+                    output_dir=config.execution.aslprep_dir,
+                    source='aslref',
+                    dest=fieldmap_id.replace('_', ''),
+                    name='ds_fmapreg_wf',
+                )
+            ds_fmapreg_wf.get_node('inputnode').inputs.source_files = [asl_file]
+            ds_fmapreg_wf.get_node('ds_xform').inputs.datatype = 'perf'
+
+            workflow.connect([
+                (fmap_select, fmapreg_wf, [
+                    ('fmap_ref', 'inputnode.fmap_ref'),
+                    ('fmap_mask', 'inputnode.fmap_mask'),
+                ]),
+                (fmapreg_wf, itk_mat2txt, [('outputnode.target2fmap_xfm', 'in_xfms')]),
+                (itk_mat2txt, ds_fmapreg_wf, [('out_xfm', 'inputnode.xform')]),
+                (ds_fmapreg_wf, fmapreg_buffer, [('outputnode.xform', 'aslref2fmap_xfm')]),
+            ])  # fmt:skip
+        else:
+            config.loggers.workflow.info(
+                'Stage 3: Found fieldmap transform - skipping registration'
+            )
+    else:
+        config.loggers.workflow.info('No fieldmap correction - skipping Stage 3')
+
+    # Stage 4: Create coregistration reference
     # Fieldmap correction only happens during fit if this stage is needed
     if not coreg_aslref:
-        config.loggers.workflow.info('Stage 3: Adding coregistration aslref workflow')
+        config.loggers.workflow.info('Stage 4: Adding coregistration aslref workflow')
 
         # Select initial boldref, enhance contrast, and generate mask
         # XXX: I'm not sure if this is reachable
@@ -501,103 +578,59 @@ def init_asl_fit_wf(
         ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
 
         workflow.connect([
-            (hmcref_buffer, fmapref_buffer, [('aslref', 'aslref_files')]),
             (fmapref_buffer, enhance_aslref_wf, [('out', 'inputnode.in_file')]),
             (hmc_aslref_source_buffer, ds_coreg_aslref_wf, [
                 ('in_file', 'inputnode.source_files'),
             ]),
             (ds_coreg_aslref_wf, regref_buffer, [('outputnode.aslref', 'aslref')]),
             (ds_aslmask_wf, regref_buffer, [('outputnode.boldmask', 'aslmask')]),
-            (fmapref_buffer, asl_fit_reports_wf, [('out', 'inputnode.sdc_aslref')]),
         ])  # fmt:skip
 
         if fieldmap_id:
-            fmap_select = pe.Node(
-                KeySelect(
-                    fields=['fmap_ref', 'fmap_coeff', 'fmap_mask', 'sdc_method'],
-                    key=fieldmap_id,
+            distortion_params = pe.Node(
+                DistortionParameters(
+                    metadata=metadata,
+                    in_file=asl_file,
                 ),
-                name='fmap_select',
+                name='distortion_params',
                 run_without_submitting=True,
             )
 
+            unwarp_aslref = pe.Node(
+                ResampleSeries(jacobian=jacobian),
+                name='unwarp_aslref',
+                n_procs=omp_nthreads,
+                mem_gb=mem_gb['resampled'],
+            )
+
+            skullstrip_asl_wf = init_skullstrip_bold_wf()
+
+            workflow.connect([
+                (fmapref_buffer, unwarp_aslref, [('out', 'ref_file')]),
+                (enhance_aslref_wf, unwarp_aslref, [
+                    ('outputnode.bias_corrected_file', 'in_file'),
+                ]),
+                (aslref_fmap, unwarp_aslref, [('out_file', 'fieldmap')]),
+                (distortion_params, unwarp_aslref, [
+                    ('readout_time', 'ro_time'),
+                    ('pe_direction', 'pe_dir'),
+                ]),
+                (unwarp_aslref, ds_coreg_aslref_wf, [('out_file', 'inputnode.aslref')]),
+                (ds_coreg_aslref_wf, skullstrip_asl_wf, [
+                    ('outputnode.aslref', 'inputnode.in_file'),
+                ]),
+                (skullstrip_asl_wf, ds_aslmask_wf, [
+                    ('outputnode.mask_file', 'inputnode.boldmask'),
+                ]),
+            ])  # fmt:skip
+
             if not aslref2fmap_xform:
-                fmapreg_wf = init_coeff2epi_wf(
-                    debug='fieldmaps' in config.execution.debug,
-                    omp_nthreads=config.nipype.omp_nthreads,
-                    sloppy=config.execution.sloppy,
-                    name='fmapreg_wf',
-                )
-
-                itk_mat2txt = pe.Node(ConcatenateXFMs(out_fmt='itk'), name='itk_mat2txt')
-
-                # fMRIPrep's init_ds_registration_wf will write out the ASL xfms to `anat` for
-                # some reason, so we must override it.
-                with OverrideDerivativesDataSink(output_workflows):
-                    ds_fmapreg_wf = output_workflows.init_ds_registration_wf(
-                        bids_root=layout.root,
-                        output_dir=config.execution.aslprep_dir,
-                        source='aslref',
-                        dest=fieldmap_id.replace('_', ''),
-                        name='ds_fmapreg_wf',
-                    )
-                ds_fmapreg_wf.get_node('inputnode').inputs.source_files = [asl_file]
-                ds_fmapreg_wf.get_node('ds_xform').inputs.datatype = 'perf'
-
                 workflow.connect([
                     (enhance_aslref_wf, fmapreg_wf, [
                         ('outputnode.bias_corrected_file', 'inputnode.target_ref'),
                         ('outputnode.mask_file', 'inputnode.target_mask'),
                     ]),
-                    (fmap_select, fmapreg_wf, [
-                        ('fmap_ref', 'inputnode.fmap_ref'),
-                        ('fmap_mask', 'inputnode.fmap_mask'),
-                    ]),
-                    (fmapreg_wf, itk_mat2txt, [('outputnode.target2fmap_xfm', 'in_xfms')]),
-                    (itk_mat2txt, ds_fmapreg_wf, [('out_xfm', 'inputnode.xform')]),
-                    (ds_fmapreg_wf, fmapreg_buffer, [('outputnode.xform', 'aslref2fmap_xfm')]),
                 ])  # fmt:skip
-
-            unwarp_wf = init_unwarp_wf(
-                free_mem=config.environment.free_mem,
-                debug='fieldmaps' in config.execution.debug,
-                omp_nthreads=config.nipype.omp_nthreads,
-            )
-            unwarp_wf.inputs.inputnode.metadata = layout.get_metadata(asl_file)
-
-            skullstrip_asl_wf = init_skullstrip_bold_wf()
-
-            workflow.connect([
-                (inputnode, fmap_select, [
-                    ('fmap_ref', 'fmap_ref'),
-                    ('fmap_coeff', 'fmap_coeff'),
-                    ('fmap_mask', 'fmap_mask'),
-                    ('sdc_method', 'sdc_method'),
-                    ('fmap_id', 'keys'),
-                ]),
-                (fmap_select, unwarp_wf, [('fmap_coeff', 'inputnode.fmap_coeff')]),
-                (fmapreg_buffer, unwarp_wf, [
-                    # This looks backwards, but unwarp_wf describes transforms in
-                    # terms of points while we (and init_coeff2epi_wf) describe them
-                    # in terms of images. Mapping fieldmap coordinates into aslref
-                    # coordinates maps the aslref image onto the fieldmap image.
-                    ('aslref2fmap_xfm', 'inputnode.fmap2data_xfm'),
-                ]),
-                (enhance_aslref_wf, unwarp_wf, [
-                    ('outputnode.bias_corrected_file', 'inputnode.distorted'),
-                ]),
-                (unwarp_wf, ds_coreg_aslref_wf, [('outputnode.corrected', 'inputnode.aslref')]),
-                (fmap_select, asl_fit_reports_wf, [('fmap_ref', 'inputnode.fmap_ref')]),
-                (unwarp_wf, skullstrip_asl_wf, [('outputnode.corrected', 'inputnode.in_file')]),
-                (skullstrip_asl_wf, ds_aslmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.boldmask'),
-                ]),
-                (fmap_select, summary, [('sdc_method', 'distortion_correction')]),
-                (fmapreg_buffer, asl_fit_reports_wf, [
-                    ('aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
-                ]),
-                (unwarp_wf, asl_fit_reports_wf, [('outputnode.fieldmap', 'inputnode.fieldmap')]),
-            ])  # fmt:skip
         else:
             workflow.connect([
                 (enhance_aslref_wf, ds_coreg_aslref_wf, [
@@ -608,7 +641,7 @@ def init_asl_fit_wf(
                 ]),
             ])  # fmt:skip
     else:
-        config.loggers.workflow.info('Found coregistration reference - skipping Stage 3')
+        config.loggers.workflow.info('Found coregistration reference - skipping Stage 4')
 
         # TODO: Allow precomputed bold masks to be passed
         # Also needs consideration for how it interacts above
@@ -618,7 +651,9 @@ def init_asl_fit_wf(
             (skullstrip_precomp_ref_wf, regref_buffer, [('outputnode.mask_file', 'aslmask')])
         ])  # fmt:skip
 
+    # Stage 5: Register ASL to anatomical space
     if not aslref2anat_xform:
+        config.loggers.workflow.info('Stage 5: Adding coregistration workflow')
         use_bbr = (
             True
             if 'bbr' in config.workflow.force
@@ -667,6 +702,7 @@ def init_asl_fit_wf(
             (asl_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
         ])  # fmt:skip
     else:
+        config.loggers.workflow.info('Found coregistration transform - skipping Stage 5')
         outputnode.inputs.aslref2anat_xfm = aslref2anat_xform
 
     return workflow

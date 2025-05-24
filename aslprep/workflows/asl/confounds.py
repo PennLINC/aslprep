@@ -449,7 +449,7 @@ def init_cbf_confounds_wf(
     basil=False,
     name='cbf_confounds_wf',
 ):
-    """Create a workflow for :abbr:`dolui2017automated (compute cbf)`.
+    """Create a workflow for :abbr:`dolui2024automated (compute cbf)`.
 
     Workflow Graph
         .. workflow::
@@ -495,7 +495,7 @@ def init_cbf_confounds_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """
-The quality evaluation index (QEI) was computed for each CBF map [@dolui2017automated].
+The quality evaluation index (QEI) was computed for each CBF map [@dolui2024automated].
 QEI is based on the similarity between the CBF and the structural images, the spatial
 variability of the CBF image, and the percentage of grey matter voxels containing
 negative CBF values.

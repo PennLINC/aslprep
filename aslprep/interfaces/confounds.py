@@ -23,7 +23,6 @@ from aslprep.utils.confounds import (
     average_cbf_by_tissue,
     compute_qei,
     dice,
-    negativevoxel,
     overlap,
     pearson,
 )
@@ -217,7 +216,7 @@ class ComputeCBFQC(SimpleInterface):
             norm_correlation = pearson(asl_mask_std_arr, template_mask_arr)
             norm_overlap = overlap(asl_mask_std_arr, template_mask_arr)
 
-        qei_cbf = compute_qei(
+        qei_cbf, qei_cbf_rho_ss, qei_cbf_di, percentage_negative_cbf = compute_qei(
             gm=self.inputs.gm_tpm,
             wm=self.inputs.wm_tpm,
             csf=self.inputs.csf_tpm,
@@ -233,98 +232,120 @@ class ComputeCBFQC(SimpleInterface):
         )
 
         if self.inputs.mean_cbf_score:
-            qei_cbf_score = compute_qei(
+            (
+                qei_cbf_score,
+                qei_cbf_score_rho_ss,
+                qei_cbf_score_di,
+                percentage_negative_cbf_score,
+            ) = compute_qei(
                 gm=self.inputs.gm_tpm,
                 wm=self.inputs.wm_tpm,
                 csf=self.inputs.csf_tpm,
                 img=self.inputs.mean_cbf_score,
                 thresh=thresh,
             )
-            qei_cbf_scrub = compute_qei(
+            (
+                qei_cbf_scrub,
+                qei_cbf_scrub_rho_ss,
+                qei_cbf_scrub_di,
+                percentage_negative_cbf_scrub,
+            ) = compute_qei(
                 gm=self.inputs.gm_tpm,
                 wm=self.inputs.wm_tpm,
                 csf=self.inputs.csf_tpm,
                 img=self.inputs.mean_cbf_scrub,
                 thresh=thresh,
             )
-            percentage_negative_cbf_score = negativevoxel(
-                cbf=self.inputs.mean_cbf_score,
-                gm=self.inputs.gm_tpm,
-                thresh=thresh,
-            )
-            percentage_negative_cbf_scrub = negativevoxel(
-                cbf=self.inputs.mean_cbf_scrub,
-                gm=self.inputs.gm_tpm,
-                thresh=thresh,
-            )
         else:
             print('no score inputs, setting to np.nan')
             qei_cbf_score = np.nan
-            qei_cbf_scrub = np.nan
+            qei_cbf_score_rho_ss = np.nan
+            qei_cbf_score_di = np.nan
             percentage_negative_cbf_score = np.nan
+            qei_cbf_scrub = np.nan
+            qei_cbf_scrub_rho_ss = np.nan
+            qei_cbf_scrub_di = np.nan
             percentage_negative_cbf_scrub = np.nan
 
         if self.inputs.mean_cbf_basil:
-            qei_cbf_basil = compute_qei(
+            (
+                qei_cbf_basil,
+                qei_cbf_basil_rho_ss,
+                qei_cbf_basil_di,
+                percentage_negative_cbf_basil,
+            ) = compute_qei(
                 gm=self.inputs.gm_tpm,
                 wm=self.inputs.wm_tpm,
                 csf=self.inputs.csf_tpm,
                 img=self.inputs.mean_cbf_basil,
                 thresh=thresh,
             )
-            qei_cbf_basil_gm = compute_qei(
+            (
+                qei_cbf_basil_gm,
+                qei_cbf_basil_gm_rho_ss,
+                qei_cbf_basil_gm_di,
+                percentage_negative_cbf_basil_gm,
+            ) = compute_qei(
                 gm=self.inputs.gm_tpm,
                 wm=self.inputs.wm_tpm,
                 csf=self.inputs.csf_tpm,
                 img=self.inputs.mean_cbf_gm_basil,
                 thresh=thresh,
             )
-            percentage_negative_cbf_basil = negativevoxel(
-                cbf=self.inputs.mean_cbf_basil,
-                gm=self.inputs.gm_tpm,
-                thresh=thresh,
-            )
-            percentage_negative_cbf_basil_gm = negativevoxel(
-                cbf=self.inputs.mean_cbf_gm_basil,
-                gm=self.inputs.gm_tpm,
-                thresh=thresh,
-            )
         else:
             print('no basil inputs, setting to np.nan')
             qei_cbf_basil = np.nan
+            qei_cbf_basil_rho_ss = np.nan
+            qei_cbf_basil_di = np.nan
             qei_cbf_basil_gm = np.nan
+            qei_cbf_basil_gm_rho_ss = np.nan
+            qei_cbf_basil_gm_di = np.nan
             percentage_negative_cbf_basil = np.nan
             percentage_negative_cbf_basil_gm = np.nan
 
         ratio_gm_wm_cbf = np.divide(mean_cbf_mean[0], mean_cbf_mean[1])
-        percentage_negative_cbf = negativevoxel(
-            cbf=self.inputs.mean_cbf,
-            gm=self.inputs.gm_tpm,
-            thresh=thresh,
-        )
 
         metrics_dict = {
+            # Motion metrics
             'mean_fd': [mean_fd],
             'rmsd': [mean_rms],
+            # Coregistration metrics
             'coreg_dice': [coreg_dice],
             'coreg_correlation': [coreg_correlation],
             'coreg_overlap': [coreg_overlap],
+            # Standard CBF QEI metrics
             'qei_cbf': [qei_cbf],
+            'qei_cbf_rho_ss': [qei_cbf_rho_ss],
+            'qei_cbf_di': [qei_cbf_di],
+            'percentage_negative_cbf': [percentage_negative_cbf],
+            # SCORE QEI metrics
             'qei_cbf_score': [qei_cbf_score],
+            'qei_cbf_score_rho_ss': [qei_cbf_score_rho_ss],
+            'qei_cbf_score_di': [qei_cbf_score_di],
+            'percentage_negative_cbf_score': [percentage_negative_cbf_score],
+            # SCRUB QEI metrics
             'qei_cbf_scrub': [qei_cbf_scrub],
+            'qei_cbf_scrub_rho_ss': [qei_cbf_scrub_rho_ss],
+            'qei_cbf_scrub_di': [qei_cbf_scrub_di],
+            'percentage_negative_cbf_scrub': [percentage_negative_cbf_scrub],
+            # BASIL QEI metrics
             'qei_cbf_basil': [qei_cbf_basil],
+            'qei_cbf_basil_rho_ss': [qei_cbf_basil_rho_ss],
+            'qei_cbf_basil_di': [qei_cbf_basil_di],
+            'percentage_negative_cbf_basil': [percentage_negative_cbf_basil],
+            # BASIL Partial Volume Corrected QEI metrics
             'qei_cbf_basil_gm': [qei_cbf_basil_gm],
+            'qei_cbf_basil_gm_rho_ss': [qei_cbf_basil_gm_rho_ss],
+            'qei_cbf_basil_gm_di': [qei_cbf_basil_gm_di],
+            'percentage_negative_cbf_basil_gm': [percentage_negative_cbf_basil_gm],
+            # Mean CBF values and ratios
             'mean_gm_cbf': [mean_cbf_mean[0]],
             'mean_wm_cbf': [mean_cbf_mean[1]],
             'ratio_gm_wm_cbf': [ratio_gm_wm_cbf],
-            'percentage_negative_cbf': [percentage_negative_cbf],
-            'percentage_negative_cbf_score': [percentage_negative_cbf_score],
-            'percentage_negative_cbf_scrub': [percentage_negative_cbf_scrub],
-            'percentage_negative_cbf_basil': [percentage_negative_cbf_basil],
-            'percentage_negative_cbf_basil_gm': [percentage_negative_cbf_basil_gm],
         }
 
         qc_metadata = {
+            # Motion metrics
             'mean_fd': {
                 'LongName': 'Mean Framewise Displacement',
                 'Description': (
@@ -343,6 +364,7 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 'Units': 'arbitrary',
             },
+            # Coregistration metrics
             'coreg_dice': {
                 'LongName': 'Coregistration Sørensen-Dice Coefficient',
                 'Description': (
@@ -352,16 +374,6 @@ class ComputeCBFQC(SimpleInterface):
                     'with higher values indicating better coregistration.'
                 ),
                 'Term URL': 'https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient',
-            },
-            'coreg_jaccard': {
-                'LongName': 'Coregistration Jaccard Index',
-                'Description': (
-                    'The Jaccard index calculated between the binary brain masks from '
-                    'the coregistered anatomical and ASL reference images. '
-                    'Values are bounded between 0 and 1, '
-                    'with higher values indicating better coregistration.'
-                ),
-                'Term URL': 'https://en.wikipedia.org/wiki/Jaccard_index',
             },
             'coreg_correlation': {
                 'LongName': 'Coregistration Pearson Correlation',
@@ -382,26 +394,101 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 'Term URL': 'https://en.wikipedia.org/wiki/Overlap_coefficient',
             },
+            # Standard CBF QEI metrics
             'qei_cbf': {
                 'LongName': 'Cerebral Blood Flow Quality Evaluation Index',
                 'Description': 'QEI calculated on mean CBF image.',
                 'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
+            'qei_cbf_rho_ss': {
+                'LongName': 'Cerebral Blood Flow Quality Evaluation Index Rho SS',
+                'Description': 'QEI rho SS calculated on mean CBF image.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'qei_cbf_di': {
+                'LongName': 'Cerebral Blood Flow Quality Evaluation Index DI',
+                'Description': 'QEI DI calculated on mean CBF image.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'percentage_negative_cbf': {
+                'LongName': 'Percentage of Negative Cerebral Blood Flow Values',
+                'Description': (
+                    'Percentage of negative CBF values, calculated on the mean CBF image.'
+                ),
+                'Units': 'percent',
+            },
+            # SCORE QEI metrics
             'qei_cbf_score': {
                 'LongName': 'SCORE-Denoised Cerebral Blood Flow Quality Evaluation Index',
                 'Description': 'QEI calculated on mean SCORE-denoised CBF image.',
                 'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
+            'qei_cbf_score_rho_ss': {
+                'LongName': 'SCORE-Denoised Cerebral Blood Flow Quality Evaluation Index Rho SS',
+                'Description': 'QEI rho SS calculated on mean SCORE-denoised CBF image.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'qei_cbf_score_di': {
+                'LongName': 'SCORE-Denoised Cerebral Blood Flow Quality Evaluation Index DI',
+                'Description': 'QEI DI calculated on mean SCORE-denoised CBF image.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'percentage_negative_cbf_score': {
+                'LongName': 'Percentage of Negative SCORE-Denoised Cerebral Blood Flow Values',
+                'Description': (
+                    'Percentage of negative CBF values, calculated on the SCORE-denoised '
+                    'CBF image.'
+                ),
+                'Units': 'percent',
+            },
+            # SCRUB QEI metrics
             'qei_cbf_scrub': {
                 'LongName': 'SCRUB-Denoised Cerebral Blood Flow Quality Evaluation Index',
                 'Description': 'QEI calculated on mean SCRUB-denoised CBF image.',
                 'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
+            'qei_cbf_scrub_rho_ss': {
+                'LongName': 'SCRUB-Denoised Cerebral Blood Flow Quality Evaluation Index Rho SS',
+                'Description': 'QEI rho SS calculated on mean SCRUB-denoised CBF image.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'qei_cbf_scrub_di': {
+                'LongName': 'SCRUB-Denoised Cerebral Blood Flow Quality Evaluation Index DI',
+                'Description': 'QEI DI calculated on mean SCRUB-denoised CBF image.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'percentage_negative_cbf_scrub': {
+                'LongName': 'Percentage of Negative SCRUB-Denoised Cerebral Blood Flow Values',
+                'Description': (
+                    'Percentage of negative CBF values, calculated on the SCRUB-denoised '
+                    'CBF image.'
+                ),
+                'Units': 'percent',
+            },
+            # BASIL QEI metrics
             'qei_cbf_basil': {
                 'LongName': 'BASIL Cerebral Blood Flow Quality Evaluation Index',
                 'Description': 'QEI calculated on CBF image produced by BASIL.',
                 'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
+            'qei_cbf_basil_rho_ss': {
+                'LongName': 'BASIL Cerebral Blood Flow Quality Evaluation Index Rho SS',
+                'Description': 'QEI rho SS calculated on CBF image produced by BASIL.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'qei_cbf_basil_di': {
+                'LongName': 'BASIL Cerebral Blood Flow Quality Evaluation Index DI',
+                'Description': 'QEI DI calculated on CBF image produced by BASIL.',
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'percentage_negative_cbf_basil': {
+                'LongName': 'Percentage of Negative BASIL Cerebral Blood Flow Values',
+                'Description': (
+                    'Percentage of negative CBF values, calculated on CBF image produced by BASIL.'
+                ),
+                'Units': 'percent',
+            },
+            # BASIL Partial Volume Corrected QEI metrics
             'qei_cbf_basil_gm': {
                 'LongName': (
                     'BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation Index'
@@ -411,6 +498,39 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
             },
+            'qei_cbf_basil_gm_rho_ss': {
+                'LongName': (
+                    'BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation '
+                    'Index Rho SS'
+                ),
+                'Description': (
+                    'QEI rho SS calculated on partial volume-corrected CBF image produced by '
+                    'BASIL.'
+                ),
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'qei_cbf_basil_gm_di': {
+                'LongName': (
+                    'BASIL Partial Volume Corrected Cerebral Blood Flow Quality Evaluation '
+                    'Index DI'
+                ),
+                'Description': (
+                    'QEI DI calculated on partial volume-corrected CBF image produced by BASIL.'
+                ),
+                'Term URL': 'http://indexsmart.mirasmart.com/ISMRM2017/PDFfiles/0682.html',
+            },
+            'percentage_negative_cbf_basil_gm': {
+                'LongName': (
+                    'Percentage of Negative BASIL Partial Volume Corrected Cerebral Blood Flow '
+                    'Values'
+                ),
+                'Description': (
+                    'Percentage of negative CBF values, calculated on partial volume-corrected '
+                    'CBF image produced by BASIL.'
+                ),
+                'Units': 'percent',
+            },
+            # Mean CBF values and ratios
             'mean_gm_cbf': {
                 'LongName': 'Mean Cerebral Blood Flow of Gray Matter',
                 'Description': 'Mean CBF value of gray matter.',
@@ -426,47 +546,6 @@ class ComputeCBFQC(SimpleInterface):
                 'Description': (
                     'The ratio between the mean gray matter and mean white matter CBF values.'
                 ),
-            },
-            'percentage_negative_cbf': {
-                'LongName': 'Percentage of Negative Cerebral Blood Flow Values',
-                'Description': (
-                    'Percentage of negative CBF values, calculated on the mean CBF image.'
-                ),
-                'Units': 'percent',
-            },
-            'percentage_negative_cbf_score': {
-                'LongName': 'Percentage of Negative SCORE-Denoised Cerebral Blood Flow Values',
-                'Description': (
-                    'Percentage of negative CBF values, calculated on the SCORE-denoised '
-                    'CBF image.'
-                ),
-                'Units': 'percent',
-            },
-            'percentage_negative_cbf_scrub': {
-                'LongName': 'Percentage of Negative SCRUB-Denoised Cerebral Blood Flow Values',
-                'Description': (
-                    'Percentage of negative CBF values, calculated on the SCRUB-denoised '
-                    'CBF image.'
-                ),
-                'Units': 'percent',
-            },
-            'percentage_negative_cbf_basil': {
-                'LongName': 'Percentage of Negative BASIL Cerebral Blood Flow Values',
-                'Description': (
-                    'Percentage of negative CBF values, calculated on CBF image produced by BASIL.'
-                ),
-                'Units': 'percent',
-            },
-            'percentage_negative_cbf_basil_gm': {
-                'LongName': (
-                    'Percentage of Negative BASIL Partial Volume Corrected Cerebral Blood Flow '
-                    'Values'
-                ),
-                'Description': (
-                    'Percentage of negative CBF values, calculated on partial volume-corrected '
-                    'CBF image produced by BASIL.'
-                ),
-                'Units': 'percent',
             },
         }
 
