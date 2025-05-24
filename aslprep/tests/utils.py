@@ -208,3 +208,34 @@ def reorder_expected_outputs():
 
         with open(expected_output_file, 'w') as fobj:
             fobj.writelines(file_contents)
+
+
+def _check_arg_specified(argname, arglist):
+    for arg in arglist:
+        if arg.startswith(argname):
+            return True
+    return False
+
+
+def get_cpu_count(max_cpus=4):
+    """Figure out how many cpus are available in the test environment."""
+    env_cpus = os.getenv('CIRCLE_CPUS')
+    if env_cpus:
+        return int(env_cpus)
+    return max_cpus
+
+
+def update_resources(parameters):
+    """We should use all the available CPUs for testing.
+
+    Sometimes a test will set a specific amount of cpus. In that
+    case, the number should be kept. Otherwise, try to read the
+    env variable (specified in each job in config.yml). If
+    this variable doesn't work, just set it to 4.
+    """
+    nthreads = get_cpu_count()
+    if not _check_arg_specified('--nthreads', parameters):
+        parameters.append(f'--nthreads={nthreads}')
+    if not _check_arg_specified('--omp-nthreads', parameters):
+        parameters.append(f'--omp-nthreads={nthreads}')
+    return parameters

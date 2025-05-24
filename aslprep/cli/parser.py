@@ -202,9 +202,11 @@ def _build_parser():
         type=str,
         nargs='+',
         help=(
-            'Search PATH(s) for pre-computed derivatives. '
+            'Search PATH(s) for pre-computed BIDS derivatives. '
             'These may be provided as named folders '
-            '(e.g., `--derivatives smriprep=/path/to/smriprep`).'
+            '(e.g., `--derivatives smriprep=/path/to/smriprep`). '
+            'Note: This does not apply to non-BIDS data, like FreeSurfer outputs. '
+            'To reuse FreeSurfer outputs, use `--fs-subjects-dir` instead.'
         ),
     )
     g_bids.add_argument(
@@ -371,12 +373,12 @@ any spatial references.""",
     g_use_bbr.add_argument(
         '--force-bbr',
         action=DeprecatedAction,
-        help='Deprecated - use `--force bbr` instead.',
+        help='Deprecated - use `--force bbr` instead. See `--force` for more details.',
     )
     g_use_bbr.add_argument(
         '--force-no-bbr',
         action=DeprecatedAction,
-        help='Deprecated - use `--force no-bbr` instead.',
+        help='Deprecated - use `--force no-bbr` instead. See `--force` for more details.',
     )
     g_conf.add_argument(
         '--random-seed',
@@ -391,12 +393,12 @@ any spatial references.""",
     g_use_ge.add_argument(
         '--force-ge',
         action=DeprecatedAction,
-        help='Deprecated - use `--force ge` instead.',
+        help='Deprecated - use `--force ge` instead. See `--force` for more details.',
     )
     g_use_ge.add_argument(
         '--force-no-ge',
         action=DeprecatedAction,
-        help='Deprecated - use `--force no-ge` instead.',
+        help='Deprecated - use `--force no-ge` instead. See `--force` for more details.',
     )
 
     g_conf.add_argument(
@@ -550,7 +552,7 @@ any spatial references.""",
         '--force-syn',
         action=DeprecatedAction,
         default=False,
-        help='Deprecated - use `--force syn-sdc` instead.',
+        help='Deprecated - use `--force syn-sdc` instead. See `--force` for more details.',
     )
 
     # FreeSurfer options

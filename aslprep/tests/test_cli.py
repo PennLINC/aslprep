@@ -13,6 +13,7 @@ from aslprep.tests.utils import (
     check_generated_files,
     download_test_data,
     get_test_data_path,
+    update_resources,
 )
 
 nipype_config.enable_debug_mode()
@@ -42,14 +43,12 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        '--nthreads=1',
-        '--omp-nthreads=1',
         '--output-spaces=asl',
         '--scorescrub',
         '--basil',
         '--use-syn-sdc',
         '--m0_scale=10',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -79,13 +78,11 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        '--nthreads=1',
-        '--omp-nthreads=1',
         '--output-spaces=asl',
         '--scorescrub',
         '--basil',
         '--m0_scale=10',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -117,13 +114,11 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
         f'--bids-filter-file={filter_file}',
-        '--nthreads=1',
-        '--omp-nthreads=1',
         '--output-spaces=asl',
         '--scorescrub',
         '--basil',
         '--m0_scale=96',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -156,8 +151,6 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
         f'--bids-filter-file={filter_file}',
-        '--nthreads=1',
-        '--omp-nthreads=1',
         '--output-spaces',
         'asl',
         'fsaverage:den-10k',
@@ -194,13 +187,11 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
         f'--bids-filter-file={filter_file}',
-        '--nthreads=1',
-        '--omp-nthreads=1',
         '--output-spaces',
         'MNI152NLin2009cAsym',
         '--basil',
         '--m0_scale=10',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -229,8 +220,6 @@ def test_qtab(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        '--nthreads=1',
-        '--omp-nthreads=1',
         '--output-spaces',
         'asl',
         'T1w',
@@ -239,7 +228,7 @@ def test_qtab(data_dir, output_dir, working_dir):
         '--use-syn-sdc',
         '--force',
         'no-ge',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -268,8 +257,6 @@ def test_test_001(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        '--nthreads=1',
-        '--omp-nthreads=1',
         '--output-spaces',
         'asl',
         'T1w',
@@ -277,7 +264,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         '--scorescrub',
         '--force',
         'no-ge',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -307,8 +294,6 @@ def test_test_002(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        '--nthreads=1',
-        '--omp-nthreads=1',
         '--output-spaces',
         'asl',
         'MNI152NLin2009cAsym',
@@ -317,7 +302,7 @@ def test_test_002(data_dir, output_dir, working_dir):
         '--m0_scale=96',
         '--force',
         'ge',
-        '--fs-no-reconall',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -334,7 +319,7 @@ def test_test_003_minimal(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         level='minimal',
-        extra_params=['--fs-no-reconall'],
+        extra_params=['--fs-no-resume'],
     )
 
 
@@ -346,7 +331,7 @@ def test_test_003_resampling(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         level='resampling',
-        extra_params=['--fs-no-reconall'],
+        extra_params=['--fs-no-resume'],
     )
 
 
@@ -358,7 +343,13 @@ def test_test_003_full(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         level='full',
-        extra_params=['--cifti-output', '91k', '--project-goodvoxels'],
+        extra_params=[
+            '--fs-no-resume',
+            '--cifti-output',
+            '91k',
+            '--project-goodvoxels',
+            '--no-msm',
+        ],
     )
 
 
@@ -382,8 +373,6 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        '--nthreads=1',
-        '--omp-nthreads=1',
         '--output-spaces',
         'asl',
         '--use-syn-sdc',
@@ -401,9 +390,14 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
 def _run_and_generate(test_name, participant_label, parameters, out_dir):
     from aslprep import config
 
+    parameters.append('--sloppy')
     parameters.append('--stop-on-first-crash')
     parameters.append('--clean-workdir')
     parameters.append('-vv')
+
+    # Add concurrency options if they're not already specified
+    parameters = update_resources(parameters)
+
     parse_args(parameters)
     config_file = config.execution.work_dir / f'config-{config.execution.run_uuid}.toml'
     config.loggers.cli.warning(f'Saving config file to {config_file}')
@@ -433,6 +427,7 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
 def _run_and_fail(parameters):
     from aslprep import config
 
+    parameters.append('--sloppy')
     parameters.append('--stop-on-first-crash')
     parameters.append('-vv')
     parse_args(parameters)
