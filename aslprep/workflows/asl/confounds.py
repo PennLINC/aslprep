@@ -188,7 +188,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
             (dvars, add_std_dvars_header, [('out_std', 'in_file')]),
         ])  # fmt:skip
 
-    # Project T1w mask into BOLD space and merge with BOLD brainmask
+    # Project T1w mask into ASL space and merge with ASL brainmask
     t1w_mask_tfm = pe.Node(
         ApplyTransforms(interpolation='GenericLabel', invert_transform_flags=[True], args='-v'),
         name='t1w_mask_tfm',
@@ -223,7 +223,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         ]),
     ])  # fmt:skip
 
-    # Resample probseg maps in BOLD space via T1w-to-BOLD transform
+    # Resample probseg maps in ASL space via T1w-to-ASL transform
     acc_msk_tfm = pe.MapNode(
         ApplyTransforms(interpolation='Gaussian', invert_transform_flags=[True], args='-v'),
         iterfield=['input_image'],
@@ -312,31 +312,31 @@ def init_carpetplot_wf(
     Parameters
     ----------
     mem_gb : :obj:`float`
-        Size of BOLD file in GB - please note that this size
+        Size of ASL file in GB - please note that this size
         should be calculated after resamplings that may extend
         the FoV
     confounds_list : :obj:`list` of length-3 :obj:`tuple` of :obj:`str`
     metadata : :obj:`dict`
-        BIDS metadata for BOLD file
+        BIDS metadata for ASL file
     name : :obj:`str`
         Name of workflow (default: ``asl_carpet_wf``)
 
     Inputs
     ------
     asl
-        BOLD image, after the prescribed corrections (STC, HMC and SDC)
+        ASL image, after the prescribed corrections (STC, HMC and SDC)
         when available.
     asl_mask
-        BOLD series mask
+        ASL series mask
     confounds_file
         TSV of all aggregated confounds
     aslref2anat_xfm
         Affine matrix that maps the T1w space into alignment with
-        the native BOLD space
+        the native ASL space
     std2anat_xfm
         ANTs-compatible affine-and-warp transform file
     cifti_asl
-        BOLD image in CIFTI format, to be used in place of volumetric BOLD
+        ASL image in CIFTI format, to be used in place of volumetric ASL
     crown_mask
         Mask of brain edge voxels
     acompcor_mask
@@ -397,7 +397,7 @@ def init_carpetplot_wf(
     # List transforms
     mrg_xfms = pe.Node(niu.Merge(2), name='mrg_xfms')
 
-    # Warp segmentation into EPI space
+    # Warp segmentation into ASL space
     resample_parc = pe.Node(
         ApplyTransforms(
             dimension=3,

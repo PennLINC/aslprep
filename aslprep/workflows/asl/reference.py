@@ -39,7 +39,7 @@ def init_raw_aslref_wf(
     use_ge=False,
     name='raw_aslref_wf',
 ):
-    """Build a workflow that generates reference BOLD images for a series.
+    """Build a workflow that generates reference ASL images for a series.
 
     CBF images have the best GM-WM contrast, but raw ASL files rarely have precomputed CBF volumes.
     As such, ASLPrep will select volumes in the following order: CBF, M0, deltam, control.
@@ -77,9 +77,9 @@ def init_raw_aslref_wf(
     Outputs
     -------
     asl_file : str
-        Validated BOLD series NIfTI file
+        Validated ASL series NIfTI file
     aslref : str
-        Reference image to which BOLD series is motion corrected
+        Reference image to which ASL series is motion corrected
     algo_dummy_scans : int
         Number of non-steady-state volumes algorithmically detected at
         beginning of ``asl_file``

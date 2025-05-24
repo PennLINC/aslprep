@@ -175,7 +175,7 @@ def init_asl_fit_reports_wf(
     Inputs
     ------
     source_file
-        Input BOLD images
+        Input ASL images
     std_t1w
         T1w image resampled to standard space
     std_mask
@@ -249,7 +249,7 @@ def init_asl_fit_reports_wf(
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
 
-    # Resample anatomical references into BOLD space for plotting
+    # Resample anatomical references into ASL space for plotting
     t1w_aslref = pe.Node(
         ApplyTransforms(
             dimension=3,
@@ -312,7 +312,7 @@ def init_asl_fit_reports_wf(
     # - SDC2:
     #       Before: Pre-SDC aslref with white matter mask
     #       After: Post-SDC aslref with white matter mask
-    # - EPI-T1 registration:
+    # - ASL-T1 registration:
     #       Before: T1w brain with white matter mask
     #       After: Resampled aslref with white matter mask
 
@@ -414,13 +414,13 @@ def init_asl_fit_reports_wf(
             (sdc_report, ds_sdc_report, [('out_report', 'in_file')]),
         ])  # fmt:skip
 
-    # EPI-T1 registration
-    # Resample T1w image onto EPI-space
+    # ASL-T1 registration
+    # Resample T1w image onto ASL-space
 
     epi_t1_report = pe.Node(
         SimpleBeforeAfter(
             before_label='T1w',
-            after_label='EPI',
+            after_label='ASL',
             dismiss_affine=True,
         ),
         name='epi_t1_report',
@@ -634,7 +634,7 @@ def init_ds_volumes_wf(
     raw_sources.inputs.bids_root = bids_root
     aslref2target = pe.Node(niu.Merge(2), name='aslref2target')
 
-    # BOLD is pre-resampled
+    # ASL is pre-resampled
     ds_asl = pe.Node(
         DerivativesDataSink(
             base_directory=output_dir,
