@@ -141,6 +141,9 @@ def build_boilerplate(config_file, workflow):
     citation_files = {ext: logs_path / f'CITATION.{ext}' for ext in ('bib', 'tex', 'md', 'html')}
 
     if boilerplate:
+        # Rename "BOLD" to "ASL" in the boilerplate
+        boilerplate = boilerplate.replace('BOLD', 'ASL')
+
         # To please git-annex users and also to guarantee consistency
         # among different renderings of the same file, first remove any
         # existing one
