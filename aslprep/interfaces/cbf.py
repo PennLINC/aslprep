@@ -525,13 +525,21 @@ class ComputeCBF(SimpleInterface):
                 if metadata['BolusCutOffTechnique'] == 'QUIPSSII':
                     # PASL + QUIPSSII
                     # Only one BolusCutOffDelayTime allowed.
-                    assert isinstance(metadata['BolusCutOffDelayTime'], Number)
+                    if not isinstance(metadata['BolusCutOffDelayTime'], Number):
+                        raise ValueError(
+                            f'Expected a single BolusCutOffDelayTime, but got '
+                            f'{metadata["BolusCutOffDelayTime"]}'
+                        )
                     ti1 = metadata['BolusCutOffDelayTime']
 
                 elif metadata['BolusCutOffTechnique'] == 'Q2TIPS':
                     # PASL + Q2TIPS
                     # Q2TIPS should have two BolusCutOffDelayTimes.
-                    assert len(metadata['BolusCutOffDelayTime']) == 2
+                    if len(metadata['BolusCutOffDelayTime']) != 2:
+                        raise ValueError(
+                            f'Expected two BolusCutOffDelayTimes, but got '
+                            f'{metadata["BolusCutOffDelayTime"]}'
+                        )
                     ti1 = metadata['BolusCutOffDelayTime'][0]
                 else:
                     raise ValueError(

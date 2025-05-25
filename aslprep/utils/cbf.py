@@ -777,8 +777,12 @@ def fit_deltam_multipld(
         )
 
     if is_casl:
-        assert ti1 is None
-        assert tau is not None
+        if ti1 is not None:
+            raise ValueError('ti1 should be None for PCASL data.')
+
+        if tau is None:
+            raise ValueError('tau should not be None for PCASL data.')
+
         if isinstance(tau, float):
             tau = np.full((n_volumes,), tau)
         else:
@@ -790,8 +794,11 @@ def fit_deltam_multipld(
                     f'delta-M volumes ({n_volumes}).'
                 )
     else:
-        assert ti1 is not None
-        assert tau is None
+        if ti1 is None:
+            raise ValueError('ti1 should not be None for PASL data.')
+
+        if tau is not None:
+            raise ValueError('tau should be None for PASL data.')
 
     m0_a = scaled_m0data / partition_coefficient
 
