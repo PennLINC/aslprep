@@ -726,7 +726,7 @@ def init_ds_volumes_wf(
 
         resample_cbf = pe.Node(
             ApplyTransforms(
-                interpolation='Gaussian',
+                interpolation='LanczosWindowedSinc',
                 float=True,
                 input_image_type=3,
                 args='-v',
