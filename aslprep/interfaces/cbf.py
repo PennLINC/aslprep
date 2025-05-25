@@ -25,12 +25,7 @@ from aslprep.utils.asl import (
     estimate_labeling_efficiency,
     pcasl_or_pasl,
 )
-from aslprep.utils.cbf import (
-    _getcbfscore,
-    _scrubcbf,
-    estimate_cbf_pcasl_multipld,
-    estimate_t1,
-)
+from aslprep.utils.cbf import _getcbfscore, _scrubcbf, estimate_t1, fit_deltam_multipld
 
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
@@ -338,6 +333,16 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         None,
         desc='Arterial transit time map, in seconds. Only generated for multi-delay data.',
     )
+    abat = traits.Either(
+        File(exists=True),
+        None,
+        desc='Arterial bolus arrival time map, in seconds. Only generated for multi-delay data.',
+    )
+    abv = traits.Either(
+        File(exists=True),
+        None,
+        desc='Arterial blood volume map. Only generated for multi-delay data.',
+    )
     plds = traits.Either(
         File(exists=True),
         None,
@@ -356,13 +361,7 @@ class ComputeCBF(SimpleInterface):
 
     Single-delay CBF, for both (P)CASL and QUIPSSII PASL
     is calculated according to :footcite:t:`alsop_recommended_2015`.
-    Multi-delay CBF is handled using a weighted average,
-    based on :footcite:t:`dai2012reduced,wang2013multi`.
-
-    Multi-delay CBF is calculated according to :footcite:t:`fan2017long`,
-    although CBF is averaged across PLDs according to the method in
-    :footcite:t:`juttukonda2021characterizing`.
-    Arterial transit time is estimated according to :footcite:t:`dai2012reduced`.
+    Multi-delay CBF is calculated according to :footcite:t:`woods2023recommendations`.
 
     If slice timing information is detected, then PLDs will be shifted by the slice times.
 
@@ -372,7 +371,9 @@ class ComputeCBF(SimpleInterface):
     :func:`~aslprep.utils.asl.determine_multi_pld`
     :func:`~aslprep.utils.cbf.estimate_t1`
     :func:`~aslprep.utils.asl.estimate_labeling_efficiency`
-    :func:`~aslprep.utils.cbf.estimate_cbf_pcasl_multipld`
+    :func:`~aslprep.utils.cbf.calculate_deltam_pasl`
+    :func:`~aslprep.utils.cbf.calculate_deltam_pcasl`
+    :func:`~aslprep.utils.cbf.fit_deltam_multipld`
 
     References
     ----------
@@ -506,34 +507,54 @@ class ComputeCBF(SimpleInterface):
             self._results['plds'] = pld_file
 
         elif is_multi_pld:
-            # Broadcast PLDs to voxels by PLDs
+            # 3D acquisition multi-PLD
+            # Broadcast PLDs to voxels by PLDs, even though there's no slice timing to account for.
             plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
 
         if is_casl:
             tau = np.array(metadata['LabelingDuration'])
 
+        # Now estimate CBF and any other metrics
         if is_multi_pld:
-            if is_casl:
-                att, mean_cbf = estimate_cbf_pcasl_multipld(
-                    deltam_arr,
-                    scaled_m0data,
-                    plds,
-                    tau,
-                    labeleff,
-                    t1blood=t1blood,
-                    t1tissue=t1tissue,
-                    unit_conversion=UNIT_CONV,
-                    partition_coefficient=PARTITION_COEF,
-                )
+            ti1 = None
+            tau = None
+            if is_casl:  # (P)CASL needs tau, but not ti1
+                tau = metadata['LabelingDuration']
 
-            else:
-                # Dai's approach can't be used on PASL data, so we'll need another method.
-                raise ValueError(
-                    'Multi-delay data are not supported for PASL sequences at the moment.'
-                )
+            else:  # PASL needs ti1, but not tau
+                if metadata['BolusCutOffTechnique'] == 'QUIPSSII':
+                    # PASL + QUIPSSII
+                    # Only one BolusCutOffDelayTime allowed.
+                    assert isinstance(metadata['BolusCutOffDelayTime'], Number)
+                    ti1 = metadata['BolusCutOffDelayTime']
 
-            mean_cbf_img = masker.inverse_transform(mean_cbf)
+                elif metadata['BolusCutOffTechnique'] == 'Q2TIPS':
+                    # PASL + Q2TIPS
+                    # Q2TIPS should have two BolusCutOffDelayTimes.
+                    assert len(metadata['BolusCutOffDelayTime']) == 2
+                    ti1 = metadata['BolusCutOffDelayTime'][0]
+                else:
+                    raise ValueError(
+                        f'Unsupported BolusCutOffTechnique ({metadata["BolusCutOffTechnique"]}) '
+                        'for multi-PLD data.'
+                    )
+
+            cbf, att, abat, abv = fit_deltam_multipld(
+                deltam_arr=deltam_arr,
+                scaled_m0data=scaled_m0data,
+                plds=plds,
+                labeleff=labeleff,
+                t1blood=t1blood,
+                partition_coefficient=PARTITION_COEF,
+                is_casl=is_casl,
+                tau=tau,  # defined for (P)CASL
+                ti1=ti1,  # defined for PASL
+            )
+
+            mean_cbf_img = masker.inverse_transform(cbf)
             att_img = masker.inverse_transform(att)
+            abat_img = masker.inverse_transform(abat)
+            abv_img = masker.inverse_transform(abv)
 
             # Multi-delay data won't produce a CBF time series
             self._results['cbf_ts'] = None
@@ -543,9 +564,22 @@ class ComputeCBF(SimpleInterface):
                 newpath=runtime.cwd,
             )
             att_img.to_filename(self._results['att'])
+            self._results['abat'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_abat',
+                newpath=runtime.cwd,
+            )
+            abat_img.to_filename(self._results['abat'])
+            self._results['abv'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_abv',
+                newpath=runtime.cwd,
+            )
+            abv_img.to_filename(self._results['abv'])
 
         else:  # Single-delay
             if is_casl:
+                tau = metadata['LabelingDuration']
                 denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
 
             elif not metadata['BolusCutOffFlag']:

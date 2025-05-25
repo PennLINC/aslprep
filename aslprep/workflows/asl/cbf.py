@@ -171,31 +171,43 @@ Cerebral blood flow computation and denoising
 : *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
 """
 
-    elif is_casl:
-        if is_multi_pld:
-            workflow.__desc__ += f"""\
+    elif is_multi_pld:
+        workflow.__desc__ += f"""\
 : *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
-{metadata['ArterialSpinLabelingType']} data using the following method.
+{metadata['ArterialSpinLabelingType']} data using a two-compartment general kinetic model (GKM)
+[@buxton1998general], as recommended and extended in @woods2023recommendations.
+This model contains separate terms for tissue and macrovascular delta-M signals.
 
-First, delta-M values were averaged over time for each post-labeling delay (PLD).
 {m0_str}
+The voxel-wise M0 values were used as both M0a and M0b in the GKM.
 
-Next, arterial transit time (ATT) was estimated on a voxel-wise basis according to
-@dai2012reduced.
-
-CBF was then calculated for each delay using the mean delta-M values and the estimated ATT,
-according to the formula from @fan2017long.
-
-CBF was then averaged over delays according to @juttukonda2021characterizing,
-in which an unweighted average is calculated for each voxel across all delays in which
-PLD + labeling duration > ATT.
+CBF, arterial transit time (ATT), arterial bolus arrival time (aBAT),
+and arterial blood volume (aBV) were estimated using a nonlinear model fit with SciPy's
+``curve_fit``.
 """
-        else:
-            # Single-delay (P)CASL data
-            workflow.__desc__ += f"""\
+
+    elif is_casl:
+        # Single-delay (P)CASL data
+        workflow.__desc__ += f"""\
 : *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
 {metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
 [@buxton1998general].
+{m0_str}
+"""
+
+    else:
+        # Single-delay PASL data, with different bolus cut-off techniques
+        bcut = metadata.get("BolusCutOffTechnique")
+        singlepld_pasl_strs = {
+            "QUIPSS": "@wong1998quantitative",
+            "QUIPSSII": "@alsop_recommended_2015",
+            "Q2TIPS": "@noguchi2015technical",
+        }
+
+        workflow.__desc__ += f"""\
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
+using a single-compartment general kinetic model [@buxton1998general]
+using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 {m0_str}
 """
 
@@ -262,6 +274,8 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
                 'mean_cbf',
                 'cbf_ts',  # Only calculated for single-delay data
                 'att',  # Only calculated for multi-delay data
+                'abat',  # Only calculated for multi-delay data
+                'abv',  # Only calculated for multi-delay data
                 'plds',
                 # SCORE/SCRUB outputs
                 'cbf_ts_score',
@@ -447,6 +461,8 @@ using the Q2TIPS modification, as described in @noguchi2015technical.
             ('mean_cbf', 'mean_cbf'),
             ('att', 'att'),
             ('plds', 'plds'),
+            ('abat', 'abat'),
+            ('abv', 'abv'),
         ]),
     ])  # fmt:skip
 
