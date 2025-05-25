@@ -197,11 +197,11 @@ and arterial blood volume (aBV) were estimated using a nonlinear model fit with 
 
     else:
         # Single-delay PASL data, with different bolus cut-off techniques
-        bcut = metadata.get("BolusCutOffTechnique")
+        bcut = metadata.get('BolusCutOffTechnique')
         singlepld_pasl_strs = {
-            "QUIPSS": "@wong1998quantitative",
-            "QUIPSSII": "@alsop_recommended_2015",
-            "Q2TIPS": "@noguchi2015technical",
+            'QUIPSS': '@wong1998quantitative',
+            'QUIPSSII': '@alsop_recommended_2015',
+            'Q2TIPS': '@noguchi2015technical',
         }
 
         workflow.__desc__ += f"""\
@@ -210,40 +210,6 @@ using a single-compartment general kinetic model [@buxton1998general]
 using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 {m0_str}
 """
-
-    else:
-        bcut = metadata.get('BolusCutOffTechnique')
-
-        if is_multi_pld:
-            raise ValueError(
-                'Multi-delay data are not supported for PASL sequences at the moment.'
-            )
-
-        # Single-delay PASL data, with different bolus cut-off techniques
-        if bcut == 'QUIPSS':
-            workflow.__desc__ += f"""\
-: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
-using a single-compartment general kinetic model [@buxton1998general]
-using the QUIPSS modification, as described in @wong1998quantitative.
-{m0_str}
-"""
-        elif bcut == 'QUIPSSII':
-            workflow.__desc__ += f"""\
-: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
-using a single-compartment general kinetic model [@buxton1998general]
-using the QUIPSS II modification, as described in @alsop_recommended_2015.
-{m0_str}
-"""
-        elif bcut == 'Q2TIPS':
-            workflow.__desc__ += f"""\
-: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
-using a single-compartment general kinetic model [@buxton1998general]
-using the Q2TIPS modification, as described in @noguchi2015technical.
-{m0_str}
-"""
-        else:
-            # No bolus cutoff delay technique
-            raise ValueError('PASL without a bolus cut-off technique is not supported in ASLPrep.')
 
     if 'SliceTiming' in metadata:
         workflow.__desc__ += (
