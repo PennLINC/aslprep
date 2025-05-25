@@ -849,6 +849,16 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         argstr='--alpha %.2f',
     )
     out_basename = File(desc='base name of output files', argstr='-o %s', mandatory=True)
+    model_options = File(
+        desc=(
+            'File containing additional model options to be passed to BASIL/Fabber. '
+            'This is an advanced setting for model-specific options ONLY. '
+            'Do NOT include any standard oxford_asl options here.'
+        ),
+        argstr='--model-options=%s',
+        mandatory=False,
+        exists=True,
+    )
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
@@ -901,5 +911,6 @@ class BASILCBF(FSLCommand):
             basename,
             'native_space/pvcorr/perfusion_wm_calib.nii.gz',
         )
+        raise Exception('stop here')
 
         return outputs
