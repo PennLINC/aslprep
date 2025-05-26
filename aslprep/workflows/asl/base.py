@@ -60,7 +60,7 @@ def init_asl_wf(
     precomputed
         Dictionary containing precomputed derivatives to reuse, if possible.
     fieldmap_id
-        ID of the fieldmap to use to correct this BOLD series. If :obj:`None`,
+        ID of the fieldmap to use to correct this ASL series. If :obj:`None`,
         no correction will be applied.
 
     Inputs
@@ -138,7 +138,7 @@ def init_asl_wf(
 
     1.  Brain-mask T1w.
     2.  Generate initial ASL reference image.
-        I think this is just the BOLD reference workflow from niworkflows,
+        I think this is just the ASL reference workflow from niworkflows,
         without any modifications for ASL data. I could be missing something.
         -   Not in GE workflow.
         -   In the GE workflow, the reference image comes from the M0 scan.
@@ -211,7 +211,7 @@ def init_asl_wf(
     run_data = collect_run_data(layout, asl_file)
     metadata = run_data['asl_metadata'].copy()
     # Patch RepetitionTimePreparation into RepetitionTime,
-    # for the sake of BOLD-based interfaces and workflows.
+    # for the sake of ASL-based interfaces and workflows.
     # This value shouldn't be used for anything except figures and reportlets.
     metadata['RepetitionTime'] = metadata.get(
         'RepetitionTime',
@@ -608,7 +608,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # This is different from having internally-produced standard-space data.
     if spaces.cached.get_spaces(nonstandard=False, dim=(3,)):
         # Missing:
-        #  * Clipping BOLD after resampling
+        #  * Clipping ASL after resampling
         #  * Resampling parcellations
         asl_std_wf = init_bold_volumetric_resample_wf(
             metadata=metadata,

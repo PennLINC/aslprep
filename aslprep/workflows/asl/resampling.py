@@ -95,7 +95,7 @@ def init_asl_surf_wf(
     Inputs
     ------
     source_file
-        Original BOLD series
+        Original ASL series
     subjects_dir
         FreeSurfer SUBJECTS_DIR
     subject_id
@@ -106,7 +106,7 @@ def init_asl_surf_wf(
     Outputs
     -------
     surfaces
-        BOLD series, resampled to FreeSurfer surfaces
+        ASL series, resampled to FreeSurfer surfaces
 
     """
     from nipype.interfaces.io import FreeSurferSource

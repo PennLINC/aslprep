@@ -64,8 +64,8 @@ sections:
       Inhomogeneities of the <em>B<sub>0</sub></em> field introduce (oftentimes severe) spatial distortions
       along the phase-encoding direction of the image. Utilizing two or more images with different
       phase-encoding polarities (PEPolar) or directions, it is possible to estimate the inhomogeneity
-      of the field. The plot below shows a reference EPI (echo-planar imaging) volume generated
-      using two or more EPI images with varying phase-encoding blips.
+      of the field. The plot below shows a reference ASL volume generated
+      using two or more ASL images with varying phase-encoding blips.
     description: |
       Hover on the panels with the mouse pointer to also visualize the intensity of the
       inhomogeneity of the field in Hertz.
@@ -76,8 +76,8 @@ sections:
       Inhomogeneities of the <em>B<sub>0</sub></em> field introduce (oftentimes severe) spatial distortions
       along the phase-encoding direction of the image. Utilizing an <em>anatomically-correct</em> acquisition
       (for instance, T1w or T2w), it is possible to estimate the inhomogeneity of the field by means of nonlinear
-      registration. The plot below shows a reference EPI (echo-planar imaging) volume generated
-      using two or more EPI images with the same PE encoding, after alignment to the anatomical scan.
+      registration. The plot below shows a reference ASL volume generated
+      using two or more ASL images with the same PE encoding, after alignment to the anatomical scan.
     description: |
       Hover on the panels with the mouse pointer to also visualize the intensity of the
       inhomogeneity of the field in Hertz.
@@ -91,18 +91,18 @@ sections:
   - bids: {datatype: figures, desc: validation, suffix: asl, extension: [.svg]}
   - bids: {datatype: figures, desc: fmapCoreg, suffix: asl, extension: [.svg]}
     caption: |
-      The estimated fieldmap was aligned to the corresponding EPI reference
+      The estimated fieldmap was aligned to the corresponding ASL reference
       with a rigid-registration process of the anatomical reference of the fieldmap,
       using <code>antsRegistration</code>.
-      Overlaid on top of the co-registration results, the final BOLD mask is represented
+      Overlaid on top of the co-registration results, the final ASL mask is represented
       with a red contour for reference.
     static: false
-    subtitle: Alignment between the anatomical reference of the fieldmap and the target EPI (debug mode)
+    subtitle: Alignment between the anatomical reference of the fieldmap and the target ASL (debug mode)
   - bids: {datatype: figures, desc: fieldmap, suffix: asl, extension: [.svg]}
     caption: |
-      Estimated fieldmap, as reconstructed on the target BOLD run space to allow
+      Estimated fieldmap, as reconstructed on the target ASL run space to allow
       the assessment of its alignment with the distorted data.
-      The anatomical reference is the fieldmap's reference moved into the target EPI's grid through
+      The anatomical reference is the fieldmap's reference moved into the target ASL's grid through
       the estimated transformation.
       In other words, this plot should be equivalent to that of the
       <em>Preprocessed estimation with varying Phase-Encoding (PE) blips</em> shown above in the
@@ -113,20 +113,20 @@ sections:
     subtitle: "Reconstructed <em>B<sub>0</sub></em> map in the corresponding run's space (debug mode)"
   - bids: {datatype: figures, desc: sdc, suffix: asl, extension: [.svg]}
     caption: |
-      Results of performing susceptibility distortion correction (SDC) on the EPI
+      Results of performing susceptibility distortion correction (SDC) on the ASL
     static: false
     subtitle: Susceptibility distortion correction
   - bids: {datatype: figures, desc: forcedsyn, suffix: asl, extension: [.svg]}
     caption: |
       The dataset contained some fieldmap information, but the argument <code>--force syn-sdc</code>
       was used. The higher-priority SDC method was used. Here, we show the results
-      of performing SyN-based SDC on the EPI for comparison.
+      of performing SyN-based SDC on the ASL for comparison.
     static: false
     subtitle: Experimental fieldmap-less susceptibility distortion correction
   - bids: {datatype: figures, desc: flirtnobbr, suffix: asl, extension: [.svg]}
     caption: |
       <code>mri_coreg</code> (FreeSurfer) was used to generate transformations
-      from EPI space to T1 Space - BBR refinement using FSL <code>flirt</code> rejected.
+      from ASL space to T1 Space - BBR refinement using FSL <code>flirt</code> rejected.
       Note that Nearest Neighbor interpolation is used in the reportlets in order to
       highlight potential spin-history and other artifacts, whereas final images are
       resampled using Lanczos interpolation.
@@ -135,7 +135,7 @@ sections:
   - bids: {datatype: figures, desc: coreg, suffix: asl, extension: [.svg]}
     caption: |
       <code>mri_coreg</code> (FreeSurfer) was used to generate transformations
-      from EPI space to T1 Space - <code>bbregister</code> refinement rejected. Note
+      from ASL space to T1 Space - <code>bbregister</code> refinement rejected. Note
       that Nearest Neighbor interpolation is used in the reportlets in order to highlight
       potential spin-history and other artifacts, whereas final images are resampled
       using Lanczos interpolation.
@@ -143,7 +143,7 @@ sections:
     subtitle: Alignment of functional and anatomical MRI data (volume based)
   - bids: {datatype: figures, desc: flirtbbr, suffix: asl, extension: [.svg]}
     caption: |
-      FSL <code>flirt</code> was used to generate transformations from EPI-space
+      FSL <code>flirt</code> was used to generate transformations from ASL-space
       to T1w-space - The white matter mask calculated with FSL <code>fast</code> (brain
       tissue segmentation) was used for BBR. Note that Nearest Neighbor interpolation
       is used in the reportlets in order to highlight potential spin-history and other
@@ -152,7 +152,7 @@ sections:
     subtitle: Alignment of functional and anatomical MRI data (surface driven)
   - bids: {datatype: figures, desc: bbregister, suffix: asl, extension: [.svg]}
     caption: |
-      <code>bbregister</code> was used to generate transformations from EPI-space
+      <code>bbregister</code> was used to generate transformations from ASL-space
       to T1w-space. Note that Nearest Neighbor interpolation is used in the reportlets
       in order to highlight potential spin-history and other artifacts, whereas final
       images are resampled using Lanczos interpolation.
@@ -160,7 +160,7 @@ sections:
     subtitle: Alignment of functional and anatomical MRI data (surface driven)
   - bids: {datatype: figures, desc: rois, suffix: asl, extension: [.svg]}
     caption: |
-      Brain mask calculated on the BOLD signal (red contour), along with the
+      Brain mask calculated on the ASL signal (red contour), along with the
       regions of interest (ROIs) used for the estimation of physiological and movement
       confounding components that can be then used as nuisance regressors in analysis.<br />
       The <em>anatomical CompCor</em> ROI (magenta contour) is a mask combining
