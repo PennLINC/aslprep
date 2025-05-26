@@ -27,9 +27,11 @@ BASE_INPUT_FIELDS = {
     'cbf_ts': {
         'desc': 'timeseries',
         'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
     },
     'mean_cbf': {
         'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
     },
     'att': {
         'suffix': 'att',
@@ -47,27 +49,33 @@ BASE_INPUT_FIELDS = {
     'cbf_ts_score': {
         'desc': 'scoreTimeseries',
         'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
     },
     'mean_cbf_score': {
         'desc': 'score',
         'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
     },
     'mean_cbf_scrub': {
         'desc': 'scrub',
         'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
     },
     # BASIL outputs
     'mean_cbf_basil': {
         'desc': 'basil',
         'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
     },
     'mean_cbf_gm_basil': {
         'desc': 'basilGM',
         'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
     },
     'mean_cbf_wm_basil': {
         'desc': 'basilWM',
         'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
     },
     'att_basil': {
         'desc': 'basil',
@@ -537,9 +545,6 @@ def init_ds_asl_native_wf(
     # Write out CBF and ATT maps in aslref space
     for cbf_name in cbf_4d + cbf_3d:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        cbf_meta = {
-            'Units': 'mL/100 g/min',
-        }
         fields = BASE_INPUT_FIELDS[cbf_name]
 
         ds_cbf = pe.Node(
@@ -548,7 +553,6 @@ def init_ds_asl_native_wf(
                 compress=True,
                 dismiss_entities=('echo',),
                 **fields,
-                **cbf_meta,
             ),
             name=f'ds_{cbf_name}',
             run_without_submitting=True,
@@ -908,11 +912,6 @@ def init_ds_ciftis_wf(
             kwargs['dimension'] = 3
             extension = 'dtseries.nii'
 
-        if cbf_deriv in att:
-            meta = {'Units': 's'}
-        else:
-            meta = {'Units': 'mL/100 g/min'}
-
         warp_cbf_to_anat = pe.Node(
             ApplyTransforms(
                 interpolation='LanczosWindowedSinc',
@@ -992,7 +991,6 @@ def init_ds_ciftis_wf(
                 extension=extension,
                 compress=False,
                 **BASE_INPUT_FIELDS[cbf_deriv],
-                **meta,
             ),
             name=f'ds_{cbf_deriv}_cifti',
             run_without_submitting=True,
