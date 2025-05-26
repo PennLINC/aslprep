@@ -725,9 +725,6 @@ def init_ds_volumes_wf(
 
     for cbf_name in cbf_4d + cbf_3d:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        cbf_meta = {
-            'Units': 'mL/100 g/min',
-        }
         fields = BASE_INPUT_FIELDS[cbf_name]
 
         kwargs = {}
@@ -752,7 +749,6 @@ def init_ds_volumes_wf(
                 compress=True,
                 dismiss_entities=('echo',),
                 **fields,
-                **cbf_meta,
             ),
             name=f'ds_{cbf_name}',
             run_without_submitting=True,
