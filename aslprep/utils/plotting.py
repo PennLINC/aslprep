@@ -61,10 +61,12 @@ def plot_stat_map(
     ref_vol,
     plot_params=None,
     order=('z', 'x', 'y'),
+    vmin=None,
     vmax=100,
     estimate_brightness=False,
     label=None,
     compress='auto',
+    cmap='coolwarm',
 ):
     """Plot statistical map."""
     plot_params = {} if plot_params is None else plot_params
@@ -83,6 +85,11 @@ def plot_stat_map(
     if estimate_brightness:
         plot_params = robust_set_limits(data, plot_params)
 
+    if vmin >= 0:
+        symmetric_cbar = False
+    else:
+        symmetric_cbar = True
+
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
         display = plotting.plot_stat_map(
@@ -91,12 +98,13 @@ def plot_stat_map(
             resampling_interpolation='nearest',
             display_mode=mode,
             cut_coords=cuts[mode],
+            vmin=vmin,
             vmax=vmax,
-            threshold=0.02,
+            threshold=0.00001,
             draw_cross=False,
             colorbar=True,
-            symmetric_cbar=False,
-            cmap='coolwarm',
+            symmetric_cbar=symmetric_cbar,
+            cmap=cmap,
             title=label if i == 0 else None,
         )
         svg = extract_svg(display, compress=compress)
