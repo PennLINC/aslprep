@@ -1,6 +1,7 @@
 """Plotting functions and classes."""
 
 import nibabel as nb
+import numpy as np
 from lxml import etree
 from nilearn import image, plotting
 from nilearn._utils.niimg import load_niimg
@@ -20,13 +21,14 @@ class CBFPlot:
     This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
     """
 
-    __slots__ = ['cbf', 'ref_vol', 'label', 'outfile', 'vmax']
+    __slots__ = ['cbf', 'ref_vol', 'label', 'outfile', 'vmin', 'vmax']
 
-    def __init__(self, cbf, ref_vol, label, outfile, vmax):
+    def __init__(self, cbf, ref_vol, label, outfile, vmin, vmax):
         self.cbf = cbf
         self.ref_vol = ref_vol
         self.label = label
         self.outfile = outfile
+        self.vmin = vmin
         self.vmax = vmax
 
     def plot(self):
@@ -36,14 +38,20 @@ class CBFPlot:
         """
         cbf_img = nb.load(self.cbf)
         cbf_data = cbf_img.get_fdata()
-        cbf_data[cbf_data < -20] = -20
-        cbf_data[cbf_data > 100] = 100
+        cbf_data[cbf_data < self.vmin] = self.vmin
+        cbf_data[cbf_data > self.vmax] = self.vmax
+        if np.any(cbf_data < 0):
+            colormap = 'coolwarm'
+        else:
+            colormap = 'Reds'
+
         cbf_img = nb.Nifti1Image(cbf_data, affine=cbf_img.affine, header=cbf_img.header)
         statfile = plot_stat_map(
             cbf=cbf_img,
             ref_vol=self.ref_vol,
             vmax=self.vmax,
             label=self.label,
+            cmap=colormap,
         )
         compose_view(bg_svgs=statfile, fg_svgs=None, out_file=self.outfile)
 
