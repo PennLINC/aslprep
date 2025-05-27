@@ -513,7 +513,7 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
         Used for deltam_art calculation.
         Estimated by the model.
     X : :obj:`numpy.ndarray` of shape (n_plds, 6)
-        Dependent variables.
+        Dependent variables: labeleff, t1blood, m0_a, m0_b, plds, taus/ti1s.
 
     Returns
     -------

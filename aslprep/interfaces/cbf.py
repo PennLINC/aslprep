@@ -521,31 +521,31 @@ class ComputeCBF(SimpleInterface):
             if is_casl:  # (P)CASL needs tau, but not ti1
                 tau = metadata['LabelingDuration']
 
-            else:  # PASL needs ti1, but not tau
-                if metadata['BolusCutOffTechnique'] == 'QUIPSSII':
-                    # PASL + QUIPSSII
-                    # Only one BolusCutOffDelayTime allowed.
-                    if not isinstance(metadata['BolusCutOffDelayTime'], Number):
-                        raise ValueError(
-                            f'Expected a single BolusCutOffDelayTime, but got '
-                            f'{metadata["BolusCutOffDelayTime"]}'
-                        )
-                    ti1 = metadata['BolusCutOffDelayTime']
-
-                elif metadata['BolusCutOffTechnique'] == 'Q2TIPS':
-                    # PASL + Q2TIPS
-                    # Q2TIPS should have two BolusCutOffDelayTimes.
-                    if len(metadata['BolusCutOffDelayTime']) != 2:
-                        raise ValueError(
-                            f'Expected two BolusCutOffDelayTimes, but got '
-                            f'{metadata["BolusCutOffDelayTime"]}'
-                        )
-                    ti1 = metadata['BolusCutOffDelayTime'][0]
-                else:
+            # PASL needs ti1, but not tau
+            elif metadata['BolusCutOffTechnique'] == 'QUIPSSII':
+                # PASL + QUIPSSII
+                # Only one BolusCutOffDelayTime allowed.
+                if not isinstance(metadata['BolusCutOffDelayTime'], Number):
                     raise ValueError(
-                        f'Unsupported BolusCutOffTechnique ({metadata["BolusCutOffTechnique"]}) '
-                        'for multi-PLD data.'
+                        f'Expected a single BolusCutOffDelayTime, but got '
+                        f'{metadata["BolusCutOffDelayTime"]}'
                     )
+                ti1 = metadata['BolusCutOffDelayTime']
+
+            elif metadata['BolusCutOffTechnique'] == 'Q2TIPS':
+                # PASL + Q2TIPS
+                # Q2TIPS should have two BolusCutOffDelayTimes.
+                if len(metadata['BolusCutOffDelayTime']) != 2:
+                    raise ValueError(
+                        f'Expected two BolusCutOffDelayTimes, but got '
+                        f'{metadata["BolusCutOffDelayTime"]}'
+                    )
+                ti1 = metadata['BolusCutOffDelayTime'][0]
+            else:
+                raise ValueError(
+                    f'Unsupported BolusCutOffTechnique ({metadata.get("BolusCutOffTechnique")}) '
+                    'for multi-PLD data.'
+                )
 
             cbf, att, abat, abv = fit_deltam_multipld(
                 deltam_arr=deltam_arr,
