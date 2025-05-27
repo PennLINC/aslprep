@@ -6,7 +6,7 @@ from fmriprep.workflows.bold.confounds import _carpet_parcellation
 from nipype.algorithms import confounds as nac
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from nireport.interfaces.reporting.masks import ROIsPlot
+from nireports.interfaces.reporting.masks import ROIsPlot
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.utility import AddTSVHeader
 from templateflow.api import get as get_template
