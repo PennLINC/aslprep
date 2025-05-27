@@ -46,7 +46,9 @@ a directory of derivatives (``sub-<label>/``)
 and a visual report (``sub-<label>.html``) are generated.
 The log directory contains `citation boilerplate`_ text.
 ``dataset_description.json`` is a metadata file in which ASLPrep
-records metadata recommended by the BIDS standard.
+records metadata recommended by the BIDS standard. 
+The atlases directory contains the relevant json, tsv, and nifti files
+for each atlas, and the .bidsignore file contains a record of the files that bids-validator ignored.
 
 
 ****************
@@ -419,7 +421,7 @@ the HCP thalamic atlas :footcite:p:`najdenovska2018vivo`,
 and the amygdala and hippocampus parcels from the HCP CIFTI subcortical parcellation
 :footcite:p:`glasser2013minimal`.
 The 4S atlas is used in the same manner across three PennLINC BIDS Apps:
-ASLPrep, QSIPrep_, and XCP-D, to produce synchronized outputs across modalities.
+ASLPrep, QSIPrep, and XCP-D, to produce synchronized outputs across modalities.
 For more information about the 4S atlas, please see https://github.com/PennLINC/AtlasPack.
 
 MNI152NLin6Asym-space atlases are warped to the ASL reference image space before parcellation.

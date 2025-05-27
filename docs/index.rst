@@ -26,4 +26,5 @@ Contents
    spaces
    contributors
    api
+   bids
    What's New <https://github.com/PennLINC/aslprep/releases>
