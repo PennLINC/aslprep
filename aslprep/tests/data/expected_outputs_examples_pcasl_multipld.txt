@@ -85,6 +85,10 @@ sub-01/anat/sub-01_desc-ribbon_mask.nii.gz
 sub-01/anat/sub-01_hemi-L_desc-preproc_sphere.surf.gii
 sub-01/anat/sub-01_hemi-R_desc-preproc_sphere.surf.gii
 sub-01/perf
+sub-01/perf/sub-01_abat.json
+sub-01/perf/sub-01_abat.nii.gz
+sub-01/perf/sub-01_abv.json
+sub-01/perf/sub-01_abv.nii.gz
 sub-01/perf/sub-01_atlas-4S1056Parcels_cbf.tsv
 sub-01/perf/sub-01_atlas-4S1056Parcels_coverage.tsv
 sub-01/perf/sub-01_atlas-4S1056Parcels_desc-basilGM_cbf.tsv
