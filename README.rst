@@ -81,7 +81,7 @@ ASLPrep
 
 *ASLPrep* adapts the preprocessing steps depending on the input dataset
 and provide results as good as possible independently of scanner make and scanning parameters
-With the BIDS input, little or no parameter are required allowing ease of operation.
+With the BIDS input, little or no parameters are required allowing ease of operation.
 *ASLPrep* also provides visual reports for each subject,
 detailing the most important processing steps.
 
@@ -117,7 +117,7 @@ which must be accounted for in ASLPrep:
    different volume types in the ASL time series exhibit different contrasts, which can introduce
    artifacts into the motion-corrected data.
    As such, ASLPrep motion corrects each volume type separately,
-   and then concatenated the corrected time series back together.
+   and then concatenates the corrected time series back together.
 4. ASLPrep includes extra steps to do the following:
    1. Calculate CBF.
    2. Calculate CBF QC metrics, paralleling the ASL confound calculation.

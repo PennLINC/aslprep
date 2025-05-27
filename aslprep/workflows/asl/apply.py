@@ -44,7 +44,7 @@ def init_asl_cifti_resample_wf(
     Parameters
     ----------
     metadata
-        BIDS metadata for BOLD file.
+        BIDS metadata for ASL file.
     mem_gb
     fieldmap_id
         Fieldmap identifier, if fieldmap correction is to be applied.
@@ -58,12 +58,12 @@ def init_asl_cifti_resample_wf(
     asl_file
         ASL series to resample.
     bold_ref_file
-        Reference image to which BOLD series is aligned.
+        Reference image to which ASL series is aligned.
     target_ref_file
         Reference image defining the target space.
     target_mask
         Brain mask corresponding to ``target_ref_file``.
-        This is used to define the field of view for the resampled BOLD series.
+        This is used to define the field of view for the resampled ASL series.
     motion_xfm
         List of affine transforms aligning each volume to ``bold_ref_file``.
         If undefined, no motion correction is performed.
@@ -87,7 +87,7 @@ def init_asl_cifti_resample_wf(
         The ``bold_file`` input, resampled to ``target_ref_file`` space.
     resampling_reference
         An empty reference image with the correct affine and header for resampling
-        further images into the BOLD series' space.
+        further images into the ASL series' space.
     """
     from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
     from fmriprep.workflows.bold.resampling import (
@@ -177,7 +177,7 @@ excluding voxels whose time-series have a locally high coefficient of variation.
     )
 
     workflow.connect([
-        # Resample BOLD to MNI152NLin6Asym, may duplicate asl_std_wf above
+        # Resample ASL to MNI152NLin6Asym, may duplicate asl_std_wf above
         (inputnode, asl_MNI6_wf, [
             ('mni6_mask', 'inputnode.target_ref_file'),
             ('mni6_mask', 'inputnode.target_mask'),
@@ -191,7 +191,7 @@ excluding voxels whose time-series have a locally high coefficient of variation.
             ('aslref2fmap_xfm', 'inputnode.boldref2fmap_xfm'),
             ('aslref2anat_xfm', 'inputnode.boldref2anat_xfm'),
         ]),
-        # Resample T1w-space BOLD to fsLR surfaces
+        # Resample T1w-space ASL to fsLR surfaces
         (inputnode, asl_fsLR_resampling_wf, [
             ('asl_anat', 'inputnode.bold_file'),
             ('white', 'inputnode.white'),

@@ -19,8 +19,8 @@ from aslprep.utils.plotting import CBFPlot
 
 
 class _ASLCarpetPlotInputSpec(BaseInterfaceInputSpec):
-    in_nifti = File(exists=True, mandatory=True, desc='input BOLD (4D NIfTI file)')
-    in_cifti = File(exists=True, desc='input BOLD (CIFTI dense timeseries)')
+    in_nifti = File(exists=True, mandatory=True, desc='input ASL (4D NIfTI file)')
+    in_cifti = File(exists=True, desc='input ASL (CIFTI dense timeseries)')
     in_segm = File(exists=True, desc='volumetric segmentation corresponding to in_nifti')
     confounds_file = File(exists=True, desc="BIDS' _confounds.tsv file")
 

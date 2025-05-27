@@ -312,7 +312,7 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 
     gm_tfm = pe.Node(
         ApplyTransforms(
-            interpolation='NearestNeighbor',
+            interpolation='Gaussian',
             float=True,
             invert_transform_flags=[True],
             args='-v',
@@ -331,7 +331,7 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 
     wm_tfm = pe.Node(
         ApplyTransforms(
-            interpolation='NearestNeighbor',
+            interpolation='Gaussian',
             float=True,
             invert_transform_flags=[True],
             args='-v',
@@ -350,7 +350,7 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 
     csf_tfm = pe.Node(
         ApplyTransforms(
-            interpolation='NearestNeighbor',
+            interpolation='Gaussian',
             float=True,
             invert_transform_flags=[True],
             args='-v',
