@@ -6,6 +6,7 @@ from fmriprep.workflows.bold.confounds import _carpet_parcellation
 from nipype.algorithms import confounds as nac
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from nireport.interfaces.reporting.masks import ROIsPlot
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.utility import AddTSVHeader
 from templateflow.api import get as get_template
@@ -272,6 +273,33 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         (acc_msk_bin, merge_rois, [('out_file', 'in2')]),
         (inputnode, signals, [('asl', 'in_file')]),
         (merge_rois, signals, [('out', 'label_files')]),
+    ])  # fmt:skip
+
+    # Generate reportlet (ROIs)
+    mrg_compcor = pe.Node(
+        niu.Merge(3, ravel_inputs=True),
+        name='mrg_compcor',
+        run_without_submitting=True,
+    )
+    rois_plot = pe.Node(
+        ROIsPlot(colors=['b', 'magenta', 'g'], generate_report=True),
+        name='rois_plot',
+        mem_gb=mem_gb,
+    )
+
+    ds_report_bold_rois = pe.Node(
+        DerivativesDataSink(desc='rois', datatype='figures', dismiss_entities=('echo',)),
+        name='ds_report_bold_rois',
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    workflow.connect([
+        (inputnode, rois_plot, [
+            ('asl', 'in_file'),
+            ('asl_mask', 'in_mask'),
+        ]),
+        (mrg_compcor, rois_plot, [('out', 'in_rois')]),
+        (rois_plot, ds_report_bold_rois, [('out_report', 'in_file')]),
     ])  # fmt:skip
 
     concat = pe.Node(
