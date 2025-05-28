@@ -1,5 +1,7 @@
 """Plotting functions and classes."""
 
+from numbers import Number
+
 import nibabel as nb
 import numpy as np
 from lxml import etree
@@ -85,10 +87,12 @@ def plot_stat_map(
     if estimate_brightness:
         plot_params = robust_set_limits(data, plot_params)
 
-    if (vmin is not None) and (vmin >= 0):
+    if isinstance(vmin, Number) and (vmin >= 0):
         symmetric_cbar = False
     else:
         symmetric_cbar = True
+
+    raise Exception()
 
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
