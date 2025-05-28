@@ -269,6 +269,8 @@ def init_asl_fit_wf(
         name='inputnode',
     )
     inputnode.inputs.asl_file = asl_file
+    inputnode.inputs.aslcontext = aslcontext
+    inputnode.inputs.m0scan = m0scan
 
     outputnode = pe.Node(
         niu.IdentityInterface(
