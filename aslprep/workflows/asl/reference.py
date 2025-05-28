@@ -35,6 +35,7 @@ from aslprep.interfaces.utility import Smooth
 def init_raw_aslref_wf(
     *,
     asl_file=None,
+    reference_volume_type=None,
     m0scan=False,
     use_ge=False,
     name='raw_aslref_wf',
@@ -61,6 +62,8 @@ def init_raw_aslref_wf(
     ----------
     asl_file : :obj:`str`
         ASL series NIfTI file
+    reference_volume_type : :obj:`str`
+        Type of reference volume to use.
     m0scan : :obj:`bool`
         True if a separate M0 file is available. False if not.
     use_ge : :obj:`bool`
@@ -84,6 +87,7 @@ def init_raw_aslref_wf(
         Number of non-steady-state volumes algorithmically detected at
         beginning of ``asl_file``
     """
+    from nipype.interfaces.afni.utils import Resample
     from niworkflows.interfaces.images import RobustAverage
 
     workflow = Workflow(name=name)
@@ -130,13 +134,24 @@ for use in head motion correction.
         ]),
     ])  # fmt:skip
 
-    if m0scan:
+    if reference_volume_type == 'separate_m0scan':
         val_m0scan = pe.Node(
             ValidateImage(),
             name='val_m0scan',
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([(inputnode, val_m0scan, [('m0scan', 'in_file')])])
+
+        # In some cases, the separate M0 scan may have a different resolution than the ASL scan.
+        # We resample the M0 scan to match the ASL scan at this point.
+        resample_m0scan_to_asl = pe.Node(
+            Resample(outputtype='NIFTI'),
+            name='resample_m0scan_to_asl',
+        )
+        workflow.connect([
+            (val_asl, resample_m0scan_to_asl, [('out_file', 'master')]),
+            (val_m0scan, resample_m0scan_to_asl, [('out_file', 'in_file')]),
+        ])  # fmt:skip
 
     select_highest_contrast_volumes = pe.Node(
         SelectHighestContrastVolumes(prioritize_m0=use_ge),
@@ -148,7 +163,9 @@ for use in head motion correction.
         (val_asl, select_highest_contrast_volumes, [('out_file', 'asl_file')]),
     ])  # fmt:skip
     if m0scan:
-        workflow.connect([(val_m0scan, select_highest_contrast_volumes, [('out_file', 'm0scan')])])
+        workflow.connect([
+            (resample_m0scan_to_asl, select_highest_contrast_volumes, [('out_file', 'm0scan')]),
+        ])  # fmt:skip
 
     gen_avg = pe.Node(RobustAverage(), name='gen_avg', mem_gb=1)
     workflow.connect([
