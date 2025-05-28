@@ -56,7 +56,6 @@ class CBFPlot:
             cmap=colormap,
         )
         compose_view(bg_svgs=statfile, fg_svgs=None, out_file=self.outfile)
-        raise Exception()
 
 
 def plot_stat_map(
