@@ -87,7 +87,7 @@ def ascending(n_slices, spacing=0.09375):
                 # spacing = 3.0 / (32 / 2) = 3.0/16
                 'SliceTiming': ascending(16, spacing=3.0 / 16) * 2,
             },
-            {'sliceband': 2, 'slice_spacing': 3.0 / 16},
+            {'sliceband': 16, 'slice_spacing': 3.0 / 16},
         ),
         (
             'multiband factor 2 ascending (16 slices/band, TR=4)',
@@ -98,7 +98,7 @@ def ascending(n_slices, spacing=0.09375):
                 # spacing = 4.0 / (32 / 2) = 4.0/16
                 'SliceTiming': ascending(16, spacing=4.0 / 16) * 2,
             },
-            {'sliceband': 2, 'slice_spacing': 4.0 / 16},
+            {'sliceband': 16, 'slice_spacing': 4.0 / 16},
         ),
         (
             'multiband factor 2 non-monotonic in first band',
@@ -139,7 +139,7 @@ def ascending(n_slices, spacing=0.09375):
                 # spacing = 3.0 / (30 / 3) = 3.0/10
                 'SliceTiming': ascending(10, spacing=3.0 / 10) * 3,
             },
-            {'sliceband': 3, 'slice_spacing': 3.0 / 10},
+            {'sliceband': 10, 'slice_spacing': 3.0 / 10},
         ),
     ],
 )
