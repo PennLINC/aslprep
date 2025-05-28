@@ -178,7 +178,7 @@ Head-motion estimation
    )
 
 Using the previously estimated reference scan,
-FSL ``mcflirt`` or AFNI ``3dvolreg`` is used to estimate head-motion.
+FSL ``mcflirt`` is used to estimate head-motion.
 As a result, one rigid-body transform with respect to
 the reference image is written for each :abbr:`ASL (Arterial Spin Labelling)`
 time-step.

@@ -89,7 +89,7 @@ def init_raw_aslref_wf(
     """
     from niworkflows.interfaces.images import RobustAverage
 
-    from aslprep.interfaces.utility import ResampleToImage
+    from aslprep.interfaces.ants import ApplyTransforms
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -146,12 +146,15 @@ for use in head motion correction.
         # In some cases, the separate M0 scan may have a different resolution than the ASL scan.
         # We resample the M0 scan to match the ASL scan at this point.
         resample_m0scan_to_asl = pe.Node(
-            ResampleToImage(),
+            ApplyTransforms(
+                interpolation='Gaussian',
+                transforms=['identity'],
+            ),
             name='resample_m0scan_to_asl',
         )
         workflow.connect([
-            (val_asl, resample_m0scan_to_asl, [('out_file', 'target_file')]),
-            (val_m0scan, resample_m0scan_to_asl, [('out_file', 'in_file')]),
+            (val_asl, resample_m0scan_to_asl, [('out_file', 'reference_image')]),
+            (val_m0scan, resample_m0scan_to_asl, [('out_file', 'input_image')]),
         ])  # fmt:skip
 
     select_highest_contrast_volumes = pe.Node(
@@ -165,7 +168,9 @@ for use in head motion correction.
     ])  # fmt:skip
     if m0scan:
         workflow.connect([
-            (resample_m0scan_to_asl, select_highest_contrast_volumes, [('out_file', 'm0scan')]),
+            (resample_m0scan_to_asl, select_highest_contrast_volumes, [
+                ('output_image', 'm0scan'),
+            ]),
         ])  # fmt:skip
 
     gen_avg = pe.Node(RobustAverage(), name='gen_avg', mem_gb=1)
