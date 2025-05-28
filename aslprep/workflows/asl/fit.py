@@ -822,6 +822,7 @@ def init_asl_native_wf(
     asl_file
         List of paths to NIfTI files.
     m0scan
+        Path to M0 NIfTI file, if available.
     fieldmap_id
         ID of the fieldmap to use to correct this ASL series. If :obj:`None`,
         no correction will be applied.
@@ -838,6 +839,8 @@ def init_asl_native_wf(
     motion_xfm
         Affine transforms from each ASL volume to ``hmc_aslref``, written
         as concatenated ITK affine transforms.
+    m0scan2aslref_xfm
+        Affine transform mapping from M0 scan space to ASL reference space, if applicable.
     aslref2fmap_xfm
         Affine transform mapping from ASL reference space to the fieldmap
         space, if applicable.
@@ -884,6 +887,7 @@ def init_asl_native_wf(
                 'asl_mask',
                 'm0scan',
                 'motion_xfm',
+                'm0scan2aslref_xfm',
                 'aslref2fmap_xfm',
                 # Fieldmap fit
                 'fmap_ref',
@@ -904,6 +908,7 @@ def init_asl_native_wf(
                 'metadata',
                 # Transforms
                 'motion_xfm',
+                'm0scan2aslref_xfm',
             ],
         ),
         name='outputnode',
@@ -993,6 +998,29 @@ def init_asl_native_wf(
         ]),
     ])  # fmt:skip
 
+    if m0scan:
+        # Resample separate M0 file to aslref
+        aslref_m0scan = pe.Node(
+            ResampleSeries(
+                jacobian=jacobian,
+                in_file=m0scan,
+            ),
+            name='aslref_m0scan',
+            n_procs=omp_nthreads,
+        )
+
+        workflow.connect([
+            (inputnode, aslref_m0scan, [
+                ('aslref', 'ref_file'),
+                ('m0scan2aslref_xfm', 'transforms'),
+            ]),
+            (aslbuffer, aslref_m0scan, [
+                ('ro_time', 'ro_time'),
+                ('pe_dir', 'pe_dir'),
+            ]),
+            (aslref_m0scan, outputnode, [('out_file', 'm0scan_native')]),
+        ])  # fmt:skip
+
     if fieldmap_id:
         aslref_fmap = pe.Node(ReconstructFieldmap(inverse=[True]), name='aslref_fmap', mem_gb=1)
         workflow.connect([
@@ -1007,36 +1035,14 @@ def init_asl_native_wf(
             (aslref_fmap, aslref_asl, [('out_file', 'fieldmap')]),
         ])  # fmt:skip
 
+        if m0scan:
+            workflow.connect([(aslref_fmap, aslref_m0scan, [('out_file', 'fieldmap')])])
+
     workflow.connect([
         (inputnode, outputnode, [('motion_xfm', 'motion_xfm')]),
         (aslbuffer, outputnode, [('asl_file', 'asl_minimal')]),
         (aslref_asl, outputnode, [('out_file', 'asl_native')]),
     ])  # fmt:skip
-
-    if m0scan:
-        from niworkflows import data as nw_data
-
-        # Resample separate M0 file to aslref
-        # No HMC
-        identity_xfm = nw_data.load('itkIdentityTransform.txt')
-        aslref_m0scan = pe.Node(
-            ResampleSeries(
-                jacobian=jacobian,
-                transforms=[identity_xfm],
-                in_file=m0scan,
-            ),
-            name='aslref_m0scan',
-            n_procs=omp_nthreads,
-        )
-
-        workflow.connect([
-            (inputnode, aslref_m0scan, [('aslref', 'ref_file')]),
-            (aslbuffer, aslref_m0scan, [
-                ('ro_time', 'ro_time'),
-                ('pe_dir', 'pe_dir'),
-            ]),
-            (aslref_m0scan, outputnode, [('out_file', 'm0scan_native')]),
-        ])  # fmt:skip
 
     return workflow
 
