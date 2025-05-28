@@ -340,7 +340,7 @@ def prepare_basil_kwargs(metadata):
         if monotonic_slicetimes and ascending_slicetimes:
             basil_kwargs['slice_spacing'] = slicetime_diffs[0]
         else:
-            config.loggers.interface.warning(
+            config.loggers.utils.warning(
                 'Slice times are not ascending. They will be ignored in the BASIL call.'
             )
 
