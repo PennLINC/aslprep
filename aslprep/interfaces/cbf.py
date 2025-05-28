@@ -824,7 +824,7 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=False,
     )
     sliceband = traits.Int(
-        desc='Multiband acceleration factor',
+        desc='Number of slices per band in a multi-band acquisition.',
         argstr='--sliceband %d',
         mandatory=False,
     )
