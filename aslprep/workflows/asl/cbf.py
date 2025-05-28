@@ -31,6 +31,7 @@ from aslprep.utils.asl import (
     get_inflow_times,
     infer_m0tr,
     pcasl_or_pasl,
+    prepare_basil_kwargs,
 )
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 from aslprep.utils.bids import find_atlas_entities
@@ -525,48 +526,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
         workflow.connect([(extract_deltam, estimate_alpha, [('metadata', 'metadata')])])
 
-        basil_kwargs = {}
-        if 'SliceTiming' in metadata.keys():
-            mb_factor = metadata.get('MultibandAccelerationFactor', 1)
-            slice_times = metadata['SliceTiming']
-            if mb_factor > 1:
-                # Determine if the slice times within each band are ascending
-                n_slices = len(slice_times)
-                n_slices_in_band = n_slices // mb_factor
-                ascending_slicetimes = True
-                for i_band in range(mb_factor):
-                    band_start = n_slices_in_band * i_band
-                    band_end = band_start + n_slices_in_band
-                    band_slice_times = slice_times[band_start:band_end]
-                    slicetime_diffs = np.unique(np.diff(band_slice_times))
-                    # Check if slice times are monotonic
-                    monotonic_slicetimes = slicetime_diffs.size == 1
-
-                    # Check if slice times are ascending
-                    if not np.all(slicetime_diffs > 0):
-                        ascending_slicetimes = False
-
-                if ascending_slicetimes and monotonic_slicetimes:
-                    basil_kwargs['sliceband'] = mb_factor
-                    basil_kwargs['slice_spacing'] = slicetime_diffs[0]
-                else:
-                    config.loggers.interface.warning(
-                        'Slice times are not ascending. They will be ignored in the BASIL call.'
-                    )
-
-            else:
-                slicetime_diffs = np.unique(np.diff(slice_times))
-                # Check if slice times are monotonic
-                monotonic_slicetimes = slicetime_diffs.size == 1
-                # Check if slice times are ascending
-                ascending_slicetimes = np.all(slicetime_diffs > 0)
-                # Only set slicedt for ascending slice orders.
-                if monotonic_slicetimes and ascending_slicetimes:
-                    basil_kwargs['slice_spacing'] = slicetime_diffs[0]
-                else:
-                    config.loggers.interface.warning(
-                        'Slice times are not ascending. They will be ignored in the BASIL call.'
-                    )
+        basil_kwargs = prepare_basil_kwargs(metadata)
 
         basilcbf = pe.Node(
             BASILCBF(

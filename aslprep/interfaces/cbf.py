@@ -823,6 +823,11 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         argstr='--slicedt %s',
         mandatory=False,
     )
+    sliceband = traits.Int(
+        desc='Multiband acceleration factor',
+        argstr='--sliceband %d',
+        mandatory=False,
+    )
     pvc = traits.Bool(
         desc='Do partial volume correction.',
         mandatory=False,
