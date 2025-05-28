@@ -55,6 +55,7 @@ class CBFPlot:
             label=self.label,
             cmap=colormap,
         )
+        raise Exception()
         compose_view(bg_svgs=statfile, fg_svgs=None, out_file=self.outfile)
 
 
@@ -109,7 +110,6 @@ def plot_stat_map(
             cmap=cmap,
             title=label if i == 0 else None,
         )
-        raise Exception()
         svg = extract_svg(display, compress=compress)
         display.close()
 
