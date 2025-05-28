@@ -536,7 +536,7 @@ def init_asl_fit_wf(
         ds_m0scan2aslref_xfm = pe.Node(
             DerivativesDataSink(
                 base_dir=config.execution.aslprep_dir,
-                source_file=m0scan,
+                source_file=str(m0scan),
                 datatype='perf',
                 suffix='xfm',
                 extension='.txt',
