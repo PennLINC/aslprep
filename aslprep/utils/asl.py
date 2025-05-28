@@ -322,7 +322,7 @@ def prepare_basil_kwargs(metadata):
                 ascending_slicetimes = False
 
         if ascending_slicetimes and monotonic_slicetimes:
-            basil_kwargs['sliceband'] = mb_factor
+            basil_kwargs['sliceband'] = n_slices_in_band
             basil_kwargs['slice_spacing'] = slicetime_diffs[0]
         else:
             config.loggers.utils.warning(
