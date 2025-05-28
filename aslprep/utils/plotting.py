@@ -85,7 +85,7 @@ def plot_stat_map(
     if estimate_brightness:
         plot_params = robust_set_limits(data, plot_params)
 
-    if vmin >= 0:
+    if (vmin is not None) and (vmin >= 0):
         symmetric_cbar = False
     else:
         symmetric_cbar = True
