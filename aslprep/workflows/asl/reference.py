@@ -87,8 +87,9 @@ def init_raw_aslref_wf(
         Number of non-steady-state volumes algorithmically detected at
         beginning of ``asl_file``
     """
-    from nipype.interfaces.afni.utils import Resample
     from niworkflows.interfaces.images import RobustAverage
+
+    from aslprep.interfaces.utility import ResampleToImage
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -145,11 +146,11 @@ for use in head motion correction.
         # In some cases, the separate M0 scan may have a different resolution than the ASL scan.
         # We resample the M0 scan to match the ASL scan at this point.
         resample_m0scan_to_asl = pe.Node(
-            Resample(outputtype='NIFTI'),
+            ResampleToImage(),
             name='resample_m0scan_to_asl',
         )
         workflow.connect([
-            (val_asl, resample_m0scan_to_asl, [('out_file', 'master')]),
+            (val_asl, resample_m0scan_to_asl, [('out_file', 'target_file')]),
             (val_m0scan, resample_m0scan_to_asl, [('out_file', 'in_file')]),
         ])  # fmt:skip
 

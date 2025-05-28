@@ -501,11 +501,8 @@ def init_asl_fit_wf(
         from aslprep.interfaces.bids import DerivativesDataSink
 
         config.loggers.workflow.info('Stage 2b: Adding M0 scan registration workflow')
-        # If we have a separate M0 scan, we need to register it to the ASL reference.
-        # If the reference_volume_type is separate_m0scan, the aslref is the separate M0 scan,
-        # so we should use the identity transform.
-        # Otherwise, we need to register the M0 scan to the ASL reference.
         if reference_volume_type == 'separate_m0scan':
+            # The separate M0 scan *is* the ASL reference, so we can use the identity transform.
             from niworkflows import data as nw_data
 
             # XXX: What about multiple M0 scans?
@@ -513,6 +510,8 @@ def init_asl_fit_wf(
                 nw_data.load('itkIdentityTransform.txt')
             )
         else:
+            # Register the M0 scan to the ASL reference.
+            # By using MCFLIRT, we can support 4D M0 scans.
             from nipype.interfaces import fsl
             from niworkflows.interfaces.itk import MCFLIRT2ITK
 
