@@ -149,6 +149,7 @@ for use in head motion correction.
             ApplyTransforms(
                 interpolation='Gaussian',
                 transforms=['identity'],
+                args='--verbose',
             ),
             name='resample_m0scan_to_asl',
         )
