@@ -92,8 +92,6 @@ def plot_stat_map(
     else:
         symmetric_cbar = True
 
-    raise Exception()
-
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
         display = plotting.plot_stat_map(
@@ -111,6 +109,7 @@ def plot_stat_map(
             cmap=cmap,
             title=label if i == 0 else None,
         )
+        raise Exception()
         svg = extract_svg(display, compress=compress)
         display.close()
 
