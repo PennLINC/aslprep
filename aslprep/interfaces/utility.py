@@ -392,3 +392,26 @@ class IndexImage(NilearnBaseInterface, SimpleInterface):
         img_3d.to_filename(self._results['out_file'])
 
         return runtime
+
+
+class _GetImageTypeInputSpec(BaseInterfaceInputSpec):
+    image = File(exists=True, mandatory=True)
+
+
+class _GetImageTypeOutputSpec(TraitedSpec):
+    image_type = traits.Enum(0, 1, 2, 3)
+
+
+class GetImageType(SimpleInterface):
+    """Use to determine what to send to --input-image-type."""
+
+    input_spec = _GetImageTypeInputSpec
+    output_spec = _GetImageTypeOutputSpec
+
+    def _run_interface(self, runtime):
+        img = nb.load(self.inputs.image)
+        if img.ndim == 4:
+            self._results['image_type'] = 3
+        else:
+            self._results['image_type'] = 0
+        return runtime

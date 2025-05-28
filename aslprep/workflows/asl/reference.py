@@ -90,7 +90,7 @@ def init_raw_aslref_wf(
     from niworkflows.interfaces.images import RobustAverage
 
     from aslprep.interfaces.ants import ApplyTransforms
-    from aslprep.interfaces.utility import IndexImage
+    from aslprep.interfaces.utility import GetImageType, IndexImage
 
     workflow = Workflow(name=name)
     workflow.__desc__ = """\
@@ -153,6 +153,9 @@ for use in head motion correction.
 
         # In some cases, the separate M0 scan may have a different resolution than the ASL scan.
         # We resample the M0 scan to match the ASL scan at this point.
+        get_image_type = pe.Node(GetImageType(), name='get_image_type')
+        workflow.connect([(val_m0scan, get_image_type, [('out_file', 'image')])])
+
         resample_m0scan_to_asl = pe.Node(
             ApplyTransforms(
                 interpolation='Gaussian',
@@ -164,6 +167,7 @@ for use in head motion correction.
         workflow.connect([
             (extract_3d_asl, resample_m0scan_to_asl, [('out_file', 'reference_image')]),
             (val_m0scan, resample_m0scan_to_asl, [('out_file', 'input_image')]),
+            (get_image_type, resample_m0scan_to_asl, [('image_type', 'input_image_type')]),
         ])  # fmt:skip
 
     select_highest_contrast_volumes = pe.Node(

@@ -290,6 +290,12 @@ def init_asl_fit_wf(
     # If all derivatives exist, inputnode could go unconnected, so add explicitly
     workflow.add_nodes([inputnode])
 
+    reference_volume_type = select_reference_volume_type(
+        aslcontext=aslcontext,
+        metadata=metadata,
+        prioritize_m0=use_ge,
+    )
+
     hmcref_buffer = pe.Node(
         niu.IdentityInterface(fields=['aslref', 'asl_file']),
         name='hmcref_buffer',
@@ -353,6 +359,7 @@ def init_asl_fit_wf(
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         # TODO: Enable sdc report even if we find coregref
         sdc_correction=fieldmap_id is not None,
+        separate_m0scan=m0scan and (reference_volume_type != 'separate_m0scan'),
         freesurfer=config.workflow.run_reconall,
         output_dir=config.execution.aslprep_dir,
     )
@@ -385,11 +392,6 @@ def init_asl_fit_wf(
     ])  # fmt:skip
 
     # Stage 1: Generate motion correction boldref
-    reference_volume_type = select_reference_volume_type(
-        aslcontext=aslcontext,
-        metadata=metadata,
-        prioritize_m0=use_ge,
-    )
     hmc_aslref_source_buffer = pe.Node(
         niu.IdentityInterface(fields=['in_file']),
         name='hmc_aslref_source_buffer',
@@ -517,13 +519,14 @@ def init_asl_fit_wf(
 
             # Register the M0 scan to the ASL reference.
             mcflirt = pe.Node(
-                fsl.MCFLIRT(cost='mutualinfo'),
+                fsl.MCFLIRT(cost='mutualinfo', mean_vol=True),
                 name='mcflirt',
                 mem_gb=mem_gb['filesize'],
             )
             workflow.connect([
                 (inputnode, mcflirt, [('m0scan', 'in_file')]),
                 (hmcref_buffer, mcflirt, [('aslref', 'ref_file')]),
+                (mcflirt, asl_fit_reports_wf, [('mean_img', 'inputnode.m0scan_aslref')]),
             ])  # fmt:skip
 
             fsl2itk = pe.Node(MCFLIRT2ITK(), name='fsl2itk', mem_gb=0.05, n_procs=omp_nthreads)
