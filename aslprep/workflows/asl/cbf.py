@@ -527,7 +527,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
         basil_kwargs = {}
         if 'SliceTiming' in metadata.keys():
-            mb_factor = metadata.get('MultiBandAccelerationFactor', 1)
+            mb_factor = metadata.get('MultibandAccelerationFactor', 1)
             slice_times = metadata['SliceTiming']
             if mb_factor > 1:
                 # Determine if the slice times within each band are ascending
