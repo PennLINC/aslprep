@@ -4,7 +4,6 @@
 
 from numbers import Number
 
-import numpy as np
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
