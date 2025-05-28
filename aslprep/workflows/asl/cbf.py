@@ -555,7 +555,6 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         workflow.connect([
             (reduce_mask, basilcbf, [('out_mask', 'mask')]),
             (extract_deltam, basilcbf, [
-                (('m0_file', _getfiledir), 'out_basename'),
                 ('out_file', 'deltam'),
                 ('m0_file', 'mzero'),
             ]),
