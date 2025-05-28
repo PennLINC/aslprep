@@ -509,7 +509,9 @@ def init_asl_fit_wf(
             from niworkflows import data as nw_data
 
             # XXX: What about multiple M0 scans?
-            m0scanreg_buffer.inputs.m0scan2aslref_xfm = nw_data.load('itkIdentityTransform.txt')
+            m0scanreg_buffer.inputs.m0scan2aslref_xfm = str(
+                nw_data.load('itkIdentityTransform.txt')
+            )
         else:
             from nipype.interfaces import fsl
             from niworkflows.interfaces.itk import MCFLIRT2ITK
