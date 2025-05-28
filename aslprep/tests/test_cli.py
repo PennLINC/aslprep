@@ -46,7 +46,6 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         '--output-spaces=asl',
         '--scorescrub',
         '--basil',
-        '--use-syn-sdc',
         '--m0_scale=10',
         '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
