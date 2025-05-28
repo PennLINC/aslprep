@@ -352,48 +352,43 @@ class Smooth(NilearnBaseInterface, SimpleInterface):
         return runtime
 
 
-class _ResampleToImageInputSpec(BaseInterfaceInputSpec):
+class _IndexImageInputSpec(BaseInterfaceInputSpec):
     in_file = File(
         exists=True,
         mandatory=True,
-        desc='An image to average over time.',
+        desc='A 4D image to index.',
     )
-    target_file = File(
-        exists=True,
-        mandatory=True,
-        desc='',
+    index = traits.Int(
+        0,
+        usedefault=True,
+        desc='Volume index to select from in_file.',
     )
     out_file = File(
-        'out_img.nii.gz',
+        'img_3d.nii.gz',
         usedefault=True,
         exists=False,
-        desc='The name of the resampled file to write out. out_img.nii.gz by default.',
+        desc='The name of the indexed file.',
     )
 
 
-class _ResampleToImageOutputSpec(TraitedSpec):
+class _IndexImageOutputSpec(TraitedSpec):
     out_file = File(
         exists=True,
-        desc='Resampled output file.',
+        desc='Concatenated output file.',
     )
 
 
-class ResampleToImage(NilearnBaseInterface, SimpleInterface):
-    """Resample a source image on a target image.
+class IndexImage(NilearnBaseInterface, SimpleInterface):
+    """Select a specific volume from a 4D image."""
 
-    No registration is performed: the image should already be aligned.
-    """
-
-    input_spec = _ResampleToImageInputSpec
-    output_spec = _ResampleToImageOutputSpec
+    input_spec = _IndexImageInputSpec
+    output_spec = _IndexImageOutputSpec
 
     def _run_interface(self, runtime):
-        from nilearn.image import resample_to_img
+        from nilearn.image import index_img
 
-        resampled_img = resample_to_img(
-            source_img=self.inputs.in_file,
-            target_img=self.inputs.target_file,
-            interpolation='continuous',
-        )
+        img_3d = index_img(self.inputs.in_file, self.inputs.index)
         self._results['out_file'] = os.path.join(runtime.cwd, self.inputs.out_file)
-        resampled_img.to_filename(self._results['out_file'])
+        img_3d.to_filename(self._results['out_file'])
+
+        return runtime
