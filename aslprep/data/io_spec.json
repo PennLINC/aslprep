@@ -31,6 +31,14 @@
         "suffix": "xfm",
         "extension": ".txt"
       },
+      "m0scan2aslref": {
+        "datatype": "perf",
+        "from": "m0scan",
+        "to": "aslref",
+        "mode": "image",
+        "suffix": "xfm",
+        "extension": ".txt"
+      },
       "aslref2anat": {
         "datatype": "perf",
         "from": "aslref",

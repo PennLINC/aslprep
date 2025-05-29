@@ -35,6 +35,7 @@ from aslprep.interfaces.utility import Smooth
 def init_raw_aslref_wf(
     *,
     asl_file=None,
+    reference_volume_type=None,
     m0scan=False,
     use_ge=False,
     name='raw_aslref_wf',
@@ -61,6 +62,8 @@ def init_raw_aslref_wf(
     ----------
     asl_file : :obj:`str`
         ASL series NIfTI file
+    reference_volume_type : :obj:`str`
+        Type of reference volume to use.
     m0scan : :obj:`bool`
         True if a separate M0 file is available. False if not.
     use_ge : :obj:`bool`
@@ -86,10 +89,13 @@ def init_raw_aslref_wf(
     """
     from niworkflows.interfaces.images import RobustAverage
 
+    from aslprep.interfaces.ants import ApplyTransforms
+    from aslprep.interfaces.utility import GetImageType, IndexImage
+
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
-First, a reference volume was generated using a custom methodology of *ASLPrep*,
-for use in head motion correction.
+    workflow.__desc__ = f"""\
+First, a reference volume was generated from the {reference_volume_type} volumes using a custom
+methodology of *ASLPrep*, for use in head motion correction.
 """
 
     inputnode = pe.Node(
@@ -130,13 +136,39 @@ for use in head motion correction.
         ]),
     ])  # fmt:skip
 
-    if m0scan:
+    if reference_volume_type == 'separate_m0scan':
         val_m0scan = pe.Node(
             ValidateImage(),
             name='val_m0scan',
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([(inputnode, val_m0scan, [('m0scan', 'in_file')])])
+
+        # Grab first volume of ASL file
+        extract_3d_asl = pe.Node(
+            IndexImage(index=0),
+            name='extract_3d_asl',
+        )
+        workflow.connect([(val_asl, extract_3d_asl, [('out_file', 'in_file')])])
+
+        # In some cases, the separate M0 scan may have a different resolution than the ASL scan.
+        # We resample the M0 scan to match the ASL scan at this point.
+        get_image_type = pe.Node(GetImageType(), name='get_image_type')
+        workflow.connect([(val_m0scan, get_image_type, [('out_file', 'image')])])
+
+        resample_m0scan_to_asl = pe.Node(
+            ApplyTransforms(
+                interpolation='Gaussian',
+                transforms=['identity'],
+                args='--verbose',
+            ),
+            name='resample_m0scan_to_asl',
+        )
+        workflow.connect([
+            (extract_3d_asl, resample_m0scan_to_asl, [('out_file', 'reference_image')]),
+            (val_m0scan, resample_m0scan_to_asl, [('out_file', 'input_image')]),
+            (get_image_type, resample_m0scan_to_asl, [('image_type', 'input_image_type')]),
+        ])  # fmt:skip
 
     select_highest_contrast_volumes = pe.Node(
         SelectHighestContrastVolumes(prioritize_m0=use_ge),
@@ -148,7 +180,11 @@ for use in head motion correction.
         (val_asl, select_highest_contrast_volumes, [('out_file', 'asl_file')]),
     ])  # fmt:skip
     if m0scan:
-        workflow.connect([(val_m0scan, select_highest_contrast_volumes, [('out_file', 'm0scan')])])
+        workflow.connect([
+            (resample_m0scan_to_asl, select_highest_contrast_volumes, [
+                ('output_image', 'm0scan'),
+            ]),
+        ])  # fmt:skip
 
     gen_avg = pe.Node(RobustAverage(), name='gen_avg', mem_gb=1)
     workflow.connect([

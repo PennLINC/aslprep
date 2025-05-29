@@ -34,18 +34,18 @@ class _SelectHighestContrastVolumesOutputSpec(TraitedSpec):
 
 
 class SelectHighestContrastVolumes(SimpleInterface):
-    """Apply the SCORE and SCRUB algorithms.
+    """Select the highest-contrast volume type for reference volume generation.
 
-    The Structural Correlation-based Outlier Rejection (SCORE) algorithm is applied to the CBF
-    time series to discard CBF volumes with outlying values :footcite:p:`dolui2017structural`
-    before computing the mean CBF.
-    The Structural Correlation with RobUst Bayesian (SCRUB) algorithm is then applied to the CBF
-    maps using structural tissue probability maps to reweight the mean CBF
-    :footcite:p:`dolui2016scrub`.
-
-    References
-    ----------
-    .. footbibliography::
+    This interface selects the highest-contrast volume type from the ASL context file and
+    returns a file containing the highest-contrast volumes.
+    The choice of volume type is based on a hard-coded priority list:
+    - Included M0 scan (if prioritized)
+    - Separate M0 scan (if prioritized)
+    - CBF
+    - DeltaM
+    - Included M0 scan (if not prioritized)
+    - Separate M0 scan (if not prioritized)
+    - Control
     """
 
     input_spec = _SelectHighestContrastVolumesInputSpec

@@ -171,6 +171,7 @@ def prepare_timing_parameters(metadata: dict):
 def init_asl_fit_reports_wf(
     *,
     sdc_correction: bool,
+    separate_m0scan: bool,
     freesurfer: bool,  # noqa:U100
     output_dir: str,
     name='asl_fit_reports_wf',
@@ -183,6 +184,10 @@ def init_asl_fit_reports_wf(
 
     Parameters
     ----------
+    sdc_correction : :obj:`bool`
+        Whether SDC correction was performed or not.
+    separate_m0scan : :obj:`bool`
+        Whether a separate M0 scan was used or not.
     freesurfer : :obj:`bool`
         FreeSurfer was enabled
     output_dir : :obj:`str`
@@ -226,6 +231,7 @@ def init_asl_fit_reports_wf(
         'source_file',
         'sdc_aslref',
         'coreg_aslref',
+        'm0scan_aslref',
         'aslref2anat_xfm',
         'aslref2fmap_xfm',
         't1w_preproc',
@@ -330,6 +336,9 @@ def init_asl_fit_reports_wf(
     # - SDC2:
     #       Before: Pre-SDC aslref with white matter mask
     #       After: Post-SDC aslref with white matter mask
+    # - M0-ASL registration (if applicable):
+    #       Before: M0 scan
+    #       After: ASL reference
     # - ASL-T1 registration:
     #       Before: T1w brain with white matter mask
     #       After: Resampled aslref with white matter mask
@@ -430,6 +439,42 @@ def init_asl_fit_reports_wf(
             (aslref_wm, sdc_report, [('output_image', 'wm_seg')]),
             (inputnode, ds_sdc_report, [('source_file', 'source_file')]),
             (sdc_report, ds_sdc_report, [('out_report', 'in_file')]),
+        ])  # fmt:skip
+
+    # M0-ASL registration
+    #       Before: M0 scan
+    #       After: ASL reference
+
+    if separate_m0scan:
+        m0_asl_report = pe.Node(
+            SimpleBeforeAfter(
+                before_label='M0',
+                after_label='ASL',
+                dismiss_affine=True,
+            ),
+            name='m0_asl_report',
+            mem_gb=0.1,
+        )
+
+        ds_m0_asl_report = pe.Node(
+            DerivativesDataSink(
+                base_directory=output_dir,
+                desc='m0reg',
+                suffix='asl',
+                datatype='figures',
+                dismiss_entities=('echo',),
+            ),
+            name='ds_m0_asl_report',
+        )
+
+        workflow.connect([
+            (inputnode, m0_asl_report, [
+                ('m0scan_aslref', 'before'),
+                ('coreg_aslref', 'after'),
+            ]),
+            (aslref_wm, m0_asl_report, [('output_image', 'wm_seg')]),
+            (inputnode, ds_m0_asl_report, [('source_file', 'source_file')]),
+            (m0_asl_report, ds_m0_asl_report, [('out_report', 'in_file')]),
         ])  # fmt:skip
 
     # ASL-T1 registration
