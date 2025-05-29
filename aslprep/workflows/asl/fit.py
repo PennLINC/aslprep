@@ -510,7 +510,7 @@ def init_asl_fit_wf(
         # By using MCFLIRT, we can support 4D M0 scans.
         # Register the M0 scan to the ASL reference.
         mcflirt = pe.Node(
-            fsl.MCFLIRT(cost='mutualinfo'),
+            fsl.MCFLIRT(save_mats=True, cost='mutualinfo'),
             name='mcflirt',
             mem_gb=mem_gb['filesize'],
         )
