@@ -92,6 +92,12 @@ sections:
       of performing SyN-based SDC on the ASL for comparison.
     static: false
     subtitle: Experimental fieldmap-less susceptibility distortion correction
+  - bids: {datatype: figures, desc: m0reg, suffix: asl, extension: [.svg]}
+    caption: |
+      The M0 scan was registered to the ASL reference using either an identity transform
+      (if the M0 scan is used to generate the ASL reference) or MCFLIRT.
+    static: false
+    subtitle: Alignment of ASL and M0 scans
   - bids: {datatype: figures, desc: flirtnobbr, suffix: asl, extension: [.svg]}
     caption: |
       <code>mri_coreg</code> (FreeSurfer) was used to generate transformations
@@ -100,7 +106,7 @@ sections:
       highlight potential spin-history and other artifacts, whereas final images are
       resampled using Lanczos interpolation.
     static: false
-    subtitle: Alignment of functional and anatomical MRI data (volume based)
+    subtitle: Alignment of perfusion and anatomical MRI data (volume based)
   - bids: {datatype: figures, desc: coreg, suffix: asl, extension: [.svg]}
     caption: |
       <code>mri_coreg</code> (FreeSurfer) was used to generate transformations
@@ -109,7 +115,7 @@ sections:
       potential spin-history and other artifacts, whereas final images are resampled
       using Lanczos interpolation.
     static: false
-    subtitle: Alignment of functional and anatomical MRI data (volume based)
+    subtitle: Alignment of perfusion and anatomical MRI data (volume based)
   - bids: {datatype: figures, desc: flirtbbr, suffix: asl, extension: [.svg]}
     caption: |
       FSL <code>flirt</code> was used to generate transformations from ASL-space
@@ -118,7 +124,7 @@ sections:
       is used in the reportlets in order to highlight potential spin-history and other
       artifacts, whereas final images are resampled using Lanczos interpolation.
     static: false
-    subtitle: Alignment of functional and anatomical MRI data (surface driven)
+    subtitle: Alignment of perfusion and anatomical MRI data (surface driven)
   - bids: {datatype: figures, desc: bbregister, suffix: asl, extension: [.svg]}
     caption: |
       <code>bbregister</code> was used to generate transformations from ASL-space
@@ -126,7 +132,7 @@ sections:
       in order to highlight potential spin-history and other artifacts, whereas final
       images are resampled using Lanczos interpolation.
     static: false
-    subtitle: Alignment of functional and anatomical MRI data (surface driven)
+    subtitle: Alignment of perfusion and anatomical MRI data (surface driven)
   - bids: {datatype: figures, desc: rois, suffix: asl, extension: [.svg]}
     caption: |
       Brain mask calculated on the ASL signal (red contour).

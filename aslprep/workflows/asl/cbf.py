@@ -4,7 +4,6 @@
 
 from numbers import Number
 
-import numpy as np
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
@@ -31,6 +30,7 @@ from aslprep.utils.asl import (
     get_inflow_times,
     infer_m0tr,
     pcasl_or_pasl,
+    prepare_basil_kwargs,
 )
 from aslprep.utils.atlas import get_atlas_names, get_atlas_nifti
 from aslprep.utils.bids import find_atlas_entities
@@ -120,6 +120,7 @@ def init_cbf_wf(
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """
+
 Cerebral blood flow computation and denoising
 
 """
@@ -525,20 +526,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
 
         workflow.connect([(extract_deltam, estimate_alpha, [('metadata', 'metadata')])])
 
-        basil_kwargs = {}
-        if 'SliceTiming' in metadata.keys():
-            slicetime_diffs = np.unique(np.diff(metadata['SliceTiming']))
-            # Check if slice times are monotonic
-            monotonic_slicetimes = slicetime_diffs.size == 1
-            # Check if slice times are ascending
-            ascending_slicetimes = np.all(slicetime_diffs > 0)
-            # Only set slicedt for ascending slice orders.
-            if monotonic_slicetimes and ascending_slicetimes:
-                basil_kwargs['slice_spacing'] = slicetime_diffs[0]
-            else:
-                config.loggers.interface.warning(
-                    'Slice times are not ascending. They will be ignored in the BASIL call.'
-                )
+        basil_kwargs = prepare_basil_kwargs(metadata)
 
         basilcbf = pe.Node(
             BASILCBF(
@@ -555,7 +543,6 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         workflow.connect([
             (reduce_mask, basilcbf, [('out_mask', 'mask')]),
             (extract_deltam, basilcbf, [
-                (('m0_file', _getfiledir), 'out_basename'),
                 ('out_file', 'deltam'),
                 ('m0_file', 'mzero'),
             ]),
