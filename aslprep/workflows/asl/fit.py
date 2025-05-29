@@ -391,7 +391,7 @@ def init_asl_fit_wf(
         (summary, asl_fit_reports_wf, [('out_report', 'inputnode.summary_report')]),
     ])  # fmt:skip
 
-    # Stage 1: Generate motion correction boldref
+    # Stage 1: Generate motion correction aslref
     hmc_aslref_source_buffer = pe.Node(
         niu.IdentityInterface(fields=['in_file']),
         name='hmc_aslref_source_buffer',
@@ -426,9 +426,7 @@ def init_asl_fit_wf(
             (hmc_aslref_wf, asl_fit_reports_wf, [
                 ('outputnode.validation_report', 'inputnode.validation_report'),
             ]),
-            (ds_hmc_aslref_wf, hmc_aslref_source_buffer, [
-                ('outputnode.aslref', 'in_file'),
-            ]),
+            (ds_hmc_aslref_wf, hmc_aslref_source_buffer, [('outputnode.aslref', 'in_file')]),
         ])  # fmt:skip
     else:
         config.loggers.workflow.info('Found HMC aslref - skipping Stage 1')
@@ -503,37 +501,29 @@ def init_asl_fit_wf(
         from aslprep.interfaces.bids import DerivativesDataSink
 
         config.loggers.workflow.info('Stage 2b: Adding M0 scan registration workflow')
-        if reference_volume_type == 'separate_m0scan':
-            # The separate M0 scan *is* the ASL reference, so we can use the identity transform.
-            from niworkflows import data as nw_data
 
-            # XXX: What about multiple M0 scans?
-            m0scanreg_buffer.inputs.m0scan2aslref_xfm = str(
-                nw_data.load('itkIdentityTransform.txt')
-            )
-        else:
-            # Register the M0 scan to the ASL reference.
-            # By using MCFLIRT, we can support 4D M0 scans.
-            from nipype.interfaces import fsl
-            from niworkflows.interfaces.itk import MCFLIRT2ITK
+        # Register the M0 scan to the ASL reference.
+        # By using MCFLIRT, we can support 4D M0 scans.
+        from nipype.interfaces import fsl
+        from niworkflows.interfaces.itk import MCFLIRT2ITK
 
-            # Register the M0 scan to the ASL reference.
-            mcflirt = pe.Node(
-                fsl.MCFLIRT(cost='mutualinfo', mean_vol=True),
-                name='mcflirt',
-                mem_gb=mem_gb['filesize'],
-            )
-            workflow.connect([
-                (inputnode, mcflirt, [('m0scan', 'in_file')]),
-                (hmcref_buffer, mcflirt, [('aslref', 'ref_file')]),
-                (mcflirt, asl_fit_reports_wf, [('mean_img', 'inputnode.m0scan_aslref')]),
-            ])  # fmt:skip
+        # Register the M0 scan to the ASL reference.
+        mcflirt = pe.Node(
+            fsl.MCFLIRT(cost='mutualinfo', mean_vol=True),
+            name='mcflirt',
+            mem_gb=mem_gb['filesize'],
+        )
+        workflow.connect([
+            (inputnode, mcflirt, [('m0scan', 'in_file')]),
+            (hmcref_buffer, mcflirt, [('aslref', 'ref_file')]),
+            (mcflirt, asl_fit_reports_wf, [('mean_img', 'inputnode.m0scan_aslref')]),
+        ])  # fmt:skip
 
-            fsl2itk = pe.Node(MCFLIRT2ITK(), name='fsl2itk', mem_gb=0.05, n_procs=omp_nthreads)
-            workflow.connect([
-                (mcflirt, fsl2itk, [('mat_file', 'in_files')]),
-                (fsl2itk, m0scanreg_buffer, [('out_file', 'm0scan2aslref_xfm')]),
-            ])  # fmt:skip
+        fsl2itk = pe.Node(MCFLIRT2ITK(), name='fsl2itk', mem_gb=0.05, n_procs=omp_nthreads)
+        workflow.connect([
+            (mcflirt, fsl2itk, [('mat_file', 'in_files')]),
+            (fsl2itk, m0scanreg_buffer, [('out_file', 'm0scan2aslref_xfm')]),
+        ])  # fmt:skip
 
         ds_m0scan2aslref_xfm = pe.Node(
             DerivativesDataSink(
