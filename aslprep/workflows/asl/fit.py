@@ -526,7 +526,7 @@ def init_asl_fit_wf(
             mem_gb=mem_gb['filesize'],
         )
         workflow.connect([
-            (mcflirt, mean_m0scan, [('mean_img', 'in_file')]),
+            (mcflirt, mean_m0scan, [('out_file', 'in_file')]),
             (mean_m0scan, asl_fit_reports_wf, [('out_file', 'inputnode.m0scan_aslref')]),
         ])  # fmt:skip
 
