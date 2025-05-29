@@ -848,7 +848,6 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         ),
         argstr='--alpha %.2f',
     )
-    out_basename = File(desc='base name of output files', argstr='-o %s', mandatory=True)
 
 
 class _BASILCBFOutputSpec(TraitedSpec):
@@ -887,18 +886,14 @@ class BASILCBF(FSLCommand):
         return os.path.abspath(out_file)
 
     def _list_outputs(self):
-        basename = self.inputs.out_basename
-
         outputs = self.output_spec().get()
 
-        outputs['mean_cbf_basil'] = os.path.join(basename, 'native_space/perfusion_calib.nii.gz')
-        outputs['att_basil'] = os.path.join(basename, 'native_space/arrival.nii.gz')
-        outputs['mean_cbf_gm_basil'] = os.path.join(
-            basename,
+        outputs['mean_cbf_basil'] = os.path.abspath('native_space/perfusion_calib.nii.gz')
+        outputs['att_basil'] = os.path.abspath('native_space/arrival.nii.gz')
+        outputs['mean_cbf_gm_basil'] = os.path.abspath(
             'native_space/pvcorr/perfusion_calib.nii.gz',
         )
-        outputs['mean_cbf_wm_basil'] = os.path.join(
-            basename,
+        outputs['mean_cbf_wm_basil'] = os.path.abspath(
             'native_space/pvcorr/perfusion_wm_calib.nii.gz',
         )
 
