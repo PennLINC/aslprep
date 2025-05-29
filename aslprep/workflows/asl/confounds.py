@@ -74,6 +74,10 @@ def init_asl_confounds_wf(
         when available.
     asl_mask
         asl series mask
+    hmc_aslref
+        ASL reference image used for HMC
+    coreg_aslref
+        ASL reference image used for coregistration
     motion_xfm
         ITK-formatted head motion transforms
     t1w_mask
@@ -117,6 +121,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
                 'asl',
                 'asl_mask',
                 'hmc_aslref',
+                'coreg_aslref',
                 'motion_xfm',
                 't1w_mask',
                 't1w_tpms',
@@ -289,7 +294,7 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     )
     workflow.connect([
         (inputnode, rois_plot, [
-            ('asl', 'in_file'),
+            ('coreg_aslref', 'in_file'),
             ('asl_mask', 'in_rois'),
         ]),
         (rois_plot, ds_report_bold_rois, [('out_report', 'in_file')]),
