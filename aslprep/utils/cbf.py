@@ -513,11 +513,11 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
         Used for deltam_art calculation.
         Estimated by the model.
     X : :obj:`numpy.ndarray` of shape (n_plds, 6)
-        Dependent variables: labeleff, t1blood, m0_a, m0_b, plds, taus/ti1s.
+        Dependent variables: labeleff, t1blood, m0_a, m0_b, plds, taus.
 
     Returns
     -------
-    deltam : :obj:`numpy.ndarray`
+    deltam : :obj:`numpy.ndarray` of shape (n_plds,)
         Delta-M values for the voxel.
 
     Notes
@@ -632,12 +632,12 @@ def calculate_deltam_pasl(X, cbf, att, abat, abv):
         Used for deltam_art calculation.
         Estimated by the model.
     X : :obj:`numpy.ndarray` of shape (n_plds/tis, 6)
-        Dependent variables.
+        Dependent variables: labeleff, t1blood, m0_a, m0_b, tis, ti1s.
 
     Returns
     -------
-    deltam : :obj:`float`
-        Delta-M value for the voxel.
+    deltam : :obj:`numpy.ndarray` of shape (n_tis,)
+        Delta-M values for the voxel.
 
     Notes
     -----

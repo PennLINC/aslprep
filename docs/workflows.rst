@@ -346,6 +346,7 @@ model :footcite:p:`alsop_recommended_2015`.
    :math:`TI_{2}` : For Q2TIPS, this is the *last* bolus cutoff delay time, in seconds.
    The other methods do not have this variable.
 
+
 (Pseudo-)Continuous ASL
 -----------------------
 
@@ -432,6 +433,9 @@ In multi-delay ASL, control-label pairs are acquired for multiple post-labeling 
 This type of acquisition requires more complicated models, but it also results in more accurate
 CBF estimates.
 Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
+
+For multi-delay ASL, ASLPrep uses a two-compartment general kinetic model recommended by
+:footcite:t:`woods2023recommendations`.
 
 
 Pseudo-Continuous ASL

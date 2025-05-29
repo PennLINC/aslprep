@@ -511,18 +511,15 @@ class ComputeCBF(SimpleInterface):
             # Broadcast PLDs to voxels by PLDs, even though there's no slice timing to account for.
             plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
 
-        if is_casl:
-            tau = np.array(metadata['LabelingDuration'])
+        # tau is defined for (P)CASL
+        tau = np.array(metadata['LabelingDuration']) if is_casl else None
 
         # Now estimate CBF and any other metrics
         if is_multi_pld:
             ti1 = None
-            tau = None
-            if is_casl:  # (P)CASL needs tau, but not ti1
-                tau = metadata['LabelingDuration']
 
             # PASL needs ti1, but not tau
-            elif metadata['BolusCutOffTechnique'] == 'QUIPSSII':
+            if metadata['BolusCutOffTechnique'] == 'QUIPSSII':
                 # PASL + QUIPSSII
                 # Only one BolusCutOffDelayTime allowed.
                 if not isinstance(metadata['BolusCutOffDelayTime'], Number):
@@ -587,7 +584,6 @@ class ComputeCBF(SimpleInterface):
 
         else:  # Single-delay
             if is_casl:
-                tau = metadata['LabelingDuration']
                 denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
 
             elif not metadata['BolusCutOffFlag']:
