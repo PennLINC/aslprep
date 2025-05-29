@@ -79,7 +79,8 @@ def get_sbrefs(
         sorted by EchoTime
     """
     entities = extract_entities(asl_file)
-    entities.update(suffix='sbref', extension=['.nii', '.nii.gz'], **entity_overrides)
+    entities.update(suffix='sbref', extension=['.nii', '.nii.gz'])
+    entities.update(entity_overrides)
 
     return layout.get(return_type='file', **entities)
 

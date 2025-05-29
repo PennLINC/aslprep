@@ -268,3 +268,80 @@ def infer_m0tr(
         raise RuntimeError('no pathway to m0scan')
 
     return m0tr
+
+
+def prepare_basil_kwargs(metadata):
+    """Prepare keyword arguments for BASIL based on slice timing and multiband metadata.
+
+    Parameters
+    ----------
+    metadata : dict
+        Dictionary of metadata from the ASL file.
+
+    Returns
+    -------
+    basil_kwargs : dict
+        Dictionary of keyword arguments to pass to BASILCBF interface.
+
+    Notes
+    -----
+    This function handles slice timing correction for both single-band and multiband acquisitions.
+    For multiband data, it checks that slice times within each band are monotonic and ascending
+    before setting the sliceband and slice_spacing parameters.
+    """
+    from aslprep import config
+
+    basil_kwargs = {}
+
+    if 'SliceTiming' not in metadata:
+        return basil_kwargs
+
+    mb_factor = metadata.get('MultibandAccelerationFactor', 1)
+    slice_times = metadata['SliceTiming']
+
+    if mb_factor > 1:
+        # Multiband acquisition
+        n_slices = len(slice_times)
+        n_slices_in_band = n_slices // mb_factor
+        ascending_slicetimes = True
+        monotonic_slicetimes = True
+
+        for i_band in range(mb_factor):
+            band_start = n_slices_in_band * i_band
+            band_end = band_start + n_slices_in_band
+            band_slice_times = slice_times[band_start:band_end]
+            # Round to handle floating point precision issues
+            slicetime_diffs = np.unique(np.round(np.diff(band_slice_times), 10))
+
+            # Check if slice times are monotonic for this band
+            if slicetime_diffs.size != 1:
+                monotonic_slicetimes = False
+
+            # Check if slice times are ascending for this band
+            if not np.all(slicetime_diffs > 0):
+                ascending_slicetimes = False
+
+        if ascending_slicetimes and monotonic_slicetimes:
+            basil_kwargs['sliceband'] = n_slices_in_band
+            basil_kwargs['slice_spacing'] = slicetime_diffs[0]
+        else:
+            config.loggers.utils.warning(
+                'Slice times are not ascending. They will be ignored in the BASIL call.'
+            )
+    else:
+        # Single-band acquisition
+        # Round to handle floating point precision issues
+        slicetime_diffs = np.unique(np.round(np.diff(slice_times), 10))
+        # Check if slice times are monotonic
+        monotonic_slicetimes = slicetime_diffs.size == 1
+        # Check if slice times are ascending
+        ascending_slicetimes = np.all(slicetime_diffs > 0)
+
+        if monotonic_slicetimes and ascending_slicetimes:
+            basil_kwargs['slice_spacing'] = slicetime_diffs[0]
+        else:
+            config.loggers.utils.warning(
+                'Slice times are not ascending. They will be ignored in the BASIL call.'
+            )
+
+    return basil_kwargs
