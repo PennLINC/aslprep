@@ -502,9 +502,16 @@ def init_asl_fit_wf(
         from niworkflows.interfaces.itk import MCFLIRT2ITK
 
         from aslprep.interfaces.bids import DerivativesDataSink
-        from aslprep.interfaces.utility import MeanImage
+        from aslprep.interfaces.utility import Ensure4D, MeanImage
 
         config.loggers.workflow.info('Stage 2b: Adding M0 scan registration workflow')
+
+        # Ensure M0 scan is 4D
+        ensure_4d = pe.Node(
+            Ensure4D(),
+            name='ensure_4d',
+        )
+        workflow.connect([(inputnode, ensure_4d, [('m0scan', 'in_file')])])
 
         # Register the M0 scan to the ASL reference.
         # By using MCFLIRT, we can support 4D M0 scans.
@@ -515,7 +522,7 @@ def init_asl_fit_wf(
             mem_gb=mem_gb['filesize'],
         )
         workflow.connect([
-            (inputnode, mcflirt, [('m0scan', 'in_file')]),
+            (ensure_4d, mcflirt, [('out_file', 'in_file')]),
             (hmcref_buffer, mcflirt, [('aslref', 'ref_file')]),
         ])  # fmt:skip
 
