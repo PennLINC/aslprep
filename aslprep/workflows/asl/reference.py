@@ -93,9 +93,9 @@ def init_raw_aslref_wf(
     from aslprep.interfaces.utility import GetImageType, IndexImage
 
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
-First, a reference volume was generated using a custom methodology of *ASLPrep*,
-for use in head motion correction.
+    workflow.__desc__ = f"""\
+First, a reference volume was generated from the {reference_volume_type} volumes using a custom
+methodology of *ASLPrep*, for use in head motion correction.
 """
 
     inputnode = pe.Node(

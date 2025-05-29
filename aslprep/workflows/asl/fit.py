@@ -359,7 +359,7 @@ def init_asl_fit_wf(
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         # TODO: Enable sdc report even if we find coregref
         sdc_correction=fieldmap_id is not None,
-        separate_m0scan=m0scan,
+        separate_m0scan=m0scan is not None,
         freesurfer=config.workflow.run_reconall,
         output_dir=config.execution.aslprep_dir,
     )
