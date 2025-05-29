@@ -350,3 +350,146 @@ class Smooth(NilearnBaseInterface, SimpleInterface):
         img_smoothed.to_filename(self._results['out_file'])
 
         return runtime
+
+
+class _IndexImageInputSpec(BaseInterfaceInputSpec):
+    in_file = File(
+        exists=True,
+        mandatory=True,
+        desc='A 4D image to index.',
+    )
+    index = traits.Int(
+        0,
+        usedefault=True,
+        desc='Volume index to select from in_file.',
+    )
+    out_file = File(
+        'img_3d.nii.gz',
+        usedefault=True,
+        exists=False,
+        desc='The name of the indexed file.',
+    )
+
+
+class _IndexImageOutputSpec(TraitedSpec):
+    out_file = File(
+        exists=True,
+        desc='Concatenated output file.',
+    )
+
+
+class IndexImage(NilearnBaseInterface, SimpleInterface):
+    """Select a specific volume from a 4D image."""
+
+    input_spec = _IndexImageInputSpec
+    output_spec = _IndexImageOutputSpec
+
+    def _run_interface(self, runtime):
+        from nilearn.image import index_img
+
+        img_3d = index_img(self.inputs.in_file, self.inputs.index)
+        self._results['out_file'] = os.path.join(runtime.cwd, self.inputs.out_file)
+        img_3d.to_filename(self._results['out_file'])
+
+        return runtime
+
+
+class _MeanImageInputSpec(BaseInterfaceInputSpec):
+    in_file = File(
+        exists=True,
+        mandatory=True,
+        desc='A 4D image to index.',
+    )
+    out_file = File(
+        'img_3d.nii.gz',
+        usedefault=True,
+        exists=False,
+        desc='The name of the indexed file.',
+    )
+
+
+class _MeanImageOutputSpec(TraitedSpec):
+    out_file = File(
+        exists=True,
+        desc='Concatenated output file.',
+    )
+
+
+class MeanImage(NilearnBaseInterface, SimpleInterface):
+    """Calculate the mean image of a 4D image."""
+
+    input_spec = _MeanImageInputSpec
+    output_spec = _MeanImageOutputSpec
+
+    def _run_interface(self, runtime):
+        from nilearn.image import mean_img
+
+        img_mean = mean_img(self.inputs.in_file)
+        self._results['out_file'] = os.path.join(runtime.cwd, self.inputs.out_file)
+        img_mean.to_filename(self._results['out_file'])
+
+        return runtime
+
+
+class _Ensure4DInputSpec(BaseInterfaceInputSpec):
+    in_file = File(
+        exists=True,
+        mandatory=True,
+        desc='A 4D image to index.',
+    )
+    out_file = File(
+        'img_3d.nii.gz',
+        usedefault=True,
+        exists=False,
+        desc='The name of the indexed file.',
+    )
+
+
+class _Ensure4DOutputSpec(TraitedSpec):
+    out_file = File(
+        exists=True,
+        desc='Concatenated output file.',
+    )
+
+
+class Ensure4D(NilearnBaseInterface, SimpleInterface):
+    """Ensure a 4D image."""
+
+    input_spec = _Ensure4DInputSpec
+    output_spec = _Ensure4DOutputSpec
+
+    def _run_interface(self, runtime):
+        import nibabel as nb
+
+        img = nb.load(self.inputs.in_file)
+        if img.ndim == 3:
+            img = img.slicer[..., None]
+            self._results['out_file'] = os.path.join(runtime.cwd, self.inputs.out_file)
+            img.to_filename(self._results['out_file'])
+        else:
+            self._results['out_file'] = self.inputs.in_file
+
+        return runtime
+
+
+class _GetImageTypeInputSpec(BaseInterfaceInputSpec):
+    image = File(exists=True, mandatory=True)
+
+
+class _GetImageTypeOutputSpec(TraitedSpec):
+    image_type = traits.Enum(0, 1, 2, 3)
+
+
+class GetImageType(SimpleInterface):
+    """Use to determine what to send to --input-image-type."""
+
+    input_spec = _GetImageTypeInputSpec
+    output_spec = _GetImageTypeOutputSpec
+
+    def _run_interface(self, runtime):
+        img = nb.load(self.inputs.image)
+        if img.ndim == 4:
+            self._results['image_type'] = 3
+        else:
+            self._results['image_type'] = 0
+        return runtime

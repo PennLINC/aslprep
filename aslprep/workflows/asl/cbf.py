@@ -120,6 +120,7 @@ def init_cbf_wf(
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """
+
 Cerebral blood flow computation and denoising
 
 """

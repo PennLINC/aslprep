@@ -322,6 +322,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Perform minimal preprocessing of the ASL data, including HMC and SDC
     asl_fit_wf = init_asl_fit_wf(
         asl_file=asl_file,
+        aslcontext=run_data['aslcontext'],
         m0scan=run_data['m0scan'],
         use_ge=use_ge,
         precomputed=precomputed,
@@ -332,7 +333,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     workflow.connect([
         (inputnode, asl_fit_wf, [
-            ('aslcontext', 'inputnode.aslcontext'),
             # Original inputs from fMRIPrep
             ('t1w_preproc', 'inputnode.t1w_preproc'),
             ('t1w_mask', 'inputnode.t1w_mask'),
@@ -373,6 +373,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ('outputnode.asl_mask', 'inputnode.asl_mask'),
             ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
             ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
+            ('outputnode.m0scan2aslref_xfm', 'inputnode.m0scan2aslref_xfm'),
         ]),
     ])  # fmt:skip
 

@@ -123,6 +123,12 @@ sections:
       of performing SyN-based SDC on the ASL for comparison.
     static: false
     subtitle: Experimental fieldmap-less susceptibility distortion correction
+  - bids: {datatype: figures, desc: m0reg, suffix: asl, extension: [.svg]}
+    caption: |
+      The M0 scan was registered to the ASL reference using either an identity transform
+      (if the M0 scan is used to generate the ASL reference) or MCFLIRT.
+    static: false
+    subtitle: Alignment of ASL and M0 scans
   - bids: {datatype: figures, desc: flirtnobbr, suffix: asl, extension: [.svg]}
     caption: |
       <code>mri_coreg</code> (FreeSurfer) was used to generate transformations

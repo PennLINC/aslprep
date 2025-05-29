@@ -88,6 +88,7 @@ def get_sbrefs(
 def init_asl_fit_wf(
     *,
     asl_file: str,
+    aslcontext: str,
     m0scan: str | None,
     use_ge: bool,
     precomputed: dict = None,
@@ -114,6 +115,7 @@ def init_asl_fit_wf(
                 )
                 wf = init_asl_fit_wf(
                     asl_file=str(asl_file),
+                    aslcontext=str(asl_file.replace('.nii.gz', 'context.tsv')),
                     m0scan=None,
                     use_ge=False,
                 )
@@ -122,8 +124,10 @@ def init_asl_fit_wf(
     ----------
     asl_file
         Path to ASL NIfTI file.
+    aslcontext
+        Path to ASL context file.
     m0scan
-        Path to M0 NIfTI file.
+        Path to M0 NIfTI file, if available.
     use_ge
         If True, the M0 scan (when available) will be prioritized as the volume type for the
         reference image, as GE deltam volumes exhibit extreme background noise.
@@ -238,6 +242,7 @@ def init_asl_fit_wf(
     hmc_xforms = transforms.get('hmc')
     aslref2fmap_xform = transforms.get('aslref2fmap')
     aslref2anat_xform = transforms.get('aslref2anat')
+    m0scan2aslref_xform = transforms.get('m0scan2aslref')
 
     workflow = Workflow(name=name)
 
@@ -265,6 +270,8 @@ def init_asl_fit_wf(
         name='inputnode',
     )
     inputnode.inputs.asl_file = asl_file
+    inputnode.inputs.aslcontext = aslcontext
+    inputnode.inputs.m0scan = m0scan
 
     outputnode = pe.Node(
         niu.IdentityInterface(
@@ -275,6 +282,7 @@ def init_asl_fit_wf(
                 'motion_xfm',
                 'aslref2anat_xfm',
                 'aslref2fmap_xfm',
+                'm0scan2aslref_xfm',
             ],
         ),
         name='outputnode',
@@ -283,12 +291,22 @@ def init_asl_fit_wf(
     # If all derivatives exist, inputnode could go unconnected, so add explicitly
     workflow.add_nodes([inputnode])
 
+    reference_volume_type = select_reference_volume_type(
+        aslcontext=aslcontext,
+        metadata=metadata,
+        prioritize_m0=use_ge,
+    )
+
     hmcref_buffer = pe.Node(
         niu.IdentityInterface(fields=['aslref', 'asl_file']),
         name='hmcref_buffer',
     )
     fmapref_buffer = pe.Node(niu.Function(function=_select_ref), name='fmapref_buffer')
     hmc_buffer = pe.Node(niu.IdentityInterface(fields=['hmc_xforms']), name='hmc_buffer')
+    m0scanreg_buffer = pe.Node(
+        niu.IdentityInterface(fields=['m0scan2aslref_xfm']),
+        name='m0scanreg_buffer',
+    )
     fmapreg_buffer = pe.Node(
         niu.IdentityInterface(fields=['aslref2fmap_xfm']),
         name='fmapreg_buffer',
@@ -304,6 +322,12 @@ def init_asl_fit_wf(
     if hmc_xforms:
         hmc_buffer.inputs.hmc_xforms = hmc_xforms
         config.loggers.workflow.debug('Reusing motion correction transforms: %s', hmc_xforms)
+    if m0scan2aslref_xform:
+        m0scanreg_buffer.inputs.m0scan2aslref_xfm = m0scan2aslref_xform
+        config.loggers.workflow.debug(
+            'Reusing M0 scan to ASL reference transform(s): %s',
+            m0scan2aslref_xform,
+        )
     if aslref2fmap_xform:
         fmapreg_buffer.inputs.aslref2fmap_xfm = aslref2fmap_xform
         config.loggers.workflow.debug('Reusing ASL-to-fieldmap transform: %s', aslref2fmap_xform)
@@ -336,6 +360,7 @@ def init_asl_fit_wf(
     asl_fit_reports_wf = init_asl_fit_reports_wf(
         # TODO: Enable sdc report even if we find coregref
         sdc_correction=fieldmap_id is not None,
+        separate_m0scan=m0scan is not None,
         freesurfer=config.workflow.run_reconall,
         output_dir=config.execution.aslprep_dir,
     )
@@ -349,6 +374,7 @@ def init_asl_fit_wf(
         ]),
         (fmapreg_buffer, outputnode, [('aslref2fmap_xfm', 'aslref2fmap_xfm')]),
         (hmc_buffer, outputnode, [('hmc_xforms', 'motion_xfm')]),
+        (m0scanreg_buffer, outputnode, [('m0scan2aslref_xfm', 'm0scan2aslref_xfm')]),
         (inputnode, asl_fit_reports_wf, [
             ('asl_file', 'inputnode.source_file'),
             ('t1w_preproc', 'inputnode.t1w_preproc'),
@@ -366,7 +392,7 @@ def init_asl_fit_wf(
         (summary, asl_fit_reports_wf, [('out_report', 'inputnode.summary_report')]),
     ])  # fmt:skip
 
-    # Stage 1: Generate motion correction boldref
+    # Stage 1: Generate motion correction aslref
     hmc_aslref_source_buffer = pe.Node(
         niu.IdentityInterface(fields=['in_file']),
         name='hmc_aslref_source_buffer',
@@ -376,6 +402,7 @@ def init_asl_fit_wf(
         hmc_aslref_wf = init_raw_aslref_wf(
             name='hmc_aslref_wf',
             asl_file=asl_file,
+            reference_volume_type=reference_volume_type,
             m0scan=(metadata['M0Type'] == 'Separate'),
             use_ge=use_ge,
         )
@@ -400,9 +427,7 @@ def init_asl_fit_wf(
             (hmc_aslref_wf, asl_fit_reports_wf, [
                 ('outputnode.validation_report', 'inputnode.validation_report'),
             ]),
-            (ds_hmc_aslref_wf, hmc_aslref_source_buffer, [
-                ('outputnode.aslref', 'in_file'),
-            ]),
+            (ds_hmc_aslref_wf, hmc_aslref_source_buffer, [('outputnode.aslref', 'in_file')]),
         ])  # fmt:skip
     else:
         config.loggers.workflow.info('Found HMC aslref - skipping Stage 1')
@@ -471,6 +496,75 @@ def init_asl_fit_wf(
         ])  # fmt:skip
     else:
         config.loggers.workflow.info('Found motion correction transforms - skipping Stage 2')
+
+    # Stage 2b: Register M0 scan to aslref
+    if m0scan:
+        from nipype.interfaces import fsl
+        from niworkflows.interfaces.itk import MCFLIRT2ITK
+
+        from aslprep.interfaces.bids import DerivativesDataSink
+        from aslprep.interfaces.utility import Ensure4D, MeanImage
+
+        config.loggers.workflow.info('Stage 2b: Adding M0 scan registration workflow')
+
+        # Ensure M0 scan is 4D
+        ensure_4d = pe.Node(
+            Ensure4D(),
+            name='ensure_4d',
+        )
+        workflow.connect([(inputnode, ensure_4d, [('m0scan', 'in_file')])])
+
+        # Register the M0 scan to the ASL reference.
+        # By using MCFLIRT, we can support 4D M0 scans.
+        # Register the M0 scan to the ASL reference.
+        mcflirt = pe.Node(
+            fsl.MCFLIRT(save_mats=True, cost='mutualinfo'),
+            name='mcflirt',
+            mem_gb=mem_gb['filesize'],
+        )
+        workflow.connect([
+            (ensure_4d, mcflirt, [('out_file', 'in_file')]),
+            (hmcref_buffer, mcflirt, [('aslref', 'ref_file')]),
+        ])  # fmt:skip
+
+        # Calculate mean image of M0 scan
+        mean_m0scan = pe.Node(
+            MeanImage(),
+            name='mean_m0scan',
+            mem_gb=mem_gb['filesize'],
+        )
+        workflow.connect([
+            (mcflirt, mean_m0scan, [('out_file', 'in_file')]),
+            (mean_m0scan, asl_fit_reports_wf, [('out_file', 'inputnode.m0scan_aslref')]),
+        ])  # fmt:skip
+
+        fsl2itk = pe.Node(MCFLIRT2ITK(), name='fsl2itk', mem_gb=0.05, n_procs=omp_nthreads)
+        workflow.connect([
+            (hmcref_buffer, fsl2itk, [
+                ('aslref', 'in_source'),
+                ('aslref', 'in_reference'),
+            ]),
+            (mcflirt, fsl2itk, [('mat_file', 'in_files')]),
+            (fsl2itk, m0scanreg_buffer, [('out_file', 'm0scan2aslref_xfm')]),
+        ])  # fmt:skip
+
+        ds_m0scan2aslref_xfm = pe.Node(
+            DerivativesDataSink(
+                base_directory=config.execution.aslprep_dir,
+                source_file=m0scan,
+                datatype='perf',
+                suffix='xfm',
+                extension='.txt',
+                **{
+                    'from': 'm0scan',
+                    'to': 'aslref',
+                },
+            ),
+            name='ds_m0scan2aslref_xfm',
+        )
+        workflow.connect([
+            (m0scanreg_buffer, ds_m0scan2aslref_xfm, [('m0scan2aslref_xfm', 'in_file')]),
+        ])  # fmt:skip
 
     # Stage 3: Register fieldmap to aslref and reconstruct in ASL space
     if fieldmap_id:
@@ -747,6 +841,7 @@ def init_asl_native_wf(
     asl_file
         List of paths to NIfTI files.
     m0scan
+        Path to M0 NIfTI file, if available.
     fieldmap_id
         ID of the fieldmap to use to correct this ASL series. If :obj:`None`,
         no correction will be applied.
@@ -763,6 +858,8 @@ def init_asl_native_wf(
     motion_xfm
         Affine transforms from each ASL volume to ``hmc_aslref``, written
         as concatenated ITK affine transforms.
+    m0scan2aslref_xfm
+        Affine transform mapping from M0 scan space to ASL reference space, if applicable.
     aslref2fmap_xfm
         Affine transform mapping from ASL reference space to the fieldmap
         space, if applicable.
@@ -809,6 +906,7 @@ def init_asl_native_wf(
                 'asl_mask',
                 'm0scan',
                 'motion_xfm',
+                'm0scan2aslref_xfm',
                 'aslref2fmap_xfm',
                 # Fieldmap fit
                 'fmap_ref',
@@ -829,6 +927,7 @@ def init_asl_native_wf(
                 'metadata',
                 # Transforms
                 'motion_xfm',
+                'm0scan2aslref_xfm',
             ],
         ),
         name='outputnode',
@@ -918,6 +1017,29 @@ def init_asl_native_wf(
         ]),
     ])  # fmt:skip
 
+    if m0scan:
+        # Resample separate M0 file to aslref
+        aslref_m0scan = pe.Node(
+            ResampleSeries(
+                jacobian=jacobian,
+                in_file=m0scan,
+            ),
+            name='aslref_m0scan',
+            n_procs=omp_nthreads,
+        )
+
+        workflow.connect([
+            (inputnode, aslref_m0scan, [
+                ('aslref', 'ref_file'),
+                ('m0scan2aslref_xfm', 'transforms'),
+            ]),
+            (aslbuffer, aslref_m0scan, [
+                ('ro_time', 'ro_time'),
+                ('pe_dir', 'pe_dir'),
+            ]),
+            (aslref_m0scan, outputnode, [('out_file', 'm0scan_native')]),
+        ])  # fmt:skip
+
     if fieldmap_id:
         aslref_fmap = pe.Node(ReconstructFieldmap(inverse=[True]), name='aslref_fmap', mem_gb=1)
         workflow.connect([
@@ -932,36 +1054,14 @@ def init_asl_native_wf(
             (aslref_fmap, aslref_asl, [('out_file', 'fieldmap')]),
         ])  # fmt:skip
 
+        if m0scan:
+            workflow.connect([(aslref_fmap, aslref_m0scan, [('out_file', 'fieldmap')])])
+
     workflow.connect([
         (inputnode, outputnode, [('motion_xfm', 'motion_xfm')]),
         (aslbuffer, outputnode, [('asl_file', 'asl_minimal')]),
         (aslref_asl, outputnode, [('out_file', 'asl_native')]),
     ])  # fmt:skip
-
-    if m0scan:
-        from niworkflows import data as nw_data
-
-        # Resample separate M0 file to aslref
-        # No HMC
-        identity_xfm = nw_data.load('itkIdentityTransform.txt')
-        aslref_m0scan = pe.Node(
-            ResampleSeries(
-                jacobian=jacobian,
-                transforms=[identity_xfm],
-                in_file=m0scan,
-            ),
-            name='aslref_m0scan',
-            n_procs=omp_nthreads,
-        )
-
-        workflow.connect([
-            (inputnode, aslref_m0scan, [('aslref', 'ref_file')]),
-            (aslbuffer, aslref_m0scan, [
-                ('ro_time', 'ro_time'),
-                ('pe_dir', 'pe_dir'),
-            ]),
-            (aslref_m0scan, outputnode, [('out_file', 'm0scan_native')]),
-        ])  # fmt:skip
 
     return workflow
 
@@ -972,3 +1072,31 @@ def _select_ref(sbref_files, aslref_files):
 
     refs = sbref_files or aslref_files
     return listify(refs)[0]
+
+
+def select_reference_volume_type(aslcontext: str, metadata: dict, prioritize_m0: bool) -> str:
+    """Select the reference volume type for the ASL series.
+
+    This function selects the reference volume type for the ASL series based on the ASL context
+    file and the metadata.
+    """
+    import pandas as pd
+
+    aslcontext_df = pd.read_table(aslcontext)
+    separate_m0scan = metadata['M0Type'] == 'Separate'
+    if 'm0scan' in aslcontext_df['volume_type'].tolist() and prioritize_m0:
+        target_type = 'm0scan'
+    elif separate_m0scan and prioritize_m0:
+        target_type = 'separate_m0scan'
+    elif 'cbf' in aslcontext_df['volume_type'].tolist():
+        target_type = 'cbf'
+    elif 'deltam' in aslcontext_df['volume_type'].tolist():
+        target_type = 'deltam'
+    elif 'm0scan' in aslcontext_df['volume_type'].tolist():
+        target_type = 'm0scan'
+    elif separate_m0scan:
+        target_type = 'separate_m0scan'
+    else:
+        target_type = 'control'
+
+    return target_type
