@@ -539,6 +539,10 @@ def init_asl_fit_wf(
 
         fsl2itk = pe.Node(MCFLIRT2ITK(), name='fsl2itk', mem_gb=0.05, n_procs=omp_nthreads)
         workflow.connect([
+            (hmcref_buffer, fsl2itk, [
+                ('aslref', 'in_source'),
+                ('aslref', 'in_reference'),
+            ]),
             (mcflirt, fsl2itk, [('mat_file', 'in_files')]),
             (fsl2itk, m0scanreg_buffer, [('out_file', 'm0scan2aslref_xfm')]),
         ])  # fmt:skip
