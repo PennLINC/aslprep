@@ -394,6 +394,43 @@ class IndexImage(NilearnBaseInterface, SimpleInterface):
         return runtime
 
 
+class _MeanImageInputSpec(BaseInterfaceInputSpec):
+    in_file = File(
+        exists=True,
+        mandatory=True,
+        desc='A 4D image to index.',
+    )
+    out_file = File(
+        'img_3d.nii.gz',
+        usedefault=True,
+        exists=False,
+        desc='The name of the indexed file.',
+    )
+
+
+class _MeanImageOutputSpec(TraitedSpec):
+    out_file = File(
+        exists=True,
+        desc='Concatenated output file.',
+    )
+
+
+class MeanImage(NilearnBaseInterface, SimpleInterface):
+    """Calculate the mean image of a 4D image."""
+
+    input_spec = _MeanImageInputSpec
+    output_spec = _MeanImageOutputSpec
+
+    def _run_interface(self, runtime):
+        from nilearn.image import mean_img
+
+        img_mean = mean_img(self.inputs.in_file)
+        self._results['out_file'] = os.path.join(runtime.cwd, self.inputs.out_file)
+        img_mean.to_filename(self._results['out_file'])
+
+        return runtime
+
+
 class _GetImageTypeInputSpec(BaseInterfaceInputSpec):
     image = File(exists=True, mandatory=True)
 

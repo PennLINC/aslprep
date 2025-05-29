@@ -498,25 +498,36 @@ def init_asl_fit_wf(
 
     # Stage 2b: Register M0 scan to aslref
     if m0scan:
+        from nipype.interfaces import fsl
+        from niworkflows.interfaces.itk import MCFLIRT2ITK
+
         from aslprep.interfaces.bids import DerivativesDataSink
+        from aslprep.interfaces.utility import MeanImage
 
         config.loggers.workflow.info('Stage 2b: Adding M0 scan registration workflow')
 
         # Register the M0 scan to the ASL reference.
         # By using MCFLIRT, we can support 4D M0 scans.
-        from nipype.interfaces import fsl
-        from niworkflows.interfaces.itk import MCFLIRT2ITK
-
         # Register the M0 scan to the ASL reference.
         mcflirt = pe.Node(
-            fsl.MCFLIRT(cost='mutualinfo', mean_vol=True),
+            fsl.MCFLIRT(cost='mutualinfo'),
             name='mcflirt',
             mem_gb=mem_gb['filesize'],
         )
         workflow.connect([
             (inputnode, mcflirt, [('m0scan', 'in_file')]),
             (hmcref_buffer, mcflirt, [('aslref', 'ref_file')]),
-            (mcflirt, asl_fit_reports_wf, [('mean_img', 'inputnode.m0scan_aslref')]),
+        ])  # fmt:skip
+
+        # Calculate mean image of M0 scan
+        mean_m0scan = pe.Node(
+            MeanImage(),
+            name='mean_m0scan',
+            mem_gb=mem_gb['filesize'],
+        )
+        workflow.connect([
+            (mcflirt, mean_m0scan, [('mean_img', 'in_file')]),
+            (mean_m0scan, asl_fit_reports_wf, [('out_file', 'inputnode.m0scan_aslref')]),
         ])  # fmt:skip
 
         fsl2itk = pe.Node(MCFLIRT2ITK(), name='fsl2itk', mem_gb=0.05, n_procs=omp_nthreads)
