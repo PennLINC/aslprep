@@ -441,6 +441,14 @@ For multi-delay ASL, ASLPrep uses a two-compartment general kinetic model recomm
 Pseudo-Continuous ASL
 ---------------------
 
+.. math::
+
+   SI_{control} - SI_{label} = \begin{cases}
+      0 & \text{if } 0 < LD + PLD < ATT \\
+      \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{ATT}{T_{1b}}} \cdot \left(1 - e^{- \frac{LD + PLD - ATT}{T_{1b}}}\right)}{6000} & \text{if } ATT < LD + PLD < ATT + LD \\
+      \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{PLD}{T_{1b}}} \cdot \left(1 - e^{- \frac{LD}{T_{1b}}}\right)}{6000} & \text{if } ATT < PLD \\
+   \end{cases}
+
 For multi-delay PCASL data, the following steps are taken:
 
 1. :math:`\Delta{M}` values are first averaged over time for each unique post-labeling delay value.
