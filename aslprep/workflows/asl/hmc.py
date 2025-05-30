@@ -289,6 +289,7 @@ def init_m0scan_hmc_wf(
     # Resample M0 scan to ASL reference resolution/orientation
     resample_m0scan_to_asl = pe.Node(
         ApplyTransforms(
+            dimension=4,
             interpolation='Gaussian',
             transforms=['identity'],
             args='--verbose',
