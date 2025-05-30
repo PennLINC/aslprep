@@ -459,11 +459,15 @@ class Ensure4D(NilearnBaseInterface, SimpleInterface):
     output_spec = _Ensure4DOutputSpec
 
     def _run_interface(self, runtime):
-        from nilearn._utils.niimg_conversions import check_niimg_4d
+        import nibabel as nb
 
-        img4d = check_niimg_4d(self.inputs.in_file)
-        self._results['out_file'] = os.path.join(runtime.cwd, self.inputs.out_file)
-        img4d.to_filename(self._results['out_file'])
+        img = nb.load(self.inputs.in_file)
+        if img.ndim == 3:
+            img = img.slicer[..., None]
+            self._results['out_file'] = os.path.join(runtime.cwd, self.inputs.out_file)
+            img.to_filename(self._results['out_file'])
+        else:
+            self._results['out_file'] = self.inputs.in_file
 
         return runtime
 
