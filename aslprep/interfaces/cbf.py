@@ -512,7 +512,7 @@ class ComputeCBF(SimpleInterface):
             plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
 
         # tau is defined for (P)CASL
-        tau = np.array(metadata['LabelingDuration']) if is_casl else None
+        tau = metadata['LabelingDuration'] if is_casl else None
 
         # Now estimate CBF and any other metrics
         if is_multi_pld:
