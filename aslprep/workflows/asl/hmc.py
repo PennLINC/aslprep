@@ -290,6 +290,7 @@ def init_m0scan_hmc_wf(
     resample_m0scan_to_asl = pe.Node(
         ApplyTransforms(
             dimension=4,
+            input_image_type=3,
             interpolation='Gaussian',
             transforms=['identity'],
             args='--verbose',
