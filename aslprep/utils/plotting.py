@@ -44,13 +44,16 @@ class CBFPlot:
         cbf_data[cbf_data > self.vmax] = self.vmax
         if np.any(cbf_data < 0):
             colormap = 'coolwarm'
+            vmin = -20
         else:
             colormap = 'Reds'
+            vmin = 0
 
         cbf_img = nb.Nifti1Image(cbf_data, affine=cbf_img.affine, header=cbf_img.header)
         statfile = plot_stat_map(
             cbf=cbf_img,
             ref_vol=self.ref_vol,
+            vmin=vmin,
             vmax=self.vmax,
             label=self.label,
             cmap=colormap,
