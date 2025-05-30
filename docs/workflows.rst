@@ -442,12 +442,15 @@ Pseudo-Continuous ASL
 ---------------------
 
 .. math::
+   :label: woods_eq2
 
-   SI_{control} - SI_{label} = \begin{cases}
+   \Delta{M} = \begin{cases}
       0 & \text{if } 0 < LD + PLD < ATT \\
       \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{ATT}{T_{1b}}} \cdot \left(1 - e^{- \frac{LD + PLD - ATT}{T_{1b}}}\right)}{6000} & \text{if } ATT < LD + PLD < ATT + LD \\
       \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{PLD}{T_{1b}}} \cdot \left(1 - e^{- \frac{LD}{T_{1b}}}\right)}{6000} & \text{if } ATT < PLD \\
    \end{cases}
+
+For reference, please see Equation 2 in :footcite:t:`woods2023recommendations`.
 
 For multi-delay PCASL data, the following steps are taken:
 
@@ -532,9 +535,16 @@ For multi-delay PCASL data, the following steps are taken:
 Pulsed ASL
 ----------
 
-.. warning::
-   As of 0.3.0, ASLPrep has disabled multi-delay support for PASL data.
-   We plan to properly support multi-delay PASL data in the near future.
+.. math::
+   :label: woods_eq3
+
+   \Delta{M} = \begin{cases}
+      0 & \text{if } 0 < TI < ATT \\
+      \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{TI}{T_{1b}}} \cdot (TI - ATT)}{6000} & \text{if } ATT < TI < ATT + TI_1 \\
+      \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{TI}{T_{1b}}} \cdot TI_1}{6000} & \text{if } ATT + TI_1 < TI \\
+   \end{cases}
+
+For reference, please see Equation 3 in :footcite:t:`woods2023recommendations`.
 
 
 Additional Denoising Options
