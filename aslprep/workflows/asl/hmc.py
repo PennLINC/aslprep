@@ -255,7 +255,7 @@ def init_m0scan_hmc_wf(
 
     from aslprep.interfaces.ants import ApplyTransforms
     from aslprep.interfaces.bids import DerivativesDataSink
-    from aslprep.interfaces.utility import GetImageType, MeanImage
+    from aslprep.interfaces.utility import Ensure4D, GetImageType, MeanImage
 
     workflow = Workflow(name=name)
 
@@ -301,6 +301,9 @@ def init_m0scan_hmc_wf(
         (get_image_type, resample_m0scan_to_asl, [('image_type', 'input_image_type')]),
     ])  # fmt:skip
 
+    ensure_4d = pe.Node(Ensure4D(), name='ensure_4d')
+    workflow.connect([(resample_m0scan_to_asl, ensure_4d, [('output_image', 'in_file')])])
+
     # Register the M0 scan to the ASL reference.
     # By using MCFLIRT, we can support 4D M0 scans.
     # Register the M0 scan to the ASL reference.
@@ -311,7 +314,7 @@ def init_m0scan_hmc_wf(
     )
     workflow.connect([
         (inputnode, mcflirt, [('aslref', 'ref_file')]),
-        (resample_m0scan_to_asl, mcflirt, [('output_image', 'in_file')]),
+        (ensure_4d, mcflirt, [('out_file', 'in_file')]),
     ])  # fmt:skip
 
     # Calculate mean image of M0 scan

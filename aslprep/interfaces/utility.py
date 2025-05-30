@@ -431,6 +431,43 @@ class MeanImage(NilearnBaseInterface, SimpleInterface):
         return runtime
 
 
+class _Ensure4DInputSpec(BaseInterfaceInputSpec):
+    in_file = File(
+        exists=True,
+        mandatory=True,
+        desc='A 4D image to index.',
+    )
+    out_file = File(
+        'img_4d.nii.gz',
+        usedefault=True,
+        exists=False,
+        desc='The name of the 4D file.',
+    )
+
+
+class _Ensure4DOutputSpec(TraitedSpec):
+    out_file = File(
+        exists=True,
+        desc='The name of the 4D file.',
+    )
+
+
+class Ensure4D(NilearnBaseInterface, SimpleInterface):
+    """Ensure a 4D image."""
+
+    input_spec = _Ensure4DInputSpec
+    output_spec = _Ensure4DOutputSpec
+
+    def _run_interface(self, runtime):
+        from nilearn._utils.niimg_conversions import check_niimg_4d
+
+        img4d = check_niimg_4d(self.inputs.in_file)
+        self._results['out_file'] = os.path.join(runtime.cwd, self.inputs.out_file)
+        img4d.to_filename(self._results['out_file'])
+
+        return runtime
+
+
 class _GetImageTypeInputSpec(BaseInterfaceInputSpec):
     image = File(exists=True, mandatory=True)
 
