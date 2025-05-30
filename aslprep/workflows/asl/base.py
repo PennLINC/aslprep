@@ -464,6 +464,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         (asl_fit_wf, asl_confounds_wf, [
             ('outputnode.asl_mask', 'inputnode.asl_mask'),
             ('outputnode.hmc_aslref', 'inputnode.hmc_aslref'),
+            ('outputnode.coreg_aslref', 'inputnode.coreg_aslref'),
             ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
             ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
         ]),

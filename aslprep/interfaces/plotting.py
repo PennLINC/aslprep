@@ -131,10 +131,11 @@ class ASLCarpetPlot(SimpleInterface):
 
 
 class _CBFSummaryPlotInputSpec(BaseInterfaceInputSpec):
-    cbf = File(exists=True, mandatory=True, desc='')
-    label = traits.Str(exists=True, mandatory=True, desc='label')
-    vmax = traits.Int(exists=True, default_value=90, mandatory=True, desc='max value of asl')
-    ref_vol = File(exists=True, mandatory=True, desc='')
+    cbf = File(exists=True, mandatory=True, desc='Image to plot')
+    label = traits.Str(mandatory=True, desc='label')
+    vmin = traits.Int(-20, usedefault=True, mandatory=False, desc='Minimum value for figure')
+    vmax = traits.Int(100, usedefault=True, mandatory=True, desc='Maximum value for figure')
+    ref_vol = File(exists=True, mandatory=True, desc='Reference volume to use as underlay')
 
 
 class _CBFSummaryPlotOutputSpec(TraitedSpec):
@@ -161,6 +162,7 @@ class CBFSummaryPlot(SimpleInterface):
             cbf=self.inputs.cbf,
             label=self.inputs.label,
             ref_vol=self.inputs.ref_vol,
+            vmin=self.inputs.vmin,
             vmax=self.inputs.vmax,
             outfile=self._results['out_file'],
         ).plot()
