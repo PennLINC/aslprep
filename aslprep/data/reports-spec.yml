@@ -127,6 +127,9 @@ sections:
     caption: |
       The M0 scan was registered to the ASL reference using either an identity transform
       (if the M0 scan is used to generate the ASL reference) or MCFLIRT.
+
+      This plot compares the HMC-transformed M0 scan to the ASL reference after distortion correction,
+      so there may be some mismatch due to SDC.
     static: false
     subtitle: Alignment of ASL and M0 scans
   - bids: {datatype: figures, desc: flirtnobbr, suffix: asl, extension: [.svg]}

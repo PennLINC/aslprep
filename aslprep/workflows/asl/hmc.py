@@ -2,21 +2,6 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for estimating and correcting head motion in ASL images."""
 
-from nipype.interfaces import fsl
-from nipype.interfaces import utility as niu
-from nipype.pipeline import engine as pe
-from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-from niworkflows.interfaces.itk import MCFLIRT2ITK
-from niworkflows.utils.connections import listify
-
-from aslprep.config import DEFAULT_MEMORY_MIN_GB
-from aslprep.interfaces.confounds import NormalizeMotionParams
-from aslprep.interfaces.utility import (
-    CombineMotionParameters,
-    PairwiseRMSDiff,
-    SplitByVolumeType,
-)
-
 
 def init_asl_hmc_wf(
     mem_gb,
@@ -83,6 +68,21 @@ def init_asl_hmc_wf(
     ----------
     .. footbibliography::
     """
+    from nipype.interfaces import fsl
+    from nipype.interfaces import utility as niu
+    from nipype.pipeline import engine as pe
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.itk import MCFLIRT2ITK
+    from niworkflows.utils.connections import listify
+
+    from aslprep.config import DEFAULT_MEMORY_MIN_GB
+    from aslprep.interfaces.confounds import NormalizeMotionParams
+    from aslprep.interfaces.utility import (
+        CombineMotionParameters,
+        PairwiseRMSDiff,
+        SplitByVolumeType,
+    )
+
     workflow = Workflow(name=name)
 
     workflow.__desc__ = """\
@@ -193,6 +193,150 @@ re-calculated relative root mean-squared deviation.
     workflow.connect([
         (combine_motpars, normalize_motion, [('combined_par_file', 'in_file')]),
         (normalize_motion, outputnode, [('out_file', 'movpar_file')]),
+    ])  # fmt:skip
+
+    return workflow
+
+
+def init_m0scan_hmc_wf(
+    output_dir,
+    mem_gb,
+    omp_nthreads,
+    name='m0scan_hmc_wf',
+):
+    """Estimate head-motion parameters for the M0 scan.
+
+    This workflow resamples the M0 scan to the ASL reference resolution/orientation,
+    and then applies MCFLIRT to the M0 scan.
+
+    Parameters
+    ----------
+    output_dir : :obj:`str`
+        Output directory for the M0 scan motion correction transforms
+    mem_gb : :obj:`float`
+        Size of M0 scan in GB
+    omp_nthreads : :obj:`int`
+        Maximum number of threads an individual process may use
+    name : :obj:`str`
+        Name of workflow (default: ``m0scan_hmc_wf``)
+
+    Inputs
+    ------
+    m0scan
+        M0 scan NIfTI file.
+    aslref
+        ASL reference image NIfTI file.
+
+    Outputs
+    -------
+    m0scan2aslref_xfm
+        ITKTransform file aligning the M0 scan to the ASL reference.
+    m0scan_aslref
+        Mean M0 scan image in ASL reference space. Used for fit report workflow.
+    """
+    from nipype.interfaces import fsl
+    from nipype.interfaces import utility as niu
+    from nipype.pipeline import engine as pe
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.itk import MCFLIRT2ITK
+
+    from aslprep.interfaces.ants import ApplyTransforms
+    from aslprep.interfaces.bids import DerivativesDataSink
+    from aslprep.interfaces.utility import Ensure4D, MeanImage
+
+    workflow = Workflow(name=name)
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=[
+                'm0scan',
+                'aslref',
+            ],
+        ),
+        name='inputnode',
+    )
+
+    outputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=[
+                'm0scan2aslref_xfm',
+                'm0scan_aslref',
+            ],
+        ),
+        name='outputnode',
+    )
+
+    # Ensure M0 scan is 4D
+    ensure_4d = pe.Node(
+        Ensure4D(),
+        name='ensure_4d',
+    )
+    workflow.connect([(inputnode, ensure_4d, [('m0scan', 'in_file')])])
+
+    # Resample M0 scan to ASL reference resolution/orientation
+    resample_m0scan_to_asl = pe.Node(
+        ApplyTransforms(
+            interpolation='Gaussian',
+            transforms=['identity'],
+            args='--verbose',
+        ),
+        name='resample_m0scan_to_asl',
+    )
+    workflow.connect([
+        (inputnode, resample_m0scan_to_asl, [('aslref', 'reference_image')]),
+        (ensure_4d, resample_m0scan_to_asl, [('out_file', 'input_image')]),
+    ])  # fmt:skip
+
+    # Register the M0 scan to the ASL reference.
+    # By using MCFLIRT, we can support 4D M0 scans.
+    # Register the M0 scan to the ASL reference.
+    mcflirt = pe.Node(
+        fsl.MCFLIRT(save_mats=True, cost='mutualinfo'),
+        name='mcflirt',
+        mem_gb=mem_gb['filesize'],
+    )
+    workflow.connect([
+        (inputnode, mcflirt, [('aslref', 'ref_file')]),
+        (resample_m0scan_to_asl, mcflirt, [('out_file', 'in_file')]),
+    ])  # fmt:skip
+
+    # Calculate mean image of M0 scan
+    mean_m0scan = pe.Node(
+        MeanImage(),
+        name='mean_m0scan',
+        mem_gb=mem_gb['filesize'],
+    )
+    workflow.connect([
+        (mcflirt, mean_m0scan, [('out_file', 'in_file')]),
+        (mean_m0scan, outputnode, [('out_file', 'm0scan_aslref')]),
+    ])  # fmt:skip
+
+    fsl2itk = pe.Node(MCFLIRT2ITK(), name='fsl2itk', mem_gb=0.05, n_procs=omp_nthreads)
+    workflow.connect([
+        (inputnode, fsl2itk, [
+            ('aslref', 'in_source'),
+            ('aslref', 'in_reference'),
+        ]),
+        (mcflirt, fsl2itk, [('mat_file', 'in_files')]),
+        (fsl2itk, outputnode, [('out_file', 'm0scan2aslref_xfm')]),
+    ])  # fmt:skip
+
+    ds_m0scan2aslref_xfm = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            datatype='perf',
+            suffix='xfm',
+            extension='.txt',
+            **{
+                'from': 'm0scan',
+                'to': 'aslref',
+            },
+        ),
+        name='ds_m0scan2aslref_xfm',
+    )
+    workflow.connect([
+        (inputnode, ds_m0scan2aslref_xfm, [('m0scan', 'source_file')]),
+        (outputnode, ds_m0scan2aslref_xfm, [('m0scan2aslref_xfm', 'in_file')]),
     ])  # fmt:skip
 
     return workflow
