@@ -255,7 +255,7 @@ def init_m0scan_hmc_wf(
 
     from aslprep.interfaces.ants import ApplyTransforms
     from aslprep.interfaces.bids import DerivativesDataSink
-    from aslprep.interfaces.utility import Ensure4D, MeanImage
+    from aslprep.interfaces.utility import GetImageType, MeanImage
 
     workflow = Workflow(name=name)
 
@@ -279,17 +279,14 @@ def init_m0scan_hmc_wf(
         name='outputnode',
     )
 
-    # Ensure M0 scan is 4D
-    ensure_4d = pe.Node(
-        Ensure4D(),
-        name='ensure_4d',
-    )
-    workflow.connect([(inputnode, ensure_4d, [('m0scan', 'in_file')])])
+    # In some cases, the separate M0 scan may have a different resolution than the ASL scan.
+    # We resample the M0 scan to match the ASL scan at this point.
+    get_image_type = pe.Node(GetImageType(), name='get_image_type')
+    workflow.connect([(inputnode, get_image_type, [('m0scan', 'image')])])
 
     # Resample M0 scan to ASL reference resolution/orientation
     resample_m0scan_to_asl = pe.Node(
         ApplyTransforms(
-            input_image_type=3,
             interpolation='Gaussian',
             transforms=['identity'],
             args='--verbose',
@@ -297,8 +294,11 @@ def init_m0scan_hmc_wf(
         name='resample_m0scan_to_asl',
     )
     workflow.connect([
-        (inputnode, resample_m0scan_to_asl, [('aslref', 'reference_image')]),
-        (ensure_4d, resample_m0scan_to_asl, [('out_file', 'input_image')]),
+        (inputnode, resample_m0scan_to_asl, [
+            ('aslref', 'reference_image'),
+            ('m0scan', 'input_image'),
+        ]),
+        (get_image_type, resample_m0scan_to_asl, [('image_type', 'input_image_type')]),
     ])  # fmt:skip
 
     # Register the M0 scan to the ASL reference.

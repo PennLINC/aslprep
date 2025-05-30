@@ -845,7 +845,7 @@ def init_asl_native_wf(
         this will be undefined.
     """
     from aslprep.interfaces.ants import ApplyTransforms
-    from aslprep.interfaces.utility import Ensure4D
+    from aslprep.interfaces.utility import GetImageType
     from aslprep.utils.misc import estimate_asl_mem_usage
 
     layout = config.execution.layout
@@ -976,17 +976,14 @@ def init_asl_native_wf(
     ])  # fmt:skip
 
     if m0scan:
-        # Ensure M0 scan is 4D
-        ensure_4d = pe.Node(
-            Ensure4D(),
-            name='ensure_4d',
-        )
-        workflow.connect([(inputnode, ensure_4d, [('m0scan', 'in_file')])])
+        # In some cases, the separate M0 scan may have a different resolution than the ASL scan.
+        # We resample the M0 scan to match the ASL scan at this point.
+        get_image_type = pe.Node(GetImageType(), name='get_image_type')
+        workflow.connect([(inputnode, get_image_type, [('m0scan', 'image')])])
 
         # Resample separate M0 file to aslref resolution/orientation
         resample_m0scan_to_asl = pe.Node(
             ApplyTransforms(
-                input_image_type=3,
                 interpolation='Gaussian',
                 transforms=['identity'],
                 args='--verbose',
@@ -994,8 +991,11 @@ def init_asl_native_wf(
             name='resample_m0scan_to_asl',
         )
         workflow.connect([
-            (inputnode, resample_m0scan_to_asl, [('aslref', 'reference_image')]),
-            (ensure_4d, resample_m0scan_to_asl, [('out_file', 'input_image')]),
+            (inputnode, resample_m0scan_to_asl, [
+                ('aslref', 'reference_image'),
+                ('m0scan', 'input_image'),
+            ]),
+            (get_image_type, resample_m0scan_to_asl, [('image_type', 'input_image_type')]),
         ])  # fmt:skip
 
         # Apply transforms to M0 scan to aslref space
