@@ -986,7 +986,6 @@ def init_asl_native_wf(
         # Resample separate M0 file to aslref resolution/orientation
         resample_m0scan_to_asl = pe.Node(
             ApplyTransforms(
-                dimension=4,
                 input_image_type=3,
                 interpolation='Gaussian',
                 transforms=['identity'],
