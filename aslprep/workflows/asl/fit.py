@@ -874,6 +874,7 @@ def init_asl_native_wf(
         ),
         name='inputnode',
     )
+    inputnode.inputs.m0scan = m0scan
 
     outputnode = pe.Node(
         niu.IdentityInterface(
