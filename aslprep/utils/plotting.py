@@ -93,7 +93,7 @@ def plot_stat_map(
     if isinstance(vmin, Number) and (vmin >= 0):
         symmetric_cbar = False
     else:
-        symmetric_cbar = True
+        symmetric_cbar = False
 
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
