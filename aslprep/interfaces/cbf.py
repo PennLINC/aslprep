@@ -519,7 +519,7 @@ class ComputeCBF(SimpleInterface):
             ti1 = None
 
             # PASL needs ti1, but not tau
-            if metadata['BolusCutOffTechnique'] == 'QUIPSSII':
+            if metadata.get('BolusCutOffTechnique') == 'QUIPSSII':
                 # PASL + QUIPSSII
                 # Only one BolusCutOffDelayTime allowed.
                 if not isinstance(metadata['BolusCutOffDelayTime'], Number):
@@ -529,7 +529,7 @@ class ComputeCBF(SimpleInterface):
                     )
                 ti1 = metadata['BolusCutOffDelayTime']
 
-            elif metadata['BolusCutOffTechnique'] == 'Q2TIPS':
+            elif metadata.get('BolusCutOffTechnique') == 'Q2TIPS':
                 # PASL + Q2TIPS
                 # Q2TIPS should have two BolusCutOffDelayTimes.
                 if len(metadata['BolusCutOffDelayTime']) != 2:
@@ -538,7 +538,7 @@ class ComputeCBF(SimpleInterface):
                         f'{metadata["BolusCutOffDelayTime"]}'
                     )
                 ti1 = metadata['BolusCutOffDelayTime'][0]
-            else:
+            elif 'BolusCutOffTechnique' in metadata:
                 raise ValueError(
                     f'Unsupported BolusCutOffTechnique ({metadata.get("BolusCutOffTechnique")}) '
                     'for multi-PLD data.'
