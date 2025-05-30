@@ -310,7 +310,7 @@ def init_m0scan_hmc_wf(
     )
     workflow.connect([
         (inputnode, mcflirt, [('aslref', 'ref_file')]),
-        (resample_m0scan_to_asl, mcflirt, [('out_file', 'in_file')]),
+        (resample_m0scan_to_asl, mcflirt, [('output_image', 'in_file')]),
     ])  # fmt:skip
 
     # Calculate mean image of M0 scan

@@ -1001,7 +1001,6 @@ def init_asl_native_wf(
         aslref_m0scan = pe.Node(
             ResampleSeries(
                 jacobian=jacobian,
-                in_file=m0scan,
             ),
             name='aslref_m0scan',
             n_procs=omp_nthreads,
@@ -1011,6 +1010,7 @@ def init_asl_native_wf(
                 ('aslref', 'ref_file'),
                 ('m0scan2aslref_xfm', 'transforms'),
             ]),
+            (resample_m0scan_to_asl, aslref_m0scan, [('output_image', 'in_file')]),
             (aslbuffer, aslref_m0scan, [
                 ('ro_time', 'ro_time'),
                 ('pe_dir', 'pe_dir'),
