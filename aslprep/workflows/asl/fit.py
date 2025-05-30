@@ -498,7 +498,7 @@ def init_asl_fit_wf(
         config.loggers.workflow.info('Found motion correction transforms - skipping Stage 2')
 
     # Stage 2b: Register M0 scan to aslref
-    if m0scan and not hmc_xforms:
+    if m0scan and not m0scan2aslref_xform:
         from aslprep.workflows.asl.hmc import init_m0scan_hmc_wf
 
         config.loggers.workflow.info('Stage 2b: Adding M0 scan registration workflow')

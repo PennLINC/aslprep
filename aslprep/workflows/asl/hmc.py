@@ -209,12 +209,25 @@ def init_m0scan_hmc_wf(
     This workflow resamples the M0 scan to the ASL reference resolution/orientation,
     and then applies MCFLIRT to the M0 scan.
 
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.workflows.asl.hmc import init_m0scan_hmc_wf
+
+            wf = init_m0scan_hmc_wf(
+                mem_gb=3,
+                omp_nthreads=1,
+                name="asl_hmc_wf",
+            )
+
     Parameters
     ----------
     output_dir : :obj:`str`
         Output directory for the M0 scan motion correction transforms
     mem_gb : :obj:`float`
-        Size of M0 scan in GB
+        Memory usage for the workflow in GB.
     omp_nthreads : :obj:`int`
         Maximum number of threads an individual process may use
     name : :obj:`str`
@@ -293,7 +306,7 @@ def init_m0scan_hmc_wf(
     mcflirt = pe.Node(
         fsl.MCFLIRT(save_mats=True, cost='mutualinfo'),
         name='mcflirt',
-        mem_gb=mem_gb['filesize'],
+        mem_gb=mem_gb,
     )
     workflow.connect([
         (inputnode, mcflirt, [('aslref', 'ref_file')]),
@@ -304,7 +317,7 @@ def init_m0scan_hmc_wf(
     mean_m0scan = pe.Node(
         MeanImage(),
         name='mean_m0scan',
-        mem_gb=mem_gb['filesize'],
+        mem_gb=mem_gb,
     )
     workflow.connect([
         (mcflirt, mean_m0scan, [('out_file', 'in_file')]),
