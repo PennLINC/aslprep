@@ -438,17 +438,17 @@ class _Ensure4DInputSpec(BaseInterfaceInputSpec):
         desc='A 4D image to index.',
     )
     out_file = File(
-        'img_3d.nii.gz',
+        'img_4d.nii.gz',
         usedefault=True,
         exists=False,
-        desc='The name of the indexed file.',
+        desc='The name of the 4D file.',
     )
 
 
 class _Ensure4DOutputSpec(TraitedSpec):
     out_file = File(
         exists=True,
-        desc='Concatenated output file.',
+        desc='The name of the 4D file.',
     )
 
 

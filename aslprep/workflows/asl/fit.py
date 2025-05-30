@@ -498,73 +498,29 @@ def init_asl_fit_wf(
         config.loggers.workflow.info('Found motion correction transforms - skipping Stage 2')
 
     # Stage 2b: Register M0 scan to aslref
-    if m0scan:
-        from nipype.interfaces import fsl
-        from niworkflows.interfaces.itk import MCFLIRT2ITK
-
-        from aslprep.interfaces.bids import DerivativesDataSink
-        from aslprep.interfaces.utility import Ensure4D, MeanImage
+    if m0scan and not m0scan2aslref_xform:
+        from aslprep.workflows.asl.hmc import init_m0scan_hmc_wf
 
         config.loggers.workflow.info('Stage 2b: Adding M0 scan registration workflow')
 
-        # Ensure M0 scan is 4D
-        ensure_4d = pe.Node(
-            Ensure4D(),
-            name='ensure_4d',
-        )
-        workflow.connect([(inputnode, ensure_4d, [('m0scan', 'in_file')])])
-
-        # Register the M0 scan to the ASL reference.
-        # By using MCFLIRT, we can support 4D M0 scans.
-        # Register the M0 scan to the ASL reference.
-        mcflirt = pe.Node(
-            fsl.MCFLIRT(save_mats=True, cost='mutualinfo'),
-            name='mcflirt',
+        m0scan_hmc_wf = init_m0scan_hmc_wf(
+            output_dir=config.execution.aslprep_dir,
             mem_gb=mem_gb['filesize'],
+            omp_nthreads=omp_nthreads,
+            name='m0scan_hmc_wf',
         )
         workflow.connect([
-            (ensure_4d, mcflirt, [('out_file', 'in_file')]),
-            (hmcref_buffer, mcflirt, [('aslref', 'ref_file')]),
-        ])  # fmt:skip
-
-        # Calculate mean image of M0 scan
-        mean_m0scan = pe.Node(
-            MeanImage(),
-            name='mean_m0scan',
-            mem_gb=mem_gb['filesize'],
-        )
-        workflow.connect([
-            (mcflirt, mean_m0scan, [('out_file', 'in_file')]),
-            (mean_m0scan, asl_fit_reports_wf, [('out_file', 'inputnode.m0scan_aslref')]),
-        ])  # fmt:skip
-
-        fsl2itk = pe.Node(MCFLIRT2ITK(), name='fsl2itk', mem_gb=0.05, n_procs=omp_nthreads)
-        workflow.connect([
-            (hmcref_buffer, fsl2itk, [
-                ('aslref', 'in_source'),
-                ('aslref', 'in_reference'),
+            (inputnode, m0scan_hmc_wf, [('m0scan', 'inputnode.m0scan')]),
+            (hmcref_buffer, m0scan_hmc_wf, [('aslref', 'inputnode.aslref')]),
+            (m0scan_hmc_wf, m0scanreg_buffer, [
+                ('outputnode.m0scan2aslref_xfm', 'm0scan2aslref_xfm'),
             ]),
-            (mcflirt, fsl2itk, [('mat_file', 'in_files')]),
-            (fsl2itk, m0scanreg_buffer, [('out_file', 'm0scan2aslref_xfm')]),
+            (m0scan_hmc_wf, asl_fit_reports_wf, [
+                ('outputnode.m0scan_aslref', 'inputnode.m0scan_aslref'),
+            ]),
         ])  # fmt:skip
-
-        ds_m0scan2aslref_xfm = pe.Node(
-            DerivativesDataSink(
-                base_directory=config.execution.aslprep_dir,
-                source_file=m0scan,
-                datatype='perf',
-                suffix='xfm',
-                extension='.txt',
-                **{
-                    'from': 'm0scan',
-                    'to': 'aslref',
-                },
-            ),
-            name='ds_m0scan2aslref_xfm',
-        )
-        workflow.connect([
-            (m0scanreg_buffer, ds_m0scan2aslref_xfm, [('m0scan2aslref_xfm', 'in_file')]),
-        ])  # fmt:skip
+    elif m0scan:
+        config.loggers.workflow.info('Found M0 motion correction transforms - skipping Stage 2b')
 
     # Stage 3: Register fieldmap to aslref and reconstruct in ASL space
     if fieldmap_id:
@@ -888,6 +844,8 @@ def init_asl_native_wf(
         For multi-echo data, motion correction has already been applied, so
         this will be undefined.
     """
+    from aslprep.interfaces.ants import ApplyTransforms
+    from aslprep.interfaces.utility import GetImageType
     from aslprep.utils.misc import estimate_asl_mem_usage
 
     layout = config.execution.layout
@@ -916,6 +874,7 @@ def init_asl_native_wf(
         ),
         name='inputnode',
     )
+    inputnode.inputs.m0scan = m0scan
 
     outputnode = pe.Node(
         niu.IdentityInterface(
@@ -1018,21 +977,42 @@ def init_asl_native_wf(
     ])  # fmt:skip
 
     if m0scan:
-        # Resample separate M0 file to aslref
+        # In some cases, the separate M0 scan may have a different resolution than the ASL scan.
+        # We resample the M0 scan to match the ASL scan at this point.
+        get_image_type = pe.Node(GetImageType(), name='get_image_type')
+        workflow.connect([(inputnode, get_image_type, [('m0scan', 'image')])])
+
+        # Resample separate M0 file to aslref resolution/orientation
+        resample_m0scan_to_asl = pe.Node(
+            ApplyTransforms(
+                interpolation='Gaussian',
+                transforms=['identity'],
+                args='--verbose',
+            ),
+            name='resample_m0scan_to_asl',
+        )
+        workflow.connect([
+            (inputnode, resample_m0scan_to_asl, [
+                ('aslref', 'reference_image'),
+                ('m0scan', 'input_image'),
+            ]),
+            (get_image_type, resample_m0scan_to_asl, [('image_type', 'input_image_type')]),
+        ])  # fmt:skip
+
+        # Apply transforms to M0 scan to aslref space
         aslref_m0scan = pe.Node(
             ResampleSeries(
                 jacobian=jacobian,
-                in_file=m0scan,
             ),
             name='aslref_m0scan',
             n_procs=omp_nthreads,
         )
-
         workflow.connect([
             (inputnode, aslref_m0scan, [
                 ('aslref', 'ref_file'),
                 ('m0scan2aslref_xfm', 'transforms'),
             ]),
+            (resample_m0scan_to_asl, aslref_m0scan, [('output_image', 'in_file')]),
             (aslbuffer, aslref_m0scan, [
                 ('ro_time', 'ro_time'),
                 ('pe_dir', 'pe_dir'),
@@ -1055,6 +1035,8 @@ def init_asl_native_wf(
         ])  # fmt:skip
 
         if m0scan:
+            # This assumes that the M0 scan and the ASL file have the same distortion.
+            # In some edge cases, that might not be true.
             workflow.connect([(aslref_fmap, aslref_m0scan, [('out_file', 'fieldmap')])])
 
     workflow.connect([
