@@ -436,100 +436,41 @@ Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
 
 For multi-delay ASL, ASLPrep uses a two-compartment general kinetic model recommended by
 :footcite:t:`woods2023recommendations`.
+The two-compartment model predicts the :math:`\Delta{M}` signal as a sum of two components:
+a tissue compartment and an intravascular compartment.
+The tissue compartment reflects labeled blood water that has reached the capillary bed in the
+tissue at a given post-labeling delay.
+However, some labeled blood water will remain in arteries at that post-labeling delay.
+This is the intravascular compartment, which, when unaccounted for, will result in an
+overestimation of CBF at voxels near the arteries.
 
 
 Pseudo-Continuous ASL
 ---------------------
 
+The tissue compartment is modeled as:
+
 .. math::
    :label: woods_eq2
 
-   \Delta{M} = \begin{cases}
+   \Delta{M}_{tiss} = \begin{cases}
       0 & \text{if } 0 < LD + PLD < ATT \\
       \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{ATT}{T_{1b}}} \cdot \left(1 - e^{- \frac{LD + PLD - ATT}{T_{1b}}}\right)}{6000} & \text{if } ATT < LD + PLD < ATT + LD \\
       \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot T_{1b} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{PLD}{T_{1b}}} \cdot \left(1 - e^{- \frac{LD}{T_{1b}}}\right)}{6000} & \text{if } ATT < PLD \\
    \end{cases}
 
-For reference, please see Equation 2 in :footcite:t:`woods2023recommendations`.
+The intravascular compartment is modeled as:
 
-For multi-delay PCASL data, the following steps are taken:
+.. math::
+   :label: woods_eq3
 
-1. :math:`\Delta{M}` values are first averaged over time for each unique post-labeling delay value.
-   We shall call these :math:`\Delta{M}` in the following equations for the sake of readability.
+   \Delta{M}_{art} = \begin{cases}
+      0 & \text{if } 0 < LD + PLD < aBAT \\
+      2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot e^{- \frac{aBAT}{T_{1b}}} & \text{if } aBAT < LD + PLD < aBAT + LD \\
+      0 & \text{if } aBAT < PLD \\
+   \end{cases}
 
-2. Arterial transit time is estimated on a voxel-wise basis according to
-   :footcite:t:`dai2012reduced`.
-
-   1. Define a set of possible transit times to evaluate.
-      The range is defined as the minimum PLD to the maximum PLD, at increments of 0.001.
-
-   2. Calculate the expected weighted delay (:math:`WD_{E}`) for each possible transit time
-      (:math:`\delta`), across PLDs (:math:`w`).
-
-      .. math::
-
-         WD_{E}(\delta_{t}, w_{i}) = e ^ \frac{ -\delta_{t} } { T_{1,blood} } \cdot
-         \left[
-            e ^ {-\frac{ max( 0, w_{i} - \delta_{t} ) } { T_{1,tissue} }} -
-            e ^ {-\frac{ max( 0, \tau + w_{i} - \delta_{t} ) } { T_{1,tissue} }}
-         \right]
-
-         WD_{E}(\delta_{t}) = \frac{ \sum_{i=1}^{|w|} w_{i} \cdot
-         WD_{E}(\delta_{t},w_{i}) } { \sum_{i=1}^{|w|} WD_{E}(\delta_{t},w_{i}) }
-
-   3. Calculate the observed weighted delay (:math:`WD_{O}`) for the actual data, at each voxel :math:`v`.
-
-      .. math::
-
-         WD_{O}(v) = \frac{
-            \sum_{i=1}^{|w|} w_{i} \cdot \Delta{M}( w_{i},v )
-         }
-         {
-            \sum_{i=1}^{|w|} \Delta{M}( w_{i},v )
-         }
-
-   4. Truncate the observed weighted delays to valid delay values,
-      determined based on the expected weighted delays.
-
-      .. math::
-
-         WD_{O}(v) = max[min(WD_{O}(v), max[WD_{E}]), min(WD_{E})]
-
-   5. Interpolate the expected weighted delay values to infer the appropriate transit time for each voxel,
-      based on its observed weighted delay.
-
-3. CBF is then calculated for each unique PLD value (:math:`w_{i}`) using the 2-compartment model
-   described in :footcite:t:`fan2017long`.
-
-   .. math::
-
-      CBF_{i} = 6000 \cdot \lambda \cdot \frac{ \Delta{M}_{i} }{ M_{0} } \cdot
-      \frac{
-         e ^ \frac{ \delta }{ T_{1,blood} }
-      }
-      {
-         2 \cdot \alpha \cdot T_{1,blood} \cdot
-         \left[
-            e ^ { -\frac{ max(w_{i} - \delta, 0) }{ T_{1,tissue} } }
-            -
-            e ^ { -\frac{ max(\tau + w_{i} - \delta, 0) }{ T_{1,tissue} } }
-         \right]
-      }
-
-   .. note::
-
-      Note that Equation 2 in :footcite:t:`fan2017long` uses different notation.
-      :math:`T_{1,blood}` is referred to as :math:`T_{1a}`,
-      :math:`T_{1,tissue}` is referred to as :math:`T_{1t}`,
-      :math:`\Delta{M}` is referred to as :math:`M`,
-      :math:`w` is referred to as :math:`PLD`,
-      :math:`\delta` is referred to as :math:`ATT`,
-      :math:`\tau` is referred to as :math:`LD`,
-      and :math:`\alpha` is referred to as :math:`\epsilon`.
-
-4. CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
-   in which an unweighted average is calculated for each voxel across all PLDs (:math:`w`) in which
-   :math:`w + \tau \gt \delta`.
+For reference, please see Equations 2 and 4 in :footcite:t:`woods2023recommendations`.
 
 
 Pulsed ASL
@@ -538,13 +479,24 @@ Pulsed ASL
 .. math::
    :label: woods_eq3
 
-   \Delta{M} = \begin{cases}
+   \Delta{M}_{tiss} = \begin{cases}
       0 & \text{if } 0 < TI < ATT \\
       \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{TI}{T_{1b}}} \cdot (TI - ATT)}{6000} & \text{if } ATT < TI < ATT + TI_1 \\
       \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{TI}{T_{1b}}} \cdot TI_1}{6000} & \text{if } ATT + TI_1 < TI \\
    \end{cases}
 
-For reference, please see Equation 3 in :footcite:t:`woods2023recommendations`.
+The intravascular compartment is modeled as:
+
+.. math::
+   :label: woods_eq3
+
+   \Delta{M}_{art} = \begin{cases}
+      0 & \text{if } 0 < TI < aBAT \\
+      2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0b} \cdot aBV \cdot e^{- \frac{TI}{T_{1b}}} & \text{if } aBAT < TI < aBAT + TI_1 \\
+      0 & \text{if } aBAT + TI_1 < TI \\
+   \end{cases}
+
+For reference, please see Equations 3 and 5 in :footcite:t:`woods2023recommendations`.
 
 
 Additional Denoising Options
