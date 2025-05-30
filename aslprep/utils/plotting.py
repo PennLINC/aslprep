@@ -91,9 +91,13 @@ def plot_stat_map(
         plot_params = robust_set_limits(data, plot_params)
 
     if isinstance(vmin, Number) and (vmin >= 0):
+        # Scale from vmin (0) to vmax (100)
         symmetric_cbar = False
+        arg_vmin = vmin
     else:
-        symmetric_cbar = False
+        # Scale from -vmax (-100) to vmax (100)
+        symmetric_cbar = True
+        arg_vmin = None
 
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
@@ -103,7 +107,7 @@ def plot_stat_map(
             resampling_interpolation='nearest',
             display_mode=mode,
             cut_coords=cuts[mode],
-            vmin=vmin,
+            vmin=arg_vmin,
             vmax=vmax,
             threshold=0.00001,
             draw_cross=False,
