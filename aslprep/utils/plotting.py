@@ -1,6 +1,9 @@
 """Plotting functions and classes."""
 
+from numbers import Number
+
 import nibabel as nb
+import numpy as np
 from lxml import etree
 from nilearn import image, plotting
 from nilearn._utils.niimg import load_niimg
@@ -20,13 +23,14 @@ class CBFPlot:
     This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
     """
 
-    __slots__ = ['cbf', 'ref_vol', 'label', 'outfile', 'vmax']
+    __slots__ = ['cbf', 'ref_vol', 'label', 'outfile', 'vmin', 'vmax']
 
-    def __init__(self, cbf, ref_vol, label, outfile, vmax):
+    def __init__(self, cbf, ref_vol, label, outfile, vmin, vmax):
         self.cbf = cbf
         self.ref_vol = ref_vol
         self.label = label
         self.outfile = outfile
+        self.vmin = vmin
         self.vmax = vmax
 
     def plot(self):
@@ -36,14 +40,23 @@ class CBFPlot:
         """
         cbf_img = nb.load(self.cbf)
         cbf_data = cbf_img.get_fdata()
-        cbf_data[cbf_data < -20] = -20
-        cbf_data[cbf_data > 100] = 100
+        cbf_data[cbf_data < self.vmin] = self.vmin
+        cbf_data[cbf_data > self.vmax] = self.vmax
+        if np.any(cbf_data < 0):
+            colormap = 'coolwarm'
+            vmin = -20
+        else:
+            colormap = 'Reds'
+            vmin = 0
+
         cbf_img = nb.Nifti1Image(cbf_data, affine=cbf_img.affine, header=cbf_img.header)
         statfile = plot_stat_map(
             cbf=cbf_img,
             ref_vol=self.ref_vol,
+            vmin=vmin,
             vmax=self.vmax,
             label=self.label,
+            cmap=colormap,
         )
         compose_view(bg_svgs=statfile, fg_svgs=None, out_file=self.outfile)
 
@@ -53,10 +66,12 @@ def plot_stat_map(
     ref_vol,
     plot_params=None,
     order=('z', 'x', 'y'),
+    vmin=None,
     vmax=100,
     estimate_brightness=False,
     label=None,
     compress='auto',
+    cmap='coolwarm',
 ):
     """Plot statistical map."""
     plot_params = {} if plot_params is None else plot_params
@@ -75,6 +90,15 @@ def plot_stat_map(
     if estimate_brightness:
         plot_params = robust_set_limits(data, plot_params)
 
+    if isinstance(vmin, Number) and (vmin >= 0):
+        # Scale from vmin (0) to vmax (100)
+        symmetric_cbar = False
+        arg_vmin = vmin
+    else:
+        # Scale from -vmax (-100) to vmax (100)
+        symmetric_cbar = True
+        arg_vmin = None
+
     # Plot each cut axis
     for i, mode in enumerate(list(order)):
         display = plotting.plot_stat_map(
@@ -83,12 +107,13 @@ def plot_stat_map(
             resampling_interpolation='nearest',
             display_mode=mode,
             cut_coords=cuts[mode],
+            vmin=arg_vmin,
             vmax=vmax,
-            threshold=0.02,
+            threshold=0.00001,
             draw_cross=False,
             colorbar=True,
-            symmetric_cbar=False,
-            cmap='coolwarm',
+            symmetric_cbar=symmetric_cbar,
+            cmap=cmap,
             title=label if i == 0 else None,
         )
         svg = extract_svg(display, compress=compress)
