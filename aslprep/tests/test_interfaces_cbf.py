@@ -223,7 +223,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match='Unsupported BolusCutOffTechnique (QUIPSS)'):
+        with pytest.raises(ValueError, match=r'Unsupported BolusCutOffTechnique \(QUIPSS\)'):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 4: QUIPSS PASL with one PostLabelingDelay for each deltam volume (good)
