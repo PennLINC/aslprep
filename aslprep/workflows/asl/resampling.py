@@ -176,11 +176,6 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
         if cbf_deriv in cbf_4d:
             kwargs['dimension'] = 3
 
-        if cbf_deriv in att:
-            meta = {'Units': 's'}
-        else:
-            meta = {'Units': 'mL/100 g/min'}
-
         warp_cbf_to_anat = pe.Node(
             ApplyTransforms(
                 interpolation='LanczosWindowedSinc',
@@ -248,7 +243,6 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
                 extension='.func.gii',
                 **timing_parameters,
                 **fields,
-                **meta,
             ),
             iterfield=['in_file', 'hemi'],
             name=f'ds_{cbf_deriv}_surfs',

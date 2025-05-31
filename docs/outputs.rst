@@ -46,7 +46,7 @@ a directory of derivatives (``sub-<label>/``)
 and a visual report (``sub-<label>.html``) are generated.
 The log directory contains `citation boilerplate`_ text.
 ``dataset_description.json`` is a metadata file in which ASLPrep
-records metadata recommended by the BIDS standard. 
+records metadata recommended by the BIDS standard.
 The atlases directory contains the relevant json, tsv, and nifti files
 for each atlas, and the .bidsignore file contains a record of the files that bids-validator ignored.
 
@@ -328,6 +328,8 @@ CBF Outputs::
          <source_entities>[_space-<label>]_cbf.nii.gz  # mean CBF
          <source_entities>[_space-<label>]_desc-timeseries_cbf.nii.gz  # computed CBF timeseries
          <source_entities>[_space-<label>]_att.nii.gz  # arterial transit time (multi-PLD data only)
+         <source_entities>[_space-<label>]_abv.nii.gz  # arterial blood volume (multi-PLD data only)
+         <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-PLD data only)
 
 If ``--scorescrub`` is used::
 
