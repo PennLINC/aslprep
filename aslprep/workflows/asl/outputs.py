@@ -39,8 +39,7 @@ BASE_INPUT_FIELDS = {
         'suffix': 'att',
         'Units': 's',
         'Description': (
-            'Arterial transit time. '
-            'The time taken for the labeled blood water to reach the voxel.'
+            'Arterial transit time. The time taken for the labeled blood water to reach the voxel.'
         ),
     },
     'abat': {
@@ -93,8 +92,7 @@ BASE_INPUT_FIELDS = {
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
         'Description': (
-            'Cerebral blood flow after gray matter partial volume correction, '
-            'estimated by BASIL.'
+            'Cerebral blood flow after gray matter partial volume correction, estimated by BASIL.'
         ),
     },
     'mean_cbf_wm_basil': {
@@ -102,8 +100,7 @@ BASE_INPUT_FIELDS = {
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
         'Description': (
-            'Cerebral blood flow after white matter partial volume correction, '
-            'estimated by BASIL.'
+            'Cerebral blood flow after white matter partial volume correction, estimated by BASIL.'
         ),
     },
     'att_basil': {
