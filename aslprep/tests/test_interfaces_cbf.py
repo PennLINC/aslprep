@@ -243,10 +243,8 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        results = interface.run(cwd=tmpdir)
-        assert os.path.isfile(results.outputs.mean_cbf)
-        mean_cbf_img = nb.load(results.outputs.mean_cbf)
-        assert mean_cbf_img.ndim == 3
+        with pytest.raises(ValueError, match=r'Unsupported BolusCutOffTechnique \(QUIPSS\)'):
+            results = interface.run(cwd=tmpdir)
 
         # Scenario 5: QUIPSSII PASL with one PostLabelingDelay
         # This should produce CBF time series and mean CBF, but no ATT
