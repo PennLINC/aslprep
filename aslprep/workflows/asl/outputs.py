@@ -28,59 +28,92 @@ BASE_INPUT_FIELDS = {
         'desc': 'timeseries',
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
+        'Description': 'Volume-wise cerebral blood flow, estimated by ASLPrep.',
     },
     'mean_cbf': {
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
+        'Description': 'Cerebral blood flow, estimated by ASLPrep.',
     },
     'att': {
         'suffix': 'att',
         'Units': 's',
+        'Description': (
+            'Arterial transit time. '
+            'The time taken for the labeled blood water to reach the voxel.'
+        ),
     },
     'abat': {
         'suffix': 'abat',
         'Units': 's',
+        'Description': (
+            'Arterial bolus arrival time. '
+            'The first arrival of the labeled blood water in the voxel within the arterial vessel.'
+        ),
     },
     'abv': {
         'suffix': 'abv',
         'Units': 'fraction',
+        'Description': (
+            'Arterial blood volume. The fraction of the voxel occupied by the arterial vessel.'
+        ),
     },
     # SCORE/SCRUB outputs
     'cbf_ts_score': {
         'desc': 'scoreTimeseries',
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
+        'Description': (
+            'Volume-wise cerebral blood flow after SCORE denoising, estimated by ASLPrep.'
+        ),
     },
     'mean_cbf_score': {
         'desc': 'score',
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
+        'Description': 'Cerebral blood flow after SCORE denoising, estimated by ASLPrep.',
     },
     'mean_cbf_scrub': {
         'desc': 'scrub',
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
+        'Description': (
+            'Cerebral blood flow after SCORE and SCRUB denoising, estimated by ASLPrep.'
+        ),
     },
     # BASIL outputs
     'mean_cbf_basil': {
         'desc': 'basil',
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
+        'Description': 'Cerebral blood flow, estimated by BASIL.',
     },
     'mean_cbf_gm_basil': {
         'desc': 'basilGM',
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
+        'Description': (
+            'Cerebral blood flow after gray matter partial volume correction, '
+            'estimated by BASIL.'
+        ),
     },
     'mean_cbf_wm_basil': {
         'desc': 'basilWM',
         'suffix': 'cbf',
         'Units': 'mL/100 g/min',
+        'Description': (
+            'Cerebral blood flow after white matter partial volume correction, '
+            'estimated by BASIL.'
+        ),
     },
     'att_basil': {
         'desc': 'basil',
         'suffix': 'att',
         'Units': 's',
+        'Description': (
+            'Arterial transit time, estimated by BASIL. '
+            'The time taken for the labeled blood water to reach the voxel.'
+        ),
     },
 }
 
