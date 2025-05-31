@@ -432,7 +432,8 @@ Multi-Delay ASL
 In multi-delay ASL, control-label pairs are acquired for multiple post-labeling delay values.
 This type of acquisition requires more complicated models, but it also results in more accurate
 CBF estimates.
-Also, multi-delay ASL allows for the estimation of arterial transit time (ATT).
+Also, multi-delay ASL allows for the estimation of arterial transit time (ATT),
+arterial bolus arrival time (aBAT), and arterial blood volume (aBV).
 
 For multi-delay ASL, ASLPrep uses a two-compartment general kinetic model recommended by
 :footcite:t:`woods2023recommendations`.
