@@ -749,6 +749,7 @@ def fit_deltam_multipld(
         A dictionary where keys are parameter names ('cbf', 'att', 'abat', 'abv')
         and values are their known fixed values. If provided, these parameters
         will not be fitted. Defaults to None, meaning all parameters are fitted.
+        XXX: Add ability to provide prior instead of fixed values.
 
     Returns
     -------
