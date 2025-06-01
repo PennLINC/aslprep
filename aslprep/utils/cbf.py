@@ -752,15 +752,20 @@ def fit_deltam_multipld(
 
     Returns
     -------
-    cbf
-    att
-    abat
-    abv
+    cbf : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Cerebral blood flow.
+    att : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Arterial transit time.
+    abat : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Arterial bolus arrival time.
+    abv : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Arterial blood volume.
 
     Notes
     -----
     This model does not include a separate term for T1,tissue, but we could expand it to do so
     in the future.
+    The code also equates m0_a and m0_b, which is not correct, but should be fine.
 
     References
     ----------
@@ -843,76 +848,56 @@ def fit_deltam_multipld(
         else:
             xdata[0, 5] = ti1
 
-        params_to_fit_names = []
         p0_fit = []
         bounds_fit_lower = []
         bounds_fit_upper = []
 
-        current_param_values_ordered = [None] * len(_MODEL_PARAMS)
-
-        for i, name in enumerate(_MODEL_PARAMS):
+        for name in _MODEL_PARAMS.keys():
             if known_params and name in known_params:
-                current_param_values_ordered[i] = known_params[name]
+                param_arr = known_params[name]
+                if isinstance(param_arr, float):
+                    param_value = param_arr
+                else:
+                    param_value = param_arr[i_voxel]
+
+                # Set the initial value and bounds for the parameter using the known value.
+                p0_fit.append(param_value)
+                bounds_fit_lower.append(param_value)
+                bounds_fit_upper.append(param_value)
+
             else:
-                params_to_fit_names.append(name)
                 p0_fit.append(_P0_DEFAULTS[name])
                 bounds_fit_lower.append(_BOUNDS_DEFAULTS[name][0])
                 bounds_fit_upper.append(_BOUNDS_DEFAULTS[name][1])
 
-        if not params_to_fit_names:  # All parameters are known
-            popt_final = [known_params[name] for name in _MODEL_PARAMS]
-        else:
-            def model_wrapper(x_data_wrapper, *args_fit):
-                iter_args_fit = iter(args_fit)
-                call_args = []
-                for idx_model, name_model in enumerate(_MODEL_PARAMS):
-                    if known_params and name_model in known_params:
-                        call_args.append(known_params[name_model])
-                    else:
-                        call_args.append(next(iter_args_fit))
-                return original_model_func(x_data_wrapper, *call_args)
+        try:
+            popt = scipy.optimize.curve_fit(
+                original_model_func,
+                xdata=xdata,
+                ydata=deltam_voxel,
+                p0=p0_fit,
+                bounds=(bounds_fit_lower, bounds_fit_upper),
+            )[0]
 
-            try:
-                popt_fitted_params = scipy.optimize.curve_fit(
-                    model_wrapper,
-                    xdata=xdata,
-                    ydata=deltam_voxel,
-                    p0=p0_fit,
-                    bounds=(bounds_fit_lower, bounds_fit_upper),
-                )[0]
+            cbf[i_voxel] = popt[0]
+            att[i_voxel] = popt[1]
+            abat[i_voxel] = popt[2]
+            abv[i_voxel] = popt[3]
 
-                # Reconstruct the full popt_final
-                iter_popt_fitted = iter(popt_fitted_params)
-                popt_final = []
-                for name_model in _MODEL_PARAMS:
-                    if known_params and name_model in known_params:
-                        popt_final.append(known_params[name_model])
-                    else:
-                        popt_final.append(next(iter_popt_fitted))
+        except (RuntimeError, ValueError):
+            # If curve fit fails to converge, set voxel's value to NaN
+            cbf[i_voxel] = np.nan
+            att[i_voxel] = np.nan
+            abat[i_voxel] = np.nan
+            abv[i_voxel] = np.nan
 
-            except (RuntimeError, ValueError):
-                popt_final = [np.nan] * len(_MODEL_PARAMS)
-                fail_count += 1 # Increment fail_count only if fit was attempted and failed
+            fail_count += 1
 
-        # Assign results from popt_final
-        cbf[i_voxel] = popt_final[0]
-        att[i_voxel] = popt_final[1]
-        abat[i_voxel] = popt_final[2]
-        abv[i_voxel] = popt_final[3]
-
-        # Original fail handling for curve_fit when it's directly called
-        # This is now partially handled above for the general case.
-        # The fail_count logic needs to be consistent.
-        # If all params are known, it's not a "fail" in the fitting sense.
-        # If fitting is attempted and fails, popt_final will have NaNs,
-        # and fail_count is incremented.
-        # So, the standalone "except" block for the direct curve_fit call is now part of the else.
-
-    if fail_count: # This fail_count is now for attempted fits that failed
+    if fail_count:
         fail_percent = 100 * fail_count / n_voxels
         config.loggers.workflow.warning(
             f'General kinetic model fit failed on '
-            f'{fail_count}/{n_voxels} ({fail_percent:.2f}%) voxel(s) where fitting was attempted.'
+            f'{fail_count}/{n_voxels} ({fail_percent:.2f}%) voxel(s).'
         )
 
     return cbf, att, abat, abv
