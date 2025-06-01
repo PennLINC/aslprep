@@ -714,6 +714,7 @@ def fit_deltam_multipld(
     is_casl,
     tau=None,
     ti1=None,
+    known_params: dict | None = None,
 ):
     """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
 
@@ -744,6 +745,10 @@ def fit_deltam_multipld(
         Only defined for (P)CASL data.
     ti1 : :obj:`float` or None, optional
         TI1. Only defined for PASL data.
+    known_params : :obj:`dict`, optional
+        A dictionary where keys are parameter names ('cbf', 'att', 'abat', 'abv')
+        and values are their known fixed values. If provided, these parameters
+        will not be fitted. Defaults to None, meaning all parameters are fitted.
 
     Returns
     -------
@@ -807,6 +812,16 @@ def fit_deltam_multipld(
     abat = np.zeros(n_voxels)
     abv = np.zeros(n_voxels)
     fail_count = 0
+
+    _MODEL_PARAMS = ['cbf', 'att', 'abat', 'abv']
+    _P0_DEFAULTS = {'cbf': 60, 'att': 1.2, 'abat': 1, 'abv': 0.02}
+    _BOUNDS_DEFAULTS = {
+        'cbf': (0, 300),
+        'att': (0, 5),
+        'abat': (0, 5),
+        'abv': (0, 0.1),
+    }
+
     for i_voxel in range(n_voxels):
         deltam_voxel = deltam_arr[i_voxel, :]
         plds_voxel = plds[i_voxel, :]
@@ -822,49 +837,82 @@ def fit_deltam_multipld(
         xdata[0, 3] = m0_a_voxel
         xdata[:, 4] = plds_voxel
 
+        original_model_func = calculate_deltam_pcasl if is_casl else calculate_deltam_pasl
         if is_casl:
             xdata[:, 5] = tau
-            func = calculate_deltam_pcasl
         else:
             xdata[0, 5] = ti1
-            func = calculate_deltam_pasl
 
-        try:
-            popt = scipy.optimize.curve_fit(
-                func,
-                xdata=xdata,
-                ydata=deltam_voxel,
-                # Initial estimates for DVs (CBF, ATT, aBAT, aBV)
-                # Values provided by Manuel Taso
-                p0=(60, 1.2, 1, 0.02),
-                # Lower and upper bounds for DVs
-                # Upper bounds provided by Manuel Taso
-                bounds=(
-                    (0, 0, 0, 0),
-                    # Manuel Taso recommended 5, 5, 0.2 for ATT, aBAT, and aBV,
-                    # but our test data maxed out around 12 when left unbounded.
-                    (300, 5, 5, 0.1),
-                ),
-            )[0]
-            cbf[i_voxel] = popt[0]
-            att[i_voxel] = popt[1]
-            abat[i_voxel] = popt[2]
-            abv[i_voxel] = popt[3]
+        params_to_fit_names = []
+        p0_fit = []
+        bounds_fit_lower = []
+        bounds_fit_upper = []
 
-        except (RuntimeError, ValueError):
-            # If curve fit fails to converge, set voxel's value to NaN
-            cbf[i_voxel] = np.nan
-            att[i_voxel] = np.nan
-            abat[i_voxel] = np.nan
-            abv[i_voxel] = np.nan
+        current_param_values_ordered = [None] * len(_MODEL_PARAMS)
 
-            fail_count += 1
+        for i, name in enumerate(_MODEL_PARAMS):
+            if known_params and name in known_params:
+                current_param_values_ordered[i] = known_params[name]
+            else:
+                params_to_fit_names.append(name)
+                p0_fit.append(_P0_DEFAULTS[name])
+                bounds_fit_lower.append(_BOUNDS_DEFAULTS[name][0])
+                bounds_fit_upper.append(_BOUNDS_DEFAULTS[name][1])
 
-    if fail_count:
+        if not params_to_fit_names:  # All parameters are known
+            popt_final = [known_params[name] for name in _MODEL_PARAMS]
+        else:
+            def model_wrapper(x_data_wrapper, *args_fit):
+                iter_args_fit = iter(args_fit)
+                call_args = []
+                for idx_model, name_model in enumerate(_MODEL_PARAMS):
+                    if known_params and name_model in known_params:
+                        call_args.append(known_params[name_model])
+                    else:
+                        call_args.append(next(iter_args_fit))
+                return original_model_func(x_data_wrapper, *call_args)
+
+            try:
+                popt_fitted_params = scipy.optimize.curve_fit(
+                    model_wrapper,
+                    xdata=xdata,
+                    ydata=deltam_voxel,
+                    p0=p0_fit,
+                    bounds=(bounds_fit_lower, bounds_fit_upper),
+                )[0]
+
+                # Reconstruct the full popt_final
+                iter_popt_fitted = iter(popt_fitted_params)
+                popt_final = []
+                for name_model in _MODEL_PARAMS:
+                    if known_params and name_model in known_params:
+                        popt_final.append(known_params[name_model])
+                    else:
+                        popt_final.append(next(iter_popt_fitted))
+
+            except (RuntimeError, ValueError):
+                popt_final = [np.nan] * len(_MODEL_PARAMS)
+                fail_count += 1 # Increment fail_count only if fit was attempted and failed
+
+        # Assign results from popt_final
+        cbf[i_voxel] = popt_final[0]
+        att[i_voxel] = popt_final[1]
+        abat[i_voxel] = popt_final[2]
+        abv[i_voxel] = popt_final[3]
+
+        # Original fail handling for curve_fit when it's directly called
+        # This is now partially handled above for the general case.
+        # The fail_count logic needs to be consistent.
+        # If all params are known, it's not a "fail" in the fitting sense.
+        # If fitting is attempted and fails, popt_final will have NaNs,
+        # and fail_count is incremented.
+        # So, the standalone "except" block for the direct curve_fit call is now part of the else.
+
+    if fail_count: # This fail_count is now for attempted fits that failed
         fail_percent = 100 * fail_count / n_voxels
         config.loggers.workflow.warning(
             f'General kinetic model fit failed on '
-            f'{fail_count}/{n_voxels} ({fail_percent:.2f}%) voxel(s).'
+            f'{fail_count}/{n_voxels} ({fail_percent:.2f}%) voxel(s) where fitting was attempted.'
         )
 
     return cbf, att, abat, abv
