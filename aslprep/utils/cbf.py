@@ -1030,10 +1030,14 @@ def fit_deltam_multipld(
 
     Returns
     -------
-    cbf
-    att
-    abat
-    abv
+    cbf : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Cerebral blood flow.
+    att : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Arterial transit time.
+    abat : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Arterial bolus arrival time.
+    abv : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Arterial blood volume.
 
     Notes
     -----
