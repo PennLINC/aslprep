@@ -21,6 +21,7 @@ def init_cbf_reporting_wf(
     plot_timeseries=True,
     scorescrub=False,
     basil=False,
+    is_multi_pld=False,
     name='cbf_reporting_wf',
 ):
     """Generate CBF reports.
@@ -215,6 +216,65 @@ def init_cbf_reporting_wf(
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     workflow.connect([(cbf_by_tt_plot, ds_report_cbf_by_tt, [('out_file', 'in_file')])])
+
+    if is_multi_pld:
+        # Limits for the different figures.
+        # Make sure these match the hardcoded limits in the model-fitting function.
+        lims = {
+            'att': (0, 5),
+            'abat': (0, 5),
+            'abv': (0, 0.1),
+        }
+        for img_type in ['att', 'abat', 'abv']:
+            img_summary = pe.Node(
+                CBFSummaryPlot(
+                    label=img_type,
+                    vmin=lims[img_type][0],
+                    vmax=lims[img_type][1],
+                ),
+                name=f'{img_type}_summary',
+                mem_gb=1,
+            )
+            workflow.connect([
+                (inputnode, img_summary, [
+                    (img_type, 'in_file'),
+                    ('aslref', 'ref_vol'),
+                ]),
+            ])  # fmt:skip
+
+            ds_report_img = pe.Node(
+                DerivativesDataSink(
+                    datatype='figures',
+                    suffix=img_type,
+                    keep_dtype=True,
+                ),
+                name=f'ds_report_{img_type}',
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            workflow.connect([(img_summary, ds_report_img, [('out_file', 'in_file')])])
+
+            img_by_tt_plot = pe.Node(
+                CBFByTissueTypePlot(img_type=img_type),
+                name=f'{img_type}_by_tt_plot',
+            )
+            workflow.connect([
+                (inputnode, img_by_tt_plot, [(img_type, 'in_file')]),
+                (warp_t1w_dseg_to_aslref, img_by_tt_plot, [('output_image', 'seg_file')]),
+            ])  # fmt:skip
+
+            ds_report_img_by_tt = pe.Node(
+                DerivativesDataSink(
+                    datatype='figures',
+                    desc=f'{img_type}ByTissueType',
+                    suffix=img_type,
+                    keep_dtype=True,
+                ),
+                name=f'ds_report_{img_type}_by_tt',
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            workflow.connect([(img_by_tt_plot, ds_report_img_by_tt, [('out_file', 'in_file')])])
 
     if scorescrub:
         score_summary = pe.Node(

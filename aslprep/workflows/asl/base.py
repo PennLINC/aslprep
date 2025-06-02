@@ -514,6 +514,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ),
         scorescrub=scorescrub,
         basil=basil,
+        is_multi_pld=is_multi_pld,
         name='cbf_reporting_wf',
     )
     workflow.connect([
