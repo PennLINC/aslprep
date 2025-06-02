@@ -172,34 +172,34 @@ sections:
       The unit is mL/100 g/min.
     subtitle: Mean CBF by Tissue Type
   - subtitle: Arterial Transit Time
-    bids: {datatype: figures, suffix: att}
+    bids: {datatype: figures, suffix: att, extension: [.svg]}
     caption: |
       The map plots arterial transit time (ATT) estimated by the basic model.
       The unit is seconds.
   - subtitle: ATT by Tissue Type
-    bids: {datatype: figures, desc: attByTissueType, suffix: att}
+    bids: {datatype: figures, desc: attByTissueType, suffix: att, extension: [.svg]}
     caption: |
       The map plots the distribution of arterial transit time values for the basic output,
       separated by tissue type.
       The unit is seconds.
   - subtitle: Arterial Bolus Arrival Time
-    bids: {datatype: figures, suffix: abat}
+    bids: {datatype: figures, suffix: abat, extension: [.svg]}
     caption: |
       The map plots arterial bolus arrival time (aBAT) estimated by the basic model.
       The unit is seconds.
   - subtitle: aBAT by Tissue Type
-    bids: {datatype: figures, desc: abatByTissueType, suffix: abat}
+    bids: {datatype: figures, desc: abatByTissueType, suffix: abat, extension: [.svg]}
     caption: |
       The map plots the distribution of arterial bolus arrival time (aBAT) values for the basic output,
       separated by tissue type.
       The unit is seconds.
   - subtitle: Arterial Blood Volume
-    bids: {datatype: figures, suffix: abv}
+    bids: {datatype: figures, suffix: abv, extension: [.svg]}
     caption: |
       The map plots arterial blood volume (aBV) estimated by the basic model.
       The unit is fraction.
   - subtitle: aBV by Tissue Type
-    bids: {datatype: figures, desc: abvByTissueType, suffix: abv}
+    bids: {datatype: figures, desc: abvByTissueType, suffix: abv, extension: [.svg]}
     caption: |
       The map plots the distribution of arterial blood volume (aBV) values for the basic output,
       separated by tissue type.
