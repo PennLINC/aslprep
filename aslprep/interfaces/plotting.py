@@ -131,7 +131,7 @@ class ASLCarpetPlot(SimpleInterface):
 
 
 class _CBFSummaryPlotInputSpec(BaseInterfaceInputSpec):
-    cbf = File(exists=True, mandatory=True, desc='Image to plot')
+    in_file = File(exists=True, mandatory=True, desc='Image to plot')
     label = traits.Str(mandatory=True, desc='label')
     vmin = traits.Int(-20, usedefault=True, mandatory=False, desc='Minimum value for figure')
     vmax = traits.Int(100, usedefault=True, mandatory=True, desc='Maximum value for figure')
@@ -153,13 +153,13 @@ class CBFSummaryPlot(SimpleInterface):
 
     def _run_interface(self, runtime):
         self._results['out_file'] = fname_presuffix(
-            self.inputs.cbf,
-            suffix='_cbfplot.svg',
+            self.inputs.in_file,
+            suffix=f'_{self.inputs.label}plot.svg',
             use_ext=False,
             newpath=runtime.cwd,
         )
         CBFPlot(
-            cbf=self.inputs.cbf,
+            in_file=self.inputs.in_file,
             label=self.inputs.label,
             ref_vol=self.inputs.ref_vol,
             vmin=self.inputs.vmin,
