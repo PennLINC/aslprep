@@ -714,6 +714,9 @@ def estimate_cbf_pcasl_multipld(
     n_unique_plds = unique_pld_idx.size
 
     # tau should be a 1D array, with one volume per unique PLD
+    if isinstance(tau, float):
+        tau = np.full(n_plds, tau)
+
     if tau.size > 1:
         if tau.size != n_plds:
             raise ValueError(
@@ -1136,7 +1139,7 @@ def fit_deltam_multipld(
         bounds_fit_lower = []
         bounds_fit_upper = []
 
-        for name in _MODEL_PARAMS.keys():
+        for name in _MODEL_PARAMS:
             if known_params and name in known_params:
                 param_arr = known_params[name]
                 if isinstance(param_arr, float):
