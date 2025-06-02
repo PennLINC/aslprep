@@ -25,6 +25,7 @@ authors:
     affiliation: University of Pennsylvania
   - given-names: Sudipto
     family-names: Dolui
+    orcid: 'https://orcid.org/0000-0002-9035-3795'
   - given-names: Matthew
     family-names: Cieslak
     email: matthew.cieslak@pennmedicine.upenn.edu
@@ -33,30 +34,40 @@ authors:
   - given-names: Kristin
     family-names: Murtha
     affiliation: University of Pennsylvania
+    orcid: 'https://orcid.org/0009-0006-5820-6740'
   - given-names: Erica
     family-names: Baller
+    orcid: 'https://orcid.org/0000-0002-7987-3773'
   - given-names: Bradley
     family-names: Boeve
+    orcid: 'https://orcid.org/0000-0002-4153-8187'
   - given-names: Adam
     family-names: Boxer
+    orcid: 'https://orcid.org/0000-0002-1215-5064'
   - given-names: Ellyn R.
     family-names: Butler
+    orcid: 'https://orcid.org/0000-0001-6316-6444'
   - given-names: Phil
     family-names: Cook
+
   - given-names: Stan
     family-names: Colcombe
+    orcid: 'https://orcid.org/0000-0001-5051-2491'
   - given-names: Sydney
     family-names: Covitz
     affiliation: University of Pennsylvania
     orcid: 'https://orcid.org/0000-0002-7430-4125'
   - given-names: Christos
     family-names: Davatzikos
+    orcid: 'https://orcid.org/0000-0002-1025-8561'
   - given-names: Diego G.
     family-names: Davila
   - given-names: Mark A.
     family-names: Elliott
+    orcid: 'https://orcid.org/0000-0003-3807-2723'
   - given-names: Matthew W.
     family-names: Flounders
+    orcid: 'https://orcid.org/0000-0001-7014-4665'
   - given-names: Alexandre R.
     family-names: Franco
   - given-names: Mathias
@@ -65,8 +76,10 @@ authors:
     orcid: 'https://orcid.org/0000-0002-7252-7771'
   - given-names: Raquel E.
     family-names: Gur
+    orcid: 'https://orcid.org/0000-0002-4082-8502'
   - given-names: Ruben C.
     family-names: Gur
+    orcid: 'https://orcid.org/0000-0002-9657-1996'
   - given-names: Basma
     family-names: Jaber
   - given-names: Christopher J.
@@ -78,32 +91,52 @@ authors:
   - name: "The ALLFTD Consortium"
   - given-names: Michael
     family-names: Milham
+    orcid: 'https://orcid.org/0000-0003-3532-1210'
   - given-names: Henk J. M. M.
     family-names: Mutsaerts
+    orcid: 'https://orcid.org/0000-0003-0894-0307'
   - given-names: Desmond J.
     family-names: Oathes
+    orcid: 'https://orcid.org/0000-0001-7346-2669'
   - given-names: Christopher A.
     family-names: Olm
+    orcid: 'https://orcid.org/0000-0002-4858-2359'
   - given-names: Jeffrey S.
     family-names: Phillips
+  - given-names: Ashley
+    family-names: Ptinis
   - given-names: Will
     family-names: Tackett
   - given-names: David R.
     family-names: Roalf
+    orcid: 'https://orcid.org/0000-0002-1728-9782'
   - given-names: Howard
     family-names: Rosen
+    orcid: 'https://orcid.org/0000-0001-9281-7402'
+  - given-names: Brooke
+    family-names: Sevchik
+    orcid: 'https://orcid.org/0009-0005-2187-2275'
   - given-names: Tinashe M.
     family-names: Tapera
+    orcid: 'https://orcid.org/0000-0001-9080-5010'
   - given-names: M. Dylan
     family-names: Tisdall
+    orcid: 'https://orcid.org/0000-0002-0454-3112'
+  - given-names: Tien
+    family-names: Tong
+    orcid: 'https://orcid.org/0000-0002-1940-3198'
   - given-names: Dale
     family-names: Zhou
+    orcid: 'https://orcid.org/0000-0001-9240-1327'
   - given-names: Oscar
     family-names: Esteban
+    orcid: 'https://orcid.org/0000-0001-8435-6191'
   - given-names: Russell A.
     family-names: Poldrack
+    orcid: 'https://orcid.org/0000-0001-6755-0259'
   - given-names: John A.
     family-names: Detre
+    orcid: 'https://orcid.org/0000-0002-8115-6343'
   - given-names: Theodore
     family-names: Satterthwaite
     affiliation: University of Pennsylvania
