@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+from scipy.interpolate import interp1d
 from scipy.stats import median_abs_deviation
 
 from aslprep import config
@@ -483,6 +484,288 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber', thresh=0.7):
     newcbf[mask == 1] = bb
     newcbf = np.nan_to_num(newcbf)
     return newcbf
+
+
+def estimate_att_pcasl(deltam_arr, plds, lds, t1blood, t1tissue):
+    """Estimate arterial transit time using the weighted average method.
+
+    The weighted average method comes from :footcite:t:`dai2012reduced`.
+
+    Parameters
+    ----------
+    deltam_arr : :obj:`numpy.ndarray` of shape (S, D)
+        Delta-M array, averaged by PLD.
+    plds : :obj:`numpy.ndarray` of shape (S, D)
+        Post-labeling delays. w in Dai 2012.
+        In case of a 2D acquisition, PLDs may vary by slice, and thus the plds array will vary
+        in the spatial dimension.
+        For 3D acquisitions, or 2D acquisitions without slice timing info, plds will only vary
+        along the second dimension.
+    lds : :obj:`numpy.ndarray`
+        Labeling durations. tau in Dai 2012.
+    t1blood : :obj:`float`
+        T1 relaxation rate for blood.
+    t1tissue : :obj:`float`
+        T1 relaxation rate for tissue.
+
+    Returns
+    -------
+    att_arr : :obj:`numpy.ndarray`
+        Arterial transit time array.
+
+    Notes
+    -----
+    This function was originally written in MATLAB by Jianxun Qu and William Tackett.
+    It was translated to Python by Taylor Salo.
+    Taylor Salo modified the code to loop over voxels, in order to account for slice timing-shifted
+    post-labeling delays.
+
+    Please see https://shorturl.at/wCO56 and https://shorturl.at/aKQU3 for the original MATLAB
+    code.
+
+    The code could probably be improved by operating on arrays, rather than looping over voxels.
+    It is also overkill for 3D acquisitions, where PLD doesn't vary by voxel.
+
+    License
+    -------
+    MIT License
+
+    Copyright (c) 2023 willtack
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    n_voxels, n_plds = plds.shape
+    if deltam_arr.shape != plds.shape:
+        raise ValueError(f'{deltam_arr.shape} != {plds.shape}')
+
+    # Beginning of auxil_asl_gen_wsum
+    if lds.size != n_plds:
+        raise ValueError(f'{lds.size} != {n_plds}')
+
+    att_arr = np.empty(n_voxels)
+    for i_voxel in range(n_voxels):
+        deltam_by_voxel = deltam_arr[i_voxel, :]
+        plds_by_voxel = plds[i_voxel, :]
+
+        # Define the possible transit times to evaluate for this voxel
+        transit_times = np.arange(
+            np.round(np.min(plds_by_voxel), 3),
+            np.round(np.max(plds_by_voxel), 3) + 0.001,
+            0.001,
+        )
+
+        sig_sum = np.zeros(transit_times.size)
+        sig_pld_sum = np.zeros(transit_times.size)
+
+        for j_pld in range(n_plds):
+            pld = plds_by_voxel[j_pld]
+            ld = lds[j_pld]
+
+            # e ^ (-delta / T1a)
+            exp_tt_T1b = np.exp(-transit_times / t1blood)
+            # e ^ (-max(w - delta, 0) / T1t)
+            exp_pld_tt_T1t = np.exp(-np.maximum(0, pld - transit_times) / t1tissue)
+            # e ^ (-max(tau + w - delta, 0) / T1t)
+            exp_pld_ld_tt_T1t = np.exp(-np.maximum(0, pld + ld - transit_times) / t1tissue)
+
+            # The combination of exponent terms in Equation 1
+            sig = exp_tt_T1b * (exp_pld_tt_T1t - exp_pld_ld_tt_T1t)
+
+            # The elements in Equation 1 that aren't touched here are:
+            # 2M0t (2 * equilibrium magnetization of brain tissue),
+            # Beta (a term to compensate for static tissue signal loss caused by vessel supp.
+            # pulses),
+            # alpha (labeling efficiency),
+            # T1t (t1tissue),
+            # f (CBF; perfusion rate)
+            # lambda (partition coefficient)
+            # It seems like they are cancelled out though, so it's probably fine.
+
+            # Numerator in Equation 4, for a range of transit times
+            sig_pld_sum += sig * pld
+            # Denominator in Equation 4, for a range of transit times
+            sig_sum += sig
+
+        # Predicted weighted delay values for a range of transit times
+        weighted_delay_predicted = sig_pld_sum / sig_sum  # TT
+        # End of auxil_asl_gen_wsum
+
+        # Calculate the observed weighted delay for each voxel
+        weighted_delay_denom = np.sum(deltam_by_voxel)
+        weighted_delay_num = np.sum(deltam_by_voxel * plds_by_voxel)
+        weighted_delay_observed = weighted_delay_num / (
+            np.abs(weighted_delay_denom) + np.finfo(float).eps
+        )
+
+        # Truncate extreme transit time value to the PLD limits
+        weighted_delay_min = min(weighted_delay_predicted)
+        weighted_delay_max = max(weighted_delay_predicted)
+        weighted_delay_observed = np.maximum(weighted_delay_observed, weighted_delay_min)
+        weighted_delay_observed = np.minimum(weighted_delay_observed, weighted_delay_max)
+
+        # Use linear interpolation to get the ATT for each weighted delay value (i.e., each voxel),
+        # using the predicted weighted delay and associated transit time arrays.
+        interp_func = interp1d(weighted_delay_predicted, transit_times)
+
+        att_arr[i_voxel] = interp_func(weighted_delay_observed)
+
+    return att_arr
+
+
+def estimate_cbf_pcasl_multipld(
+    deltam_arr,
+    scaled_m0data,
+    plds,
+    tau,
+    labeleff,
+    t1blood,
+    t1tissue,
+    unit_conversion,
+    partition_coefficient,
+):
+    """Estimate CBF and ATT for multi-delay PCASL data.
+
+    Parameters
+    ----------
+    deltam_arr : :obj:`numpy.ndarray` of shape (S, P)
+        Control-label values for each voxel and PLDs.
+        S = sample (i.e., voxel).
+        P = Post-labeling delay (i.e., volume).
+    scaled_m0data : :obj:`numpy.ndarray` of shape (S,)
+        The M0 volume, after scaling based on the M0-scale value.
+    plds : :obj:`numpy.ndarray` of shape (S, P)
+        Post-labeling delays. One value for each volume in ``deltam_arr``.
+    tau : :obj:`numpy.ndarray` of shape (P,) or (0,)
+        Label duration. May be a single value or may vary across volumes/PLDs.
+    labeleff : :obj:`float`
+        Estimated labeling efficiency.
+    t1blood : :obj:`float`
+        The longitudinal relaxation time of blood in seconds.
+    t1tissue : :obj:`float`
+        The longitudinal relaxation time of tissue in seconds.
+    unit_conversion : :obj:`float`
+        The factor to convert CBF units from mL/g/s to mL/ (100 g)/min. 6000.
+    partition_coefficient : :obj:`float`
+        The brain/blood partition coefficient in mL/g. Called lambda in the literature.
+
+    Returns
+    -------
+    att_arr : :obj:`numpy.ndarray` of shape (S,)
+        Arterial transit time map.
+    cbf : :obj:`numpy.ndarray` of shape (S,)
+        Estimated cerebrospinal fluid map, after estimating for each PLD and averaging across
+        PLDs.
+
+    Notes
+    -----
+    Delta-M values are first averaged over time for each unique post-labeling delay value.
+
+    Arterial transit time is estimated on a voxel-wise basis according to
+    :footcite:t:`dai2012reduced`.
+
+    CBF is then calculated for each unique PLD value using the mean delta-M values and the
+    estimated ATT.
+
+    CBF is then averaged over PLDs according to :footcite:t:`juttukonda2021characterizing`,
+    in which an unweighted average is calculated for each voxel across all PLDs in which
+    PLD + tau > ATT.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    n_voxels, n_volumes = deltam_arr.shape
+    n_voxels_pld, n_plds = plds.shape
+    if n_voxels_pld != n_voxels:
+        raise ValueError(f'{n_voxels_pld} != {n_voxels}')
+
+    first_voxel_plds = plds[0, :]
+
+    if n_plds != n_volumes:
+        raise ValueError(
+            f'Number of PostLabelingDelays ({n_plds}) does not match '
+            f'number of delta-M volumes ({n_volumes}).'
+        )
+
+    # Formula from Fan 2017 (equation 2)
+    # Determine unique original post-labeling delays (ignoring slice timing shifts)
+    unique_first_voxel_plds, unique_pld_idx = np.unique(first_voxel_plds, return_index=True)
+    unique_plds = plds[:, unique_pld_idx]  # S x unique PLDs
+    n_unique_plds = unique_pld_idx.size
+
+    # tau should be a 1D array, with one volume per unique PLD
+    if tau.size > 1:
+        if tau.size != n_plds:
+            raise ValueError(
+                f'Number of LabelingDurations ({tau.size}) != '
+                f'number of PostLabelingDelays ({n_plds})'
+            )
+
+        tau = tau[unique_pld_idx]
+    else:
+        tau = np.full(n_unique_plds, tau)
+
+    mean_deltam_by_pld = np.zeros((n_voxels, n_unique_plds))
+    for i_pld, first_voxel_pld in enumerate(unique_first_voxel_plds):
+        pld_idx = first_voxel_plds == first_voxel_pld
+        mean_deltam_by_pld[:, i_pld] = np.mean(deltam_arr[:, pld_idx], axis=1)
+
+    # Estimate ATT for each voxel
+    att_arr = estimate_att_pcasl(
+        deltam_arr=mean_deltam_by_pld,
+        plds=unique_plds,
+        lds=tau,
+        t1blood=t1blood,
+        t1tissue=t1tissue,
+    )
+
+    # Start calculating CBF
+    num_factor = unit_conversion * partition_coefficient
+    denom_factor = 2 * labeleff * scaled_m0data * t1blood
+
+    # Loop over PLDs and calculate CBF for each, accounting for ATT.
+    cbf_by_pld = np.zeros((n_voxels, n_unique_plds))
+    for i_pld in range(n_unique_plds):
+        pld_by_voxel = unique_plds[:, i_pld]
+        tau_for_pld = tau[i_pld]
+
+        pld_num_factor = num_factor * mean_deltam_by_pld[:, i_pld] * np.exp(att_arr / t1blood)
+        pld_denom_factor = denom_factor * (
+            np.exp(-(np.maximum(pld_by_voxel - att_arr, 0) / t1tissue))
+            - np.exp(-(np.maximum(tau_for_pld + pld_by_voxel - att_arr, 0) / t1tissue))
+        )
+        cbf_by_pld[:, i_pld] = pld_num_factor / pld_denom_factor
+
+    # Average CBF across PLDs, but only include PLDs where PLD + tau > ATT for that voxel,
+    # per Juttukonda 2021 (section 2.6).
+    cbf = np.zeros(n_voxels)  # mean CBF
+    for i_voxel in range(n_voxels):
+        plds_voxel = unique_plds[i_voxel, :]
+        cbf_by_pld_voxel = cbf_by_pld[i_voxel, :]
+        att_voxel = att_arr[i_voxel]
+        cbf[i_voxel] = np.mean(cbf_by_pld_voxel[(plds_voxel + tau) > att_voxel])
+
+    return att_arr, cbf
 
 
 def calculate_deltam_pcasl(X, cbf, att, abat, abv):
