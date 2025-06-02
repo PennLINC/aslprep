@@ -182,7 +182,7 @@ def init_cbf_reporting_wf(
     cbf_summary = pe.Node(CBFSummaryPlot(label='cbf', vmax=100), name='cbf_summary', mem_gb=1)
     workflow.connect([
         (inputnode, cbf_summary, [
-            ('mean_cbf', 'cbf'),
+            ('mean_cbf', 'in_file'),
             ('aslref', 'ref_vol'),
         ]),
     ])  # fmt:skip
@@ -196,11 +196,11 @@ def init_cbf_reporting_wf(
     workflow.connect([(cbf_summary, ds_report_cbf, [('out_file', 'in_file')])])
 
     cbf_by_tt_plot = pe.Node(
-        CBFByTissueTypePlot(),
+        CBFByTissueTypePlot(img_type='cbf'),
         name='cbf_by_tt_plot',
     )
     workflow.connect([
-        (inputnode, cbf_by_tt_plot, [('mean_cbf', 'cbf')]),
+        (inputnode, cbf_by_tt_plot, [('mean_cbf', 'in_file')]),
         (warp_t1w_dseg_to_aslref, cbf_by_tt_plot, [('output_image', 'seg_file')]),
     ])  # fmt:skip
 
