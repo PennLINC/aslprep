@@ -21,6 +21,7 @@ def init_cbf_reporting_wf(
     plot_timeseries=True,
     scorescrub=False,
     basil=False,
+    is_multi_pld=False,
     name='cbf_reporting_wf',
 ):
     """Generate CBF reports.
@@ -64,6 +65,8 @@ def init_cbf_reporting_wf(
                 'cifti_cbf_ts',
                 # Multi-delay outputs
                 'att',
+                'abat',
+                'abv',
                 # SCORE/SCRUB outputs
                 'cbf_ts_score',  # unused
                 'mean_cbf_score',
@@ -179,13 +182,13 @@ def init_cbf_reporting_wf(
     cbf_summary = pe.Node(CBFSummaryPlot(label='cbf', vmax=100), name='cbf_summary', mem_gb=1)
     workflow.connect([
         (inputnode, cbf_summary, [
-            ('mean_cbf', 'cbf'),
+            ('mean_cbf', 'in_file'),
             ('aslref', 'ref_vol'),
         ]),
     ])  # fmt:skip
 
     ds_report_cbf = pe.Node(
-        DerivativesDataSink(datatype='figures', desc='cbf', suffix='cbf', keep_dtype=True),
+        DerivativesDataSink(datatype='figures', desc='brain', suffix='cbf'),
         name='ds_report_cbf',
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
@@ -193,11 +196,11 @@ def init_cbf_reporting_wf(
     workflow.connect([(cbf_summary, ds_report_cbf, [('out_file', 'in_file')])])
 
     cbf_by_tt_plot = pe.Node(
-        CBFByTissueTypePlot(),
+        CBFByTissueTypePlot(img_type='cbf'),
         name='cbf_by_tt_plot',
     )
     workflow.connect([
-        (inputnode, cbf_by_tt_plot, [('mean_cbf', 'cbf')]),
+        (inputnode, cbf_by_tt_plot, [('mean_cbf', 'in_file')]),
         (warp_t1w_dseg_to_aslref, cbf_by_tt_plot, [('output_image', 'seg_file')]),
     ])  # fmt:skip
 
@@ -206,13 +209,70 @@ def init_cbf_reporting_wf(
             datatype='figures',
             desc='cbfByTissueType',
             suffix='cbf',
-            keep_dtype=True,
         ),
         name='ds_report_cbf_by_tt',
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     workflow.connect([(cbf_by_tt_plot, ds_report_cbf_by_tt, [('out_file', 'in_file')])])
+
+    if is_multi_pld:
+        # Limits for the different figures.
+        # Make sure these match the hardcoded limits in the model-fitting function.
+        lims = {
+            'att': (0, 5),
+            'abat': (0, 5),
+            'abv': (0, 0.1),
+        }
+        for img_type in ['att', 'abat', 'abv']:
+            img_summary = pe.Node(
+                CBFSummaryPlot(
+                    label=img_type,
+                    vmin=lims[img_type][0],
+                    vmax=lims[img_type][1],
+                ),
+                name=f'{img_type}_summary',
+                mem_gb=1,
+            )
+            workflow.connect([
+                (inputnode, img_summary, [
+                    (img_type, 'in_file'),
+                    ('aslref', 'ref_vol'),
+                ]),
+            ])  # fmt:skip
+
+            ds_report_img = pe.Node(
+                DerivativesDataSink(
+                    datatype='figures',
+                    desc='brain',
+                    suffix=img_type,
+                ),
+                name=f'ds_report_{img_type}',
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            workflow.connect([(img_summary, ds_report_img, [('out_file', 'in_file')])])
+
+            img_by_tt_plot = pe.Node(
+                CBFByTissueTypePlot(img_type=img_type),
+                name=f'{img_type}_by_tt_plot',
+            )
+            workflow.connect([
+                (inputnode, img_by_tt_plot, [(img_type, 'in_file')]),
+                (warp_t1w_dseg_to_aslref, img_by_tt_plot, [('output_image', 'seg_file')]),
+            ])  # fmt:skip
+
+            ds_report_img_by_tt = pe.Node(
+                DerivativesDataSink(
+                    datatype='figures',
+                    desc=f'{img_type}ByTissueType',
+                    suffix=img_type,
+                ),
+                name=f'ds_report_{img_type}_by_tt',
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            workflow.connect([(img_by_tt_plot, ds_report_img_by_tt, [('out_file', 'in_file')])])
 
     if scorescrub:
         score_summary = pe.Node(
@@ -222,7 +282,7 @@ def init_cbf_reporting_wf(
         )
         workflow.connect([
             (inputnode, score_summary, [
-                ('mean_cbf_score', 'cbf'),
+                ('mean_cbf_score', 'in_file'),
                 ('aslref', 'ref_vol'),
             ]),
         ])  # fmt:skip
@@ -236,11 +296,11 @@ def init_cbf_reporting_wf(
         workflow.connect([(score_summary, ds_report_score, [('out_file', 'in_file')])])
 
         score_by_tt_plot = pe.Node(
-            CBFByTissueTypePlot(),
+            CBFByTissueTypePlot(img_type='cbf'),
             name='score_by_tt_plot',
         )
         workflow.connect([
-            (inputnode, score_by_tt_plot, [('mean_cbf_score', 'cbf')]),
+            (inputnode, score_by_tt_plot, [('mean_cbf_score', 'in_file')]),
             (warp_t1w_dseg_to_aslref, score_by_tt_plot, [('output_image', 'seg_file')]),
         ])  # fmt:skip
 
@@ -264,7 +324,7 @@ def init_cbf_reporting_wf(
         )
         workflow.connect([
             (inputnode, scrub_summary, [
-                ('mean_cbf_scrub', 'cbf'),
+                ('mean_cbf_scrub', 'in_file'),
                 ('aslref', 'ref_vol'),
             ]),
         ])  # fmt:skip
@@ -278,11 +338,11 @@ def init_cbf_reporting_wf(
         workflow.connect([(scrub_summary, ds_report_scrub, [('out_file', 'in_file')])])
 
         scrub_by_tt_plot = pe.Node(
-            CBFByTissueTypePlot(),
+            CBFByTissueTypePlot(img_type='cbf'),
             name='scrub_by_tt_plot',
         )
         workflow.connect([
-            (inputnode, scrub_by_tt_plot, [('mean_cbf_scrub', 'cbf')]),
+            (inputnode, scrub_by_tt_plot, [('mean_cbf_scrub', 'in_file')]),
             (warp_t1w_dseg_to_aslref, scrub_by_tt_plot, [('output_image', 'seg_file')]),
         ])  # fmt:skip
 
@@ -307,7 +367,7 @@ def init_cbf_reporting_wf(
         )
         workflow.connect([
             (inputnode, basil_summary, [
-                ('mean_cbf_basil', 'cbf'),
+                ('mean_cbf_basil', 'in_file'),
                 ('aslref', 'ref_vol'),
             ]),
         ])  # fmt:skip
@@ -321,11 +381,11 @@ def init_cbf_reporting_wf(
         workflow.connect([(basil_summary, ds_report_basil, [('out_file', 'in_file')])])
 
         basil_by_tt_plot = pe.Node(
-            CBFByTissueTypePlot(),
+            CBFByTissueTypePlot(img_type='cbf'),
             name='basil_by_tt_plot',
         )
         workflow.connect([
-            (inputnode, basil_by_tt_plot, [('mean_cbf_basil', 'cbf')]),
+            (inputnode, basil_by_tt_plot, [('mean_cbf_basil', 'in_file')]),
             (warp_t1w_dseg_to_aslref, basil_by_tt_plot, [('output_image', 'seg_file')]),
         ])  # fmt:skip
 
@@ -349,7 +409,7 @@ def init_cbf_reporting_wf(
         )
         workflow.connect([
             (inputnode, pvc_summary, [
-                ('mean_cbf_gm_basil', 'cbf'),
+                ('mean_cbf_gm_basil', 'in_file'),
                 ('aslref', 'ref_vol'),
             ]),
         ])  # fmt:skip
@@ -363,11 +423,11 @@ def init_cbf_reporting_wf(
         workflow.connect([(pvc_summary, ds_report_pvc, [('out_file', 'in_file')])])
 
         pvc_by_tt_plot = pe.Node(
-            CBFByTissueTypePlot(),
+            CBFByTissueTypePlot(img_type='cbf'),
             name='pvc_by_tt_plot',
         )
         workflow.connect([
-            (inputnode, pvc_by_tt_plot, [('mean_cbf_gm_basil', 'cbf')]),
+            (inputnode, pvc_by_tt_plot, [('mean_cbf_gm_basil', 'in_file')]),
             (warp_t1w_dseg_to_aslref, pvc_by_tt_plot, [('output_image', 'seg_file')]),
         ])  # fmt:skip
 

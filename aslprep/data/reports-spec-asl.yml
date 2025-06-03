@@ -160,7 +160,7 @@ sections:
       cerebellum (green), white matter and CSF (red), indicated by the color map on the left-hand side.
       The SCORE index with values greater than zero indicates which volume(s) are removed by SCORE.
     subtitle: CBF Summary
-  - bids: {datatype: figures, desc: cbf, suffix: cbf, extension: [.svg]}
+  - bids: {datatype: figures, desc: brain, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for basic CBF.
       The unit is mL/100 g/min.
@@ -171,6 +171,39 @@ sections:
       separated by tissue type.
       The unit is mL/100 g/min.
     subtitle: Mean CBF by Tissue Type
+  - subtitle: Arterial Transit Time
+    bids: {datatype: figures, desc: brain, suffix: att, extension: [.svg]}
+    caption: |
+      The map plots arterial transit time (ATT) estimated by the basic model.
+      The unit is seconds.
+  - subtitle: ATT by Tissue Type
+    bids: {datatype: figures, desc: attByTissueType, suffix: att, extension: [.svg]}
+    caption: |
+      The map plots the distribution of arterial transit time values for the basic output,
+      separated by tissue type.
+      The unit is seconds.
+  - subtitle: Arterial Bolus Arrival Time
+    bids: {datatype: figures, desc: brain, suffix: abat, extension: [.svg]}
+    caption: |
+      The map plots arterial bolus arrival time (aBAT) estimated by the basic model.
+      The unit is seconds.
+  - subtitle: aBAT by Tissue Type
+    bids: {datatype: figures, desc: abatByTissueType, suffix: abat, extension: [.svg]}
+    caption: |
+      The map plots the distribution of arterial bolus arrival time (aBAT) values for the basic output,
+      separated by tissue type.
+      The unit is seconds.
+  - subtitle: Arterial Blood Volume
+    bids: {datatype: figures, desc: brain, suffix: abv, extension: [.svg]}
+    caption: |
+      The map plots arterial blood volume (aBV) estimated by the basic model.
+      The unit is fraction.
+  - subtitle: aBV by Tissue Type
+    bids: {datatype: figures, desc: abvByTissueType, suffix: abv, extension: [.svg]}
+    caption: |
+      The map plots the distribution of arterial blood volume (aBV) values for the basic output,
+      separated by tissue type.
+      The unit is fraction.
   - bids: {datatype: figures, desc: score, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for SCORE-corrected CBF.
