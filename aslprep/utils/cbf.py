@@ -1047,6 +1047,9 @@ def fit_deltam_multipld(
         Arterial bolus arrival time.
     abv : :obj:`numpy.ndarray` of shape (n_voxels,)
         Arterial blood volume.
+    failures : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Boolean array indicating whether the model fit failed for each voxel.
+        False indicates success, True indicates failure.
 
     Notes
     -----
@@ -1103,6 +1106,7 @@ def fit_deltam_multipld(
     att = np.zeros(n_voxels)
     abat = np.zeros(n_voxels)
     abv = np.zeros(n_voxels)
+    failures = np.zeros(n_voxels, dtype=bool)
     fail_count = 0
 
     _MODEL_PARAMS = ['cbf', 'att', 'abat', 'abv']
@@ -1176,6 +1180,7 @@ def fit_deltam_multipld(
             att[i_voxel] = np.nan
             abat[i_voxel] = np.nan
             abv[i_voxel] = np.nan
+            failures[i_voxel] = True
 
             fail_count += 1
 
@@ -1186,7 +1191,7 @@ def fit_deltam_multipld(
             f'{fail_count}/{n_voxels} ({fail_percent:.2f}%) voxel(s).'
         )
 
-    return cbf, att, abat, abv
+    return cbf, att, abat, abv, failures
 
 
 def estimate_t1(metadata):

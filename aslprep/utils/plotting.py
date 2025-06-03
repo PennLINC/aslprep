@@ -23,10 +23,10 @@ class CBFPlot:
     This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
     """
 
-    __slots__ = ['cbf', 'ref_vol', 'label', 'outfile', 'vmin', 'vmax']
+    __slots__ = ['in_file', 'ref_vol', 'label', 'outfile', 'vmin', 'vmax']
 
-    def __init__(self, cbf, ref_vol, label, outfile, vmin, vmax):
-        self.cbf = cbf
+    def __init__(self, in_file, ref_vol, label, outfile, vmin, vmax):
+        self.in_file = in_file
         self.ref_vol = ref_vol
         self.label = label
         self.outfile = outfile
@@ -38,20 +38,20 @@ class CBFPlot:
 
         This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
         """
-        cbf_img = nb.load(self.cbf)
-        cbf_data = cbf_img.get_fdata()
-        cbf_data[cbf_data < self.vmin] = self.vmin
-        cbf_data[cbf_data > self.vmax] = self.vmax
-        if np.any(cbf_data < 0):
+        img = nb.load(self.in_file)
+        data = img.get_fdata()
+        data[data < self.vmin] = self.vmin
+        data[data > self.vmax] = self.vmax
+        if np.any(data < 0):
             colormap = 'coolwarm'
             vmin = -20
         else:
             colormap = 'Reds'
             vmin = 0
 
-        cbf_img = nb.Nifti1Image(cbf_data, affine=cbf_img.affine, header=cbf_img.header)
+        img = nb.Nifti1Image(data, affine=img.affine, header=img.header)
         statfile = plot_stat_map(
-            cbf=cbf_img,
+            img=img,
             ref_vol=self.ref_vol,
             vmin=vmin,
             vmax=self.vmax,
@@ -62,7 +62,7 @@ class CBFPlot:
 
 
 def plot_stat_map(
-    cbf,
+    img,
     ref_vol,
     plot_params=None,
     order=('z', 'x', 'y'),
@@ -76,7 +76,7 @@ def plot_stat_map(
     """Plot statistical map."""
     plot_params = {} if plot_params is None else plot_params
 
-    image_nii = load_niimg(cbf)
+    image_nii = load_niimg(img)
     if image_nii.ndim > 3:
         image_nii = image.mean_img(image_nii)
 

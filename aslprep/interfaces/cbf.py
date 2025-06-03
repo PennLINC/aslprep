@@ -348,6 +348,11 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         None,
         desc='Post-labeling delays. Only defined if slice-timing correction is applied.',
     )
+    failures = traits.Either(
+        File(exists=True),
+        None,
+        desc='Boolean map of failed model fits. Only generated for multi-delay data.',
+    )
 
 
 class ComputeCBF(SimpleInterface):
@@ -582,6 +587,7 @@ class ComputeCBF(SimpleInterface):
             att_img = masker.inverse_transform(att)
             abat_img = masker.inverse_transform(abat)
             abv_img = masker.inverse_transform(abv)
+            failures_img = masker.inverse_transform(failures.astype(int))
 
             # Multi-delay data won't produce a CBF time series
             self._results['cbf_ts'] = None
@@ -603,6 +609,12 @@ class ComputeCBF(SimpleInterface):
                 newpath=runtime.cwd,
             )
             abv_img.to_filename(self._results['abv'])
+            self._results['failures'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_failures',
+                newpath=runtime.cwd,
+            )
+            failures_img.to_filename(self._results['failures'])
 
         else:  # Single-delay
             if is_casl:
