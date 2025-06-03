@@ -570,7 +570,7 @@ class ComputeCBF(SimpleInterface):
                     'cbf': cbf_init,
                 }
 
-            cbf, att, abat, abv = fit_deltam_multipld(
+            cbf, att, abat, abv, failures = fit_deltam_multipld(
                 deltam_arr=deltam_arr,
                 scaled_m0data=scaled_m0data,
                 plds=plds,
