@@ -188,7 +188,7 @@ def init_cbf_reporting_wf(
     ])  # fmt:skip
 
     ds_report_cbf = pe.Node(
-        DerivativesDataSink(datatype='figures', desc='cbf', suffix='cbf', keep_dtype=True),
+        DerivativesDataSink(datatype='figures', desc='brain', suffix='cbf'),
         name='ds_report_cbf',
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
@@ -209,7 +209,6 @@ def init_cbf_reporting_wf(
             datatype='figures',
             desc='cbfByTissueType',
             suffix='cbf',
-            keep_dtype=True,
         ),
         name='ds_report_cbf_by_tt',
         run_without_submitting=True,
@@ -245,8 +244,8 @@ def init_cbf_reporting_wf(
             ds_report_img = pe.Node(
                 DerivativesDataSink(
                     datatype='figures',
+                    desc='brain',
                     suffix=img_type,
-                    keep_dtype=True,
                 ),
                 name=f'ds_report_{img_type}',
                 run_without_submitting=True,
@@ -268,7 +267,6 @@ def init_cbf_reporting_wf(
                     datatype='figures',
                     desc=f'{img_type}ByTissueType',
                     suffix=img_type,
-                    keep_dtype=True,
                 ),
                 name=f'ds_report_{img_type}_by_tt',
                 run_without_submitting=True,
