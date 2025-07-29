@@ -147,7 +147,7 @@ def _build_parser():
         choices=['participant'],
         help=(
             'processing stage to be run, only "participant" in the case of '
-            'ASLPREP (see BIDS-Apps specification).'
+            'ASLPrep (see BIDS-Apps specification).'
         ),
     )
 
@@ -188,10 +188,8 @@ def _build_parser():
         metavar='FILE',
         help=(
             'A JSON file describing custom BIDS input filters using PyBIDS. '
-            'For further details, please check out '
-            'https://aslprep.readthedocs.io/en/'
-            f'{currentv.base_version if is_release else "latest"}/faq.html#'
-            'how-do-I-select-only-certain-files-to-be-input-to-ASLPrep'
+            'Fields that can be used are: "asl", "t1w", "t2w", "flair", "fmap", "sbref", and '
+            '"roi".'
         ),
     )
     g_bids.add_argument(
@@ -204,9 +202,9 @@ def _build_parser():
         help=(
             'Search PATH(s) for pre-computed BIDS derivatives. '
             'These may be provided as named folders '
-            '(e.g., `--derivatives smriprep=/path/to/smriprep`). '
+            '(e.g., ``--derivatives smriprep=/path/to/smriprep``). '
             'Note: This does not apply to non-BIDS data, like FreeSurfer outputs. '
-            'To reuse FreeSurfer outputs, use `--fs-subjects-dir` instead.'
+            'To reuse FreeSurfer outputs, use ``--fs-subjects-dir`` instead.'
         ),
     )
     g_bids.add_argument(

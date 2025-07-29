@@ -9,7 +9,7 @@ Usage Notes
 Execution and the BIDS format
 *****************************
 
-The main input to *ASLPREP* is the path of the dataset that needs processing.
+The main input to *ASLPrep* is the path of the dataset that needs processing.
 
 The input dataset is required to be in valid :abbr:`BIDS (Brain Imaging Data Structure)` format,
 and it must include at least one T1w structural image.

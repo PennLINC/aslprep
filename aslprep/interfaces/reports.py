@@ -287,8 +287,8 @@ class CBFSummary(SummaryInterface):
 
 
 class _AboutSummaryInputSpec(BaseInterfaceInputSpec):
-    version = Str(desc='ASLPREP version')
-    command = Str(desc='ASLPREP command')
+    version = Str(desc='ASLPrep version')
+    command = Str(desc='ASLPrep command')
     # Date not included - update timestamp only if version or command changes
 
 
