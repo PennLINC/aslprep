@@ -41,7 +41,7 @@ dependencies = [
     "sdcflows ~= 2.13.0",
     "sentry-sdk <= 2.33.0",
     "smriprep ~= 0.18.0",
-    "templateflow <= 24.2.2",
+    "templateflow <= 25.0.3",
     "toml",
 ]
 dynamic = ["version"]
