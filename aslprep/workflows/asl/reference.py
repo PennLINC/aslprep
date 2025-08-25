@@ -218,6 +218,7 @@ def init_enhance_and_skullstrip_bold_wf(
     name='enhance_and_skullstrip_bold_wf',
     omp_nthreads=1,
     pre_mask=False,
+    bias_correct=False,
 ):
     """
     Enhance and run brain extraction on a BOLD EPI image.
@@ -308,14 +309,23 @@ def init_enhance_and_skullstrip_bold_wf(
         name='outputnode',
     )
 
-    # Run N4 normally, force num_threads=1 for stability (images are small, no need for >1)
-    n4_correct = pe.Node(
-        N4BiasFieldCorrection(dimension=3, copy_header=True, bspline_fitting_distance=200),
-        shrink_factor=2,
-        name='n4_correct',
-        n_procs=1,
-    )
-    n4_correct.inputs.rescale_intensities = True
+    n4_buffer = pe.Node(niu.IdentityInterface(fields=['bias_corrected_file']), name='n4_buffer')
+
+    if bias_correct:
+        # Run N4 normally, force num_threads=1 for stability (images are small, no need for >1)
+        n4_correct = pe.Node(
+            N4BiasFieldCorrection(dimension=3, copy_header=True, bspline_fitting_distance=200),
+            shrink_factor=2,
+            name='n4_correct',
+            n_procs=1,
+        )
+        n4_correct.inputs.rescale_intensities = True
+
+        workflow.connect([(n4_correct, n4_buffer, [('output_image', 'bias_corrected_file')])])
+    else:
+        workflow.connect([(inputnode, n4_buffer, [('in_file', 'bias_corrected_file')])])
+
+    workflow.connect([(n4_buffer, outputnode, [('bias_corrected_file', 'bias_corrected_file')])])
 
     # Create a generous BET mask out of the bias-corrected EPI
     skullstrip_first_pass = pe.Node(fsl.BET(frac=0.2, mask=True), name='skullstrip_first_pass')
@@ -338,7 +348,8 @@ def init_enhance_and_skullstrip_bold_wf(
 
     # Run ANFI's 3dAutomask to extract a refined brain mask
     skullstrip_second_pass = pe.Node(
-        afni.Automask(dilate=1, outputtype='NIFTI_GZ'), name='skullstrip_second_pass'
+        afni.Automask(dilate=1, outputtype='NIFTI_GZ'),
+        name='skullstrip_second_pass',
     )
     fixhdr_skullstrip2 = pe.Node(CopyXForm(), name='fixhdr_skullstrip2', mem_gb=0.1)
 
@@ -352,7 +363,10 @@ def init_enhance_and_skullstrip_bold_wf(
         from nipype.interfaces.ants.utils import AI
 
         bold_template = get_template(
-            'MNI152NLin2009cAsym', resolution=2, desc='fMRIPrep', suffix='boldref'
+            'MNI152NLin2009cAsym',
+            resolution=2,
+            desc='fMRIPrep',
+            suffix='boldref',
         )
         brain_mask = get_template('MNI152NLin2009cAsym', resolution=2, desc='brain', suffix='mask')
 
@@ -401,7 +415,6 @@ def init_enhance_and_skullstrip_bold_wf(
         # Ensure mask's header matches reference's
         fix_header = pe.Node(CopyHeader(), name='fix_header', run_without_submitting=True)
 
-        # fmt: off
         workflow.connect([
             (inputnode, fix_header, [('in_file', 'hdr_file')]),
             (inputnode, init_aff, [('in_file', 'moving_image')]),
@@ -414,16 +427,10 @@ def init_enhance_and_skullstrip_bold_wf(
             ]),
             (map_brainmask, fix_header, [('output_image', 'in_file')]),
             (fix_header, n4_correct, [('out_file', 'weight_image')]),
-        ])
-        # fmt: on
+        ])  # fmt: skip
     else:
-        # fmt: off
-        workflow.connect([
-            (inputnode, n4_correct, [('pre_mask', 'weight_image')]),
-        ])
-        # fmt: on
+        workflow.connect([(inputnode, n4_correct, [('pre_mask', 'weight_image')])])
 
-    # fmt: off
     workflow.connect([
         (inputnode, n4_correct, [('in_file', 'input_image')]),
         (inputnode, fixhdr_unifize, [('in_file', 'hdr_file')]),
@@ -442,8 +449,6 @@ def init_enhance_and_skullstrip_bold_wf(
         (combine_masks, apply_mask, [('out_file', 'in_mask')]),
         (combine_masks, outputnode, [('out_file', 'mask_file')]),
         (apply_mask, outputnode, [('out_file', 'skull_stripped_file')]),
-        (n4_correct, outputnode, [('output_image', 'bias_corrected_file')]),
-    ])
-    # fmt: on
+    ])  # fmt: skip
 
     return workflow
