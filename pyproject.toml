@@ -32,19 +32,18 @@ dependencies = [
     "nireports >= 25.1.0",
     "nitransforms >= 21.0.0",
     "niworkflows ~= 1.14.0",
-    "numpy >= 1.26",
+    "numpy ~= 1.26",
     "packaging",
     "pandas",
     "psutil >= 5.4",
     "pybids >= 0.16",
     "requests",
-    "scikit-image >= 0.25",
     "sdcflows ~= 2.13.0",
-    "sentry-sdk <= 2.35.0",
+    "sentry-sdk",
     "smriprep ~= 0.18.0",
-    "templateflow <= 25.0.3",
+    "templateflow",
     "toml",
-    "transforms3d >= 0.4.2",
+    "transforms3d ~= 0.4",
 ]
 dynamic = ["version"]
 
