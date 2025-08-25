@@ -43,6 +43,7 @@ dependencies = [
     "smriprep ~= 0.18.0",
     "templateflow <= 24.2.2",
     "toml",
+    "transforms3d >= 0.4.2",
 ]
 dynamic = ["version"]
 
