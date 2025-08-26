@@ -1076,7 +1076,7 @@ def fit_deltam_multipld(
         if isinstance(tau, float):
             tau = np.full((n_volumes,), tau)
         else:
-            tau = np.ndarray(tau)
+            tau = np.array(tau)
 
             if tau.size != n_volumes:
                 raise ValueError(
