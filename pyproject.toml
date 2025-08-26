@@ -22,6 +22,7 @@ requires-python = ">=3.10"
 dependencies = [
     'importlib_resources; python_version < "3.11"',
     "acres",
+    "brainchop",
     "fmriprep ~= 25.1.0",
     "indexed_gzip <= 1.9.5",
     "looseversion",

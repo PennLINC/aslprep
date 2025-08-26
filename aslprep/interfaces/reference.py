@@ -4,6 +4,8 @@ import nibabel as nb
 import pandas as pd
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
+    CommandLine,
+    CommandLineInputSpec,
     File,
     SimpleInterface,
     TraitedSpec,
@@ -107,3 +109,40 @@ class SelectHighestContrastVolumes(SimpleInterface):
         ).to_filename(self._results['selected_volumes_file'])
 
         return runtime
+
+
+class _BrainChopInputSpec(CommandLineInputSpec):
+    in_file = File(
+        exists=True,
+        mandatory=True,
+        desc='Input file.',
+        argstr='%s',
+        position=0,
+    )
+    skullstripped_file = File(
+        'skullstripped.nii.gz',
+        usedefault=True,
+        desc='Output file.',
+        argstr='-o %s',
+        position=1,
+    )
+    mask_file = File(
+        'mask.nii.gz',
+        usedefault=True,
+        desc='Output file.',
+        argstr='--mask %s',
+        position=2,
+    )
+
+
+class _BrainChopOutputSpec(TraitedSpec):
+    skullstripped_file = File(desc='Output file.', exists=True)
+    mask_file = File(desc='Output file.', exists=True)
+
+
+class BrainChop(CommandLine):
+    """Brain chop interface."""
+
+    input_spec = _BrainChopInputSpec
+    output_spec = _BrainChopOutputSpec
+    _cmd = 'brainchop'

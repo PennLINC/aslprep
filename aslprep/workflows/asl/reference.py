@@ -26,11 +26,9 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.header import ValidateImage
-from packaging.version import Version
-from packaging.version import parse as parseversion
 
 from aslprep import config
-from aslprep.interfaces.reference import SelectHighestContrastVolumes
+from aslprep.interfaces.reference import BrainChop, SelectHighestContrastVolumes
 from aslprep.interfaces.utility import Smooth
 
 
@@ -213,15 +211,16 @@ methodology of *ASLPrep*, for use in head motion correction.
     return workflow
 
 
-def init_enhance_and_skullstrip_bold_wf(
-    brainmask_thresh=0.5,
+def init_enhance_and_skullstrip_asl_wf(
     name='enhance_and_skullstrip_bold_wf',
-    omp_nthreads=1,
-    pre_mask=False,
     bias_correct=False,
 ):
     """
     Enhance and run brain extraction on a BOLD EPI image.
+
+    NOTE: This is a modified version of the bold workflow from niworkflows.
+    I have added an option to skip the N4 bias field correction step,
+    and have swapped out BET for SynthStrip.
 
     This workflow takes in a :abbr:`BOLD (blood-oxygen level-dependant)`
     :abbr:`fMRI (functional MRI)` average/summary (e.g., a reference image
@@ -300,7 +299,7 @@ def init_enhance_and_skullstrip_bold_wf(
         reportlet for the skull-stripping
 
     """
-    from niworkflows.interfaces.nibabel import ApplyMask, BinaryDilation
+    from niworkflows.interfaces.fixes import FixN4BiasFieldCorrection as N4BiasFieldCorrection
 
     workflow = Workflow(name=name)
     inputnode = pe.Node(niu.IdentityInterface(fields=['in_file', 'pre_mask']), name='inputnode')
@@ -321,134 +320,120 @@ def init_enhance_and_skullstrip_bold_wf(
         )
         n4_correct.inputs.rescale_intensities = True
 
-        workflow.connect([(n4_correct, n4_buffer, [('output_image', 'bias_corrected_file')])])
+        workflow.connect([
+            (inputnode, n4_correct, [('in_file', 'input_image')]),
+            (n4_correct, n4_buffer, [('output_image', 'bias_corrected_file')]),
+        ])  # fmt: skip
     else:
         workflow.connect([(inputnode, n4_buffer, [('in_file', 'bias_corrected_file')])])
 
     workflow.connect([(n4_buffer, outputnode, [('bias_corrected_file', 'bias_corrected_file')])])
 
-    # Create a generous BET mask out of the bias-corrected EPI
-    skullstrip_first_pass = pe.Node(fsl.BET(frac=0.2, mask=True), name='skullstrip_first_pass')
-    first_dilate = pe.Node(BinaryDilation(radius=6), name='first_dilate')
-    first_mask = pe.Node(ApplyMask(), name='first_mask')
-
-    # Use AFNI's unifize for T2 contrast & fix header
-    unifize = pe.Node(
-        afni.Unifize(
-            t2=True,
-            outputtype='NIFTI_GZ',
-            # Default -clfrac is 0.1, 0.4 was too conservative
-            # -rbt because I'm a Jedi AFNI Master (see 3dUnifize's documentation)
-            args='-clfrac 0.2 -rbt 18.3 65.0 90.0',
-            out_file='uni.nii.gz',
-        ),
-        name='unifize',
-    )
-    fixhdr_unifize = pe.Node(CopyXForm(), name='fixhdr_unifize', mem_gb=0.1)
-
-    # Run ANFI's 3dAutomask to extract a refined brain mask
-    skullstrip_second_pass = pe.Node(
-        afni.Automask(dilate=1, outputtype='NIFTI_GZ'),
-        name='skullstrip_second_pass',
-    )
-    fixhdr_skullstrip2 = pe.Node(CopyXForm(), name='fixhdr_skullstrip2', mem_gb=0.1)
-
-    # Take intersection of both masks
-    combine_masks = pe.Node(fsl.BinaryMaths(operation='mul'), name='combine_masks')
-
-    # Compute masked brain
-    apply_mask = pe.Node(ApplyMask(), name='apply_mask')
-
-    if not pre_mask:
-        from nipype.interfaces.ants.utils import AI
-
-        bold_template = get_template(
-            'MNI152NLin2009cAsym',
-            resolution=2,
-            desc='fMRIPrep',
-            suffix='boldref',
-        )
-        brain_mask = get_template('MNI152NLin2009cAsym', resolution=2, desc='brain', suffix='mask')
-
-        # Initialize transforms with antsAI
-        init_aff = pe.Node(
-            AI(
-                fixed_image=str(bold_template),
-                fixed_image_mask=str(brain_mask),
-                metric=('Mattes', 32, 'Regular', 0.2),
-                transform=('Affine', 0.1),
-                search_factor=(20, 0.12),
-                principal_axes=False,
-                convergence=(10, 1e-6, 10),
-                verbose=True,
-            ),
-            name='init_aff',
-            n_procs=omp_nthreads,
-        )
-
-        # Registration().version may be None
-        if parseversion(Registration().version or '0.0.0') > Version('2.2.0'):
-            init_aff.inputs.search_grid = (40, (0, 40, 40))
-
-        # Set up spatial normalization
-        norm = pe.Node(
-            Registration(from_file=data.load('epi_atlasbased_brainmask.json')),
-            name='norm',
-            n_procs=omp_nthreads,
-        )
-        norm.inputs.fixed_image = str(bold_template)
-        map_brainmask = pe.Node(
-            ApplyTransforms(
-                interpolation='Linear',
-                # Use the higher resolution and probseg for numerical stability in rounding
-                input_image=str(
-                    get_template(
-                        'MNI152NLin2009cAsym',
-                        resolution=1,
-                        label='brain',
-                        suffix='probseg',
-                    )
-                ),
-            ),
-            name='map_brainmask',
-        )
-        # Ensure mask's header matches reference's
-        fix_header = pe.Node(CopyHeader(), name='fix_header', run_without_submitting=True)
-
-        workflow.connect([
-            (inputnode, fix_header, [('in_file', 'hdr_file')]),
-            (inputnode, init_aff, [('in_file', 'moving_image')]),
-            (inputnode, map_brainmask, [('in_file', 'reference_image')]),
-            (inputnode, norm, [('in_file', 'moving_image')]),
-            (init_aff, norm, [('output_transform', 'initial_moving_transform')]),
-            (norm, map_brainmask, [
-                ('reverse_invert_flags', 'invert_transform_flags'),
-                ('reverse_transforms', 'transforms'),
-            ]),
-            (map_brainmask, fix_header, [('output_image', 'in_file')]),
-            (fix_header, n4_correct, [('out_file', 'weight_image')]),
-        ])  # fmt: skip
-    else:
-        workflow.connect([(inputnode, n4_correct, [('pre_mask', 'weight_image')])])
-
+    skullstrip = pe.Node(BrainChop(), name='skullstrip')
     workflow.connect([
-        (inputnode, n4_correct, [('in_file', 'input_image')]),
-        (inputnode, fixhdr_unifize, [('in_file', 'hdr_file')]),
-        (inputnode, fixhdr_skullstrip2, [('in_file', 'hdr_file')]),
-        (n4_correct, skullstrip_first_pass, [('output_image', 'in_file')]),
-        (skullstrip_first_pass, first_dilate, [('mask_file', 'in_file')]),
-        (first_dilate, first_mask, [('out_file', 'in_mask')]),
-        (skullstrip_first_pass, first_mask, [('out_file', 'in_file')]),
-        (first_mask, unifize, [('out_file', 'in_file')]),
-        (unifize, fixhdr_unifize, [('out_file', 'in_file')]),
-        (fixhdr_unifize, skullstrip_second_pass, [('out_file', 'in_file')]),
-        (skullstrip_first_pass, combine_masks, [('mask_file', 'in_file')]),
-        (skullstrip_second_pass, fixhdr_skullstrip2, [('out_file', 'in_file')]),
-        (fixhdr_skullstrip2, combine_masks, [('out_file', 'operand_file')]),
-        (fixhdr_unifize, apply_mask, [('out_file', 'in_file')]),
-        (combine_masks, apply_mask, [('out_file', 'in_mask')]),
-        (combine_masks, outputnode, [('out_file', 'mask_file')]),
-        (apply_mask, outputnode, [('out_file', 'skull_stripped_file')]),
+        (n4_buffer, skullstrip, [('bias_corrected_file', 'in_file')]),
+        (skullstrip, outputnode, [
+            ('skullstripped_file', 'skull_stripped_file'),
+            ('mask_file', 'mask_file'),
+        ]),
+    ])  # fmt: skip
+
+    return workflow
+
+
+def init_skullstrip_asl_wf(
+    name='skullstrip_asl_wf',
+):
+    """
+    Run brain extraction on a ASL reference image.
+
+    This workflow takes in a ASL reference image and runs brain extraction
+    using SynthStrip.
+
+    Steps of this workflow are:
+
+      1. Calculate a tentative mask by registering (9-parameters) to *fMRIPrep*'s
+         :abbr:`EPI (echo-planar imaging)` -*boldref* template, which
+         is in MNI space.
+         The tentative mask is obtained by resampling the MNI template's
+         brainmask into *boldref*-space.
+      2. Binary dilation of the tentative mask with a sphere of 3mm diameter.
+      3. Run ANTs' ``N4BiasFieldCorrection`` on the input
+         :abbr:`BOLD (blood-oxygen level-dependant)` average, using the
+         mask generated in 1) instead of the internal Otsu thresholding.
+      4. Calculate a loose mask using FSL's ``bet``, with one mathematical morphology
+         dilation of one iteration and a sphere of 6mm as structuring element.
+      5. Mask the :abbr:`INU (intensity non-uniformity)`-corrected image
+         with the latest mask calculated in 3), then use AFNI's ``3dUnifize``
+         to *standardize* the T2* contrast distribution.
+      6. Calculate a mask using AFNI's ``3dAutomask`` after the contrast
+         enhancement of 4).
+      7. Calculate a final mask as the intersection of 4) and 6).
+      8. Apply final mask on the enhanced reference.
+
+    Step 1 can be skipped if the ``pre_mask`` argument is set to ``True`` and
+    a tentative mask is passed in to the workflow through the ``pre_mask``
+    Nipype input.
+
+
+    Workflow graph
+        .. workflow ::
+            :graph2use: orig
+            :simple_form: yes
+
+            from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
+            wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=1)
+
+    .. _N4BiasFieldCorrection: https://hdl.handle.net/10380/3053
+
+    Parameters
+    ----------
+    brainmask_thresh: :obj:`float`
+        Lower threshold for the probabilistic brainmask to obtain
+        the final binary mask (default: 0.5).
+    name : str
+        Name of workflow (default: ``enhance_and_skullstrip_bold_wf``)
+    omp_nthreads : int
+        number of threads available to parallel nodes
+    pre_mask : bool
+        Indicates whether the ``pre_mask`` input will be set (and thus, step 1
+        should be skipped).
+
+    Inputs
+    ------
+    in_file : str
+        BOLD image (single volume)
+    pre_mask : bool
+        A tentative brain mask to initialize the workflow (requires ``pre_mask``
+        parameter set ``True``).
+
+
+    Outputs
+    -------
+    bias_corrected_file : str
+        the ``in_file`` after `N4BiasFieldCorrection`_
+    skull_stripped_file : str
+        the ``bias_corrected_file`` after skull-stripping
+    mask_file : str
+        mask of the skull-stripped input file
+    out_report : str
+        reportlet for the skull-stripping
+
+    """
+    workflow = Workflow(name=name)
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_file']), name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['mask_file', 'skull_stripped_file']),
+        name='outputnode',
+    )
+
+    skullstrip = pe.Node(BrainChop(), name='skullstrip')
+    workflow.connect([
+        (inputnode, skullstrip, [('in_file', 'in_file')]),
+        (skullstrip, outputnode, [
+            ('skullstripped_file', 'skull_stripped_file'),
+            ('mask_file', 'mask_file'),
+        ]),
     ])  # fmt: skip
 
     return workflow
