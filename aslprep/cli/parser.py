@@ -325,6 +325,12 @@ def _build_parser():
         ' * [no-]ge: Use/disable GE-specific processing\n',
     )
     g_conf.add_argument(
+        '--disable-n4',
+        action='store_true',
+        default=False,
+        help='Disable N4 bias field correction.',
+    )
+    g_conf.add_argument(
         '--output-spaces',
         nargs='*',
         action=OutputReferencesAction,
