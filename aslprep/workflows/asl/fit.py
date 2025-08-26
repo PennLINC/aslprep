@@ -616,7 +616,7 @@ def init_asl_fit_wf(
             )
             workflow.connect(raw_sbref_wf, 'outputnode.aslref', fmapref_buffer, 'sbref_files')
 
-        enhance_aslref_wf = init_enhance_and_skullstrip_asl_wf(omp_nthreads=omp_nthreads)
+        enhance_aslref_wf = init_enhance_and_skullstrip_asl_wf()
 
         ds_coreg_aslref_wf = init_ds_aslref_wf(
             bids_root=layout.root,
