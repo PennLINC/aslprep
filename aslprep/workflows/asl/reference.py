@@ -451,7 +451,7 @@ def init_enhance_and_skullstrip_asl_wf(
     workflow.connect([
         (inputnode, fixhdr_unifize, [('in_file', 'hdr_file')]),
         (inputnode, fixhdr_skullstrip2, [('in_file', 'hdr_file')]),
-        (n4_buffer, skullstrip_first_pass, [('output_image', 'in_file')]),
+        (n4_buffer, skullstrip_first_pass, [('bias_corrected_file', 'in_file')]),
         (skullstrip_first_pass, first_dilate, [('mask_file', 'in_file')]),
         (first_dilate, first_mask, [('out_file', 'in_mask')]),
         (skullstrip_first_pass, first_mask, [('out_file', 'in_file')]),
@@ -465,7 +465,7 @@ def init_enhance_and_skullstrip_asl_wf(
         (combine_masks, apply_mask, [('out_file', 'in_mask')]),
         (combine_masks, outputnode, [('out_file', 'mask_file')]),
         (apply_mask, outputnode, [('out_file', 'skull_stripped_file')]),
-        (n4_buffer, outputnode, [('output_image', 'bias_corrected_file')]),
+        (n4_buffer, outputnode, [('bias_corrected_file', 'bias_corrected_file')]),
     ])  # fmt: skip
 
     return workflow
