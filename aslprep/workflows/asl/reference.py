@@ -28,7 +28,7 @@ from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.interfaces.header import ValidateImage
 
 from aslprep import config
-from aslprep.interfaces.reference import SelectHighestContrastVolumes
+from aslprep.interfaces.reference import BrainChop, SelectHighestContrastVolumes
 from aslprep.interfaces.utility import Smooth
 
 
@@ -207,5 +207,233 @@ methodology of *ASLPrep*, for use in head motion correction.
         ])  # fmt:skip
     else:
         workflow.connect([(gen_avg, outputnode, [('out_file', 'aslref')])])
+
+    return workflow
+
+
+def init_enhance_and_skullstrip_asl_wf(
+    name='enhance_and_skullstrip_bold_wf',
+    bias_correct=False,
+):
+    """
+    Enhance and run brain extraction on a BOLD EPI image.
+
+    NOTE: This is a modified version of the bold workflow from niworkflows.
+    I have added an option to skip the N4 bias field correction step,
+    and have swapped out BET for SynthStrip.
+
+    This workflow takes in a :abbr:`BOLD (blood-oxygen level-dependant)`
+    :abbr:`fMRI (functional MRI)` average/summary (e.g., a reference image
+    averaging non-steady-state timepoints), and sharpens the histogram
+    with the application of the N4 algorithm for removing the
+    :abbr:`INU (intensity non-uniformity)` bias field and calculates a signal
+    mask.
+
+    Steps of this workflow are:
+
+      1. Calculate a tentative mask by registering (9-parameters) to *fMRIPrep*'s
+         :abbr:`EPI (echo-planar imaging)` -*boldref* template, which
+         is in MNI space.
+         The tentative mask is obtained by resampling the MNI template's
+         brainmask into *boldref*-space.
+      2. Binary dilation of the tentative mask with a sphere of 3mm diameter.
+      3. Run ANTs' ``N4BiasFieldCorrection`` on the input
+         :abbr:`BOLD (blood-oxygen level-dependant)` average, using the
+         mask generated in 1) instead of the internal Otsu thresholding.
+      4. Calculate a loose mask using FSL's ``bet``, with one mathematical morphology
+         dilation of one iteration and a sphere of 6mm as structuring element.
+      5. Mask the :abbr:`INU (intensity non-uniformity)`-corrected image
+         with the latest mask calculated in 3), then use AFNI's ``3dUnifize``
+         to *standardize* the T2* contrast distribution.
+      6. Calculate a mask using AFNI's ``3dAutomask`` after the contrast
+         enhancement of 4).
+      7. Calculate a final mask as the intersection of 4) and 6).
+      8. Apply final mask on the enhanced reference.
+
+    Step 1 can be skipped if the ``pre_mask`` argument is set to ``True`` and
+    a tentative mask is passed in to the workflow through the ``pre_mask``
+    Nipype input.
+
+
+    Workflow graph
+        .. workflow ::
+            :graph2use: orig
+            :simple_form: yes
+
+            from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
+            wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=1)
+
+    .. _N4BiasFieldCorrection: https://hdl.handle.net/10380/3053
+
+    Parameters
+    ----------
+    brainmask_thresh: :obj:`float`
+        Lower threshold for the probabilistic brainmask to obtain
+        the final binary mask (default: 0.5).
+    name : str
+        Name of workflow (default: ``enhance_and_skullstrip_bold_wf``)
+    omp_nthreads : int
+        number of threads available to parallel nodes
+    pre_mask : bool
+        Indicates whether the ``pre_mask`` input will be set (and thus, step 1
+        should be skipped).
+
+    Inputs
+    ------
+    in_file : str
+        BOLD image (single volume)
+    pre_mask : bool
+        A tentative brain mask to initialize the workflow (requires ``pre_mask``
+        parameter set ``True``).
+
+
+    Outputs
+    -------
+    bias_corrected_file : str
+        the ``in_file`` after `N4BiasFieldCorrection`_
+    skull_stripped_file : str
+        the ``bias_corrected_file`` after skull-stripping
+    mask_file : str
+        mask of the skull-stripped input file
+    out_report : str
+        reportlet for the skull-stripping
+
+    """
+    from niworkflows.interfaces.fixes import FixN4BiasFieldCorrection as N4BiasFieldCorrection
+
+    workflow = Workflow(name=name)
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_file', 'pre_mask']), name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['mask_file', 'skull_stripped_file', 'bias_corrected_file']),
+        name='outputnode',
+    )
+
+    n4_buffer = pe.Node(niu.IdentityInterface(fields=['bias_corrected_file']), name='n4_buffer')
+
+    if bias_correct:
+        # Run N4 normally, force num_threads=1 for stability (images are small, no need for >1)
+        n4_correct = pe.Node(
+            N4BiasFieldCorrection(dimension=3, copy_header=True, bspline_fitting_distance=200),
+            shrink_factor=2,
+            name='n4_correct',
+            n_procs=1,
+        )
+        n4_correct.inputs.rescale_intensities = True
+
+        workflow.connect([
+            (inputnode, n4_correct, [('in_file', 'input_image')]),
+            (n4_correct, n4_buffer, [('output_image', 'bias_corrected_file')]),
+        ])  # fmt: skip
+    else:
+        workflow.connect([(inputnode, n4_buffer, [('in_file', 'bias_corrected_file')])])
+
+    workflow.connect([(n4_buffer, outputnode, [('bias_corrected_file', 'bias_corrected_file')])])
+
+    skullstrip = pe.Node(BrainChop(), name='skullstrip')
+    workflow.connect([
+        (n4_buffer, skullstrip, [('bias_corrected_file', 'in_file')]),
+        (skullstrip, outputnode, [
+            ('skullstripped_file', 'skull_stripped_file'),
+            ('mask_file', 'mask_file'),
+        ]),
+    ])  # fmt: skip
+
+    return workflow
+
+
+def init_skullstrip_asl_wf(
+    name='skullstrip_asl_wf',
+):
+    """
+    Run brain extraction on a ASL reference image.
+
+    This workflow takes in a ASL reference image and runs brain extraction
+    using SynthStrip.
+
+    Steps of this workflow are:
+
+      1. Calculate a tentative mask by registering (9-parameters) to *fMRIPrep*'s
+         :abbr:`EPI (echo-planar imaging)` -*boldref* template, which
+         is in MNI space.
+         The tentative mask is obtained by resampling the MNI template's
+         brainmask into *boldref*-space.
+      2. Binary dilation of the tentative mask with a sphere of 3mm diameter.
+      3. Run ANTs' ``N4BiasFieldCorrection`` on the input
+         :abbr:`BOLD (blood-oxygen level-dependant)` average, using the
+         mask generated in 1) instead of the internal Otsu thresholding.
+      4. Calculate a loose mask using FSL's ``bet``, with one mathematical morphology
+         dilation of one iteration and a sphere of 6mm as structuring element.
+      5. Mask the :abbr:`INU (intensity non-uniformity)`-corrected image
+         with the latest mask calculated in 3), then use AFNI's ``3dUnifize``
+         to *standardize* the T2* contrast distribution.
+      6. Calculate a mask using AFNI's ``3dAutomask`` after the contrast
+         enhancement of 4).
+      7. Calculate a final mask as the intersection of 4) and 6).
+      8. Apply final mask on the enhanced reference.
+
+    Step 1 can be skipped if the ``pre_mask`` argument is set to ``True`` and
+    a tentative mask is passed in to the workflow through the ``pre_mask``
+    Nipype input.
+
+
+    Workflow graph
+        .. workflow ::
+            :graph2use: orig
+            :simple_form: yes
+
+            from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
+            wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=1)
+
+    .. _N4BiasFieldCorrection: https://hdl.handle.net/10380/3053
+
+    Parameters
+    ----------
+    brainmask_thresh: :obj:`float`
+        Lower threshold for the probabilistic brainmask to obtain
+        the final binary mask (default: 0.5).
+    name : str
+        Name of workflow (default: ``enhance_and_skullstrip_bold_wf``)
+    omp_nthreads : int
+        number of threads available to parallel nodes
+    pre_mask : bool
+        Indicates whether the ``pre_mask`` input will be set (and thus, step 1
+        should be skipped).
+
+    Inputs
+    ------
+    in_file : str
+        BOLD image (single volume)
+    pre_mask : bool
+        A tentative brain mask to initialize the workflow (requires ``pre_mask``
+        parameter set ``True``).
+
+
+    Outputs
+    -------
+    bias_corrected_file : str
+        the ``in_file`` after `N4BiasFieldCorrection`_
+    skull_stripped_file : str
+        the ``bias_corrected_file`` after skull-stripping
+    mask_file : str
+        mask of the skull-stripped input file
+    out_report : str
+        reportlet for the skull-stripping
+
+    """
+    workflow = Workflow(name=name)
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_file']), name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['mask_file', 'skull_stripped_file']),
+        name='outputnode',
+    )
+
+    skullstrip = pe.Node(BrainChop(), name='skullstrip')
+    workflow.connect([
+        (inputnode, skullstrip, [('in_file', 'in_file')]),
+        (skullstrip, outputnode, [
+            ('skullstripped_file', 'skull_stripped_file'),
+            ('mask_file', 'mask_file'),
+        ]),
+    ])  # fmt: skip
 
     return workflow
