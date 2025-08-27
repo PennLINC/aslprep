@@ -209,3 +209,215 @@ methodology of *ASLPrep*, for use in head motion correction.
         workflow.connect([(gen_avg, outputnode, [('out_file', 'aslref')])])
 
     return workflow
+
+
+def init_enhance_and_skullstrip_asl_wf(
+    disable_n4=False,
+    name='enhance_and_skullstrip_asl_wf',
+    omp_nthreads=1,
+    pre_mask=False,
+):
+    """Enhance and run brain extraction on an ASL image.
+
+    This is a modified version of the ``enhance_and_skullstrip_bold_wf`` workflow from
+    niworkflows, with an added ``disable_n4`` parameter to disable N4 bias field correction,
+    which tends to be unstable on data with prescan normalization enabled.
+
+    Parameters
+    ----------
+    disable_n4 : :obj:`bool`
+        If True, N4 bias field correction will be disabled.
+    name : str
+        Name of workflow (default: ``enhance_and_skullstrip_asl_wf``)
+    omp_nthreads : int
+        number of threads available to parallel nodes
+    pre_mask : bool
+        Indicates whether the ``pre_mask`` input will be set (and thus, step 1
+        should be skipped).
+
+    Inputs
+    ------
+    in_file : str
+        BOLD image (single volume)
+    pre_mask : bool
+        A tentative brain mask to initialize the workflow (requires ``pre_mask``
+        parameter set ``True``).
+
+    Outputs
+    -------
+    bias_corrected_file : str
+        the ``in_file`` after N4 bias field correction.
+        If ``disable_n4`` is True, this will be the same as ``in_file``.
+    skull_stripped_file : str
+        the ``bias_corrected_file`` after skull-stripping
+    mask_file : str
+        mask of the skull-stripped input file
+    out_report : str
+        reportlet for the skull-stripping
+    """
+    from nipype.interfaces import afni, fsl
+    from nipype.interfaces import utility as niu
+    from nipype.pipeline import engine as pe
+    from niworkflows import data
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+    from niworkflows.interfaces.fixes import FixHeaderRegistration as Registration
+    from niworkflows.interfaces.fixes import FixN4BiasFieldCorrection as N4BiasFieldCorrection
+    from niworkflows.interfaces.header import CopyHeader, CopyXForm
+    from niworkflows.interfaces.nibabel import ApplyMask, BinaryDilation
+    from packaging.version import Version
+    from packaging.version import parse as parseversion
+    from templateflow.api import get as get_template
+
+    workflow = Workflow(name=name)
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_file', 'pre_mask']), name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['mask_file', 'skull_stripped_file', 'bias_corrected_file']),
+        name='outputnode',
+    )
+
+    n4_buffer = pe.Node(niu.IdentityInterface(fields=['bias_corrected_file']), name='n4_buffer')
+
+    if not disable_n4:
+        # Run N4 normally, force num_threads=1 for stability (images are small, no need for >1)
+        n4_correct = pe.Node(
+            N4BiasFieldCorrection(dimension=3, copy_header=True, bspline_fitting_distance=200),
+            shrink_factor=2,
+            name='n4_correct',
+            n_procs=1,
+        )
+        n4_correct.inputs.rescale_intensities = True
+
+        workflow.connect([
+            (inputnode, n4_correct, [('in_file', 'input_image')]),
+            (n4_correct, n4_buffer, [('output_image', 'bias_corrected_file')]),
+        ])  # fmt:skip
+    else:
+        workflow.connect([(inputnode, n4_buffer, [('in_file', 'bias_corrected_file')])])
+
+    # Create a generous BET mask out of the bias-corrected EPI
+    skullstrip_first_pass = pe.Node(fsl.BET(frac=0.2, mask=True), name='skullstrip_first_pass')
+    first_dilate = pe.Node(BinaryDilation(radius=6), name='first_dilate')
+    first_mask = pe.Node(ApplyMask(), name='first_mask')
+
+    # Use AFNI's unifize for T2 contrast & fix header
+    unifize = pe.Node(
+        afni.Unifize(
+            t2=True,
+            outputtype='NIFTI_GZ',
+            # Default -clfrac is 0.1, 0.4 was too conservative
+            # -rbt because I'm a Jedi AFNI Master (see 3dUnifize's documentation)
+            args='-clfrac 0.2 -rbt 18.3 65.0 90.0',
+            out_file='uni.nii.gz',
+        ),
+        name='unifize',
+    )
+    fixhdr_unifize = pe.Node(CopyXForm(), name='fixhdr_unifize', mem_gb=0.1)
+
+    # Run ANFI's 3dAutomask to extract a refined brain mask
+    skullstrip_second_pass = pe.Node(
+        afni.Automask(dilate=1, outputtype='NIFTI_GZ'),
+        name='skullstrip_second_pass',
+    )
+    fixhdr_skullstrip2 = pe.Node(CopyXForm(), name='fixhdr_skullstrip2', mem_gb=0.1)
+
+    # Take intersection of both masks
+    combine_masks = pe.Node(fsl.BinaryMaths(operation='mul'), name='combine_masks')
+
+    # Compute masked brain
+    apply_mask = pe.Node(ApplyMask(), name='apply_mask')
+
+    if not pre_mask:
+        from nipype.interfaces.ants.utils import AI
+
+        bold_template = get_template(
+            'MNI152NLin2009cAsym',
+            resolution=2,
+            desc='fMRIPrep',
+            suffix='boldref',
+        )
+        brain_mask = get_template('MNI152NLin2009cAsym', resolution=2, desc='brain', suffix='mask')
+
+        # Initialize transforms with antsAI
+        init_aff = pe.Node(
+            AI(
+                fixed_image=str(bold_template),
+                fixed_image_mask=str(brain_mask),
+                metric=('Mattes', 32, 'Regular', 0.2),
+                transform=('Affine', 0.1),
+                search_factor=(20, 0.12),
+                principal_axes=False,
+                convergence=(10, 1e-6, 10),
+                verbose=True,
+            ),
+            name='init_aff',
+            n_procs=omp_nthreads,
+        )
+
+        # Registration().version may be None
+        if parseversion(Registration().version or '0.0.0') > Version('2.2.0'):
+            init_aff.inputs.search_grid = (40, (0, 40, 40))
+
+        # Set up spatial normalization
+        norm = pe.Node(
+            Registration(from_file=data.load('epi_atlasbased_brainmask.json')),
+            name='norm',
+            n_procs=omp_nthreads,
+        )
+        norm.inputs.fixed_image = str(bold_template)
+        map_brainmask = pe.Node(
+            ApplyTransforms(
+                interpolation='Linear',
+                # Use the higher resolution and probseg for numerical stability in rounding
+                input_image=str(
+                    get_template(
+                        'MNI152NLin2009cAsym',
+                        resolution=1,
+                        label='brain',
+                        suffix='probseg',
+                    )
+                ),
+            ),
+            name='map_brainmask',
+        )
+        # Ensure mask's header matches reference's
+        fix_header = pe.Node(CopyHeader(), name='fix_header', run_without_submitting=True)
+
+        workflow.connect([
+            (inputnode, fix_header, [('in_file', 'hdr_file')]),
+            (inputnode, init_aff, [('in_file', 'moving_image')]),
+            (inputnode, map_brainmask, [('in_file', 'reference_image')]),
+            (inputnode, norm, [('in_file', 'moving_image')]),
+            (init_aff, norm, [('output_transform', 'initial_moving_transform')]),
+            (norm, map_brainmask, [
+                ('reverse_invert_flags', 'invert_transform_flags'),
+                ('reverse_transforms', 'transforms'),
+            ]),
+            (map_brainmask, fix_header, [('output_image', 'in_file')]),
+        ])  # fmt:skip
+        if not disable_n4:
+            workflow.connect([(fix_header, n4_correct, [('out_file', 'weight_image')])])
+    elif not disable_n4:
+        workflow.connect([(inputnode, n4_correct, [('pre_mask', 'weight_image')])])
+
+    workflow.connect([
+        (inputnode, fixhdr_unifize, [('in_file', 'hdr_file')]),
+        (inputnode, fixhdr_skullstrip2, [('in_file', 'hdr_file')]),
+        (n4_buffer, skullstrip_first_pass, [('bias_corrected_file', 'in_file')]),
+        (skullstrip_first_pass, first_dilate, [('mask_file', 'in_file')]),
+        (first_dilate, first_mask, [('out_file', 'in_mask')]),
+        (skullstrip_first_pass, first_mask, [('out_file', 'in_file')]),
+        (first_mask, unifize, [('out_file', 'in_file')]),
+        (unifize, fixhdr_unifize, [('out_file', 'in_file')]),
+        (fixhdr_unifize, skullstrip_second_pass, [('out_file', 'in_file')]),
+        (skullstrip_first_pass, combine_masks, [('mask_file', 'in_file')]),
+        (skullstrip_second_pass, fixhdr_skullstrip2, [('out_file', 'in_file')]),
+        (fixhdr_skullstrip2, combine_masks, [('out_file', 'operand_file')]),
+        (fixhdr_unifize, apply_mask, [('out_file', 'in_file')]),
+        (combine_masks, apply_mask, [('out_file', 'in_mask')]),
+        (combine_masks, outputnode, [('out_file', 'mask_file')]),
+        (apply_mask, outputnode, [('out_file', 'skull_stripped_file')]),
+        (n4_buffer, outputnode, [('bias_corrected_file', 'bias_corrected_file')]),
+    ])  # fmt: skip
+
+    return workflow
