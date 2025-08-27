@@ -328,7 +328,10 @@ def _build_parser():
         '--disable-n4',
         action='store_true',
         default=False,
-        help='Disable N4 bias field correction.',
+        help=(
+            'Disable N4 bias field correction in ASL reference image generation. '
+            'This is recommended for ASL scans with prescan normalization enabled.'
+        ),
     )
     g_conf.add_argument(
         '--output-spaces',

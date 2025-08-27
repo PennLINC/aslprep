@@ -217,59 +217,18 @@ def init_enhance_and_skullstrip_asl_wf(
     omp_nthreads=1,
     pre_mask=False,
 ):
-    """
-    Enhance and run brain extraction on a BOLD EPI image.
+    """Enhance and run brain extraction on an ASL image.
 
-    This workflow takes in a :abbr:`BOLD (blood-oxygen level-dependant)`
-    :abbr:`fMRI (functional MRI)` average/summary (e.g., a reference image
-    averaging non-steady-state timepoints), and sharpens the histogram
-    with the application of the N4 algorithm for removing the
-    :abbr:`INU (intensity non-uniformity)` bias field and calculates a signal
-    mask.
-
-    Steps of this workflow are:
-
-      1. Calculate a tentative mask by registering (9-parameters) to *fMRIPrep*'s
-         :abbr:`EPI (echo-planar imaging)` -*boldref* template, which
-         is in MNI space.
-         The tentative mask is obtained by resampling the MNI template's
-         brainmask into *boldref*-space.
-      2. Binary dilation of the tentative mask with a sphere of 3mm diameter.
-      3. Run ANTs' ``N4BiasFieldCorrection`` on the input
-         :abbr:`BOLD (blood-oxygen level-dependant)` average, using the
-         mask generated in 1) instead of the internal Otsu thresholding.
-      4. Calculate a loose mask using FSL's ``bet``, with one mathematical morphology
-         dilation of one iteration and a sphere of 6mm as structuring element.
-      5. Mask the :abbr:`INU (intensity non-uniformity)`-corrected image
-         with the latest mask calculated in 3), then use AFNI's ``3dUnifize``
-         to *standardize* the T2* contrast distribution.
-      6. Calculate a mask using AFNI's ``3dAutomask`` after the contrast
-         enhancement of 4).
-      7. Calculate a final mask as the intersection of 4) and 6).
-      8. Apply final mask on the enhanced reference.
-
-    Step 1 can be skipped if the ``pre_mask`` argument is set to ``True`` and
-    a tentative mask is passed in to the workflow through the ``pre_mask``
-    Nipype input.
-
-
-    Workflow graph
-        .. workflow ::
-            :graph2use: orig
-            :simple_form: yes
-
-            from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf
-            wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=1)
-
-    .. _N4BiasFieldCorrection: https://hdl.handle.net/10380/3053
+    This is a modified version of the ``enhance_and_skullstrip_bold_wf`` workflow from
+    niworkflows, with an added ``disable_n4`` parameter to disable N4 bias field correction,
+    which tends to be unstable on data with prescan normalization enabled.
 
     Parameters
     ----------
-    brainmask_thresh: :obj:`float`
-        Lower threshold for the probabilistic brainmask to obtain
-        the final binary mask (default: 0.5).
+    disable_n4 : :obj:`bool`
+        If True, N4 bias field correction will be disabled.
     name : str
-        Name of workflow (default: ``enhance_and_skullstrip_bold_wf``)
+        Name of workflow (default: ``enhance_and_skullstrip_asl_wf``)
     omp_nthreads : int
         number of threads available to parallel nodes
     pre_mask : bool
@@ -284,33 +243,26 @@ def init_enhance_and_skullstrip_asl_wf(
         A tentative brain mask to initialize the workflow (requires ``pre_mask``
         parameter set ``True``).
 
-
     Outputs
     -------
     bias_corrected_file : str
-        the ``in_file`` after `N4BiasFieldCorrection`_
+        the ``in_file`` after N4 bias field correction.
+        If ``disable_n4`` is True, this will be the same as ``in_file``.
     skull_stripped_file : str
         the ``bias_corrected_file`` after skull-stripping
     mask_file : str
         mask of the skull-stripped input file
     out_report : str
         reportlet for the skull-stripping
-
     """
     from nipype.interfaces import afni, fsl
     from nipype.interfaces import utility as niu
     from nipype.pipeline import engine as pe
     from niworkflows import data
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.interfaces.fixes import (
-        FixHeaderApplyTransforms as ApplyTransforms,
-    )
-    from niworkflows.interfaces.fixes import (
-        FixHeaderRegistration as Registration,
-    )
-    from niworkflows.interfaces.fixes import (
-        FixN4BiasFieldCorrection as N4BiasFieldCorrection,
-    )
+    from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
+    from niworkflows.interfaces.fixes import FixHeaderRegistration as Registration
+    from niworkflows.interfaces.fixes import FixN4BiasFieldCorrection as N4BiasFieldCorrection
     from niworkflows.interfaces.header import CopyHeader, CopyXForm
     from niworkflows.interfaces.nibabel import ApplyMask, BinaryDilation
     from packaging.version import Version
