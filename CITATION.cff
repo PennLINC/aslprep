@@ -49,7 +49,6 @@ authors:
     orcid: 'https://orcid.org/0000-0001-6316-6444'
   - given-names: Phil
     family-names: Cook
-
   - given-names: Stan
     family-names: Colcombe
     orcid: 'https://orcid.org/0000-0001-5051-2491'
@@ -157,5 +156,5 @@ keywords:
   - BIDS-App
   - Neuroimaging
 license: BSD-3-Clause
-version: 25.0.0rc1
-date-released: '2025-06-03'
+version: 25.0.0
+date-released: '2025-08-28'
