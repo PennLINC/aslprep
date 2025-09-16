@@ -517,12 +517,12 @@ their manuscripts unchanged. It is released under the unchanged
                         f'outputnode.sphere_reg_{"msm" if msm_sulc else "fsLR"}',
                         'inputnode.sphere_reg_fsLR',
                     ),
+                    ('outputnode.cortex_mask', 'inputnode.roi'),
                 ]),
                 (hcp_morphometrics_wf, morph_grayords_wf, [
                     ('outputnode.curv', 'inputnode.curv'),
                     ('outputnode.thickness', 'inputnode.thickness'),
                     ('outputnode.sulc', 'inputnode.sulc'),
-                    ('outputnode.roi', 'inputnode.roi'),
                 ]),
                 (resample_surfaces_wf, morph_grayords_wf, [
                     ('outputnode.midthickness_fsLR', 'inputnode.midthickness_fsLR'),
@@ -863,7 +863,7 @@ tasks and sessions), the following preprocessing was performed.
                 workflow.connect([
                     (select_MNI6_xfm, asl_wf, [('anat2std_xfm', 'inputnode.anat2mni6_xfm')]),
                     (select_MNI6_tpl, asl_wf, [('brain_mask', 'inputnode.mni6_mask')]),
-                    (hcp_morphometrics_wf, asl_wf, [('outputnode.roi', 'inputnode.cortex_mask')]),
+                    (anat_fit_wf, asl_wf, [('outputnode.cortex_mask', 'inputnode.cortex_mask')]),
                     (resample_surfaces_wf, asl_wf, [
                         ('outputnode.midthickness_fsLR', 'inputnode.midthickness_fsLR'),
                     ]),
