@@ -6,5 +6,4 @@
     "[python]": {
         "editor.rulers": [99]
     },
-    "python.analysis.typeCheckingMode": "off",
 }
