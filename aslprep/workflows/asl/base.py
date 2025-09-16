@@ -716,6 +716,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
     if config.workflow.cifti_output:
         asl_cifti_resample_wf = init_asl_cifti_resample_wf(
+            asl_file=asl_file,
             metadata=metadata,
             mem_gb=mem_gb,
             fieldmap_id=fieldmap_id,

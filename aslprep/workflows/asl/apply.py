@@ -10,6 +10,7 @@ from aslprep import config
 
 def init_asl_cifti_resample_wf(
     *,
+    asl_file: str,
     metadata: dict,
     mem_gb: dict,
     fieldmap_id: str | None = None,
@@ -96,6 +97,8 @@ def init_asl_cifti_resample_wf(
         init_goodvoxels_bold_mask_wf,
     )
 
+    from aslprep.interfaces.bids import DerivativesDataSink
+
     workflow = pe.Workflow(name=name)
 
     inputnode = pe.Node(
@@ -159,9 +162,25 @@ def init_asl_cifti_resample_wf(
             (goodvoxels_bold_mask_wf, asl_fsLR_resampling_wf, [
                 ('outputnode.goodvoxels_mask', 'inputnode.volume_roi'),
             ]),
-            (goodvoxels_bold_mask_wf, outputnode, [
-                ('outputnode.goodvoxels_mask', 'goodvoxels_mask'),
+        ])  # fmt:skip
+
+        ds_goodvoxels_mask = pe.Node(
+            DerivativesDataSink(
+                base_directory=config.execution.aslprep_dir,
+                compress=True,
+                space='T1w',
+                desc='goodvoxels',
+                suffix='mask',
+            ),
+            name='ds_goodvoxels_mask',
+            run_without_submitting=True,
+        )
+        ds_goodvoxels_mask.inputs.source_file = asl_file
+        workflow.connect([
+            (goodvoxels_bold_mask_wf, ds_goodvoxels_mask, [
+                ('outputnode.goodvoxels_mask', 'in_file'),
             ]),
+            (ds_goodvoxels_mask, outputnode, [('out_file', 'goodvoxels_mask')]),
         ])  # fmt:skip
 
         asl_fsLR_resampling_wf.__desc__ += """\
