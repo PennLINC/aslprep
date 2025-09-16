@@ -3,8 +3,12 @@
 """Parser."""
 
 import sys
+import typing as ty
 
 from aslprep import config
+
+if ty.TYPE_CHECKING:
+    from bids import BIDSLayout
 
 
 def _build_parser():
@@ -23,6 +27,7 @@ def _build_parser():
         'force_bbr': ('--force bbr', '26.0.0'),
         'force_no_bbr': ('--force no-bbr', '26.0.0'),
         'force_syn': ('--force syn-sdc', '26.0.0'),
+        'longitudinal': ('--subject-anatomical-reference unbiased', '26.1.0'),
     }
 
     class DeprecatedAction(Action):
@@ -171,15 +176,34 @@ def _build_parser():
             '(the sub- prefix can be removed)'
         ),
     )
-    # Re-enable when option is actually implemented
-    # g_bids.add_argument('-s', '--session-id', action='store', default='single_session',
-    #                     help='select a specific session to be processed')
+    g_bids.add_argument(
+        '--session-label',
+        nargs='+',
+        type=lambda label: label.removeprefix('ses-'),
+        help=(
+            'A space delimited list of session identifiers or a single '
+            'identifier (the ses- prefix can be removed)'
+        ),
+    )
     # Re-enable when option is actually implemented
     # g_bids.add_argument('-r', '--run-id', action='store', default='single_run',
     #                     help='select a specific run to be processed')
     # g_bids.add_argument(
     # "-t", "--task-id", action="store", help="select a specific task to be processed"
     # )
+    g_bids.add_argument(
+        '--subject-anatomical-reference',
+        choices=['first-lex', 'unbiased', 'sessionwise'],
+        default='first-lex',
+        help=(
+            'Method to produce the reference anatomical space:\n'
+            '\t"first-lex" will use the first image in lexicographical order\n'
+            '\t"unbiased" will construct an unbiased template from all images '
+            '(previously "--longitudinal")\n'
+            '\t"sessionwise" will independently process each session. If multiple runs are '
+            'found, the behavior will be similar to "first-lex" for each session.'
+        ),
+    )
     g_bids.add_argument(
         '--bids-filter-file',
         dest='bids_filters',
@@ -350,8 +374,8 @@ any spatial references.""",
     )
     g_conf.add_argument(
         '--longitudinal',
-        action='store_true',
-        help='treat dataset as longitudinal - may increase runtime',
+        action=DeprecatedAction,
+        help='Deprecated - use `--subject-anatomical-reference unbiased` instead',
     )
 
     g_conf.add_argument(
@@ -708,12 +732,22 @@ def parse_args(args=None, namespace=None):
 
     from niworkflows.utils.spaces import Reference, SpatialReferences
 
+    from aslprep.utils.bids import collect_participants
+
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)
     if opts.config_file:
         skip = {} if opts.reports_only else {'execution': ('run_uuid',)}
         config.load(opts.config_file, skip=skip, init=False)
         config.loggers.cli.info(f'Loaded previous configuration file {opts.config_file}')
+
+    if opts.longitudinal:
+        opts.subject_anatomical_reference = 'unbiased'
+        msg = (
+            'The `--longitudinal` flag is deprecated - use '
+            '`--subject-anatomical-reference unbiased` instead.'
+        )
+        config.loggers.cli.warning(msg)
 
     config.execution.log_level = int(max(25 - 5 * opts.verbose_count, logging.DEBUG))
     config.from_dict(vars(opts), init=['nipype'])
@@ -842,18 +876,67 @@ applied."""
     work_dir.mkdir(exist_ok=True, parents=True)
 
     # Force initialization of the BIDSLayout
+    config.loggers.cli.debug('Initializing BIDS Layout')
     config.execution.init()
-    all_subjects = config.execution.layout.get_subjects()
-    if config.execution.participant_label is None:
-        config.execution.participant_label = all_subjects
 
-    participant_label = set(config.execution.participant_label)
-    missing_subjects = participant_label - set(all_subjects)
-    if missing_subjects:
-        parser.error(
-            'One or more participant labels were not found in the BIDS directory: '
-            f'{", ".join(missing_subjects)}.'
+    # Please note this is the input folder's dataset_description.json
+    dset_desc_path = config.execution.bids_dir / 'dataset_description.json'
+    if dset_desc_path.exists():
+        from hashlib import sha256
+
+        desc_content = dset_desc_path.read_bytes()
+        config.execution.bids_description_hash = sha256(desc_content).hexdigest()
+
+    # First check that bids_dir looks like a BIDS folder
+    subject_list = collect_participants(
+        config.execution.layout, participant_label=config.execution.participant_label
+    )
+    if config.execution.participant_label is None:
+        config.execution.participant_label = subject_list
+
+    session_list = config.execution.session_label or []
+    subject_session_list = create_processing_groups(
+        config.execution.layout,
+        subject_list,
+        session_list,
+        config.workflow.subject_anatomical_reference,
+    )
+    config.execution.processing_groups = subject_session_list
+    config.execution.participant_label = sorted(subject_list)
+    config.workflow.skull_strip_template = config.workflow.skull_strip_template[0]
+
+
+def create_processing_groups(
+    layout: 'BIDSLayout',
+    subject_list: list,
+    session_list: list | str | None,
+    subject_anatomical_reference: str,
+) -> list[tuple[str]]:
+    """Generate a list of subject-session pairs to be processed."""
+    from bids.layout import Query
+
+    subject_session_list = []
+
+    for subject in subject_list:
+        sessions = (
+            layout.get_sessions(
+                scope='raw',
+                subject=subject,
+                session=session_list or Query.OPTIONAL,
+            )
+            or None
         )
 
-    config.execution.participant_label = sorted(participant_label)
-    config.workflow.skull_strip_template = config.workflow.skull_strip_template[0]
+        if subject_anatomical_reference == 'sessionwise':
+            if sessions is None:
+                config.loggers.cli.warning(
+                    '`--subject-anatomical-reference sessionwise` was requested, but no sessions '
+                    f'found for subject {subject}... treating as single-session.'
+                )
+                subject_session_list.append((subject, None))
+            else:
+                subject_session_list.extend((subject, session) for session in sessions)
+        else:
+            subject_session_list.append((subject, sessions))
+
+    return subject_session_list

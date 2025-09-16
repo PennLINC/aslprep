@@ -13,7 +13,7 @@ a hard-limited memory-scope.
 def build_workflow(config_file, retval):
     """Create the Nipype Workflow that supports the whole execution graph."""
     from fmriprep.utils.bids import check_pipeline_version
-    from niworkflows.utils.bids import collect_participants
+    from fmriprep.utils.misc import fmt_subjects_sessions
     from niworkflows.utils.misc import check_valid_fs_license
 
     from aslprep import config, data
@@ -48,44 +48,44 @@ def build_workflow(config_file, retval):
     if msg is not None:
         build_log.warning(msg)
 
-    # Please note this is the input folder's dataset_description.json
-    dset_desc_path = config.execution.bids_dir / 'dataset_description.json'
-    if dset_desc_path.exists():
-        from hashlib import sha256
-
-        desc_content = dset_desc_path.read_bytes()
-        config.execution.bids_description_hash = sha256(desc_content).hexdigest()
-
-    # First check that bids_dir looks like a BIDS folder
-    subject_list = collect_participants(
-        config.execution.bids_dir, participant_label=config.execution.participant_label
-    )
-
     # Called with reports only
     if config.execution.reports_only:
         from aslprep.data import load as load_data
 
-        build_log.log(25, 'Running --reports-only on participants %s', ', '.join(subject_list))
-        session_list = (
-            config.execution.bids_filters.get('asl', {}).get('session')
-            if config.execution.bids_filters
-            else None
+        build_log.log(
+            25,
+            'Running --reports-only on %s',
+            fmt_subjects_sessions(config.execution.processing_groups),
         )
+        session_list = config.execution.session_label
+        if not session_list:
+            session_list = (
+                config.execution.bids_filters.get('bold', {}).get('session')
+                if config.execution.bids_filters
+                else None
+            )
 
-        retval['return_code'] = generate_reports(
-            subject_list,
+        failed_reports = generate_reports(
+            config.execution.participant_label,
             config.execution.aslprep_dir,
             config.execution.run_uuid,
             session_list=session_list,
             bootstrap_file=load_data('reports-spec.yml'),
         )
+        if failed_reports:
+            config.loggers.cli.error(
+                'Report generation was not successful for the following participants : '
+                f'{", ".join(failed_reports)}.'
+            )
+
+        retval['return_code'] = len(failed_reports)
         return retval
 
     # Build main workflow
     init_msg = [
         "Building ASLPrep's workflow:",
         f'BIDS dataset path: {config.execution.bids_dir}.',
-        f'Participant list: {subject_list}.',
+        f'Participants and sessions: {fmt_subjects_sessions(config.execution.processing_groups)}.',
         f'Run identifier: {config.execution.run_uuid}.',
         f'Output spaces: {config.execution.output_spaces}.',
     ]
