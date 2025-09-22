@@ -180,8 +180,8 @@ def main():
                     extension=['.tsv'],
                 )
             )
-            _copy_any(dseg_tsv, str(config.execution.fmriprep_dir / 'desc-aseg_dseg.tsv'))
-            _copy_any(dseg_tsv, str(config.execution.fmriprep_dir / 'desc-aparcaseg_dseg.tsv'))
+            _copy_any(dseg_tsv, str(config.execution.aslprep_dir / 'desc-aseg_dseg.tsv'))
+            _copy_any(dseg_tsv, str(config.execution.aslprep_dir / 'desc-aparcaseg_dseg.tsv'))
         errno = 0
     finally:
         from aslprep import data
