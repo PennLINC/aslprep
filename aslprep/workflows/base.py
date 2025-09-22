@@ -54,7 +54,7 @@ def init_aslprep_wf():
     if freesurfer:
         fsdir = pe.Node(
             BIDSFreeSurferDir(
-                derivatives=config.execution.output_dir,
+                derivatives=config.execution.aslprep_dir,
                 freesurfer_home=os.getenv('FREESURFER_HOME'),
                 spaces=config.workflow.spaces.get_fs_spaces(),
                 minimum_fs_version='7.0.0',

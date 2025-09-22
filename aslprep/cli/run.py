@@ -158,7 +158,7 @@ def main():
                 'aslprep-docker',
             ):
                 boiler_file = Path('<OUTPUT_PATH>') / boiler_file.relative_to(
-                    config.execution.output_dir
+                    config.execution.aslprep_dir
                 )
             config.loggers.workflow.log(
                 25,

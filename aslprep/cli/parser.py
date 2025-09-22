@@ -782,7 +782,7 @@ applied."""
         )
 
     bids_dir = config.execution.bids_dir
-    output_dir = config.execution.output_dir
+    output_dir = config.execution.aslprep_dir
     work_dir = config.execution.work_dir
     version = config.environment.version
 
