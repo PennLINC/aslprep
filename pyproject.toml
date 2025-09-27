@@ -32,7 +32,7 @@ dependencies = [
     "nireports >= 25.1.0",
     "nitransforms >= 21.0.0",
     "niworkflows ~= 1.14.0",
-    "numpy ~= 1.26",
+    "numpy ~= 2.2",
     "packaging",
     "pandas",
     "psutil >= 5.4",
