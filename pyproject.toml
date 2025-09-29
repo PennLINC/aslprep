@@ -38,7 +38,7 @@ dependencies = [
     "psutil >= 5.4",
     "pybids >= 0.16",
     "requests",
-    "sdcflows ~= 2.13.0",
+    "sdcflows ~= 2.15.0",
     "sentry-sdk",
     "smriprep ~= 0.19.1",
     "templateflow",
