@@ -475,6 +475,7 @@ def init_asl_fit_wf(
 
         with OverrideDerivativesDataSink(output_workflows):
             ds_hmc_wf = output_workflows.init_ds_hmc_wf(
+                source_file=asl_file,
                 bids_root=layout.root,
                 output_dir=config.execution.aslprep_dir,
             )
