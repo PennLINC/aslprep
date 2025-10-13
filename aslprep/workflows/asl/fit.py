@@ -575,6 +575,7 @@ def init_asl_fit_wf(
             # some reason, so we must override it.
             with OverrideDerivativesDataSink(output_workflows):
                 ds_fmapreg_wf = output_workflows.init_ds_registration_wf(
+                    source_file=asl_file,
                     bids_root=layout.root,
                     output_dir=config.execution.aslprep_dir,
                     source='aslref',
@@ -626,6 +627,7 @@ def init_asl_fit_wf(
             name='ds_coreg_aslref_wf',
         )
         ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
+            source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
             desc='brain',
             name='ds_aslmask_wf',
@@ -734,6 +736,7 @@ def init_asl_fit_wf(
         # so we must override it.
         with OverrideDerivativesDataSink(output_workflows):
             ds_aslreg_wf = output_workflows.init_ds_registration_wf(
+                source_file=asl_file,
                 bids_root=layout.root,
                 output_dir=config.execution.aslprep_dir,
                 source='aslref',
