@@ -443,7 +443,9 @@ class ComputeCBF(SimpleInterface):
         m0data = masker.transform(m0_file)
         config.loggers.interface.warning(f'M0 data shape: {m0data.shape}')
         # TODO: Scale each M0 volume by its TR separately instead of averaging.
-        m0data = np.mean(m0data, axis=0)
+        if m0data.ndim != 1:
+            m0data = np.mean(m0data, axis=0)
+
         config.loggers.interface.warning(f'M0 data shape: {m0data.shape}')
         if isinstance(self.inputs.m0tr, Number) and self.inputs.m0tr < 5:
             config.loggers.interface.warning(
