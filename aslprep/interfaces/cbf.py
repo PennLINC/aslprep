@@ -441,8 +441,10 @@ class ComputeCBF(SimpleInterface):
 
         # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
+        config.loggers.interface.warning(f'M0 data shape: {m0data.shape}')
         # TODO: Scale each M0 volume by its TR separately instead of averaging.
         m0data = np.mean(m0data, axis=0)
+        config.loggers.interface.warning(f'M0 data shape: {m0data.shape}')
         if isinstance(self.inputs.m0tr, Number) and self.inputs.m0tr < 5:
             config.loggers.interface.warning(
                 f'M0 TR is less than 5 seconds ({self.inputs.m0tr}), '
@@ -450,8 +452,10 @@ class ComputeCBF(SimpleInterface):
             )
             # Alsop 2015, page 113
             m0data = m0data * (1 / (1 - np.exp(-self.inputs.m0tr / t1tissue)))
+            config.loggers.interface.warning(f'M0 data shape: {m0data.shape}')
 
         scaled_m0data = m0_scale * m0data
+        config.loggers.interface.warning(f'Scaled M0 data shape: {scaled_m0data.shape}')
 
         self._results['plds'] = None
         if 'SliceTiming' in metadata:
@@ -648,6 +652,8 @@ class ComputeCBF(SimpleInterface):
             )
 
             # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
+            config.loggers.interface.warning(f'Deltam data shape: {deltam_arr.shape}')
+            config.loggers.interface.warning(f'Scaled M0 data shape: {scaled_m0data.shape}')
             deltam_scaled = deltam_arr / scaled_m0data[:, None]
 
             perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(exp_numerator / t1blood)) / (
