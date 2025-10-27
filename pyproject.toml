@@ -41,6 +41,7 @@ dependencies = [
     "sdcflows ~= 2.15.0",
     "sentry-sdk",
     "smriprep ~= 0.19.1",
+    "tedana !~= 25.1.1a1",
     "templateflow",
     "toml",
     "transforms3d ~= 0.4",
