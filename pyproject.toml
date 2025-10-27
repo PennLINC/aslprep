@@ -27,7 +27,7 @@ dependencies = [
     "looseversion",
     "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
     "nibabel",
-    "nilearn ~= 0.11.0",
+    "nilearn ~= 0.12.1",
     "nipype >= 1.8.5",
     "nireports >= 25.1.0",
     "nitransforms >= 21.0.0",
