@@ -730,9 +730,8 @@ def parse_args(args=None, namespace=None):
     """Parse args and run further checks on the command line."""
     import logging
 
+    from niworkflows.utils.bids import collect_participants
     from niworkflows.utils.spaces import Reference, SpatialReferences
-
-    from aslprep.utils.bids import collect_participants
 
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)
