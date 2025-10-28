@@ -54,7 +54,7 @@ def init_aslprep_wf():
     if freesurfer:
         fsdir = pe.Node(
             BIDSFreeSurferDir(
-                derivatives=config.execution.output_dir,
+                derivatives=config.execution.aslprep_dir,
                 freesurfer_home=os.getenv('FREESURFER_HOME'),
                 spaces=config.workflow.spaces.get_fs_spaces(),
                 minimum_fs_version='7.0.0',
@@ -182,6 +182,7 @@ their manuscripts unchanged. It is released under the unchanged
     if 't2w' in config.workflow.ignore:
         subject_data['t2w'] = []
 
+    freesurfer = config.workflow.run_reconall
     anat_only = config.workflow.anat_only
     # Make sure we always go through these two checks
     if not anat_only and not subject_data['asl']:
@@ -392,6 +393,46 @@ their manuscripts unchanged. It is released under the unchanged
                 ]),
             ])  # fmt:skip
 
+        if freesurfer:
+            from smriprep.workflows.outputs import init_ds_fs_segs_wf, init_ds_surface_metrics_wf
+            from smriprep.workflows.surfaces import init_surface_derivatives_wf
+
+            ds_fs_segs_wf = init_ds_fs_segs_wf(bids_root=bids_root, output_dir=aslprep_dir)
+            surface_derivatives_wf = init_surface_derivatives_wf()
+            ds_surfaces_wf = init_ds_surfaces_wf(output_dir=aslprep_dir, surfaces=['inflated'])
+            ds_curv_wf = init_ds_surface_metrics_wf(
+                bids_root=bids_root,
+                output_dir=aslprep_dir,
+                metrics=['curv'],
+                name='ds_curv_wf',
+            )
+
+            workflow.connect([
+                (anat_fit_wf, surface_derivatives_wf, [
+                    ('outputnode.t1w_preproc', 'inputnode.reference'),
+                    ('outputnode.subjects_dir', 'inputnode.subjects_dir'),
+                    ('outputnode.subject_id', 'inputnode.subject_id'),
+                    ('outputnode.fsnative2t1w_xfm', 'inputnode.fsnative2anat_xfm'),
+                ]),
+                (anat_fit_wf, ds_surfaces_wf, [
+                    ('outputnode.t1w_valid_list', 'inputnode.source_files'),
+                ]),
+                (surface_derivatives_wf, ds_surfaces_wf, [
+                    ('outputnode.inflated', 'inputnode.inflated'),
+                ]),
+                (anat_fit_wf, ds_curv_wf, [
+                    ('outputnode.t1w_valid_list', 'inputnode.source_files'),
+                ]),
+                (surface_derivatives_wf, ds_curv_wf, [('outputnode.curv', 'inputnode.curv')]),
+                (anat_fit_wf, ds_fs_segs_wf, [
+                    ('outputnode.t1w_valid_list', 'inputnode.source_files'),
+                ]),
+                (surface_derivatives_wf, ds_fs_segs_wf, [
+                    ('outputnode.out_aseg', 'inputnode.anat_fs_aseg'),
+                    ('outputnode.out_aparc', 'inputnode.anat_fs_aparc'),
+                ]),
+            ])  # fmt:skip
+
         # Thread MNI152NLin6Asym standard outputs to CIFTI subworkflow, skipping
         # the iterator, which targets only output spaces.
         # This can lead to duplication in the working directory if people actually
@@ -476,12 +517,12 @@ their manuscripts unchanged. It is released under the unchanged
                         f'outputnode.sphere_reg_{"msm" if msm_sulc else "fsLR"}',
                         'inputnode.sphere_reg_fsLR',
                     ),
+                    ('outputnode.cortex_mask', 'inputnode.roi'),
                 ]),
                 (hcp_morphometrics_wf, morph_grayords_wf, [
                     ('outputnode.curv', 'inputnode.curv'),
                     ('outputnode.thickness', 'inputnode.thickness'),
                     ('outputnode.sulc', 'inputnode.sulc'),
-                    ('outputnode.roi', 'inputnode.roi'),
                 ]),
                 (resample_surfaces_wf, morph_grayords_wf, [
                     ('outputnode.midthickness_fsLR', 'inputnode.midthickness_fsLR'),
@@ -822,7 +863,7 @@ tasks and sessions), the following preprocessing was performed.
                 workflow.connect([
                     (select_MNI6_xfm, asl_wf, [('anat2std_xfm', 'inputnode.anat2mni6_xfm')]),
                     (select_MNI6_tpl, asl_wf, [('brain_mask', 'inputnode.mni6_mask')]),
-                    (hcp_morphometrics_wf, asl_wf, [('outputnode.roi', 'inputnode.cortex_mask')]),
+                    (anat_fit_wf, asl_wf, [('outputnode.cortex_mask', 'inputnode.cortex_mask')]),
                     (resample_surfaces_wf, asl_wf, [
                         ('outputnode.midthickness_fsLR', 'inputnode.midthickness_fsLR'),
                     ]),

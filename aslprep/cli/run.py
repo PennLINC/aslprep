@@ -158,7 +158,7 @@ def main():
                 'aslprep-docker',
             ):
                 boiler_file = Path('<OUTPUT_PATH>') / boiler_file.relative_to(
-                    config.execution.output_dir
+                    config.execution.aslprep_dir
                 )
             config.loggers.workflow.log(
                 25,
@@ -180,8 +180,8 @@ def main():
                     extension=['.tsv'],
                 )
             )
-            _copy_any(dseg_tsv, str(config.execution.fmriprep_dir / 'desc-aseg_dseg.tsv'))
-            _copy_any(dseg_tsv, str(config.execution.fmriprep_dir / 'desc-aparcaseg_dseg.tsv'))
+            _copy_any(dseg_tsv, str(config.execution.aslprep_dir / 'desc-aseg_dseg.tsv'))
+            _copy_any(dseg_tsv, str(config.execution.aslprep_dir / 'desc-aparcaseg_dseg.tsv'))
         errno = 0
     finally:
         from aslprep import data
