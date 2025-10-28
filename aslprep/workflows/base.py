@@ -338,7 +338,7 @@ their manuscripts unchanged. It is released under the unchanged
         ])  # fmt:skip
     else:
         workflow.connect([
-            (src_file, summary, [('source_file', 't1w')]),
+            (bidssrc, summary, [('t1w', 't1w')]),
             (src_file, ds_report_summary, [('source_file', 'source_file')]),
             (src_file, ds_report_about, [('source_file', 'source_file')]),
         ])  # fmt:skip
