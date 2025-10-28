@@ -140,6 +140,7 @@ def init_single_subject_wf(
     from niworkflows.interfaces.bids import BIDSInfo
     from niworkflows.interfaces.nilearn import NILEARN_VERSION
     from niworkflows.interfaces.utility import KeySelect
+    from niworkflows.utils.bids import collect_data
     from niworkflows.utils.spaces import Reference
     from smriprep.workflows.anatomical import init_anat_fit_wf
     from smriprep.workflows.outputs import (
@@ -156,7 +157,6 @@ def init_single_subject_wf(
     )
 
     from aslprep.interfaces.bids import BIDSDataGrabber
-    from aslprep.utils.bids import collect_data
     from aslprep.workflows.asl.base import init_asl_wf
 
     if name is None:
@@ -189,12 +189,22 @@ their manuscripts unchanged. It is released under the unchanged
 ### References
 
 """
+    queries = {
+        'fmap': {'datatype': 'fmap'},
+        'flair': {'datatype': 'anat', 'suffix': 'FLAIR'},
+        't2w': {'datatype': 'anat', 'suffix': 'T2w'},
+        't1w': {'datatype': 'anat', 'suffix': 'T1w'},
+        'roi': {'datatype': 'anat', 'suffix': 'roi'},
+        'sbref': {'datatype': 'perf', 'suffix': 'sbref'},
+        'asl': {'datatype': 'perf', 'suffix': 'asl'},
+    }
 
     subject_data = collect_data(
         config.execution.layout,
         subject_id,
         session_id=session_id,
         bids_filters=config.execution.bids_filters,
+        queries=queries,
     )
 
     if 'flair' in config.workflow.ignore:
