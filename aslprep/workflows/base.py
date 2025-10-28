@@ -18,14 +18,13 @@ from packaging.version import Version
 from aslprep import config
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.reports import AboutSummary, SubjectSummary
-from aslprep.utils.misc import _prefix
 
 
 def init_aslprep_wf():
     """Build ASLPrep's pipeline.
 
     This workflow organizes the execution of aslprep, with a sub-workflow for
-    each subject.
+    each processing group.
 
     If FreeSurfer's ``recon-all`` is to be run, a corresponding folder is created
     and populated with any needed template subjects under the derivatives folder.
@@ -65,12 +64,23 @@ def init_aslprep_wf():
         if config.execution.fs_subjects_dir is not None:
             fsdir.inputs.subjects_dir = str(config.execution.fs_subjects_dir.absolute())
 
-    for subject_id in config.execution.participant_label:
-        single_subject_wf = init_single_subject_wf(subject_id)
+    for subject_id, session_ids in config.execution.processing_groups:
+        log_dir = config.execution.aslprep_dir / f'sub-{subject_id}'
+        sessions = listify(session_ids)
+        ses_str = ''
 
-        single_subject_wf.config['execution']['crashdump_dir'] = str(
-            config.execution.aslprep_dir / f'sub-{subject_id}' / 'log' / config.execution.run_uuid
-        )
+        if isinstance(sessions, list):
+            from smriprep.utils.misc import stringify_sessions
+
+            ses_str = stringify_sessions(sessions)
+            log_dir /= f'ses-{ses_str}'
+
+        log_dir = log_dir / 'log' / config.execution.run_uuid
+
+        wf_name = '_'.join(['sub', subject_id, *(('ses', ses_str) if ses_str else ()), 'wf'])
+        single_subject_wf = init_single_subject_wf(subject_id, sessions, name=wf_name)
+
+        single_subject_wf.config['execution']['crashdump_dir'] = str(log_dir)
         for node in single_subject_wf._get_all_nodes():
             node.config = deepcopy(single_subject_wf.config)
         if freesurfer:
@@ -79,16 +89,17 @@ def init_aslprep_wf():
             aslprep_wf.add_nodes([single_subject_wf])
 
         # Dump a copy of the config file into the log directory
-        log_dir = (
-            config.execution.aslprep_dir / f'sub-{subject_id}' / 'log' / config.execution.run_uuid
-        )
         log_dir.mkdir(exist_ok=True, parents=True)
         config.to_filename(log_dir / 'aslprep.toml')
 
     return aslprep_wf
 
 
-def init_single_subject_wf(subject_id: str):
+def init_single_subject_wf(
+    subject_id: str,
+    session_id: str | list[str] | None = None,
+    name: str | None = None,
+):
     """Organize the preprocessing pipeline for a single subject.
 
     It collects and reports information about the subject, and prepares
@@ -113,17 +124,22 @@ def init_single_subject_wf(subject_id: str):
     ----------
     subject_id : :obj:`str`
         Subject label for this single-subject workflow.
+    session_id
+        Session label(s) for this workflow.
+    name
+        Name of the workflow.
+        If not provided, will be set to ``sub_{subject_id}_ses_{session_id}_wf``.
 
     Inputs
     ------
     subjects_dir : :obj:`str`
         FreeSurfer's ``$SUBJECTS_DIR``.
     """
+    from fmriprep.interfaces.bids import BIDSSourceFile, CreateFreeSurferID
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.bids import BIDSInfo
     from niworkflows.interfaces.nilearn import NILEARN_VERSION
     from niworkflows.interfaces.utility import KeySelect
-    from niworkflows.utils.misc import fix_multi_T1w_source_name
     from niworkflows.utils.spaces import Reference
     from smriprep.workflows.anatomical import init_anat_fit_wf
     from smriprep.workflows.outputs import (
@@ -143,7 +159,10 @@ def init_single_subject_wf(subject_id: str):
     from aslprep.utils.bids import collect_data
     from aslprep.workflows.asl.base import init_asl_wf
 
-    workflow = Workflow(name=f'sub_{subject_id}_wf')
+    if name is None:
+        name = f'sub_{subject_id}_wf'
+
+    workflow = Workflow(name=name)
     workflow.__desc__ = f"""
 ### Arterial Spin-Labeled MRI Preprocessing and Cerebral Blood Flow Computation
 
@@ -174,6 +193,7 @@ their manuscripts unchanged. It is released under the unchanged
     subject_data = collect_data(
         config.execution.layout,
         subject_id,
+        session_id=session_id,
         bids_filters=config.execution.bids_filters,
     )
 
@@ -214,6 +234,7 @@ their manuscripts unchanged. It is released under the unchanged
                     derivatives_dir=deriv_dir,
                     subject_id=subject_id,
                     std_spaces=std_spaces,
+                    session_id=session_id,
                 )
             )
 
@@ -224,14 +245,24 @@ their manuscripts unchanged. It is released under the unchanged
             subject_data=subject_data,
             anat_only=config.workflow.anat_only,
             subject_id=subject_id,
-            anat_derivatives=anatomical_cache if anatomical_cache else None,
+            anat_derivatives=anatomical_cache or None,
         ),
         name='bidssrc',
+    )
+
+    src_file = pe.Node(
+        BIDSSourceFile(
+            precomputed=anatomical_cache,
+            sessionwise=config.workflow.subject_anatomical_reference == 'sessionwise',
+        ),
+        name='source_anatomical',
     )
 
     bids_info = pe.Node(
         BIDSInfo(bids_dir=config.execution.bids_dir, bids_validate=False), name='bids_info'
     )
+
+    create_fs_id = pe.Node(CreateFreeSurferID(), name='create_fs_id')
 
     summary = pe.Node(
         SubjectSummary(
@@ -281,7 +312,7 @@ their manuscripts unchanged. It is released under the unchanged
         freesurfer=config.workflow.run_reconall,
         hires=config.workflow.hires,
         fs_no_resume=config.workflow.fs_no_resume,
-        longitudinal=config.workflow.longitudinal,
+        longitudinal=config.workflow.subject_anatomical_reference == 'unbiased',
         msm_sulc=msm_sulc,
         t1w=subject_data['t1w'],
         t2w=subject_data['t2w'],
@@ -301,17 +332,15 @@ their manuscripts unchanged. It is released under the unchanged
             'No T1w image found; using precomputed T1w image: %s', anatomical_cache['t1w_preproc']
         )
         workflow.connect([
-            (bidssrc, bids_info, [(('asl', fix_multi_T1w_source_name), 'in_file')]),
             (anat_fit_wf, summary, [('outputnode.t1w_preproc', 't1w')]),
             (anat_fit_wf, ds_report_summary, [('outputnode.t1w_preproc', 'source_file')]),
             (anat_fit_wf, ds_report_about, [('outputnode.t1w_preproc', 'source_file')]),
         ])  # fmt:skip
     else:
         workflow.connect([
-            (bidssrc, bids_info, [(('t1w', fix_multi_T1w_source_name), 'in_file')]),
-            (bidssrc, summary, [('t1w', 't1w')]),
-            (bidssrc, ds_report_summary, [(('t1w', fix_multi_T1w_source_name), 'source_file')]),
-            (bidssrc, ds_report_about, [(('t1w', fix_multi_T1w_source_name), 'source_file')]),
+            (src_file, summary, [('source_file', 't1w')]),
+            (src_file, ds_report_summary, [('source_file', 'source_file')]),
+            (src_file, ds_report_about, [('source_file', 'source_file')]),
         ])  # fmt:skip
 
     workflow.connect([
@@ -322,7 +351,13 @@ their manuscripts unchanged. It is released under the unchanged
             ('roi', 'inputnode.roi'),
             ('flair', 'inputnode.flair'),
         ]),
-        (bids_info, anat_fit_wf, [(('subject', _prefix), 'inputnode.subject_id')]),
+        (bidssrc, src_file, [('out_dict', 'bids_info')]),
+        (src_file, bids_info, [('source_file', 'in_file')]),
+        (bids_info, create_fs_id, [
+            ('subject', 'subject_id'),
+            ('session', 'session_id'),
+        ]),
+        (create_fs_id, anat_fit_wf, [('subject_id', 'inputnode.subject_id')]),
         # Reporting connections
         (inputnode, summary, [('subjects_dir', 'subjects_dir')]),
         (bidssrc, summary, [
