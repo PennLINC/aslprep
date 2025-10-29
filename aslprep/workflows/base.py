@@ -199,7 +199,7 @@ their manuscripts unchanged. It is released under the unchanged
         'asl': {'datatype': 'perf', 'suffix': 'asl'},
     }
 
-    subject_data = collect_data(
+    subject_data, _ = collect_data(
         config.execution.layout,
         subject_id,
         session_id=session_id,
