@@ -131,33 +131,33 @@ def check_affines(data_dir, out_dir, input_type):
     elif input_type == 'nifti':  # Get the .nii.gz
         # Problem: it's collecting native-space data
         denoised_files = xcp_layout.get(
-            datatype='func',
+            datatype='perf',
             run=1,
-            suffix='bold',
+            suffix='asl',
             extension='.nii.gz',
         )
         space = denoised_files[0].get_entities()['space']
         bold_files = fmri_layout.get(
             invalid_filters='allow',
-            datatype='func',
+            datatype='perf',
             run=1,
             space=space,
-            suffix='bold',
+            suffix='asl',
             extension='.nii.gz',
         )
 
     else:  # Nibabies
         denoised_files = xcp_layout.get(
-            datatype='func',
+            datatype='perf',
             space='MNIInfant',
-            suffix='bold',
+            suffix='asl',
             extension='.nii.gz',
         )
         bold_files = fmri_layout.get(
             invalid_filters='allow',
-            datatype='func',
+            datatype='perf',
             space='MNIInfant',
-            suffix='bold',
+            suffix='asl',
             extension='.nii.gz',
         )
 
