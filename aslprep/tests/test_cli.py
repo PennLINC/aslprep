@@ -140,16 +140,16 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
     download_test_data('anatomical', data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
-    test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, f'{TEST_NAME}_filter.json')
 
     parameters = [
         dataset_dir,
         out_dir,
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
+        '--session-label',
+        'philips2d',
+        'anat',
         f'-w={work_dir}',
-        f'--bids-filter-file={filter_file}',
         '--output-spaces',
         'asl',
         'fsaverage:den-10k',
@@ -377,7 +377,6 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
         'asl',
         '--use-syn-sdc',
         '--m0_scale=10',
-        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
