@@ -319,7 +319,7 @@ their manuscripts unchanged. It is released under the unchanged
     anat_fit_wf = init_anat_fit_wf(
         bids_root=bids_root,
         output_dir=aslprep_dir,
-        freesurfer=config.workflow.run_reconall,
+        freesurfer=freesurfer,
         hires=config.workflow.hires,
         fs_no_resume=config.workflow.fs_no_resume,
         longitudinal=config.workflow.subject_anatomical_reference == 'unbiased',
@@ -339,7 +339,7 @@ their manuscripts unchanged. It is released under the unchanged
     # allow to run with anat-fast-track on fMRI-only dataset
     if 't1w_preproc' in anatomical_cache and not subject_data['t1w']:
         config.loggers.workflow.debug(
-            'No T1w image found; using precomputed T1w image: %s', anatomical_cache['t1w_preproc']
+            f'No T1w image found; using precomputed T1w image: {anatomical_cache["t1w_preproc"]}',
         )
         workflow.connect([
             (anat_fit_wf, summary, [('outputnode.t1w_preproc', 't1w')]),
@@ -426,18 +426,6 @@ their manuscripts unchanged. It is released under the unchanged
                 ]),
             ])  # fmt:skip
 
-            select_MNI2009c_xfm_fw = pe.Node(
-                KeySelect(fields=['anat2std_xfm'], key='MNI152NLin2009cAsym'),
-                name='select_MNI2009c_xfm_fw',
-                run_without_submitting=True,
-            )
-            workflow.connect([
-                (anat_fit_wf, select_MNI2009c_xfm_fw, [
-                    ('outputnode.anat2std_xfm', 'anat2std_xfm'),
-                    ('outputnode.template', 'keys'),
-                ]),
-            ])  # fmt:skip
-
         if freesurfer:
             from smriprep.workflows.outputs import init_ds_fs_segs_wf, init_ds_surface_metrics_wf
             from smriprep.workflows.surfaces import init_surface_derivatives_wf
@@ -513,9 +501,10 @@ their manuscripts unchanged. It is released under the unchanged
                 grayord_density=config.workflow.cifti_output,
                 omp_nthreads=omp_nthreads,
             )
+            fslr_density = '32k' if config.workflow.cifti_output == '91k' else '59k'
             resample_surfaces_wf = init_resample_surfaces_wf(
                 surfaces=['white', 'pial', 'midthickness'],
-                grayord_density=config.workflow.cifti_output,
+                density=fslr_density,
             )
             ds_grayord_metrics_wf = init_ds_grayord_metrics_wf(
                 bids_root=bids_root,
@@ -528,7 +517,7 @@ their manuscripts unchanged. It is released under the unchanged
                 surfaces=['white', 'pial', 'midthickness'],
                 entities={
                     'space': 'fsLR',
-                    'density': '32k' if config.workflow.cifti_output == '91k' else '59k',
+                    'density': fslr_density,
                 },
                 name='ds_fsLR_surfaces_wf',
             )
@@ -613,7 +602,7 @@ their manuscripts unchanged. It is released under the unchanged
                 spec=spec,
             )
             config.loggers.workflow.debug(
-                'Detected precomputed fieldmaps in %s for fieldmap IDs: %s', deriv_dir, list(fmaps)
+                f'Detected precomputed fieldmaps in {deriv_dir} for fieldmap IDs: {list(fmaps)}',
             )
             fmap_cache.update(fmaps)
 
@@ -637,9 +626,8 @@ their manuscripts unchanged. It is released under the unchanged
     if all_estimators:
         # Find precomputed fieldmaps that apply to this workflow
         pared_cache = {}
-        non_alnum_pattern = re.compile(r'[^a-zA-Z0-9]')
         for est in all_estimators:
-            if found := fmap_cache.get(non_alnum_pattern.sub('', est.bids_id)):
+            if found := fmap_cache.get(re.sub(r'[^a-zA-Z0-9]', '', est.bids_id)):
                 pared_cache[est.bids_id] = found
             else:
                 fmap_estimators.append(est)
@@ -653,9 +641,9 @@ their manuscripts unchanged. It is released under the unchanged
             fieldmaps = [fmap['fieldmap'] for fmap in pared_cache.values()]
             refs = [fmap['magnitude'] for fmap in pared_cache.values()]
             coeffs = [fmap['coeffs'] for fmap in pared_cache.values()]
-            config.loggers.workflow.debug('Reusing fieldmaps: %s', fieldmaps)
-            config.loggers.workflow.debug('Reusing references: %s', refs)
-            config.loggers.workflow.debug('Reusing coefficients: %s', coeffs)
+            config.loggers.workflow.debug(f'Reusing fieldmaps: {fieldmaps}')
+            config.loggers.workflow.debug(f'Reusing references: {refs}')
+            config.loggers.workflow.debug(f'Reusing coefficients: {coeffs}')
 
             fmap_buffers['fmap'].inputs.in1 = fieldmaps
             fmap_buffers['fmap_ref'].inputs.in1 = refs
@@ -681,13 +669,27 @@ their manuscripts unchanged. It is released under the unchanged
         from sdcflows import fieldmaps as fm
         from sdcflows.workflows.base import init_fmap_preproc_wf
 
-        fmap_wf = init_fmap_preproc_wf(
-            debug='fieldmaps' in config.execution.debug,
-            estimators=fmap_estimators,
-            omp_nthreads=omp_nthreads,
-            output_dir=aslprep_dir,
-            subject=subject_id,
-        )
+        fallback_trt = config.workflow.fallback_total_readout_time
+        try:
+            fmap_wf = init_fmap_preproc_wf(
+                use_metadata_estimates=fallback_trt == 'estimated',
+                fallback_total_readout_time=fallback_trt
+                if isinstance(fallback_trt, float)
+                else None,
+                debug='fieldmaps' in config.execution.debug,
+                estimators=fmap_estimators,
+                omp_nthreads=omp_nthreads,
+                output_dir=aslprep_dir,
+                subject=subject_id,
+            )
+        except RuntimeError:
+            message = (
+                'Missing readout time information. '
+                'See documentation for `--fallback-total-readout-time`.'
+            )
+            config.loggers.workflow.critical(message, exc_info=True)
+            sys.exit(os.EX_DATAERR)
+
         fmap_wf.__desc__ = f"""
 
 Preprocessing of B<sub>0</sub> inhomogeneity mappings
@@ -746,7 +748,7 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                     len(suffixes) == 2
                     and all(suf in ('epi', 'm0scan', 'sbref') for suf in suffixes)
                 ):
-                    wf_inputs = getattr(fmap_wf.inputs, f'in_{estimator.bids_id}')
+                    wf_inputs = getattr(fmap_wf.inputs, f'in_{estimator.sanitized_id}')
                     wf_inputs.in_data = [str(s.path) for s in estimator.sources]
                     wf_inputs.metadata = [s.metadata for s in estimator.sources]
                 else:
@@ -768,7 +770,7 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                     debug=config.execution.sloppy,
                     auto_bold_nss=False,  # I don't trust NSS estimation on ASL data
                     t1w_inversion=False,
-                    name=f'syn_preprocessing_{estimator.bids_id}',
+                    name=f'syn_preprocessing_{estimator.sanitized_id}',
                 )
                 syn_preprocessing_wf.inputs.inputnode.in_epis = sources
                 syn_preprocessing_wf.inputs.inputnode.in_meta = source_meta
@@ -785,11 +787,11 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                         ('std2anat_xfm', 'inputnode.std2anat_xfm'),
                     ]),
                     (syn_preprocessing_wf, fmap_wf, [
-                        ('outputnode.epi_ref', f'in_{estimator.bids_id}.epi_ref'),
-                        ('outputnode.epi_mask', f'in_{estimator.bids_id}.epi_mask'),
-                        ('outputnode.anat_ref', f'in_{estimator.bids_id}.anat_ref'),
-                        ('outputnode.anat_mask', f'in_{estimator.bids_id}.anat_mask'),
-                        ('outputnode.sd_prior', f'in_{estimator.bids_id}.sd_prior'),
+                        ('outputnode.epi_ref', f'in_{estimator.sanitized_id}.epi_ref'),
+                        ('outputnode.epi_mask', f'in_{estimator.sanitized_id}.epi_mask'),
+                        ('outputnode.anat_ref', f'in_{estimator.sanitized_id}.anat_ref'),
+                        ('outputnode.anat_mask', f'in_{estimator.sanitized_id}.anat_mask'),
+                        ('outputnode.sd_prior', f'in_{estimator.sanitized_id}.sd_prior'),
                     ]),
                 ])  # fmt:skip
 
@@ -894,9 +896,6 @@ tasks and sessions), the following preprocessing was performed.
                 workflow.connect([
                     (select_MNI2009c_xfm, asl_wf, [
                         ('std2anat_xfm', 'inputnode.mni2009c2anat_xfm'),
-                    ]),
-                    (select_MNI2009c_xfm_fw, asl_wf, [
-                        ('anat2std_xfm', 'inputnode.anat2mni2009c_xfm'),
                     ]),
                 ])  # fmt:skip
 
