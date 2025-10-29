@@ -62,6 +62,7 @@ def init_aslprep_wf():
             run_without_submitting=True,
         )
         if config.execution.fs_subjects_dir is not None:
+            raise Exception(str(config.execution.fs_subjects_dir.absolute()))
             fsdir.inputs.subjects_dir = str(config.execution.fs_subjects_dir.absolute())
 
     for subject_id, session_ids in config.execution.processing_groups:
