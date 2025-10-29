@@ -116,6 +116,16 @@ def _build_parser():
             else:
                 raise parser.error(f'Path does not exist: <{value}>.')
 
+    def _fallback_trt(value, parser):
+        if value == 'estimated':
+            return value
+        try:
+            return float(value)
+        except ValueError:
+            raise parser.error(
+                f'Falling back to TRT must be a number or "estimated". Received {value}.'
+            ) from None
+
     verstr = f'ASLPrep v{config.environment.version}'
     currentv = Version(config.environment.version)
     is_release = not any((currentv.is_devrelease, currentv.is_prerelease, currentv.is_postrelease))
@@ -128,6 +138,7 @@ def _build_parser():
     IsFile = partial(_is_file, parser=parser)
     PositiveInt = partial(_min_one, parser=parser)
     BIDSFilter = partial(_bids_filter, parser=parser)
+    FallbackTRT = partial(_fallback_trt, parser=parser)
 
     # Arguments as specified by BIDS-Apps
     # required, positional arguments
@@ -412,6 +423,17 @@ any spatial references.""",
         '--force-no-bbr',
         action=DeprecatedAction,
         help='Deprecated - use `--force no-bbr` instead. See `--force` for more details.',
+    )
+    g_conf.add_argument(
+        '--fallback-total-readout-time',
+        required=False,
+        action='store',
+        default=None,
+        type=FallbackTRT,
+        help=(
+            'Fallback value for Total Readout Time (TRT) calculation. '
+            'May be a number or "estimated".'
+        ),
     )
     g_conf.add_argument(
         '--random-seed',
