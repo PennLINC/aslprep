@@ -38,15 +38,17 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Get anatomical derivatives from box
           command: |
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data anatomical
+            # Create a symlink of the Freesurfer derivatives
+            ln -s /src/aslprep/.circleci/data/anatomical/freesurfer/sub-01 /src/aslprep/.circleci/data/anatomical/freesurfer/sub-01_ses-1
       - save_cache:
-          key: anatomical-v7
+          key: anatomical-v9
           paths:
               - /src/aslprep/.circleci/data/anatomical
 
@@ -188,7 +190,7 @@ jobs:
       - restore_cache:
           key: examples_pcasl_singlepld-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_philips dataset
@@ -225,7 +227,7 @@ jobs:
       - restore_cache:
           key: examples_pcasl_singlepld-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_siemens dataset
@@ -260,7 +262,7 @@ jobs:
       - restore_cache:
           key: examples_pcasl_singlepld-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld dataset
@@ -297,7 +299,7 @@ jobs:
       - restore_cache:
           key: examples_pcasl_multipld-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_multipld dataset
@@ -332,7 +334,7 @@ jobs:
       - restore_cache:
           key: examples_pasl_multipld-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pasl_multipld dataset
@@ -369,7 +371,7 @@ jobs:
       - restore_cache:
           key: qtab-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run full aslprep on qtab dataset
@@ -404,7 +406,7 @@ jobs:
       - restore_cache:
           key: test_001-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run full aslprep on test_001 dataset
@@ -441,7 +443,7 @@ jobs:
       - restore_cache:
           key: test_002-v7
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run full aslprep on test_002 dataset
@@ -476,7 +478,7 @@ jobs:
       - restore_cache:
           key: test_003-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run minimal aslprep on test_003 dataset
@@ -513,7 +515,7 @@ jobs:
       - restore_cache:
           key: test_003-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run resampling aslprep on test_003 dataset
@@ -550,7 +552,7 @@ jobs:
       - restore_cache:
           key: test_003-v6
       - restore_cache:
-          key: anatomical-v7
+          key: anatomical-v9
       - run: *runinstall
       - run:
           name: Run full aslprep on test_003 dataset
