@@ -46,7 +46,7 @@ jobs:
             cd /src/aslprep/.circleci
             python get_data.py ${PWD}/data anatomical
             # Create a symlink of the Freesurfer derivatives
-            ln -s /src/aslprep/.circleci/data/anatomical/sourcedata/freesurfer/sub-01 /src/aslprep/.circleci/data/anatomical/sourcedata/freesurfer/sub-01_ses-01
+            ln -s /src/aslprep/.circleci/data/anatomical/freesurfer/sub-01 /src/aslprep/.circleci/data/anatomical/freesurfer/sub-01_ses-01
       - save_cache:
           key: anatomical-v8
           paths:
