@@ -101,6 +101,11 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
 
     dataset_dir = download_test_data('examples_pcasl_singlepld', data_dir)
     download_test_data('anatomical', data_dir)
+    # Symlink the Freesurfer derivatives to a sub-01_ses-ge3d folder
+    os.symlink(
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01'),
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01_ses-ge3d'),
+    )
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -138,6 +143,11 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
 
     dataset_dir = download_test_data('examples_pcasl_singlepld', data_dir)
     download_test_data('anatomical', data_dir)
+    # Symlink the Freesurfer derivatives to a sub-01_ses-philips2d folder
+    os.symlink(
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01'),
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01_ses-philips2d'),
+    )
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -175,6 +185,11 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
 
     dataset_dir = download_test_data('examples_pcasl_singlepld', data_dir)
     download_test_data('anatomical', data_dir)
+    # Symlink the Freesurfer derivatives to a sub-01_ses-siemens2d folder
+    os.symlink(
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01'),
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01_ses-siemens2d'),
+    )
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -228,6 +243,8 @@ def test_qtab(data_dir, output_dir, working_dir):
         '--use-syn-sdc',
         '--force',
         'no-ge',
+        '--subject-anatomical-reference',
+        'first-lex',
         '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
@@ -363,6 +380,11 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
     download_test_data('anatomical', data_dir)
+    # Symlink the Freesurfer derivatives to a sub-01_ses-1 folder
+    os.symlink(
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01'),
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01_ses-1'),
+    )
     level_test_name = f'{TEST_NAME}_{level}'
     out_dir = os.path.join(output_dir, level_test_name, 'aslprep')
     work_dir = os.path.join(working_dir, level_test_name)
