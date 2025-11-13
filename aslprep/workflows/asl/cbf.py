@@ -8,6 +8,7 @@ from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.images import RobustAverage
 from templateflow.api import get as get_template
 
 from aslprep import config
@@ -17,7 +18,6 @@ from aslprep.interfaces.cbf import (
     BASILCBF,
     ComputeCBF,
     ExtractCBF,
-    RobustAverage,
     ScoreAndScrubCBF,
 )
 from aslprep.interfaces.parcellation import ParcellateCBF
