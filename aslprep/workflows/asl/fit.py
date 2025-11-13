@@ -739,8 +739,6 @@ def init_asl_fit_wf(
                 ('fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm'),
             ]),
             (regref_buffer, asl_reg_wf, [('aslref', 'inputnode.ref_bold_brain')]),
-            # Incomplete sources
-            (regref_buffer, ds_aslreg_wf, [('aslref', 'inputnode.source_files')]),
             (asl_reg_wf, ds_aslreg_wf, [('outputnode.itk_bold_to_t1', 'inputnode.xform')]),
             (ds_aslreg_wf, outputnode, [('outputnode.xform', 'aslref2anat_xfm')]),
             (asl_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
