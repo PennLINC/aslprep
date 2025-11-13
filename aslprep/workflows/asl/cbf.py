@@ -17,6 +17,7 @@ from aslprep.interfaces.cbf import (
     BASILCBF,
     ComputeCBF,
     ExtractCBF,
+    RobustAverage,
     ScoreAndScrubCBF,
 )
 from aslprep.interfaces.parcellation import ParcellateCBF
@@ -349,6 +350,13 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
             ('m0scan_metadata', 'm0scan_metadata'),
         ]),
     ])  # fmt:skip
+
+    if metadata['M0Type'] == 'Separate':
+        mean_m0 = pe.Node(RobustAverage(), name='mean_m0', mem_gb=1)
+        workflow.connect([
+            (inputnode, mean_m0, [('m0scan', 'in_file')]),
+            (mean_m0, extract_deltam, [('out_file', 'm0scan')]),
+        ])  # fmt:skip
 
     compute_cbf = pe.Node(
         ComputeCBF(
