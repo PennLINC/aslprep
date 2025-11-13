@@ -39,7 +39,6 @@ from fmriprep.workflows.bold.reference import init_validation_and_dummies_wf
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.func.util import init_skullstrip_bold_wf
 from niworkflows.interfaces.header import ValidateImage
 from niworkflows.interfaces.nitransforms import ConcatenateXFMs
 from niworkflows.interfaces.utility import KeySelect
@@ -243,6 +242,7 @@ def init_asl_fit_wf(
     aslref2fmap_xform = transforms.get('aslref2fmap')
     aslref2anat_xform = transforms.get('aslref2anat')
     m0scan2aslref_xform = transforms.get('m0scan2aslref')
+    aslref_mask = precomputed.get('aslref_mask')
 
     workflow = Workflow(name=name)
 
@@ -312,9 +312,12 @@ def init_asl_fit_wf(
         name='fmapreg_buffer',
     )
     regref_buffer = pe.Node(
-        niu.IdentityInterface(fields=['aslref', 'aslmask']),
+        niu.IdentityInterface(fields=['aslref']),
         name='regref_buffer',
     )
+    aslmask_buffer = pe.Node(niu.IdentityInterface(fields=['aslmask']), name='aslmask_buffer')
+    # Buffer to hold the ASL->T1w transform regardless of whether it was computed or provided
+    anatxfm_buffer = pe.Node(niu.IdentityInterface(fields=['xform']), name='anatxfm_buffer')
 
     if hmc_aslref:
         hmcref_buffer.inputs.aslref = hmc_aslref
@@ -370,8 +373,8 @@ def init_asl_fit_wf(
         (hmcref_buffer, outputnode, [('aslref', 'hmc_aslref')]),
         (regref_buffer, outputnode, [
             ('aslref', 'coreg_aslref'),
-            ('aslmask', 'asl_mask'),
         ]),
+        (aslmask_buffer, outputnode, [('aslmask', 'asl_mask')]),
         (fmapreg_buffer, outputnode, [('aslref2fmap_xfm', 'aslref2fmap_xfm')]),
         (hmc_buffer, outputnode, [('hmc_xforms', 'motion_xfm')]),
         (m0scanreg_buffer, outputnode, [('m0scan2aslref_xfm', 'm0scan2aslref_xfm')]),
@@ -626,13 +629,7 @@ def init_asl_fit_wf(
             desc='coreg',
             name='ds_coreg_aslref_wf',
         )
-        ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
-            source_file=asl_file,
-            output_dir=config.execution.aslprep_dir,
-            desc='brain',
-            name='ds_aslmask_wf',
-        )
-        ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
+
 
         workflow.connect([
             (fmapref_buffer, enhance_aslref_wf, [('out', 'inputnode.in_file')]),
@@ -640,7 +637,6 @@ def init_asl_fit_wf(
                 ('in_file', 'inputnode.source_files'),
             ]),
             (ds_coreg_aslref_wf, regref_buffer, [('outputnode.aslref', 'aslref')]),
-            (ds_aslmask_wf, regref_buffer, [('outputnode.boldmask', 'aslmask')]),
         ])  # fmt:skip
 
         if fieldmap_id:
@@ -660,8 +656,6 @@ def init_asl_fit_wf(
                 mem_gb=mem_gb['resampled'],
             )
 
-            skullstrip_asl_wf = init_skullstrip_bold_wf()
-
             workflow.connect([
                 (fmapref_buffer, unwarp_aslref, [('out', 'ref_file')]),
                 (enhance_aslref_wf, unwarp_aslref, [
@@ -673,12 +667,6 @@ def init_asl_fit_wf(
                     ('pe_direction', 'pe_dir'),
                 ]),
                 (unwarp_aslref, ds_coreg_aslref_wf, [('out_file', 'inputnode.aslref')]),
-                (ds_coreg_aslref_wf, skullstrip_asl_wf, [
-                    ('outputnode.aslref', 'inputnode.in_file'),
-                ]),
-                (skullstrip_asl_wf, ds_aslmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.boldmask'),
-                ]),
             ])  # fmt:skip
 
             if not aslref2fmap_xform:
@@ -693,20 +681,11 @@ def init_asl_fit_wf(
                 (enhance_aslref_wf, ds_coreg_aslref_wf, [
                     ('outputnode.bias_corrected_file', 'inputnode.aslref'),
                 ]),
-                (enhance_aslref_wf, ds_aslmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.boldmask'),
-                ]),
             ])  # fmt:skip
     else:
         config.loggers.workflow.info('Found coregistration reference - skipping Stage 4')
 
-        # TODO: Allow precomputed bold masks to be passed
-        # Also needs consideration for how it interacts above
-        skullstrip_precomp_ref_wf = init_skullstrip_bold_wf(name='skullstrip_precomp_ref_wf')
-        skullstrip_precomp_ref_wf.inputs.inputnode.in_file = coreg_aslref
-        workflow.connect([
-            (skullstrip_precomp_ref_wf, regref_buffer, [('outputnode.mask_file', 'aslmask')])
-        ])  # fmt:skip
+        # No ASL-based skull-stripping; mask will be mapped from anatomical later.
 
     # Stage 5: Register ASL to anatomical space
     if not aslref2anat_xform:
@@ -756,15 +735,46 @@ def init_asl_fit_wf(
                 ('fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm'),
             ]),
             (regref_buffer, asl_reg_wf, [('aslref', 'inputnode.ref_bold_brain')]),
-            # Incomplete sources
-            (regref_buffer, ds_aslreg_wf, [('aslref', 'inputnode.source_files')]),
             (asl_reg_wf, ds_aslreg_wf, [('outputnode.itk_bold_to_t1', 'inputnode.xform')]),
             (ds_aslreg_wf, outputnode, [('outputnode.xform', 'aslref2anat_xfm')]),
             (asl_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
+            # Buffer the transform for later mask mapping
+            (ds_aslreg_wf, anatxfm_buffer, [('outputnode.xform', 'xform')]),
         ])  # fmt:skip
     else:
         config.loggers.workflow.info('Found coregistration transform - skipping Stage 5')
         outputnode.inputs.aslref2anat_xfm = aslref2anat_xform
+        anatxfm_buffer.inputs.xform = aslref2anat_xform
+
+    # Prefer anatomical brain mask mapped into ASL space
+    # Local import to avoid impacting other modules' import time
+    if aslref_mask:
+        aslmask_buffer.inputs.aslmask = aslref_mask
+        config.loggers.workflow.debug('Reusing ASL mask: %s', aslref_mask)
+    else:
+        from aslprep.interfaces.ants import ApplyTransforms
+        anat_mask_to_asl = pe.Node(
+            ApplyTransforms(interpolation='GenericLabel', invert_transform_flags=[True], args='-v'),
+            name='anat_mask_to_asl',
+        )
+        ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
+            source_file=asl_file,
+            output_dir=config.execution.aslprep_dir,
+            desc='brain',
+            name='ds_aslmask_wf',
+        )
+        ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
+        # Map anatomical mask to ASL
+        workflow.connect([
+            (inputnode, anat_mask_to_asl, [('t1w_mask', 'input_image')]),
+            (regref_buffer, anat_mask_to_asl, [('aslref', 'reference_image')]),
+            (anatxfm_buffer, anat_mask_to_asl, [('xform', 'transforms')]),
+            # Final mask goes to buffer for outputs
+            (anat_mask_to_asl, aslmask_buffer, [('output_image', 'aslmask')]),
+            (anat_mask_to_asl, ds_aslmask_wf, [
+                ('output_image', 'inputnode.boldmask'),
+            ]),
+        ])  # fmt:skip
 
     return workflow
 
