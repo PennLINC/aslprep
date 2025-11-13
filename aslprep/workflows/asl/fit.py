@@ -242,6 +242,7 @@ def init_asl_fit_wf(
     aslref2fmap_xform = transforms.get('aslref2fmap')
     aslref2anat_xform = transforms.get('aslref2anat')
     m0scan2aslref_xform = transforms.get('m0scan2aslref')
+    aslref_mask = precomputed.get('aslref_mask')
 
     workflow = Workflow(name=name)
 
@@ -311,9 +312,10 @@ def init_asl_fit_wf(
         name='fmapreg_buffer',
     )
     regref_buffer = pe.Node(
-        niu.IdentityInterface(fields=['aslref', 'aslmask']),
+        niu.IdentityInterface(fields=['aslref']),
         name='regref_buffer',
     )
+    aslmask_buffer = pe.Node(niu.IdentityInterface(fields=['aslmask']), name='aslmask_buffer')
     # Buffer to hold the ASL->T1w transform regardless of whether it was computed or provided
     anatxfm_buffer = pe.Node(niu.IdentityInterface(fields=['xform']), name='anatxfm_buffer')
 
@@ -371,8 +373,8 @@ def init_asl_fit_wf(
         (hmcref_buffer, outputnode, [('aslref', 'hmc_aslref')]),
         (regref_buffer, outputnode, [
             ('aslref', 'coreg_aslref'),
-            ('aslmask', 'asl_mask'),
         ]),
+        (aslmask_buffer, outputnode, [('aslmask', 'asl_mask')]),
         (fmapreg_buffer, outputnode, [('aslref2fmap_xfm', 'aslref2fmap_xfm')]),
         (hmc_buffer, outputnode, [('hmc_xforms', 'motion_xfm')]),
         (m0scanreg_buffer, outputnode, [('m0scan2aslref_xfm', 'm0scan2aslref_xfm')]),
@@ -627,13 +629,7 @@ def init_asl_fit_wf(
             desc='coreg',
             name='ds_coreg_aslref_wf',
         )
-        ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
-            source_file=asl_file,
-            output_dir=config.execution.aslprep_dir,
-            desc='brain',
-            name='ds_aslmask_wf',
-        )
-        ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
+
 
         workflow.connect([
             (fmapref_buffer, enhance_aslref_wf, [('out', 'inputnode.in_file')]),
@@ -752,22 +748,29 @@ def init_asl_fit_wf(
 
     # Prefer anatomical brain mask mapped into ASL space
     # Local import to avoid impacting other modules' import time
-    from aslprep.interfaces.ants import ApplyTransforms
-    anat_mask_to_asl = pe.Node(
-        ApplyTransforms(interpolation='GenericLabel', invert_transform_flags=[True], args='-v'),
-        name='anat_mask_to_asl',
-    )
-    # Map anatomical mask to ASL
-    workflow.connect([
-        (inputnode, anat_mask_to_asl, [('t1w_mask', 'input_image')]),
-        (regref_buffer, anat_mask_to_asl, [('aslref', 'reference_image')]),
-        (anatxfm_buffer, anat_mask_to_asl, [('xform', 'transforms')]),
-        # Final mask goes to buffer for outputs
-        (anat_mask_to_asl, regref_buffer, [('output_image', 'aslmask')]),
-    ])  # fmt:skip
-    # If we created a datasink for the mask, write the final mask there as well
-    if not coreg_aslref:
+    if aslref_mask:
+        aslmask_buffer.inputs.aslmask = aslref_mask
+        config.loggers.workflow.debug('Reusing ASL mask: %s', aslref_mask)
+    else:
+        from aslprep.interfaces.ants import ApplyTransforms
+        anat_mask_to_asl = pe.Node(
+            ApplyTransforms(interpolation='GenericLabel', invert_transform_flags=[True], args='-v'),
+            name='anat_mask_to_asl',
+        )
+        ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
+            source_file=asl_file,
+            output_dir=config.execution.aslprep_dir,
+            desc='brain',
+            name='ds_aslmask_wf',
+        )
+        ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
+        # Map anatomical mask to ASL
         workflow.connect([
+            (inputnode, anat_mask_to_asl, [('t1w_mask', 'input_image')]),
+            (regref_buffer, anat_mask_to_asl, [('aslref', 'reference_image')]),
+            (anatxfm_buffer, anat_mask_to_asl, [('xform', 'transforms')]),
+            # Final mask goes to buffer for outputs
+            (anat_mask_to_asl, aslmask_buffer, [('output_image', 'aslmask')]),
             (anat_mask_to_asl, ds_aslmask_wf, [
                 ('output_image', 'inputnode.boldmask'),
             ]),
