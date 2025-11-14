@@ -12,6 +12,7 @@ from nipype.interfaces.base import (
     TraitedSpec,
     traits,
 )
+from nipype.interfaces.freesurfer.base import FSCommandOpenMP, FSTraitedSpec
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.interfaces.nilearn import NilearnBaseInterface
 from nipype.utils.filemanip import fname_presuffix, load_json, save_json
@@ -493,3 +494,40 @@ class GetImageType(SimpleInterface):
         else:
             self._results['image_type'] = 0
         return runtime
+
+
+class _SynthStripInputSpec(FSTraitedSpec):
+    input_image = File(argstr='-i %s', exists=True, mandatory=True)
+    no_csf = traits.Bool(argstr='--no-csf', desc='Exclude CSF from brain border.')
+    border = traits.Int(argstr='-b %d', desc='Mask border threshold in mm. Default is 1.')
+    gpu = traits.Bool(argstr='-g')
+    out_brain = File(
+        argstr='-o %s',
+        name_template='%s_brain.nii.gz',
+        name_source=['input_image'],
+        keep_extension=False,
+        desc='skull stripped image with corrupt sform',
+    )
+    out_brain_mask = File(
+        argstr='-m %s',
+        name_template='%s_mask.nii.gz',
+        name_source=['input_image'],
+        keep_extension=False,
+        desc='mask image with corrupt sform',
+    )
+    num_threads = traits.Int(desc='allows for specifying more threads', nohash=True)
+
+
+class _SynthStripOutputSpec(TraitedSpec):
+    out_brain = File(exists=True)
+    out_brain_mask = File(exists=True)
+
+
+class SynthStrip(FSCommandOpenMP):
+    input_spec = _SynthStripInputSpec
+    output_spec = _SynthStripOutputSpec
+    _cmd = 'mri_synthstrip'
+
+    def _num_threads_update(self):
+        if self.inputs.num_threads:
+            self.inputs.environ.update({'OMP_NUM_THREADS': '1'})
