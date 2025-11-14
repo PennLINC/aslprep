@@ -388,3 +388,53 @@ def init_enhance_and_skullstrip_asl_wf(
     ])  # fmt:skip
 
     return workflow
+
+
+def init_skullstrip_asl_wf(name='skullstrip_asl_wf'):
+    """Apply skull-stripping to an ASL image.
+
+    This is a modified version of the ``skullstrip_bold_wf`` workflow from
+    niworkflows, with BET swapped out for SynthStrip.
+
+    Inputs
+    ------
+    in_file : str
+        ASL image (single volume)
+
+    Outputs
+    -------
+    skull_stripped_file : str
+        the ``in_file`` after skull-stripping
+    mask_file : str
+        mask of the skull-stripped input file
+    out_report : str
+        reportlet for the skull-stripping
+    """
+    from niworkflows.interfaces.reportlets.masks import SimpleShowMaskRPT
+
+    from aslprep.interfaces.utility import SynthStrip
+
+    workflow = Workflow(name=name)
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_file']), name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['mask_file', 'skull_stripped_file', 'out_report']),
+        name='outputnode',
+    )
+    synthstrip = pe.Node(SynthStrip(), name='synthstrip')
+
+    workflow.connect([
+        (inputnode, synthstrip, [('in_file', 'in_file')]),
+        (synthstrip, outputnode, [
+            ('out_mask', 'mask_file'),
+            ('out_file', 'skull_stripped_file'),
+        ]),
+    ])  # fmt:skip
+
+    mask_reportlet = pe.Node(SimpleShowMaskRPT(), name='mask_reportlet')
+    workflow.connect([
+        (inputnode, mask_reportlet, [('in_file', 'background_file')]),
+        (synthstrip, mask_reportlet, [('out_mask', 'mask_file')]),
+        (mask_reportlet, outputnode, [('out_report', 'out_report')]),
+    ])  # fmt:skip
+
+    return workflow
