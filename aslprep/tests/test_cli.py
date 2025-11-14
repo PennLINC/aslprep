@@ -101,18 +101,23 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
 
     dataset_dir = download_test_data('examples_pcasl_singlepld', data_dir)
     download_test_data('anatomical', data_dir)
+    # Symlink the Freesurfer derivatives to a sub-01_ses-anat folder
+    os.symlink(
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01'),
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01_ses-anat'),
+    )
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
-    test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, f'{TEST_NAME}_filter.json')
 
     parameters = [
         dataset_dir,
         out_dir,
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
+        '--session-label',
+        'ge3d',
+        'anat',
         f'-w={work_dir}',
-        f'--bids-filter-file={filter_file}',
         '--output-spaces=asl',
         '--scorescrub',
         '--basil',
@@ -138,23 +143,29 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
 
     dataset_dir = download_test_data('examples_pcasl_singlepld', data_dir)
     download_test_data('anatomical', data_dir)
+    # Symlink the Freesurfer derivatives to a sub-01_ses-anat folder
+    os.symlink(
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01'),
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01_ses-anat'),
+    )
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
-    test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, f'{TEST_NAME}_filter.json')
 
     parameters = [
         dataset_dir,
         out_dir,
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
+        '--session-label',
+        'philips2d',
+        'anat',
         f'-w={work_dir}',
-        f'--bids-filter-file={filter_file}',
         '--output-spaces',
         'asl',
         'fsaverage:den-10k',
         '--scorescrub',
         '--basil',
+        '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical/smriprep")}',
@@ -174,18 +185,23 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
 
     dataset_dir = download_test_data('examples_pcasl_singlepld', data_dir)
     download_test_data('anatomical', data_dir)
+    # Symlink the Freesurfer derivatives to a sub-01_ses-anat folder
+    os.symlink(
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01'),
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01_ses-anat'),
+    )
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
-    test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, f'{TEST_NAME}_filter.json')
 
     parameters = [
         dataset_dir,
         out_dir,
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
+        '--session-label',
+        'siemens3d',
+        'anat',
         f'-w={work_dir}',
-        f'--bids-filter-file={filter_file}',
         '--output-spaces',
         'MNI152NLin2009cAsym',
         '--basil',
@@ -210,6 +226,11 @@ def test_qtab(data_dir, output_dir, working_dir):
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
     download_test_data('anatomical', data_dir)
+    # Symlink the Freesurfer derivatives to a sub-01_ses-anat folder
+    os.symlink(
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01'),
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01_ses-01'),
+    )
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -227,6 +248,8 @@ def test_qtab(data_dir, output_dir, working_dir):
         '--use-syn-sdc',
         '--force',
         'no-ge',
+        '--subject-anatomical-reference',
+        'first-lex',
         '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
         '--derivatives',
@@ -362,6 +385,11 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
     download_test_data('anatomical', data_dir)
+    # Symlink the Freesurfer derivatives to a sub-01_ses-1 folder
+    os.symlink(
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01'),
+        os.path.join(data_dir, 'anatomical/freesurfer/sub-01_ses-1'),
+    )
     level_test_name = f'{TEST_NAME}_{level}'
     out_dir = os.path.join(output_dir, level_test_name, 'aslprep')
     work_dir = os.path.join(working_dir, level_test_name)

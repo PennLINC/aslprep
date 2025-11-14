@@ -22,41 +22,6 @@ def _get_layout(derivatives_dir: Path) -> BIDSLayout:
     return BIDSLayout(derivatives_dir, config=['bids', 'derivatives'], validate=False)
 
 
-def collect_data(
-    layout,
-    participant_label,
-    bids_filters=None,
-):
-    """Use pybids to retrieve the input data for a given participant."""
-    queries = {
-        'fmap': {'datatype': 'fmap'},
-        'flair': {'datatype': 'anat', 'suffix': 'FLAIR'},
-        't2w': {'datatype': 'anat', 'suffix': 'T2w'},
-        't1w': {'datatype': 'anat', 'suffix': 'T1w'},
-        'roi': {'datatype': 'anat', 'suffix': 'roi'},
-        'sbref': {'datatype': 'perf', 'suffix': 'sbref'},
-        'asl': {'datatype': 'perf', 'suffix': 'asl'},
-    }
-
-    bids_filters = bids_filters or {}
-    for acq, entities in bids_filters.items():
-        queries[acq].update(entities)
-
-    subj_data = {
-        dtype: sorted(
-            layout.get(
-                return_type='file',
-                subject=participant_label,
-                extension=['nii', 'nii.gz'],
-                **query,
-            )
-        )
-        for dtype, query in queries.items()
-    }
-
-    return subj_data
-
-
 def collect_run_data(layout, asl_file):
     """Use pybids to retrieve the input data for a given participant."""
     queries = {
