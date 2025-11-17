@@ -605,7 +605,7 @@ any spatial references.""",
         'The user is responsible for ensuring that all necessary files are present.',
     )
 
-    g_parcellation = parser.add_mutually_exclusive_group(required=False)
+    g_parcellation = parser.add_mutually_exclusive_group('Options for parcellating CBF results')
     all_atlases = select_atlases(atlases=None, subset='all')
     g_parcellation.add_argument(
         '--atlases',
