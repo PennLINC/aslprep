@@ -34,7 +34,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = '01'
 
     dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(data_dir, 'derivatives/smriprep')
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -78,7 +78,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = '01'
 
     dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(data_dir, 'derivatives/smriprep')
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -121,7 +121,7 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = '01'
 
     dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(data_dir, 'derivatives/smriprep')
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -169,7 +169,7 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = '01'
 
     dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(data_dir, 'derivatives/smriprep')
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -217,7 +217,7 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = '01'
 
     dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(data_dir, 'derivatives/smriprep')
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -303,7 +303,7 @@ def test_test_001(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = '01'
 
     dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(data_dir, 'derivatives/smriprep')
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -355,7 +355,7 @@ def test_test_002(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = '01'
 
     dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(data_dir, 'derivatives/smriprep')
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -448,7 +448,7 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
     PARTICIPANT_LABEL = '01'
 
     dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(data_dir, 'derivatives/smriprep')
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     level_test_name = f'{TEST_NAME}_{level}'
     out_dir = os.path.join(output_dir, level_test_name, 'aslprep')
     work_dir = os.path.join(working_dir, level_test_name)
