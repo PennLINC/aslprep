@@ -460,7 +460,7 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
             'run': '03',
         }
     }
-    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
+    bids_filter_file = os.path.join(output_dir, level_test_name, 'bids_filters.json')
     with open(bids_filter_file, 'w') as f:
         json.dump(filters, f, indent=4, sort_keys=True)
 
