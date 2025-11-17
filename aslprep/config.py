@@ -418,6 +418,8 @@ class execution(_Config):
     """Do not collect telemetry information for *ASLPrep*."""
     output_dir = None
     """Folder where derivatives will be stored."""
+    atlases = []
+    """Selection of atlases to apply to the data."""
     aggr_ses_reports = None
     """Maximum number of sessions aggregated in one subject's visual report."""
     output_spaces = None
@@ -518,6 +520,9 @@ class execution(_Config):
             'raw': cls.bids_dir,
             'templateflow': Path(TF_LAYOUT.root),
         }
+        if cls.atlases:
+            dataset_links['atlas'] = cls.output_dir / 'atlases'
+
         for deriv_name, deriv_path in cls.derivatives.items():
             dataset_links[deriv_name] = deriv_path
         cls.dataset_links = dataset_links
