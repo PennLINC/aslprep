@@ -56,6 +56,9 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/sourcedata/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical")}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -95,6 +98,9 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/sourcedata/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical")}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -131,6 +137,9 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/sourcedata/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical")}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -169,6 +178,9 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/sourcedata/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical")}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -205,6 +217,9 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/sourcedata/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical")}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -249,6 +264,9 @@ def test_qtab(data_dir, output_dir, working_dir):
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/sourcedata/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical")}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -290,6 +308,9 @@ def test_test_001(data_dir, output_dir, working_dir):
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/sourcedata/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical")}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -333,6 +354,9 @@ def test_test_002(data_dir, output_dir, working_dir):
         f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/sourcedata/freesurfer")}',
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical")}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -413,6 +437,9 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
         '--derivatives',
         f'{os.path.join(data_dir, "anatomical")}',
         f'--level={level}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
     parameters += extra_params
 
