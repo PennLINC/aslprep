@@ -21,22 +21,8 @@ LOGGER = logging.getLogger('nipype.utils')
 def download_test_data(dset, data_dir=None):
     """Download test data."""
     URLS = {
-        'anatomical': (
-            'https://upenn.box.com/shared/static/310po9aj05iczko0qvlp21gk19upj82d.tar.gz'
-        ),
-        'examples_pasl_multipld': (
-            'https://upenn.box.com/shared/static/njb5tqs2n53775qumtwc1wyxo5362sp7.tar.gz'
-        ),
-        'examples_pcasl_multipld': (
-            'https://upenn.box.com/shared/static/pm0ysafvg69jimk1bcm3ewtljiwzk899.tar.gz'
-        ),
-        'examples_pcasl_singlepld': (
-            'https://upenn.box.com/shared/static/il6cfea6f0wjnmjjvcpg6baw3e7yrwa3.tar.gz'
-        ),
+        'nonqtab': 'https://upenn.box.com/shared/static/gmecscsr7acn1g4hawdbbkwut0ia9dud.tar.gz',
         'qtab': 'https://upenn.box.com/shared/static/ap5ftlc3logivmj03fabuahv4etqk7jf.tar.gz',
-        'test_001': 'https://upenn.box.com/shared/static/cudw5yyh3j6jwymmlzdw2nwc6knmxdu9.tar.gz',
-        'test_002': 'https://upenn.box.com/shared/static/wpuvn06zl4v5nwd9o8tysyfs3kg4a2p0.tar.gz',
-        'test_003': 'https://upenn.box.com/shared/static/1c64kn7btb5dodksnn06wer2kfk00px5.tar.gz',
     }
     if dset == '*':
         for k in URLS:

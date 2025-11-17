@@ -12,6 +12,8 @@ logs/CITATION.html
 logs/CITATION.md
 logs/CITATION.tex
 sub-01.html
+sub-01/anat/sub-01_desc-preproc_T2w.json
+sub-01/anat/sub-01_desc-preproc_T2w.nii.gz
 sub-01/perf/sub-01_abat.json
 sub-01/perf/sub-01_abat.nii.gz
 sub-01/perf/sub-01_abv.json
