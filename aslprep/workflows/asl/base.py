@@ -844,27 +844,28 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             ])  # fmt:skip
 
         # Parcellate CBF maps and write out parcellated TSV files and atlases
-        parcellate_cbf_wf = init_parcellate_cbf_wf(
-            cbf_3d=cbf_3d_derivs,
-            name='parcellate_cbf_wf',
-        )
-        workflow.connect([
-            (inputnode, parcellate_cbf_wf, [
-                ('asl_file', 'inputnode.source_file'),
-                ('mni2009c2anat_xfm', 'inputnode.MNI152NLin2009cAsym_to_anat_xfm'),
-            ]),
-            (asl_fit_wf, parcellate_cbf_wf, [
-                ('outputnode.asl_mask', 'inputnode.asl_mask'),
-                ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
-            ]),
-        ])  # fmt:skip
-
-        for cbf_deriv in cbf_3d_derivs:
+        if config.execution.atlases:
+            parcellate_cbf_wf = init_parcellate_cbf_wf(
+                cbf_3d=cbf_3d_derivs,
+                name='parcellate_cbf_wf',
+            )
             workflow.connect([
-                (cbf_wf, parcellate_cbf_wf, [
-                    (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),
+                (inputnode, parcellate_cbf_wf, [
+                    ('asl_file', 'inputnode.source_file'),
+                    ('mni2009c2anat_xfm', 'inputnode.MNI152NLin2009cAsym_to_anat_xfm'),
+                ]),
+                (asl_fit_wf, parcellate_cbf_wf, [
+                    ('outputnode.asl_mask', 'inputnode.asl_mask'),
+                    ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
                 ]),
             ])  # fmt:skip
+
+            for cbf_deriv in cbf_3d_derivs:
+                workflow.connect([
+                    (cbf_wf, parcellate_cbf_wf, [
+                        (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),
+                    ]),
+                ])  # fmt:skip
 
     # Fill in datasinks of reportlets seen so far
     for node in workflow.list_node_names():

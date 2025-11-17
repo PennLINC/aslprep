@@ -17,6 +17,7 @@ def _build_parser():
     from packaging.version import Version
 
     from aslprep.cli.version import check_latest, is_flagged
+    from aslprep.utils.atlas import select_atlases
 
     deprecations = {
         # parser attribute name: (replacement flag, version slated to be removed in)
@@ -602,6 +603,31 @@ any spatial references.""",
         dest='fs_no_resume',
         help='EXPERT: Import pre-computed FreeSurfer reconstruction without resuming. '
         'The user is responsible for ensuring that all necessary files are present.',
+    )
+
+    g_parcellation = parser.add_argument_group('Options for parcellating CBF results')
+    g_atlases = g_parcellation.add_mutually_exclusive_group(required=False)
+    all_atlases = select_atlases(atlases=None, subset='all')
+    g_atlases.add_argument(
+        '--atlases',
+        action='store',
+        nargs='+',
+        metavar='ATLAS',
+        choices=all_atlases,
+        default=all_atlases,
+        dest='atlases',
+        help=(
+            'Selection of atlases to apply to the data. '
+            "All of ASLPrep's built-in atlases are used by default."
+        ),
+    )
+    g_atlases.add_argument(
+        '--skip-parcellation',
+        '--skip_parcellation',
+        action='store_const',
+        const=[],
+        dest='atlases',
+        help='Skip parcellation and correlation steps.',
     )
 
     g_other = parser.add_argument_group('Other options')
