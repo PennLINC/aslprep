@@ -249,6 +249,7 @@ their manuscripts unchanged. It is released under the unchanged
             )
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['subjects_dir']), name='inputnode')
+    raise Exception(anatomical_cache)
 
     bidssrc = pe.Node(
         BIDSDataGrabber(
