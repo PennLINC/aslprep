@@ -38,11 +38,7 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
-    filters = {
-        'asl': {
-            'acquisition': 'paslmultipld'
-        }
-    }
+    filters = {'asl': {'acquisition': 'paslmultipld'}}
     bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
     with open(bids_filter_file, 'w') as f:
         json.dump(filters, f, indent=4, sort_keys=True)
@@ -85,11 +81,7 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
-    filters = {
-        'asl': {
-            'acquisition': 'pcaslmultipld'
-        }
-    }
+    filters = {'asl': {'acquisition': 'pcaslmultipld'}}
     bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
     with open(bids_filter_file, 'w') as f:
         json.dump(filters, f, indent=4, sort_keys=True)
