@@ -16,9 +16,9 @@ sub-01/anat/sub-01_desc-aparcaseg_dseg.nii.gz
 sub-01/anat/sub-01_desc-aseg_dseg.nii.gz
 sub-01/anat/sub-01_hemi-L_desc-preproc_curv.shape.gii
 sub-01/anat/sub-01_hemi-L_desc-preproc_inflated.surf.gii
+sub-01/anat/sub-01_hemi-L_space-fsaverage_desc-reg_sphere.surf.gii
 sub-01/anat/sub-01_hemi-R_desc-preproc_curv.shape.gii
 sub-01/anat/sub-01_hemi-R_desc-preproc_inflated.surf.gii
-sub-01/anat/sub-01_hemi-L_space-fsaverage_desc-reg_sphere.surf.gii
 sub-01/anat/sub-01_hemi-R_space-fsaverage_desc-reg_sphere.surf.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_atlas-4S1056Parcels_cbf.tsv
 sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_atlas-4S1056Parcels_coverage.tsv
