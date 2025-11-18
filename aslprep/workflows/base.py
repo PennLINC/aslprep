@@ -8,6 +8,7 @@ import re
 import sys
 import warnings
 from copy import deepcopy
+from pprint import pformat
 
 import bids
 import nibabel as nb
@@ -236,11 +237,9 @@ their manuscripts unchanged. It is released under the unchanged
 
     anatomical_cache = {}
     if config.execution.derivatives:
-        from smriprep.utils.bids import collect_derivatives as collect_anat_derivatives
+        from aslprep.utils.bids import collect_anat_derivatives
 
-        _spec, _patterns = tuple(
-            json.loads(load_data.readable('smriprep.json').read_text()).values()
-        )
+        _spec, _patterns = tuple(json.loads(load_data('smriprep.json').read_text()).values())
 
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         std_spaces.append('fsnative')
@@ -255,6 +254,8 @@ their manuscripts unchanged. It is released under the unchanged
                     patterns=_patterns,
                 )
             )
+
+    config.loggers.workflow.info(f'Anatomical cache: {pformat(anatomical_cache)}')
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['subjects_dir']), name='inputnode')
 
