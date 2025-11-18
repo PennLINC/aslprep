@@ -234,3 +234,80 @@ def find_atlas_entities(filename):
     out += [suffix, extension]
 
     return tuple(out)
+
+
+def collect_anat_derivatives(
+    derivatives_dir,
+    subject_id,
+    std_spaces,
+    spec=None,
+    patterns=None,
+    session_id=None,
+):
+    """Gather existing derivatives and compose a cache."""
+    from niworkflows.data import load as nwf_load
+
+    if spec is None or patterns is None:
+        _spec, _patterns = tuple(json.loads(load_data('smriprep.json').read_text()).values())
+
+        if spec is None:
+            spec = _spec
+        if patterns is None:
+            patterns = _patterns
+
+    deriv_config = nwf_load('nipreps.json')
+    layout = BIDSLayout(derivatives_dir, config=deriv_config, validate=False)
+
+    derivs_cache = {}
+
+    # Subject and session (if available) will be added to all queries
+    qry_base = {'subject': subject_id}
+    if session_id:
+        qry_base['session'] = session_id
+
+    for key, qry in spec['baseline'].items():
+        qry = {**qry, **qry_base}
+        item = layout.get(**qry)
+        if not item:
+            continue
+
+        # Respect label order in queries
+        if 'label' in qry:
+            item = sorted(item, key=lambda x: qry['label'].index(x.entities['label']))
+
+        paths = [item.path for item in item]
+
+        if key.startswith('t2w_'):
+            derivs_cache[key] = paths[0] if len(paths) == 1 else paths
+        else:
+            derivs_cache[f't1w_{key}'] = paths[0] if len(paths) == 1 else paths
+
+    transforms = derivs_cache.setdefault('transforms', {})
+    for _space in std_spaces:
+        space = _space.replace(':cohort-', '+')
+        for key, qry in spec['transforms'].items():
+            qry = {**qry, **qry_base}
+            qry['from'] = qry['from'] or space
+            qry['to'] = qry['to'] or space
+            item = layout.get(return_type='filename', **qry)
+            if not item:
+                continue
+            transforms.setdefault(_space, {})[key] = item[0] if len(item) == 1 else item
+
+    for key, qry in spec['surfaces'].items():
+        qry = {**qry, **qry_base}
+        item = layout.get(return_type='filename', **qry)
+        if not item or len(item) != 2:
+            continue
+
+        derivs_cache[key] = sorted(item)
+
+    for key, qry in spec['masks'].items():
+        qry = {**qry, **qry_base}
+        item = layout.get(return_type='filename', **qry)
+        if not item or len(item) != 1:
+            continue
+
+        derivs_cache[key] = item[0]
+
+    return derivs_cache
