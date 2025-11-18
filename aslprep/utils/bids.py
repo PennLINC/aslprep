@@ -308,6 +308,6 @@ def collect_anat_derivatives(
         if not item or len(item) != 1:
             continue
 
-        derivs_cache[key] = sorted(item)
+        derivs_cache[key] = item[0]
 
     return derivs_cache
