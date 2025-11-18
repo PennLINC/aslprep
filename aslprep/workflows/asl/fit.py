@@ -53,7 +53,7 @@ from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
-from aslprep.workflows.asl.reference import init_synthstrip_aslref_wf, init_raw_aslref_wf
+from aslprep.workflows.asl.reference import init_raw_aslref_wf, init_synthstrip_aslref_wf
 
 
 def get_sbrefs(
