@@ -397,7 +397,6 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 
         enhance_and_skullstrip_m0scan_wf = init_synthstrip_aslref_wf(
             disable_n4=config.workflow.disable_n4,
-
             name='enhance_and_skullstrip_m0scan_wf',
         )
         workflow.connect([
