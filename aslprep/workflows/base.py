@@ -2,6 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """ASLprep base processing workflows."""
 
+import json
 import os
 import re
 import sys
@@ -16,6 +17,7 @@ from niworkflows.utils.connections import listify
 from packaging.version import Version
 
 from aslprep import config
+from aslprep.data import load as load_data
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.reports import AboutSummary, SubjectSummary
 
@@ -236,6 +238,10 @@ their manuscripts unchanged. It is released under the unchanged
     if config.execution.derivatives:
         from smriprep.utils.bids import collect_derivatives as collect_anat_derivatives
 
+        _spec, _patterns = tuple(
+            json.loads(load_data.readable('smriprep.json').read_text()).values()
+        )
+
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         std_spaces.append('fsnative')
         for deriv_dir in config.execution.derivatives.values():
@@ -245,6 +251,8 @@ their manuscripts unchanged. It is released under the unchanged
                     subject_id=subject_id,
                     std_spaces=std_spaces,
                     session_id=session_id,
+                    spec=_spec,
+                    patterns=_patterns,
                 )
             )
 
@@ -599,11 +607,7 @@ their manuscripts unchanged. It is released under the unchanged
 
     fmap_cache = {}
     if config.execution.derivatives:
-        import json
-
         from fmriprep.utils.bids import collect_fieldmaps
-
-        from ..data import load as load_data
 
         spec = json.loads(load_data.readable('fmap_spec.json').read_text())['queries']
 
