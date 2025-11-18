@@ -33,7 +33,7 @@ from aslprep.utils.asl import (
 )
 from aslprep.utils.atlas import get_atlas_nifti
 from aslprep.utils.bids import find_atlas_entities
-from aslprep.workflows.asl.reference import init_enhance_and_skullstrip_asl_wf
+from aslprep.workflows.asl.reference import init_synthstrip_aslref_wf
 
 
 def init_cbf_wf(
@@ -395,9 +395,9 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
             (mean_m0, extract_deltam, [('out_file', 'm0scan')]),
         ])  # fmt:skip
 
-        enhance_and_skullstrip_m0scan_wf = init_enhance_and_skullstrip_asl_wf(
+        enhance_and_skullstrip_m0scan_wf = init_synthstrip_aslref_wf(
             disable_n4=config.workflow.disable_n4,
-            omp_nthreads=1,
+
             name='enhance_and_skullstrip_m0scan_wf',
         )
         workflow.connect([

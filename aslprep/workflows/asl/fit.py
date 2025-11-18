@@ -53,7 +53,7 @@ from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
-from aslprep.workflows.asl.reference import init_enhance_and_skullstrip_asl_wf, init_raw_aslref_wf
+from aslprep.workflows.asl.reference import init_synthstrip_aslref_wf, init_raw_aslref_wf
 
 
 def get_sbrefs(
@@ -615,9 +615,8 @@ def init_asl_fit_wf(
             )
             workflow.connect(raw_sbref_wf, 'outputnode.aslref', fmapref_buffer, 'sbref_files')
 
-        enhance_aslref_wf = init_enhance_and_skullstrip_asl_wf(
+        enhance_aslref_wf = init_synthstrip_aslref_wf(
             disable_n4=config.workflow.disable_n4,
-            omp_nthreads=omp_nthreads,
         )
 
         ds_coreg_aslref_wf = init_ds_aslref_wf(

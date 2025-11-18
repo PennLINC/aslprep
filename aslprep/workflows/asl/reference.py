@@ -425,8 +425,6 @@ def init_enhance_and_skullstrip_asl_wf(
 
 def init_synthstrip_aslref_wf(
     disable_n4=False,
-    omp_nthreads=1,
-    source_file=None,
     name='synthstrip_aslref_wf',
 ):
     """Enhance and run brain extraction on an ASL image.
@@ -439,11 +437,7 @@ def init_synthstrip_aslref_wf(
         If True, N4 bias field correction will be disabled.
     name : str
         Name of workflow (default: ``enhance_and_skullstrip_asl_wf``)
-    omp_nthreads : int
-        number of threads available to parallel nodes
-    source_file : str
-        Source file for the mask report.
-        Default is None.
+
 
     Inputs
     ------
@@ -459,21 +453,15 @@ def init_synthstrip_aslref_wf(
         the ``bias_corrected_file`` after skull-stripping
     mask_file : str
         mask of the skull-stripped input file
-    out_report : str
-        reportlet for the skull-stripping
     """
     from nipype.interfaces import afni
     from nipype.interfaces import utility as niu
     from nipype.pipeline import engine as pe
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
-    from niworkflows.interfaces.fixes import FixHeaderApplyTransforms as ApplyTransforms
-    from niworkflows.interfaces.fixes import FixHeaderRegistration as Registration
     from niworkflows.interfaces.fixes import FixN4BiasFieldCorrection as N4BiasFieldCorrection
-    from niworkflows.interfaces.header import CopyHeader, CopyXForm
-    from niworkflows.interfaces.nibabel import ApplyMask, BinaryDilation
-    from packaging.version import Version
-    from packaging.version import parse as parseversion
-    from templateflow.api import get as get_template
+    from niworkflows.interfaces.header import CopyXForm
+    from niworkflows.interfaces.nibabel import ApplyMask
+
     from aslprep.workflows.segmentation import init_synthstrip_wf
 
     workflow = Workflow(name=name)

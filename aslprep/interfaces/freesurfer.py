@@ -79,7 +79,8 @@ class PrepareSynthStripGrid(SimpleInterface):
         )
 
         _ = zeropad.run()
-        assert op.exists(out_fname)
+        if not op.exists(out_fname):
+            raise Exception('zeropad failed! You may need to increase the memory limit.')
         return runtime
 
 
