@@ -518,6 +518,7 @@ def init_synthstrip_aslref_wf(
         (fixhdr_unifize, apply_mask, [('out_file', 'in_file')]),
         (apply_mask, outputnode, [('out_file', 'skull_stripped_file')]),
         (n4_buffer, outputnode, [('bias_corrected_file', 'bias_corrected_file')]),
+        (synthstrip_wf, outputnode, [('outputnode.brain_mask', 'mask_file')]),
     ])  # fmt: skip
 
     return workflow
