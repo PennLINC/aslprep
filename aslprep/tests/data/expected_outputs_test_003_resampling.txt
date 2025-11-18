@@ -4,10 +4,6 @@ logs/CITATION.html
 logs/CITATION.md
 logs/CITATION.tex
 sub-01.html
-sub-01/anat/sub-01_desc-preproc_T2w.json
-sub-01/anat/sub-01_desc-preproc_T2w.nii.gz
-sub-01/anat/sub-01_desc-ribbon_mask.json
-sub-01/anat/sub-01_desc-ribbon_mask.nii.gz
 sub-01/anat/sub-01_hemi-L_space-fsaverage_desc-reg_sphere.surf.gii
 sub-01/anat/sub-01_hemi-R_space-fsaverage_desc-reg_sphere.surf.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_cbf.json

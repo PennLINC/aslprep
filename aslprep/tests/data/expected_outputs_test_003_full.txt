@@ -14,10 +14,6 @@ logs/CITATION.tex
 sub-01.html
 sub-01/anat/sub-01_desc-aparcaseg_dseg.nii.gz
 sub-01/anat/sub-01_desc-aseg_dseg.nii.gz
-sub-01/anat/sub-01_desc-preproc_T2w.json
-sub-01/anat/sub-01_desc-preproc_T2w.nii.gz
-sub-01/anat/sub-01_desc-ribbon_mask.json
-sub-01/anat/sub-01_desc-ribbon_mask.nii.gz
 sub-01/anat/sub-01_hemi-L_desc-preproc_curv.shape.gii
 sub-01/anat/sub-01_hemi-L_desc-preproc_inflated.surf.gii
 sub-01/anat/sub-01_hemi-L_space-fsLR_den-32k_desc-preproc_midthickness.surf.gii

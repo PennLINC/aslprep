@@ -14,8 +14,6 @@ logs/CITATION.tex
 sub-01.html
 sub-01/anat/sub-01_desc-aparcaseg_dseg.nii.gz
 sub-01/anat/sub-01_desc-aseg_dseg.nii.gz
-sub-01/anat/sub-01_desc-ribbon_mask.json
-sub-01/anat/sub-01_desc-ribbon_mask.nii.gz
 sub-01/anat/sub-01_hemi-L_desc-preproc_curv.shape.gii
 sub-01/anat/sub-01_hemi-L_desc-preproc_inflated.surf.gii
 sub-01/anat/sub-01_hemi-L_space-fsaverage_desc-reg_sphere.surf.gii
@@ -30,8 +28,6 @@ sub-01/anat/sub-01_space-MNI152NLin2009cAsym_desc-preproc_dseg.nii.gz
 sub-01/anat/sub-01_space-MNI152NLin2009cAsym_label-CSF_desc-preproc_probseg.nii.gz
 sub-01/anat/sub-01_space-MNI152NLin2009cAsym_label-GM_desc-preproc_probseg.nii.gz
 sub-01/anat/sub-01_space-MNI152NLin2009cAsym_label-WM_desc-preproc_probseg.nii.gz
-sub-01/anat/sub-01_desc-preproc_T2w.json
-sub-01/anat/sub-01_desc-preproc_T2w.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S1056Parcels_cbf.tsv
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S1056Parcels_coverage.tsv
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S156Parcels_cbf.tsv

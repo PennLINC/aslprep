@@ -14,8 +14,6 @@ logs/CITATION.tex
 sub-01.html
 sub-01/anat/sub-01_desc-aparcaseg_dseg.nii.gz
 sub-01/anat/sub-01_desc-aseg_dseg.nii.gz
-sub-01/anat/sub-01_desc-ribbon_mask.json
-sub-01/anat/sub-01_desc-ribbon_mask.nii.gz
 sub-01/anat/sub-01_hemi-L_desc-cortex_mask.json
 sub-01/anat/sub-01_hemi-L_desc-cortex_mask.label.gii
 sub-01/anat/sub-01_hemi-L_desc-preproc_curv.shape.gii
@@ -26,5 +24,3 @@ sub-01/anat/sub-01_hemi-R_desc-cortex_mask.label.gii
 sub-01/anat/sub-01_hemi-R_desc-preproc_curv.shape.gii
 sub-01/anat/sub-01_hemi-R_desc-preproc_inflated.surf.gii
 sub-01/anat/sub-01_hemi-R_desc-preproc_sphere.surf.gii
-sub-01/anat/sub-01_desc-preproc_T2w.json
-sub-01/anat/sub-01_desc-preproc_T2w.nii.gz
