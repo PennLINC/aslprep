@@ -130,7 +130,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
     tmpdir = tmp_path_factory.mktemp('test_computecbf_pasl')
     aslcontext_file = os.path.join(
         datasets['nonqtab'],
-        'sub-01/perf/sub-01_acq-paslsinglepldsiemens3d_run-02_aslcontext.tsv',
+        'sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_aslcontext.tsv',
     )
 
     aslcontext = pd.read_table(aslcontext_file)

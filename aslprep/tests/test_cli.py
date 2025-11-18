@@ -142,6 +142,7 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
+        f'--bids-filter-file={bids_filter_file}',
         '--output-spaces=asl',
         '--scorescrub',
         '--basil',
