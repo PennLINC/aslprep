@@ -4,7 +4,7 @@ orbs:
 
 .dockersetup: &dockersetup
   docker:
-    - image: pennlinc/aslprep_build:0.0.12
+    - image: pennlinc/aslprep_build:0.0.13
   working_directory: /src/aslprep
 
 runinstall: &runinstall
@@ -33,73 +33,22 @@ jobs:
       - checkout
       - run: *runinstall
 
-  download_anatomical:
+  download_nonqtab:
     <<: *dockersetup
     steps:
       - checkout
       - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
-          name: Get anatomical derivatives from box
+          name: Get nonqtab data from box
           command: |
             cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data anatomical
+            python get_data.py ${PWD}/data nonqtab
       - save_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
           paths:
-              - /src/aslprep/.circleci/data/anatomical
-
-  download_pcasl_singlepld:
-    <<: *dockersetup
-    steps:
-      - checkout
-      - restore_cache:
-          key: examples_pcasl_singlepld-v6
-      - run: *runinstall
-      - run:
-          name: Get test data and smriprep from box
-          command: |
-            cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data examples_pcasl_singlepld
-      - save_cache:
-          key: examples_pcasl_singlepld-v6
-          paths:
-              - /src/aslprep/.circleci/data/examples_pcasl_singlepld
-
-  download_pcasl_multipld:
-    <<: *dockersetup
-    steps:
-      - checkout
-      - restore_cache:
-          key: examples_pcasl_multipld-v6
-      - run: *runinstall
-      - run:
-          name: Get test data and smriprep from box
-          command: |
-            cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data examples_pcasl_multipld
-      - save_cache:
-          key: examples_pcasl_multipld-v6
-          paths:
-              - /src/aslprep/.circleci/data/examples_pcasl_multipld
-
-  download_pasl_multipld:
-    <<: *dockersetup
-    steps:
-      - checkout
-      - restore_cache:
-          key: examples_pasl_multipld-v6
-      - run: *runinstall
-      - run:
-          name: Get test data and smriprep from box
-          command: |
-            cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data examples_pasl_multipld
-      - save_cache:
-          key: examples_pasl_multipld-v6
-          paths:
-              - /src/aslprep/.circleci/data/examples_pasl_multipld
+              - /src/aslprep/.circleci/data/nonqtab
 
   download_qtab:
     <<: *dockersetup
@@ -118,57 +67,6 @@ jobs:
           paths:
               - /src/aslprep/.circleci/data/qtab
 
-  download_data_test_001:
-    <<: *dockersetup
-    steps:
-      - checkout
-      - restore_cache:
-          key: test_001-v6
-      - run: *runinstall
-      - run:
-          name: Get test data and smriprep from box
-          command: |
-            cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data test_001
-      - save_cache:
-          key: test_001-v6
-          paths:
-              - /src/aslprep/.circleci/data/test_001
-
-  download_data_test_002:
-    <<: *dockersetup
-    steps:
-      - checkout
-      - restore_cache:
-          key: test_002-v7
-      - run: *runinstall
-      - run:
-          name: Get test data and smriprep from box
-          command: |
-            cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data test_002
-      - save_cache:
-          key: test_002-v7
-          paths:
-              - /src/aslprep/.circleci/data/test_002
-
-  download_data_test_003:
-    <<: *dockersetup
-    steps:
-      - checkout
-      - restore_cache:
-          key: test_003-v6
-      - run: *runinstall
-      - run:
-          name: Get test data and smriprep from box
-          command: |
-            cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data test_003
-      - save_cache:
-          key: test_003-v6
-          paths:
-              - /src/aslprep/.circleci/data/test_003
-
   pcasl_singlepld_philips:
     <<: *dockersetup
     # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
@@ -186,9 +84,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v6
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_philips dataset
@@ -223,9 +119,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v6
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld_siemens dataset
@@ -258,9 +152,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_singlepld-v6
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_singlepld dataset
@@ -295,9 +187,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pcasl_multipld-v6
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pcasl_multipld dataset
@@ -330,9 +220,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: examples_pasl_multipld-v6
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run full aslprep on examples_pasl_multipld dataset
@@ -368,8 +256,6 @@ jobs:
             fi
       - restore_cache:
           key: qtab-v6
-      - restore_cache:
-          key: anatomical-v7
       - run: *runinstall
       - run:
           name: Run full aslprep on qtab dataset
@@ -402,9 +288,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_001-v6
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run full aslprep on test_001 dataset
@@ -439,9 +323,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_002-v7
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run full aslprep on test_002 dataset
@@ -474,9 +356,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_003-v6
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run minimal aslprep on test_003 dataset
@@ -511,9 +391,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_003-v6
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run resampling aslprep on test_003 dataset
@@ -548,9 +426,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_003-v6
-      - restore_cache:
-          key: anatomical-v7
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run full aslprep on test_003 dataset
@@ -585,9 +461,7 @@ jobs:
               circleci step halt
             fi
       - restore_cache:
-          key: test_001-v6
-      - restore_cache:
-          key: test_003-v6
+          key: nonqtab-v1
       - run: *runinstall
       - run:
           name: Run pytest on the tests directory
@@ -684,34 +558,7 @@ workflows:
             tags:
               only: /.*/
 
-      - download_anatomical:
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
-
-      - download_pcasl_singlepld:
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
-
-      - download_pcasl_multipld:
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
-
-      - download_pasl_multipld:
+      - download_nonqtab:
           filters:
             branches:
               ignore:
@@ -729,37 +576,9 @@ workflows:
             tags:
               only: /.*/
 
-      - download_data_test_001:
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
-
-      - download_data_test_002:
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
-
-      - download_data_test_003:
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
-
       - pcasl_singlepld_philips:
           requires:
-            - download_pcasl_singlepld
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -771,8 +590,7 @@ workflows:
 
       - pcasl_singlepld_siemens:
           requires:
-            - download_pcasl_singlepld
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -784,8 +602,7 @@ workflows:
 
       - pcasl_singlepld_ge:
           requires:
-            - download_pcasl_singlepld
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -797,8 +614,7 @@ workflows:
 
       - pcasl_multipld:
           requires:
-            - download_pcasl_multipld
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -810,8 +626,7 @@ workflows:
 
       - pasl_multipld:
           requires:
-            - download_pasl_multipld
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -824,7 +639,6 @@ workflows:
       - qtab:
           requires:
             - download_qtab
-            - download_anatomical
             - build
           filters:
             branches:
@@ -836,8 +650,7 @@ workflows:
 
       - test_001:
           requires:
-            - download_data_test_001
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -849,8 +662,7 @@ workflows:
 
       - test_002:
           requires:
-            - download_data_test_002
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -862,8 +674,7 @@ workflows:
 
       - test_003_minimal:
           requires:
-            - download_data_test_003
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -875,8 +686,7 @@ workflows:
 
       - test_003_resampling:
           requires:
-            - download_data_test_003
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -888,8 +698,7 @@ workflows:
 
       - test_003_full:
           requires:
-            - download_data_test_003
-            - download_anatomical
+            - download_nonqtab
             - build
           filters:
             branches:
@@ -901,9 +710,7 @@ workflows:
 
       - pytests:
           requires:
-            - download_data_test_001
-            - download_data_test_002
-            - download_data_test_003
+            - download_nonqtab
             - build
           filters:
             branches:

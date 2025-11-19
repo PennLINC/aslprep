@@ -1,7 +1,7 @@
 """Functions for working with atlases."""
 
 
-def get_atlas_names(subset):
+def select_atlases(atlases, subset):
     """Get a list of atlases to be used for parcellation and functional connectivity analyses.
 
     The actual list of files for the atlases is loaded from a different function.
@@ -10,19 +10,16 @@ def get_atlas_names(subset):
 
     Parameters
     ----------
-    subset = {"all", "subcortical", "cortical"}
+    atlases : None or list of str
+    subset : {"all", "subcortical", "cortical"}
         Description of the subset of atlases to collect.
-        "cortical" atlases are ones with the cortex included, so they can be used for cortical-only
-        data (e.g., cortical thickness).
-        "subcortical" atlases are ones with *only* subcortical regions.
-        "all" combines both lists of atlases.
 
     Returns
     -------
     :obj:`list` of :obj:`str`
         List of atlases.
     """
-    atlases = {
+    BUILTIN_ATLASES = {
         'cortical': [
             '4S156Parcels',
             '4S256Parcels',
@@ -36,14 +33,26 @@ def get_atlas_names(subset):
             '4S1056Parcels',
             'Glasser',
             'Gordon',
+            'MIDB',
+            'MyersLabonte',
         ],
         'subcortical': [
             'Tian',
             'HCP',
         ],
     }
-    atlases['all'] = sorted(set(atlases['cortical'] + atlases['subcortical']))
-    return atlases[subset]
+    BUILTIN_ATLASES['all'] = sorted(
+        set(BUILTIN_ATLASES['cortical'] + BUILTIN_ATLASES['subcortical'])
+    )
+    subset_atlases = BUILTIN_ATLASES[subset]
+    if atlases:
+        external_atlases = [atlas for atlas in atlases if atlas not in BUILTIN_ATLASES['all']]
+        selected_atlases = [atlas for atlas in atlases if atlas in subset_atlases]
+        selected_atlases += external_atlases
+    else:
+        selected_atlases = subset_atlases
+
+    return selected_atlases
 
 
 def get_atlas_nifti(atlas_name):

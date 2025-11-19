@@ -232,6 +232,12 @@ class _Config:
                 else:
                     setattr(cls, k, Path(v).absolute())
             elif hasattr(cls, k):
+                match k:
+                    # Handle special deserializations
+                    case 'processing_groups':
+                        v = _deserialize_pg(v)
+                    case _:
+                        pass
                 setattr(cls, k, v)
 
         if init:
@@ -412,6 +418,8 @@ class execution(_Config):
     """Do not collect telemetry information for *ASLPrep*."""
     output_dir = None
     """Folder where derivatives will be stored."""
+    atlases = []
+    """Selection of atlases to apply to the data."""
     aggr_ses_reports = None
     """Maximum number of sessions aggregated in one subject's visual report."""
     output_spaces = None
@@ -421,8 +429,12 @@ class execution(_Config):
     """Only build the reports, based on the reportlets found in a cached working directory."""
     run_uuid = f'{strftime("%Y%m%d-%H%M%S")}_{uuid4()}'
     """Unique identifier of this particular run."""
+    processing_groups = None
+    """List of tuples (participant, session(s)) that will be preprocessed."""
     participant_label = None
     """List of participant identifiers that are to be preprocessed."""
+    session_label = None
+    """List of session identifiers that are to be preprocessed."""
     task_id = None
     """Select a particular task from all available in the dataset."""
     templateflow_home = _templateflow_home
@@ -508,6 +520,9 @@ class execution(_Config):
             'raw': cls.bids_dir,
             'templateflow': Path(TF_LAYOUT.root),
         }
+        if cls.atlases:
+            dataset_links['atlas'] = cls.output_dir / 'atlases'
+
         for deriv_name, deriv_path in cls.derivatives.items():
             dataset_links[deriv_name] = deriv_path
         cls.dataset_links = dataset_links
@@ -538,10 +553,15 @@ class workflow(_Config):
     """Method of initial ASL to anatomical coregistration. If `auto`, a T2w image is used
     if available, otherwise the T1w image. `t1w` forces use of the T1w, `t2w` forces use of
     the T2w, and `header` uses the ASL header information without an initial registration."""
+    disable_n4 = False
+    """Disable N4 bias field correction. Useful for prescan-normalized ASL data."""
     m0_scale = float(1)
     """Relative scale between ASL (delta-M) and M0."""
     cifti_output = None
     """Generate HCP Grayordinates, accepts either ``'91k'`` (default) or ``'170k'``."""
+    fallback_total_readout_time = None
+    """Infer the total readout time if unavailable from authoritative metadata.
+    This may be a number or the string "estimated"."""
     fmap_bspline = None
     """Regularize fieldmaps with a field of B-Spline basis."""
     fmap_demean = None
@@ -558,8 +578,6 @@ class workflow(_Config):
     """Level of preprocessing to complete. One of ['minimal', 'resampling', 'full'].
     'minimal' and 'resampling' are effectively the same at the moment.
     """
-    longitudinal = False
-    """Run FreeSurfer ``recon-all`` with the ``--longitudinal`` flag."""
     run_msmsulc = True
     """Run Multimodal Surface Matching surface registration."""
     medial_surface_nan = None
@@ -578,6 +596,11 @@ class workflow(_Config):
     spaces = None
     """Keeps the :py:class:`~niworkflows.utils.spaces.SpatialReferences`
     instance keeping standard and nonstandard spaces."""
+    subject_anatomical_reference = 'first-lex'
+    """Method to produce the reference anatomical space. Available options are:
+    `first-lex` will use the first image in lexicographical order, `unbiased` will
+    construct an unbiased template from all available images (previously --longitudinal),
+    and `sessionwise` will independently process each session."""
     use_syn_sdc = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation
     in the absence of any alternatives."""
@@ -743,6 +766,7 @@ def get(flat=False):
         'nipype': nipype.get(),
         'seeds': seeds.get(),
     }
+
     if not flat:
         return settings
 
@@ -757,7 +781,12 @@ def dumps():
     """Format config into toml."""
     from toml import dumps
 
-    return dumps(get())
+    settings = get()
+    # Serialize to play nice with TOML
+    if pg := settings['execution'].get('processing_groups'):
+        settings['execution']['processing_groups'] = _serialize_pg(pg)
+
+    return dumps(settings)
 
 
 def to_filename(filename):
@@ -794,3 +823,50 @@ def init_spaces(checkpoint=True):
 
     # Make the SpatialReferences object available
     workflow.spaces = spaces
+
+
+def _serialize_pg(value: list[tuple[str, str | list[str] | None]]) -> list[str]:
+    """
+    Serialize a list of participant-session tuples to be TOML-compatible.
+
+    Examples
+    --------
+    >>> _serialize_pg([('01', 'pre'), ('01', ['post'])])
+    ['sub-01_ses-pre', 'sub-01_ses-post']
+    >>> _serialize_pg([('01', ['pre', 'post']), ('02', ['post'])])
+    ['sub-01_ses-pre,post', 'sub-02_ses-post']
+    >>> _serialize_pg([('01', None), ('02', ['pre'])])
+    ['sub-01', 'sub-02_ses-pre']
+    """
+    serial = []
+    for sub, ses in value:
+        if ses is None:
+            serial.append(f'sub-{sub}')
+            continue
+        if isinstance(ses, str):
+            ses = [ses]
+        serial.append(f'sub-{sub}_ses-{",".join(ses)}')
+    return serial
+
+
+def _deserialize_pg(value: list[str]) -> list[tuple[str, list[str] | None]]:
+    """
+    Deserialize a list of participant-session tuples to be TOML-compatible.
+
+    Examples
+    --------
+    >>> _deserialize_pg(['sub-01_ses-pre', 'sub-01_ses-post'])
+    [('01', ['pre']), ('01', ['post'])]
+    >>> _deserialize_pg(['sub-01_ses-pre,post', 'sub-02_ses-post'])
+    [('01', ['pre', 'post']), ('02', ['post'])]
+    >>> _deserialize_pg(['sub-01', 'sub-02_ses-pre'])
+    [('01', None), ('02', ['pre'])]
+    """
+    deserial = []
+    for val in value:
+        sub, _, ses = val.partition('_')
+        sub = sub.removeprefix('sub-')
+        if ses:
+            ses = ses.removeprefix('ses-').split(',')
+        deserial.append((sub, ses or None))
+    return deserial

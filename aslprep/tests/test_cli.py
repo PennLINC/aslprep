@@ -1,5 +1,6 @@
 """Command-line interface tests."""
 
+import json
 import os
 
 import pytest
@@ -32,10 +33,16 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
     TEST_NAME = 'examples_pasl_multipld'
     PARTICIPANT_LABEL = '01'
 
-    dataset_dir = download_test_data(TEST_NAME, data_dir)
-    download_test_data('anatomical', data_dir)
+    dataset_dir = download_test_data('nonqtab', data_dir)
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
+
+    os.makedirs(out_dir, exist_ok=True)
+    filters = {'asl': {'acquisition': 'paslmultipld'}}
+    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
+    with open(bids_filter_file, 'w') as f:
+        json.dump(filters, f, indent=4, sort_keys=True)
 
     parameters = [
         dataset_dir,
@@ -43,14 +50,18 @@ def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
+        f'--bids-filter-file={bids_filter_file}',
         '--output-spaces=asl',
         '--scorescrub',
         '--basil',
         '--m0_scale=10',
         '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
+        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
         '--derivatives',
-        f'{os.path.join(data_dir, "anatomical/smriprep")}',
+        smriprep_dir,
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -66,10 +77,16 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
     TEST_NAME = 'examples_pcasl_multipld'
     PARTICIPANT_LABEL = '01'
 
-    dataset_dir = download_test_data(TEST_NAME, data_dir)
-    download_test_data('anatomical', data_dir)
+    dataset_dir = download_test_data('nonqtab', data_dir)
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
+
+    os.makedirs(out_dir, exist_ok=True)
+    filters = {'asl': {'acquisition': 'pcaslmultipld'}}
+    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
+    with open(bids_filter_file, 'w') as f:
+        json.dump(filters, f, indent=4, sort_keys=True)
 
     parameters = [
         dataset_dir,
@@ -77,14 +94,18 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
+        f'--bids-filter-file={bids_filter_file}',
         '--output-spaces=asl',
         '--scorescrub',
         '--basil',
         '--m0_scale=10',
         '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
+        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
         '--derivatives',
-        f'{os.path.join(data_dir, "anatomical/smriprep")}',
+        smriprep_dir,
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -99,12 +120,21 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
     TEST_NAME = 'examples_pcasl_singlepld_ge'
     PARTICIPANT_LABEL = '01'
 
-    dataset_dir = download_test_data('examples_pcasl_singlepld', data_dir)
-    download_test_data('anatomical', data_dir)
+    dataset_dir = download_test_data('nonqtab', data_dir)
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
-    test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, f'{TEST_NAME}_filter.json')
+
+    os.makedirs(out_dir, exist_ok=True)
+    filters = {
+        'asl': {
+            'acquisition': 'pcaslsinglepldge3d',
+            'run': '01',
+        }
+    }
+    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
+    with open(bids_filter_file, 'w') as f:
+        json.dump(filters, f, indent=4, sort_keys=True)
 
     parameters = [
         dataset_dir,
@@ -112,15 +142,18 @@ def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        f'--bids-filter-file={filter_file}',
+        f'--bids-filter-file={bids_filter_file}',
         '--output-spaces=asl',
         '--scorescrub',
         '--basil',
         '--m0_scale=96',
         '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
+        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
         '--derivatives',
-        f'{os.path.join(data_dir, "anatomical/smriprep")}',
+        smriprep_dir,
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -136,12 +169,20 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
     TEST_NAME = 'examples_pcasl_singlepld_philips'
     PARTICIPANT_LABEL = '01'
 
-    dataset_dir = download_test_data('examples_pcasl_singlepld', data_dir)
-    download_test_data('anatomical', data_dir)
+    dataset_dir = download_test_data('nonqtab', data_dir)
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
-    test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, f'{TEST_NAME}_filter.json')
+
+    os.makedirs(out_dir, exist_ok=True)
+    filters = {
+        'asl': {
+            'acquisition': 'pcaslsinglepldphilips2d',
+        }
+    }
+    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
+    with open(bids_filter_file, 'w') as f:
+        json.dump(filters, f, indent=4, sort_keys=True)
 
     parameters = [
         dataset_dir,
@@ -149,15 +190,18 @@ def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        f'--bids-filter-file={filter_file}',
+        f'--bids-filter-file={bids_filter_file}',
         '--output-spaces',
         'asl',
-        'fsaverage:den-10k',
         '--scorescrub',
         '--basil',
-        f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
+        '--fs-no-resume',
+        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
         '--derivatives',
-        f'{os.path.join(data_dir, "anatomical/smriprep")}',
+        smriprep_dir,
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -172,12 +216,21 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
     TEST_NAME = 'examples_pcasl_singlepld_siemens'
     PARTICIPANT_LABEL = '01'
 
-    dataset_dir = download_test_data('examples_pcasl_singlepld', data_dir)
-    download_test_data('anatomical', data_dir)
+    dataset_dir = download_test_data('nonqtab', data_dir)
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
-    test_data_dir = get_test_data_path()
-    filter_file = os.path.join(test_data_dir, f'{TEST_NAME}_filter.json')
+
+    os.makedirs(out_dir, exist_ok=True)
+    filters = {
+        'asl': {
+            'acquisition': 'pcaslsinglepldsiemens3d',
+            'run': '01',
+        }
+    }
+    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
+    with open(bids_filter_file, 'w') as f:
+        json.dump(filters, f, indent=4, sort_keys=True)
 
     parameters = [
         dataset_dir,
@@ -185,15 +238,18 @@ def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
-        f'--bids-filter-file={filter_file}',
+        f'--bids-filter-file={bids_filter_file}',
         '--output-spaces',
         'MNI152NLin2009cAsym',
         '--basil',
         '--m0_scale=10',
         '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
+        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
         '--derivatives',
-        f'{os.path.join(data_dir, "anatomical/smriprep")}',
+        smriprep_dir,
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -209,7 +265,6 @@ def test_qtab(data_dir, output_dir, working_dir):
     PARTICIPANT_LABEL = '01'
 
     dataset_dir = download_test_data(TEST_NAME, data_dir)
-    download_test_data('anatomical', data_dir)
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
 
@@ -221,16 +276,17 @@ def test_qtab(data_dir, output_dir, working_dir):
         f'-w={work_dir}',
         '--output-spaces',
         'asl',
-        'T1w',
         'MNI152NLin2009cAsym',
         '--scorescrub',
         '--use-syn-sdc',
         '--force',
         'no-ge',
-        '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
-        '--derivatives',
-        f'{os.path.join(data_dir, "anatomical/smriprep")}',
+        '--subject-anatomical-reference',
+        'first-lex',
+        '--fs-no-reconall',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -245,10 +301,21 @@ def test_test_001(data_dir, output_dir, working_dir):
     TEST_NAME = 'test_001'
     PARTICIPANT_LABEL = '01'
 
-    dataset_dir = download_test_data(TEST_NAME, data_dir)
-    download_test_data('anatomical', data_dir)
+    dataset_dir = download_test_data('nonqtab', data_dir)
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
+
+    os.makedirs(out_dir, exist_ok=True)
+    filters = {
+        'asl': {
+            'acquisition': 'pcaslsinglepldsiemens3d',
+            'run': '02',
+        }
+    }
+    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
+    with open(bids_filter_file, 'w') as f:
+        json.dump(filters, f, indent=4, sort_keys=True)
 
     parameters = [
         dataset_dir,
@@ -256,17 +323,20 @@ def test_test_001(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
+        f'--bids-filter-file={bids_filter_file}',
         '--output-spaces',
         'asl',
-        'T1w',
         'MNI152NLin2009cAsym',
         '--scorescrub',
         '--force',
         'no-ge',
         '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
+        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
         '--derivatives',
-        f'{os.path.join(data_dir, "anatomical/smriprep")}',
+        smriprep_dir,
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -282,10 +352,21 @@ def test_test_002(data_dir, output_dir, working_dir):
     TEST_NAME = 'test_002'
     PARTICIPANT_LABEL = '01'
 
-    dataset_dir = download_test_data(TEST_NAME, data_dir)
-    download_test_data('anatomical', data_dir)
+    dataset_dir = download_test_data('nonqtab', data_dir)
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
     work_dir = os.path.join(working_dir, TEST_NAME)
+
+    os.makedirs(out_dir, exist_ok=True)
+    filters = {
+        'asl': {
+            'acquisition': 'pcaslsinglepldge3d',
+            'run': '02',
+        }
+    }
+    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
+    with open(bids_filter_file, 'w') as f:
+        json.dump(filters, f, indent=4, sort_keys=True)
 
     parameters = [
         dataset_dir,
@@ -293,6 +374,7 @@ def test_test_002(data_dir, output_dir, working_dir):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
+        f'--bids-filter-file={bids_filter_file}',
         '--output-spaces',
         'asl',
         'MNI152NLin2009cAsym',
@@ -302,9 +384,12 @@ def test_test_002(data_dir, output_dir, working_dir):
         '--force',
         'ge',
         '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
+        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
         '--derivatives',
-        f'{os.path.join(data_dir, "anatomical/smriprep")}',
+        smriprep_dir,
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -360,11 +445,22 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
     TEST_NAME = 'test_003'
     PARTICIPANT_LABEL = '01'
 
-    dataset_dir = download_test_data(TEST_NAME, data_dir)
-    download_test_data('anatomical', data_dir)
+    dataset_dir = download_test_data('nonqtab', data_dir)
+    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
     level_test_name = f'{TEST_NAME}_{level}'
     out_dir = os.path.join(output_dir, level_test_name, 'aslprep')
     work_dir = os.path.join(working_dir, level_test_name)
+
+    os.makedirs(out_dir, exist_ok=True)
+    filters = {
+        'asl': {
+            'acquisition': 'pcaslsinglepldsiemens3d',
+            'run': '03',
+        }
+    }
+    bids_filter_file = os.path.join(output_dir, level_test_name, 'bids_filters.json')
+    with open(bids_filter_file, 'w') as f:
+        json.dump(filters, f, indent=4, sort_keys=True)
 
     parameters = [
         dataset_dir,
@@ -372,14 +468,18 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
         'participant',
         f'--participant-label={PARTICIPANT_LABEL}',
         f'-w={work_dir}',
+        f'--bids-filter-file={bids_filter_file}',
         '--output-spaces',
         'asl',
         '--use-syn-sdc',
         '--m0_scale=10',
-        f'--fs-subjects-dir={os.path.join(data_dir, "anatomical/freesurfer")}',
+        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
         '--derivatives',
-        f'{os.path.join(data_dir, "anatomical/smriprep")}',
+        smriprep_dir,
         f'--level={level}',
+        '--atlases',
+        '4S156Parcels',
+        '4S1056Parcels',
     ]
     parameters += extra_params
 

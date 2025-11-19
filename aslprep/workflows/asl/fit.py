@@ -39,7 +39,7 @@ from fmriprep.workflows.bold.reference import init_validation_and_dummies_wf
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.func.util import init_enhance_and_skullstrip_bold_wf, init_skullstrip_bold_wf
+from niworkflows.func.util import init_skullstrip_bold_wf
 from niworkflows.interfaces.header import ValidateImage
 from niworkflows.interfaces.nitransforms import ConcatenateXFMs
 from niworkflows.interfaces.utility import KeySelect
@@ -53,7 +53,7 @@ from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
-from aslprep.workflows.asl.reference import init_raw_aslref_wf
+from aslprep.workflows.asl.reference import init_enhance_and_skullstrip_asl_wf, init_raw_aslref_wf
 
 
 def get_sbrefs(
@@ -475,6 +475,7 @@ def init_asl_fit_wf(
 
         with OverrideDerivativesDataSink(output_workflows):
             ds_hmc_wf = output_workflows.init_ds_hmc_wf(
+                source_file=asl_file,
                 bids_root=layout.root,
                 output_dir=config.execution.aslprep_dir,
             )
@@ -574,6 +575,7 @@ def init_asl_fit_wf(
             # some reason, so we must override it.
             with OverrideDerivativesDataSink(output_workflows):
                 ds_fmapreg_wf = output_workflows.init_ds_registration_wf(
+                    source_file=asl_file,
                     bids_root=layout.root,
                     output_dir=config.execution.aslprep_dir,
                     source='aslref',
@@ -613,7 +615,10 @@ def init_asl_fit_wf(
             )
             workflow.connect(raw_sbref_wf, 'outputnode.aslref', fmapref_buffer, 'sbref_files')
 
-        enhance_aslref_wf = init_enhance_and_skullstrip_bold_wf(omp_nthreads=omp_nthreads)
+        enhance_aslref_wf = init_enhance_and_skullstrip_asl_wf(
+            disable_n4=config.workflow.disable_n4,
+            omp_nthreads=omp_nthreads,
+        )
 
         ds_coreg_aslref_wf = init_ds_aslref_wf(
             bids_root=layout.root,
@@ -622,6 +627,7 @@ def init_asl_fit_wf(
             name='ds_coreg_aslref_wf',
         )
         ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
+            source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
             desc='brain',
             name='ds_aslmask_wf',
@@ -730,6 +736,7 @@ def init_asl_fit_wf(
         # so we must override it.
         with OverrideDerivativesDataSink(output_workflows):
             ds_aslreg_wf = output_workflows.init_ds_registration_wf(
+                source_file=asl_file,
                 bids_root=layout.root,
                 output_dir=config.execution.aslprep_dir,
                 source='aslref',
