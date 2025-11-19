@@ -27,7 +27,6 @@ def test_computecbf_casl(datasets, tmp_path_factory):
     asl_file = _save_img(asl_data, tmpdir, 'asl.nii.gz')
     asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
     asl_mask[10:20, 10:20, 10:20] = 1
-    mask_file = _save_img(asl_mask, tmpdir, 'mask.nii.gz')
     m0_file = _save_img(asl_mask, tmpdir, 'm0.nii.gz')
 
     single_pld = 1.5
@@ -139,7 +138,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
     asl_file = _save_img(asl_data, tmpdir, 'asl.nii.gz')
     asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
     asl_mask[10:20, 10:20, 10:20] = 1
-    mask_file = _save_img(asl_mask, tmpdir, 'mask.nii.gz')
     m0_file = _save_img(asl_mask, tmpdir, 'm0.nii.gz')
 
     single_pld = 1.5
@@ -359,7 +357,6 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
     asl_file = _save_img(asl_data, tmpdir, 'asl.nii.gz')
     asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
     asl_mask[10:20, 10:20, 10:20] = 1
-    mask_file = _save_img(asl_mask, tmpdir, 'mask.nii.gz')
     m0_file = _save_img(asl_mask, tmpdir, 'm0.nii.gz')
 
     ACQ_DICTS = [
