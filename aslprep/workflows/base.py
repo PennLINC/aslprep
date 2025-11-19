@@ -2,11 +2,13 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """ASLprep base processing workflows."""
 
+import json
 import os
 import re
 import sys
 import warnings
 from copy import deepcopy
+from pprint import pformat
 
 import bids
 import nibabel as nb
@@ -16,16 +18,16 @@ from niworkflows.utils.connections import listify
 from packaging.version import Version
 
 from aslprep import config
+from aslprep.data import load as load_data
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.reports import AboutSummary, SubjectSummary
-from aslprep.utils.misc import _prefix
 
 
 def init_aslprep_wf():
     """Build ASLPrep's pipeline.
 
     This workflow organizes the execution of aslprep, with a sub-workflow for
-    each subject.
+    each processing group.
 
     If FreeSurfer's ``recon-all`` is to be run, a corresponding folder is created
     and populated with any needed template subjects under the derivatives folder.
@@ -65,12 +67,23 @@ def init_aslprep_wf():
         if config.execution.fs_subjects_dir is not None:
             fsdir.inputs.subjects_dir = str(config.execution.fs_subjects_dir.absolute())
 
-    for subject_id in config.execution.participant_label:
-        single_subject_wf = init_single_subject_wf(subject_id)
+    for subject_id, session_ids in config.execution.processing_groups:
+        log_dir = config.execution.aslprep_dir / f'sub-{subject_id}'
+        sessions = listify(session_ids)
+        ses_str = ''
 
-        single_subject_wf.config['execution']['crashdump_dir'] = str(
-            config.execution.aslprep_dir / f'sub-{subject_id}' / 'log' / config.execution.run_uuid
-        )
+        if isinstance(sessions, list):
+            from smriprep.utils.misc import stringify_sessions
+
+            ses_str = stringify_sessions(sessions)
+            log_dir /= f'ses-{ses_str}'
+
+        log_dir = log_dir / 'log' / config.execution.run_uuid
+
+        wf_name = '_'.join(['sub', subject_id, *(('ses', ses_str) if ses_str else ()), 'wf'])
+        single_subject_wf = init_single_subject_wf(subject_id, sessions, name=wf_name)
+
+        single_subject_wf.config['execution']['crashdump_dir'] = str(log_dir)
         for node in single_subject_wf._get_all_nodes():
             node.config = deepcopy(single_subject_wf.config)
         if freesurfer:
@@ -79,16 +92,17 @@ def init_aslprep_wf():
             aslprep_wf.add_nodes([single_subject_wf])
 
         # Dump a copy of the config file into the log directory
-        log_dir = (
-            config.execution.aslprep_dir / f'sub-{subject_id}' / 'log' / config.execution.run_uuid
-        )
         log_dir.mkdir(exist_ok=True, parents=True)
         config.to_filename(log_dir / 'aslprep.toml')
 
     return aslprep_wf
 
 
-def init_single_subject_wf(subject_id: str):
+def init_single_subject_wf(
+    subject_id: str,
+    session_id: str | list[str] | None = None,
+    name: str | None = None,
+):
     """Organize the preprocessing pipeline for a single subject.
 
     It collects and reports information about the subject, and prepares
@@ -113,17 +127,23 @@ def init_single_subject_wf(subject_id: str):
     ----------
     subject_id : :obj:`str`
         Subject label for this single-subject workflow.
+    session_id
+        Session label(s) for this workflow.
+    name
+        Name of the workflow.
+        If not provided, will be set to ``sub_{subject_id}_ses_{session_id}_wf``.
 
     Inputs
     ------
     subjects_dir : :obj:`str`
         FreeSurfer's ``$SUBJECTS_DIR``.
     """
+    from fmriprep.interfaces.bids import BIDSSourceFile, CreateFreeSurferID
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.bids import BIDSInfo
     from niworkflows.interfaces.nilearn import NILEARN_VERSION
     from niworkflows.interfaces.utility import KeySelect
-    from niworkflows.utils.misc import fix_multi_T1w_source_name
+    from niworkflows.utils.bids import collect_data
     from niworkflows.utils.spaces import Reference
     from smriprep.workflows.anatomical import init_anat_fit_wf
     from smriprep.workflows.outputs import (
@@ -140,10 +160,12 @@ def init_single_subject_wf(subject_id: str):
     )
 
     from aslprep.interfaces.bids import BIDSDataGrabber
-    from aslprep.utils.bids import collect_data
     from aslprep.workflows.asl.base import init_asl_wf
 
-    workflow = Workflow(name=f'sub_{subject_id}_wf')
+    if name is None:
+        name = f'sub_{subject_id}_wf'
+
+    workflow = Workflow(name=name)
     workflow.__desc__ = f"""
 ### Arterial Spin-Labeled MRI Preprocessing and Cerebral Blood Flow Computation
 
@@ -170,11 +192,22 @@ their manuscripts unchanged. It is released under the unchanged
 ### References
 
 """
+    queries = {
+        'fmap': {'datatype': 'fmap'},
+        'flair': {'datatype': 'anat', 'suffix': 'FLAIR'},
+        't2w': {'datatype': 'anat', 'suffix': 'T2w'},
+        't1w': {'datatype': 'anat', 'suffix': 'T1w'},
+        'roi': {'datatype': 'anat', 'suffix': 'roi'},
+        'sbref': {'datatype': 'perf', 'suffix': 'sbref'},
+        'asl': {'datatype': 'perf', 'suffix': 'asl'},
+    }
 
-    subject_data = collect_data(
+    subject_data, _ = collect_data(
         config.execution.layout,
         subject_id,
+        session_id=session_id,
         bids_filters=config.execution.bids_filters,
+        queries=queries,
     )
 
     if 'flair' in config.workflow.ignore:
@@ -204,7 +237,9 @@ their manuscripts unchanged. It is released under the unchanged
 
     anatomical_cache = {}
     if config.execution.derivatives:
-        from smriprep.utils.bids import collect_derivatives as collect_anat_derivatives
+        from aslprep.utils.bids import collect_anat_derivatives
+
+        _spec, _patterns = tuple(json.loads(load_data('smriprep.json').read_text()).values())
 
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         std_spaces.append('fsnative')
@@ -214,8 +249,13 @@ their manuscripts unchanged. It is released under the unchanged
                     derivatives_dir=deriv_dir,
                     subject_id=subject_id,
                     std_spaces=std_spaces,
+                    session_id=session_id,
+                    spec=_spec,
+                    patterns=_patterns,
                 )
             )
+
+    config.loggers.workflow.info(f'Anatomical cache: {pformat(anatomical_cache)}')
 
     inputnode = pe.Node(niu.IdentityInterface(fields=['subjects_dir']), name='inputnode')
 
@@ -224,14 +264,24 @@ their manuscripts unchanged. It is released under the unchanged
             subject_data=subject_data,
             anat_only=config.workflow.anat_only,
             subject_id=subject_id,
-            anat_derivatives=anatomical_cache if anatomical_cache else None,
+            anat_derivatives=anatomical_cache or None,
         ),
         name='bidssrc',
+    )
+
+    src_file = pe.Node(
+        BIDSSourceFile(
+            precomputed=anatomical_cache,
+            sessionwise=config.workflow.subject_anatomical_reference == 'sessionwise',
+        ),
+        name='source_anatomical',
     )
 
     bids_info = pe.Node(
         BIDSInfo(bids_dir=config.execution.bids_dir, bids_validate=False), name='bids_info'
     )
+
+    create_fs_id = pe.Node(CreateFreeSurferID(), name='create_fs_id')
 
     summary = pe.Node(
         SubjectSummary(
@@ -278,10 +328,10 @@ their manuscripts unchanged. It is released under the unchanged
     anat_fit_wf = init_anat_fit_wf(
         bids_root=bids_root,
         output_dir=aslprep_dir,
-        freesurfer=config.workflow.run_reconall,
+        freesurfer=freesurfer,
         hires=config.workflow.hires,
         fs_no_resume=config.workflow.fs_no_resume,
-        longitudinal=config.workflow.longitudinal,
+        longitudinal=config.workflow.subject_anatomical_reference == 'unbiased',
         msm_sulc=msm_sulc,
         t1w=subject_data['t1w'],
         t2w=subject_data['t2w'],
@@ -298,20 +348,18 @@ their manuscripts unchanged. It is released under the unchanged
     # allow to run with anat-fast-track on fMRI-only dataset
     if 't1w_preproc' in anatomical_cache and not subject_data['t1w']:
         config.loggers.workflow.debug(
-            'No T1w image found; using precomputed T1w image: %s', anatomical_cache['t1w_preproc']
+            f'No T1w image found; using precomputed T1w image: {anatomical_cache["t1w_preproc"]}',
         )
         workflow.connect([
-            (bidssrc, bids_info, [(('asl', fix_multi_T1w_source_name), 'in_file')]),
             (anat_fit_wf, summary, [('outputnode.t1w_preproc', 't1w')]),
             (anat_fit_wf, ds_report_summary, [('outputnode.t1w_preproc', 'source_file')]),
             (anat_fit_wf, ds_report_about, [('outputnode.t1w_preproc', 'source_file')]),
         ])  # fmt:skip
     else:
         workflow.connect([
-            (bidssrc, bids_info, [(('t1w', fix_multi_T1w_source_name), 'in_file')]),
             (bidssrc, summary, [('t1w', 't1w')]),
-            (bidssrc, ds_report_summary, [(('t1w', fix_multi_T1w_source_name), 'source_file')]),
-            (bidssrc, ds_report_about, [(('t1w', fix_multi_T1w_source_name), 'source_file')]),
+            (src_file, ds_report_summary, [('source_file', 'source_file')]),
+            (src_file, ds_report_about, [('source_file', 'source_file')]),
         ])  # fmt:skip
 
     workflow.connect([
@@ -322,7 +370,13 @@ their manuscripts unchanged. It is released under the unchanged
             ('roi', 'inputnode.roi'),
             ('flair', 'inputnode.flair'),
         ]),
-        (bids_info, anat_fit_wf, [(('subject', _prefix), 'inputnode.subject_id')]),
+        (bidssrc, src_file, [('out_dict', 'bids_info')]),
+        (src_file, bids_info, [('source_file', 'in_file')]),
+        (bids_info, create_fs_id, [
+            ('subject', 'subject_id'),
+            ('session', 'session_id'),
+        ]),
+        (create_fs_id, anat_fit_wf, [('subject_id', 'inputnode.subject_id')]),
         # Reporting connections
         (inputnode, summary, [('subjects_dir', 'subjects_dir')]),
         (bidssrc, summary, [
@@ -468,9 +522,10 @@ their manuscripts unchanged. It is released under the unchanged
                 grayord_density=config.workflow.cifti_output,
                 omp_nthreads=omp_nthreads,
             )
+            fslr_density = '32k' if config.workflow.cifti_output == '91k' else '59k'
             resample_surfaces_wf = init_resample_surfaces_wf(
                 surfaces=['white', 'pial', 'midthickness'],
-                grayord_density=config.workflow.cifti_output,
+                density=fslr_density,
             )
             ds_grayord_metrics_wf = init_ds_grayord_metrics_wf(
                 bids_root=bids_root,
@@ -483,7 +538,7 @@ their manuscripts unchanged. It is released under the unchanged
                 surfaces=['white', 'pial', 'midthickness'],
                 entities={
                     'space': 'fsLR',
-                    'density': '32k' if config.workflow.cifti_output == '91k' else '59k',
+                    'density': fslr_density,
                 },
                 name='ds_fsLR_surfaces_wf',
             )
@@ -553,11 +608,7 @@ their manuscripts unchanged. It is released under the unchanged
 
     fmap_cache = {}
     if config.execution.derivatives:
-        import json
-
         from fmriprep.utils.bids import collect_fieldmaps
-
-        from ..data import load as load_data
 
         spec = json.loads(load_data.readable('fmap_spec.json').read_text())['queries']
 
@@ -568,7 +619,7 @@ their manuscripts unchanged. It is released under the unchanged
                 spec=spec,
             )
             config.loggers.workflow.debug(
-                'Detected precomputed fieldmaps in %s for fieldmap IDs: %s', deriv_dir, list(fmaps)
+                f'Detected precomputed fieldmaps in {deriv_dir} for fieldmap IDs: {list(fmaps)}',
             )
             fmap_cache.update(fmaps)
 
@@ -592,9 +643,8 @@ their manuscripts unchanged. It is released under the unchanged
     if all_estimators:
         # Find precomputed fieldmaps that apply to this workflow
         pared_cache = {}
-        non_alnum_pattern = re.compile(r'[^a-zA-Z0-9]')
         for est in all_estimators:
-            if found := fmap_cache.get(non_alnum_pattern.sub('', est.bids_id)):
+            if found := fmap_cache.get(re.sub(r'[^a-zA-Z0-9]', '', est.bids_id)):
                 pared_cache[est.bids_id] = found
             else:
                 fmap_estimators.append(est)
@@ -608,9 +658,9 @@ their manuscripts unchanged. It is released under the unchanged
             fieldmaps = [fmap['fieldmap'] for fmap in pared_cache.values()]
             refs = [fmap['magnitude'] for fmap in pared_cache.values()]
             coeffs = [fmap['coeffs'] for fmap in pared_cache.values()]
-            config.loggers.workflow.debug('Reusing fieldmaps: %s', fieldmaps)
-            config.loggers.workflow.debug('Reusing references: %s', refs)
-            config.loggers.workflow.debug('Reusing coefficients: %s', coeffs)
+            config.loggers.workflow.debug(f'Reusing fieldmaps: {fieldmaps}')
+            config.loggers.workflow.debug(f'Reusing references: {refs}')
+            config.loggers.workflow.debug(f'Reusing coefficients: {coeffs}')
 
             fmap_buffers['fmap'].inputs.in1 = fieldmaps
             fmap_buffers['fmap_ref'].inputs.in1 = refs
@@ -636,13 +686,27 @@ their manuscripts unchanged. It is released under the unchanged
         from sdcflows import fieldmaps as fm
         from sdcflows.workflows.base import init_fmap_preproc_wf
 
-        fmap_wf = init_fmap_preproc_wf(
-            debug='fieldmaps' in config.execution.debug,
-            estimators=fmap_estimators,
-            omp_nthreads=omp_nthreads,
-            output_dir=aslprep_dir,
-            subject=subject_id,
-        )
+        fallback_trt = config.workflow.fallback_total_readout_time
+        try:
+            fmap_wf = init_fmap_preproc_wf(
+                use_metadata_estimates=fallback_trt == 'estimated',
+                fallback_total_readout_time=fallback_trt
+                if isinstance(fallback_trt, float)
+                else None,
+                debug='fieldmaps' in config.execution.debug,
+                estimators=fmap_estimators,
+                omp_nthreads=omp_nthreads,
+                output_dir=aslprep_dir,
+                subject=subject_id,
+            )
+        except RuntimeError:
+            message = (
+                'Missing readout time information. '
+                'See documentation for `--fallback-total-readout-time`.'
+            )
+            config.loggers.workflow.critical(message, exc_info=True)
+            sys.exit(os.EX_DATAERR)
+
         fmap_wf.__desc__ = f"""
 
 Preprocessing of B<sub>0</sub> inhomogeneity mappings
@@ -701,7 +765,7 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                     len(suffixes) == 2
                     and all(suf in ('epi', 'm0scan', 'sbref') for suf in suffixes)
                 ):
-                    wf_inputs = getattr(fmap_wf.inputs, f'in_{estimator.bids_id}')
+                    wf_inputs = getattr(fmap_wf.inputs, f'in_{estimator.sanitized_id}')
                     wf_inputs.in_data = [str(s.path) for s in estimator.sources]
                     wf_inputs.metadata = [s.metadata for s in estimator.sources]
                 else:
@@ -723,7 +787,7 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                     debug=config.execution.sloppy,
                     auto_bold_nss=False,  # I don't trust NSS estimation on ASL data
                     t1w_inversion=False,
-                    name=f'syn_preprocessing_{estimator.bids_id}',
+                    name=f'syn_preprocessing_{estimator.sanitized_id}',
                 )
                 syn_preprocessing_wf.inputs.inputnode.in_epis = sources
                 syn_preprocessing_wf.inputs.inputnode.in_meta = source_meta
@@ -740,11 +804,11 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                         ('std2anat_xfm', 'inputnode.std2anat_xfm'),
                     ]),
                     (syn_preprocessing_wf, fmap_wf, [
-                        ('outputnode.epi_ref', f'in_{estimator.bids_id}.epi_ref'),
-                        ('outputnode.epi_mask', f'in_{estimator.bids_id}.epi_mask'),
-                        ('outputnode.anat_ref', f'in_{estimator.bids_id}.anat_ref'),
-                        ('outputnode.anat_mask', f'in_{estimator.bids_id}.anat_mask'),
-                        ('outputnode.sd_prior', f'in_{estimator.bids_id}.sd_prior'),
+                        ('outputnode.epi_ref', f'in_{estimator.sanitized_id}.epi_ref'),
+                        ('outputnode.epi_mask', f'in_{estimator.sanitized_id}.epi_mask'),
+                        ('outputnode.anat_ref', f'in_{estimator.sanitized_id}.anat_ref'),
+                        ('outputnode.anat_mask', f'in_{estimator.sanitized_id}.anat_mask'),
+                        ('outputnode.sd_prior', f'in_{estimator.sanitized_id}.sd_prior'),
                     ]),
                 ])  # fmt:skip
 
