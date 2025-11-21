@@ -437,8 +437,7 @@ def init_synthstrip_aslref_wf(
     disable_n4 : :obj:`bool`
         If True, N4 bias field correction will be disabled.
     name : str
-        Name of workflow (default: ``enhance_and_skullstrip_asl_wf``)
-
+        Name of workflow (default: ``synthstrip_aslref_wf``)
 
     Inputs
     ------

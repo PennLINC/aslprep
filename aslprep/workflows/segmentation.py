@@ -14,8 +14,8 @@ from nipype.interfaces.ants import BrainExtraction
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
-from .. import config
-from ..interfaces.freesurfer import (
+from aslprep import config
+from aslprep.interfaces.freesurfer import (
     FixHeaderSynthStrip,
     MockSynthStrip,
     PrepareSynthStripGrid,
