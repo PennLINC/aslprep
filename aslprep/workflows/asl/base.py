@@ -397,7 +397,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     )
     workflow.connect([
         (inputnode, cbf_wf, [
-            ('t1w_mask', 'inputnode.t1w_mask'),
             ('t1w_tpms', 'inputnode.t1w_tpms'),
             ('m0scan_metadata', 'inputnode.m0scan_metadata'),
         ]),

@@ -18,7 +18,6 @@ from aslprep.interfaces.cbf import (
     BASILCBF,
     ComputeCBF,
     ExtractCBF,
-    RefineMask,
     ScoreAndScrubCBF,
 )
 from aslprep.interfaces.parcellation import ParcellateCBF
@@ -33,7 +32,6 @@ from aslprep.utils.asl import (
 )
 from aslprep.utils.atlas import get_atlas_nifti
 from aslprep.utils.bids import find_atlas_entities
-from aslprep.workflows.asl.reference import init_enhance_and_skullstrip_asl_wf
 
 
 def init_cbf_wf(
@@ -106,8 +104,6 @@ def init_cbf_wf(
         asl mask NIFTI file
     t1w_tpms
         t1w probability maps
-    t1w_mask
-        t1w mask Nifti
     aslref2anat_xfm
         asl to t1w transformation file
 
@@ -228,7 +224,6 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
                 'm0scan_metadata',
                 'asl_mask',
                 't1w_tpms',
-                't1w_mask',
                 'aslref2anat_xfm',
             ],
         ),
@@ -258,37 +253,6 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
         ),
         name='outputnode',
     )
-
-    warp_t1w_mask_to_asl = pe.Node(
-        ApplyTransforms(
-            dimension=3,
-            float=True,
-            interpolation='NearestNeighbor',
-            invert_transform_flags=[True],
-            input_image_type=3,
-            args='-v',
-        ),
-        name='warp_t1w_mask_to_asl',
-    )
-    workflow.connect([
-        (inputnode, warp_t1w_mask_to_asl, [
-            ('asl_mask', 'reference_image'),
-            ('t1w_mask', 'input_image'),
-            ('aslref2anat_xfm', 'transforms'),
-        ]),
-    ])  # fmt:skip
-
-    reduce_mask = pe.Node(
-        RefineMask(),
-        mem_gb=0.2,
-        run_without_submitting=True,
-        name='reduce_mask',
-    )
-
-    workflow.connect([
-        (inputnode, reduce_mask, [('asl_mask', 'asl_mask')]),
-        (warp_t1w_mask_to_asl, reduce_mask, [('output_image', 't1w_mask')]),
-    ])  # fmt:skip
 
     # Warp tissue probability maps to ASL space
     def _pick_gm(files):
@@ -385,7 +349,6 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
             ('aslcontext', 'aslcontext'),
             ('m0scan_metadata', 'm0scan_metadata'),
         ]),
-        (reduce_mask, extract_deltam, [('out_mask', 'in_mask')]),
     ])  # fmt:skip
 
     if metadata['M0Type'] == 'Separate':
@@ -393,16 +356,6 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
         workflow.connect([
             (inputnode, mean_m0, [('m0scan', 'in_file')]),
             (mean_m0, extract_deltam, [('out_file', 'm0scan')]),
-        ])  # fmt:skip
-
-        enhance_and_skullstrip_m0scan_wf = init_enhance_and_skullstrip_asl_wf(
-            disable_n4=config.workflow.disable_n4,
-            omp_nthreads=1,
-            name='enhance_and_skullstrip_m0scan_wf',
-        )
-        workflow.connect([
-            (mean_m0, enhance_and_skullstrip_m0scan_wf, [('out_file', 'inputnode.in_file')]),
-            (enhance_and_skullstrip_m0scan_wf, reduce_mask, [('outputnode.mask_file', 'm0_mask')]),
         ])  # fmt:skip
 
     compute_cbf = pe.Node(
@@ -416,7 +369,6 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
     )
 
     workflow.connect([
-        (reduce_mask, compute_cbf, [('out_mask', 'mask')]),
         (extract_deltam, compute_cbf, [
             ('out_file', 'deltam'),
             ('m0_file', 'm0_file'),
@@ -450,7 +402,7 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
 [@dolui2017structural;@dolui2016scrub].
 """
         workflow.connect([
-            (reduce_mask, score_and_scrub_cbf, [('out_mask', 'mask')]),
+            (inputnode, score_and_scrub_cbf, [('asl_mask', 'mask')]),
             (compute_cbf, score_and_scrub_cbf, [('cbf_ts', 'cbf_ts')]),
             (gm_tfm, score_and_scrub_cbf, [('output_image', 'gm_tpm')]),
             (wm_tfm, score_and_scrub_cbf, [('output_image', 'wm_tpm')]),
@@ -523,7 +475,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         )
 
         workflow.connect([
-            (reduce_mask, basilcbf, [('out_mask', 'mask')]),
+            (inputnode, basilcbf, [('asl_mask', 'mask')]),
             (extract_deltam, basilcbf, [
                 ('out_file', 'deltam'),
                 ('m0_file', 'mzero'),
