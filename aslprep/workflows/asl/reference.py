@@ -179,7 +179,8 @@ methodology of *ASLPrep*, for use in head motion correction.
         (inputnode, select_highest_contrast_volumes, [('aslcontext', 'aslcontext')]),
         (val_asl, select_highest_contrast_volumes, [('out_file', 'asl_file')]),
     ])  # fmt:skip
-    if m0scan:
+
+    if m0scan and reference_volume_type == 'separate_m0scan':
         workflow.connect([
             (resample_m0scan_to_asl, select_highest_contrast_volumes, [
                 ('output_image', 'm0scan'),
