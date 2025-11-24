@@ -107,35 +107,3 @@ class SelectHighestContrastVolumes(SimpleInterface):
         ).to_filename(self._results['selected_volumes_file'])
 
         return runtime
-
-
-class _BinaryUnionInputSpec(BaseInterfaceInputSpec):
-    in_file1 = File(exists=True, mandatory=True, desc='First input file.')
-    in_file2 = File(exists=True, mandatory=True, desc='Second input file.')
-
-
-class _BinaryUnionOutputSpec(TraitedSpec):
-    out_file = File(desc='Output file.')
-
-
-class BinaryUnion(SimpleInterface):
-    """Union of two binary masks."""
-
-    input_spec = _BinaryUnionInputSpec
-    output_spec = _BinaryUnionOutputSpec
-
-    def _run_interface(self, runtime):
-        from pathlib import Path
-
-        import nibabel as nb
-
-        img1 = nb.load(self.inputs.in_file1)
-        mskarr1 = img1.get_fdata() > 0
-        mskarr2 = nb.load(self.inputs.in_file2).get_fdata() > 0
-        union_mask = mskarr1 | mskarr2
-        out = nb.Nifti1Image(union_mask, img1.affine, img1.header)
-        out.set_data_dtype('uint8')
-        out_name = Path('mask_union.nii.gz').absolute()
-        out.to_filename(out_name)
-        self._results['out_file'] = str(out_name)
-        return runtime
