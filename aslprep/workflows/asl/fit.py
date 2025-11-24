@@ -809,16 +809,15 @@ def init_asl_fit_wf(
             name='ds_anat_aslmask_wf',
         )
         workflow.connect([
-            (inputnode, ds_anat_aslmask_wf, [('t1w_mask', 'source_files')]),
-            (anat_mask_to_asl, ds_anat_aslmask_wf, [('output_image', 'mask')]),
+            (inputnode, ds_anat_aslmask_wf, [('t1w_mask', 'inputnode.source_files')]),
+            (anat_mask_to_asl, ds_anat_aslmask_wf, [('output_image', 'inputnode.mask')]),
         ])  # fmt:skip
 
         # Create final ASL brain mask from union of anatomical and ASL masks
         combine_masks = pe.Node(BinaryUnion(), name='combine_masks')
         workflow.connect([
             (regref_buffer, combine_masks, [('asl_aslmask', 'in_file1')]),
-            (ds_anat_aslmask_wf, combine_masks, [('out_file', 'in_file2')]),
-            (combine_masks, aslmask_buffer, [('out_file', 'aslmask')]),
+            (ds_anat_aslmask_wf, combine_masks, [('outputnode.mask', 'in_file2')]),
         ])  # fmt:skip
 
         ds_aslmask_wf = init_ds_aslmask_wf(
@@ -827,16 +826,16 @@ def init_asl_fit_wf(
             entities={'desc': 'brain'},
             name='ds_aslmask_wf',
         )
-        ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
         workflow.connect([
-            (aslmask_buffer, ds_aslmask_wf, [('aslmask', 'in_file')]),
-        ])  # fmt:skip
+            (combine_masks, ds_aslmask_wf, [('out_file', 'inputnode.mask')]),
+            (ds_aslmask_wf, aslmask_buffer, [('outputnode.mask', 'aslmask')]),
+        ])
 
         combine_sources = pe.Node(niu.Merge(2), name='combine_sources')
         workflow.connect([
             (regref_buffer, combine_sources, [('asl_aslmask', 'in1')]),
-            (ds_anat_aslmask_wf, combine_sources, [('out_file', 'in2')]),
-            (combine_sources, ds_aslmask_wf, [('out', 'Sources')]),
+            (ds_anat_aslmask_wf, combine_sources, [('outputnode.out_file', 'in2')]),
+            (combine_sources, ds_aslmask_wf, [('out', 'inputnode.source_files')]),
         ])  # fmt:skip
 
     return workflow

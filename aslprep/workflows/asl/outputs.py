@@ -590,7 +590,7 @@ def init_ds_aslmask_wf(
     *,
     source_file: str,
     output_dir,
-    entities: dict,
+    entities: dict = None,
     name='ds_aslmask_wf',
 ) -> pe.Workflow:
     """Write out a BOLD mask."""
