@@ -48,11 +48,16 @@ from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 # ASL workflows
 from aslprep import config
 from aslprep.interfaces.bids import OverrideDerivativesDataSink
+from aslprep.interfaces.reference import BinaryUnion
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
-from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
+from aslprep.workflows.asl.outputs import (
+    init_asl_fit_reports_wf,
+    init_ds_aslmask_wf,
+    init_ds_aslref_wf,
+)
 from aslprep.workflows.asl.reference import init_raw_aslref_wf, init_synthstrip_aslref_wf
 
 
@@ -234,6 +239,8 @@ def init_asl_fit_wf(
 
     hmc_aslref = precomputed.get('hmc_aslref')
     coreg_aslref = precomputed.get('coreg_aslref')
+    # The brain mask derived just from the ASL reference
+    aslref_asl_mask = precomputed.get('aslref_asl_mask')
     # Can contain
     #  1) aslref2fmap
     #  2) aslref2anat
@@ -243,6 +250,7 @@ def init_asl_fit_wf(
     aslref2fmap_xform = transforms.get('aslref2fmap')
     aslref2anat_xform = transforms.get('aslref2anat')
     m0scan2aslref_xform = transforms.get('m0scan2aslref')
+    # The final, combined ASL brain mask, using both the ASL reference and anatomical masks
     aslref_mask = precomputed.get('aslref_mask')
 
     workflow = Workflow(name=name)
@@ -313,12 +321,17 @@ def init_asl_fit_wf(
         name='fmapreg_buffer',
     )
     regref_buffer = pe.Node(
-        niu.IdentityInterface(fields=['aslref']),
+        niu.IdentityInterface(fields=['aslref', 'asl_aslmask']),
         name='regref_buffer',
     )
+    # Final brain mask created from union of anatomical and asl masks
     aslmask_buffer = pe.Node(
         niu.IdentityInterface(fields=['aslmask']),
         name='aslmask_buffer',
+    )
+    aslref2anat_xform_buffer = pe.Node(
+        niu.IdentityInterface(fields=['aslref2anat_xfm']),
+        name='aslref2anat_xform_buffer',
     )
 
     if hmc_aslref:
@@ -342,6 +355,11 @@ def init_asl_fit_wf(
     if aslref_mask:
         aslmask_buffer.inputs.aslmask = aslref_mask
         config.loggers.workflow.debug('Reusing ASL reference mask: %s', aslref_mask)
+    if aslref2anat_xform:
+        aslref2anat_xform_buffer.inputs.aslref2anat_xfm = aslref2anat_xform
+        config.loggers.workflow.debug(
+            'Reusing ASL reference to anatomical transform: %s', aslref2anat_xform
+        )
     fmapref_buffer.inputs.sbref_files = sbref_files
 
     summary = pe.Node(
@@ -607,9 +625,9 @@ def init_asl_fit_wf(
     else:
         config.loggers.workflow.info('No fieldmap correction - skipping Stage 3')
 
-    # Stage 4: Create coregistration reference
+    # Stage 4: Create coregistration reference and asl-modality brain mask
     # Fieldmap correction only happens during fit if this stage is needed
-    if not coreg_aslref:
+    if not coreg_aslref or not aslref_asl_mask:
         config.loggers.workflow.info('Stage 4: Adding coregistration aslref workflow')
 
         # Select initial boldref, enhance contrast, and generate mask
@@ -631,13 +649,13 @@ def init_asl_fit_wf(
             desc='coreg',
             name='ds_coreg_aslref_wf',
         )
-        ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
+        ds_asl_aslmask_wf = init_ds_aslmask_wf(
             source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
-            desc='brain',
-            name='ds_aslmask_wf',
+            entities={'modality': 'asl', 'desc': 'brain'},
+            name='ds_asl_aslmask_wf',
         )
-        ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
+        ds_asl_aslmask_wf.inputs.inputnode.source_files = [asl_file]
 
         workflow.connect([
             (fmapref_buffer, enhance_aslref_wf, [('out', 'inputnode.in_file')]),
@@ -645,7 +663,7 @@ def init_asl_fit_wf(
                 ('in_file', 'inputnode.source_files'),
             ]),
             (ds_coreg_aslref_wf, regref_buffer, [('outputnode.aslref', 'aslref')]),
-            (ds_aslmask_wf, aslmask_buffer, [('outputnode.boldmask', 'aslmask')]),
+            (ds_asl_aslmask_wf, regref_buffer, [('outputnode.mask', 'asl_aslmask')]),
         ])  # fmt:skip
 
         if fieldmap_id:
@@ -681,8 +699,8 @@ def init_asl_fit_wf(
                 (ds_coreg_aslref_wf, skullstrip_asl_wf, [
                     ('outputnode.aslref', 'inputnode.in_file'),
                 ]),
-                (skullstrip_asl_wf, ds_aslmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.boldmask'),
+                (skullstrip_asl_wf, ds_asl_aslmask_wf, [
+                    ('outputnode.mask_file', 'inputnode.mask'),
                 ]),
             ])  # fmt:skip
 
@@ -698,20 +716,14 @@ def init_asl_fit_wf(
                 (enhance_aslref_wf, ds_coreg_aslref_wf, [
                     ('outputnode.bias_corrected_file', 'inputnode.aslref'),
                 ]),
-                (enhance_aslref_wf, ds_aslmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.boldmask'),
+                (enhance_aslref_wf, ds_asl_aslmask_wf, [
+                    ('outputnode.mask_file', 'inputnode.mask'),
                 ]),
             ])  # fmt:skip
     else:
-        config.loggers.workflow.info('Found coregistration reference - skipping Stage 4')
-
-        # TODO: Allow precomputed bold masks to be passed
-        # Also needs consideration for how it interacts above
-        skullstrip_precomp_ref_wf = init_skullstrip_bold_wf(name='skullstrip_precomp_ref_wf')
-        skullstrip_precomp_ref_wf.inputs.inputnode.in_file = coreg_aslref
-        workflow.connect([
-            (skullstrip_precomp_ref_wf, aslmask_buffer, [('outputnode.mask_file', 'aslmask')])
-        ])  # fmt:skip
+        config.loggers.workflow.info(
+            'Found coregistration reference and ASL brain mask - skipping Stage 4'
+        )
 
     # Stage 5: Register ASL to anatomical space
     if not aslref2anat_xform:
@@ -770,6 +782,62 @@ def init_asl_fit_wf(
     else:
         config.loggers.workflow.info('Found coregistration transform - skipping Stage 5')
         outputnode.inputs.aslref2anat_xfm = aslref2anat_xform
+
+    if not aslref_mask:
+        from aslprep.interfaces.ants import ApplyTransforms
+
+        anat_mask_to_asl = pe.Node(
+            ApplyTransforms(
+                interpolation='GenericLabel',
+                invert_transform_flags=[True],
+                args='-v',
+            ),
+            name='anat_mask_to_asl',
+        )
+
+        # Map anatomical mask to ASL
+        workflow.connect([
+            (inputnode, anat_mask_to_asl, [('t1w_mask', 'input_image')]),
+            (regref_buffer, anat_mask_to_asl, [('aslref', 'reference_image')]),
+            (aslref2anat_xform_buffer, anat_mask_to_asl, [('aslref2anat_xfm', 'transforms')]),
+        ])  # fmt:skip
+
+        ds_anat_aslmask_wf = init_ds_aslmask_wf(
+            source_file=asl_file,
+            output_dir=config.execution.aslprep_dir,
+            entities={'modality': 'anat', 'desc': 'brain'},
+            name='ds_anat_aslmask_wf',
+        )
+        workflow.connect([
+            (inputnode, ds_anat_aslmask_wf, [('t1w_mask', 'source_files')]),
+            (anat_mask_to_asl, ds_anat_aslmask_wf, [('output_image', 'mask')]),
+        ])  # fmt:skip
+
+        # Create final ASL brain mask from union of anatomical and ASL masks
+        combine_masks = pe.Node(BinaryUnion(), name='combine_masks')
+        workflow.connect([
+            (regref_buffer, combine_masks, [('asl_aslmask', 'in_file1')]),
+            (ds_anat_aslmask_wf, combine_masks, [('out_file', 'in_file2')]),
+            (combine_masks, aslmask_buffer, [('out_file', 'aslmask')]),
+        ])  # fmt:skip
+
+        ds_aslmask_wf = init_ds_aslmask_wf(
+            source_file=asl_file,
+            output_dir=config.execution.aslprep_dir,
+            entities={'desc': 'brain'},
+            name='ds_aslmask_wf',
+        )
+        ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
+        workflow.connect([
+            (aslmask_buffer, ds_aslmask_wf, [('aslmask', 'in_file')]),
+        ])  # fmt:skip
+
+        combine_sources = pe.Node(niu.Merge(2), name='combine_sources')
+        workflow.connect([
+            (regref_buffer, combine_sources, [('asl_aslmask', 'in1')]),
+            (ds_anat_aslmask_wf, combine_sources, [('out_file', 'in2')]),
+            (combine_sources, ds_aslmask_wf, [('out', 'Sources')]),
+        ])  # fmt:skip
 
     return workflow
 
