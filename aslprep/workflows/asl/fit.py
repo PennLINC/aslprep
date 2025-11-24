@@ -834,7 +834,7 @@ def init_asl_fit_wf(
         combine_sources = pe.Node(niu.Merge(2), name='combine_sources')
         workflow.connect([
             (regref_buffer, combine_sources, [('asl_aslmask', 'in1')]),
-            (ds_anat_aslmask_wf, combine_sources, [('outputnode.out_file', 'in2')]),
+            (ds_anat_aslmask_wf, combine_sources, [('outputnode.mask', 'in2')]),
             (combine_sources, ds_aslmask_wf, [('out', 'inputnode.source_files')]),
         ])  # fmt:skip
 
