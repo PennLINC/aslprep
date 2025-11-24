@@ -586,57 +586,6 @@ def init_ds_aslref_wf(
     return workflow
 
 
-def init_ds_aslmask_wf(
-    *,
-    source_file: str,
-    output_dir,
-    entities: dict = None,
-    name='ds_aslmask_wf',
-) -> pe.Workflow:
-    """Write out a BOLD mask."""
-    from fmriprep.interfaces.bids import BIDSURI
-    from fmriprep.utils.bids import dismiss_echo
-
-    workflow = pe.Workflow(name=name)
-
-    inputnode = pe.Node(
-        niu.IdentityInterface(fields=['source_files', 'mask']),
-        name='inputnode',
-    )
-    outputnode = pe.Node(niu.IdentityInterface(fields=['mask']), name='outputnode')
-
-    sources = pe.Node(
-        BIDSURI(
-            numinputs=1,
-            dataset_links=config.execution.dataset_links,
-            out_dir=str(output_dir),
-        ),
-        name='sources',
-    )
-
-    ds_mask = pe.Node(
-        DerivativesDataSink(
-            source_file=source_file,
-            base_directory=output_dir,
-            suffix='mask',
-            compress=True,
-            dismiss_entities=dismiss_echo(),
-            **entities,
-        ),
-        name='ds_mask',
-        run_without_submitting=True,
-    )
-
-    workflow.connect([
-        (inputnode, sources, [('source_files', 'in1')]),
-        (inputnode, ds_mask, [('mask', 'in_file')]),
-        (sources, ds_mask, [('out', 'Sources')]),
-        (ds_mask, outputnode, [('out_file', 'mask')]),
-    ])  # fmt:skip
-
-    return workflow
-
-
 def init_ds_asl_native_wf(
     *,
     bids_root: str,
