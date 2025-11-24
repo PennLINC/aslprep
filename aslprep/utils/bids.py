@@ -138,6 +138,15 @@ def collect_derivatives(
             continue
         transforms_cache[xfm] = item[0] if len(item) == 1 else item
     derivs_cache['transforms'] = transforms_cache
+
+    for k, q in spec['masks'].items():
+        query = {**entities, **q}
+        item = layout.get(return_type='filename', **query)
+        if not item or len(item) != 1:
+            continue
+
+        derivs_cache[k] = item[0]
+
     return derivs_cache
 
 
