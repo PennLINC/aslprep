@@ -120,6 +120,7 @@ class _BinaryUnionOutputSpec(TraitedSpec):
 
 class BinaryUnion(SimpleInterface):
     """Union of two binary masks."""
+
     input_spec = _BinaryUnionInputSpec
     output_spec = _BinaryUnionOutputSpec
 
