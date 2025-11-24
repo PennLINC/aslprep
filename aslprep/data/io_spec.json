@@ -56,7 +56,18 @@
       }
     },
     "masks": {
-      "aslref": {
+      "aslref_asl_mask": {
+        "datatype": "perf",
+        "modality": "asl",
+        "space": null,
+        "desc": "brain",
+        "suffix": "mask",
+        "extension": [
+          ".nii.gz",
+          ".nii"
+        ]
+      },
+      "aslref_mask": {
         "datatype": "perf",
         "space": null,
         "desc": "brain",
@@ -69,9 +80,9 @@
     }
   },
   "patterns": [
-    "sub-{subject}[/ses-{session}]/{datatype<perf>|perf}/sub-{subject}[_ses-{session}]_task-{task}[_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_res-{res}][_label-{label}][_echo-{echo}][_space-{space}][_desc-{desc}]_{suffix<asl|aslref|dseg|mask>}.{extension<nii|nii.gz|json>|nii.gz}",
-    "sub-{subject}[/ses-{session}]/{datatype<perf>|perf}/sub-{subject}[_ses-{session}]_task-{task}[_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_run-{run}]_from-{from}_to-{to}_mode-{mode<image|points>|image}_{suffix<xfm>|xfm}.{extension<txt|h5>}",
-    "sub-{subject}[/ses-{session}]/{datatype<perf>|perf}/sub-{subject}[_ses-{session}]_task-{task}[_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_run-{run}][_part-{part}][_desc-{desc}]_{suffix<timeseries>}.{extension<tsv|json>}",
-    "sub-{subject}[/ses-{session}]/{datatype<perf>|perf}/sub-{subject}[_ses-{session}]_task-{task}[_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_space-{space}][_res-{res}][_den-{den}][_hemi-{hemi}[_label-{label}][_desc-{desc}]_{suffix<|aslref|dseg|mask>}.{extension<dtseries.nii|dtseries.json>}"
+    "sub-{subject}[/ses-{session}]/{datatype<perf>|perf}/sub-{subject}[_ses-{session}][_task-{task}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_mod-{modality}][_echo-{echo}][_space-{space}][_res-{res}][_label-{label}][_desc-{desc}]_{suffix<asl|aslref|dseg|mask>}.{extension<nii|nii.gz|json>|nii.gz}",
+    "sub-{subject}[/ses-{session}]/{datatype<perf>|perf}/sub-{subject}[_ses-{session}][_task-{task}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_run-{run}]_from-{from}_to-{to}_mode-{mode<image|points>|image}_{suffix<xfm>|xfm}.{extension<txt|h5>}",
+    "sub-{subject}[/ses-{session}]/{datatype<perf>|perf}/sub-{subject}[_ses-{session}][_task-{task}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_run-{run}][_part-{part}][_desc-{desc}]_{suffix<timeseries>}.{extension<tsv|json>}",
+    "sub-{subject}[/ses-{session}]/{datatype<perf>|perf}/sub-{subject}[_ses-{session}][_task-{task}][_acq-{acquisition}][_ce-{ceagent}][_rec-{reconstruction}][_mod-{modality}][_hemi-{hemi}][_space-{space}][_res-{res}][_den-{den}][_label-{label}][_desc-{desc}]_{suffix<|aslref|dseg|mask>}.{extension<dtseries.nii|dtseries.json>}"
   ]
 }
