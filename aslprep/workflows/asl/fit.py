@@ -243,6 +243,7 @@ def init_asl_fit_wf(
     aslref2fmap_xform = transforms.get('aslref2fmap')
     aslref2anat_xform = transforms.get('aslref2anat')
     m0scan2aslref_xform = transforms.get('m0scan2aslref')
+    aslref_mask = precomputed.get('aslref_mask')
 
     workflow = Workflow(name=name)
 
@@ -312,8 +313,12 @@ def init_asl_fit_wf(
         name='fmapreg_buffer',
     )
     regref_buffer = pe.Node(
-        niu.IdentityInterface(fields=['aslref', 'aslmask']),
+        niu.IdentityInterface(fields=['aslref']),
         name='regref_buffer',
+    )
+    aslmask_buffer = pe.Node(
+        niu.IdentityInterface(fields=['aslmask']),
+        name='aslmask_buffer',
     )
 
     if hmc_aslref:
@@ -334,6 +339,9 @@ def init_asl_fit_wf(
     if coreg_aslref:
         regref_buffer.inputs.aslref = coreg_aslref
         config.loggers.workflow.debug('Reusing coregistration reference: %s', coreg_aslref)
+    if aslref_mask:
+        aslmask_buffer.inputs.aslmask = aslref_mask
+        config.loggers.workflow.debug('Reusing ASL reference mask: %s', aslref_mask)
     fmapref_buffer.inputs.sbref_files = sbref_files
 
     summary = pe.Node(
@@ -368,10 +376,8 @@ def init_asl_fit_wf(
     workflow.connect([
         (hmcref_buffer, fmapref_buffer, [('aslref', 'aslref_files')]),
         (hmcref_buffer, outputnode, [('aslref', 'hmc_aslref')]),
-        (regref_buffer, outputnode, [
-            ('aslref', 'coreg_aslref'),
-            ('aslmask', 'asl_mask'),
-        ]),
+        (regref_buffer, outputnode, [('aslref', 'coreg_aslref')]),
+        (aslmask_buffer, outputnode, [('aslmask', 'asl_mask')]),
         (fmapreg_buffer, outputnode, [('aslref2fmap_xfm', 'aslref2fmap_xfm')]),
         (hmc_buffer, outputnode, [('hmc_xforms', 'motion_xfm')]),
         (m0scanreg_buffer, outputnode, [('m0scan2aslref_xfm', 'm0scan2aslref_xfm')]),
@@ -639,7 +645,7 @@ def init_asl_fit_wf(
                 ('in_file', 'inputnode.source_files'),
             ]),
             (ds_coreg_aslref_wf, regref_buffer, [('outputnode.aslref', 'aslref')]),
-            (ds_aslmask_wf, regref_buffer, [('outputnode.boldmask', 'aslmask')]),
+            (ds_aslmask_wf, aslmask_buffer, [('outputnode.boldmask', 'aslmask')]),
         ])  # fmt:skip
 
         if fieldmap_id:
@@ -704,7 +710,7 @@ def init_asl_fit_wf(
         skullstrip_precomp_ref_wf = init_skullstrip_bold_wf(name='skullstrip_precomp_ref_wf')
         skullstrip_precomp_ref_wf.inputs.inputnode.in_file = coreg_aslref
         workflow.connect([
-            (skullstrip_precomp_ref_wf, regref_buffer, [('outputnode.mask_file', 'aslmask')])
+            (skullstrip_precomp_ref_wf, aslmask_buffer, [('outputnode.mask_file', 'aslmask')])
         ])  # fmt:skip
 
     # Stage 5: Register ASL to anatomical space

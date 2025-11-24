@@ -54,6 +54,18 @@
         "suffix": "xfm",
         "extension": ".txt"
       }
+    },
+    "masks": {
+      "aslref": {
+        "datatype": "perf",
+        "space": null,
+        "desc": "brain",
+        "suffix": "mask",
+        "extension": [
+          ".nii.gz",
+          ".nii"
+        ]
+      }
     }
   },
   "patterns": [
