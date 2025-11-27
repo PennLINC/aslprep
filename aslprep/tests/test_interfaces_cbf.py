@@ -27,7 +27,6 @@ def test_computecbf_casl(datasets, tmp_path_factory):
     asl_file = _save_img(asl_data, tmpdir, 'asl.nii.gz')
     asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
     asl_mask[10:20, 10:20, 10:20] = 1
-    mask_file = _save_img(asl_mask, tmpdir, 'mask.nii.gz')
     m0_file = _save_img(asl_mask, tmpdir, 'm0.nii.gz')
 
     single_pld = 1.5
@@ -67,7 +66,6 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 metadata=metadata,
                 m0_scale=1,
                 m0_file=m0_file,
-                mask=mask_file,
             )
             results = interface.run(cwd=tmpdir)
             assert os.path.isfile(results.outputs.cbf_ts)
@@ -93,7 +91,6 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 metadata=metadata,
                 m0_scale=1,
                 m0_file=m0_file,
-                mask=mask_file,
             )
             with pytest.raises(ValueError, match='Number of PostLabelingDelays'):
                 results = interface.run(cwd=tmpdir)
@@ -113,7 +110,6 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 metadata=metadata,
                 m0_scale=1,
                 m0_file=m0_file,
-                mask=mask_file,
             )
             results = interface.run(cwd=tmpdir)
             assert results.outputs.cbf_ts is None
@@ -142,7 +138,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
     asl_file = _save_img(asl_data, tmpdir, 'asl.nii.gz')
     asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
     asl_mask[10:20, 10:20, 10:20] = 1
-    mask_file = _save_img(asl_mask, tmpdir, 'mask.nii.gz')
     m0_file = _save_img(asl_mask, tmpdir, 'm0.nii.gz')
 
     single_pld = 1.5
@@ -180,7 +175,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             metadata=metadata,
             m0_scale=1,
             m0_file=m0_file,
-            mask=mask_file,
         )
         with pytest.raises(ValueError, match='not supported in ASLPrep.'):
             results = interface.run(cwd=tmpdir)
@@ -201,7 +195,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             metadata=metadata,
             m0_scale=1,
             m0_file=m0_file,
-            mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
         assert os.path.isfile(results.outputs.cbf_ts)
@@ -227,7 +220,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             metadata=metadata,
             m0_scale=1,
             m0_file=m0_file,
-            mask=mask_file,
         )
         with pytest.raises(ValueError, match=r'Unsupported BolusCutOffTechnique \(QUIPSS\)'):
             results = interface.run(cwd=tmpdir)
@@ -247,7 +239,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             metadata=metadata,
             m0_scale=1,
             m0_file=m0_file,
-            mask=mask_file,
         )
         with pytest.raises(ValueError, match=r'Unsupported BolusCutOffTechnique \(QUIPSS\)'):
             results = interface.run(cwd=tmpdir)
@@ -268,7 +259,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             metadata=metadata,
             m0_scale=1,
             m0_file=m0_file,
-            mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
         assert os.path.isfile(results.outputs.cbf_ts)
@@ -294,7 +284,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             metadata=metadata,
             m0_scale=1,
             m0_file=m0_file,
-            mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
         assert os.path.isfile(results.outputs.mean_cbf)
@@ -317,7 +306,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             metadata=metadata,
             m0_scale=1,
             m0_file=m0_file,
-            mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
         assert os.path.isfile(results.outputs.cbf_ts)
@@ -343,7 +331,6 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             metadata=metadata,
             m0_scale=1,
             m0_file=m0_file,
-            mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
         assert os.path.isfile(results.outputs.mean_cbf)
@@ -370,7 +357,6 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
     asl_file = _save_img(asl_data, tmpdir, 'asl.nii.gz')
     asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
     asl_mask[10:20, 10:20, 10:20] = 1
-    mask_file = _save_img(asl_mask, tmpdir, 'mask.nii.gz')
     m0_file = _save_img(asl_mask, tmpdir, 'm0.nii.gz')
 
     ACQ_DICTS = [
@@ -396,7 +382,6 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
             metadata=metadata,
             m0_scale=1,
             m0_file=m0_file,
-            mask=mask_file,
         )
         results = interface.run(cwd=tmpdir)
         cbf_data.append(nb.load(results.outputs.cbf_ts).get_fdata())
