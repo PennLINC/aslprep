@@ -4,7 +4,7 @@ orbs:
 
 .dockersetup: &dockersetup
   docker:
-    - image: pennlinc/aslprep_build:0.0.19
+    - image: pennlinc/aslprep_build:latest
   working_directory: /src/aslprep
 
 runinstall: &runinstall
@@ -531,14 +531,14 @@ jobs:
             BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
             VCS_REF=$(git rev-parse --short HEAD)
 
-            # 1) Build base image (Dockerfile.base), then main image (Dockerfile)
+            # 1) Build base image (Dockerfile.base → aslprep_build), then main image (Dockerfile)
             e=1 && for i in {1..5}; do
               docker build -f Dockerfile.base \
-                --cache-from=pennlinc/aslprep-base:latest \
+                --cache-from=pennlinc/aslprep_build:latest \
                 --rm=false \
-                -t pennlinc/aslprep-base:latest . \
+                -t pennlinc/aslprep_build:latest . \
               && docker build \
-                --cache-from=pennlinc/aslprep-base:latest \
+                --cache-from=pennlinc/aslprep_build:latest \
                 --cache-from=pennlinc/aslprep:latest \
                 --rm=false \
                 -t pennlinc/aslprep:latest \
@@ -553,7 +553,7 @@ jobs:
           command: |
             if [[ -n "$DOCKERHUB_TOKEN" ]]; then
               docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
-              docker push pennlinc/aslprep-base:latest
+              docker push pennlinc/aslprep_build:latest
               docker tag pennlinc/aslprep:latest pennlinc/aslprep:unstable
               docker push pennlinc/aslprep:unstable
               if [[ -n "$CIRCLE_TAG" ]]; then

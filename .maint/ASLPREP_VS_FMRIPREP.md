@@ -26,10 +26,10 @@ This document summarizes how ASLPrep’s packaging and maintenance compare to fM
 |------|----------|--------|
 | **Docker CI** | GitHub Actions (`.github/workflows/docker.yml`): build base if missing, then build and push main to **ghcr.io**. | **CircleCI** only: `build_and_deploy` builds base + main and pushes both to **Docker Hub**. No GHA Docker workflow. |
 | **Python/env in image** | **Pixi** in the main repo (`pyproject.toml` + `pixi.lock`); base has no Python stack; main image built with Pixi in Dockerfile. | **Conda** in base image: `docker/env.yml` + micromamba in `Dockerfile.base`; main Dockerfile only does `pip install` aslprep. |
-| **Docker registry** | **ghcr.io** (e.g. `ghcr.io/nipreps/fmriprep`). | **Docker Hub** (`pennlinc/aslprep`, `pennlinc/aslprep-base`). |
+| **Docker registry** | **ghcr.io** (e.g. `ghcr.io/nipreps/fmriprep`). | **Docker Hub** (`pennlinc/aslprep`, `pennlinc/aslprep_build`). |
 | **Docker wrapper** | **fmriprep-docker** package under `wrapper/` for a CLI that runs `docker run` with the right mounts. | **None**; users run `docker run` (or equivalent) directly. |
 | **Changelog for releases** | Changelog file in repo + release notes from it / labels. | **GitHub release notes only** (labels + “Generate release notes”); no changelog update step in release instructions. |
-| **Base image tag** | Date-based (e.g. `ghcr.io/nipreps/fmriprep-base:20251006`), updated when the base changes. | **`pennlinc/aslprep-base:latest`**; base is rebuilt and pushed on every CircleCI deploy. |
+| **Base image tag** | Date-based (e.g. `ghcr.io/nipreps/fmriprep-base:20251006`), updated when the base changes. | **`pennlinc/aslprep_build:latest`**; base is rebuilt and pushed on every CircleCI deploy. |
 
 ---
 

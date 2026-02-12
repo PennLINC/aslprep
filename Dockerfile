@@ -1,6 +1,6 @@
 # ASLPrep Docker Container Image distribution
 #
-# Main image: FROM aslprep-base + install aslprep package.
+# Main image: FROM aslprep_build + install aslprep package.
 # Base image is built from Dockerfile.base (like fMRIPrep).
 #
 # MIT License
@@ -25,7 +25,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ARG BASE_IMAGE=pennlinc/aslprep-base:latest
+ARG BASE_IMAGE=pennlinc/aslprep_build:latest
 FROM ${BASE_IMAGE}
 
 # Install aslprep
