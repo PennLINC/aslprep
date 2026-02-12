@@ -31,15 +31,11 @@ Follow these steps before creating a new ASLPrep release. Run all commands from 
 
 ---
 
-## 4. Base image and Pixi (if applicable)
+## 4. Base image (if applicable)
 
 - The main Docker image is built **FROM** ``pennlinc/aslprep-base:latest`` (see ``Dockerfile``).
-- The **base image** is built from **Dockerfile.base** (minimal runtime: FreeSurfer, AFNI, Workbench, C3d, AtlasPack, MSM; no Python/Conda). The Python stack (Pixi env) is built in the main **Dockerfile** and copied into the final image.
-- **Pixi** (``pyproject.toml`` ``[tool.pixi.*]`` + ``pixi.lock``) defines the container’s Python/Conda environment. After changing ``[tool.pixi.dependencies]`` or related sections, regenerate the lock file and commit it:
-  - **On Linux:** ``pixi lock``
-  - **From macOS/Windows (with Docker):** ``./.maint/pixi_lock_in_docker.sh``
-  The Docker build requires ``pixi.lock`` to be present in the repo.
-- **CircleCI** (job ``build_and_deploy``) builds both images on every run: first ``Dockerfile.base`` → ``pennlinc/aslprep-base:latest``, then **Dockerfile** (Pixi build + templates + base) → ``pennlinc/aslprep:latest``, then pushes both to Docker Hub (when ``DOCKERHUB_TOKEN`` is set).
+- The base image is built from **Dockerfile.base** (runtime + conda env; no aslprep package).
+- **CircleCI** (job ``build_and_deploy``) builds both images on every run: first ``Dockerfile.base`` → ``pennlinc/aslprep-base:latest``, then **Dockerfile** → ``pennlinc/aslprep:latest``, then pushes both to Docker Hub (when ``DOCKERHUB_TOKEN`` is set). So changes to **docker/env.yml** or **Dockerfile.base** are picked up on the next deploy.
 - For local testing, run ``docker build -f Dockerfile.base -t pennlinc/aslprep-base:latest .`` then ``docker build -t pennlinc/aslprep:dev .``.
 - To use a different base tag (e.g. a date tag), set ``ARG BASE_IMAGE=pennlinc/aslprep-base:<tag>`` in **Dockerfile** and ensure that image exists.
 

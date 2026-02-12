@@ -84,8 +84,38 @@ RUN mkdir /opt/convert3d && \
     curl -fsSL --retry 5 https://sourceforge.net/projects/c3d/files/c3d/Experimental/c3d-1.4.0-Linux-gcc64.tar.gz/download \
     | tar -xz -C /opt/convert3d --strip-components 1
 
+# Micromamba + conda env
+FROM downloader AS micromamba
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+WORKDIR /
+RUN echo "2025.02.10"
+ARG MICROMAMBA_VERSION=2.5.0-1
+RUN curl -fsSL -o /tmp/micromamba.tar.bz2 \
+    "https://github.com/mamba-org/micromamba-releases/releases/download/${MICROMAMBA_VERSION}/micromamba-linux-64.tar.bz2" && \
+    tar -xvjf /tmp/micromamba.tar.bz2 -C / bin/micromamba && \
+    rm /tmp/micromamba.tar.bz2
+
+ENV MAMBA_ROOT_PREFIX="/opt/conda"
+COPY docker/env.yml /tmp/env.yml
+WORKDIR /tmp
+RUN micromamba create -y -f /tmp/env.yml && \
+    micromamba clean -y -a
+
+ENV PATH="/opt/conda/envs/aslprep/bin:$PATH" \
+    UV_USE_IO_URING=0
+RUN npm install -g svgo@^3.2.0 && \
+    rm -r ~/.npm
+
+RUN curl -fsSL https://deno.land/install.sh | sh && \
+    export DENO_INSTALL="/root/.deno" && \
+    export PATH="$DENO_INSTALL/bin:$PATH" && \
+    deno install -Agf -n bids-validator jsr:@bids/validator@1.15.0
+
 #
-# Base stage: minimal runtime (no Python/Conda; Python stack comes from Pixi in main Dockerfile)
+# Base stage: runtime environment without the aslprep package
 #
 FROM ${BASE_IMAGE} AS base
 
@@ -188,9 +218,26 @@ WORKDIR /home/aslprep
 ENV HOME="/home/aslprep" \
     LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
 
+COPY --from=micromamba /bin/micromamba /bin/micromamba
+COPY --from=micromamba /opt/conda/envs/aslprep /opt/conda/envs/aslprep
+
+ENV MAMBA_ROOT_PREFIX="/opt/conda"
+RUN micromamba shell init -s bash && \
+    echo "micromamba activate aslprep" >> $HOME/.bashrc
+ENV PATH="/opt/conda/envs/aslprep/bin:$PATH" \
+    CPATH="/opt/conda/envs/aslprep/include:$CPATH" \
+    LD_LIBRARY_PATH="/opt/conda/envs/aslprep/lib:$LD_LIBRARY_PATH"
+
+COPY scripts/fetch_templates.py fetch_templates.py
+RUN python fetch_templates.py && \
+    rm fetch_templates.py && \
+    find $HOME/.cache/templateflow -type d -exec chmod go=u {} + && \
+    find $HOME/.cache/templateflow -type f -exec chmod go=u {} +
+
 ENV LANG="C.UTF-8" \
     LC_ALL="C.UTF-8" \
     PYTHONNOUSERSITE=1 \
+    FSLDIR="/opt/conda/envs/aslprep" \
     FSLOUTPUTTYPE="NIFTI_GZ" \
     FSLMULTIFILEQUIT="TRUE" \
     FSLLOCKDIR="" \
@@ -205,7 +252,8 @@ RUN curl -L -H "Accept: application/octet-stream" https://api.github.com/repos/e
     && chmod +x /usr/local/bin/msm
 
 RUN find $HOME -type d -exec chmod go=u {} + && \
-    find $HOME -type f -exec chmod go=u {} +
+    find $HOME -type f -exec chmod go=u {} + && \
+    rm -rf $HOME/.npm $HOME/.conda $HOME/.empty
 
 ENV IS_DOCKER_8395080871=1
 

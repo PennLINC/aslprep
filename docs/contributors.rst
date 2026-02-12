@@ -61,7 +61,7 @@ image yourself.
    .. code-block:: bash
 
       docker run \
-         -v /path/to/local/aslprep:/app/.pixi/envs/aslprep/lib/python3.12/site-packages/aslprep \
+         -v /path/to/local/aslprep:/opt/conda/envs/aslprep/lib/python3.12/site-packages/aslprep \
          pennlinc/aslprep:unstable \
          ...  # see the usage documentation for info on what else to include in this command
 
@@ -91,11 +91,10 @@ If you think *ASLPrep* needs to use a library (Python or not) that is not instal
 image already, then you will need to build a new Docker image to test out your proposed changes.
 
 *ASLPrep*'s Docker image is built from a self-contained multi-stage ``Dockerfile`` in this
-repository. The Python and Conda stack (FSL, ANTs, connectome-workbench, etc.) is defined by
-**Pixi** in ``pyproject.toml`` (``[tool.pixi.dependencies]`` and related sections) and ``pixi.lock``;
-system-level tools (FreeSurfer, AFNI, Workbench, C3d, AtlasPack) are in ``Dockerfile.base``.
-To add or modify a Conda/Python dependency, edit ``pyproject.toml``, regenerate ``pixi.lock`` (on
-Linux run ``pixi lock``, or run ``./.maint/pixi_lock_in_docker.sh``), then build the image locally::
+repository. Non-Python dependencies (FSL, ANTs, FreeSurfer, AFNI, etc.) are defined in
+``docker/env.yml`` (Conda) and in the ``Dockerfile`` stages themselves.
+To add or modify a non-Python dependency, edit ``docker/env.yml`` or the appropriate stage in the
+``Dockerfile``, then build the image locally to verify the change::
 
   docker build -t pennlinc/aslprep:dev .
 

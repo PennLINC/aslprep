@@ -118,68 +118,6 @@ source = "vcs"
 version-file = "aslprep/_version.py"
 
 #
-# Pixi (conda + PyPI) - used for Docker and optional local env
-#
-
-[tool.pixi.workspace]
-channels = ["https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public", "conda-forge"]
-platforms = ["linux-64"]
-
-[tool.pixi.activation.env]
-FSLDIR = "$CONDA_PREFIX"
-
-[tool.pixi.environments]
-default = { features = ["editable"], solve-group = "default" }
-test = { features = ["editable", "test"], solve-group = "default" }
-aslprep = { features = ["production", "container"], solve-group = "production" }
-
-[tool.pixi.feature.editable.pypi-dependencies]
-aslprep = { path = ".", editable = true }
-[tool.pixi.feature.production.pypi-dependencies]
-aslprep = { path = ".", editable = false }
-
-[tool.pixi.tasks]
-
-[tool.pixi.pypi-options.dependency-overrides]
-numpy = ">=2.2"
-
-[tool.pixi.dependencies]
-python = "3.12.*"
-nodejs = "20.*"
-mkl = "2024.2.2.*"
-mkl-service = "2.4.2.*"
-numpy = "2.2.*"
-scipy = "1.15.*"
-matplotlib = "3.10.*"
-pandas = "2.2.*"
-h5py = "3.13.*"
-ants = "2.6.*"
-connectome-workbench-cli = { version = "2.0.*", build = "*qt6*" }
-fsl-basil = "v4.0.*"
-fsl-bet2 = "2111.8.*"
-fsl-flirt = "2111.4.*"
-fsl-fabber_core = "4.0.*"
-fsl-fabber_models_asl = "v2.0.*"
-fsl-fast4 = "2111.3.*"
-fsl-fugue = "2201.5.*"
-fsl-mcflirt = "2111.0.*"
-fsl-miscmaths = "2412.4.*"
-fsl-oxford_asl = "v4.0.*"
-fsl-topup = "2203.5.*"
-graphviz = "12.2.*"
-pandoc = "3.7.*"
-templateflow = "*"
-tensorflow = "2.19.*"
-pytorch = "2.8.*"
-
-[tool.pixi.feature.container.dependencies]
-git = "*"
-
-[tool.pixi.feature.container.pypi-dependencies]
-git-annex = ">=10.20250721"
-surfa = "*"
-
-#
 # Developer tool configurations
 #
 
