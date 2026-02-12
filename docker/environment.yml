@@ -23,6 +23,8 @@ dependencies:
   - pandoc=3.7
   # Workflow dependencies: ANTs
   - ants=2.6
+  # Connectome Workbench (CLI; matches fMRIPrep's connectome-workbench-cli 2.0.*)
+  - connectome-workbench-cli=2.0
   # Workflow dependencies: FSL (versions pinned in 6.0.7.7)
   - fsl-basil=v4.0.4
   - fsl-bet2=2111.8

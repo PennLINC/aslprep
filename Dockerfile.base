@@ -1,4 +1,6 @@
-# ASLPrep base image: runtime environment without the aslprep package.
+# ASLPrep Docker Container Image distribution
+#
+# Base image: runtime environment without the aslprep package.
 # Built separately and referenced by the main Dockerfile (like fMRIPrep).
 #
 # MIT License
@@ -24,14 +26,23 @@
 # SOFTWARE.
 
 # Ubuntu 22.04 LTS - Jammy
-ARG BASE_IMAGE=ubuntu:jammy-20240125
+ARG BASE_IMAGE=ubuntu:jammy-20250730
+
+# External image for atlases
 FROM pennlinc/atlaspack:0.1.0 AS atlaspack
+
 #
 # Download stages
 #
 
+# Utilities for downloading packages
 FROM ${BASE_IMAGE} AS downloader
-RUN echo "2023.07.20"
+ENV DEBIAN_FRONTEND="noninteractive" \
+    LANG="en_US.UTF-8" \
+    LC_ALL="en_US.UTF-8"
+
+# Bump the date to refresh curl/certificates/etc
+RUN echo "2025.02.12"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
                     binutils \
@@ -42,17 +53,21 @@ RUN apt-get update && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # FreeSurfer 7.3.2 from official Ubuntu 22 tarball (same glibc as base; avoids Docker-image mismatch)
-FROM downloader AS freesurfer732
+FROM downloader AS freesurfer
 COPY docker/files/freesurfer7.3.2-exclude.txt /usr/local/etc/freesurfer7.3.2-exclude.txt
 RUN curl -sSL https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/7.3.2/freesurfer-linux-ubuntu22_amd64-7.3.2.tar.gz \
     | tar zxv --no-same-owner -C /opt --exclude-from=/usr/local/etc/freesurfer7.3.2-exclude.txt
 
-# FreeSurfer 7.4.1 image: only for mri_synthseg / mri_synthstrip and models (scripts are Python)
+# FreeSurfer 7.4.1: only mri_synthseg / mri_synthstrip and models (Python scripts)
 FROM freesurfer/freesurfer:7.4.1 AS freesurfer741
+
+# MSM HOCR (Nov 19, 2019 release)
+FROM downloader AS msm
+RUN curl -L -H "Accept: application/octet-stream" https://api.github.com/repos/ecr05/MSM_HOCR/releases/assets/16253707 -o /usr/local/bin/msm \
+    && chmod +x /usr/local/bin/msm
 
 # AFNI
 FROM downloader AS afni
-RUN echo "2023.07.20"
 RUN mkdir -p /opt/afni-latest \
     && curl -fsSL --retry 5 https://afni.nimh.nih.gov/pub/dist/tgz/linux_openmp_64.tgz \
     | tar -xz -C /opt/afni-latest --strip-components 1 \
@@ -72,29 +87,13 @@ RUN mkdir -p /opt/afni-latest \
         -name "3dZeropad" -or \
         -name "3dvolreg" \) -delete
 
-# Connectome Workbench 1.5.0
-FROM downloader AS workbench
-RUN mkdir /opt/workbench && \
-    curl -sSLO https://www.humanconnectome.org/storage/app/media/workbench/workbench-linux64-v1.5.0.zip && \
-    unzip workbench-linux64-v1.5.0.zip -d /opt && \
-    rm workbench-linux64-v1.5.0.zip && \
-    rm -rf /opt/workbench/libs_linux64_software_opengl /opt/workbench/plugins_linux64 && \
-    strip --remove-section=.note.ABI-tag /opt/workbench/libs_linux64/libQt5Core.so.5
-
-# Convert3d 1.4.0
-FROM downloader AS c3d
-RUN mkdir /opt/convert3d && \
-    curl -fsSL --retry 5 https://sourceforge.net/projects/c3d/files/c3d/Experimental/c3d-1.4.0-Linux-gcc64.tar.gz/download \
-    | tar -xz -C /opt/convert3d --strip-components 1
-
-# Micromamba + conda env
+# Micromamba + conda env (Python, FSL, ANTs, etc.)
 FROM downloader AS micromamba
 RUN apt-get update && \
     apt-get install -y --no-install-recommends build-essential && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /
-RUN echo "2025.02.10"
 ARG MICROMAMBA_VERSION=2.5.0-1
 RUN curl -fsSL -o /tmp/micromamba.tar.bz2 \
     "https://github.com/mamba-org/micromamba-releases/releases/download/${MICROMAMBA_VERSION}/micromamba-linux-64.tar.bz2" && \
@@ -118,14 +117,33 @@ RUN curl -fsSL https://deno.land/install.sh | sh && \
     deno install -Agf -n bids-validator jsr:@bids/validator@1.15.0
 
 #
-# Base stage: runtime environment without the aslprep package
+# Main stage
 #
 FROM ${BASE_IMAGE} AS base
 
+# Configure apt
 ENV DEBIAN_FRONTEND="noninteractive" \
     LANG="en_US.UTF-8" \
     LC_ALL="en_US.UTF-8"
 
+# Install from download stages
+COPY --link --from=freesurfer /opt/freesurfer /opt/freesurfer
+COPY --link --from=freesurfer741 /usr/local/freesurfer/python/scripts/mri_synthseg /opt/freesurfer/bin/mri_synthseg
+COPY --link --from=freesurfer741 /usr/local/freesurfer/python/scripts/mri_synthstrip /opt/freesurfer/bin/mri_synthstrip
+COPY --link --from=freesurfer741 /usr/local/freesurfer/models /opt/freesurfer/models
+COPY --link --from=msm /usr/local/bin/msm /usr/local/bin/msm
+COPY --link --from=afni /opt/afni-latest /opt/afni-latest
+RUN mkdir -p /AtlasPack
+COPY --link --from=atlaspack /AtlasPack/tpl-fsLR_*.dlabel.nii /AtlasPack/
+COPY --link --from=atlaspack /AtlasPack/tpl-MNI152NLin6Asym_*.nii.gz /AtlasPack/
+COPY --link --from=atlaspack /AtlasPack/atlas-4S*.tsv /AtlasPack/
+COPY --link --from=atlaspack /AtlasPack/*.json /AtlasPack/
+COPY --link --from=micromamba /bin/micromamba /bin/micromamba
+COPY --link --from=micromamba /opt/conda/envs/aslprep /opt/conda/envs/aslprep
+
+RUN chmod +x /opt/freesurfer/bin/mri_synthseg /opt/freesurfer/bin/mri_synthstrip
+
+# Baseline system packages (bc for FreeSurfer; libs for Workbench/FSL)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
                     bc \
@@ -133,12 +151,14 @@ RUN apt-get update && \
                     curl \
                     git \
                     gnupg \
-                    libopenblas-dev \
+                    libgomp1 \
+                    libopenblas0-openmp \
                     lsb-release \
                     netbase \
                     xvfb && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# PPAs and packages for FreeSurfer/Workbench (libpng12, libxp, netpbm, etc.)
 RUN GNUPGHOME=/tmp gpg --keyserver hkps://keyserver.ubuntu.com --no-default-keyring --keyring /usr/share/keyrings/linuxuprising.gpg --recv 0xEA8CACC073C3DB2A \
     && GNUPGHOME=/tmp gpg --keyserver hkps://keyserver.ubuntu.com --no-default-keyring --keyring /usr/share/keyrings/zeehio.gpg --recv 0xA1301338A3A48C4A \
     && echo "deb [signed-by=/usr/share/keyrings/linuxuprising.gpg] https://ppa.launchpadcontent.net/linuxuprising/libpng12/ubuntu jammy main" > /etc/apt/sources.list.d/linuxuprising.list \
@@ -151,7 +171,6 @@ RUN apt-get update -qq \
            libglib2.0-0 \
            libglu1-mesa-dev \
            libglw1-mesa \
-           libgomp1 \
            libjpeg62 \
            libpng12-0 \
            libxm4 \
@@ -159,40 +178,37 @@ RUN apt-get update -qq \
            netpbm \
            tcsh \
            xfonts-base \
-           xvfb \
     && curl -sSL --retry 5 -o /tmp/multiarch.deb http://archive.ubuntu.com/ubuntu/pool/main/g/glibc/multiarch-support_2.27-3ubuntu1.5_amd64.deb \
     && dpkg -i /tmp/multiarch.deb \
     && rm /tmp/multiarch.deb \
     && apt-get install -f \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
-    && gsl2_path="$(find / -name 'libgsl.so.19' || printf '')" \
-    && if [ -n "$gsl2_path" ]; then \
-         ln -sfv "$gsl2_path" "$(dirname $gsl2_path)/libgsl.so.0"; \
-    fi \
+    && gsl2_path="$(find / -name 'libgsl.so.19' 2>/dev/null || printf '')" \
+    && if [ -n "$gsl2_path" ]; then ln -sfv "$gsl2_path" "$(dirname "$gsl2_path")/libgsl.so.0"; fi \
     && ldconfig
 
-COPY --from=freesurfer732 /opt/freesurfer /opt/freesurfer
-COPY --from=freesurfer741 \
-  /usr/local/freesurfer/python/scripts/mri_synthseg  \
-  /opt/freesurfer/bin/mri_synthseg
-COPY --from=freesurfer741 \
-  /usr/local/freesurfer/models  \
-  /opt/freesurfer/models
-COPY --from=freesurfer741 \
-  /usr/local/freesurfer/python/scripts/mri_synthstrip  \
-  /opt/freesurfer/bin/mri_synthstrip
-RUN chmod +x /opt/freesurfer/bin/mri_synthseg /opt/freesurfer/bin/mri_synthstrip
+# User and working directory
+RUN useradd -m -s /bin/bash -G users aslprep
+WORKDIR /home/aslprep
+ENV HOME="/home/aslprep" \
+    LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
 
-COPY --from=afni /opt/afni-latest /opt/afni-latest
-COPY --from=workbench /opt/workbench /opt/workbench
-COPY --from=c3d /opt/convert3d/bin/c3d_affine_tool /usr/bin/c3d_affine_tool
+# Micromamba activation
+ENV MAMBA_ROOT_PREFIX="/opt/conda"
+RUN micromamba shell init -s bash && \
+    echo "micromamba activate aslprep" >> $HOME/.bashrc
+ENV PATH="/opt/conda/envs/aslprep/bin:$PATH" \
+    CPATH="/opt/conda/envs/aslprep/include:$CPATH" \
+    LD_LIBRARY_PATH="/opt/conda/envs/aslprep/lib:$LD_LIBRARY_PATH"
 
-RUN mkdir /AtlasPack
-COPY --from=atlaspack /AtlasPack/tpl-fsLR_*.dlabel.nii /AtlasPack/
-COPY --from=atlaspack /AtlasPack/tpl-MNI152NLin6Asym_*.nii.gz /AtlasPack/
-COPY --from=atlaspack /AtlasPack/atlas-4S*.tsv /AtlasPack/
-COPY --from=atlaspack /AtlasPack/*.json /AtlasPack/
+# Templateflow templates
+COPY scripts/fetch_templates.py fetch_templates.py
+RUN python fetch_templates.py && \
+    rm fetch_templates.py && \
+    find $HOME/.cache/templateflow -type d -exec chmod go=u {} + && \
+    find $HOME/.cache/templateflow -type f -exec chmod go=u {} +
 
+# FreeSurfer environment
 ENV OS="Linux" \
     FS_OVERRIDE=0 \
     FIX_VERTEX_AREA="" \
@@ -209,34 +225,12 @@ ENV PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
     MNI_PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
     PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/tktools:$MINC_BIN_DIR:$PATH"
 
+# AFNI
 ENV PATH="/opt/afni-latest:$PATH" \
     AFNI_IMSAVE_WARNINGS="NO" \
     AFNI_PLUGINPATH="/opt/afni-latest"
 
-ENV PATH="/opt/workbench/bin_linux64:$PATH" \
-    LD_LIBRARY_PATH="/opt/workbench/lib_linux64:$LD_LIBRARY_PATH"
-
-RUN useradd -m -s /bin/bash -G users aslprep
-WORKDIR /home/aslprep
-ENV HOME="/home/aslprep" \
-    LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
-
-COPY --from=micromamba /bin/micromamba /bin/micromamba
-COPY --from=micromamba /opt/conda/envs/aslprep /opt/conda/envs/aslprep
-
-ENV MAMBA_ROOT_PREFIX="/opt/conda"
-RUN micromamba shell init -s bash && \
-    echo "micromamba activate aslprep" >> $HOME/.bashrc
-ENV PATH="/opt/conda/envs/aslprep/bin:$PATH" \
-    CPATH="/opt/conda/envs/aslprep/include:$CPATH" \
-    LD_LIBRARY_PATH="/opt/conda/envs/aslprep/lib:$LD_LIBRARY_PATH"
-
-COPY scripts/fetch_templates.py fetch_templates.py
-RUN python fetch_templates.py && \
-    rm fetch_templates.py && \
-    find $HOME/.cache/templateflow -type d -exec chmod go=u {} + && \
-    find $HOME/.cache/templateflow -type f -exec chmod go=u {} +
-
+# FSL / runtime
 ENV LANG="C.UTF-8" \
     LC_ALL="C.UTF-8" \
     PYTHONNOUSERSITE=1 \
@@ -246,13 +240,9 @@ ENV LANG="C.UTF-8" \
     FSLLOCKDIR="" \
     FSLMACHINELIST="" \
     FSLREMOTECALL="" \
-    FSLGECUDAQ="cuda.q"
-
-ENV MKL_NUM_THREADS=1 \
+    FSLGECUDAQ="cuda.q" \
+    MKL_NUM_THREADS=1 \
     OMP_NUM_THREADS=1
-
-RUN curl -L -H "Accept: application/octet-stream" https://api.github.com/repos/ecr05/MSM_HOCR/releases/assets/16253707 -o /usr/local/bin/msm \
-    && chmod +x /usr/local/bin/msm
 
 RUN find $HOME -type d -exec chmod go=u {} + && \
     find $HOME -type f -exec chmod go=u {} + && \

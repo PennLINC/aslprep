@@ -555,11 +555,11 @@ jobs:
             if [[ -n "$DOCKERHUB_TOKEN" ]]; then
               docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
               docker push pennlinc/aslprep_build:latest
-              docker tag pennlinc/aslprep:latest pennlinc/aslprep:unstable
+              docker tag pennlinc/aslprep:unstable
               docker push pennlinc/aslprep:unstable
               if [[ -n "$CIRCLE_TAG" ]]; then
-                docker push pennlinc/aslprep:latest
                 docker tag pennlinc/aslprep:latest pennlinc/aslprep:$CIRCLE_TAG
+                docker push pennlinc/aslprep:latest
                 docker push pennlinc/aslprep:$CIRCLE_TAG
               fi
             fi
