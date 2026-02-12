@@ -33,11 +33,11 @@ Follow these steps before creating a new ASLPrep release. Run all commands from 
 
 ## 4. Base image (if applicable)
 
-- The main Docker image is built **FROM** ``pennlinc/aslprep_build:latest`` (see ``Dockerfile``).
-- The base image (replacing the former aslprep_build repository) is built from **Dockerfile.base** (runtime + conda env; no aslprep package) and tagged as ``pennlinc/aslprep_build:latest``.
-- **CircleCI** (job ``build_and_deploy``) builds both images on every run: first ``Dockerfile.base`` → ``pennlinc/aslprep_build:latest``, then **Dockerfile** → ``pennlinc/aslprep:latest``, then pushes both to Docker Hub (when ``DOCKERHUB_TOKEN`` is set). So changes to **docker/env.yml** or **Dockerfile.base** are picked up on the next deploy.
-- For local testing, run ``docker build -f Dockerfile.base -t pennlinc/aslprep_build:latest .`` then ``docker build -t pennlinc/aslprep:dev .``.
-- To use a different base tag (e.g. a version tag), set ``ARG BASE_IMAGE=pennlinc/aslprep_build:<tag>`` in **Dockerfile** and ensure that image exists.
+- The main Docker image is built **FROM** ``pennlinc/aslprep_build:0.0.20`` (see ``Dockerfile``). CI and the Dockerfile use this versioned tag so they use the current base (the ``latest`` tag may be stale on the registry).
+- The base image is built from **Dockerfile.base** (runtime + conda env; no aslprep package) and tagged as ``pennlinc/aslprep_build:latest`` and ``pennlinc/aslprep_build:0.0.20`` (or a newer version when released).
+- **CircleCI** (job ``build_and_deploy``) builds both images on every run: first ``Dockerfile.base`` → ``pennlinc/aslprep_build:latest``, then **Dockerfile** → ``pennlinc/aslprep:latest``, then pushes to Docker Hub (when ``DOCKERHUB_TOKEN`` is set). The base is pushed only as ``latest``; tests and the Dockerfile use the pinned ``0.0.20`` tag so CI is stable.
+- For local testing, run ``docker build -f Dockerfile.base -t pennlinc/aslprep_build:0.0.20 .`` then ``docker build -t pennlinc/aslprep:dev .``.
+- When releasing a new base image, bump the tag (e.g. to ``0.0.21``) in **Dockerfile** (``ARG BASE_IMAGE``), **.circleci/config.yml** (``.dockersetup`` image), and this section; then build and push that tag to the registry so CI and local builds use it.
 
 ## 5. Commit and push the release preparation
 
@@ -61,7 +61,7 @@ Follow these steps before creating a new ASLPrep release. Run all commands from 
   git push origin 0.7.6
   ```
 
-- Pushing the tag will trigger **CircleCI** ``build_and_deploy`` (on the configured branch): build base image (``pennlinc/aslprep_build:latest``), build main image (``pennlinc/aslprep``), and push both to Docker Hub when ``DOCKERHUB_TOKEN`` is set. Tags pushed: ``unstable`` (always), ``latest`` and ``<version>`` (when ``CIRCLE_TAG`` is set).
+- Pushing the tag will trigger **CircleCI** ``build_and_deploy`` (on the configured branch): build base image (``pennlinc/aslprep_build:latest``), build main image (``pennlinc/aslprep``), and push to Docker Hub when ``DOCKERHUB_TOKEN`` is set. Base is pushed as ``latest`` only. Tags pushed: ``unstable`` (always), ``latest`` and ``<version>`` (when ``CIRCLE_TAG`` is set).
 
 ---
 

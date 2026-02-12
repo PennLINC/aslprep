@@ -4,7 +4,7 @@ orbs:
 
 .dockersetup: &dockersetup
   docker:
-    - image: pennlinc/aslprep_build:latest
+    - image: pennlinc/aslprep_build:0.0.20
   working_directory: /src/aslprep
 
 runinstall: &runinstall
@@ -534,6 +534,7 @@ jobs:
             # 1) Build base image (Dockerfile.base → aslprep_build), then main image (Dockerfile)
             e=1 && for i in {1..5}; do
               docker build -f Dockerfile.base \
+                --cache-from=pennlinc/aslprep_build:0.0.20 \
                 --cache-from=pennlinc/aslprep_build:latest \
                 --rm=false \
                 -t pennlinc/aslprep_build:latest . \

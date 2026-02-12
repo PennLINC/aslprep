@@ -25,7 +25,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ARG BASE_IMAGE=pennlinc/aslprep_build:latest
+ARG BASE_IMAGE=pennlinc/aslprep_build:0.0.20
 FROM ${BASE_IMAGE}
 
 # Install aslprep

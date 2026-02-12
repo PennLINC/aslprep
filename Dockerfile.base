@@ -25,7 +25,6 @@
 
 # Ubuntu 22.04 LTS - Jammy
 ARG BASE_IMAGE=ubuntu:jammy-20240125
-FROM freesurfer/freesurfer:7.4.1 AS freesurfer
 FROM pennlinc/atlaspack:0.1.0 AS atlaspack
 #
 # Download stages
@@ -42,10 +41,14 @@ RUN apt-get update && \
                     unzip && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# FreeSurfer 7.3.2 for everything but the synths
-FROM freesurfer/freesurfer:7.3.2 AS freesurfer732
+# FreeSurfer 7.3.2 from official Ubuntu 22 tarball (same glibc as base; avoids Docker-image mismatch)
+FROM downloader AS freesurfer732
 COPY docker/files/freesurfer7.3.2-exclude.txt /usr/local/etc/freesurfer7.3.2-exclude.txt
-RUN cd /usr/local && while read -r line; do rm -rf $line; done < /usr/local/etc/freesurfer7.3.2-exclude.txt
+RUN curl -sSL https://surfer.nmr.mgh.harvard.edu/pub/dist/freesurfer/7.3.2/freesurfer-linux-ubuntu22_amd64-7.3.2.tar.gz \
+    | tar zxv --no-same-owner -C /opt --exclude-from=/usr/local/etc/freesurfer7.3.2-exclude.txt
+
+# FreeSurfer 7.4.1 image: only for mri_synthseg / mri_synthstrip and models (scripts are Python)
+FROM freesurfer/freesurfer:7.4.1 AS freesurfer741
 
 # AFNI
 FROM downloader AS afni
@@ -168,14 +171,14 @@ RUN apt-get update -qq \
     fi \
     && ldconfig
 
-COPY --from=freesurfer732 /usr/local/freesurfer /opt/freesurfer
-COPY --from=freesurfer \
+COPY --from=freesurfer732 /opt/freesurfer /opt/freesurfer
+COPY --from=freesurfer741 \
   /usr/local/freesurfer/python/scripts/mri_synthseg  \
   /opt/freesurfer/bin/mri_synthseg
-COPY --from=freesurfer \
+COPY --from=freesurfer741 \
   /usr/local/freesurfer/models  \
   /opt/freesurfer/models
-COPY --from=freesurfer \
+COPY --from=freesurfer741 \
   /usr/local/freesurfer/python/scripts/mri_synthstrip  \
   /opt/freesurfer/bin/mri_synthstrip
 RUN chmod +x /opt/freesurfer/bin/mri_synthseg /opt/freesurfer/bin/mri_synthstrip

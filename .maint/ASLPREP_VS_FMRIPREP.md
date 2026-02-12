@@ -29,7 +29,7 @@ This document summarizes how ASLPrep’s packaging and maintenance compare to fM
 | **Docker registry** | **ghcr.io** (e.g. `ghcr.io/nipreps/fmriprep`). | **Docker Hub** (`pennlinc/aslprep`, `pennlinc/aslprep_build`). |
 | **Docker wrapper** | **fmriprep-docker** package under `wrapper/` for a CLI that runs `docker run` with the right mounts. | **None**; users run `docker run` (or equivalent) directly. |
 | **Changelog for releases** | Changelog file in repo + release notes from it / labels. | **GitHub release notes only** (labels + “Generate release notes”); no changelog update step in release instructions. |
-| **Base image tag** | Date-based (e.g. `ghcr.io/nipreps/fmriprep-base:20251006`), updated when the base changes. | **`pennlinc/aslprep_build:latest`**; base is rebuilt and pushed on every CircleCI deploy. |
+| **Base image tag** | Date-based (e.g. `ghcr.io/nipreps/fmriprep-base:20251006`), updated when the base changes. | **`pennlinc/aslprep_build:0.0.20`** (versioned; CI and Dockerfile use this; `latest` may be stale). Base is rebuilt and pushed on every CircleCI deploy. |
 
 ---
 
