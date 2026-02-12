@@ -102,9 +102,9 @@ RUN curl -fsSL -o /tmp/micromamba.tar.bz2 \
     rm /tmp/micromamba.tar.bz2
 
 ENV MAMBA_ROOT_PREFIX="/opt/conda"
-COPY docker/env.yml /tmp/env.yml
+COPY docker/environment.yml /tmp/environment.yml
 WORKDIR /tmp
-RUN micromamba create -y -f /tmp/env.yml && \
+RUN micromamba create -y -f /tmp/environment.yml && \
     micromamba clean -y -a
 
 ENV PATH="/opt/conda/envs/aslprep/bin:$PATH" \
