@@ -11,8 +11,11 @@ updates:
     assignees: ["tsalo"]
     schedule:
       interval: "weekly"
-  - package-ecosystem: pip
+  # Pip: [project].dependencies and optional-dependencies in pyproject.toml (PyPI).
+  # [tool.pixi.dependencies] (Conda/FSL/ANTs) are not updated by Dependabot; update those manually and run pixi lock.
+  - package-ecosystem: "pip"
     directory: "/"
     labels: ["maintenance", "ignore-for-release"]
+    assignees: ["tsalo"]
     schedule:
-      interval: weekly
+      interval: "monthly"
