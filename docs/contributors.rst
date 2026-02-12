@@ -93,9 +93,11 @@ image already, then you will need to build a new Docker image to test out your p
 *ASLPrep*'s Docker image is built from a self-contained multi-stage ``Dockerfile`` in this
 repository. Non-Python dependencies (FSL, ANTs, FreeSurfer, AFNI, etc.) are defined in
 ``docker/env.yml`` (Conda) and in the ``Dockerfile`` stages themselves.
-To add or modify a non-Python dependency, edit ``docker/env.yml`` or the appropriate stage in the
-``Dockerfile``, then build the image locally to verify the change::
+To add or modify a non-Python dependency, edit ``docker/env.yml`` or the appropriate stage in
+``Dockerfile.base`` or the main ``Dockerfile``, then build locally to verify. If you changed
+``docker/env.yml`` or ``Dockerfile.base``, build the base image first (see ``.maint/INSTRUCTIONS.md``)::
 
+  docker build -f Dockerfile.base -t pennlinc/aslprep_build:latest .
   docker build -t pennlinc/aslprep:dev .
 
 For Python dependencies, update ``pyproject.toml`` and rebuild the Docker image as above.
