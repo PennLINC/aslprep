@@ -1,30 +1,105 @@
-FROM pennlinc/aslprep_build:0.0.20
+# ASLPrep Docker Container Image distribution
+#
+# Multi-stage: build Pixi env, pre-fetch templates, copy into minimal base (like fMRIPrep).
+# Base image is built from Dockerfile.base (no Python/Conda).
+#
+# MIT License
+#
+# Copyright (c) The NiPreps Developers
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
 
-# Install aslprep
-COPY . /src/aslprep
+ARG BASE_IMAGE=pennlinc/aslprep-base:latest
 
-ARG VERSION=0.0.1
+#
+# Build pixi environment (Python, FSL, ANTs, Workbench, Node, etc.)
+#
+FROM ghcr.io/prefix-dev/pixi:0.53.0 AS build
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+                    ca-certificates \
+                    git && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN pixi config set --global run-post-link-scripts insecure
 
-# Force static versioning within container
-RUN echo "${VERSION}" > /src/aslprep/aslprep/VERSION && \
-    echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in && \
-    pip install --no-cache-dir "/src/aslprep[doc,maint,test]"
+RUN mkdir /app
+COPY pixi.lock pyproject.toml /app
+WORKDIR /app
+RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e aslprep -e test --frozen --skip aslprep
+RUN --mount=type=cache,target=/root/.npm pixi run --as-is -e aslprep npm install -g svgo@^3.2.0 bids-validator@1.14.10
+RUN pixi shell-hook -e aslprep --as-is | grep -v PATH > /shell-hook.sh
+RUN pixi shell-hook -e test --as-is | grep -v PATH > /test-shell-hook.sh
 
-RUN find $HOME -type d -exec chmod go=u {} + && \
-    find $HOME -type f -exec chmod go=u {} + && \
-    rm -rf $HOME/.npm $HOME/.conda $HOME/.empty
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e aslprep -e test --frozen
 
-RUN ldconfig
-WORKDIR /tmp/
+#
+# Pre-fetch templates
+#
+FROM ghcr.io/astral-sh/uv:python3.12-alpine AS templates
+ENV TEMPLATEFLOW_HOME="/templateflow"
+RUN uv pip install --system templateflow
+COPY scripts/fetch_templates.py fetch_templates.py
+RUN python fetch_templates.py
 
-ENTRYPOINT ["/opt/conda/envs/aslprep/bin/aslprep"]
+#
+# Main stage (base image already has aslprep user, HOME, WORKDIR)
+#
+FROM ${BASE_IMAGE} AS base
+
+COPY --link --from=templates /templateflow /home/aslprep/.cache/templateflow
+
+RUN chmod -R go=u $HOME
+
+ENV MKL_NUM_THREADS=1 \
+    OMP_NUM_THREADS=1
+
+WORKDIR /tmp
+
+FROM base AS test
+
+COPY --link --from=build /app/.pixi/envs/test /app/.pixi/envs/test
+COPY --link --from=build /test-shell-hook.sh /shell-hook.sh
+RUN cat /shell-hook.sh >> $HOME/.bashrc
+ENV PATH="/app/.pixi/envs/test/bin:$PATH"
+
+ENV FSLDIR="/app/.pixi/envs/test"
+
+FROM base AS aslprep
+
+COPY --link --from=build /app/.pixi/envs/aslprep /app/.pixi/envs/aslprep
+COPY --link --from=build /shell-hook.sh /shell-hook.sh
+RUN cat /shell-hook.sh >> $HOME/.bashrc
+ENV PATH="/app/.pixi/envs/aslprep/bin:$PATH"
+
+ENV FSLDIR="/app/.pixi/envs/aslprep"
+
+ENV IS_DOCKER_8395080871=1
+
+ENTRYPOINT ["/app/.pixi/envs/aslprep/bin/aslprep"]
 
 ARG BUILD_DATE
 ARG VCS_REF
 ARG VERSION
 LABEL org.label-schema.build-date=$BUILD_DATE \
-      org.label-schema.name="aslprep" \
-      org.label-schema.description="ASLPrep: A Robust Preprocessing Pipeline for ASL Data" \
+      org.label-schema.name="ASLPrep" \
+      org.label-schema.description="ASLPrep - A Robust Preprocessing Pipeline for ASL Data" \
       org.label-schema.url="https://aslprep.readthedocs.io/" \
       org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vcs-url="https://github.com/PennLINC/aslprep" \

@@ -1,0 +1,219 @@
+# ASLPrep base image: runtime environment without the aslprep package.
+# Built separately and referenced by the main Dockerfile (like fMRIPrep).
+#
+# MIT License
+#
+# Copyright (c) The NiPreps Developers
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# Ubuntu 22.04 LTS - Jammy
+ARG BASE_IMAGE=ubuntu:jammy-20240125
+FROM freesurfer/freesurfer:7.4.1 AS freesurfer
+FROM pennlinc/atlaspack:0.1.0 AS atlaspack
+#
+# Download stages
+#
+
+FROM ${BASE_IMAGE} AS downloader
+RUN echo "2023.07.20"
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+                    binutils \
+                    bzip2 \
+                    ca-certificates \
+                    curl \
+                    unzip && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# FreeSurfer 7.3.2 for everything but the synths
+FROM freesurfer/freesurfer:7.3.2 AS freesurfer732
+COPY docker/files/freesurfer7.3.2-exclude.txt /usr/local/etc/freesurfer7.3.2-exclude.txt
+RUN cd /usr/local && while read -r line; do rm -rf $line; done < /usr/local/etc/freesurfer7.3.2-exclude.txt
+
+# AFNI
+FROM downloader AS afni
+RUN echo "2023.07.20"
+RUN mkdir -p /opt/afni-latest \
+    && curl -fsSL --retry 5 https://afni.nimh.nih.gov/pub/dist/tgz/linux_openmp_64.tgz \
+    | tar -xz -C /opt/afni-latest --strip-components 1 \
+    --exclude "linux_openmp_64/*.gz" \
+    --exclude "linux_openmp_64/funstuff" \
+    --exclude "linux_openmp_64/shiny" \
+    --exclude "linux_openmp_64/afnipy" \
+    --exclude "linux_openmp_64/lib/RetroTS" \
+    --exclude "linux_openmp_64/lib_RetroTS" \
+    --exclude "linux_openmp_64/meica.libs" \
+    && find /opt/afni-latest -type f -not \( \
+        -name "3dTshift" -or \
+        -name "3dUnifize" -or \
+        -name "3dAutomask" -or \
+        -name "3dAutobox" -or \
+        -name "3dresample" -or \
+        -name "3dZeropad" -or \
+        -name "3dvolreg" \) -delete
+
+# Connectome Workbench 1.5.0
+FROM downloader AS workbench
+RUN mkdir /opt/workbench && \
+    curl -sSLO https://www.humanconnectome.org/storage/app/media/workbench/workbench-linux64-v1.5.0.zip && \
+    unzip workbench-linux64-v1.5.0.zip -d /opt && \
+    rm workbench-linux64-v1.5.0.zip && \
+    rm -rf /opt/workbench/libs_linux64_software_opengl /opt/workbench/plugins_linux64 && \
+    strip --remove-section=.note.ABI-tag /opt/workbench/libs_linux64/libQt5Core.so.5
+
+# Convert3d 1.4.0
+FROM downloader AS c3d
+RUN mkdir /opt/convert3d && \
+    curl -fsSL --retry 5 https://sourceforge.net/projects/c3d/files/c3d/Experimental/c3d-1.4.0-Linux-gcc64.tar.gz/download \
+    | tar -xz -C /opt/convert3d --strip-components 1
+
+#
+# Base stage: minimal runtime (no Python/Conda; Python stack comes from Pixi in main Dockerfile)
+#
+FROM ${BASE_IMAGE} AS base
+
+ENV DEBIAN_FRONTEND="noninteractive" \
+    LANG="en_US.UTF-8" \
+    LC_ALL="en_US.UTF-8"
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+                    bc \
+                    ca-certificates \
+                    curl \
+                    git \
+                    gnupg \
+                    libopenblas-dev \
+                    lsb-release \
+                    netbase \
+                    xvfb && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN GNUPGHOME=/tmp gpg --keyserver hkps://keyserver.ubuntu.com --no-default-keyring --keyring /usr/share/keyrings/linuxuprising.gpg --recv 0xEA8CACC073C3DB2A \
+    && GNUPGHOME=/tmp gpg --keyserver hkps://keyserver.ubuntu.com --no-default-keyring --keyring /usr/share/keyrings/zeehio.gpg --recv 0xA1301338A3A48C4A \
+    && echo "deb [signed-by=/usr/share/keyrings/linuxuprising.gpg] https://ppa.launchpadcontent.net/linuxuprising/libpng12/ubuntu jammy main" > /etc/apt/sources.list.d/linuxuprising.list \
+    && echo "deb [signed-by=/usr/share/keyrings/zeehio.gpg] https://ppa.launchpadcontent.net/zeehio/libxp/ubuntu jammy main" > /etc/apt/sources.list.d/zeehio.list
+
+RUN apt-get update -qq \
+    && apt-get install -y -q --no-install-recommends \
+           ed \
+           gsl-bin \
+           libglib2.0-0 \
+           libglu1-mesa-dev \
+           libglw1-mesa \
+           libgomp1 \
+           libjpeg62 \
+           libpng12-0 \
+           libxm4 \
+           libxp6 \
+           netpbm \
+           tcsh \
+           xfonts-base \
+           xvfb \
+    && curl -sSL --retry 5 -o /tmp/multiarch.deb http://archive.ubuntu.com/ubuntu/pool/main/g/glibc/multiarch-support_2.27-3ubuntu1.5_amd64.deb \
+    && dpkg -i /tmp/multiarch.deb \
+    && rm /tmp/multiarch.deb \
+    && apt-get install -f \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
+    && gsl2_path="$(find / -name 'libgsl.so.19' || printf '')" \
+    && if [ -n "$gsl2_path" ]; then \
+         ln -sfv "$gsl2_path" "$(dirname $gsl2_path)/libgsl.so.0"; \
+    fi \
+    && ldconfig
+
+COPY --from=freesurfer732 /usr/local/freesurfer /opt/freesurfer
+COPY --from=freesurfer \
+  /usr/local/freesurfer/python/scripts/mri_synthseg  \
+  /opt/freesurfer/bin/mri_synthseg
+COPY --from=freesurfer \
+  /usr/local/freesurfer/models  \
+  /opt/freesurfer/models
+COPY --from=freesurfer \
+  /usr/local/freesurfer/python/scripts/mri_synthstrip  \
+  /opt/freesurfer/bin/mri_synthstrip
+RUN chmod +x /opt/freesurfer/bin/mri_synthseg /opt/freesurfer/bin/mri_synthstrip
+
+COPY --from=afni /opt/afni-latest /opt/afni-latest
+COPY --from=workbench /opt/workbench /opt/workbench
+COPY --from=c3d /opt/convert3d/bin/c3d_affine_tool /usr/bin/c3d_affine_tool
+
+RUN mkdir /AtlasPack
+COPY --from=atlaspack /AtlasPack/tpl-fsLR_*.dlabel.nii /AtlasPack/
+COPY --from=atlaspack /AtlasPack/tpl-MNI152NLin6Asym_*.nii.gz /AtlasPack/
+COPY --from=atlaspack /AtlasPack/atlas-4S*.tsv /AtlasPack/
+COPY --from=atlaspack /AtlasPack/*.json /AtlasPack/
+
+ENV OS="Linux" \
+    FS_OVERRIDE=0 \
+    FIX_VERTEX_AREA="" \
+    FSF_OUTPUT_FORMAT="nii.gz" \
+    FREESURFER_HOME="/opt/freesurfer"
+ENV SUBJECTS_DIR="$FREESURFER_HOME/subjects" \
+    FUNCTIONALS_DIR="$FREESURFER_HOME/sessions" \
+    MNI_DIR="$FREESURFER_HOME/mni" \
+    LOCAL_DIR="$FREESURFER_HOME/local" \
+    MINC_BIN_DIR="$FREESURFER_HOME/mni/bin" \
+    MINC_LIB_DIR="$FREESURFER_HOME/mni/lib" \
+    MNI_DATAPATH="$FREESURFER_HOME/mni/data"
+ENV PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
+    MNI_PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
+    PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/tktools:$MINC_BIN_DIR:$PATH"
+
+ENV PATH="/opt/afni-latest:$PATH" \
+    AFNI_IMSAVE_WARNINGS="NO" \
+    AFNI_PLUGINPATH="/opt/afni-latest"
+
+ENV PATH="/opt/workbench/bin_linux64:$PATH" \
+    LD_LIBRARY_PATH="/opt/workbench/lib_linux64:$LD_LIBRARY_PATH"
+
+RUN useradd -m -s /bin/bash -G users aslprep
+WORKDIR /home/aslprep
+ENV HOME="/home/aslprep" \
+    LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+
+ENV LANG="C.UTF-8" \
+    LC_ALL="C.UTF-8" \
+    PYTHONNOUSERSITE=1 \
+    FSLOUTPUTTYPE="NIFTI_GZ" \
+    FSLMULTIFILEQUIT="TRUE" \
+    FSLLOCKDIR="" \
+    FSLMACHINELIST="" \
+    FSLREMOTECALL="" \
+    FSLGECUDAQ="cuda.q"
+
+ENV MKL_NUM_THREADS=1 \
+    OMP_NUM_THREADS=1
+
+RUN curl -L -H "Accept: application/octet-stream" https://api.github.com/repos/ecr05/MSM_HOCR/releases/assets/16253707 -o /usr/local/bin/msm \
+    && chmod +x /usr/local/bin/msm
+
+RUN find $HOME -type d -exec chmod go=u {} + && \
+    find $HOME -type f -exec chmod go=u {} +
+
+ENV IS_DOCKER_8395080871=1
+
+RUN ldconfig
+WORKDIR /tmp
+
+LABEL org.label-schema.name="aslprep-base" \
+      org.label-schema.description="ASLPrep base image - runtime environment without the aslprep package" \
+      org.label-schema.url="https://aslprep.readthedocs.io/" \
+      org.label-schema.vcs-url="https://github.com/PennLINC/aslprep" \
+      org.label-schema.schema-version="1.0"

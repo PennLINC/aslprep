@@ -510,28 +510,41 @@ jobs:
       TZ: "/usr/share/zoneinfo/America/New_York"
     docker:
       - image: cimg/base:2020.09
-    working_directory: /tmp/src/aslprep_build
     steps:
       - checkout
       - setup_remote_docker:
          version: docker24
          docker_layer_caching: true
       - run:
-          name: Build Docker image
-          no_output_timeout: 3h
+          name: Build Docker images (base then main)
+          no_output_timeout: 5h
           command: |
-            # Get version, update files.
-            THISVERSION=$(python3 -c "from aslprep import __version__; print(__version__)")
-            sed -i "s/title = {aslprep}/title = {aslprep ${CIRCLE_TAG:-$THISVERSION}}/" aslprep/data/boilerplate.bib
-            # Build docker image
+            # Version for build-arg and boilerplate (tag or from _version.py)
+            if [[ -n "$CIRCLE_TAG" ]]; then
+              THISVERSION="$CIRCLE_TAG"
+            else
+              THISVERSION=$(grep "version = " aslprep/_version.py 2>/dev/null | sed "s/.*version = '\\([^']*\\)'.*/\1/" | head -1)
+              THISVERSION="${THISVERSION:-0.0.1}"
+            fi
+            sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
+
+            BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            VCS_REF=$(git rev-parse --short HEAD)
+
+            # 1) Build base image (Dockerfile.base), then main image (Dockerfile)
             e=1 && for i in {1..5}; do
-              docker build \
-                --cache-from=pennlinc/aslprep \
+              docker build -f Dockerfile.base \
+                --cache-from=pennlinc/aslprep-base:latest \
+                --rm=false \
+                -t pennlinc/aslprep-base:latest . \
+              && docker build \
+                --cache-from=pennlinc/aslprep-base:latest \
+                --cache-from=pennlinc/aslprep:latest \
                 --rm=false \
                 -t pennlinc/aslprep:latest \
-                --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-                --build-arg VCS_REF=`git rev-parse --short HEAD` \
-                --build-arg VERSION="${CIRCLE_TAG:-$THISVERSION}" . \
+                --build-arg BUILD_DATE="$BUILD_DATE" \
+                --build-arg VCS_REF="$VCS_REF" \
+                --build-arg VERSION="$THISVERSION" . \
               && e=0 && break || sleep 15
             done && [ "$e" -eq "0" ]
       - run:
@@ -540,11 +553,12 @@ jobs:
           command: |
             if [[ -n "$DOCKERHUB_TOKEN" ]]; then
               docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
-              docker tag pennlinc/aslprep pennlinc/aslprep:unstable
+              docker push pennlinc/aslprep-base:latest
+              docker tag pennlinc/aslprep:latest pennlinc/aslprep:unstable
               docker push pennlinc/aslprep:unstable
               if [[ -n "$CIRCLE_TAG" ]]; then
                 docker push pennlinc/aslprep:latest
-                docker tag pennlinc/aslprep pennlinc/aslprep:$CIRCLE_TAG
+                docker tag pennlinc/aslprep:latest pennlinc/aslprep:$CIRCLE_TAG
                 docker push pennlinc/aslprep:$CIRCLE_TAG
               fi
             fi

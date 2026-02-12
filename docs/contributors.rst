@@ -61,7 +61,7 @@ image yourself.
    .. code-block:: bash
 
       docker run \
-         -v /path/to/local/aslprep:/usr/local/miniconda/lib/python3.8/site-packages/aslprep \
+         -v /path/to/local/aslprep:/app/.pixi/envs/aslprep/lib/python3.12/site-packages/aslprep \
          pennlinc/aslprep:unstable \
          ...  # see the usage documentation for info on what else to include in this command
 
@@ -90,18 +90,14 @@ Adding or modifying dependencies
 If you think *ASLPrep* needs to use a library (Python or not) that is not installed in the Docker
 image already, then you will need to build a new Docker image to test out your proposed changes.
 
-*ASLPrep* uses a "base Docker image" defined in https://github.com/PennLINC/aslprep_build.
-We try to define the majority of non-Python requirements in that Docker image.
-If you want to add or modify a non-Python dependency, then you will need to clone that repository
-modify its Dockerfile, and build its Docker image to ensure that the new dependency installs
-correctly.
-Once that's done, you can open a pull request to the ``aslprep_build`` repository with your change.
+*ASLPrep*'s Docker image is built from a self-contained multi-stage ``Dockerfile`` in this
+repository. The Python and Conda stack (FSL, ANTs, connectome-workbench, etc.) is defined by
+**Pixi** in ``pyproject.toml`` (``[tool.pixi.dependencies]`` and related sections) and ``pixi.lock``;
+system-level tools (FreeSurfer, AFNI, Workbench, C3d, AtlasPack) are in ``Dockerfile.base``.
+To add or modify a Conda/Python dependency, edit ``pyproject.toml``, regenerate ``pixi.lock`` (on
+Linux run ``pixi lock``, or run ``./.maint/pixi_lock_in_docker.sh``), then build the image locally::
 
-.. tip::
+  docker build -t pennlinc/aslprep:dev .
 
-   Given that this method requires contributing to two repositories, it's a good idea to link to
-   the associated *ASLPrep* issue in your ``aslprep_build`` PR.
-
-For Python dependencies, you can update the requirements defined in *ASLPrep*'s ``pyproject.toml``
-and rebuild the *ASLPrep* Docker image locally to test out your change.
-Once your change is working, you can open a pull request to the *ASLPrep* repo.
+For Python dependencies, update ``pyproject.toml`` and rebuild the Docker image as above.
+Once your change is working, open a pull request to the *ASLPrep* repo.
