@@ -442,7 +442,9 @@ class ComputeCBF(SimpleInterface):
         # Load the M0 map and average over time, in case there's more than one map in the file.
         m0data = masker.transform(m0_file)
         # TODO: Scale each M0 volume by its TR separately instead of averaging.
-        m0data = np.mean(m0data, axis=0)
+        if m0data.ndim != 1:
+            m0data = np.mean(m0data, axis=0)
+
         if isinstance(self.inputs.m0tr, Number) and self.inputs.m0tr < 5:
             config.loggers.interface.warning(
                 f'M0 TR is less than 5 seconds ({self.inputs.m0tr}), '

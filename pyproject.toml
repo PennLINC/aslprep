@@ -27,7 +27,7 @@ dependencies = [
     "looseversion",
     "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
     "nibabel",
-    "nilearn ~= 0.11.0",
+    "nilearn ~= 0.13.0",
     "nipype >= 1.8.5",
     "nireports >= 25.1.0",
     "nitransforms >= 21.0.0",
@@ -41,6 +41,7 @@ dependencies = [
     "sdcflows ~= 2.15.0",
     "sentry-sdk",
     "smriprep ~= 0.19.1",
+    "tedana ~= 25.1.1a1",  # to satisfy fmriprep dependencies
     "templateflow",
     "toml",
     "transforms3d ~= 0.4",
