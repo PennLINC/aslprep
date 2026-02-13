@@ -21,7 +21,7 @@ from aslprep.interfaces.cbf import (
     RefineMask,
     ScoreAndScrubCBF,
 )
-from aslprep.interfaces.parcellation import ParcellateCBF
+from aslprep.interfaces.parcellation import NiftiParcellate
 from aslprep.utils.asl import (
     determine_multi_pld,
     estimate_labeling_efficiency,
@@ -716,7 +716,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
 
     for cbf_type in cbf_3d:
         parcellate_cbf = pe.MapNode(
-            ParcellateCBF(min_coverage=min_coverage),
+            NiftiParcellate(min_coverage=min_coverage),
             name=f'parcellate_{cbf_type}',
             iterfield=['atlas', 'atlas_labels'],
             mem_gb=mem_gb,
