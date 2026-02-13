@@ -5,14 +5,23 @@
 
 version: 2
 updates:
-  - package-ecosystem: "github-actions" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "github-actions"
+    directory: "/"
     labels: ["maintenance", "ignore-for-release"]
     assignees: ["tsalo"]
     schedule:
       interval: "weekly"
-  - package-ecosystem: pip
+  # Pip: [project].dependencies and optional-dependencies in pyproject.toml (PyPI).
+  - package-ecosystem: "pip"
     directory: "/"
     labels: ["maintenance", "ignore-for-release"]
+    assignees: ["tsalo"]
     schedule:
-      interval: weekly
+      interval: "monthly"
+  # Conda: docker/environment.yml (base image env). Dependabot looks for environment.yml by name.
+  - package-ecosystem: "conda"
+    directory: "/docker"
+    labels: ["maintenance", "ignore-for-release"]
+    assignees: ["tsalo"]
+    schedule:
+      interval: "monthly"
