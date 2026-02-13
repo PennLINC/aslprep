@@ -34,7 +34,7 @@ def test_nifti_parcellate(tmp_path_factory):
 
     # Some parcels are not present, but none are masked out
     parcellator = NiftiParcellate(
-        filtered_file=atlas_file,
+        in_file=atlas_file,
         mask=mask_file,
         atlas=atlas_file,
         atlas_labels=lut_file,
@@ -64,7 +64,7 @@ def test_nifti_parcellate(tmp_path_factory):
     mask_file = os.path.join(tmpdir, 'mask_02.nii.gz')
     mask_img.to_filename(mask_file)
     parcellator = NiftiParcellate(
-        filtered_file=atlas_file,
+        in_file=atlas_file,
         mask=mask_file,
         atlas=atlas_file,
         atlas_labels=lut_file,
