@@ -75,7 +75,7 @@ dev = [
     "ruff ~= 0.15.0",
     "pre-commit",
 ]
-test = [
+tests = [
     "codecov",
     "coverage",
     "pytest",
@@ -87,7 +87,7 @@ maint = [
 ]
 
 # Aliases
-all = ["aslprep[dev,doc,maint,test]"]
+all = ["aslprep[dev,doc,maint,tests]"]
 
 [project.scripts]
 aslprep = "aslprep.cli.run:main"
