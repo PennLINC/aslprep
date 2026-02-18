@@ -17,7 +17,7 @@ runinstall: &runinstall
     git checkout $CIRCLE_BRANCH
     echo "${VERSION}" > /src/aslprep/aslprep/VERSION
     echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in
-    pip install .[test] --progress-bar off
+    pip install .[tests] --progress-bar off
 
     # Write the config file
     mkdir ~/.nipype
