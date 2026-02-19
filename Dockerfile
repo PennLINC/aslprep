@@ -1,8 +1,5 @@
 # ASLPrep Docker Container Image distribution
 #
-# Main image: FROM aslprep_build + install aslprep package.
-# Base image is built from Dockerfile.base (like fMRIPrep).
-#
 # MIT License
 #
 # Copyright (c) The NiPreps Developers
@@ -25,26 +22,91 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ARG BASE_IMAGE=pennlinc/aslprep_build:0.0.20
-FROM ${BASE_IMAGE}
+ARG BASE_IMAGE=pennlinc/aslprep_build:0.0.21
 
-# Install aslprep
-COPY . /src/aslprep
+#
+# Build pixi environment
+# The pixi environment includes:
+#   - Python
+#     - Scientific Python stack (via conda-forge)
+#     - General Python dependencies (via PyPI)
+#   - NodeJS
+#     - svgo
+#   - FSL (via fslconda)
+#   - ANTs (via conda-forge)
+#   - Connectome Workbench (via conda-forge)
+#   - TensorFlow, PyTorch (via conda-forge)
+#   - ...
+#
+FROM ghcr.io/prefix-dev/pixi:0.53.0 AS build
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+                    ca-certificates \
+                    git && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN pixi config set --global run-post-link-scripts insecure
 
-ARG VERSION=0.0.1
+# Install dependencies before the package itself to leverage caching
+RUN mkdir /app
+COPY pixi.lock pyproject.toml /app
+WORKDIR /app
+RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e aslprep -e test --frozen --skip aslprep
+RUN --mount=type=cache,target=/root/.npm pixi run --as-is -e aslprep npm install -g svgo@^3.2.0 bids-validator@1.14.10
+RUN pixi shell-hook -e aslprep --as-is | grep -v PATH > /shell-hook.sh
+RUN pixi shell-hook -e test --as-is | grep -v PATH > /test-shell-hook.sh
 
-RUN echo "${VERSION}" > /src/aslprep/aslprep/VERSION && \
-    echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in && \
-    pip install --no-cache-dir "/src/aslprep[doc,maint,test]"
+# Finally, install the package
+COPY . /app
+RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e aslprep -e test --frozen
 
-RUN find $HOME -type d -exec chmod go=u {} + && \
-    find $HOME -type f -exec chmod go=u {} + && \
-    rm -rf $HOME/.npm $HOME/.conda $HOME/.empty
+#
+# Pre-fetch templates
+#
+FROM ghcr.io/astral-sh/uv:python3.12-alpine AS templates
+ENV TEMPLATEFLOW_HOME="/templateflow"
+RUN uv pip install --system templateflow
+COPY scripts/fetch_templates.py fetch_templates.py
+RUN python fetch_templates.py
 
-RUN ldconfig
-WORKDIR /tmp/
+#
+# Main stage
+#
+FROM ${BASE_IMAGE} AS base
 
-ENTRYPOINT ["/opt/conda/envs/aslprep/bin/aslprep"]
+RUN useradd -m -s /bin/bash -G users aslprep
+WORKDIR /home/aslprep
+ENV HOME="/home/aslprep"
+
+COPY --link --from=templates /templateflow /home/aslprep/.cache/templateflow
+
+RUN chmod -R go=u $HOME
+
+ENV MKL_NUM_THREADS=1 \
+    OMP_NUM_THREADS=1
+
+WORKDIR /tmp
+
+FROM base AS test
+
+COPY --link --from=build /app/.pixi/envs/test /app/.pixi/envs/test
+COPY --link --from=build /test-shell-hook.sh /shell-hook.sh
+RUN cat /shell-hook.sh >> $HOME/.bashrc
+ENV PATH="/app/.pixi/envs/test/bin:$PATH"
+
+ENV FSLDIR="/app/.pixi/envs/test"
+
+FROM base AS aslprep
+
+COPY --link --from=build /app/.pixi/envs/aslprep /app/.pixi/envs/aslprep
+COPY --link --from=build /shell-hook.sh /shell-hook.sh
+RUN cat /shell-hook.sh >> $HOME/.bashrc
+ENV PATH="/app/.pixi/envs/aslprep/bin:$PATH"
+
+ENV FSLDIR="/app/.pixi/envs/aslprep"
+
+ENV IS_DOCKER_8395080871=1
+
+ENTRYPOINT ["/app/.pixi/envs/aslprep/bin/aslprep"]
 
 ARG BUILD_DATE
 ARG VCS_REF

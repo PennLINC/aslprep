@@ -18,10 +18,3 @@ updates:
     assignees: ["tsalo"]
     schedule:
       interval: "monthly"
-  # Conda: docker/environment.yml (base image env). Dependabot looks for environment.yml by name.
-  - package-ecosystem: "conda"
-    directory: "/docker"
-    labels: ["maintenance", "ignore-for-release"]
-    assignees: ["tsalo"]
-    schedule:
-      interval: "monthly"

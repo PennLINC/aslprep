@@ -90,15 +90,25 @@ Adding or modifying dependencies
 If you think *ASLPrep* needs to use a library (Python or not) that is not installed in the Docker
 image already, then you will need to build a new Docker image to test out your proposed changes.
 
-*ASLPrep*'s Docker image is built from a self-contained multi-stage ``Dockerfile`` in this
-repository. Non-Python dependencies (FSL, ANTs, FreeSurfer, AFNI, etc.) are defined in
-``docker/environment.yml`` (Conda) and in the ``Dockerfile`` stages themselves.
-To add or modify a non-Python dependency, edit ``docker/environment.yml`` or the appropriate stage in
-``Dockerfile.base`` or the main ``Dockerfile``, then build locally to verify. If you changed
-``docker/environment.yml`` or ``Dockerfile.base``, build the base image first (see ``.maint/INSTRUCTIONS.md``)::
+*ASLPrep*'s Docker image is built from two Dockerfiles:
 
-  docker build -f Dockerfile.base -t pennlinc/aslprep_build:0.0.20 .
-  docker build -t pennlinc/aslprep:dev .
+- ``Dockerfile.base`` contains non-Python runtime dependencies (FreeSurfer, AFNI, MSM, system
+  libraries). It is rebuilt infrequently and published as a base image.
+- ``Dockerfile`` uses `Pixi <https://pixi.sh>`_ to install the full Python environment
+  (conda + PyPI dependencies) from ``pixi.lock`` and ``pyproject.toml``, then assembles the
+  final image on top of the base.
 
-For Python dependencies, update ``pyproject.toml`` and rebuild the Docker image as above.
+Conda-level dependencies (FSL, ANTs, Connectome Workbench, TensorFlow, etc.) are declared in
+``[tool.pixi.dependencies]`` in ``pyproject.toml``. Python dependencies are in
+``[project.dependencies]``. Both are resolved together into ``pixi.lock``.
+
+To add or modify a dependency, edit ``pyproject.toml`` and run ``pixi lock`` (on Linux) to
+regenerate ``pixi.lock``, then rebuild the Docker image to verify::
+
+  docker build --target aslprep -t pennlinc/aslprep:dev .
+
+If you changed ``Dockerfile.base``, build the base image first (see ``.maint/INSTRUCTIONS.md``)::
+
+  docker build -f Dockerfile.base -t pennlinc/aslprep_build:0.0.21 .
+
 Once your change is working, open a pull request to the *ASLPrep* repo.
