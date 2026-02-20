@@ -88,9 +88,9 @@ The config module is the single source of truth for runtime parameters. Never pa
 
 ### Docker
 
-- Each app has a custom base image: `pennlinc/<pkg>_build:<version>`.
-- The `Dockerfile` installs the app via `pip install` into the base image.
-- Entrypoint is the CLI command (e.g., `/opt/conda/envs/<pkg>/bin/<pkg>`).
+- Each app has a base image with runtime dependencies and a main Dockerfile that installs the Python environment and the app itself.
+- ASLPrep and fMRIPrep have migrated to **Pixi**-based multi-stage Docker builds (base has no Python; Pixi installs conda + PyPI deps from `pixi.lock`). The other repos still use micromamba + `pip install`.
+- Base image naming: ASLPrep uses `pennlinc/aslprep-base:<YYYYMMDD>` (date-based); other repos use `pennlinc/<pkg>_build:<version>`.
 - Labels follow the `org.label-schema` convention.
 
 ### Release Process
@@ -144,8 +144,8 @@ ASLPrep is a BIDS App for preprocessing Arterial Spin Labeling (ASL) perfusion M
 | Linter | ruff ~= 0.15.0 |
 | Pre-commit | Yes (ruff v0.6.2) |
 | Tox | Yes |
-| Docker base | `pennlinc/aslprep_build:<ver>` |
-| Dockerfile | Simple COPY + pip install |
+| Docker base | `pennlinc/aslprep-base:<YYYYMMDD>` |
+| Dockerfile | Multi-stage pixi build |
 
 ### Key Directories
 
@@ -171,10 +171,10 @@ ASLPrep is a BIDS App for preprocessing Arterial Spin Labeling (ASL) perfusion M
 
 ASLPrep has the deepest dependency chain of the four repos:
 - `fmriprep ~= 25.2.2`: Reuses fMRIPrep's anatomical and fieldmap workflows
-- `sdcflows ~= 2.15.0`: Susceptibility distortion correction
-- `smriprep ~= 0.19.1`: Structural MRI preprocessing
-- `niworkflows ~= 1.14.2`: Shared workflow components
-- `nitransforms >= 21.0.0`: Spatial transforms
+- `sdcflows >= 2.15.0`: Susceptibility distortion correction
+- `smriprep >= 0.19.2`: Structural MRI preprocessing
+- `niworkflows >= 1.14.4`: Shared workflow components
+- `nitransforms >= 25.0.1`: Spatial transforms
 
 When updating these dependencies, check for breaking API changes across the stack.
 
@@ -188,16 +188,11 @@ This is different from qsiprep/qsirecon which import `__version__` directly from
 
 ### Test Extras Naming
 
-ASLPrep names its test dependencies `test` (singular) in `pyproject.toml`:
-```toml
-[project.optional-dependencies]
-test = ["codecov", "coverage", "pytest", "pytest-cov"]
-```
-The other three repos use `tests` (plural). This is a known inconsistency flagged in the roadmap.
+ASLPrep names its test dependencies `tests` (plural) in `pyproject.toml`, consistent with the other three repos.
 
 ### Template Fetching
 
-ASLPrep's tox config references `python scripts/fetch_templates.py` as a `commands_pre` step before tests. **Note**: As of this writing, the `scripts/fetch_templates.py` file does not exist in the repository -- this is a known gap. If you need to run tox tests locally, this script must be created to download the required TemplateFlow templates, or the `commands_pre` line should be removed/updated.
+ASLPrep's tox config references `python scripts/fetch_templates.py` as a `commands_pre` step before tests. This script downloads the required TemplateFlow templates and is also used by the Docker build's `templates` stage.
 
 ### Linting Notes
 
@@ -234,7 +229,7 @@ This roadmap covers harmonization work across all four PennLINC BIDS Apps (qsipr
 ### Phase 2: Standardize across all four repos
 
 6. **Rename qsiprep default branch** from `master` to `main` and update `.github/workflows/lint.yml`.
-7. **Rename aslprep test extras** from `test` to `tests` for consistency with the other three repos.
+7. ~~**Rename aslprep test extras** from `test` to `tests`~~ -- **Done**.
 8. **Converge on version management** -- recommend the simpler `_version.py` direct-import pattern (used by qsiprep/qsirecon). Migrate xcp_d and aslprep away from `__about__.py`.
 9. **Pin the same ruff version** in all four repos' dev dependencies and `.pre-commit-config.yaml`.
 10. **Harmonize ruff ignore lists** -- adopt xcp_d's minimal set (`S105`, `S311`, `S603`) as the target; fix suppressed rules in qsiprep and aslprep incrementally.
@@ -242,7 +237,7 @@ This roadmap covers harmonization work across all four PennLINC BIDS Apps (qsipr
 ### Phase 3: Shared infrastructure
 
 11. **Extract a reusable GitHub Actions workflow** for lint + codespell + build checks, hosted in a shared repo (e.g., `PennLINC/.github`).
-12. **Standardize Dockerfile patterns** -- adopt multi-stage wheel builds (as qsiprep does) across all four repos.
+12. **Standardize Dockerfile patterns** -- ASLPrep and fMRIPrep have migrated to Pixi-based multi-stage builds. Migrate qsiprep, qsirecon, and xcp_d to the same pattern.
 13. **Create a shared `pennlinc-style` package or cookiecutter template** providing `pyproject.toml` lint/test config, `.pre-commit-config.yaml`, `tox.ini`, and CI workflows.
 14. **Evaluate `nipreps-versions` calver** -- the `raw-options = { version_scheme = "nipreps-calver" }` line is commented out in all four repos. Decide whether to adopt it.
 

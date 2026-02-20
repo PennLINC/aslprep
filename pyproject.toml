@@ -11,7 +11,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Image Recognition",
-    "License :: OSI Approved :: BSD License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -21,30 +20,30 @@ license = {file = "LICENSE.md"}
 requires-python = ">=3.10"
 dependencies = [
     'importlib_resources; python_version < "3.11"',
-    "acres",
+    "acres >= 0.2.0",
     "fmriprep ~= 25.2.2",
     "indexed_gzip",
-    "looseversion",
+    "looseversion >= 1.3",
     "networkx ~= 3.3",  # nipype needs networkx, but 3+ isn"t compatible with nipype 1.8.5
-    "nibabel",
+    "nibabel >= 5.1.1",
     "nilearn ~= 0.13.0",
-    "nipype >= 1.8.5",
+    "nipype >= 1.9.0",
     "nireports >= 25.1.0",
-    "nitransforms >= 21.0.0",
-    "niworkflows ~= 1.14.2",
+    "nitransforms >= 25.0.1",
+    "niworkflows >= 1.14.4",
     "numpy ~= 2.2",
-    "packaging",
-    "pandas",
+    "packaging >= 24",
+    "pandas >= 2.2",
     "psutil >= 5.4",
     "pybids >= 0.16",
-    "requests",
-    "sdcflows ~= 2.15.0",
+    "requests >= 2.27",
+    "sdcflows >= 2.15.0",
     "sentry-sdk",
-    "smriprep ~= 0.19.1",
+    "smriprep >= 0.19.2",
     "tedana ~= 25.1.1a1",  # to satisfy fmriprep dependencies
-    "templateflow",
-    "toml",
-    "transforms3d ~= 0.4",
+    "templateflow >= 24.2.2",
+    "toml >= 0.10",
+    "transforms3d >= 0.4.2",
 ]
 dynamic = ["version"]
 
@@ -117,6 +116,68 @@ source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
 version-file = "aslprep/_version.py"
+
+#
+# Pixi configuration
+#
+
+[tool.pixi.workspace]
+channels = ["https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/public", "conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.activation.env]
+FSLDIR = "$CONDA_PREFIX"
+FSLOUTPUTTYPE = "NIFTI_GZ"
+
+[tool.pixi.environments]
+default = { features = ["editable"], solve-group = "default" }
+test = { features = ["editable", "tests"], solve-group = "default" }
+aslprep = { features = ["production", "container"], solve-group = "production" }
+
+[tool.pixi.feature.editable.pypi-dependencies]
+aslprep = { path = ".", editable = true }
+[tool.pixi.feature.production.pypi-dependencies]
+aslprep = { path = ".", editable = false }
+
+[tool.pixi.tasks]
+
+[tool.pixi.pypi-options.dependency-overrides]
+numpy = ">=2.2"
+
+[tool.pixi.dependencies]
+python = "3.12.*"
+nodejs = "20.*"
+mkl = "2024.2.2.*"
+mkl-service = "2.4.2.*"
+numpy = "2.2.*"
+scipy = "1.15.*"
+matplotlib = "3.10.*"
+pandas = "2.2.*"
+h5py = "3.13.*"
+graphviz = "12.2.*"
+pandoc = "3.7.*"
+ants = "2.6.*"
+connectome-workbench-cli = { version = "2.0.*", build = "*qt6*" }
+fsl-basil = "v4.0.*"
+fsl-bet2 = "2111.8.*"
+fsl-flirt = "2111.4.*"
+fsl-fabber_core = "4.0.*"
+fsl-fabber_models_asl = "v2.0.*"
+fsl-fast4 = "2111.3.*"
+fsl-fugue = "2201.5.*"
+fsl-mcflirt = "2111.0.*"
+fsl-miscmaths = "2412.4.*"
+fsl-oxford_asl = "v4.0.*"
+fsl-topup = "2203.5.*"
+tensorflow = "2.19.*"
+pytorch = "2.8.*"
+
+[tool.pixi.feature.container.dependencies]
+git = "*"
+git-annex = { version = "*", build = "alldep*" }
+
+[tool.pixi.feature.container.pypi-dependencies]
+surfa = "*"
 
 #
 # Developer tool configurations

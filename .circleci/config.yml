@@ -2,502 +2,509 @@ version: 2.1
 orbs:
   codecov: codecov/codecov@4.1.0
 
-.dockersetup: &dockersetup
-  docker:
-    - image: pennlinc/aslprep_build:0.0.19
-  working_directory: /src/aslprep
+# ── Reusable anchors ──────────────────────────────────────────────────
 
-runinstall: &runinstall
-  name: Install aslprep
+_machine_defaults: &machine_defaults
+  environment:
+    TZ: "/usr/share/zoneinfo/America/New_York"
+  machine:
+    image: default
+    docker_layer_caching: true
+  working_directory: /tmp/src/aslprep
+  resource_class: large
+
+_docker_auth: &docker_auth
+  name: Docker authentication
   command: |
-    VERSION=0+build
-    if [[ -n "$CIRCLE_TAG" ]]; then
-      VERSION="$CIRCLE_TAG"
+    if [[ -n "$DOCKERHUB_TOKEN" ]]; then
+      echo "$DOCKERHUB_TOKEN" | docker login -u $DOCKERHUB_USERNAME --password-stdin
     fi
-    git checkout $CIRCLE_BRANCH
-    echo "${VERSION}" > /src/aslprep/aslprep/VERSION
-    echo "include aslprep/VERSION" >> /src/aslprep/MANIFEST.in
-    pip install .[tests] --progress-bar off
 
-    # Write the config file
-    mkdir ~/.nipype
-    CFG=~/.nipype/nipype.cfg
-    printf "[execution]\nstop_on_first_crash = true\n" > ${CFG}
-    echo "poll_sleep_duration = 0.01" >> ${CFG}
-    echo "hash_method = content" >> ${CFG}
+_setup_docker_registry: &setup_docker_registry
+  name: Set up local Docker registry
+  command: |
+    if [[ -f /tmp/images/registry.tar.gz ]]; then
+      echo "Loading saved registry image"
+      docker load < /tmp/images/registry.tar.gz
+    else
+      echo "Pulling registry image from DockerHub"
+      docker pull registry:2
+    fi
+    docker run -d -p 5000:5000 --restart=always --name=registry \
+        -v /tmp/docker:/var/lib/registry registry:2
+
+_pull_from_registry: &pull_from_registry
+  name: Pull and tag production image from local registry
+  command: |
+    docker pull localhost:5000/aslprep
+    docker tag localhost:5000/aslprep pennlinc/aslprep:latest
+
+_pull_test_image: &pull_test_image
+  name: Pull and tag test image from local registry
+  command: |
+    docker pull localhost:5000/aslprep-test
+    docker tag localhost:5000/aslprep-test pennlinc/aslprep:test
+
+# ── Reusable commands ─────────────────────────────────────────────────
+
+commands:
+  restore_build_and_data:
+    description: Restore Docker image cache and test data cache, then start the registry
+    steps:
+      - restore_cache:
+          keys:
+            - build-v1-{{ .Branch }}-{{ .Revision }}
+      - restore_cache:
+          keys:
+            - data-v1-{{ .Branch }}-{{ .Revision }}
+      - run: *docker_auth
+      - run: *setup_docker_registry
+      - run: *pull_test_image
+
+  run_integration_test:
+    description: Run a pytest-marked integration test inside the test Docker image
+    parameters:
+      marker:
+        type: string
+      cpus:
+        type: integer
+        default: 4
+    steps:
+      - run:
+          name: Run aslprep (<< parameters.marker >>)
+          no_output_timeout: 5h
+          command: |
+            mkdir -p /tmp/out /tmp/work /tmp/coverage
+            # Run from the checked-out repo so pytest loads aslprep/tests/conftest.py,
+            # which registers custom CLI options like --data_dir/--output_dir/--working_dir.
+            docker run --rm=false \
+              -e CIRCLE_CPUS=<< parameters.cpus >> \
+              -e COVERAGE_FILE=/coverage/.coverage.<< parameters.marker >> \
+              -v /tmp/src/aslprep:/tmp/src/aslprep:ro \
+              -v /tmp/data:/data:ro \
+              -v /tmp/out:/out \
+              -v /tmp/work:/work \
+              -v /tmp/coverage:/coverage \
+              -w /tmp/src/aslprep \
+              --entrypoint pytest \
+              pennlinc/aslprep:test \
+              -rP -o log_cli=true -m "<< parameters.marker >>" \
+              --cov-append --cov-report term-missing --cov=aslprep \
+              --data_dir=/data --output_dir=/out --working_dir=/work \
+              aslprep/tests
+      - run:
+          name: Clean up large artifacts
+          when: always
+          command: find /tmp/out/ -name "*.nii.gz" -type f -delete 2>/dev/null || true
+      - store_artifacts:
+          path: /tmp/out
+      - persist_to_workspace:
+          root: /tmp/coverage
+          paths:
+            - .coverage.<< parameters.marker >>
+
+# ── Jobs ──────────────────────────────────────────────────────────────
 
 jobs:
   build:
-    <<: *dockersetup
+    <<: *machine_defaults
+    environment:
+      TZ: "/usr/share/zoneinfo/America/New_York"
+      DOCKER_BUILDKIT: "1"
     steps:
-      - checkout
-      - run: *runinstall
-
-  download_nonqtab:
-    <<: *dockersetup
-    steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
+          keys:
+            - build-v1-{{ .Branch }}-{{ .Revision }}
+            - build-v1--{{ .Revision }}
+            - build-v1-{{ .Branch }}-
+            - build-v1-main-
+            - build-v1-
+      - run: *docker_auth
+      - run: *setup_docker_registry
       - run:
-          name: Get nonqtab data from box
+          name: Get base image information
           command: |
-            cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data nonqtab
+            export BASE_IMAGE=$( grep "BASE_IMAGE=" Dockerfile | head -1 | cut -d= -f2 )
+            export BASE_IMAGE_NAME=${BASE_IMAGE%:*}
+            export BASE_TAG=${BASE_IMAGE#*:}
+            echo "BASE_IMAGE=$BASE_IMAGE" >> $BASH_ENV
+            echo "BASE_IMAGE_NAME=$BASE_IMAGE_NAME" >> $BASH_ENV
+            echo "BASE_TAG=$BASE_TAG" >> $BASH_ENV
+      - run:
+          name: Build base image if needed
+          no_output_timeout: 60m
+          command: |
+            if ! docker manifest inspect $BASE_IMAGE > /dev/null 2>&1; then
+              echo "Base image $BASE_IMAGE not found, building..."
+              docker build -f Dockerfile.base \
+                --platform linux/amd64 \
+                -t $BASE_IMAGE \
+                -t $BASE_IMAGE_NAME:latest .
+            else
+              echo "Base image $BASE_IMAGE already exists."
+            fi
+      - run:
+          name: Build Docker image (production)
+          no_output_timeout: 3h
+          command: |
+            if [[ -n "$CIRCLE_TAG" ]]; then
+              THISVERSION="$CIRCLE_TAG"
+            else
+              THISVERSION="0+build"
+            fi
+            sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
+            e=1 && for i in {1..5}; do
+              docker build \
+                --target aslprep \
+                --rm=false \
+                -t pennlinc/aslprep:latest \
+                --platform linux/amd64 \
+                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                --build-arg VERSION="$THISVERSION" . \
+              && e=0 && break || sleep 15
+            done && [ "$e" -eq "0" ]
+      - run:
+          name: Build Docker image (test)
+          no_output_timeout: 60m
+          command: |
+            docker build \
+              --target test \
+              --rm=false \
+              -t pennlinc/aslprep:test \
+              --platform linux/amd64 .
+      - run:
+          name: Verify Docker images
+          command: |
+            docker run --rm pennlinc/aslprep:latest --version
+            docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
+      - run:
+          name: Push base image to Docker Hub (if newly built)
+          command: |
+            if docker image inspect $BASE_IMAGE > /dev/null 2>&1; then
+              if [[ -n "$DOCKERHUB_TOKEN" ]]; then
+                docker push $BASE_IMAGE
+                docker push $BASE_IMAGE_NAME:latest
+              fi
+            fi
+      - run:
+          name: Push images to local registry
+          no_output_timeout: 40m
+          command: |
+            docker tag pennlinc/aslprep:latest localhost:5000/aslprep
+            docker tag pennlinc/aslprep:test localhost:5000/aslprep-test
+            docker push localhost:5000/aslprep
+            docker push localhost:5000/aslprep-test
+      - run:
+          name: Docker registry garbage collection
+          command: |
+            docker exec -it registry /bin/registry garbage-collect --delete-untagged \
+              /etc/docker/registry/config.yml
       - save_cache:
-          key: nonqtab-v1
+          key: build-v1-{{ .Branch }}-{{ .Revision }}
           paths:
-              - /src/aslprep/.circleci/data/nonqtab
+            - /tmp/docker
+            - /tmp/images
 
-  download_qtab:
-    <<: *dockersetup
+  get_data:
+    <<: *machine_defaults
     steps:
-      - checkout
       - restore_cache:
-          key: qtab-v6
-      - run: *runinstall
+          keys:
+            - data-v1-{{ .Branch }}-{{ .Revision }}
+            - data-v1--{{ .Revision }}
+            - data-v1-{{ .Branch }}-
+            - data-v1-main-
+            - data-v1-
       - run:
-          name: Get test data and smriprep from box
+          name: Download nonqtab test data
           command: |
-            cd /src/aslprep/.circleci
-            python get_data.py ${PWD}/data qtab
+            if [[ ! -d /tmp/data/nonqtab ]]; then
+              mkdir -p /tmp/data/nonqtab
+              wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
+                -O /tmp/nonqtab.tar.gz \
+                "https://upenn.box.com/shared/static/gmecscsr7acn1g4hawdbbkwut0ia9dud.tar.gz"
+              tar xzf /tmp/nonqtab.tar.gz -C /tmp/data/nonqtab
+              rm /tmp/nonqtab.tar.gz
+            else
+              echo "nonqtab data was cached"
+            fi
+      - run:
+          name: Download qtab test data
+          command: |
+            if [[ ! -d /tmp/data/qtab ]]; then
+              mkdir -p /tmp/data/qtab
+              wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
+                -O /tmp/qtab.tar.gz \
+                "https://upenn.box.com/shared/static/ap5ftlc3logivmj03fabuahv4etqk7jf.tar.gz"
+              tar xzf /tmp/qtab.tar.gz -C /tmp/data/qtab
+              rm /tmp/qtab.tar.gz
+            else
+              echo "qtab data was cached"
+            fi
       - save_cache:
-          key: qtab-v6
+          key: data-v1-{{ .Branch }}-{{ .Revision }}
           paths:
-              - /src/aslprep/.circleci/data/qtab
+            - /tmp/data
+
+  # ── Integration tests ────────────────────────────────────────────────
 
   pcasl_singlepld_philips:
-    <<: *dockersetup
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
-    environment:
-      CIRCLE_CPUS: 4
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld_philips\]' )" != "" ]]; then
-              echo "Skipping examples_pcasl_singlepld_philips build"
+              echo "Skipping examples_pcasl_singlepld_philips"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run full aslprep on examples_pcasl_singlepld_philips dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_philips" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_philips
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.examples_pcasl_singlepld_philips
+      - restore_build_and_data
+      - run_integration_test:
+          marker: examples_pcasl_singlepld_philips
+          cpus: 4
 
   pcasl_singlepld_siemens:
-    <<: *dockersetup
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
-    environment:
-      CIRCLE_CPUS: 4
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld_siemens\]' )" != "" ]]; then
-              echo "Skipping examples_pcasl_singlepld_siemens build"
+              echo "Skipping examples_pcasl_singlepld_siemens"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run full aslprep on examples_pcasl_singlepld_siemens dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_siemens" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_siemens
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.examples_pcasl_singlepld_siemens
+      - restore_build_and_data
+      - run_integration_test:
+          marker: examples_pcasl_singlepld_siemens
+          cpus: 4
 
   pcasl_singlepld_ge:
-    <<: *dockersetup
-    environment:
-      CIRCLE_CPUS: 2
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld\]' )" != "" ]]; then
-              echo "Skipping examples_pcasl_singlepld build"
+              echo "Skipping examples_pcasl_singlepld_ge"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run full aslprep on examples_pcasl_singlepld dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "examples_pcasl_singlepld_ge" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_singlepld_ge
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.examples_pcasl_singlepld_ge
+      - restore_build_and_data
+      - run_integration_test:
+          marker: examples_pcasl_singlepld_ge
+          cpus: 2
 
   pcasl_multipld:
-    <<: *dockersetup
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
-    environment:
-      CIRCLE_CPUS: 4
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_multipld\]' )" != "" ]]; then
-              echo "Skipping examples_pcasl_multipld build"
+              echo "Skipping examples_pcasl_multipld"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run full aslprep on examples_pcasl_multipld dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "examples_pcasl_multipld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pcasl_multipld
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.examples_pcasl_multipld
+      - restore_build_and_data
+      - run_integration_test:
+          marker: examples_pcasl_multipld
+          cpus: 4
 
   pasl_multipld:
-    <<: *dockersetup
-    environment:
-      CIRCLE_CPUS: 2
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pasl_multipld\]' )" != "" ]]; then
-              echo "Skipping examples_pasl_multipld build"
+              echo "Skipping examples_pasl_multipld"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run full aslprep on examples_pasl_multipld dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "examples_pasl_multipld" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.examples_pasl_multipld
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.examples_pasl_multipld
+      - restore_build_and_data
+      - run_integration_test:
+          marker: examples_pasl_multipld
+          cpus: 2
 
   qtab:
-    <<: *dockersetup
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
-    environment:
-      CIRCLE_CPUS: 4
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?qtab\]' )" != "" ]]; then
-              echo "Skipping qtab build"
+              echo "Skipping qtab"
               circleci step halt
             fi
-      - restore_cache:
-          key: qtab-v6
-      - run: *runinstall
-      - run:
-          name: Run full aslprep on qtab dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "qtab" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.qtab
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.qtab
+      - restore_build_and_data
+      - run_integration_test:
+          marker: qtab
+          cpus: 4
 
   test_001:
-    <<: *dockersetup
-    environment:
-      CIRCLE_CPUS: 4
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_001\]' )" != "" ]]; then
-              echo "Skipping test_001 build"
+              echo "Skipping test_001"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run full aslprep on test_001 dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "test_001" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.test_001
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.test_001
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
+      - restore_build_and_data
+      - run_integration_test:
+          marker: test_001
+          cpus: 4
 
   test_002:
-    <<: *dockersetup
-    environment:
-      CIRCLE_CPUS: 2
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_002\]' )" != "" ]]; then
-              echo "Skipping test_002 build"
+              echo "Skipping test_002"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run full aslprep on test_002 dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "test_002" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.test_002
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.test_002
+      - restore_build_and_data
+      - run_integration_test:
+          marker: test_002
+          cpus: 2
 
   test_003_minimal:
-    <<: *dockersetup
-    environment:
-      CIRCLE_CPUS: 4
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_minimal\]' )" != "" ]]; then
-              echo "Skipping test_003_minimal build"
+              echo "Skipping test_003_minimal"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run minimal aslprep on test_003 dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "test_003_minimal" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003_minimal
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.test_003_minimal
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
+      - restore_build_and_data
+      - run_integration_test:
+          marker: test_003_minimal
+          cpus: 4
 
   test_003_resampling:
-    <<: *dockersetup
-    environment:
-      CIRCLE_CPUS: 4
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_resampling\]' )" != "" ]]; then
-              echo "Skipping test_003_resampling build"
+              echo "Skipping test_003_resampling"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run resampling aslprep on test_003 dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "test_003_resampling" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003_resampling
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.test_003_resampling
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
+      - restore_build_and_data
+      - run_integration_test:
+          marker: test_003_resampling
+          cpus: 4
 
   test_003_full:
-    <<: *dockersetup
-    environment:
-      CIRCLE_CPUS: 4
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_full\]' )" != "" ]]; then
-              echo "Skipping test_003_full build"
+              echo "Skipping test_003_full"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
-      - run:
-          name: Run full aslprep on test_003 dataset
-          no_output_timeout: 5h
-          command: |
-            pytest -rP -o log_cli=true -m "test_003_full" --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.test_003_full
-            # remove nifti files before uploading artifacts
-            find /src/aslprep/.circleci/out/ -name "*.nii.gz" -type f -delete
-      - store_artifacts:
-          path: /src/aslprep/.circleci/out
-      - persist_to_workspace:
-          root: /src/coverage
-          paths:
-              - .coverage.test_003_full
-    # The resource_class feature allows configuring CPU and RAM resources for each job. Different resource classes are available for different executors. https://circleci.com/docs/2.0/configuration-reference/#resourceclass
-    resource_class: large
+      - restore_build_and_data
+      - run_integration_test:
+          marker: test_003_full
+          cpus: 4
+
+  # ── Unit tests ───────────────────────────────────────────────────────
 
   pytests:
-    <<: *dockersetup
-    environment:
-      CIRCLE_CPUS: 2
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            cd /src/aslprep
             if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?pytests\]' )" != "" ]]; then
-              echo "Skipping pytests build"
+              echo "Skipping pytests"
               circleci step halt
             fi
-      - restore_cache:
-          key: nonqtab-v1
-      - run: *runinstall
+      - restore_build_and_data
       - run:
-          name: Run pytest on the tests directory
+          name: Run pytest on tests directory
           no_output_timeout: 1h
           command: |
-            pytest --cov-append --cov-report term-missing --cov=aslprep --data_dir=/src/aslprep/.circleci/data --output_dir=/src/aslprep/.circleci/out --working_dir=/src/aslprep/.circleci/work aslprep/tests
-            mkdir /src/coverage
-            mv /src/aslprep/.coverage /src/coverage/.coverage.pytests
+            mkdir -p /tmp/out /tmp/work /tmp/coverage
+            # Run from the checked-out repo so pytest loads aslprep/tests/conftest.py,
+            # which registers custom CLI options like --data_dir/--output_dir/--working_dir.
+            docker run --rm=false \
+              -e CIRCLE_CPUS=2 \
+              -e COVERAGE_FILE=/coverage/.coverage.pytests \
+              -v /tmp/src/aslprep:/tmp/src/aslprep:ro \
+              -v /tmp/data:/data:ro \
+              -v /tmp/out:/out \
+              -v /tmp/work:/work \
+              -v /tmp/coverage:/coverage \
+              -w /tmp/src/aslprep \
+              --entrypoint pytest \
+              pennlinc/aslprep:test \
+              --cov-append --cov-report term-missing --cov=aslprep \
+              --data_dir=/data --output_dir=/out --working_dir=/work \
+              aslprep/tests
       - persist_to_workspace:
-          root: /src/coverage
+          root: /tmp/coverage
           paths:
-              - .coverage.pytests
+            - .coverage.pytests
       - store_artifacts:
-          path: /src/aslprep/.circleci/
+          path: /tmp/out
+
+  # ── Coverage & deployment ────────────────────────────────────────────
 
   merge_coverage:
-    <<: *dockersetup
+    <<: *machine_defaults
     steps:
-      - checkout
+      - checkout:
+          path: /tmp/src/aslprep
       - attach_workspace:
-          at: /src/coverage
-      - run: *runinstall
+          at: /tmp/coverage
       - run:
           name: Merge coverage files
           command: |
-            cd /src/coverage/
-            coverage combine
-            coverage xml
+            pyenv local 3
+            pip install coverage
+            cd /tmp/src/aslprep
+            coverage combine /tmp/coverage/
+            coverage xml -o /tmp/coverage/coverage.xml
       - store_artifacts:
-          path: /src/coverage
+          path: /tmp/coverage
       - run:
-          # from https://github.com/codecov/codecov-circleci-orb/issues/157#issue-1692263650
           name: Quick fix for GPG error in Codecov
           command: mkdir -p ~/.gnupg
       - codecov/upload:
-          file: /src/coverage/coverage.xml
+          file: /tmp/coverage/coverage.xml
 
   deployable:
     docker:
@@ -505,49 +512,32 @@ jobs:
     steps:
       - run: echo Deploying!
 
-  build_and_deploy:
-    environment:
-      TZ: "/usr/share/zoneinfo/America/New_York"
-    docker:
-      - image: cimg/base:2020.09
-    working_directory: /tmp/src/aslprep_build
+  deploy_docker:
+    <<: *machine_defaults
     steps:
-      - checkout
-      - setup_remote_docker:
-         version: docker24
-         docker_layer_caching: true
-      - run:
-          name: Build Docker image
-          no_output_timeout: 3h
-          command: |
-            # Get version, update files.
-            THISVERSION=$(python3 -c "from aslprep import __version__; print(__version__)")
-            sed -i "s/title = {aslprep}/title = {aslprep ${CIRCLE_TAG:-$THISVERSION}}/" aslprep/data/boilerplate.bib
-            # Build docker image
-            e=1 && for i in {1..5}; do
-              docker build \
-                --cache-from=pennlinc/aslprep \
-                --rm=false \
-                -t pennlinc/aslprep:latest \
-                --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
-                --build-arg VCS_REF=`git rev-parse --short HEAD` \
-                --build-arg VERSION="${CIRCLE_TAG:-$THISVERSION}" . \
-              && e=0 && break || sleep 15
-            done && [ "$e" -eq "0" ]
+      - checkout:
+          path: /tmp/src/aslprep
+      - restore_cache:
+          keys:
+            - build-v1-{{ .Branch }}-{{ .Revision }}
+      - run: *docker_auth
+      - run: *setup_docker_registry
+      - run: *pull_from_registry
       - run:
           name: Deploy to Docker Hub
           no_output_timeout: 40m
           command: |
             if [[ -n "$DOCKERHUB_TOKEN" ]]; then
-              docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
-              docker tag pennlinc/aslprep pennlinc/aslprep:unstable
+              docker tag pennlinc/aslprep:latest pennlinc/aslprep:unstable
               docker push pennlinc/aslprep:unstable
               if [[ -n "$CIRCLE_TAG" ]]; then
+                docker tag pennlinc/aslprep:latest pennlinc/aslprep:$CIRCLE_TAG
                 docker push pennlinc/aslprep:latest
-                docker tag pennlinc/aslprep pennlinc/aslprep:$CIRCLE_TAG
                 docker push pennlinc/aslprep:$CIRCLE_TAG
               fi
             fi
+
+# ── Workflows ─────────────────────────────────────────────────────────
 
 workflows:
   version: 2
@@ -558,16 +548,7 @@ workflows:
             tags:
               only: /.*/
 
-      - download_nonqtab:
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
-
-      - download_qtab:
+      - get_data:
           filters:
             branches:
               ignore:
@@ -578,8 +559,8 @@ workflows:
 
       - pcasl_singlepld_philips:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -590,8 +571,8 @@ workflows:
 
       - pcasl_singlepld_siemens:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -602,8 +583,8 @@ workflows:
 
       - pcasl_singlepld_ge:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -614,8 +595,8 @@ workflows:
 
       - pcasl_multipld:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -626,8 +607,8 @@ workflows:
 
       - pasl_multipld:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -638,8 +619,8 @@ workflows:
 
       - qtab:
           requires:
-            - download_qtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -650,8 +631,8 @@ workflows:
 
       - test_001:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -662,8 +643,8 @@ workflows:
 
       - test_002:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -674,8 +655,8 @@ workflows:
 
       - test_003_minimal:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -686,8 +667,8 @@ workflows:
 
       - test_003_resampling:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -698,8 +679,8 @@ workflows:
 
       - test_003_full:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -710,8 +691,8 @@ workflows:
 
       - pytests:
           requires:
-            - download_nonqtab
             - build
+            - get_data
           filters:
             branches:
               ignore:
@@ -762,7 +743,7 @@ workflows:
             tags:
               only: /.*/
 
-      - build_and_deploy:
+      - deploy_docker:
           requires:
             - deployable
           filters:

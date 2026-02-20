@@ -145,3 +145,7 @@ docs/_build/
 docs/api/
 
 _version.py
+
+# pixi environments
+.pixi/*
+!.pixi/config.toml
