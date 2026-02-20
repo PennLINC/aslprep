@@ -109,6 +109,6 @@ regenerate ``pixi.lock``, then rebuild the Docker image to verify::
 
 If you changed ``Dockerfile.base``, build the base image first (see ``.maint/INSTRUCTIONS.md``)::
 
-  docker build -f Dockerfile.base -t pennlinc/aslprep_build:0.0.21 .
+  docker build -f Dockerfile.base -t pennlinc/aslprep-base:$(date +%Y%m%d) .
 
 Once your change is working, open a pull request to the *ASLPrep* repo.

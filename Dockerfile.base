@@ -192,8 +192,8 @@ ENV LANG="C.UTF-8" \
 RUN ldconfig
 WORKDIR /tmp
 
-LABEL org.label-schema.name="aslprep_build" \
-      org.label-schema.description="ASLPrep build/runtime image - environment without the aslprep package" \
+LABEL org.label-schema.name="aslprep-base" \
+      org.label-schema.description="ASLPrep base image - runtime dependencies without the aslprep package" \
       org.label-schema.url="https://aslprep.readthedocs.io/" \
       org.label-schema.vcs-url="https://github.com/PennLINC/aslprep" \
       org.label-schema.schema-version="1.0"

@@ -4,7 +4,7 @@ orbs:
 
 .dockersetup: &dockersetup
   docker:
-    - image: pennlinc/aslprep_build:0.0.20
+    - image: pennlinc/aslprep-base:20260219
   working_directory: /src/aslprep
 
 runinstall: &runinstall
@@ -516,7 +516,7 @@ jobs:
          version: docker24
          docker_layer_caching: true
       - run:
-          name: Build Docker images (base then main)
+          name: Build Docker images (base if missing, then main)
           no_output_timeout: 5h
           command: |
             # Version for build-arg and boilerplate (tag or from _version.py)
@@ -531,16 +531,26 @@ jobs:
             BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
             VCS_REF=$(git rev-parse --short HEAD)
 
-            # 1) Build base image (Dockerfile.base → aslprep_build), then main image (Dockerfile)
-            e=1 && for i in {1..5}; do
+            # Extract base image name and tag from Dockerfile
+            BASE_IMAGE=$(grep "BASE_IMAGE=" Dockerfile | head -1 | cut -d= -f2)
+            BASE_IMAGE_NAME=${BASE_IMAGE%:*}
+            BASE_TAG=${BASE_IMAGE#*:}
+
+            # Build base image only if it does not exist in the registry
+            if ! docker manifest inspect ${BASE_IMAGE} > /dev/null 2>&1; then
+              echo "Base image ${BASE_IMAGE} not found, building..."
               docker build -f Dockerfile.base \
-                --cache-from=pennlinc/aslprep_build:0.0.20 \
-                --cache-from=pennlinc/aslprep_build:latest \
-                --rm=false \
-                -t pennlinc/aslprep_build:latest . \
-              && docker build \
-                --cache-from=pennlinc/aslprep_build:latest \
-                --cache-from=pennlinc/aslprep:latest \
+                --platform linux/amd64 \
+                -t ${BASE_IMAGE} \
+                -t ${BASE_IMAGE_NAME}:latest .
+            else
+              echo "Base image ${BASE_IMAGE} already exists, skipping build."
+            fi
+
+            # Build main image
+            e=1 && for i in {1..5}; do
+              docker build \
+                --target aslprep \
                 --rm=false \
                 -t pennlinc/aslprep:latest \
                 --build-arg BUILD_DATE="$BUILD_DATE" \
@@ -554,8 +564,16 @@ jobs:
           command: |
             if [[ -n "$DOCKERHUB_TOKEN" ]]; then
               docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN
-              docker push pennlinc/aslprep_build:latest
-              docker tag pennlinc/aslprep:unstable
+
+              # Push base image only if it was built (i.e., not already in registry)
+              BASE_IMAGE=$(grep "BASE_IMAGE=" Dockerfile | head -1 | cut -d= -f2)
+              BASE_IMAGE_NAME=${BASE_IMAGE%:*}
+              if docker image inspect ${BASE_IMAGE} > /dev/null 2>&1; then
+                docker push ${BASE_IMAGE}
+                docker push ${BASE_IMAGE_NAME}:latest
+              fi
+
+              docker tag pennlinc/aslprep:latest pennlinc/aslprep:unstable
               docker push pennlinc/aslprep:unstable
               if [[ -n "$CIRCLE_TAG" ]]; then
                 docker tag pennlinc/aslprep:latest pennlinc/aslprep:$CIRCLE_TAG
