@@ -171,22 +171,26 @@ def write_bidsignore(deriv_dir):
 
 def write_derivative_description(bids_dir, deriv_dir):
     """Write derivative dataset_description file."""
-    from aslprep.__about__ import DOWNLOAD_URL, __url__, __version__
+    from aslprep import __version__
+
+    DOWNLOAD_URL = f'https://github.com/PennLINC/aslprep/archive/{__version__}.tar.gz'
 
     bids_dir = Path(bids_dir)
     deriv_dir = Path(deriv_dir)
     desc = {
         'Name': 'ASLPrep - ASL PREProcessing workflow',
         'BIDSVersion': '1.9.0',
-        'PipelineDescription': {
+        'DatasetType': 'derivative',
+        'GeneratedBy': {
             'Name': 'ASLPrep',
             'Version': __version__,
             'CodeURL': DOWNLOAD_URL,
         },
-        'CodeURL': __url__,
-        'HowToAcknowledge': 'Please cite our paper '
-        'and include the generated citation boilerplate within the Methods '
-        'section of the text.',
+        'HowToAcknowledge': (
+            'Please cite our paper '
+            'and include the generated citation boilerplate within the Methods '
+            'section of the text.'
+        ),
     }
 
     # Keys that can only be set by environment
