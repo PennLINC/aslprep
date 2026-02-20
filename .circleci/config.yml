@@ -133,6 +133,32 @@ jobs:
             echo "BASE_IMAGE_NAME=$BASE_IMAGE_NAME" >> $BASH_ENV
             echo "BASE_TAG=$BASE_TAG" >> $BASH_ENV
       - run:
+          name: Determine whether production image build is required
+          command: |
+            # Always build production images on main/tags for deploy correctness.
+            if [[ -n "$CIRCLE_TAG" || "$CIRCLE_BRANCH" == "main" ]]; then
+              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+              exit 0
+            fi
+
+            # On non-main branches, only rebuild production image when
+            # dependency lockfile or Docker recipe changes.
+            if ! git fetch --no-tags --depth=200 origin main; then
+              echo "Could not fetch origin/main; defaulting to production build."
+              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+              exit 0
+            fi
+            if ! MERGE_BASE="$(git merge-base HEAD origin/main)"; then
+              echo "Could not compute merge-base; defaulting to production build."
+              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+              exit 0
+            fi
+            if git diff --name-only "$MERGE_BASE" HEAD | rg -q "^(Dockerfile|pixi\\.lock)$"; then
+              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+            else
+              echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
+            fi
+      - run:
           name: Build base image if needed
           no_output_timeout: 60m
           command: |
@@ -149,23 +175,27 @@ jobs:
           name: Build Docker image (production)
           no_output_timeout: 3h
           command: |
-            if [[ -n "$CIRCLE_TAG" ]]; then
-              THISVERSION="$CIRCLE_TAG"
+            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" ]]; then
+              if [[ -n "$CIRCLE_TAG" ]]; then
+                THISVERSION="$CIRCLE_TAG"
+              else
+                THISVERSION="0+build"
+              fi
+              sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
+              e=1 && for i in {1..5}; do
+                docker build \
+                  --target aslprep \
+                  --rm=false \
+                  -t pennlinc/aslprep:latest \
+                  --platform linux/amd64 \
+                  --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                  --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                  --build-arg VERSION="$THISVERSION" . \
+                && e=0 && break || sleep 15
+              done && [ "$e" -eq "0" ]
             else
-              THISVERSION="0+build"
+              echo "Skipping production image build (no Dockerfile/pixi.lock changes on this branch)."
             fi
-            sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
-            e=1 && for i in {1..5}; do
-              docker build \
-                --target aslprep \
-                --rm=false \
-                -t pennlinc/aslprep:latest \
-                --platform linux/amd64 \
-                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-                --build-arg VERSION="$THISVERSION" . \
-              && e=0 && break || sleep 15
-            done && [ "$e" -eq "0" ]
       - run:
           name: Build Docker image (test)
           no_output_timeout: 60m
@@ -178,7 +208,9 @@ jobs:
       - run:
           name: Verify Docker images
           command: |
-            docker run --rm pennlinc/aslprep:latest --version
+            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" ]]; then
+              docker run --rm pennlinc/aslprep:latest --version
+            fi
             docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
       - run:
           name: Push base image to Docker Hub (if newly built)
@@ -193,9 +225,11 @@ jobs:
           name: Push images to local registry
           no_output_timeout: 40m
           command: |
-            docker tag pennlinc/aslprep:latest localhost:5000/aslprep
+            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" ]]; then
+              docker tag pennlinc/aslprep:latest localhost:5000/aslprep
+              docker push localhost:5000/aslprep
+            fi
             docker tag pennlinc/aslprep:test localhost:5000/aslprep-test
-            docker push localhost:5000/aslprep
             docker push localhost:5000/aslprep-test
       - run:
           name: Docker registry garbage collection
