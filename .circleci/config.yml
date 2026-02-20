@@ -75,19 +75,23 @@ commands:
           no_output_timeout: 5h
           command: |
             mkdir -p /tmp/out /tmp/work /tmp/coverage
+            # Run from the checked-out repo so pytest loads aslprep/tests/conftest.py,
+            # which registers custom CLI options like --data_dir/--output_dir/--working_dir.
             docker run --rm=false \
               -e CIRCLE_CPUS=<< parameters.cpus >> \
               -e COVERAGE_FILE=/coverage/.coverage.<< parameters.marker >> \
+              -v /tmp/src/aslprep:/tmp/src/aslprep:ro \
               -v /tmp/data:/data:ro \
               -v /tmp/out:/out \
               -v /tmp/work:/work \
               -v /tmp/coverage:/coverage \
+              -w /tmp/src/aslprep \
               --entrypoint pytest \
               pennlinc/aslprep:test \
               -rP -o log_cli=true -m "<< parameters.marker >>" \
               --cov-append --cov-report term-missing --cov=aslprep \
               --data_dir=/data --output_dir=/out --working_dir=/work \
-              aslprep
+              aslprep/tests
       - run:
           name: Clean up large artifacts
           when: always
@@ -454,18 +458,22 @@ jobs:
           no_output_timeout: 1h
           command: |
             mkdir -p /tmp/out /tmp/work /tmp/coverage
+            # Run from the checked-out repo so pytest loads aslprep/tests/conftest.py,
+            # which registers custom CLI options like --data_dir/--output_dir/--working_dir.
             docker run --rm=false \
               -e CIRCLE_CPUS=2 \
               -e COVERAGE_FILE=/coverage/.coverage.pytests \
+              -v /tmp/src/aslprep:/tmp/src/aslprep:ro \
               -v /tmp/data:/data:ro \
               -v /tmp/out:/out \
               -v /tmp/work:/work \
               -v /tmp/coverage:/coverage \
+              -w /tmp/src/aslprep \
               --entrypoint pytest \
               pennlinc/aslprep:test \
               --cov-append --cov-report term-missing --cov=aslprep \
               --data_dir=/data --output_dir=/out --working_dir=/work \
-              aslprep
+              aslprep/tests
       - persist_to_workspace:
           root: /tmp/coverage
           paths:
