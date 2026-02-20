@@ -28,9 +28,6 @@
 # Ubuntu 22.04 LTS - Jammy
 ARG BASE_IMAGE=ubuntu:jammy-20250730
 
-# External image for atlases
-FROM pennlinc/atlaspack:0.1.0 AS atlaspack
-
 #
 # Download stages
 #
@@ -104,11 +101,6 @@ COPY --link --from=freesurfer741 /usr/local/freesurfer/python/scripts/mri_synths
 COPY --link --from=freesurfer741 /usr/local/freesurfer/models /opt/freesurfer/models
 COPY --link --from=msm /usr/local/bin/msm /usr/local/bin/msm
 COPY --link --from=afni /opt/afni-latest /opt/afni-latest
-RUN mkdir -p /AtlasPack
-COPY --link --from=atlaspack /AtlasPack/tpl-fsLR_*.dlabel.nii /AtlasPack/
-COPY --link --from=atlaspack /AtlasPack/tpl-MNI152NLin6Asym_*.nii.gz /AtlasPack/
-COPY --link --from=atlaspack /AtlasPack/atlas-4S*.tsv /AtlasPack/
-COPY --link --from=atlaspack /AtlasPack/*.json /AtlasPack/
 
 RUN chmod +x /opt/freesurfer/bin/mri_synthseg /opt/freesurfer/bin/mri_synthstrip
 
@@ -155,6 +147,21 @@ RUN apt-get update -qq \
     && gsl2_path="$(find / -name 'libgsl.so.19' 2>/dev/null || printf '')" \
     && if [ -n "$gsl2_path" ]; then ln -sfv "$gsl2_path" "$(dirname "$gsl2_path")/libgsl.so.0"; fi \
     && ldconfig
+
+# Download atlases from AtlasPack (stored in tar.gz file on Box)
+RUN mkdir -p $HOME/.cache/aslprep && \
+    curl -o AtlasPack.tar.gz -sSL "https://upenn.box.com/shared/static/0gxdoe77tuih5p9ainn4utdqj3kcq7p1.tar.gz" && \
+    tar -xzf AtlasPack.tar.gz && \
+    mv AtlasPack $HOME/.cache/aslprep/AtlasPack && \
+    rm AtlasPack.tar.gz
+
+# Download XCP-D atlases (stored in tar.gz file on Box)
+RUN curl -o XCPDAtlases.tar.gz -sSL "https://upenn.box.com/shared/static/4amxp72grenmp1up689k5oyn1i6nhunq.tar.gz" && \
+    tar -xzf XCPDAtlases.tar.gz && \
+    mv XCPDAtlases $HOME/.cache/aslprep/XCPDAtlases && \
+    rm XCPDAtlases.tar.gz && \
+    find $HOME/.cache/aslprep -type d -exec chmod go=u {} + && \
+    find $HOME/.cache/aslprep -type f -exec chmod go=u {} +
 
 # FreeSurfer environment
 ENV OS="Linux" \
