@@ -639,8 +639,6 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
     input_fields = [
         'source_file',
         'asl_mask',
-        'aslref2anat_xfm',
-        'MNI152NLin2009cAsym_to_anat_xfm',
         'atlas_labels_files',
         'atlas_files',
     ]
@@ -741,7 +739,6 @@ def init_load_atlases_wf(
     Inputs
     ------
     %(name_source)s
-    bold_file
 
     Outputs
     -------
@@ -793,7 +790,6 @@ The following atlases were used in the workflow: {atlas_str}.
                 'aslref2anat_xfm',
                 'MNI152NLin2009cAsym_to_anat_xfm',
                 'asl_mask',
-                'bold_file',
                 'atlas_names',
                 'atlas_datasets',
                 'atlas_dataset_paths',

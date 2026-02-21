@@ -13,7 +13,11 @@ from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.misc import _create_mem_gb, _get_wf_name, get_n_volumes
 from aslprep.workflows.asl.apply import init_asl_cifti_resample_wf
-from aslprep.workflows.asl.cbf import init_cbf_wf, init_parcellate_cbf_wf
+from aslprep.workflows.asl.cbf import (
+    init_cbf_wf,
+    init_load_atlases_wf,
+    init_parcellate_cbf_wf,
+)
 from aslprep.workflows.asl.confounds import (
     init_asl_confounds_wf,
     init_carpetplot_wf,
@@ -845,6 +849,25 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
         # Parcellate CBF maps and write out parcellated TSV files and atlases
         if config.execution.atlases:
+            load_atlases_wf = init_load_atlases_wf(
+                mem_gb=mem_gb['resampled'],
+                omp_nthreads=omp_nthreads,
+                name='load_atlases_wf',
+            )
+            workflow.connect([
+                (inputnode, load_atlases_wf, [
+                    ('name_source', 'inputnode.name_source'),
+                    ('MNI152NLin2009cAsym_to_anat_xfm', 'inputnode.MNI152NLin2009cAsym_to_anat_xfm'),
+                    ('atlas_names', 'inputnode.atlas_names'),
+                    ('atlas_datasets', 'inputnode.atlas_datasets'),
+                    ('atlas_dataset_paths', 'inputnode.atlas_dataset_paths'),
+                ]),
+                (asl_fit_wf, load_atlases_wf, [
+                    ('outputnode.asl_mask', 'inputnode.asl_mask'),
+                    ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+                ]),
+            ])  # fmt:skip
+
             parcellate_cbf_wf = init_parcellate_cbf_wf(
                 cbf_3d=cbf_3d_derivs,
                 name='parcellate_cbf_wf',
@@ -852,11 +875,13 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             workflow.connect([
                 (inputnode, parcellate_cbf_wf, [
                     ('asl_file', 'inputnode.source_file'),
-                    ('mni2009c2anat_xfm', 'inputnode.MNI152NLin2009cAsym_to_anat_xfm'),
                 ]),
                 (asl_fit_wf, parcellate_cbf_wf, [
                     ('outputnode.asl_mask', 'inputnode.asl_mask'),
-                    ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+                ]),
+                (load_atlases_wf, parcellate_cbf_wf, [
+                    ('outputnode.atlas_files', 'inputnode.atlas_files'),
+                    ('outputnode.atlas_labels_files', 'inputnode.atlas_labels_files'),
                 ]),
             ])  # fmt:skip
 
