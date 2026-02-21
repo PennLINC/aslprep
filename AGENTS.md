@@ -180,11 +180,7 @@ When updating these dependencies, check for breaking API changes across the stac
 
 ### Version Management
 
-ASLPrep uses `__about__.py` for version metadata:
-```python
-from aslprep.__about__ import __copyright__, __credits__, __packagename__, __version__
-```
-This is different from qsiprep/qsirecon which import `__version__` directly from `_version.py`. Both patterns work; harmonization is a roadmap item.
+ASLPrep imports `__version__` directly from `_version.py`.
 
 ### Test Extras Naming
 
