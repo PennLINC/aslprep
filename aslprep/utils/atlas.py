@@ -99,7 +99,7 @@ def collect_atlases(datasets, atlases, file_format, bids_filters=None):
     import pandas as pd
     from bids.layout import BIDSLayout
 
-    from xcp_d.data import load as load_data
+    from aslprep.data import load as load_data
 
     atlas_cfg = load_data('atlas_bids_config.json')
     bids_filters = bids_filters or {}
@@ -155,8 +155,8 @@ def collect_atlases(datasets, atlases, file_format, bids_filters=None):
 
             atlas_metadata = None
             if atlas_metadata_file:
-                with open(atlas_metadata_file) as fo:
-                    atlas_metadata = json.load(fo)
+                with open(atlas_metadata_file) as fobj:
+                    atlas_metadata = json.load(fobj)
 
             atlas_cache[atlas] = {
                 'dataset': dataset_name,

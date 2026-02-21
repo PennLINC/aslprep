@@ -857,7 +857,10 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             workflow.connect([
                 (inputnode, load_atlases_wf, [
                     ('name_source', 'inputnode.name_source'),
-                    ('MNI152NLin2009cAsym_to_anat_xfm', 'inputnode.MNI152NLin2009cAsym_to_anat_xfm'),
+                    (
+                        'MNI152NLin2009cAsym_to_anat_xfm',
+                        'inputnode.MNI152NLin2009cAsym_to_anat_xfm',
+                    ),
                     ('atlas_names', 'inputnode.atlas_names'),
                     ('atlas_datasets', 'inputnode.atlas_datasets'),
                     ('atlas_dataset_paths', 'inputnode.atlas_dataset_paths'),

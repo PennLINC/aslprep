@@ -720,10 +720,10 @@ def init_load_atlases_wf(
             :graph2use: orig
             :simple_form: yes
 
-            from xcp_d.tests.tests import mock_config
-            from xcp_d import config
-            from xcp_d.data import load as load_data
-            from xcp_d.workflows.parcellation import init_load_atlases_wf
+            from aslprep.tests.tests import mock_config
+            from aslprep import config
+            from aslprep.data import load as load_data
+            from aslprep.workflows.cbf import init_load_atlases_wf
 
             with mock_config():
                 config.execution.datasets = {
