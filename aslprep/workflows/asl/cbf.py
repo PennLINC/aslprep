@@ -13,7 +13,7 @@ from templateflow.api import get as get_template
 
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.interfaces.bids import DerivativesDataSink
+from aslprep.interfaces.bids import BIDSURI, DerivativesDataSink
 from aslprep.interfaces.cbf import (
     BASILCBF,
     ComputeCBF,
@@ -31,7 +31,6 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
     prepare_basil_kwargs,
 )
-from aslprep.utils.atlas import get_atlas_nifti
 from aslprep.utils.bids import find_atlas_entities
 from aslprep.workflows.asl.reference import init_synthstrip_aslref_wf
 
