@@ -106,7 +106,7 @@ commands:
 # ── Jobs ──────────────────────────────────────────────────────────────
 
 jobs:
-  build:
+  image_prep:
     <<: *machine_defaults
     environment:
       TZ: "/usr/share/zoneinfo/America/New_York"
@@ -133,6 +133,44 @@ jobs:
             echo "BASE_IMAGE_NAME=$BASE_IMAGE_NAME" >> $BASH_ENV
             echo "BASE_TAG=$BASE_TAG" >> $BASH_ENV
       - run:
+          name: Determine whether image builds are required
+          command: |
+            # Always build images on main/tags for deploy correctness.
+            if [[ -n "$CIRCLE_TAG" || "$CIRCLE_BRANCH" == "main" ]]; then
+              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+              echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
+              exit 0
+            fi
+
+            # Prefer per-commit diffs so old branch history does not trigger
+            # repeated rebuilds on unrelated follow-up commits.
+            if git rev-parse --verify HEAD~1 > /dev/null 2>&1; then
+              CHANGED_FILES="$(git diff --name-only HEAD~1 HEAD)"
+            else
+              # Fallback for shallow/special histories.
+              if ! git fetch --no-tags --depth=200 origin main; then
+                echo "Could not fetch origin/main; defaulting to image builds."
+                echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+                echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
+                exit 0
+              fi
+              if ! MERGE_BASE="$(git merge-base HEAD origin/main)"; then
+                echo "Could not compute merge-base; defaulting to image builds."
+                echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+                echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
+                exit 0
+              fi
+              CHANGED_FILES="$(git diff --name-only "$MERGE_BASE" HEAD)"
+            fi
+
+            if printf "%s\n" "$CHANGED_FILES" | rg -q "^(Dockerfile\\.base|Dockerfile|pixi\\.lock)$"; then
+              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+              echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
+            else
+              echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
+              echo "BUILD_TEST_IMAGE=0" >> "$BASH_ENV"
+            fi
+      - run:
           name: Build base image if needed
           no_output_timeout: 60m
           command: |
@@ -149,36 +187,56 @@ jobs:
           name: Build Docker image (production)
           no_output_timeout: 3h
           command: |
-            if [[ -n "$CIRCLE_TAG" ]]; then
-              THISVERSION="$CIRCLE_TAG"
+            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" ]]; then
+              if [[ -n "$CIRCLE_TAG" ]]; then
+                THISVERSION="$CIRCLE_TAG"
+              else
+                THISVERSION="0+build"
+              fi
+              sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
+              e=1 && for i in {1..5}; do
+                docker build \
+                  --target aslprep \
+                  --rm=false \
+                  -t pennlinc/aslprep:latest \
+                  --platform linux/amd64 \
+                  --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                  --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                  --build-arg VERSION="$THISVERSION" . \
+                && e=0 && break || sleep 15
+              done && [ "$e" -eq "0" ]
             else
-              THISVERSION="0+build"
+              echo "Skipping production image build (no Dockerfile.base/Dockerfile/pixi.lock changes in current diff)."
             fi
-            sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
-            e=1 && for i in {1..5}; do
-              docker build \
-                --target aslprep \
-                --rm=false \
-                -t pennlinc/aslprep:latest \
-                --platform linux/amd64 \
-                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-                --build-arg VERSION="$THISVERSION" . \
-              && e=0 && break || sleep 15
-            done && [ "$e" -eq "0" ]
       - run:
           name: Build Docker image (test)
           no_output_timeout: 60m
           command: |
-            docker build \
-              --target test \
-              --rm=false \
-              -t pennlinc/aslprep:test \
-              --platform linux/amd64 .
+            if [[ "$BUILD_TEST_IMAGE" == "1" ]]; then
+              docker build \
+                --target test \
+                --rm=false \
+                -t pennlinc/aslprep:test \
+                --platform linux/amd64 .
+            elif docker image inspect pennlinc/aslprep:test > /dev/null 2>&1; then
+              echo "Reusing existing local test image."
+            elif docker pull localhost:5000/aslprep-test; then
+              docker tag localhost:5000/aslprep-test pennlinc/aslprep:test
+              echo "Reusing cached test image from local registry."
+            else
+              echo "No reusable test image found; rebuilding test image."
+              docker build \
+                --target test \
+                --rm=false \
+                -t pennlinc/aslprep:test \
+                --platform linux/amd64 .
+            fi
       - run:
           name: Verify Docker images
           command: |
-            docker run --rm pennlinc/aslprep:latest --version
+            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" ]]; then
+              docker run --rm pennlinc/aslprep:latest --version
+            fi
             docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
       - run:
           name: Push base image to Docker Hub (if newly built)
@@ -193,9 +251,11 @@ jobs:
           name: Push images to local registry
           no_output_timeout: 40m
           command: |
-            docker tag pennlinc/aslprep:latest localhost:5000/aslprep
+            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" ]]; then
+              docker tag pennlinc/aslprep:latest localhost:5000/aslprep
+              docker push localhost:5000/aslprep
+            fi
             docker tag pennlinc/aslprep:test localhost:5000/aslprep-test
-            docker push localhost:5000/aslprep
             docker push localhost:5000/aslprep-test
       - run:
           name: Docker registry garbage collection
@@ -543,7 +603,7 @@ workflows:
   version: 2
   build_test_deploy:
     jobs:
-      - build:
+      - image_prep:
           filters:
             tags:
               only: /.*/
@@ -559,7 +619,7 @@ workflows:
 
       - pcasl_singlepld_philips:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -571,7 +631,7 @@ workflows:
 
       - pcasl_singlepld_siemens:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -583,7 +643,7 @@ workflows:
 
       - pcasl_singlepld_ge:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -595,7 +655,7 @@ workflows:
 
       - pcasl_multipld:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -607,7 +667,7 @@ workflows:
 
       - pasl_multipld:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -619,7 +679,7 @@ workflows:
 
       - qtab:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -631,7 +691,7 @@ workflows:
 
       - test_001:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -643,7 +703,7 @@ workflows:
 
       - test_002:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -655,7 +715,7 @@ workflows:
 
       - test_003_minimal:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -667,7 +727,7 @@ workflows:
 
       - test_003_resampling:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -679,7 +739,7 @@ workflows:
 
       - test_003_full:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -691,7 +751,7 @@ workflows:
 
       - pytests:
           requires:
-            - build
+            - image_prep
             - get_data
           filters:
             branches:
@@ -725,7 +785,7 @@ workflows:
 
       - deployable:
           requires:
-            - build
+            - image_prep
             - pcasl_singlepld_philips
             - pcasl_singlepld_siemens
             - pcasl_singlepld_ge
