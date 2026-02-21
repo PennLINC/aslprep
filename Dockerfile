@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ARG BASE_IMAGE=pennlinc/aslprep-base:20260221
+ARG BASE_IMAGE=pennlinc/aslprep-base:20260222
 
 #
 # Build pixi environment
