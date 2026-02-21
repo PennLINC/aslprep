@@ -4,6 +4,7 @@
 
 import sys
 import typing as ty
+from pathlib import Path
 
 from aslprep import config
 
@@ -825,6 +826,24 @@ def parse_args(args=None, namespace=None):
         config.execution.output_spaces = SpatialReferences(
             [Reference('MNI152NLin2009cAsym', {'res': 'native'})]
         )
+
+    # Add internal atlas datasets to the list of datasets
+    opts.derivatives = opts.derivatives or {}
+    if opts.atlases:
+        if 'aslprepatlases' not in opts.derivatives:
+            opts.derivatives['aslprepatlases'] = Path.home() / '.cache' / 'aslprep' / 'XCPDAtlases'
+            if not opts.derivatives['aslprepatlases'].is_dir():
+                raise NotADirectoryError(
+                    f'ASLPrep atlases is not a directory: {opts.derivatives["aslprepatlases"]}'
+                )
+
+        if any(atlas.startswith('4S') for atlas in opts.atlases):
+            if 'aslprep4s' not in opts.derivatives:
+                opts.derivatives['aslprep4s'] = Path.home() / '.cache' / 'aslprep' / 'AtlasPack'
+                if not opts.derivatives['aslprep4s'].is_dir():
+                    raise NotADirectoryError(
+                        f'AtlasPack is not a directory: {opts.derivatives["aslprep4s"]}'
+                    )
 
     # Retrieve logging level
     build_log = config.loggers.cli

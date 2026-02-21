@@ -5,16 +5,19 @@ from json import loads
 from bids.layout import Config
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
+    DynamicTraitedSpec,
     OutputMultiObject,
     SimpleInterface,
     Str,
     TraitedSpec,
     traits,
 )
+from nipype.interfaces.io import add_traits
 from niworkflows.interfaces.bids import DerivativesDataSink as BaseDerivativesDataSink
 
 from aslprep import config
 from aslprep.data import load as load_data
+from aslprep.utils.bids import _get_bidsuris
 
 # NOTE: Modified for aslprep's purposes
 aslprep_spec = loads(load_data.readable('aslprep_bids_config.json').read_text())
@@ -241,3 +244,56 @@ class FunctionOverrideContext:
         None
         """
         setattr(self.module, self.function_name, self.original_function)
+
+
+class _BIDSURIInputSpec(DynamicTraitedSpec):
+    dataset_links = traits.Dict(mandatory=True, desc='Dataset links')
+    out_dir = traits.Str(mandatory=True, desc='Output directory')
+    metadata = traits.Dict(desc='Metadata dictionary')
+    field = traits.Str(
+        'Sources',
+        usedefault=True,
+        desc='Field to use for BIDS URIs in metadata dict',
+    )
+
+
+class _BIDSURIOutputSpec(TraitedSpec):
+    out = traits.List(
+        traits.Str,
+        desc='BIDS URI(s) for file',
+    )
+    metadata = traits.Dict(
+        desc="Dictionary with 'Sources' field.",
+    )
+
+
+class BIDSURI(SimpleInterface):
+    """Convert input filenames to BIDS URIs, based on links in the dataset.
+
+    This interface can combine multiple lists of inputs.
+    """
+
+    input_spec = _BIDSURIInputSpec
+    output_spec = _BIDSURIOutputSpec
+
+    def __init__(self, numinputs=0, **inputs):
+        super().__init__(**inputs)
+        self._numinputs = numinputs
+        if numinputs >= 1:
+            input_names = [f'in{i + 1}' for i in range(numinputs)]
+        else:
+            input_names = []
+        add_traits(self.inputs, input_names)
+
+    def _run_interface(self, runtime):
+        inputs = [getattr(self.inputs, f'in{i + 1}') for i in range(self._numinputs)]
+        uris = _get_bidsuris(inputs, self.inputs.dataset_links, self.inputs.out_dir)
+        self._results['out'] = uris
+
+        # Add the URIs to the metadata dictionary.
+        metadata = self.inputs.metadata or {}
+        metadata = metadata.copy()
+        metadata[self.inputs.field] = metadata.get(self.inputs.field, []) + uris
+        self._results['metadata'] = metadata
+
+        return runtime

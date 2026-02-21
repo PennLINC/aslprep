@@ -1,5 +1,9 @@
 """Functions for working with atlases."""
 
+from nipype import logging
+
+LOGGER = logging.getLogger('nipype.utils')
+
 
 def select_atlases(atlases, subset):
     """Get a list of atlases to be used for parcellation and functional connectivity analyses.
@@ -33,6 +37,8 @@ def select_atlases(atlases, subset):
             '4S1056Parcels',
             'Glasser',
             'Gordon',
+            'MIDB',
+            'MyersLabonte',
         ],
         'subcortical': [
             'Tian',
@@ -53,58 +59,127 @@ def select_atlases(atlases, subset):
     return selected_atlases
 
 
-def get_atlas_nifti(atlas_name):
-    """Select atlas by name from aslprep/data using aslprep.data.load.
+def collect_atlases(datasets, atlases, file_format, bids_filters=None):
+    """Collect atlases from a list of BIDS-Atlas datasets.
 
-    All atlases are in MNI space.
-
-    NOTE: This is a Node function.
+    Selection of labels files and metadata does not leverage the inheritance principle.
+    That probably won't be possible until PyBIDS supports the BIDS-Atlas extension natively.
 
     Parameters
     ----------
-    atlas_name : {"4S156Parcels", "4S256Parcels", "4S356Parcels", "4S456Parcels", \
-                  "4S556Parcels", "4S656Parcels", "4S756Parcels", "4S856Parcels", \
-                  "4S956Parcels", "4S1056Parcels", "Glasser", "Gordon", \
-                  "Tian", "HCP"}
-        The name of the NIFTI atlas to fetch.
+    datasets : dict of str:str or str:BIDSLayout pairs
+        Dictionary of BIDS datasets to search for atlases.
+    atlases : list of str
+        List of atlases to collect from across the datasets.
+    file_format : {"nifti", "cifti"}
+        The file format of the atlases.
+    bids_filters : dict
+        Additional filters to apply to the BIDS query.
+        Only the "atlas" key is used.
 
     Returns
     -------
-    atlas_file : :obj:`str`
-        Path to the atlas file.
-    atlas_labels_file : :obj:`str`
-        Path to the atlas labels file.
-    atlas_metadata_file : :obj:`str`
-        Path to the atlas metadata file.
+    atlas_cache : dict
+        Dictionary of atlases with metadata.
+        Keys are the atlas names, values are dictionaries with keys:
+
+        - "dataset" : str
+            Name of the dataset containing the atlas.
+        - "dataset_path" : str
+            Path to the dataset containing the atlas.
+        - "image" : str
+            Path to the atlas image.
+        - "labels" : str
+            Path to the atlas labels file.
+        - "metadata" : dict
+            Metadata associated with the atlas.
     """
-    from os.path import isfile, join
+    import json
+
+    import pandas as pd
+    from bids.layout import BIDSLayout
 
     from aslprep.data import load as load_data
 
-    if '4S' in atlas_name or atlas_name in ('Glasser', 'Gordon'):
-        # 1 mm3 atlases
-        atlas_fname = f'tpl-MNI152NLin6Asym_atlas-{atlas_name}_res-01_dseg.nii.gz'
-        tsv_fname = f'atlas-{atlas_name}_dseg.tsv'
+    atlas_cfg = load_data('atlas_bids_config.json')
+    bids_filters = bids_filters or {}
+
+    atlas_filter = bids_filters.get('atlas', {})
+    atlas_filter['suffix'] = atlas_filter.get('suffix') or 'dseg'  # XCP-D only supports dsegs
+    atlas_filter['extension'] = ['.nii.gz', '.nii'] if file_format == 'nifti' else '.dlabel.nii'
+    # Hardcoded spaces for now
+    if file_format == 'cifti':
+        atlas_filter['template'] = atlas_filter.get('template') or 'fsLR'
+        atlas_filter['den'] = atlas_filter.get('den') or ['32k', '91k']
     else:
-        # 2 mm3 atlases
-        atlas_fname = f'tpl-MNI152NLin6Asym_atlas-{atlas_name}_res-02_dseg.nii.gz'
-        tsv_fname = f'atlas-{atlas_name}_dseg.tsv'
+        atlas_filter['template'] = atlas_filter.get('template') or [
+            'MNI152NLin6Asym',
+            'MNI152NLin2009cAsym',
+            'MNIInfant',
+        ]
 
-    if '4S' in atlas_name:
-        atlas_file = join('/AtlasPack', atlas_fname)
-        atlas_labels_file = join('/AtlasPack', tsv_fname)
-        atlas_metadata_file = f'/AtlasPack/tpl-MNI152NLin6Asym_atlas-{atlas_name}_dseg.json'
-    else:
-        atlas_file = load_data(f'atlases/{atlas_fname}').absolute()
-        atlas_labels_file = load_data(f'atlases/{tsv_fname}').absolute()
-        atlas_metadata_file = load_data(
-            f'atlases/tpl-MNI152NLin6Asym_atlas-{atlas_name}_dseg.json',
-        ).absolute()
+    atlas_cache = {}
+    for dataset_name, dataset_path in datasets.items():
+        if not isinstance(dataset_path, BIDSLayout):
+            layout = BIDSLayout(dataset_path, config=[atlas_cfg], validate=False)
+        else:
+            layout = dataset_path
 
-    if not (isfile(atlas_file) and isfile(atlas_labels_file) and isfile(atlas_metadata_file)):
-        raise FileNotFoundError(
-            f'File(s) do not exist:\n\t{atlas_file}\n\t{atlas_labels_file}\n\t'
-            f'{atlas_metadata_file}'
-        )
+        if layout.get_dataset_description().get('DatasetType') != 'derivative':
+            continue
 
-    return atlas_file, atlas_labels_file, atlas_metadata_file
+        for atlas in atlases:
+            atlas_images = layout.get(
+                atlas=atlas,
+                **atlas_filter,
+                return_type='file',
+            )
+            if not atlas_images:
+                continue
+            elif len(atlas_images) > 1:
+                bulleted_list = '\n'.join([f'  - {img}' for img in atlas_images])
+                LOGGER.warning(
+                    f'Multiple atlas images found for {atlas} with query {atlas_filter}:\n'
+                    f'{bulleted_list}\nUsing {atlas_images[0]}.'
+                )
+
+            if atlas in atlas_cache:
+                raise ValueError(f"Multiple datasets contain the same atlas '{atlas}'")
+
+            atlas_image = atlas_images[0]
+            atlas_labels = layout.get_nearest(atlas_image, extension='.tsv', strict=False)
+            atlas_metadata_file = layout.get_nearest(atlas_image, extension='.json', strict=True)
+
+            if not atlas_labels:
+                raise FileNotFoundError(f'No TSV file found for {atlas_image}')
+
+            atlas_metadata = None
+            if atlas_metadata_file:
+                with open(atlas_metadata_file) as fobj:
+                    atlas_metadata = json.load(fobj)
+
+            atlas_cache[atlas] = {
+                'dataset': dataset_name,
+                'dataset_path': str(layout._root),
+                'image': atlas_image,
+                'labels': atlas_labels,
+                'metadata': atlas_metadata,
+            }
+
+    for atlas in atlases:
+        if atlas not in atlas_cache:
+            LOGGER.warning(f'No atlas images found for {atlas} with query {atlas_filter}')
+
+    for _atlas, atlas_info in atlas_cache.items():
+        if not atlas_info['labels']:
+            raise FileNotFoundError(f'No TSV file found for {atlas_info["image"]}')
+
+        # Check the contents of the labels file
+        df = pd.read_table(atlas_info['labels'])
+        if 'name' not in df.columns:
+            raise ValueError(f"'name' column not found in {atlas_info['labels']}")
+
+        if 'index' not in df.columns:
+            raise ValueError(f"'index' column not found in {atlas_info['labels']}")
+
+    return atlas_cache
