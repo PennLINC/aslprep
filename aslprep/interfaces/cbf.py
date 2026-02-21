@@ -551,6 +551,27 @@ class ComputeCBF(SimpleInterface):
                     'for multi-PLD data.'
                 )
 
+            known_params = None
+            if is_casl:
+                # Use weighted average method to get initial estimates of ATT and CBF
+                from aslprep.utils.cbf import estimate_cbf_pcasl_multipld
+
+                att_init, cbf_init = estimate_cbf_pcasl_multipld(
+                    deltam_arr=deltam_arr,
+                    scaled_m0data=scaled_m0data,
+                    plds=plds,
+                    tau=tau,
+                    labeleff=labeleff,
+                    t1blood=t1blood,
+                    t1tissue=t1tissue,
+                    unit_conversion=UNIT_CONV,
+                    partition_coefficient=PARTITION_COEF,
+                )
+                known_params = {
+                    'att': att_init,
+                    'cbf': cbf_init,
+                }
+
             cbf, att, abat, abv, failures = fit_deltam_multipld(
                 deltam_arr=deltam_arr,
                 scaled_m0data=scaled_m0data,
@@ -561,6 +582,7 @@ class ComputeCBF(SimpleInterface):
                 is_casl=is_casl,
                 tau=tau,  # defined for (P)CASL
                 ti1=ti1,  # defined for PASL
+                known_params=known_params,
             )
 
             mean_cbf_img = masker.inverse_transform(cbf)
