@@ -827,6 +827,8 @@ def parse_args(args=None, namespace=None):
             [Reference('MNI152NLin2009cAsym', {'res': 'native'})]
         )
 
+    # Add internal atlas datasets to the list of datasets
+    opts.derivatives = opts.derivatives or {}
     if opts.atlases:
         if 'aslprepatlases' not in opts.derivatives:
             opts.derivatives['aslprepatlases'] = Path.home() / '.cache' / 'aslprep' / 'XCPDAtlases'
