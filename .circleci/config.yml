@@ -180,14 +180,16 @@ jobs:
                 --platform linux/amd64 \
                 -t $BASE_IMAGE \
                 -t $BASE_IMAGE_NAME:latest .
+              echo "BASE_WAS_BUILT=1" >> "$BASH_ENV"
             else
               echo "Base image $BASE_IMAGE already exists."
+              echo "BASE_WAS_BUILT=0" >> "$BASH_ENV"
             fi
       - run:
           name: Build Docker image (production)
           no_output_timeout: 3h
           command: |
-            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" ]]; then
+            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
               if [[ -n "$CIRCLE_TAG" ]]; then
                 THISVERSION="$CIRCLE_TAG"
               else
@@ -206,23 +208,23 @@ jobs:
                 && e=0 && break || sleep 15
               done && [ "$e" -eq "0" ]
             else
-              echo "Skipping production image build (no Dockerfile.base/Dockerfile/pixi.lock changes in current diff)."
+              echo "Skipping production image build (no Dockerfile.base/Dockerfile/pixi.lock changes and base image not rebuilt in this job)."
             fi
       - run:
           name: Build Docker image (test)
           no_output_timeout: 60m
           command: |
-            if [[ "$BUILD_TEST_IMAGE" == "1" ]]; then
+            if [[ "$BUILD_TEST_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
               docker build \
                 --target test \
                 --rm=false \
                 -t pennlinc/aslprep:test \
                 --platform linux/amd64 .
             elif docker image inspect pennlinc/aslprep:test > /dev/null 2>&1; then
-              echo "Reusing existing local test image."
+              echo "Reusing existing local test image (no Dockerfile/pixi/base-triggered rebuild required)."
             elif docker pull localhost:5000/aslprep-test; then
               docker tag localhost:5000/aslprep-test pennlinc/aslprep:test
-              echo "Reusing cached test image from local registry."
+              echo "Reusing cached test image from local registry (no Dockerfile/pixi/base-triggered rebuild required)."
             else
               echo "No reusable test image found; rebuilding test image."
               docker build \
@@ -234,7 +236,7 @@ jobs:
       - run:
           name: Verify Docker images
           command: |
-            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" ]]; then
+            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
               docker run --rm pennlinc/aslprep:latest --version
             fi
             docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
@@ -251,7 +253,7 @@ jobs:
           name: Push images to local registry
           no_output_timeout: 40m
           command: |
-            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" ]]; then
+            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
               docker tag pennlinc/aslprep:latest localhost:5000/aslprep
               docker push localhost:5000/aslprep
             fi
