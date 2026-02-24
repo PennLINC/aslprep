@@ -831,7 +831,7 @@ def parse_args(args=None, namespace=None):
     opts.derivatives = opts.derivatives or {}
     if opts.atlases:
         if 'aslprepatlases' not in opts.derivatives:
-            opts.derivatives['aslprepatlases'] = Path.home() / '.cache' / 'aslprep' / 'XCPDAtlases'
+            opts.derivatives['aslprepatlases'] = Path('/home/aslprep/.cache/aslprep/XCPDAtlases')
             if not opts.derivatives['aslprepatlases'].is_dir():
                 raise NotADirectoryError(
                     f'ASLPrep atlases is not a directory: {opts.derivatives["aslprepatlases"]}'
@@ -839,7 +839,7 @@ def parse_args(args=None, namespace=None):
 
         if any(atlas.startswith('4S') for atlas in opts.atlases):
             if 'aslprep4s' not in opts.derivatives:
-                opts.derivatives['aslprep4s'] = Path.home() / '.cache' / 'aslprep' / 'AtlasPack'
+                opts.derivatives['aslprep4s'] = Path('/home/aslprep/.cache/aslprep/AtlasPack')
                 if not opts.derivatives['aslprep4s'].is_dir():
                     raise NotADirectoryError(
                         f'AtlasPack is not a directory: {opts.derivatives["aslprep4s"]}'
