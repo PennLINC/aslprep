@@ -730,8 +730,8 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
                 (cbf_type, 'in_file'),
                 ('asl_mask', 'mask'),
                 ('atlas_labels_files', 'atlas_labels'),
-                ('atlas_files', 'atlas'),
             ]),
+            (warp_atlases_to_asl_space, parcellate_cbf, [('output_image', 'atlas')]),
         ])  # fmt:skip
 
         ds_cbf = pe.MapNode(
