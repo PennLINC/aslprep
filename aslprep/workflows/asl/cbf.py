@@ -726,7 +726,7 @@ def init_load_atlases_wf(
             from aslprep.workflows.cbf import init_load_atlases_wf
 
             with mock_config():
-                config.execution.datasets = {
+                config.execution.derivatives = {
                     "xcpdatlases": str(load_data("atlases")),
                 }
                 wf = init_load_atlases_wf()
@@ -757,7 +757,7 @@ def init_load_atlases_wf(
     os.makedirs(atlas_output_dir, exist_ok=True)
 
     atlases = collect_atlases(
-        datasets=config.execution.datasets,
+        datasets=config.execution.derivatives,
         atlases=config.execution.atlases,
         file_format=config.workflow.file_format,
         bids_filters=config.execution.bids_filters,
