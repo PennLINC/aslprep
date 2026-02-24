@@ -756,6 +756,13 @@ def init_load_atlases_wf(
     atlas_output_dir = os.path.join(output_dir, 'sourcedata', 'atlases')
     os.makedirs(atlas_output_dir, exist_ok=True)
 
+    config.loggers.workflow.info('CHECKING CONFIG')
+    config.loggers.workflow.info(config.execution.derivatives)
+    config.loggers.workflow.info(config.execution.atlases)
+    config.loggers.workflow.info(config.execution.bids_filters)
+    config.loggers.workflow.info(config.execution.dataset_links)
+    config.loggers.workflow.info('DONE CHECKING CONFIG')
+
     atlases = collect_atlases(
         datasets=config.execution.derivatives,
         atlases=config.execution.atlases,
