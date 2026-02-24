@@ -1,11 +1,18 @@
 """Adapted interfaces from Niworkflows."""
 
-from json import loads
+import os
+import shutil
+from json import dump, loads
 
+import filelock
+import nibabel as nb
+import numpy as np
 from bids.layout import Config
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
+    Directory,
     DynamicTraitedSpec,
+    File,
     OutputMultiObject,
     SimpleInterface,
     Str,
@@ -17,7 +24,7 @@ from niworkflows.interfaces.bids import DerivativesDataSink as BaseDerivativesDa
 
 from aslprep import config
 from aslprep.data import load as load_data
-from aslprep.utils.bids import _get_bidsuris
+from aslprep.utils.bids import _get_bidsuris, get_entity
 
 # NOTE: Modified for aslprep's purposes
 aslprep_spec = loads(load_data.readable('aslprep_bids_config.json').read_text())
@@ -295,5 +302,226 @@ class BIDSURI(SimpleInterface):
         metadata = metadata.copy()
         metadata[self.inputs.field] = metadata.get(self.inputs.field, []) + uris
         self._results['metadata'] = metadata
+
+        return runtime
+
+
+class _CopyAtlasInputSpec(BaseInterfaceInputSpec):
+    name_source = traits.Str(
+        desc="The source file's name.",
+        mandatory=False,
+    )
+    in_file = File(
+        exists=True,
+        desc='The atlas file to copy.',
+        mandatory=True,
+    )
+    meta_dict = traits.Either(
+        traits.Dict(),
+        None,
+        desc='The atlas metadata dictionary.',
+        mandatory=False,
+    )
+    output_dir = Directory(
+        exists=True,
+        desc='The output directory.',
+        mandatory=True,
+    )
+    atlas = traits.Str(
+        desc='The atlas name.',
+        mandatory=True,
+    )
+    Sources = traits.List(
+        traits.Str,
+        desc='List of sources for the atlas.',
+        mandatory=False,
+    )
+
+
+class _CopyAtlasOutputSpec(TraitedSpec):
+    out_file = File(
+        exists=True,
+        desc='The copied atlas file.',
+    )
+
+
+class CopyAtlas(SimpleInterface):
+    """Copy atlas file to output directory.
+
+    Parameters
+    ----------
+    name_source : :obj:`str`
+        The source name of the atlas file.
+    in_file : :obj:`str`
+        The atlas file to copy.
+    output_dir : :obj:`str`
+        The output directory.
+    atlas : :obj:`str`
+        The name of the atlas.
+
+    Returns
+    -------
+    out_file : :obj:`str`
+        The path to the copied atlas file.
+
+    Notes
+    -----
+    I can't use DerivativesDataSink because it has a problem with dlabel CIFTI files.
+    It gives the following error:
+    "AttributeError: 'Cifti2Header' object has no attribute 'set_data_dtype'"
+
+    I can't override the CIFTI atlas's data dtype ahead of time because setting it to int8 or int16
+    somehow converts all of the values in the data array to weird floats.
+    This could be a version-specific nibabel issue.
+
+    I've also updated this function to handle JSON and TSV files as well.
+    """
+
+    input_spec = _CopyAtlasInputSpec
+    output_spec = _CopyAtlasOutputSpec
+
+    def _run_interface(self, runtime):
+        output_dir = self.inputs.output_dir
+        in_file = self.inputs.in_file
+        meta_dict = self.inputs.meta_dict
+        name_source = self.inputs.name_source
+        atlas = self.inputs.atlas
+        Sources = self.inputs.Sources
+
+        tpl = get_entity(name_source, 'tpl')
+        if not tpl:
+            tpl = get_entity(name_source, 'space')
+
+        if not tpl:
+            raise ValueError(f'Could not determine template from {name_source}')
+
+        cohort, cohort_str = None, ''
+        if '+' in tpl:
+            # Split the template and cohort
+            tpl, cohort = tpl.split('+')
+            cohort_str = f'cohort-{cohort}_'
+
+        if not cohort:
+            cohort = get_entity(name_source, 'cohort')
+            cohort_str = f'cohort-{cohort}_' if cohort else ''
+
+        tpl_str = f'tpl-{tpl}_'
+
+        output_dir = os.path.join(output_dir, f'tpl-{tpl}')
+        if cohort:
+            output_dir = os.path.join(output_dir, f'cohort-{cohort}')
+
+        res = get_entity(name_source, 'res')
+        res_str = f'_res-{res}' if res else ''
+
+        den = get_entity(name_source, 'den')
+        den_str = f'_den-{den}' if den else ''
+
+        out_basename = f'{tpl_str}{cohort_str}atlas-{atlas}{res_str}{den_str}_dseg'
+        if in_file.endswith('.tsv'):
+            extension = '.tsv'
+        elif in_file.endswith('.dlabel.nii'):
+            extension = '.dlabel.nii'
+        else:
+            extension = '.nii.gz'
+
+        os.makedirs(output_dir, exist_ok=True)
+        out_file = os.path.join(output_dir, f'{out_basename}{extension}')
+
+        if out_file.endswith('.nii.gz') and os.path.isfile(out_file):
+            # Check that native-resolution atlas doesn't have a different resolution from the last
+            # run's atlas.
+            old_img = nb.load(out_file)
+            new_img = nb.load(in_file)
+            if not np.allclose(old_img.affine, new_img.affine):
+                raise ValueError(
+                    f"Existing '{atlas}' atlas affine ({out_file}) is different from the input "
+                    f'file affine ({in_file}).'
+                )
+
+        # Don't copy the file if it exists, to prevent any race conditions between parallel
+        # processes.
+        if not os.path.isfile(out_file):
+            lock_file = os.path.join(output_dir, f'{out_basename}{extension}.lock')
+            with filelock.SoftFileLock(lock_file, timeout=60):
+                shutil.copyfile(in_file, out_file)
+
+        # Only write out a sidecar if metadata are provided
+        if meta_dict or Sources:
+            meta_file = os.path.join(output_dir, f'{out_basename}.json')
+            lock_meta = os.path.join(output_dir, f'{out_basename}.json.lock')
+            meta_dict = meta_dict or {}
+            meta_dict = meta_dict.copy()
+            if Sources:
+                meta_dict['Sources'] = meta_dict.get('Sources', []) + Sources
+
+            with filelock.SoftFileLock(lock_meta, timeout=60):
+                with open(meta_file, 'w') as fo:
+                    dump(meta_dict, fo, sort_keys=True, indent=4)
+
+        self._results['out_file'] = out_file
+
+        return runtime
+
+
+class _CopyAtlasDescriptionInputSpec(BaseInterfaceInputSpec):
+    in_dir = Directory(
+        exists=True,
+        desc='The atlas directory to copy the description file from.',
+        mandatory=True,
+    )
+    atlas_name = traits.Str(
+        desc='The name of the atlas.',
+        mandatory=True,
+    )
+    output_dir = Directory(
+        exists=True,
+        desc='The output directory.',
+        mandatory=True,
+    )
+
+
+class _CopyAtlasDescriptionOutputSpec(TraitedSpec):
+    out_file = File(
+        exists=True,
+        desc='The copied atlas file.',
+    )
+
+
+class CopyAtlasDescription(SimpleInterface):
+    """Copy atlas description file to output directory.
+
+    Parameters
+    ----------
+    in_file : :obj:`str`
+        The atlas file to copy.
+    output_dir : :obj:`str`
+        The output directory.
+
+    Returns
+    -------
+    out_file : :obj:`str`
+        The path to the copied atlas description file.
+    """
+
+    input_spec = _CopyAtlasDescriptionInputSpec
+    output_spec = _CopyAtlasDescriptionOutputSpec
+
+    def _run_interface(self, runtime):
+        output_dir = self.inputs.output_dir
+        in_dir = self.inputs.in_dir
+        atlas_name = self.inputs.atlas_name
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        in_file = os.path.join(in_dir, f'atlas-{atlas_name}_description.json')
+        if not os.path.isfile(in_file):
+            raise FileNotFoundError(f'Atlas description file not found: {in_file}')
+
+        out_file = os.path.join(output_dir, f'atlas-{atlas_name}_description.json')
+        if not os.path.isfile(out_file):
+            shutil.copyfile(in_file, out_file)
+
+        self._results['out_file'] = out_file
 
         return runtime

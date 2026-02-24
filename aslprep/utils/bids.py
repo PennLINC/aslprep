@@ -405,3 +405,39 @@ def _get_bidsuris(in_files, dataset_links, out_dir):
     # Convert the paths to BIDS URIs
     out = [_find_nearest_path(updated_keys, f) for f in in_files]
     return out
+
+
+def get_entity(filename, entity):
+    """Extract a given entity from a BIDS filename via string manipulation.
+
+    Parameters
+    ----------
+    filename : :obj:`str`
+        Path to the BIDS file.
+    entity : :obj:`str`
+        The entity to extract from the filename.
+
+    Returns
+    -------
+    entity_value : :obj:`str` or None
+        The BOLD file's entity value associated with the requested entity.
+    """
+    import os
+    import re
+
+    folder, file_base = os.path.split(filename)
+
+    # Allow + sign, which is not allowed in BIDS,
+    # but is used by templateflow for the MNIInfant template.
+    entity_values = re.findall(f'{entity}-([a-zA-Z0-9+]+)', file_base)
+    entity_value = None if len(entity_values) < 1 else entity_values[0]
+    if entity == 'space' and entity_value is None:
+        foldername = os.path.basename(folder)
+        if foldername == 'anat':
+            entity_value = 'T1w'
+        elif foldername == 'func':
+            entity_value = 'native'
+        else:
+            raise ValueError(f'Unknown space for {filename}')
+
+    return entity_value
