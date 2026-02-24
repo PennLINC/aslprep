@@ -36,7 +36,8 @@ ARG BASE_IMAGE=ubuntu:jammy-20250730
 FROM ${BASE_IMAGE} AS downloader
 ENV DEBIAN_FRONTEND="noninteractive" \
     LANG="en_US.UTF-8" \
-    LC_ALL="en_US.UTF-8"
+    LC_ALL="en_US.UTF-8" \
+    HOME="/home/aslprep"
 
 # Bump the date to refresh curl/certificates/etc
 RUN echo "2025.02.12"
@@ -149,19 +150,20 @@ RUN apt-get update -qq \
     && ldconfig
 
 # Download atlases from AtlasPack (stored in tar.gz file on Box)
-RUN mkdir -p $HOME/.cache/aslprep && \
+RUN mkdir -p "/home/aslprep/.cache/aslprep" && \
     curl -o AtlasPack.tar.gz -sSL "https://upenn.box.com/shared/static/0gxdoe77tuih5p9ainn4utdqj3kcq7p1.tar.gz" && \
     tar -xzf AtlasPack.tar.gz && \
-    mv AtlasPack $HOME/.cache/aslprep/AtlasPack && \
+    mv AtlasPack "/home/aslprep/.cache/aslprep/AtlasPack" && \
     rm AtlasPack.tar.gz
 
 # Download XCP-D atlases (stored in tar.gz file on Box)
-RUN curl -o XCPDAtlases.tar.gz -sSL "https://upenn.box.com/shared/static/4amxp72grenmp1up689k5oyn1i6nhunq.tar.gz" && \
+RUN mkdir -p "/home/aslprep/.cache/aslprep" && \
+    curl -o XCPDAtlases.tar.gz -sSL "https://upenn.box.com/shared/static/4amxp72grenmp1up689k5oyn1i6nhunq.tar.gz" && \
     tar -xzf XCPDAtlases.tar.gz && \
-    mv XCPDAtlases $HOME/.cache/aslprep/XCPDAtlases && \
+    mv XCPDAtlases "/home/aslprep/.cache/aslprep/XCPDAtlases" && \
     rm XCPDAtlases.tar.gz && \
-    find $HOME/.cache/aslprep -type d -exec chmod go=u {} + && \
-    find $HOME/.cache/aslprep -type f -exec chmod go=u {} +
+    find "/home/aslprep/.cache/aslprep" -type d -exec chmod go=u {} + && \
+    find "/home/aslprep/.cache/aslprep" -type f -exec chmod go=u {} +
 
 # FreeSurfer environment
 ENV OS="Linux" \
