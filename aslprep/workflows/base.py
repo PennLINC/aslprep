@@ -242,14 +242,18 @@ their manuscripts unchanged. It is released under the unchanged
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         std_spaces.append('fsnative')
         for deriv_dir in config.execution.derivatives.values():
-            anatomical_cache.update(
-                collect_anat_derivatives(
-                    derivatives_dir=deriv_dir,
-                    subject_id=subject_id,
-                    std_spaces=std_spaces,
-                    session_id=session_id,
-                )
+            temp_cache = collect_anat_derivatives(
+                derivatives_dir=deriv_dir,
+                subject_id=subject_id,
+                std_spaces=std_spaces,
+                session_id=session_id,
             )
+            # transforms will be an empty dictionary if no transforms are found,
+            # which overwrites any found in the anatomical_cache
+            if 'transforms' in temp_cache and not temp_cache['transforms']:
+                temp_cache.pop('transforms')
+
+            anatomical_cache.update(temp_cache)
 
     config.loggers.workflow.info(f'Anatomical cache: {pformat(anatomical_cache)}')
 
