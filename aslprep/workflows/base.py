@@ -237,7 +237,7 @@ their manuscripts unchanged. It is released under the unchanged
 
     anatomical_cache = {}
     if config.execution.derivatives:
-        from smriprep.utils.bids import collect_derivatives as collect_anat_derivatives
+        from aslprep.utils.bids import collect_anat_derivatives
 
         _spec, _patterns = tuple(json.loads(load_data('smriprep.json').read_text()).values())
 
