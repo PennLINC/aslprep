@@ -239,6 +239,8 @@ their manuscripts unchanged. It is released under the unchanged
     if config.execution.derivatives:
         from smriprep.utils.bids import collect_derivatives as collect_anat_derivatives
 
+        _spec, _patterns = tuple(json.loads(load_data('smriprep.json').read_text()).values())
+
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         std_spaces.append('fsnative')
         for deriv_dir in config.execution.derivatives.values():
@@ -247,6 +249,8 @@ their manuscripts unchanged. It is released under the unchanged
                 subject_id=subject_id,
                 std_spaces=std_spaces,
                 session_id=session_id,
+                spec=_spec,
+                patterns=_patterns,
             )
             # transforms will be an empty dictionary if no transforms are found,
             # which overwrites any found in the anatomical_cache
