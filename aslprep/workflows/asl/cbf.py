@@ -832,19 +832,32 @@ The following atlases were used in the workflow: {atlas_str}.
         ]),
     ])  # fmt:skip
 
+    copy_atlas_file = pe.MapNode(
+        CopyAtlas(output_dir=atlas_output_dir),
+        name='copy_atlas_file',
+        iterfield=['name_source', 'in_file', 'atlas'],
+        run_without_submitting=True,
+    )
+    workflow.connect([
+        (inputnode, copy_atlas_file, [
+            ('atlas_names', 'atlas'),
+            ('atlas_files', 'name_source'),
+            ('atlas_files', 'in_file'),
+        ]),
+    ])  # fmt:skip
+
     copy_atlas_labels_file = pe.MapNode(
         CopyAtlas(output_dir=atlas_output_dir),
         name='copy_atlas_labels_file',
-        iterfield=['in_file', 'atlas'],
+        iterfield=['name_source', 'in_file', 'atlas'],
         run_without_submitting=True,
     )
     workflow.connect([
         (inputnode, copy_atlas_labels_file, [
-            ('name_source', 'name_source'),
             ('atlas_names', 'atlas'),
+            ('atlas_labels_files', 'name_source'),
             ('atlas_labels_files', 'in_file'),
         ]),
-        (copy_atlas_labels_file, outputnode, [('out_file', 'atlas_labels_files')]),
     ])  # fmt:skip
 
     # Prepare to warp atlases from MNI152NLin6Asym to ASL reference space.
@@ -902,7 +915,7 @@ The following atlases were used in the workflow: {atlas_str}.
         name='atlas_srcs',
         iterfield=['in1'],
     )
-    workflow.connect([(inputnode, atlas_srcs, [('atlas_files', 'in1')])])
+    workflow.connect([(copy_atlas_file, atlas_srcs, [('out_file', 'in1')])])
 
     # Get entities from atlas for datasinks
     get_atlas_entities = pe.MapNode(
@@ -968,10 +981,8 @@ The following atlases were used in the workflow: {atlas_str}.
         run_without_submitting=True,
     )
     workflow.connect([
-        (inputnode, ds_atlas_labels_file, [
-            ('name_source', 'source_file'),
-            ('atlas_labels_files', 'in_file'),
-        ]),
+        (inputnode, ds_atlas_labels_file, [('name_source', 'source_file')]),
+        (copy_atlas_labels_file, ds_atlas_labels_file, [('out_file', 'in_file')]),
         (get_atlas_entities, ds_atlas_labels_file, [
             ('atlas', 'atlas'),
             ('suffix', 'suffix'),
