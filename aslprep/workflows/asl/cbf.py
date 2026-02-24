@@ -759,7 +759,6 @@ def init_load_atlases_wf(
     atlases = collect_atlases(
         datasets=config.execution.derivatives,
         atlases=config.execution.atlases,
-        file_format=config.workflow.file_format,
         bids_filters=config.execution.bids_filters,
     )
 

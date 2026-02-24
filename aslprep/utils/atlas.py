@@ -59,7 +59,7 @@ def select_atlases(atlases, subset):
     return selected_atlases
 
 
-def collect_atlases(datasets, atlases, file_format, bids_filters=None):
+def collect_atlases(datasets, atlases, bids_filters=None):
     """Collect atlases from a list of BIDS-Atlas datasets.
 
     Selection of labels files and metadata does not leverage the inheritance principle.
@@ -71,8 +71,6 @@ def collect_atlases(datasets, atlases, file_format, bids_filters=None):
         Dictionary of BIDS datasets to search for atlases.
     atlases : list of str
         List of atlases to collect from across the datasets.
-    file_format : {"nifti", "cifti"}
-        The file format of the atlases.
     bids_filters : dict
         Additional filters to apply to the BIDS query.
         Only the "atlas" key is used.
@@ -105,18 +103,9 @@ def collect_atlases(datasets, atlases, file_format, bids_filters=None):
     bids_filters = bids_filters or {}
 
     atlas_filter = bids_filters.get('atlas', {})
-    atlas_filter['suffix'] = atlas_filter.get('suffix') or 'dseg'  # XCP-D only supports dsegs
-    atlas_filter['extension'] = ['.nii.gz', '.nii'] if file_format == 'nifti' else '.dlabel.nii'
-    # Hardcoded spaces for now
-    if file_format == 'cifti':
-        atlas_filter['template'] = atlas_filter.get('template') or 'fsLR'
-        atlas_filter['den'] = atlas_filter.get('den') or ['32k', '91k']
-    else:
-        atlas_filter['template'] = atlas_filter.get('template') or [
-            'MNI152NLin6Asym',
-            'MNI152NLin2009cAsym',
-            'MNIInfant',
-        ]
+    # Hardcoded space and extension for now
+    atlas_filter['extension'] = ['.nii.gz', '.nii']
+    atlas_filter['template'] = 'MNI152NLin6Asym'
 
     atlas_cache = {}
     for dataset_name, dataset_path in datasets.items():
