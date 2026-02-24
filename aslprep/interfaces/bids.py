@@ -456,8 +456,8 @@ class CopyAtlas(SimpleInterface):
                 meta_dict['Sources'] = meta_dict.get('Sources', []) + Sources
 
             with filelock.SoftFileLock(lock_meta, timeout=60):
-                with open(meta_file, 'w') as fo:
-                    dump(meta_dict, fo, sort_keys=True, indent=4)
+                with open(meta_file, 'w') as fobj:
+                    dump(meta_dict, fobj, sort_keys=True, indent=4)
 
         self._results['out_file'] = out_file
 
