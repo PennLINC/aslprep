@@ -62,11 +62,10 @@ class NiftiParcellate(SimpleInterface):
         # The 'index' column tells us what that parcel's value in the atlas image is.
         # One requirement for later is that the index values are sorted in ascending order.
         node_labels_df = node_labels_df.sort_values(by='index').reset_index(drop=True)
-        node_labels = node_labels_df['label'].tolist()
+        node_labels = node_labels_df['name'].tolist()
         # Create a dictionary mapping df['index'] to df.index
         full_parcel_mapper = {v: k for k, v in enumerate(node_labels_df['index'].tolist())}
         masker_lut = node_labels_df.copy()
-        masker_lut['name'] = masker_lut['label']
         masker_lut = masker_lut[['index', 'name']]
         atlas_values = np.unique(atlas_img.get_fdata())
         atlas_values = atlas_values[atlas_values != 0]
