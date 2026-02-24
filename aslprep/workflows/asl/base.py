@@ -856,7 +856,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             )
             workflow.connect([
                 (inputnode, load_atlases_wf, [
-                    ('name_source', 'inputnode.name_source'),
+                    ('asl_file', 'inputnode.name_source'),
                     (
                         'MNI152NLin2009cAsym_to_anat_xfm',
                         'inputnode.MNI152NLin2009cAsym_to_anat_xfm',
@@ -876,12 +876,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 name='parcellate_cbf_wf',
             )
             workflow.connect([
-                (inputnode, parcellate_cbf_wf, [
-                    ('asl_file', 'inputnode.source_file'),
-                ]),
-                (asl_fit_wf, parcellate_cbf_wf, [
-                    ('outputnode.asl_mask', 'inputnode.asl_mask'),
-                ]),
+                (inputnode, parcellate_cbf_wf, [('asl_file', 'inputnode.source_file')]),
+                (asl_fit_wf, parcellate_cbf_wf, [('outputnode.asl_mask', 'inputnode.asl_mask')]),
                 (load_atlases_wf, parcellate_cbf_wf, [
                     ('outputnode.atlas_files', 'inputnode.atlas_files'),
                     ('outputnode.atlas_labels_files', 'inputnode.atlas_labels_files'),
