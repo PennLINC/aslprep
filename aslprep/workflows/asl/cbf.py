@@ -31,7 +31,6 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
     prepare_basil_kwargs,
 )
-from aslprep.utils.bids import find_atlas_entities
 from aslprep.workflows.asl.reference import init_synthstrip_aslref_wf
 
 
