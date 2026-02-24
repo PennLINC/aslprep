@@ -849,30 +849,25 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
         # Parcellate CBF maps and write out parcellated TSV files and atlases
         if config.execution.atlases:
-            load_atlases_wf = init_load_atlases_wf(
-                mem_gb=mem_gb['resampled'],
-                omp_nthreads=omp_nthreads,
-                name='load_atlases_wf',
-            )
-            workflow.connect([
-                (inputnode, load_atlases_wf, [
-                    ('asl_file', 'inputnode.name_source'),
-                    ('mni2009c2anat_xfm', 'inputnode.mni2009c2anat_xfm'),
-                ]),
-                (asl_fit_wf, load_atlases_wf, [
-                    ('outputnode.asl_mask', 'inputnode.asl_mask'),
-                    ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
-                ]),
-            ])  # fmt:skip
+            load_atlases_wf = init_load_atlases_wf(name='load_atlases_wf')
 
             parcellate_cbf_wf = init_parcellate_cbf_wf(
                 cbf_3d=cbf_3d_derivs,
+                mem_gb=mem_gb['resampled'],
+                omp_nthreads=omp_nthreads,
                 name='parcellate_cbf_wf',
             )
             workflow.connect([
-                (inputnode, parcellate_cbf_wf, [('asl_file', 'inputnode.source_file')]),
-                (asl_fit_wf, parcellate_cbf_wf, [('outputnode.asl_mask', 'inputnode.asl_mask')]),
+                (inputnode, parcellate_cbf_wf, [
+                    ('asl_file', 'inputnode.source_file'),
+                    ('mni2009c2anat_xfm', 'inputnode.mni2009c2anat_xfm'),
+                ]),
+                (asl_fit_wf, parcellate_cbf_wf, [
+                    ('outputnode.asl_mask', 'inputnode.asl_mask'),
+                    ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+                ]),
                 (load_atlases_wf, parcellate_cbf_wf, [
+                    ('outputnode.atlas_names', 'inputnode.atlas_names'),
                     ('outputnode.atlas_files', 'inputnode.atlas_files'),
                     ('outputnode.atlas_labels_files', 'inputnode.atlas_labels_files'),
                 ]),

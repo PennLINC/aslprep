@@ -549,6 +549,7 @@ def init_parcellate_cbf_wf(
     cbf_3d,
     min_coverage=0.5,
     mem_gb=0.1,
+    omp_nthreads=1,
     name='parcellate_cbf_wf',
 ):
     """Parcellate CBF results using a set of atlases.
@@ -628,6 +629,7 @@ def init_parcellate_cbf_wf(
         },
     }
     workflow = Workflow(name=name)
+    output_dir = config.execution.output_dir
 
     workflow.__desc__ = f"""
 CBF maps were parcellated in ASL reference space using the segmentations.
@@ -639,14 +641,81 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
     input_fields = [
         'source_file',
         'asl_mask',
-        'atlas_labels_files',
+        'aslref2anat_xfm',
+        'mni2009c2anat_xfm',
         'atlas_files',
+        'atlas_labels_files',
     ]
     input_fields += cbf_3d
     inputnode = pe.Node(
         niu.IdentityInterface(fields=input_fields),
         name='inputnode',
     )
+
+    # Prepare to warp atlases from MNI152NLin6Asym to ASL reference space.
+    # One of the output spaces selected by the user *may* be MNI152NLin6Asym,
+    # but MNI152NLin2009cAsym is always used, so it's safer to go:
+    # MNI152NLin6Asym --> MNI152NLin2009cAsym --> anat --> asl
+    # Atlases are in MNI152NLin6Asym
+    MNI152NLin6Asym_to_MNI152NLin2009cAsym = str(
+        get_template(
+            template='MNI152NLin2009cAsym',
+            mode='image',
+            suffix='xfm',
+            extension='.h5',
+            **{'from': 'MNI152NLin6Asym'},
+        ),
+    )
+
+    merge_xforms = pe.Node(niu.Merge(3), name='merge_xforms')
+    merge_xforms.inputs.in1 = MNI152NLin6Asym_to_MNI152NLin2009cAsym
+    workflow.connect([
+        (inputnode, merge_xforms, [
+            ('mni2009c2anat_xfm', 'in2'),
+            ('aslref2anat_xfm', 'in3'),
+        ]),
+    ])  # fmt:skip
+
+    # Using the generated transforms, apply them to get everything in the correct MNI form
+    warp_atlases_to_asl_space = pe.MapNode(
+        ApplyTransforms(
+            interpolation='GenericLabel',
+            input_image_type=3,
+            dimension=3,
+            invert_transform_flags=[False, False, True],
+            args='-v',
+        ),
+        name='warp_atlases_to_asl_space',
+        iterfield=['input_image'],
+        mem_gb=mem_gb,
+        n_procs=omp_nthreads,
+    )
+    workflow.connect([
+        (inputnode, warp_atlases_to_asl_space, [
+            ('asl_mask', 'reference_image'),
+            ('atlas_files', 'input_image'),
+        ]),
+        (merge_xforms, warp_atlases_to_asl_space, [('out', 'transforms')]),
+    ])  # fmt:skip
+
+    atlas_srcs = pe.MapNode(
+        BIDSURI(
+            numinputs=5,
+            dataset_links=config.execution.dataset_links,
+            out_dir=str(output_dir),
+        ),
+        name='atlas_srcs',
+        iterfield=['in1'],
+    )
+    atlas_srcs.inputs.in5 = MNI152NLin6Asym_to_MNI152NLin2009cAsym
+    workflow.connect([
+        (inputnode, atlas_srcs, [
+            ('atlas_files', 'in1'),
+            ('asl_mask', 'in2'),
+            ('aslref2anat_xfm', 'in3'),
+            ('mni2009c2anat_xfm', 'in4'),
+        ]),
+    ])  # fmt:skip
 
     for cbf_type in cbf_3d:
         parcellate_cbf = pe.MapNode(
@@ -673,13 +742,16 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
                 **CBF_ENTITIES[cbf_type],
             ),
             name=f'ds_{cbf_type}',
-            iterfield=['atlas', 'in_file'],
+            iterfield=['atlas', 'in_file', 'metadata'],
             run_without_submitting=True,
         )
-        ds_cbf.inputs.atlas = config.execution.atlases
         workflow.connect([
-            (inputnode, ds_cbf, [('source_file', 'source_file')]),
+            (inputnode, ds_cbf, [
+                ('source_file', 'source_file'),
+                ('atlas_names', 'atlas'),
+            ]),
             (parcellate_cbf, ds_cbf, [('timeseries', 'in_file')]),
+            (atlas_srcs, ds_cbf, [('metadata', 'meta_dict')]),
         ])  # fmt:skip
 
         if cbf_type in ('mean_cbf', 'mean_cbf_basil'):
@@ -695,25 +767,25 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
                     **CBF_ENTITIES[cbf_type],
                 ),
                 name=f'ds_coverage_{cbf_type}',
-                iterfield=['atlas', 'in_file'],
+                iterfield=['atlas', 'in_file', 'meta_dict'],
                 run_without_submitting=True,
             )
-            ds_coverage.inputs.atlas = config.execution.atlases
-
             workflow.connect([
-                (inputnode, ds_coverage, [('source_file', 'source_file')]),
+                (inputnode, ds_coverage, [
+                    ('source_file', 'source_file'),
+                    ('atlas_names', 'atlas'),
+                ]),
                 (parcellate_cbf, ds_coverage, [('coverage', 'in_file')]),
+                (atlas_srcs, ds_coverage, [('metadata', 'meta_dict')]),
             ])  # fmt:skip
 
     return workflow
 
 
 def init_load_atlases_wf(
-    mem_gb=0.1,
-    omp_nthreads=1,
     name='load_atlases_wf',
 ):
-    """Load atlases and warp them to the same space as the BOLD file.
+    """Collect atlases and copy them to the sourcedata/atlases directory.
 
     Workflow Graph
         .. workflow::
@@ -736,12 +808,9 @@ def init_load_atlases_wf(
     %(name)s
         Default is "load_atlases_wf".
 
-    Inputs
-    ------
-    %(name_source)s
-
     Outputs
     -------
+    atlas_names
     atlas_files
     atlas_labels_files
     """
@@ -785,10 +854,6 @@ The following atlases were used in the workflow: {atlas_str}.
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
-                'name_source',
-                'aslref2anat_xfm',
-                'mni2009c2anat_xfm',
-                'asl_mask',
                 # Set within the workflow
                 'atlas_names',
                 'atlas_datasets',
@@ -844,6 +909,7 @@ The following atlases were used in the workflow: {atlas_str}.
             ('atlas_files', 'name_source'),
             ('atlas_files', 'in_file'),
         ]),
+        (copy_atlas_file, outputnode, [('out_file', 'atlas_files')]),
     ])  # fmt:skip
 
     copy_atlas_labels_file = pe.MapNode(
@@ -858,136 +924,7 @@ The following atlases were used in the workflow: {atlas_str}.
             ('atlas_labels_files', 'name_source'),
             ('atlas_labels_files', 'in_file'),
         ]),
-    ])  # fmt:skip
-
-    # Prepare to warp atlases from MNI152NLin6Asym to ASL reference space.
-    # One of the output spaces selected by the user *may* be MNI152NLin6Asym,
-    # but MNI152NLin2009cAsym is always used, so it's safer to go:
-    # MNI152NLin6Asym --> MNI152NLin2009cAsym --> anat --> asl
-    # Atlases are in MNI152NLin6Asym
-    MNI152NLin6Asym_to_MNI152NLin2009cAsym = str(
-        get_template(
-            template='MNI152NLin2009cAsym',
-            mode='image',
-            suffix='xfm',
-            extension='.h5',
-            **{'from': 'MNI152NLin6Asym'},
-        ),
-    )
-
-    merge_xforms = pe.Node(niu.Merge(3), name='merge_xforms')
-    merge_xforms.inputs.in1 = MNI152NLin6Asym_to_MNI152NLin2009cAsym
-    workflow.connect([
-        (inputnode, merge_xforms, [
-            ('mni2009c2anat_xfm', 'in2'),
-            ('aslref2anat_xfm', 'in3'),
-        ]),
-    ])  # fmt:skip
-
-    # Using the generated transforms, apply them to get everything in the correct MNI form
-    warp_atlases_to_asl_space = pe.MapNode(
-        ApplyTransforms(
-            interpolation='GenericLabel',
-            input_image_type=3,
-            dimension=3,
-            invert_transform_flags=[False, False, True],
-            args='-v',
-        ),
-        name='warp_atlases_to_asl_space',
-        iterfield=['input_image'],
-        mem_gb=mem_gb,
-        n_procs=omp_nthreads,
-    )
-    workflow.connect([
-        (inputnode, warp_atlases_to_asl_space, [
-            ('asl_mask', 'reference_image'),
-            ('atlas_files', 'input_image'),
-        ]),
-        (merge_xforms, warp_atlases_to_asl_space, [('out', 'transforms')]),
-    ])  # fmt:skip
-
-    atlas_srcs = pe.MapNode(
-        BIDSURI(
-            numinputs=1,
-            dataset_links=config.execution.dataset_links,
-            out_dir=str(output_dir),
-        ),
-        name='atlas_srcs',
-        iterfield=['in1', 'metadata'],
-    )
-    workflow.connect([
-        (inputnode, atlas_srcs, [('atlas_metadata', 'metadata')]),
-        (copy_atlas_file, atlas_srcs, [('out_file', 'in1')]),
-    ])  # fmt:skip
-
-    # Get entities from atlas for datasinks
-    get_atlas_entities = pe.MapNode(
-        niu.Function(
-            input_names=['filename'],
-            output_names=['tpl', 'atlas', 'res', 'suffix', 'extension'],
-            function=find_atlas_entities,
-        ),
-        name='get_atlas_entities',
-        iterfield=['filename'],
-    )
-    workflow.connect([(inputnode, get_atlas_entities, [('atlas_files', 'filename')])])
-
-    # Write out standard-space atlas file.
-    # This won't be in the same space that the data were parcellated in,
-    # but it's useful as a reference.
-    ds_atlas = pe.MapNode(
-        DerivativesDataSink(
-            base_directory=config.execution.aslprep_dir,
-            check_hdr=False,
-            dismiss_entities=['datatype', 'subject', 'session', 'task', 'run', 'desc'],
-            allowed_entities=['space', 'res', 'den', 'atlas', 'desc', 'cohort'],
-        ),
-        name='ds_atlas',
-        iterfield=['space', 'atlas', 'resolution', 'suffix', 'extension', 'in_file'],
-        run_without_submitting=True,
-    )
-    workflow.connect([
-        (inputnode, ds_atlas, [('name_source', 'source_file')]),
-        (copy_atlas_file, ds_atlas, [('out_file', 'in_file')]),
-        (get_atlas_entities, ds_atlas, [
-            ('tpl', 'space'),
-            ('atlas', 'atlas'),
-            ('res', 'resolution'),
-            ('suffix', 'suffix'),
-            ('extension', 'extension'),
-        ]),
-    ])  # fmt:skip
-
-    ds_atlas_labels_file = pe.MapNode(
-        DerivativesDataSink(
-            base_directory=config.execution.aslprep_dir,
-            check_hdr=False,
-            dismiss_entities=[
-                'datatype',
-                'subject',
-                'session',
-                'task',
-                'run',
-                'desc',
-                'space',
-                'res',
-                'den',
-                'cohort',
-            ],
-            allowed_entities=['atlas'],
-            extension='.tsv',
-        ),
-        name='ds_atlas_labels_file',
-        iterfield=['atlas', 'suffix', 'in_file'],
-        run_without_submitting=True,
-    )
-    workflow.connect([
-        (inputnode, ds_atlas_labels_file, [('name_source', 'source_file')]),
-        (copy_atlas_labels_file, ds_atlas_labels_file, [('out_file', 'in_file')]),
-        (get_atlas_entities, ds_atlas_labels_file, [
-            ('atlas', 'atlas'),
-            ('suffix', 'suffix'),
-        ]),
+        (copy_atlas_labels_file, outputnode, [('out_file', 'atlas_labels_files')]),
     ])  # fmt:skip
 
     return workflow
