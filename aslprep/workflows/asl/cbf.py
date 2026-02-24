@@ -789,6 +789,7 @@ The following atlases were used in the workflow: {atlas_str}.
                 'aslref2anat_xfm',
                 'mni2009c2anat_xfm',
                 'asl_mask',
+                # Set within the workflow
                 'atlas_names',
                 'atlas_datasets',
                 'atlas_dataset_paths',
