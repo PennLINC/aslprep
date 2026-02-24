@@ -642,6 +642,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         'asl_mask',
         'aslref2anat_xfm',
         'mni2009c2anat_xfm',
+        'atlas_names',
         'atlas_files',
         'atlas_labels_files',
     ]
