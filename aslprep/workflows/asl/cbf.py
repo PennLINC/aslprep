@@ -742,7 +742,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
                 **CBF_ENTITIES[cbf_type],
             ),
             name=f'ds_{cbf_type}',
-            iterfield=['atlas', 'in_file', 'metadata'],
+            iterfield=['atlas', 'in_file', 'meta_dict'],
             run_without_submitting=True,
         )
         workflow.connect([
