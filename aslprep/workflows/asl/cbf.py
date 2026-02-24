@@ -913,9 +913,12 @@ The following atlases were used in the workflow: {atlas_str}.
             out_dir=str(output_dir),
         ),
         name='atlas_srcs',
-        iterfield=['in1'],
+        iterfield=['in1', 'metadata'],
     )
-    workflow.connect([(copy_atlas_file, atlas_srcs, [('out_file', 'in1')])])
+    workflow.connect([
+        (inputnode, atlas_srcs, [('atlas_metadata', 'metadata')]),
+        (copy_atlas_file, atlas_srcs, [('out_file', 'in1')]),
+    ])  # fmt:skip
 
     # Get entities from atlas for datasinks
     get_atlas_entities = pe.MapNode(
@@ -944,10 +947,8 @@ The following atlases were used in the workflow: {atlas_str}.
         run_without_submitting=True,
     )
     workflow.connect([
-        (inputnode, ds_atlas, [
-            ('name_source', 'source_file'),
-            ('atlas_files', 'in_file'),
-        ]),
+        (inputnode, ds_atlas, [('name_source', 'source_file')]),
+        (copy_atlas_file, ds_atlas, [('out_file', 'in_file')]),
         (get_atlas_entities, ds_atlas, [
             ('tpl', 'space'),
             ('atlas', 'atlas'),
@@ -984,40 +985,6 @@ The following atlases were used in the workflow: {atlas_str}.
         (inputnode, ds_atlas_labels_file, [('name_source', 'source_file')]),
         (copy_atlas_labels_file, ds_atlas_labels_file, [('out_file', 'in_file')]),
         (get_atlas_entities, ds_atlas_labels_file, [
-            ('atlas', 'atlas'),
-            ('suffix', 'suffix'),
-        ]),
-    ])  # fmt:skip
-
-    ds_atlas_metadata = pe.MapNode(
-        DerivativesDataSink(
-            base_directory=config.execution.aslprep_dir,
-            check_hdr=False,
-            dismiss_entities=[
-                'datatype',
-                'subject',
-                'session',
-                'task',
-                'run',
-                'desc',
-                'space',
-                'res',
-                'den',
-                'cohort',
-            ],
-            allowed_entities=['atlas'],
-            extension='.json',
-        ),
-        name='ds_atlas_metadata',
-        iterfield=['atlas', 'suffix', 'in_file'],
-        run_without_submitting=True,
-    )
-    workflow.connect([
-        (inputnode, ds_atlas_metadata, [
-            ('name_source', 'source_file'),
-            ('atlas_metadata', 'in_file'),
-        ]),
-        (get_atlas_entities, ds_atlas_metadata, [
             ('atlas', 'atlas'),
             ('suffix', 'suffix'),
         ]),
