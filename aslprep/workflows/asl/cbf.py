@@ -588,7 +588,7 @@ def init_parcellate_cbf_wf(
     mean_cbf_gm_basil : Undefined or str
     asl_mask : str
     aslref2anat_xfm : str
-    MNI152NLin2009cAsym_to_anat_xfm : str
+    mni2009c2anat_xfm : str
         The transform from MNI152NLin2009cAsym to the subject's anatomical space.
 
     Outputs
@@ -787,7 +787,7 @@ The following atlases were used in the workflow: {atlas_str}.
             fields=[
                 'name_source',
                 'aslref2anat_xfm',
-                'MNI152NLin2009cAsym_to_anat_xfm',
+                'mni2009c2anat_xfm',
                 'asl_mask',
                 'atlas_names',
                 'atlas_datasets',
@@ -865,7 +865,7 @@ The following atlases were used in the workflow: {atlas_str}.
     merge_xforms.inputs.in1 = MNI152NLin6Asym_to_MNI152NLin2009cAsym
     workflow.connect([
         (inputnode, merge_xforms, [
-            ('MNI152NLin2009cAsym_to_anat_xfm', 'in2'),
+            ('mni2009c2anat_xfm', 'in2'),
             ('aslref2anat_xfm', 'in3'),
         ]),
     ])  # fmt:skip
