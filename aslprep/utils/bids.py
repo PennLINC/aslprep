@@ -189,11 +189,13 @@ def write_derivative_description(bids_dir, deriv_dir):
         'Name': 'ASLPrep - ASL PREProcessing workflow',
         'BIDSVersion': '1.9.0',
         'DatasetType': 'derivative',
-        'GeneratedBy': {
-            'Name': 'ASLPrep',
-            'Version': __version__,
-            'CodeURL': DOWNLOAD_URL,
-        },
+        'GeneratedBy': [
+            {
+                'Name': 'ASLPrep',
+                'Version': __version__,
+                'CodeURL': DOWNLOAD_URL,
+            },
+        ],
         'HowToAcknowledge': (
             'Please cite our paper '
             'and include the generated citation boilerplate within the Methods '
