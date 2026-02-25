@@ -521,7 +521,7 @@ class execution(_Config):
             'templateflow': Path(TF_LAYOUT.root),
         }
         if cls.atlases:
-            dataset_links['atlas'] = cls.output_dir / 'atlases'
+            dataset_links['atlas'] = cls.output_dir / 'sourcedata' / 'atlases'
 
         for deriv_name, deriv_path in cls.derivatives.items():
             dataset_links[deriv_name] = deriv_path

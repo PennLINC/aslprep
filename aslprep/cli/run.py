@@ -36,7 +36,11 @@ def main():
 
     from aslprep.cli.parser import parse_args
     from aslprep.cli.workflow import build_workflow
-    from aslprep.utils.bids import write_bidsignore, write_derivative_description
+    from aslprep.utils.bids import (
+        write_atlas_dataset_description,
+        write_bidsignore,
+        write_derivative_description,
+    )
 
     parse_args()
 
@@ -199,6 +203,11 @@ def main():
         )
         write_derivative_description(config.execution.bids_dir, config.execution.aslprep_dir)
         write_bidsignore(config.execution.aslprep_dir)
+
+        if config.execution.atlases:
+            write_atlas_dataset_description(
+                config.execution.aslprep_dir / 'sourcedata' / 'atlases'
+            )
 
         if failed_reports:
             msg = (
