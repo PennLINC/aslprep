@@ -479,8 +479,8 @@ def write_atlas_dataset_description(atlas_dir):
 
     atlas_dset_description = os.path.join(atlas_dir, 'dataset_description.json')
     if os.path.isfile(atlas_dset_description):
-        with open(atlas_dset_description) as fo:
-            old_desc = json.load(fo)
+        with open(atlas_dset_description) as fobj:
+            old_desc = json.load(fobj)
 
         old_version = old_desc['GeneratedBy'][0]['Version']
         if Version(__version__).public != Version(old_version).public:
@@ -489,5 +489,5 @@ def write_atlas_dataset_description(atlas_dir):
     else:
         lock_atlas_dset_description = os.path.join(atlas_dir, 'dataset_description.json.lock')
         with filelock.SoftFileLock(lock_atlas_dset_description, timeout=60):
-            with open(atlas_dset_description, 'w') as fo:
-                json.dump(desc, fo, indent=4, sort_keys=True)
+            with open(atlas_dset_description, 'w') as fobj:
+                json.dump(desc, fobj, indent=4, sort_keys=True)
