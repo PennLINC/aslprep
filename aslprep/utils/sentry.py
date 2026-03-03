@@ -42,7 +42,7 @@ def sentry_setup():
     environment = (
         'dev'
         if (
-            os.getenv('ASLPREP_DEV', '').lower in ('1', 'on', 'yes', 'y', 'true')
+            os.getenv('ASLPREP_DEV', '').lower() in ('1', 'on', 'yes', 'y', 'true')
             or ('+' in release)
         )
         else 'prod'
