@@ -120,7 +120,7 @@ class RMSDiff(FSLCommand):
     input_spec = _RMSDiffInputSpec
     output_spec = _RMSDiffOutputSpec
 
-    def aggregate_outputs(self, runtime=None, needed_outputs=None):  # noqa: U100
+    def aggregate_outputs(self, runtime=None, needed_outputs=None):
         """Taken from nipype.interfaces.afni.preprocess.ClipLevel."""
         outputs = self._outputs()
 

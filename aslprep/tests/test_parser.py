@@ -56,9 +56,9 @@ def test_parser_valid(tmp_path, args):
         ('1000MB', 1),
         ('1T', 1000),
         ('1TB', 1000),
-        ('%dK' % 1e6, 1),
-        ('%dKB' % 1e6, 1),
-        ('%dB' % 1e9, 1),
+        (f'{1e6:.0f}K', 1),
+        (f'{1e6:.0f}KB', 1),
+        (f'{1e9:.0f}B', 1),
     ],
 )
 def test_memory_arg(tmp_path, argval, gb):

@@ -23,7 +23,7 @@ class CBFPlot:
     This plot restricts CBF values to -20 (if there are negative values) or 0 (if not) to 100.
     """
 
-    __slots__ = ['in_file', 'ref_vol', 'label', 'outfile', 'vmin', 'vmax']
+    __slots__ = ['in_file', 'label', 'outfile', 'ref_vol', 'vmax', 'vmin']
 
     def __init__(self, in_file, ref_vol, label, outfile, vmin, vmax):
         self.in_file = in_file
@@ -121,7 +121,7 @@ def plot_stat_map(
 
         # Find and replace the figure_1 id.
         try:
-            xml_data = etree.fromstring(svg)  # noqa: S320
+            xml_data = etree.fromstring(svg)
         except etree.XMLSyntaxError as e:
             NIWORKFLOWS_LOG.info(e)
             return

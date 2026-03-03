@@ -232,7 +232,7 @@ def write_derivative_description(bids_dir, deriv_dir):
         json.dump(desc, fobj, indent=4)
 
 
-def _get_shub_version(singularity_url):  # noqa: U100
+def _get_shub_version(singularity_url):
     return NotImplemented
 
 

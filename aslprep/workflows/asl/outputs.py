@@ -202,7 +202,7 @@ def init_asl_fit_reports_wf(
     *,
     sdc_correction: bool,
     separate_m0scan: bool,
-    freesurfer: bool,  # noqa:U100
+    freesurfer: bool,
     output_dir: str,
     name='asl_fit_reports_wf',
 ) -> pe.Workflow:

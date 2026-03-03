@@ -28,10 +28,8 @@ def main():
     outputfile = os.getcwd() + '/' + str(opts.output_prefix) + '_allsubjects_qc.tsv'
 
     qclist = []
-    for r, _, f in os.walk(allsubj_dir):
-        for filex in f:
-            if filex.endswith('desc-qualitycontrol_cbf.tsv'):
-                qclist.append(r + '/' + filex)
+    for r in os.walk(allsubj_dir):
+        qclist.extend(Path(r).glob('**/*desc-qualitycontrol_cbf.tsv'))
 
     datax = pd.read_table(qclist[0])
     for i in range(1, len(qclist)):

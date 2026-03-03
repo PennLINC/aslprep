@@ -171,7 +171,7 @@ class OverrideDerivativesDataSink:
         self.module.DerivativesDataSink = DerivativesDataSink
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):  # noqa: U100
+    def __exit__(self, exc_type, exc_value, traceback):
         """Exit the context manager and restore the original class definition.
 
         Parameters
@@ -234,7 +234,7 @@ class FunctionOverrideContext:
         self.original_function = getattr(self.module, self.function_name)
         setattr(self.module, self.function_name, self.new_function)
 
-    def __exit__(self, exc_type, exc_value, traceback):  # noqa: U100
+    def __exit__(self, exc_type, exc_value, traceback):
         """Exit the context manager and restore the original function definition.
 
         Parameters

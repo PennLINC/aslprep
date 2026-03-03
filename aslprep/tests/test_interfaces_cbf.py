@@ -182,7 +182,7 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
             m0_file=m0_file,
             mask=mask_file,
         )
-        with pytest.raises(ValueError, match='not supported in ASLPrep.'):
+        with pytest.raises(ValueError, match='not supported in ASLPrep'):
             results = interface.run(cwd=tmpdir)
 
         # Scenario 2: QUIPSS PASL with a single PostLabelingDelay
