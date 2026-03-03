@@ -53,7 +53,7 @@ commands:
     steps:
       - restore_cache:
           keys:
-            - build-v1-{{ .Branch }}-{{ .Revision }}
+            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - restore_cache:
           keys:
             - data-v1-{{ .Branch }}-{{ .Revision }}
@@ -116,11 +116,9 @@ jobs:
           path: /tmp/src/aslprep
       - restore_cache:
           keys:
+            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
             - build-v1-{{ .Branch }}-{{ .Revision }}
-            - build-v1--{{ .Revision }}
-            - build-v1-{{ .Branch }}-
             - build-v1-main-
-            - build-v1-
       - run: *docker_auth
       - run: *setup_docker_registry
       - run:
@@ -135,40 +133,13 @@ jobs:
       - run:
           name: Determine whether image builds are required
           command: |
-            # Always build images on main/tags for deploy correctness.
-            if [[ -n "$CIRCLE_TAG" || "$CIRCLE_BRANCH" == "main" ]]; then
-              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
-              echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
-              exit 0
-            fi
-
-            # Prefer per-commit diffs so old branch history does not trigger
-            # repeated rebuilds on unrelated follow-up commits.
-            if git rev-parse --verify HEAD~1 > /dev/null 2>&1; then
-              CHANGED_FILES="$(git diff --name-only HEAD~1 HEAD)"
-            else
-              # Fallback for shallow/special histories.
-              if ! git fetch --no-tags --depth=200 origin main; then
-                echo "Could not fetch origin/main; defaulting to image builds."
-                echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
-                echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
-                exit 0
-              fi
-              if ! MERGE_BASE="$(git merge-base HEAD origin/main)"; then
-                echo "Could not compute merge-base; defaulting to image builds."
-                echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
-                echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
-                exit 0
-              fi
-              CHANGED_FILES="$(git diff --name-only "$MERGE_BASE" HEAD)"
-            fi
-
-            if printf "%s\n" "$CHANGED_FILES" | rg -q "^(Dockerfile\\.base|Dockerfile|pixi\\.lock)$"; then
-              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
-              echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
-            else
+            if [[ -f /tmp/images/imageprep-success.marker ]]; then
               echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
               echo "BUILD_TEST_IMAGE=0" >> "$BASH_ENV"
+            else
+              echo "No successful cached image prep for current Docker inputs; rebuilding images."
+              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+              echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
             fi
       - run:
           name: Build base image if needed
@@ -243,7 +214,7 @@ jobs:
       - run:
           name: Push base image to Docker Hub (if newly built)
           command: |
-            if docker image inspect $BASE_IMAGE > /dev/null 2>&1; then
+            if [[ "$BASE_WAS_BUILT" == "1" ]] && docker image inspect $BASE_IMAGE > /dev/null 2>&1; then
               if [[ -n "$DOCKERHUB_TOKEN" ]]; then
                 docker push $BASE_IMAGE
                 docker push $BASE_IMAGE_NAME:latest
@@ -262,10 +233,16 @@ jobs:
       - run:
           name: Docker registry garbage collection
           command: |
-            docker exec -it registry /bin/registry garbage-collect --delete-untagged \
+            docker exec registry /bin/registry garbage-collect --delete-untagged \
               /etc/docker/registry/config.yml
+      - run:
+          name: Record successful image prep
+          command: |
+            mkdir -p /tmp/images
+            touch /tmp/images/imageprep-success.marker
+            docker save registry:2 -o /tmp/images/registry.tar.gz
       - save_cache:
-          key: build-v1-{{ .Branch }}-{{ .Revision }}
+          key: build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
           paths:
             - /tmp/docker
             - /tmp/images
@@ -581,7 +558,7 @@ jobs:
           path: /tmp/src/aslprep
       - restore_cache:
           keys:
-            - build-v1-{{ .Branch }}-{{ .Revision }}
+            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - run: *docker_auth
       - run: *setup_docker_registry
       - run: *pull_from_registry
