@@ -51,6 +51,8 @@ RUN pixi config set --global run-post-link-scripts insecure
 RUN mkdir /app
 COPY pixi.lock pyproject.toml /app
 WORKDIR /app
+# First install runs before COPY . so .git is missing.
+# Use --skip aslprep (lockfile name) so pixi skips building the local package.
 RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e aslprep -e test --frozen --skip aslprep
 RUN --mount=type=cache,target=/root/.npm pixi run --as-is -e aslprep npm install -g svgo@^3.2.0 bids-validator@1.14.10
 RUN pixi shell-hook -e aslprep --as-is | grep -v PATH > /shell-hook.sh
@@ -58,7 +60,10 @@ RUN pixi shell-hook -e test --as-is | grep -v PATH > /test-shell-hook.sh
 
 # Finally, install the package
 COPY . /app
-RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e aslprep -e test --frozen
+# Install test and production environments separately so production does not
+# inherit editable-install behavior needed for test workflows.
+RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e test --frozen
+RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e aslprep --frozen
 
 #
 # Pre-fetch templates
