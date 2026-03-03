@@ -42,7 +42,7 @@ def init_asl_surf_wf(
     mem_gb: float,
     surface_spaces: list[str],
     medial_surface_nan: bool,
-    metadata: dict,  # noqa: U100
+    metadata: dict,
     cbf_3d: list[str],
     cbf_4d: list[str],
     att: list[str],

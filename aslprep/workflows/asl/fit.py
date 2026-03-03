@@ -91,7 +91,7 @@ def init_asl_fit_wf(
     aslcontext: str,
     m0scan: str | None,
     use_ge: bool,
-    precomputed: dict = None,
+    precomputed: dict | None = None,
     fieldmap_id: str | None = None,
     jacobian: bool = False,
     omp_nthreads: int = 1,
