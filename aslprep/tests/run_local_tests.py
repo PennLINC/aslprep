@@ -67,9 +67,9 @@ def run_command(command, env=None):
 def run_tests(test_regex, test_mark):
     """Run the tests."""
     local_patch = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    mounted_code = '/usr/local/miniconda/lib/python3.9/site-packages/aslprep'
+    mounted_code = '/opt/conda/envs/aslprep/lib/python3.12/site-packages/aslprep'
     run_str = 'docker run --rm -ti '
-    run_str += f'-v {local_patch}:/usr/local/miniconda/lib/python3.9/site-packages/aslprep '
+    run_str += f'-v {local_patch}:/opt/conda/envs/aslprep/lib/python3.12/site-packages/aslprep '
     run_str += '--entrypoint pytest '
     run_str += 'pennlinc/aslprep:unstable '
     run_str += (

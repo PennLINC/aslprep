@@ -1,0 +1,17 @@
+# python cache
+__pycache__/**/*
+__pycache__
+*.pyc
+
+# python distribution
+build/**/*
+build
+dist/**/*
+dist
+aslprep.egg-info/**/*
+aslprep.egg-info
+.eggs/**/*
+.eggs
+
+.pixi
+.tox

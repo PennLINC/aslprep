@@ -10,11 +10,19 @@ from collections import defaultdict
 from functools import cache
 from pathlib import Path
 
+import filelock
 import yaml
 from bids.layout import BIDSLayout
+from bids.utils import listify
+from nipype import logging
+from nipype.interfaces.base import isdefined
+from nipype.interfaces.utility.base import _ravel
+from packaging.version import Version
 
 from aslprep import config
 from aslprep.data import load as load_data
+
+LOGGER = logging.getLogger('nipype.utils')
 
 
 @cache
@@ -138,6 +146,15 @@ def collect_derivatives(
             continue
         transforms_cache[xfm] = item[0] if len(item) == 1 else item
     derivs_cache['transforms'] = transforms_cache
+
+    for k, q in spec['masks'].items():
+        query = {**entities, **q}
+        item = layout.get(return_type='filename', **query)
+        if not item or len(item) != 1:
+            continue
+
+        derivs_cache[k] = item[0]
+
     return derivs_cache
 
 
@@ -162,22 +179,28 @@ def write_bidsignore(deriv_dir):
 
 def write_derivative_description(bids_dir, deriv_dir):
     """Write derivative dataset_description file."""
-    from aslprep.__about__ import DOWNLOAD_URL, __url__, __version__
+    from aslprep import __version__
+
+    DOWNLOAD_URL = f'https://github.com/PennLINC/aslprep/archive/{__version__}.tar.gz'
 
     bids_dir = Path(bids_dir)
     deriv_dir = Path(deriv_dir)
     desc = {
         'Name': 'ASLPrep - ASL PREProcessing workflow',
         'BIDSVersion': '1.9.0',
-        'PipelineDescription': {
-            'Name': 'ASLPrep',
-            'Version': __version__,
-            'CodeURL': DOWNLOAD_URL,
-        },
-        'CodeURL': __url__,
-        'HowToAcknowledge': 'Please cite our paper '
-        'and include the generated citation boilerplate within the Methods '
-        'section of the text.',
+        'DatasetType': 'derivative',
+        'GeneratedBy': [
+            {
+                'Name': 'ASLPrep',
+                'Version': __version__,
+                'CodeURL': DOWNLOAD_URL,
+            },
+        ],
+        'HowToAcknowledge': (
+            'Please cite our paper '
+            'and include the generated citation boilerplate within the Methods '
+            'section of the text.'
+        ),
     }
 
     # Keys that can only be set by environment
@@ -209,7 +232,7 @@ def write_derivative_description(bids_dir, deriv_dir):
         json.dump(desc, fobj, indent=4)
 
 
-def _get_shub_version(singularity_url):  # noqa: U100
+def _get_shub_version(singularity_url):
     return NotImplemented
 
 
@@ -311,3 +334,162 @@ def collect_anat_derivatives(
         derivs_cache[key] = item[0]
 
     return derivs_cache
+
+
+def _find_nearest_path(path_dict, input_path):
+    """Find the nearest relative path from an input path to a dictionary of paths.
+
+    If ``input_path`` is not relative to any of the paths in ``path_dict``,
+    the absolute path string is returned.
+    If ``input_path`` is already a BIDS-URI, then it will be returned unmodified.
+
+    Parameters
+    ----------
+    path_dict : dict of (str, Path)
+        A dictionary of paths.
+    input_path : Path
+        The input path to match.
+
+    Returns
+    -------
+    matching_path : str
+        The nearest relative path from the input path to a path in the dictionary.
+        This is either the concatenation of the associated key from ``path_dict``
+        and the relative path from the associated value from ``path_dict`` to ``input_path``,
+        or the absolute path to ``input_path`` if no matching path is found from ``path_dict``.
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> path_dict = {
+    ...     'bids::': Path('/data/derivatives/fmriprep'),
+    ...     'bids:raw:': Path('/data'),
+    ...     'bids:deriv-0:': Path('/data/derivatives/source-1'),
+    ... }
+    >>> input_path = Path('/data/derivatives/source-1/sub-01/func/sub-01_task-rest_bold.nii.gz')
+    >>> _find_nearest_path(path_dict, input_path)  # match to 'bids:deriv-0:'
+    'bids:deriv-0:sub-01/func/sub-01_task-rest_bold.nii.gz'
+    >>> input_path = Path('/out/sub-01/func/sub-01_task-rest_bold.nii.gz')
+    >>> _find_nearest_path(path_dict, input_path)  # no match- absolute path
+    '/out/sub-01/func/sub-01_task-rest_bold.nii.gz'
+    >>> input_path = Path('/data/sub-01/func/sub-01_task-rest_bold.nii.gz')
+    >>> _find_nearest_path(path_dict, input_path)  # match to 'bids:raw:'
+    'bids:raw:sub-01/func/sub-01_task-rest_bold.nii.gz'
+    >>> input_path = 'bids::sub-01/func/sub-01_task-rest_bold.nii.gz'
+    >>> _find_nearest_path(path_dict, input_path)  # already a BIDS-URI
+    'bids::sub-01/func/sub-01_task-rest_bold.nii.gz'
+    """
+    # Don't modify BIDS-URIs
+    if isinstance(input_path, str) and input_path.startswith('bids:'):
+        return input_path
+
+    input_path = Path(input_path)
+    matching_path = None
+    for key, path in path_dict.items():
+        if input_path.is_relative_to(path):
+            relative_path = input_path.relative_to(path)
+            if (matching_path is None) or (len(relative_path.parts) < len(matching_path.parts)):
+                matching_key = key
+                matching_path = relative_path
+
+    if matching_path is None:
+        matching_path = str(input_path.absolute())
+    else:
+        matching_path = f'{matching_key}{matching_path}'
+
+    return matching_path
+
+
+def _get_bidsuris(in_files, dataset_links, out_dir):
+    """Convert input paths to BIDS-URIs using a dictionary of dataset links."""
+    in_files = listify(in_files)
+    in_files = _ravel(in_files)
+    # Remove undefined inputs
+    in_files = [f for f in in_files if isdefined(f)]
+    # Convert the dataset links to BIDS URI prefixes
+    updated_keys = {f'bids:{k}:': Path(v) for k, v in dataset_links.items()}
+    updated_keys['bids::'] = Path(out_dir)
+    # Convert the paths to BIDS URIs
+    out = [_find_nearest_path(updated_keys, f) for f in in_files]
+    return out
+
+
+def get_entity(filename, entity):
+    """Extract a given entity from a BIDS filename via string manipulation.
+
+    Parameters
+    ----------
+    filename : :obj:`str`
+        Path to the BIDS file.
+    entity : :obj:`str`
+        The entity to extract from the filename.
+
+    Returns
+    -------
+    entity_value : :obj:`str` or None
+        The BOLD file's entity value associated with the requested entity.
+    """
+    import os
+    import re
+
+    folder, file_base = os.path.split(filename)
+
+    # Allow + sign, which is not allowed in BIDS,
+    # but is used by templateflow for the MNIInfant template.
+    entity_values = re.findall(f'{entity}-([a-zA-Z0-9+]+)', file_base)
+    entity_value = None if len(entity_values) < 1 else entity_values[0]
+    if entity == 'space' and entity_value is None:
+        foldername = os.path.basename(folder)
+        if foldername == 'anat':
+            entity_value = 'T1w'
+        elif foldername == 'func':
+            entity_value = 'native'
+        else:
+            raise ValueError(f'Unknown space for {filename}')
+
+    return entity_value
+
+
+def write_atlas_dataset_description(atlas_dir):
+    """Write dataset_description.json file for Atlas derivatives.
+
+    Parameters
+    ----------
+    atlas_dir : :obj:`str`
+        Path to the output XCP-D Atlases dataset.
+    """
+    import json
+    import os
+
+    from aslprep import __version__
+
+    DOWNLOAD_URL = f'https://github.com/PennLINC/aslprep/archive/{__version__}.tar.gz'
+
+    desc = {
+        'Name': 'ASLPrep Atlases',
+        'DatasetType': 'derivative',
+        'GeneratedBy': [
+            {
+                'Name': 'ASLPrep',
+                'Version': __version__,
+                'CodeURL': DOWNLOAD_URL,
+            },
+        ],
+        'HowToAcknowledge': 'Include the generated boilerplate in the methods section.',
+    }
+    os.makedirs(atlas_dir, exist_ok=True)
+
+    atlas_dset_description = os.path.join(atlas_dir, 'dataset_description.json')
+    if os.path.isfile(atlas_dset_description):
+        with open(atlas_dset_description) as fobj:
+            old_desc = json.load(fobj)
+
+        old_version = old_desc['GeneratedBy'][0]['Version']
+        if Version(__version__).public != Version(old_version).public:
+            LOGGER.warning(f'Previous output generated by version {old_version} found.')
+
+    else:
+        lock_atlas_dset_description = os.path.join(atlas_dir, 'dataset_description.json.lock')
+        with filelock.SoftFileLock(lock_atlas_dset_description, timeout=60):
+            with open(atlas_dset_description, 'w') as fobj:
+                json.dump(desc, fobj, indent=4, sort_keys=True)

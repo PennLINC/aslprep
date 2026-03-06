@@ -488,6 +488,7 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
 
 def _run_and_generate(test_name, participant_label, parameters, out_dir):
     from aslprep import config
+    from aslprep.utils.bids import write_atlas_dataset_description, write_derivative_description
 
     parameters.append('--sloppy')
     parameters.append('--stop-on-first-crash')
@@ -505,6 +506,10 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
     retval = build_workflow(config_file, retval={})
     aslprep_wf = retval['workflow']
     aslprep_wf.run(**config.nipype.get_plugin())
+    write_derivative_description(config.execution.bids_dir, config.execution.aslprep_dir)
+    if config.execution.atlases:
+        write_atlas_dataset_description(config.execution.aslprep_dir / 'sourcedata' / 'atlases')
+
     build_boilerplate(str(config_file), aslprep_wf)
     session_list = (
         config.execution.bids_filters.get('asl', {}).get('session')

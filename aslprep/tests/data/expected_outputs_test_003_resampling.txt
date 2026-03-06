@@ -1,8 +1,10 @@
+dataset_description.json
 desc-qualitycontrol_cbf.json
 logs/CITATION.bib
 logs/CITATION.html
 logs/CITATION.md
 logs/CITATION.tex
+sourcedata/atlases/dataset_description.json
 sub-01.html
 sub-01/anat/sub-01_hemi-L_space-fsaverage_desc-reg_sphere.surf.gii
 sub-01/anat/sub-01_hemi-R_space-fsaverage_desc-reg_sphere.surf.gii

@@ -179,7 +179,8 @@ methodology of *ASLPrep*, for use in head motion correction.
         (inputnode, select_highest_contrast_volumes, [('aslcontext', 'aslcontext')]),
         (val_asl, select_highest_contrast_volumes, [('out_file', 'asl_file')]),
     ])  # fmt:skip
-    if m0scan:
+
+    if m0scan and reference_volume_type == 'separate_m0scan':
         workflow.connect([
             (resample_m0scan_to_asl, select_highest_contrast_volumes, [
                 ('output_image', 'm0scan'),
@@ -418,6 +419,106 @@ def init_enhance_and_skullstrip_asl_wf(
         (combine_masks, outputnode, [('out_file', 'mask_file')]),
         (apply_mask, outputnode, [('out_file', 'skull_stripped_file')]),
         (n4_buffer, outputnode, [('bias_corrected_file', 'bias_corrected_file')]),
+    ])  # fmt: skip
+
+    return workflow
+
+
+def init_synthstrip_aslref_wf(
+    disable_n4=False,
+    name='synthstrip_aslref_wf',
+):
+    """Enhance and run brain extraction on an ASL image.
+
+    This workflow uses SynthStrip to extract the brain from an ASLRef image.
+
+    Parameters
+    ----------
+    disable_n4 : :obj:`bool`
+        If True, N4 bias field correction will be disabled.
+    name : str
+        Name of workflow (default: ``synthstrip_aslref_wf``)
+
+    Inputs
+    ------
+    in_file : str
+        ASLRef image
+
+    Outputs
+    -------
+    bias_corrected_file : str
+        the ``in_file`` after N4 bias field correction.
+        If ``disable_n4`` is True, this will be the same as ``in_file``.
+    skull_stripped_file : str
+        the ``bias_corrected_file`` after skull-stripping
+    mask_file : str
+        mask of the skull-stripped input file
+    """
+    from nipype.interfaces import afni
+    from nipype.interfaces import utility as niu
+    from nipype.pipeline import engine as pe
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.fixes import FixN4BiasFieldCorrection as N4BiasFieldCorrection
+    from niworkflows.interfaces.header import CopyXForm
+    from niworkflows.interfaces.nibabel import ApplyMask
+
+    from aslprep.workflows.segmentation import init_synthstrip_wf
+
+    workflow = Workflow(name=name)
+    inputnode = pe.Node(niu.IdentityInterface(fields=['in_file', 'pre_mask']), name='inputnode')
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['mask_file', 'skull_stripped_file', 'bias_corrected_file']),
+        name='outputnode',
+    )
+
+    n4_buffer = pe.Node(niu.IdentityInterface(fields=['bias_corrected_file']), name='n4_buffer')
+
+    if not disable_n4:
+        # Run N4 normally, force num_threads=1 for stability (images are small, no need for >1)
+        n4_correct = pe.Node(
+            N4BiasFieldCorrection(dimension=3, copy_header=True, bspline_fitting_distance=200),
+            shrink_factor=2,
+            name='n4_correct',
+            n_procs=1,
+        )
+        n4_correct.inputs.rescale_intensities = True
+
+        workflow.connect([
+            (inputnode, n4_correct, [('in_file', 'input_image')]),
+            (n4_correct, n4_buffer, [('output_image', 'bias_corrected_file')]),
+        ])  # fmt:skip
+    else:
+        workflow.connect([(inputnode, n4_buffer, [('in_file', 'bias_corrected_file')])])
+
+    # Use AFNI's unifize for T2 contrast & fix header
+    unifize = pe.Node(
+        afni.Unifize(
+            t2=True,
+            outputtype='NIFTI_GZ',
+            # Default -clfrac is 0.1, 0.4 was too conservative
+            # -rbt because I'm a Jedi AFNI Master (see 3dUnifize's documentation)
+            args='-clfrac 0.2 -rbt 18.3 65.0 90.0',
+            out_file='uni.nii.gz',
+        ),
+        name='unifize',
+    )
+    fixhdr_unifize = pe.Node(CopyXForm(), name='fixhdr_unifize', mem_gb=0.1)
+
+    synthstrip_wf = init_synthstrip_wf(name='synthstrip_wf')
+
+    # Compute masked brain
+    apply_mask = pe.Node(ApplyMask(), name='apply_mask')
+
+    workflow.connect([
+        (inputnode, fixhdr_unifize, [('in_file', 'hdr_file')]),
+        (inputnode, synthstrip_wf, [('in_file', 'inputnode.original_image')]),
+        (inputnode, unifize, [('in_file', 'in_file')]),
+        (unifize, fixhdr_unifize, [('out_file', 'in_file')]),
+        (synthstrip_wf, apply_mask, [('outputnode.brain_mask', 'in_mask')]),
+        (fixhdr_unifize, apply_mask, [('out_file', 'in_file')]),
+        (apply_mask, outputnode, [('out_file', 'skull_stripped_file')]),
+        (n4_buffer, outputnode, [('bias_corrected_file', 'bias_corrected_file')]),
+        (synthstrip_wf, outputnode, [('outputnode.brain_mask', 'mask_file')]),
     ])  # fmt: skip
 
     return workflow

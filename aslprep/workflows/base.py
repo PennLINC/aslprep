@@ -244,16 +244,20 @@ their manuscripts unchanged. It is released under the unchanged
         std_spaces = spaces.get_spaces(nonstandard=False, dim=(3,))
         std_spaces.append('fsnative')
         for deriv_dir in config.execution.derivatives.values():
-            anatomical_cache.update(
-                collect_anat_derivatives(
-                    derivatives_dir=deriv_dir,
-                    subject_id=subject_id,
-                    std_spaces=std_spaces,
-                    session_id=session_id,
-                    spec=_spec,
-                    patterns=_patterns,
-                )
+            temp_cache = collect_anat_derivatives(
+                derivatives_dir=deriv_dir,
+                subject_id=subject_id,
+                std_spaces=std_spaces,
+                session_id=session_id,
+                spec=_spec,
+                patterns=_patterns,
             )
+            # transforms will be an empty dictionary if no transforms are found,
+            # which overwrites any found in the anatomical_cache
+            if 'transforms' in temp_cache and not temp_cache['transforms']:
+                temp_cache.pop('transforms')
+
+            anatomical_cache.update(temp_cache)
 
     config.loggers.workflow.info(f'Anatomical cache: {pformat(anatomical_cache)}')
 
@@ -960,8 +964,8 @@ def map_fieldmap_estimation(
     fmap_estimators = find_estimators(
         layout=layout,
         subject=subject_id,
-        fmapless=bool(use_syn) or ignore_fieldmaps and force_syn,
-        force_fmapless=force_syn or ignore_fieldmaps and use_syn,
+        fmapless=bool(use_syn) or (ignore_fieldmaps and force_syn),
+        force_fmapless=force_syn or (ignore_fieldmaps and use_syn),
         bids_filters=filters,
     )
 

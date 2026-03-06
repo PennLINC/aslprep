@@ -433,11 +433,14 @@ as outputting the reference image-space versions would produce too many extra ou
 .. code-block::
 
    aslprep/
-      atlases/
-         atlas-<label>/
-            atlas-<label>_dseg.json
-            atlas-<label>_dseg.tsv
-            space-<label>_atlas-<label>_dseg.nii.gz
+      sourcedata/
+         atlases/
+            dataset_description.json
+            atlas-<label>_description.json
+            tpl-MNI152NLin6Asym/
+               tpl-MNI152NLin6Asym_atlas-<label>_res-01_dseg.json
+               tpl-MNI152NLin6Asym_atlas-<label>_res-01_dseg.tsv
+               tpl-MNI152NLin6Asym_atlas-<label>_res-01_dseg.nii.gz
 
       sub-<label>/[ses-<label>/]
          perf/

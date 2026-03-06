@@ -269,7 +269,7 @@ def structural_pseudocbf_correlation(gm_probseg, wm_probseg, cbf_image):
     cbf_data = _load_one_image(cbf_image)
 
     structural_pseudocbf = 2.5 * gm_probseg_data + wm_probseg_data
-    msk = (cbf_data != 0) & (cbf_data != np.nan) & (structural_pseudocbf != np.nan)
+    msk = (cbf_data != 0) & (~np.isnan(cbf_data)) & (~np.isnan(structural_pseudocbf))
     return np.clip(np.corrcoef(cbf_data[msk], structural_pseudocbf[msk])[1, 0], 0, None)
 
 
