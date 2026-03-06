@@ -95,7 +95,6 @@ class _ExtractCBFInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc="metadata for M0 scan. Only defined if M0Type is 'Separate'.",
     )
-    in_mask = File(exists=True, mandatory=True, desc='mask')
     fwhm = traits.Float(default_value=5, usedefault=True, mandatory=False, desc='fwhm')
 
 
@@ -129,11 +128,11 @@ class ExtractCBF(SimpleInterface):
         aslcontext = pd.read_table(self.inputs.aslcontext)
         metadata = self.inputs.metadata.copy()
 
-        mask_data = nb.load(self.inputs.in_mask).get_fdata()
-
         # read the preprocessed ASL data
         asl_img = nb.load(self.inputs.asl_file)
         asl_data = asl_img.get_fdata()
+
+        dims = asl_data.shape[:3]
 
         if aslcontext.shape[0] != asl_img.shape[3]:
             raise ValueError(
@@ -152,11 +151,9 @@ class ExtractCBF(SimpleInterface):
         # extract m0 file and register it to ASL if separate
         if metadata['M0Type'] == 'Separate':
             m0file = self.inputs.m0scan
-            m0data_smooth = smooth_image(nb.load(m0file), fwhm=self.inputs.fwhm).get_fdata()
-            if len(m0data_smooth.shape) > 3:
-                m0data = mask_data * np.mean(m0data_smooth, axis=3)
-            else:
-                m0data = mask_data * m0data_smooth
+            m0data = smooth_image(nb.load(m0file), fwhm=self.inputs.fwhm).get_fdata()
+            if len(m0data.shape) > 3:
+                m0data = np.mean(m0data, axis=3)
 
             m0tr = self.inputs.m0scan_metadata['RepetitionTimePreparation']
             if np.array(m0tr).size > 1 and np.std(m0tr) > 0:
@@ -165,8 +162,8 @@ class ExtractCBF(SimpleInterface):
         elif metadata['M0Type'] == 'Included':
             m0data = asl_data[:, :, :, m0_volume_idx]
             m0img = nb.Nifti1Image(m0data, asl_img.affine, asl_img.header)
-            m0data_smooth = smooth_image(m0img, fwhm=self.inputs.fwhm).get_fdata()
-            m0data = mask_data * np.mean(m0data_smooth, axis=3)
+            m0data = smooth_image(m0img, fwhm=self.inputs.fwhm).get_fdata()
+            m0data = np.mean(m0data, axis=3)
 
             if np.array(metadata['RepetitionTimePreparation']).size > 1:
                 m0tr = np.array(metadata['RepetitionTimePreparation'])[m0_volume_idx]
@@ -177,7 +174,7 @@ class ExtractCBF(SimpleInterface):
                 raise ValueError('M0 scans have variable TR. ASLPrep does not support this.')
 
         elif metadata['M0Type'] == 'Estimate':
-            m0data = metadata['M0Estimate'] * mask_data
+            m0data = np.full(dims, metadata['M0Estimate'])
 
             m0tr = None
 
@@ -194,7 +191,7 @@ class ExtractCBF(SimpleInterface):
                 control_data = asl_data[:, :, :, control_volume_idx]
                 control_img = nb.Nifti1Image(control_data, asl_img.affine, asl_img.header)
                 control_img = smooth_image(control_img, fwhm=self.inputs.fwhm).get_fdata()
-                m0data = mask_data * np.mean(control_img, axis=3)
+                m0data = np.mean(control_img, axis=3)
 
                 # Use the control volumes' TR as the M0 TR.
                 if np.array(metadata['RepetitionTimePreparation']).size > 1:
@@ -204,7 +201,7 @@ class ExtractCBF(SimpleInterface):
 
             elif cbf_volume_idx:
                 # If we have precalculated CBF data, we don't need M0, so we'll just use the mask.
-                m0data = mask_data
+                m0data = np.ones(dims)
 
                 m0tr = None
 
@@ -314,7 +311,6 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
     )
     m0_file = File(exists=True, mandatory=True, desc='M0 nifti file')
     m0tr = traits.Float(mandatory=False, desc='M0 TR, in seconds.')
-    mask = File(exists=True, mandatory=True, desc='Mask nifti file')
     cbf_only = traits.Bool(
         mandatory=True,
         desc='Whether data are deltam (False) or CBF (True).',
@@ -392,8 +388,11 @@ class ComputeCBF(SimpleInterface):
         metadata = self.inputs.metadata
         m0_file = self.inputs.m0_file
         m0_scale = self.inputs.m0_scale
-        mask_file = self.inputs.mask
         deltam_file = self.inputs.deltam  # control - label signal intensities
+
+        deltam_img = nb.load(deltam_file)
+        dims = deltam_img.shape[:3]
+        mask_img = nb.Nifti1Image(np.ones(dims), deltam_img.affine, deltam_img.header)
 
         if self.inputs.cbf_only:
             config.loggers.interface.debug('CBF data detected. Skipping CBF estimation.')
@@ -434,7 +433,7 @@ class ComputeCBF(SimpleInterface):
 
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
-        masker = maskers.NiftiMasker(mask_img=mask_file)
+        masker = maskers.NiftiMasker(mask_img=mask_img)
         deltam_arr = masker.fit_transform(deltam_file).T  # Transpose to SxT
         if deltam_arr.ndim != 2:
             raise ValueError(f'deltam is {deltam_arr.ndim}')
