@@ -110,7 +110,11 @@ def collect_atlases(datasets, atlases, bids_filters=None):
     atlas_cache = {}
     for dataset_name, dataset_path in datasets.items():
         if not isinstance(dataset_path, BIDSLayout):
-            layout = BIDSLayout(dataset_path, config=[atlas_cfg], validate=False)
+            layout = BIDSLayout(
+                dataset_path,
+                config=['bids', 'derivatives', atlas_cfg],
+                validate=False,
+            )
         else:
             layout = dataset_path
 
