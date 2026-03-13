@@ -26,9 +26,6 @@ def _build_parser():
 
     deprecations = {
         # parser attribute name: (replacement flag, version slated to be removed in)
-        'force_bbr': ('--force bbr', '26.0.0'),
-        'force_no_bbr': ('--force no-bbr', '26.0.0'),
-        'force_syn': ('--force syn-sdc', '26.0.0'),
         'longitudinal': ('--subject-anatomical-reference unbiased', '26.1.0'),
     }
 
@@ -420,17 +417,6 @@ any spatial references.""",
         ),
     )
 
-    g_use_bbr = g_conf.add_mutually_exclusive_group()
-    g_use_bbr.add_argument(
-        '--force-bbr',
-        action=DeprecatedAction,
-        help='Deprecated - use `--force bbr` instead. See `--force` for more details.',
-    )
-    g_use_bbr.add_argument(
-        '--force-no-bbr',
-        action=DeprecatedAction,
-        help='Deprecated - use `--force no-bbr` instead. See `--force` for more details.',
-    )
     g_conf.add_argument(
         '--fallback-total-readout-time',
         required=False,
@@ -609,12 +595,6 @@ any spatial references.""",
         action='store_true',
         default=False,
         help='EXPERIMENTAL: Use fieldmap-free distortion correction',
-    )
-    g_syn.add_argument(
-        '--force-syn',
-        action=DeprecatedAction,
-        default=False,
-        help='Deprecated - use `--force syn-sdc` instead. See `--force` for more details.',
     )
 
     # FreeSurfer options
