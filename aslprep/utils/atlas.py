@@ -112,7 +112,7 @@ def collect_atlases(datasets, atlases, bids_filters=None):
         if not isinstance(dataset_path, BIDSLayout):
             layout = BIDSLayout(
                 dataset_path,
-                config=["bids", "derivatives", atlas_cfg],
+                config=['bids', 'derivatives', atlas_cfg],
                 validate=False,
             )
         else:
