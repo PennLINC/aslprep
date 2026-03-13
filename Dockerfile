@@ -43,6 +43,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
                     ca-certificates \
                     build-essential \
+                    curl \
                     git && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN pixi config set --global run-post-link-scripts insecure
@@ -64,6 +65,11 @@ COPY . /app
 # inherit editable-install behavior needed for test workflows.
 RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e test --frozen
 RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e aslprep --frozen
+# Ensure aslprep is installed non-editably in the aslprep env so the copied env is
+# self-contained in the runtime image (lockfile may resolve to editable variant).
+# Pixi envs do not include pip; use uv to install into the env's Python.
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    /root/.local/bin/uv pip install --python /app/.pixi/envs/aslprep/bin/python --no-deps --force-reinstall .
 
 #
 # Pre-fetch templates
