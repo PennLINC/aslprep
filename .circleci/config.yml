@@ -545,12 +545,6 @@ jobs:
       - codecov/upload:
           file: /tmp/coverage/coverage.xml
 
-  deployable:
-    docker:
-      - image: busybox:latest
-    steps:
-      - run: echo Deploying!
-
   deploy_docker:
     <<: *machine_defaults
     steps:
@@ -558,7 +552,7 @@ jobs:
           path: /tmp/src/aslprep
       - restore_cache:
           keys:
-            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
       - run: *docker_auth
       - run: *setup_docker_registry
       - run: *pull_from_registry
@@ -580,7 +574,7 @@ jobs:
 
 workflows:
   version: 2
-  build_test_deploy:
+  run_tests:
     jobs:
       - image_prep:
           filters:
@@ -762,29 +756,9 @@ workflows:
             tags:
               only: /.*/
 
-      - deployable:
-          requires:
-            - image_prep
-            - pcasl_singlepld_philips
-            - pcasl_singlepld_siemens
-            - pcasl_singlepld_ge
-            - pcasl_multipld
-            - pasl_multipld
-            - qtab
-            - test_001
-            - test_002
-            - test_003_minimal
-            - test_003_resampling
-            - test_003_full
-          filters:
-            branches:
-              only: main
-            tags:
-              only: /.*/
-
       - deploy_docker:
           requires:
-            - deployable
+            - image_prep
           filters:
             branches:
               only: main
