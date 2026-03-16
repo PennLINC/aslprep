@@ -53,6 +53,7 @@ commands:
     steps:
       - restore_cache:
           keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
             - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - restore_cache:
           keys:
@@ -116,9 +117,8 @@ jobs:
           path: /tmp/src/aslprep
       - restore_cache:
           keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
             - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
-            - build-v1-{{ .Branch }}-{{ .Revision }}
-            - build-v1-main-
       - run: *docker_auth
       - run: *setup_docker_registry
       - run:
@@ -131,18 +131,12 @@ jobs:
             echo "BASE_IMAGE_NAME=$BASE_IMAGE_NAME" >> $BASH_ENV
             echo "BASE_TAG=$BASE_TAG" >> $BASH_ENV
       - run:
-          name: Determine whether image builds are required
+          name: Determine whether test image build is required
           command: |
             if [[ -f /tmp/images/imageprep-success.marker ]]; then
-              echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
               echo "BUILD_TEST_IMAGE=0" >> "$BASH_ENV"
             else
-              echo "No successful cached image prep for current Docker inputs; rebuilding images."
-              if [[ "$CIRCLE_BRANCH" == "main" || -n "${CIRCLE_TAG:-}" ]]; then
-                echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
-              else
-                echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
-              fi
+              echo "No successful cached image prep for current Docker inputs; rebuilding test image."
               echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
             fi
       - run:
@@ -159,31 +153,6 @@ jobs:
             else
               echo "Base image $BASE_IMAGE already exists."
               echo "BASE_WAS_BUILT=0" >> "$BASH_ENV"
-            fi
-      - run:
-          name: Build Docker image (production)
-          no_output_timeout: 3h
-          command: |
-            if [[ "$CIRCLE_BRANCH" == "main" || -n "${CIRCLE_TAG:-}" ]]; then
-              if [[ -n "$CIRCLE_TAG" ]]; then
-                THISVERSION="$CIRCLE_TAG"
-              else
-                THISVERSION="0+build"
-              fi
-              sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
-              e=1 && for i in {1..5}; do
-                docker build \
-                  --target aslprep \
-                  --rm=false \
-                  -t pennlinc/aslprep:latest \
-                  --platform linux/amd64 \
-                  --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                  --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-                  --build-arg VERSION="$THISVERSION" . \
-                && e=0 && break || sleep 15
-              done && [ "$e" -eq "0" ]
-            else
-              echo "Skipping production image build (only built on main or tags)."
             fi
       - run:
           name: Build Docker image (test)
@@ -209,12 +178,8 @@ jobs:
                 --platform linux/amd64 .
             fi
       - run:
-          name: Verify Docker images
-          command: |
-            if [[ "$CIRCLE_BRANCH" == "main" || -n "${CIRCLE_TAG:-}" ]]; then
-              docker run --rm pennlinc/aslprep:latest --version
-            fi
-            docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
+          name: Verify test image
+          command: docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
       - run:
           name: Push base image to Docker Hub (if newly built)
           command: |
@@ -225,13 +190,9 @@ jobs:
               fi
             fi
       - run:
-          name: Push images to local registry
+          name: Push test image to local registry
           no_output_timeout: 40m
           command: |
-            if [[ "$CIRCLE_BRANCH" == "main" || -n "${CIRCLE_TAG:-}" ]]; then
-              docker tag pennlinc/aslprep:latest localhost:5000/aslprep
-              docker push localhost:5000/aslprep
-            fi
             docker tag pennlinc/aslprep:test localhost:5000/aslprep-test
             docker push localhost:5000/aslprep-test
       - run:
@@ -246,7 +207,68 @@ jobs:
             touch /tmp/images/imageprep-success.marker
             docker save registry:2 -o /tmp/images/registry.tar.gz
       - save_cache:
-          key: build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+          key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
+          paths:
+            - /tmp/docker
+            - /tmp/images
+
+  build_production_image:
+    <<: *machine_defaults
+    environment:
+      TZ: "/usr/share/zoneinfo/America/New_York"
+      DOCKER_BUILDKIT: "1"
+    steps:
+      - checkout:
+          path: /tmp/src/aslprep
+      - restore_cache:
+          keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
+            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+      - run: *docker_auth
+      - run: *setup_docker_registry
+      - run:
+          name: Build Docker image (production)
+          no_output_timeout: 3h
+          command: |
+            if [[ -n "$CIRCLE_TAG" ]]; then
+              THISVERSION="$CIRCLE_TAG"
+            else
+              THISVERSION="0+build"
+            fi
+            sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
+            e=1 && for i in {1..5}; do
+              docker build \
+                --target aslprep \
+                --rm=false \
+                -t pennlinc/aslprep:latest \
+                --platform linux/amd64 \
+                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                --build-arg VERSION="$THISVERSION" . \
+              && e=0 && break || sleep 15
+            done && [ "$e" -eq "0" ]
+      - run:
+          name: Verify production image
+          command: docker run --rm pennlinc/aslprep:latest --version
+      - run:
+          name: Push production image to local registry
+          no_output_timeout: 40m
+          command: |
+            docker tag pennlinc/aslprep:latest localhost:5000/aslprep
+            docker push localhost:5000/aslprep
+      - run:
+          name: Docker registry garbage collection
+          command: |
+            docker exec registry /bin/registry garbage-collect --delete-untagged \
+              /etc/docker/registry/config.yml
+      - run:
+          name: Record successful image prep
+          command: |
+            mkdir -p /tmp/images
+            touch /tmp/images/imageprep-success.marker
+            docker save registry:2 -o /tmp/images/registry.tar.gz
+      - save_cache:
+          key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
           paths:
             - /tmp/docker
             - /tmp/images
@@ -582,6 +604,10 @@ workflows:
     jobs:
       - image_prep:
           filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
             tags:
               only: /.*/
 
@@ -760,9 +786,18 @@ workflows:
             tags:
               only: /.*/
 
-      - deploy_docker:
+      - build_production_image:
           requires:
             - image_prep
+          filters:
+            branches:
+              only: main
+            tags:
+              only: /.*/
+
+      - deploy_docker:
+          requires:
+            - build_production_image
           filters:
             branches:
               only: main

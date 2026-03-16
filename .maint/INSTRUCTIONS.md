@@ -167,62 +167,76 @@ workflow filters (branch/tag) and can be halted by commit-message markers.
 
 #### Branch/tag filters that control job execution
 
-- `image_prep`: runs on all branches and all tags.
-- `get_data`, integration jobs, `pytests`, `merge_coverage`:
+- `image_prep`, `get_data`, integration jobs, `pytests`, `merge_coverage`:
   - Run on all tags.
   - Run on branches except names matching `docs?/.*` or `tests?/.*`.
-- `deployable` and `deploy_docker`:
+- `build_production_image` and `deploy_docker`:
   - Run on `main` and on all tags.
 
 #### Commit-message markers that halt jobs
 
-- Integration jobs stop early if latest commit message contains a job-specific
-  marker such as `[skip qtab]`, `[skip test_001]`, or
-  `[skip examples_pcasl_singlepld_philips]` (case-insensitive with `_` support).
-- `pytests` stops early if latest commit message contains
+- Integration jobs stop early if the latest commit message contains a
+  job-specific marker such as `[skip qtab]`, `[skip test_001]`, or
+  `[skip examples_pcasl_singlepld_philips]` (case-insensitive; spaces or
+  underscores accepted between `skip` and the marker name).
+  - Exception: the `pcasl_singlepld_ge` job checks for
+    `[skip examples_pcasl_singlepld]` (without the `_ge` suffix).
+- `pytests` stops early if the latest commit message contains
   `[skip pytests]` or `[skip_pytests]` (case-insensitive).
 
 #### File changes that indirectly affect CircleCI behavior
 
-These files are used in the `build-v3` cache key:
+The primary cache key used by `image_prep` and all test jobs is:
 
-- `Dockerfile`
-- `pixi.lock`
+```
+build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
+```
 
-Changing either of them changes the cache key and invalidates the prior
-`imageprep-success.marker`, so `image_prep` sets:
+with a fallback key:
 
-- `BUILD_PRODUCTION_IMAGE=1`
-- `BUILD_TEST_IMAGE=1`
+```
+build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+```
 
-That means the production and test image build steps run. Base image rebuild is
-controlled separately by whether the `BASE_IMAGE` tag in `Dockerfile` already
-exists in Docker Hub.
+The fallback (`build-v3`) matches any prior build that used the same
+`Dockerfile` and `pixi.lock` checksums, regardless of revision. This allows
+cache reuse across commits that don't touch those files. New caches are always
+saved under the `build-v4` key (which includes the revision).
 
-#### `image_prep` rebuild matrix (by file edit)
+When the cache is restored successfully (including the
+`imageprep-success.marker` file), `image_prep` sets `BUILD_TEST_IMAGE=0` and
+skips rebuilding the test image. When the marker is absent (changed
+`Dockerfile`/`pixi.lock` checksums, or no prior build for this revision),
+`image_prep` sets `BUILD_TEST_IMAGE=1` and rebuilds the test image.
+
+Base image rebuild is controlled separately: `image_prep` checks whether the
+`BASE_IMAGE` tag declared in `Dockerfile` already exists in Docker Hub. If it
+does not exist, `Dockerfile.base` is built and the new tag is pushed.
+
+The **production image** is built by the separate `build_production_image` job,
+which only runs on `main` and on tags. It always rebuilds unconditionally and is
+not affected by the `BUILD_TEST_IMAGE` variable or the marker file.
+
+#### `image_prep` test-image rebuild matrix (by file edit)
 
 - **Edit `Dockerfile` and change `ARG BASE_IMAGE=...` to a new/missing tag**
   - Base image: **rebuilt** (`Dockerfile.base` build runs because manifest is missing)
-  - Production image: **rebuilt**
-  - Test image: **rebuilt**
+  - Test image: **rebuilt** (cache key changes)
 - **Edit `Dockerfile` without changing `BASE_IMAGE` tag**
   - Base image: rebuilt **only if** current `BASE_IMAGE` tag is missing in registry
-  - Production image: **rebuilt**
-  - Test image: **rebuilt**
+  - Test image: **rebuilt** (cache key changes)
 - **Edit `Dockerfile.base` only**
   - Base image: **not automatically rebuilt** if `BASE_IMAGE` tag already exists
-  - Production image: **not rebuilt**
-  - Test image: **not rebuilt**
+  - Test image: **not rebuilt** (cache key unchanged)
   - Note: to force base rebuild from updated `Dockerfile.base`, also bump
     `ARG BASE_IMAGE=...` in `Dockerfile` to a new date/tag.
   - Caveat: if build cache is unavailable for unrelated reasons, CircleCI may
-    still rebuild production/test images.
+    still rebuild the test image.
 - **Edit `pixi.lock` only**
   - Base image: **not rebuilt** unless `BASE_IMAGE` tag is missing
-  - Production image: **rebuilt**
-  - Test image: **rebuilt**
+  - Test image: **rebuilt** (cache key changes)
 - **Edit none of `Dockerfile` or `pixi.lock`**
-  - If cache/marker is restored: production/test builds are skipped by default
+  - If prior cache/marker is restored: test image build is skipped
   - Base image still goes through existence check and rebuilds only if missing
 
 Practical implication: if your goal is to rebuild the base image, edit
