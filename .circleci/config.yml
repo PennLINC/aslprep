@@ -138,7 +138,11 @@ jobs:
               echo "BUILD_TEST_IMAGE=0" >> "$BASH_ENV"
             else
               echo "No successful cached image prep for current Docker inputs; rebuilding images."
-              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+              if [[ "$CIRCLE_BRANCH" == "main" || -n "${CIRCLE_TAG:-}" ]]; then
+                echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+              else
+                echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
+              fi
               echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
             fi
       - run:
@@ -160,7 +164,7 @@ jobs:
           name: Build Docker image (production)
           no_output_timeout: 3h
           command: |
-            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
+            if [[ "$CIRCLE_BRANCH" == "main" || -n "${CIRCLE_TAG:-}" ]]; then
               if [[ -n "$CIRCLE_TAG" ]]; then
                 THISVERSION="$CIRCLE_TAG"
               else
@@ -179,7 +183,7 @@ jobs:
                 && e=0 && break || sleep 15
               done && [ "$e" -eq "0" ]
             else
-              echo "Skipping production image build (no Dockerfile.base/Dockerfile/pixi.lock changes and base image not rebuilt in this job)."
+              echo "Skipping production image build (only built on main or tags)."
             fi
       - run:
           name: Build Docker image (test)
@@ -207,7 +211,7 @@ jobs:
       - run:
           name: Verify Docker images
           command: |
-            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
+            if [[ "$CIRCLE_BRANCH" == "main" || -n "${CIRCLE_TAG:-}" ]]; then
               docker run --rm pennlinc/aslprep:latest --version
             fi
             docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
@@ -224,7 +228,7 @@ jobs:
           name: Push images to local registry
           no_output_timeout: 40m
           command: |
-            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
+            if [[ "$CIRCLE_BRANCH" == "main" || -n "${CIRCLE_TAG:-}" ]]; then
               docker tag pennlinc/aslprep:latest localhost:5000/aslprep
               docker push localhost:5000/aslprep
             fi
