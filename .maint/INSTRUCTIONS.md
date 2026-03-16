@@ -170,8 +170,8 @@ workflow filters (branch/tag) and can be halted by commit-message markers.
 - `image_prep`, `get_data`, integration jobs, `pytests`, `merge_coverage`:
   - Run on all tags.
   - Run on branches except names matching `docs?/.*` or `tests?/.*`.
-- `build_production_image` and `deploy_docker`:
-  - Run on `main` and on all tags.
+- `build_and_deploy_docker`:
+  - Runs on `main` and on all tags.
 
 #### Commit-message markers that halt jobs
 
@@ -213,9 +213,11 @@ Base image rebuild is controlled separately: `image_prep` checks whether the
 `BASE_IMAGE` tag declared in `Dockerfile` already exists in Docker Hub. If it
 does not exist, `Dockerfile.base` is built and the new tag is pushed.
 
-The **production image** is built by the separate `build_production_image` job,
-which only runs on `main` and on tags. It always rebuilds unconditionally and is
-not affected by the `BUILD_TEST_IMAGE` variable or the marker file.
+The **production image** is built and pushed to Docker Hub by the
+`build_and_deploy_docker` job, which only runs on `main` and on tags. It
+always rebuilds unconditionally and is not affected by the `BUILD_TEST_IMAGE`
+variable or the marker file. It does not use the local registry at all —
+the image is built in place and pushed straight to Docker Hub.
 
 #### `image_prep` test-image rebuild matrix (by file edit)
 
@@ -297,7 +299,7 @@ is not sufficient when that tag already exists remotely.
   git push origin 0.7.6
   ```
 
-- Pushing the tag will trigger **CircleCI** image/deploy jobs: build base image if missing, build main image (`pennlinc/aslprep`), and push to Docker Hub when `DOCKERHUB_TOKEN` is set. Tags pushed: `unstable` (always), `latest` and `<version>` (when `CIRCLE_TAG` is set).
+- Pushing the tag will trigger **CircleCI**: `image_prep` builds the test image, then `build_and_deploy_docker` builds the production image and pushes it to Docker Hub (when `DOCKERHUB_TOKEN` is set). Tags pushed: `unstable` (always), `latest` and `<version>` (when `CIRCLE_TAG` is set).
 
 ### 7. Create the GitHub Release
 
