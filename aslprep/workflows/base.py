@@ -234,6 +234,7 @@ their manuscripts unchanged. It is released under the unchanged
 
     spaces = config.workflow.spaces
     msm_sulc = config.workflow.run_msmsulc
+    sessionwise = config.workflow.subject_anatomical_reference == 'sessionwise'
 
     anatomical_cache = {}
     if config.execution.derivatives:
@@ -276,7 +277,7 @@ their manuscripts unchanged. It is released under the unchanged
     src_file = pe.Node(
         BIDSSourceFile(
             precomputed=anatomical_cache,
-            sessionwise=config.workflow.subject_anatomical_reference == 'sessionwise',
+            sessionwise=sessionwise,
         ),
         name='source_anatomical',
     )
@@ -391,6 +392,9 @@ their manuscripts unchanged. It is released under the unchanged
         (summary, ds_report_summary, [('out_report', 'in_file')]),
         (about, ds_report_about, [('out_report', 'in_file')]),
     ])  # fmt:skip
+
+    if not config.workflow.track_sessions and not sessionwise:
+        workflow.disconnect(bids_info, 'session', create_fs_id, 'session_id')
 
     # Set up the template iterator once, if used
     template_iterator_wf = None
