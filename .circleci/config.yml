@@ -33,12 +33,6 @@ _setup_docker_registry: &setup_docker_registry
     docker run -d -p 5000:5000 --restart=always --name=registry \
         -v /tmp/docker:/var/lib/registry registry:2
 
-_pull_from_registry: &pull_from_registry
-  name: Pull and tag production image from local registry
-  command: |
-    docker pull localhost:5000/aslprep
-    docker tag localhost:5000/aslprep pennlinc/aslprep:latest
-
 _pull_test_image: &pull_test_image
   name: Pull and tag test image from local registry
   command: |
@@ -53,6 +47,7 @@ commands:
     steps:
       - restore_cache:
           keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
             - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - restore_cache:
           keys:
@@ -116,9 +111,8 @@ jobs:
           path: /tmp/src/aslprep
       - restore_cache:
           keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
             - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
-            - build-v1-{{ .Branch }}-{{ .Revision }}
-            - build-v1-main-
       - run: *docker_auth
       - run: *setup_docker_registry
       - run:
@@ -131,14 +125,12 @@ jobs:
             echo "BASE_IMAGE_NAME=$BASE_IMAGE_NAME" >> $BASH_ENV
             echo "BASE_TAG=$BASE_TAG" >> $BASH_ENV
       - run:
-          name: Determine whether image builds are required
+          name: Determine whether test image build is required
           command: |
             if [[ -f /tmp/images/imageprep-success.marker ]]; then
-              echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
               echo "BUILD_TEST_IMAGE=0" >> "$BASH_ENV"
             else
-              echo "No successful cached image prep for current Docker inputs; rebuilding images."
-              echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+              echo "No successful cached image prep for current Docker inputs; rebuilding test image."
               echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
             fi
       - run:
@@ -155,31 +147,6 @@ jobs:
             else
               echo "Base image $BASE_IMAGE already exists."
               echo "BASE_WAS_BUILT=0" >> "$BASH_ENV"
-            fi
-      - run:
-          name: Build Docker image (production)
-          no_output_timeout: 3h
-          command: |
-            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
-              if [[ -n "$CIRCLE_TAG" ]]; then
-                THISVERSION="$CIRCLE_TAG"
-              else
-                THISVERSION="0+build"
-              fi
-              sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
-              e=1 && for i in {1..5}; do
-                docker build \
-                  --target aslprep \
-                  --rm=false \
-                  -t pennlinc/aslprep:latest \
-                  --platform linux/amd64 \
-                  --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                  --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-                  --build-arg VERSION="$THISVERSION" . \
-                && e=0 && break || sleep 15
-              done && [ "$e" -eq "0" ]
-            else
-              echo "Skipping production image build (no Dockerfile.base/Dockerfile/pixi.lock changes and base image not rebuilt in this job)."
             fi
       - run:
           name: Build Docker image (test)
@@ -205,12 +172,8 @@ jobs:
                 --platform linux/amd64 .
             fi
       - run:
-          name: Verify Docker images
-          command: |
-            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
-              docker run --rm pennlinc/aslprep:latest --version
-            fi
-            docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
+          name: Verify test image
+          command: docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
       - run:
           name: Push base image to Docker Hub (if newly built)
           command: |
@@ -221,13 +184,9 @@ jobs:
               fi
             fi
       - run:
-          name: Push images to local registry
+          name: Push test image to local registry
           no_output_timeout: 40m
           command: |
-            if [[ "$BUILD_PRODUCTION_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
-              docker tag pennlinc/aslprep:latest localhost:5000/aslprep
-              docker push localhost:5000/aslprep
-            fi
             docker tag pennlinc/aslprep:test localhost:5000/aslprep-test
             docker push localhost:5000/aslprep-test
       - run:
@@ -242,7 +201,7 @@ jobs:
             touch /tmp/images/imageprep-success.marker
             docker save registry:2 -o /tmp/images/registry.tar.gz
       - save_cache:
-          key: build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+          key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
           paths:
             - /tmp/docker
             - /tmp/images
@@ -290,196 +249,37 @@ jobs:
 
   # ── Integration tests ────────────────────────────────────────────────
 
-  pcasl_singlepld_philips:
+  integration_test:
     <<: *machine_defaults
+    parameters:
+      marker:
+        type: string
+      cpus:
+        type: integer
+        default: 4
+      skip_marker:
+        type: string
+        default: ""
     steps:
       - checkout:
           path: /tmp/src/aslprep
       - run:
           name: Check whether build should be skipped
           command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld_philips\]' )" != "" ]]; then
-              echo "Skipping examples_pcasl_singlepld_philips"
+            SKIP_MARKER="<< parameters.skip_marker >>"
+            if [[ -z "$SKIP_MARKER" ]]; then SKIP_MARKER="<< parameters.marker >>"; fi
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?'"$SKIP_MARKER"'\]' )" != "" ]]; then
+              echo "Skipping << parameters.marker >>"
               circleci step halt
             fi
       - restore_build_and_data
       - run_integration_test:
-          marker: examples_pcasl_singlepld_philips
-          cpus: 4
-
-  pcasl_singlepld_siemens:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld_siemens\]' )" != "" ]]; then
-              echo "Skipping examples_pcasl_singlepld_siemens"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: examples_pcasl_singlepld_siemens
-          cpus: 4
-
-  pcasl_singlepld_ge:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_singlepld\]' )" != "" ]]; then
-              echo "Skipping examples_pcasl_singlepld_ge"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: examples_pcasl_singlepld_ge
-          cpus: 2
-
-  pcasl_multipld:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pcasl_multipld\]' )" != "" ]]; then
-              echo "Skipping examples_pcasl_multipld"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: examples_pcasl_multipld
-          cpus: 4
-
-  pasl_multipld:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?examples_pasl_multipld\]' )" != "" ]]; then
-              echo "Skipping examples_pasl_multipld"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: examples_pasl_multipld
-          cpus: 2
-
-  qtab:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?qtab\]' )" != "" ]]; then
-              echo "Skipping qtab"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: qtab
-          cpus: 4
-
-  test_001:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_001\]' )" != "" ]]; then
-              echo "Skipping test_001"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: test_001
-          cpus: 4
-
-  test_002:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_002\]' )" != "" ]]; then
-              echo "Skipping test_002"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: test_002
-          cpus: 2
-
-  test_003_minimal:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_minimal\]' )" != "" ]]; then
-              echo "Skipping test_003_minimal"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: test_003_minimal
-          cpus: 4
-
-  test_003_resampling:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_resampling\]' )" != "" ]]; then
-              echo "Skipping test_003_resampling"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: test_003_resampling
-          cpus: 4
-
-  test_003_full:
-    <<: *machine_defaults
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - run:
-          name: Check whether build should be skipped
-          command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?test_003_full\]' )" != "" ]]; then
-              echo "Skipping test_003_full"
-              circleci step halt
-            fi
-      - restore_build_and_data
-      - run_integration_test:
-          marker: test_003_full
-          cpus: 4
+          marker: << parameters.marker >>
+          cpus: << parameters.cpus >>
 
   # ── Unit tests ───────────────────────────────────────────────────────
 
-  pytests:
+  unit_tests:
     <<: *machine_defaults
     steps:
       - checkout:
@@ -487,8 +287,8 @@ jobs:
       - run:
           name: Check whether build should be skipped
           command: |
-            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?pytests\]' )" != "" ]]; then
-              echo "Skipping pytests"
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?unit_tests\]' )" != "" ]]; then
+              echo "Skipping unit tests"
               circleci step halt
             fi
       - restore_build_and_data
@@ -501,7 +301,7 @@ jobs:
             # which registers custom CLI options like --data_dir/--output_dir/--working_dir.
             docker run --rm=false \
               -e CIRCLE_CPUS=2 \
-              -e COVERAGE_FILE=/coverage/.coverage.pytests \
+              -e COVERAGE_FILE=/coverage/.coverage.unit_tests \
               -v /tmp/src/aslprep:/tmp/src/aslprep:ro \
               -v /tmp/data:/data:ro \
               -v /tmp/out:/out \
@@ -516,7 +316,7 @@ jobs:
       - persist_to_workspace:
           root: /tmp/coverage
           paths:
-            - .coverage.pytests
+            - .coverage.unit_tests
       - store_artifacts:
           path: /tmp/out
 
@@ -545,23 +345,39 @@ jobs:
       - codecov/upload:
           file: /tmp/coverage/coverage.xml
 
-  deployable:
-    docker:
-      - image: busybox:latest
-    steps:
-      - run: echo Deploying!
-
-  deploy_docker:
+  build_and_deploy_docker:
     <<: *machine_defaults
+    environment:
+      TZ: "/usr/share/zoneinfo/America/New_York"
+      DOCKER_BUILDKIT: "1"
     steps:
       - checkout:
           path: /tmp/src/aslprep
-      - restore_cache:
-          keys:
-            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - run: *docker_auth
-      - run: *setup_docker_registry
-      - run: *pull_from_registry
+      - run:
+          name: Build Docker image (production)
+          no_output_timeout: 3h
+          command: |
+            if [[ -n "$CIRCLE_TAG" ]]; then
+              THISVERSION="$CIRCLE_TAG"
+            else
+              THISVERSION="0+build"
+            fi
+            sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
+            e=1 && for i in {1..5}; do
+              docker build \
+                --target aslprep \
+                --rm=false \
+                -t pennlinc/aslprep:latest \
+                --platform linux/amd64 \
+                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                --build-arg VERSION="$THISVERSION" . \
+              && e=0 && break || sleep 15
+            done && [ "$e" -eq "0" ]
+      - run:
+          name: Verify production image
+          command: docker run --rm pennlinc/aslprep:latest --version
       - run:
           name: Deploy to Docker Hub
           no_output_timeout: 40m
@@ -580,10 +396,14 @@ jobs:
 
 workflows:
   version: 2
-  build_test_deploy:
+  run_tests:
     jobs:
       - image_prep:
           filters:
+            branches:
+              ignore:
+                - /docs?\/.*/
+                - /tests?\/.*/
             tags:
               only: /.*/
 
@@ -596,10 +416,11 @@ workflows:
             tags:
               only: /.*/
 
-      - pcasl_singlepld_philips:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: pcasl_singlepld_philips
+          marker: examples_pcasl_singlepld_philips
+          cpus: 4
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -608,10 +429,11 @@ workflows:
             tags:
               only: /.*/
 
-      - pcasl_singlepld_siemens:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: pcasl_singlepld_siemens
+          marker: examples_pcasl_singlepld_siemens
+          cpus: 4
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -620,10 +442,12 @@ workflows:
             tags:
               only: /.*/
 
-      - pcasl_singlepld_ge:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: pcasl_singlepld_ge
+          marker: examples_pcasl_singlepld_ge
+          skip_marker: examples_pcasl_singlepld
+          cpus: 2
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -632,10 +456,11 @@ workflows:
             tags:
               only: /.*/
 
-      - pcasl_multipld:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: pcasl_multipld
+          marker: examples_pcasl_multipld
+          cpus: 4
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -644,10 +469,11 @@ workflows:
             tags:
               only: /.*/
 
-      - pasl_multipld:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: pasl_multipld
+          marker: examples_pasl_multipld
+          cpus: 2
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -656,10 +482,11 @@ workflows:
             tags:
               only: /.*/
 
-      - qtab:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: qtab
+          marker: qtab
+          cpus: 4
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -668,10 +495,11 @@ workflows:
             tags:
               only: /.*/
 
-      - test_001:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: test_001
+          marker: test_001
+          cpus: 4
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -680,10 +508,11 @@ workflows:
             tags:
               only: /.*/
 
-      - test_002:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: test_002
+          marker: test_002
+          cpus: 2
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -692,10 +521,11 @@ workflows:
             tags:
               only: /.*/
 
-      - test_003_minimal:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: test_003_minimal
+          marker: test_003_minimal
+          cpus: 4
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -704,10 +534,11 @@ workflows:
             tags:
               only: /.*/
 
-      - test_003_resampling:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: test_003_resampling
+          marker: test_003_resampling
+          cpus: 4
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -716,10 +547,11 @@ workflows:
             tags:
               only: /.*/
 
-      - test_003_full:
-          requires:
-            - image_prep
-            - get_data
+      - integration_test:
+          name: test_003_full
+          marker: test_003_full
+          cpus: 4
+          requires: [image_prep, get_data]
           filters:
             branches:
               ignore:
@@ -728,7 +560,7 @@ workflows:
             tags:
               only: /.*/
 
-      - pytests:
+      - unit_tests:
           requires:
             - image_prep
             - get_data
@@ -753,7 +585,7 @@ workflows:
             - test_003_minimal
             - test_003_resampling
             - test_003_full
-            - pytests
+            - unit_tests
           filters:
             branches:
               ignore:
@@ -762,29 +594,9 @@ workflows:
             tags:
               only: /.*/
 
-      - deployable:
+      - build_and_deploy_docker:
           requires:
             - image_prep
-            - pcasl_singlepld_philips
-            - pcasl_singlepld_siemens
-            - pcasl_singlepld_ge
-            - pcasl_multipld
-            - pasl_multipld
-            - qtab
-            - test_001
-            - test_002
-            - test_003_minimal
-            - test_003_resampling
-            - test_003_full
-          filters:
-            branches:
-              only: main
-            tags:
-              only: /.*/
-
-      - deploy_docker:
-          requires:
-            - deployable
           filters:
             branches:
               only: main

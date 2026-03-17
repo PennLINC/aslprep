@@ -84,7 +84,7 @@ def collect_atlases(datasets, atlases, bids_filters=None):
         - "dataset" : str
             Name of the dataset containing the atlas.
         - "dataset_path" : str
-            Path to the dataset containing the atlas.
+            Path to the BIDS dataset containing the atlas.
         - "image" : str
             Path to the atlas image.
         - "labels" : str

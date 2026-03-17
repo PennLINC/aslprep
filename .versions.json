@@ -11,6 +11,8 @@
 		"0.2.8": "Ordering of probseg maps was incorrect.",
 		"0.6.0": "GIFTI outputs not separated by hemisphere.",
 		"0.7.0": "Broken entrypoint for Docker/Apptainer. GIFTI outputs not separated by hemisphere.",
-		"0.7.1": "GIFTI outputs not separated by hemisphere."
+		"0.7.1": "GIFTI outputs not separated by hemisphere.",
+		"26.0.0": "Loading of derivative datasets broken.",
+		"26.0.1": "Loading of derivative datasets broken."
 	}
 }
