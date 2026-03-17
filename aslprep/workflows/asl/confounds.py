@@ -49,7 +49,7 @@ def init_asl_confounds_wf(
                 wf = init_asl_confounds_wf(
                     n_volumes=50,
                     mem_gb=1,
-                    freesurfer=True,
+                    freesurfer=False,
                 )
 
     Parameters
@@ -63,7 +63,9 @@ def init_asl_confounds_wf(
         should be calculated after resamplings that may extend
         the FoV
     freesurfer : :obj:`bool`
-        True if FreeSurfer derivatives were used.
+        Set to ``True`` if the input volume fractions for the anatomical
+        component-based noise correction maps come from FreeSurfer's ``aseg``.
+        sMRIPrep always uses FAST for tissue probability maps, so we always set this to False.
     name : :obj:`str`
         Name of workflow (default: ``asl_confounds_wf``)
 
