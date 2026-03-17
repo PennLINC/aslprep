@@ -198,7 +198,6 @@ def init_asl_wf(
 
     asl_tlen, mem_gb = _create_mem_gb(asl_file)
 
-    wf_name = _get_wf_name(asl_file)
     config.loggers.workflow.debug(
         (
             'Creating asl processing workflow for "%s" (%.2f GB / %d TRs). '
@@ -264,7 +263,7 @@ def init_asl_wf(
     cbf_derivs = att_derivs + cbf_3d_derivs + cbf_4d_derivs
 
     # Build workflow
-    workflow = Workflow(name=wf_name)
+    workflow = Workflow(name=_get_wf_name(asl_file, 'asl'))
     workflow.__postdesc__ = """\
 All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations.
 Gridded (volumetric) resampling was performed using `antsApplyTransforms`,
