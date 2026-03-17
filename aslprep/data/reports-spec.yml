@@ -64,7 +64,7 @@ sections:
       Inhomogeneities of the <em>B<sub>0</sub></em> field introduce (oftentimes severe) spatial distortions
       along the phase-encoding direction of the image. Utilizing two or more images with different
       phase-encoding polarities (PEPolar) or directions, it is possible to estimate the inhomogeneity
-      of the field. The plot below shows a reference ASL volume generated
+      of the field. The plot below shows an ASL reference volume generated
       using two or more ASL images with varying phase-encoding blips.
     description: |
       Hover on the panels with the mouse pointer to also visualize the intensity of the
@@ -76,7 +76,7 @@ sections:
       Inhomogeneities of the <em>B<sub>0</sub></em> field introduce (oftentimes severe) spatial distortions
       along the phase-encoding direction of the image. Utilizing an <em>anatomically-correct</em> acquisition
       (for instance, T1w or T2w), it is possible to estimate the inhomogeneity of the field by means of nonlinear
-      registration. The plot below shows a reference ASL volume generated
+      registration. The plot below shows an ASL reference volume generated
       using two or more ASL images with the same PE encoding, after alignment to the anatomical scan.
     description: |
       Hover on the panels with the mouse pointer to also visualize the intensity of the
@@ -92,17 +92,17 @@ sections:
   - bids: {datatype: figures, desc: fmapCoreg, suffix: asl, extension: [.svg]}
     caption: |
       The estimated fieldmap was aligned to the corresponding ASL reference
-      with a rigid-registration process of the anatomical reference of the fieldmap,
+      with a rigid-registration process of the fieldmap reference image,
       using <code>antsRegistration</code>.
       Overlaid on top of the co-registration results, the final ASL mask is represented
-      with a red contour for reference.
+      with a green contour for reference.
     static: false
-    subtitle: Alignment between the anatomical reference of the fieldmap and the target ASL (debug mode)
+    subtitle: Alignment between the anatomical reference of the fieldmap and the ASL reference
   - bids: {datatype: figures, desc: fieldmap, suffix: asl, extension: [.svg]}
     caption: |
       Estimated fieldmap, as reconstructed on the target ASL run space to allow
       the assessment of its alignment with the distorted data.
-      The anatomical reference is the fieldmap's reference moved into the target ASL's grid through
+      The anatomical reference is the fieldmap's reference moved into the ASL reference's grid through
       the estimated transformation.
       In other words, this plot should be equivalent to that of the
       <em>Preprocessed estimation with varying Phase-Encoding (PE) blips</em> shown above in the
@@ -120,7 +120,7 @@ sections:
     caption: |
       The dataset contained some fieldmap information, but the argument <code>--force syn-sdc</code>
       was used. The higher-priority SDC method was used. Here, we show the results
-      of performing SyN-based SDC on the ASL for comparison.
+      of performing SyN-based SDC on the ASL reference for comparison.
     static: false
     subtitle: Experimental fieldmap-less susceptibility distortion correction
   - bids: {datatype: figures, desc: m0reg, suffix: asl, extension: [.svg]}
