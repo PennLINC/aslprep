@@ -630,6 +630,7 @@ their manuscripts unchanged. It is released under the unchanged
     all_estimators, estimator_map = map_fieldmap_estimation(
         layout=config.execution.layout,
         subject_id=subject_id,
+        session_id=session_id,
         bold_data=subject_data['asl'],
         ignore_fieldmaps='fieldmaps' in config.workflow.ignore,
         use_syn=config.workflow.use_syn_sdc,
@@ -943,6 +944,7 @@ tasks and sessions), the following preprocessing was performed.
 def map_fieldmap_estimation(
     layout: bids.BIDSLayout,
     subject_id: str,
+    session_id: str | list[str] | None,
     bold_data: list[list[str]],
     ignore_fieldmaps: bool,
     use_syn: bool | str,
@@ -964,6 +966,7 @@ def map_fieldmap_estimation(
     fmap_estimators = find_estimators(
         layout=layout,
         subject=subject_id,
+        sessions=[session_id] if isinstance(session_id, str) else session_id,
         fmapless=bool(use_syn) or (ignore_fieldmaps and force_syn),
         force_fmapless=force_syn or (ignore_fieldmaps and use_syn),
         bids_filters=filters,
