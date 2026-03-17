@@ -750,7 +750,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         ])  # fmt:skip
 
     if surf_std:
-        from fmriprep.workflows.surfaces import init_wb_surf_surf_wf, init_wb_vol_surf_wf
+        from fmriprep.workflows.bold.resampling import init_wb_surf_surf_wf, init_wb_vol_surf_wf
         from smriprep.workflows.surfaces import init_resample_surfaces_wf
 
         workflow.__postdesc__ += (
