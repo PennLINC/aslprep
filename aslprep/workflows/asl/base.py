@@ -446,7 +446,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_confounds_wf = init_asl_confounds_wf(
         n_volumes=n_vols,
         mem_gb=mem_gb['largemem'],
-        freesurfer=config.workflow.run_reconall,
+        freesurfer=False,  # sMRIPrep always uses FAST for TPMs
         name='asl_confounds_wf',
     )
 
