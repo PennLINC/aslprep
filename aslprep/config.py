@@ -600,6 +600,8 @@ class workflow(_Config):
     `first-lex` will use the first image in lexicographical order, `unbiased` will
     construct an unbiased template from all available images (previously --longitudinal),
     and `sessionwise` will independently process each session."""
+    track_sessions = True
+    """Propagate sessions within each sub-workflow."""
     use_syn_sdc = None
     """Run *fieldmap-less* susceptibility-derived distortions estimation
     in the absence of any alternatives."""
@@ -867,3 +869,80 @@ def _deserialize_pg(value: list[str]) -> list[tuple[str, list[str] | None]]:
             ses = ses.removeprefix('ses-').split(',')
         deserial.append((sub, ses or None))
     return deserial
+
+
+def _create_processing_groups() -> list[tuple[str, str | list[str] | None]]:
+    """Generate subject/session groupings for processing.
+
+    This function determines how BIDS subjects and sessions should be grouped
+    for downstream processing, based on workflow configuration.
+
+    The grouping behavior depends on two workflow settings:
+
+    - ``workflow.subject_anatomical_reference == "sessionwise"``
+        Each (subject, session) pair is processed independently.
+        If a subject has no sessions, it is treated as a single-session subject.
+
+    - ``workflow.track_sessions == True``
+        Sessions are preserved and returned as a list associated with the subject.
+        This produces session-aware derivatives, such as sub-X-ses-Y FreeSurfer IDs.
+
+    - Otherwise
+        Session information is discarded and subjects are processed without
+        session differentiation.
+
+    Returns
+    -------
+    list
+        A list of processing groups. Each element is a tuple and can consist of:
+
+        - (subject, session) if operating session-wise
+        - (subject, [sessions]) if tracking sessions
+        - (subject, None) if sessions are ignored
+
+    Raises
+    ------
+    RuntimeError
+        If the BIDS layout has not been initialized.
+    """
+    layout = execution.layout
+    if layout is None:
+        raise RuntimeError('BIDS Layout is not initialized. Cannot create processing groups.')
+
+    from bids.layout import Query
+
+    sessionwise = workflow.subject_anatomical_reference == 'sessionwise'
+    track_sessions = workflow.track_sessions
+
+    if not sessionwise and not track_sessions:
+        loggers.cli.warning('Session information will not be preserved.')
+
+    subject_session_list: list[tuple[str, str | list[str] | None]] = []
+
+    for subject in execution.participant_label:
+        sessions = (
+            layout.get_sessions(
+                scope='raw',
+                subject=subject,
+                session=execution.session_label or Query.OPTIONAL,
+            )
+            or None
+        )
+
+        if sessionwise:
+            if not sessions:
+                loggers.cli.warning(
+                    '`--subject-anatomical-reference sessionwise` was requested, but '
+                    f'no sessions were found for subject {subject}. Treating as '
+                    'single-session.'
+                )
+                subject_session_list.append((subject, None))
+            else:
+                subject_session_list.extend((subject, ses) for ses in sessions)
+            continue
+
+        # Non-sessionwise processing
+        subject_session_list.append((subject, sessions if track_sessions else None))
+
+    execution.processing_groups = subject_session_list
+    return subject_session_list
