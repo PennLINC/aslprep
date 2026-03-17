@@ -46,24 +46,25 @@ def _create_mem_gb(asl_fname):
     return asl_tlen, mem_gb
 
 
-def _get_wf_name(asl_fname):
+def _get_wf_name(asl_fname, prefix):
     """Derive the workflow name for a supplied ASL file.
 
-    >>> _get_wf_name('/completely/made/up/path/sub-01_task-nback_asl.nii.gz')
-    'func_preproc_task_nback_wf'
-    >>> _get_wf_name('/completely/made/up/path/sub-01_task-nback_run-01_echo-1_asl.nii.gz')
-    'func_preproc_task_nback_run_01_echo_1_wf'
+    >>> _get_wf_name('/completely/made/up/path/sub-01_task-nback_asl.nii.gz', 'bold')
+    'bold_task_nback_wf'
+    >>> _get_wf_name(
+    ...    '/completely/made/up/path/sub-01_task-nback_run-01_echo-1_asl.nii.gz',
+    ...    'preproc',
+    ... )
+    'preproc_task_nback_run_01_echo_1_wf'
 
     """
     from nipype.utils.filemanip import split_filename
 
     fname = split_filename(asl_fname)[1]
-    fname_nosub = '_'.join(fname.split('_')[1:])
-    name = 'asl_preproc_' + fname_nosub.replace('.', '_').replace(' ', '').replace(
-        '-', '_'
-    ).replace('_asl', '_wf')
-
-    return name
+    fname_sanitized = '_'.join(fname.split('_')[1:-1])
+    for char in '-+':
+        fname_sanitized = fname_sanitized.replace(char, '_')
+    return f'{prefix}_{fname_sanitized}_wf'
 
 
 def _select_last_in_list(lst):
