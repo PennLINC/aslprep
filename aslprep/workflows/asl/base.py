@@ -756,8 +756,9 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         workflow.__postdesc__ += (
             'Non-gridded (surface) resamplings were performed using the Connectome Workbench.'
         )
-        config.loggers.workflow.debug('Creating BOLD surface workbench resampling workflow.')
+        config.loggers.workflow.debug('Creating ASL surface resampling workflow.')
 
+        # Project ASL data to fsnative space
         wb_vol_surf_wf = init_wb_vol_surf_wf(
             omp_nthreads=omp_nthreads,
             mem_gb=mem_gb['resampled'],
