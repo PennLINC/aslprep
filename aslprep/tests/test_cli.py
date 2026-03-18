@@ -327,7 +327,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         '--output-spaces',
         'asl',
         'MNI152NLin2009cAsym',
-        'onavg',
+        'onavg:den-10k',
         '--scorescrub',
         '--force',
         'no-ge',

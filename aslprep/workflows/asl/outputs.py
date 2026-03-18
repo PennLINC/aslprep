@@ -1239,6 +1239,8 @@ def init_ds_giftis_wf(
                 run_without_submitting=True,
             )
             workflow.connect([
+                (inputnode, ds_cbf_surf_wb, [('source_files', 'source_file')]),
+                (raw_sources, ds_cbf_surf_wb, [('out', 'RawSources')]),
                 (wb_surf_surf_wf, ds_cbf_surf_wb, [('outputnode.bold_resampled', 'in_file')]),
             ])  # fmt:skip
 
