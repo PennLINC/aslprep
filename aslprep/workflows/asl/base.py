@@ -684,11 +684,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         from fmriprep.workflows.bold.resampling import init_goodvoxels_bold_mask_wf
 
         goodvoxels_bold_mask_wf = init_goodvoxels_bold_mask_wf(mem_gb['resampled'])
-
         workflow.connect([
-            (inputnode, goodvoxels_bold_mask_wf, [
-                ('asl_anat', 'inputnode.bold_file'),
-                ('anat_ribbon', 'inputnode.anat_ribbon'),
+            (inputnode, goodvoxels_bold_mask_wf, [('anat_ribbon', 'inputnode.anat_ribbon')]),
+            (asl_anat_wf, goodvoxels_bold_mask_wf, [
+                ('outputnode.bold_file', 'inputnode.bold_file'),
             ]),
         ])  # fmt:skip
 
