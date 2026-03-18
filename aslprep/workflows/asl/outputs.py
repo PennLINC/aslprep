@@ -1183,9 +1183,7 @@ def init_ds_giftis_wf(
         template = ref_.space
         density = ref_.spec.get('density') or ref_.spec.get('den') or None
         if density is None:
-            config.loggers.workflow.warning(
-                f'Cannot resample {ref_} without density specified.'
-            )
+            config.loggers.workflow.warning(f'Cannot resample {ref_} without density specified.')
             continue
 
         # This only needs to be run once for each template/density combination
