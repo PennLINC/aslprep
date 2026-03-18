@@ -1100,7 +1100,7 @@ def init_ds_giftis_wf(
     config.loggers.workflow.debug('Creating ASL surface resampling workflow.')
 
     workflow = Workflow(name=name)
-    workflow.__postdesc__ += (
+    workflow.__postdesc__ = (
         'Non-gridded (surface) resamplings were performed using the Connectome Workbench.'
     )
 
