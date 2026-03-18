@@ -749,12 +749,12 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         ])  # fmt:skip
 
     if surf_std:
+        # Warp CBF maps to standard surface spaces and write out derivatives
         from aslprep.workflows.asl.outputs import init_ds_giftis_wf
 
         ds_asl_gifti_wf = init_ds_giftis_wf(
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
-            metadata=metadata,
             surf_std=surf_std,
             cbf_3d=cbf_3d_derivs,
             cbf_4d=cbf_4d_derivs,
@@ -789,6 +789,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             ])  # fmt:skip
 
     if config.workflow.cifti_output:
+        # Generate fsLR-space CIFTIs
         asl_cifti_resample_wf = init_asl_cifti_resample_wf(
             asl_file=asl_file,
             metadata=metadata,

@@ -1084,7 +1084,6 @@ def init_ds_giftis_wf(
     *,
     bids_root: str,
     output_dir: str,
-    metadata: list[dict],
     surf_std: list,
     cbf_3d: list[str],
     cbf_4d: list[str],
@@ -1093,7 +1092,37 @@ def init_ds_giftis_wf(
     omp_nthreads: int,
     name: str = 'ds_giftis_wf',
 ):
-    """Write out GIFTI derivatives."""
+    """Apply transforms from reference to standard surface spaces and write out derivatives.
+
+    This workflow is abstracted from a corresponding portion of fMRIPrep's init_bold_wf
+    and modified to apply the transforms to a range of CBF derivatives.
+
+    Parameters
+    ----------
+    bids_root : str
+        The root directory of the BIDS dataset.
+    output_dir : str
+        The directory to write the output derivatives to.
+    surf_std : list
+        The standard surface spaces to resample to.
+    cbf_3d : list[str]
+        The 3D CBF derivatives to resample.
+    cbf_4d : list[str]
+        The 4D CBF derivatives to resample.
+    att : list[str]
+        The ATT derivatives to resample.
+    mem_gb : dict
+        The memory to use for the workflow.
+    omp_nthreads : int
+        The number of OpenMP threads to use for the workflow.
+    name : str
+        The name of the workflow.
+
+    Returns
+    -------
+    workflow : Workflow
+        The workflow object.
+    """
     from fmriprep.workflows.bold.resampling import init_wb_surf_surf_wf, init_wb_vol_surf_wf
     from smriprep.workflows.surfaces import init_resample_surfaces_wf
 
@@ -1226,7 +1255,7 @@ def init_ds_giftis_wf(
 
             ds_cbf_surf_wb = pe.MapNode(
                 DerivativesDataSink(
-                    base_directory=config.execution.aslprep_dir,
+                    base_directory=output_dir,
                     hemi=['L', 'R'],
                     dismiss_entities=('echo',),
                     space=template,
