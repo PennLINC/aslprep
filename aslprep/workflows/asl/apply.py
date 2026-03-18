@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import nipype.interfaces.utility as niu
 import nipype.pipeline.engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
 
@@ -96,7 +97,7 @@ def init_asl_cifti_resample_wf(
         init_bold_grayords_wf,
     )
 
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputnode = pe.Node(
         niu.IdentityInterface(

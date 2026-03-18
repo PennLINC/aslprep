@@ -4,6 +4,7 @@
 
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.utils.images import dseg_label
 from smriprep.workflows.outputs import _bids_relative
 
@@ -255,7 +256,7 @@ def init_asl_fit_reports_wf(
     )
     from sdcflows.interfaces.reportlets import FieldmapReportlet
 
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputfields = [
         'source_file',
@@ -550,7 +551,7 @@ def init_ds_aslref_wf(
     name='ds_aslref_wf',
 ) -> pe.Workflow:
     """Write out aslref image."""
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputnode = pe.Node(
         niu.IdentityInterface(fields=['source_files', 'aslref']),
@@ -598,7 +599,7 @@ def init_ds_asl_native_wf(
     name='ds_asl_native_wf',
 ) -> pe.Workflow:
     """Write out aslref-space outputs."""
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputnode_fields = [
         'source_files',
@@ -691,7 +692,7 @@ def init_ds_volumes_wf(
     name: str = 'ds_volumes_wf',
 ) -> pe.Workflow:
     """Apply transforms from reference to anatomical/standard space and write out derivatives."""
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
     inputnode_fields = [
         'source_files',
         'ref_file',
@@ -907,7 +908,7 @@ def init_ds_ciftis_wf(
         init_bold_grayords_wf,
     )
 
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
     inputnode_fields = [
         'asl_cifti',
         'source_files',
@@ -1098,7 +1099,7 @@ def init_ds_giftis_wf(
 
     config.loggers.workflow.debug('Creating ASL surface resampling workflow.')
 
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
     workflow.__postdesc__ += (
         'Non-gridded (surface) resamplings were performed using the Connectome Workbench.'
     )

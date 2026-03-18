@@ -39,6 +39,7 @@ from fmriprep.workflows.bold.reference import init_validation_and_dummies_wf
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.func.util import init_skullstrip_bold_wf
 from niworkflows.interfaces.header import ValidateImage
 from niworkflows.interfaces.nitransforms import ConcatenateXFMs
@@ -865,7 +866,7 @@ def init_asl_native_wf(
 
     _, mem_gb = estimate_asl_mem_usage(asl_file)
 
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputnode = pe.Node(
         niu.IdentityInterface(
