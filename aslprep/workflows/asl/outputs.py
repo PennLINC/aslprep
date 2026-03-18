@@ -1079,6 +1079,173 @@ def init_ds_ciftis_wf(
     return workflow
 
 
+def init_ds_giftis_wf(
+    *,
+    bids_root: str,
+    output_dir: str,
+    metadata: list[dict],
+    surf_std: list,
+    cbf_3d: list[str],
+    cbf_4d: list[str],
+    att: list[str],
+    mem_gb: dict,
+    omp_nthreads: int,
+    name: str = 'ds_giftis_wf',
+):
+    """Write out GIFTI derivatives."""
+    from fmriprep.workflows.bold.resampling import init_wb_surf_surf_wf, init_wb_vol_surf_wf
+    from smriprep.workflows.surfaces import init_resample_surfaces_wf
+
+    config.loggers.workflow.debug('Creating ASL surface resampling workflow.')
+
+    workflow = pe.Workflow(name=name)
+    workflow.__postdesc__ += (
+        'Non-gridded (surface) resamplings were performed using the Connectome Workbench.'
+    )
+
+    inputnode_fields = [
+        'source_files',
+        # ASL-resolution, anatomical-space reference image
+        'anat_ref_file',
+        'aslref2anat_xfm',
+        # Pre-computed goodvoxels mask. May be Undefined.
+        'goodvoxels_mask',
+        # Other inputs
+        'white',
+        'pial',
+        'midthickness',
+        'sphere_reg_fsLR',
+    ]
+    inputnode_fields += cbf_3d
+    inputnode_fields += cbf_4d
+    inputnode_fields += att
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=inputnode_fields),
+        name='inputnode',
+    )
+
+    raw_sources = pe.Node(niu.Function(function=_bids_relative), name='raw_sources')
+    raw_sources.inputs.bids_root = bids_root
+    workflow.connect([(inputnode, raw_sources, [('source_files', 'in_files')])])
+
+    # Project ASL data to fsnative space
+    wb_vol_surf_wf_dict = {}
+    for cbf_deriv in cbf_3d + cbf_4d + att:
+        kwargs = {}
+        if cbf_deriv in cbf_4d:
+            kwargs['dimension'] = 3
+
+        warp_cbf_to_anat = pe.Node(
+            ApplyTransforms(
+                interpolation='LanczosWindowedSinc',
+                float=True,
+                input_image_type=3,
+                args='-v',
+                **kwargs,
+            ),
+            name=f'warp_{cbf_deriv}_to_anat',
+            mem_gb=mem_gb['resampled'],
+        )
+        workflow.connect([
+            (inputnode, warp_cbf_to_anat, [
+                (cbf_deriv, 'input_image'),
+                ('anat_ref_file', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
+            ]),
+        ])  # fmt:skip
+
+        wb_vol_surf_wf_dict[cbf_deriv] = init_wb_vol_surf_wf(
+            omp_nthreads=omp_nthreads,
+            mem_gb=mem_gb['resampled'],
+            dilate=True,
+            name=f'wb_vol_surf_wf_{cbf_deriv}',
+        )
+
+        workflow.connect([
+            (inputnode, wb_vol_surf_wf_dict[cbf_deriv],[
+                ('white', 'inputnode.white'),
+                ('pial', 'inputnode.pial'),
+                ('midthickness', 'inputnode.midthickness'),
+            ]),
+            (warp_cbf_to_anat, wb_vol_surf_wf_dict[cbf_deriv], [
+                ('output_image', 'inputnode.bold_file'),
+            ]),
+        ])  # fmt:skip
+
+        if config.workflow.project_goodvoxels:
+            workflow.connect([
+                (inputnode, wb_vol_surf_wf_dict[cbf_deriv], [
+                    ('goodvoxels_mask', 'inputnode.volume_roi'),
+                ]),
+            ])  # fmt:skip
+
+    for ref_ in surf_std:
+        template = ref_.space
+        density = ref_.spec.get('density') or ref_.spec.get('den') or None
+        if density is None:
+            config.loggers.workflow.warning(
+                f'Cannot resample {ref_} without density specified.'
+            )
+            continue
+
+        # This only needs to be run once for each template/density combination
+        resample_surfaces_wf = init_resample_surfaces_wf(
+            name=f'resample_surfaces_wf_{template}_{density}',
+            surfaces=['midthickness'],
+            template=template,
+            density=density,
+        )
+        workflow.connect([
+            (inputnode, resample_surfaces_wf, [
+                ('midthickness', 'inputnode.midthickness'),
+                ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
+            ]),
+        ])  # fmt:skip
+
+        for cbf_deriv in cbf_3d + cbf_4d + att:
+            # This needs to be run separately for each derivative we want to project
+            # (and each template/density combination)
+            wb_surf_surf_wf = init_wb_surf_surf_wf(
+                template=template,
+                density=density,
+                omp_nthreads=omp_nthreads,
+                mem_gb=mem_gb['resampled'],
+                name=f'wb_surf_surf_wf_{cbf_deriv}_{template}_{density}',
+            )
+            workflow.connect([
+                (inputnode, wb_surf_surf_wf, [
+                    ('midthickness', 'inputnode.midthickness'),
+                    ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
+                ]),
+                (wb_vol_surf_wf_dict[cbf_deriv], wb_surf_surf_wf, [
+                    ('outputnode.bold_fsnative', 'inputnode.bold_fsnative'),
+                ]),
+                (resample_surfaces_wf, wb_surf_surf_wf, [
+                    (f'outputnode.midthickness_{template}', 'inputnode.midthickness_resampled'),
+                ]),
+            ])  # fmt:skip
+
+            ds_cbf_surf_wb = pe.MapNode(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    hemi=['L', 'R'],
+                    dismiss_entities=('echo',),
+                    space=template,
+                    density=density,
+                    extension='.func.gii',
+                    **BASE_INPUT_FIELDS[cbf_deriv],
+                ),
+                iterfield=('in_file', 'hemi'),
+                name=f'ds_cbf_surf_wb_{cbf_deriv}_{template}_{density}',
+                run_without_submitting=True,
+            )
+            workflow.connect([
+                (wb_surf_surf_wf, ds_cbf_surf_wb, [('outputnode.bold_resampled', 'in_file')]),
+            ])  # fmt:skip
+
+    return workflow
+
+
 def _read_json(in_file):
     from json import loads
     from pathlib import Path

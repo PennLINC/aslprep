@@ -750,91 +750,43 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         ])  # fmt:skip
 
     if surf_std:
-        from fmriprep.workflows.bold.resampling import init_wb_surf_surf_wf, init_wb_vol_surf_wf
-        from smriprep.workflows.surfaces import init_resample_surfaces_wf
+        from aslprep.workflows.asl.outputs import init_ds_giftis_wf
 
-        workflow.__postdesc__ += (
-            'Non-gridded (surface) resamplings were performed using the Connectome Workbench.'
-        )
-        config.loggers.workflow.debug('Creating ASL surface resampling workflow.')
-
-        # Project ASL data to fsnative space
-        wb_vol_surf_wf = init_wb_vol_surf_wf(
+        ds_asl_gifti_wf = init_ds_giftis_wf(
+            bids_root=str(config.execution.bids_dir),
+            output_dir=config.execution.aslprep_dir,
+            metadata=metadata,
+            surf_std=surf_std,
+            cbf_3d=cbf_3d_derivs,
+            cbf_4d=cbf_4d_derivs,
+            att=att_derivs,
+            mem_gb=mem_gb,
             omp_nthreads=omp_nthreads,
-            mem_gb=mem_gb['resampled'],
-            dilate=True,
+            name='ds_asl_gifti_wf',
         )
+        ds_asl_gifti_wf.inputs.inputnode.source_files = [asl_file]
         workflow.connect([
-            (inputnode, wb_vol_surf_wf,[
+            (inputnode, ds_asl_gifti_wf, [
                 ('white', 'inputnode.white'),
                 ('pial', 'inputnode.pial'),
                 ('midthickness', 'inputnode.midthickness'),
+                ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
             ]),
-            (asl_anat_wf, wb_vol_surf_wf, [('outputnode.bold_file', 'inputnode.bold_file')]),
+            (asl_anat_wf, ds_asl_gifti_wf, [
+                # Used for affine/resolution reference only
+                ('outputnode.resampling_reference', 'inputnode.anat_ref_file'),
+            ]),
+            (asl_fit_wf, ds_asl_gifti_wf, [
+                ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+            ]),
+            (cbf_wf, ds_asl_gifti_wf, [
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+            ]),
         ])  # fmt:skip
 
         if config.workflow.project_goodvoxels:
             workflow.connect([
-                (goodvoxels_bold_mask_wf, wb_vol_surf_wf, [
-                    ('outputnode.goodvoxels_mask', 'inputnode.volume_roi'),
-                ]),
-            ])  # fmt:skip
-
-        for ref_ in surf_std:
-            template = ref_.space
-            density = ref_.spec.get('density') or ref_.spec.get('den') or None
-            if density is None:
-                config.loggers.workflow.warning(
-                    f'Cannot resample {ref_} without density specified.'
-                )
-                continue
-
-            resample_surfaces_wf = init_resample_surfaces_wf(
-                name=f'resample_surfaces_wf_{template}_{density}',
-                surfaces=['midthickness'],
-                template=template,
-                density=density,
-            )
-
-            wb_surf_surf_wf = init_wb_surf_surf_wf(
-                template=template,
-                density=density,
-                omp_nthreads=omp_nthreads,
-                mem_gb=mem_gb['resampled'],
-            )
-
-            ds_asl_surf_wb = pe.Node(
-                DerivativesDataSink(
-                    base_directory=config.execution.aslprep_dir,
-                    hemi=['L', 'R'],
-                    dismiss_entities=('echo',),
-                    space=template,
-                    density=density,
-                    suffix='asl',
-                    extension='.func.gii',
-                ),
-                iterfield=('in_file', 'hemi'),
-                name=f'ds_asl_surf_wb_{template}_{density}',
-                run_without_submitting=True,
-            )
-            ds_asl_surf_wb.inputs.source_file = asl_file
-
-            workflow.connect([
-                (inputnode, resample_surfaces_wf, [
-                    ('midthickness', 'inputnode.midthickness'),
-                    ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
-                ]),
-                (wb_vol_surf_wf, wb_surf_surf_wf, [
-                    ('outputnode.bold_fsnative', 'inputnode.bold_fsnative'),
-                ]),
-                (inputnode, wb_surf_surf_wf, [
-                    ('midthickness', 'inputnode.midthickness'),
-                    ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
-                ]),
-                (resample_surfaces_wf, wb_surf_surf_wf, [
-                    (f'outputnode.midthickness_{template}', 'inputnode.midthickness_resampled'),
-                ]),
-                (wb_surf_surf_wf, ds_asl_surf_wb, [('outputnode.bold_resampled', 'in_file')]),
+                (ds_goodvoxels_mask, ds_asl_gifti_wf, [('out_file', 'inputnode.goodvoxels_mask')]),
             ])  # fmt:skip
 
     if config.workflow.cifti_output:
@@ -846,7 +798,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             jacobian=jacobian,
             omp_nthreads=omp_nthreads,
         )
-
         workflow.connect([
             (inputnode, asl_cifti_resample_wf, [
                 ('mni6_mask', 'inputnode.mni6_mask'),
