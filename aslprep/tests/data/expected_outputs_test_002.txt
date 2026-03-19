@@ -59,10 +59,14 @@ sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_from-orig_to-aslref_mode-image_
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_from-orig_to-aslref_mode-image_xfm.txt
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-L_space-fsnative_cbf.func.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-L_space-fsnative_cbf.json
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-L_space-fsnative_desc-preproc_asl.func.gii
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-L_space-fsnative_desc-preproc_asl.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-L_space-fsnative_desc-timeseries_cbf.func.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-L_space-fsnative_desc-timeseries_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-R_space-fsnative_cbf.func.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-R_space-fsnative_cbf.json
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-R_space-fsnative_desc-preproc_asl.func.gii
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-R_space-fsnative_desc-preproc_asl.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-R_space-fsnative_desc-timeseries_cbf.func.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_hemi-R_space-fsnative_desc-timeseries_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_aslref.nii.gz

@@ -709,7 +709,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
         ])  # fmt:skip
 
-    # GIFTI outputs
+    # FreeSurfer surface spaces
     if config.workflow.run_reconall and freesurfer_spaces:
         from aslprep.workflows.asl.resampling import init_asl_surf_wf
 
@@ -748,8 +748,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             ]),
         ])  # fmt:skip
 
+    # Standard surface spaces
     if surf_std:
-        # Warp CBF maps to standard surface spaces and write out derivatives
         from aslprep.workflows.asl.outputs import init_ds_giftis_wf
 
         ds_asl_gifti_wf = init_ds_giftis_wf(
@@ -774,6 +774,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             (asl_anat_wf, ds_asl_gifti_wf, [
                 # Used for affine/resolution reference only
                 ('outputnode.resampling_reference', 'inputnode.anat_ref_file'),
+                # To be projected and written out
+                ('outputnode.bold_file', 'inputnode.asl_anat'),
             ]),
             (asl_fit_wf, ds_asl_gifti_wf, [
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
@@ -788,10 +790,9 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 (ds_goodvoxels_mask, ds_asl_gifti_wf, [('out_file', 'inputnode.goodvoxels_mask')]),
             ])  # fmt:skip
 
+    # fsLR-space CIFTIs
     if config.workflow.cifti_output:
-        # Generate fsLR-space CIFTIs
         asl_cifti_resample_wf = init_asl_cifti_resample_wf(
-            asl_file=asl_file,
             metadata=metadata,
             mem_gb=mem_gb,
             fieldmap_id=fieldmap_id,

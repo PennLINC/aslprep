@@ -72,6 +72,9 @@ sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_from-orig_to-aslref_mode-i
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_from-orig_to-aslref_mode-image_xfm.txt
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k_cbf.func.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k_cbf.json
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k_desc-preproc_asl.func.gii
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k_desc-preproc_asl.json
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k_desc-scoreTimeseries_cbf.func.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k_desc-scoreTimeseries_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k_desc-score_cbf.func.gii
@@ -82,6 +85,8 @@ sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-L_space-onavg_den-10k_desc-timeseries_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-R_space-onavg_den-10k_cbf.func.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-R_space-onavg_den-10k_cbf.json
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-R_space-onavg_den-10k_desc-preproc_asl.func.gii
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-R_space-onavg_den-10k_desc-preproc_asl.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-R_space-onavg_den-10k_desc-scoreTimeseries_cbf.func.gii
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-R_space-onavg_den-10k_desc-scoreTimeseries_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_hemi-R_space-onavg_den-10k_desc-score_cbf.func.gii

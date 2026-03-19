@@ -902,7 +902,52 @@ def init_ds_ciftis_wf(
     omp_nthreads: int,
     name: str = 'ds_ciftis_wf',
 ) -> pe.Workflow:
-    """Apply transforms from reference to fsLR space and write out derivatives."""
+    """Apply transforms from reference to fsLR space and write out derivatives.
+
+    This workflow is abstracted from a corresponding portion of fMRIPrep's init_bold_wf
+    and modified to apply the transforms to a range of CBF derivatives.
+
+    .. workflow::
+        :graph2use: orig
+        :simple_form: yes
+
+        from aslprep.workflows.asl.outputs import init_ds_ciftis_wf
+
+        wf = init_ds_ciftis_wf(
+            bids_root='bids_root',
+            output_dir='output_dir',
+            metadata=[],
+            cbf_3d=[],
+            cbf_4d=[],
+            att=[],
+            omp_nthreads=1,
+            name='ds_ciftis_wf',
+        )
+
+    Parameters
+    ----------
+    bids_root : str
+        The root directory of the BIDS dataset.
+    output_dir : str
+        The directory to write the output derivatives to.
+    metadata : list[dict]
+        BIDS metadata for ASL file.
+    cbf_3d : list[str]
+        The 3D CBF derivatives in native space to resample.
+    cbf_4d : list[str]
+        The 4D CBF derivatives in native space to resample.
+    att : list[str]
+        The ATT derivatives in native space to resample.
+    omp_nthreads : int
+        The number of OpenMP threads to use for the workflow.
+    name : str
+        The name of the workflow.
+
+    Returns
+    -------
+    workflow : Workflow
+        The workflow object.
+    """
     from fmriprep.workflows.bold.resampling import (
         init_bold_fsLR_resampling_wf,
         init_bold_grayords_wf,
@@ -1097,6 +1142,24 @@ def init_ds_giftis_wf(
     This workflow is abstracted from a corresponding portion of fMRIPrep's init_bold_wf
     and modified to apply the transforms to a range of CBF derivatives.
 
+    .. workflow::
+        :graph2use: orig
+        :simple_form: yes
+
+        from aslprep.workflows.asl.outputs import init_ds_giftis_wf
+
+        wf = init_ds_giftis_wf(
+            bids_root='bids_root',
+            output_dir='output_dir',
+            surf_std=[],
+            cbf_3d=[],
+            cbf_4d=[],
+            att=[],
+            mem_gb={'resampled': 1},
+            omp_nthreads=1,
+            name='ds_giftis_wf',
+        )
+
     Parameters
     ----------
     bids_root : str
@@ -1106,11 +1169,11 @@ def init_ds_giftis_wf(
     surf_std : list
         The standard surface spaces to resample to.
     cbf_3d : list[str]
-        The 3D CBF derivatives to resample.
+        The 3D CBF derivatives in native space to resample.
     cbf_4d : list[str]
-        The 4D CBF derivatives to resample.
+        The 4D CBF derivatives in native space to resample.
     att : list[str]
-        The ATT derivatives to resample.
+        The ATT derivatives in native space to resample.
     mem_gb : dict
         The memory to use for the workflow.
     omp_nthreads : int
@@ -1138,6 +1201,8 @@ def init_ds_giftis_wf(
         # ASL-resolution, anatomical-space reference image
         'anat_ref_file',
         'aslref2anat_xfm',
+        # ASL series in anatomical space
+        'asl_anat',
         # Pre-computed goodvoxels mask. May be Undefined.
         'goodvoxels_mask',
         # Other inputs
@@ -1158,8 +1223,20 @@ def init_ds_giftis_wf(
     raw_sources.inputs.bids_root = bids_root
     workflow.connect([(inputnode, raw_sources, [('source_files', 'in_files')])])
 
-    # Project ASL data to fsnative space
     wb_vol_surf_wf_dict = {}
+
+    # Project ASL data from anatomical space to fsnative space
+    wb_vol_surf_wf_dict['asl'] = init_wb_vol_surf_wf(
+        omp_nthreads=omp_nthreads,
+        mem_gb=mem_gb['resampled'],
+        dilate=True,
+        name='wb_vol_surf_wf_asl',
+    )
+    workflow.connect([
+        (inputnode, wb_vol_surf_wf_dict['asl'], [('asl_anat', 'inputnode.bold_file')]),
+    ])  # fmt:skip
+
+    # Project CBF derivatives from native space to fsnative space
     for cbf_deriv in cbf_3d + cbf_4d + att:
         kwargs = {}
         if cbf_deriv in cbf_4d:
@@ -1230,7 +1307,7 @@ def init_ds_giftis_wf(
             ]),
         ])  # fmt:skip
 
-        for cbf_deriv in cbf_3d + cbf_4d + att:
+        for cbf_deriv in ['asl'] + cbf_3d + cbf_4d + att:
             # This needs to be run separately for each derivative we want to project
             # (and each template/density combination)
             wb_surf_surf_wf = init_wb_surf_surf_wf(

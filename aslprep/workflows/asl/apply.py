@@ -11,7 +11,6 @@ from aslprep import config
 
 def init_asl_cifti_resample_wf(
     *,
-    asl_file: str,
     metadata: dict,
     mem_gb: dict,
     fieldmap_id: str | None = None,
