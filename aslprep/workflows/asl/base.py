@@ -743,6 +743,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             (asl_fit_wf, asl_surf_wf, [
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
             ]),
+            (asl_anat_wf, asl_surf_wf, [('outputnode.bold_file', 'inputnode.asl_anat')]),
             (cbf_wf, asl_surf_wf, [
                 (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
             ]),
