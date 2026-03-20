@@ -1233,8 +1233,18 @@ def init_ds_giftis_wf(
         name='wb_vol_surf_wf_asl',
     )
     workflow.connect([
-        (inputnode, wb_vol_surf_wf_dict['asl'], [('asl_anat', 'inputnode.bold_file')]),
+        (inputnode, wb_vol_surf_wf_dict['asl'], [
+            ('asl_anat', 'inputnode.bold_file'),
+            ('white', 'inputnode.white'),
+            ('pial', 'inputnode.pial'),
+            ('midthickness', 'inputnode.midthickness'),
+        ]),
     ])  # fmt:skip
+
+    if config.workflow.project_goodvoxels:
+        workflow.connect([
+            (inputnode, wb_vol_surf_wf_dict['asl'], [('goodvoxels_mask', 'inputnode.volume_roi')]),
+        ])  # fmt:skip
 
     # Project CBF derivatives from native space to fsnative space
     for cbf_deriv in cbf_3d + cbf_4d + att:
