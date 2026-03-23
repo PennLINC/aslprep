@@ -298,7 +298,13 @@ def dispersion_index(wm_mask, gm_mask, csf_mask, cbf_image):
     n_gm = np.sum(gm_mask)
     n_wm = np.sum(wm_mask)
     n_csf = np.sum(csf_mask)
-    # TODO: possibly add a check to ensure that n_gm, n_wm, n_csf are all greater than 1
+
+    for tissue, count in (('GM', n_gm), ('WM', n_wm), ('CSF', n_csf)):
+        if count < 2:
+            raise ValueError(
+                f'{tissue} mask contains {count} voxel(s), but at least 2 are required '
+                'to compute the dispersion index.'
+            )
 
     V = (
         (n_gm - 1) * np.var(cbf_data[gm_mask])
@@ -307,6 +313,9 @@ def dispersion_index(wm_mask, gm_mask, csf_mask, cbf_image):
     ) / (n_gm + n_wm + n_csf - 3)
 
     mean_gm_cbf = np.mean(cbf_data[gm_mask])
+    if mean_gm_cbf == 0:
+        raise ValueError('Mean GM CBF is zero; cannot compute the dispersion index.')
+
     return V / np.abs(mean_gm_cbf)
 
 
