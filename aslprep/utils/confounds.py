@@ -9,6 +9,8 @@ import pandas as pd
 from nibabel.processing import smooth_image
 from nipype.interfaces.base import isdefined
 
+# Default cbf thresholds (mL/100 g/min) for computing voxel percentages
+CBF_THRESH_DEFAULTS = (100, 150, 200)
 
 def _less_breakable(a_string):
     """Harden the string to different environments, whatever that means."""
@@ -231,6 +233,50 @@ def average_cbf_by_tissue(cbf, gm, wm, csf, thresh):
         mean_tissue_cbfs.append(mean_tissue_cbf)
 
     return mean_tissue_cbfs
+
+
+def compute_cbf_threshold_stats(cbf, mask, thresholds=CBF_THRESH_DEFAULTS):
+    """
+Calculates the percentage of in-mask voxels that exceed certain specified cbf thresholds 
+   
+Args : 
+    cbf: path or array of cbf data
+    mask: path or array of binary brain mask
+    thresholds: cutoff to check against (default: 100, 150, 200)
+
+Returns :
+    a dictionary of percentages like {'perc_voxels_cbf_gt_100': 45.2}
+    returns Nan if mask is empty
+    """
+    if isinstance(cbf, str):
+        cbf_data = nb.load(cbf).get_fdata()
+    else:
+        cbf_data = np.array(cbf, dtype=float)
+
+    if cbf_data.ndim > 3:
+        cbf_data = np.nanmean(cbf_data, axis=3)
+
+    if isinstance(mask, str):
+        mask_data = nb.load(mask).get_fdata()
+    else:
+        mask_data = np.asarray(mask)
+
+    mask_bool = mask_data > 0
+    masked_cbf = cbf_data[mask_bool]
+
+    # Drop NaN voxels so they dont skew the stats
+    masked_cbf = masked_cbf[~np.isnan(masked_cbf)]
+    n_voxels = masked_cbf.size
+
+    stats = {}
+    for thresh in thresholds:
+        if n_voxels == 0:
+            stats[f'perc_voxels_cbf_gt_{int(thresh)}'] = np.nan
+        else:
+            n_above = np.sum(masked_cbf > thresh)
+            stats[f'perc_voxels_cbf_gt_{int(thresh)}'] = 100.0 * n_above / n_voxels
+
+    return stats
 
 
 def _load_one_image(nii_file):
