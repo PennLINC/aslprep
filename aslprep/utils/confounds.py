@@ -237,14 +237,14 @@ def average_cbf_by_tissue(cbf, gm, wm, csf, thresh):
 
 def compute_cbf_threshold_stats(cbf, mask, thresholds=CBF_THRESH_DEFAULTS):
     """
-Calculates the percentage of in-mask voxels that exceed certain specified cbf thresholds 
+    Calculates the percentage of in-mask voxels that exceed certain specified cbf thresholds 
    
-Args : 
+    Args : 
     cbf: path or array of cbf data
     mask: path or array of binary brain mask
     thresholds: cutoff to check against (default: 100, 150, 200)
 
-Returns :
+    Returns :
     a dictionary of percentages like {'perc_voxels_cbf_gt_100': 45.2}
     returns Nan if mask is empty
     """
