@@ -286,7 +286,7 @@ class ComputeCBFQC(SimpleInterface):
             qei_cbf_scrub_di = np.nan
             percentage_negative_cbf_scrub = np.nan
 
-            
+
             cbf_score_thresh_stats = {
                 f'perc_voxels_cbf_gt_{t}': np.nan for t in CBF_THRESH_DEFAULTS
             }
