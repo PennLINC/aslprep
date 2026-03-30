@@ -6,6 +6,8 @@ environments:
     - url: https://conda.anaconda.org/conda-forge/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-7_kmp_llvm.conda
@@ -521,6 +523,8 @@ environments:
     - url: https://conda.anaconda.org/conda-forge/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-7_kmp_llvm.conda
@@ -1007,6 +1011,8 @@ environments:
     - url: https://conda.anaconda.org/conda-forge/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-7_kmp_llvm.conda
@@ -1687,8 +1693,8 @@ packages:
   timestamp: 1760831179410
 - pypi: ./
   name: aslprep
-  version: 26.1.0.dev3+g86311fd98.d20260313
-  sha256: e0e996eb34ce224f9fd29096ea9d7590d0b4611d5dbac9765816e36460677d09
+  version: 26.1.0.dev8+g8dd1dab31.d20260330
+  sha256: c3f228b03fcfce092771dfc631d77b69bcddd13341b73c1fabbe7f02e55e1d9a
   requires_dist:
   - acres>=0.2.0
   - fmriprep~=25.2.2
@@ -1757,79 +1763,6 @@ packages:
   - pytest ; extra == 'tests'
   - pytest-cov ; extra == 'tests'
   requires_python: '>=3.10'
-- pypi: ./
-  name: aslprep
-  version: 26.1.0.dev4+g32aa5f5ab
-  sha256: e0e996eb34ce224f9fd29096ea9d7590d0b4611d5dbac9765816e36460677d09
-  requires_dist:
-  - acres>=0.2.0
-  - fmriprep~=25.2.2
-  - indexed-gzip
-  - looseversion>=1.3
-  - networkx~=3.3
-  - nibabel>=5.1.1
-  - nilearn~=0.13.0
-  - nipype>=1.9.0
-  - nireports>=25.1.0
-  - nitransforms>=25.0.1
-  - niworkflows>=1.14.4
-  - numpy~=2.2
-  - packaging>=24
-  - pandas>=2.2
-  - psutil>=5.4
-  - pybids>=0.16
-  - requests>=2.27
-  - sdcflows>=2.15.0
-  - sentry-sdk
-  - smriprep>=0.19.2
-  - tedana~=25.1.1a1
-  - templateflow>=24.2.2
-  - toml>=0.10
-  - transforms3d>=0.4.2
-  - codecov ; extra == 'all'
-  - coverage ; extra == 'all'
-  - doctest-ignore-unicode ; extra == 'all'
-  - fuzzywuzzy ; extra == 'all'
-  - lxml-html-clean ; extra == 'all'
-  - myst-parser ; extra == 'all'
-  - nbsphinx ; extra == 'all'
-  - packaging ; extra == 'all'
-  - pre-commit ; extra == 'all'
-  - pydot>=1.2.3 ; extra == 'all'
-  - pydotplus ; extra == 'all'
-  - pytest ; extra == 'all'
-  - pytest-cov ; extra == 'all'
-  - python-levenshtein ; extra == 'all'
-  - ruff~=0.15.0 ; extra == 'all'
-  - sphinx-argparse ; extra == 'all'
-  - sphinx-markdown-tables ; extra == 'all'
-  - sphinx-rtd-theme>=1.2.2 ; extra == 'all'
-  - sphinx>=6.2.1 ; extra == 'all'
-  - sphinxcontrib-apidoc ; extra == 'all'
-  - sphinxcontrib-bibtex ; extra == 'all'
-  - pre-commit ; extra == 'dev'
-  - ruff~=0.15.0 ; extra == 'dev'
-  - doctest-ignore-unicode ; extra == 'doc'
-  - lxml-html-clean ; extra == 'doc'
-  - myst-parser ; extra == 'doc'
-  - nbsphinx ; extra == 'doc'
-  - packaging ; extra == 'doc'
-  - pydot>=1.2.3 ; extra == 'doc'
-  - pydotplus ; extra == 'doc'
-  - sphinx-argparse ; extra == 'doc'
-  - sphinx-markdown-tables ; extra == 'doc'
-  - sphinx-rtd-theme>=1.2.2 ; extra == 'doc'
-  - sphinx>=6.2.1 ; extra == 'doc'
-  - sphinxcontrib-apidoc ; extra == 'doc'
-  - sphinxcontrib-bibtex ; extra == 'doc'
-  - fuzzywuzzy ; extra == 'maint'
-  - python-levenshtein ; extra == 'maint'
-  - codecov ; extra == 'tests'
-  - coverage ; extra == 'tests'
-  - pytest ; extra == 'tests'
-  - pytest-cov ; extra == 'tests'
-  requires_python: '>=3.10'
-  editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/asttokens-3.0.1-pyhd8ed1ab_0.conda
   sha256: ee4da0f3fe9d59439798ee399ef3e482791e48784873d546e706d0935f9ff010
   md5: 9673a61a297b00016442e022d689faa6
