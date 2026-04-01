@@ -12,6 +12,7 @@ from nipype.interfaces.base import isdefined
 # Default cbf thresholds (mL/100 g/min) for computing voxel percentages
 CBF_THRESH_DEFAULTS = (100, 150, 200)
 
+
 def _less_breakable(a_string):
     """Harden the string to different environments, whatever that means."""
     return ''.join(a_string.split()).strip('#')

@@ -142,10 +142,12 @@ def test_cbf_qc_interface_threshold_columns(tmp_path):
     mask = np.ones(shape, dtype=np.uint8)
 
     # minimal confounds file
-    confounds_df = pd.DataFrame({
-        'framewise_displacement': [0.1, 0.2, 0.15],
-        'rmsd': [0.05, 0.06, 0.04],
-    })
+    confounds_df = pd.DataFrame(
+        {
+            'framewise_displacement': [0.1, 0.2, 0.15],
+            'rmsd': [0.05, 0.06, 0.04],
+        }
+    )
     confounds_file = os.path.join(str(tmp_path), 'confounds.tsv')
     confounds_df.to_csv(confounds_file, sep='\t', index=False)
 

@@ -286,7 +286,6 @@ class ComputeCBFQC(SimpleInterface):
             qei_cbf_scrub_di = np.nan
             percentage_negative_cbf_scrub = np.nan
 
-
             cbf_score_thresh_stats = {
                 f'perc_voxels_cbf_gt_{t}': np.nan for t in CBF_THRESH_DEFAULTS
             }
@@ -385,27 +384,14 @@ class ComputeCBFQC(SimpleInterface):
             'mean_gm_cbf': [mean_cbf_mean[0]],
             'mean_wm_cbf': [mean_cbf_mean[1]],
             'ratio_gm_wm_cbf': [ratio_gm_wm_cbf],
-
-
-
             # cbf threshold stats (mean CBF)
-
             **{k: [v] for k, v in cbf_thresh_stats.items()},
             # cbf threshold stats (SCORE)
-            **{
-                k.replace('_cbf_', '_cbf_score_'): [v]
-                for k, v in cbf_score_thresh_stats.items()
-            },
+            **{k.replace('_cbf_', '_cbf_score_'): [v] for k, v in cbf_score_thresh_stats.items()},
             # cbf threshold stats (SCRUB)
-            **{
-                k.replace('_cbf_', '_cbf_scrub_'): [v]
-                for k, v in cbf_scrub_thresh_stats.items()
-            },
+            **{k.replace('_cbf_', '_cbf_scrub_'): [v] for k, v in cbf_scrub_thresh_stats.items()},
             # cbf threshold stats (BASIL)
-            **{
-                k.replace('_cbf_', '_cbf_basil_'): [v]
-                for k, v in cbf_basil_thresh_stats.items()
-            },
+            **{k.replace('_cbf_', '_cbf_basil_'): [v] for k, v in cbf_basil_thresh_stats.items()},
             # cbf threshold stats (BASIL GM-PVC)
             **{
                 k.replace('_cbf_', '_cbf_basil_gm_'): [v]
@@ -616,13 +602,9 @@ class ComputeCBFQC(SimpleInterface):
                     'The ratio between the mean gray matter and mean white matter CBF values.'
                 ),
             },
-
-
             # cbf threshold stats (mean CBF)
             'perc_voxels_cbf_gt_100': {
-                'LongName': (
-                    'Percentage of Voxels with CBF Greater Than 100 mL/100 g/min'
-                ),
+                'LongName': ('Percentage of Voxels with CBF Greater Than 100 mL/100 g/min'),
                 'Description': (
                     'Percentage of in-mask voxels with mean CBF strictly greater than '
                     '100 mL/100 g/min.'
@@ -630,9 +612,7 @@ class ComputeCBFQC(SimpleInterface):
                 'Units': 'percent',
             },
             'perc_voxels_cbf_gt_150': {
-                'LongName': (
-                    'Percentage of Voxels with CBF Greater Than 150 mL/100 g/min'
-                ),
+                'LongName': ('Percentage of Voxels with CBF Greater Than 150 mL/100 g/min'),
                 'Description': (
                     'Percentage of in-mask voxels with mean CBF strictly greater than '
                     '150 mL/100 g/min.'
@@ -640,9 +620,7 @@ class ComputeCBFQC(SimpleInterface):
                 'Units': 'percent',
             },
             'perc_voxels_cbf_gt_200': {
-                'LongName': (
-                    'Percentage of Voxels with CBF Greater Than 200 mL/100 g/min'
-                ),
+                'LongName': ('Percentage of Voxels with CBF Greater Than 200 mL/100 g/min'),
                 'Description': (
                     'Percentage of in-mask voxels with mean CBF strictly greater than '
                     '200 mL/100 g/min.'
@@ -652,8 +630,7 @@ class ComputeCBFQC(SimpleInterface):
             # cbf threshold stats (SCORE)
             'perc_voxels_cbf_score_gt_100': {
                 'LongName': (
-                    'Percentage of Voxels with SCORE-Denoised CBF Greater Than '
-                    '100 mL/100 g/min'
+                    'Percentage of Voxels with SCORE-Denoised CBF Greater Than 100 mL/100 g/min'
                 ),
                 'Description': (
                     'Percentage of in-mask voxels with SCORE-denoised CBF strictly '
@@ -663,8 +640,7 @@ class ComputeCBFQC(SimpleInterface):
             },
             'perc_voxels_cbf_score_gt_150': {
                 'LongName': (
-                    'Percentage of Voxels with SCORE-Denoised CBF Greater Than '
-                    '150 mL/100 g/min'
+                    'Percentage of Voxels with SCORE-Denoised CBF Greater Than 150 mL/100 g/min'
                 ),
                 'Description': (
                     'Percentage of in-mask voxels with SCORE-denoised CBF strictly '
@@ -674,8 +650,7 @@ class ComputeCBFQC(SimpleInterface):
             },
             'perc_voxels_cbf_score_gt_200': {
                 'LongName': (
-                    'Percentage of Voxels with SCORE-Denoised CBF Greater Than '
-                    '200 mL/100 g/min'
+                    'Percentage of Voxels with SCORE-Denoised CBF Greater Than 200 mL/100 g/min'
                 ),
                 'Description': (
                     'Percentage of in-mask voxels with SCORE-denoised CBF strictly '
@@ -686,8 +661,7 @@ class ComputeCBFQC(SimpleInterface):
             # cbf threshold stats (SCRUB)
             'perc_voxels_cbf_scrub_gt_100': {
                 'LongName': (
-                    'Percentage of Voxels with SCRUB-Denoised CBF Greater Than '
-                    '100 mL/100 g/min'
+                    'Percentage of Voxels with SCRUB-Denoised CBF Greater Than 100 mL/100 g/min'
                 ),
                 'Description': (
                     'Percentage of in-mask voxels with SCRUB-denoised CBF strictly '
@@ -697,8 +671,7 @@ class ComputeCBFQC(SimpleInterface):
             },
             'perc_voxels_cbf_scrub_gt_150': {
                 'LongName': (
-                    'Percentage of Voxels with SCRUB-Denoised CBF Greater Than '
-                    '150 mL/100 g/min'
+                    'Percentage of Voxels with SCRUB-Denoised CBF Greater Than 150 mL/100 g/min'
                 ),
                 'Description': (
                     'Percentage of in-mask voxels with SCRUB-denoised CBF strictly '
@@ -708,8 +681,7 @@ class ComputeCBFQC(SimpleInterface):
             },
             'perc_voxels_cbf_scrub_gt_200': {
                 'LongName': (
-                    'Percentage of Voxels with SCRUB-Denoised CBF Greater Than '
-                    '200 mL/100 g/min'
+                    'Percentage of Voxels with SCRUB-Denoised CBF Greater Than 200 mL/100 g/min'
                 ),
                 'Description': (
                     'Percentage of in-mask voxels with SCRUB-denoised CBF strictly '
@@ -719,10 +691,7 @@ class ComputeCBFQC(SimpleInterface):
             },
             # cbf threshold stats (BASIL)
             'perc_voxels_cbf_basil_gt_100': {
-                'LongName': (
-                    'Percentage of Voxels with BASIL CBF Greater Than '
-                    '100 mL/100 g/min'
-                ),
+                'LongName': ('Percentage of Voxels with BASIL CBF Greater Than 100 mL/100 g/min'),
                 'Description': (
                     'Percentage of in-mask voxels with BASIL CBF strictly '
                     'greater than 100 mL/100 g/min.'
@@ -730,10 +699,7 @@ class ComputeCBFQC(SimpleInterface):
                 'Units': 'percent',
             },
             'perc_voxels_cbf_basil_gt_150': {
-                'LongName': (
-                    'Percentage of Voxels with BASIL CBF Greater Than '
-                    '150 mL/100 g/min'
-                ),
+                'LongName': ('Percentage of Voxels with BASIL CBF Greater Than 150 mL/100 g/min'),
                 'Description': (
                     'Percentage of in-mask voxels with BASIL CBF strictly '
                     'greater than 150 mL/100 g/min.'
@@ -741,10 +707,7 @@ class ComputeCBFQC(SimpleInterface):
                 'Units': 'percent',
             },
             'perc_voxels_cbf_basil_gt_200': {
-                'LongName': (
-                    'Percentage of Voxels with BASIL CBF Greater Than '
-                    '200 mL/100 g/min'
-                ),
+                'LongName': ('Percentage of Voxels with BASIL CBF Greater Than 200 mL/100 g/min'),
                 'Description': (
                     'Percentage of in-mask voxels with BASIL CBF strictly '
                     'greater than 200 mL/100 g/min.'
