@@ -106,6 +106,8 @@ RUN cat /shell-hook.sh >> $HOME/.bashrc
 ENV PATH="/app/.pixi/envs/test/bin:$PATH"
 
 ENV FSLDIR="/app/.pixi/envs/test"
+ARG VCS_REF
+LABEL org.opencontainers.image.revision=$VCS_REF
 
 FROM base AS aslprep
 
