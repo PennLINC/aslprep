@@ -4,6 +4,7 @@
 
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 from niworkflows.utils.images import dseg_label
 from smriprep.workflows.outputs import _bids_relative
 
@@ -255,7 +256,7 @@ def init_asl_fit_reports_wf(
     )
     from sdcflows.interfaces.reportlets import FieldmapReportlet
 
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputfields = [
         'source_file',
@@ -550,7 +551,7 @@ def init_ds_aslref_wf(
     name='ds_aslref_wf',
 ) -> pe.Workflow:
     """Write out aslref image."""
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputnode = pe.Node(
         niu.IdentityInterface(fields=['source_files', 'aslref']),
@@ -598,7 +599,7 @@ def init_ds_asl_native_wf(
     name='ds_asl_native_wf',
 ) -> pe.Workflow:
     """Write out aslref-space outputs."""
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputnode_fields = [
         'source_files',
@@ -691,7 +692,7 @@ def init_ds_volumes_wf(
     name: str = 'ds_volumes_wf',
 ) -> pe.Workflow:
     """Apply transforms from reference to anatomical/standard space and write out derivatives."""
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
     inputnode_fields = [
         'source_files',
         'ref_file',
@@ -901,13 +902,58 @@ def init_ds_ciftis_wf(
     omp_nthreads: int,
     name: str = 'ds_ciftis_wf',
 ) -> pe.Workflow:
-    """Apply transforms from reference to fsLR space and write out derivatives."""
+    """Apply transforms from reference to fsLR space and write out derivatives.
+
+    This workflow is abstracted from a corresponding portion of fMRIPrep's init_bold_wf
+    and modified to apply the transforms to a range of CBF derivatives.
+
+    .. workflow::
+        :graph2use: orig
+        :simple_form: yes
+
+        from aslprep.workflows.asl.outputs import init_ds_ciftis_wf
+
+        wf = init_ds_ciftis_wf(
+            bids_root='bids_root',
+            output_dir='output_dir',
+            metadata=[],
+            cbf_3d=[],
+            cbf_4d=[],
+            att=[],
+            omp_nthreads=1,
+            name='ds_ciftis_wf',
+        )
+
+    Parameters
+    ----------
+    bids_root : str
+        The root directory of the BIDS dataset.
+    output_dir : str
+        The directory to write the output derivatives to.
+    metadata : list[dict]
+        BIDS metadata for ASL file.
+    cbf_3d : list[str]
+        The 3D CBF derivatives in native space to resample.
+    cbf_4d : list[str]
+        The 4D CBF derivatives in native space to resample.
+    att : list[str]
+        The ATT derivatives in native space to resample.
+    omp_nthreads : int
+        The number of OpenMP threads to use for the workflow.
+    name : str
+        The name of the workflow.
+
+    Returns
+    -------
+    workflow : Workflow
+        The workflow object.
+    """
     from fmriprep.workflows.bold.resampling import (
         init_bold_fsLR_resampling_wf,
         init_bold_grayords_wf,
     )
 
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
     inputnode_fields = [
         'asl_cifti',
         'source_files',
@@ -1075,6 +1121,244 @@ def init_ds_ciftis_wf(
             ]),
             (ds_cbf_cifti, outputnode, [('out_file', cbf_deriv)])
         ])  # fmt:skip
+
+    return workflow
+
+
+def init_ds_giftis_wf(
+    *,
+    bids_root: str,
+    output_dir: str,
+    surf_std: list,
+    cbf_3d: list[str],
+    cbf_4d: list[str],
+    att: list[str],
+    mem_gb: dict,
+    omp_nthreads: int,
+    name: str = 'ds_giftis_wf',
+):
+    """Apply transforms from reference to standard surface spaces and write out derivatives.
+
+    This workflow is abstracted from a corresponding portion of fMRIPrep's init_bold_wf
+    and modified to apply the transforms to a range of CBF derivatives.
+
+    .. workflow::
+        :graph2use: orig
+        :simple_form: yes
+
+        from aslprep.workflows.asl.outputs import init_ds_giftis_wf
+
+        wf = init_ds_giftis_wf(
+            bids_root='bids_root',
+            output_dir='output_dir',
+            surf_std=[],
+            cbf_3d=[],
+            cbf_4d=[],
+            att=[],
+            mem_gb={'resampled': 1},
+            omp_nthreads=1,
+            name='ds_giftis_wf',
+        )
+
+    Parameters
+    ----------
+    bids_root : str
+        The root directory of the BIDS dataset.
+    output_dir : str
+        The directory to write the output derivatives to.
+    surf_std : list
+        The standard surface spaces to resample to.
+    cbf_3d : list[str]
+        The 3D CBF derivatives in native space to resample.
+    cbf_4d : list[str]
+        The 4D CBF derivatives in native space to resample.
+    att : list[str]
+        The ATT derivatives in native space to resample.
+    mem_gb : dict
+        The memory to use for the workflow.
+    omp_nthreads : int
+        The number of OpenMP threads to use for the workflow.
+    name : str
+        The name of the workflow.
+
+    Returns
+    -------
+    workflow : Workflow
+        The workflow object.
+    """
+    from fmriprep.workflows.bold.resampling import init_wb_surf_surf_wf, init_wb_vol_surf_wf
+    from smriprep.workflows.surfaces import init_resample_surfaces_wf
+
+    config.loggers.workflow.debug('Creating ASL surface resampling workflow.')
+
+    workflow = Workflow(name=name)
+    workflow.__postdesc__ = (
+        'Non-gridded (surface) resamplings were performed using the Connectome Workbench.'
+    )
+
+    inputnode_fields = [
+        'source_files',
+        # ASL-resolution, anatomical-space reference image
+        'anat_ref_file',
+        'aslref2anat_xfm',
+        # ASL series in anatomical space
+        'asl_anat',
+        # Pre-computed goodvoxels mask. May be Undefined.
+        'goodvoxels_mask',
+        # Other inputs
+        'white',
+        'pial',
+        'midthickness',
+        'sphere_reg_fsLR',
+    ]
+    inputnode_fields += cbf_3d
+    inputnode_fields += cbf_4d
+    inputnode_fields += att
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=inputnode_fields),
+        name='inputnode',
+    )
+
+    raw_sources = pe.Node(niu.Function(function=_bids_relative), name='raw_sources')
+    raw_sources.inputs.bids_root = bids_root
+    workflow.connect([(inputnode, raw_sources, [('source_files', 'in_files')])])
+
+    wb_vol_surf_wf_dict = {}
+
+    # Project ASL data from anatomical space to fsnative space
+    wb_vol_surf_wf_dict['asl'] = init_wb_vol_surf_wf(
+        omp_nthreads=omp_nthreads,
+        mem_gb=mem_gb['resampled'],
+        dilate=True,
+        name='wb_vol_surf_wf_asl',
+    )
+    workflow.connect([
+        (inputnode, wb_vol_surf_wf_dict['asl'], [
+            ('asl_anat', 'inputnode.bold_file'),
+            ('white', 'inputnode.white'),
+            ('pial', 'inputnode.pial'),
+            ('midthickness', 'inputnode.midthickness'),
+        ]),
+    ])  # fmt:skip
+
+    if config.workflow.project_goodvoxels:
+        workflow.connect([
+            (inputnode, wb_vol_surf_wf_dict['asl'], [('goodvoxels_mask', 'inputnode.volume_roi')]),
+        ])  # fmt:skip
+
+    # Project CBF derivatives from native space to fsnative space
+    for cbf_deriv in cbf_3d + cbf_4d + att:
+        kwargs = {}
+        if cbf_deriv in cbf_4d:
+            kwargs['dimension'] = 3
+
+        warp_cbf_to_anat = pe.Node(
+            ApplyTransforms(
+                interpolation='LanczosWindowedSinc',
+                float=True,
+                input_image_type=3,
+                args='-v',
+                **kwargs,
+            ),
+            name=f'warp_{cbf_deriv}_to_anat',
+            mem_gb=mem_gb['resampled'],
+        )
+        workflow.connect([
+            (inputnode, warp_cbf_to_anat, [
+                (cbf_deriv, 'input_image'),
+                ('anat_ref_file', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
+            ]),
+        ])  # fmt:skip
+
+        wb_vol_surf_wf_dict[cbf_deriv] = init_wb_vol_surf_wf(
+            omp_nthreads=omp_nthreads,
+            mem_gb=mem_gb['resampled'],
+            dilate=True,
+            name=f'wb_vol_surf_wf_{cbf_deriv}',
+        )
+
+        workflow.connect([
+            (inputnode, wb_vol_surf_wf_dict[cbf_deriv],[
+                ('white', 'inputnode.white'),
+                ('pial', 'inputnode.pial'),
+                ('midthickness', 'inputnode.midthickness'),
+            ]),
+            (warp_cbf_to_anat, wb_vol_surf_wf_dict[cbf_deriv], [
+                ('output_image', 'inputnode.bold_file'),
+            ]),
+        ])  # fmt:skip
+
+        if config.workflow.project_goodvoxels:
+            workflow.connect([
+                (inputnode, wb_vol_surf_wf_dict[cbf_deriv], [
+                    ('goodvoxels_mask', 'inputnode.volume_roi'),
+                ]),
+            ])  # fmt:skip
+
+    for ref_ in surf_std:
+        template = ref_.space
+        density = ref_.spec.get('density') or ref_.spec.get('den') or None
+        if density is None:
+            config.loggers.workflow.warning(f'Cannot resample {ref_} without density specified.')
+            continue
+
+        # This only needs to be run once for each template/density combination
+        resample_surfaces_wf = init_resample_surfaces_wf(
+            name=f'resample_surfaces_wf_{template}_{density}',
+            surfaces=['midthickness'],
+            template=template,
+            density=density,
+        )
+        workflow.connect([
+            (inputnode, resample_surfaces_wf, [
+                ('midthickness', 'inputnode.midthickness'),
+                ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
+            ]),
+        ])  # fmt:skip
+
+        for cbf_deriv in ['asl'] + cbf_3d + cbf_4d + att:
+            # This needs to be run separately for each derivative we want to project
+            # (and each template/density combination)
+            wb_surf_surf_wf = init_wb_surf_surf_wf(
+                template=template,
+                density=density,
+                omp_nthreads=omp_nthreads,
+                mem_gb=mem_gb['resampled'],
+                name=f'wb_surf_surf_wf_{cbf_deriv}_{template}_{density}',
+            )
+            workflow.connect([
+                (inputnode, wb_surf_surf_wf, [
+                    ('midthickness', 'inputnode.midthickness'),
+                    ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
+                ]),
+                (wb_vol_surf_wf_dict[cbf_deriv], wb_surf_surf_wf, [
+                    ('outputnode.bold_fsnative', 'inputnode.bold_fsnative'),
+                ]),
+                (resample_surfaces_wf, wb_surf_surf_wf, [
+                    (f'outputnode.midthickness_{template}', 'inputnode.midthickness_resampled'),
+                ]),
+            ])  # fmt:skip
+
+            ds_cbf_surf_wb = pe.MapNode(
+                DerivativesDataSink(
+                    base_directory=output_dir,
+                    hemi=['L', 'R'],
+                    dismiss_entities=('echo',),
+                    space=template,
+                    density=density,
+                    extension='.func.gii',
+                    **BASE_INPUT_FIELDS[cbf_deriv],
+                ),
+                iterfield=('in_file', 'hemi'),
+                name=f'ds_cbf_surf_wb_{cbf_deriv}_{template}_{density}',
+                run_without_submitting=True,
+            )
+            workflow.connect([
+                (inputnode, ds_cbf_surf_wb, [('source_files', 'source_file')]),
+                (raw_sources, ds_cbf_surf_wb, [('out', 'RawSources')]),
+                (wb_surf_surf_wf, ds_cbf_surf_wb, [('outputnode.bold_resampled', 'in_file')]),
+            ])  # fmt:skip
 
     return workflow
 
