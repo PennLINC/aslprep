@@ -1,0 +1,7 @@
+# Test data URLs for the get_data job. The data cache key in
+# continue_config.yml is {{ checksum ".circleci/data_versions.txt" }}, so
+# changing a URL here automatically invalidates the cache. The file is
+# shell-sourced by get_data, so each line must be a `NAME=value` pair with
+# no spaces around the `=`.
+NONQTAB_URL=https://upenn.box.com/shared/static/gmecscsr7acn1g4hawdbbkwut0ia9dud.tar.gz
+QTAB_URL=https://upenn.box.com/shared/static/ap5ftlc3logivmj03fabuahv4etqk7jf.tar.gz

@@ -31,16 +31,6 @@ _machine_defaults: &machine_defaults
   working_directory: /tmp/src/aslprep
   resource_class: large
 
-# Medium-class machine executor — for network- or IO-bound housekeeping
-# jobs that don't need 4 vCPU / 15 GB.
-_machine_medium: &machine_medium
-  environment:
-    TZ: "/usr/share/zoneinfo/America/New_York"
-  machine:
-    image: default
-  working_directory: /tmp/src/aslprep
-  resource_class: medium
-
 # Machine executor with docker_layer_caching — for jobs that run
 # `docker build` and benefit from warm layer caches.
 _machine_with_dlc: &machine_with_dlc
@@ -52,6 +42,18 @@ _machine_with_dlc: &machine_with_dlc
   working_directory: /tmp/src/aslprep
   resource_class: large
 
+# Shared filter block used by every job in the run_tests workflow except
+# build_and_deploy_docker (which is main-and-tags-only). Kept as an alias
+# so each job references it with a single line instead of an eight-line
+# copy, which makes future filter changes a one-touch edit.
+_default_filters: &default_filters
+  branches:
+    ignore:
+      - /docs?\/.*/
+      - /tests?\/.*/
+  tags:
+    only: /.*/
+
 _docker_auth: &docker_auth
   name: Docker authentication
   command: |
@@ -62,13 +64,11 @@ _docker_auth: &docker_auth
 _setup_docker_registry: &setup_docker_registry
   name: Set up local Docker registry
   command: |
-    if [[ -f /tmp/images/registry.tar.gz ]]; then
-      echo "Loading saved registry image"
-      docker load < /tmp/images/registry.tar.gz
-    else
-      echo "Pulling registry image from DockerHub"
-      docker pull registry:2
-    fi
+    # registry:2 is ~25 MB and pulls in a couple of seconds over the
+    # authenticated Docker Hub connection we already have, so there's no
+    # point caching a `docker save` tarball of it — that only makes the
+    # build cache bigger and slower to save/restore.
+    docker pull registry:2
     docker run -d -p 5000:5000 --restart=always --name=registry \
         -v /tmp/docker:/var/lib/registry registry:2
 
@@ -90,7 +90,7 @@ commands:
             - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - restore_cache:
           keys:
-            - data-v1-{{ .Branch }}-{{ .Revision }}
+            - data-v2-{{ checksum ".circleci/data_versions.txt" }}
       - run: *docker_auth
       - run: *setup_docker_registry
       - run: *pull_test_image
@@ -106,7 +106,10 @@ commands:
     steps:
       - run:
           name: Run aslprep (<< parameters.marker >>)
-          no_output_timeout: 5h
+          # Tightened from 5h: the longest test today is well under an hour,
+          # and a silent stall on machine/large at the previous limit would
+          # burn ~60 000 credits before CircleCI killed it.
+          no_output_timeout: 1h
           command: |
             mkdir -p /tmp/out /tmp/work /tmp/coverage
             # Run from the checked-out repo so pytest loads aslprep/tests/conftest.py,
@@ -127,9 +130,23 @@ commands:
               --data_dir=/data --output_dir=/out --working_dir=/work \
               aslprep/tests
       - run:
-          name: Clean up large artifacts
+          name: Prune non-QC artifacts
           when: always
-          command: find /tmp/out/ -name "*.nii.gz" -type f -delete 2>/dev/null || true
+          # HTML reports and everything they embed (figures/ SVG/PNG/GIF,
+          # linked TSVs) must survive — they're how outputs get visually
+          # QC'd. Only strip large binary derivatives that the reports
+          # don't render, plus test/pycache debris.
+          command: |
+            # Drop unused NIfTIs (existing behavior).
+            find /tmp/out/ -name "*.nii.gz" -type f -delete 2>/dev/null || true
+            # Drop other large binaries that aren't referenced from reports.
+            find /tmp/out/ \( \
+              -name "*.h5" -o -name "*.gii" -o -name "*.gii.gz" -o \
+              -name "*.mat" -o -name "*.npz" -o -name "*.mgz" -o -name "*.mif" \
+            \) -type f -delete 2>/dev/null || true
+            # Drop test/debug caches.
+            find /tmp/out/ \( -name ".pytest_cache" -o -name "__pycache__" \) -type d \
+              -exec rm -rf {} + 2>/dev/null || true
       - store_artifacts:
           path: /tmp/out
       - persist_to_workspace:
@@ -319,7 +336,6 @@ jobs:
           command: |
             mkdir -p /tmp/images
             touch /tmp/images/imageprep-success.marker
-            docker save registry:2 -o /tmp/images/registry.tar.gz
       - save_cache:
           key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
           paths:
@@ -327,15 +343,29 @@ jobs:
             - /tmp/images
 
   get_data:
-    <<: *machine_medium
+    # Network- and IO-bound only — no Docker daemon needed, so run on the
+    # docker executor (cimg/base:stable, ~10 credits/min) instead of the
+    # old machine/medium executor (100 credits/min).
+    docker:
+      - image: cimg/base:stable
+    working_directory: /tmp/src/aslprep
     steps:
+      - checkout:
+          path: /tmp/src/aslprep
       - restore_cache:
           keys:
-            - data-v1-{{ .Branch }}-{{ .Revision }}
-            - data-v1--{{ .Revision }}
-            - data-v1-{{ .Branch }}-
-            - data-v1-main-
-            - data-v1-
+            - data-v2-{{ checksum ".circleci/data_versions.txt" }}
+      - run:
+          name: Load data URLs
+          command: |
+            # Export NONQTAB_URL / QTAB_URL for the download steps below so
+            # URLs live in exactly one place (.circleci/data_versions.txt),
+            # which is also what keys the cache.
+            set -a
+            . /tmp/src/aslprep/.circleci/data_versions.txt
+            set +a
+            echo "export NONQTAB_URL=$NONQTAB_URL" >> "$BASH_ENV"
+            echo "export QTAB_URL=$QTAB_URL"       >> "$BASH_ENV"
       - run:
           name: Download nonqtab test data
           command: |
@@ -343,7 +373,7 @@ jobs:
               mkdir -p /tmp/data/nonqtab
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
                 -O /tmp/nonqtab.tar.gz \
-                "https://upenn.box.com/shared/static/gmecscsr7acn1g4hawdbbkwut0ia9dud.tar.gz"
+                "$NONQTAB_URL"
               tar xzf /tmp/nonqtab.tar.gz -C /tmp/data/nonqtab
               rm /tmp/nonqtab.tar.gz
             else
@@ -356,14 +386,14 @@ jobs:
               mkdir -p /tmp/data/qtab
               wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
                 -O /tmp/qtab.tar.gz \
-                "https://upenn.box.com/shared/static/ap5ftlc3logivmj03fabuahv4etqk7jf.tar.gz"
+                "$QTAB_URL"
               tar xzf /tmp/qtab.tar.gz -C /tmp/data/qtab
               rm /tmp/qtab.tar.gz
             else
               echo "qtab data was cached"
             fi
       - save_cache:
-          key: data-v1-{{ .Branch }}-{{ .Revision }}
+          key: data-v2-{{ checksum ".circleci/data_versions.txt" }}
           paths:
             - /tmp/data
 
@@ -451,7 +481,12 @@ jobs:
   # ── Coverage & deployment ────────────────────────────────────────────
 
   merge_coverage:
-    <<: *machine_medium
+    # Runs `pip install coverage && coverage combine && coverage xml` — no
+    # Docker daemon needed. The docker executor (cimg/python, ~10 credits/min)
+    # is ~10x cheaper per minute than the machine executor it used to run on.
+    docker:
+      - image: cimg/python:3.12
+    working_directory: /tmp/src/aslprep
     steps:
       - checkout:
           path: /tmp/src/aslprep
@@ -460,7 +495,6 @@ jobs:
       - run:
           name: Merge coverage files
           command: |
-            pyenv local 3
             pip install coverage
             cd /tmp/src/aslprep
             coverage combine /tmp/coverage/
@@ -565,48 +599,24 @@ workflows:
         - not: << pipeline.parameters.has_any_changes >>
     jobs:
       - image_prep:
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - get_data:
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: pcasl_singlepld_philips
           marker: examples_pcasl_singlepld_philips
           cpus: 4
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: pcasl_singlepld_siemens
           marker: examples_pcasl_singlepld_siemens
           cpus: 4
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: pcasl_singlepld_ge
@@ -615,26 +625,14 @@ workflows:
           cpus: 2
           resource_class: medium
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: pcasl_multipld
           marker: examples_pcasl_multipld
           cpus: 4
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: pasl_multipld
@@ -642,39 +640,21 @@ workflows:
           cpus: 2
           resource_class: medium
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: qtab
           marker: qtab
           cpus: 4
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: test_001
           marker: test_001
           cpus: 4
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: test_002
@@ -682,64 +662,34 @@ workflows:
           cpus: 2
           resource_class: medium
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: test_003_minimal
           marker: test_003_minimal
           cpus: 4
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: test_003_resampling
           marker: test_003_resampling
           cpus: 4
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - integration_test:
           name: test_003_full
           marker: test_003_full
           cpus: 4
           requires: [image_prep, get_data]
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - unit_tests:
           requires:
             - image_prep
             - get_data
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - merge_coverage:
           requires:
@@ -755,13 +705,7 @@ workflows:
             - test_003_resampling
             - test_003_full
             - unit_tests
-          filters:
-            branches:
-              ignore:
-                - /docs?\/.*/
-                - /tests?\/.*/
-            tags:
-              only: /.*/
+          filters: *default_filters
 
       - build_and_deploy_docker:
           requires:
