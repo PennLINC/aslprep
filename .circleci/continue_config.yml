@@ -230,13 +230,20 @@ jobs:
           name: Build Docker image (production)
           no_output_timeout: 60m
           command: |
-            # Build the production image alongside the test image so main pushes
-            # and tag builds can reuse it instead of rebuilding from scratch.
-            # BuildKit shares every layer up to the pixi-env divergence with the
-            # test build above, so this typically adds only the final COPY +
-            # LABEL layers. VERSION is fixed to "0+build" here; tag builds
-            # rebuild in build_and_deploy_docker to bake $CIRCLE_TAG into the
-            # image labels and the boilerplate.bib citation.
+            # Only main branch pushes feed build_and_deploy_docker with a
+            # reusable image: PR runs never invoke that job, and tag builds
+            # rebuild there anyway to bake $CIRCLE_TAG into VERSION and the
+            # boilerplate.bib citation. Skip the production build/verify/push
+            # triplet in every other case so PR CI doesn't pay for it.
+            if [[ "$CIRCLE_BRANCH" != "main" || -n "$CIRCLE_TAG" ]]; then
+              echo "Not a main-branch push; skipping production image build."
+              echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
+              exit 0
+            fi
+            echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+            # BuildKit shares every layer up to the pixi-env divergence with
+            # the test build above, so this typically adds only the final COPY
+            # + LABEL layers. VERSION is fixed to "0+build" here.
             if [[ "$BUILD_TEST_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
               docker build \
                 --target aslprep \
@@ -264,7 +271,12 @@ jobs:
             fi
       - run:
           name: Verify production image
-          command: docker run --rm pennlinc/aslprep:latest --version
+          command: |
+            if [[ "$BUILD_PRODUCTION_IMAGE" != "1" ]]; then
+              echo "Production image not built on this branch; skipping verify."
+              exit 0
+            fi
+            docker run --rm pennlinc/aslprep:latest --version
       - run:
           name: Push base image to Docker Hub (if newly built)
           command: |
@@ -284,10 +296,17 @@ jobs:
           name: Push production image to local registry
           no_output_timeout: 40m
           command: |
+            # Only main-branch pushes feed build_and_deploy_docker with a
+            # reusable image, so skip the push on PR runs and tag builds.
+            # See the "Build Docker image (production)" step above for the
+            # rationale.
+            if [[ "$BUILD_PRODUCTION_IMAGE" != "1" ]]; then
+              echo "Production image not built on this branch; skipping push."
+              exit 0
+            fi
             # Stash the production image in the local registry so
             # build_and_deploy_docker can pull it instead of rebuilding from
-            # scratch on main pushes. Tag builds still rebuild in that job to
-            # bake $CIRCLE_TAG into VERSION and the boilerplate.bib title.
+            # scratch.
             docker tag pennlinc/aslprep:latest localhost:5000/aslprep-production
             docker push localhost:5000/aslprep-production
       - run:
