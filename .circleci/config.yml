@@ -21,7 +21,12 @@ version: 2.1
 setup: true
 
 orbs:
-  path-filtering: circleci/path-filtering@1.1.0
+  # 1.3.0 is the minimum version whose default executor ships Python >= 3.9.
+  # Earlier versions (1.1.0, 1.2.x) hit a "Set parameters" failure because
+  # the orb's bootstrap pipes `https://bootstrap.pypa.io/get-pip.py` into
+  # Python 3.8, which is no longer supported:
+  #   https://support.circleci.com/hc/en-us/articles/36392688494747
+  path-filtering: circleci/path-filtering@1.3.0
 
 workflows:
   setup:
