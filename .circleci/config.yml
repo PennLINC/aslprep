@@ -4,7 +4,31 @@ orbs:
 
 # ── Reusable anchors ──────────────────────────────────────────────────
 
+# Default machine executor — used by jobs that run containers but do NOT
+# execute `docker build`. docker_layer_caching is deliberately off here
+# because it adds a ~200-credit surcharge per job and is only useful for
+# jobs that actually build images.
 _machine_defaults: &machine_defaults
+  environment:
+    TZ: "/usr/share/zoneinfo/America/New_York"
+  machine:
+    image: default
+  working_directory: /tmp/src/aslprep
+  resource_class: large
+
+# Medium-class machine executor — for network- or IO-bound housekeeping
+# jobs that don't need 4 vCPU / 15 GB.
+_machine_medium: &machine_medium
+  environment:
+    TZ: "/usr/share/zoneinfo/America/New_York"
+  machine:
+    image: default
+  working_directory: /tmp/src/aslprep
+  resource_class: medium
+
+# Machine executor with docker_layer_caching — for jobs that run
+# `docker build` and benefit from warm layer caches.
+_machine_with_dlc: &machine_with_dlc
   environment:
     TZ: "/usr/share/zoneinfo/America/New_York"
   machine:
@@ -102,7 +126,7 @@ commands:
 
 jobs:
   image_prep:
-    <<: *machine_defaults
+    <<: *machine_with_dlc
     environment:
       TZ: "/usr/share/zoneinfo/America/New_York"
       DOCKER_BUILDKIT: "1"
@@ -220,7 +244,7 @@ jobs:
             - /tmp/images
 
   get_data:
-    <<: *machine_defaults
+    <<: *machine_medium
     steps:
       - restore_cache:
           keys:
@@ -263,7 +287,6 @@ jobs:
   # ── Integration tests ────────────────────────────────────────────────
 
   integration_test:
-    <<: *machine_defaults
     parameters:
       marker:
         type: string
@@ -273,6 +296,15 @@ jobs:
       skip_marker:
         type: string
         default: ""
+      resource_class:
+        type: string
+        default: large
+    environment:
+      TZ: "/usr/share/zoneinfo/America/New_York"
+    machine:
+      image: default
+    working_directory: /tmp/src/aslprep
+    resource_class: << parameters.resource_class >>
     steps:
       - checkout:
           path: /tmp/src/aslprep
@@ -336,7 +368,7 @@ jobs:
   # ── Coverage & deployment ────────────────────────────────────────────
 
   merge_coverage:
-    <<: *machine_defaults
+    <<: *machine_medium
     steps:
       - checkout:
           path: /tmp/src/aslprep
@@ -359,7 +391,7 @@ jobs:
           file: /tmp/coverage/coverage.xml
 
   build_and_deploy_docker:
-    <<: *machine_defaults
+    <<: *machine_with_dlc
     environment:
       TZ: "/usr/share/zoneinfo/America/New_York"
       DOCKER_BUILDKIT: "1"
@@ -460,6 +492,7 @@ workflows:
           marker: examples_pcasl_singlepld_ge
           skip_marker: examples_pcasl_singlepld
           cpus: 2
+          resource_class: medium
           requires: [image_prep, get_data]
           filters:
             branches:
@@ -486,6 +519,7 @@ workflows:
           name: pasl_multipld
           marker: examples_pasl_multipld
           cpus: 2
+          resource_class: medium
           requires: [image_prep, get_data]
           filters:
             branches:
@@ -525,6 +559,7 @@ workflows:
           name: test_002
           marker: test_002
           cpus: 2
+          resource_class: medium
           requires: [image_prep, get_data]
           filters:
             branches:
