@@ -34,15 +34,19 @@ workflows:
       - path-filtering/filter:
           base-revision: main
           config-path: .circleci/continue_config.yml
+          # NOTE: path-filtering@1.3.0 wraps each pattern with implicit
+          # `^...$` anchors, so every regex must match the *full* file
+          # path, not just a prefix. Prefix-style patterns therefore need
+          # an explicit `.*` suffix; single-file patterns match literally.
           mapping: |
-            .*                 has_any_changes   true
-            ^aslprep/          has_code_changes  true
-            ^scripts/          has_code_changes  true
-            ^docker/           has_code_changes  true
-            ^Dockerfile        has_code_changes  true
-            ^\.dockerignore    has_code_changes  true
-            ^pyproject\.toml   has_code_changes  true
-            ^pixi\.lock        has_code_changes  true
-            ^tox\.ini          has_code_changes  true
-            ^Makefile          has_code_changes  true
-            ^\.circleci/       has_code_changes  true
+            .*                has_any_changes   true
+            aslprep/.*        has_code_changes  true
+            scripts/.*        has_code_changes  true
+            docker/.*         has_code_changes  true
+            Dockerfile.*      has_code_changes  true
+            \.dockerignore    has_code_changes  true
+            pyproject\.toml   has_code_changes  true
+            pixi\.lock        has_code_changes  true
+            tox\.ini          has_code_changes  true
+            Makefile          has_code_changes  true
+            \.circleci/.*     has_code_changes  true
