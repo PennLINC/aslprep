@@ -5,7 +5,7 @@ version: 2.1
 # which files the pushed commit touches; see .circleci/config.yml for the
 # mapping. The `run_tests` workflow is gated on the result so that docs-only
 # pushes (README, *.rst, CITATION.cff, .github/**, etc.) skip the expensive
-# matrix entirely.
+# matrix entirely!
 parameters:
   has_any_changes:
     type: boolean
