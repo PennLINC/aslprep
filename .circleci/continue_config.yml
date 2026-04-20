@@ -227,6 +227,45 @@ jobs:
           name: Verify test image
           command: docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
       - run:
+          name: Build Docker image (production)
+          no_output_timeout: 60m
+          command: |
+            # Build the production image alongside the test image so main pushes
+            # and tag builds can reuse it instead of rebuilding from scratch.
+            # BuildKit shares every layer up to the pixi-env divergence with the
+            # test build above, so this typically adds only the final COPY +
+            # LABEL layers. VERSION is fixed to "0+build" here; tag builds
+            # rebuild in build_and_deploy_docker to bake $CIRCLE_TAG into the
+            # image labels and the boilerplate.bib citation.
+            if [[ "$BUILD_TEST_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
+              docker build \
+                --target aslprep \
+                --rm=false \
+                -t pennlinc/aslprep:latest \
+                --platform linux/amd64 \
+                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                --build-arg VERSION="0+build" .
+            elif docker image inspect pennlinc/aslprep:latest > /dev/null 2>&1; then
+              echo "Reusing existing local production image."
+            elif docker pull localhost:5000/aslprep-production; then
+              docker tag localhost:5000/aslprep-production pennlinc/aslprep:latest
+              echo "Reusing cached production image from local registry."
+            else
+              echo "No reusable production image found; building."
+              docker build \
+                --target aslprep \
+                --rm=false \
+                -t pennlinc/aslprep:latest \
+                --platform linux/amd64 \
+                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                --build-arg VERSION="0+build" .
+            fi
+      - run:
+          name: Verify production image
+          command: docker run --rm pennlinc/aslprep:latest --version
+      - run:
           name: Push base image to Docker Hub (if newly built)
           command: |
             if [[ "$BASE_WAS_BUILT" == "1" ]] && docker image inspect $BASE_IMAGE > /dev/null 2>&1; then
@@ -241,6 +280,16 @@ jobs:
           command: |
             docker tag pennlinc/aslprep:test localhost:5000/aslprep-test
             docker push localhost:5000/aslprep-test
+      - run:
+          name: Push production image to local registry
+          no_output_timeout: 40m
+          command: |
+            # Stash the production image in the local registry so
+            # build_and_deploy_docker can pull it instead of rebuilding from
+            # scratch on main pushes. Tag builds still rebuild in that job to
+            # bake $CIRCLE_TAG into VERSION and the boilerplate.bib title.
+            docker tag pennlinc/aslprep:latest localhost:5000/aslprep-production
+            docker push localhost:5000/aslprep-production
       - run:
           name: Docker registry garbage collection
           command: |
@@ -413,28 +462,58 @@ jobs:
     steps:
       - checkout:
           path: /tmp/src/aslprep
+      - restore_cache:
+          keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
+            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - run: *docker_auth
+      - run: *setup_docker_registry
       - run:
-          name: Build Docker image (production)
+          name: Obtain production image
           no_output_timeout: 3h
           command: |
+            # For tag builds, always rebuild so $CIRCLE_TAG is baked into the
+            # image labels (VERSION build-arg) and the boilerplate.bib title.
+            # For untagged main pushes, pull the image that image_prep just
+            # pushed to the local registry — BuildKit layer caching already
+            # made that build cheap, and pulling is ~free vs. the full rebuild
+            # that used to run here on a machine/large executor.
             if [[ -n "$CIRCLE_TAG" ]]; then
               THISVERSION="$CIRCLE_TAG"
+              sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
+              e=1 && for i in {1..5}; do
+                docker build \
+                  --target aslprep \
+                  --rm=false \
+                  -t pennlinc/aslprep:latest \
+                  --platform linux/amd64 \
+                  --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                  --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                  --build-arg VERSION="$THISVERSION" . \
+                && e=0 && break || sleep 15
+              done && [ "$e" -eq "0" ]
             else
-              THISVERSION="0+build"
+              # Pull the image stashed in the local registry by image_prep.
+              # Fall back to a full rebuild if the cache/registry hand-off
+              # ever fails so deploys don't silently skip.
+              if docker pull localhost:5000/aslprep-production; then
+                docker tag localhost:5000/aslprep-production pennlinc/aslprep:latest
+                echo "Reusing production image built in image_prep."
+              else
+                echo "No production image in local registry; rebuilding."
+                e=1 && for i in {1..5}; do
+                  docker build \
+                    --target aslprep \
+                    --rm=false \
+                    -t pennlinc/aslprep:latest \
+                    --platform linux/amd64 \
+                    --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                    --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                    --build-arg VERSION="0+build" . \
+                  && e=0 && break || sleep 15
+                done && [ "$e" -eq "0" ]
+              fi
             fi
-            sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
-            e=1 && for i in {1..5}; do
-              docker build \
-                --target aslprep \
-                --rm=false \
-                -t pennlinc/aslprep:latest \
-                --platform linux/amd64 \
-                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-                --build-arg VERSION="$THISVERSION" . \
-              && e=0 && break || sleep 15
-            done && [ "$e" -eq "0" ]
       - run:
           name: Verify production image
           command: docker run --rm pennlinc/aslprep:latest --version
