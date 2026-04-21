@@ -332,6 +332,18 @@ jobs:
           paths:
             - /tmp/docker
             - /tmp/images
+      # Save a second, revision-scoped entry so build_and_deploy_docker can
+      # always find the production image from this exact run. The revision-free
+      # key above is saved at most once per unique Dockerfile+pixi.lock pair
+      # (CircleCI skips the write if the key already exists), so a PR run on the
+      # same Docker inputs can "poison" it with a cache that has no production
+      # image. The revision-scoped key is unique per commit and always written,
+      # guaranteeing build_and_deploy_docker restores the current run's output.
+      - save_cache:
+          key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
+          paths:
+            - /tmp/docker
+            - /tmp/images
 
   get_data:
     # Network- and IO-bound only — no Docker daemon needed, so run on the
@@ -508,6 +520,7 @@ jobs:
           path: /tmp/src/aslprep
       - restore_cache:
           keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
             - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - run: *docker_auth
       - run: *setup_docker_registry
