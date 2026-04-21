@@ -68,6 +68,7 @@ def init_dl_prep_wf(name='dl_prep_wf') -> Workflow:
 
 
 def init_synthstrip_wf(do_padding=True, name='synthstrip_wf') -> Workflow:
+    """Create a workflow to run SynthStrip."""
     workflow = Workflow(name=name)
     inputnode = pe.Node(
         niu.IdentityInterface(fields=['padded_image', 'original_image']),
