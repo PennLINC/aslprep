@@ -187,7 +187,7 @@ jobs:
               echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
             fi
       - run:
-          name: Build base image if needed
+          name: Build base Docker image if needed
           no_output_timeout: 60m
           command: |
             if ! docker manifest inspect $BASE_IMAGE > /dev/null 2>&1; then
@@ -202,7 +202,7 @@ jobs:
               echo "BASE_WAS_BUILT=0" >> "$BASH_ENV"
             fi
       - run:
-          name: Build Docker image (test)
+          name: Build test Docker image if needed
           no_output_timeout: 60m
           command: |
             if [[ "$BUILD_TEST_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
@@ -245,7 +245,7 @@ jobs:
           name: Verify test image
           command: docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
       - run:
-          name: Build Docker image (production)
+          name: Build production Docker image
           no_output_timeout: 60m
           command: |
             # Skip on PR branches. Run on both untagged main pushes and tag
