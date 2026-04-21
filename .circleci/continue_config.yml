@@ -86,8 +86,7 @@ commands:
     steps:
       - restore_cache:
           keys:
-            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
-            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - restore_cache:
           keys:
             - data-v2-{{ checksum ".circleci/data_versions.txt" }}
@@ -167,8 +166,7 @@ jobs:
           path: /tmp/src/aslprep
       - restore_cache:
           keys:
-            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
-            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - run: *docker_auth
       - run: *setup_docker_registry
       - run:
@@ -232,6 +230,10 @@ jobs:
       - run:
           name: Guard test image revision
           command: |
+            if [[ "$BUILD_TEST_IMAGE" == "0" ]]; then
+              echo "Test image reused from cache (Docker deps unchanged); skipping revision guard."
+              exit 0
+            fi
             EXPECTED_REF="$(git rev-parse --short HEAD)"
             IMAGE_REF="$(docker image inspect pennlinc/aslprep:test --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
             echo "Expected test image ref: ${EXPECTED_REF}"
@@ -258,34 +260,23 @@ jobs:
               exit 0
             fi
             echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
-            # BuildKit shares every layer up to the pixi-env divergence with
-            # the test build above, so this typically adds only the final COPY
-            # + LABEL layers. VERSION is fixed to "0+build" here.
-            if [[ "$BUILD_TEST_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
-              docker build \
-                --target aslprep \
-                --rm=false \
-                -t pennlinc/aslprep:latest \
-                --platform linux/amd64 \
-                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-                --build-arg VERSION="0+build" .
-            elif docker image inspect pennlinc/aslprep:latest > /dev/null 2>&1; then
-              echo "Reusing existing local production image."
-            elif docker pull localhost:5000/aslprep-production; then
-              docker tag localhost:5000/aslprep-production pennlinc/aslprep:latest
-              echo "Reusing cached production image from local registry."
-            else
-              echo "No reusable production image found; building."
-              docker build \
-                --target aslprep \
-                --rm=false \
-                -t pennlinc/aslprep:latest \
-                --platform linux/amd64 \
-                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-                --build-arg VERSION="0+build" .
-            fi
+            # Always rebuild the production image on main. Unlike the test image,
+            # the production env has aslprep installed non-editably via
+            # `uv pip install`, so Python source changes must be baked in —
+            # there is no volume mount at runtime. When only source changed and
+            # Dockerfile/pixi.lock are unchanged, BuildKit's layer cache (via
+            # DLC) makes this fast: the heavy pixi-install layers are already
+            # warm, and only the COPY + uv-install + final COPY --link steps
+            # re-run. VERSION is fixed to "0+build" here; tag builds bake the
+            # real version in build_and_deploy_docker.
+            docker build \
+              --target aslprep \
+              --rm=false \
+              -t pennlinc/aslprep:latest \
+              --platform linux/amd64 \
+              --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+              --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+              --build-arg VERSION="0+build" .
       - run:
           name: Verify production image
           command: |
@@ -337,7 +328,7 @@ jobs:
             mkdir -p /tmp/images
             touch /tmp/images/imageprep-success.marker
       - save_cache:
-          key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
+          key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
           paths:
             - /tmp/docker
             - /tmp/images
@@ -517,8 +508,7 @@ jobs:
           path: /tmp/src/aslprep
       - restore_cache:
           keys:
-            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
-            - build-v3-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - run: *docker_auth
       - run: *setup_docker_registry
       - run:
