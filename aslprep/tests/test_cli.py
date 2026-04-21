@@ -97,7 +97,6 @@ def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
         f'--bids-filter-file={bids_filter_file}',
         '--output-spaces=asl',
         '--scorescrub',
-        '--basil',
         '--m0_scale=10',
         '--fs-no-resume',
         f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',

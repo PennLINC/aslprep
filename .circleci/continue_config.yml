@@ -1,0 +1,707 @@
+version: 2.1
+
+# This config is the continuation target of .circleci/config.yml (setup workflow).
+# Pipeline parameters below are populated by the path-filtering orb based on
+# which files the pushed commit touches; see .circleci/config.yml for the
+# mapping. The `run_tests` workflow is gated on the result so that docs-only
+# pushes (README, *.rst, CITATION.cff, .github/**, etc.) skip the expensive
+# matrix entirely!
+parameters:
+  has_any_changes:
+    type: boolean
+    default: false
+  has_code_changes:
+    type: boolean
+    default: false
+
+orbs:
+  codecov: codecov/codecov@4.1.0
+
+# ── Reusable anchors ──────────────────────────────────────────────────
+
+# Default machine executor — used by jobs that run containers but do NOT
+# execute `docker build`. docker_layer_caching is deliberately off here
+# because it adds a ~200-credit surcharge per job and is only useful for
+# jobs that actually build images.
+_machine_defaults: &machine_defaults
+  environment:
+    TZ: "/usr/share/zoneinfo/America/New_York"
+  machine:
+    image: default
+  working_directory: /tmp/src/aslprep
+  resource_class: large
+
+# Machine executor with docker_layer_caching — for jobs that run
+# `docker build` and benefit from warm layer caches.
+_machine_with_dlc: &machine_with_dlc
+  environment:
+    TZ: "/usr/share/zoneinfo/America/New_York"
+  machine:
+    image: default
+    docker_layer_caching: true
+  working_directory: /tmp/src/aslprep
+  resource_class: large
+
+# Shared filter block used by every job in the run_tests workflow except
+# build_and_deploy_docker (which is main-and-tags-only). Kept as an alias
+# so each job references it with a single line instead of an eight-line
+# copy, which makes future filter changes a one-touch edit.
+_default_filters: &default_filters
+  branches:
+    ignore:
+      - /docs?\/.*/
+      - /tests?\/.*/
+  tags:
+    only: /.*/
+
+_docker_auth: &docker_auth
+  name: Docker authentication
+  command: |
+    if [[ -n "$DOCKERHUB_TOKEN" ]]; then
+      echo "$DOCKERHUB_TOKEN" | docker login -u $DOCKERHUB_USERNAME --password-stdin
+    fi
+
+_setup_docker_registry: &setup_docker_registry
+  name: Set up local Docker registry
+  command: |
+    # registry:2 is ~25 MB and pulls in a couple of seconds over the
+    # authenticated Docker Hub connection we already have, so there's no
+    # point caching a `docker save` tarball of it — that only makes the
+    # build cache bigger and slower to save/restore.
+    docker pull registry:2
+    docker run -d -p 5000:5000 --restart=always --name=registry \
+        -v /tmp/docker:/var/lib/registry registry:2
+
+_pull_test_image: &pull_test_image
+  name: Pull and tag test image from local registry
+  command: |
+    docker pull localhost:5000/aslprep-test
+    docker tag localhost:5000/aslprep-test pennlinc/aslprep:test
+
+# ── Reusable commands ─────────────────────────────────────────────────
+
+commands:
+  restore_build_and_data:
+    description: Restore Docker image cache and test data cache, then start the registry
+    steps:
+      - restore_cache:
+          keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+      - restore_cache:
+          keys:
+            - data-v2-{{ checksum ".circleci/data_versions.txt" }}
+      - run: *docker_auth
+      - run: *setup_docker_registry
+      - run: *pull_test_image
+
+  run_integration_test:
+    description: Run a pytest-marked integration test inside the test Docker image
+    parameters:
+      marker:
+        type: string
+      cpus:
+        type: integer
+        default: 4
+    steps:
+      - run:
+          name: Run aslprep (<< parameters.marker >>)
+          # Tightened from 5h: the longest test today is well under an hour,
+          # and a silent stall on machine/large at the previous limit would
+          # burn ~60 000 credits before CircleCI killed it.
+          no_output_timeout: 1h
+          command: |
+            mkdir -p /tmp/out /tmp/work /tmp/coverage
+            # Run from the checked-out repo so pytest loads aslprep/tests/conftest.py,
+            # which registers custom CLI options like --data_dir/--output_dir/--working_dir.
+            docker run --rm=false \
+              -e CIRCLE_CPUS=<< parameters.cpus >> \
+              -e COVERAGE_FILE=/coverage/.coverage.<< parameters.marker >> \
+              -v /tmp/src/aslprep:/tmp/src/aslprep:ro \
+              -v /tmp/data:/data:ro \
+              -v /tmp/out:/out \
+              -v /tmp/work:/work \
+              -v /tmp/coverage:/coverage \
+              -w /tmp/src/aslprep \
+              --entrypoint pytest \
+              pennlinc/aslprep:test \
+              -rP -o log_cli=true -m "<< parameters.marker >>" \
+              --cov-append --cov-report term-missing --cov=aslprep \
+              --data_dir=/data --output_dir=/out --working_dir=/work \
+              aslprep/tests
+      - run:
+          name: Prune non-QC artifacts
+          when: always
+          # HTML reports and everything they embed (figures/ SVG/PNG/GIF,
+          # linked TSVs) must survive — they're how outputs get visually
+          # QC'd. Only strip large binary derivatives that the reports
+          # don't render, plus test/pycache debris.
+          command: |
+            # Drop unused NIfTIs (existing behavior).
+            find /tmp/out/ -name "*.nii.gz" -type f -delete 2>/dev/null || true
+            # Drop other large binaries that aren't referenced from reports.
+            find /tmp/out/ \( \
+              -name "*.h5" -o -name "*.gii" -o -name "*.gii.gz" -o \
+              -name "*.mat" -o -name "*.npz" -o -name "*.mgz" -o -name "*.mif" \
+            \) -type f -delete 2>/dev/null || true
+            # Drop test/debug caches.
+            find /tmp/out/ \( -name ".pytest_cache" -o -name "__pycache__" \) -type d \
+              -exec rm -rf {} + 2>/dev/null || true
+      - store_artifacts:
+          path: /tmp/out
+      - persist_to_workspace:
+          root: /tmp/coverage
+          paths:
+            - .coverage.<< parameters.marker >>
+
+# ── Jobs ──────────────────────────────────────────────────────────────
+
+jobs:
+  image_prep:
+    <<: *machine_with_dlc
+    environment:
+      TZ: "/usr/share/zoneinfo/America/New_York"
+      DOCKER_BUILDKIT: "1"
+    steps:
+      - checkout:
+          path: /tmp/src/aslprep
+      - restore_cache:
+          keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+      - run: *docker_auth
+      - run: *setup_docker_registry
+      - run:
+          name: Get base image information
+          command: |
+            export BASE_IMAGE=$( grep "BASE_IMAGE=" Dockerfile | head -1 | cut -d= -f2 )
+            export BASE_IMAGE_NAME=${BASE_IMAGE%:*}
+            export BASE_TAG=${BASE_IMAGE#*:}
+            echo "BASE_IMAGE=$BASE_IMAGE" >> $BASH_ENV
+            echo "BASE_IMAGE_NAME=$BASE_IMAGE_NAME" >> $BASH_ENV
+            echo "BASE_TAG=$BASE_TAG" >> $BASH_ENV
+      - run:
+          name: Determine whether test image build is required
+          command: |
+            if [[ -f /tmp/images/imageprep-success.marker ]]; then
+              echo "BUILD_TEST_IMAGE=0" >> "$BASH_ENV"
+            else
+              echo "No successful cached image prep for current Docker inputs; rebuilding test image."
+              echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
+            fi
+      - run:
+          name: Build base image if needed
+          no_output_timeout: 60m
+          command: |
+            if ! docker manifest inspect $BASE_IMAGE > /dev/null 2>&1; then
+              echo "Base image $BASE_IMAGE not found, building..."
+              docker build -f Dockerfile.base \
+                --platform linux/amd64 \
+                -t $BASE_IMAGE \
+                -t $BASE_IMAGE_NAME:latest .
+              echo "BASE_WAS_BUILT=1" >> "$BASH_ENV"
+            else
+              echo "Base image $BASE_IMAGE already exists."
+              echo "BASE_WAS_BUILT=0" >> "$BASH_ENV"
+            fi
+      - run:
+          name: Build Docker image (test)
+          no_output_timeout: 60m
+          command: |
+            if [[ "$BUILD_TEST_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
+              docker build \
+                --target test \
+                --rm=false \
+                -t pennlinc/aslprep:test \
+                --platform linux/amd64 \
+                --build-arg VCS_REF="$(git rev-parse --short HEAD)" .
+            elif docker image inspect pennlinc/aslprep:test > /dev/null 2>&1; then
+              echo "Reusing existing local test image (no Dockerfile/pixi/base-triggered rebuild required)."
+            elif docker pull localhost:5000/aslprep-test; then
+              docker tag localhost:5000/aslprep-test pennlinc/aslprep:test
+              echo "Reusing cached test image from local registry (no Dockerfile/pixi/base-triggered rebuild required)."
+            else
+              echo "No reusable test image found; rebuilding test image."
+              docker build \
+                --target test \
+                --rm=false \
+                -t pennlinc/aslprep:test \
+                --platform linux/amd64 \
+                --build-arg VCS_REF="$(git rev-parse --short HEAD)" .
+            fi
+      - run:
+          name: Guard test image revision
+          command: |
+            if [[ "$BUILD_TEST_IMAGE" == "0" ]]; then
+              echo "Test image reused from cache (Docker deps unchanged); skipping revision guard."
+              exit 0
+            fi
+            EXPECTED_REF="$(git rev-parse --short HEAD)"
+            IMAGE_REF="$(docker image inspect pennlinc/aslprep:test --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')"
+            echo "Expected test image ref: ${EXPECTED_REF}"
+            echo "Actual test image ref: ${IMAGE_REF:-<missing>}"
+            if [[ -z "$IMAGE_REF" || "$IMAGE_REF" != "$EXPECTED_REF" ]]; then
+              echo "Test image revision does not match checkout. Refusing to run tests with stale image."
+              exit 1
+            fi
+      - run:
+          name: Verify test image
+          command: docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
+      - run:
+          name: Build Docker image (production)
+          no_output_timeout: 60m
+          command: |
+            # Only main branch pushes feed build_and_deploy_docker with a
+            # reusable image: PR runs never invoke that job, and tag builds
+            # rebuild there anyway to bake $CIRCLE_TAG into VERSION and the
+            # boilerplate.bib citation. Skip the production build/verify/push
+            # triplet in every other case so PR CI doesn't pay for it.
+            if [[ "$CIRCLE_BRANCH" != "main" || -n "$CIRCLE_TAG" ]]; then
+              echo "Not a main-branch push; skipping production image build."
+              echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
+              exit 0
+            fi
+            echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
+            # Always rebuild the production image on main. Unlike the test image,
+            # the production env has aslprep installed non-editably via
+            # `uv pip install`, so Python source changes must be baked in —
+            # there is no volume mount at runtime. When only source changed and
+            # Dockerfile/pixi.lock are unchanged, BuildKit's layer cache (via
+            # DLC) makes this fast: the heavy pixi-install layers are already
+            # warm, and only the COPY + uv-install + final COPY --link steps
+            # re-run. VERSION is fixed to "0+build" here; tag builds bake the
+            # real version in build_and_deploy_docker.
+            docker build \
+              --target aslprep \
+              --rm=false \
+              -t pennlinc/aslprep:latest \
+              --platform linux/amd64 \
+              --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+              --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+              --build-arg VERSION="0+build" .
+      - run:
+          name: Verify production image
+          command: |
+            if [[ "$BUILD_PRODUCTION_IMAGE" != "1" ]]; then
+              echo "Production image not built on this branch; skipping verify."
+              exit 0
+            fi
+            docker run --rm pennlinc/aslprep:latest --version
+      - run:
+          name: Push base image to Docker Hub (if newly built)
+          command: |
+            if [[ "$BASE_WAS_BUILT" == "1" ]] && docker image inspect $BASE_IMAGE > /dev/null 2>&1; then
+              if [[ -n "$DOCKERHUB_TOKEN" ]]; then
+                docker push $BASE_IMAGE
+                docker push $BASE_IMAGE_NAME:latest
+              fi
+            fi
+      - run:
+          name: Push test image to local registry
+          no_output_timeout: 40m
+          command: |
+            docker tag pennlinc/aslprep:test localhost:5000/aslprep-test
+            docker push localhost:5000/aslprep-test
+      - run:
+          name: Push production image to local registry
+          no_output_timeout: 40m
+          command: |
+            # Only main-branch pushes feed build_and_deploy_docker with a
+            # reusable image, so skip the push on PR runs and tag builds.
+            # See the "Build Docker image (production)" step above for the
+            # rationale.
+            if [[ "$BUILD_PRODUCTION_IMAGE" != "1" ]]; then
+              echo "Production image not built on this branch; skipping push."
+              exit 0
+            fi
+            # Stash the production image in the local registry so
+            # build_and_deploy_docker can pull it instead of rebuilding from
+            # scratch.
+            docker tag pennlinc/aslprep:latest localhost:5000/aslprep-production
+            docker push localhost:5000/aslprep-production
+      - run:
+          name: Docker registry garbage collection
+          command: |
+            docker exec registry /bin/registry garbage-collect --delete-untagged \
+              /etc/docker/registry/config.yml
+      - run:
+          name: Record successful image prep
+          command: |
+            mkdir -p /tmp/images
+            touch /tmp/images/imageprep-success.marker
+      - save_cache:
+          key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+          paths:
+            - /tmp/docker
+            - /tmp/images
+
+  get_data:
+    # Network- and IO-bound only — no Docker daemon needed, so run on the
+    # docker executor (cimg/base:stable, ~10 credits/min) instead of the
+    # old machine/medium executor (100 credits/min).
+    docker:
+      - image: cimg/base:stable
+    working_directory: /tmp/src/aslprep
+    steps:
+      - checkout:
+          path: /tmp/src/aslprep
+      - restore_cache:
+          keys:
+            - data-v2-{{ checksum ".circleci/data_versions.txt" }}
+      - run:
+          name: Load data URLs
+          command: |
+            # Export NONQTAB_URL / QTAB_URL for the download steps below so
+            # URLs live in exactly one place (.circleci/data_versions.txt),
+            # which is also what keys the cache.
+            set -a
+            . /tmp/src/aslprep/.circleci/data_versions.txt
+            set +a
+            echo "export NONQTAB_URL=$NONQTAB_URL" >> "$BASH_ENV"
+            echo "export QTAB_URL=$QTAB_URL"       >> "$BASH_ENV"
+      - run:
+          name: Download nonqtab test data
+          command: |
+            if [[ ! -d /tmp/data/nonqtab ]]; then
+              mkdir -p /tmp/data/nonqtab
+              wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
+                -O /tmp/nonqtab.tar.gz \
+                "$NONQTAB_URL"
+              tar xzf /tmp/nonqtab.tar.gz -C /tmp/data/nonqtab
+              rm /tmp/nonqtab.tar.gz
+            else
+              echo "nonqtab data was cached"
+            fi
+      - run:
+          name: Download qtab test data
+          command: |
+            if [[ ! -d /tmp/data/qtab ]]; then
+              mkdir -p /tmp/data/qtab
+              wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 -t 0 -q \
+                -O /tmp/qtab.tar.gz \
+                "$QTAB_URL"
+              tar xzf /tmp/qtab.tar.gz -C /tmp/data/qtab
+              rm /tmp/qtab.tar.gz
+            else
+              echo "qtab data was cached"
+            fi
+      - save_cache:
+          key: data-v2-{{ checksum ".circleci/data_versions.txt" }}
+          paths:
+            - /tmp/data
+
+  # ── Integration tests ────────────────────────────────────────────────
+
+  integration_test:
+    parameters:
+      marker:
+        type: string
+      cpus:
+        type: integer
+        default: 4
+      skip_marker:
+        type: string
+        default: ""
+      resource_class:
+        type: string
+        default: large
+    environment:
+      TZ: "/usr/share/zoneinfo/America/New_York"
+    machine:
+      image: default
+    working_directory: /tmp/src/aslprep
+    resource_class: << parameters.resource_class >>
+    steps:
+      - checkout:
+          path: /tmp/src/aslprep
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            SKIP_MARKER="<< parameters.skip_marker >>"
+            if [[ -z "$SKIP_MARKER" ]]; then SKIP_MARKER="<< parameters.marker >>"; fi
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?'"$SKIP_MARKER"'\]' )" != "" ]]; then
+              echo "Skipping << parameters.marker >>"
+              circleci step halt
+            fi
+      - restore_build_and_data
+      - run_integration_test:
+          marker: << parameters.marker >>
+          cpus: << parameters.cpus >>
+
+  # ── Unit tests ───────────────────────────────────────────────────────
+
+  unit_tests:
+    <<: *machine_defaults
+    steps:
+      - checkout:
+          path: /tmp/src/aslprep
+      - run:
+          name: Check whether build should be skipped
+          command: |
+            if [[ "$( git log --format=oneline -n 1 $CIRCLE_SHA1 | grep -i -E '\[skip[ _]?unit_tests\]' )" != "" ]]; then
+              echo "Skipping unit tests"
+              circleci step halt
+            fi
+      - restore_build_and_data
+      - run:
+          name: Run pytest on tests directory
+          no_output_timeout: 1h
+          command: |
+            mkdir -p /tmp/out /tmp/work /tmp/coverage
+            # Run from the checked-out repo so pytest loads aslprep/tests/conftest.py,
+            # which registers custom CLI options like --data_dir/--output_dir/--working_dir.
+            docker run --rm=false \
+              -e CIRCLE_CPUS=2 \
+              -e COVERAGE_FILE=/coverage/.coverage.unit_tests \
+              -v /tmp/src/aslprep:/tmp/src/aslprep:ro \
+              -v /tmp/data:/data:ro \
+              -v /tmp/out:/out \
+              -v /tmp/work:/work \
+              -v /tmp/coverage:/coverage \
+              -w /tmp/src/aslprep \
+              --entrypoint pytest \
+              pennlinc/aslprep:test \
+              --cov-append --cov-report term-missing --cov=aslprep \
+              --data_dir=/data --output_dir=/out --working_dir=/work \
+              aslprep/tests
+      - persist_to_workspace:
+          root: /tmp/coverage
+          paths:
+            - .coverage.unit_tests
+      - store_artifacts:
+          path: /tmp/out
+
+  # ── Coverage & deployment ────────────────────────────────────────────
+
+  merge_coverage:
+    # Runs `pip install coverage && coverage combine && coverage xml` — no
+    # Docker daemon needed. The docker executor (cimg/python, ~10 credits/min)
+    # is ~10x cheaper per minute than the machine executor it used to run on.
+    docker:
+      - image: cimg/python:3.12
+    working_directory: /tmp/src/aslprep
+    steps:
+      - checkout:
+          path: /tmp/src/aslprep
+      - attach_workspace:
+          at: /tmp/coverage
+      - run:
+          name: Merge coverage files
+          command: |
+            pip install coverage
+            cd /tmp/src/aslprep
+            coverage combine /tmp/coverage/
+            coverage xml -o /tmp/coverage/coverage.xml
+      - store_artifacts:
+          path: /tmp/coverage
+      - run:
+          name: Quick fix for GPG error in Codecov
+          command: mkdir -p ~/.gnupg
+      - codecov/upload:
+          file: /tmp/coverage/coverage.xml
+
+  build_and_deploy_docker:
+    <<: *machine_with_dlc
+    environment:
+      TZ: "/usr/share/zoneinfo/America/New_York"
+      DOCKER_BUILDKIT: "1"
+    steps:
+      - checkout:
+          path: /tmp/src/aslprep
+      - restore_cache:
+          keys:
+            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+      - run: *docker_auth
+      - run: *setup_docker_registry
+      - run:
+          name: Obtain production image
+          no_output_timeout: 3h
+          command: |
+            # For tag builds, always rebuild so $CIRCLE_TAG is baked into the
+            # image labels (VERSION build-arg) and the boilerplate.bib title.
+            # For untagged main pushes, pull the image that image_prep just
+            # pushed to the local registry — BuildKit layer caching already
+            # made that build cheap, and pulling is ~free vs. the full rebuild
+            # that used to run here on a machine/large executor.
+            if [[ -n "$CIRCLE_TAG" ]]; then
+              THISVERSION="$CIRCLE_TAG"
+              sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
+              e=1 && for i in {1..5}; do
+                docker build \
+                  --target aslprep \
+                  --rm=false \
+                  -t pennlinc/aslprep:latest \
+                  --platform linux/amd64 \
+                  --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                  --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                  --build-arg VERSION="$THISVERSION" . \
+                && e=0 && break || sleep 15
+              done && [ "$e" -eq "0" ]
+            else
+              # Pull the image stashed in the local registry by image_prep.
+              # Fall back to a full rebuild if the cache/registry hand-off
+              # ever fails so deploys don't silently skip.
+              if docker pull localhost:5000/aslprep-production; then
+                docker tag localhost:5000/aslprep-production pennlinc/aslprep:latest
+                echo "Reusing production image built in image_prep."
+              else
+                echo "No production image in local registry; rebuilding."
+                e=1 && for i in {1..5}; do
+                  docker build \
+                    --target aslprep \
+                    --rm=false \
+                    -t pennlinc/aslprep:latest \
+                    --platform linux/amd64 \
+                    --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                    --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                    --build-arg VERSION="0+build" . \
+                  && e=0 && break || sleep 15
+                done && [ "$e" -eq "0" ]
+              fi
+            fi
+      - run:
+          name: Verify production image
+          command: docker run --rm pennlinc/aslprep:latest --version
+      - run:
+          name: Deploy to Docker Hub
+          no_output_timeout: 40m
+          command: |
+            if [[ -n "$DOCKERHUB_TOKEN" ]]; then
+              docker tag pennlinc/aslprep:latest pennlinc/aslprep:unstable
+              docker push pennlinc/aslprep:unstable
+              if [[ -n "$CIRCLE_TAG" ]]; then
+                docker tag pennlinc/aslprep:latest pennlinc/aslprep:$CIRCLE_TAG
+                docker push pennlinc/aslprep:latest
+                docker push pennlinc/aslprep:$CIRCLE_TAG
+              fi
+            fi
+
+# ── Workflows ─────────────────────────────────────────────────────────
+
+workflows:
+  version: 2
+  run_tests:
+    # Skip the full pipeline when the push only touches docs/config files.
+    # Runs when the diff contains at least one code/build file, and also when
+    # no diff is available (tag builds, initial pushes) so we don't silently
+    # skip release builds.
+    when:
+      or:
+        - << pipeline.parameters.has_code_changes >>
+        - not: << pipeline.parameters.has_any_changes >>
+    jobs:
+      - image_prep:
+          filters: *default_filters
+
+      - get_data:
+          filters: *default_filters
+
+      - integration_test:
+          name: pcasl_singlepld_philips
+          marker: examples_pcasl_singlepld_philips
+          cpus: 4
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: pcasl_singlepld_siemens
+          marker: examples_pcasl_singlepld_siemens
+          cpus: 4
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: pcasl_singlepld_ge
+          marker: examples_pcasl_singlepld_ge
+          skip_marker: examples_pcasl_singlepld
+          cpus: 2
+          resource_class: medium
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: pcasl_multipld
+          marker: examples_pcasl_multipld
+          cpus: 4
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: pasl_multipld
+          marker: examples_pasl_multipld
+          cpus: 2
+          resource_class: medium
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: qtab
+          marker: qtab
+          cpus: 4
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: test_001
+          marker: test_001
+          cpus: 4
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: test_002
+          marker: test_002
+          cpus: 2
+          resource_class: medium
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: test_003_minimal
+          marker: test_003_minimal
+          cpus: 4
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: test_003_resampling
+          marker: test_003_resampling
+          cpus: 4
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - integration_test:
+          name: test_003_full
+          marker: test_003_full
+          cpus: 4
+          requires: [image_prep, get_data]
+          filters: *default_filters
+
+      - unit_tests:
+          requires:
+            - image_prep
+            - get_data
+          filters: *default_filters
+
+      - merge_coverage:
+          requires:
+            - pcasl_singlepld_philips
+            - pcasl_singlepld_siemens
+            - pcasl_singlepld_ge
+            - pcasl_multipld
+            - pasl_multipld
+            - qtab
+            - test_001
+            - test_002
+            - test_003_minimal
+            - test_003_resampling
+            - test_003_full
+            - unit_tests
+          filters: *default_filters
+
+      - build_and_deploy_docker:
+          requires:
+            - image_prep
+          filters:
+            branches:
+              only: main
+            tags:
+              only: /.*/

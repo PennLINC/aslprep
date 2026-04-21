@@ -1,3 +1,22 @@
 .git_archival.txt  export-subst
 # SCM syntax highlighting & preventing 3-way merges
 pixi.lock merge=binary linguist-language=YAML linguist-generated=true
+
+# Default: treat all text files as text, stored LF in the repo,
+# checked out as LF on every OS. Binary files are left alone.
+* text=auto eol=lf
+
+# Hard-force LF for things that break on CRLF (shell scripts, Dockerfiles,
+# YAML/TOML that tooling parses on Linux-only CI).
+*.sh       text eol=lf
+*.bash     text eol=lf
+Dockerfile*    text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.toml     text eol=lf
+*.py       text eol=lf
+
+# Explicit binary — never touch
+*.png      binary
+*.jpg      binary
+*.nii.gz   binary
