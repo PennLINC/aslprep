@@ -42,10 +42,9 @@ _machine_with_dlc: &machine_with_dlc
   working_directory: /tmp/src/aslprep
   resource_class: large
 
-# Shared filter block used by every job in the run_tests workflow except
-# build_and_deploy_docker (which is main-and-tags-only). Kept as an alias
-# so each job references it with a single line instead of an eight-line
-# copy, which makes future filter changes a one-touch edit.
+# Shared filter block used by every job in the run_tests workflow. Kept as
+# an alias so each job references it with a single line instead of an
+# eight-line copy, which makes future filter changes a one-touch edit.
 _default_filters: &default_filters
   branches:
     ignore:
@@ -188,7 +187,7 @@ jobs:
               echo "BUILD_TEST_IMAGE=1" >> "$BASH_ENV"
             fi
       - run:
-          name: Build base image if needed
+          name: Build base Docker image if needed
           no_output_timeout: 60m
           command: |
             if ! docker manifest inspect $BASE_IMAGE > /dev/null 2>&1; then
@@ -203,7 +202,7 @@ jobs:
               echo "BASE_WAS_BUILT=0" >> "$BASH_ENV"
             fi
       - run:
-          name: Build Docker image (test)
+          name: Build test Docker image if needed
           no_output_timeout: 60m
           command: |
             if [[ "$BUILD_TEST_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
@@ -246,37 +245,42 @@ jobs:
           name: Verify test image
           command: docker run --rm --entrypoint pytest pennlinc/aslprep:test --version
       - run:
-          name: Build Docker image (production)
+          name: Build production Docker image
           no_output_timeout: 60m
           command: |
-            # Only main branch pushes feed build_and_deploy_docker with a
-            # reusable image: PR runs never invoke that job, and tag builds
-            # rebuild there anyway to bake $CIRCLE_TAG into VERSION and the
-            # boilerplate.bib citation. Skip the production build/verify/push
-            # triplet in every other case so PR CI doesn't pay for it.
-            if [[ "$CIRCLE_BRANCH" != "main" || -n "$CIRCLE_TAG" ]]; then
-              echo "Not a main-branch push; skipping production image build."
+            # Skip on PR branches. Run on both untagged main pushes and tag
+            # builds so this job handles the full build-and-deploy lifecycle.
+            if [[ "$CIRCLE_BRANCH" != "main" && -z "$CIRCLE_TAG" ]]; then
+              echo "PR branch; skipping production image build."
               echo "BUILD_PRODUCTION_IMAGE=0" >> "$BASH_ENV"
               exit 0
             fi
             echo "BUILD_PRODUCTION_IMAGE=1" >> "$BASH_ENV"
-            # Always rebuild the production image on main. Unlike the test image,
-            # the production env has aslprep installed non-editably via
-            # `uv pip install`, so Python source changes must be baked in —
-            # there is no volume mount at runtime. When only source changed and
-            # Dockerfile/pixi.lock are unchanged, BuildKit's layer cache (via
-            # DLC) makes this fast: the heavy pixi-install layers are already
-            # warm, and only the COPY + uv-install + final COPY --link steps
-            # re-run. VERSION is fixed to "0+build" here; tag builds bake the
-            # real version in build_and_deploy_docker.
-            docker build \
-              --target aslprep \
-              --rm=false \
-              -t pennlinc/aslprep:latest \
-              --platform linux/amd64 \
-              --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-              --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-              --build-arg VERSION="0+build" .
+            # Tag builds bake $CIRCLE_TAG into VERSION and the boilerplate.bib
+            # citation. Untagged main pushes use VERSION="0+build". In both
+            # cases the production env has aslprep installed non-editably, so
+            # Python source changes must be baked in (no volume mount at
+            # runtime). BuildKit's layer cache (DLC) keeps unchanged layers
+            # warm, so a source-only change rebuilds only the COPY + uv-install
+            # + final COPY --link steps.
+            if [[ -n "$CIRCLE_TAG" ]]; then
+              THISVERSION="$CIRCLE_TAG"
+              sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" \
+                aslprep/data/boilerplate.bib
+            else
+              THISVERSION="0+build"
+            fi
+            e=1 && for i in {1..5}; do
+              docker build \
+                --target aslprep \
+                --rm=false \
+                -t pennlinc/aslprep:latest \
+                --platform linux/amd64 \
+                --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
+                --build-arg VERSION="$THISVERSION" . \
+              && e=0 && break || sleep 15
+            done && [ "$e" -eq "0" ]
       - run:
           name: Verify production image
           command: |
@@ -301,22 +305,22 @@ jobs:
             docker tag pennlinc/aslprep:test localhost:5000/aslprep-test
             docker push localhost:5000/aslprep-test
       - run:
-          name: Push production image to local registry
+          name: Push production image to Docker Hub
           no_output_timeout: 40m
           command: |
-            # Only main-branch pushes feed build_and_deploy_docker with a
-            # reusable image, so skip the push on PR runs and tag builds.
-            # See the "Build Docker image (production)" step above for the
-            # rationale.
             if [[ "$BUILD_PRODUCTION_IMAGE" != "1" ]]; then
-              echo "Production image not built on this branch; skipping push."
+              echo "PR branch; skipping production image push."
               exit 0
             fi
-            # Stash the production image in the local registry so
-            # build_and_deploy_docker can pull it instead of rebuilding from
-            # scratch.
-            docker tag pennlinc/aslprep:latest localhost:5000/aslprep-production
-            docker push localhost:5000/aslprep-production
+            if [[ -n "$DOCKERHUB_TOKEN" ]]; then
+              docker tag pennlinc/aslprep:latest pennlinc/aslprep:unstable
+              docker push pennlinc/aslprep:unstable
+              if [[ -n "$CIRCLE_TAG" ]]; then
+                docker tag pennlinc/aslprep:latest pennlinc/aslprep:$CIRCLE_TAG
+                docker push pennlinc/aslprep:latest
+                docker push pennlinc/aslprep:$CIRCLE_TAG
+              fi
+            fi
       - run:
           name: Docker registry garbage collection
           command: |
@@ -329,18 +333,6 @@ jobs:
             touch /tmp/images/imageprep-success.marker
       - save_cache:
           key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
-          paths:
-            - /tmp/docker
-            - /tmp/images
-      # Save a second, revision-scoped entry so build_and_deploy_docker can
-      # always find the production image from this exact run. The revision-free
-      # key above is saved at most once per unique Dockerfile+pixi.lock pair
-      # (CircleCI skips the write if the key already exists), so a PR run on the
-      # same Docker inputs can "poison" it with a cache that has no production
-      # image. The revision-scoped key is unique per commit and always written,
-      # guaranteeing build_and_deploy_docker restores the current run's output.
-      - save_cache:
-          key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
           paths:
             - /tmp/docker
             - /tmp/images
@@ -510,83 +502,6 @@ jobs:
       - codecov/upload:
           file: /tmp/coverage/coverage.xml
 
-  build_and_deploy_docker:
-    <<: *machine_with_dlc
-    environment:
-      TZ: "/usr/share/zoneinfo/America/New_York"
-      DOCKER_BUILDKIT: "1"
-    steps:
-      - checkout:
-          path: /tmp/src/aslprep
-      - restore_cache:
-          keys:
-            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}-{{ .Revision }}
-            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
-      - run: *docker_auth
-      - run: *setup_docker_registry
-      - run:
-          name: Obtain production image
-          no_output_timeout: 3h
-          command: |
-            # For tag builds, always rebuild so $CIRCLE_TAG is baked into the
-            # image labels (VERSION build-arg) and the boilerplate.bib title.
-            # For untagged main pushes, pull the image that image_prep just
-            # pushed to the local registry — BuildKit layer caching already
-            # made that build cheap, and pulling is ~free vs. the full rebuild
-            # that used to run here on a machine/large executor.
-            if [[ -n "$CIRCLE_TAG" ]]; then
-              THISVERSION="$CIRCLE_TAG"
-              sed -i "s/title = {aslprep}/title = {aslprep ${THISVERSION}}/" aslprep/data/boilerplate.bib
-              e=1 && for i in {1..5}; do
-                docker build \
-                  --target aslprep \
-                  --rm=false \
-                  -t pennlinc/aslprep:latest \
-                  --platform linux/amd64 \
-                  --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                  --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-                  --build-arg VERSION="$THISVERSION" . \
-                && e=0 && break || sleep 15
-              done && [ "$e" -eq "0" ]
-            else
-              # Pull the image stashed in the local registry by image_prep.
-              # Fall back to a full rebuild if the cache/registry hand-off
-              # ever fails so deploys don't silently skip.
-              if docker pull localhost:5000/aslprep-production; then
-                docker tag localhost:5000/aslprep-production pennlinc/aslprep:latest
-                echo "Reusing production image built in image_prep."
-              else
-                echo "No production image in local registry; rebuilding."
-                e=1 && for i in {1..5}; do
-                  docker build \
-                    --target aslprep \
-                    --rm=false \
-                    -t pennlinc/aslprep:latest \
-                    --platform linux/amd64 \
-                    --build-arg BUILD_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-                    --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-                    --build-arg VERSION="0+build" . \
-                  && e=0 && break || sleep 15
-                done && [ "$e" -eq "0" ]
-              fi
-            fi
-      - run:
-          name: Verify production image
-          command: docker run --rm pennlinc/aslprep:latest --version
-      - run:
-          name: Deploy to Docker Hub
-          no_output_timeout: 40m
-          command: |
-            if [[ -n "$DOCKERHUB_TOKEN" ]]; then
-              docker tag pennlinc/aslprep:latest pennlinc/aslprep:unstable
-              docker push pennlinc/aslprep:unstable
-              if [[ -n "$CIRCLE_TAG" ]]; then
-                docker tag pennlinc/aslprep:latest pennlinc/aslprep:$CIRCLE_TAG
-                docker push pennlinc/aslprep:latest
-                docker push pennlinc/aslprep:$CIRCLE_TAG
-              fi
-            fi
-
 # ── Workflows ─────────────────────────────────────────────────────────
 
 workflows:
@@ -709,12 +624,3 @@ workflows:
             - test_003_full
             - unit_tests
           filters: *default_filters
-
-      - build_and_deploy_docker:
-          requires:
-            - image_prep
-          filters:
-            branches:
-              only: main
-            tags:
-              only: /.*/
