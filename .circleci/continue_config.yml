@@ -46,10 +46,6 @@ _machine_with_dlc: &machine_with_dlc
 # an alias so each job references it with a single line instead of an
 # eight-line copy, which makes future filter changes a one-touch edit.
 _default_filters: &default_filters
-  branches:
-    ignore:
-      - /docs?\/.*/
-      - /tests?\/.*/
   tags:
     only: /.*/
 
