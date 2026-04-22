@@ -119,6 +119,7 @@ commands:
               -w /tmp/src/aslprep \
               --entrypoint pytest \
               pennlinc/aslprep:test \
+              --strict-markers --strict-config \
               -rP -o log_cli=true -m "<< parameters.marker >>" \
               --cov-append --cov-report term-missing --cov=aslprep \
               --data_dir=/data --output_dir=/out --working_dir=/work \
@@ -459,6 +460,7 @@ jobs:
               -w /tmp/src/aslprep \
               --entrypoint pytest \
               pennlinc/aslprep:test \
+              --strict-markers --strict-config \
               --cov-append --cov-report term-missing --cov=aslprep \
               --data_dir=/data --output_dir=/out --working_dir=/work \
               aslprep/tests
