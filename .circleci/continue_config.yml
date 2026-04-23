@@ -496,7 +496,10 @@ jobs:
           path: /tmp/coverage
       - run:
           name: Quick fix for GPG error in Codecov
-          command: mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          command: |
+            mkdir -p /tmp/gnupg
+            chmod 700 /tmp/gnupg
+            echo 'export GNUPGHOME=/tmp/gnupg' >> "$BASH_ENV"
       - codecov/upload:
           file: /tmp/coverage/coverage.xml
 
