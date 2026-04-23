@@ -496,7 +496,7 @@ jobs:
           path: /tmp/coverage
       - run:
           name: Quick fix for GPG error in Codecov
-          command: mkdir -p ~/.gnupg
+          command: mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
       - codecov/upload:
           file: /tmp/coverage/coverage.xml
 
