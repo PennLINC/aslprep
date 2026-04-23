@@ -42,12 +42,20 @@ _machine_with_dlc: &machine_with_dlc
   working_directory: /tmp/src/aslprep
   resource_class: large
 
-# Shared filter block used by every job in the run_tests workflow. Kept as
-# an alias so each job references it with a single line instead of an
-# eight-line copy, which makes future filter changes a one-touch edit.
+# Shared filter block for run_tests workflow jobs — branch pushes only.
+# Tags are handled by the separate `deploy` workflow so the full integration
+# matrix is not re-run on every release (tests have already passed on the
+# main commit the tag points to).
 _default_filters: &default_filters
   tags:
+    ignore: /.*/
+
+# Filter for the deploy workflow — tag pushes only, no branches.
+_tag_filters: &tag_filters
+  tags:
     only: /.*/
+  branches:
+    ignore: /.*/
 
 _docker_auth: &docker_auth
   name: Docker authentication
@@ -507,15 +515,12 @@ jobs:
 
 workflows:
   version: 2
+
+  # Full test matrix — runs on branch pushes that touch code/build files.
+  # Docs-only pushes are skipped via the path-filtering gate in config.yml.
+  # Tag builds go through the `deploy` workflow below instead.
   run_tests:
-    # Skip the full pipeline when the push only touches docs/config files.
-    # Runs when the diff contains at least one code/build file, and also when
-    # no diff is available (tag builds, initial pushes) so we don't silently
-    # skip release builds.
-    when:
-      or:
-        - << pipeline.parameters.has_code_changes >>
-        - not: << pipeline.parameters.has_any_changes >>
+    when: << pipeline.parameters.has_code_changes >>
     jobs:
       - image_prep:
           filters: *default_filters
@@ -587,3 +592,11 @@ workflows:
             - test_003_full
             - unit_tests
           filters: *default_filters
+
+  # Build and publish the production Docker image on tag pushes.
+  # Skips the integration matrix — the commit this tag points to has already
+  # passed CI on the main branch.
+  deploy:
+    jobs:
+      - image_prep:
+          filters: *tag_filters
