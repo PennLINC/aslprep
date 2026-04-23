@@ -42,16 +42,20 @@ _machine_with_dlc: &machine_with_dlc
   working_directory: /tmp/src/aslprep
   resource_class: large
 
-# Shared filter block used by every job in the run_tests workflow. Kept as
-# an alias so each job references it with a single line instead of an
-# eight-line copy, which makes future filter changes a one-touch edit.
+# Shared filter block for run_tests workflow jobs — branch pushes only.
+# Tags are handled by the separate `deploy` workflow so the full integration
+# matrix is not re-run on every release (tests have already passed on the
+# main commit the tag points to).
 _default_filters: &default_filters
-  branches:
-    ignore:
-      - /docs?\/.*/
-      - /tests?\/.*/
+  tags:
+    ignore: /.*/
+
+# Filter for the deploy workflow — tag pushes only, no branches.
+_tag_filters: &tag_filters
   tags:
     only: /.*/
+  branches:
+    ignore: /.*/
 
 _docker_auth: &docker_auth
   name: Docker authentication
@@ -123,6 +127,7 @@ commands:
               -w /tmp/src/aslprep \
               --entrypoint pytest \
               pennlinc/aslprep:test \
+              --strict-markers --strict-config \
               -rP -o log_cli=true -m "<< parameters.marker >>" \
               --cov-append --cov-report term-missing --cov=aslprep \
               --data_dir=/data --output_dir=/out --working_dir=/work \
@@ -463,6 +468,7 @@ jobs:
               -w /tmp/src/aslprep \
               --entrypoint pytest \
               pennlinc/aslprep:test \
+              --strict-markers --strict-config \
               --cov-append --cov-report term-missing --cov=aslprep \
               --data_dir=/data --output_dir=/out --working_dir=/work \
               aslprep/tests
@@ -498,7 +504,10 @@ jobs:
           path: /tmp/coverage
       - run:
           name: Quick fix for GPG error in Codecov
-          command: mkdir -p ~/.gnupg
+          command: |
+            mkdir -p /tmp/gnupg
+            chmod 700 /tmp/gnupg
+            echo 'export GNUPGHOME=/tmp/gnupg' >> "$BASH_ENV"
       - codecov/upload:
           file: /tmp/coverage/coverage.xml
 
@@ -506,15 +515,12 @@ jobs:
 
 workflows:
   version: 2
+
+  # Full test matrix — runs on branch pushes that touch code/build files.
+  # Docs-only pushes are skipped via the path-filtering gate in config.yml.
+  # Tag builds go through the `deploy` workflow below instead.
   run_tests:
-    # Skip the full pipeline when the push only touches docs/config files.
-    # Runs when the diff contains at least one code/build file, and also when
-    # no diff is available (tag builds, initial pushes) so we don't silently
-    # skip release builds.
-    when:
-      or:
-        - << pipeline.parameters.has_code_changes >>
-        - not: << pipeline.parameters.has_any_changes >>
+    when: << pipeline.parameters.has_code_changes >>
     jobs:
       - image_prep:
           filters: *default_filters
@@ -522,84 +528,46 @@ workflows:
       - get_data:
           filters: *default_filters
 
+      # Standard integration tests: resource_class large, cpus 4, default
+      # skip_marker. Adding a new test is a one-line addition to the list.
       - integration_test:
-          name: pcasl_singlepld_philips
-          marker: examples_pcasl_singlepld_philips
-          cpus: 4
+          name: << matrix.marker >>
+          matrix:
+            parameters:
+              marker:
+                - examples_pcasl_singlepld_philips
+                - examples_pcasl_singlepld_siemens
+                - examples_pcasl_multipld
+                - qtab
+                - test_001
+                - test_003_minimal
+                - test_003_resampling
+                - test_003_full
           requires: [image_prep, get_data]
           filters: *default_filters
 
+      # Medium integration tests: resource_class medium, cpus 2.
       - integration_test:
-          name: pcasl_singlepld_siemens
-          marker: examples_pcasl_singlepld_siemens
-          cpus: 4
+          name: << matrix.marker >>
+          matrix:
+            parameters:
+              marker:
+                - examples_pasl_multipld
+                - test_002
+              cpus: [2]
+              resource_class: [medium]
           requires: [image_prep, get_data]
           filters: *default_filters
 
+      # pcasl_singlepld_ge shares a skip marker with the Philips/Siemens
+      # single-PLD tests ([skip examples_pcasl_singlepld] halts all three),
+      # so it cannot be folded into the medium matrix above.
       - integration_test:
-          name: pcasl_singlepld_ge
+          name: examples_pcasl_singlepld_ge
           marker: examples_pcasl_singlepld_ge
           skip_marker: examples_pcasl_singlepld
           cpus: 2
           resource_class: medium
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: pcasl_multipld
-          marker: examples_pcasl_multipld
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: pasl_multipld
-          marker: examples_pasl_multipld
-          cpus: 2
-          resource_class: medium
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: qtab
-          marker: qtab
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_001
-          marker: test_001
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_002
-          marker: test_002
-          cpus: 2
-          resource_class: medium
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_003_minimal
-          marker: test_003_minimal
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_003_resampling
-          marker: test_003_resampling
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_003_full
-          marker: test_003_full
-          cpus: 4
           requires: [image_prep, get_data]
           filters: *default_filters
 
@@ -611,11 +579,11 @@ workflows:
 
       - merge_coverage:
           requires:
-            - pcasl_singlepld_philips
-            - pcasl_singlepld_siemens
-            - pcasl_singlepld_ge
-            - pcasl_multipld
-            - pasl_multipld
+            - examples_pcasl_singlepld_philips
+            - examples_pcasl_singlepld_siemens
+            - examples_pcasl_singlepld_ge
+            - examples_pcasl_multipld
+            - examples_pasl_multipld
             - qtab
             - test_001
             - test_002
@@ -624,3 +592,11 @@ workflows:
             - test_003_full
             - unit_tests
           filters: *default_filters
+
+  # Build and publish the production Docker image on tag pushes.
+  # Skips the integration matrix — the commit this tag points to has already
+  # passed CI on the main branch.
+  deploy:
+    jobs:
+      - image_prep:
+          filters: *tag_filters
