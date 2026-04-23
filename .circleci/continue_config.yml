@@ -520,84 +520,46 @@ workflows:
       - get_data:
           filters: *default_filters
 
+      # Standard integration tests: resource_class large, cpus 4, default
+      # skip_marker. Adding a new test is a one-line addition to the list.
       - integration_test:
-          name: pcasl_singlepld_philips
-          marker: examples_pcasl_singlepld_philips
-          cpus: 4
+          name: << matrix.marker >>
+          matrix:
+            parameters:
+              marker:
+                - examples_pcasl_singlepld_philips
+                - examples_pcasl_singlepld_siemens
+                - examples_pcasl_multipld
+                - qtab
+                - test_001
+                - test_003_minimal
+                - test_003_resampling
+                - test_003_full
           requires: [image_prep, get_data]
           filters: *default_filters
 
+      # Medium integration tests: resource_class medium, cpus 2.
       - integration_test:
-          name: pcasl_singlepld_siemens
-          marker: examples_pcasl_singlepld_siemens
-          cpus: 4
+          name: << matrix.marker >>
+          matrix:
+            parameters:
+              marker:
+                - examples_pasl_multipld
+                - test_002
+              cpus: [2]
+              resource_class: [medium]
           requires: [image_prep, get_data]
           filters: *default_filters
 
+      # pcasl_singlepld_ge shares a skip marker with the Philips/Siemens
+      # single-PLD tests ([skip examples_pcasl_singlepld] halts all three),
+      # so it cannot be folded into the medium matrix above.
       - integration_test:
-          name: pcasl_singlepld_ge
+          name: examples_pcasl_singlepld_ge
           marker: examples_pcasl_singlepld_ge
           skip_marker: examples_pcasl_singlepld
           cpus: 2
           resource_class: medium
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: pcasl_multipld
-          marker: examples_pcasl_multipld
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: pasl_multipld
-          marker: examples_pasl_multipld
-          cpus: 2
-          resource_class: medium
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: qtab
-          marker: qtab
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_001
-          marker: test_001
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_002
-          marker: test_002
-          cpus: 2
-          resource_class: medium
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_003_minimal
-          marker: test_003_minimal
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_003_resampling
-          marker: test_003_resampling
-          cpus: 4
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      - integration_test:
-          name: test_003_full
-          marker: test_003_full
-          cpus: 4
           requires: [image_prep, get_data]
           filters: *default_filters
 
@@ -609,11 +571,11 @@ workflows:
 
       - merge_coverage:
           requires:
-            - pcasl_singlepld_philips
-            - pcasl_singlepld_siemens
-            - pcasl_singlepld_ge
-            - pcasl_multipld
-            - pasl_multipld
+            - examples_pcasl_singlepld_philips
+            - examples_pcasl_singlepld_siemens
+            - examples_pcasl_singlepld_ge
+            - examples_pcasl_multipld
+            - examples_pasl_multipld
             - qtab
             - test_001
             - test_002
