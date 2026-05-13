@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import nipype.interfaces.utility as niu
 import nipype.pipeline.engine as pe
+from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
 
 
 def init_asl_cifti_resample_wf(
     *,
-    asl_file: str,
     metadata: dict,
     mem_gb: dict,
     fieldmap_id: str | None = None,
@@ -94,12 +94,9 @@ def init_asl_cifti_resample_wf(
     from fmriprep.workflows.bold.resampling import (
         init_bold_fsLR_resampling_wf,
         init_bold_grayords_wf,
-        init_goodvoxels_bold_mask_wf,
     )
 
-    from aslprep.interfaces.bids import DerivativesDataSink
-
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -125,6 +122,7 @@ def init_asl_cifti_resample_wf(
                 'sphere_reg_fsLR',
                 'cortex_mask',
                 'anat_ribbon',
+                'goodvoxels_mask',
             ],
         ),
         name='inputnode',
@@ -150,39 +148,12 @@ def init_asl_cifti_resample_wf(
         mem_gb=mem_gb['resampled'],
         name='asl_fsLR_resampling_wf',
     )
-
     if config.workflow.project_goodvoxels:
-        goodvoxels_bold_mask_wf = init_goodvoxels_bold_mask_wf(mem_gb['resampled'])
-
         workflow.connect([
-            (inputnode, goodvoxels_bold_mask_wf, [
-                ('asl_anat', 'inputnode.bold_file'),
-                ('anat_ribbon', 'inputnode.anat_ribbon'),
-            ]),
-            (goodvoxels_bold_mask_wf, asl_fsLR_resampling_wf, [
-                ('outputnode.goodvoxels_mask', 'inputnode.volume_roi'),
+            (inputnode, asl_fsLR_resampling_wf, [
+                ('goodvoxels_mask', 'inputnode.volume_roi'),
             ]),
         ])  # fmt:skip
-
-        ds_goodvoxels_mask = pe.Node(
-            DerivativesDataSink(
-                base_directory=config.execution.aslprep_dir,
-                compress=True,
-                space='T1w',
-                desc='goodvoxels',
-                suffix='mask',
-            ),
-            name='ds_goodvoxels_mask',
-            run_without_submitting=True,
-        )
-        ds_goodvoxels_mask.inputs.source_file = asl_file
-        workflow.connect([
-            (goodvoxels_bold_mask_wf, ds_goodvoxels_mask, [
-                ('outputnode.goodvoxels_mask', 'in_file'),
-            ]),
-            (ds_goodvoxels_mask, outputnode, [('out_file', 'goodvoxels_mask')]),
-        ])  # fmt:skip
-
         asl_fsLR_resampling_wf.__desc__ += """\
 A "goodvoxels" mask was applied during volume-to-surface sampling in fsLR space,
 excluding voxels whose time-series have a locally high coefficient of variation.
