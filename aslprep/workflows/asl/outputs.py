@@ -112,6 +112,15 @@ BASE_INPUT_FIELDS = {
             'The time taken for the labeled blood water to reach the voxel.'
         ),
     },
+    'abv_basil': {
+        'desc': 'basil',
+        'suffix': 'abv',
+        'Units': 'fraction',
+        'Description': (
+            'Arterial (cerebral) blood volume, estimated by BASIL. '
+            'The fraction of the voxel occupied by the arterial vessel.'
+        ),
+    },
 }
 
 

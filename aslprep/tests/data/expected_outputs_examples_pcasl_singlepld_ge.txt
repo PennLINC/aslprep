@@ -52,6 +52,8 @@ sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-01_desc-basilGM_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-01_desc-basilGM_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-01_desc-basilWM_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-01_desc-basilWM_cbf.nii.gz
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-01_desc-basil_abv.json
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-01_desc-basil_abv.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-01_desc-basil_att.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-01_desc-basil_att.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-01_desc-basil_cbf.json

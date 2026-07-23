@@ -247,6 +247,7 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
                 'mean_cbf_gm_basil',
                 'mean_cbf_wm_basil',
                 'att_basil',
+                'abv_basil',
             ]
         ),
         name='outputnode',
@@ -487,7 +488,9 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
                 ('mean_cbf_basil', 'mean_cbf_basil'),
                 ('mean_cbf_gm_basil', 'mean_cbf_gm_basil'),
                 ('mean_cbf_wm_basil', 'mean_cbf_wm_basil'),
+                # TODO: Make these two conditional on having multi-PLD data
                 ('att_basil', 'att_basil'),
+                ('abv_basil', 'abv_basil'),
             ]),
         ])  # fmt:skip
 

@@ -914,6 +914,7 @@ class _BASILCBFOutputSpec(TraitedSpec):
         desc='cbf with spatial partial volume white matter correction',
     )
     att_basil = File(exists=True, desc='arterial transit time')
+    abv_basil = File(exists=True, desc='arterial blood volume')
 
 
 class BASILCBF(FSLCommand):
@@ -945,12 +946,15 @@ class BASILCBF(FSLCommand):
         outputs = self.output_spec().get()
 
         outputs['mean_cbf_basil'] = os.path.abspath('native_space/perfusion_calib.nii.gz')
-        outputs['att_basil'] = os.path.abspath('native_space/arrival.nii.gz')
         outputs['mean_cbf_gm_basil'] = os.path.abspath(
             'native_space/pvcorr/perfusion_calib.nii.gz',
         )
         outputs['mean_cbf_wm_basil'] = os.path.abspath(
             'native_space/pvcorr/perfusion_wm_calib.nii.gz',
         )
+
+        # TODO: Make these two conditional on having multi-PLD data
+        outputs['att_basil'] = os.path.abspath('native_space/arrival.nii.gz')
+        outputs['abv_basil'] = os.path.abspath('native_space/aCBV_calib.nii.gz')
 
         return outputs
