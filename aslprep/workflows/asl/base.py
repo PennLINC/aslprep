@@ -258,7 +258,9 @@ def init_asl_wf(
             'mean_cbf_gm_basil',
             'mean_cbf_wm_basil',
         ]
-        att_derivs += ['att_basil', 'abv_basil']
+        if is_multi_pld:
+            # BASIL's ATT and aBV estimates are only meaningful for multi-PLD data.
+            att_derivs += ['att_basil', 'abv_basil']
 
     cbf_derivs = att_derivs + cbf_3d_derivs + cbf_4d_derivs
 
