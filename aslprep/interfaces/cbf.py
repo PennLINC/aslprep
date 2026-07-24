@@ -953,10 +953,18 @@ class BASILCBF(FSLCommand):
             'native_space/pvcorr/perfusion_wm_calib.nii.gz',
         )
 
-        # oxford_asl produces these regardless of the number of PLDs, but they are only
-        # meaningful for multi-PLD data. Whether they are surfaced as derivatives is gated
-        # on multi-PLD status in the CBF workflow (see init_cbf_wf).
-        outputs['att_basil'] = os.path.abspath('native_space/arrival.nii.gz')
-        outputs['abv_basil'] = os.path.abspath('native_space/aCBV_calib.nii.gz')
+        # These are only meaningful for multi-PLD data, and oxford_asl only writes them when
+        # it infers arterial transit time / the macrovascular (arterial) component. For
+        # single-PLD data these files are not produced, so only report them when they exist
+        # to avoid failing the mandatory existence check during output aggregation. Whether
+        # they are surfaced as derivatives is gated on multi-PLD status in the CBF workflow
+        # (see init_cbf_wf).
+        att_basil = os.path.abspath('native_space/arrival.nii.gz')
+        if os.path.isfile(att_basil):
+            outputs['att_basil'] = att_basil
+
+        abv_basil = os.path.abspath('native_space/aCBV_calib.nii.gz')
+        if os.path.isfile(abv_basil):
+            outputs['abv_basil'] = abv_basil
 
         return outputs
