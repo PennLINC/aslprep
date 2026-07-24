@@ -914,6 +914,7 @@ class _BASILCBFOutputSpec(TraitedSpec):
         desc='cbf with spatial partial volume white matter correction',
     )
     att_basil = File(exists=True, desc='arterial transit time')
+    abv_basil = File(exists=True, desc='arterial blood volume')
 
 
 class BASILCBF(FSLCommand):
@@ -945,12 +946,25 @@ class BASILCBF(FSLCommand):
         outputs = self.output_spec().get()
 
         outputs['mean_cbf_basil'] = os.path.abspath('native_space/perfusion_calib.nii.gz')
-        outputs['att_basil'] = os.path.abspath('native_space/arrival.nii.gz')
         outputs['mean_cbf_gm_basil'] = os.path.abspath(
             'native_space/pvcorr/perfusion_calib.nii.gz',
         )
         outputs['mean_cbf_wm_basil'] = os.path.abspath(
             'native_space/pvcorr/perfusion_wm_calib.nii.gz',
         )
+
+        # These are only meaningful for multi-PLD data, and oxford_asl only writes them when
+        # it infers arterial transit time / the macrovascular (arterial) component. For
+        # single-PLD data these files are not produced, so only report them when they exist
+        # to avoid failing the mandatory existence check during output aggregation. Whether
+        # they are surfaced as derivatives is gated on multi-PLD status in the CBF workflow
+        # (see init_cbf_wf).
+        att_basil = os.path.abspath('native_space/arrival.nii.gz')
+        if os.path.isfile(att_basil):
+            outputs['att_basil'] = att_basil
+
+        abv_basil = os.path.abspath('native_space/aCBV_calib.nii.gz')
+        if os.path.isfile(abv_basil):
+            outputs['abv_basil'] = abv_basil
 
         return outputs

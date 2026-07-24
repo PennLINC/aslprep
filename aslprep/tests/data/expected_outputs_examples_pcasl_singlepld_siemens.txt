@@ -74,8 +74,6 @@ sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_desc-basilGM_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_desc-basilWM_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_desc-basilWM_cbf.nii.gz
-sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_desc-basil_att.json
-sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_desc-basil_att.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_desc-basil_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_desc-basil_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz
