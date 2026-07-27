@@ -714,6 +714,9 @@ def estimate_cbf_pcasl_multipld(
     n_unique_plds = unique_pld_idx.size
 
     # tau should be a 1D array, with one volume per unique PLD
+    if isinstance(tau, float):
+        tau = np.full(n_plds, tau)
+
     if tau.size > 1:
         if tau.size != n_plds:
             raise ValueError(
@@ -997,6 +1000,7 @@ def fit_deltam_multipld(
     is_casl,
     tau=None,
     ti1=None,
+    known_params: dict | None = None,
 ):
     """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
 
@@ -1027,6 +1031,11 @@ def fit_deltam_multipld(
         Only defined for (P)CASL data.
     ti1 : :obj:`float` or None, optional
         TI1. Only defined for PASL data.
+    known_params : :obj:`dict`, optional
+        A dictionary where keys are parameter names ('cbf', 'att', 'abat', 'abv')
+        and values are their known fixed values. If provided, these parameters
+        will not be fitted. Defaults to None, meaning all parameters are fitted.
+        XXX: Add ability to provide fixed values instead of priors.
 
     Returns
     -------
@@ -1046,6 +1055,7 @@ def fit_deltam_multipld(
     -----
     This model does not include a separate term for T1,tissue, but we could expand it to do so
     in the future.
+    The code also equates m0_a and m0_b, which is not correct, but should be fine.
 
     References
     ----------
@@ -1098,6 +1108,16 @@ def fit_deltam_multipld(
     abv = np.zeros(n_voxels)
     failures = np.zeros(n_voxels, dtype=bool)
     fail_count = 0
+
+    _MODEL_PARAMS = ['cbf', 'att', 'abat', 'abv']
+    _P0_DEFAULTS = {'cbf': 60, 'att': 1.2, 'abat': 1, 'abv': 0.02}
+    _BOUNDS_DEFAULTS = {
+        'cbf': (0, 300),
+        'att': (0, 5),
+        'abat': (0, 5),
+        'abv': (0, 0.1),
+    }
+
     for i_voxel in range(n_voxels):
         deltam_voxel = deltam_arr[i_voxel, :]
         plds_voxel = plds[i_voxel, :]
@@ -1113,30 +1133,42 @@ def fit_deltam_multipld(
         xdata[0, 3] = m0_a_voxel
         xdata[:, 4] = plds_voxel
 
+        original_model_func = calculate_deltam_pcasl if is_casl else calculate_deltam_pasl
         if is_casl:
             xdata[:, 5] = tau
-            func = calculate_deltam_pcasl
         else:
             xdata[0, 5] = ti1
-            func = calculate_deltam_pasl
+
+        p0_fit = []
+        bounds_fit_lower = []
+        bounds_fit_upper = []
+
+        for name in _MODEL_PARAMS:
+            if known_params and name in known_params:
+                param_arr = known_params[name]
+                if isinstance(param_arr, float):
+                    param_value = param_arr
+                else:
+                    param_value = param_arr[i_voxel]
+
+                # Set the initial value for the parameter using the known value.
+                p0_fit.append(param_value)
+
+            else:
+                p0_fit.append(_P0_DEFAULTS[name])
+
+            bounds_fit_lower.append(_BOUNDS_DEFAULTS[name][0])
+            bounds_fit_upper.append(_BOUNDS_DEFAULTS[name][1])
 
         try:
             popt = scipy.optimize.curve_fit(
-                func,
+                original_model_func,
                 xdata=xdata,
                 ydata=deltam_voxel,
-                # Initial estimates for DVs (CBF, ATT, aBAT, aBV)
-                # Values provided by Manuel Taso
-                p0=(60, 1.2, 1, 0.02),
-                # Lower and upper bounds for DVs
-                # Upper bounds provided by Manuel Taso
-                bounds=(
-                    (0, 0, 0, 0),
-                    # Manuel Taso recommended 5, 5, 0.2 for ATT, aBAT, and aBV,
-                    # but our test data maxed out around 12 when left unbounded.
-                    (300, 5, 5, 0.1),
-                ),
+                p0=p0_fit,
+                bounds=(bounds_fit_lower, bounds_fit_upper),
             )[0]
+
             cbf[i_voxel] = popt[0]
             att[i_voxel] = popt[1]
             abat[i_voxel] = popt[2]
