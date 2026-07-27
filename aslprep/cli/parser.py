@@ -524,7 +524,8 @@ any spatial references.""",
             'Exclude voxels whose timeseries have locally high coefficient of variation '
             'from surface resampling. '
             'Only performed for GIFTI files mapped to a freesurfer subject '
-            '(fsaverage or fsnative).'
+            '(fsaverage or fsnative). '
+            'This method has not been validated for ASL data.'
         ),
     )
     g_outputs.add_argument(
