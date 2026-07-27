@@ -23,7 +23,7 @@ jobs:
   style:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # Keep this pin in sync with the ruff rev in .pre-commit-config.yaml.
       # Unpinned, CI silently follows new ruff releases and goes red without a code change.
       - run: pipx run --spec ruff==0.14.11 ruff check .
@@ -35,6 +35,6 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Codespell
         uses: codespell-project/actions-codespell@v2
