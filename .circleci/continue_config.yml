@@ -87,9 +87,15 @@ commands:
   restore_build_and_data:
     description: Restore Docker image cache and test data cache, then start the registry
     steps:
+      # Restore the workflow-scoped key, not the shared deps key. CircleCI
+      # caches are immutable: if image_prep rebuilt the test image but the
+      # deps key already existed, its save_cache would be a no-op and this
+      # job would pull a stale image from an earlier run's registry. The
+      # workflow-scoped key is unique per run, so it always reflects the
+      # image image_prep actually produced.
       - restore_cache:
           keys:
-            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+            - build-v5-workflow-{{ .Environment.CIRCLE_WORKFLOW_ID }}-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - restore_cache:
           keys:
             - data-v2-{{ checksum ".circleci/data_versions.txt" }}
@@ -170,7 +176,7 @@ jobs:
           path: /tmp/src/aslprep
       - restore_cache:
           keys:
-            - build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+            - build-v5-deps-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
       - run: *docker_auth
       - run: *setup_docker_registry
       - run:
@@ -198,6 +204,7 @@ jobs:
             if ! docker manifest inspect $BASE_IMAGE > /dev/null 2>&1; then
               echo "Base image $BASE_IMAGE not found, building..."
               docker build -f Dockerfile.base \
+                --pull \
                 --platform linux/amd64 \
                 -t $BASE_IMAGE \
                 -t $BASE_IMAGE_NAME:latest .
@@ -355,8 +362,19 @@ jobs:
           command: |
             mkdir -p /tmp/images
             touch /tmp/images/imageprep-success.marker
+      # Two keys on purpose. The workflow-scoped key is unique per run so it
+      # is always written, guaranteeing downstream jobs restore the image
+      # this run actually produced. The deps key is shared across runs with
+      # identical Docker inputs and is what lets a later run skip the build
+      # entirely; it is a no-op once it exists, which is why it cannot be
+      # the key downstream jobs read from.
       - save_cache:
-          key: build-v4-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+          key: build-v5-workflow-{{ .Environment.CIRCLE_WORKFLOW_ID }}-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
+          paths:
+            - /tmp/docker
+            - /tmp/images
+      - save_cache:
+          key: build-v5-deps-{{ checksum "Dockerfile" }}-{{ checksum "pixi.lock" }}
           paths:
             - /tmp/docker
             - /tmp/images
