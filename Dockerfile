@@ -38,7 +38,7 @@ ARG BASE_IMAGE=pennlinc/aslprep-base:20260416
 #   - TensorFlow, PyTorch (via conda-forge)
 #   - ...
 #
-FROM ghcr.io/prefix-dev/pixi:0.53.0 AS build
+FROM ghcr.io/prefix-dev/pixi:0.58.0 AS build
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
                     ca-certificates \
@@ -119,6 +119,8 @@ ENV PATH="/app/.pixi/envs/aslprep/bin:$PATH"
 ENV FSLDIR="/app/.pixi/envs/aslprep"
 
 ENV IS_DOCKER_8395080871=1
+# Verify the runtime image can import aslprep without source tree mounts.
+RUN /app/.pixi/envs/aslprep/bin/python -c "import aslprep"
 
 ENTRYPOINT ["/app/.pixi/envs/aslprep/bin/aslprep"]
 
