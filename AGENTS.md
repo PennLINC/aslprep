@@ -149,7 +149,7 @@ ASLPrep is a BIDS App for preprocessing Arterial Spin Labeling (ASL) perfusion M
 | Package name | `aslprep` |
 | Default branch | `main` |
 | Entry point | `aslprep.cli.run:main` |
-| Python requirement | `>=3.10` |
+| Python requirement | `>=3.12` |
 | Build backend | hatchling + hatch-vcs + nipreps-versions |
 | Linter | ruff ~= 0.15.0 |
 | Pre-commit | Yes (ruff v0.15.0) |
