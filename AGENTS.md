@@ -149,7 +149,7 @@ ASLPrep is a BIDS App for preprocessing Arterial Spin Labeling (ASL) perfusion M
 | Package name | `aslprep` |
 | Default branch | `main` |
 | Entry point | `aslprep.cli.run:main` |
-| Python requirement | `>=3.10` |
+| Python requirement | `>=3.12` |
 | Build backend | hatchling + hatch-vcs + nipreps-versions |
 | Linter | ruff ~= 0.15.0 |
 | Pre-commit | Yes (ruff v0.15.0) |
@@ -180,10 +180,10 @@ ASLPrep is a BIDS App for preprocessing Arterial Spin Labeling (ASL) perfusion M
 ### Heavy Dependency on fMRIPrep/NiPreps Stack
 
 ASLPrep has the deepest dependency chain of the four repos:
-- `fmriprep ~= 25.2.2`: Reuses fMRIPrep's anatomical and fieldmap workflows
-- `sdcflows >= 2.15.0`: Susceptibility distortion correction
+- `fmriprep ~= 25.2.6`: Reuses fMRIPrep's anatomical and fieldmap workflows
+- `sdcflows >= 2.15.2`: Susceptibility distortion correction
 - `smriprep >= 0.19.2`: Structural MRI preprocessing
-- `niworkflows >= 1.14.4`: Shared workflow components
+- `niworkflows >= 1.15.3`: Shared workflow components
 - `nitransforms >= 25.0.1`: Spatial transforms
 
 When updating these dependencies, check for breaking API changes across the stack.
