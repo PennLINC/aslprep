@@ -206,6 +206,11 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
     # Create the crown mask
     dilated_mask = pe.Node(BinaryDilation(), name='dilated_mask')
     subtract_mask = pe.Node(BinarySubtraction(), name='subtract_mask')
+    crown_clip = pe.Node(
+        niu.Function(function=_clip_mask_to_coverage),
+        name='crown_clip',
+        mem_gb=mem_gb,
+    )
 
     workflow.connect([
         # Brain mask
@@ -219,7 +224,9 @@ in-scanner motion as the mean framewise displacement and relative root-mean squa
         (union_mask, dilated_mask, [('out', 'in_mask')]),
         (union_mask, subtract_mask, [('out', 'in_subtract')]),
         (dilated_mask, subtract_mask, [('out_mask', 'in_base')]),
-        (subtract_mask, outputnode, [('out_mask', 'crown_mask')]),
+        (subtract_mask, crown_clip, [('out_mask', 'mask')]),
+        (inputnode, crown_clip, [('asl', 'asl')]),
+        (crown_clip, outputnode, [('out', 'crown_mask')]),
     ])  # fmt:skip
 
     # Generate aCompCor probseg maps
@@ -762,6 +769,32 @@ def _binary_union(mask1, mask2):
     out = img.__class__(mskarr1 | mskarr2, img.affine, img.header)
     out.set_data_dtype('uint8')
     out_name = Path('mask_union.nii.gz').absolute()
+    out.to_filename(out_name)
+    return str(out_name)
+
+
+def _clip_mask_to_coverage(mask, asl):
+    """Restrict mask to voxels covered by the ASL acquisition.
+
+    Coverage is defined as nonzero variance over time.
+    For single-volume ASL data, where variance is undefined, nonzero signal is used instead.
+    """
+    from pathlib import Path
+
+    import nibabel as nb
+    import numpy as np
+
+    img = nb.load(mask)
+    mskarr = np.asanyarray(img.dataobj, dtype=int) > 0
+    asl_data = nb.load(asl).get_fdata()
+    if asl_data.ndim == 4 and asl_data.shape[-1] > 1:
+        has_signal = asl_data.var(axis=-1) > 0
+    else:
+        has_signal = np.reshape(asl_data, mskarr.shape) != 0
+
+    out = img.__class__(mskarr & has_signal, img.affine, img.header)
+    out.set_data_dtype('uint8')
+    out_name = Path('crown_mask_clipped.nii.gz').absolute()
     out.to_filename(out_name)
     return str(out_name)
 

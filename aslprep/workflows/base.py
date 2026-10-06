@@ -831,13 +831,15 @@ tasks and sessions), the following preprocessing was performed.
 """
 
     # Before initializing ASL workflow, select/verify anatomical target for coregistration
-    if config.workflow.asl2anat_init in ('auto', 't2w'):
+    # Use a local variable so the global config is not overwritten for subsequent subjects
+    asl2anat_init = config.workflow.asl2anat_init
+    if asl2anat_init in ('auto', 't2w'):
         has_t2w = subject_data['t2w'] or 't2w_preproc' in anatomical_cache
-        if config.workflow.asl2anat_init == 't2w' and not has_t2w:
+        if asl2anat_init == 't2w' and not has_t2w:
             raise OSError(
                 'A T2w image is expected for ASL-to-anatomical coregistration and was not found'
             )
-        config.workflow.asl2anat_init = 't2w' if has_t2w else 't1w'
+        asl2anat_init = 't2w' if has_t2w else 't1w'
 
     for asl_file in subject_data['asl']:
         fieldmap_id = estimator_map.get(asl_file)
@@ -858,6 +860,8 @@ tasks and sessions), the following preprocessing was performed.
             from aslprep.utils.bids import collect_derivatives
 
             entities = extract_entities(asl_file)
+            # Echo and part entities should not constrain the derivatives query
+            entities = {k: v for k, v in entities.items() if k not in ('echo', 'part')}
 
             for deriv_dir in config.execution.derivatives.values():
                 functional_cache.update(
@@ -873,6 +877,7 @@ tasks and sessions), the following preprocessing was performed.
             precomputed=functional_cache,
             fieldmap_id=fieldmap_id,
             jacobian=jacobian,
+            asl2anat_init=asl2anat_init,
         )
 
         if asl_wf is None:

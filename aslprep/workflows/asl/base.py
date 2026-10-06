@@ -38,6 +38,7 @@ def init_asl_wf(
     precomputed: dict | None = None,
     fieldmap_id: str | None = None,
     jacobian: bool = False,
+    asl2anat_init: str | None = None,
 ):
     """Perform the functional preprocessing stages of ASLPrep.
 
@@ -66,6 +67,12 @@ def init_asl_wf(
     fieldmap_id
         ID of the fieldmap to use to correct this ASL series. If :obj:`None`,
         no correction will be applied.
+    jacobian
+        Whether to apply the Jacobian determinant of the fieldmap during resampling.
+    asl2anat_init
+        Anatomical image to use as the initial target for ASL-to-anatomical
+        coregistration (``'t1w'`` or ``'t2w'``).
+        If :obj:`None`, ``config.workflow.asl2anat_init`` is used.
 
     Inputs
     ------
@@ -337,6 +344,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         precomputed=precomputed,
         fieldmap_id=fieldmap_id,
         jacobian=jacobian,
+        asl2anat_init=asl2anat_init,
         omp_nthreads=omp_nthreads,
     )
 
