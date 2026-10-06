@@ -16,16 +16,14 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Image Recognition",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
 license = {file = "LICENSE.md"}
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "acres >= 0.2.0",
-    "fmriprep ~= 25.2.2",
+    "fmriprep ~= 25.2.6",
     "indexed_gzip",
     "looseversion >= 1.3",
     "networkx ~= 3.3",
@@ -34,14 +32,14 @@ dependencies = [
     "nipype >= 1.9.0",
     "nireports >= 25.1.0",
     "nitransforms >= 25.0.1",
-    "niworkflows >= 1.14.4",
+    "niworkflows >= 1.15.3",
     "numpy ~= 2.2",
     "packaging >= 24",
     "pandas >= 2.2",
     "psutil >= 5.4",
     "pybids >= 0.16",
     "requests >= 2.27",
-    "sdcflows >= 2.15.0",
+    "sdcflows >= 2.15.2",
     "sentry-sdk",
     "smriprep >= 0.19.2",
     "tedana ~= 25.1.1a1",  # to satisfy fmriprep dependencies
