@@ -139,6 +139,9 @@ def test_reuse_config(tmp_path):
         'participant',
         '--skip-bids-validation',
         '--skip-parcellation',
+        # The default work directory is relative to the (possibly read-only) cwd
+        '--work-dir',
+        str(tmp_path / 'work'),
     ]
 
     parse_args(cli_args)
