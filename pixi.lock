@@ -1687,8 +1687,8 @@ packages:
   timestamp: 1760831179410
 - pypi: ./
   name: aslprep
-  version: 26.1.0.dev13+gb16c4a6e7.d20261006
-  sha256: fb8e20d776988c727fe1744153086105fff3df70aaeef4f895a0cf685e0e6682
+  version: 26.1.0.dev16+g7aa57ce06
+  sha256: 497955e59d81fa616844671d83d527fa97698d90c5aa7c820da60ebcc127621d
   requires_dist:
   - acres>=0.2.0
   - fmriprep~=25.2.6
@@ -1756,11 +1756,12 @@ packages:
   - coverage ; extra == 'tests'
   - pytest ; extra == 'tests'
   - pytest-cov ; extra == 'tests'
-  requires_python: '>=3.10'
+  requires_python: '>=3.12'
+  editable: true
 - pypi: ./
   name: aslprep
-  version: 26.1.0.dev14+g5fe42f742
-  sha256: fb8e20d776988c727fe1744153086105fff3df70aaeef4f895a0cf685e0e6682
+  version: 26.1.0.dev16+g7aa57ce06
+  sha256: 497955e59d81fa616844671d83d527fa97698d90c5aa7c820da60ebcc127621d
   requires_dist:
   - acres>=0.2.0
   - fmriprep~=25.2.6
@@ -1828,8 +1829,7 @@ packages:
   - coverage ; extra == 'tests'
   - pytest ; extra == 'tests'
   - pytest-cov ; extra == 'tests'
-  requires_python: '>=3.10'
-  editable: true
+  requires_python: '>=3.12'
 - conda: https://conda.anaconda.org/conda-forge/noarch/asttokens-3.0.1-pyhd8ed1ab_0.conda
   sha256: ee4da0f3fe9d59439798ee399ef3e482791e48784873d546e706d0935f9ff010
   md5: 9673a61a297b00016442e022d689faa6
