@@ -2,7 +2,6 @@
 
 import os
 import tarfile
-from contextlib import contextmanager
 from glob import glob
 from gzip import GzipFile
 from io import BytesIO
@@ -164,20 +163,6 @@ def check_affines(data_dir, out_dir, input_type):
         raise AssertionError(f'Affines do not match:\n\t{bold_file}\n\t{denoised_file}')
 
     print('No affines changed.')
-
-
-@contextmanager
-def chdir(path):
-    """Temporarily change directories.
-
-    Taken from https://stackoverflow.com/a/37996581/2589328.
-    """
-    oldpwd = os.getcwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(oldpwd)
 
 
 def reorder_expected_outputs():
