@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections import defaultdict
 from functools import cache
 from pathlib import Path
@@ -140,7 +141,7 @@ def collect_derivatives(
         query = {**entities, **q}
         if xfm == 'aslref2fmap' and fieldmap_id:
             # fieldmaps have ids like auto_00000
-            query['to'] = fieldmap_id.replace('_', '')
+            query['to'] = re.sub(r'[^a-zA-Z0-9]', '', fieldmap_id)
         item = layout.get(return_type='filename', **query)
         if not item:
             continue

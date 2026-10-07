@@ -800,8 +800,12 @@ Setting up fieldmap "{estimator.bids_id}" ({estimator.method}) with \
                 )
                 syn_preprocessing_wf.inputs.inputnode.in_epis = sources
                 syn_preprocessing_wf.inputs.inputnode.in_meta = source_meta
-                # Use all volumes of each run.
-                run_lengths = [nb.load(f).shape[3] for f in subject_data['asl']]
+                # Use all volumes of each of this estimator's sources (one mask per in_epis file).
+                # Sources may include 3D M0 scans, which have a single volume.
+                run_lengths = []
+                for source in sources:
+                    shape = nb.load(source).shape
+                    run_lengths.append(shape[3] if len(shape) > 3 else 1)
                 syn_preprocessing_wf.inputs.inputnode.t_masks = [[True] * rl for rl in run_lengths]
 
                 workflow.connect([

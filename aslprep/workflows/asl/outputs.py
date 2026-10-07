@@ -596,7 +596,6 @@ def init_ds_asl_native_wf(
     bids_root: str,
     output_dir: str,
     asl_output: bool,
-    metadata: list[dict],
     cbf_3d: list[str],
     cbf_4d: list[str],
     att: list[str],
@@ -608,6 +607,8 @@ def init_ds_asl_native_wf(
     inputnode_fields = [
         'source_files',
         'asl',
+        # Metadata for the preprocessed ASL series
+        'asl_metadata',
     ]
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
@@ -678,12 +679,16 @@ def init_ds_asl_native_wf(
                 compress=True,
                 SkullStripped=False,
                 dismiss_entities=('echo',),
-                **metadata,
             ),
             name='ds_asl',
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
-        workflow.connect([(inputnode, ds_asl, [('asl', 'in_file')])])
+        workflow.connect([
+            (inputnode, ds_asl, [
+                ('asl', 'in_file'),
+                ('asl_metadata', 'meta_dict'),
+            ]),
+        ])  # fmt:skip
         datasinks.append(ds_asl)
 
     workflow.connect(
@@ -698,7 +703,6 @@ def init_ds_volumes_wf(
     source_file: str,
     bids_root: str,
     output_dir: str,
-    metadata: list[dict],
     cbf_3d: list[str],
     cbf_4d: list[str],
     att: list[str],
@@ -710,6 +714,7 @@ def init_ds_volumes_wf(
         'source_files',
         'ref_file',
         'asl',  # Resampled into target space
+        'asl_metadata',  # Metadata for the preprocessed ASL series
         'asl_mask',  # aslref space
         'aslref',  # aslref space
         # Anatomical
@@ -748,7 +753,6 @@ def init_ds_volumes_wf(
             compress=True,
             SkullStripped=True,
             dismiss_entities=('echo',),
-            **metadata,
         ),
         name='ds_asl',
         run_without_submitting=True,
@@ -765,6 +769,7 @@ def init_ds_volumes_wf(
         (sources, ds_asl, [('out', 'Sources')]),
         (inputnode, ds_asl, [
             ('asl', 'in_file'),
+            ('asl_metadata', 'meta_dict'),
             ('space', 'space'),
             ('cohort', 'cohort'),
             ('resolution', 'resolution'),
@@ -934,8 +939,9 @@ def init_ds_ciftis_wf(
         init_bold_fsLR_resampling_wf,
         init_bold_grayords_wf,
     )
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
     inputnode_fields = [
         'asl_cifti',
         'source_files',
@@ -1120,3 +1126,8 @@ def _read_json(in_file):
         raise ValueError(f'_read_json: input is not str ({in_file})')
 
     return loads(Path(in_file).read_text())
+
+
+def _remove_keys(metadata, keys):
+    """Return a copy of a metadata dictionary without the given keys."""
+    return {k: v for k, v in metadata.items() if k not in keys}
