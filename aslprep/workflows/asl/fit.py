@@ -66,7 +66,7 @@ def get_sbrefs(
     Parameters
     ----------
     asl_file
-        List of absolute paths to ASL files
+        Absolute path to the ASL file
     entity_overrides
         Query parameters to override defaults
     layout
@@ -75,8 +75,7 @@ def get_sbrefs(
     Returns
     -------
     sbref_files
-        List of absolute paths to sbref files associated with input ASL files,
-        sorted by EchoTime
+        List of absolute paths to sbref files associated with the input ASL file
     """
     entities = extract_entities(asl_file)
     entities.update(suffix='sbref', extension=['.nii', '.nii.gz'])

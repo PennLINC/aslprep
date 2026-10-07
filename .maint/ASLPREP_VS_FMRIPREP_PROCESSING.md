@@ -124,22 +124,22 @@ So the main **conceptual** differences are: no STC, no multi-echo, and the addit
 
 When fMRIPrep changes, these are the main places to check in ASLPrep:
 
-1. **Anatomical / smriprep**  
+1. **Anatomical / smriprep**
    Both use smriprep; keep smriprep (and niworkflows) version compatible and watch for API changes in `init_anat_fit_wf`, template iterator, and surface/CIFTI outputs.
 
-2. **SDCflows / fieldmaps**  
+2. **SDCflows / fieldmaps**
    Same library; if fMRIPrep changes estimator logic or `init_fmap_preproc_wf` usage, mirror any relevant changes in ASLPrep’s `workflows/base.py` (and any ASL-specific syn/PEPOLAR handling).
 
-3. **Volumetric resampling**  
+3. **Volumetric resampling**
    ASLPrep calls `init_bold_volumetric_resample_wf` from fMRIPrep. If that workflow’s inputs/outputs or name change, update `aslprep/workflows/asl/base.py` (and any DataSinks that consume its outputs).
 
-4. **BOLD fit vs ASL fit**  
+4. **BOLD fit vs ASL fit**
    fMRIPrep’s `init_bold_fit_wf` / `init_bold_native_wf` are the BOLD analogues of ASLPrep’s `init_asl_fit_wf` / `init_asl_native_wf`. If fMRIPrep adds new steps (e.g. another correction) or reorders them, consider whether the same step or order makes sense for ASL and update the ASL fit/native workflows accordingly.
 
-5. **Config and execution**  
+5. **Config and execution**
    If fMRIPrep adds new workflow or execution options, consider adding equivalent options in ASLPrep (e.g. `asl2anat_init` already mirrors `bold2anat_init`).
 
-6. **Reports and boilerplate**  
+6. **Reports and boilerplate**
    ASLPrep replaces “BOLD” with “ASL” in boilerplate and uses its own report spec; keep report structure and required inputs aligned so report generation keeps working after fMRIPrep/smriprep changes.
 
 This file should be updated when either codebase gains or changes major processing steps so that alignment and divergence remain documented.
