@@ -379,6 +379,7 @@ def init_asl_fit_wf(
     )
 
     asl_fit_reports_wf = init_asl_fit_reports_wf(
+        source_file=asl_file,
         # TODO: Enable sdc report even if we find coregref
         sdc_correction=fieldmap_id is not None,
         separate_m0scan=m0scan is not None,
@@ -395,7 +396,6 @@ def init_asl_fit_wf(
         (hmc_buffer, outputnode, [('hmc_xforms', 'motion_xfm')]),
         (m0scanreg_buffer, outputnode, [('m0scan2aslref_xfm', 'm0scan2aslref_xfm')]),
         (inputnode, asl_fit_reports_wf, [
-            ('asl_file', 'inputnode.source_file'),
             ('t1w_preproc', 'inputnode.t1w_preproc'),
             # May not need all of these
             ('t1w_mask', 'inputnode.t1w_mask'),
@@ -430,6 +430,7 @@ def init_asl_fit_wf(
         workflow.connect([(inputnode, hmc_aslref_wf, [('aslcontext', 'inputnode.aslcontext')])])
 
         ds_hmc_aslref_wf = init_ds_aslref_wf(
+            source_file=asl_file,
             bids_root=layout.root,
             output_dir=config.execution.aslprep_dir,
             desc='hmc',
@@ -438,11 +439,9 @@ def init_asl_fit_wf(
         ds_hmc_aslref_wf.inputs.inputnode.source_files = [asl_file]
 
         workflow.connect([
-            (hmc_aslref_wf, hmcref_buffer, [
-                ('outputnode.asl_file', 'asl_file'),
-                ('outputnode.aslref', 'aslref'),
-            ]),
-            (hmcref_buffer, ds_hmc_aslref_wf, [('aslref', 'inputnode.aslref')]),
+            (hmc_aslref_wf, ds_hmc_aslref_wf, [('outputnode.aslref', 'inputnode.aslref')]),
+            (ds_hmc_aslref_wf, hmcref_buffer, [('outputnode.aslref', 'aslref')]),
+            (hmc_aslref_wf, hmcref_buffer, [('outputnode.asl_file', 'asl_file')]),
             (hmc_aslref_wf, asl_fit_reports_wf, [
                 ('outputnode.validation_report', 'inputnode.validation_report'),
             ]),
@@ -589,6 +588,11 @@ def init_asl_fit_wf(
             )
 
             itk_mat2txt = pe.Node(ConcatenateXFMs(out_fmt='itk'), name='itk_mat2txt')
+            fmapreg_source_files = pe.Node(
+                niu.Merge(2),
+                name='fmapreg_source_files',
+                run_without_submitting=True,
+            )
 
             # fMRIPrep's init_ds_registration_wf will write out the ASL xfms to `anat` for
             # some reason, so we must override it.
@@ -599,9 +603,9 @@ def init_asl_fit_wf(
                     output_dir=config.execution.aslprep_dir,
                     source='aslref',
                     dest=fieldmap_id.replace('_', ''),
+                    desc='fmap',
                     name='ds_fmapreg_wf',
                 )
-            ds_fmapreg_wf.get_node('inputnode').inputs.source_files = [asl_file]
             ds_fmapreg_wf.get_node('ds_xform').inputs.datatype = 'perf'
 
             workflow.connect([
@@ -609,8 +613,11 @@ def init_asl_fit_wf(
                     ('fmap_ref', 'inputnode.fmap_ref'),
                     ('fmap_mask', 'inputnode.fmap_mask'),
                 ]),
+                (fmapref_buffer, fmapreg_source_files, [('out', 'in1')]),
+                (fmap_select, fmapreg_source_files, [('fmap_ref', 'in2')]),
                 (fmapreg_wf, itk_mat2txt, [('outputnode.target2fmap_xfm', 'in_xfms')]),
                 (itk_mat2txt, ds_fmapreg_wf, [('out_xfm', 'inputnode.xform')]),
+                (fmapreg_source_files, ds_fmapreg_wf, [('out', 'inputnode.source_files')]),
                 (ds_fmapreg_wf, fmapreg_buffer, [('outputnode.xform', 'aslref2fmap_xfm')]),
             ])  # fmt:skip
         else:
@@ -637,8 +644,14 @@ def init_asl_fit_wf(
         enhance_aslref_wf = init_synthstrip_aslref_wf(
             disable_n4=config.workflow.disable_n4,
         )
+        coreg_ref_source_files = pe.Node(
+            niu.Merge(3),
+            name='coreg_ref_source_files',
+            run_without_submitting=True,
+        )
 
         ds_coreg_aslref_wf = init_ds_aslref_wf(
+            source_file=asl_file,
             bids_root=layout.root,
             output_dir=config.execution.aslprep_dir,
             desc='coreg',
@@ -650,14 +663,13 @@ def init_asl_fit_wf(
             desc='brain',
             name='ds_aslmask_wf',
         )
-        ds_aslmask_wf.inputs.inputnode.source_files = [asl_file]
 
         workflow.connect([
             (fmapref_buffer, enhance_aslref_wf, [('out', 'inputnode.in_file')]),
-            (hmc_aslref_source_buffer, ds_coreg_aslref_wf, [
-                ('in_file', 'inputnode.source_files'),
-            ]),
+            (fmapref_buffer, coreg_ref_source_files, [('out', 'in1')]),
+            (coreg_ref_source_files, ds_coreg_aslref_wf, [('out', 'inputnode.source_files')]),
             (ds_coreg_aslref_wf, regref_buffer, [('outputnode.aslref', 'aslref')]),
+            (ds_coreg_aslref_wf, ds_aslmask_wf, [('outputnode.aslref', 'inputnode.source_files')]),
             (ds_aslmask_wf, aslmask_buffer, [('outputnode.boldmask', 'aslmask')]),
         ])  # fmt:skip
 
@@ -697,6 +709,8 @@ def init_asl_fit_wf(
                 (skullstrip_asl_wf, ds_aslmask_wf, [
                     ('outputnode.mask_file', 'inputnode.boldmask'),
                 ]),
+                (fmapreg_buffer, coreg_ref_source_files, [('aslref2fmap_xfm', 'in2')]),
+                (fmap_select, coreg_ref_source_files, [('fmap_coeff', 'in3')]),
             ])  # fmt:skip
 
             if not aslref2fmap_xform:
@@ -759,9 +773,9 @@ def init_asl_fit_wf(
                 output_dir=config.execution.aslprep_dir,
                 source='aslref',
                 dest='T1w',
+                desc='coreg',
                 name='ds_aslreg_wf',
             )
-        ds_aslreg_wf.get_node('inputnode').inputs.source_files = [asl_file]
 
         workflow.connect([
             (inputnode, asl_reg_wf, [
@@ -774,7 +788,6 @@ def init_asl_fit_wf(
                 ('fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm'),
             ]),
             (regref_buffer, asl_reg_wf, [('aslref', 'inputnode.ref_bold_brain')]),
-            # Incomplete sources
             (regref_buffer, ds_aslreg_wf, [('aslref', 'inputnode.source_files')]),
             (asl_reg_wf, ds_aslreg_wf, [
                 ('outputnode.itk_bold_to_t1', 'inputnode.xform'),

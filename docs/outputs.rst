@@ -233,7 +233,7 @@ and a corresponding transform that maps the original ASL series to the reference
    sub-<label>/[ses-<label>/]
       perf/
          <source_entities>_desc-hmc_aslref.nii.gz  # asl reference image for HMC
-         <source_entities>_from-orig_to-aslref_mode-image_xfm.txt  # HMC transforms from raw ASL to aslref
+         <source_entities>_from-orig_to-aslref_mode-image_desc-hmc_xfm.txt  # HMC transforms from raw ASL to aslref
 
 .. note::
 
@@ -262,14 +262,14 @@ the generated transform will be named::
 
    sub-<label>/[ses-<label>/]
       perf/
-         <source_entities>_from-aslref_to-TOPUP_mode-image_xfm.nii.gz
+         <source_entities>_from-aslref_to-TOPUP_mode-image_desc-fmap_xfm.txt
 
 If the association is discovered through the ``IntendedFor`` field of the
 fieldmap metadata, then the transform will be given an auto-generated name::
 
    sub-<label>/[ses-<label>/]
       perf/
-         <source_entities>_from-aslref_to-auto000XX_mode-image_xfm.txt
+         <source_entities>_from-aslref_to-auto000XX_mode-image_desc-fmap_xfm.txt
 
 .. note::
 

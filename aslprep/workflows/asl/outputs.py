@@ -5,11 +5,10 @@
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.utils.images import dseg_label
-from smriprep.workflows.outputs import _bids_relative
 
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
-from aslprep.interfaces.bids import DerivativesDataSink
+from aslprep.interfaces.bids import BIDSURI, DerivativesDataSink
 
 BASE_INPUT_FIELDS = {
     'asl': {
@@ -209,6 +208,7 @@ def prepare_timing_parameters(metadata: dict):
 
 def init_asl_fit_reports_wf(
     *,
+    source_file: str,
     sdc_correction: bool,
     separate_m0scan: bool,
     freesurfer: bool,
@@ -223,6 +223,8 @@ def init_asl_fit_reports_wf(
 
     Parameters
     ----------
+    source_file : :obj:`str`
+        Input ASL file, used to name the reports.
     sdc_correction : :obj:`bool`
         Whether SDC correction was performed or not.
     separate_m0scan : :obj:`bool`
@@ -236,8 +238,6 @@ def init_asl_fit_reports_wf(
 
     Inputs
     ------
-    source_file
-        Input ASL images
     sdc_aslref
         ASL reference before SDC, in ASL space
     coreg_aslref
@@ -279,7 +279,6 @@ def init_asl_fit_reports_wf(
     workflow = pe.Workflow(name=name)
 
     inputfields = [
-        'source_file',
         'sdc_aslref',
         'coreg_aslref',
         'm0scan_aslref',
@@ -302,6 +301,7 @@ def init_asl_fit_reports_wf(
 
     ds_summary = pe.Node(
         DerivativesDataSink(
+            source_file=source_file,
             base_directory=output_dir,
             desc='summary',
             datatype='figures',
@@ -314,6 +314,7 @@ def init_asl_fit_reports_wf(
 
     ds_validation = pe.Node(
         DerivativesDataSink(
+            source_file=source_file,
             base_directory=output_dir,
             desc='validation',
             datatype='figures',
@@ -358,14 +359,8 @@ def init_asl_fit_reports_wf(
     )
 
     workflow.connect([
-        (inputnode, ds_summary, [
-            ('source_file', 'source_file'),
-            ('summary_report', 'in_file'),
-        ]),
-        (inputnode, ds_validation, [
-            ('source_file', 'source_file'),
-            ('validation_report', 'in_file'),
-        ]),
+        (inputnode, ds_summary, [('summary_report', 'in_file')]),
+        (inputnode, ds_validation, [('validation_report', 'in_file')]),
         (inputnode, t1w_aslref, [
             ('t1w_preproc', 'input_image'),
             ('coreg_aslref', 'reference_image'),
@@ -421,6 +416,7 @@ def init_asl_fit_reports_wf(
 
         ds_sdcreg_report = pe.Node(
             DerivativesDataSink(
+                source_file=source_file,
                 base_directory=output_dir,
                 desc='fmapCoreg',
                 suffix='asl',
@@ -443,6 +439,7 @@ def init_asl_fit_reports_wf(
 
         ds_sdc_report = pe.Node(
             DerivativesDataSink(
+                source_file=source_file,
                 base_directory=output_dir,
                 desc='sdc',
                 suffix='asl',
@@ -464,14 +461,12 @@ def init_asl_fit_reports_wf(
                 ('asl_mask', 'mask'),
             ]),
             (fmapref_aslref, sdcreg_report, [('output_image', 'moving')]),
-            (inputnode, ds_sdcreg_report, [('source_file', 'source_file')]),
             (sdcreg_report, ds_sdcreg_report, [('out_report', 'in_file')]),
             (inputnode, sdc_report, [
                 ('sdc_aslref', 'before'),
                 ('coreg_aslref', 'after'),
             ]),
             (aslref_wm, sdc_report, [('output_image', 'wm_seg')]),
-            (inputnode, ds_sdc_report, [('source_file', 'source_file')]),
             (sdc_report, ds_sdc_report, [('out_report', 'in_file')]),
         ])  # fmt:skip
 
@@ -492,6 +487,7 @@ def init_asl_fit_reports_wf(
 
         ds_m0_asl_report = pe.Node(
             DerivativesDataSink(
+                source_file=source_file,
                 base_directory=output_dir,
                 desc='m0reg',
                 suffix='asl',
@@ -507,7 +503,6 @@ def init_asl_fit_reports_wf(
                 ('coreg_aslref', 'after'),
             ]),
             (aslref_wm, m0_asl_report, [('output_image', 'wm_seg')]),
-            (inputnode, ds_m0_asl_report, [('source_file', 'source_file')]),
             (m0_asl_report, ds_m0_asl_report, [('out_report', 'in_file')]),
         ])  # fmt:skip
 
@@ -526,6 +521,7 @@ def init_asl_fit_reports_wf(
 
     ds_epi_t1_report = pe.Node(
         DerivativesDataSink(
+            source_file=source_file,
             base_directory=output_dir,
             desc='coreg',
             suffix='asl',
@@ -539,7 +535,6 @@ def init_asl_fit_reports_wf(
         (inputnode, epi_t1_report, [('coreg_aslref', 'after')]),
         (t1w_aslref, epi_t1_report, [('output_image', 'before')]),
         (aslref_wm, epi_t1_report, [('output_image', 'wm_seg')]),
-        (inputnode, ds_epi_t1_report, [('source_file', 'source_file')]),
         (epi_t1_report, ds_epi_t1_report, [('out_report', 'in_file')]),
     ])  # fmt:skip
 
@@ -548,6 +543,7 @@ def init_asl_fit_reports_wf(
 
 def init_ds_aslref_wf(
     *,
+    source_file: str,
     bids_root,
     output_dir,
     desc: str,
@@ -562,11 +558,18 @@ def init_ds_aslref_wf(
     )
     outputnode = pe.Node(niu.IdentityInterface(fields=['aslref']), name='outputnode')
 
-    raw_sources = pe.Node(niu.Function(function=_bids_relative), name='raw_sources')
-    raw_sources.inputs.bids_root = bids_root
+    sources = pe.Node(
+        BIDSURI(
+            numinputs=1,
+            dataset_links=config.execution.dataset_links,
+            out_dir=str(output_dir),
+        ),
+        name='sources',
+    )
 
     ds_aslref = pe.Node(
         DerivativesDataSink(
+            source_file=source_file,
             base_directory=output_dir,
             desc=desc,
             suffix='aslref',
@@ -578,12 +581,9 @@ def init_ds_aslref_wf(
     )
 
     workflow.connect([
-        (inputnode, raw_sources, [('source_files', 'in_files')]),
-        (inputnode, ds_aslref, [
-            ('aslref', 'in_file'),
-            ('source_files', 'source_file'),
-        ]),
-        (raw_sources, ds_aslref, [('out', 'RawSources')]),
+        (inputnode, sources, [('source_files', 'in1')]),
+        (inputnode, ds_aslref, [('aslref', 'in_file')]),
+        (sources, ds_aslref, [('out', 'Sources')]),
         (ds_aslref, outputnode, [('out_file', 'aslref')]),
     ])  # fmt:skip
 
@@ -592,6 +592,7 @@ def init_ds_aslref_wf(
 
 def init_ds_asl_native_wf(
     *,
+    source_file: str,
     bids_root: str,
     output_dir: str,
     asl_output: bool,
@@ -616,9 +617,15 @@ def init_ds_asl_native_wf(
         name='inputnode',
     )
 
-    raw_sources = pe.Node(niu.Function(function=_bids_relative), name='raw_sources')
-    raw_sources.inputs.bids_root = bids_root
-    workflow.connect([(inputnode, raw_sources, [('source_files', 'in_files')])])
+    sources = pe.Node(
+        BIDSURI(
+            numinputs=1,
+            dataset_links=config.execution.dataset_links,
+            out_dir=str(output_dir),
+        ),
+        name='sources',
+    )
+    workflow.connect([(inputnode, sources, [('source_files', 'in1')])])
 
     datasinks = []
     # Write out CBF and ATT maps in aslref space
@@ -628,6 +635,7 @@ def init_ds_asl_native_wf(
 
         ds_cbf = pe.Node(
             DerivativesDataSink(
+                source_file=source_file,
                 base_directory=output_dir,
                 compress=True,
                 dismiss_entities=('echo',),
@@ -646,6 +654,7 @@ def init_ds_asl_native_wf(
 
         ds_att = pe.Node(
             DerivativesDataSink(
+                source_file=source_file,
                 base_directory=output_dir,
                 compress=True,
                 dismiss_entities=('echo',),
@@ -663,6 +672,7 @@ def init_ds_asl_native_wf(
         # Write out the preprocessed ASL time series
         ds_asl = pe.Node(
             DerivativesDataSink(
+                source_file=source_file,
                 base_directory=output_dir,
                 desc='preproc',
                 compress=True,
@@ -677,8 +687,7 @@ def init_ds_asl_native_wf(
         datasinks.append(ds_asl)
 
     workflow.connect(
-        [(inputnode, datasink, [('source_files', 'source_file')]) for datasink in datasinks] +
-        [(raw_sources, datasink, [('out', 'RawSources')]) for datasink in datasinks]
+        [(sources, datasink, [('out', 'Sources')]) for datasink in datasinks]
     )  # fmt:skip
 
     return workflow
@@ -686,6 +695,7 @@ def init_ds_asl_native_wf(
 
 def init_ds_volumes_wf(
     *,
+    source_file: str,
     bids_root: str,
     output_dir: str,
     metadata: list[dict],
@@ -719,13 +729,20 @@ def init_ds_volumes_wf(
         name='inputnode',
     )
 
-    raw_sources = pe.Node(niu.Function(function=_bids_relative), name='raw_sources')
-    raw_sources.inputs.bids_root = bids_root
+    sources = pe.Node(
+        BIDSURI(
+            numinputs=1,
+            dataset_links=config.execution.dataset_links,
+            out_dir=str(output_dir),
+        ),
+        name='sources',
+    )
     aslref2target = pe.Node(niu.Merge(2), name='aslref2target')
 
     # ASL is pre-resampled
     ds_asl = pe.Node(
         DerivativesDataSink(
+            source_file=source_file,
             base_directory=output_dir,
             desc='preproc',
             compress=True,
@@ -738,15 +755,15 @@ def init_ds_volumes_wf(
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     workflow.connect([
-        (inputnode, raw_sources, [('source_files', 'in_files')]),
+        (inputnode, sources, [('source_files', 'in1')]),
         # Note that ANTs expects transforms in target-to-source order
         # Reverse this for nitransforms-based resamplers
         (inputnode, aslref2target, [
             ('anat2std_xfm', 'in1'),
             ('aslref2anat_xfm', 'in2'),
         ]),
+        (sources, ds_asl, [('out', 'Sources')]),
         (inputnode, ds_asl, [
-            ('source_files', 'source_file'),
             ('asl', 'in_file'),
             ('space', 'space'),
             ('cohort', 'cohort'),
@@ -779,6 +796,7 @@ def init_ds_volumes_wf(
 
     ds_ref = pe.Node(
         DerivativesDataSink(
+            source_file=source_file,
             base_directory=output_dir,
             suffix='aslref',
             compress=True,
@@ -790,6 +808,7 @@ def init_ds_volumes_wf(
     )
     ds_mask = pe.Node(
         DerivativesDataSink(
+            source_file=source_file,
             base_directory=output_dir,
             desc='brain',
             suffix='mask',
@@ -824,6 +843,7 @@ def init_ds_volumes_wf(
 
         ds_cbf = pe.Node(
             DerivativesDataSink(
+                source_file=source_file,
                 base_directory=output_dir,
                 compress=True,
                 dismiss_entities=('echo',),
@@ -856,6 +876,7 @@ def init_ds_volumes_wf(
 
         ds_att = pe.Node(
             DerivativesDataSink(
+                source_file=source_file,
                 base_directory=output_dir,
                 compress=True,
                 dismiss_entities=('echo',),
@@ -878,8 +899,10 @@ def init_ds_volumes_wf(
             (aslref2target, resampler, [('out', 'transforms')])
             for resampler in resamplers
         ] + [
+            (sources, datasink, [('out', 'Sources')])
+            for datasink in datasinks
+        ] + [
             (inputnode, datasink, [
-                ('source_files', 'source_file'),
                 ('space', 'space'),
                 ('cohort', 'cohort'),
                 ('resolution', 'resolution'),
@@ -896,6 +919,7 @@ def init_ds_volumes_wf(
 
 def init_ds_ciftis_wf(
     *,
+    source_file: str,
     bids_root: str,
     output_dir: str,
     metadata: list[dict],
@@ -949,12 +973,19 @@ def init_ds_ciftis_wf(
         name='outputnode',
     )
 
-    raw_sources = pe.Node(niu.Function(function=_bids_relative), name='raw_sources')
-    raw_sources.inputs.bids_root = bids_root
-    workflow.connect([(inputnode, raw_sources, [('source_files', 'in_files')])])
+    sources = pe.Node(
+        BIDSURI(
+            numinputs=1,
+            dataset_links=config.execution.dataset_links,
+            out_dir=str(output_dir),
+        ),
+        name='sources',
+    )
+    workflow.connect([(inputnode, sources, [('source_files', 'in1')])])
 
     ds_asl_cifti = pe.Node(
         DerivativesDataSink(
+            source_file=source_file,
             base_directory=output_dir,
             space='fsLR',
             density=config.workflow.cifti_output,
@@ -966,10 +997,8 @@ def init_ds_ciftis_wf(
         run_without_submitting=True,
     )
     workflow.connect([
-        (inputnode, ds_asl_cifti, [
-            ('asl_cifti', 'in_file'),
-            ('source_files', 'source_file'),
-        ]),
+        (inputnode, ds_asl_cifti, [('asl_cifti', 'in_file')]),
+        (sources, ds_asl_cifti, [('out', 'Sources')]),
     ])  # fmt:skip
 
     aslref2MNI6 = pe.Node(niu.Merge(2), name='aslref2MNI6')
@@ -1060,6 +1089,7 @@ def init_ds_ciftis_wf(
 
         ds_cbf_cifti = pe.Node(
             DerivativesDataSink(
+                source_file=source_file,
                 base_directory=output_dir,
                 space='fsLR',
                 density=config.workflow.cifti_output,
@@ -1071,8 +1101,7 @@ def init_ds_ciftis_wf(
             run_without_submitting=True,
         )
         workflow.connect([
-            (inputnode, ds_cbf_cifti, [('source_files', 'source_file')]),
-            (raw_sources, ds_cbf_cifti, [('out', 'RawSources')]),
+            (sources, ds_cbf_cifti, [('out', 'Sources')]),
             (cbf_grayords_wf, ds_cbf_cifti, [
                 ('outputnode.cifti_bold', 'in_file'),
                 (('outputnode.cifti_metadata', _read_json), 'meta_dict'),

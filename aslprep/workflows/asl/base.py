@@ -436,6 +436,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     if (config.workflow.level in ('minimal', 'resampling')) or aslref_out:
         ds_asl_native_wf = init_ds_asl_native_wf(
+            source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
             asl_output=aslref_out,
@@ -566,6 +567,17 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
         return workflow
 
+    # Pass along the ASL reference as a source file for provenance
+    merge_asl_sources = pe.Node(
+        niu.Merge(2),
+        name='merge_asl_sources',
+        run_without_submitting=True,
+    )
+    merge_asl_sources.inputs.in1 = asl_file
+    workflow.connect([
+        (asl_fit_wf, merge_asl_sources, [('outputnode.coreg_aslref', 'in2')]),
+    ])  # fmt:skip
+
     # Resample ASL file to anatomical space.
     # This doesn't write out the resampled file to the derivatives.
     asl_anat_wf = init_bold_volumetric_resample_wf(
@@ -600,6 +612,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     # Write out anatomical-space derivatives.
     if nonstd_spaces.intersection(('anat', 'T1w')):
         ds_asl_t1_wf = init_ds_volumes_wf(
+            source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
             metadata=metadata,
@@ -608,11 +621,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             att=att_derivs,
             name='ds_asl_t1_wf',
         )
-        ds_asl_t1_wf.inputs.inputnode.source_files = [asl_file]
         ds_asl_t1_wf.inputs.inputnode.space = 'T1w'
 
         workflow.connect([
             (inputnode, ds_asl_t1_wf, [('t1w_preproc', 'inputnode.ref_file')]),
+            (merge_asl_sources, ds_asl_t1_wf, [('out', 'inputnode.source_files')]),
             (asl_fit_wf, ds_asl_t1_wf, [
                 ('outputnode.asl_mask', 'inputnode.asl_mask'),
                 ('outputnode.coreg_aslref', 'inputnode.aslref'),
@@ -639,6 +652,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             name='asl_std_wf',
         )
         ds_asl_std_wf = init_ds_volumes_wf(
+            source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
             metadata=metadata,
@@ -647,9 +661,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             att=att_derivs,
             name='ds_asl_std_wf',
         )
-        ds_asl_std_wf.inputs.inputnode.source_files = [asl_file]
-
         workflow.connect([
+            (merge_asl_sources, ds_asl_std_wf, [('out', 'inputnode.source_files')]),
             (inputnode, asl_std_wf, [
                 ('std_t1w', 'inputnode.target_ref_file'),
                 ('std_mask', 'inputnode.target_mask'),
@@ -765,6 +778,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         ])  # fmt:skip
 
         ds_asl_cifti_wf = init_ds_ciftis_wf(
+            source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
             metadata=metadata,
@@ -774,8 +788,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             omp_nthreads=omp_nthreads,
             name='ds_asl_cifti_wf',
         )
-        ds_asl_cifti_wf.inputs.inputnode.source_files = [asl_file]
         workflow.connect([
+            (merge_asl_sources, ds_asl_cifti_wf, [('out', 'inputnode.source_files')]),
             (inputnode, ds_asl_cifti_wf, [
                 ('mni6_mask', 'inputnode.mni6_mask'),
                 ('anat2mni6_xfm', 'inputnode.anat2mni6_xfm'),
