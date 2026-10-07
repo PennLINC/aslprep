@@ -507,7 +507,7 @@ class execution(_Config):
                 else:
                     return (
                         getattr(Query, value[7:-4])
-                        if not isinstance(value, Query) and 'Query' in value
+                        if isinstance(value, str) and 'Query' in value
                         else value
                     )
 
@@ -718,7 +718,9 @@ def from_dict(settings, init=True, ignore=None):
 
     # Accept global True/False or container of configs to initialize
     def initialize(x):
-        return init if init in (True, False) else x in init
+        if isinstance(init, bool):
+            return init
+        return x in init
 
     nipype.load(settings, init=initialize('nipype'), ignore=ignore)
     execution.load(settings, init=initialize('execution'), ignore=ignore)
@@ -726,6 +728,32 @@ def from_dict(settings, init=True, ignore=None):
     seeds.load(settings, init=initialize('seeds'), ignore=ignore)
 
     loggers.init()
+
+
+# Certain config fields are not directly settable, and should not be copied when reused
+# Additionally, some toggle arguments only can be switched one way
+REUSE_SKIPS = {
+    'execution': [
+        'dataset_links',
+        'layout',
+        '_layout',
+        'aslprep_dir',
+        'notrack',
+        'sloppy',
+        'templateflow_home',
+        'run_uuid',
+        'log_dir',
+    ],
+    'workflow': [
+        'anat_only',
+    ],
+    'seeds': [],
+}
+
+
+def default_reuse_skips():
+    """Return a copy of the config fields to skip when reusing a configuration file."""
+    return {k: list(v) for k, v in REUSE_SKIPS.items()}
 
 
 def load(filename, skip=None, init=True):
@@ -746,15 +774,18 @@ def load(filename, skip=None, init=True):
 
     # Accept global True/False or container of configs to initialize
     def initialize(x):
-        return init if init in (True, False) else x in init
+        if isinstance(init, bool):
+            return init
+        return x in init
 
     filename = Path(filename)
     settings = loads(filename.read_text())
     for sectionname, configs in settings.items():
-        if sectionname != 'environment':
-            section = getattr(sys.modules[__name__], sectionname)
-            ignore = skip.get(sectionname)
-            section.load(configs, ignore=ignore, init=initialize(sectionname))
+        if sectionname == 'environment':
+            continue
+        section = getattr(sys.modules[__name__], sectionname)
+        ignore = skip.get(sectionname)
+        section.load(configs, ignore=ignore, init=initialize(sectionname))
     init_spaces()
 
 

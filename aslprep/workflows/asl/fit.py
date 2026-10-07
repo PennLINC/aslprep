@@ -94,6 +94,7 @@ def init_asl_fit_wf(
     precomputed: dict | None = None,
     fieldmap_id: str | None = None,
     jacobian: bool = False,
+    asl2anat_init: str | None = None,
     omp_nthreads: int = 1,
     name: str = 'asl_fit_wf',
 ) -> pe.Workflow:
@@ -136,6 +137,12 @@ def init_asl_fit_wf(
     fieldmap_id
         ID of the fieldmap to use to correct this ASL series. If :obj:`None`,
         no correction will be applied.
+    jacobian
+        Whether to apply the Jacobian determinant of the fieldmap during resampling.
+    asl2anat_init
+        Anatomical image to use as the initial target for ASL-to-anatomical
+        coregistration (``'t1w'`` or ``'t2w'``).
+        If :obj:`None`, ``config.workflow.asl2anat_init`` is used.
 
     Inputs
     ------
@@ -196,6 +203,8 @@ def init_asl_fit_wf(
 
     if precomputed is None:
         precomputed = {}
+    if asl2anat_init is None:
+        asl2anat_init = config.workflow.asl2anat_init
     layout = config.execution.layout
     bids_filters = config.execution.get().get('bids_filters', {})
 
@@ -355,7 +364,7 @@ def init_asl_fit_wf(
                 else 'FSL'
             ),
             registration_dof=config.workflow.asl2anat_dof,
-            registration_init=config.workflow.asl2anat_init,
+            registration_init=asl2anat_init,
             pe_direction=metadata.get('PhaseEncodingDirection'),
             tr=metadata['RepetitionTime'],
             orientation=orientation,
@@ -726,7 +735,7 @@ def init_asl_fit_wf(
         # calculate ASL registration to T1w
         asl_reg_wf = init_bold_reg_wf(
             bold2anat_dof=config.workflow.asl2anat_dof,
-            bold2anat_init=config.workflow.asl2anat_init,
+            bold2anat_init=asl2anat_init,
             use_bbr=use_bbr,
             freesurfer=config.workflow.run_reconall,
             omp_nthreads=omp_nthreads,
@@ -763,7 +772,10 @@ def init_asl_fit_wf(
             (regref_buffer, asl_reg_wf, [('aslref', 'inputnode.ref_bold_brain')]),
             # Incomplete sources
             (regref_buffer, ds_aslreg_wf, [('aslref', 'inputnode.source_files')]),
-            (asl_reg_wf, ds_aslreg_wf, [('outputnode.itk_bold_to_t1', 'inputnode.xform')]),
+            (asl_reg_wf, ds_aslreg_wf, [
+                ('outputnode.itk_bold_to_t1', 'inputnode.xform'),
+                ('outputnode.metadata', 'inputnode.metadata'),
+            ]),
             (ds_aslreg_wf, outputnode, [('outputnode.xform', 'aslref2anat_xfm')]),
             (asl_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
         ])  # fmt:skip

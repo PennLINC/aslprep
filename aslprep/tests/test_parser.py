@@ -1,11 +1,14 @@
 """Test parser."""
 
+from pathlib import Path
+
 import pytest
 from packaging.version import Version
 
 from aslprep import config
 from aslprep.cli import version as _version
 from aslprep.cli.parser import _build_parser
+from aslprep.tests.tests import reset_config
 
 MIN_ARGS = ['data/', 'out/', 'participant']
 
@@ -111,3 +114,75 @@ def test_get_parser_blacklist(monkeypatch, capsys, flagged):
     assert ('FLAGGED' in captured) is flagged[0]
     if flagged[0]:
         assert (flagged[1] or 'reason: unknown') in captured
+
+
+def test_reuse_config(tmp_path):
+    """Check which settings are reused with ``--config-file``.
+
+    Reproduces nipreps/fmriprep#3625.
+    """
+    from niworkflows.utils.testing import generate_bids_skeleton
+
+    from aslprep.cli.parser import parse_args
+    from aslprep.data import load as load_data
+
+    reset_config()
+    bids_dir = tmp_path / 'ds000240'
+    generate_bids_skeleton(
+        bids_dir,
+        {'01': {'anat': {'suffix': 'T1w'}, 'perf': [{'suffix': 'asl'}]}},
+    )
+    # Avoid requiring validator installation
+    cli_args = [
+        str(bids_dir),
+        str(tmp_path / 'out'),
+        'participant',
+        '--skip-bids-validation',
+        '--skip-parcellation',
+        # The default work directory is relative to the (possibly read-only) cwd
+        '--work-dir',
+        str(tmp_path / 'work'),
+    ]
+
+    parse_args(cli_args)
+    default_config = config.get(flat=True)
+    reset_config()
+
+    # Simulate a configuration file written by a previous run with a different output directory
+    config_text = Path(load_data('../tests/data/config.toml')).read_text()
+    config_text = config_text.replace(
+        '[execution]\n',
+        f'[execution]\naslprep_dir = "{tmp_path / "old_out"}"\n',
+    )
+    config_file = tmp_path / 'config.toml'
+    config_file.write_text(config_text)
+    config_args = ['--config-file', str(config_file)]
+    parse_args(cli_args + config_args)
+    reused_config = config.get(flat=True)
+    # Reusing the config will apply same values
+    assert reused_config['execution.output_spaces'] != default_config['execution.output_spaces']
+    assert reused_config['execution.output_spaces'] == (
+        'asl T1w MNI152NLin2009cAsym:res-native fsaverage:den-10k fsaverage:den-30k'
+    )
+    # But some will still differ
+    assert reused_config['execution.aslprep_dir'] == str(tmp_path / 'out')
+    assert reused_config['execution.log_dir'] not in config_file.read_text()
+    assert reused_config['execution.run_uuid'] not in config_file.read_text()
+    reset_config()
+
+    overridden_args = (
+        cli_args + config_args + ['--output-spaces', 'MNI152NLin6Asym', '--force', 'bbr']
+    )
+    # set new output directory
+    overridden_args[1] = str(tmp_path / 'out2')
+    parse_args(overridden_args)
+    overridden_config = config.get(flat=True)
+
+    # Passed in argument will override
+    assert overridden_config['execution.output_spaces'] == 'MNI152NLin6Asym:res-native'
+    assert 'bbr' in overridden_config['workflow.force']
+
+    # But some values will still differ
+    for v in ('execution.run_uuid', 'execution.aslprep_dir'):
+        assert reused_config[v] != overridden_config[v]
+    reset_config()

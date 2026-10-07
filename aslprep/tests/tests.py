@@ -33,6 +33,20 @@ from toml import loads
 from aslprep.data import load as load_data
 
 
+def reset_config():
+    """Forcibly reload the configuration module to restore defaults.
+
+    .. caution::
+      `importlib.reload` creates new sets of objects, but will not remove
+      previous references to those objects.
+    """
+    import importlib
+
+    from aslprep import config
+
+    importlib.reload(config)
+
+
 @contextmanager
 def mock_config():
     """Create a mock config for documentation and testing purposes."""

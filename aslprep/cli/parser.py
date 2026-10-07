@@ -778,10 +778,6 @@ def parse_args(args=None, namespace=None):
 
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)
-    if opts.config_file:
-        skip = {} if opts.reports_only else {'execution': ('run_uuid',)}
-        config.load(opts.config_file, skip=skip, init=False)
-        config.loggers.cli.info(f'Loaded previous configuration file {opts.config_file}')
 
     if opts.longitudinal:
         opts.subject_anatomical_reference = 'unbiased'
@@ -790,6 +786,11 @@ def parse_args(args=None, namespace=None):
             '`--subject-anatomical-reference unbiased` instead.'
         )
         config.loggers.cli.warning(msg)
+
+    if opts.config_file:
+        reuse_skips = config.default_reuse_skips()
+        config.load(opts.config_file, skip=reuse_skips, init=False)
+        config.loggers.cli.info(f'Loaded previous configuration file {opts.config_file}')
 
     # Add internal atlas datasets to the list of datasets
     opts.derivatives = opts.derivatives or {}
@@ -923,8 +924,8 @@ applied."""
         )
         validate_input_dir(
             config.environment.exec_env,
-            opts.bids_dir,
-            opts.participant_label,
+            config.execution.bids_dir,
+            config.execution.participant_label,
             need_T1w=not config.execution.derivatives,
         )
 

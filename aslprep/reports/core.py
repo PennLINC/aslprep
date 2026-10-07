@@ -22,9 +22,51 @@
 #
 from pathlib import Path
 
-from fmriprep.reports.core import run_reports
+from nireports.assembler.report import Report
 
 from aslprep import config, data
+
+
+def run_reports(
+    output_dir,
+    subject_label,
+    run_uuid,
+    bootstrap_file=None,
+    out_filename='report.html',
+    reportlets_dir=None,
+    errorname='report.err',
+    **entities,
+):
+    """Run the reports.
+
+    Copied from fMRIPrep to include nipreps/fmriprep#3636,
+    which writes out tracebacks when report generation fails.
+    """
+    robj = Report(
+        output_dir,
+        run_uuid,
+        bootstrap_file=bootstrap_file,
+        out_filename=out_filename,
+        reportlets_dir=reportlets_dir,
+        plugins=None,
+        plugin_meta=None,
+        metadata=None,
+        **entities,
+    )
+
+    # Count nbr of subject for which report generation failed
+    try:
+        robj.generate_report()
+    except Exception:  # noqa: BLE001
+        import traceback
+
+        log_dir = Path(output_dir) / 'logs'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / errorname, 'w') as f:
+            traceback.print_exc(file=f)
+        return subject_label
+
+    return None
 
 
 def generate_reports(
