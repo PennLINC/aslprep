@@ -101,8 +101,8 @@ napoleon_attr_annotations = True
 # https://github.com/sphinx-contrib/napoleon/pull/10 is merged.
 napoleon_use_param = False
 napoleon_custom_sections = [
-    ('Inputs', 'Parameters'),
-    ('Outputs', 'Parameters'),
+    ('Inputs', 'params_style'),
+    ('Outputs', 'returns_style'),
     ('Attributes', 'Parameters'),
     ('Mandatory Inputs', 'Parameters'),
     ('Optional Inputs', 'Parameters'),
