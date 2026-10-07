@@ -95,8 +95,9 @@ def init_asl_cifti_resample_wf(
         init_bold_fsLR_resampling_wf,
         init_bold_grayords_wf,
     )
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
-    workflow = pe.Workflow(name=name)
+    workflow = Workflow(name=name)
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -137,6 +138,7 @@ def init_asl_cifti_resample_wf(
         metadata=metadata,
         fieldmap_id=fieldmap_id,
         jacobian=jacobian,
+        fallback_total_readout_time=config.workflow.fallback_total_readout_time,
         omp_nthreads=omp_nthreads,
         mem_gb=mem_gb,
         name='asl_MNI6_wf',

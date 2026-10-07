@@ -50,8 +50,6 @@ def build_workflow(config_file, retval):
 
     # Called with reports only
     if config.execution.reports_only:
-        from aslprep.data import load as load_data
-
         build_log.log(
             25,
             'Running --reports-only on %s',
@@ -70,7 +68,6 @@ def build_workflow(config_file, retval):
             config.execution.aslprep_dir,
             config.execution.run_uuid,
             session_list=session_list,
-            bootstrap_file=load_data('reports-spec.yml'),
         )
         if failed_reports:
             config.loggers.cli.error(

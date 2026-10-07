@@ -96,6 +96,8 @@ def init_asl_surf_wf(
     ------
     source_file
         Original ASL series
+    source_files
+        Files to list as Sources in the output metadata
     subjects_dir
         FreeSurfer SUBJECTS_DIR
     subject_id
@@ -114,6 +116,7 @@ def init_asl_surf_wf(
     from niworkflows.interfaces.nitransforms import ConcatenateXFMs
     from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 
+    from aslprep.interfaces.bids import BIDSURI
     from aslprep.workflows.asl.outputs import (
         BASE_INPUT_FIELDS,
         prepare_timing_parameters,
@@ -129,6 +132,7 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
 """
     inputnode_fields = [
         'source_file',
+        'source_files',
         'anat',
         'aslref2anat_xfm',
         'subject_id',
@@ -142,6 +146,22 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
         niu.IdentityInterface(fields=inputnode_fields),
         name='inputnode',
     )
+
+    sources = pe.Node(
+        BIDSURI(
+            numinputs=3,
+            dataset_links=config.execution.dataset_links,
+            out_dir=str(output_dir),
+        ),
+        name='sources',
+    )
+    workflow.connect([
+        (inputnode, sources, [
+            ('source_files', 'in1'),
+            ('aslref2anat_xfm', 'in2'),
+            ('fsnative2t1w_xfm', 'in3'),
+        ]),
+    ])  # fmt:skip
 
     itersource = pe.Node(niu.IdentityInterface(fields=['target']), name='itersource')
     itersource.iterables = [('target', surface_spaces)]
@@ -253,6 +273,7 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
 
         workflow.connect([
             (inputnode, ds_surfs, [('source_file', 'source_file')]),
+            (sources, ds_surfs, [('out', 'Sources')]),
             (itersource, ds_surfs, [('target', 'space')]),
             (update_metadata, ds_surfs, [('out_file', 'in_file')]),
         ])  # fmt:skip
@@ -422,13 +443,18 @@ dilated by 10 mm, and then resampled to the following surface templates:
 
     sources = pe.Node(
         BIDSURI(
-            numinputs=1,
+            numinputs=2,
             dataset_links=config.execution.dataset_links,
             out_dir=str(output_dir),
         ),
         name='sources',
     )
-    workflow.connect([(inputnode, sources, [('source_files', 'in1')])])
+    workflow.connect([
+        (inputnode, sources, [
+            ('source_files', 'in1'),
+            ('aslref2anat_xfm', 'in2'),
+        ]),
+    ])  # fmt:skip
 
     # Subject midthickness surfaces resampled to each template, shared by all derivatives
     resample_surfaces_wfs = {}

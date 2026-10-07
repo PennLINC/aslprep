@@ -547,10 +547,11 @@ any spatial references.""",
         ),
     )
     g_outputs.add_argument(
-        '--no-msm',
-        action='store_false',
+        '--msm',
+        action=BooleanOptionalAction,
+        default=True,
         dest='run_msmsulc',
-        help='Disable Multimodal Surface Matching surface registration.',
+        help='Enable or disable Multimodal Surface Matching surface registration.',
     )
 
     #  ANTs options
@@ -601,9 +602,13 @@ any spatial references.""",
     g_syn = parser.add_argument_group('Specific options for SyN distortion correction')
     g_syn.add_argument(
         '--use-syn-sdc',
-        action='store_true',
+        nargs='?',
+        choices=['warn', 'error'],
+        action='store',
+        const='error',
         default=False,
-        help='EXPERIMENTAL: Use fieldmap-free distortion correction',
+        help='EXPERIMENTAL: Use fieldmap-less distortion correction based on anatomical image; '
+        'if unable, error (default) or warn based on optional argument.',
     )
 
     # FreeSurfer options
@@ -627,10 +632,11 @@ any spatial references.""",
         ),
     )
     g_fs.add_argument(
-        '--no-submm-recon',
-        action='store_false',
+        '--submm-recon',
+        action=BooleanOptionalAction,
+        default=True,
         dest='hires',
-        help='Disable sub-millimeter (hires) reconstruction',
+        help='Enable or disable sub-millimeter (hi-res) reconstruction.',
     )
     g_fs.add_argument(
         '--fs-no-reconall',
@@ -686,7 +692,6 @@ any spatial references.""",
         '--work-dir',
         action='store',
         type=Path,
-        default=Path('work').absolute(),
         help='path where intermediate results should be stored',
     )
     g_other.add_argument(
@@ -878,6 +883,10 @@ applied."""
 
     bids_dir = config.execution.bids_dir
     output_dir = config.execution.output_dir
+    # Set the default work directory after loading any --config-file,
+    # so that a reused configuration's work directory is not overridden (nipreps/fmriprep#3487)
+    if config.execution.work_dir is None:
+        config.execution.work_dir = Path('work').absolute()
     work_dir = config.execution.work_dir
     version = config.environment.version
 

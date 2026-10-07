@@ -23,6 +23,7 @@
 """Fit workflows for ASLPrep."""
 
 import os
+import re
 import typing as ty
 
 import bids
@@ -602,7 +603,7 @@ def init_asl_fit_wf(
                     bids_root=layout.root,
                     output_dir=config.execution.aslprep_dir,
                     source='aslref',
-                    dest=fieldmap_id.replace('_', ''),
+                    dest=re.sub(r'[^a-zA-Z0-9]', '', fieldmap_id),
                     desc='fmap',
                     name='ds_fmapreg_wf',
                 )
@@ -678,6 +679,7 @@ def init_asl_fit_wf(
                 DistortionParameters(
                     metadata=metadata,
                     in_file=asl_file,
+                    fallback=config.workflow.fallback_total_readout_time,
                 ),
                 name='distortion_params',
                 run_without_submitting=True,
@@ -977,7 +979,11 @@ def init_asl_native_wf(
         )
 
         distortion_params = pe.Node(
-            DistortionParameters(metadata=metadata, in_file=asl_file),
+            DistortionParameters(
+                metadata=metadata,
+                in_file=asl_file,
+                fallback=config.workflow.fallback_total_readout_time,
+            ),
             name='distortion_params',
             run_without_submitting=True,
         )
