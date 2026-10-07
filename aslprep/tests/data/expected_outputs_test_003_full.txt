@@ -58,6 +58,14 @@ sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_from-aslref_to-T1w_mode-im
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_from-aslref_to-T1w_mode-image_desc-coreg_xfm.txt
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_from-orig_to-aslref_mode-image_desc-hmc_xfm.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_from-orig_to-aslref_mode-image_desc-hmc_xfm.txt
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_hemi-L_space-fsLR_den-32k_cbf.func.gii
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_hemi-L_space-fsLR_den-32k_cbf.json
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_hemi-L_space-fsLR_den-32k_desc-timeseries_cbf.func.gii
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_hemi-L_space-fsLR_den-32k_desc-timeseries_cbf.json
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_hemi-R_space-fsLR_den-32k_cbf.func.gii
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_hemi-R_space-fsLR_den-32k_cbf.json
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_hemi-R_space-fsLR_den-32k_desc-timeseries_cbf.func.gii
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_hemi-R_space-fsLR_den-32k_desc-timeseries_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_space-T1w_desc-goodvoxels_mask.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_space-fsLR_den-91k_asl.dtseries.nii
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_space-fsLR_den-91k_asl.json

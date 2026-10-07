@@ -433,10 +433,12 @@ def test_test_003_full(data_dir, output_dir, working_dir):
             '--project-goodvoxels',
             '--no-msm',
         ],
+        # fsLR:den-32k exercises Workbench resampling to surface templates
+        output_spaces=['asl', 'fsLR:den-32k'],
     )
 
 
-def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
+def base_test_003(data_dir, output_dir, working_dir, level, extra_params, output_spaces=None):
     """Run aslprep on sub-01.
 
     This dataset is Siemens.
@@ -469,7 +471,7 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params):
         f'-w={work_dir}',
         f'--bids-filter-file={bids_filter_file}',
         '--output-spaces',
-        'asl',
+        *(output_spaces or ['asl']),
         '--use-syn-sdc',
         '--m0_scale=10',
         f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',

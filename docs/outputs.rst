@@ -282,17 +282,25 @@ Volumetric output spaces labels (``space-<label>`` above, and in the following) 
 **Surfaces, segmentations and parcellations from FreeSurfer**.
 If FreeSurfer reconstructions are used,
 the ``(aparc+)aseg`` segmentations are aligned to the subject's T1w space and resampled to the ASL grid,
-and the ASL series are resampled to the mid-thickness surface mesh::
+and the CBF derivatives are resampled to the requested surface meshes::
 
    sub-<label>/[ses-<label>/]
       perf/
          <source_entities>_space-T1w_desc-aparcaseg_dseg.nii.gz
          <source_entities>_space-T1w_desc-aseg_dseg.nii.gz
-         <source_entities>_hemi-[LR]_space-<label>_asl.func.gii
+         <source_entities>_hemi-[LR]_space-<label>[_den-<label>][_desc-<label>]_cbf.func.gii
 
-Surface output spaces include ``fsnative`` (full density subject-specific mesh),
+FreeSurfer surface output spaces include ``fsnative`` (full density subject-specific mesh),
 ``fsaverage`` and the down-sampled meshes ``fsaverage6`` (41k vertices) and
 ``fsaverage5`` (10k vertices, default).
+These are sampled with FreeSurfer's ``mri_vol2surf``.
+
+Other surface templates, such as ``fsLR`` or ``onavg``, may be requested with a density,
+for example ``--output-spaces fsLR:den-32k onavg:den-41k``.
+These are resampled with the Connectome Workbench, as in fMRIPrep,
+using the template's spheres registered to fsLR.
+When ``--project-goodvoxels`` is used, the "goodvoxels" mask is applied during
+volume-to-surface sampling.
 
 **Grayordinates files**.
 `CIFTI <https://www.nitrc.org/forum/attachment.php?attachid=333&group_id=454&forum_id=1955>`_ is
