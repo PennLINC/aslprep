@@ -58,9 +58,11 @@ sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_from-m0scan_to-aslref_mode-imag
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_from-orig_to-aslref_mode-image_desc-hmc_xfm.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_from-orig_to-aslref_mode-image_desc-hmc_xfm.txt
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_aslref.nii.gz
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_aslref.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_desc-brain_mask.nii.gz
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_desc-brain_mask.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_desc-preproc_asl.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_desc-preproc_asl.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_space-MNI152NLin2009cAsym_desc-timeseries_cbf.json

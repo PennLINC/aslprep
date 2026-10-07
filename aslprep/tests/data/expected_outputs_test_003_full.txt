@@ -62,6 +62,7 @@ sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_from-orig_to-aslref_mode-i
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_from-orig_to-aslref_mode-image_desc-hmc_xfm.txt
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_space-T1w_desc-goodvoxels_mask.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_space-fsLR_den-91k_asl.dtseries.nii
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_space-fsLR_den-91k_asl.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_space-fsLR_den-91k_cbf.dscalar.nii
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_space-fsLR_den-91k_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-03_space-fsLR_den-91k_desc-timeseries_cbf.dtseries.nii
