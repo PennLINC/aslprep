@@ -303,31 +303,39 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     median_gm_cbf = np.median(gm_cbf_ts)
     mad_gm_cbf = median_abs_deviation(gm_cbf_ts) / 0.675
     index = 1 * (np.abs(gm_cbf_ts - median_gm_cbf) > (2.5 * mad_gm_cbf))
+
+    def _pooled_variance(R):
+        # Pooled within-tissue variance of the mean CBF map
+        return (
+            n_gm_voxels * np.var(R[gm_bin])
+            + n_wm_voxels * np.var(R[wm_bin])
+            + n_csf_voxels * np.var(R[csf_bin])
+        )
+
+    # Iteratively remove the volume most correlated with the mean CBF map,
+    # for as long as doing so lowers the pooled within-tissue variance.
     R = np.mean(cbfts[:, :, :, index == 0], axis=3)
-    V = (
-        n_gm_voxels * np.var(R[gm == 1])
-        + n_wm_voxels * np.var(R[wm == 1])
-        + n_csf_voxels * np.var(R[csf == 1])
-    )
-    V1 = V + 1
-    while V < V1:
-        V1 = V
-        CC = np.zeros(cbfts.shape[3]) * (-2)
+    V = _pooled_variance(R)
+    V_prev = np.inf
+    inx = None
+    while V < V_prev and np.sum(index == 0) > 2:
+        V_prev = V
+        CC = np.full(cbfts.shape[3], -2.0)
         for s in range(cbfts.shape[3]):
             if index[s] != 0:
-                break
-            else:
-                tmp1 = cbfts[:, :, :, s]
-                CC[s] = np.corrcoef(R[mask1 > 0], tmp1[mask1 > 0])[0][1]
+                continue
+
+            tmp1 = cbfts[:, :, :, s]
+            CC[s] = np.corrcoef(R[mask1 > 0], tmp1[mask1 > 0])[0][1]
 
         inx = np.argmax(CC)
         index[inx] = 2
         R = np.mean(cbfts[:, :, :, index == 0], axis=3)
-        V = (
-            (n_gm_voxels * np.var(R[gm == 1]))
-            + (n_wm_voxels * np.var(R[wm == 1]))
-            + (n_csf_voxels * np.var(R[csf == 1]))
-        )
+        V = _pooled_variance(R)
+
+    if inx is not None and not V < V_prev:
+        # The last removal did not lower the variance, so undo it
+        index[inx] = 0
 
     config.loggers.utils.warning(f'SCORE retains {np.sum(index == 0)}/{index.size} volumes')
     cbfts_recon = cbfts[:, :, :, index == 0]
@@ -447,12 +455,8 @@ def _scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber', thresh=0.7):
     M = mean_cbf * mask
     M[mask == 1] = mu
     modrobprior = mu / 10
-    gmidx2 = (
-        1 * ([gm.flatten() > thresh] and [M.flatten() == 0] and [wm.flatten() > csf.flatten()])[0]
-    )
-    wmidx2 = (
-        1 * ([wm.flatten() > thresh] and [M.flatten() == 0] and [gm.flatten() > csf.flatten()])[0]
-    )
+    gmidx2 = 1 * ((gm.flatten() > thresh) & (M.flatten() == 0) & (wm.flatten() > csf.flatten()))
+    wmidx2 = 1 * ((wm.flatten() > thresh) & (M.flatten() == 0) & (gm.flatten() > csf.flatten()))
     if np.sum(gmidx2) == 0 or np.sum(wmidx2) == 0:
         gmidx2 = 1 * (gm.flatten() > thresh)
         wmidx2 = 1 * (wm.flatten() > thresh)
