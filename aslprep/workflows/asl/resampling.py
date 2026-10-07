@@ -277,3 +277,260 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
             workflow.connect([(sampler, update_metadata, [('out_file', 'in_file')])])
 
     return workflow
+
+
+def init_asl_wb_surf_wf(
+    *,
+    source_file: str,
+    surface_spaces: list,
+    metadata: dict,
+    output_dir: str,
+    cbf_3d: list[str],
+    cbf_4d: list[str],
+    att: list[str],
+    omp_nthreads: int,
+    mem_gb: float,
+    name: str = 'asl_wb_surf_wf',
+):
+    """Resample CBF derivatives to surface templates using the Connectome Workbench.
+
+    This is the ASL counterpart of the Workbench-based surface resampling in fMRIPrep's
+    ``init_bold_wf`` (nipreps/fmriprep#3461).
+    Each derivative is warped to the anatomical reference, sampled onto the subject's native
+    surface with the "ribbon-constrained" method, dilated, and then resampled to each surface
+    template whose spheres are registered to fsLR.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: colored
+            :simple_form: yes
+
+            from niworkflows.utils.spaces import Reference
+
+            from aslprep.tests.tests import mock_config
+            from aslprep.workflows.asl.resampling import init_asl_wb_surf_wf
+
+            with mock_config():
+                wf = init_asl_wb_surf_wf(
+                    source_file='sub-01_asl.nii.gz',
+                    surface_spaces=[Reference('fsLR', {'den': '32k'})],
+                    metadata={'RepetitionTime': 4.0},
+                    output_dir='.',
+                    cbf_3d=['mean_cbf'],
+                    cbf_4d=[],
+                    att=[],
+                    omp_nthreads=1,
+                    mem_gb=1,
+                )
+
+    Parameters
+    ----------
+    source_file
+        Original ASL series, used to name the outputs.
+    surface_spaces
+        :class:`~niworkflows.utils.spaces.Reference` objects for the target surface templates.
+        Each one must specify a density.
+    metadata
+        BIDS metadata for the ASL series.
+    output_dir
+        Directory in which to save derivatives.
+    cbf_3d, cbf_4d, att
+        Names of the CBF derivatives to resample.
+    omp_nthreads
+        Maximum number of threads an individual process may use.
+    mem_gb
+        Size of the resampled ASL file in GB.
+    name
+        Name of workflow (default: ``asl_wb_surf_wf``).
+
+    Inputs
+    ------
+    source_files
+        Files to list as Sources in the output metadata.
+    anat_ref_file
+        ASL-resolution reference image in anatomical space.
+    aslref2anat_xfm
+        Affine transform from the ASL reference to the anatomical reference.
+    white, pial, midthickness
+        Left and right hemisphere GIFTI surfaces.
+    sphere_reg_fsLR
+        Left and right hemisphere registration spheres to fsLR.
+    goodvoxels_mask
+        Pre-computed goodvoxels mask in anatomical space. Only used if
+        ``--project-goodvoxels`` is enabled.
+    """
+    import templateflow.api as tf
+    from fmriprep.workflows.bold.resampling import init_wb_surf_surf_wf, init_wb_vol_surf_wf
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from smriprep.workflows.surfaces import init_resample_surfaces_wf
+
+    from aslprep.interfaces.bids import BIDSURI
+    from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS, prepare_timing_parameters
+
+    targets = []
+    for ref in surface_spaces:
+        density = ref.spec.get('density') or ref.spec.get('den')
+        if density is None:
+            config.loggers.workflow.warning(
+                f'Cannot resample to surface space {ref} without a density. Skipping.'
+            )
+            continue
+        targets.append((ref.space, density))
+
+    workflow = Workflow(name=name)
+
+    template_strs = []
+    for template, density in targets:
+        template_meta = tf.get_metadata(template)
+        template_refs = ['@onavg'] if template == 'onavg' else []
+        if template_meta.get('RRID'):
+            template_refs.append(f'RRID:{template_meta["RRID"]}')
+        template_refs.append(f'TemplateFlow ID: {template}')
+        template_strs.append(
+            f'*{template_meta.get("Name", template)}* [{"; ".join(template_refs)}] '
+            f'({density} density)'
+        )
+    goodvoxels_str = (
+        ', excluding voxels marked by the "goodvoxels" mask,'
+        if config.workflow.project_goodvoxels
+        else ''
+    )
+    workflow.__desc__ = f"""\
+The CBF maps were resampled onto the native surface of the subject{goodvoxels_str}
+using the "ribbon-constrained" method of the Connectome Workbench [@hcppipelines],
+dilated by 10 mm, and then resampled to the following surface templates:
+{', '.join(template_strs)}.
+"""
+
+    inputnode_fields = [
+        'source_files',
+        'anat_ref_file',
+        'aslref2anat_xfm',
+        'white',
+        'pial',
+        'midthickness',
+        'sphere_reg_fsLR',
+        'goodvoxels_mask',
+    ]
+    inputnode_fields += cbf_3d
+    inputnode_fields += cbf_4d
+    inputnode_fields += att
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=inputnode_fields),
+        name='inputnode',
+    )
+
+    sources = pe.Node(
+        BIDSURI(
+            numinputs=1,
+            dataset_links=config.execution.dataset_links,
+            out_dir=str(output_dir),
+        ),
+        name='sources',
+    )
+    workflow.connect([(inputnode, sources, [('source_files', 'in1')])])
+
+    # Subject midthickness surfaces resampled to each template, shared by all derivatives
+    resample_surfaces_wfs = {}
+    for template, density in targets:
+        resample_surfaces_wf = init_resample_surfaces_wf(
+            surfaces=['midthickness'],
+            template=template,
+            density=density,
+            name=f'resample_surfaces_{template}_{density}_wf',
+        )
+        workflow.connect([
+            (inputnode, resample_surfaces_wf, [
+                ('midthickness', 'inputnode.midthickness'),
+                ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
+            ]),
+        ])  # fmt:skip
+        resample_surfaces_wfs[(template, density)] = resample_surfaces_wf
+
+    timing_parameters = prepare_timing_parameters(metadata)
+    for cbf_deriv in cbf_4d + cbf_3d + att:
+        kwargs = {}
+        if cbf_deriv in cbf_4d:
+            kwargs['dimension'] = 3
+
+        warp_cbf_to_anat = pe.Node(
+            ApplyTransforms(
+                interpolation='LanczosWindowedSinc',
+                float=True,
+                input_image_type=3,
+                args='-v',
+                **kwargs,
+            ),
+            name=f'warp_{cbf_deriv}_to_anat',
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+
+        wb_vol_surf_wf = init_wb_vol_surf_wf(
+            omp_nthreads=omp_nthreads,
+            mem_gb=mem_gb,
+            dilate=True,
+            name=f'{cbf_deriv}_wb_vol_surf_wf',
+        )
+        # The parent workflow describes the resampling
+        wb_vol_surf_wf.__desc__ = None
+        workflow.connect([
+            (inputnode, warp_cbf_to_anat, [
+                (cbf_deriv, 'input_image'),
+                ('anat_ref_file', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
+            ]),
+            (inputnode, wb_vol_surf_wf, [
+                ('white', 'inputnode.white'),
+                ('pial', 'inputnode.pial'),
+                ('midthickness', 'inputnode.midthickness'),
+            ]),
+            (warp_cbf_to_anat, wb_vol_surf_wf, [('output_image', 'inputnode.bold_file')]),
+        ])  # fmt:skip
+        if config.workflow.project_goodvoxels:
+            workflow.connect([
+                (inputnode, wb_vol_surf_wf, [('goodvoxels_mask', 'inputnode.volume_roi')]),
+            ])  # fmt:skip
+
+        for template, density in targets:
+            wb_surf_surf_wf = init_wb_surf_surf_wf(
+                template=template,
+                density=density,
+                omp_nthreads=omp_nthreads,
+                mem_gb=mem_gb,
+                name=f'{cbf_deriv}_wb_surf_{template}_{density}_wf',
+            )
+            wb_surf_surf_wf.__desc__ = None
+
+            ds_cbf_surf = pe.MapNode(
+                DerivativesDataSink(
+                    source_file=source_file,
+                    base_directory=output_dir,
+                    space=template,
+                    density=density,
+                    extension='.func.gii',
+                    **timing_parameters,
+                    **BASE_INPUT_FIELDS[cbf_deriv],
+                ),
+                iterfield=['in_file', 'hemi'],
+                name=f'ds_{cbf_deriv}_{template}_{density}',
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            ds_cbf_surf.inputs.hemi = ['L', 'R']
+
+            workflow.connect([
+                (inputnode, wb_surf_surf_wf, [
+                    ('midthickness', 'inputnode.midthickness'),
+                    ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
+                ]),
+                (wb_vol_surf_wf, wb_surf_surf_wf, [
+                    ('outputnode.bold_fsnative', 'inputnode.bold_fsnative'),
+                ]),
+                (resample_surfaces_wfs[(template, density)], wb_surf_surf_wf, [
+                    (f'outputnode.midthickness_{template}', 'inputnode.midthickness_resampled'),
+                ]),
+                (wb_surf_surf_wf, ds_cbf_surf, [('outputnode.bold_resampled', 'in_file')]),
+                (sources, ds_cbf_surf, [('out', 'Sources')]),
+            ])  # fmt:skip
+
+    return workflow

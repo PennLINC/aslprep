@@ -189,6 +189,7 @@ def init_asl_wf(
     basil = config.workflow.basil
     nonstd_spaces = set(spaces.get_nonstandard())
     freesurfer_spaces = spaces.get_fs_spaces()
+    surf_std = [ref for ref in spaces.get_standard(dim=(2,)) if ref.space != 'fsaverage']
     layout = config.execution.layout
 
     # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
@@ -701,6 +702,46 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
         ])  # fmt:skip
 
+    if surf_std and not config.workflow.run_reconall:
+        config.loggers.workflow.warning(
+            'Resampling to surface templates requires FreeSurfer surfaces. '
+            f'Skipping {", ".join(str(ref) for ref in surf_std)}.'
+        )
+        surf_std = []
+
+    # Goodvoxels mask might be needed in any surface resampling
+    goodvoxels_bold_mask_wf = None
+    if config.workflow.project_goodvoxels and (config.workflow.cifti_output or surf_std):
+        from fmriprep.workflows.bold.resampling import init_goodvoxels_bold_mask_wf
+
+        goodvoxels_bold_mask_wf = init_goodvoxels_bold_mask_wf(mem_gb['resampled'])
+        ds_goodvoxels_mask = pe.Node(
+            DerivativesDataSink(
+                base_directory=config.execution.aslprep_dir,
+                compress=True,
+                space='T1w',
+                desc='goodvoxels',
+                suffix='mask',
+            ),
+            name='ds_goodvoxels_mask',
+            run_without_submitting=True,
+        )
+        ds_goodvoxels_mask.inputs.source_file = asl_file
+
+        workflow.__postdesc__ += """\
+A "goodvoxels" mask was applied during volume-to-surface sampling, excluding
+voxels whose time-series have a locally high coefficient of variation.
+"""
+        workflow.connect([
+            (inputnode, goodvoxels_bold_mask_wf, [('anat_ribbon', 'inputnode.anat_ribbon')]),
+            (asl_anat_wf, goodvoxels_bold_mask_wf, [
+                ('outputnode.bold_file', 'inputnode.bold_file'),
+            ]),
+            (goodvoxels_bold_mask_wf, ds_goodvoxels_mask, [
+                ('outputnode.goodvoxels_mask', 'in_file'),
+            ]),
+        ])  # fmt:skip
+
     # GIFTI outputs
     if config.workflow.run_reconall and freesurfer_spaces:
         from aslprep.workflows.asl.resampling import init_asl_surf_wf
@@ -763,7 +804,6 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ('midthickness_fsLR', 'inputnode.midthickness_fsLR'),
                 ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
                 ('cortex_mask', 'inputnode.cortex_mask'),
-                ('anat_ribbon', 'inputnode.anat_ribbon'),
             ]),
             (asl_fit_wf, asl_cifti_resample_wf, [
                 ('outputnode.coreg_aslref', 'inputnode.coreg_aslref'),
@@ -812,15 +852,66 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             ]),
             (asl_cifti_resample_wf, ds_asl_cifti_wf, [
                 ('outputnode.asl_cifti', 'inputnode.asl_cifti'),
-                ('outputnode.goodvoxels_mask', 'inputnode.goodvoxels_mask'),
             ]),
         ])  # fmt:skip
+
+        if goodvoxels_bold_mask_wf is not None:
+            workflow.connect([
+                (goodvoxels_bold_mask_wf, asl_cifti_resample_wf, [
+                    ('outputnode.goodvoxels_mask', 'inputnode.goodvoxels_mask'),
+                ]),
+                (goodvoxels_bold_mask_wf, ds_asl_cifti_wf, [
+                    ('outputnode.goodvoxels_mask', 'inputnode.goodvoxels_mask'),
+                ]),
+            ])  # fmt:skip
 
         # Feed CIFTI into CBF-reporting workflow
         if 'cbf_ts' in cbf_4d_derivs:
             workflow.connect([
                 (ds_asl_cifti_wf, cbf_reporting_wf, [
                     ('outputnode.cbf_ts', 'inputnode.cifti_cbf_ts'),
+                ]),
+            ])  # fmt:skip
+
+    if surf_std:
+        from aslprep.workflows.asl.resampling import init_asl_wb_surf_wf
+
+        config.loggers.workflow.debug('Creating ASL Workbench surface-resampling workflow.')
+        asl_wb_surf_wf = init_asl_wb_surf_wf(
+            source_file=asl_file,
+            surface_spaces=surf_std,
+            metadata=metadata,
+            output_dir=config.execution.aslprep_dir,
+            cbf_3d=cbf_3d_derivs,
+            cbf_4d=cbf_4d_derivs,
+            att=att_derivs,
+            omp_nthreads=omp_nthreads,
+            mem_gb=mem_gb['resampled'],
+            name='asl_wb_surf_wf',
+        )
+        workflow.connect([
+            (merge_asl_sources, asl_wb_surf_wf, [('out', 'inputnode.source_files')]),
+            (inputnode, asl_wb_surf_wf, [
+                ('white', 'inputnode.white'),
+                ('pial', 'inputnode.pial'),
+                ('midthickness', 'inputnode.midthickness'),
+                ('sphere_reg_fsLR', 'inputnode.sphere_reg_fsLR'),
+            ]),
+            (asl_anat_wf, asl_wb_surf_wf, [
+                # Used for affine/resolution reference only
+                ('outputnode.resampling_reference', 'inputnode.anat_ref_file'),
+            ]),
+            (asl_fit_wf, asl_wb_surf_wf, [
+                ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+            ]),
+            (cbf_wf, asl_wb_surf_wf, [
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+            ]),
+        ])  # fmt:skip
+        if goodvoxels_bold_mask_wf is not None:
+            workflow.connect([
+                (goodvoxels_bold_mask_wf, asl_wb_surf_wf, [
+                    ('outputnode.goodvoxels_mask', 'inputnode.goodvoxels_mask'),
                 ]),
             ])  # fmt:skip
 
