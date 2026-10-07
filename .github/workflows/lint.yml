@@ -26,8 +26,8 @@ jobs:
       - uses: actions/checkout@v7
       # Keep this pin in sync with the ruff rev in .pre-commit-config.yaml.
       # Unpinned, CI silently follows new ruff releases and goes red without a code change.
-      - run: pipx run --spec ruff==0.14.11 ruff check .
-      - run: pipx run --spec ruff==0.14.11 ruff format --diff .
+      - run: pipx run --spec ruff==0.15.0 ruff check .
+      - run: pipx run --spec ruff==0.15.0 ruff format --diff .
 
   codespell:
     name: Check for spelling errors

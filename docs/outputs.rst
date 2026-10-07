@@ -375,7 +375,7 @@ corresponding :abbr:`ASL (arterial spin labelling)` time series::
 
 Confounds include the six head-motion parameters (three rotations and three translations),
 which are common outputs from the head-motion correction (also known as *realignment*).
-*ASLPrep* also generates framewise displacement, `DVARS`, and `std_dvars`.
+*ASLPrep* also generates framewise displacement, ``DVARS``, and ``std_dvars``.
 Confound variables calculated in *ASLprep* are stored separately for each subject,
 session and run in :abbr:`TSV (tab-separated value)` files,
 with one column for each confound variable.

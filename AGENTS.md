@@ -218,11 +218,15 @@ ASLPrep now follows the same CI trigger-condition pattern as XCP-D:
 
 ### Linting Notes
 
-ASLPrep has 4 suppressed ruff rules:
-- `UP031`: Old-style string formatting (to be fixed incrementally)
+ASLPrep's ruff configuration (`extend-select` and `ignore`) matches fMRIPrep's. The suppressed rules are:
 - `S311`: Random not for crypto (intentional)
-- `ISC001`: Implicit string concatenation (conflicts with formatter)
-- `S603`: Subprocess with shell=True (trusted commands only)
+- `S603`: Subprocess call without shell=True (trusted commands only)
+- `PIE790`: Unnecessary `pass`
+- `PERF203`: `try`/`except` within a loop
+- `PLC0415`: Import outside top level (lazy imports inside workflow builders and Nipype functions)
+- `PLW2901`: Loop variable overwritten
+- `RUF005`: Collection literal concatenation
+- `RUF012`: Mutable class attributes without `ClassVar` (Nipype specs)
 
 ### ASL-Specific Terminology
 
@@ -262,4 +266,3 @@ This roadmap covers harmonization work across all four PennLINC BIDS Apps (qsipr
 12. ~~**Standardize Dockerfile patterns**~~ -- done: all four repos now use pixi-based multi-stage builds with `pennlinc/<pkg>-base:<YYYYMMDD>` base images.
 13. **Create a shared `pennlinc-style` package or cookiecutter template** providing `pyproject.toml` lint/test config, `.pre-commit-config.yaml`, `tox.ini`, and CI workflows.
 14. **Evaluate `nipreps-versions` calver** -- the `raw-options = { version_scheme = "nipreps-calver" }` line is commented out in all four repos. Decide whether to adopt it.
-
