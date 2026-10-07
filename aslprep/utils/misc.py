@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import os
-
 import nibabel as nb
 
 
@@ -31,19 +29,6 @@ def get_n_volumes(fname):
         raise ValueError(f'Image has {img.ndim} dimensions: {fname}')
 
     return n_volumes
-
-
-def _create_mem_gb(asl_fname):
-    """Estimate the memory needed for different operations, based on the size of the data."""
-    asl_size_gb = os.path.getsize(asl_fname) / (1024**3)
-    asl_tlen = nb.load(asl_fname).shape[-1]
-    mem_gb = {
-        'filesize': asl_size_gb,
-        'resampled': asl_size_gb * 4,
-        'largemem': asl_size_gb * (max(asl_tlen / 100, 1.0) + 4),
-    }
-
-    return asl_tlen, mem_gb
 
 
 def _get_wf_name(asl_fname, prefix):

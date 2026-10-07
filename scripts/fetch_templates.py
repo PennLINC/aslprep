@@ -17,6 +17,8 @@ def fetch_MNI2009():
 
     tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-01_T1w.nii.gz
     tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-02_T1w.nii.gz
+    tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-01_T2w.nii.gz
+    tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-02_T2w.nii.gz
     tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-01_desc-brain_mask.nii.gz
     tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-02_desc-brain_mask.nii.gz
     tpl-MNI152NLin2009cAsym/tpl-MNI152NLin2009cAsym_res-01_desc-carpet_dseg.nii.gz
@@ -25,7 +27,7 @@ def fetch_MNI2009():
     """
     template = 'MNI152NLin2009cAsym'
 
-    tf.get(template, resolution=(1, 2), desc=None, suffix='T1w')
+    tf.get(template, resolution=(1, 2), desc=None, suffix=['T1w', 'T2w'])
     tf.get(template, resolution=(1, 2), desc='brain', suffix='mask')
     tf.get(template, resolution=1, atlas=None, desc='carpet', suffix='dseg')
     tf.get(template, resolution=2, desc='fMRIPrep', suffix='boldref')

@@ -11,7 +11,7 @@ from aslprep import config
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
-from aslprep.utils.misc import _create_mem_gb, _get_wf_name, get_n_volumes
+from aslprep.utils.misc import _get_wf_name, estimate_asl_mem_usage, get_n_volumes
 from aslprep.workflows.asl.apply import init_asl_cifti_resample_wf
 from aslprep.workflows.asl.cbf import (
     init_cbf_wf,
@@ -205,7 +205,7 @@ def init_asl_wf(
             )
             scorescrub = False
 
-    asl_tlen, mem_gb = _create_mem_gb(asl_file)
+    asl_tlen, mem_gb = estimate_asl_mem_usage(asl_file)
 
     config.loggers.workflow.debug(
         (
@@ -464,6 +464,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         workflow.connect([
             (asl_native_wf, ds_asl_native_wf, [('outputnode.asl_native', 'inputnode.asl')]),
             (asl_output_metadata, ds_asl_native_wf, [('out', 'inputnode.asl_metadata')]),
+            (asl_fit_wf, ds_asl_native_wf, [
+                ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
+                ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
+            ]),
             (cbf_wf, ds_asl_native_wf, [
                 (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
             ]),
@@ -646,6 +650,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ('outputnode.asl_mask', 'inputnode.asl_mask'),
                 ('outputnode.coreg_aslref', 'inputnode.aslref'),
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+                ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
+                ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
             ]),
             (asl_anat_wf, ds_asl_t1_wf, [('outputnode.bold_file', 'inputnode.asl')]),
             (cbf_wf, ds_asl_t1_wf, [
@@ -700,6 +706,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ]),
             (inputnode, ds_asl_std_wf, [
                 ('anat2std_xfm', 'inputnode.anat2std_xfm'),
+                ('std_t1w', 'inputnode.template'),
                 ('std_space', 'inputnode.space'),
                 ('std_resolution', 'inputnode.resolution'),
                 ('std_cohort', 'inputnode.cohort'),
@@ -708,6 +715,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ('outputnode.asl_mask', 'inputnode.asl_mask'),
                 ('outputnode.coreg_aslref', 'inputnode.aslref'),
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+                ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
+                ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
             ]),
             (asl_std_wf, ds_asl_std_wf, [
                 ('outputnode.bold_file', 'inputnode.asl'),
@@ -743,6 +752,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         )
         asl_surf_wf.inputs.inputnode.source_file = asl_file
         workflow.connect([
+            (merge_asl_sources, asl_surf_wf, [('out', 'inputnode.source_files')]),
             (inputnode, asl_surf_wf, [
                 ('t1w_preproc', 'inputnode.anat'),
                 ('subjects_dir', 'inputnode.subjects_dir'),

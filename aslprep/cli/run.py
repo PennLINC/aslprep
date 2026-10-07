@@ -188,7 +188,6 @@ def main():
             _copy_any(dseg_tsv, str(config.execution.aslprep_dir / 'desc-aparcaseg_dseg.tsv'))
         errno = 0
     finally:
-        from aslprep import data
         from aslprep.reports.core import generate_reports
 
         # Generate reports phase
@@ -199,9 +198,12 @@ def main():
             config.execution.aslprep_dir,
             config.execution.run_uuid,
             session_list=session_list,
-            bootstrap_file=data.load('reports-spec.yml'),
         )
-        write_derivative_description(config.execution.bids_dir, config.execution.aslprep_dir)
+        write_derivative_description(
+            config.execution.bids_dir,
+            config.execution.aslprep_dir,
+            dataset_links=config.execution.dataset_links,
+        )
         write_bidsignore(config.execution.aslprep_dir)
 
         if config.execution.atlases:

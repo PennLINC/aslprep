@@ -50,8 +50,6 @@ Command-Line Arguments
 .. argparse::
    :ref: aslprep.cli.parser._build_parser
    :prog: aslprep
-   :nodefault:
-   :nodefaultconst:
 
 
 ***************************************

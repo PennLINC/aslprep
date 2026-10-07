@@ -505,7 +505,11 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
     retval = build_workflow(config_file, retval={})
     aslprep_wf = retval['workflow']
     aslprep_wf.run(**config.nipype.get_plugin())
-    write_derivative_description(config.execution.bids_dir, config.execution.aslprep_dir)
+    write_derivative_description(
+        config.execution.bids_dir,
+        config.execution.aslprep_dir,
+        dataset_links=config.execution.dataset_links,
+    )
     if config.execution.atlases:
         write_atlas_dataset_description(config.execution.aslprep_dir / 'sourcedata' / 'atlases')
 

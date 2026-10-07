@@ -66,3 +66,33 @@ def test_collect_derivatives_sanitizes_fieldmap_id(tmp_path):
         fieldmap_id='my-fmap_01',
     )
     assert derivs['transforms']['aslref2fmap'] == str(xfm)
+
+
+def test_write_derivative_description(tmp_path, monkeypatch):
+    """DatasetLinks declare the datasets referenced by BIDS URIs in Sources."""
+    from aslprep.utils.bids import write_derivative_description
+
+    bids_dir = tmp_path / 'bids'
+    bids_dir.mkdir()
+    (bids_dir / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'raw', 'BIDSVersion': '1.9.0', 'DatasetDOI': '10.1/abc'})
+    )
+    deriv_dir = tmp_path / 'derivatives'
+    deriv_dir.mkdir()
+    monkeypatch.setenv('ASLPREP_DOCKER_TAG', 'unstable')
+
+    write_derivative_description(
+        bids_dir,
+        deriv_dir,
+        dataset_links={'raw': bids_dir, 'templateflow': tmp_path / 'tf'},
+    )
+    desc = json.loads((deriv_dir / 'dataset_description.json').read_text())
+    assert desc['DatasetLinks'] == {
+        'raw': str(bids_dir),
+        'templateflow': 'https://github.com/templateflow/templateflow',
+    }
+    assert desc['SourceDatasets'] == [{'URL': 'https://doi.org/10.1/abc', 'DOI': '10.1/abc'}]
+    assert desc['GeneratedBy'][0]['Container'] == {
+        'Type': 'docker',
+        'Tag': 'pennlinc/aslprep:unstable',
+    }

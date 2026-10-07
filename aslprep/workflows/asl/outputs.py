@@ -609,6 +609,9 @@ def init_ds_asl_native_wf(
         'asl',
         # Metadata for the preprocessed ASL series
         'asl_metadata',
+        # Transforms previously used to generate the outputs
+        'motion_xfm',
+        'aslref2fmap_xfm',
     ]
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
@@ -620,13 +623,19 @@ def init_ds_asl_native_wf(
 
     sources = pe.Node(
         BIDSURI(
-            numinputs=1,
+            numinputs=3,
             dataset_links=config.execution.dataset_links,
             out_dir=str(output_dir),
         ),
         name='sources',
     )
-    workflow.connect([(inputnode, sources, [('source_files', 'in1')])])
+    workflow.connect([
+        (inputnode, sources, [
+            ('source_files', 'in1'),
+            ('motion_xfm', 'in2'),
+            ('aslref2fmap_xfm', 'in3'),
+        ]),
+    ])  # fmt:skip
 
     datasinks = []
     # Write out CBF and ATT maps in aslref space
@@ -721,6 +730,10 @@ def init_ds_volumes_wf(
         'aslref2anat_xfm',
         # Template
         'anat2std_xfm',
+        'template',  # target reference image from original transform
+        # Transforms previously used to generate the outputs
+        'motion_xfm',
+        'aslref2fmap_xfm',
         # Entities
         'space',
         'cohort',
@@ -736,7 +749,7 @@ def init_ds_volumes_wf(
 
     sources = pe.Node(
         BIDSURI(
-            numinputs=1,
+            numinputs=6,
             dataset_links=config.execution.dataset_links,
             out_dir=str(output_dir),
         ),
@@ -759,7 +772,14 @@ def init_ds_volumes_wf(
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
     workflow.connect([
-        (inputnode, sources, [('source_files', 'in1')]),
+        (inputnode, sources, [
+            ('source_files', 'in1'),
+            ('motion_xfm', 'in2'),
+            ('aslref2fmap_xfm', 'in3'),
+            ('aslref2anat_xfm', 'in4'),
+            ('anat2std_xfm', 'in5'),
+            ('template', 'in6'),
+        ]),
         # Note that ANTs expects transforms in target-to-source order
         # Reverse this for nitransforms-based resamplers
         (inputnode, aslref2target, [
