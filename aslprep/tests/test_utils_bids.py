@@ -8,10 +8,12 @@ from aslprep.utils.bids import collect_derivatives
 
 XFM_NAMES = {
     'desc': {
+        'hmc': 'sub-01_from-orig_to-aslref_mode-image_desc-hmc_xfm.txt',
         'aslref2anat': 'sub-01_from-aslref_to-T1w_mode-image_desc-coreg_xfm.txt',
         'aslref2fmap': 'sub-01_from-aslref_to-auto00000_mode-image_desc-fmap_xfm.txt',
     },
     'legacy': {
+        'hmc': 'sub-01_from-orig_to-aslref_mode-image_xfm.txt',
         'aslref2anat': 'sub-01_from-aslref_to-T1w_mode-image_xfm.txt',
         'aslref2fmap': 'sub-01_from-aslref_to-auto00000_mode-image_xfm.txt',
     },
@@ -22,7 +24,7 @@ XFM_NAMES = {
 def test_collect_derivatives_transforms(tmp_path, naming):
     """Precomputed ASL transforms are found with or without desc entities.
 
-    nipreps/fmriprep#3532 added desc-coreg and desc-fmap to these transforms,
+    nipreps/fmriprep#3532 added desc entities (hmc, coreg, fmap) to these transforms,
     but derivatives from earlier versions must still be reusable.
     """
     deriv_dir = tmp_path / 'derivatives'

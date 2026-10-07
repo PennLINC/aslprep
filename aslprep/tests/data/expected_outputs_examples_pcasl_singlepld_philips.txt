@@ -83,5 +83,5 @@ sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_desc-timeseries_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_from-aslref_to-T1w_mode-image_desc-coreg_xfm.json
 sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_from-aslref_to-T1w_mode-image_desc-coreg_xfm.txt
 sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_from-m0scan_to-aslref_mode-image_xfm.txt
-sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_from-orig_to-aslref_mode-image_xfm.json
-sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_from-orig_to-aslref_mode-image_xfm.txt
+sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_from-orig_to-aslref_mode-image_desc-hmc_xfm.json
+sub-01/perf/sub-01_acq-pcaslsinglepldphilips2d_from-orig_to-aslref_mode-image_desc-hmc_xfm.txt

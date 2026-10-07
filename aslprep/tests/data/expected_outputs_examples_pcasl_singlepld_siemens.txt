@@ -65,8 +65,8 @@ sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_desc-qualitycontrol_cbf.ts
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_from-aslref_to-T1w_mode-image_desc-coreg_xfm.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_from-aslref_to-T1w_mode-image_desc-coreg_xfm.txt
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_from-m0scan_to-aslref_mode-image_xfm.txt
-sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_from-orig_to-aslref_mode-image_xfm.json
-sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_from-orig_to-aslref_mode-image_xfm.txt
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_from-orig_to-aslref_mode-image_desc-hmc_xfm.json
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_from-orig_to-aslref_mode-image_desc-hmc_xfm.txt
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_aslref.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-01_space-MNI152NLin2009cAsym_cbf.nii.gz
