@@ -116,7 +116,7 @@ def init_asl_fit_wf(
                 )
                 wf = init_asl_fit_wf(
                     asl_file=str(asl_file),
-                    aslcontext=str(asl_file.replace('.nii.gz', 'context.tsv')),
+                    aslcontext=str(asl_file).replace('.nii.gz', 'context.tsv'),
                     m0scan=None,
                     use_ge=False,
                 )
@@ -142,7 +142,8 @@ def init_asl_fit_wf(
     asl2anat_init
         Anatomical image to use as the initial target for ASL-to-anatomical
         coregistration (``'t1w'`` or ``'t2w'``).
-        If :obj:`None`, ``config.workflow.asl2anat_init`` is used.
+        If :obj:`None`, ``config.workflow.asl2anat_init`` is used,
+        with ``'auto'`` resolved to ``'t1w'``.
 
     Inputs
     ------
@@ -205,6 +206,10 @@ def init_asl_fit_wf(
         precomputed = {}
     if asl2anat_init is None:
         asl2anat_init = config.workflow.asl2anat_init
+    if asl2anat_init == 'auto':
+        # init_single_subject_wf resolves 'auto' based on T2w availability.
+        # Without subject data, fall back to the T1w.
+        asl2anat_init = 't1w'
     layout = config.execution.layout
     bids_filters = config.execution.get().get('bids_filters', {})
 

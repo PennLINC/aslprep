@@ -72,7 +72,8 @@ def init_asl_wf(
     asl2anat_init
         Anatomical image to use as the initial target for ASL-to-anatomical
         coregistration (``'t1w'`` or ``'t2w'``).
-        If :obj:`None`, ``config.workflow.asl2anat_init`` is used.
+        If :obj:`None`, ``config.workflow.asl2anat_init`` is used,
+        with ``'auto'`` resolved to ``'t1w'``.
 
     Inputs
     ------
