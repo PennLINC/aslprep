@@ -262,14 +262,14 @@ the generated transform will be named::
 
    sub-<label>/[ses-<label>/]
       perf/
-         <source_entities>_from-aslref_to-TOPUP_mode-image_xfm.nii.gz
+         <source_entities>_from-aslref_to-TOPUP_mode-image_desc-fmap_xfm.txt
 
 If the association is discovered through the ``IntendedFor`` field of the
 fieldmap metadata, then the transform will be given an auto-generated name::
 
    sub-<label>/[ses-<label>/]
       perf/
-         <source_entities>_from-aslref_to-auto000XX_mode-image_xfm.txt
+         <source_entities>_from-aslref_to-auto000XX_mode-image_desc-fmap_xfm.txt
 
 .. note::
 
