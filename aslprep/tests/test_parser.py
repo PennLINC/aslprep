@@ -186,3 +186,24 @@ def test_reuse_config(tmp_path):
     for v in ('execution.run_uuid', 'execution.aslprep_dir'):
         assert reused_config[v] != overridden_config[v]
     reset_config()
+
+
+@pytest.mark.parametrize(
+    ('supp_args', 'opt', 'expected'),
+    [
+        ([], 'use_syn_sdc', False),
+        (['--use-syn-sdc'], 'use_syn_sdc', 'error'),
+        (['--use-syn-sdc', 'warn'], 'use_syn_sdc', 'warn'),
+        ([], 'hires', True),
+        (['--no-submm-recon'], 'hires', False),
+        (['--submm-recon'], 'hires', True),
+        ([], 'run_msmsulc', True),
+        (['--no-msm'], 'run_msmsulc', False),
+        ([], 'work_dir', None),
+    ],
+)
+def test_optional_arguments(tmp_path, supp_args, opt, expected):
+    """Check options ported from fMRIPrep (nipreps/fmriprep#2680, nipreps/fmriprep#3487)."""
+    args = [str(tmp_path), str(tmp_path / 'out'), 'participant'] + supp_args
+    pargs = _build_parser().parse_args(args)
+    assert getattr(pargs, opt) == expected

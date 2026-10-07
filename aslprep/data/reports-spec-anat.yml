@@ -1,5 +1,5 @@
 package: aslprep
-itle: Anatomical report for participant '{subject}' - ASLPrep
+title: Anatomical report for participant '{subject}' - ASLPrep
 sections:
 - name: Summary
   reportlets:

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections import defaultdict
 from functools import cache
 from pathlib import Path
@@ -140,7 +141,7 @@ def collect_derivatives(
         query = {**entities, **q}
         if xfm == 'aslref2fmap' and fieldmap_id:
             # fieldmaps have ids like auto_00000
-            query['to'] = fieldmap_id.replace('_', '')
+            query['to'] = re.sub(r'[^a-zA-Z0-9]', '', fieldmap_id)
         item = layout.get(return_type='filename', **query)
         if not item:
             continue
@@ -177,8 +178,12 @@ def write_bidsignore(deriv_dir):
     ignore_file.write_text('\n'.join(bids_ignore) + '\n')
 
 
-def write_derivative_description(bids_dir, deriv_dir):
-    """Write derivative dataset_description file."""
+def write_derivative_description(bids_dir, deriv_dir, dataset_links=None):
+    """Write derivative dataset_description file.
+
+    Adapted from fMRIPrep, including the BIDS-URI DatasetLinks
+    (nipreps/fmriprep#3255, nipreps/fmriprep#3267).
+    """
     from aslprep import __version__
 
     DOWNLOAD_URL = f'https://github.com/PennLINC/aslprep/archive/{__version__}.tar.gz'
@@ -205,35 +210,36 @@ def write_derivative_description(bids_dir, deriv_dir):
 
     # Keys that can only be set by environment
     if 'ASLPREP_DOCKER_TAG' in os.environ:
-        desc['DockerHubContainerTag'] = os.environ['ASLPREP_DOCKER_TAG']
-
+        desc['GeneratedBy'][0]['Container'] = {
+            'Type': 'docker',
+            'Tag': f'pennlinc/aslprep:{os.environ["ASLPREP_DOCKER_TAG"]}',
+        }
     if 'ASLPREP_SINGULARITY_URL' in os.environ:
-        singularity_url = os.environ['ASLPREP_SINGULARITY_URL']
-        desc['SingularityContainerURL'] = singularity_url
-
-        singularity_md5 = _get_shub_version(singularity_url)
-        if singularity_md5 and singularity_md5 is not NotImplemented:
-            desc['SingularityContainerMD5'] = _get_shub_version(singularity_url)
+        desc['GeneratedBy'][0]['Container'] = {
+            'Type': 'singularity',
+            'URI': os.getenv('ASLPREP_SINGULARITY_URL'),
+        }
 
     # Keys deriving from source dataset
     orig_desc = {}
     fname = bids_dir / 'dataset_description.json'
     if fname.exists():
-        with fname.open() as fobj:
-            orig_desc = json.load(fobj)
+        orig_desc = json.loads(fname.read_text())
 
     if 'DatasetDOI' in orig_desc:
-        desc['SourceDatasetsURLs'] = [f'https://doi.org/{orig_desc["DatasetDOI"]}']
-
+        desc['SourceDatasets'] = [
+            {'URL': f'https://doi.org/{orig_desc["DatasetDOI"]}', 'DOI': orig_desc['DatasetDOI']}
+        ]
     if 'License' in orig_desc:
         desc['License'] = orig_desc['License']
 
-    with (deriv_dir / 'dataset_description.json').open('w') as fobj:
-        json.dump(desc, fobj, indent=4)
+    # Declare the datasets referenced by BIDS URIs in Sources fields
+    if dataset_links:
+        desc['DatasetLinks'] = {k: str(v) for k, v in dataset_links.items()}
+        if 'templateflow' in dataset_links:
+            desc['DatasetLinks']['templateflow'] = 'https://github.com/templateflow/templateflow'
 
-
-def _get_shub_version(singularity_url):
-    return NotImplemented
+    (deriv_dir / 'dataset_description.json').write_text(json.dumps(desc, indent=4))
 
 
 def find_atlas_entities(filename):

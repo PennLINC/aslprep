@@ -85,33 +85,38 @@ def generate_reports(
 
     if isinstance(subject_list, str):
         subject_list = [subject_list]
+    if isinstance(session_list, str):
+        session_list = [session_list]
 
     errors = []
     for subject_label in subject_list:
+        subject_label = subject_label.removeprefix('sub-')
         # The number of sessions is intentionally not based on session_list but
         # on the total number of sessions, because I want the final derivatives
         # folder to be the same whether sessions were run one at a time or all-together.
         n_ses = len(config.execution.layout.get_sessions(subject=subject_label))
 
+        # Use per-subject variables so one subject's choices don't carry over to the next
         if bootstrap_file is not None:
             # If a config file is precised, we do not override it
+            subject_bootstrap_file = bootstrap_file
             html_report = 'report.html'
         elif n_ses <= config.execution.aggr_ses_reports:
             # If there are only a few session for this subject,
             # we aggregate them in a single visual report.
-            bootstrap_file = data.load('reports-spec.yml')
+            subject_bootstrap_file = data.load('reports-spec.yml')
             html_report = 'report.html'
         else:
             # Beyond a threshold, we separate the anatomical report from the ASL.
-            bootstrap_file = data.load('reports-spec-anat.yml')
-            html_report = f'sub-{subject_label.lstrip("sub-")}_anat.html'
+            subject_bootstrap_file = data.load('reports-spec-anat.yml')
+            html_report = f'sub-{subject_label}_anat.html'
 
         if not sessionwise:
             report_error = run_reports(
                 output_dir,
                 subject_label,
                 run_uuid,
-                bootstrap_file=bootstrap_file,
+                bootstrap_file=subject_bootstrap_file,
                 out_filename=html_report,
                 reportlets_dir=reportlets_dir,
                 errorname=f'report-{run_uuid}-{subject_label}.err',
@@ -124,31 +129,32 @@ def generate_reports(
         if (n_ses > config.execution.aggr_ses_reports) or sessionwise:
             # Beyond a certain number of sessions per subject,
             # we separate the ASL reports per session
-            if session_list is None:
+            subject_sessions = session_list
+            if subject_sessions is None:
                 all_filters = config.execution.bids_filters or {}
                 filters = all_filters.get('asl', {})
-                session_list = config.execution.layout.get_sessions(
+                subject_sessions = config.execution.layout.get_sessions(
                     subject=subject_label, **filters
                 )
 
-            for session_label in session_list:
+            for session_label in subject_sessions:
                 session_label = session_label.removeprefix('ses-')
                 if sessionwise:
                     # Include the anatomical as well
-                    bootstrap_file = data.load('reports-spec.yml')
+                    session_bootstrap_file = data.load('reports-spec.yml')
                     html_report = f'sub-{subject_label}_ses-{session_label}.html'
                 else:
-                    bootstrap_file = data.load('reports-spec-asl.yml')
+                    session_bootstrap_file = data.load('reports-spec-asl.yml')
                     html_report = f'sub-{subject_label}_ses-{session_label}_asl.html'
 
                 report_error = run_reports(
                     output_dir,
                     subject_label,
                     run_uuid,
-                    bootstrap_file=bootstrap_file,
+                    bootstrap_file=session_bootstrap_file,
                     out_filename=html_report,
                     reportlets_dir=reportlets_dir,
-                    errorname=f'report-{run_uuid}-{subject_label}-asl.err',
+                    errorname=f'report-{run_uuid}-{subject_label}-ses-{session_label}-asl.err',
                     subject=subject_label,
                     session=session_label,
                 )
