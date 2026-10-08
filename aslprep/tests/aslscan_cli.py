@@ -7,6 +7,7 @@ then checks one metric per test item, so one failure does not hide the others.
 """
 
 import json
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -50,6 +51,9 @@ def run_recipe(
     test_dir = Path(output_dir) / test_name
     out_dir = test_dir / 'aslprep'
     work_dir = Path(working_dir) / test_name
+    # Start clean: files left by an earlier local run would leak into the output manifest.
+    shutil.rmtree(test_dir, ignore_errors=True)
+    shutil.rmtree(work_dir, ignore_errors=True)
     out_dir.mkdir(parents=True, exist_ok=True)
     filter_file = test_dir / 'bids_filters.json'
     filter_file.write_text(json.dumps({'asl': {'acquisition': recipe.acq}}, indent=2))
