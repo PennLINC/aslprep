@@ -170,6 +170,8 @@ RECIPES = {
     'fast_label_first': 'PCASL with label-control ordering',
     'fast_deltam': 'PCASL as delta-M volumes',
     'fast_bs_le_absent': 'PCASL with two suppression pulses and no LabelingEfficiency',
+    'fast_pcasl_multipld': 'multi-delay PCASL, label first, unequal repeats',
+    'fast_pasl_multipld': 'multi-delay PASL, Q2TIPS',
 }
 
 TESTS_DIR = Path(__file__).resolve().parent

@@ -482,7 +482,73 @@ findings and log them here. Summarize for the user, with the open items.
 
 ## Measurements
 
-(Filled in during implementation.)
+### Build and generation
+
+- Test image build (local, cold): 344 s.
+- aslscan clone and build at the pins: 17 s once crates are cached (rustup 1.98.0 minimal
+  installed separately).
+- aslscan's `Cargo.lock` is not committed upstream. It is vendored as
+  `tests/data/aslscan-Cargo.lock` and hashed into the spec.
+- Phantoms: `tfmni` 6.1 s and `tfmni-flat` 2.2 s; the cache hit takes 0.02 s.
+- Overlap check: our exact overlap reproduces aslscan's `perfusion_gt` to 3.8e-6.
+- Fast recipes generate in 1.5-9.3 s each, about 50 s for all 14. Output is byte-identical
+  at 1 and 4 threads.
+
+### Mask populations
+
+- The fast crop is `crop:tfmni:110:150,110:150,100:124` (16x16x6 at 2.5x2.5x4 mm, 1,536
+  voxels): `valid` 1,519, `dom_GM` 292, `dom_WM` 1,061.
+- The fast tier asserts on `valid` (minimum 500), not per tissue. Per-tissue minimums apply to
+  integration recipes.
+
+### Fast tier
+
+| Environment | Result | Wall time |
+|---|---|---|
+| micromamba env | 82 passed, 1 skipped, 2 xfailed | 46 s (first run, before multi-delay) |
+| test image, 2 CPUs | 125 passed, 3 skipped, 2 xfailed | 89 s |
+
+The image run covers fixtures, interpretation and conformance.
+
+### Tier A
+
+- Single-delay: ASLPrep agrees with the independent implementation to 1e-9 (median) on 10 of
+  11 recipes.
+- Multi-delay: CBF agrees to 1e-8. ATT agrees to 7.6e-3 s (PASL) and 1e-7 s (PCASL).
+- One PASL voxel fails ASLPrep's fit; the finite fraction is 0.9993.
+
+### Findings
+
+- **Q2TIPS single-delay** (strict xfail, reported). ASLPrep uses `exp(TI2 / T1b)` with no
+  slice shift, which matches to 8e-8. The white paper uses TI. The CBF is 0.809 of the
+  white-paper value. With the same physics, QUIPSS II recovers 0.953 of the truth in GM, while
+  ASLPrep's Q2TIPS recovers 0.771.
+- **Background-suppression gap** (strict xfail). The measured ratio matches the predicted
+  0.8975 within 2 %.
+- **`collect_run_data`** (`utils/bids.py`). Its `ValueError` message reads
+  `run_data["asl_metadata"]` before assignment. Not yet reported.
+
+### Tier B (fast tier, ASLPrep / truth)
+
+| Recipe | GM | WM |
+|---|---|---|
+| PCASL | 0.80 | 0.47 |
+| QUIPSS II | 0.95 | 0.79 |
+| multi-delay PCASL | 0.84 | 0.45 |
+| multi-delay PASL (GM) | 0.91 | |
+
+These match the model-mismatch expectation.
+
+### Dependency differences
+
+The test image has numpy 2.2.6, scipy 1.15.2 and nibabel 5.3.2; the micromamba environment has
+numpy 2.5.3, scipy 1.18.1 and nibabel 5.4.2. One test that was fragile to these differences
+(the mutation mask) was fixed.
+
+### JUnit
+
+`record_property` warns under xunit2. CI should pass `-o junit_family=legacy` for the fast
+tier's properties to appear (Task 13).
 
 ## Review log
 

@@ -191,3 +191,132 @@ def expected_cbf(
         pld_shift=0.1 if mutation == 'pld_shift' else 0.0,
     )
     return cbf_single_delay(deltam, m0, metadata, alpha, pld)
+
+
+# ---------------------------------------------------------------------------------------------
+# Multi-delay
+# ---------------------------------------------------------------------------------------------
+#: Fit settings ASLPrep documents for its general-kinetic-model fit (utils/cbf.py,
+#: fit_deltam_multipld): initial (CBF, ATT, aBAT, aBV) and bounds.
+FIT_P0 = (60.0, 1.2, 1.0, 0.02)
+FIT_BOUNDS = ((0.0, 0.0, 0.0, 0.0), (300.0, 5.0, 5.0, 0.1))
+
+
+def gkm_pcasl(pld, tau, cbf, att, abat, abv, alpha, t1b, m0a, m0b):
+    """(P)CASL delta-M: Buxton tissue term plus a plug-flow arterial term.
+
+    Tissue (Buxton et al. 1998; Woods et al. 2023, eq. 2), with ``f = cbf / 6000``:
+    0 before arrival; ``2 a M0a f T1b e^(-ATT/T1b) (1 - e^(-(tau + PLD - ATT)/T1b))`` while
+    the bolus arrives; ``2 a M0a f T1b e^(-PLD/T1b) (1 - e^(-tau/T1b))`` after.
+    Arterial (Chappell et al. 2010): ``2 a M0b aBV e^(-aBAT/T1b)`` while the bolus is in the
+    vessel (``aBAT <= tau + PLD < aBAT + tau``), else 0.
+    """
+    end = tau + pld
+    f = cbf / UNIT_CONVERSION
+    arriving = 2 * alpha * m0a * f * t1b * np.exp(-att / t1b) * (1 - np.exp(-(end - att) / t1b))
+    arrived = 2 * alpha * m0a * f * t1b * np.exp(-pld / t1b) * (1 - np.exp(-tau / t1b))
+    tissue = np.where(end < att, 0.0, np.where(end < att + tau, arriving, arrived))
+    in_vessel = (abat <= end) & (end < abat + tau)
+    arterial = np.where(in_vessel, 2 * alpha * m0b * abv * np.exp(-abat / t1b), 0.0)
+    return tissue + arterial
+
+
+def gkm_pasl(ti, ti1, cbf, att, abat, abv, alpha, t1b, m0a, m0b):
+    """PASL delta-M with a bolus of duration ``ti1`` (Buxton et al. 1998; Woods et al. 2023).
+
+    Tissue: 0 before ``ATT``; ``2 a M0a f e^(-TI/T1b) (TI - ATT)`` while arriving;
+    ``2 a M0a f e^(-TI/T1b) TI1`` after. Arterial: ``2 a M0b aBV e^(-TI/T1b)`` for
+    ``aBAT < TI < aBAT + TI1``.
+    """
+    f = cbf / UNIT_CONVERSION
+    decay = np.exp(-ti / t1b)
+    tissue = np.where(
+        ti < att,
+        0.0,
+        np.where(
+            ti < att + ti1,
+            2 * alpha * m0a * f * decay * (ti - att),
+            2 * alpha * m0a * f * decay * ti1,
+        ),
+    )
+    in_vessel = (abat < ti) & (ti < abat + ti1)
+    arterial = np.where(in_vessel, 2 * alpha * m0b * abv * decay, 0.0)
+    return tissue + arterial
+
+
+def deltam_observations(asl, context, swap=False):
+    """Every delta-M observation (pairs by order, or deltam rows) and its sidecar row index."""
+    idx = volume_indices(context)
+    if idx['deltam']:
+        return asl[..., idx['deltam']], idx['deltam']
+    control, label = asl[..., idx['control']], asl[..., idx['label']]
+    diff = label - control if swap else control - label
+    return diff, idx['control']
+
+
+def fit_multi_delay(deltam, m0, plds, metadata, alpha):
+    """Fit CBF, ATT, aBAT and aBV per voxel, over every observation.
+
+    ``deltam`` and ``plds`` are (n_voxels, n_observations); ``m0`` is the calibration image
+    (already TR-corrected and scaled), (n_voxels,). Uses :data:`FIT_P0` and
+    :data:`FIT_BOUNDS`; ``M0b`` equals ``M0a = M0 / lambda``, as ASLPrep documents. A failed
+    fit gives NaN.
+    """
+    from scipy.optimize import curve_fit
+
+    t1b = T1_BLOOD[metadata['MagneticFieldStrength']]
+    kind = metadata['ArterialSpinLabelingType']
+    n_obs = deltam.shape[1]
+    if kind in ('PCASL', 'CASL'):
+        tau = np.broadcast_to(np.asarray(metadata['LabelingDuration'], float), (n_obs,))
+    else:
+        ti1 = float(np.atleast_1d(metadata['BolusCutOffDelayTime'])[0])
+    out = np.full((deltam.shape[0], 4), np.nan)
+    for i in range(deltam.shape[0]):
+        m0a = m0[i] / LAMBDA
+        if kind in ('PCASL', 'CASL'):
+
+            def model(p, cbf, att, abat, abv, m0a=m0a):
+                return gkm_pcasl(p, tau, cbf, att, abat, abv, alpha, t1b, m0a, m0a)
+        else:
+
+            def model(p, cbf, att, abat, abv, m0a=m0a):
+                return gkm_pasl(p, ti1, cbf, att, abat, abv, alpha, t1b, m0a, m0a)
+
+        try:
+            out[i] = curve_fit(model, plds[i], deltam[i], p0=FIT_P0, bounds=FIT_BOUNDS)[0]
+        except (RuntimeError, ValueError):
+            pass
+    return out
+
+
+def expected_multi_delay(
+    asl,
+    context,
+    metadata,
+    affine,
+    voxels,
+    m0scan=None,
+    m0_metadata=None,
+    m0_scale=1.0,
+    mutation=None,
+):
+    """Tier A expectation for multi-delay data on selected voxels (an (n, 3) index array).
+
+    Returns an (n, 4) array of CBF, ATT, aBAT and aBV. ``mutation`` as in
+    :func:`expected_cbf` (``'swap'``, ``'pld_shift'``, ``'m0_scale'``).
+    """
+    obs, rows = deltam_observations(asl, context, swap=mutation == 'swap')
+    m0, tr = m0_image(asl, context, metadata, affine, m0scan, m0_metadata, fwhm=0.0)
+    m0 = m0_tr_correction(m0, tr, metadata['MagneticFieldStrength']) * m0_scale
+    if mutation == 'm0_scale':
+        m0 = m0 * 1.1
+    plds = np.asarray(metadata['PostLabelingDelay'], float)[rows]
+    if mutation == 'pld_shift':
+        plds = plds + 0.1
+    offset = pld_map({**metadata, 'PostLabelingDelay': 0.0}, asl.shape[:3])
+    i, j, k = voxels.T
+    voxel_plds = plds[None, :] + offset[i, j, k][:, None]
+    return fit_multi_delay(
+        obs[i, j, k], m0[i, j, k], voxel_plds, metadata, labeling_efficiency(metadata)
+    )

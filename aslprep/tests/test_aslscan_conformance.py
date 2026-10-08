@@ -22,6 +22,12 @@ P99_TOL = 1e-2
 MIN_VOXELS = 500
 
 SINGLE_DELAY = sorted(n for n in af.RECIPES if n.startswith('fast_') and 'multipld' not in n)
+MULTI_DELAY = sorted(n for n in af.RECIPES if n.startswith('fast_') and 'multipld' in n)
+#: Multi-delay Tier A bounds (spec Section 4.7) and the size of the refitted voxel subset.
+MULTI_CBF_TOL = 0.02
+MULTI_ATT_TOL = 0.05  # s
+MULTI_FINITE = 0.98
+MULTI_SUBSET = 300
 MUTATIONS = ('swap', 'reverse_slices', 'pld_shift', 'm0_scale', 'efficiency_ignored')
 
 #: Known disagreements with the documented model, as strict expected failures (spec Section 8).
@@ -91,6 +97,8 @@ class Run:
             compute.inputs.m0tr = extract.outputs.m0tr
         result = compute.run(cwd=str(workdir))
         self.cbf = nb.load(result.outputs.mean_cbf).get_fdata()
+        att = result.outputs.att
+        self.att = nb.load(att).get_fdata() if att else None
 
         gt = perf / 'ground-truth'
         self.simulation = json.loads((gt / 'simulation.json').read_text())
@@ -135,7 +143,8 @@ class Run:
         out = {}
         for tissue in ('GM', 'WM'):
             mask = self.valid(self.perfusion) & (self.pv[tissue] >= 0.7)
-            out[tissue] = float(np.median(self.cbf[mask] / self.perfusion[mask]))
+            # nanmedian: a voxel whose multi-delay fit failed is NaN in ASLPrep's output
+            out[tissue] = float(np.nanmedian(self.cbf[mask] / self.perfusion[mask]))
         return out
 
 
@@ -229,3 +238,79 @@ def test_q2tips_convention_is_as_diagnosed(runs):
     median, p99 = run.deviation(convention)
     assert median <= MEDIAN_TOL
     assert p99 <= P99_TOL
+
+
+def _multi_subset(run):
+    """A deterministic subset of truth-valid voxels for the reference fits."""
+    pv = run.pv
+    mask = (pv['GM'] + pv['WM'] + pv['CSF'] >= 0.5) & (pv['CSF'] < 0.5) & (run.perfusion > 5)
+    voxels = np.argwhere(mask)
+    step = max(1, len(voxels) // MULTI_SUBSET)
+    return voxels[::step][:MULTI_SUBSET], mask
+
+
+def _multi_deviation(run, expected, voxels, reference):
+    """(|median CBF ratio - 1|, median |ATT difference|) over the subset.
+
+    Voxels are chosen from the *unmutated* ``reference`` fit (finite, CBF > 5) where ASLPrep's
+    own fit succeeded; its failures are counted separately by the finite-fraction check. A
+    mutated expectation that fails or collapses there counts as a disagreement (infinite).
+    """
+    i, j, k = voxels.T
+    cbf, att = run.cbf[i, j, k], run.att[i, j, k]
+    ok = np.isfinite(reference[:, 0]) & (reference[:, 0] > 5) & np.isfinite(cbf)
+    assert ok.sum() >= MULTI_SUBSET // 2, f'only {ok.sum()} usable voxels in the subset'
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ratio = cbf[ok] / expected[ok, 0]
+    ratio[~np.isfinite(ratio)] = np.inf
+    att_diff = np.abs(att[ok] - expected[ok, 1])
+    att_diff[~np.isfinite(att_diff)] = np.inf
+    return abs(np.median(ratio) - 1), np.median(att_diff)
+
+
+def _multi_expected(run, voxels, mutation=None):
+    return tm.expected_multi_delay(
+        run.asl,
+        run.context,
+        run.metadata,
+        run.affine,
+        voxels,
+        m0scan=run.m0scan,
+        m0_metadata=run.m0_metadata,
+        m0_scale=run.m0_scale,
+        mutation=mutation,
+    )
+
+
+_REFERENCE_FITS = {}
+
+
+def _reference_fit(name, run, voxels):
+    if name not in _REFERENCE_FITS:
+        _REFERENCE_FITS[name] = _multi_expected(run, voxels)
+    return _REFERENCE_FITS[name]
+
+
+@pytest.mark.parametrize('name', MULTI_DELAY)
+def test_tier_a_multi_delay(name, runs, record_property):
+    run = runs(name)
+    voxels, mask = _multi_subset(run)
+    finite = np.isfinite(run.cbf[mask]).mean()
+    reference = _reference_fit(name, run, voxels)
+    cbf_dev, att_dev = _multi_deviation(run, reference, voxels, reference)
+    record_property('tier_a', {'cbf': cbf_dev, 'att': att_dev, 'finite': finite})
+    record_property('tier_b', run.tier_b())
+    assert finite >= MULTI_FINITE, f'finite fraction {finite:.3f} < {MULTI_FINITE}'
+    assert cbf_dev <= MULTI_CBF_TOL, f'|median(cbf / cbf_A) - 1| = {cbf_dev:.4g}'
+    assert att_dev <= MULTI_ATT_TOL, f'median |att - att_A| = {att_dev:.4g} s'
+
+
+@pytest.mark.parametrize('mutation', ['swap', 'pld_shift', 'm0_scale'])
+@pytest.mark.parametrize('name', MULTI_DELAY)
+def test_tier_a_multi_delay_detects_mutations(name, mutation, runs):
+    run = runs(name)
+    voxels, _ = _multi_subset(run)
+    reference = _reference_fit(name, run, voxels)
+    mutated = _multi_expected(run, voxels, mutation)
+    cbf_dev, att_dev = _multi_deviation(run, mutated, voxels, reference)
+    assert cbf_dev > MULTI_CBF_TOL or att_dev > MULTI_ATT_TOL, f'{mutation} went undetected'
