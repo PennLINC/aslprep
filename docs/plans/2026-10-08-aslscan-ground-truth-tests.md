@@ -609,9 +609,10 @@ shifted 4 mm.
   the phantom, which has no scalp, this raises CBF near the brain-mask edge: median 1.19 within
   5 mm. Report-only (`tier_a.edge`).
 
-- **Multi-delay fits cover every voxel.** `ComputeCBF` receives no brain mask, so the
-  multi-delay fit runs on every voxel of the field of view, about 209,000 for F5 and mostly
-  background. F5 takes 28 min and F6 21 min, nearly all of it in this single-threaded fit.
+- **Multi-delay fits cover every voxel (by design).** `ComputeCBF` deliberately quantifies the
+  whole field of view, because ASL-based brain masks are often poor. The cost is runtime: F5
+  (about 209,000 voxels) takes 28 min and F6 21 min, nearly all of it in the single-threaded
+  fit. Not a defect; it only sets the integration tier's runtime.
 - **Multi-delay ATT is not recovered on these protocols.** The independent fit agrees with
   ASLPrep's to 0.001 s, but neither tracks the true ATT within tissue: r 0.06 in GM for F5, and
   a median error of 0.31 s. This is the four-parameter model with an arterial term on these
