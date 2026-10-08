@@ -1,0 +1,4 @@
+phantom = "crop:tfmni:110:150,110:150,100:124"
+anat = "none"
+acq = "fastbsleabsent"
+keep_labeling_efficiency = false

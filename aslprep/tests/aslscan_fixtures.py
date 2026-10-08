@@ -157,7 +157,19 @@ PHANTOM_PARAMS = {
 
 #: Recipe name -> one-line description. Inputs live in tests/data/aslscan/<name>/.
 RECIPES = {
-    'fast_pcasl_seq': 'fast tier: PCASL, single delay, ascending slices, separate M0',
+    # Fast tier: cropped phantom, noise-free, no anatomy (spec Section 5).
+    'fast_pcasl_seq': 'PCASL, single delay, ascending slices, separate M0',
+    'fast_pcasl_rev': 'PCASL with SliceEncodingDirection k-',
+    'fast_pcasl_mb': 'PCASL with multiband 2',
+    'fast_pasl_q2tips': 'PASL, single TI, Q2TIPS',
+    'fast_pasl_quipss2': 'PASL, single TI, QUIPSS II',
+    'fast_m0_included': 'PCASL with an M0 volume in the series',
+    'fast_m0_estimate': 'PCASL calibrated with M0Estimate',
+    'fast_m0_absent': 'PCASL calibrated with the mean control',
+    'fast_m0_shorttr': 'PCASL with a separate M0 at TR 3 s',
+    'fast_label_first': 'PCASL with label-control ordering',
+    'fast_deltam': 'PCASL as delta-M volumes',
+    'fast_bs_le_absent': 'PCASL with two suppression pulses and no LabelingEfficiency',
 }
 
 TESTS_DIR = Path(__file__).resolve().parent
@@ -1156,6 +1168,26 @@ def fixture_dir(name, data_dir=None):
     return generate(name, data_dir, binary)
 
 
+def mask_populations(fixture):
+    """Voxel counts of the scoring masks of spec Section 4.7 (``valid``, ``dom_GM``, ``dom_WM``).
+
+    Uses the truth only: ``valid`` = brain (PV sum >= 0.5) without CSF-dominant voxels and with
+    perfusion above 5 ml/100g/min; ``dom_L`` = ``valid`` & PV_L >= 0.7.
+    """
+    import nibabel as nb
+
+    gt = Path(fixture) / 'sub-01' / 'perf' / 'ground-truth'
+    pv = {t: nb.load(gt / f'sub-01_desc-pv{t}_gt.nii.gz').get_fdata() for t in ('GM', 'WM', 'CSF')}
+    perf = nb.load(gt / 'sub-01_desc-perfusion_gt.nii.gz').get_fdata()
+    valid = (pv['GM'] + pv['WM'] + pv['CSF'] >= 0.5) & (pv['CSF'] < 0.5) & (perf > 5)
+    return {
+        'valid': int(valid.sum()),
+        'dom_GM': int((valid & (pv['GM'] >= 0.7)).sum()),
+        'dom_WM': int((valid & (pv['WM'] >= 0.7)).sum()),
+        'grid': int(perf.size),
+    }
+
+
 def check_threads(name, binary):
     """Run aslscan on a recipe with 1 and 4 threads (with noise) and compare the images."""
     import tempfile
@@ -1218,6 +1250,9 @@ def _get_parser():
         metavar='RECIPE',
         help='check that aslscan output for RECIPE is identical at 1 and 4 threads',
     )
+    parser.add_argument(
+        '--masks', metavar='DATA_DIR', type=Path, help='print scoring-mask voxel counts'
+    )
     parser.add_argument('--aslscan', type=Path, help='the aslscan binary (stamped)')
     parser.add_argument('--only', nargs='+', metavar='RECIPE', help='restrict --generate')
     parser.add_argument('--threads', type=int, default=4, help='aslscan threads (default 4)')
@@ -1244,6 +1279,10 @@ def main(argv=None):
             print(f'{name}: {problem}')
         print(f'{len(RECIPES) - len(problems)}/{len(RECIPES)} fixtures current')
         return 1 if problems else 0
+    if opts.masks:
+        for name in opts.only or sorted(RECIPES):
+            print(f'{name}: {mask_populations(Path(opts.masks) / "aslscan" / name)}')
+        return 0
     if opts.check_threads:
         print(check_threads(opts.check_threads, find_aslscan(opts.aslscan)))
         return 0
