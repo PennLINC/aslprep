@@ -352,10 +352,21 @@ def _build_parser():
         action='store',
         nargs='+',
         default=[],
-        choices=['fieldmaps', 'sbref', 't2w', 'flair', 'fmap-jacobian'],
+        choices=[
+            'fieldmaps',
+            'sbref',
+            't2w',
+            'flair',
+            'fmap-jacobian',
+            'gradwarp',
+            'gradwarp-jacobian',
+        ],
         help=(
             'ignore selected aspects of the input dataset to disable corresponding '
-            'parts of the workflow (a space delimited list)'
+            'parts of the workflow (a space delimited list)\n'
+            ' * gradwarp: Skip gradient nonlinearity correction, even with --gradient-file\n'
+            ' * gradwarp-jacobian: Apply gradient nonlinearity correction without '
+            'Jacobian intensity modulation\n'
         ),
     )
     g_conf.add_argument(
@@ -364,13 +375,24 @@ def _build_parser():
         action='store',
         nargs='+',
         default=[],
-        choices=['bbr', 'no-bbr', 'syn-sdc', 'fmap-jacobian', 'ge', 'no-ge'],
+        choices=[
+            'bbr',
+            'no-bbr',
+            'syn-sdc',
+            'fmap-jacobian',
+            'ge',
+            'no-ge',
+            'gradwarp1D',
+            'gradwarp3D',
+        ],
         help='Force selected processing choices, overriding automatic selections '
         '(a space delimited list).\n'
         ' * [no-]bbr: Use/disable boundary-based registration for ASL-to-T1w coregistration\n'
         '             (No goodness-of-fit checks)\n'
         ' * syn-sdc: Calculate SyN-SDC correction *in addition* to other fieldmaps\n'
-        ' * [no-]ge: Use/disable GE-specific processing\n',
+        ' * [no-]ge: Use/disable GE-specific processing\n'
+        ' * gradwarp1D/gradwarp3D: Correct gradient nonlinearity through-plane only, or in\n'
+        '             all three dimensions, regardless of the ImageType metadata\n',
     )
     g_conf.add_argument(
         '--disable-n4',
@@ -598,6 +620,22 @@ any spatial references.""",
         help='do not remove median (within mask) from fieldmap',
     )
 
+    # Gradient nonlinearity options
+    g_gradwarp = parser.add_argument_group('Gradient nonlinearity correction')
+    g_gradwarp.add_argument(
+        '--gradient-file',
+        metavar='FILE',
+        type=IsFile,
+        default=None,
+        help=(
+            "The scanner's gradient coefficient file, for gradient nonlinearity correction "
+            "of the ASL data with TORTOISE: Siemens '.grad', GE '.dat', or TORTOISE '.gc'. "
+            "A ready-made ITK displacement field ('.nii' or '.nii.gz') is also accepted. "
+            'The same file is used for every ASL run, so data from different scanners must '
+            'be processed separately. Anatomical images are not corrected.'
+        ),
+    )
+
     # SyN-unwarp options
     g_syn = parser.add_argument_group('Specific options for SyN distortion correction')
     g_syn.add_argument(
@@ -781,6 +819,8 @@ def parse_args(args=None, namespace=None):
     from niworkflows.utils.bids import collect_participants
     from niworkflows.utils.spaces import Reference, SpatialReferences
 
+    from aslprep.utils.gradwarp import sanitize_siemens_coefficients, validate_gradient_flags
+
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)
 
@@ -833,6 +873,8 @@ def parse_args(args=None, namespace=None):
             'Remove `fmap-jacobian` from either the `--force` or the `--ignore` option.'
         )
         raise ValueError(msg)
+
+    validate_gradient_flags(config.workflow.gradient_file, force_set, ignore_set)
 
     # Initialize --output-spaces if not defined
     if config.execution.output_spaces is None:
@@ -944,6 +986,14 @@ applied."""
     config.execution.log_dir.mkdir(exist_ok=True, parents=True)
     output_dir.mkdir(exist_ok=True, parents=True)
     work_dir.mkdir(exist_ok=True, parents=True)
+
+    # Drop comment lines TORTOISE would misread from a Siemens coefficient file
+    if config.workflow.gradient_file and 'gradwarp' not in config.workflow.ignore:
+        config.workflow.gradient_file = sanitize_siemens_coefficients(
+            config.workflow.gradient_file,
+            work_dir / 'gradient_coefficients',
+            logger=build_log,
+        )
 
     # Force initialization of the BIDSLayout
     config.loggers.cli.debug('Initializing BIDS Layout')

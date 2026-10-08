@@ -111,6 +111,12 @@ sections:
       as it is positioned in the reportlet above.
     static: false
     subtitle: "Reconstructed <em>B<sub>0</sub></em> map in the corresponding run's space (debug mode)"
+  - bids: {datatype: figures, desc: gradwarp, suffix: asl, extension: [.svg]}
+    caption: |
+      Results of gradient nonlinearity correction on the ASL reference image.
+      The displacements are largest far from the scanner isocenter.
+    static: false
+    subtitle: Gradient nonlinearity correction
   - bids: {datatype: figures, desc: sdc, suffix: asl, extension: [.svg]}
     caption: |
       Results of performing susceptibility distortion correction (SDC) on the ASL

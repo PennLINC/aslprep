@@ -396,13 +396,30 @@ def test_test_002(data_dir, output_dir, working_dir):
 
 @pytest.mark.test_003_minimal
 def test_test_003_minimal(data_dir, output_dir, working_dir):
-    """Run ASLPrep minimal workflow on test_003 dataset."""
+    """Run ASLPrep minimal workflow on test_003 dataset.
+
+    This also exercises gradient nonlinearity correction (with TORTOISE), using a small,
+    synthetic set of Siemens gradient coefficients, as real coefficient files are proprietary.
+    """
+    grad_file = os.path.join(output_dir, 'test_003_minimal_synthetic.grad')
+    os.makedirs(output_dir, exist_ok=True)
+    with open(grad_file, 'w') as fobj:
+        fobj.write(
+            ' Synthetic gradient coefficients for tests\n'
+            ' 0.250 = R0\n'
+            '\n'
+            '  1 A( 3, 1) -0.023400 x\n'
+            '  2 A( 3, 1)  0.019800 y\n'
+            '  3 A( 3, 0)  0.045600 z\n'
+            '  4 A( 5, 0)  0.001100 z\n'
+        )
+
     base_test_003(
         data_dir,
         output_dir,
         working_dir,
         level='minimal',
-        extra_params=['--fs-no-resume'],
+        extra_params=['--fs-no-resume', f'--gradient-file={grad_file}'],
     )
 
 

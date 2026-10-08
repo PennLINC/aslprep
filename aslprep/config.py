@@ -572,6 +572,9 @@ class workflow(_Config):
     """Regularize fieldmaps with a field of B-Spline basis."""
     fmap_demean = None
     """Remove the mean from fieldmaps."""
+    gradient_file = None
+    """Scanner gradient coefficient file (``.grad``, ``.dat``, or ``.gc``) or ITK displacement
+    field (``.nii``/``.nii.gz``) for gradient nonlinearity correction."""
     hires = None
     """Run FreeSurfer ``recon-all`` with the ``-hires`` flag."""
     fs_no_resume = None
@@ -619,6 +622,8 @@ class workflow(_Config):
     basil = False
     """Run BASIL, FSL utils to compute CBF with spatial regularization and
     partial volume correction."""
+
+    _paths = ('gradient_file',)
 
     @classmethod
     def init(cls):

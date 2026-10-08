@@ -228,6 +228,87 @@ See also *SDCFlows*' :py:func:`~sdcflows.workflows.apply.correction.init_unwarp_
 :py:func:`~sdcflows.workflows.apply.registration.init_coeff2epi_wf`
 
 
+.. _gradwarp:
+
+Gradient nonlinearity correction
+================================
+
+:py:func:`~aslprep.workflows.asl.gradwarp.init_gradwarp_wf`
+
+.. workflow::
+    :graph2use: orig
+    :simple_form: yes
+
+    from tempfile import NamedTemporaryFile
+
+    from aslprep.tests.tests import mock_config
+    from aslprep.utils.gradwarp import GradwarpPlan
+    from aslprep.workflows.asl.gradwarp import init_gradwarp_wf
+
+    coeff_file = NamedTemporaryFile(suffix='.grad', delete=False).name
+    with mock_config():
+        wf = init_gradwarp_wf(
+            plan=GradwarpPlan(
+                gradient_file=coeff_file,
+                warp_dim='3D',
+                is_ge=False,
+                basis='metadata',
+            ),
+            asl_file='sub-01_asl.nii.gz',
+        )
+
+The magnetic field gradients used to encode position are not perfectly linear,
+so images are distorted, increasingly so away from the scanner's isocenter.
+Scanners can correct this themselves, but this is often turned off for EPI acquisitions.
+When the scanner's gradient coefficient file is passed with ``--gradient-file``,
+*ASLPrep* corrects the ASL data for this distortion.
+
+The coefficients are expanded into a displacement field on the ASL reference grid with
+TORTOISE's ``CreateNonlinearityDisplacementMap`` :footcite:p:`tortoisev4`.
+Siemens (``.grad``) and TORTOISE (``.gc``) coefficient files are supported.
+GE (``.dat``) coefficient files are not, as the standalone tool places their field incorrectly,
+but a ready-made ITK displacement field (``.nii``/``.nii.gz``) may be passed instead.
+
+The correction applied to each run depends on its ``ImageType`` metadata:
+
+- ``DIS3D``: the scanner already corrected the images in 3D, so no correction is applied.
+- ``DIS2D``: the scanner corrected the images in-plane, so only the through-plane
+  component of the field (along the slice normal, from ``SliceEncodingDirection``) is applied.
+- Otherwise, the full 3D field is applied.
+
+``--force gradwarp1D`` or ``--force gradwarp3D`` overrides this, and ``--ignore gradwarp``
+disables the correction.
+A separate M0 scan is handled according to its own ``ImageType`` and slice orientation.
+
+The field is never applied on its own.
+It is included in every one-shot resampling of the ASL and M0 data, alongside head-motion and
+susceptibility distortion correction, so the CBF maps and all preprocessed ASL outputs are
+corrected without extra interpolation.
+Because the gradient field is fixed to the scanner rather than to the head,
+it is evaluated separately for each volume, after that volume's head motion.
+It is also applied to the reference image used for ASL-to-anatomical coregistration,
+and to the reference image to which the fieldmap is registered.
+Intensities are modulated by the field's Jacobian determinant,
+unless ``--ignore gradwarp-jacobian`` is used.
+When the M0 scan is corrected along with the ASL data, this modulation cancels out of CBF.
+ASL series containing only CBF volumes (quantified on the scanner) are never modulated,
+as CBF is a per-tissue quantity rather than a signal.
+When fieldmap Jacobian correction is also applied, the two determinants are multiplied,
+which matches the determinant of the combined deformation to first order.
+
+Because the coregistration reference, its mask, and the ASL-to-anatomical and ASL-to-fieldmap
+transforms depend on the corrected geometry, precomputed versions of them (``--derivatives``)
+are recomputed rather than reused when gradient nonlinearity correction is enabled.
+
+Limitations:
+
+- Anatomical images are not corrected.
+  Use anatomical images that were corrected on the scanner (``ImageType`` containing ``DIS3D``).
+- The images used to estimate fieldmaps (including SyN-SDC) are not corrected.
+- The same coefficient file is used for every run, so data from different scanners must be
+  processed separately.
+
+
 .. _asl_preproc:
 
 Preprocessed ASL in native space
@@ -237,8 +318,9 @@ A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
 from the original data in the original space.
 All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
 resampled in their native space by concatenating the mappings found in previous correction workflows
-(:abbr:`HMC (head-motion correction)` and
-:abbr:`SDC (susceptibility-derived distortion correction)`, if executed)
+(:abbr:`HMC (head-motion correction)`,
+:abbr:`SDC (susceptibility-derived distortion correction)`, and
+gradient nonlinearity correction, if executed)
 for a one-shot interpolation process.
 Interpolation uses a Lanczos kernel.
 

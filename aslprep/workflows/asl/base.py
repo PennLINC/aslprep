@@ -3,7 +3,6 @@
 """Preprocessing workflows for ASL data."""
 
 import numpy as np
-from fmriprep.workflows.bold.apply import init_bold_volumetric_resample_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 
@@ -11,8 +10,12 @@ from aslprep import config
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.utils.asl import determine_multi_pld, select_processing_target
 from aslprep.utils.bids import collect_run_data
+from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
 from aslprep.utils.misc import _get_wf_name, estimate_asl_mem_usage, get_n_volumes
-from aslprep.workflows.asl.apply import init_asl_cifti_resample_wf
+from aslprep.workflows.asl.apply import (
+    init_asl_cifti_resample_wf,
+    init_asl_volumetric_resample_wf,
+)
 from aslprep.workflows.asl.cbf import (
     init_cbf_wf,
     init_load_atlases_wf,
@@ -241,6 +244,24 @@ def init_asl_wf(
     # Determine which volumes to use in the pipeline
     processing_target = select_processing_target(aslcontext=run_data['aslcontext'])
 
+    # Gradient nonlinearity correction, from --gradient-file and the ImageType metadata
+    gradwarp_plan = resolve_gradwarp_plan(metadata=metadata, asl_file=asl_file)
+    gradwarp = gradwarp_plan is not None and gradwarp_plan.warp_dim is not None
+    # A separate M0 scan may have been corrected differently on the scanner
+    m0scan_gradwarp_plan = (
+        resolve_gradwarp_plan(metadata=run_data['m0scan_metadata'], asl_file=run_data['m0scan'])
+        if run_data['m0scan']
+        else None
+    )
+    m0scan_gradwarp = (
+        m0scan_gradwarp_plan is not None and m0scan_gradwarp_plan.warp_dim is not None
+    )
+    # Jacobian modulation corrects signal (e.g., control/label, deltaM, M0) for the volume change.
+    # Pre-quantified CBF is a per-tissue quantity, so it must not be modulated.
+    gradwarp_jacobian = (
+        'gradwarp-jacobian' not in (config.workflow.ignore or []) and processing_target != 'cbf'
+    )
+
     # Determine which CBF outputs to expect
     att_derivs = []
     cbf_3d_derivs = ['mean_cbf']
@@ -347,6 +368,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         precomputed=precomputed,
         fieldmap_id=fieldmap_id,
         jacobian=jacobian,
+        gradwarp_plan=gradwarp_plan,
+        m0scan_gradwarp_plan=m0scan_gradwarp_plan,
         asl2anat_init=asl2anat_init,
         omp_nthreads=omp_nthreads,
     )
@@ -377,6 +400,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         m0scan=run_data['m0scan'],
         fieldmap_id=fieldmap_id,
         jacobian=jacobian,
+        gradwarp=gradwarp,
+        m0scan_gradwarp=m0scan_gradwarp,
+        gradwarp_jacobian=gradwarp_jacobian,
         omp_nthreads=omp_nthreads,
         name='asl_native_wf',
     )
@@ -394,6 +420,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
             ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
             ('outputnode.m0scan2aslref_xfm', 'inputnode.m0scan2aslref_xfm'),
+            ('outputnode.gradwarp_field', 'inputnode.gradwarp_field'),
+            ('outputnode.m0scan_gradwarp_field', 'inputnode.m0scan_gradwarp_field'),
         ]),
     ])  # fmt:skip
 
@@ -439,6 +467,10 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
     asl_output_metadata.inputs.keys = (
         [] if 'RepetitionTime' in run_data['asl_metadata'] else ['RepetitionTime']
     )
+    if gradwarp_plan is not None:
+        asl_output_metadata.inputs.updates = gradwarp_metadata(
+            gradwarp_plan, jacobian=gradwarp_jacobian
+        )
     workflow.connect([
         (asl_native_wf, asl_output_metadata, [('outputnode.metadata', 'metadata')]),
     ])  # fmt:skip
@@ -600,12 +632,14 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
 
     # Resample ASL file to anatomical space.
     # This doesn't write out the resampled file to the derivatives.
-    asl_anat_wf = init_bold_volumetric_resample_wf(
+    asl_anat_wf = init_asl_volumetric_resample_wf(
         metadata=metadata,
         fieldmap_id=fieldmap_id,
         omp_nthreads=omp_nthreads,
         mem_gb=mem_gb,
         jacobian=jacobian,
+        gradwarp=gradwarp,
+        gradwarp_jacobian=gradwarp_jacobian,
         fallback_total_readout_time=config.workflow.fallback_total_readout_time,
         name='asl_anat_wf',
     )
@@ -623,6 +657,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             ('outputnode.coreg_aslref', 'inputnode.bold_ref_file'),
             ('outputnode.aslref2fmap_xfm', 'inputnode.boldref2fmap_xfm'),
             ('outputnode.aslref2anat_xfm', 'inputnode.boldref2anat_xfm'),
+            ('outputnode.gradwarp_field', 'inputnode.gradwarp_field'),
         ]),
         (asl_native_wf, asl_anat_wf, [
             ('outputnode.asl_minimal', 'inputnode.bold_file'),
@@ -669,12 +704,14 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         # Missing:
         #  * Clipping ASL after resampling
         #  * Resampling parcellations
-        asl_std_wf = init_bold_volumetric_resample_wf(
+        asl_std_wf = init_asl_volumetric_resample_wf(
             metadata=metadata,
             fieldmap_id=fieldmap_id,
             omp_nthreads=omp_nthreads,
             mem_gb=mem_gb,
             jacobian=jacobian,
+            gradwarp=gradwarp,
+            gradwarp_jacobian=gradwarp_jacobian,
             fallback_total_readout_time=config.workflow.fallback_total_readout_time,
             name='asl_std_wf',
         )
@@ -703,6 +740,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ('outputnode.coreg_aslref', 'inputnode.bold_ref_file'),
                 ('outputnode.aslref2fmap_xfm', 'inputnode.boldref2fmap_xfm'),
                 ('outputnode.aslref2anat_xfm', 'inputnode.boldref2anat_xfm'),
+                ('outputnode.gradwarp_field', 'inputnode.gradwarp_field'),
             ]),
             (asl_native_wf, asl_std_wf, [
                 ('outputnode.asl_minimal', 'inputnode.bold_file'),
@@ -818,6 +856,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             mem_gb=mem_gb,
             fieldmap_id=fieldmap_id,
             jacobian=jacobian,
+            gradwarp=gradwarp,
+            gradwarp_jacobian=gradwarp_jacobian,
             omp_nthreads=omp_nthreads,
         )
 
@@ -839,6 +879,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ('outputnode.coreg_aslref', 'inputnode.coreg_aslref'),
                 ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+                ('outputnode.gradwarp_field', 'inputnode.gradwarp_field'),
             ]),
             (asl_native_wf, asl_cifti_resample_wf, [
                 ('outputnode.asl_minimal', 'inputnode.asl_file'),

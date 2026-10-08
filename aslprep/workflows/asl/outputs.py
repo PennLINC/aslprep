@@ -1148,6 +1148,8 @@ def _read_json(in_file):
     return loads(Path(in_file).read_text())
 
 
-def _remove_keys(metadata, keys):
-    """Return a copy of a metadata dictionary without the given keys."""
-    return {k: v for k, v in metadata.items() if k not in keys}
+def _remove_keys(metadata, keys, updates=None):
+    """Return a copy of a metadata dictionary without the given keys, plus any updates."""
+    out = {k: v for k, v in metadata.items() if k not in keys}
+    out.update(updates or {})
+    return out

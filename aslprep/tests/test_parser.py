@@ -207,3 +207,61 @@ def test_optional_arguments(tmp_path, supp_args, opt, expected):
     args = [str(tmp_path), str(tmp_path / 'out'), 'participant'] + supp_args
     pargs = _build_parser().parse_args(args)
     assert getattr(pargs, opt) == expected
+
+
+def _gradwarp_cli_args(tmp_path):
+    from niworkflows.utils.testing import generate_bids_skeleton
+
+    bids_dir = tmp_path / 'ds000240'
+    generate_bids_skeleton(
+        bids_dir,
+        {'01': {'anat': {'suffix': 'T1w'}, 'perf': [{'suffix': 'asl'}]}},
+    )
+    return [
+        str(bids_dir),
+        str(tmp_path / 'out'),
+        'participant',
+        '--skip-bids-validation',
+        '--skip-parcellation',
+        '--work-dir',
+        str(tmp_path / 'work'),
+    ]
+
+
+def test_gradient_file_options(tmp_path):
+    """Gradient nonlinearity options reach the config, with Siemens comments dropped."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    grad = tmp_path / 'coeff.grad'
+    grad.write_text('#  A(1,1) = 1.1547 (2/Sqrt[3])\n 0.250 = R0\n  1 A( 3, 1) -0.0234 x\n')
+    parse_args(
+        _gradwarp_cli_args(tmp_path)
+        + ['--gradient-file', str(grad), '--force', 'gradwarp1D']
+        + ['--ignore', 'gradwarp-jacobian']
+    )
+    assert config.workflow.gradient_file == tmp_path / 'work' / 'gradient_coefficients' / grad.name
+    assert '#' not in config.workflow.gradient_file.read_text()
+    assert 'gradwarp1D' in config.workflow.force
+    assert 'gradwarp-jacobian' in config.workflow.ignore
+    reset_config()
+
+
+@pytest.mark.parametrize(
+    ('supp_args', 'message'),
+    [
+        (['--force', 'gradwarp3D'], 'requires --gradient-file'),
+        (['--gradient-file', 'GRAD', '--force', 'gradwarp1D', 'gradwarp3D'], 'mutually'),
+        (['--gradient-file', 'GRAD', '--ignore', 'gradwarp', '--force', 'gradwarp1D'], 'contra'),
+    ],
+)
+def test_gradient_file_errors(tmp_path, supp_args, message):
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    grad = tmp_path / 'coeff.grad'
+    grad.write_text(' 0.250 = R0\n')
+    supp_args = [str(grad) if arg == 'GRAD' else arg for arg in supp_args]
+    with pytest.raises(ValueError, match=message):
+        parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    reset_config()

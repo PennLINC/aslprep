@@ -13,7 +13,11 @@ Psychology at Stanford University, Stanford, CA, US.
 ASLPrep is distributed under the BSD 3-Clause License.
 Portions derived from fMRIPrep and other NiPreps projects remain under the
 Apache License, Version 2.0. See the "External code" section of LICENSE.md.
+Gradient nonlinearity correction is adapted from QSIPrep (BSD 3-Clause License).
 
 This software is also distributed as a Docker container image.
 The bootstrapping files for the image ("Dockerfile" and "Dockerfile.base")
 are licensed under the MIT License.
+The container image also includes TORTOISE's CreateNonlinearityDisplacementMap
+program (GNU General Public License, Version 3), which ASLPrep runs as a separate
+program. See LICENSE.md.
