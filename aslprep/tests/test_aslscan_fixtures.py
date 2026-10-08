@@ -629,3 +629,19 @@ def test_simulator_motion_convention(data_dir):
         assert r_true > fit(data[..., v], np.linalg.inv(pose))
         if any(rot):  # the centre only matters for rotations
             assert r_true > fit(data[..., v], tg.pose_matrix(trans, rot, [0, 0, 0]))
+
+
+def test_fixture_digest_is_per_recipe(tmp_path, monkeypatch):
+    """Editing one recipe invalidates only its own fixture (spec Section 4.5)."""
+    side = {'MRAcquisitionType': '2D', 'AcquisitionVoxelSize': [2, 2, 3]}
+    _recipe_in(tmp_path, monkeypatch, side)  # creates recipes/r and points RECIPES_DIR there
+    other = tmp_path / 'recipes' / 'other'
+    other.mkdir()
+    for f in (tmp_path / 'recipes' / 'r').iterdir():
+        (other / f.name).write_bytes(f.read_bytes())
+    monkeypatch.setattr(af, 'RECIPES', {'r': '', 'other': ''})
+    monkeypatch.setattr(af, 'phantom_digest', lambda name: 'fixed')
+    before = {name: af.fixture_digest(name) for name in ('r', 'other')}
+    (other / 'aslcontext.tsv').write_text('volume_type\nlabel\ncontrol\n')
+    assert af.fixture_digest('r') == before['r']
+    assert af.fixture_digest('other') != before['other']

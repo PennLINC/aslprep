@@ -1,0 +1,3 @@
+acq = "pasl1pld"
+anat = "derivatives"
+snr_per_pair = 50.0

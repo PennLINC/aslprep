@@ -1,0 +1,4 @@
+phantom = "tfmni-flat"
+acq = "pcasl1pld"
+anat = "derivatives"
+snr_per_pair = 50.0

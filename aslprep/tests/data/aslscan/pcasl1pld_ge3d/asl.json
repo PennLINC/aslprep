@@ -1,0 +1,28 @@
+{
+  "Manufacturer": "GE",
+  "MagneticFieldStrength": 3,
+  "MRAcquisitionType": "3D",
+  "PulseSequenceType": "spiral",
+  "EchoTime": 0.010528,
+  "FlipAngle": 111,
+  "RepetitionTimePreparation": 4.886,
+  "ArterialSpinLabelingType": "PCASL",
+  "PostLabelingDelay": 2.025,
+  "BackgroundSuppression": true,
+  "M0Type": "Included",
+  "TotalAcquiredPairs": 3,
+  "VascularCrushing": false,
+  "AcquisitionVoxelSize": [
+    4,
+    4,
+    8
+  ],
+  "BackgroundSuppressionNumberPulses": 4,
+  "BackgroundSuppressionPulseTime": [
+    1.965,
+    2.6,
+    3.1,
+    3.38
+  ],
+  "LabelingDuration": 1.45
+}

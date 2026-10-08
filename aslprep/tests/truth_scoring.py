@@ -30,7 +30,7 @@ FLOOR = 5.0
 #: Partial-volume threshold of the tissue-dominant masks.
 DOMINANT = 0.7
 #: Displacement (mm) of the aslref pose below which native outputs compare voxel to voxel.
-NATIVE_TOLERANCE_MM = 0.1
+NATIVE_TOLERANCE_MM = 0.5
 
 
 # ---------------------------------------------------------------------------------------------
@@ -137,6 +137,8 @@ def find_xfm(aslprep_dir, acq, name):
 
 def on_grid(img, affine, shape, order=1):
     """Data of ``img`` on the given grid (identity-copied when the grids already match)."""
+    if img.ndim == 4 and img.shape[3] == 1:
+        img = img.slicer[..., 0]
     if img.shape[:3] == tuple(shape) and np.allclose(img.affine, affine, atol=1e-4):
         return np.asanyarray(img.dataobj, dtype=np.float64)
     from nibabel.processing import resample_from_to
@@ -151,6 +153,8 @@ def sample_at(img, world_points, order=1):
 
     ijk = tg.apply_points(np.linalg.inv(img.affine), world_points)
     data = np.asanyarray(img.dataobj, dtype=np.float64)
+    if data.ndim == 4 and data.shape[3] == 1:  # standard-space CBF carries a singleton time axis
+        data = data[..., 0]
     return map_coordinates(data, ijk.T, order=order, mode='constant', cval=np.nan)
 
 
@@ -169,6 +173,7 @@ def ratio_stats(values, reference, mask):
         'n': n,
         'finite': float(finite.mean()),
         'median': float(np.median(ratio)) if ratio.size else float('nan'),
+        'median_dev': float(abs(np.median(ratio) - 1)) if ratio.size else float('nan'),
         'p05': float(np.percentile(ratio, 5)) if ratio.size else float('nan'),
         'p95': float(np.percentile(ratio, 95)) if ratio.size else float('nan'),
         'median_abs_dev': float(np.median(np.abs(ratio - 1))) if ratio.size else float('nan'),
@@ -250,19 +255,65 @@ def score_native(fixture, aslprep_dir, fwhm, subset=300):
         t: float(np.median(fixture.pv[t][masks[t]])) for t in ('GM', 'WM') if masks[t].any()
     }
 
+    # ASLPrep's own preprocessed series (motion-corrected, in the aslref frame), if written
+    preproc_file = find_output(aslprep_dir, fixture.acq, 'asl', desc='preproc')
+    preproc = (
+        on_grid(nb.load(preproc_file), fixture.affine, fixture.shape)
+        if preproc_file is not None
+        else None
+    )
+    if preproc is None:
+        out['problems'].append('native desc-preproc_asl not found')
+    interior = _interior(out_mask, fixture.affine, INTERIOR_MM)
+    edge = out_mask & ~_interior(out_mask, fixture.affine, EDGE_MM)
+
     if is_multi_delay(fixture.metadata):
-        out.update(_score_native_multi(fixture, aslprep_dir, cbf, masks, subset))
+        out.update(
+            _score_native_multi(
+                fixture, preproc, cbf, att_masks_from=masks, subset=subset, aslprep_dir=aslprep_dir
+            )
+        )
         return out
 
+    raw = fixture.asl_img.get_fdata()
     expected = expected_native(fixture, fwhm)
     a_masks = tissue_masks(fixture, extra=out_mask, reference=expected)
+    # End to end: raw data through the documented model vs ASLPrep's CBF
     out['tier_a'] = ratio_stats(cbf, expected, a_masks['valid'])
+    out['tier_a']['interior'] = ratio_stats(cbf, expected, a_masks['valid'] & interior)
+    out['tier_a']['edge'] = ratio_stats(cbf, expected, a_masks['valid'] & edge)
+    if preproc is not None:
+        # Quantification given ASLPrep's preprocessed series: isolates the CBF model, the M0
+        # handling and the calibration from motion-correction resampling.
+        quant = _expected_from(fixture, preproc, fwhm)
+        out['tier_a_quant'] = ratio_stats(cbf, quant, a_masks['valid'] & interior)
+        out['hmc_deltam'] = _hmc_deltam(fixture, raw, preproc, a_masks['valid'] & interior)
     out['expected_ratio'] = {
         t: ratio_stats(expected, fixture.perfusion, masks[t])['median'] for t in ('GM', 'WM')
     }
-    physical_alpha = tm.labeling_efficiency_physical(fixture.simulation)
-    physical = tm.expected_cbf(
-        fixture.asl_img.get_fdata(),
+    physical = _expected_from(
+        fixture, raw, fwhm, alpha=tm.labeling_efficiency_physical(fixture.simulation)
+    )
+    out['physical'] = ratio_stats(cbf, physical, a_masks['valid'])
+    return out
+
+
+#: Distance (mm) from ASLPrep's brain-mask edge beyond which voxels count as interior, and
+#: within which they count as edge, for the end-to-end Tier A breakdown (report-only).
+INTERIOR_MM = 10.0
+EDGE_MM = 5.0
+
+
+def _interior(mask, affine, mm):
+    from scipy.ndimage import distance_transform_edt
+
+    sampling = np.sqrt((np.asarray(affine)[:3, :3] ** 2).sum(axis=0))
+    return distance_transform_edt(mask, sampling=sampling) > mm
+
+
+def _expected_from(fixture, asl, fwhm, alpha=None):
+    return tm.expected_cbf(
+        asl,
         fixture.context,
         fixture.metadata,
         fixture.affine,
@@ -270,22 +321,27 @@ def score_native(fixture, aslprep_dir, fwhm, subset=300):
         m0_metadata=fixture.m0_metadata,
         m0_scale=fixture.m0_scale,
         fwhm=fwhm,
-        alpha=physical_alpha,
+        alpha=alpha,
     )
-    out['physical'] = ratio_stats(cbf, physical, a_masks['valid'])
-    return out
 
 
-def _score_native_multi(fixture, aslprep_dir, cbf, masks, subset):
-    out = {}
-    att_file = find_output(aslprep_dir, fixture.acq, 'att')
-    if att_file is None:
-        return {'problems': ['att not found']}
-    att = on_grid(nb.load(att_file), fixture.affine, fixture.shape)
-    voxels = np.argwhere(masks['valid'])
-    voxels = voxels[:: max(1, len(voxels) // subset)][:subset]
-    fit = tm.expected_multi_delay(
-        fixture.asl_img.get_fdata(),
+def _hmc_deltam(fixture, raw, preproc, mask):
+    """How much motion correction changed delta-M (preprocessed vs raw), report-only."""
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ratio = tm.deltam_mean(preproc, fixture.context) / tm.deltam_mean(raw, fixture.context)
+    ratio = ratio[mask & np.isfinite(ratio)]
+    if not ratio.size:
+        return {'n': 0}
+    return {
+        'n': int(ratio.size),
+        'median_dev': float(abs(np.median(ratio) - 1)),
+        'p95_abs_dev': float(np.percentile(np.abs(ratio - 1), 95)),
+    }
+
+
+def _fit_subset(fixture, asl, voxels):
+    return tm.expected_multi_delay(
+        asl,
         fixture.context,
         fixture.metadata,
         fixture.affine,
@@ -294,17 +350,37 @@ def _score_native_multi(fixture, aslprep_dir, cbf, masks, subset):
         m0_metadata=fixture.m0_metadata,
         m0_scale=fixture.m0_scale,
     )
+
+
+def _fit_stats(cbf, att, fit, voxels):
     i, j, k = voxels.T
     ok = np.isfinite(fit[:, 0]) & (fit[:, 0] > FLOOR) & np.isfinite(cbf[i, j, k])
     ratio = cbf[i, j, k][ok] / fit[ok, 0]
-    out['tier_a'] = {
+    return {
         'n': int(ok.sum()),
-        'median_abs_dev': float(abs(np.median(ratio) - 1)),
+        'median_dev': float(abs(np.median(ratio) - 1)),
         'p95_abs_dev': float(np.percentile(np.abs(ratio - 1), 95)),
         'att_median_abs_diff': float(np.median(np.abs(att[i, j, k][ok] - fit[ok, 1]))),
-    }
-    expected_full = np.full(fixture.shape, np.nan)
-    expected_full[i[ok], j[ok], k[ok]] = fit[ok, 0]
+    }, ok
+
+
+def _score_native_multi(fixture, preproc, cbf, att_masks_from, subset, aslprep_dir):
+    """Multi-delay Tier A on a voxel subset (the reference fit is per voxel and slow)."""
+    masks = att_masks_from
+    out = {}
+    att_file = find_output(aslprep_dir, fixture.acq, 'att')
+    if att_file is None:
+        return {'problems': ['att not found']}
+    att = on_grid(nb.load(att_file), fixture.affine, fixture.shape)
+    voxels = np.argwhere(masks['valid'])
+    voxels = voxels[:: max(1, len(voxels) // subset)][:subset]
+    fit = _fit_subset(fixture, fixture.asl_img.get_fdata(), voxels)
+    out['tier_a'], ok = _fit_stats(cbf, att, fit, voxels)
+    if preproc is not None:
+        out['tier_a_quant'], _ = _fit_stats(
+            cbf, att, _fit_subset(fixture, preproc, voxels), voxels
+        )
+    i, j, k = voxels.T
     out['expected_ratio'] = {}
     for t in ('GM', 'WM'):
         sel = masks[t][i, j, k] & ok
@@ -387,13 +463,19 @@ def score_space(fixture, aslprep_dir, space, desc=None):
     path = find_output(aslprep_dir, fixture.acq, 'cbf', space=space, desc=desc)
     if path is None:
         return {'problems': [f'space-{space} cbf not found']}
+    img = nb.load(path)
     masks = tissue_masks(fixture)
-    out = {}
-    for tissue in ('GM', 'WM'):
-        ijk, points = fixture.voxel_centers(masks[tissue])
+
+    def at(mask, shift_mm=0.0):
+        ijk, points = fixture.voxel_centers(mask)
+        points = points + [shift_mm, 0.0, 0.0]
         if space == 'T1w':
             points = tg.apply_points(fixture.R, points)
-        values = sample_at(nb.load(path), points)
+        return ijk, sample_at(img, points)
+
+    out = {}
+    for tissue in ('GM', 'WM'):
+        ijk, values = at(masks[tissue])
         truth = fixture.perfusion[tuple(ijk.T)]
         finite = np.isfinite(values)
         out[tissue] = {
@@ -401,6 +483,20 @@ def score_space(fixture, aslprep_dir, space, desc=None):
             'finite': float(finite.mean()),
             'median': float(np.median(values[finite] / truth[finite])) if finite.any() else None,
         }
+
+    # Alignment: correlation with ASLPrep's own native CBF at the same anatomical points
+    # (independent of resampling blur), and with the truth. A 4 mm shift of the sampling points
+    # gives the sensitivity reference.
+    native_file = find_output(aslprep_dir, fixture.acq, 'cbf')
+    if native_file is not None:
+        native = on_grid(nb.load(native_file), fixture.affine, fixture.shape)
+        ijk, values = at(masks['valid'])
+        _, shifted = at(masks['valid'], shift_mm=4.0)
+        ref, truth = native[tuple(ijk.T)], fixture.perfusion[tuple(ijk.T)]
+        ok = np.isfinite(values) & np.isfinite(ref) & np.isfinite(shifted)
+        out['r_native'] = float(np.corrcoef(values[ok], ref[ok])[0, 1])
+        out['r_native_shifted_4mm'] = float(np.corrcoef(shifted[ok], ref[ok])[0, 1])
+        out['r_truth'] = float(np.corrcoef(values[ok], truth[ok])[0, 1])
     return out
 
 

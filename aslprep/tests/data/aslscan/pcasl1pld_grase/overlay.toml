@@ -1,0 +1,11 @@
+seed = 20261008
+[acquisition]
+oversample = 2
+matrix = [64, 64]
+noise_variance = 0.0
+[readout]
+ky_segments = 4
+kz_segments = 1
+phase_encoding_direction = "j-"
+[m0]
+repetition_time = 3.0

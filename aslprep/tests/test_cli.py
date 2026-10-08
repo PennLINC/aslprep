@@ -504,7 +504,11 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params, output
     _run_and_generate(level_test_name, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-def _run_and_generate(test_name, participant_label, parameters, out_dir):
+def _run_and_generate(test_name, participant_label, parameters, out_dir, check_outputs=True):
+    """Run ASLPrep in-process, write its reports, and (optionally) check the output list.
+
+    Returns the path of the run's config file.
+    """
     from aslprep import config
     from aslprep.utils.bids import write_atlas_dataset_description, write_derivative_description
 
@@ -546,8 +550,10 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
         bootstrap_file=load_data('reports-spec.yml'),
     )
 
-    output_list_file = os.path.join(get_test_data_path(), f'expected_outputs_{test_name}.txt')
-    check_generated_files(out_dir, output_list_file)
+    if check_outputs:
+        output_list_file = os.path.join(get_test_data_path(), f'expected_outputs_{test_name}.txt')
+        check_generated_files(out_dir, output_list_file)
+    return config_file
 
 
 def _run_and_fail(parameters):

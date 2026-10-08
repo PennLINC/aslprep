@@ -1,0 +1,10 @@
+seed = 20261008
+[acquisition]
+oversample = 2
+matrix = [64, 68]
+noise_variance = 0.0
+[m0]
+repetition_time = 8.0
+[macrovascular]
+arterial_blood_volume = { grey_matter = 0.02, white_matter = 0.01, csf = 0.0 }
+arterial_transit_time = { grey_matter = 0.7, white_matter = 1.0, csf = 0.0 }

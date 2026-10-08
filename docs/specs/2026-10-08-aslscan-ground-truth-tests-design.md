@@ -401,15 +401,19 @@ bytes` of its directory.
 
 **Manifest.** Each fixture's `manifest.json` records:
 
-- the spec `DIGEST`;
+- its fixture digest: the SHA-256 of the common spec lines (epoch, pins, lock file, Python
+  requirements, templates, builder modules), its phantom's digest, and its recipe's digest.
+  Adding or editing one recipe therefore leaves the other local fixtures valid. CI still
+  regenerates everything when the spec file changes, because the spec file keys the cache;
+- the spec `DIGEST` (provenance only);
 - the recipe and phantom digests;
 - the aslscan binary's SHA-256 and reported version;
 - a SHA-256 of every file in the fixture.
 
 **`fixture_dir(name, data_dir)`.**
 
-- It returns the directory only if `manifest.json` exists and its `DIGEST` equals the current
-  `spec_text()` digest.
+- It returns the directory only if `manifest.json` exists and its fixture digest equals the
+  current one.
 - File hashes are checked by `--verify`, which CI runs once after restoring the cache, not on
   every open, for cost.
 - If the manifest is stale or missing:

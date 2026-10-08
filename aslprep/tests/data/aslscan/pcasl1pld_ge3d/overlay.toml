@@ -1,0 +1,9 @@
+seed = 20261008
+[acquisition]
+oversample = 2
+matrix = [64, 64]
+noise_variance = 0.0
+[readout]
+interleaves = 8
+spiral_readout_time = 4.0
+dwell_time = 4e-6

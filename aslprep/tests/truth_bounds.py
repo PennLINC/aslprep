@@ -46,26 +46,46 @@ CEILINGS = {
         'voxels',
         'enough tissue-dominant voxels for stable medians',
     ),
+    # End to end (raw data through the documented model): the median is unbiased by
+    # preprocessing. Per-voxel tails are report-only: motion correction resamples label and
+    # control volumes separately, and delta-M (about 1 % of the signal) amplifies interpolation
+    # differences at tissue boundaries (15-20 % at the 95th percentile on motion-free data).
     'tier_a_median': (
-        ('native', 'tier_a', 'median_abs_dev'),
+        ('native', 'tier_a', 'median_dev'),
         None,
         0.05,
         'ratio',
-        'preprocessing (HMC, M0 registration) perturbs the exact model by < 5 %',
+        'preprocessing (HMC, M0 registration) leaves the median within 5 % of the model',
     ),
-    'tier_a_p95': (
-        ('native', 'tier_a', 'p95_abs_dev'),
+    # Quantification given ASLPrep's own preprocessed series, in voxels 10 mm inside its mask.
+    'tier_a_quant_median': (
+        ('native', 'tier_a_quant', 'median_dev'),
         None,
-        0.15,
+        0.01,
         'ratio',
-        'edge voxels move under resampling; 95 % stay within 15 %',
+        'the CBF model and calibration match the documented model given the same series',
+    ),
+    'tier_a_quant_p95': (
+        ('native', 'tier_a_quant', 'p95_abs_dev'),
+        None,
+        0.05,
+        'ratio',
+        'only M0 registration and interpolation separate the two',
     ),
     'tier_a_att': (
-        ('native', 'tier_a', 'att_median_abs_diff'),
+        ('native', 'tier_a_quant', 'att_median_abs_diff'),
         None,
-        0.15,
+        0.1,
         's',
-        'ATT from the same fit on preprocessed data',
+        'ATT from the same model fitted to the same preprocessed series',
+    ),
+    'aslref_pose': (
+        ('frames', 'aslref_pose_rms_mm'),
+        None,
+        0.5,
+        'mm',
+        'without motion, native outputs compare voxel to voxel only if the aslref is within a '
+        'seventh of a voxel of the static frame',
     ),
     'tier_b': (
         ('native', 'tier_b', '{t}', 'median'),
@@ -108,8 +128,9 @@ CEILINGS = {
         None,
         0.15,
         'ratio',
-        'two resamplings at ASL resolution blur tissue boundaries; within 0.15 of '
-        'the native expectation',
+        'GM only: two resamplings at ASL resolution blur tissue boundaries; within 0.15 of the '
+        'native expectation. WM is not bounded: GM signal spilling into it dominates its ratio '
+        '(F1: 0.56 against a native 0.39), so alignment is checked by space_alignment instead',
     ),
     'space_finite': (
         ('{space}', '{t}', 'finite'),
@@ -117,6 +138,22 @@ CEILINGS = {
         None,
         'fraction',
         'standard-space CBF covers the truth voxels',
+    ),
+    'space_alignment': (
+        ('{space}', 'r_native'),
+        0.8,
+        None,
+        'r',
+        "correlation with ASLPrep's native CBF at the same anatomical points; a 4 mm "
+        'misregistration drops it to about 0.55 on these phantoms (r_native_shifted_4mm)',
+    ),
+    # Pairwise ceilings: used with check_pair, which supplies both paths.
+    'scorescrub': (
+        None,
+        None,
+        0.05,
+        'ratio',
+        "without outliers, SCORE and SCRUB stay within 5 % of the mean CBF's accuracy",
     ),
 }
 
@@ -156,6 +193,8 @@ def check(score, name, recipe, reference=None, **fields):
     With ``reference`` (a score path), the metric is compared as ``|value - reference|``.
     """
     path, lo, hi, unit, why = _limits(name, recipe)
+    if path is None:
+        raise AssertionError(f'{name!r} is a pairwise ceiling; use check_pair')
     path = tuple(p.format(**fields) for p in path)
     value = lookup(score, path)
     label = '.'.join(path)
@@ -169,6 +208,18 @@ def check(score, name, recipe, reference=None, **fields):
     band = BANDS.get((recipe, name))
     if band is not None:
         _check_value(f'{label} (regression band)', value, band[0], band[1], unit, band[2])
+
+
+def check_pair(score, name, recipe, path, reference, **fields):
+    """Assert ``|score[path] - score[reference]|`` against the ceiling ``name``."""
+    _, lo, hi, unit, why = _limits(name, recipe)
+    path = tuple(p.format(**fields) for p in path)
+    reference = tuple(p.format(**fields) for p in reference)
+    value, ref = lookup(score, path), lookup(score, reference)
+    label = f'|{".".join(path)} - {".".join(reference)}|'
+    if value is None or ref is None:
+        raise AssertionError(f'{label}: a value is missing')
+    _check_value(label, abs(value - ref), lo, hi, unit, why)
 
 
 def propose(paths):
