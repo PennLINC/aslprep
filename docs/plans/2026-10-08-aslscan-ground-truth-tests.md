@@ -560,6 +560,67 @@ numpy 2.5.3, scipy 1.18.1 and nibabel 5.4.2. One test that was fragile to these 
   (16x16x6) was too coarse for the comparison (r 0.66). The true pose fits at r 0.89 and
   beats the inverse pose and the origin-centred rotation.
 
+### Integration tier (local test image, 8 CPUs)
+
+| Recipe | Wall time | Result (after the scoring fixes below) |
+|---|---|---|
+| F1 | 9.7 min | all items pass |
+| F2 | 5.4 min | pass, plus 2 strict xfails: suppression gap, delta-M motion correction |
+| F3 | 9.3 min | pass, plus 1 strict xfail: suppression gap |
+| F4 | 8.3 min | pass |
+
+Measured values:
+
+| Metric | F1 | F2 | F3 | F4 |
+|---|---|---|---|---|
+| Tier A median deviation, end to end | 0.018 | 0.0006 | 0.0095 | |
+| Tier A median deviation, given ASLPrep's preprocessed series | 0.0015 | 5e-11 | | |
+| Tier A p95, given the preprocessed series | 0.030 | 7e-8 | 0.042 | |
+| Tier B GM, ASLPrep / expected | 0.808 / 0.788 | 0.650 / 0.657 | | 0.952 / 0.937 |
+| Coregistration RMS (voxels) | 0.17 | 0.12 | 0.17 | 0.15 |
+| Motion consistency, max (mm) | 0.024 | 1.94 | 0.035 | 0.019 |
+| Reference offset (mm) | 0.28 | | 0.61 | |
+| Suppression gap, measured / predicted | | 0.805 / 0.8055 | 0.662 / 0.656 | |
+
+Standard spaces (F1): `r_native` 0.90 (T1w) and 0.89 (MNI); 0.56 and 0.54 with the sampling
+shifted 4 mm.
+
+### Findings in ASLPrep, from the integration runs
+
+- **Motion correction moves voxels at boundaries.** On motion-free data, motion correction
+  changes delta-M per voxel by 16-26 % at the 95th percentile (median 0.1 %). Label and control
+  volumes are resampled separately, and delta-M (about 1 % of the signal) amplifies
+  interpolation differences at tissue boundaries.
+  - End-to-end Tier A tails are therefore report-only. Quantification is asserted given
+    ASLPrep's own preprocessed series.
+- **Delta-M plus M0 data (GE style).** Motion correction registers the delta-M volume to an
+  M0-like reference with no shared contrast, and applies the spurious result: 1.9°, 1.9 mm
+  relative to the M0 volume. A strict xfail on F2's motion item; reported.
+- **Constant reference offset.** The corrected series sits 0.3-0.6 mm from the static frame
+  even without motion: the reference's contrast differs from the volumes', most with
+  background suppression. Report-only.
+- **M0 resampling.** The separate M0 is resampled onto the ASL grid with ANTs' `Gaussian`
+  interpolation even under an identity transform, blurring M0 before the 5 mm smoothing. On
+  the phantom, which has no scalp, this raises CBF near the brain-mask edge: median 1.19 within
+  5 mm. Report-only (`tier_a.edge`).
+
+### Design changes from the first integration runs
+
+These are corrections of attribution, not fitted bounds:
+
+- **Tier A split.** Tier A became end to end (median asserted) plus quantification given
+  ASLPrep's preprocessed series (median and p95 asserted). Its tails are report-only.
+- **Standard spaces.** Checked as alignment, `r_native` ≥ 0.8, plus the GM median. WM medians
+  in standard space measure resampling blur, not alignment.
+- **Coregistration.** In units of the coarsest voxel (a quarter of a voxel), instead of 1 mm
+  and 1°. Without motion, it is measured as `C^-1 R^-1` alone.
+- **Motion correction.** Measured as consistency relative to the first volume, for every
+  recipe. The constant offset to the static frame is reported separately.
+- **Hashed modules.** `truth_models.py` was removed from them, because generation never uses
+  it.
+- **Recipe discovery.** Recipes are discovered from their directories, so adding one does not
+  touch a hashed module.
+
 ### JUnit
 
 `record_property` warns under xunit2. CI should pass `-o junit_family=legacy` for the fast

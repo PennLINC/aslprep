@@ -32,6 +32,7 @@ globals().update(
         report_only=[
             ('desc-basil', 'GM', 'median'),
             ('native', 'tier_a', 'p95_abs_dev'),
+            ('native', 'tier_a_quant', 'p95_abs_dev_multi'),
             ('native', 'tier_b_att', 'GM', 'median_abs_error'),
         ],
     )

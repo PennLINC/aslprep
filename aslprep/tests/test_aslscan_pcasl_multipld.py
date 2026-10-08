@@ -30,6 +30,7 @@ globals().update(
         multi_delay=True,
         report_only=[
             ('native', 'tier_a', 'p95_abs_dev'),
+            ('native', 'tier_a_quant', 'p95_abs_dev_multi'),
             ('native', 'tier_b_att', 'GM', 'median_abs_error'),
             ('native', 'tier_b_att', 'WM', 'median_abs_error'),
         ],

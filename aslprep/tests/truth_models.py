@@ -315,14 +315,16 @@ def expected_multi_delay(
     m0_metadata=None,
     m0_scale=1.0,
     mutation=None,
+    fwhm=0.0,
 ):
     """Tier A expectation for multi-delay data on selected voxels (an (n, 3) index array).
 
     Returns an (n, 4) array of CBF, ATT, aBAT and aBV. ``mutation`` as in
-    :func:`expected_cbf` (``'swap'``, ``'pld_shift'``, ``'m0_scale'``).
+    :func:`expected_cbf` (``'swap'``, ``'pld_shift'``, ``'m0_scale'``). ``fwhm`` smooths M0 as
+    ASLPrep does.
     """
     obs, rows = deltam_observations(asl, context, swap=mutation == 'swap')
-    m0, tr = m0_image(asl, context, metadata, affine, m0scan, m0_metadata, fwhm=0.0)
+    m0, tr = m0_image(asl, context, metadata, affine, m0scan, m0_metadata, fwhm=fwhm)
     m0 = m0_tr_correction(m0, tr, metadata['MagneticFieldStrength']) * m0_scale
     if mutation == 'm0_scale':
         m0 = m0 * 1.1

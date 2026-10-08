@@ -14,7 +14,15 @@ pytestmark = [pytest.mark.aslscan, pytest.mark.aslscan_pasl1pld]
 
 @pytest.fixture(scope='module')
 def f4_run(data_dir, output_dir, working_dir):
-    return run_recipe(RECIPE, 'aslscan_pasl1pld', data_dir, output_dir, working_dir)
+    return run_recipe(
+        RECIPE,
+        'aslscan_pasl1pld',
+        data_dir,
+        output_dir,
+        working_dir,
+        # without --atlases ASLPrep parcellates with every atlas it ships
+        extra_args=('--atlases', '4S156Parcels'),
+    )
 
 
 globals().update(

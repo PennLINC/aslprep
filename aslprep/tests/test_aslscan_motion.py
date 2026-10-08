@@ -25,7 +25,7 @@ def f7_run(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         spaces=('asl', 'T1w'),
-        extra_args=('--scorescrub',),
+        extra_args=('--scorescrub', '--atlases', '4S156Parcels'),
         score_spaces=('T1w',),
         extra_cbf=('score', 'scrub'),
     )
