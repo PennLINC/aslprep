@@ -669,6 +669,12 @@ RECIPE_DEFAULTS = {
     't2_mode': 'auto',
 }
 ANAT_MODES = ('derivatives', 'raw', 'none')
+#: BIDS datatypes. pybids matches its datatype pattern against the whole path, so a fixture
+#: directory with one of these names would give every file in it that datatype.
+BIDS_DATATYPES = (
+    'anat', 'beh', 'dwi', 'eeg', 'fmap', 'func', 'ieeg', 'meg', 'micr', 'motion', 'mrs', 'nirs',
+    'perf', 'pet',
+)  # fmt: skip
 T2_MODES = ('auto', 'class', 'voxel')
 
 #: Sidecar fields ASLPrep reads per volume (aslprep/interfaces/cbf.py, ExtractCBF).
@@ -693,6 +699,8 @@ class Recipe:
         self.dir = RECIPES_DIR / name
         if not self.dir.is_dir():
             raise RecipeError(f'no recipe directory {self.dir}')
+        if name in BIDS_DATATYPES:
+            raise RecipeError(f'{name}: a recipe must not be named after a BIDS datatype')
         for required in ('asl.json', 'aslcontext.tsv', 'overlay.toml', 'recipe.toml'):
             if not (self.dir / required).is_file():
                 raise RecipeError(f'{name}: {required} is missing')

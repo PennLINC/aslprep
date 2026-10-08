@@ -683,3 +683,13 @@ def test_frames_without_motion_separate_hmc_from_coregistration(tmp_path):
     assert frames['motion']['rms_error_median_mm'] < 1e-3
     assert frames['motion']['rms_error_max_mm'] > 1.0  # the third volume moved spuriously
     assert frames['motion']['reference_offset_mm'] < 1e-3  # most volumes stayed in place
+
+
+def test_recipe_names_avoid_bids_datatypes(tmp_path, monkeypatch):
+    """pybids reads the datatype from the whole path: /aslscan/motion/... makes every file
+    datatype 'motion' and hides the ASL series from ASLPrep."""
+    monkeypatch.setattr(af, 'RECIPES_DIR', tmp_path)
+    (tmp_path / 'motion').mkdir()
+    with pytest.raises(af.RecipeError, match='BIDS datatype'):
+        af.Recipe('motion')
+    assert not set(af.RECIPES) & set(af.BIDS_DATATYPES)

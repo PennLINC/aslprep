@@ -12,7 +12,7 @@ import pytest
 from aslprep.tests import truth_bounds as tb
 from aslprep.tests.aslscan_cli import run_recipe, shared_items
 
-RECIPE = 'motion'
+RECIPE = 'headmotion'
 pytestmark = [pytest.mark.aslscan, pytest.mark.aslscan_motion]
 
 
