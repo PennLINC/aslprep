@@ -61,3 +61,30 @@ def test_init_asl_fit_wf_fallback_total_readout_time():
         assert fit_wf.get_node('distortion_params').inputs.fallback == 0.05
         native_wf = init_asl_native_wf(asl_file=str(asl_file), fieldmap_id='auto_00000')
         assert native_wf.get_node('distortion_params').inputs.fallback == 0.05
+
+
+def test_init_asl_wf_t1w_outputs_on_asl_grid():
+    """T1w-space outputs share the ASL-resolution resampling reference, as in fMRIPrep."""
+    reset_config()
+    with mock_config():
+        config.workflow.level = 'full'
+        config.workflow.cifti_output = False
+        config.execution.output_spaces = 'asl T1w MNI152NLin2009cAsym'
+        config.init_spaces()
+        from aslprep.workflows.asl.base import init_asl_wf
+
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        wf = init_asl_wf(asl_file=str(asl_file))
+        ds_inputnode = wf.get_node('ds_asl_t1_wf.inputnode')
+        edges = [
+            (src, data)
+            for src, dst, data in wf._graph.edges(data=True)
+            if dst.name == 'ds_asl_t1_wf'
+        ]
+        ref_sources = [
+            src.name
+            for src, data in edges
+            if ('inputnode.ref_file' in [c[1] for c in data['connect']])
+        ]
+        assert ref_sources == ['asl_anat_wf']
+        assert ds_inputnode is not None
