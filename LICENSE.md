@@ -51,7 +51,8 @@ Other adapted portions include, but are not limited to:
 - `aslprep/_warnings.py`
 - `aslprep/reports/core.py`
 - `aslprep/utils/bids.py`, `aslprep/utils/misc.py`, and `aslprep/utils/sentry.py`
-- `aslprep/interfaces/bids.py` and `aslprep/interfaces/reports.py`
+- `aslprep/interfaces/bids.py`, `aslprep/interfaces/reports.py`, and
+  `aslprep/interfaces/resampling.py`
 - `aslprep/workflows/base.py`
 - `aslprep/workflows/asl/` (`base.py`, `fit.py`, `apply.py`, `outputs.py`, `confounds.py`,
   `reference.py`, `resampling.py`, and `hmc.py`)
@@ -61,6 +62,16 @@ Other adapted portions include, but are not limited to:
 ASLPrep's modifications to these files are distributed under the BSD 3-Clause License.
 
 The full text of the Apache License, Version 2.0, is reproduced at the end of this file.
+
+### QSIPrep
+
+BSD 3-Clause License
+
+Copyright (c) 2015-2018, the BBL developers team
+
+Gradient nonlinearity correction is adapted from QSIPrep (https://github.com/PennLINC/qsiprep):
+`aslprep/interfaces/gradunwarp.py` and `aslprep/utils/gradwarp.py`.
+QSIPrep's license has the same terms as ASLPrep's, with the copyright notice above.
 
 ### aslprep.interfaces.utility.RMSDiff.aggregate_outputs
 
@@ -94,6 +105,17 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+### TORTOISE (container image only)
+
+GNU General Public License, Version 3
+
+The ASLPrep container image includes the `CreateNonlinearityDisplacementMap` program from
+TORTOISE V4 (built from https://github.com/PennLINC/qsiprep_TORTOISE), with the ITK
+libraries (Apache License, Version 2.0) it is linked against, in `/opt/tortoise`.
+ASLPrep runs it as a separate program; no TORTOISE code is part of the `aslprep` package.
+The licenses are included in the image at `/opt/tortoise/licenses`, and the exact source
+revision is recorded in `Dockerfile.base`.
 
 ### Dockerfile and Dockerfile.base
 

@@ -27,6 +27,8 @@
 
 # Ubuntu 22.04 LTS - Jammy
 ARG BASE_IMAGE=ubuntu:jammy-20250730
+# TORTOISE V4 build published by PennLINC for QSIPrep (also Ubuntu 22.04)
+ARG TAG_TORTOISE=26.9.10
 
 #
 # Download stages
@@ -64,6 +66,22 @@ FROM downloader AS msm
 RUN curl -L -H "Accept: application/octet-stream" https://api.github.com/repos/ecr05/MSM_HOCR/releases/assets/16253707 -o /usr/local/bin/msm \
     && chmod +x /usr/local/bin/msm
 
+# TORTOISE V4 (GPL-3.0): only CreateNonlinearityDisplacementMap, for gradient
+# nonlinearity correction. The full install is ~435 MB; this binary and the
+# bundled ITK libraries it links (found through its $ORIGIN/lib/itk RPATH) are
+# ~40 MB. The 26.9.10 image is built from
+# https://github.com/PennLINC/qsiprep_TORTOISE at dcae0f0b1a6c7b333eb5836d04daa8236a961f10,
+# linked against ITK 5.3 (Apache-2.0).
+FROM pennlinc/qsiprep-drbuddi:${TAG_TORTOISE} AS tortoise
+RUN mkdir -p /opt/tortoise/bin/lib/itk /opt/tortoise/licenses \
+    && cd /src/TORTOISEV4/bin \
+    && cp CreateNonlinearityDisplacementMap /opt/tortoise/bin/ \
+    && ldd CreateNonlinearityDisplacementMap \
+       | awk '$3 ~ /^\/src\/TORTOISEV4\// {print $3}' \
+       | xargs -I{} cp -L {} /opt/tortoise/bin/lib/itk/ \
+    && cp /src/TORTOISEV4/LICENSE /opt/tortoise/licenses/TORTOISE-LICENSE \
+    && cp -r /src/TORTOISEV4/bin/share/licenses/ITK /opt/tortoise/licenses/ITK
+
 #
 # Main stage
 #
@@ -80,6 +98,7 @@ COPY --link --from=freesurfer741 /usr/local/freesurfer/python/scripts/mri_synths
 COPY --link --from=freesurfer741 /usr/local/freesurfer/python/scripts/mri_synthstrip /opt/freesurfer/bin/mri_synthstrip
 COPY --link --from=freesurfer741 /usr/local/freesurfer/models /opt/freesurfer/models
 COPY --link --from=msm /usr/local/bin/msm /usr/local/bin/msm
+COPY --link --from=tortoise /opt/tortoise /opt/tortoise
 
 RUN chmod +x /opt/freesurfer/bin/mri_synthseg /opt/freesurfer/bin/mri_synthstrip
 
@@ -182,6 +201,13 @@ ENV PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
 
 # AFNI config
 ENV AFNI_IMSAVE_WARNINGS="NO"
+
+# TORTOISE (needs libgomp1, installed above)
+ENV PATH="/opt/tortoise/bin:$PATH"
+# Fail the build if a linked library was missed. Called with no arguments, the
+# tool prints its usage and exits 1; a missing library makes the loader fail first.
+RUN ! ldd /opt/tortoise/bin/CreateNonlinearityDisplacementMap | grep -q "not found" \
+    && (CreateNonlinearityDisplacementMap || true) | grep -q path_to_coefficient
 
 # FSL / runtime (FSLDIR is set in the main Dockerfile, pointing to the pixi env)
 ENV LANG="C.UTF-8" \

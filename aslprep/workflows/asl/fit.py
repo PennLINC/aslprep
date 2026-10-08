@@ -29,11 +29,7 @@ import typing as ty
 import bids
 import nibabel as nb
 import numpy as np
-from fmriprep.interfaces.resampling import (
-    DistortionParameters,
-    ReconstructFieldmap,
-    ResampleSeries,
-)
+from fmriprep.interfaces.resampling import DistortionParameters, ReconstructFieldmap
 from fmriprep.utils.bids import extract_entities
 from fmriprep.workflows.bold import outputs as output_workflows
 from fmriprep.workflows.bold.reference import init_validation_and_dummies_wf
@@ -50,8 +46,10 @@ from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 from aslprep import config
 from aslprep.interfaces.bids import OverrideDerivativesDataSink
 from aslprep.interfaces.reports import FunctionalSummary
+from aslprep.interfaces.resampling import ResampleSeries
 from aslprep.interfaces.utility import ReduceASLFiles
 from aslprep.utils.asl import select_processing_target
+from aslprep.utils.gradwarp import GradwarpPlan
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
 from aslprep.workflows.asl.reference import init_raw_aslref_wf, init_synthstrip_aslref_wf
@@ -94,6 +92,8 @@ def init_asl_fit_wf(
     precomputed: dict | None = None,
     fieldmap_id: str | None = None,
     jacobian: bool = False,
+    gradwarp_plan: GradwarpPlan | None = None,
+    m0scan_gradwarp_plan: GradwarpPlan | None = None,
     asl2anat_init: str | None = None,
     omp_nthreads: int = 1,
     name: str = 'asl_fit_wf',
@@ -139,6 +139,14 @@ def init_asl_fit_wf(
         no correction will be applied.
     jacobian
         Whether to apply the Jacobian determinant of the fieldmap during resampling.
+    gradwarp_plan
+        Gradient nonlinearity correction to apply, if any.
+        If it calls for a correction, a displacement field is computed on the grid of
+        ``hmc_aslref`` and applied to the coregistration reference and the fieldmap
+        registration target.
+    m0scan_gradwarp_plan
+        Gradient nonlinearity correction to apply to the separate M0 scan, if any,
+        resolved from the M0 scan's own metadata.
     asl2anat_init
         Anatomical image to use as the initial target for ASL-to-anatomical
         coregistration (``'t1w'`` or ``'t2w'``).
@@ -197,10 +205,16 @@ def init_asl_fit_wf(
     aslref2fmap_xfm
         Affine transform mapping from ASL reference space to the fieldmap
         space, if applicable.
+    gradwarp_field
+        Gradient nonlinearity displacement field on the ``hmc_aslref`` grid, if applicable.
+    m0scan_gradwarp_field
+        Gradient nonlinearity displacement field for the separate M0 scan,
+        on the ``hmc_aslref`` grid, if applicable.
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
     from aslprep.utils.misc import estimate_asl_mem_usage
+    from aslprep.workflows.asl.gradwarp import gradwarp_boilerplate, init_gradwarp_wf
 
     if precomputed is None:
         precomputed = {}
@@ -259,6 +273,26 @@ def init_asl_fit_wf(
     m0scan2aslref_xform = transforms.get('m0scan2aslref')
     aslref_mask = precomputed.get('aslref_mask')
 
+    gradwarp = gradwarp_plan is not None and gradwarp_plan.warp_dim is not None
+    gradwarp_jacobian = 'gradwarp-jacobian' not in (config.workflow.ignore or [])
+    if gradwarp:
+        # These depend on the corrected geometry, and derivatives do not record whether (or how)
+        # they were corrected, so they are recomputed rather than risk mixing geometries.
+        # The HMC reference and transforms are estimated on raw data, so they remain reusable.
+        reused = {
+            'coregistration reference': coreg_aslref,
+            'ASL reference mask': aslref_mask,
+            'ASL-to-anatomical transform': aslref2anat_xform,
+            'ASL-to-fieldmap transform': aslref2fmap_xform,
+        }
+        reused = [name for name, value in reused.items() if value]
+        if reused:
+            config.loggers.workflow.warning(
+                'Recomputing the precomputed %s, as gradient nonlinearity correction is enabled.',
+                ', '.join(reused),
+            )
+        coreg_aslref = aslref_mask = aslref2anat_xform = aslref2fmap_xform = None
+
     workflow = Workflow(name=name)
 
     inputnode = pe.Node(
@@ -298,6 +332,8 @@ def init_asl_fit_wf(
                 'aslref2anat_xfm',
                 'aslref2fmap_xfm',
                 'm0scan2aslref_xfm',
+                'gradwarp_field',
+                'm0scan_gradwarp_field',
             ],
         ),
         name='outputnode',
@@ -460,6 +496,52 @@ def init_asl_fit_wf(
             ]),
             (hmcref_buffer, hmc_aslref_source_buffer, [('aslref', 'in_file')]),
         ])  # fmt:skip
+
+    # Stage 1b: Gradient nonlinearity displacement field, on the HMC reference's (raw) grid.
+    # It is cheap and deterministic, so it is always recomputed rather than reused.
+    if gradwarp:
+        config.loggers.workflow.info(
+            'Stage 1b: Adding gradient nonlinearity correction (%s, from %s)',
+            gradwarp_plan.warp_dim,
+            'command line' if gradwarp_plan.basis == 'forced' else 'ImageType',
+        )
+        gradwarp_wf = init_gradwarp_wf(plan=gradwarp_plan, asl_file=asl_file)
+        gradwarp_wf.__desc__ = gradwarp_boilerplate(gradwarp_plan, jacobian=gradwarp_jacobian)
+        workflow.connect([
+            (hmcref_buffer, gradwarp_wf, [('aslref', 'inputnode.ref_image')]),
+            (gradwarp_wf, outputnode, [('outputnode.gradwarp_field', 'gradwarp_field')]),
+        ])  # fmt:skip
+    elif gradwarp_plan is not None:
+        config.loggers.workflow.info(
+            'Skipping gradient nonlinearity correction: '
+            'the ASL data were corrected on the scanner (ImageType: DIS3D).'
+        )
+        workflow.__desc__ = (workflow.__desc__ or '') + gradwarp_boilerplate(
+            gradwarp_plan, jacobian=False
+        )
+
+    # The separate M0 scan may have been corrected differently on the scanner, and may have
+    # a different slice orientation, so it gets its own field. As it is resampled onto the ASL
+    # reference grid before correction, the field is generated on that grid.
+    if m0scan and m0scan_gradwarp_plan is not None and m0scan_gradwarp_plan.warp_dim is not None:
+        m0scan_gradwarp_wf = init_gradwarp_wf(
+            plan=m0scan_gradwarp_plan,
+            asl_file=m0scan,
+            report=False,
+            name='m0scan_gradwarp_wf',
+        )
+        m0scan_gradwarp_wf.inputs.inputnode.slice_ref_image = m0scan
+        workflow.connect([
+            (hmcref_buffer, m0scan_gradwarp_wf, [('aslref', 'inputnode.ref_image')]),
+            (m0scan_gradwarp_wf, outputnode, [
+                ('outputnode.gradwarp_field', 'm0scan_gradwarp_field'),
+            ]),
+        ])  # fmt:skip
+    elif m0scan and m0scan_gradwarp_plan is not None:
+        config.loggers.workflow.info(
+            'Skipping gradient nonlinearity correction of the M0 scan: '
+            'it was corrected on the scanner (ImageType: DIS3D).'
+        )
 
     # Reduce the ASL series to only include volumes that need to be processed.
     processing_target = pe.Node(
@@ -674,19 +756,9 @@ def init_asl_fit_wf(
             (ds_aslmask_wf, aslmask_buffer, [('outputnode.boldmask', 'aslmask')]),
         ])  # fmt:skip
 
-        if fieldmap_id:
-            distortion_params = pe.Node(
-                DistortionParameters(
-                    metadata=metadata,
-                    in_file=asl_file,
-                    fallback=config.workflow.fallback_total_readout_time,
-                ),
-                name='distortion_params',
-                run_without_submitting=True,
-            )
-
+        if fieldmap_id or gradwarp:
             unwarp_aslref = pe.Node(
-                ResampleSeries(jacobian=jacobian),
+                ResampleSeries(jacobian=jacobian, gradwarp_jacobian=gradwarp_jacobian),
                 name='unwarp_aslref',
                 n_procs=omp_nthreads,
                 mem_gb=mem_gb['resampled'],
@@ -699,11 +771,6 @@ def init_asl_fit_wf(
                 (enhance_aslref_wf, unwarp_aslref, [
                     ('outputnode.bias_corrected_file', 'in_file'),
                 ]),
-                (aslref_fmap, unwarp_aslref, [('out_file', 'fieldmap')]),
-                (distortion_params, unwarp_aslref, [
-                    ('readout_time', 'ro_time'),
-                    ('pe_direction', 'pe_dir'),
-                ]),
                 (unwarp_aslref, ds_coreg_aslref_wf, [('out_file', 'inputnode.aslref')]),
                 (ds_coreg_aslref_wf, skullstrip_asl_wf, [
                     ('outputnode.aslref', 'inputnode.in_file'),
@@ -711,18 +778,73 @@ def init_asl_fit_wf(
                 (skullstrip_asl_wf, ds_aslmask_wf, [
                     ('outputnode.mask_file', 'inputnode.boldmask'),
                 ]),
+            ])  # fmt:skip
+
+            if gradwarp:
+                workflow.connect([
+                    (gradwarp_wf, unwarp_aslref, [('outputnode.gradwarp_field', 'gradwarp_field')]),
+                ])  # fmt:skip
+
+        if fieldmap_id:
+            distortion_params = pe.Node(
+                DistortionParameters(
+                    metadata=metadata,
+                    in_file=asl_file,
+                    fallback=config.workflow.fallback_total_readout_time,
+                ),
+                name='distortion_params',
+                run_without_submitting=True,
+            )
+
+            workflow.connect([
+                (aslref_fmap, unwarp_aslref, [('out_file', 'fieldmap')]),
+                (distortion_params, unwarp_aslref, [
+                    ('readout_time', 'ro_time'),
+                    ('pe_direction', 'pe_dir'),
+                ]),
                 (fmapreg_buffer, coreg_ref_source_files, [('aslref2fmap_xfm', 'in2')]),
                 (fmap_select, coreg_ref_source_files, [('fmap_coeff', 'in3')]),
             ])  # fmt:skip
 
-            if not aslref2fmap_xform:
+            if not aslref2fmap_xform and gradwarp:
+                # Register the fieldmap to the gradient-corrected reference: the frame in which
+                # the fieldmap is later evaluated, as the gradient correction is applied first.
+                gradwarp_fmapreg_ref = pe.Node(
+                    ResampleSeries(jacobian=False, gradwarp_jacobian=gradwarp_jacobian),
+                    name='gradwarp_fmapreg_ref',
+                    mem_gb=mem_gb['resampled'],
+                )
+                gradwarp_fmapreg_mask = pe.Node(
+                    ResampleSeries(jacobian=False, gradwarp_jacobian=False, order=0),
+                    name='gradwarp_fmapreg_mask',
+                    mem_gb=mem_gb['resampled'],
+                )
+                workflow.connect([
+                    (enhance_aslref_wf, gradwarp_fmapreg_ref, [
+                        ('outputnode.bias_corrected_file', 'in_file'),
+                        ('outputnode.bias_corrected_file', 'ref_file'),
+                    ]),
+                    (enhance_aslref_wf, gradwarp_fmapreg_mask, [
+                        ('outputnode.mask_file', 'in_file'),
+                        ('outputnode.mask_file', 'ref_file'),
+                    ]),
+                    (gradwarp_wf, gradwarp_fmapreg_ref, [
+                        ('outputnode.gradwarp_field', 'gradwarp_field'),
+                    ]),
+                    (gradwarp_wf, gradwarp_fmapreg_mask, [
+                        ('outputnode.gradwarp_field', 'gradwarp_field'),
+                    ]),
+                    (gradwarp_fmapreg_ref, fmapreg_wf, [('out_file', 'inputnode.target_ref')]),
+                    (gradwarp_fmapreg_mask, fmapreg_wf, [('out_file', 'inputnode.target_mask')]),
+                ])  # fmt:skip
+            elif not aslref2fmap_xform:
                 workflow.connect([
                     (enhance_aslref_wf, fmapreg_wf, [
                         ('outputnode.bias_corrected_file', 'inputnode.target_ref'),
                         ('outputnode.mask_file', 'inputnode.target_mask'),
                     ]),
                 ])  # fmt:skip
-        else:
+        elif not gradwarp:
             workflow.connect([
                 (enhance_aslref_wf, ds_coreg_aslref_wf, [
                     ('outputnode.bias_corrected_file', 'inputnode.aslref'),
@@ -811,6 +933,9 @@ def init_asl_native_wf(
     m0scan: str | None = None,
     fieldmap_id: str | None = None,
     jacobian: bool = False,
+    gradwarp: bool = False,
+    m0scan_gradwarp: bool = False,
+    gradwarp_jacobian: bool = True,
     omp_nthreads: int = 1,
     name: str = 'asl_native_wf',
 ) -> pe.Workflow:
@@ -844,6 +969,15 @@ def init_asl_native_wf(
     fieldmap_id
         ID of the fieldmap to use to correct this ASL series. If :obj:`None`,
         no correction will be applied.
+    jacobian
+        Whether to apply the Jacobian determinant of the fieldmap during resampling.
+    gradwarp
+        Whether to apply a gradient nonlinearity displacement field (``gradwarp_field``).
+    m0scan_gradwarp
+        Whether to apply a gradient nonlinearity displacement field to the separate M0 scan
+        (``m0scan_gradwarp_field``).
+    gradwarp_jacobian
+        Whether to modulate intensities by the Jacobian determinant of the fields.
 
     Inputs
     ------
@@ -868,6 +1002,10 @@ def init_asl_native_wf(
         List of fieldmap reference files (collated with fmap_id)
     fmap_coeff
         List of lists of spline coefficient files (collated with fmap_id)
+    gradwarp_field
+        Gradient nonlinearity displacement field on the ASL reference grid, if applicable.
+    m0scan_gradwarp_field
+        Gradient nonlinearity displacement field for the M0 scan, if applicable.
 
     Outputs
     -------
@@ -913,6 +1051,9 @@ def init_asl_native_wf(
                 'fmap_ref',
                 'fmap_coeff',
                 'fmap_id',
+                # Gradient nonlinearity
+                'gradwarp_field',
+                'm0scan_gradwarp_field',
             ],
         ),
         name='inputnode',
@@ -1005,7 +1146,7 @@ def init_asl_native_wf(
 
     # Resample ASL to aslref
     aslref_asl = pe.Node(
-        ResampleSeries(jacobian=jacobian),
+        ResampleSeries(jacobian=jacobian, gradwarp_jacobian=gradwarp_jacobian),
         name='aslref_asl',
         n_procs=omp_nthreads,
         mem_gb=mem_gb['resampled'],
@@ -1050,6 +1191,7 @@ def init_asl_native_wf(
         aslref_m0scan = pe.Node(
             ResampleSeries(
                 jacobian=jacobian,
+                gradwarp_jacobian=gradwarp_jacobian,
             ),
             name='aslref_m0scan',
             n_procs=omp_nthreads,
@@ -1066,6 +1208,13 @@ def init_asl_native_wf(
             ]),
             (aslref_m0scan, outputnode, [('out_file', 'm0scan_native')]),
         ])  # fmt:skip
+
+        if m0scan_gradwarp:
+            # The M0 scan was moved onto the ASL reference grid above without changing its
+            # world coordinates, and the field is defined in scanner coordinates.
+            workflow.connect([
+                (inputnode, aslref_m0scan, [('m0scan_gradwarp_field', 'gradwarp_field')]),
+            ])  # fmt:skip
 
     if fieldmap_id:
         aslref_fmap = pe.Node(ReconstructFieldmap(inverse=[True]), name='aslref_fmap', mem_gb=1)
@@ -1085,6 +1234,9 @@ def init_asl_native_wf(
             # This assumes that the M0 scan and the ASL file have the same distortion.
             # In some edge cases, that might not be true.
             workflow.connect([(aslref_fmap, aslref_m0scan, [('out_file', 'fieldmap')])])
+
+    if gradwarp:
+        workflow.connect([(inputnode, aslref_asl, [('gradwarp_field', 'gradwarp_field')])])
 
     workflow.connect([
         (inputnode, outputnode, [('motion_xfm', 'motion_xfm')]),
