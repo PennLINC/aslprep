@@ -47,12 +47,33 @@ def is_displacement_field(gradient_file):
 
     The standalone ``CreateNonlinearityDisplacementMap`` tool only expands coefficients.
     Handing it a NIfTI file yields an error or an all-zero field.
+
+    Parameters
+    ----------
+    gradient_file : str or os.PathLike
+        The gradient coefficient file or displacement field.
+
+    Returns
+    -------
+    bool
+        True if ``gradient_file`` is a NIfTI file (``.nii`` or ``.nii.gz``).
     """
     return str(gradient_file).endswith(FIELD_EXTENSIONS)
 
 
 def image_type_tags(metadata):
-    """Normalize ImageType, which may be a list or a backslash-joined string."""
+    """Normalize ImageType, which may be a list or a backslash-joined string.
+
+    Parameters
+    ----------
+    metadata : dict
+        BIDS metadata, possibly with an ``ImageType`` field.
+
+    Returns
+    -------
+    tags : set of str
+        The ImageType values, stripped and upper-cased. Empty if ImageType is missing.
+    """
     image_type = metadata.get('ImageType') or ()
     if isinstance(image_type, str):
         image_type = image_type.split('\\')
@@ -65,6 +86,17 @@ def warp_dim_from_metadata(metadata):
     ``DIS3D`` means the scanner corrected the image in 3D, so nothing remains.
     ``DIS2D`` means it corrected in-plane, so only the through-plane component remains.
     Otherwise, the image is uncorrected. DIS3D wins if both tags are present.
+
+    Parameters
+    ----------
+    metadata : dict
+        BIDS metadata, possibly with an ``ImageType`` field.
+
+    Returns
+    -------
+    warp_dim : {'3D', '1D'} or None
+        The correction to apply: ``'3D'`` for uncorrected images, ``'1D'`` (through-plane only)
+        for ``DIS2D`` images, or None for ``DIS3D`` images.
     """
     tags = image_type_tags(metadata)
     if 'DIS3D' in tags:
@@ -75,12 +107,39 @@ def warp_dim_from_metadata(metadata):
 
 
 def is_ge(metadata):
-    """Check whether the Manufacturer field names GE."""
+    """Check whether the Manufacturer field names GE.
+
+    Parameters
+    ----------
+    metadata : dict
+        BIDS metadata, possibly with a ``Manufacturer`` field.
+
+    Returns
+    -------
+    bool
+        True if ``Manufacturer`` starts with "GE" (e.g., "GE MEDICAL SYSTEMS").
+    """
     return str(metadata.get('Manufacturer', '')).strip().upper().startswith('GE')
 
 
 def forced_warp_dim(force):
-    """Return the warp dimensionality set by ``--force``, or None."""
+    """Return the warp dimensionality set by ``--force``, or None.
+
+    Parameters
+    ----------
+    force : list of str or None
+        The ``--force`` values.
+
+    Returns
+    -------
+    warp_dim : {'1D', '3D'} or None
+        ``'1D'`` for ``gradwarp1D``, ``'3D'`` for ``gradwarp3D``, or None if neither is set.
+
+    Raises
+    ------
+    ValueError
+        If both ``gradwarp1D`` and ``gradwarp3D`` are set.
+    """
     forced = sorted({value for value in (force or []) if value in FORCED_WARP_DIMS})
     if len(forced) > 1:
         raise ValueError(
@@ -106,17 +165,29 @@ def resolve_gradwarp_plan(metadata, asl_file, gradient_file=None, force=None, ig
 
     Parameters
     ----------
-    metadata
-        The ASL run's metadata.
-    asl_file
-        The ASL file, for messages.
-    gradient_file, force, ignore
-        Default to ``config.workflow.gradient_file``, ``.force``, and ``.ignore``.
+    metadata : dict
+        The run's metadata (ImageType, Manufacturer, and SliceEncodingDirection are used).
+    asl_file : str or os.PathLike
+        The run's file, for messages.
+    gradient_file : str or os.PathLike or None, optional
+        The gradient coefficient file or displacement field.
+        Defaults to ``config.workflow.gradient_file``.
+    force : list of str or None, optional
+        The ``--force`` values. Defaults to ``config.workflow.force``.
+    ignore : list of str or None, optional
+        The ``--ignore`` values. Defaults to ``config.workflow.ignore``.
 
     Returns
     -------
-    GradwarpPlan or None
-        None if no correction was requested.
+    plan : GradwarpPlan or None
+        The correction to apply, or None if no correction was requested
+        (no gradient file, or ``--ignore gradwarp``).
+
+    Raises
+    ------
+    ValueError
+        If the data are from a GE scanner and a field would have to be expanded from a
+        coefficient file, or if both ``--force gradwarp1D`` and ``gradwarp3D`` are set.
     """
     from aslprep import config
 
@@ -150,7 +221,21 @@ def resolve_gradwarp_plan(metadata, asl_file, gradient_file=None, force=None, ig
 
 
 def gradwarp_metadata(plan, jacobian):
-    """Describe a run's gradient nonlinearity correction for derivative sidecars."""
+    """Describe a run's gradient nonlinearity correction for derivative sidecars.
+
+    Parameters
+    ----------
+    plan : GradwarpPlan
+        The run's resolved correction.
+    jacobian : bool
+        Whether intensities were modulated by the field's Jacobian determinant.
+
+    Returns
+    -------
+    metadata : dict
+        ``GradientNonlinearityCorrection`` and ``GradientCoefficientFile``, plus
+        ``GradientWarpDimensions`` and ``GradientWarpJacobian`` if a field was applied.
+    """
     metadata = {
         'GradientNonlinearityCorrection': plan.warp_dim is not None,
         'GradientCoefficientFile': Path(plan.gradient_file).name,
@@ -166,6 +251,15 @@ def validate_gradient_flags(gradient_file, force, ignore):
 
     An unrecognized extension is rejected, rather than warned about as TORTOISE does,
     because TORTOISE then silently skips the correction.
+
+    Parameters
+    ----------
+    gradient_file : str or os.PathLike or None
+        The ``--gradient-file`` value. Its existence is checked by the parser.
+    force : collection of str
+        The ``--force`` values.
+    ignore : collection of str
+        The ``--ignore`` values.
 
     Raises
     ------
@@ -211,7 +305,25 @@ _WHITESPACE = ' \t\n\r\f\v'
 
 
 def _stof(text):
-    """Emulate ``std::stof``: read a leading float, ignore trailing junk, raise if none."""
+    """Emulate ``std::stof``: read a leading float, ignore trailing junk, raise if none.
+
+    Only whether this raises matters. Exponents are not parsed.
+
+    Parameters
+    ----------
+    text : str
+        The text to parse.
+
+    Returns
+    -------
+    float
+        The leading number.
+
+    Raises
+    ------
+    ValueError
+        If ``text`` does not start with a number (after whitespace).
+    """
     stripped = text.lstrip(_WHITESPACE)
     index = 0
     if index < len(stripped) and stripped[index] in '+-':
@@ -226,7 +338,23 @@ def _stof(text):
 
 
 def _stoi(text):
-    """Emulate ``std::stoi``: read a leading integer, ignore trailing junk, raise if none."""
+    """Emulate ``std::stoi``: read a leading integer, ignore trailing junk, raise if none.
+
+    Parameters
+    ----------
+    text : str
+        The text to parse.
+
+    Returns
+    -------
+    int
+        The leading integer.
+
+    Raises
+    ------
+    ValueError
+        If ``text`` does not start with an integer (after whitespace).
+    """
     stripped = text.lstrip(_WHITESPACE)
     index = 0
     if index < len(stripped) and stripped[index] in '+-':
@@ -241,18 +369,56 @@ def _stoi(text):
 
 
 def _substr(text, pos, count):
-    """Emulate ``std::string::substr``, where a negative count wraps to "until the end"."""
+    """Emulate ``std::string::substr``, where a negative count wraps to "until the end".
+
+    Parameters
+    ----------
+    text : str
+        The string.
+    pos : int
+        Start position.
+    count : int
+        Number of characters. A negative count (an unsigned underflow in C++) means
+        everything from ``pos``.
+
+    Returns
+    -------
+    str
+        The substring.
+
+    Raises
+    ------
+    IndexError
+        If ``pos`` is beyond the end of ``text``.
+    """
     if pos > len(text):
         raise IndexError('out_of_range')
     return text[pos:] if count < 0 else text[pos : pos + count]
 
 
 def _is_comment(line):
+    """Check whether a line of a coefficient file is a comment.
+
+    Parameters
+    ----------
+    line : str
+        One line of the file.
+
+    Returns
+    -------
+    bool
+        True if the first non-whitespace character is ``#``.
+    """
     return line.lstrip().startswith('#')
 
 
 def siemens_reader_verdict(line):
     """Predict what TORTOISE's Siemens reader does with one line.
+
+    Parameters
+    ----------
+    line : str
+        One line of a Siemens ``.grad`` file.
 
     Returns
     -------
@@ -289,7 +455,18 @@ def siemens_reader_verdict(line):
 
 
 def _lines(path):
-    r"""Split like ``std::getline(f, s, '\n')``, which keeps a trailing ``\r``."""
+    r"""Split a file into lines like ``std::getline(f, s, '\n')``, keeping trailing ``\r``.
+
+    Parameters
+    ----------
+    path : str or os.PathLike
+        The file to read, decoded as Latin-1.
+
+    Returns
+    -------
+    lines : list of str
+        The file's lines, without the final empty line after a trailing newline.
+    """
     lines = Path(path).read_bytes().decode('latin-1').split('\n')
     if lines and lines[-1] == '':
         lines.pop()
@@ -302,6 +479,20 @@ def sanitize_siemens_coefficients(gradient_file, dest_dir, logger=None):
     Comment lines the reader would parse are dropped into a copy in ``dest_dir``,
     with the original file name. Other files, and files with nothing to drop,
     are returned unchanged. The user's file is never modified.
+
+    Parameters
+    ----------
+    gradient_file : str or os.PathLike
+        The user's gradient file.
+    dest_dir : str or os.PathLike
+        Directory in which to write the cleaned copy, if one is needed.
+    logger : logging.Logger or None, optional
+        Logger to report dropped lines to.
+
+    Returns
+    -------
+    out_file : pathlib.Path
+        The cleaned copy, or ``gradient_file`` itself if nothing had to be dropped.
 
     Raises
     ------

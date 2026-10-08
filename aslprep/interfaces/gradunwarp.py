@@ -70,12 +70,33 @@ class CreateNonlinearityDisplacementMap(CommandLine):
     _cmd = 'CreateNonlinearityDisplacementMap'
 
     def _parse_inputs(self, skip=None):
+        """Build the command-line arguments, appending the GE flag when needed.
+
+        Parameters
+        ----------
+        skip : list of str or None, optional
+            Names of inputs to leave out, passed on to nipype's parser.
+
+        Returns
+        -------
+        parsed : list of str
+            Command-line arguments, with ``'1'`` appended for GE data.
+            For other data the fourth argument is omitted, which the tool reads as false.
+        """
         parsed = super()._parse_inputs(skip=skip)
         if self.inputs.is_ge:
             parsed.append('1')
         return parsed
 
     def _list_outputs(self):
+        """List the interface's outputs.
+
+        Returns
+        -------
+        outputs : dict
+            ``out_field``: absolute path to the displacement field written by the tool,
+            in the working directory.
+        """
         return {'out_field': os.path.abspath(self.inputs.out_field)}
 
 
@@ -124,6 +145,23 @@ class MaskWarpDimensions(SimpleInterface):
     output_spec = _MaskWarpDimensionsOutputSpec
 
     def _run_interface(self, runtime):
+        """Keep the displacement components selected by ``warp_dim``.
+
+        Parameters
+        ----------
+        runtime : nipype.interfaces.base.support.Bunch
+            Nipype runtime object.
+
+        Returns
+        -------
+        runtime : nipype.interfaces.base.support.Bunch
+            The same runtime object. ``out_file`` is set in the results.
+
+        Raises
+        ------
+        ValueError
+            If ``warp_dim`` is not ``'3D'`` and ``ref_image`` is undefined.
+        """
         img = nb.load(self.inputs.in_file)
         data = img.get_fdata(dtype='float32')
         if self.inputs.warp_dim != '3D':
@@ -146,6 +184,20 @@ class MaskWarpDimensions(SimpleInterface):
 
 
 def slice_normal_lps(affine, slice_axis='k'):
-    """Return the unit slice normal of an image, in LPS (ITK) world coordinates."""
+    """Return the unit slice normal of an image, in LPS (ITK) world coordinates.
+
+    Parameters
+    ----------
+    affine : array_like of shape (4, 4)
+        The image's voxel-to-world (RAS) affine.
+    slice_axis : {'i', 'j', 'k'}, optional
+        The voxel axis along which slices are stacked. Default is ``'k'``.
+
+    Returns
+    -------
+    normal : numpy.ndarray of shape (3,)
+        Unit vector along ``slice_axis``, in LPS coordinates, as float32.
+        Its sign follows the direction of increasing voxel index.
+    """
     column = np.asarray(affine, dtype='float64')[:3, 'ijk'.index(slice_axis)]
     return (column / np.linalg.norm(column) * [-1.0, -1.0, 1.0]).astype('float32')

@@ -49,12 +49,17 @@ def init_asl_volumetric_resample_wf(
     ----------
     metadata
         BIDS metadata for the ASL file.
+    mem_gb
+        Memory estimates for the ASL series, in GB. The ``'resampled'`` key is used.
     jacobian
         Whether to apply the Jacobian determinant of the fieldmap.
     gradwarp
         Whether to apply a gradient nonlinearity displacement field (``gradwarp_field``).
     gradwarp_jacobian
         Whether to modulate intensities by the Jacobian determinant of ``gradwarp_field``.
+    fallback_total_readout_time
+        Total readout time to use if it cannot be determined from the metadata
+        (a number, or ``'estimated'``).
     fieldmap_id
         Fieldmap identifier, if fieldmap correction is to be applied.
     omp_nthreads
@@ -99,6 +104,11 @@ def init_asl_volumetric_resample_wf(
     resampling_reference
         An empty reference image with the correct affine and header for resampling
         further images into the ASL series' space.
+
+    Returns
+    -------
+    workflow : nipype.pipeline.engine.Workflow
+        The workflow.
     """
     from fmriprep.interfaces.resampling import DistortionParameters, ReconstructFieldmap
     from niworkflows.interfaces.nibabel import GenerateSamplingReference
@@ -233,8 +243,15 @@ def init_asl_volumetric_resample_wf(
 def _gen_inverses(inlist: list) -> list[bool]:
     """Create a list indicating the first transform should be inverted.
 
-    The input list is the collection of transforms that follow the
-    inverted one.
+    Parameters
+    ----------
+    inlist : list or str or None
+        The transforms that follow the inverted one.
+
+    Returns
+    -------
+    list of bool
+        True for the first transform, and False for each transform in ``inlist``.
     """
     from niworkflows.utils.connections import listify
 
@@ -244,6 +261,18 @@ def _gen_inverses(inlist: list) -> list[bool]:
 
 
 def _is_native(value):
+    """Check whether a resolution entity requests the native resolution.
+
+    Parameters
+    ----------
+    value : str or None
+        The ``resolution`` input.
+
+    Returns
+    -------
+    bool
+        True if ``value`` is ``'native'``.
+    """
     return value == 'native'
 
 

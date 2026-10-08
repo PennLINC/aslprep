@@ -12,12 +12,35 @@ ZOOMS = (2.0, 2.5, 3.0)
 
 
 def _affine():
+    """Build the oblique-free, anisotropic affine shared by the test images.
+
+    Returns
+    -------
+    affine : numpy.ndarray of shape (4, 4)
+        Voxel-to-RAS affine with voxel sizes ``ZOOMS`` and a non-zero origin.
+    """
     affine = np.diag(ZOOMS + (1.0,))
     affine[:3, 3] = [-11.0, -16.0, -13.0]
     return affine
 
 
 def _write_series(path, nvols=3, seed=0):
+    """Write a smooth 4D test series with a little noise.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Output file.
+    nvols : int, optional
+        Number of volumes.
+    seed : int, optional
+        Seed for the noise.
+
+    Returns
+    -------
+    path : pathlib.Path
+        The written file.
+    """
     rng = np.random.default_rng(seed)
     grid = np.indices(SHAPE).astype('float32')
     base = np.sin(grid[0] / 3) + np.cos(grid[1] / 4) + 0.5 * np.sin(grid[2] / 2) + 3
@@ -27,7 +50,20 @@ def _write_series(path, nvols=3, seed=0):
 
 
 def _write_itk_field(path, deltas_lps):
-    """Write an (X, Y, Z, 1, 3) ITK displacement field from (X, Y, Z, 3) LPS deltas."""
+    """Write an ITK displacement field on the test grid.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Output file.
+    deltas_lps : numpy.ndarray of shape ``SHAPE + (3,)``
+        Displacements in LPS millimetres.
+
+    Returns
+    -------
+    path : pathlib.Path
+        The written (X, Y, Z, 1, 3) field, with the vector intent set.
+    """
     data = deltas_lps.reshape(SHAPE + (1, 3)).astype('float32')
     img = nb.Nifti1Image(data, _affine())
     img.header.set_intent('vector')
@@ -36,6 +72,22 @@ def _write_itk_field(path, deltas_lps):
 
 
 def _run(interface, tmp_path, name):
+    """Run an interface in its own directory and load its output.
+
+    Parameters
+    ----------
+    interface : nipype.interfaces.base.BaseInterface
+        An interface with an ``out_file`` output.
+    tmp_path : pathlib.Path
+        Parent directory.
+    name : str
+        Name of the directory to run in.
+
+    Returns
+    -------
+    numpy.ndarray
+        The data of ``out_file``.
+    """
     workdir = tmp_path / name
     workdir.mkdir()
     result = interface.run(cwd=str(workdir))
@@ -140,6 +192,7 @@ def test_jacobian_modulation(tmp_path):
 
 
 def test_bad_field_shape(tmp_path):
+    """A non-vector image is rejected as a displacement field."""
     img = nb.Nifti1Image(np.zeros(SHAPE, dtype='float32'), _affine())
     with pytest.raises(ValueError, match='ITK displacement field'):
         GradwarpField(img)

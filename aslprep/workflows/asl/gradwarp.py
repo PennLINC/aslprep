@@ -27,7 +27,20 @@ _FORCED_CORRECTION_TEXT = {
 
 
 def gradwarp_boilerplate(plan: GradwarpPlan, jacobian: bool) -> str:
-    """Describe the gradient nonlinearity correction for the methods section."""
+    """Describe the gradient nonlinearity correction for the methods section.
+
+    Parameters
+    ----------
+    plan : GradwarpPlan
+        The run's resolved correction.
+    jacobian : bool
+        Whether intensities are modulated by the field's Jacobian determinant.
+
+    Returns
+    -------
+    str
+        Methods text (Markdown, with a citation key for TORTOISE).
+    """
     if plan.warp_dim is None:
         return (
             'Gradient nonlinearity correction was not applied, as the ASL images had already '
@@ -97,6 +110,8 @@ def init_gradwarp_wf(
         The ASL file, for naming the report.
     report
         Whether to write a before/after report of the correction of ``ref_image``.
+    name
+        Name of the workflow (default: ``gradwarp_wf``).
 
     Inputs
     ------
@@ -110,6 +125,16 @@ def init_gradwarp_wf(
     -------
     gradwarp_field
         ITK displacement field (LPS, mm) on the reference grid.
+
+    Returns
+    -------
+    workflow : niworkflows.engine.workflows.LiterateWorkflow
+        The workflow.
+
+    Raises
+    ------
+    ValueError
+        If ``plan.warp_dim`` is None, as no field is needed.
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.reportlets.registration import SimpleBeforeAfterRPT
@@ -195,5 +220,19 @@ def init_gradwarp_wf(
 
 
 def _first_defined(fallback, preferred=None):
-    """Return ``preferred`` if it is defined, else ``fallback``."""
+    """Return ``preferred`` if it is set, else ``fallback``.
+
+    Parameters
+    ----------
+    fallback : str
+        The value to use if ``preferred`` is not set.
+    preferred : str or None, optional
+        The preferred value. Nipype leaves undefined inputs out of the call,
+        so it defaults to None.
+
+    Returns
+    -------
+    str
+        ``preferred`` if it is set, else ``fallback``.
+    """
     return preferred or fallback

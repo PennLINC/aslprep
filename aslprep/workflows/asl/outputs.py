@@ -1149,7 +1149,22 @@ def _read_json(in_file):
 
 
 def _remove_keys(metadata, keys, updates=None):
-    """Return a copy of a metadata dictionary without the given keys, plus any updates."""
+    """Return a copy of a metadata dictionary without the given keys, plus any updates.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata dictionary.
+    keys : list of str
+        Keys to remove.
+    updates : dict or None, optional
+        Keys and values to add or replace after removal.
+
+    Returns
+    -------
+    dict
+        The new metadata dictionary. ``metadata`` is not modified.
+    """
     out = {k: v for k, v in metadata.items() if k not in keys}
     out.update(updates or {})
     return out

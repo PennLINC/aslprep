@@ -210,6 +210,18 @@ def test_optional_arguments(tmp_path, supp_args, opt, expected):
 
 
 def _gradwarp_cli_args(tmp_path):
+    """Build minimal command-line arguments for a skeleton BIDS dataset.
+
+    Parameters
+    ----------
+    tmp_path : pathlib.Path
+        Directory for the dataset, outputs, and work directory.
+
+    Returns
+    -------
+    list of str
+        Positional arguments and options for :func:`aslprep.cli.parser.parse_args`.
+    """
     from niworkflows.utils.testing import generate_bids_skeleton
 
     bids_dir = tmp_path / 'ds000240'
@@ -256,6 +268,7 @@ def test_gradient_file_options(tmp_path):
     ],
 )
 def test_gradient_file_errors(tmp_path, supp_args, message):
+    """Invalid gradient correction flag combinations stop the run at parse time."""
     from aslprep.cli.parser import parse_args
 
     reset_config()

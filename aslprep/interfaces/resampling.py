@@ -45,6 +45,18 @@ class ResampleSeries(_FMRIPrepResampleSeries):
     input_spec = _ResampleSeriesInputSpec
 
     def _run_interface(self, runtime):
+        """Resample ``in_file``, including the gradient field if one is given.
+
+        Parameters
+        ----------
+        runtime : nipype.interfaces.base.support.Bunch
+            Nipype runtime object.
+
+        Returns
+        -------
+        runtime : nipype.interfaces.base.support.Bunch
+            The same runtime object. ``out_file`` is set in the results.
+        """
         if not isdefined(self.inputs.gradwarp_field):
             return super()._run_interface(runtime)
 
@@ -100,8 +112,20 @@ class GradwarpField:
 
     Parameters
     ----------
-    img
+    img : nibabel.Nifti1Image
         ITK displacement field: shape (X, Y, Z, 1, 3) or (X, Y, Z, 3), in LPS millimetres.
+
+    Attributes
+    ----------
+    deltas : numpy.ndarray of shape (X, Y, Z, 3)
+        The displacements, in RAS millimetres.
+    affine : numpy.ndarray of shape (4, 4)
+        The field grid's voxel-to-world (RAS) affine.
+
+    Raises
+    ------
+    ValueError
+        If ``img`` does not have the shape of an ITK displacement field.
 
     Notes
     -----
@@ -124,11 +148,34 @@ class GradwarpField:
         self._jacobian = None
 
     def _index(self, points: np.ndarray) -> np.ndarray:
-        """Convert N x 3 RAS points to 3 x N voxel indices on the field grid."""
+        """Convert world points to voxel indices on the field grid.
+
+        Parameters
+        ----------
+        points : numpy.ndarray of shape (N, 3)
+            Points in RAS world coordinates (mm).
+
+        Returns
+        -------
+        ijk : numpy.ndarray of shape (3, N)
+            Continuous voxel indices on the field grid.
+        """
         return self._ras2vox[:3, :3] @ points.T + self._ras2vox[:3, 3:4]
 
     def map(self, points: np.ndarray) -> np.ndarray:
-        """Map N x 3 points in the corrected image to where they were recorded."""
+        """Map points in the corrected image to where they were recorded.
+
+        Parameters
+        ----------
+        points : numpy.ndarray of shape (N, 3)
+            Points in RAS world (scanner) coordinates (mm), in the corrected image.
+
+        Returns
+        -------
+        recorded : numpy.ndarray of shape (N, 3)
+            ``points`` plus the linearly interpolated displacement: where each point was
+            recorded in the distorted (raw) image, in RAS world coordinates (mm).
+        """
         ijk = self._index(points)
         displacements = np.stack(
             [
@@ -140,7 +187,17 @@ class GradwarpField:
         return points + displacements
 
     def jacobian(self) -> np.ndarray:
-        r"""Compute the Jacobian determinant of :math:`x \mapsto x + u(x)` on the field grid."""
+        r"""Compute the Jacobian determinant of :math:`x \mapsto x + u(x)` on the field grid.
+
+        The result is computed once and cached.
+
+        Returns
+        -------
+        det : numpy.ndarray of shape (X, Y, Z)
+            The determinant of :math:`I + \partial u / \partial x` at each voxel of the field
+            grid, with derivatives taken by central differences in world coordinates.
+            Values above 1 mean that a corrected voxel draws from a larger raw volume.
+        """
         if self._jacobian is not None:
             return self._jacobian
         # du_i/dj_k (derivatives along voxel axes), then the chain rule to world coordinates.
@@ -153,7 +210,19 @@ class GradwarpField:
         return self._jacobian
 
     def sample_jacobian(self, points: np.ndarray) -> np.ndarray:
-        """Sample the Jacobian determinant at N x 3 points in the corrected image."""
+        """Sample the Jacobian determinant at points in the corrected image.
+
+        Parameters
+        ----------
+        points : numpy.ndarray of shape (N, 3)
+            Points in RAS world (scanner) coordinates (mm), in the corrected image.
+
+        Returns
+        -------
+        det : numpy.ndarray of shape (N,)
+            The linearly interpolated Jacobian determinant (see :meth:`jacobian`),
+            taking the nearest edge value beyond the field grid.
+        """
         return ndi.map_coordinates(self.jacobian(), self._index(points), order=1, mode='nearest')
 
 
@@ -186,12 +255,48 @@ def resample_image(
 
     Parameters
     ----------
-    gradwarp
-        Gradient nonlinearity displacement field. If None, no gradient correction is applied.
-    gradwarp_jacobian
+    source : nibabel.Nifti1Image
+        The 3D image or 4D series to resample.
+    target : nibabel.Nifti1Image
+        An image sampled in the target space.
+    transforms : nitransforms.TransformChain
+        Transforms mapping the target space to the source. If head-motion transforms
+        (a :class:`nitransforms.linear.LinearTransformsMapping`) are included, they must
+        be last, and map the reference image's world frame to each volume's.
+    fieldmap : nibabel.Nifti1Image or None
+        The fieldmap, in Hz, sampled in the target space.
+    pe_info : list of tuple of (int, float), or None
+        For each volume, the phase-encoding axis and signed readout time, as in fMRIPrep.
+    gradwarp : GradwarpField or None, optional
+        Gradient nonlinearity displacement field. If None, no gradient correction is applied
+        and the result is that of fMRIPrep's ``resample_image``.
+    jacobian : bool, optional
+        Whether to modulate intensities by the Jacobian of the fieldmap shift.
+    gradwarp_jacobian : bool, optional
         Whether to modulate intensities by the Jacobian determinant of ``gradwarp``.
+    nthreads : int, optional
+        Number of threads to use.
+    output_dtype : numpy.dtype or str or None, optional
+        Data type of the resampled array.
+    order : int, optional
+        Order of spline interpolation (default: 3).
+    mode : str, optional
+        How data are extended beyond their boundaries,
+        as in :func:`scipy.ndimage.map_coordinates`.
+    cval : float, optional
+        Value used beyond the boundaries when ``mode`` is ``'constant'``.
+    prefilter : bool, optional
+        Whether to spline-prefilter the data when ``order`` > 1.
 
-    See :func:`fmriprep.interfaces.resampling.resample_image` for the other parameters.
+    Returns
+    -------
+    resampled_img : nibabel.Nifti1Image
+        The source resampled into the target space.
+
+    Raises
+    ------
+    ValueError
+        If head-motion transforms are not last in ``transforms``.
     """
     if not isinstance(transforms, nt.TransformChain):
         transforms = nt.TransformChain([transforms])
@@ -286,8 +391,50 @@ def _resample_series_gradwarp(
 ) -> np.ndarray:
     """Resample each volume with the gradient field evaluated after its head motion.
 
-    ``reference_coordinates`` are N x 3 RAS points in the reference image's world frame.
-    ``hmc_matrices`` map them to each volume's world frame (empty for no motion correction).
+    Parameters
+    ----------
+    data : numpy.ndarray of shape (X, Y, Z) or (X, Y, Z, T)
+        The source data.
+    reference_coordinates : numpy.ndarray of shape (N, 3)
+        The target voxels' positions in the reference image's RAS world frame (mm),
+        where N is the number of target voxels.
+    target_shape : tuple of int
+        Shape of the target grid, whose product is N.
+    ras2vox : numpy.ndarray of shape (4, 4)
+        World-to-voxel affine of the source data.
+    hmc_matrices : list of numpy.ndarray of shape (4, 4)
+        For each volume, the RAS-to-RAS affine from the reference image's world frame to
+        that volume's. Empty for no head-motion correction.
+    gradwarp : GradwarpField
+        Gradient nonlinearity displacement field.
+    gradwarp_jacobian : bool
+        Whether to modulate intensities by the Jacobian determinant of ``gradwarp``,
+        evaluated where each volume's tissue was in the scanner.
+    pe_info : list of tuple of (int, float)
+        For each volume, the phase-encoding axis and signed readout time.
+    jacobian : bool
+        Whether to modulate intensities by the Jacobian of the fieldmap shift.
+    fmap_hz : numpy.ndarray of shape ``target_shape``
+        The fieldmap, in Hz, sampled in the target space.
+    output_dtype : numpy.dtype or str
+        Data type of the resampled array.
+    nthreads : int
+        Number of volumes to resample in parallel.
+    order : int
+        Order of spline interpolation.
+    mode : str
+        How data are extended beyond their boundaries,
+        as in :func:`scipy.ndimage.map_coordinates`.
+    cval : float
+        Value used beyond the boundaries when ``mode`` is ``'constant'``.
+    prefilter : bool
+        Whether to spline-prefilter the data when ``order`` > 1.
+
+    Returns
+    -------
+    resampled : numpy.ndarray
+        The resampled data, of shape ``target_shape`` for 3D ``data``,
+        or ``target_shape + (T,)`` for 4D ``data``.
     """
     from concurrent.futures import ThreadPoolExecutor
 
@@ -296,6 +443,13 @@ def _resample_series_gradwarp(
     out_array = np.zeros(target_shape + (nvols,), dtype=output_dtype, order='F')
 
     def _resample_one(volid):
+        """Resample one volume into ``out_array``.
+
+        Parameters
+        ----------
+        volid : int
+            Index of the volume to resample.
+        """
         points = reference_coordinates
         if hmc_matrices:
             points = nb.affines.apply_affine(hmc_matrices[volid], points)

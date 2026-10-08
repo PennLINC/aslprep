@@ -8,6 +8,20 @@ from aslprep.utils import gradwarp as gw
 
 
 def _grad_file(tmp_path, name='coeff.grad'):
+    """Write a minimal Siemens gradient coefficient file.
+
+    Parameters
+    ----------
+    tmp_path : pathlib.Path
+        Directory to write to.
+    name : str, optional
+        File name.
+
+    Returns
+    -------
+    path : pathlib.Path
+        The written file.
+    """
     path = tmp_path / name
     path.write_text(' Synthetic coefficients\n 0.250 = R0\n\n  1 A( 3, 1) -0.023400 x\n')
     return path
@@ -24,10 +38,12 @@ def _grad_file(tmp_path, name='coeff.grad'):
     ],
 )
 def test_warp_dim_from_metadata(image_type, expected):
+    """ImageType determines the correction: DIS3D none, DIS2D through-plane, else 3D."""
     assert gw.warp_dim_from_metadata({'ImageType': image_type}) == expected
 
 
 def test_resolve_plan(tmp_path):
+    """Plans honor --gradient-file, --ignore gradwarp, and --force."""
     grad = _grad_file(tmp_path)
     meta = {'ImageType': ['ND'], 'Manufacturer': 'Siemens'}
 
@@ -44,6 +60,7 @@ def test_resolve_plan(tmp_path):
 
 
 def test_resolve_plan_refuses_ge_coefficients(tmp_path):
+    """GE coefficients are refused only when a field would be expanded from them."""
     meta = {'ImageType': ['ND'], 'Manufacturer': 'GE MEDICAL SYSTEMS'}
     with pytest.raises(ValueError, match='not supported for GE'):
         gw.resolve_gradwarp_plan(meta, 'asl.nii.gz', tmp_path / 'c.dat', force=[], ignore=[])
@@ -67,16 +84,19 @@ def test_resolve_plan_refuses_ge_coefficients(tmp_path):
     ],
 )
 def test_validate_gradient_flags_errors(gradient_file, force, ignore, message):
+    """Contradictory flags and unrecognized extensions are rejected."""
     with pytest.raises(ValueError, match=message):
         gw.validate_gradient_flags(gradient_file, force, ignore)
 
 
 @pytest.mark.parametrize('name', ['c.grad', 'c.dat', 'c.gc', 'f.nii', 'f.nii.gz'])
 def test_validate_gradient_flags_ok(name):
+    """All supported coefficient and field extensions are accepted."""
     gw.validate_gradient_flags(name, {'gradwarp3D'}, {'gradwarp-jacobian'})
 
 
 def test_sanitize_siemens_coefficients(tmp_path):
+    """Comments TORTOISE would misread are dropped into a copy; other files are untouched."""
     lines = [
         ' Header line',
         '#  A(1,1) = 1.1547 (2/Sqrt[3])',  # would abort the reader
@@ -105,6 +125,7 @@ def test_sanitize_siemens_coefficients(tmp_path):
 
 
 def test_sanitize_siemens_coefficients_bad_data_line(tmp_path):
+    """A data line that would crash TORTOISE's reader fails early, naming the line."""
     src = tmp_path / 'coeff.grad'
     src.write_text('  1 A( 3, 1) = oops x\n')
     with pytest.raises(ValueError, match='line 1'):
@@ -112,6 +133,7 @@ def test_sanitize_siemens_coefficients_bad_data_line(tmp_path):
 
 
 def test_create_nonlinearity_displacement_map_cmdline(tmp_path):
+    """The coefficient file comes first, and the GE flag is appended only for GE data."""
     from aslprep.interfaces.gradunwarp import CreateNonlinearityDisplacementMap
 
     grad = _grad_file(tmp_path)
@@ -124,6 +146,20 @@ def test_create_nonlinearity_displacement_map_cmdline(tmp_path):
 
 
 def _rotation(axis, degrees):
+    """Build a rotation about one world axis.
+
+    Parameters
+    ----------
+    axis : int
+        Index of the world axis to rotate about (0, 1, or 2).
+    degrees : float
+        Rotation angle.
+
+    Returns
+    -------
+    numpy.ndarray of shape (4, 4)
+        The rotation, as an affine.
+    """
     import numpy as np
 
     theta = np.deg2rad(degrees)
@@ -196,6 +232,7 @@ def test_mask_warp_dimensions(tmp_path, affine_name, slice_axis):
 
 
 def test_mask_warp_dimensions_requires_reference(tmp_path):
+    """Through-plane correction needs a reference image for the slice normal."""
     import nibabel as nb
     import numpy as np
 
@@ -208,6 +245,7 @@ def test_mask_warp_dimensions_requires_reference(tmp_path):
 
 
 def test_resolve_plan_slice_axis(tmp_path):
+    """The slice axis comes from SliceEncodingDirection, without its sign."""
     meta = {'ImageType': ['DIS2D'], 'SliceEncodingDirection': 'j-'}
     plan = gw.resolve_gradwarp_plan(meta, 'asl.nii.gz', _grad_file(tmp_path), force=[], ignore=[])
     assert (plan.warp_dim, plan.slice_axis) == ('1D', 'j')
@@ -269,6 +307,22 @@ def test_precomputed_geometry_is_recomputed(tmp_path):
 
 
 def _edges_into(graph, dst_suffix, field):
+    """Find the nodes connected to one input of a node.
+
+    Parameters
+    ----------
+    graph : networkx.DiGraph
+        A flattened workflow graph.
+    dst_suffix : str
+        End of the destination node's full name.
+    field : str
+        Name of the destination node's input.
+
+    Returns
+    -------
+    set of str
+        Full names of the nodes connected to that input.
+    """
     return {
         src.fullname
         for src, dst, data in graph.edges(data=True)
@@ -351,6 +405,25 @@ def test_init_asl_wf_no_gradwarp():
 
 
 def graph_node(graph, suffix):
+    """Find the single node whose full name ends with a suffix.
+
+    Parameters
+    ----------
+    graph : networkx.DiGraph
+        A flattened workflow graph.
+    suffix : str
+        End of the node's full name.
+
+    Returns
+    -------
+    nipype.pipeline.engine.Node
+        The node.
+
+    Raises
+    ------
+    AssertionError
+        If no node, or more than one, matches.
+    """
     matches = [node for node in graph.nodes() if node.fullname.endswith(suffix)]
     assert len(matches) == 1, (suffix, [node.fullname for node in matches])
     return matches[0]
@@ -403,6 +476,7 @@ def test_separate_m0scan_correction(tmp_path, asl_dim, m0_dim):
 
 
 def test_first_defined():
+    """The fallback is used unless a preferred value is given."""
     from aslprep.workflows.asl.gradwarp import _first_defined
 
     assert _first_defined('ref.nii') == 'ref.nii'
