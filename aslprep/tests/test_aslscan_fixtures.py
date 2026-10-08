@@ -286,3 +286,120 @@ def test_modulation_field_range_and_variation():
     assert field.min() >= 1 - params['amplitude'] - 1e-9
     assert field.max() <= 1 + params['amplitude'] + 1e-9
     assert field.std() > 0.02
+
+
+# ---------------------------------------------------------------------------------------------
+# Recipes and generation
+# ---------------------------------------------------------------------------------------------
+def _aslscan_or_skip():
+    try:
+        return af.find_aslscan()
+    except af.AslscanUnavailable as exc:
+        pytest.skip(str(exc))
+
+
+def test_every_recipe_loads():
+    for name in af.RECIPES:
+        recipe = af.load_recipe(name)
+        assert recipe.acq
+        assert recipe.context
+
+
+@pytest.mark.parametrize(
+    ('extent', 'voxel', 'expected'),
+    [(193.0, 5.0, 39), (190.0, 5.0, 38), (190.0000000001, 5.0, 38), (24.0, 4.0, 6), (1.0, 4.0, 1)],
+)
+def test_expected_slices_matches_aslscan_rule(extent, voxel, expected):
+    assert af.expected_slices(extent, voxel) == expected
+
+
+def _recipe_in(tmp_path, monkeypatch, sidecar, context=('control', 'label'), **settings):
+    monkeypatch.setattr(af, 'RECIPES_DIR', tmp_path / 'recipes')
+    d = tmp_path / 'recipes' / 'r'
+    d.mkdir(parents=True)
+    (d / 'asl.json').write_text(json.dumps(sidecar))
+    (d / 'aslcontext.tsv').write_text('volume_type\n' + '\n'.join(context) + '\n')
+    (d / 'overlay.toml').write_text(
+        'seed = 1\n[acquisition]\nmatrix = [12, 10]\nnoise_variance = 0.0\n'
+    )
+    lines = [f'{k} = {json.dumps(v)}' for k, v in {'acq': 'test', **settings}.items()]
+    (d / 'recipe.toml').write_text('\n'.join(lines) + '\n')
+    return af.Recipe('r')
+
+
+def test_check_recipe_slice_rules(tmp_path, monkeypatch):
+    phantom = _write_synthetic_phantom(tmp_path / 'phantom')  # 8 mm in z
+    side = {'MRAcquisitionType': '2D', 'AcquisitionVoxelSize': [2, 2, 3]}
+    af.check_recipe(
+        _recipe_in(tmp_path / 'a', monkeypatch, {**side, 'SliceTiming': [0, 0.1, 0.2]}), phantom
+    )
+
+    with pytest.raises(af.RecipeError, match='gives 3 slices'):
+        af.check_recipe(
+            _recipe_in(tmp_path / 'b', monkeypatch, {**side, 'SliceTiming': [0, 1]}), phantom
+        )
+
+    side4 = {**side, 'AcquisitionVoxelSize': [2, 2, 2], 'MultibandAccelerationFactor': 2}
+    ok = _recipe_in(tmp_path / 'c', monkeypatch, {**side4, 'SliceTiming': [0, 0.1, 0, 0.1]})
+    af.check_recipe(ok, phantom)
+    bad = _recipe_in(tmp_path / 'd', monkeypatch, {**side4, 'SliceTiming': [0, 0, 0.1, 0.1]})
+    with pytest.raises(af.RecipeError, match='must share a slice time'):
+        af.check_recipe(bad, phantom)
+
+    three_d = {'MRAcquisitionType': '3D', 'AcquisitionVoxelSize': [2, 2, 2], 'SliceTiming': [0]}
+    with pytest.raises(af.RecipeError, match='3D acquisitions'):
+        af.check_recipe(_recipe_in(tmp_path / 'e', monkeypatch, three_d), phantom)
+
+    plds = {**side, 'SliceTiming': [0, 0.1, 0.2], 'PostLabelingDelay': [1, 2, 3]}
+    with pytest.raises(af.RecipeError, match='PostLabelingDelay has 3 values'):
+        af.check_recipe(_recipe_in(tmp_path / 'f', monkeypatch, plds), phantom)
+
+
+def test_recipe_rejects_unknown_keys(tmp_path, monkeypatch):
+    with pytest.raises(af.RecipeError, match=r'unknown recipe\.toml keys'):
+        _recipe_in(tmp_path, monkeypatch, {}, colour='blue')
+
+
+def test_set_noise_replaces_exactly_one_line():
+    text = 'seed = 1\n[acquisition]\nnoise_variance = 0.0  # set by the generator\n'
+    assert 'noise_variance = 2.5  #' in af._set_noise(text, 2.5)
+    with pytest.raises(af.RecipeError):
+        af._set_noise('seed = 1\n', 1.0)
+
+
+def test_deltam_estimates_pairs_by_order():
+    asl = np.array([10.0, 9.0, 11.0, 9.5, 3.0])  # label-first pairs, then a deltam row
+    context = ['label', 'control', 'label', 'control', 'deltam']
+    # control 9 - label 10, control 9.5 - label 11, then the deltam row
+    np.testing.assert_allclose(af.deltam_estimates(asl, context), [-1.0, -1.5, 3.0])
+
+
+def test_fixture_dir_refuses_generation_when_required(tmp_path, monkeypatch):
+    monkeypatch.setenv('ASLPREP_REQUIRE_FIXTURES', '1')
+    with pytest.raises(af.FixtureUnavailable, match='forbids generating'):
+        af.fixture_dir('fast_pcasl_seq', tmp_path)
+
+
+def test_generated_fixture_matches_aslscan_truth(tmp_path):
+    """Our exact-overlap partial volumes reproduce aslscan's perfusion truth (spec 4.4)."""
+    binary = _aslscan_or_skip()
+    from aslprep.tests import truth_geometry as tg
+
+    out = af.generate('fast_pcasl_seq', tmp_path, binary)
+    assert af.verify(tmp_path, ['fast_pcasl_seq']) == {}
+    phantom = af.build_phantom(af.load_recipe('fast_pcasl_seq').phantom, tmp_path)
+    perf = nb.load(phantom / 'perfusion.nii.gz')
+    truth = nb.load(out / 'sub-01/perf/ground-truth/sub-01_desc-perfusion_gt.nii.gz')
+    mine = tg.overlap_mean(perf.get_fdata(), perf.affine, truth.affine, truth.shape)
+    np.testing.assert_allclose(mine, truth.get_fdata(), atol=1e-4)
+
+    # tampering is detected
+    (out / 'README').write_text('edited')
+    assert af.verify(tmp_path, ['fast_pcasl_seq']) == {
+        'fast_pcasl_seq': 'files differ from their manifest'
+    }
+
+
+def test_thread_count_does_not_change_output():
+    binary = _aslscan_or_skip()
+    assert 'identical' in af.check_threads('fast_pcasl_seq', binary)

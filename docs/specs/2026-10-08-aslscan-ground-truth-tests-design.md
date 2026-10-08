@@ -282,9 +282,10 @@ Each recipe directory, `aslprep/tests/data/aslscan/<name>/`, holds these committ
   keep_labeling_efficiency = true
   m0_divisor = 1.0             # M0 image divided by this; test passes --m0_scale=<same>
   snr_per_pair = 0             # 0 = noise-free; else the target delta-M SNR in GM-dominant voxels (Section 5)
-  t2_mode = "auto"
-  aslscan_args = []            # extra CLI args, allow-listed (e.g. "--t2-mode voxel")
+  t2_mode = "auto"             # aslscan --t2-mode (the only aslscan argument a recipe sets)
   ```
+
+  `anat` may also be `"none"`, for fast-tier recipes on cropped phantoms.
 
 - Optional `motion.tsv` (trajectory).
 - `SOURCE.md` for protocols derived from bids-examples: the upstream file, its commit, and every

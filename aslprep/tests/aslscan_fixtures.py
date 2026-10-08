@@ -16,12 +16,16 @@ Usage::
 """
 
 import argparse
+import contextlib
 import hashlib
 import json
+import math
 import os
+import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 #: Bump to discard a bad CircleCI cache entry (caches are immutable).
@@ -152,7 +156,9 @@ PHANTOM_PARAMS = {
 }
 
 #: Recipe name -> one-line description. Inputs live in tests/data/aslscan/<name>/.
-RECIPES = {}
+RECIPES = {
+    'fast_pcasl_seq': 'fast tier: PCASL, single delay, ascending slices, separate M0',
+}
 
 TESTS_DIR = Path(__file__).resolve().parent
 RECIPES_DIR = TESTS_DIR / 'data' / 'aslscan'
@@ -599,6 +605,594 @@ def build_phantom(name, data_dir):
 
 
 # ---------------------------------------------------------------------------------------------
+# Recipes
+# ---------------------------------------------------------------------------------------------
+class RecipeError(ValueError):
+    """A recipe's files are inconsistent or would be refused by aslscan."""
+
+
+class FixtureUnavailable(RuntimeError):
+    """A fixture is missing or stale and cannot be (or must not be) generated here."""
+
+
+#: recipe.toml keys and defaults (Section 4.3 of the spec). ``acq`` is required.
+RECIPE_DEFAULTS = {
+    'phantom': 'tfmni',
+    'acq': None,
+    'anat': 'derivatives',
+    'anat_offset': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    'keep_labeling_efficiency': True,
+    'm0_divisor': 1.0,
+    'snr_per_pair': 0.0,
+    't2_mode': 'auto',
+}
+ANAT_MODES = ('derivatives', 'raw', 'none')
+T2_MODES = ('auto', 'class', 'voxel')
+
+#: Sidecar fields ASLPrep reads per volume (aslprep/interfaces/cbf.py, ExtractCBF).
+VOLUME_WISE_FIELDS = (
+    'PostLabelingDelay',
+    'VascularCrushingVENC',
+    'LabelingDuration',
+    'EchoTime',
+    'FlipAngle',
+    'RepetitionTimePreparation',
+)
+
+#: Reference noise variance for the empirical SNR calibration (noise scales with its root).
+_REFERENCE_NOISE_VARIANCE = 1.0
+
+
+class Recipe:
+    """A recipe's inputs: ``asl.json``, ``aslcontext.tsv``, ``overlay.toml``, ``recipe.toml``."""
+
+    def __init__(self, name):
+        self.name = name
+        self.dir = RECIPES_DIR / name
+        if not self.dir.is_dir():
+            raise RecipeError(f'no recipe directory {self.dir}')
+        for required in ('asl.json', 'aslcontext.tsv', 'overlay.toml', 'recipe.toml'):
+            if not (self.dir / required).is_file():
+                raise RecipeError(f'{name}: {required} is missing')
+        settings = tomllib.loads((self.dir / 'recipe.toml').read_text())
+        unknown = set(settings) - set(RECIPE_DEFAULTS)
+        if unknown:
+            raise RecipeError(f'{name}: unknown recipe.toml keys {sorted(unknown)}')
+        self.settings = {**RECIPE_DEFAULTS, **settings}
+        if not self.settings['acq'] or not re.fullmatch(r'[A-Za-z0-9]+', self.settings['acq']):
+            raise RecipeError(f'{name}: acq must be a non-empty alphanumeric BIDS label')
+        if self.settings['anat'] not in ANAT_MODES:
+            raise RecipeError(f'{name}: anat must be one of {ANAT_MODES}')
+        if self.settings['t2_mode'] not in T2_MODES:
+            raise RecipeError(f'{name}: t2_mode must be one of {T2_MODES}')
+        if len(self.settings['anat_offset']) != 6:
+            raise RecipeError(f'{name}: anat_offset needs six values (tx ty tz rx ry rz)')
+        if self.settings['m0_divisor'] <= 0 or self.settings['snr_per_pair'] < 0:
+            raise RecipeError(f'{name}: m0_divisor must be > 0 and snr_per_pair >= 0')
+        self.sidecar = json.loads((self.dir / 'asl.json').read_text())
+        rows = (self.dir / 'aslcontext.tsv').read_text().split()
+        if not rows or rows[0] != 'volume_type':
+            raise RecipeError(f'{name}: aslcontext.tsv must start with a volume_type header')
+        self.context = rows[1:]
+        self.overlay_text = (self.dir / 'overlay.toml').read_text()
+        self.overlay = tomllib.loads(self.overlay_text)
+
+    def __getattr__(self, key):
+        settings = self.__dict__.get('settings', {})
+        if key in settings:
+            return settings[key]
+        raise AttributeError(key)
+
+    @property
+    def digest(self):
+        return _digest_dir(self.dir)
+
+
+def load_recipe(name):
+    if name not in RECIPES:
+        raise RecipeError(f'unknown recipe {name!r}; known: {sorted(RECIPES)}')
+    return Recipe(name)
+
+
+def _phantom_grid(phantom_dir):
+    import nibabel as nb
+
+    img = nb.load(Path(phantom_dir) / 'dseg.nii.gz')
+    return img.affine, img.shape
+
+
+def expected_slices(extent_mm, voxel_mm):
+    """aslscan's slice count along an axis: ``max(1, ceil(extent / voxel - 1e-9))``.
+
+    From ``acquisition_grid`` in aslscan's ``src/resample.rs``.
+    """
+    return max(1, math.ceil(extent_mm / voxel_mm - 1e-9))
+
+
+def check_recipe(recipe, phantom_dir):
+    """Refuse a recipe aslscan or ASLPrep would reject, before running anything."""
+    errors = []
+    side, n = recipe.sidecar, len(recipe.context)
+    errors.extend(
+        f'{field} has {len(side[field])} values but aslcontext has {n} rows'
+        for field in VOLUME_WISE_FIELDS
+        if isinstance(side.get(field), list) and len(side[field]) != n
+    )
+    noise = recipe.overlay.get('acquisition', {}).get('noise_variance')
+    if noise is None:
+        errors.append('overlay.toml must set [acquisition] noise_variance')
+    elif recipe.snr_per_pair and noise != 0:
+        errors.append('with snr_per_pair, overlay.toml noise_variance must be 0 (it is derived)')
+    if 'seed' not in recipe.overlay:
+        errors.append('overlay.toml must set seed')
+    if 'matrix' not in recipe.overlay.get('acquisition', {}):
+        errors.append('overlay.toml must set [acquisition] matrix')
+
+    affine, shape = _phantom_grid(phantom_dir)
+    voxel = side.get('AcquisitionVoxelSize')
+    if not voxel or len(voxel) != 3:
+        errors.append('asl.json needs a three-value AcquisitionVoxelSize')
+    elif side.get('MRAcquisitionType') == '3D':
+        if 'SliceTiming' in side or side.get('MultibandAccelerationFactor', 1) != 1:
+            errors.append('3D acquisitions must not carry SliceTiming or multiband')
+    else:
+        extent = shape[2] * abs(affine[2, 2])
+        n_slices = expected_slices(extent, voxel[2])
+        timing = side.get('SliceTiming', [])
+        if len(timing) != n_slices:
+            errors.append(
+                f'SliceTiming has {len(timing)} entries; the phantom extent {extent:g} mm at '
+                f'{voxel[2]:g} mm slices gives {n_slices} slices'
+            )
+        mb = side.get('MultibandAccelerationFactor', 1)
+        if mb > 1 and len(timing) == n_slices:
+            if n_slices % mb:
+                errors.append(f'{n_slices} slices are not a multiple of multiband factor {mb}')
+            else:
+                groups = n_slices // mb
+                if any(timing[i] != timing[i % groups] for i in range(n_slices)):
+                    errors.append(
+                        f'multiband {mb}: slices g, g + {groups}, ... must share a slice time'
+                    )
+                if len(set(timing[:groups])) != groups:
+                    errors.append(f'multiband {mb}: the {groups} slice groups need distinct times')
+    if recipe.m0_divisor != 1 and side.get('M0Type') == 'Absent':
+        errors.append('m0_divisor needs an M0 image (M0Type is Absent)')
+    if errors:
+        raise RecipeError(f'{recipe.name}: ' + '; '.join(errors))
+
+
+# ---------------------------------------------------------------------------------------------
+# Generation
+# ---------------------------------------------------------------------------------------------
+@contextlib.contextmanager
+def _generation_lock(data_dir):
+    import fcntl  # POSIX only: generation is documented as Linux/WSL only
+
+    root = Path(data_dir) / 'aslscan'
+    root.mkdir(parents=True, exist_ok=True)
+    with open(root / '.lock', 'w') as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _set_noise(overlay_text, variance):
+    """Replace the overlay's ``noise_variance`` (which :func:`check_recipe` requires)."""
+    new, count = re.subn(
+        r'(?m)^(\s*noise_variance\s*=\s*)[^\s#]+', rf'\g<1>{variance!r}', overlay_text
+    )
+    if count != 1:
+        raise RecipeError('overlay.toml must contain exactly one noise_variance line')
+    return new
+
+
+def run_aslscan(binary, workdir, phantom_dir, out_dir, threads=4, t2_mode='auto'):
+    """Run aslscan on the recipe files copied into ``workdir``."""
+    out_dir = Path(out_dir)
+    shutil.rmtree(out_dir, ignore_errors=True)
+    env = {**os.environ, 'RAYON_NUM_THREADS': str(threads)}
+    cmd = [
+        str(binary),
+        '--asl-json',
+        str(workdir / 'asl.json'),
+        '--aslcontext',
+        str(workdir / 'aslcontext.tsv'),
+        '--overlay',
+        str(workdir / 'overlay.toml'),
+        '--phantom',
+        str(phantom_dir),
+        '--out',
+        str(out_dir),
+        '--sub',
+        '01',
+        '--t2-mode',
+        t2_mode,
+    ]
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True, check=False)
+    if proc.returncode:
+        raise RuntimeError(f'aslscan failed ({proc.returncode}):\n{proc.stderr}{proc.stdout}')
+    return out_dir
+
+
+def _raw_paths(raw):
+    perf = Path(raw) / 'sub-01' / 'perf'
+    return {
+        'asl': perf / 'sub-01_part-mag_asl.nii.gz',
+        'asl_json': perf / 'sub-01_part-mag_asl.json',
+        'context': perf / 'sub-01_aslcontext.tsv',
+        'm0': perf / 'sub-01_m0scan.nii.gz',
+        'm0_json': perf / 'sub-01_m0scan.json',
+        'truth': perf / 'ground-truth',
+    }
+
+
+def deltam_estimates(asl, context):
+    """Delta-M estimates as ASLPrep forms them: control - label by order, plus deltam rows.
+
+    Returns an array with the estimates on the last axis.
+    """
+    import numpy as np
+
+    control = [i for i, t in enumerate(context) if t == 'control']
+    label = [i for i, t in enumerate(context) if t == 'label']
+    deltam = [i for i, t in enumerate(context) if t == 'deltam']
+    parts = []
+    if label:
+        parts.append(asl[..., control] - asl[..., label])
+    if deltam:
+        parts.append(asl[..., deltam])
+    return np.concatenate(parts, axis=-1)
+
+
+def _pv_fractions(phantom_dir, acq_img):
+    import nibabel as nb
+
+    from aslprep.tests import truth_geometry as tg
+
+    dseg = nb.load(Path(phantom_dir) / 'dseg.nii.gz')
+    return tg.overlap_fractions(
+        dseg.get_fdata(), dseg.affine, acq_img.affine, acq_img.shape[:3], label_values=(1, 2, 3)
+    )
+
+
+def _snr(raw_noisy, raw_clean, context, gm_mask):
+    """Delta-M SNR per estimate in ``gm_mask``: mean clean delta-M over the noise SD."""
+    import nibabel as nb
+    import numpy as np
+
+    noisy = deltam_estimates(nb.load(_raw_paths(raw_noisy)['asl']).get_fdata(), context)
+    clean = deltam_estimates(nb.load(_raw_paths(raw_clean)['asl']).get_fdata(), context)
+    signal = float(np.mean(clean[gm_mask]))
+    noise = float(np.std((noisy - clean)[gm_mask]))
+    return signal, noise
+
+
+def _calibrate_noise(recipe, binary, work, phantom_dir, build, threads):
+    """Empirical noise calibration (Section 5 of the spec). Returns (raw dir, noise record)."""
+    import nibabel as nb
+
+    clean = run_aslscan(binary, work, phantom_dir, build / 'clean', threads, recipe.t2_mode)
+    if not recipe.snr_per_pair:
+        return clean, {'snr_per_pair': 0.0, 'noise_variance': 0.0}
+
+    pv = _pv_fractions(phantom_dir, nb.load(_raw_paths(clean)['asl']))
+    gm = (pv[1] >= 0.7) & (pv[3] < 0.5)
+    if gm.sum() < 50:
+        raise RecipeError(f'{recipe.name}: too few GM-dominant voxels to calibrate noise')
+
+    (work / 'overlay.toml').write_text(_set_noise(recipe.overlay_text, _REFERENCE_NOISE_VARIANCE))
+    ref = run_aslscan(binary, work, phantom_dir, build / 'reference', threads, recipe.t2_mode)
+    signal, noise0 = _snr(ref, clean, recipe.context, gm)
+    variance = _REFERENCE_NOISE_VARIANCE * (signal / (recipe.snr_per_pair * noise0)) ** 2
+
+    (work / 'overlay.toml').write_text(_set_noise(recipe.overlay_text, variance))
+    final = run_aslscan(binary, work, phantom_dir, build / 'final', threads, recipe.t2_mode)
+    signal, noise = _snr(final, clean, recipe.context, gm)
+    achieved = signal / noise
+    if abs(achieved / recipe.snr_per_pair - 1) > 0.1:
+        raise RuntimeError(
+            f'{recipe.name}: achieved delta-M SNR {achieved:.2f}, target {recipe.snr_per_pair}'
+        )
+    return final, {
+        'snr_per_pair': recipe.snr_per_pair,
+        'noise_variance': variance,
+        'achieved_snr_per_pair': achieved,
+        'gm_deltam': signal,
+    }
+
+
+def _save_like(img, data, path, affine=None):
+    """Save ``data`` with ``img``'s header (and optionally a new affine, set in qform and sform)."""
+    import nibabel as nb
+
+    affine = img.affine if affine is None else affine
+    new = nb.Nifti1Image(data, affine, img.header)
+    new.set_qform(affine, code=1)
+    new.set_sform(affine, code=1)
+    new.to_filename(path)
+
+
+def _assemble(recipe, raw, phantom_dir, out, noise, stamp):
+    """Turn aslscan's output into the fixture's BIDS dataset (Section 4.4 of the spec)."""
+    import nibabel as nb
+    import numpy as np
+
+    from aslprep.tests import truth_geometry as tg
+
+    src = _raw_paths(raw)
+    acq = recipe.acq
+    perf = out / 'sub-01' / 'perf'
+    perf.mkdir(parents=True)
+    stem = f'sub-01_acq-{acq}'
+    asl_rel = f'sub-01/perf/{stem}_asl.nii.gz'
+
+    sidecar = json.loads(src['asl_json'].read_text())
+    resolved = sidecar.get('AslscanSimulation', {}).get('Resolved', {})
+    le_source = resolved.get('LabelingEfficiency', {}).get('Source')
+    if not recipe.keep_labeling_efficiency and le_source == 'Default':
+        sidecar.pop('LabelingEfficiency', None)
+    divisor = float(recipe.m0_divisor)
+    m0_type = sidecar.get('M0Type')
+    if m0_type == 'Estimate' and divisor != 1:
+        sidecar['M0Estimate'] = sidecar['M0Estimate'] / divisor
+    _write_json(perf / f'{stem}_asl.json', sidecar)
+
+    asl_img = nb.load(src['asl'])
+    asl = asl_img.get_fdata(dtype=np.float32)
+    if m0_type == 'Included' and divisor != 1:
+        m0_rows = [i for i, t in enumerate(recipe.context) if t == 'm0scan']
+        asl[..., m0_rows] /= divisor
+    _save_like(asl_img, asl, perf / f'{stem}_asl.nii.gz')
+    shutil.copyfile(src['context'], perf / f'{stem}_aslcontext.tsv')
+
+    if src['m0'].exists():
+        m0_img = nb.load(src['m0'])
+        _save_like(
+            m0_img, m0_img.get_fdata(dtype=np.float32) / divisor, perf / f'{stem}_m0scan.nii.gz'
+        )
+        m0_side = json.loads(src['m0_json'].read_text())
+        m0_side['IntendedFor'] = [f'bids::{asl_rel}']
+        _write_json(perf / f'{stem}_m0scan.json', m0_side)
+
+    truth = perf / 'ground-truth'
+    shutil.copytree(src['truth'], truth)
+    pv = _pv_fractions(phantom_dir, asl_img)
+    for value, tissue in ((1, 'GM'), (2, 'WM'), (3, 'CSF')):
+        _save_like(
+            asl_img.slicer[..., 0],
+            pv[value].astype(np.float32),
+            truth / f'sub-01_desc-pv{tissue}_gt.nii.gz',
+        )
+    _write_json(truth / 'simulation.json', sidecar.get('AslscanSimulation', {}))
+
+    r = tg.rigid_ras(*recipe.anat_offset)
+    provenance = json.loads((Path(phantom_dir) / 'provenance.json').read_text())
+    if recipe.anat != 'none':
+        _write_anatomy(phantom_dir, out, r, recipe.anat == 'derivatives')
+
+    _write_json(
+        truth / 'truth.json',
+        {
+            'recipe': recipe.name,
+            'recipe_settings': recipe.settings,
+            'phantom': provenance['name'],
+            'phantom_digest': provenance['digest'],
+            'anat_offset': recipe.anat_offset,
+            'R': r.tolist(),
+            'motion_center': tg.fov_center(asl_img.affine, asl_img.shape[:3]).tolist(),
+            'noise': noise,
+            'm0_divisor': divisor,
+            'aslscan': stamp,
+            'spec_digest': spec_digest(),
+        },
+    )
+    _write_json(
+        out / 'dataset_description.json',
+        {
+            'Name': f'aslscan fixture {recipe.name}',
+            'BIDSVersion': '1.10.0',
+            'DatasetType': 'raw',
+            'GeneratedBy': [
+                {'Name': 'aslscan', 'Version': ASLSCAN_REF, 'CodeURL': ASLSCAN_REPO},
+                {'Name': 'mrsim-acq', 'Version': MRSIM_ACQ_REF, 'CodeURL': MRSIM_ACQ_REPO},
+                {
+                    'Name': 'aslprep.tests.aslscan_fixtures',
+                    'Description': f'recipe {recipe.name} on phantom {provenance["name"]}',
+                },
+            ],
+        },
+    )
+    (out / 'README').write_text(
+        f'Simulated ASL data for ASLPrep tests (recipe {recipe.name}).\n'
+        'Ground truth is in sub-01/perf/ground-truth/.\n'
+    )
+    (out / '.bidsignore').write_text('**/ground-truth\n**/ground-truth/**\n')
+
+
+def _write_anatomy(phantom_dir, out, r, derivatives):
+    """The T1w (affine ``R @ A``) and, optionally, smriprep-style derivatives with transforms."""
+    import nibabel as nb
+    import numpy as np
+
+    from aslprep.tests import truth_geometry as tg
+
+    ph = Path(phantom_dir)
+    anat = out / 'sub-01' / 'anat'
+    anat.mkdir(parents=True)
+    t1w = nb.load(ph / 'anat' / 'T1w.nii.gz')
+    new_affine = r @ t1w.affine
+    _save_like(t1w, np.asanyarray(t1w.dataobj), anat / 'sub-01_T1w.nii.gz', new_affine)
+    _write_json(anat / 'sub-01_T1w.json', {'Description': 'phantom anatomy (TemplateFlow T1w)'})
+    if not derivatives:
+        return
+
+    deriv = out / 'derivatives' / 'anat'
+    danat = deriv / 'sub-01' / 'anat'
+    danat.mkdir(parents=True)
+    _write_json(
+        deriv / 'dataset_description.json',
+        {
+            'Name': 'phantom anatomical derivatives',
+            'BIDSVersion': '1.10.0',
+            'DatasetType': 'derivative',
+            'GeneratedBy': [{'Name': 'aslprep.tests.aslscan_fixtures'}],
+        },
+    )
+    _save_like(
+        t1w, np.asanyarray(t1w.dataobj), danat / 'sub-01_desc-preproc_T1w.nii.gz', new_affine
+    )
+    for src, dest in (
+        ('anat/brainmask.nii.gz', 'sub-01_desc-brain_mask.nii.gz'),
+        ('dseg.nii.gz', 'sub-01_dseg.nii.gz'),
+        ('anat/probseg-GM.nii.gz', 'sub-01_label-GM_probseg.nii.gz'),
+        ('anat/probseg-WM.nii.gz', 'sub-01_label-WM_probseg.nii.gz'),
+        ('anat/probseg-CSF.nii.gz', 'sub-01_label-CSF_probseg.nii.gz'),
+    ):
+        img = nb.load(ph / src)
+        _save_like(img, np.asanyarray(img.dataobj), danat / dest, new_affine)
+    # Pull mappings: from-T1w_to-MNI sends an MNI (= phantom) point p to its T1w point R p.
+    tg.write_itk_affine(danat / f'sub-01_from-T1w_to-{TEMPLATE}_mode-image_xfm.txt', r)
+    tg.write_itk_affine(
+        danat / f'sub-01_from-{TEMPLATE}_to-T1w_mode-image_xfm.txt', np.linalg.inv(r)
+    )
+
+
+def _file_hashes(root):
+    return {
+        p.relative_to(root).as_posix(): _sha256_file(p)
+        for p in sorted(Path(root).rglob('*'))
+        if p.is_file() and p.name != 'manifest.json'
+    }
+
+
+def generate(name, data_dir, binary, threads=4):
+    """Generate one fixture into ``<data_dir>/aslscan/<name>`` and return its path."""
+    binary = check_aslscan(binary)
+    recipe = load_recipe(name)
+    root = Path(data_dir) / 'aslscan'
+    with _generation_lock(data_dir):
+        phantom_dir = build_phantom(recipe.phantom, data_dir)
+        check_recipe(recipe, phantom_dir)
+        tmp = root / f'.tmp-{name}-{os.getpid()}'
+        shutil.rmtree(tmp, ignore_errors=True)
+        build = tmp.with_name(tmp.name + '-build')
+        shutil.rmtree(build, ignore_errors=True)
+        work = build / 'work'
+        shutil.copytree(recipe.dir, work)
+        stamp = json.loads((binary.parent / STAMP_NAME).read_text())
+        try:
+            raw, noise = _calibrate_noise(recipe, binary, work, phantom_dir, build, threads)
+            tmp.mkdir(parents=True)
+            _assemble(recipe, raw, phantom_dir, tmp, noise, stamp)
+            _write_json(
+                tmp / 'manifest.json',
+                {
+                    'recipe': name,
+                    'spec_digest': spec_digest(),
+                    'recipe_digest': recipe.digest,
+                    'phantom_digest': phantom_digest(recipe.phantom),
+                    'aslscan': stamp,
+                    'files': _file_hashes(tmp),
+                },
+            )
+            out = root / name
+            old = root / f'.old-{name}-{os.getpid()}'
+            if out.exists():
+                out.rename(old)
+            tmp.rename(out)
+            shutil.rmtree(old, ignore_errors=True)
+        finally:
+            shutil.rmtree(build, ignore_errors=True)
+            shutil.rmtree(tmp, ignore_errors=True)
+    return out
+
+
+def _manifest_problem(fixture, check_hashes):
+    manifest_file = fixture / 'manifest.json'
+    if not manifest_file.is_file():
+        return 'missing'
+    manifest = json.loads(manifest_file.read_text())
+    if manifest.get('spec_digest') != spec_digest():
+        return 'stale (spec digest differs)'
+    if check_hashes and manifest.get('files') != _file_hashes(fixture):
+        return 'files differ from their manifest'
+    return None
+
+
+def verify(data_dir, names=None, check_hashes=True):
+    """Return ``{recipe: problem}`` for fixtures that are missing, stale or modified."""
+    root = Path(data_dir) / 'aslscan'
+    problems = {}
+    for name in names or sorted(RECIPES):
+        problem = _manifest_problem(root / name, check_hashes)
+        if problem:
+            problems[name] = problem
+    return problems
+
+
+def default_data_dir():
+    return TESTS_DIR / 'test_data'
+
+
+def fixture_dir(name, data_dir=None):
+    """Path of a current fixture, generating it here when allowed (Section 4.5 of the spec)."""
+    data_dir = Path(data_dir) if data_dir else default_data_dir()
+    path = data_dir / 'aslscan' / name
+    problem = _manifest_problem(path, check_hashes=False)
+    if problem is None:
+        return path
+    if os.environ.get('ASLPREP_REQUIRE_FIXTURES') == '1':
+        raise FixtureUnavailable(
+            f'aslscan fixture {name} is {problem} under {data_dir}, and '
+            'ASLPREP_REQUIRE_FIXTURES=1 forbids generating it here'
+        )
+    try:
+        binary = find_aslscan()
+    except AslscanUnavailable as exc:
+        raise FixtureUnavailable(f'aslscan fixture {name} is {problem}: {exc}') from exc
+    return generate(name, data_dir, binary)
+
+
+def check_threads(name, binary):
+    """Run aslscan on a recipe with 1 and 4 threads (with noise) and compare the images."""
+    import tempfile
+
+    import nibabel as nb
+    import numpy as np
+
+    binary = check_aslscan(binary)
+    recipe = load_recipe(name)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        phantom_dir = build_phantom(recipe.phantom, tmp)
+        work = tmp / 'work'
+        shutil.copytree(recipe.dir, work)
+        (work / 'overlay.toml').write_text(
+            _set_noise(recipe.overlay_text, _REFERENCE_NOISE_VARIANCE)
+        )
+        runs = {
+            n: run_aslscan(binary, work, phantom_dir, tmp / f'threads-{n}', n, recipe.t2_mode)
+            for n in (1, 4)
+        }
+        images = sorted(runs[1].rglob('*.nii.gz'))
+        differing = []
+        for img in images:
+            rel = img.relative_to(runs[1])
+            a = np.asanyarray(nb.load(img).dataobj)
+            b = np.asanyarray(nb.load(runs[4] / rel).dataobj)
+            if a.shape != b.shape or not np.array_equal(a, b):
+                differing.append(rel.as_posix())
+    if not images:
+        raise RuntimeError(f'{name}: aslscan wrote no images')
+    if differing:
+        raise RuntimeError(f'{name}: outputs differ between 1 and 4 threads: {differing}')
+    return f'{name}: {len(images)} images identical at 1 and 4 threads'
+
+
+# ---------------------------------------------------------------------------------------------
 # Command line
 # ---------------------------------------------------------------------------------------------
 def _get_parser():
@@ -610,18 +1204,50 @@ def _get_parser():
         type=Path,
         help='build aslscan at the pinned revisions in WORKDIR and print its path',
     )
+    parser.add_argument(
+        '--generate', metavar='DATA_DIR', type=Path, help='generate fixtures into DATA_DIR'
+    )
+    parser.add_argument(
+        '--verify',
+        metavar='DATA_DIR',
+        type=Path,
+        help='check every fixture in DATA_DIR against the spec digest and its manifest',
+    )
+    parser.add_argument(
+        '--check-threads',
+        metavar='RECIPE',
+        help='check that aslscan output for RECIPE is identical at 1 and 4 threads',
+    )
+    parser.add_argument('--aslscan', type=Path, help='the aslscan binary (stamped)')
+    parser.add_argument('--only', nargs='+', metavar='RECIPE', help='restrict --generate')
+    parser.add_argument('--threads', type=int, default=4, help='aslscan threads (default 4)')
     return parser
 
 
 def main(argv=None):
-    opts = _get_parser().parse_args(argv)
+    parser = _get_parser()
+    opts = parser.parse_args(argv)
     if opts.spec:
         sys.stdout.write(spec_text())
         return 0
     if opts.build_aslscan:
         print(build_aslscan(opts.build_aslscan))
         return 0
-    _get_parser().print_help()
+    if opts.generate:
+        binary = find_aslscan(opts.aslscan)
+        for name in opts.only or sorted(RECIPES):
+            print(f'{name}: {generate(name, opts.generate, binary, opts.threads)}', flush=True)
+        return 0
+    if opts.verify:
+        problems = verify(opts.verify)
+        for name, problem in problems.items():
+            print(f'{name}: {problem}')
+        print(f'{len(RECIPES) - len(problems)}/{len(RECIPES)} fixtures current')
+        return 1 if problems else 0
+    if opts.check_threads:
+        print(check_threads(opts.check_threads, find_aslscan(opts.aslscan)))
+        return 0
+    parser.print_help()
     return 1
 
 
