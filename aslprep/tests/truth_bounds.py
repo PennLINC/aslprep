@@ -47,9 +47,11 @@ CEILINGS = {
         'enough tissue-dominant voxels for stable medians',
     ),
     # End to end (raw data through the documented model): the median is unbiased by
-    # preprocessing. Per-voxel tails are report-only: motion correction resamples label and
-    # control volumes separately, and delta-M (about 1 % of the signal) amplifies interpolation
-    # differences at tissue boundaries (15-20 % at the 95th percentile on motion-free data).
+    # preprocessing. Per-voxel tails are report-only: each volume's motion-correction transform
+    # is estimated from noisy data, so paired control and label volumes land a few hundredths of
+    # a millimetre apart, and delta-M (well under 1 % of the signal) amplifies that difference at
+    # intensity boundaries (15-20 % at the 95th percentile on motion-free data). This is the
+    # noise floor of motion correction, not a defect.
     'tier_a_median': (
         ('native', 'tier_a', 'median_dev'),
         None,

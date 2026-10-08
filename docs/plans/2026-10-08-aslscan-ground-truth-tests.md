@@ -587,10 +587,15 @@ shifted 4 mm.
 
 ### Findings in ASLPrep, from the integration runs
 
-- **Motion correction moves voxels at boundaries.** On motion-free data, motion correction
-  changes delta-M per voxel by 16-26 % at the 95th percentile (median 0.1 %). Label and control
-  volumes are resampled separately, and delta-M (about 1 % of the signal) amplifies
-  interpolation differences at tissue boundaries.
+- **Motion correction has a per-voxel noise floor.** On motion-free data, motion correction
+  changes delta-M per voxel by 16-26 % at the 95th percentile (median 0.1 %). Each volume's
+  transform is estimated from noisy data, so a control and its paired label land a few
+  hundredths of a millimetre apart (up to 0.02 mm on F1). Delta-M (about 0.4 % of the signal in
+  GM) amplifies that difference wherever intensity changes across a voxel: about 15 % of
+  delta-M at grey/white boundaries, more at the brain edge. Resampling is linear, so identical
+  transforms would add nothing. Separate estimation for label and control (an established
+  method) is not the cause. This is a property of motion correction, not a defect, and the
+  magnitudes are consistent with the mechanism, but it has not been isolated directly.
   - End-to-end Tier A tails are therefore report-only. Quantification is asserted given
     ASLPrep's own preprocessed series.
 - **Delta-M plus M0 data (GE style).** Motion correction registers the delta-M volume to an
