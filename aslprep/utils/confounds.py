@@ -1,7 +1,6 @@
 """Functions for calculating and collecting confounds."""
 
 import os
-import re
 
 import nibabel as nb
 import numpy as np
@@ -19,13 +18,24 @@ def _less_breakable(a_string):
 
 
 def _camel_to_snake(name):
-    """Convert camelCase string to snake_case.
+    """Convert a camelCase or PascalCase string to snake_case.
 
-    Taken from https://stackoverflow.com/questions/1175208/.
-    If we end up using it more than just here, probably worth pulling in a well-tested package.
+    An underscore is inserted before an uppercase letter that follows a lowercase letter
+    or digit, or that starts a new word after an acronym (e.g., "StdDVARS" -> "std_dvars").
     """
-    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+    chars = []
+    for i, char in enumerate(name):
+        if char.isupper() and i > 0:
+            prev_char = name[i - 1]
+            next_char = name[i + 1] if i + 1 < len(name) else ''
+            if (
+                prev_char.islower()
+                or prev_char.isdigit()
+                or (prev_char.isupper() and next_char.islower())
+            ):
+                chars.append('_')
+        chars.append(char.lower())
+    return ''.join(chars)
 
 
 def _adjust_indices(left_df, right_df):
