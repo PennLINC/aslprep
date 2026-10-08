@@ -156,36 +156,27 @@ PHANTOM_PARAMS = {
     },
 }
 
-#: Recipe name -> one-line description. Inputs live in tests/data/aslscan/<name>/.
-RECIPES = {
-    # Fast tier: cropped phantom, noise-free, no anatomy (spec Section 5).
-    'fast_pcasl_seq': 'PCASL, single delay, ascending slices, separate M0',
-    'fast_pcasl_rev': 'PCASL with SliceEncodingDirection k-',
-    'fast_pcasl_mb': 'PCASL with multiband 2',
-    'fast_pasl_q2tips': 'PASL, single TI, Q2TIPS',
-    'fast_pasl_quipss2': 'PASL, single TI, QUIPSS II',
-    'fast_m0_included': 'PCASL with an M0 volume in the series',
-    'fast_m0_estimate': 'PCASL calibrated with M0Estimate',
-    'fast_m0_absent': 'PCASL calibrated with the mean control',
-    'fast_m0_shorttr': 'PCASL with a separate M0 at TR 3 s',
-    'fast_label_first': 'PCASL with label-control ordering',
-    'fast_deltam': 'PCASL as delta-M volumes',
-    'fast_bs_le_absent': 'PCASL with two suppression pulses and no LabelingEfficiency',
-    'fast_pcasl_multipld': 'multi-delay PCASL, label first, unequal repeats',
-    'fast_pasl_multipld': 'multi-delay PASL, Q2TIPS',
-    # Geometry probes (not CBF recipes).
-    'geom_motion': "known rigid poses, to pin the simulator's motion convention",
-    # Integration tier: full-brain phantoms (spec Section 5).
-    'pcasl1pld': 'F1: 2D PCASL, single delay, separate M0, anatomical derivatives',
-    'pcasl1pld_ge3d': 'F2: GE-style 3D spiral PCASL, delta-M with included M0',
-    'pcasl1pld_grase': 'F3: Siemens-style 3D GRASE PCASL, short-TR separate M0',
-    'pasl1pld': 'F4: 2D PASL, single TI, QUIPSS II, interleaved slices',
-    'pcasl_multipld': 'F5: 2D multi-delay PCASL, label first, unequal repeats, arterial term',
-    'pasl_multipld': 'F6: 2D multi-delay PASL, Q2TIPS',
-}
-
 TESTS_DIR = Path(__file__).resolve().parent
 RECIPES_DIR = TESTS_DIR / 'data' / 'aslscan'
+
+
+def _discover_recipes():
+    """Recipe name -> description (the first paragraph of its SOURCE.md).
+
+    Recipes are discovered from their directories rather than listed here, so adding one does
+    not change this (hashed) module and invalidate every other local fixture. Prefixes:
+    ``fast_`` for the fast tier (cropped phantoms), ``geom_`` for geometry probes; the rest are
+    integration recipes (spec Section 5).
+    """
+    recipes = {}
+    for d in sorted(p for p in RECIPES_DIR.iterdir() if (p / 'recipe.toml').is_file()):
+        source = d / 'SOURCE.md'
+        text = source.read_text().split('\n\n') if source.is_file() else ['', '']
+        recipes[d.name] = ' '.join(text[1].split()) if len(text) > 1 else ''
+    return recipes
+
+
+RECIPES = _discover_recipes()
 #: aslscan does not commit a Cargo.lock, so the build uses this one (with --locked).
 CARGO_LOCK = TESTS_DIR / 'data' / 'aslscan-Cargo.lock'
 REPO_ROOT = TESTS_DIR.parents[1]

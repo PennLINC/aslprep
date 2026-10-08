@@ -1,0 +1,5 @@
+phantom = "tfmni"
+acq = "motion"
+anat = "raw"
+anat_offset = [3.0, -4.0, 2.0, 5.0, -3.0, 4.0]
+snr_per_pair = 5.0

@@ -262,6 +262,7 @@ markers = [
     "aslscan_pasl1pld: truth-scored integration test (F4, single-delay 2D PASL)",
     "aslscan_pcasl_multipld: truth-scored integration test (F5, multi-delay 2D PCASL)",
     "aslscan_pasl_multipld: truth-scored integration test (F6, multi-delay 2D PASL)",
+    "aslscan_motion: truth-scored integration test (F7, head motion and coregistration)",
     "examples_pasl_multipld: mark integration test",
     "examples_pcasl_multipld: mark integration test",
     "examples_pcasl_singlepld_ge: mark integration test",
