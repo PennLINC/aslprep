@@ -3,8 +3,10 @@
 The ASL series moves along a known rigid trajectory, the T1w header carries a known rigid
 offset, and ASLPrep preprocesses the anatomy itself. Scored: head-motion correction against
 the trajectory, coregistration against the offset, and the alignment of T1w-space CBF.
-Native-space Tier A/B are not scored: the motion-corrected series sits in the aslref frame,
-not the phantom's.
+Native-space Tier A/B and the T1w-space alignment correlation (``r_native``) are not
+asserted: the motion-corrected series sits in the aslref frame, whose pose is unknown here, so
+sampling it at the phantom's coordinates compares misaligned points. Alignment is asserted
+through the coregistration error, which composes the motion-correction transforms.
 """
 
 import pytest
@@ -40,6 +42,8 @@ globals().update(
             ('confounds', 'abs_r_rot_z'),
             ('space-T1w', 'GM', 'median'),
             ('space-T1w', 'r_truth'),
+            ('space-T1w', 'r_native'),
+            ('frames', 'motion', 'rms_error_max_mm'),
             ('desc-score', 'GM', 'median'),
             ('desc-scrub', 'GM', 'median'),
         ],
@@ -58,10 +62,6 @@ def test_motion_correction_worst_volume(f7_run):
 def test_coregistration(f7_run):
     tb.check(f7_run.score, 'coreg_rot', RECIPE)
     tb.check(f7_run.score, 'coreg_rms', RECIPE)
-
-
-def test_t1w_space_alignment(f7_run):
-    tb.check(f7_run.score, 'space_alignment', RECIPE, space='space-T1w')
 
 
 @pytest.mark.parametrize('tissue', ['GM', 'WM'])

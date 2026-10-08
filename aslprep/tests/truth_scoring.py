@@ -106,6 +106,8 @@ def _read_tsv(path):
 
 
 def _number(value):
+    if value == 'n/a':  # BIDS missing value (for example the first framewise displacement)
+        return float('nan')
     try:
         return float(value)
     except ValueError:

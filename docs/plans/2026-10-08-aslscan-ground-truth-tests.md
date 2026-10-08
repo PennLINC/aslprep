@@ -604,6 +604,21 @@ shifted 4 mm.
   the phantom, which has no scalp, this raises CBF near the brain-mask edge: median 1.19 within
   5 mm. Report-only (`tier_a.edge`).
 
+- **Multi-delay fits cover every voxel.** `ComputeCBF` receives no brain mask, so the
+  multi-delay fit runs on every voxel of the field of view, about 209,000 for F5 and mostly
+  background. F5 takes 28 min and F6 21 min, nearly all of it in this single-threaded fit.
+- **Multi-delay ATT is not recovered on these protocols.** The independent fit agrees with
+  ASLPrep's to 0.001 s, but neither tracks the true ATT within tissue: r 0.06 in GM for F5, and
+  a median error of 0.31 s. This is the four-parameter model with an arterial term on these
+  delays, not a plumbing error. Report-only (`tier_b_att`).
+- **pybids reads the datatype from the whole path.** A dataset under a directory named after
+  a BIDS datatype (here `/aslscan/motion/`) gets that datatype for every file, and ASLPrep finds
+  no ASL run. The recipe was renamed `headmotion`, and recipe names are now checked. Real
+  datasets stored under such a directory would hit the same problem.
+
+Integration timings, continued: F5 28 min and F6 21 min (both all pass after the changes
+below).
+
 ### Design changes from the first integration runs
 
 These are corrections of attribution, not fitted bounds:
@@ -620,6 +635,12 @@ These are corrections of attribution, not fitted bounds:
   it.
 - **Recipe discovery.** Recipes are discovered from their directories, so adding one does not
   touch a hashed module.
+- **Multi-delay reference fit.** It smooths M0 as ASLPrep does. Tier B is compared on the
+  fitted voxel subset (`tier_b_matched`), against the fit of ASLPrep's preprocessed series.
+  The raw-series expectation and the per-voxel tails are report-only, because the
+  four-parameter fit is ill-conditioned and responds to motion-correction resampling noise.
+- **Atlases.** `--atlases` is pinned in every module. Without it, ASLPrep parcellates with all
+  of its atlases.
 
 ### JUnit
 
