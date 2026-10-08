@@ -5,9 +5,12 @@ None of these need a generated fixture or the aslscan binary unless marked other
 
 import json
 
+import nibabel as nb
+import numpy as np
 import pytest
 
 from aslprep.tests import aslscan_fixtures as af
+from aslprep.tests import truth_geometry as tg
 
 
 def test_spec_file_matches():
@@ -73,3 +76,112 @@ def test_spec_digest_tracks_inputs(monkeypatch):
     before = af.spec_digest()
     monkeypatch.setattr(af, 'CACHE_EPOCH', af.CACHE_EPOCH + 1)
     assert af.spec_digest() != before
+
+
+# ---------------------------------------------------------------------------------------------
+# Geometry
+# ---------------------------------------------------------------------------------------------
+def test_rigid_ras_single_axes():
+    def rot(rx, ry, rz, v):
+        return tg.rigid_ras(0, 0, 0, rx, ry, rz)[:3, :3] @ v
+
+    np.testing.assert_allclose(rot(0, 0, 90, [1, 0, 0]), [0, 1, 0], atol=1e-12)
+    np.testing.assert_allclose(rot(90, 0, 0, [0, 1, 0]), [0, 0, 1], atol=1e-12)
+    np.testing.assert_allclose(rot(0, 90, 0, [0, 0, 1]), [1, 0, 0], atol=1e-12)
+    np.testing.assert_allclose(tg.rigid_ras(1, 2, 3, 0, 0, 0)[:3, 3], [1, 2, 3])
+    # Rz Ry Rx: x is applied first, so x stays put under Rx and Rz takes it to y
+    # (Rx Rz would give z instead)
+    np.testing.assert_allclose(rot(90, 0, 90, [1, 0, 0]), [0, 1, 0], atol=1e-12)
+
+
+def test_pose_matrix_rotates_about_center():
+    center = [10.0, -20.0, 5.0]
+    m = tg.pose_matrix([1, 2, 3], [0.1, -0.2, 0.3], center)
+    np.testing.assert_allclose(tg.apply_points(m, [center])[0], [11, -18, 8])
+    np.testing.assert_allclose(m[:3, :3], tg.rotation_zyx(0.1, -0.2, 0.3))
+    assert tg.rot_angle_deg(m) > 0
+
+
+def test_fov_center():
+    affine = np.diag([2.0, 3.0, 4.0, 1.0])
+    affine[:3, 3] = [-10, -20, -30]
+    np.testing.assert_allclose(tg.fov_center(affine, (11, 21, 31)), [0, 10, 30])
+
+
+def test_itk_affine_round_trip_through_nitransforms(tmp_path):
+    """Our writer and nitransforms' reader agree on the RAS matrix (independent LPS handling)."""
+    from nitransforms.linear import load
+
+    m = tg.rigid_ras(3, -4, 2, 5, -3, 4)
+    tg.write_itk_affine(tmp_path / 'xfm.txt', m)
+    np.testing.assert_allclose(load(tmp_path / 'xfm.txt', fmt='itk').matrix, m, atol=1e-9)
+
+
+def test_overlap_matrix_hand_cases():
+    # aligned 1 mm cells into 2 mm cells
+    w = tg.overlap_matrix(np.arange(5.0), np.array([0.0, 2.0, 4.0]))
+    np.testing.assert_allclose(w, [[0.5, 0.5, 0, 0], [0, 0, 0.5, 0.5]])
+    # half-cell offset
+    w = tg.overlap_matrix(np.arange(4.0), np.array([0.5, 2.5]))
+    np.testing.assert_allclose(w, [[0.25, 0.5, 0.25]])
+    # target extends past the source: weights sum to the covered fraction
+    w = tg.overlap_matrix(np.array([0.0, 1.0, 2.0]), np.array([1.0, 4.0]))
+    np.testing.assert_allclose(w.sum(), 1 / 3)
+    # fractional 3.5 mm cells over 1 mm cells
+    w = tg.overlap_matrix(np.arange(8.0), np.array([0.0, 3.5, 7.0]))
+    np.testing.assert_allclose(w.sum(axis=1), [1, 1])
+    np.testing.assert_allclose(w[0, 3], 0.5 / 3.5)
+
+
+def test_overlap_fractions_sum_to_coverage():
+    rng = np.random.default_rng(0)
+    labels = rng.integers(0, 4, size=(20, 22, 18))
+    src = np.eye(4)
+    dst = np.diag([3.5, 3.5, 5.0, 1.0])
+    dst[:3, 3] = [1.25, 1.25, 2.0]  # cell edges at -0.5, the source's first edge
+    frac = tg.overlap_fractions(labels, src, dst, (5, 6, 3), label_values=(0, 1, 2, 3))
+    total = sum(frac.values())
+    np.testing.assert_allclose(total[:5, :6, :3], 1.0, atol=1e-12)
+
+
+def test_overlap_rejects_oblique_grids():
+    oblique = tg.rigid_ras(0, 0, 0, 0, 0, 10)
+    with pytest.raises(ValueError, match='axis-aligned'):
+        tg.overlap_mean(np.zeros((3, 3, 3)), oblique, np.eye(4), (3, 3, 3))
+
+
+def _blob_image(points, affine, shape, sigma=1.5):
+    ijk = np.stack(np.meshgrid(*[np.arange(n) for n in shape], indexing='ij'), axis=-1)
+    world = ijk @ affine[:3, :3].T + affine[:3, 3]
+    data = np.zeros(shape)
+    for p in points:
+        data += np.exp(-np.sum((world - p) ** 2, axis=-1) / (2 * sigma**2))
+    return nb.Nifti1Image(data.astype(np.float32), affine), world
+
+
+def test_itk_pull_convention_by_landmarks(tmp_path):
+    """Spec 9.1: resampling through a written transform moves landmarks to M^-1 p.
+
+    An ITK image transform maps reference points to moving points (a pull mapping), so a blob
+    at world point ``p`` in the moving image appears at ``M^-1 p`` on the reference grid.
+    """
+    from nitransforms.linear import load
+    from nitransforms.resampling import apply
+
+    affine = np.diag([2.0, 2.0, 2.0, 1.0])
+    affine[:3, 3] = -39
+    shape = (40, 40, 40)
+    points = np.array([[x, y, z] for x in (-12, 12) for y in (-14, 10) for z in (-8, 13)], float)
+    moving, world = _blob_image(points, affine, shape)
+
+    m = tg.rigid_ras(3, -4, 2, 5, -3, 4)
+    tg.write_itk_affine(tmp_path / 'xfm.txt', m)
+    moved = apply(load(tmp_path / 'xfm.txt', fmt='itk'), moving, reference=moving, order=1)
+    data = np.asarray(moved.dataobj)
+
+    expected = tg.apply_points(np.linalg.inv(m), points)
+    for p in expected:
+        near = np.sum((world - p) ** 2, axis=-1) < 5**2
+        w = data * near
+        centroid = (world * w[..., None]).sum(axis=(0, 1, 2)) / w.sum()
+        np.testing.assert_allclose(centroid, p, atol=0.1)

@@ -73,7 +73,7 @@ TEMPLATES = (
 )
 
 #: Modules (in this directory) whose source feeds the spec digest.
-HASHED_MODULES = ('aslscan_fixtures.py',)
+HASHED_MODULES = ('aslscan_fixtures.py', 'truth_geometry.py')
 
 #: Phantom name -> builder parameters (Section 4.2 of the spec).
 PHANTOM_PARAMS = {}
