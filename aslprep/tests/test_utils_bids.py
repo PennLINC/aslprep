@@ -96,3 +96,31 @@ def test_write_derivative_description(tmp_path, monkeypatch):
         'Type': 'docker',
         'Tag': 'pennlinc/aslprep:unstable',
     }
+
+
+def test_collect_run_data_rejects_unexpected_m0scan(tmp_path, monkeypatch):
+    """An m0scan for a run whose M0Type is not Separate is reported, not a KeyError."""
+    import nibabel as nb
+    import numpy as np
+    from bids.layout import BIDSLayout
+
+    from aslprep import config
+    from aslprep.utils.bids import collect_run_data
+
+    monkeypatch.setattr(config.workflow, 'ignore', [])
+    (tmp_path / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'test', 'BIDSVersion': '1.10.0'})
+    )
+    perf = tmp_path / 'sub-01' / 'perf'
+    perf.mkdir(parents=True)
+    img = nb.Nifti1Image(np.zeros((2, 2, 2, 3), np.float32), np.eye(4))
+    img.to_filename(perf / 'sub-01_asl.nii.gz')
+    (perf / 'sub-01_asl.json').write_text(json.dumps({'M0Type': 'Included'}))
+    (perf / 'sub-01_aslcontext.tsv').write_text('volume_type\nm0scan\ncontrol\nlabel\n')
+    img.slicer[..., 0].to_filename(perf / 'sub-01_m0scan.nii.gz')
+    (perf / 'sub-01_m0scan.json').write_text(
+        json.dumps({'IntendedFor': ['bids::sub-01/perf/sub-01_asl.nii.gz']})
+    )
+    layout = BIDSLayout(tmp_path, validate=False)
+    with pytest.raises(ValueError, match='M0Type is Included, but an M0 scan was found'):
+        collect_run_data(layout, str(perf / 'sub-01_asl.nii.gz'))
