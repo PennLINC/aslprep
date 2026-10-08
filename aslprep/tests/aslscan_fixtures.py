@@ -77,7 +77,7 @@ TEMPLATES = (
 )
 
 #: Modules (in this directory) whose source feeds the spec digest.
-HASHED_MODULES = ('aslscan_fixtures.py', 'truth_geometry.py')
+HASHED_MODULES = ('aslscan_fixtures.py', 'truth_geometry.py', 'truth_models.py')
 
 #: Per-label constants of ASLDRO's hrgt_icbm_2009a_nls_3t, used by the TemplateFlow phantoms.
 #: This is a new phantom that shares ASLDRO's constants, not its anatomy.
