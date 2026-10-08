@@ -95,19 +95,24 @@ CEILINGS = {
         'within the Tier A ceiling of the independent expectation '
         "(checked against ('native', 'expected_ratio', t))",
     ),
+    # Coregistration accuracy scales with resolution, so it is bounded in units of the coarsest
+    # acquisition voxel (1 mm / 1 degree absolute ceilings, as in qsiprep, assumed 2-3 mm data;
+    # the 8 mm slices of a GE 3D spiral cannot be held to them).
     'coreg_rot': (
-        ('frames', 'coreg', 'rot_deg'),
+        ('frames', 'coreg', 'rot_arc_voxels'),
         None,
-        1.0,
-        'deg',
-        'rigid coregistration under --sloppy (as qsiprep)',
+        0.25,
+        'voxels',
+        'rigid coregistration under --sloppy: the rotation error, as arc length at 70 mm, '
+        'within a quarter of the coarsest voxel',
     ),
     'coreg_rms': (
-        ('frames', 'coreg', 'rms_mm'),
+        ('frames', 'coreg', 'rms_voxels'),
         None,
-        1.0,
-        'mm',
-        'rigid coregistration under --sloppy, RMS over brain voxels',
+        0.25,
+        'voxels',
+        'rigid coregistration under --sloppy: RMS displacement over brain voxels within a '
+        'quarter of the coarsest voxel',
     ),
     'motion_median': (
         ('frames', 'motion', 'rms_error_median_mm'),

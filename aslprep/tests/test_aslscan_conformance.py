@@ -204,7 +204,7 @@ def test_background_suppression_gap(runs):
     asserted first, so an unexpected change fails instead of passing as an expected failure.
     """
     run = runs('fast_bs_le_absent')
-    physical = run.expected(alpha=tm.labeling_efficiency_physical(run.simulation))
+    physical = run.expected(alpha=tm.labeling_efficiency_physical(run.simulation, run.context))
     mask = run.valid(physical)
     measured = float(np.median(run.cbf[mask] / physical[mask]))
     predicted = (0.9 / 0.95) ** 2

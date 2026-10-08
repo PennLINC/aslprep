@@ -291,9 +291,8 @@ def score_native(fixture, aslprep_dir, fwhm, subset=300):
     out['expected_ratio'] = {
         t: ratio_stats(expected, fixture.perfusion, masks[t])['median'] for t in ('GM', 'WM')
     }
-    physical = _expected_from(
-        fixture, raw, fwhm, alpha=tm.labeling_efficiency_physical(fixture.simulation)
-    )
+    physical_alpha = tm.labeling_efficiency_physical(fixture.simulation, fixture.context)
+    physical = _expected_from(fixture, raw, fwhm, alpha=physical_alpha)
     out['physical'] = ratio_stats(cbf, physical, a_masks['valid'])
     return out
 
@@ -430,11 +429,24 @@ def score_frames(fixture, aslprep_dir):
 
     errors = [np.linalg.inv(c) @ a[v] @ np.linalg.inv(fixture.R) for v in range(len(a))]
     t1w_points = tg.apply_points(fixture.R, points)
+    rot_deg = float(np.median([tg.rot_angle_deg(d) for d in errors]))
+    rms_mm = float(np.median([tg.rms_displacement(d, t1w_points) for d in errors]))
+    # Registration accuracy scales with resolution: express errors in units of the coarsest
+    # acquisition voxel (rotation as arc length at BRAIN_RADIUS_MM).
+    voxel = float(np.sqrt((fixture.affine[:3, :3] ** 2).sum(axis=0)).max())
     out['coreg'] = {
-        'rot_deg': float(np.median([tg.rot_angle_deg(d) for d in errors])),
-        'rms_mm': float(np.median([tg.rms_displacement(d, t1w_points) for d in errors])),
+        'rot_deg': rot_deg,
+        'rms_mm': rms_mm,
+        'max_voxel_mm': voxel,
+        'rms_voxels': rms_mm / voxel,
+        'rot_arc_voxels': np.radians(rot_deg) * BRAIN_RADIUS_MM / voxel,
     }
+    out['aslref_pose_by_volume_mm'] = native
     return out
+
+
+#: Radius (mm) at which a rotation error is expressed as a displacement.
+BRAIN_RADIUS_MM = 70.0
 
 
 def score_confounds(fixture, aslprep_dir):

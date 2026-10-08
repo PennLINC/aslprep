@@ -171,11 +171,12 @@ def shared_items(fixture_name, multi_delay=False, report_only=()):
     }
 
 
-def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None):
+def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known=None):
     """The truth-scored items common to the no-motion recipes (spec Sections 4.7 and 5).
 
     ``spaces`` are score keys such as ``'space-MNI152NLin2009cAsym'``. ``suppression_pulses``
-    adds the physical-agreement item for background suppression (spec Section 8).
+    adds the physical-agreement item for background suppression (spec Section 8). ``known``
+    maps item names to the reason of a reported, strict expected failure.
     """
 
     def _score(request):
@@ -252,6 +253,8 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None):
             )
 
         items['test_background_suppression_gap'] = test_background_suppression_gap
+    for name, reason in (known or {}).items():
+        items[name] = pytest.mark.xfail(strict=True, reason=reason)(items[name])
     return items
 
 

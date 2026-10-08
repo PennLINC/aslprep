@@ -103,14 +103,29 @@ def labeling_efficiency(metadata):
     return alpha
 
 
-def labeling_efficiency_physical(simulation):
+def labeling_efficiency_physical(simulation, context=None):
     """The efficiency the simulator applied: labeling efficiency x suppression attenuation.
 
-    ``simulation`` is the sidecar's ``AslscanSimulation`` block.
+    ``simulation`` is the sidecar's ``AslscanSimulation`` block. The suppression factor is a
+    scalar, or one value per volume (M0 volumes are unsuppressed); per-volume factors are taken
+    from the label and delta-M volumes of ``context``, which must agree.
     """
     alpha = simulation['Resolved']['LabelingEfficiency']['Value']
     factor = simulation.get('BackgroundSuppressionLabelFactor')
-    return alpha * abs(factor) if factor is not None else alpha
+    if factor is None:
+        return alpha
+    if isinstance(factor, list):
+        if context is None or len(context) != len(factor):
+            raise ValueError('a per-volume suppression factor needs the matching aslcontext')
+        values = {
+            round(abs(f), 9)
+            for f, t in zip(factor, context, strict=True)
+            if t in ('label', 'deltam')
+        }
+        if len(values) != 1:
+            raise ValueError(f'suppression factors differ across labeled volumes: {values}')
+        factor = values.pop()
+    return alpha * abs(factor)
 
 
 def pld_map(metadata, shape, reverse_slices=False, pld_shift=0.0):

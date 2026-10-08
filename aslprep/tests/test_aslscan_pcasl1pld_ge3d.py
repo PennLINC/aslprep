@@ -36,4 +36,17 @@ globals().update(
         ],
     )
 )
-globals().update(scored_items('f2_run', RECIPE, suppression_pulses=4))
+globals().update(
+    scored_items(
+        'f2_run',
+        RECIPE,
+        suppression_pulses=4,
+        known={
+            'test_aslref_pose': (
+                'Head-motion correction registers the delta-M volume to an M0-like reference '
+                '(no shared contrast) and applies the spurious result: on motion-free data the '
+                'delta-M moves by about 1.9 degrees and 1.7 mm RMS. Reported; pending a decision.'
+            ),
+        },
+    )
+)
