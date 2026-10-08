@@ -194,3 +194,28 @@ def test_cbf_qc_interface_threshold_columns(tmp_path):
         key = f'perc_voxels_cbf_gt_{thresh}'
         assert key in metadata, f'{key} missing from metadata JSON'
         assert metadata[key]['Units'] == 'percent'
+
+
+@pytest.mark.parametrize(
+    ('name', 'expected'),
+    [
+        ('FramewiseDisplacement', 'framewise_displacement'),
+        ('StdDVARS', 'std_dvars'),
+        ('NonStdDVARS', 'non_std_dvars'),
+        ('vx-wisestdDVARS', 'vx-wisestd_dvars'),
+        ('DVARS', 'dvars'),
+        ('RMSD', 'rmsd'),
+        ('aCompCor00', 'a_comp_cor00'),
+        ('WhiteMatter', 'white_matter'),
+        ('GlobalSignal', 'global_signal'),
+        ('RotX', 'rot_x'),
+        ('X', 'x'),
+        ('global_signal', 'global_signal'),
+        ('trans_x', 'trans_x'),
+    ],
+)
+def test_camel_to_snake(name, expected):
+    """Confound column names are converted to snake_case."""
+    from aslprep.utils.confounds import _camel_to_snake
+
+    assert _camel_to_snake(name) == expected

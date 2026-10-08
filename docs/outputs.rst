@@ -278,6 +278,11 @@ fieldmap metadata, then the transform will be given an auto-generated name::
 **Regularly gridded outputs (images)**.
 Volumetric output spaces labels (``space-<label>`` above, and in the following) include
 ``T1w`` and ``MNI152NLin2009cAsym`` (default).
+``T1w``-space outputs (the preprocessed ASL series, ASL reference, brain mask,
+and CBF derivatives) are aligned to the T1w image but keep the voxel size of the ASL data,
+as in fMRIPrep.
+Standard-space outputs are written at the resolution requested with the ``res-<label>``
+specifier, or at the ASL data's resolution if none is given.
 
 **Surfaces, segmentations and parcellations from FreeSurfer**.
 If FreeSurfer reconstructions are used,

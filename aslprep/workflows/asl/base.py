@@ -644,7 +644,6 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ds_asl_t1_wf.inputs.inputnode.space = 'T1w'
 
         workflow.connect([
-            (inputnode, ds_asl_t1_wf, [('t1w_preproc', 'inputnode.ref_file')]),
             (merge_asl_sources, ds_asl_t1_wf, [('out', 'inputnode.source_files')]),
             (asl_output_metadata, ds_asl_t1_wf, [('out', 'inputnode.asl_metadata')]),
             (asl_fit_wf, ds_asl_t1_wf, [
@@ -654,7 +653,11 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ('outputnode.motion_xfm', 'inputnode.motion_xfm'),
                 ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
             ]),
-            (asl_anat_wf, ds_asl_t1_wf, [('outputnode.bold_file', 'inputnode.asl')]),
+            (asl_anat_wf, ds_asl_t1_wf, [
+                ('outputnode.bold_file', 'inputnode.asl'),
+                # Write all T1w-space outputs on the ASL-resolution grid, as fMRIPrep does
+                ('outputnode.resampling_reference', 'inputnode.ref_file'),
+            ]),
             (cbf_wf, ds_asl_t1_wf, [
                 (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
             ]),
