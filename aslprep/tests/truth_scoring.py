@@ -29,8 +29,6 @@ from aslprep.tests import truth_models as tm
 FLOOR = 5.0
 #: Partial-volume threshold of the tissue-dominant masks.
 DOMINANT = 0.7
-#: Displacement (mm) of the aslref pose below which native outputs compare voxel to voxel.
-NATIVE_TOLERANCE_MM = 0.5
 
 
 # ---------------------------------------------------------------------------------------------
@@ -418,16 +416,30 @@ def score_frames(fixture, aslprep_dir):
 
     _, points = fixture.voxel_centers(fixture.brain)
     a = np.stack([np.linalg.inv(h[v]) @ poses[v] for v in range(len(poses))])
-    rel = [tg.rms_displacement(a[v] @ np.linalg.inv(a[0]), points) for v in range(len(a))]
+    moving = fixture.motion is not None
+    # Motion-correction error per volume, relative to the first volume's: whether the series
+    # was brought into register with itself (the aslref's own pose cancels out).
+    errors_hmc = [tg.rms_displacement(a[v] @ np.linalg.inv(a[0]), points) for v in range(len(a))]
     out['motion'] = {
-        'rms_error_median_mm': float(np.median(rel)),
-        'rms_error_max_mm': float(np.max(rel)),
+        'rms_error_median_mm': float(np.median(errors_hmc)),
+        'rms_error_max_mm': float(np.max(errors_hmc)),
+        'rms_error_by_volume_mm': [float(e) for e in errors_hmc],
     }
-    native = [tg.rms_displacement(a[v], points) for v in range(len(a))]
-    out['aslref_pose_rms_mm'] = float(np.max(native))
-    out['native_comparable'] = bool(np.max(native) < NATIVE_TOLERANCE_MM)
+    if not moving:
+        # Without motion every A_v should be the identity. A displacement shared by all volumes
+        # is a constant offset between the corrected series and the static frame (report-only:
+        # measured 0.3-0.6 mm, larger when the reference's contrast differs from the volumes').
+        out['motion']['reference_offset_mm'] = float(
+            np.median([tg.rms_displacement(a[v], points) for v in range(len(a))])
+        )
 
-    errors = [np.linalg.inv(c) @ a[v] @ np.linalg.inv(fixture.R) for v in range(len(a))]
+    # Coregistration error. Without motion the aslref is in the static frame, so the error is
+    # C^-1 R^-1 alone (motion-correction errors are not attributed to it); with motion, the
+    # aslref's pose comes from the HMC transforms, E_v = C^-1 A_v, compared with R.
+    if moving:
+        errors = [np.linalg.inv(c) @ a[v] @ np.linalg.inv(fixture.R) for v in range(len(a))]
+    else:
+        errors = [np.linalg.inv(c) @ np.linalg.inv(fixture.R)]
     t1w_points = tg.apply_points(fixture.R, points)
     rot_deg = float(np.median([tg.rot_angle_deg(d) for d in errors]))
     rms_mm = float(np.median([tg.rms_displacement(d, t1w_points) for d in errors]))
@@ -441,7 +453,6 @@ def score_frames(fixture, aslprep_dir):
         'rms_voxels': rms_mm / voxel,
         'rot_arc_voxels': np.radians(rot_deg) * BRAIN_RADIUS_MM / voxel,
     }
-    out['aslref_pose_by_volume_mm'] = native
     return out
 
 

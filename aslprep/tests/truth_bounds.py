@@ -79,14 +79,6 @@ CEILINGS = {
         's',
         'ATT from the same model fitted to the same preprocessed series',
     ),
-    'aslref_pose': (
-        ('frames', 'aslref_pose_rms_mm'),
-        None,
-        0.5,
-        'mm',
-        'without motion, native outputs compare voxel to voxel only if the aslref is within a '
-        'seventh of a voxel of the static frame',
-    ),
     'tier_b': (
         ('native', 'tier_b', '{t}', 'median'),
         None,

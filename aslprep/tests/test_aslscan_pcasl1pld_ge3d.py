@@ -21,7 +21,7 @@ def f2_run(data_dir, output_dir, working_dir):
         data_dir,
         output_dir,
         working_dir,
-        extra_args=('--scorescrub', '--basil', '--atlases', '4S156Parcels'),
+        extra_args=('--scorescrub', '--basil', '--atlases', '4S156Parcels', '4S1056Parcels'),
         extra_cbf=('basil',),
     )
 
@@ -42,7 +42,7 @@ globals().update(
         RECIPE,
         suppression_pulses=4,
         known={
-            'test_aslref_pose': (
+            'test_motion_correction': (
                 'Head-motion correction registers the delta-M volume to an M0-like reference '
                 '(no shared contrast) and applies the spurious result: on motion-free data the '
                 'delta-M moves by about 1.9 degrees and 1.7 mm RMS. Reported; pending a decision.'

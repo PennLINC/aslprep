@@ -20,7 +20,7 @@ def f6_run(data_dir, output_dir, working_dir):
         data_dir,
         output_dir,
         working_dir,
-        extra_args=('--scorescrub', '--basil', '--atlases', '4S156Parcels'),
+        extra_args=('--scorescrub', '--basil', '--atlases', '4S156Parcels', '4S1056Parcels'),
         extra_cbf=('basil',),
     )
 

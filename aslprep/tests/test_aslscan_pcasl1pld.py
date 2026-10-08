@@ -22,7 +22,7 @@ def f1_run(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         spaces=('asl', 'T1w', 'MNI152NLin2009cAsym'),
-        extra_args=('--scorescrub', '--basil', '--atlases', '4S156Parcels'),
+        extra_args=('--scorescrub', '--basil', '--atlases', '4S156Parcels', '4S1056Parcels'),
         score_spaces=('T1w', 'MNI152NLin2009cAsym'),
         extra_cbf=('basil', 'score', 'scrub'),
     )

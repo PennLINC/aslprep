@@ -20,7 +20,7 @@ def f5_run(data_dir, output_dir, working_dir):
         data_dir,
         output_dir,
         working_dir,
-        extra_args=('--scorescrub', '--atlases', '4S156Parcels'),
+        extra_args=('--scorescrub', '--atlases', '4S156Parcels', '4S1056Parcels'),
     )
 
 

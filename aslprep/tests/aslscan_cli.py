@@ -193,8 +193,11 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
         if ts.lookup(score, ('native', 'tier_a_quant', 'att_median_abs_diff')) is not None:
             tb.check(score, 'tier_a_att', recipe)
 
-    def test_aslref_pose(request):
-        tb.check(_score(request), 'aslref_pose', recipe)
+    def test_motion_correction(request):
+        """Without motion, motion correction must keep every volume in register with the rest."""
+        score = _score(request)
+        tb.check(score, 'motion_median', recipe)
+        tb.check(score, 'motion_max', recipe)
 
     @pytest.mark.parametrize('tissue', ['GM', 'WM'])
     def test_tier_b(request, tissue):
@@ -209,7 +212,7 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
     items = {
         'test_tier_a_median': test_tier_a_median,
         'test_tier_a_quantification': test_tier_a_quantification,
-        'test_aslref_pose': test_aslref_pose,
+        'test_motion_correction': test_motion_correction,
         'test_tier_b': test_tier_b,
         'test_coregistration': test_coregistration,
     }

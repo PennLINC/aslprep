@@ -526,6 +526,8 @@ def test_frames_algebra(tmp_path):
         acq='test',
         R=r,
         brain=brain,
+        affine=affine,
+        motion=[{}] * len(poses),  # a moving recipe: the aslref pose comes from the HMC transforms
         poses=lambda: poses,
         voxel_centers=lambda m: (np.argwhere(m), tg.apply_points(affine, np.argwhere(m))),
     )
@@ -645,3 +647,39 @@ def test_fixture_digest_is_per_recipe(tmp_path, monkeypatch):
     (other / 'aslcontext.tsv').write_text('volume_type\nlabel\ncontrol\n')
     assert af.fixture_digest('r') == before['r']
     assert af.fixture_digest('other') != before['other']
+
+
+def test_frames_without_motion_separate_hmc_from_coregistration(tmp_path):
+    """Without motion, a spurious HMC transform is a motion error, not a coregistration error."""
+    from types import SimpleNamespace
+
+    from aslprep.tests import truth_scoring as ts
+
+    r = tg.rigid_ras(3, -4, 2, 5, -3, 4)
+    affine = np.diag([3.0, 3.0, 3.0, 1.0])
+    affine[:3, 3] = -30
+    brain = np.zeros((20, 20, 20), bool)
+    brain[4:16, 4:16, 4:16] = True
+    fx = SimpleNamespace(
+        acq='test',
+        R=r,
+        brain=brain,
+        affine=affine,
+        motion=None,
+        poses=lambda: np.repeat(np.eye(4)[None], 3, axis=0),
+        voxel_centers=lambda m: (np.argwhere(m), tg.apply_points(affine, np.argwhere(m))),
+    )
+    perf = tmp_path / 'sub-01' / 'perf'
+    perf.mkdir(parents=True)
+    spurious = [np.eye(4), np.eye(4), tg.rigid_ras(1.0, 0, 0, 0, 0, 2)]
+    _write_itk_array(
+        perf / 'sub-01_acq-test_from-orig_to-aslref_mode-image_desc-hmc_xfm.txt', spurious
+    )
+    tg.write_itk_affine(
+        perf / 'sub-01_acq-test_from-aslref_to-T1w_mode-image_desc-coreg_xfm.txt', np.linalg.inv(r)
+    )
+    frames = ts.score_frames(fx, tmp_path)
+    assert frames['coreg']['rms_mm'] < 1e-3  # coregistration is exact
+    assert frames['motion']['rms_error_median_mm'] < 1e-3
+    assert frames['motion']['rms_error_max_mm'] > 1.0  # the third volume moved spuriously
+    assert frames['motion']['reference_offset_mm'] < 1e-3  # most volumes stayed in place
