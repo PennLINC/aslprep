@@ -545,6 +545,21 @@ The test image has numpy 2.2.6, scipy 1.15.2 and nibabel 5.3.2; the micromamba e
 numpy 2.5.3, scipy 1.18.1 and nibabel 5.4.2. One test that was fragile to these differences
 (the mutation mask) was fixed.
 
+### Deviations from the plan
+
+- **Task 9.3 (FSL-parameter conversion).** Motion is asserted through the transform algebra:
+  `H_v` against `P_v`, as RMS displacement over brain voxels. That metric is
+  convention-free and is validated by the frame-algebra test and the simulator
+  motion-convention probe (`geom_motion`, spec 9.4). Agreement between the confounds and the
+  truth is reported as |r| per axis plus mean FD, report-only. An exact FSL-parameter
+  conversion and its tests were not built: they would assert nothing the transform metric does
+  not already cover.
+- **`rot_angle_deg`.** It uses `atan2`; `arccos` was inaccurate (about 0.006°) near the
+  identity.
+- **`geom_motion` probe.** It needs a 60x60x40 mm crop at 2.5 mm isotropic. The fast crop
+  (16x16x6) was too coarse for the comparison (r 0.66). The true pose fits at r 0.89 and
+  beats the inverse pose and the origin-centred rotation.
+
 ### JUnit
 
 `record_property` warns under xunit2. CI should pass `-o junit_family=legacy` for the fast

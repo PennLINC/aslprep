@@ -102,6 +102,12 @@ def test_pose_matrix_rotates_about_center():
     assert tg.rot_angle_deg(m) > 0
 
 
+def test_rot_angle_is_accurate_near_identity():
+    for deg in (1e-4, 0.01, 2.0, 90.0, 179.0):
+        assert tg.rot_angle_deg(tg.rigid_ras(0, 0, 0, deg, 0, 0)) == pytest.approx(deg, rel=1e-6)
+    assert tg.rot_angle_deg(np.eye(4)) == 0.0
+
+
 def test_fov_center():
     affine = np.diag([2.0, 3.0, 4.0, 1.0])
     affine[:3, 3] = [-10, -20, -30]
@@ -403,3 +409,223 @@ def test_generated_fixture_matches_aslscan_truth(tmp_path):
 def test_thread_count_does_not_change_output():
     binary = _aslscan_or_skip()
     assert 'identical' in af.check_threads('fast_pcasl_seq', binary)
+
+
+# ---------------------------------------------------------------------------------------------
+# Scoring (no ASLPrep run: outputs are fabricated from a fast fixture)
+# ---------------------------------------------------------------------------------------------
+def _write_itk_array(path, matrices):
+    """An ITK multi-transform text file, as niworkflows' MCFLIRT2ITK writes for HMC."""
+    blocks = ['#Insight Transform File V1.0']
+    for i, m in enumerate(matrices):
+        lps = tg.ras_to_lps(m)
+        params = ' '.join(repr(float(v)) for v in [*lps[:3, :3].ravel(), *lps[:3, 3]])
+        blocks += [
+            f'#Transform {i}',
+            'Transform: AffineTransform_double_3_3',
+            f'Parameters: {params}',
+            'FixedParameters: 0 0 0',
+        ]
+    path.write_text('\n'.join(blocks) + '\n')
+
+
+def _fake_run(fixture, out, scale=1.0, shrink=False, nans=False):
+    """Fabricate ASLPrep's native outputs: CBF = scale x the Tier A expectation."""
+    from aslprep.tests import truth_scoring as ts
+
+    fx = ts.Fixture(fixture, af.load_recipe('fast_pcasl_seq').acq)
+    perf = out / 'sub-01' / 'perf'
+    perf.mkdir(parents=True)
+    cbf = np.nan_to_num(ts.expected_native(fx, fwhm=0.0)) * scale
+    mask = fx.brain.copy()
+    if shrink:
+        mask[: mask.shape[0] // 2] = False
+    if nans:
+        cbf[fx.brain] = np.nan
+    stem = f'sub-01_acq-{fx.acq}'
+    nb.Nifti1Image(cbf.astype(np.float32), fx.affine).to_filename(perf / f'{stem}_cbf.nii.gz')
+    nb.Nifti1Image(mask.astype(np.uint8), fx.affine).to_filename(
+        perf / f'{stem}_desc-brain_mask.nii.gz'
+    )
+    return fx
+
+
+@pytest.fixture
+def fast_fixture(data_dir):
+    try:
+        return af.fixture_dir('fast_pcasl_seq', data_dir)
+    except af.FixtureUnavailable as exc:
+        pytest.skip(str(exc))
+
+
+def test_scoring_exact_output_passes_and_errors_fail(fast_fixture, tmp_path):
+    from aslprep.tests import truth_bounds as tb
+    from aslprep.tests import truth_scoring as ts
+
+    _fake_run(fast_fixture, tmp_path / 'exact')
+    score = {
+        'native': ts.score_native(
+            ts.Fixture(fast_fixture, 'fastpcaslseq'), tmp_path / 'exact', 0.0
+        )
+    }
+    assert score['native']['grid_matches_input']
+    assert score['native']['tier_a']['median_abs_dev'] < 1e-6
+    tb.check(score, 'tier_a_median', 'fast_pcasl_seq')
+    tb.check(score, 'mask_coverage', 'fast_pcasl_seq')
+    tb.check(
+        score, 'tier_b', 'fast_pcasl_seq', reference=('native', 'expected_ratio', '{t}'), t='GM'
+    )
+
+    for kwargs, name, message in (
+        ({'scale': 1.1}, 'tier_a_median', 'expected <= 0.05'),
+        ({'shrink': True}, 'mask_coverage', 'expected >= 0.95'),
+        ({'nans': True}, 'finite', 'expected >= 0.999'),
+    ):
+        out = tmp_path / name
+        fx = _fake_run(fast_fixture, out, **kwargs)
+        bad = {'native': ts.score_native(fx, out, 0.0)}
+        with pytest.raises(AssertionError, match=message):
+            tb.check(bad, name, 'fast_pcasl_seq')
+
+
+def test_bounds_fail_on_missing_metric_or_ceiling():
+    from aslprep.tests import truth_bounds as tb
+
+    with pytest.raises(AssertionError, match='missing or not finite'):
+        tb.check({'native': {}}, 'tier_a_median', 'any')
+    with pytest.raises(AssertionError, match='no ceiling named'):
+        tb.check({}, 'not_a_metric', 'any')
+    with pytest.raises(AssertionError, match='missing or not finite'):
+        tb.check({'native': {'tier_a': {'median_abs_dev': float('nan')}}}, 'tier_a_median', 'any')
+
+
+def test_regression_bands_are_narrow():
+    """A band wider than 0.1 in ratio units could hide a 10 % scaling error."""
+    from aslprep.tests import truth_bounds as tb
+
+    for (recipe, name), (lo, hi, _) in tb.BANDS.items():
+        if tb.CEILINGS[name][3] == 'ratio':
+            assert hi - lo <= 0.1, (recipe, name)
+
+
+def test_frames_algebra(tmp_path):
+    """Spec 9.3: consistent HMC and coregistration give no error; a 2 degree error is measured."""
+    from types import SimpleNamespace
+
+    from aslprep.tests import truth_scoring as ts
+
+    r = tg.rigid_ras(3, -4, 2, 5, -3, 4)
+    poses = np.stack(
+        [tg.pose_matrix([0.5 * v, 0, 0], [0, 0, 0.01 * v], [0, 0, 0]) for v in range(4)]
+    )
+    affine = np.diag([3.0, 3.0, 3.0, 1.0])
+    affine[:3, 3] = -30
+    brain = np.zeros((20, 20, 20), bool)
+    brain[4:16, 4:16, 4:16] = True
+    fx = SimpleNamespace(
+        acq='test',
+        R=r,
+        brain=brain,
+        poses=lambda: poses,
+        voxel_centers=lambda m: (np.argwhere(m), tg.apply_points(affine, np.argwhere(m))),
+    )
+    perf = tmp_path / 'sub-01' / 'perf'
+    perf.mkdir(parents=True)
+    # aslref in the static frame: H_v = P_v. Coregistration pulls T1w points: C = R^-1.
+    _write_itk_array(
+        perf / 'sub-01_acq-test_from-orig_to-aslref_mode-image_desc-hmc_xfm.txt', poses
+    )
+    coreg = perf / 'sub-01_acq-test_from-aslref_to-T1w_mode-image_desc-coreg_xfm.txt'
+    tg.write_itk_affine(coreg, np.linalg.inv(r))
+    good = ts.score_frames(fx, tmp_path)
+    assert good['coreg']['rot_deg'] < 1e-3
+    assert good['coreg']['rms_mm'] < 1e-3
+    assert good['motion']['rms_error_max_mm'] < 1e-3
+
+    tg.write_itk_affine(coreg, np.linalg.inv(r) @ tg.rigid_ras(0, 0, 0, 0, 0, 2))
+    bad = ts.score_frames(fx, tmp_path)
+    assert bad['coreg']['rot_deg'] == pytest.approx(2.0, abs=1e-6)
+    assert bad['coreg']['rms_mm'] > 0.1
+
+
+def test_derivative_transforms_undo_the_offset(tmp_path):
+    """Spec 9.2: resampling the offset T1w through from-T1w_to-MNI recovers the phantom T1w."""
+    from nitransforms.linear import load
+    from nitransforms.resampling import apply
+
+    phantom = _write_synthetic_phantom(tmp_path / 'phantom', shape=(30, 32, 28))
+    for name in ('brainmask', 'probseg-GM', 'probseg-WM', 'probseg-CSF'):
+        nb.load(phantom / 'anat' / 'T1w.nii.gz').to_filename(phantom / 'anat' / f'{name}.nii.gz')
+    t1w = nb.load(phantom / 'anat' / 'T1w.nii.gz')
+    smooth = nb.Nifti1Image(
+        np.asarray(
+            __import__('scipy.ndimage', fromlist=['gaussian_filter']).gaussian_filter(
+                t1w.get_fdata(), 1.0
+            ),
+            np.float32,
+        ),
+        t1w.affine,
+    )
+    smooth.to_filename(phantom / 'anat' / 'T1w.nii.gz')
+
+    r = tg.rigid_ras(3, -4, 2, 5, -3, 4)
+    out = tmp_path / 'fixture'
+    af._write_anatomy(phantom, out, r, derivatives=True)
+    danat = out / 'derivatives' / 'anat' / 'sub-01' / 'anat'
+    moved = nb.load(danat / 'sub-01_desc-preproc_T1w.nii.gz')
+    np.testing.assert_allclose(moved.affine, r @ smooth.affine, atol=1e-6)
+
+    xfm = load(danat / f'sub-01_from-T1w_to-{af.TEMPLATE}_mode-image_xfm.txt', fmt='itk')
+    back = np.asarray(apply(xfm, moved, reference=smooth, order=1).dataobj)
+    interior = (slice(5, -5),) * 3
+    a, b = back[interior].ravel(), smooth.get_fdata()[interior].ravel()
+    assert np.corrcoef(a, b)[0, 1] > 0.99
+
+
+def test_simulator_motion_convention(data_dir):
+    """Spec 9.4: each moved volume matches the static one pushed through ``pose_matrix``.
+
+    The prediction is compared with alternatives (the inverse pose; rotation about the world
+    origin), which must fit worse, so a convention error cannot pass.
+    """
+    from scipy.ndimage import map_coordinates
+
+    from aslprep.tests import truth_scoring as ts
+
+    try:
+        fixture = af.fixture_dir('geom_motion', data_dir)
+    except af.FixtureUnavailable as exc:
+        pytest.skip(str(exc))
+    fx = ts.Fixture(fixture, 'geommotion')
+    data = fx.asl_img.get_fdata()
+    static = data[..., 0]  # volume 0 (control) has the identity pose
+    ijk = np.argwhere(np.ones(fx.shape, bool))
+    world = tg.apply_points(fx.affine, ijk)
+    interior = np.zeros(fx.shape, bool)
+    interior[3:-3, 3:-3, 1:-1] = True
+    center = fx.truth['motion_center']
+
+    def predicted(pose):
+        # the moved head shows, at x, what the static head had at pose^-1 x
+        src = tg.apply_points(np.linalg.inv(pose), world)
+        vox = tg.apply_points(np.linalg.inv(fx.affine), src)
+        return map_coordinates(static, vox.T, order=1, cval=np.nan).reshape(fx.shape)
+
+    def fit(volume, pose):
+        pred = predicted(pose)
+        ok = interior & np.isfinite(pred)
+        return np.corrcoef(pred[ok], volume[ok])[0, 1]
+
+    for v, row in enumerate(fx.motion):
+        if v == 0 or fx.context[v] != 'control':
+            continue
+        trans = [row['trans_x'], row['trans_y'], row['trans_z']]
+        rot = [row['rot_x'], row['rot_y'], row['rot_z']]
+        pose = tg.pose_matrix(trans, rot, center)
+        r_true = fit(data[..., v], pose)
+        # interpolating an ASL-resolution image limits r (0.89 measured for a pure shift);
+        # the discriminating checks are the comparisons with the wrong conventions below
+        assert r_true > 0.8, f'volume {v}: r = {r_true:.3f}'
+        assert r_true > fit(data[..., v], np.linalg.inv(pose))
+        if any(rot):  # the centre only matters for rotations
+            assert r_true > fit(data[..., v], tg.pose_matrix(trans, rot, [0, 0, 0]))

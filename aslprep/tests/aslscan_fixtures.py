@@ -78,6 +78,7 @@ TEMPLATES = (
 
 #: Modules (in this directory) whose source feeds the spec digest.
 HASHED_MODULES = ('aslscan_fixtures.py', 'truth_geometry.py', 'truth_models.py')
+# truth_scoring.py and truth_bounds.py only read fixtures; they do not change them.
 
 #: Per-label constants of ASLDRO's hrgt_icbm_2009a_nls_3t, used by the TemplateFlow phantoms.
 #: This is a new phantom that shares ASLDRO's constants, not its anatomy.
@@ -172,6 +173,8 @@ RECIPES = {
     'fast_bs_le_absent': 'PCASL with two suppression pulses and no LabelingEfficiency',
     'fast_pcasl_multipld': 'multi-delay PCASL, label first, unequal repeats',
     'fast_pasl_multipld': 'multi-delay PASL, Q2TIPS',
+    # Geometry probes (not CBF recipes).
+    'geom_motion': "known rigid poses, to pin the simulator's motion convention",
 }
 
 TESTS_DIR = Path(__file__).resolve().parent

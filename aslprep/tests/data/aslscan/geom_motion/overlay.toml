@@ -1,0 +1,10 @@
+seed = 20261008
+[acquisition]
+oversample = 2
+matrix = [24, 24]
+noise_variance = 0.0
+[m0]
+repetition_time = 8.0
+[motion]
+mode = "trajectory"
+trajectory = "motion.tsv"

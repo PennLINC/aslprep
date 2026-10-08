@@ -97,8 +97,10 @@ def write_itk_affine(path, m_ras):
 def rot_angle_deg(m):
     """Rotation angle (degrees) of a rigid matrix's linear part."""
     r = np.asarray(m)[:3, :3]
-    cos = np.clip((np.trace(r) - 1) / 2, -1.0, 1.0)
-    return float(np.degrees(np.arccos(cos)))
+    # atan2 of (sin, cos) stays accurate near the identity, where arccos(cos) does not
+    sin = np.linalg.norm([r[2, 1] - r[1, 2], r[0, 2] - r[2, 0], r[1, 0] - r[0, 1]]) / 2
+    cos = (np.trace(r) - 1) / 2
+    return float(np.degrees(np.arctan2(sin, cos)))
 
 
 def rms_displacement(m, points):
