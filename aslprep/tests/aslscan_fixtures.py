@@ -18,6 +18,9 @@ Usage::
 import argparse
 import hashlib
 import json
+import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -80,6 +83,8 @@ RECIPES = {}
 
 TESTS_DIR = Path(__file__).resolve().parent
 RECIPES_DIR = TESTS_DIR / 'data' / 'aslscan'
+#: aslscan does not commit a Cargo.lock, so the build uses this one (with --locked).
+CARGO_LOCK = TESTS_DIR / 'data' / 'aslscan-Cargo.lock'
 REPO_ROOT = TESTS_DIR.parents[1]
 SPEC_FILE = REPO_ROOT / '.circleci' / 'aslscan_fixtures.txt'
 SPEC_COMMAND = 'python -m aslprep.tests.aslscan_fixtures --spec > .circleci/aslscan_fixtures.txt'
@@ -121,6 +126,7 @@ def spec_text():
         f'MRSIM_ACQ_REF={MRSIM_ACQ_REF}',
         f'RUST_TOOLCHAIN={RUST_TOOLCHAIN}',
         f'CARGO_FEATURES={CARGO_FEATURES}',
+        f'CARGO_LOCK={_digest_bytes(CARGO_LOCK.read_bytes())}',
         f'PY_REQUIREMENTS={";".join(PY_REQUIREMENTS)}',
     ]
     lines += [f'TEMPLATE {name} {sha}' for _, name, sha in TEMPLATES]
@@ -138,9 +144,141 @@ def spec_digest():
     return spec_text().rstrip('\n').rsplit(' ', 1)[1]
 
 
+# ---------------------------------------------------------------------------------------------
+# The simulator
+# ---------------------------------------------------------------------------------------------
+STAMP_NAME = 'aslscan.build.json'
+
+
+class AslscanUnavailable(RuntimeError):
+    """No aslscan binary built at the pinned revisions could be found."""
+
+
+def _sha256_file(path):
+    sha = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for block in iter(lambda: f.read(1 << 20), b''):
+            sha.update(block)
+    return sha.hexdigest()
+
+
+def _expected_stamp():
+    return {
+        'aslscan': ASLSCAN_REF,
+        'mrsim-acq': MRSIM_ACQ_REF,
+        'toolchain': RUST_TOOLCHAIN,
+        'features': CARGO_FEATURES,
+        'cargo_lock': _digest_bytes(CARGO_LOCK.read_bytes()),
+    }
+
+
+def _tool(name):
+    """Absolute path of an executable on PATH."""
+    path = shutil.which(name)
+    if path is None:
+        raise FileNotFoundError(f'{name} is required but was not found on PATH')
+    return path
+
+
+def _checkout(repo, ref, dest):
+    """Clone (or reuse) ``repo`` at ``dest`` and detach at ``ref``, verifying the result."""
+    git = _tool('git')
+    if not (dest / '.git').is_dir():
+        subprocess.run([git, 'clone', '--quiet', repo, str(dest)], check=True)
+    subprocess.run([git, '-C', str(dest), 'fetch', '--quiet', 'origin', ref], check=True)
+    subprocess.run([git, '-C', str(dest), 'checkout', '--quiet', '--detach', ref], check=True)
+    head = subprocess.run(
+        [git, '-C', str(dest), 'rev-parse', 'HEAD'], check=True, capture_output=True, text=True
+    ).stdout.strip()
+    if head != ref:
+        raise RuntimeError(f'{dest}: HEAD is {head}, expected {ref}')
+
+
+def build_aslscan(workdir):
+    """Build aslscan at the pinned revisions and return the binary's path.
+
+    The two crates are cloned side by side, because aslscan finds mrsim-acq at
+    ``../mrsim-acq``. A stamp written next to the binary records what it was built from;
+    :func:`find_aslscan` accepts only stamped binaries, since ``aslscan --version`` does not
+    report a revision. The path is also written to ``<workdir>/BIN`` for CI steps.
+    """
+    workdir = Path(workdir).resolve()
+    workdir.mkdir(parents=True, exist_ok=True)
+    _checkout(MRSIM_ACQ_REPO, MRSIM_ACQ_REF, workdir / 'mrsim-acq')
+    _checkout(ASLSCAN_REPO, ASLSCAN_REF, workdir / 'aslscan')
+    shutil.copyfile(CARGO_LOCK, workdir / 'aslscan' / 'Cargo.lock')
+    env = {**os.environ, 'CARGO_TARGET_DIR': str(workdir / 'target')}
+    subprocess.run(
+        [
+            _tool('cargo'),
+            f'+{RUST_TOOLCHAIN}',
+            'build',
+            '--release',
+            '--locked',
+            '--features',
+            CARGO_FEATURES,
+            '--bin',
+            'aslscan',
+        ],
+        cwd=workdir / 'aslscan',
+        env=env,
+        check=True,
+    )
+    binary = workdir / 'target' / 'release' / 'aslscan'
+    stamp = {**_expected_stamp(), 'sha256': _sha256_file(binary)}
+    (binary.parent / STAMP_NAME).write_text(json.dumps(stamp, indent=2) + '\n')
+    (workdir / 'BIN').write_text(f'{binary}\n')
+    return binary
+
+
+def check_aslscan(binary):
+    """Raise :class:`AslscanUnavailable` unless ``binary`` carries a matching stamp."""
+    binary = Path(binary)
+    stamp_file = binary.parent / STAMP_NAME
+    if not binary.is_file():
+        raise AslscanUnavailable(f'{binary} does not exist')
+    if not stamp_file.is_file():
+        raise AslscanUnavailable(
+            f'{binary} has no {STAMP_NAME}; build it at the pinned revisions with '
+            '`python -m aslprep.tests.aslscan_fixtures --build-aslscan <dir>`'
+        )
+    stamp = json.loads(stamp_file.read_text())
+    expected = _expected_stamp()
+    wrong = {k: stamp.get(k) for k, v in expected.items() if stamp.get(k) != v}
+    if wrong:
+        raise AslscanUnavailable(f'{binary} was built from {wrong}, expected {expected}')
+    if stamp.get('sha256') != _sha256_file(binary):
+        raise AslscanUnavailable(f'{binary} does not match the hash in its {STAMP_NAME}')
+    return binary
+
+
+def find_aslscan(explicit=None):
+    """Locate a stamped aslscan: ``explicit``, then ``$ASLSCAN``, then ``PATH``."""
+    candidates = [explicit, os.environ.get('ASLSCAN'), shutil.which('aslscan')]
+    errors = []
+    for candidate in filter(None, candidates):
+        try:
+            return check_aslscan(candidate)
+        except AslscanUnavailable as exc:
+            errors.append(str(exc))
+    raise AslscanUnavailable(
+        'no aslscan built at the pinned revisions was found'
+        + (': ' + '; '.join(errors) if errors else ' (set $ASLSCAN or put aslscan on PATH)')
+    )
+
+
+# ---------------------------------------------------------------------------------------------
+# Command line
+# ---------------------------------------------------------------------------------------------
 def _get_parser():
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     parser.add_argument('--spec', action='store_true', help='print the spec file and exit')
+    parser.add_argument(
+        '--build-aslscan',
+        metavar='WORKDIR',
+        type=Path,
+        help='build aslscan at the pinned revisions in WORKDIR and print its path',
+    )
     return parser
 
 
@@ -148,6 +286,9 @@ def main(argv=None):
     opts = _get_parser().parse_args(argv)
     if opts.spec:
         sys.stdout.write(spec_text())
+        return 0
+    if opts.build_aslscan:
+        print(build_aslscan(opts.build_aslscan))
         return 0
     _get_parser().print_help()
     return 1

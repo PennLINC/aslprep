@@ -177,6 +177,11 @@ The registry module (4.5) pins:
 3. Runs `cargo +$RUST_TOOLCHAIN build --release --locked --features cli,kspace,par --bin aslscan`.
 4. Returns the absolute binary path.
 
+aslscan does not commit a `Cargo.lock`: its `.gitignore` lists it. ASLPrep therefore vendors
+one, `aslprep/tests/data/aslscan-Cargo.lock`, taken from the build that produced the measured
+facts. It is copied into the checkout before the `--locked` build, and its digest is part of
+the spec file and the binary stamp.
+
 The path is passed explicitly to `--generate` with `--aslscan PATH`. There is no reliance on
 `PATH` persisting across CI steps.
 
