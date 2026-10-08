@@ -185,3 +185,104 @@ def test_itk_pull_convention_by_landmarks(tmp_path):
         w = data * near
         centroid = (world * w[..., None]).sum(axis=(0, 1, 2)) / w.sum()
         np.testing.assert_allclose(centroid, p, atol=0.1)
+
+
+# ---------------------------------------------------------------------------------------------
+# Phantoms
+# ---------------------------------------------------------------------------------------------
+def _write_synthetic_phantom(path, shape=(12, 10, 8)):
+    """A small phantom satisfying aslscan's contract: three label slabs and background."""
+    path.mkdir(parents=True)
+    affine = np.diag([1.0, 1.0, 1.0, 1.0])
+    affine[:3, 3] = [-6, -5, -4]
+    labels = np.zeros(shape, np.int16)
+    labels[2:10, 2:8, 1:3] = 1
+    labels[2:10, 2:8, 3:5] = 2
+    labels[2:10, 2:8, 5:7] = 3
+    for quantity, units in af.PHANTOM_MAPS.items():
+        data = np.zeros(shape, np.float32)
+        for value, tissue in af.TISSUES.items():
+            data[labels == value] = tissue[quantity]
+        nb.Nifti1Image(data, affine).to_filename(path / f'{quantity}.nii.gz')
+        (path / f'{quantity}.json').write_text(json.dumps({'Units': units}))
+    nb.Nifti1Image(labels, affine).to_filename(path / 'dseg.nii.gz')
+    (path / 'dseg.json').write_text(
+        json.dumps({'Units': 'label indices', 'LabelMap': {'1': 'grey_matter'}})
+    )
+    (path / 'anat').mkdir()
+    nb.Nifti1Image(labels.astype(np.float32), affine).to_filename(path / 'anat' / 'T1w.nii.gz')
+    return path
+
+
+def test_phantom_contract_accepts_valid_and_rejects_violations(tmp_path):
+    good = _write_synthetic_phantom(tmp_path / 'good')
+    af.check_phantom_contract(good)
+
+    def corrupt(name, edit):
+        img = nb.load(good / f'{name}.nii.gz')
+        data = np.asanyarray(img.dataobj).copy()
+        edit(data)
+        nb.Nifti1Image(data, img.affine).to_filename(good / f'{name}.nii.gz')
+
+    corrupt('M0map', lambda d: d.__setitem__((0, 0, 0), 5.0))
+    with pytest.raises(af.PhantomContractError, match='zero in the background'):
+        af.check_phantom_contract(good)
+    corrupt('M0map', lambda d: d.__setitem__((0, 0, 0), 0.0))
+
+    corrupt('T2starmap', lambda d: d.__setitem__((5, 5, 2), 1.0))
+    with pytest.raises(af.PhantomContractError, match='below T2map'):
+        af.check_phantom_contract(good)
+    corrupt('T2starmap', lambda d: d.__setitem__((5, 5, 2), 0.066))
+
+    (good / 'att.json').write_text(json.dumps({'Units': 'ms'}))
+    with pytest.raises(af.PhantomContractError, match='Units'):
+        af.check_phantom_contract(good)
+
+
+def test_sanitize_maps_records_every_change():
+    dseg = np.array([0, 1, 1, 2, 2])
+    maps = {
+        'perfusion': np.array([0, 50, -1, 20, np.nan]),
+        'att': np.array([0, 0.8, 0.9, 1.2, 1.3]),
+        'T1map': np.array([0, 1.3, 0.0, 0.8, 0.8]),
+        'T2map': np.array([0, 0.08, 0.08, 0.1, 0.1]),
+        'T2starmap': np.array([0, 0.09, 0.05, 0.05, 0.05]),
+        'M0map': np.array([7, 70, 70, 60, 60]),
+    }
+    out, changes = af.sanitize_maps(maps, dseg)
+    assert out['M0map'][0] == 0
+    assert out['T1map'][2] == pytest.approx(0.05)
+    assert out['T2starmap'][1] == pytest.approx(0.95 * 0.08)
+    np.testing.assert_array_equal(out['perfusion'][[2, 4]], 0)
+    np.testing.assert_array_equal(out['att'][[2, 4]], 1000)
+    assert set(changes) == {
+        'M0map zeroed outside the segmentation',
+        'T1map raised to 0.05 in foreground',
+        'T2starmap clipped to 0.95 x T2map',
+        'perfusion set to 0 where not positive',
+        'att set to 1000 where unperfused',
+    }
+
+
+def test_crop_keeps_world_coordinates(tmp_path):
+    base = _write_synthetic_phantom(tmp_path / 'base')
+    out = tmp_path / 'crop'
+    out.mkdir()
+    af._crop_phantom(base, '2:10,1:9,1:7', out)
+    af.check_phantom_contract(out)
+    full, crop = nb.load(base / 'perfusion.nii.gz'), nb.load(out / 'perfusion.nii.gz')
+    assert crop.shape == (8, 8, 6)
+    # voxel (0, 0, 0) of the crop is voxel (2, 1, 1) of the base, at the same world point
+    np.testing.assert_allclose(crop.affine @ [0, 0, 0, 1], full.affine @ [2, 1, 1, 1])
+    np.testing.assert_array_equal(crop.get_fdata(), full.get_fdata()[2:10, 1:9, 1:7])
+    assert (out / 'anat' / 'T1w.nii.gz').exists()
+
+
+def test_modulation_field_range_and_variation():
+    affine = np.diag([2.0, 2.0, 2.0, 1.0])
+    affine[:3, 3] = -60
+    params = af.PHANTOM_PARAMS['tfmni']['modulation']['perfusion']
+    field = af.modulation_field(params, affine, (60, 60, 60))
+    assert field.min() >= 1 - params['amplitude'] - 1e-9
+    assert field.max() <= 1 + params['amplitude'] + 1e-9
+    assert field.std() > 0.02

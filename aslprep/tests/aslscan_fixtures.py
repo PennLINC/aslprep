@@ -75,8 +75,81 @@ TEMPLATES = (
 #: Modules (in this directory) whose source feeds the spec digest.
 HASHED_MODULES = ('aslscan_fixtures.py', 'truth_geometry.py')
 
+#: Per-label constants of ASLDRO's hrgt_icbm_2009a_nls_3t, used by the TemplateFlow phantoms.
+#: This is a new phantom that shares ASLDRO's constants, not its anatomy.
+TISSUES = {
+    1: {
+        'name': 'grey_matter',
+        'perfusion': 60.0,
+        'att': 0.8,
+        'T1map': 1.33,
+        'T2map': 0.080,
+        'T2starmap': 0.066,
+        'M0map': 74.6219,
+    },
+    2: {
+        'name': 'white_matter',
+        'perfusion': 20.0,
+        'att': 1.2,
+        'T1map': 0.83,
+        'T2map': 0.110,
+        'T2starmap': 0.053,
+        'M0map': 64.7239,
+    },
+    3: {
+        'name': 'csf',
+        'perfusion': 0.0,
+        'att': 1000.0,
+        'T1map': 3.0,
+        'T2map': 0.300,
+        'T2starmap': 0.200,
+        'M0map': 68.0456,
+    },
+}
+
+#: The phantom contract aslscan's loader enforces (src/phantom.rs): map name -> Units.
+PHANTOM_MAPS = {
+    'perfusion': 'ml/100g/min',
+    'att': 's',
+    'T1map': 's',
+    'T2map': 's',
+    'T2starmap': 's',
+    'M0map': 'arbitrary',
+}
+OPTIONAL_PHANTOM_MAPS = {'abv': 'fraction', 'aatt': 's'}
+
 #: Phantom name -> builder parameters (Section 4.2 of the spec).
-PHANTOM_PARAMS = {}
+#: ``modulation`` multiplies a map by ``1 + amplitude * prod_i cos(2 pi x_i / period_i + phase_i)``
+#: inside tissue (world mm), so the truth varies within tissue.
+PHANTOM_PARAMS = {
+    'tfmni': {
+        'source': 'templateflow',
+        'template': TEMPLATE,
+        'probability_floor': 0.3,
+        'tissues': TISSUES,
+        'kinetics': {'LambdaBloodBrain': 0.9, 'T1ArterialBlood': 1.65, 'MagneticFieldStrength': 3},
+        'modulation': {
+            'perfusion': {
+                'amplitude': 0.2,
+                'periods_mm': [120.0, 140.0, 100.0],
+                'phases': [0.3, 1.1, 2.0],
+            },
+            'att': {
+                'amplitude': 0.15,
+                'periods_mm': [90.0, 110.0, 130.0],
+                'phases': [1.7, 0.4, 2.6],
+            },
+        },
+    },
+    'tfmni-flat': {
+        'source': 'templateflow',
+        'template': TEMPLATE,
+        'probability_floor': 0.3,
+        'tissues': TISSUES,
+        'kinetics': {'LambdaBloodBrain': 0.9, 'T1ArterialBlood': 1.65, 'MagneticFieldStrength': 3},
+        'modulation': {},
+    },
+}
 
 #: Recipe name -> one-line description. Inputs live in tests/data/aslscan/<name>/.
 RECIPES = {}
@@ -265,6 +338,264 @@ def find_aslscan(explicit=None):
         'no aslscan built at the pinned revisions was found'
         + (': ' + '; '.join(errors) if errors else ' (set $ASLSCAN or put aslscan on PATH)')
     )
+
+
+# ---------------------------------------------------------------------------------------------
+# Phantoms
+# ---------------------------------------------------------------------------------------------
+class PhantomContractError(ValueError):
+    """A phantom directory does not satisfy aslscan's loader contract."""
+
+
+def _write_json(path, obj):
+    Path(path).write_text(json.dumps(obj, indent=2, sort_keys=True) + '\n')
+
+
+def _phantom_dir(name, data_dir):
+    safe = name.replace(':', '_').replace(',', '-')
+    return Path(data_dir) / 'aslscan' / '_phantoms' / safe
+
+
+def phantom_digest(name):
+    """Digest of everything that determines a phantom (crops include their base's digest)."""
+    if name.startswith('crop:'):
+        _, base, ranges = name.split(':', 2)
+        return _digest_json({'crop': ranges, 'base': phantom_digest(base)})
+    if name.startswith('subject:'):
+        return _digest_json({'subject': name})
+    if name not in PHANTOM_PARAMS:
+        raise KeyError(f'unknown phantom {name!r}; known: {sorted(PHANTOM_PARAMS)}')
+    return _digest_json(
+        {
+            'params': PHANTOM_PARAMS[name],
+            'templates': [t[2] for t in TEMPLATES],
+            'builder': _digest_bytes((TESTS_DIR / 'aslscan_fixtures.py').read_bytes()),
+        }
+    )
+
+
+def fetch_templates():
+    """Download the pinned TemplateFlow files and verify their checksums."""
+    import templateflow.api as tflow
+
+    paths = {}
+    for query, name, sha in TEMPLATES:
+        path = Path(tflow.get(TEMPLATE, **query))
+        if path.name != name:
+            raise RuntimeError(f'TemplateFlow returned {path.name} for {query}, expected {name}')
+        actual = _sha256_file(path)
+        if actual != sha:
+            raise RuntimeError(f'{path} has SHA-256 {actual}, expected {sha} (template drift?)')
+        paths[name] = path
+    return paths
+
+
+def modulation_field(params, affine, shape):
+    """``1 + a * prod_i cos(2 pi x_i / P_i + phi_i)`` on a grid's voxel centres (world mm)."""
+    import numpy as np
+
+    ijk = np.indices(shape, dtype=np.float64)
+    world = np.tensordot(affine[:3, :3], ijk, axes=1) + affine[:3, 3, None, None, None]
+    field = np.ones(shape)
+    for axis in range(3):
+        period = params['periods_mm'][axis]
+        field = field * np.cos(2 * np.pi * world[axis] / period + params['phases'][axis])
+    return 1 + params['amplitude'] * field
+
+
+def _build_templateflow_phantom(params, out):
+    import nibabel as nb
+    import numpy as np
+
+    paths = fetch_templates()
+
+    def load(label):
+        return nb.load(paths[f'tpl-{TEMPLATE}_res-01_{label}.nii.gz'])
+
+    mask_img = load('desc-brain_mask')
+    affine = mask_img.affine
+    mask = np.asanyarray(mask_img.dataobj) > 0
+    probs = np.stack(
+        [np.asanyarray(load(f'label-{t}_probseg').dataobj) for t in ('GM', 'WM', 'CSF')], axis=-1
+    ).astype(np.float32)
+    labels = (np.argmax(probs, axis=-1) + 1).astype(np.int16)
+    labels[(probs.max(axis=-1) < params['probability_floor']) | ~mask] = 0
+
+    for quantity, units in PHANTOM_MAPS.items():
+        data = np.zeros(labels.shape, np.float32)
+        for value, tissue in params['tissues'].items():
+            data[labels == int(value)] = tissue[quantity]
+        mod = params['modulation'].get(quantity)
+        if mod:
+            field = modulation_field(mod, affine, labels.shape).astype(np.float32)
+            # CSF stays unperfused and its ATT stays the "never arrives" sentinel
+            tissue = (labels == 1) | (labels == 2)
+            data[tissue] *= field[tissue]
+        nb.Nifti1Image(data, affine).to_filename(out / f'{quantity}.nii.gz')
+        _write_json(out / f'{quantity}.json', {'Units': units})
+
+    nb.Nifti1Image(labels, affine).to_filename(out / 'dseg.nii.gz')
+    _write_json(
+        out / 'dseg.json',
+        {
+            'Units': 'label indices',
+            'LabelMap': {str(k): v['name'] for k, v in params['tissues'].items()},
+        },
+    )
+    _write_json(out / 'phantom.json', params['kinetics'])
+
+    anat = out / 'anat'
+    anat.mkdir()
+    shutil.copyfile(paths[f'tpl-{TEMPLATE}_res-01_T1w.nii.gz'], anat / 'T1w.nii.gz')
+    nb.Nifti1Image(mask.astype(np.uint8), affine).to_filename(anat / 'brainmask.nii.gz')
+    for i, t in enumerate(('GM', 'WM', 'CSF')):
+        nb.Nifti1Image(probs[..., i], affine).to_filename(anat / f'probseg-{t}.nii.gz')
+
+
+def _crop_phantom(base_dir, ranges, out):
+    """Crop every image of a phantom by voxel ranges ``x0:x1,y0:y1,z0:z1``, keeping world space."""
+    import nibabel as nb
+    import numpy as np
+
+    bounds = [tuple(int(v) for v in r.split(':')) for r in ranges.split(',')]
+    if len(bounds) != 3 or any(b <= a for a, b in bounds):
+        raise ValueError(f'bad crop {ranges!r}: expected x0:x1,y0:y1,z0:z1 with x0 < x1')
+    slices = tuple(slice(a, b) for a, b in bounds)
+    for src in sorted(base_dir.rglob('*')):
+        rel = src.relative_to(base_dir)
+        dest = out / rel
+        if src.is_dir():
+            dest.mkdir(parents=True, exist_ok=True)
+        elif src.name.endswith('.nii.gz'):
+            img = nb.load(src)
+            data = np.asanyarray(img.dataobj)[slices]
+            affine = img.affine.copy()
+            affine[:3, 3] = img.affine[:3, :3] @ [a for a, _ in bounds] + img.affine[:3, 3]
+            new = nb.Nifti1Image(data, affine, img.header)
+            new.set_qform(affine, code=1)
+            new.set_sform(affine, code=1)
+            new.to_filename(dest)
+        elif src.name != 'provenance.json':
+            shutil.copyfile(src, dest)
+
+
+def sanitize_maps(maps, dseg):
+    """Make measured maps satisfy aslscan's phantom contract; return (maps, changes).
+
+    For future real-subject phantoms (Section 4.2 of the spec). ``maps`` holds arrays named as
+    in :data:`PHANTOM_MAPS` (plus optional ``abv``/``aatt``); ``dseg`` > 0 is foreground.
+    """
+    import numpy as np
+
+    maps = {k: np.array(v, dtype=np.float32) for k, v in maps.items()}
+    fg = np.asarray(dseg) > 0
+    changes = {}
+
+    def record(key, count):
+        if count:
+            changes[key] = int(count)
+
+    record('M0map zeroed outside the segmentation', np.count_nonzero(maps['M0map'][~fg]))
+    maps['M0map'][~fg] = 0
+    for name, floor in (('T1map', 0.05), ('T2map', 0.005), ('T2starmap', 0.004), ('M0map', 1e-3)):
+        low = fg & ~(maps[name] >= floor)  # also catches NaN
+        record(f'{name} raised to {floor} in foreground', np.count_nonzero(low))
+        maps[name][low] = floor
+    ceiling = 0.95 * maps['T2map']
+    high = fg & (maps['T2starmap'] > ceiling)
+    record('T2starmap clipped to 0.95 x T2map', np.count_nonzero(high))
+    maps['T2starmap'][high] = ceiling[high]
+    unperfused = fg & ~(maps['perfusion'] > 0)
+    record('perfusion set to 0 where not positive', np.count_nonzero(unperfused))
+    maps['perfusion'][unperfused] = 0
+    record(
+        'att set to 1000 where unperfused',
+        np.count_nonzero(unperfused & (maps['att'] != 1000)),
+    )
+    maps['att'][unperfused] = 1000.0
+    return maps, changes
+
+
+def check_phantom_contract(phantom_dir):
+    """Raise :class:`PhantomContractError` if aslscan's loader would refuse the phantom."""
+    import nibabel as nb
+    import numpy as np
+
+    phantom_dir = Path(phantom_dir)
+    errors = []
+    dseg_img = nb.load(phantom_dir / 'dseg.nii.gz')
+    dseg = np.asanyarray(dseg_img.dataobj)
+    dseg_side = json.loads((phantom_dir / 'dseg.json').read_text())
+    if dseg_side.get('Units') != 'label indices':
+        errors.append('dseg.json Units must be "label indices"')
+    if not isinstance(dseg_side.get('LabelMap'), dict):
+        errors.append('dseg.json needs a LabelMap')
+    if not np.all(np.equal(np.mod(dseg, 1), 0)) or dseg.min() < 0 or dseg.max() > 32767:
+        errors.append('dseg must hold integers in 0..32767')
+    fg = dseg > 0
+    data = {}
+    for name, units in {**PHANTOM_MAPS, **OPTIONAL_PHANTOM_MAPS}.items():
+        img_path = phantom_dir / f'{name}.nii.gz'
+        if not img_path.exists():
+            if name in PHANTOM_MAPS:
+                errors.append(f'{name}.nii.gz is missing')
+            continue
+        side = json.loads((phantom_dir / f'{name}.json').read_text())
+        if side.get('Units') != units:
+            errors.append(f'{name}.json Units is {side.get("Units")!r}, expected {units!r}')
+        img = nb.load(img_path)
+        if img.shape != dseg.shape or not np.allclose(img.affine, dseg_img.affine):
+            errors.append(f'{name} is not on the dseg grid')
+            continue
+        data[name] = np.asanyarray(img.dataobj, dtype=np.float64)
+        if not np.all(np.isfinite(data[name])):
+            errors.append(f'{name} has non-finite values')
+    errors.extend(
+        f'{name} must be positive in the foreground'
+        for name in ('T1map', 'T2map', 'T2starmap', 'M0map')
+        if name in data and np.any(data[name][fg] <= 0)
+    )
+    if 'M0map' in data and np.any(data['M0map'][~fg] != 0):
+        errors.append('M0map must be zero in the background')
+    if {'T2map', 'T2starmap'} <= data.keys() and np.any(
+        data['T2starmap'][fg] >= data['T2map'][fg]
+    ):
+        errors.append('T2starmap must be below T2map in the foreground')
+    if errors:
+        raise PhantomContractError(f'{phantom_dir}: ' + '; '.join(errors))
+
+
+def build_phantom(name, data_dir):
+    """Build (or reuse) a phantom under ``<data_dir>/aslscan/_phantoms`` and return its path."""
+    out = _phantom_dir(name, data_dir)
+    digest = phantom_digest(name)
+    provenance = out / 'provenance.json'
+    if provenance.exists() and json.loads(provenance.read_text()).get('digest') == digest:
+        return out
+
+    if name.startswith('subject:'):
+        raise NotImplementedError(
+            'real-subject phantoms are specified (Section 4.2 of the design spec) but not yet '
+            'implemented; sanitize_maps() is the first piece'
+        )
+
+    tmp = out.with_name(f'.tmp-{out.name}-{os.getpid()}')
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    if name.startswith('crop:'):
+        _, base, ranges = name.split(':', 2)
+        _crop_phantom(build_phantom(base, data_dir), ranges, tmp)
+        source = {'crop': ranges, 'base': base}
+    else:
+        params = PHANTOM_PARAMS[name]
+        _build_templateflow_phantom(params, tmp)
+        source = {'templateflow': [t[1] for t in TEMPLATES]}
+    check_phantom_contract(tmp)
+    _write_json(tmp / 'provenance.json', {'name': name, 'digest': digest, 'source': source})
+    if out.exists():
+        shutil.rmtree(out)
+    tmp.rename(out)
+    return out
 
 
 # ---------------------------------------------------------------------------------------------
