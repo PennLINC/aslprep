@@ -66,27 +66,6 @@ FROM downloader AS msm
 RUN curl -L -H "Accept: application/octet-stream" https://api.github.com/repos/ecr05/MSM_HOCR/releases/assets/16253707 -o /usr/local/bin/msm \
     && chmod +x /usr/local/bin/msm
 
-# AFNI
-FROM downloader AS afni
-RUN mkdir -p /opt/afni-latest \
-    && curl -fsSL --retry 5 https://afni.nimh.nih.gov/pub/dist/tgz/linux_openmp_64.tgz \
-    | tar -xz -C /opt/afni-latest --strip-components 1 \
-    --exclude "linux_openmp_64/*.gz" \
-    --exclude "linux_openmp_64/funstuff" \
-    --exclude "linux_openmp_64/shiny" \
-    --exclude "linux_openmp_64/afnipy" \
-    --exclude "linux_openmp_64/lib/RetroTS" \
-    --exclude "linux_openmp_64/lib_RetroTS" \
-    --exclude "linux_openmp_64/meica.libs" \
-    && find /opt/afni-latest -type f -not \( \
-        -name "3dTshift" -or \
-        -name "3dUnifize" -or \
-        -name "3dAutomask" -or \
-        -name "3dAutobox" -or \
-        -name "3dresample" -or \
-        -name "3dZeropad" -or \
-        -name "3dvolreg" \) -delete
-
 # TORTOISE V4 (GPL-3.0): only CreateNonlinearityDisplacementMap, for gradient
 # nonlinearity correction. The full install is ~435 MB; this binary and the
 # bundled ITK libraries it links (found through its $ORIGIN/lib/itk RPATH) are
@@ -119,7 +98,6 @@ COPY --link --from=freesurfer741 /usr/local/freesurfer/python/scripts/mri_synths
 COPY --link --from=freesurfer741 /usr/local/freesurfer/python/scripts/mri_synthstrip /opt/freesurfer/bin/mri_synthstrip
 COPY --link --from=freesurfer741 /usr/local/freesurfer/models /opt/freesurfer/models
 COPY --link --from=msm /usr/local/bin/msm /usr/local/bin/msm
-COPY --link --from=afni /opt/afni-latest /opt/afni-latest
 COPY --link --from=tortoise /opt/tortoise /opt/tortoise
 
 RUN chmod +x /opt/freesurfer/bin/mri_synthseg /opt/freesurfer/bin/mri_synthstrip
@@ -136,6 +114,7 @@ RUN apt-get update && \
                     libopenblas0-openmp \
                     lsb-release \
                     netbase \
+                    perl \
                     xvfb && \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -167,6 +146,25 @@ RUN apt-get update -qq \
     && gsl2_path="$(find / -name 'libgsl.so.19' 2>/dev/null || printf '')" \
     && if [ -n "$gsl2_path" ]; then ln -sfv "$gsl2_path" "$(dirname "$gsl2_path")/libgsl.so.0"; fi \
     && ldconfig
+
+# AFNI, pinned to a release by copying binaries from its build image (as in fMRIPrep)
+# Find libraries with `ldd $BINARIES | grep afni`
+COPY --link --from=afni/afni_make_build:AFNI_25.2.09 \
+    /opt/afni/install/libf2c.so \
+    /opt/afni/install/libmri.so \
+    /usr/local/lib/
+COPY --link --from=afni/afni_make_build:AFNI_25.2.09 \
+    /opt/afni/install/3dAutobox \
+    /opt/afni/install/3dAutomask \
+    /opt/afni/install/3dresample \
+    /opt/afni/install/3dTshift \
+    /opt/afni/install/3dUnifize \
+    /opt/afni/install/3dvolreg \
+    /opt/afni/install/3dZeropad \
+    /usr/local/bin/
+
+# Changing library paths requires a re-ldconfig
+RUN ldconfig
 
 # Download atlases from AtlasPack (stored in tar.gz file on Box)
 RUN mkdir -p "/home/aslprep/.cache/aslprep" && \
@@ -201,10 +199,8 @@ ENV PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
     MNI_PERL5LIB="$MINC_LIB_DIR/perl5/5.8.5" \
     PATH="$FREESURFER_HOME/bin:$FREESURFER_HOME/tktools:$MINC_BIN_DIR:$PATH"
 
-# AFNI
-ENV PATH="/opt/afni-latest:$PATH" \
-    AFNI_IMSAVE_WARNINGS="NO" \
-    AFNI_PLUGINPATH="/opt/afni-latest"
+# AFNI config
+ENV AFNI_IMSAVE_WARNINGS="NO"
 
 # TORTOISE (needs libgomp1, installed above)
 ENV PATH="/opt/tortoise/bin:$PATH"
