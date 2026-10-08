@@ -733,6 +733,21 @@ cell means `--output-spaces asl` only.
 | F6 `aslscan_pasl_multipld` | asl003-derived 3D GRASE Q2TIPS, TIs 0.9-3.0 s, separate M0, `m0_divisor` 10 | multi-delay PASL | derivatives | `--m0_scale=10 --basil --scorescrub`, atlases | A (fit), B |
 | F7 `aslscan_motion` | F1 protocol with multiband 3 (13 slice groups), committed trajectory (≤ 2 mm, ≤ 2°, spikes at three volumes), noise at GM ΔM SNR 5 per pair, T1w `anat_offset` [3, -4, 2, 5, -3, 4] | HMC, FD, coregistration under a known pose, smriprep from raw T1w, multiband | raw | `--output-spaces T1w --scorescrub` | motion, coreg, hmc_consistency, cbf_t1w, scorescrub (report) |
 
+**Implemented deviations from the table** (recorded in each recipe's `SOURCE.md`):
+
+- **F4** uses QUIPSS II, not Q2TIPS. Single-delay Q2TIPS has a known quantification
+  discrepancy (ASLPrep uses TI2 in the decay term), which is pinned in the fast tier and goes
+  to a separate fix.
+- **F5** uses a total readout of 25 ms (asl004: 60 ms, which cannot precede its 14 ms echo
+  time on a 68-line readout), slices 30 ms apart, and TR 4.5 s.
+- **F6** is 2D EPI at 4x4x6 mm without background suppression. asl003's 3D GRASE geometry does
+  not fit the full phantom with its `NumberShots`, 3D GRASE is covered by F3, and suppression
+  is covered by the PCASL recipes.
+- **F7** scores motion, coregistration, T1w-space alignment and coverage. Native-space Tier A
+  and B are report-only there, because the motion-corrected series sits in the aslref frame.
+- **Recipe names** drop the `aslscan_` prefix (for example `pcasl1pld`); the pytest markers keep
+  it.
+
 **Fast recipes** (`crop:tfmni` slabs of about 40x40x30 mm, small matrices; each about 1 s):
 
 - `fast_pcasl_seq`, `fast_pcasl_rev` (descending slices, `SliceEncodingDirection k-`),
