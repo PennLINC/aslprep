@@ -383,21 +383,34 @@ def _score_native_multi(fixture, preproc, cbf, att_masks_from, subset, aslprep_d
     att = on_grid(nb.load(att_file), fixture.affine, fixture.shape)
     voxels = np.argwhere(masks['valid'])
     voxels = voxels[:: max(1, len(voxels) // subset)][:subset]
-    fit = _fit_subset(fixture, fixture.asl_img.get_fdata(), voxels, fwhm)
-    out['tier_a'], ok = _fit_stats(cbf, att, fit, voxels)
+    raw_fit = _fit_subset(fixture, fixture.asl_img.get_fdata(), voxels, fwhm)
+    out['tier_a'], ok = _fit_stats(cbf, att, raw_fit, voxels)
+    fit = raw_fit
     if preproc is not None:
-        out['tier_a_quant'], _ = _fit_stats(
-            cbf, att, _fit_subset(fixture, preproc, voxels, fwhm), voxels
-        )
+        fit = _fit_subset(fixture, preproc, voxels, fwhm)
+        out['tier_a_quant'], ok = _fit_stats(cbf, att, fit, voxels)
         # report-only, see the docstring
         out['tier_a_quant']['p95_abs_dev_multi'] = out['tier_a_quant'].pop('p95_abs_dev')
     i, j, k = voxels.T
+    # The expectation exists only on the fitted subset, so Tier B compares ASLPrep on the same
+    # voxels (tier_b_matched). It is fitted to ASLPrep's preprocessed series when available:
+    # in low-signal voxels the ill-conditioned fit responds strongly to the resampling noise
+    # motion correction adds, so a raw-series expectation (expected_ratio_raw, report-only)
+    # differs by that alone; the end-to-end median is asserted by Tier A instead.
     out['expected_ratio'] = {}
+    out['expected_ratio_raw'] = {}
+    out['tier_b_matched'] = {}
     for t in ('GM', 'WM'):
         sel = masks[t][i, j, k] & ok
-        out['expected_ratio'][t] = (
-            float(np.median(fit[sel, 0] / fixture.perfusion[i, j, k][sel])) if sel.any() else None
-        )
+        truth = fixture.perfusion[i, j, k][sel]
+        if not sel.any():
+            continue
+        out['expected_ratio'][t] = float(np.median(fit[sel, 0] / truth))
+        out['expected_ratio_raw'][t] = float(np.median(raw_fit[sel, 0] / truth))
+        out['tier_b_matched'][t] = {
+            'n': int(sel.sum()),
+            'median': float(np.median(cbf[i, j, k][sel] / truth)),
+        }
     att_masks = {t: masks[t] & (fixture.att > 0) & (fixture.att < 100) for t in ('GM', 'WM')}
     out['tier_b_att'] = {
         t: {

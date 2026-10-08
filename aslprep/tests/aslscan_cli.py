@@ -201,8 +201,11 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
 
     @pytest.mark.parametrize('tissue', ['GM', 'WM'])
     def test_tier_b(request, tissue):
+        score = _score(request)
         reference = ('native', 'expected_ratio', '{t}')
-        tb.check(_score(request), 'tier_b', recipe, reference=reference, t=tissue)
+        # multi-delay expectations exist on a voxel subset: compare on the same voxels
+        name = 'tier_b_matched' if ts.lookup(score, ('native', 'tier_b_matched')) else 'tier_b'
+        tb.check(score, name, recipe, reference=reference, t=tissue)
 
     def test_coregistration(request):
         score = _score(request)

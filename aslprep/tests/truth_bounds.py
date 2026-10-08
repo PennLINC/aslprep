@@ -87,6 +87,14 @@ CEILINGS = {
         'within the Tier A ceiling of the independent expectation '
         "(checked against ('native', 'expected_ratio', t))",
     ),
+    'tier_b_matched': (
+        ('native', 'tier_b_matched', '{t}', 'median'),
+        None,
+        0.05,
+        'ratio',
+        'multi-delay: on the voxels the independent fit covers, within the Tier A ceiling of '
+        "its expectation (checked against ('native', 'expected_ratio', t))",
+    ),
     # Coregistration accuracy scales with resolution, so it is bounded in units of the coarsest
     # acquisition voxel (1 mm / 1 degree absolute ceilings, as in qsiprep, assumed 2-3 mm data;
     # the 8 mm slices of a GE 3D spiral cannot be held to them).
