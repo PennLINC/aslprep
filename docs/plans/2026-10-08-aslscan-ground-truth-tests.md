@@ -528,7 +528,8 @@ The image run covers fixtures, interpretation and conformance.
   inversion efficiency: its default ε = 0.95 keeps 0.9 of the signal per pulse. The white paper
   (Alsop et al. 2015) gives 95 % retained per pulse, as ASLPrep assumes. The recipes now set
   ε = 0.975, and the items are ordinary checks. Only the LabelingEfficiency-in-sidecar case
-  (F3) remains, as an open question.
+  (F3) remains: ASLPrep should still apply the per-pulse loss there (#706), an expected
+  failure until fixed.
 - **`collect_run_data`** (`utils/bids.py`). Its `ValueError` message reads
   `run_data["asl_metadata"]` before assignment. Not yet reported.
 

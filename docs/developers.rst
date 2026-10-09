@@ -107,7 +107,7 @@ commit that explains why the method cannot meet it. A missing metric or ceiling 
 
 Known disagreements are strict expected failures whose size is asserted first, so a change in
 either direction fails: for example the single-delay Q2TIPS quantification, and the absence of
-any background-suppression loss when the sidecar has ``LabelingEfficiency``.
+any background-suppression loss when the sidecar has ``LabelingEfficiency`` (#706).
 
 When simulating background suppression, set aslscan's ``[background_suppression]
 inversion_efficiency`` to 0.975. aslscan scales the label difference by (1 - 2 x efficiency)

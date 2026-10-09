@@ -812,12 +812,13 @@ would allow sharp Tier B bounds for the single-delay equation.
   gap of (0.95/0.9)ⁿ.
   - Every recipe with suppression now sets ε = 0.975 (1 − 2ε = −0.95). The physical-agreement
     items of `fast_bs_le_absent` and F2 are ordinary checks.
-- **LabelingEfficiency in the sidecar (open question).** When the sidecar has
+- **LabelingEfficiency in the sidecar (#706).** When the sidecar has
   `LabelingEfficiency`, ASLPrep applies no suppression loss. BIDS defines that field as the
   labeling efficiency alone, so with suppression ASLPrep's CBF is 0.95ⁿ of the physically
   calibrated value (F3: 0.81 for four pulses).
-  - It is an expected failure, asserted first at its predicted size, until it is decided how
-    ASLPrep should read the field.
+  - Decided: ASLPrep should apply the per-pulse loss whether or not the sidecar gives
+    `LabelingEfficiency`. Reported as #706; until it is fixed, the item is an expected failure,
+    asserted first at its predicted size.
 - **BS pulse count.** With `BackgroundSuppressionNumberPulses` absent, ASLPrep assumes 1. The
   recipes state the pulse count explicitly so that the items above are isolated.
 

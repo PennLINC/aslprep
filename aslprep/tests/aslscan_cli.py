@@ -258,8 +258,7 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
             Both keep about 95 % of the ASL signal per pulse (Alsop et al. 2015). Without
             LabelingEfficiency in the sidecar, ASLPrep applies 0.95^n and must match the
             physically calibrated CBF. With it, ASLPrep applies no suppression loss, so its CBF
-            is 0.95^n of the physical value: an open question about how BIDS
-            LabelingEfficiency should be read, asserted at that size, then marked expected.
+            is 0.95^n of the physical value (#706): asserted at that size, then marked expected.
             """
             run = request.getfixturevalue(fixture_name)
             score = run.score
@@ -274,7 +273,7 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
                     f'predicted {predicted:.4f}'
                 )
             pytest.xfail(
-                'Open question: with LabelingEfficiency in the sidecar ASLPrep applies no '
+                'PennLINC/aslprep#706: with LabelingEfficiency in the sidecar ASLPrep applies no '
                 f'suppression loss ({suppression_pulses} pulses), so CBF is {measured:.4f} of the '
                 f'physically calibrated value (predicted {predicted:.4f})'
             )
