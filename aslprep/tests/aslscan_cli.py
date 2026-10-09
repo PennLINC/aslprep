@@ -101,11 +101,12 @@ def _jsonable(value):
         return str(value)
 
 
-def shared_items(fixture_name, multi_delay=False, report_only=()):
+def shared_items(fixture_name, multi_delay=False, report_only=(), known=None):
     """Test functions every integration module includes (spec Section 4.7, metric contract).
 
     ``fixture_name`` names the module's run fixture. ``report_only`` lists score paths that
-    are not asserted against bounds but must exist and be finite.
+    are not asserted against bounds but must exist and be finite. ``known`` maps item names
+    to the reason of a reported, strict expected failure.
     """
 
     def _run(request):
@@ -165,7 +166,7 @@ def shared_items(fixture_name, multi_delay=False, report_only=()):
         run = _run(request)
         tb.check(run.score, 'n_dominant', run.recipe, t=tissue)
 
-    return {
+    items = {
         'test_clean_run': test_clean_run,
         'test_outputs_manifest': test_outputs_manifest,
         'test_metric_contract': test_metric_contract,
@@ -173,6 +174,18 @@ def shared_items(fixture_name, multi_delay=False, report_only=()):
         'test_finite': test_finite,
         'test_n_dominant': test_n_dominant,
     }
+
+    if multi_delay:
+
+        def test_fit_bound(request):
+            """Brain voxels whose multi-delay fit ends at the CBF bound have no estimate."""
+            run = _run(request)
+            tb.check(run.score, 'fit_bound', run.recipe)
+
+        items['test_fit_bound'] = test_fit_bound
+    for name, reason in (known or {}).items():
+        items[name] = pytest.mark.xfail(strict=True, reason=reason)(items[name])
+    return items
 
 
 def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known=None):

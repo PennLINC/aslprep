@@ -39,6 +39,14 @@ CEILINGS = {
         'fraction',
         'the multi-delay fit may fail in a few voxels',
     ),
+    'fit_bound': (
+        ('native', 'coverage', 'at_fit_bound'),
+        None,
+        0.005,
+        'fraction',
+        "a brain voxel at the multi-delay fit's CBF bound (300) has no estimate; on "
+        'motion-free data almost none should reach it',
+    ),
     'n_dominant': (
         ('native', 'coverage', 'n_{t}'),
         300,

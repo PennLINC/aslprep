@@ -621,6 +621,14 @@ shifted 4 mm.
   ASLPrep's to 0.001 s, but neither tracks the true ATT within tissue: r 0.06 in GM for F5, and
   a median error of 0.31 s. This is the four-parameter model with an arterial term on these
   delays, not a plumbing error. Report-only (`tier_b_att`).
+- **PASL multi-delay edge voxels end at the CBF bound (#705).** On F6 (no motion), motion
+  correction shifts the mid-delay control volumes by up to 0.2 mm while their labels stay put,
+  so those pairs are misaligned by 0.12-0.16 mm, far above the 0.02 mm noise floor above. At
+  the brain edge this adds delta-M errors several times the true delta-M, and 1.3 % of brain
+  voxels end at the fit's CBF bound of 300. The independent fit gives a median of 45 on the raw
+  series and 300 on ASLPrep's preprocessed series. F5 (PCASL) pairs agree within 0.04 mm and
+  no brain voxel reaches the bound. A strict xfail on F6's `test_fit_bound`, which asserts that
+  at most 0.5 % of brain voxels reach the bound.
 - **pybids reads the datatype from the whole path.** A dataset under a directory named after
   a BIDS datatype (here `/aslscan/motion/`) gets that datatype for every file, and ASLPrep finds
   no ASL run. The recipe was renamed `headmotion`, and recipe names are now checked. Real

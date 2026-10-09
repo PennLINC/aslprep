@@ -35,6 +35,12 @@ globals().update(
             ('native', 'tier_a_quant', 'p95_abs_dev_multi'),
             ('native', 'tier_b_att', 'GM', 'median_abs_error'),
         ],
+        known={
+            'test_fit_bound': (
+                'PennLINC/aslprep#705: motion correction misaligns mid-delay control-label '
+                'pairs by 0.12-0.16 mm, pegging about 1 % of edge brain voxels at CBF 300'
+            ),
+        },
     )
 )
 globals().update(scored_items('f6_run', RECIPE))

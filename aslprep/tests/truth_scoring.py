@@ -268,6 +268,11 @@ def score_native(fixture, aslprep_dir, fwhm, subset=300):
     edge = out_mask & ~_interior(out_mask, fixture.affine, EDGE_MM)
 
     if is_multi_delay(fixture.metadata):
+        # The fit clips CBF at its upper bound; a voxel there has no estimate (#705).
+        upper = tm.FIT_BOUNDS[1][0]
+        out['coverage']['at_fit_bound'] = float(
+            (np.nan_to_num(cbf[fixture.brain]) >= upper * (1 - 1e-4)).mean()
+        )
         out.update(
             _score_native_multi(
                 fixture,
