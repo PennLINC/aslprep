@@ -756,3 +756,11 @@ def test_known_failure_holds_the_diagnosed_size():
             wrapped(request=request_with(value))
     with pytest.raises(pytest.fail.Exception, match='now passes'):
         known_failure('run', known)(passing)(request=request_with(0.27))
+
+
+def test_delay_classification_skips_m0_placeholders():
+    from aslprep.tests import truth_scoring as ts
+
+    meta = {'PostLabelingDelay': [0.0, 1.8, 1.8]}
+    assert not ts.is_multi_delay(meta, ['m0scan', 'control', 'label'])
+    assert ts.is_multi_delay({'PostLabelingDelay': [1.0, 1.0, 2.0, 2.0]}, ['control', 'label'] * 2)

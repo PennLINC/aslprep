@@ -250,7 +250,7 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
         run = request.getfixturevalue(fixture_name)
         score = run.score
         tb.check(score, 'tier_a_quant_median', recipe)
-        if ts.is_multi_delay(_asl_sidecar(run)):
+        if ts.is_multi_delay(_asl_sidecar(run), _asl_context(run)):
             tb.check(score, 'tier_a_quant_agree', recipe)
             tb.check(score, 'tier_a_att', recipe)
         else:
@@ -270,17 +270,19 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
         name = 'tier_b_matched' if ts.lookup(score, ('native', 'tier_b_matched')) else 'tier_b'
         tb.check(score, name, recipe, reference=reference, t=tissue)
 
-    def test_coregistration(request):
-        score = _score(request)
-        tb.check(score, 'coreg_rot', recipe)
-        tb.check(score, 'coreg_rms', recipe)
+    def test_coregistration_rotation(request):
+        tb.check(_score(request), 'coreg_rot', recipe)
+
+    def test_coregistration_displacement(request):
+        tb.check(_score(request), 'coreg_rms', recipe)
 
     items = {
         'test_tier_a_median': test_tier_a_median,
         'test_tier_a_quantification': test_tier_a_quantification,
         'test_motion_correction': test_motion_correction,
         'test_tier_b': test_tier_b,
-        'test_coregistration': test_coregistration,
+        'test_coregistration_rotation': test_coregistration_rotation,
+        'test_coregistration_displacement': test_coregistration_displacement,
     }
 
     if spaces:
@@ -315,7 +317,7 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
                 return
             predicted = 0.95**suppression_pulses
             measured = ts.lookup(score, ('native', 'physical', 'median'))
-            if measured is None or abs(measured / predicted - 1) > 0.05:
+            if not _finite(measured) or abs(measured / predicted - 1) > 0.05:
                 pytest.fail(
                     f'the suppression result changed: measured {measured}, '
                     f'predicted {predicted:.4f}'
@@ -335,3 +337,9 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
 def _asl_sidecar(run):
     acq = af.load_recipe(run.recipe).acq
     return json.loads((run.fixture / 'sub-01' / 'perf' / f'sub-01_acq-{acq}_asl.json').read_text())
+
+
+def _asl_context(run):
+    acq = af.load_recipe(run.recipe).acq
+    path = run.fixture / 'sub-01' / 'perf' / f'sub-01_acq-{acq}_aslcontext.tsv'
+    return path.read_text().split()[1:]

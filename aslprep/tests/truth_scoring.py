@@ -216,8 +216,12 @@ def expected_native(fixture, fwhm, mutation=None):
     )
 
 
-def is_multi_delay(metadata):
-    return len(set(np.atleast_1d(metadata['PostLabelingDelay']).tolist())) > 1
+def is_multi_delay(metadata, context=None):
+    """More than one delay among the labeled volumes (M0 rows carry placeholder delays)."""
+    plds = np.atleast_1d(metadata['PostLabelingDelay'])
+    if plds.size > 1 and context is not None and len(context) == plds.size:
+        plds = plds[[i for i, t in enumerate(context) if t in ('control', 'label', 'deltam')]]
+    return len(set(plds.tolist())) > 1
 
 
 def score_native(fixture, aslprep_dir, fwhm, subset=300):
@@ -267,7 +271,7 @@ def score_native(fixture, aslprep_dir, fwhm, subset=300):
     interior = _interior(out_mask, fixture.affine, INTERIOR_MM)
     edge = out_mask & ~_interior(out_mask, fixture.affine, EDGE_MM)
 
-    if is_multi_delay(fixture.metadata):
+    if is_multi_delay(fixture.metadata, fixture.context):
         # The fit clips CBF at its upper bound; a voxel there has no estimate (#705).
         upper = tm.FIT_BOUNDS[1][0]
         out['coverage']['at_fit_bound'] = float(

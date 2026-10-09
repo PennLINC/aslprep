@@ -53,7 +53,7 @@ globals().update(
         'f6_run',
         RECIPE,
         known={
-            'test_coregistration': Known(
+            'test_coregistration_rotation': Known(
                 'Motion correction leaves the motion-free series rotated about 1 degree from '
                 'its reference (the registration step alone is 0.09 voxel); see the plan',
                 ('frames', 'coreg', 'rot_arc_voxels'),
