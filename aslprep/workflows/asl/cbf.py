@@ -177,8 +177,12 @@ This model contains separate terms for tissue and macrovascular delta-M signals.
 The voxel-wise M0 values were used as both M0a and M0b in the GKM.
 
 CBF, arterial transit time (ATT), arterial bolus arrival time (aBAT),
-and arterial blood volume (aBV) were estimated using a nonlinear model fit with SciPy's
-``curve_fit``.
+and arterial blood volume (aBV) were estimated with a bounded least squares fit.
+Because the model is linear in CBF and aBV for fixed ATT and aBAT,
+ATT and aBAT were found by a grid search,
+with CBF and aBV solved exactly for each candidate.
+The data only constrain aBAT to an interval between consecutive labeled-bolus arrival and
+departure times, so aBAT was reported as the midpoint of its interval.
 """
 
     elif is_casl:
