@@ -5,3 +5,7 @@ matrix = [16, 16]
 noise_variance = 0.0
 [m0]
 repetition_time = 8.0
+[background_suppression]
+# aslscan scales the label difference by (1 - 2 x inversion_efficiency) per pulse; 0.975 keeps
+# 95% of the ASL signal per pulse, the white-paper convention (Alsop et al. 2015).
+inversion_efficiency = 0.975

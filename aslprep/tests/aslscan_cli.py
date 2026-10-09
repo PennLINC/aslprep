@@ -239,30 +239,34 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
 
     if suppression_pulses:
 
-        def test_background_suppression_gap(request):
-            """Known gap (spec Section 8), asserted at its predicted size before xfailing.
+        def test_background_suppression(request):
+            """ASLPrep's suppression loss against the simulator's (spec Section 8).
 
-            ASLPrep assumes 0.95 per pulse when the sidecar has no LabelingEfficiency, and no
-            suppression loss when it has one; the simulator attenuates the label by 0.9 per
-            pulse. The ratio of ASLPrep's CBF to the physically calibrated CBF follows.
+            Both keep about 95 % of the ASL signal per pulse (Alsop et al. 2015). Without
+            LabelingEfficiency in the sidecar, ASLPrep applies 0.95^n and must match the
+            physically calibrated CBF. With it, ASLPrep applies no suppression loss, so its CBF
+            is 0.95^n of the physical value: an open question about how BIDS
+            LabelingEfficiency should be read, asserted at that size, then marked expected.
             """
             run = request.getfixturevalue(fixture_name)
             score = run.score
-            sidecar_has_le = 'LabelingEfficiency' in _asl_sidecar(run)
-            n = suppression_pulses
-            predicted = 0.9**n if sidecar_has_le else (0.9 / 0.95) ** n
+            if 'LabelingEfficiency' not in _asl_sidecar(run):
+                tb.check(score, 'physical_median', recipe)
+                return
+            predicted = 0.95**suppression_pulses
             measured = ts.lookup(score, ('native', 'physical', 'median'))
             if measured is None or abs(measured / predicted - 1) > 0.05:
                 pytest.fail(
-                    f'the suppression gap changed: measured {measured}, predicted {predicted:.4f}'
+                    f'the suppression result changed: measured {measured}, '
+                    f'predicted {predicted:.4f}'
                 )
             pytest.xfail(
-                f'ASLPrep assumes {"no" if sidecar_has_le else "0.95 per pulse"} suppression '
-                f'loss; the simulator applies 0.9 per pulse ({n} pulses): CBF ratio '
-                f'{measured:.4f}, predicted {predicted:.4f}'
+                'Open question: with LabelingEfficiency in the sidecar ASLPrep applies no '
+                f'suppression loss ({suppression_pulses} pulses), so CBF is {measured:.4f} of the '
+                f'physically calibrated value (predicted {predicted:.4f})'
             )
 
-        items['test_background_suppression_gap'] = test_background_suppression_gap
+        items['test_background_suppression'] = test_background_suppression
     for name, reason in (known or {}).items():
         items[name] = pytest.mark.xfail(strict=True, reason=reason)(items[name])
     return items

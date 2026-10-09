@@ -196,25 +196,18 @@ def test_tier_a_with_m0_smoothing(name, runs):
     assert p99 <= P99_TOL
 
 
-def test_background_suppression_gap(runs):
-    """Known gap (spec Section 8): ASLPrep assumes 0.95 per suppression pulse.
+def test_background_suppression_matches_physics(runs):
+    """With no LabelingEfficiency in the sidecar, ASLPrep's suppression loss is the simulator's.
 
-    The simulator attenuates the label by |1 - 2 x 0.95| = 0.9 per pulse, so with two pulses
-    ASLPrep's CBF is 0.9^2 / 0.95^2 = 0.8975 of the physically calibrated value. The size is
-    asserted first, so an unexpected change fails instead of passing as an expected failure.
+    Both follow the white paper (Alsop et al. 2015): each suppression pulse keeps about 95 % of
+    the ASL signal. The recipe sets aslscan's inversion efficiency to 0.975, since aslscan
+    scales the label difference by (1 - 2 x efficiency) per pulse.
     """
     run = runs('fast_bs_le_absent')
     physical = run.expected(alpha=tm.labeling_efficiency_physical(run.simulation, run.context))
-    mask = run.valid(physical)
-    measured = float(np.median(run.cbf[mask] / physical[mask]))
-    predicted = (0.9 / 0.95) ** 2
-    assert measured == pytest.approx(predicted, rel=0.02), (
-        f'the suppression gap changed: measured {measured:.4f}, predicted {predicted:.4f}'
-    )
-    pytest.xfail(
-        f'ASLPrep assumes 0.95 per suppression pulse; the simulator applies 0.9 '
-        f'(CBF ratio {measured:.4f}, predicted {predicted:.4f})'
-    )
+    median, p99 = run.deviation(physical)
+    assert median <= MEDIAN_TOL, f'|median(cbf / cbf_physical) - 1| = {median:.4g}'
+    assert p99 <= P99_TOL, f'p99 |cbf / cbf_physical - 1| = {p99:.4g}'
 
 
 def test_q2tips_convention_is_as_diagnosed(runs):

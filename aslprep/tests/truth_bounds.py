@@ -89,6 +89,14 @@ CEILINGS = {
         'within the Tier A ceiling of the independent expectation '
         "(checked against ('native', 'expected_ratio', t))",
     ),
+    'physical_median': (
+        ('native', 'physical', 'median_dev'),
+        None,
+        0.05,
+        'ratio',
+        "with the simulator's suppression loss matching ASLPrep's (0.95 per pulse), the median "
+        'agrees with the physically calibrated CBF within the end-to-end Tier A ceiling',
+    ),
     'tier_b_matched': (
         ('native', 'tier_b_matched', '{t}', 'median'),
         None,

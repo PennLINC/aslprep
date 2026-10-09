@@ -523,8 +523,12 @@ The image run covers fixtures, interpretation and conformance.
   slice shift, which matches to 8e-8. The white paper uses TI. The CBF is 0.809 of the
   white-paper value. With the same physics, QUIPSS II recovers 0.953 of the truth in GM, while
   ASLPrep's Q2TIPS recovers 0.771.
-- **Background-suppression gap** (strict xfail). The measured ratio matches the predicted
-  0.8975 within 2 %.
+- **Background-suppression gap** (resolved later, not an ASLPrep defect). The measured ratio
+  matched the predicted 0.8975 within 2 %, but the gap came from aslscan's definition of
+  inversion efficiency: its default ε = 0.95 keeps 0.9 of the signal per pulse. The white paper
+  (Alsop et al. 2015) gives 95 % retained per pulse, as ASLPrep assumes. The recipes now set
+  ε = 0.975, and the items are ordinary checks. Only the LabelingEfficiency-in-sidecar case
+  (F3) remains, as an open question.
 - **`collect_run_data`** (`utils/bids.py`). Its `ValueError` message reads
   `run_data["asl_metadata"]` before assignment. Not yet reported.
 

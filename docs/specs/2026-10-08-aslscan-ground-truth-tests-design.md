@@ -804,15 +804,22 @@ would allow sharp Tier B bounds for the single-delay equation.
 
 ## 8. Known gaps (expected strict xfails)
 
-- **Background-suppression attenuation.** ASLPrep's 0.95ⁿ versus aslscan's |1 - 2 x 0.95|ⁿ = 0.9ⁿ.
-  The predicted size is (0.95/0.9)ⁿ, which is 1.11 for n = 2. The sign alternation does not
-  affect the magnitude-image difference, but the attenuation does.
-  - Affects the physical-agreement items of F2 and F3, and `fast_bs_le_absent`.
-  - Tier A and Tier B acceptance are unaffected, because both use ASLPrep's convention.
-  - The xfail reason states the predicted size, and the item asserts that the measured
-    discrepancy is within 2 % of it, so an unexpected change still fails.
+- **Background-suppression attenuation (resolved).** The white paper (Alsop et al. 2015) gives
+  an inversion efficiency of "approximately 95%, so each inversion pulse reduces the ASL signal
+  by approximately 5%". ASLPrep applies 0.95ⁿ. aslscan's `inversion_efficiency` ε is the
+  fraction inverted, and scales the label difference by (1 − 2ε) per pulse. Its default
+  ε = 0.95 keeps only 0.9 of the signal per pulse, so an earlier revision reported a spurious
+  gap of (0.95/0.9)ⁿ.
+  - Every recipe with suppression now sets ε = 0.975 (1 − 2ε = −0.95). The physical-agreement
+    items of `fast_bs_le_absent` and F2 are ordinary checks.
+- **LabelingEfficiency in the sidecar (open question).** When the sidecar has
+  `LabelingEfficiency`, ASLPrep applies no suppression loss. BIDS defines that field as the
+  labeling efficiency alone, so with suppression ASLPrep's CBF is 0.95ⁿ of the physically
+  calibrated value (F3: 0.81 for four pulses).
+  - It is an expected failure, asserted first at its predicted size, until it is decided how
+    ASLPrep should read the field.
 - **BS pulse count.** With `BackgroundSuppressionNumberPulses` absent, ASLPrep assumes 1. The
-  recipe states the pulse count explicitly so that the gap above is isolated.
+  recipes state the pulse count explicitly so that the items above are isolated.
 
 Any other xfail requires investigation first. A suspected ASLPrep bug is reported with
 evidence before any test or code change.

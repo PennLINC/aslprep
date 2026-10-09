@@ -106,8 +106,13 @@ should achieve and are never fitted to ASLPrep's output; a ceiling is loosened o
 commit that explains why the method cannot meet it. A missing metric or ceiling fails.
 
 Known disagreements are strict expected failures whose size is asserted first, so a change in
-either direction fails: for example ASLPrep's background-suppression convention (0.95 per
-pulse) against the simulator's 0.9, and the single-delay Q2TIPS quantification.
+either direction fails: for example the single-delay Q2TIPS quantification, and the absence of
+any background-suppression loss when the sidecar has ``LabelingEfficiency``.
+
+When simulating background suppression, set aslscan's ``[background_suppression]
+inversion_efficiency`` to 0.975. aslscan scales the label difference by (1 - 2 x efficiency)
+per pulse, so 0.975 keeps 95 % of the ASL signal per pulse, the white-paper value
+(Alsop et al. 2015) that ASLPrep assumes. aslscan's default of 0.95 keeps only 90 %.
 
 Adding a recipe
 ===============

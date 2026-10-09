@@ -23,7 +23,7 @@ T1_BLOOD = {1.5: 1.35, 3: 1.65, 7: 2.087}
 T1_TISSUE = {1.5: 1.197, 3: 1.607, 7: 1.939}
 #: Labeling efficiency by labeling type (Alsop 2015; Wang et al. 2005 for CASL).
 BASE_EFFICIENCY = {'PCASL': 0.85, 'PASL': 0.98, 'CASL': 0.68}
-#: ASLPrep's assumed efficiency per background-suppression pulse (a convention, not physics).
+#: Fraction of the ASL signal each background-suppression pulse keeps (Alsop et al. 2015).
 BS_PULSE_EFFICIENCY = 0.95
 
 
@@ -94,7 +94,11 @@ def m0_tr_correction(m0, tr, field_strength):
 
 
 def labeling_efficiency(metadata):
-    """ASLPrep's convention: the sidecar value, else base x 0.95^n for n suppression pulses."""
+    """ASLPrep's rule: the sidecar value, else base x 0.95^n for n suppression pulses.
+
+    Each pulse keeps about 95 % of the ASL signal (Alsop et al. 2015). When the sidecar has
+    LabelingEfficiency, ASLPrep applies no suppression loss; that part is ASLPrep's choice.
+    """
     if 'LabelingEfficiency' in metadata:
         return float(metadata['LabelingEfficiency'])
     alpha = BASE_EFFICIENCY[metadata['ArterialSpinLabelingType']]
