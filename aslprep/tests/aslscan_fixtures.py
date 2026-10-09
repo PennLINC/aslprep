@@ -503,7 +503,19 @@ def _build_templateflow_phantom(params, out):
 
     anat = out / 'anat'
     anat.mkdir()
-    shutil.copyfile(paths[f'tpl-{TEMPLATE}_res-01_T1w.nii.gz'], anat / 'T1w.nii.gz')
+    # The T1w must place tissue where the ASL simulation does: the template's T1w and its
+    # probabilistic segmentations disagree by about 1 mm at the GM/WM boundary, which biased
+    # coregistration by a quarter voxel when ASLPrep segmented the T1w itself. Each labelled
+    # voxel gets its tissue's typical template intensity; the rest (scalp, skull) is kept.
+    t1_img = load('T1w')
+    t1 = np.asanyarray(t1_img.dataobj).astype(np.float32)
+    synth = t1.copy()
+    for value in (1, 2, 3):  # GM, WM, CSF
+        pure = (labels == value) & (probs[..., value - 1] >= 0.9)
+        synth[labels == value] = np.median(t1[pure])
+    header = t1_img.header.copy()
+    header.set_data_dtype(np.float32)
+    nb.Nifti1Image(synth, t1_img.affine, header).to_filename(anat / 'T1w.nii.gz')
     nb.Nifti1Image(mask.astype(np.uint8), affine).to_filename(anat / 'brainmask.nii.gz')
     for i, t in enumerate(('GM', 'WM', 'CSF')):
         nb.Nifti1Image(probs[..., i], affine).to_filename(anat / f'probseg-{t}.nii.gz')
@@ -1092,7 +1104,10 @@ def _write_anatomy(phantom_dir, out, r, derivatives):
     t1w = nb.load(ph / 'anat' / 'T1w.nii.gz')
     new_affine = r @ t1w.affine
     _save_like(t1w, np.asanyarray(t1w.dataobj), anat / 'sub-01_T1w.nii.gz', new_affine)
-    _write_json(anat / 'sub-01_T1w.json', {'Description': 'phantom anatomy (TemplateFlow T1w)'})
+    _write_json(
+        anat / 'sub-01_T1w.json',
+        {'Description': 'phantom anatomy (synthesized from the phantom tissue labels)'},
+    )
     if not derivatives:
         return
 

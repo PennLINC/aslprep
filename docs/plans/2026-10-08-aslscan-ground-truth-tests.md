@@ -733,7 +733,7 @@ through the volume-to-volume part only (0.044). The coregistration is estimated 
 which stays close to the scanner frame (registration step alone 0.07-0.16 voxel), so the
 offset reaches every output. It is largest where the reference's contrast differs most from
 the volumes'. It explains the coregistration failures of F3 and F6 (derivatives anatomy, so the
-registration step alone is small). Not yet reported.
+registration step alone is small). Reported as #707.
 
 ### Finding: F7's coregistration excess is a fixture inconsistency
 
@@ -752,5 +752,11 @@ ASL simulation and the truth) are the template's probabilistic segmentations. sm
 segmentation of the T1w finds 37 % more WM and 33 % less GM than those maps (WM centroid 3.4
 mm lower; labels checked through the probseg maps), so BBR aligns the ASL data to a WM boundary
 that differs from the one the ASL data were simulated with. This is a limitation of the
-fixture, not an ASLPrep defect. A fix is to synthesize the raw T1w from the phantom's tissue
-maps, so that the anatomy and the ASL data agree.
+fixture, not an ASLPrep defect.
+
+Fixed: the phantom's T1w is now synthesized from its tissue labels (each tissue at its typical
+template intensity, scalp and skull kept from the template), so the anatomy and the ASL data
+agree. F7's end-to-end error fell to 0.14 voxel (rotation arc 0.06) and its displacement item
+is an ordinary check again. The full integration tier was rerun locally with the new T1w:
+every other item is unchanged (F2: #702; F3: #707 and #706; F6: #705 and #707 as known
+failures).

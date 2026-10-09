@@ -54,8 +54,8 @@ globals().update(
         RECIPE,
         known={
             'test_coregistration_rotation': Known(
-                'Motion correction leaves the motion-free series rotated about 1 degree from '
-                'its reference (the registration step alone is 0.09 voxel); see the plan',
+                'PennLINC/aslprep#707: motion correction leaves the motion-free series rotated '
+                '1 degree from its reference (the registration step alone is 0.09 voxel)',
                 ('frames', 'coreg', 'rot_arc_voxels'),
                 0.25,
                 0.5,

@@ -46,8 +46,8 @@ globals().update(
         suppression_pulses=4,
         known={
             'test_coregistration_displacement': Known(
-                'Motion correction leaves the motion-free series offset 0.6 mm from its '
-                'reference (the registration step alone is 0.16 voxel); see the plan',
+                'PennLINC/aslprep#707: motion correction leaves the motion-free series 0.6 mm '
+                'from its reference (the registration step alone is 0.16 voxel)',
                 ('frames', 'coreg', 'rms_voxels'),
                 0.25,
                 0.4,
