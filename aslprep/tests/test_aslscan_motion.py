@@ -67,9 +67,10 @@ def test_coregistration_rotation(f7_run):
 @known_failure(
     'f7_run',
     Known(
-        'RMS end-to-end coregistration error 0.27 voxel (1.37 mm at 5 mm slices) against the '
-        '0.25-voxel ceiling; F3 and F6 show the same excess on motion-free data, from the '
-        "motion-corrected series' constant offset to its reference; see the plan",
+        'Fixture limitation: the phantom T1w is the TemplateFlow T1w, while the ASL data come '
+        "from the template's tissue probabilities, and the two place WM about 1 mm apart. "
+        "smriprep segments the T1w (37 % more WM than the phantom's), BBR aligns to that "
+        'boundary: 0.27-0.30 voxel. With the phantom segmentation as derivatives, 0.13',
         ('frames', 'coreg', 'rms_voxels'),
         0.25,
         0.4,

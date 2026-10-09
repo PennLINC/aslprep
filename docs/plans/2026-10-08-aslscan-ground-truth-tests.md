@@ -715,8 +715,13 @@ the code and, where it made a claim about ASLPrep's outputs, against measurement
 
 Consequences of finding 4, measured on the existing outputs (end to end, then registration step
 alone, in voxels): F1 0.17 / 0.17, F2 0.15 / 0.07, F3 0.27 / 0.16, F4 0.17 / 0.15, F5 0.11 /
-0.11, F6 0.25 (rotation arc 0.33) / 0.09, F7 0.27. F3 and F6 now fail coregistration as known
-failures, for the same reason as F7.
+0.11, F6 0.25 (rotation arc 0.33) / 0.09, F7 0.27. F3 (displacement) and F6 (rotation) now fail
+coregistration as known failures.
+
+A final Codex review of the fixes found three more problems, all fixed: a known failure caught
+any assertion in a two-metric item (coregistration is now split into rotation and
+displacement items); the suppression known failure accepted a NaN measurement; and delay
+classification counted M0 placeholder delays.
 
 ### Finding: motion correction offsets the motion-free series from its reference
 
@@ -727,5 +732,25 @@ the raw volumes at the same place (relative RMS difference 0.030 against 0.044 f
 through the volume-to-volume part only (0.044). The coregistration is estimated on the aslref,
 which stays close to the scanner frame (registration step alone 0.07-0.16 voxel), so the
 offset reaches every output. It is largest where the reference's contrast differs most from
-the volumes'. This explains F7's coregistration excess (to be confirmed with the motion-free
-F7 variant). Not yet reported.
+the volumes'. It explains the coregistration failures of F3 and F6 (derivatives anatomy, so the
+registration step alone is small). Not yet reported.
+
+### Finding: F7's coregistration excess is a fixture inconsistency
+
+F7 was rerun locally with one change at a time (end-to-end RMS coregistration error, voxels):
+
+| Variant | Error |
+|---|---|
+| F7 as committed (raw anatomy, offset, motion) | 0.30 (CI: 0.27) |
+| no anatomical offset | 0.34 |
+| no motion | 0.30 (registration step alone 0.25) |
+| phantom segmentation given as derivatives | 0.13 |
+
+So neither the offset nor motion correction causes it; smriprep's processing of the raw T1w
+does. The phantom's T1w is the TemplateFlow T1w image, while its tissue maps (which drive the
+ASL simulation and the truth) are the template's probabilistic segmentations. smriprep's
+segmentation of the T1w finds 37 % more WM and 33 % less GM than those maps (WM centroid 3.4
+mm lower; labels checked through the probseg maps), so BBR aligns the ASL data to a WM boundary
+that differs from the one the ASL data were simulated with. This is a limitation of the
+fixture, not an ASLPrep defect. A fix is to synthesize the raw T1w from the phantom's tissue
+maps, so that the anatomy and the ASL data agree.
