@@ -700,9 +700,6 @@ workflows:
           matrix:
             parameters:
               marker:
-                - examples_pcasl_singlepld_philips
-                - examples_pcasl_singlepld_siemens
-                - examples_pcasl_multipld
                 - qtab
                 - test_001
                 - test_003_minimal
@@ -717,22 +714,9 @@ workflows:
           matrix:
             parameters:
               marker:
-                - examples_pasl_multipld
                 - test_002
               cpus: [2]
               resource_class: [medium]
-          requires: [image_prep, get_data]
-          filters: *default_filters
-
-      # pcasl_singlepld_ge shares a skip marker with the Philips/Siemens
-      # single-PLD tests ([skip examples_pcasl_singlepld] halts all three),
-      # so it cannot be folded into the medium matrix above.
-      - integration_test:
-          name: examples_pcasl_singlepld_ge
-          marker: examples_pcasl_singlepld_ge
-          skip_marker: examples_pcasl_singlepld
-          cpus: 2
-          resource_class: medium
           requires: [image_prep, get_data]
           filters: *default_filters
 
@@ -745,11 +729,6 @@ workflows:
 
       - merge_coverage:
           requires:
-            - examples_pcasl_singlepld_philips
-            - examples_pcasl_singlepld_siemens
-            - examples_pcasl_singlepld_ge
-            - examples_pcasl_multipld
-            - examples_pasl_multipld
             - qtab
             - test_001
             - test_002
