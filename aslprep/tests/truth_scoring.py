@@ -363,16 +363,28 @@ def _fit_subset(fixture, asl, voxels, fwhm=0.0):
     )
 
 
-def _fit_stats(cbf, att, fit, voxels):
+def _fit_stats(cbf, att, fit, voxels, abat=None, abv=None):
+    """Agreement of ASLPrep's multi-delay maps with the reference fit on ``voxels``.
+
+    ``frac_within_10pct`` bounds spatial errors that leave the median intact (CBF wrong in a
+    minority of voxels); the arterial terms are compared when their maps are given.
+    """
     i, j, k = voxels.T
     ok = np.isfinite(fit[:, 0]) & (fit[:, 0] > FLOOR) & np.isfinite(cbf[i, j, k])
     ratio = cbf[i, j, k][ok] / fit[ok, 0]
-    return {
+    out = {
         'n': int(ok.sum()),
         'median_dev': float(abs(np.median(ratio) - 1)),
         'p95_abs_dev': float(np.percentile(np.abs(ratio - 1), 95)),
+        'frac_within_10pct': float(np.mean(np.abs(ratio - 1) <= 0.1)),
         'att_median_abs_diff': float(np.median(np.abs(att[i, j, k][ok] - fit[ok, 1]))),
-    }, ok
+    }
+    for name, image, column in (('abat', abat, 2), ('abv', abv, 3)):
+        if image is not None:
+            out[f'{name}_median_abs_diff'] = float(
+                np.median(np.abs(image[i, j, k][ok] - fit[ok, column]))
+            )
+    return out, ok
 
 
 def _score_native_multi(fixture, preproc, cbf, att_masks_from, subset, aslprep_dir, fwhm):
@@ -388,14 +400,20 @@ def _score_native_multi(fixture, preproc, cbf, att_masks_from, subset, aslprep_d
     if att_file is None:
         return {'problems': ['att not found']}
     att = on_grid(nb.load(att_file), fixture.affine, fixture.shape)
+    arterial = {}
+    for name in ('abat', 'abv'):
+        path = find_output(aslprep_dir, fixture.acq, name)
+        if path is None:
+            return {'problems': [f'{name} not found']}
+        arterial[name] = on_grid(nb.load(path), fixture.affine, fixture.shape)
     voxels = np.argwhere(masks['valid'])
     voxels = voxels[:: max(1, len(voxels) // subset)][:subset]
     raw_fit = _fit_subset(fixture, fixture.asl_img.get_fdata(), voxels, fwhm)
-    out['tier_a'], ok = _fit_stats(cbf, att, raw_fit, voxels)
+    out['tier_a'], ok = _fit_stats(cbf, att, raw_fit, voxels, **arterial)
     fit = raw_fit
     if preproc is not None:
         fit = _fit_subset(fixture, preproc, voxels, fwhm)
-        out['tier_a_quant'], ok = _fit_stats(cbf, att, fit, voxels)
+        out['tier_a_quant'], ok = _fit_stats(cbf, att, fit, voxels, **arterial)
         # report-only, see the docstring
         out['tier_a_quant']['p95_abs_dev_multi'] = out['tier_a_quant'].pop('p95_abs_dev')
     i, j, k = voxels.T
@@ -467,13 +485,12 @@ def score_frames(fixture, aslprep_dir):
             np.median([tg.rms_displacement(a[v], points) for v in range(len(a))])
         )
 
-    # Coregistration error. Without motion the aslref is in the static frame, so the error is
-    # C^-1 R^-1 alone (motion-correction errors are not attributed to it); with motion, the
-    # aslref's pose comes from the HMC transforms, E_v = C^-1 A_v, compared with R.
-    if moving:
-        errors = [np.linalg.inv(c) @ a[v] @ np.linalg.inv(fixture.R) for v in range(len(a))]
-    else:
-        errors = [np.linalg.inv(c) @ np.linalg.inv(fixture.R)]
+    # Coregistration error, end to end: outputs are the raw volumes resampled through H_v and
+    # then C, so E_v = C^-1 A_v R^-1 measures where they land against the anatomy, whatever
+    # the aslref's own pose (the motion-corrected series carries the HMC transforms' constant
+    # part; see the plan's findings). Without motion, C^-1 R^-1 alone is the registration
+    # step's share (coreg_only, report-only).
+    errors = [np.linalg.inv(c) @ a[v] @ np.linalg.inv(fixture.R) for v in range(len(a))]
     t1w_points = tg.apply_points(fixture.R, points)
     rot_deg = float(np.median([tg.rot_angle_deg(d) for d in errors]))
     rms_mm = float(np.median([tg.rms_displacement(d, t1w_points) for d in errors]))
@@ -487,6 +504,11 @@ def score_frames(fixture, aslprep_dir):
         'rms_voxels': rms_mm / voxel,
         'rot_arc_voxels': np.radians(rot_deg) * BRAIN_RADIUS_MM / voxel,
     }
+    if not moving:
+        only = np.linalg.inv(c) @ np.linalg.inv(fixture.R)
+        out['coreg']['coreg_only_rms_voxels'] = float(
+            tg.rms_displacement(only, t1w_points) / voxel
+        )
     return out
 
 
@@ -554,6 +576,26 @@ def score_space(fixture, aslprep_dir, space, desc=None):
         out['r_native'] = float(np.corrcoef(values[ok], ref[ok])[0, 1])
         out['r_native_shifted_4mm'] = float(np.corrcoef(shifted[ok], ref[ok])[0, 1])
         out['r_truth'] = float(np.corrcoef(values[ok], truth[ok])[0, 1])
+        coreg = find_xfm(aslprep_dir, fixture.acq, 'from-aslref_to-T1w')
+        if space == 'T1w' and coreg is not None:
+            # The T1w map must be the native map moved through ASLPrep's own coregistration
+            # (pull: T1w point y reads the aslref at C y), whatever the motion: this checks
+            # that the transform scored in score_frames is the one applied to the image.
+            from nitransforms.linear import load
+
+            c = np.asarray(load(coreg, fmt='itk').matrix).reshape(4, 4)
+            _, points = fixture.voxel_centers(masks['valid'])
+            t1w_points = tg.apply_points(fixture.R, points)
+            native_img = nb.load(native_file)
+            r = {}
+            for name, shift_mm in (('r_resampled', 0.0), ('r_resampled_shifted_4mm', 4.0)):
+                moved = sample_at(native_img, tg.apply_points(c, t1w_points + [shift_mm, 0, 0]))
+                fine = np.isfinite(moved) & np.isfinite(values)
+                r[name] = float(np.corrcoef(values[fine], moved[fine])[0, 1])
+            out.update(r)
+            # Noise lowers both correlations (F7, SNR 5: 0.78 against F1's 0.95), so the margin
+            # over a 4 mm misplacement is what is asserted.
+            out['resampling_margin'] = r['r_resampled'] - r['r_resampled_shifted_4mm']
     return out
 
 

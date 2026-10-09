@@ -7,7 +7,7 @@ LabelingEfficiency in the sidecar, BASIL, SCORE/SCRUB and atlases.
 
 import pytest
 
-from aslprep.tests.aslscan_cli import run_recipe, scored_items, shared_items
+from aslprep.tests.aslscan_cli import Known, run_recipe, scored_items, shared_items
 
 RECIPE = 'pcasl1pld_ge3d'
 pytestmark = [pytest.mark.aslscan, pytest.mark.aslscan_pcasl1pld_ge3d]
@@ -42,10 +42,13 @@ globals().update(
         RECIPE,
         suppression_pulses=4,
         known={
-            'test_motion_correction': (
-                'Head-motion correction registers the delta-M volume to an M0-like reference '
-                '(no shared contrast) and applies the spurious result: on motion-free data the '
-                'delta-M moves by about 1.9 degrees and 1.7 mm RMS. Reported; pending a decision.'
+            'test_motion_correction': Known(
+                'PennLINC/aslprep#702: head-motion correction registers the delta-M volume to '
+                'an M0-like reference (no shared contrast) and applies the spurious result, '
+                '1.9 mm RMS on motion-free data',
+                ('frames', 'motion', 'rms_error_max_mm'),
+                1.5,
+                3.0,
             ),
         },
     )

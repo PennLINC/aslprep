@@ -6,7 +6,9 @@ then checks one metric per test item, so one failure does not hide the others.
 :func:`shared_items` adds the invariants every module must check.
 """
 
+import functools
 import json
+import math
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +18,50 @@ import pytest
 from aslprep.tests import aslscan_fixtures as af
 from aslprep.tests import truth_bounds as tb
 from aslprep.tests import truth_scoring as ts
+
+
+@dataclass(frozen=True)
+class Known:
+    """A reported, expected failure, held to the size it was diagnosed at.
+
+    The item must fail, and the metric at ``path`` must lie in ``[lo, hi]``: a fix (the item
+    passes) or a change in size (worse or better) fails the item instead of hiding behind the
+    expected failure.
+    """
+
+    reason: str
+    path: tuple
+    lo: float
+    hi: float
+
+
+def known_failure(fixture_name, known):
+    """Decorate a test item taking ``request`` as a :class:`Known` failure."""
+
+    def decorate(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            try:
+                fn(*args, **kwargs)
+            except AssertionError as exc:
+                score = kwargs['request'].getfixturevalue(fixture_name).score
+                value = ts.lookup(score, known.path)
+                label = '.'.join(known.path)
+                if not _finite(value) or not known.lo <= value <= known.hi:
+                    pytest.fail(
+                        f'known failure changed size: {label} = {value!r}, known range '
+                        f'[{known.lo}, {known.hi}] ({known.reason}); the check said: {exc}'
+                    )
+                pytest.xfail(f'{known.reason} [{label} = {value:.4g}]')
+            pytest.fail(f'known failure now passes; remove it: {known.reason}')
+
+        return wrapper
+
+    return decorate
+
+
+def _finite(value):
+    return isinstance(value, int | float) and math.isfinite(value)
 
 
 @dataclass
@@ -106,7 +152,7 @@ def shared_items(fixture_name, multi_delay=False, report_only=(), known=None):
 
     ``fixture_name`` names the module's run fixture. ``report_only`` lists score paths that
     are not asserted against bounds but must exist and be finite. ``known`` maps item names
-    to the reason of a reported, strict expected failure.
+    to a :class:`Known` failure.
     """
 
     def _run(request):
@@ -138,9 +184,7 @@ def shared_items(fixture_name, multi_delay=False, report_only=(), known=None):
     def test_metric_contract(request):
         run = _run(request)
         missing = [
-            '.'.join(path)
-            for path in report_only
-            if not isinstance(ts.lookup(run.score, path), int | float)
+            '.'.join(path) for path in report_only if not _finite(ts.lookup(run.score, path))
         ]
         problems = [
             p
@@ -149,7 +193,7 @@ def shared_items(fixture_name, multi_delay=False, report_only=(), known=None):
             for p in section.get('problems', [])
         ]
         if missing:
-            pytest.fail(f'report-only metrics missing: {missing}')
+            pytest.fail(f'report-only metrics missing or not finite: {missing}')
         if problems:
             pytest.fail(f'scoring problems: {problems}')
 
@@ -183,8 +227,8 @@ def shared_items(fixture_name, multi_delay=False, report_only=(), known=None):
             tb.check(run.score, 'fit_bound', run.recipe)
 
         items['test_fit_bound'] = test_fit_bound
-    for name, reason in (known or {}).items():
-        items[name] = pytest.mark.xfail(strict=True, reason=reason)(items[name])
+    for name, entry in (known or {}).items():
+        items[name] = known_failure(fixture_name, entry)(items[name])
     return items
 
 
@@ -193,7 +237,7 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
 
     ``spaces`` are score keys such as ``'space-MNI152NLin2009cAsym'``. ``suppression_pulses``
     adds the physical-agreement item for background suppression (spec Section 8). ``known``
-    maps item names to the reason of a reported, strict expected failure.
+    maps item names to a :class:`Known` failure.
     """
 
     def _score(request):
@@ -203,12 +247,14 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
         tb.check(_score(request), 'tier_a_median', recipe)
 
     def test_tier_a_quantification(request):
-        score = _score(request)
+        run = request.getfixturevalue(fixture_name)
+        score = run.score
         tb.check(score, 'tier_a_quant_median', recipe)
-        if ts.lookup(score, ('native', 'tier_a_quant', 'p95_abs_dev')) is not None:
-            tb.check(score, 'tier_a_quant_p95', recipe)
-        if ts.lookup(score, ('native', 'tier_a_quant', 'att_median_abs_diff')) is not None:
+        if ts.is_multi_delay(_asl_sidecar(run)):
+            tb.check(score, 'tier_a_quant_agree', recipe)
             tb.check(score, 'tier_a_att', recipe)
+        else:
+            tb.check(score, 'tier_a_quant_p95', recipe)
 
     def test_motion_correction(request):
         """Without motion, motion correction must keep every volume in register with the rest."""
@@ -245,6 +291,8 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
             tb.check(score, 'space_alignment', recipe, space=space)
             reference = ('native', 'expected_ratio', '{t}')
             tb.check(score, 'space', recipe, reference=reference, space=space, t='GM')
+            if space == 'space-T1w':
+                tb.check(score, 'space_resampling', recipe, space=space)
             for tissue in ('GM', 'WM'):
                 tb.check(score, 'space_finite', recipe, space=space, t=tissue)
 
@@ -279,8 +327,8 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
             )
 
         items['test_background_suppression'] = test_background_suppression
-    for name, reason in (known or {}).items():
-        items[name] = pytest.mark.xfail(strict=True, reason=reason)(items[name])
+    for name, entry in (known or {}).items():
+        items[name] = known_failure(fixture_name, entry)(items[name])
     return items
 
 

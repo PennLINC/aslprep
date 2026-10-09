@@ -132,14 +132,32 @@ def labeling_efficiency_physical(simulation, context=None):
     return alpha * abs(factor)
 
 
-def pld_map(metadata, shape, reverse_slices=False, pld_shift=0.0):
+def labeled_value(metadata, key, context=None):
+    """A single-delay timing field (``PostLabelingDelay``, ``LabelingDuration``).
+
+    A scalar is returned as is. A per-volume list is read on the control, label and deltam
+    rows only (M0 rows carry placeholders such as 0), and must have one value there.
+    """
+    values = np.atleast_1d(np.asarray(metadata[key], dtype=float))
+    if values.size == 1:
+        return float(values[0])
+    if context is None or len(context) != values.size:
+        raise ValueError(f'a per-volume {key} needs the matching aslcontext')
+    rows = [i for i, t in enumerate(context) if t in ('control', 'label', 'deltam')]
+    unique = np.unique(values[rows])
+    if unique.size != 1:
+        raise ValueError(f'{key} differs across labeled volumes: {unique.tolist()}')
+    return float(unique[0])
+
+
+def pld_map(metadata, shape, context=None, reverse_slices=False, pld_shift=0.0):
     """Post-labeling delay (PCASL) or inversion time (PASL) per voxel, with slice timing.
 
     2D acquisitions add each slice's acquisition time (BIDS ``SliceTiming``, along the
     ``SliceEncodingDirection`` axis, reversed for ``-``). Mutations: ``reverse_slices`` and
     ``pld_shift``.
     """
-    pld = float(np.mean(metadata['PostLabelingDelay'])) + pld_shift
+    pld = labeled_value(metadata, 'PostLabelingDelay', context) + pld_shift
     out = np.full(shape, pld)
     timing = metadata.get('SliceTiming')
     if timing is None:
@@ -154,7 +172,7 @@ def pld_map(metadata, shape, reverse_slices=False, pld_shift=0.0):
     return out + timing[tuple(expand)]
 
 
-def cbf_single_delay(deltam, m0, metadata, alpha, pld):
+def cbf_single_delay(deltam, m0, metadata, alpha, pld, context=None):
     """Single-delay CBF (ml/100 g/min) from delta-M and M0, per Alsop 2015.
 
     PCASL/CASL (eq. 1): ``6000 lambda dM e^(PLD/T1b) / (2 alpha T1b M0 (1 - e^(-tau/T1b)))``.
@@ -165,7 +183,7 @@ def cbf_single_delay(deltam, m0, metadata, alpha, pld):
     t1b = T1_BLOOD[metadata['MagneticFieldStrength']]
     kind = metadata['ArterialSpinLabelingType']
     if kind in ('PCASL', 'CASL'):
-        tau = float(np.mean(metadata['LabelingDuration']))
+        tau = labeled_value(metadata, 'LabelingDuration', context)
         denominator = 2 * alpha * t1b * (1 - np.exp(-tau / t1b)) * m0
     elif kind == 'PASL':
         technique = metadata.get('BolusCutOffTechnique')
@@ -206,10 +224,11 @@ def expected_cbf(
     pld = pld_map(
         metadata,
         asl.shape[:3],
+        context,
         reverse_slices=mutation == 'reverse_slices',
         pld_shift=0.1 if mutation == 'pld_shift' else 0.0,
     )
-    return cbf_single_delay(deltam, m0, metadata, alpha, pld)
+    return cbf_single_delay(deltam, m0, metadata, alpha, pld, context)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -273,11 +292,12 @@ def deltam_observations(asl, context, swap=False):
     return diff, idx['control']
 
 
-def fit_multi_delay(deltam, m0, plds, metadata, alpha):
+def fit_multi_delay(deltam, m0, plds, metadata, alpha, rows=None):
     """Fit CBF, ATT, aBAT and aBV per voxel, over every observation.
 
     ``deltam`` and ``plds`` are (n_voxels, n_observations); ``m0`` is the calibration image
-    (already TR-corrected and scaled), (n_voxels,). Uses :data:`FIT_P0` and
+    (already TR-corrected and scaled), (n_voxels,). ``rows`` are the observations' sidecar
+    rows, needed when ``LabelingDuration`` is per volume. Uses :data:`FIT_P0` and
     :data:`FIT_BOUNDS`; ``M0b`` equals ``M0a = M0 / lambda``, as ASLPrep documents. A failed
     fit gives NaN.
     """
@@ -287,7 +307,12 @@ def fit_multi_delay(deltam, m0, plds, metadata, alpha):
     kind = metadata['ArterialSpinLabelingType']
     n_obs = deltam.shape[1]
     if kind in ('PCASL', 'CASL'):
-        tau = np.broadcast_to(np.asarray(metadata['LabelingDuration'], float), (n_obs,))
+        tau = np.atleast_1d(np.asarray(metadata['LabelingDuration'], float))
+        if tau.size > 1:
+            if rows is None:
+                raise ValueError('a per-volume LabelingDuration needs the observation rows')
+            tau = tau[rows]
+        tau = np.broadcast_to(tau, (n_obs,))
     else:
         ti1 = float(np.atleast_1d(metadata['BolusCutOffDelayTime'])[0])
     out = np.full((deltam.shape[0], 4), np.nan)
@@ -339,5 +364,5 @@ def expected_multi_delay(
     i, j, k = voxels.T
     voxel_plds = plds[None, :] + offset[i, j, k][:, None]
     return fit_multi_delay(
-        obs[i, j, k], m0[i, j, k], voxel_plds, metadata, labeling_efficiency(metadata)
+        obs[i, j, k], m0[i, j, k], voxel_plds, metadata, labeling_efficiency(metadata), rows
     )

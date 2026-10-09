@@ -7,7 +7,7 @@ LabelingEfficiency in the sidecar, BASIL, MNI output and atlases.
 
 import pytest
 
-from aslprep.tests.aslscan_cli import run_recipe, scored_items, shared_items
+from aslprep.tests.aslscan_cli import Known, run_recipe, scored_items, shared_items
 
 RECIPE = 'pcasl1pld_grase'
 pytestmark = [pytest.mark.aslscan, pytest.mark.aslscan_pcasl1pld_grase]
@@ -39,5 +39,19 @@ globals().update(
     )
 )
 globals().update(
-    scored_items('f3_run', RECIPE, spaces=('space-MNI152NLin2009cAsym',), suppression_pulses=4)
+    scored_items(
+        'f3_run',
+        RECIPE,
+        spaces=('space-MNI152NLin2009cAsym',),
+        suppression_pulses=4,
+        known={
+            'test_coregistration': Known(
+                'Motion correction leaves the motion-free series offset 0.6 mm from its '
+                'reference (the registration step alone is 0.16 voxel); see the plan',
+                ('frames', 'coreg', 'rms_voxels'),
+                0.25,
+                0.4,
+            ),
+        },
+    )
 )

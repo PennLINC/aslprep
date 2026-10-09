@@ -6,7 +6,7 @@ SCORE/SCRUB and atlases.
 
 import pytest
 
-from aslprep.tests.aslscan_cli import run_recipe, scored_items, shared_items
+from aslprep.tests.aslscan_cli import Known, run_recipe, scored_items, shared_items
 
 RECIPE = 'pasl_multipld'
 pytestmark = [pytest.mark.aslscan, pytest.mark.aslscan_pasl_multipld]
@@ -34,13 +34,32 @@ globals().update(
             ('native', 'tier_a', 'p95_abs_dev'),
             ('native', 'tier_a_quant', 'p95_abs_dev_multi'),
             ('native', 'tier_b_att', 'GM', 'median_abs_error'),
+            ('native', 'tier_a_quant', 'abat_median_abs_diff'),
+            ('native', 'tier_a_quant', 'abv_median_abs_diff'),
         ],
         known={
-            'test_fit_bound': (
+            'test_fit_bound': Known(
                 'PennLINC/aslprep#705: motion correction misaligns mid-delay control-label '
-                'pairs by 0.12-0.16 mm, pegging about 1 % of edge brain voxels at CBF 300'
+                'pairs by 0.12-0.16 mm, pegging about 1 % of edge brain voxels at CBF 300',
+                ('native', 'coverage', 'at_fit_bound'),
+                0.005,
+                0.03,
             ),
         },
     )
 )
-globals().update(scored_items('f6_run', RECIPE))
+globals().update(
+    scored_items(
+        'f6_run',
+        RECIPE,
+        known={
+            'test_coregistration': Known(
+                'Motion correction leaves the motion-free series rotated about 1 degree from '
+                'its reference (the registration step alone is 0.09 voxel); see the plan',
+                ('frames', 'coreg', 'rot_arc_voxels'),
+                0.25,
+                0.5,
+            ),
+        },
+    )
+)

@@ -82,6 +82,17 @@ CEILINGS = {
         'ratio',
         'only M0 registration and interpolation separate the two',
     ),
+    # The four-parameter fit is ill-conditioned: given the same series, the ~1 % M0
+    # differences of registration move a quarter to a third of voxels by more than 10 %
+    # (F5 0.75, F6 0.66 within 10 %). The floor catches gross spatial errors (CBF wrong in
+    # half the voxels), which the median cannot.
+    'tier_a_quant_agree': (
+        ('native', 'tier_a_quant', 'frac_within_10pct'),
+        0.5,
+        None,
+        'fraction',
+        'multi-delay: most voxels agree with the reference fit of the same series within 10 %',
+    ),
     'tier_a_att': (
         ('native', 'tier_a_quant', 'att_median_abs_diff'),
         None,
@@ -169,6 +180,14 @@ CEILINGS = {
         'r',
         "correlation with ASLPrep's native CBF at the same anatomical points; a 4 mm "
         'misregistration drops it to about 0.55 on these phantoms (r_native_shifted_4mm)',
+    ),
+    'space_resampling': (
+        ('{space}', 'resampling_margin'),
+        0.15,
+        None,
+        'r',
+        "the T1w map is the native map moved through ASLPrep's own coregistration: it must "
+        'match that sampling clearly better than one misplaced by 4 mm (F1 0.27, F7 0.35)',
     ),
     # Pairwise ceilings: used with check_pair, which supplies both paths.
     'scorescrub': (

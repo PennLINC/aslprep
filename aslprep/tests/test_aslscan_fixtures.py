@@ -382,8 +382,10 @@ def test_deltam_estimates_pairs_by_order():
 
 def test_fixture_dir_refuses_generation_when_required(tmp_path, monkeypatch):
     monkeypatch.setenv('ASLPREP_REQUIRE_FIXTURES', '1')
-    with pytest.raises(af.FixtureUnavailable, match='forbids generating'):
+    with pytest.raises(af.FixtureRequired, match='forbids generating'):
         af.fixture_dir('fast_pcasl_seq', tmp_path)
+    # the tests' skip handlers catch FixtureUnavailable only, so a required fixture errors
+    assert not issubclass(af.FixtureRequired, af.FixtureUnavailable)
 
 
 def test_generated_fixture_matches_aslscan_truth(tmp_path):
@@ -693,3 +695,64 @@ def test_recipe_names_avoid_bids_datatypes(tmp_path, monkeypatch):
     with pytest.raises(af.RecipeError, match='BIDS datatype'):
         af.Recipe('motion')
     assert not set(af.RECIPES) & set(af.BIDS_DATATYPES)
+
+
+def test_per_volume_timing_is_read_on_labeled_rows():
+    """Per-volume timing fields skip M0 placeholders and follow the observation rows."""
+    from aslprep.tests import truth_models as tm
+
+    context = ['m0scan', 'control', 'label']
+    meta = {'PostLabelingDelay': [0.0, 1.8, 1.8], 'LabelingDuration': [0.0, 1.5, 1.5]}
+    assert tm.labeled_value(meta, 'PostLabelingDelay', context) == 1.8
+    assert tm.labeled_value(meta, 'LabelingDuration', context) == 1.5
+    assert tm.labeled_value({'PostLabelingDelay': 2.0}, 'PostLabelingDelay') == 2.0
+    with pytest.raises(ValueError, match='matching aslcontext'):
+        tm.labeled_value(meta, 'PostLabelingDelay')
+    with pytest.raises(ValueError, match='differs'):
+        tm.labeled_value({'PostLabelingDelay': [1.0, 2.0]}, 'PostLabelingDelay', ['control'] * 2)
+
+    # four pairs with per-volume durations: the fit reads the control rows' values
+    meta = {
+        'MagneticFieldStrength': 3,
+        'ArterialSpinLabelingType': 'PCASL',
+        'LabelingDuration': [1.5] * 8,
+    }
+    plds = np.array([[1.0, 1.5, 2.0, 2.5]])
+    m0 = np.array([1000.0])
+    truth = (60.0, 1.2, 1.0, 0.0)
+    t1b = tm.T1_BLOOD[3]
+    deltam = tm.gkm_pcasl(
+        plds[0], np.full(4, 1.5), *truth, 0.85, t1b, m0[0] / tm.LAMBDA, m0[0] / tm.LAMBDA
+    )[None, :]
+    fit = tm.fit_multi_delay(deltam, m0, plds, meta, 0.85, rows=[0, 2, 4, 6])
+    np.testing.assert_allclose(fit[0, 0], 60.0, rtol=1e-3)
+    with pytest.raises(ValueError, match='observation rows'):
+        tm.fit_multi_delay(deltam, m0, plds, meta, 0.85)
+
+
+def test_known_failure_holds_the_diagnosed_size():
+    """A Known failure xfails only while it fails at its diagnosed size."""
+    from types import SimpleNamespace
+
+    from aslprep.tests.aslscan_cli import Known, known_failure
+
+    known = Known('diagnosed', ('frames', 'coreg', 'rms_voxels'), 0.25, 0.4)
+
+    def request_with(value):
+        run = SimpleNamespace(score={'frames': {'coreg': {'rms_voxels': value}}})
+        return SimpleNamespace(getfixturevalue=lambda name: run)
+
+    def failing(request):
+        raise AssertionError('over the ceiling')
+
+    def passing(request):
+        pass
+
+    wrapped = known_failure('run', known)(failing)
+    with pytest.raises(pytest.xfail.Exception, match='diagnosed'):
+        wrapped(request=request_with(0.27))
+    for value in (0.6, 0.1, float('nan'), None):
+        with pytest.raises(pytest.fail.Exception, match='changed size'):
+            wrapped(request=request_with(value))
+    with pytest.raises(pytest.fail.Exception, match='now passes'):
+        known_failure('run', known)(passing)(request=request_with(0.27))

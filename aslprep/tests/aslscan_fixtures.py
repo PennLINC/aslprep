@@ -313,6 +313,15 @@ def _checkout(repo, ref, dest):
     ).stdout.strip()
     if head != ref:
         raise RuntimeError(f'{dest}: HEAD is {head}, expected {ref}')
+    # A reused checkout keeps local edits across `checkout`; the stamp would then lie.
+    dirty = subprocess.run(
+        [git, '-C', str(dest), 'status', '--porcelain', '--untracked-files=no'],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if dirty:
+        raise RuntimeError(f'{dest} has local changes to tracked files:\n{dirty}')
 
 
 def build_aslscan(workdir):
@@ -654,7 +663,15 @@ class RecipeError(ValueError):
 
 
 class FixtureUnavailable(RuntimeError):
-    """A fixture is missing or stale and cannot be (or must not be) generated here."""
+    """A fixture is missing or stale and cannot be generated here (tests skip)."""
+
+
+class FixtureRequired(RuntimeError):
+    """A fixture is missing or stale and ``ASLPREP_REQUIRE_FIXTURES=1`` (tests error).
+
+    Deliberately not a :class:`FixtureUnavailable`, so that the tests' skip handlers let it
+    through.
+    """
 
 
 #: recipe.toml keys and defaults (Section 4.3 of the spec). ``acq`` is required.
@@ -1196,7 +1213,7 @@ def fixture_dir(name, data_dir=None):
     if problem is None:
         return path
     if os.environ.get('ASLPREP_REQUIRE_FIXTURES') == '1':
-        raise FixtureUnavailable(
+        raise FixtureRequired(
             f'aslscan fixture {name} is {problem} under {data_dir}, and '
             'ASLPREP_REQUIRE_FIXTURES=1 forbids generating it here'
         )

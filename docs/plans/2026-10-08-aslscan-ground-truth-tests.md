@@ -692,3 +692,40 @@ the code and accepted; the spec changes are logged in the spec's Section 12.
 | 17 | Slice-count formula | exact `ceil` rule; multiband and 3D checks (Task 5) |
 | 18 | Forward dependency on hashed modules | `HASHED_MODULES` grows; regeneration rule (Tasks 1, 3, 7) |
 | 19 | Immutable bad cache | `CACHE_EPOCH` in the spec file (Task 1; spec Section 4.5) |
+
+### Implementation review (Task 17)
+
+A Codex adversarial review of `origin/main...HEAD` raised 12 findings. Each was checked against
+the code and, where it made a claim about ASLPrep's outputs, against measurements.
+
+| # | Finding | Disposition |
+|---|---|---|
+| 1 | Multi-delay per-voxel errors undetected (CBF wrong in 40 % of voxels keeps the median) | accepted: `frac_within_10pct` against the fit of the same series, floor 0.5 (`tier_a_quant_agree`). The fit is ill-conditioned (F5 0.75, F6 0.66), so the floor only catches gross errors |
+| 2 | Strict xfails do not bound the size of the known failure | accepted: `Known(reason, path, lo, hi)`; the item fails if it passes or if the metric leaves its diagnosed range |
+| 3 | F7 never checks that the transforms are applied to the images | accepted: `resampling_margin`, the T1w map against the native map moved through ASLPrep's own coregistration, over a 4 mm misplacement (`space_resampling`, F1 and F7) |
+| 4 | Motion-free coregistration ignores the motion-correction transforms | accepted after measurement: `desc-preproc_asl` matches the raw series resampled through each full HMC transform (constant part included) better than at identity, so outputs carry it. Coregistration is now end to end, `C^-1 A_v R^-1`, for every recipe; `coreg_only_rms_voxels` reports the registration step |
+| 5 | Metric contract accepts NaN; missing quantification metrics pass silently | accepted: report-only metrics must be finite; the required quantification checks follow the delay type |
+| 6 | aBAT and aBV maps never scored | accepted: agreement with the reference fit, report-only, in the contract of F5 and F6 |
+| 7 | `ASLPREP_REQUIRE_FIXTURES=1` still lets fast-tier tests skip | accepted: `FixtureRequired`, which the skip handlers do not catch |
+| 8 | Per-volume timing fields averaged or broadcast wrongly | accepted (latent, no recipe hits it): `labeled_value` and observation rows |
+| 9 | Fixture and phantom caches trusted without content hashes | not changed: CI's restore step verifies content hashes before any test, and phantoms derive from TemplateFlow files with pinned hashes |
+| 10 | A dirty reused aslscan checkout would be stamped as pinned | accepted: tracked-file changes are refused |
+| 11 | Replacing a fixture is not atomic for concurrent readers | not changed: generation and tests never run concurrently on one data directory (CI generates in a separate job) |
+| 12 | 3D multi-delay PASL lost with `examples_pasl_multipld` | not changed: `test_computecbf_casl`/`_pasl` cover 3D multi-delay `ComputeCBF`, and `test_compare_slicetiming` ties 3D to 2D with zero slice times, which the fast tier checks numerically |
+
+Consequences of finding 4, measured on the existing outputs (end to end, then registration step
+alone, in voxels): F1 0.17 / 0.17, F2 0.15 / 0.07, F3 0.27 / 0.16, F4 0.17 / 0.15, F5 0.11 /
+0.11, F6 0.25 (rotation arc 0.33) / 0.09, F7 0.27. F3 and F6 now fail coregistration as known
+failures, for the same reason as F7.
+
+### Finding: motion correction offsets the motion-free series from its reference
+
+On motion-free data the HMC transforms share a constant part: 0.3 mm (F1), 0.6 mm (F3), 0.8 mm
+(F2), 1.2 mm (F6, about 1 degree of rotation), 0.02 mm (F5). It is applied:
+`desc-preproc_asl` matches the raw volumes resampled through each full transform better than
+the raw volumes at the same place (relative RMS difference 0.030 against 0.044 for F3) or
+through the volume-to-volume part only (0.044). The coregistration is estimated on the aslref,
+which stays close to the scanner frame (registration step alone 0.07-0.16 voxel), so the
+offset reaches every output. It is largest where the reference's contrast differs most from
+the volumes'. This explains F7's coregistration excess (to be confirmed with the motion-free
+F7 variant). Not yet reported.
