@@ -176,11 +176,10 @@ workflow filters (branch/tag) and can be halted by commit-message markers.
 #### Commit-message markers that halt jobs
 
 - Integration jobs stop early if the latest commit message contains a
-  job-specific marker such as `[skip qtab]`, `[skip test_001]`, or
-  `[skip examples_pcasl_singlepld_philips]` (case-insensitive; spaces or
-  underscores accepted between `skip` and the marker name).
-  - Exception: the `pcasl_singlepld_ge` job checks for
-    `[skip examples_pcasl_singlepld]` (without the `_ge` suffix).
+  job-specific marker such as `[skip qtab]` or `[skip test_001]`
+  (case-insensitive; spaces or underscores accepted between `skip` and the
+  marker name).
+  - Exception: the `aslscan_*` jobs all check for `[skip aslscan]`.
 - `pytests` stops early if the latest commit message contains
   `[skip pytests]` or `[skip_pytests]` (case-insensitive).
 

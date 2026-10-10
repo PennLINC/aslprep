@@ -1,0 +1,5 @@
+seed = 20261008
+[acquisition]
+oversample = 2
+matrix = [16, 16]
+noise_variance = 0.0

@@ -1,0 +1,15 @@
+seed = 20261008
+[acquisition]
+oversample = 2
+matrix = [64, 64]
+noise_variance = 0.0
+[readout]
+ky_segments = 4
+kz_segments = 1
+phase_encoding_direction = "j-"
+[m0]
+repetition_time = 3.0
+[background_suppression]
+# aslscan scales the label difference by (1 - 2 x inversion_efficiency) per pulse; 0.975 keeps
+# 95% of the ASL signal per pulse, the white-paper convention (Alsop et al. 2015).
+inversion_efficiency = 0.975

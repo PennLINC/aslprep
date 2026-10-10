@@ -1,0 +1,4 @@
+acq = "pcasl1pldgrase"
+anat = "derivatives"
+snr_per_pair = 50.0
+m0_divisor = 10.0

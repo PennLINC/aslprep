@@ -1,0 +1,13 @@
+seed = 20261008
+[acquisition]
+oversample = 2
+matrix = [64, 64]
+noise_variance = 0.0
+[readout]
+interleaves = 8
+spiral_readout_time = 4.0
+dwell_time = 4e-6
+[background_suppression]
+# aslscan scales the label difference by (1 - 2 x inversion_efficiency) per pulse; 0.975 keeps
+# 95% of the ASL signal per pulse, the white-paper convention (Alsop et al. 2015).
+inversion_efficiency = 0.975

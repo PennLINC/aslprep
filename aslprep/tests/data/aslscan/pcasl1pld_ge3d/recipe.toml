@@ -1,0 +1,5 @@
+acq = "pcasl1pldge3d"
+anat = "derivatives"
+snr_per_pair = 50.0
+keep_labeling_efficiency = false
+m0_divisor = 96.0
