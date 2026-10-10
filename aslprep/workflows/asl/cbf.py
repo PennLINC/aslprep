@@ -361,13 +361,18 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
             (mean_m0, extract_deltam, [('out_file', 'm0scan')]),
         ])  # fmt:skip
 
+    # The multi-delay model fit is the only part of ComputeCBF that is slow enough to thread.
+    # Its speedup levels off after a few threads, because it is limited by memory bandwidth.
+    fit_nthreads = min(config.nipype.omp_nthreads or 1, 8) if is_multi_pld else 1
     compute_cbf = pe.Node(
         ComputeCBF(
             cbf_only=processing_target == 'cbf',
             m0_scale=m0_scale,
+            num_threads=fit_nthreads,
         ),
-        mem_gb=0.2,
-        run_without_submitting=True,
+        mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else 0.2,
+        n_procs=fit_nthreads,
+        run_without_submitting=not is_multi_pld,
         name='compute_cbf',
     )
 

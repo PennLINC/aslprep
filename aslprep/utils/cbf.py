@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.stats import median_abs_deviation
@@ -1261,6 +1263,7 @@ def fit_deltam_multipld(
     ti1=None,
     xp=None,
     chunk_size=256,
+    n_jobs=1,
 ):
     """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
 
@@ -1296,6 +1299,10 @@ def fit_deltam_multipld(
         Defaults to NumPy.
     chunk_size : :obj:`int`, optional
         Number of voxels fit at once. Memory use scales linearly with this value.
+    n_jobs : :obj:`int`, optional
+        Number of threads across which chunks are distributed.
+        The array operations that dominate the fit release the GIL, so threads run in parallel.
+        Memory use scales linearly with this value. The results do not depend on it.
 
     Returns
     -------
@@ -1411,8 +1418,11 @@ def fit_deltam_multipld(
     weights = xp.asarray(weights)
     estimates = np.full((4, n_voxels), np.nan)
     valid_idx = np.flatnonzero(valid)
-    for start in range(0, valid_idx.size, chunk_size):
-        chunk = valid_idx[start : start + chunk_size]
+    chunks = [
+        valid_idx[start : start + chunk_size] for start in range(0, valid_idx.size, chunk_size)
+    ]
+
+    def fit_chunk(chunk):
         chunk_estimates = _fit_gkm_chunk(
             y=xp.asarray(y[chunk]),
             plds=xp.asarray(unique_plds[chunk]),
@@ -1423,7 +1433,16 @@ def fit_deltam_multipld(
             t1blood=t1blood,
             xp=xp,
         )
+        # Chunks hold different voxels, so threads never write to the same elements.
         estimates[:, chunk] = [_to_numpy(estimate) for estimate in chunk_estimates]
+
+    if n_jobs > 1 and len(chunks) > 1:
+        with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+            # Consume the iterator so that exceptions raised in the threads propagate.
+            list(executor.map(fit_chunk, chunks))
+    else:
+        for chunk in chunks:
+            fit_chunk(chunk)
 
     failures = ~valid
     fail_count = int(failures.sum())

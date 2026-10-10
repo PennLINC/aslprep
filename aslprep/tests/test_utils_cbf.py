@@ -288,3 +288,29 @@ def test_fit_deltam_multipld_invalid_voxels():
     for estimate in estimates[:4]:
         assert np.isfinite(estimate[0])
         assert np.isnan(estimate[1:]).all()
+
+
+def test_fit_deltam_multipld_threads():
+    """Fitting chunks in several threads gives exactly the same estimates as one thread."""
+    rng = np.random.default_rng(4)
+    n_voxels = 200
+    plds = np.tile([0.5, 1.0, 1.5, 2.0, 2.5], (n_voxels, 1))
+    m0 = rng.uniform(500, 1500, n_voxels)
+    m0[::17] = 0  # failed voxels must not shift the others
+    deltam = _simulate_multipld(True, plds, 1.8, _random_params(rng, n_voxels), m0)
+    deltam += rng.normal(0, 0.5, deltam.shape)
+    kwargs = {
+        'deltam_arr': deltam,
+        'scaled_m0data': m0,
+        'plds': plds,
+        'labeleff': 0.7,
+        't1blood': 1.65,
+        'partition_coefficient': 0.9,
+        'is_casl': True,
+        'tau': 1.8,
+        'chunk_size': 16,
+    }
+    serial = cbf.fit_deltam_multipld(**kwargs)
+    threaded = cbf.fit_deltam_multipld(**kwargs, n_jobs=4)
+    for serial_estimate, threaded_estimate in zip(serial, threaded, strict=True):
+        np.testing.assert_array_equal(threaded_estimate, serial_estimate)

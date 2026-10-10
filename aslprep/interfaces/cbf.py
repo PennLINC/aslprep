@@ -315,6 +315,12 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc='Whether data are deltam (False) or CBF (True).',
     )
+    num_threads = traits.Int(
+        1,
+        usedefault=True,
+        nohash=True,
+        desc='Number of threads used to fit the multi-delay model. Ignored for single-delay data.',
+    )
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -560,6 +566,7 @@ class ComputeCBF(SimpleInterface):
                 is_casl=is_casl,
                 tau=tau,  # defined for (P)CASL
                 ti1=ti1,  # defined for PASL
+                n_jobs=self.inputs.num_threads,
             )
 
             mean_cbf_img = masker.inverse_transform(cbf)
