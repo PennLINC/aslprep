@@ -1687,8 +1687,8 @@ packages:
   timestamp: 1760831179410
 - pypi: ./
   name: aslprep
-  version: 26.1.0.dev21+g7493dfeca
-  sha256: 181785813afaa66727c4b035a33f8d225189f5ed4168abddab89dbdc85991726
+  version: 26.1.0.dev27+g2a56ad542
+  sha256: f6302d7fa58501bbc9f7216e80d96613e159cd6271cb16c9c6bb4dc51b7f5384
   requires_dist:
   - acres>=0.5.0
   - fmriprep~=25.2.6
@@ -1760,8 +1760,8 @@ packages:
   editable: true
 - pypi: ./
   name: aslprep
-  version: 26.1.0.dev21+g7493dfeca
-  sha256: 181785813afaa66727c4b035a33f8d225189f5ed4168abddab89dbdc85991726
+  version: 26.1.0.dev27+g2a56ad542
+  sha256: f6302d7fa58501bbc9f7216e80d96613e159cd6271cb16c9c6bb4dc51b7f5384
   requires_dist:
   - acres>=0.5.0
   - fmriprep~=25.2.6
