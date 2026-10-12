@@ -138,6 +138,23 @@ you are ready to run *ASLPrep*. ::
         --participant-label label
 
 
+Running on a GPU
+================
+
+The ``--use-gpu`` flag runs the steps that support it on a GPU.
+At present that is only the model fit for multi-delay data;
+single-delay data and the rest of the workflow are unaffected.
+The estimates match the ones computed on the CPU.
+
+The flag needs a CUDA device and `CuPy <https://cupy.dev>`_.
+CuPy is not a dependency of *ASLPrep* and is not included in the Docker image,
+so it must be installed alongside *ASLPrep*, using the build that matches your CUDA version
+(for example, ``pip install cupy-cuda12x``).
+*ASLPrep* checks for both when it starts, and stops with an error if either is missing.
+In a container, the GPU must also be exposed to it
+(``--gpus all`` for Docker, ``--nv`` for Singularity/Apptainer).
+
+
 Handling environment variables
 ==============================
 

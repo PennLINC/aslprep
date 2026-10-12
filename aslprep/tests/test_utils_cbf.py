@@ -1,6 +1,7 @@
 """Tests for the aslprep.utils.cbf module."""
 
 import numpy as np
+import pytest
 
 from aslprep.utils import cbf
 
@@ -350,3 +351,74 @@ def test_fit_deltam_multipld_unidentifiable_att():
     np.testing.assert_allclose(fit_att, first_delays[:, 0] / 2, atol=1e-9)
     np.testing.assert_allclose(fit_cbf, params[:, 0], rtol=1e-6)
     np.testing.assert_allclose(fit_abv, 0, atol=1e-9)
+
+
+def test_get_array_module(monkeypatch):
+    """The GPU array library is returned only when it is importable and finds a device."""
+    import sys
+
+    from aslprep.tests.tests import stand_in_cupy
+
+    assert cbf.get_array_module() is np
+    assert cbf.get_array_module(use_gpu=False) is np
+
+    fake = stand_in_cupy()
+    monkeypatch.setitem(sys.modules, 'cupy', fake)
+    assert cbf.get_array_module(use_gpu=True) is fake
+
+    monkeypatch.setitem(sys.modules, 'cupy', stand_in_cupy(n_devices=0))
+    with pytest.raises(RuntimeError, match='did not find a CUDA device'):
+        cbf.get_array_module(use_gpu=True)
+
+    broken = stand_in_cupy()
+
+    def _raise():
+        raise OSError('no driver')
+
+    broken.cuda.runtime.getDeviceCount = _raise
+    monkeypatch.setitem(sys.modules, 'cupy', broken)
+    with pytest.raises(RuntimeError, match='could not query CUDA devices: no driver'):
+        cbf.get_array_module(use_gpu=True)
+
+    # None in sys.modules makes the import fail, as if CuPy were not installed
+    monkeypatch.setitem(sys.modules, 'cupy', None)
+    with pytest.raises(RuntimeError, match='requires CuPy'):
+        cbf.get_array_module(use_gpu=True)
+
+
+def test_fit_deltam_multipld_other_array_module(monkeypatch):
+    """Another array library gives the same estimates, with chunks sized by memory."""
+    from aslprep.tests.tests import stand_in_cupy
+
+    rng = np.random.default_rng(6)
+    n_voxels = 60
+    plds = np.tile([0.5, 1.0, 1.5, 2.0, 2.5], (n_voxels, 1))
+    m0 = rng.uniform(500, 1500, n_voxels)
+    deltam = _simulate_multipld(True, plds, 1.8, _random_params(rng, n_voxels), m0)
+    deltam += rng.normal(0, 0.5, deltam.shape)
+    kwargs = {
+        'deltam_arr': deltam,
+        'scaled_m0data': m0,
+        'plds': plds,
+        'labeleff': 0.7,
+        't1blood': 1.65,
+        'partition_coefficient': 0.9,
+        'is_casl': True,
+        'tau': 1.8,
+    }
+    expected = cbf.fit_deltam_multipld(**kwargs)
+
+    chunk_sizes = []
+    fit_chunk = cbf._fit_gkm_chunk
+
+    def _record(y, **chunk_kwargs):
+        chunk_sizes.append(y.shape[0])
+        return fit_chunk(y=y, **chunk_kwargs)
+
+    monkeypatch.setattr(cbf, '_fit_gkm_chunk', _record)
+    # 5 delays give 11 intervals, so each voxel needs 11 * 11 * 11 elements: 25 voxels fit
+    monkeypatch.setattr(cbf, 'MULTIPLD_GPU_CHUNK_ELEMENTS', 25 * 11**3)
+    estimates = cbf.fit_deltam_multipld(**kwargs, xp=stand_in_cupy())
+    assert chunk_sizes == [25, 25, 10]
+    for estimate, expected_estimate in zip(estimates, expected, strict=True):
+        np.testing.assert_array_equal(estimate, expected_estimate)

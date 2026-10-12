@@ -25,7 +25,13 @@ from aslprep.utils.asl import (
     estimate_labeling_efficiency,
     pcasl_or_pasl,
 )
-from aslprep.utils.cbf import _getcbfscore, _scrubcbf, estimate_t1, fit_deltam_multipld
+from aslprep.utils.cbf import (
+    _getcbfscore,
+    _scrubcbf,
+    estimate_t1,
+    fit_deltam_multipld,
+    get_array_module,
+)
 
 
 class _RefineMaskInputSpec(BaseInterfaceInputSpec):
@@ -321,6 +327,11 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         nohash=True,
         desc='Number of threads used to fit the multi-delay model. Ignored for single-delay data.',
     )
+    use_gpu = traits.Bool(
+        False,
+        usedefault=True,
+        desc='Fit the multi-delay model on a GPU, with CuPy. Ignored for single-delay data.',
+    )
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -566,6 +577,7 @@ class ComputeCBF(SimpleInterface):
                 is_casl=is_casl,
                 tau=tau,  # defined for (P)CASL
                 ti1=ti1,  # defined for PASL
+                xp=get_array_module(self.inputs.use_gpu),
                 n_jobs=self.inputs.num_threads,
             )
 

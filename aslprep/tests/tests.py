@@ -79,3 +79,24 @@ def mock_config():
 
     if not _old_fs:
         del os.environ['FREESURFER_HOME']
+
+
+def stand_in_cupy(n_devices=1):
+    """Build a module that looks like CuPy to ASLPrep, but computes with NumPy.
+
+    This exercises the code paths that select and use a GPU array library on machines without
+    a GPU. It does not test CuPy itself.
+    """
+    import types
+
+    import numpy as np
+
+    module = types.ModuleType('cupy')
+    for name in dir(np):
+        if not name.startswith('__'):
+            setattr(module, name, getattr(np, name))
+
+    module.cuda = types.SimpleNamespace(
+        runtime=types.SimpleNamespace(getDeviceCount=lambda: n_devices)
+    )
+    return module

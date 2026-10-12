@@ -185,7 +185,9 @@ The data only constrain aBAT to an interval between consecutive labeled-bolus ar
 departure times, so aBAT was reported as the midpoint of its interval.
 Where a range of ATT values fit equally well
 (for example, when ATT was shorter than every delay),
-ATT was likewise reported as the midpoint of that range.
+ATT was likewise reported as the midpoint of that range.{
+            ' The fit was run on a GPU with CuPy.' if config.nipype.use_gpu else ''
+        }
 """
 
     elif is_casl:
@@ -366,12 +368,16 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 
     # The multi-delay model fit is the only part of ComputeCBF that is slow enough to thread.
     # Its speedup levels off after a few threads, because it is limited by memory bandwidth.
+    # On a GPU, chunks are fit one after another, so extra threads would not help.
+    fit_on_gpu = config.nipype.use_gpu and is_multi_pld
     fit_nthreads = min(config.nipype.omp_nthreads or 1, 3) if is_multi_pld else 1
+    fit_nthreads = 1 if fit_on_gpu else fit_nthreads
     compute_cbf = pe.Node(
         ComputeCBF(
             cbf_only=processing_target == 'cbf',
             m0_scale=m0_scale,
             num_threads=fit_nthreads,
+            use_gpu=fit_on_gpu,
         ),
         mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else 0.2,
         n_procs=fit_nthreads,

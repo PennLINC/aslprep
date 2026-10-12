@@ -1004,6 +1004,13 @@ MULTIPLD_ATT_PASSES = 6
 #: that later passes refine in each voxel.
 MULTIPLD_REFINED_INTERVALS = 8
 
+#: Number of voxels fit at once with NumPy.
+MULTIPLD_CHUNK_SIZE = 256
+
+#: Number of elements in each of the largest working arrays when fitting on a GPU.
+#: The fit holds a few dozen such arrays of doubles at once, so this uses 1-2 GB of GPU memory.
+MULTIPLD_GPU_CHUNK_ELEMENTS = 15_000_000
+
 
 def _gkm_tissue_basis(att, plds, bolus, is_casl, labeleff, t1blood, xp):
     """Calculate the tissue delta-M per unit CBF and per unit M0a.
@@ -1267,6 +1274,46 @@ def _to_numpy(arr):
     return arr.get() if hasattr(arr, 'get') else np.asarray(arr)
 
 
+def get_array_module(use_gpu=False):
+    """Select the array library for the multi-delay model fit.
+
+    Parameters
+    ----------
+    use_gpu : :obj:`bool`, optional
+        Whether to run the fit on a GPU.
+
+    Returns
+    -------
+    xp : module
+        :mod:`cupy` if ``use_gpu`` is True, otherwise :mod:`numpy`.
+
+    Raises
+    ------
+    RuntimeError
+        If ``use_gpu`` is True, but CuPy cannot be imported or cannot find a CUDA device.
+    """
+    if not use_gpu:
+        return np
+
+    try:
+        import cupy
+    except ImportError as exc:
+        raise RuntimeError(
+            'Running on a GPU requires CuPy, which could not be imported. '
+            'Install the CuPy build that matches your CUDA version (e.g., cupy-cuda12x).'
+        ) from exc
+
+    try:
+        n_devices = cupy.cuda.runtime.getDeviceCount()
+    except Exception as exc:  # CuPy raises backend-specific errors here
+        raise RuntimeError(f'CuPy could not query CUDA devices: {exc}') from exc
+
+    if n_devices < 1:
+        raise RuntimeError('CuPy did not find a CUDA device.')
+
+    return cupy
+
+
 def fit_deltam_multipld(
     deltam_arr,
     scaled_m0data,
@@ -1278,7 +1325,7 @@ def fit_deltam_multipld(
     tau=None,
     ti1=None,
     xp=None,
-    chunk_size=256,
+    chunk_size=None,
     n_jobs=1,
 ):
     """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
@@ -1313,8 +1360,11 @@ def fit_deltam_multipld(
     xp : module or None, optional
         NumPy-compatible array library used for the fit, such as :mod:`cupy` to run on a GPU.
         Defaults to NumPy.
-    chunk_size : :obj:`int`, optional
+    chunk_size : :obj:`int` or None, optional
         Number of voxels fit at once. Memory use scales linearly with this value.
+        By default, NumPy uses :data:`MULTIPLD_CHUNK_SIZE`, which keeps the working arrays in
+        the CPU cache, and other libraries use as many voxels as fit in
+        :data:`MULTIPLD_GPU_CHUNK_ELEMENTS` elements per working array.
     n_jobs : :obj:`int`, optional
         Number of threads across which chunks are distributed.
         The array operations that dominate the fit release the GIL, so threads run in parallel.
@@ -1435,6 +1485,15 @@ def fit_deltam_multipld(
 
     bolus = xp.asarray(tau[first_volumes][None, :]) if is_casl else float(ti1)
     weights = xp.asarray(weights)
+    if chunk_size is None and xp is np:
+        chunk_size = MULTIPLD_CHUNK_SIZE
+    elif chunk_size is None:
+        # The largest working arrays hold one element per voxel, per combination of an ATT
+        # interval and an aBAT interval, per ATT grid point.
+        n_intervals = 2 * counts.size + 1
+        elements_per_voxel = n_intervals**2 * MULTIPLD_ATT_GRID_SIZE
+        chunk_size = max(1, MULTIPLD_GPU_CHUNK_ELEMENTS // elements_per_voxel)
+
     estimates = np.full((4, n_voxels), np.nan)
     valid_idx = np.flatnonzero(valid)
     chunks = [
