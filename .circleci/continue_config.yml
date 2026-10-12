@@ -687,6 +687,7 @@ workflows:
                 - aslscan_pasl1pld
                 - aslscan_pcasl_multipld
                 - aslscan_pasl_multipld
+                - aslscan_pcasl_multipld_ukb
                 - aslscan_motion
               fixtures: [true]
               skip_marker: [aslscan]
@@ -741,6 +742,7 @@ workflows:
             - aslscan_pasl1pld
             - aslscan_pcasl_multipld
             - aslscan_pasl_multipld
+            - aslscan_pcasl_multipld_ukb
             - aslscan_motion
             - unit_tests
           filters: *default_filters
