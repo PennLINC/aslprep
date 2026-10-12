@@ -653,24 +653,20 @@ class ComputeCBF(SimpleInterface):
                         f'Expected two BolusCutOffDelayTimes, but got '
                         f'{metadata["BolusCutOffDelayTime"]}'
                     )
-                denom_factor = metadata['BolusCutOffDelayTime'][0]  # called TI1 in Noguchi 2015
+                # The first BolusCutOffDelayTime is the bolus duration (TI1 in Alsop 2015).
+                # The second is the end of the saturation pulse train, not the inversion time
+                # (TI in Alsop 2015, TI2 in Noguchi 2015), which is the PLD, as for QUIPSS II.
+                denom_factor = metadata['BolusCutOffDelayTime'][0]
 
             else:
                 raise ValueError(
                     f'Unknown BolusCutOffTechnique {metadata["BolusCutOffTechnique"]}'
                 )
 
-            # Q2TIPS uses TI2 instead of w (PLD), see Noguchi 2015 for this info.
-            exp_numerator = (
-                metadata['BolusCutOffDelayTime'][1]
-                if metadata.get('BolusCutOffTechnique') == 'Q2TIPS'
-                else plds
-            )
-
             # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
             deltam_scaled = deltam_arr / scaled_m0data[:, None]
 
-            perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(exp_numerator / t1blood)) / (
+            perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
                 denom_factor * 2 * labeleff
             )
 

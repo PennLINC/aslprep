@@ -1,7 +1,7 @@
 """F4: single-delay 2D PASL with QUIPSS II and interleaved slices (spec Section 5).
 
 New coverage (no existing real-data test runs single-delay PASL). QUIPSS II rather than
-Q2TIPS: single-delay Q2TIPS has a known quantification discrepancy, pinned in the fast tier.
+Q2TIPS: this recipe predates the single-delay Q2TIPS fix (#701), which the fast tier covers.
 """
 
 import pytest
