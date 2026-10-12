@@ -253,13 +253,16 @@ inline-quotes = "single"
 quote-style = "single"
 
 [tool.pytest.ini_options]
-addopts = '-m "not examples_pcasl_singlepld_philips and not examples_pcasl_singlepld_siemens and not examples_pcasl_singlepld_ge and not examples_pcasl_multipld and not examples_pasl_multipld and not qtab and not test_001 and not test_002 and not test_003_minimal and not test_003_resampling and not test_003_full"'
+addopts = '-m "not qtab and not test_001 and not test_002 and not test_003_minimal and not test_003_resampling and not test_003_full and not aslscan"'
 markers = [
-    "examples_pasl_multipld: mark integration test",
-    "examples_pcasl_multipld: mark integration test",
-    "examples_pcasl_singlepld_ge: mark integration test",
-    "examples_pcasl_singlepld_philips: mark integration test",
-    "examples_pcasl_singlepld_siemens: mark integration test",
+    "aslscan: truth-scored integration test on an aslscan fixture (all of them)",
+    "aslscan_pcasl1pld: truth-scored integration test (F1, single-delay 2D PCASL)",
+    "aslscan_pcasl1pld_ge3d: truth-scored integration test (F2, GE-style 3D spiral PCASL)",
+    "aslscan_pcasl1pld_grase: truth-scored integration test (F3, 3D GRASE PCASL)",
+    "aslscan_pasl1pld: truth-scored integration test (F4, single-delay 2D PASL)",
+    "aslscan_pcasl_multipld: truth-scored integration test (F5, multi-delay 2D PCASL)",
+    "aslscan_pasl_multipld: truth-scored integration test (F6, multi-delay 2D PASL)",
+    "aslscan_motion: truth-scored integration test (F7, head motion and coregistration)",
     "qtab: mark integration test",
     "test_001: mark integration test",
     "test_002: mark integration test",

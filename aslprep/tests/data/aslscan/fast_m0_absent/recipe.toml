@@ -1,0 +1,3 @@
+phantom = "crop:tfmni:110:150,110:150,100:124"
+anat = "none"
+acq = "fastm0absent"

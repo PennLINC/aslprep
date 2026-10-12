@@ -216,6 +216,13 @@ ASLPrep now follows the same CI trigger-condition pattern as XCP-D:
   - Base image rebuild remains controlled by `BASE_IMAGE` manifest existence; `Dockerfile.base` edits alone do not force a rebuild when the tag exists.
   - Gating is two-layered: file-path filters in `config.yml` decide whether the continuation pipeline runs at all, and workflow-level branch/tag filters inside `continue_config.yml` then split branch pushes (`run_tests`) from tag pushes (`deploy`). The production image is built and pushed from `image_prep` itself, on `main` pushes and tags only.
 
+- **Simulated ground-truth fixtures** (`gen_aslscan_fixtures` in `continue_config.yml`):
+  - Generates the aslscan datasets (`aslprep/tests/aslscan_fixtures.py`, recipes in `aslprep/tests/data/aslscan/`) on a docker executor, building aslscan from pinned revisions with a pinned Rust toolchain and the vendored `aslprep/tests/data/aslscan-Cargo.lock`.
+  - The cache key is the checksum of `.circleci/aslscan_fixtures.txt`, a generated file (`python -m aslprep.tests.aslscan_fixtures --spec`) that pins every input. A unit test and the job itself fail if it is stale; regenerate and commit it after editing a recipe or the hashed builder modules.
+  - CircleCI caches are immutable: to discard a bad cache entry, bump `CACHE_EPOCH` in `aslscan_fixtures.py` and regenerate the spec file.
+  - Only `unit_tests` and the `aslscan_*` integration jobs restore the fixtures (`restore_aslscan_fixtures`, which also verifies them in the test image) and require the generator job. They run with `ASLPREP_REQUIRE_FIXTURES=1`, so a missing fixture fails rather than skips. `[skip aslscan]` skips the integration jobs.
+  - Truth-scored jobs write `truth_score.json` per run (artifacts) and JUnit results (Tests tab). Ceilings live in `aslprep/tests/truth_bounds.py`; see `docs/developers.rst`.
+
 ### Linting Notes
 
 ASLPrep's ruff configuration (`extend-select` and `ignore`) matches fMRIPrep's. The suppressed rules are:

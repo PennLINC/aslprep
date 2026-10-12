@@ -84,8 +84,7 @@ def collect_run_data(layout, asl_file):
             raise Exception(f'No metadata for m0scan: {run_data["m0scan"]}')
     elif run_data['m0scan']:
         raise ValueError(
-            f'M0Type is {run_data["asl_metadata"]["M0Type"]}, '
-            f'but an M0 scan was found at {run_data["m0scan"]}'
+            f'M0Type is {asl_metadata["M0Type"]}, but an M0 scan was found at {run_data["m0scan"]}'
         )
 
     config.loggers.workflow.info(

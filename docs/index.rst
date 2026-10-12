@@ -25,6 +25,7 @@ Contents
    outputs
    spaces
    contributors
+   developers
    api
    bids
    What's New <https://github.com/PennLINC/aslprep/releases>
