@@ -20,240 +20,6 @@ from aslprep.tests.utils import (
 nipype_config.enable_debug_mode()
 
 
-@pytest.mark.examples_pasl_multipld
-def test_examples_pasl_multipld(data_dir, output_dir, working_dir):
-    """Run aslprep on the asl_003 ASL-BIDS examples dataset.
-
-    This dataset has 10 control-label pairs at 10 different PLDs, along with a separate M0 scan.
-    The BolusCutOffTechnique is Q2TIPS.
-    The manufacturer is Siemens.
-
-    PASL multi-delay data is not yet supported.
-    """
-    TEST_NAME = 'examples_pasl_multipld'
-    PARTICIPANT_LABEL = '01'
-
-    dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
-    out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
-    work_dir = os.path.join(working_dir, TEST_NAME)
-
-    os.makedirs(out_dir, exist_ok=True)
-    filters = {'asl': {'acquisition': 'paslmultipld'}}
-    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
-    with open(bids_filter_file, 'w') as f:
-        json.dump(filters, f, indent=4, sort_keys=True)
-
-    parameters = [
-        dataset_dir,
-        out_dir,
-        'participant',
-        f'--participant-label={PARTICIPANT_LABEL}',
-        f'-w={work_dir}',
-        f'--bids-filter-file={bids_filter_file}',
-        '--output-spaces=asl',
-        '--scorescrub',
-        '--basil',
-        '--m0_scale=10',
-        '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
-        '--derivatives',
-        smriprep_dir,
-        '--atlases',
-        '4S156Parcels',
-        '4S1056Parcels',
-    ]
-
-    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
-
-
-@pytest.mark.examples_pcasl_multipld
-def test_examples_pcasl_multipld(data_dir, output_dir, working_dir):
-    """Run aslprep on the asl_004 ASL-BIDS examples dataset.
-
-    This dataset has 48 control-label pairs at 6 different PLDs, along with a separate M0 scan.
-    The manufacturer is Siemens.
-    """
-    TEST_NAME = 'examples_pcasl_multipld'
-    PARTICIPANT_LABEL = '01'
-
-    dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
-    out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
-    work_dir = os.path.join(working_dir, TEST_NAME)
-
-    os.makedirs(out_dir, exist_ok=True)
-    filters = {'asl': {'acquisition': 'pcaslmultipld'}}
-    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
-    with open(bids_filter_file, 'w') as f:
-        json.dump(filters, f, indent=4, sort_keys=True)
-
-    parameters = [
-        dataset_dir,
-        out_dir,
-        'participant',
-        f'--participant-label={PARTICIPANT_LABEL}',
-        f'-w={work_dir}',
-        f'--bids-filter-file={bids_filter_file}',
-        '--output-spaces=asl',
-        '--scorescrub',
-        '--m0_scale=10',
-        '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
-        '--derivatives',
-        smriprep_dir,
-        '--atlases',
-        '4S156Parcels',
-        '4S1056Parcels',
-    ]
-
-    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
-
-
-@pytest.mark.examples_pcasl_singlepld_ge
-def test_examples_pcasl_singlepld_ge(data_dir, output_dir, working_dir):
-    """Run aslprep on the asl_001 ASL-BIDS examples dataset.
-
-    This test uses a GE session with two volumes: one deltam and one M0.
-    """
-    TEST_NAME = 'examples_pcasl_singlepld_ge'
-    PARTICIPANT_LABEL = '01'
-
-    dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
-    out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
-    work_dir = os.path.join(working_dir, TEST_NAME)
-
-    os.makedirs(out_dir, exist_ok=True)
-    filters = {
-        'asl': {
-            'acquisition': 'pcaslsinglepldge3d',
-            'run': '01',
-        }
-    }
-    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
-    with open(bids_filter_file, 'w') as f:
-        json.dump(filters, f, indent=4, sort_keys=True)
-
-    parameters = [
-        dataset_dir,
-        out_dir,
-        'participant',
-        f'--participant-label={PARTICIPANT_LABEL}',
-        f'-w={work_dir}',
-        f'--bids-filter-file={bids_filter_file}',
-        '--output-spaces=asl',
-        '--scorescrub',
-        '--basil',
-        '--m0_scale=96',
-        '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
-        '--derivatives',
-        smriprep_dir,
-        '--atlases',
-        '4S156Parcels',
-        '4S1056Parcels',
-    ]
-
-    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
-
-
-@pytest.mark.examples_pcasl_singlepld_philips
-def test_examples_pcasl_singlepld_philips(data_dir, output_dir, working_dir):
-    """Run aslprep on the asl_002 ASL-BIDS examples dataset.
-
-    This test uses a Philips session.
-    The appropriate M0 scale is unknown for this dataset, so CBF values will be inflated.
-    """
-    TEST_NAME = 'examples_pcasl_singlepld_philips'
-    PARTICIPANT_LABEL = '01'
-
-    dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
-    out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
-    work_dir = os.path.join(working_dir, TEST_NAME)
-
-    os.makedirs(out_dir, exist_ok=True)
-    filters = {
-        'asl': {
-            'acquisition': 'pcaslsinglepldphilips2d',
-        }
-    }
-    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
-    with open(bids_filter_file, 'w') as f:
-        json.dump(filters, f, indent=4, sort_keys=True)
-
-    parameters = [
-        dataset_dir,
-        out_dir,
-        'participant',
-        f'--participant-label={PARTICIPANT_LABEL}',
-        f'-w={work_dir}',
-        f'--bids-filter-file={bids_filter_file}',
-        '--output-spaces',
-        'asl',
-        '--scorescrub',
-        '--basil',
-        '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
-        '--derivatives',
-        smriprep_dir,
-        '--atlases',
-        '4S156Parcels',
-        '4S1056Parcels',
-    ]
-
-    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
-
-
-@pytest.mark.examples_pcasl_singlepld_siemens
-def test_examples_pcasl_singlepld_siemens(data_dir, output_dir, working_dir):
-    """Run aslprep on the asl_005 ASL-BIDS examples dataset.
-
-    This test uses a Siemens session.
-    """
-    TEST_NAME = 'examples_pcasl_singlepld_siemens'
-    PARTICIPANT_LABEL = '01'
-
-    dataset_dir = download_test_data('nonqtab', data_dir)
-    smriprep_dir = os.path.join(dataset_dir, 'derivatives/smriprep')
-    out_dir = os.path.join(output_dir, TEST_NAME, 'aslprep')
-    work_dir = os.path.join(working_dir, TEST_NAME)
-
-    os.makedirs(out_dir, exist_ok=True)
-    filters = {
-        'asl': {
-            'acquisition': 'pcaslsinglepldsiemens3d',
-            'run': '01',
-        }
-    }
-    bids_filter_file = os.path.join(output_dir, TEST_NAME, 'bids_filters.json')
-    with open(bids_filter_file, 'w') as f:
-        json.dump(filters, f, indent=4, sort_keys=True)
-
-    parameters = [
-        dataset_dir,
-        out_dir,
-        'participant',
-        f'--participant-label={PARTICIPANT_LABEL}',
-        f'-w={work_dir}',
-        f'--bids-filter-file={bids_filter_file}',
-        '--output-spaces',
-        'MNI152NLin2009cAsym',
-        '--basil',
-        '--m0_scale=10',
-        '--fs-no-resume',
-        f'--fs-subjects-dir={os.path.join(smriprep_dir, "sourcedata/freesurfer")}',
-        '--derivatives',
-        smriprep_dir,
-        '--atlases',
-        '4S156Parcels',
-        '4S1056Parcels',
-    ]
-
-    _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
-
-
 @pytest.mark.qtab
 def test_qtab(data_dir, output_dir, working_dir):
     """Run aslprep on QTAB data.
@@ -504,7 +270,11 @@ def base_test_003(data_dir, output_dir, working_dir, level, extra_params, output
     _run_and_generate(level_test_name, PARTICIPANT_LABEL, parameters, out_dir)
 
 
-def _run_and_generate(test_name, participant_label, parameters, out_dir):
+def _run_and_generate(test_name, participant_label, parameters, out_dir, check_outputs=True):
+    """Run ASLPrep in-process, write its reports, and (optionally) check the output list.
+
+    Returns the path of the run's config file.
+    """
     from aslprep import config
     from aslprep.utils.bids import write_atlas_dataset_description, write_derivative_description
 
@@ -546,8 +316,10 @@ def _run_and_generate(test_name, participant_label, parameters, out_dir):
         bootstrap_file=load_data('reports-spec.yml'),
     )
 
-    output_list_file = os.path.join(get_test_data_path(), f'expected_outputs_{test_name}.txt')
-    check_generated_files(out_dir, output_list_file)
+    if check_outputs:
+        output_list_file = os.path.join(get_test_data_path(), f'expected_outputs_{test_name}.txt')
+        check_generated_files(out_dir, output_list_file)
+    return config_file
 
 
 def _run_and_fail(parameters):

@@ -1,96 +1,105 @@
 #!/usr/bin/env python3
-"""Run tests locally by calling Docker."""
+"""Run tests locally in the ASLPrep test image, the way CircleCI does.
+
+Build the image from this checkout first::
+
+    docker build --target test -t pennlinc/aslprep:test .
+
+The checkout is mounted read-only at CI's path and used as the working directory, so code
+edits need no rebuild (only Dockerfile or pixi.lock changes do). Test data, including the
+aslscan fixtures, are read from ``--data-dir`` (default ``aslprep/tests/test_data``);
+generate the fixtures on the host first (see ``python -m aslprep.tests.aslscan_fixtures -h``).
+Outputs go to ``aslprep/tests/pytests/``.
+"""
 
 import argparse
 import os
 import subprocess
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+CI_SOURCE = '/tmp/src/aslprep'  # noqa: S108 - the path inside the container, as in CI
+FORWARDED_ENV = ('ASLPREP_REQUIRE_FIXTURES',)
 
 
 def _get_parser():
-    """Parse command line inputs for tests.
-
-    Returns
-    -------
-    parser.parse_args() : argparse dict
-    """
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument(
-        '-k',
-        dest='test_regex',
-        metavar='PATTERN',
-        type=str,
-        help='Test pattern.',
-        required=False,
-        default=None,
+    parser = argparse.ArgumentParser(
+        description=__doc__.split('\n\n')[0],
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    parser.add_argument('-k', dest='test_regex', metavar='PATTERN', help='Test pattern.')
+    parser.add_argument('-m', dest='test_mark', metavar='LABEL', help='Test mark label.')
     parser.add_argument(
-        '-m',
-        dest='test_mark',
-        metavar='LABEL',
-        type=str,
-        help='Test mark label.',
-        required=False,
-        default=None,
+        '--data-dir',
+        type=Path,
+        default=REPO / 'aslprep' / 'tests' / 'test_data',
+        help='Test data directory, mounted read-only at /data.',
     )
+    parser.add_argument('--image', default='pennlinc/aslprep:test', help='Docker image.')
+    parser.add_argument('--cpus', type=int, default=4, help='CIRCLE_CPUS for the run.')
     return parser
 
 
-def run_command(command, env=None):
-    """Run a given shell command with certain environment variables set.
+def run_tests(
+    test_regex=None, test_mark=None, data_dir=None, image='pennlinc/aslprep:test', cpus=4
+):
+    """Run pytest in the test image with CI's mounts and options."""
+    data_dir = Path(data_dir or REPO / 'aslprep' / 'tests' / 'test_data').resolve()
+    pytests = REPO / 'aslprep' / 'tests' / 'pytests'
+    mounts = {
+        REPO: f'{CI_SOURCE}:ro',
+        data_dir: '/data:ro',
+        pytests / 'out': '/out',
+        pytests / 'work': '/work',
+        pytests / 'test-results': '/test-results',
+    }
+    docker = ['docker', 'run', '--rm', '-e', f'CIRCLE_CPUS={cpus}']
+    for name in FORWARDED_ENV:
+        if name in os.environ:
+            docker += ['-e', f'{name}={os.environ[name]}']
+    for host, container in mounts.items():
+        Path(host).mkdir(parents=True, exist_ok=True)
+        docker += ['-v', f'{host}:{container}']
+    docker += ['-w', CI_SOURCE]
 
-    Keep this out of the real aslprep code so that devs don't need to install ASLPrep to run tests.
-    """
-    merged_env = os.environ
-    if env:
-        merged_env.update(env)
-
-    process = subprocess.Popen(
-        command.split(),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        shell=False,
-        env=merged_env,
+    # Show which aslprep the container imports (it must be the mounted checkout).
+    subprocess.run(
+        [
+            *docker,
+            '--entrypoint',
+            'python',
+            image,
+            '-c',
+            'import aslprep; print(aslprep.__file__)',
+        ],
+        check=True,
     )
-    while True:
-        line = process.stdout.readline()
-        line = str(line, 'utf-8')[:-1]
-        print(line)
-        if line == '' and process.poll() is not None:
-            break
-
-    if process.returncode != 0:
-        raise RuntimeError(
-            f'Non zero return code: {process.returncode}\n{command}\n\n{process.stdout.read()}'
-        )
-
-
-def run_tests(test_regex, test_mark):
-    """Run the tests."""
-    local_patch = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    mounted_code = '/app/.pixi/envs/aslprep/lib/python3.12/site-packages/aslprep'
-    run_str = 'docker run --rm -ti '
-    run_str += f'-v {local_patch}:{mounted_code} '
-    run_str += '--entrypoint pytest '
-    run_str += 'pennlinc/aslprep:unstable '
-    run_str += (
-        f'{mounted_code}/aslprep '
-        f'--data_dir={mounted_code}/aslprep/tests/test_data '
-        f'--output_dir={mounted_code}/aslprep/tests/pytests/out '
-        f'--working_dir={mounted_code}/aslprep/tests/pytests/work '
-    )
+    cmd = [
+        *docker,
+        '--entrypoint',
+        'pytest',
+        image,
+        '--strict-markers',
+        '--strict-config',
+        '-rP',
+        '-o',
+        'log_cli=true',
+        '--junitxml=/test-results/local.xml',
+        '--data_dir=/data',
+        '--output_dir=/out',
+        '--working_dir=/work',
+    ]
     if test_regex:
-        run_str += f'-k {test_regex} '
-    elif test_mark:
-        run_str += f'-rP -o log_cli=true -m {test_mark} '
-
-    run_command(run_str)
+        cmd += ['-k', test_regex]
+    if test_mark:
+        cmd += ['-m', test_mark]
+    cmd.append('aslprep/tests')
+    subprocess.run(cmd, check=True)
 
 
 def _main(argv=None):
-    """Run the tests."""
     options = _get_parser().parse_args(argv)
-    kwargs = vars(options)
-    run_tests(**kwargs)
+    run_tests(**vars(options))
 
 
 if __name__ == '__main__':

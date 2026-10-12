@@ -21,3 +21,7 @@ Dockerfile*    text eol=lf
 *.jpg      binary
 *.nii.gz   binary
 *.gpg      binary
+
+# The aslscan fixture spec is a CI cache key and recipe inputs are hashed into it.
+.circleci/aslscan_fixtures.txt text eol=lf
+aslprep/tests/data/aslscan/** text eol=lf

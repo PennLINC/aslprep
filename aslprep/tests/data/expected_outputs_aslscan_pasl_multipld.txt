@@ -14,12 +14,6 @@ sourcedata/atlases/tpl-MNI152NLin6Asym/tpl-MNI152NLin6Asym_atlas-4S156Parcels_re
 sourcedata/atlases/tpl-MNI152NLin6Asym/tpl-MNI152NLin6Asym_atlas-4S156Parcels_res-01_dseg.nii.gz
 sourcedata/atlases/tpl-MNI152NLin6Asym/tpl-MNI152NLin6Asym_atlas-4S156Parcels_res-01_dseg.tsv
 sub-01.html
-sub-01/anat/sub-01_desc-aparcaseg_dseg.nii.gz
-sub-01/anat/sub-01_desc-aseg_dseg.nii.gz
-sub-01/anat/sub-01_hemi-L_desc-preproc_curv.shape.gii
-sub-01/anat/sub-01_hemi-L_desc-preproc_inflated.surf.gii
-sub-01/anat/sub-01_hemi-R_desc-preproc_curv.shape.gii
-sub-01/anat/sub-01_hemi-R_desc-preproc_inflated.surf.gii
 sub-01/perf/sub-01_acq-paslmultipld_abat.json
 sub-01/perf/sub-01_acq-paslmultipld_abat.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_abv.json

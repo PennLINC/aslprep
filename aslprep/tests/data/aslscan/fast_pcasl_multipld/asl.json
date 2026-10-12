@@ -1,0 +1,48 @@
+{
+  "Manufacturer": "aslscan",
+  "MagneticFieldStrength": 3,
+  "MRAcquisitionType": "2D",
+  "PulseSequenceType": "EPI",
+  "PhaseEncodingDirection": "j-",
+  "ArterialSpinLabelingType": "PCASL",
+  "BackgroundSuppression": false,
+  "VascularCrushing": false,
+  "FlipAngle": 90,
+  "LabelingDuration": 1.5,
+  "PostLabelingDelay": [
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.5,
+    1.5,
+    1.5,
+    1.5,
+    2.0,
+    2.0,
+    2.5,
+    2.5
+  ],
+  "RepetitionTimePreparation": 5.0,
+  "EchoTime": 0.012,
+  "TotalReadoutTime": 0.02,
+  "AcquisitionVoxelSize": [
+    2.5,
+    2.5,
+    4.0
+  ],
+  "SliceTiming": [
+    0.0,
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25
+  ],
+  "M0Type": "Separate",
+  "TotalAcquiredPairs": 8
+}
