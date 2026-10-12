@@ -629,8 +629,9 @@ shifted 4 mm.
   the brain edge this adds delta-M errors several times the true delta-M, and 1.3 % of brain
   voxels end at the fit's CBF bound of 300. The independent fit gives a median of 45 on the raw
   series and 300 on ASLPrep's preprocessed series. F5 (PCASL) pairs agree within 0.04 mm and
-  no brain voxel reaches the bound. A strict xfail on F6's `test_fit_bound`, which asserts that
-  at most 0.5 % of brain voxels reach the bound.
+  no brain voxel reaches the bound. `test_fit_bound` asserts that at most 0.5 % of brain voxels
+  reach the bound. It was a strict xfail until the on-grid M0 stopped being smoothed before
+  the reference image was built from it (#703); it is an ordinary check again.
 - **pybids reads the datatype from the whole path.** A dataset under a directory named after
   a BIDS datatype (here `/aslscan/motion/`) gets that datatype for every file, and ASLPrep finds
   no ASL run. The recipe was renamed `headmotion`, and recipe names are now checked. Real
@@ -735,6 +736,9 @@ which stays close to the scanner frame (registration step alone 0.07-0.16 voxel)
 offset reaches every output. It is largest where the reference's contrast differs most from
 the volumes'. It explains the coregistration failures of F3 and F6 (derivatives anatomy, so the
 registration step alone is small). Reported as #707.
+
+With the reference image built from an unsmoothed on-grid M0 (#703), F3's displacement and
+F6's rotation items pass and are ordinary checks again.
 
 ### Finding: F7's coregistration excess is a fixture inconsistency
 
