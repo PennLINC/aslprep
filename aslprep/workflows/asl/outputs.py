@@ -38,7 +38,9 @@ BASE_INPUT_FIELDS = {
         'suffix': 'att',
         'Units': 's',
         'Description': (
-            'Arterial transit time. The time taken for the labeled blood water to reach the voxel.'
+            'Arterial transit time. The time taken for the labeled blood water to reach the voxel. '
+            'Where a range of values fits the data equally well, this is one value from the range, '
+            'and the ends of the range are in the desc-lower and desc-upper maps.'
         ),
     },
     'abat': {
@@ -46,14 +48,66 @@ BASE_INPUT_FIELDS = {
         'Units': 's',
         'Description': (
             'Arterial bolus arrival time. '
-            'The first arrival of the labeled blood water in the voxel within the arterial vessel.'
+            'The first arrival of the labeled blood water in the voxel within the arterial vessel. '
+            'The data only locate it within an interval set by the sampled delays, '
+            'so this is the midpoint of that interval, '
+            'and the ends of the interval are in the desc-lower and desc-upper maps.'
         ),
     },
     'abv': {
         'suffix': 'abv',
         'Units': 'fraction',
         'Description': (
-            'Arterial blood volume. The fraction of the voxel occupied by the arterial vessel.'
+            'Arterial blood volume. The fraction of the voxel occupied by the arterial vessel. '
+            'For (P)CASL data, this value depends on the reported arterial bolus arrival time.'
+        ),
+    },
+    'att_lower': {
+        'desc': 'lower',
+        'suffix': 'att',
+        'Units': 's',
+        'Description': (
+            'Lower bound of the arterial transit time. '
+            'The shortest arterial transit time that fits the data as well as the estimate.'
+        ),
+    },
+    'att_upper': {
+        'desc': 'upper',
+        'suffix': 'att',
+        'Units': 's',
+        'Description': (
+            'Upper bound of the arterial transit time. '
+            'The longest arterial transit time that fits the data as well as the estimate.'
+        ),
+    },
+    'abat_lower': {
+        'desc': 'lower',
+        'suffix': 'abat',
+        'Units': 's',
+        'Description': (
+            'Lower bound of the arterial bolus arrival time. '
+            'The shortest arterial bolus arrival time that fits the data as well as the estimate.'
+        ),
+    },
+    'abat_upper': {
+        'desc': 'upper',
+        'suffix': 'abat',
+        'Units': 's',
+        'Description': (
+            'Upper bound of the arterial bolus arrival time. '
+            'The longest arterial bolus arrival time that fits the data as well as the estimate.'
+        ),
+    },
+    'abv_decayed': {
+        'desc': 'decayed',
+        'suffix': 'abv',
+        'Units': 'fraction',
+        'Description': (
+            'Arterial blood volume multiplied by exp(-aBAT / T1blood), '
+            'the decay of the label over the arterial bolus arrival time. '
+            'Unlike the arterial blood volume itself, '
+            'this product does not depend on where the arterial bolus arrival time falls '
+            'between the two sampled delays that enclose it.'
         ),
     },
     # SCORE/SCRUB outputs

@@ -63,9 +63,17 @@ sub-01/perf/sub-01_acq-paslmultipld_desc-coreg_aslref.json
 sub-01/perf/sub-01_acq-paslmultipld_desc-coreg_aslref.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-hmc_aslref.json
 sub-01/perf/sub-01_acq-paslmultipld_desc-hmc_aslref.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_desc-lower_abat.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-lower_abat.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_desc-lower_att.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-lower_att.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-preproc_asl.json
 sub-01/perf/sub-01_acq-paslmultipld_desc-preproc_asl.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-qualitycontrol_cbf.tsv
+sub-01/perf/sub-01_acq-paslmultipld_desc-upper_abat.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-upper_abat.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_desc-upper_att.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-upper_att.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_from-aslref_to-T1w_mode-image_desc-coreg_xfm.json
 sub-01/perf/sub-01_acq-paslmultipld_from-aslref_to-T1w_mode-image_desc-coreg_xfm.txt
 sub-01/perf/sub-01_acq-paslmultipld_from-m0scan_to-aslref_mode-image_xfm.txt

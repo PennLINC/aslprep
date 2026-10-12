@@ -582,6 +582,73 @@ The intravascular compartment is modeled as:
 For reference, please see Equations 3 and 5 in :footcite:t:`woods2023recommendations`.
 
 
+.. _multidelay_identifiability:
+
+What the Data Can Say About ATT and aBAT
+----------------------------------------
+
+The two-compartment model cannot always locate ATT and aBAT.
+This is a property of the model and of the delays that were sampled, not of the fitting method.
+Where it happens, a range of values fits the data equally well.
+*ASLPrep* reports one value from that range as the estimate,
+and writes the ends of the range to the native-space ``desc-lower`` and ``desc-upper`` maps
+(see the CBF derivatives in :doc:`outputs`).
+The estimate is the midpoint of the part of the range that lies between two consecutive
+crossing points (defined below), so it is not always the midpoint of the whole range.
+Where the data do locate a parameter, its lower and upper bounds equal the estimate.
+The estimate in a voxel with a wide range is a convention, not a measurement.
+
+**aBAT is only located to an interval.**
+aBAT selects which delays contain arterial signal.
+That selection only changes when aBAT crosses a :math:`PLD` or a :math:`PLD + LD` (PCASL),
+or a :math:`TI - TI_1` or a :math:`TI` (PASL).
+Between two consecutive crossing points, every aBAT predicts the same data,
+so aBAT is never resolved more finely than the spacing of those points.
+Where no arterial signal is detected (aBV is zero), aBAT has no effect at all,
+and its bounds span every interval that fits equally well.
+With very few delays, neighboring intervals can also fit equally well with different aBVs,
+and the bounds then span those intervals.
+
+**PCASL aBV depends on the reported aBAT.**
+Within an interval, aBAT only scales the PCASL arterial signal by
+:math:`e^{- \frac{aBAT}{T_{1b}}}`, which aBV cancels.
+Within that interval, the data therefore determine the product
+:math:`aBV \cdot e^{- \frac{aBAT}{T_{1b}}}`, but not aBV itself.
+(Where the aBAT bounds span more than one interval, the product can differ between them.)
+*ASLPrep* writes that product to the ``desc-decayed`` aBV map,
+and the aBV map holds the aBV implied by the reported aBAT.
+The one exception is an arterial signal that is large enough to need the largest allowed aBV
+(10% of the voxel): longer aBATs in the interval would need more than that,
+so they are ruled out, and the aBAT upper bound falls inside the interval.
+For PASL, the arterial signal does not contain aBAT, so the aBV map needs no counterpart.
+
+**ATT is only bounded above when it is shorter than every delay.**
+The tissue signal depends on ATT only at delays where the labeled blood is still arriving
+(:math:`PLD < ATT \leq PLD + LD` for PCASL, :math:`TI - TI_1 < ATT \leq TI` for PASL).
+Once ATT is shorter than the earliest :math:`PLD` (PCASL) or the earliest :math:`TI - TI_1` (PASL),
+all of the labeled blood has arrived at every delay, and the signal no longer contains ATT.
+The data then only say that ATT is at most the first delay:
+the lower bound is zero and the upper bound is that delay.
+This is common in 2D acquisitions, because slice timing adds to the delay of later slices,
+and it makes both the range and the reported ATT vary with slice position.
+A protocol whose earliest delay (including slice-timing offsets) exceeds the expected ATT
+cannot measure ATT with this model.
+CBF is unaffected in that case, because the signal does not depend on ATT there.
+
+Ranges of equally good ATTs can also occur between delays,
+when the arterial term can absorb the part of the tissue signal that ATT changes.
+Unlike the case above, CBF and aBV can differ across such a range.
+Where no tissue signal is detected (CBF is zero), ATT has no effect at all,
+and its bounds span every value that fits equally well.
+
+.. note::
+   The ATT bounds are found with aBAT kept in its reported interval,
+   and the aBAT bounds with ATT fixed at its reported value.
+   CBF and aBV are free in both cases.
+   The bounds describe exact ties in the least squares fit.
+   They are not confidence intervals, and they say nothing about the effect of noise.
+
+
 Additional Denoising Options
 ============================
 

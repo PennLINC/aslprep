@@ -119,6 +119,18 @@ def test_computecbf_casl(datasets, tmp_path_factory):
             assert os.path.isfile(results.outputs.att)
             att_img = nb.load(results.outputs.att)
             assert att_img.ndim == 3
+            # The bounds enclose the estimates
+            for name in ('att', 'abat'):
+                estimate = nb.load(getattr(results.outputs, name)).get_fdata()
+                lower = nb.load(getattr(results.outputs, f'{name}_lower')).get_fdata()
+                upper = nb.load(getattr(results.outputs, f'{name}_upper')).get_fdata()
+                assert np.all(lower <= estimate)
+                assert np.all(estimate <= upper)
+
+            # The identifiable arterial signal is no larger than aBV, which it scales down
+            abv = nb.load(results.outputs.abv).get_fdata()
+            abv_decayed = nb.load(results.outputs.abv_decayed).get_fdata()
+            assert np.all(abv_decayed <= abv)
 
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
@@ -289,6 +301,10 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         assert os.path.isfile(results.outputs.mean_cbf)
         mean_cbf_img = nb.load(results.outputs.mean_cbf)
         assert mean_cbf_img.ndim == 3
+        assert os.path.isfile(results.outputs.att_lower)
+        assert os.path.isfile(results.outputs.abat_upper)
+        # The PASL arterial signal does not depend on aBAT
+        assert results.outputs.abv_decayed is None
 
         # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
         # This should produce CBF time series and mean CBF, but no ATT
