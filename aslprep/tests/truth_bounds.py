@@ -143,6 +143,13 @@ CEILINGS = {
         'rigid coregistration under --sloppy: RMS displacement over brain voxels within a '
         'quarter of the coarsest voxel',
     ),
+    'coreg_only_rms': (
+        ('frames', 'coreg', 'coreg_only_rms_voxels'),
+        None,
+        0.25,
+        'voxels',
+        'the registration step alone (motion-free data), within a quarter of the coarsest voxel',
+    ),
     'motion_median': (
         ('frames', 'motion', 'rms_error_median_mm'),
         None,

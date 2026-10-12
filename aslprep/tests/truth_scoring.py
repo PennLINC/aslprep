@@ -632,7 +632,34 @@ def score_run(fixture_path, aslprep_dir, acq, fwhm=5.0, spaces=(), extra_cbf=())
         score[f'desc-{desc}'] = {
             t: ratio_stats(cbf, fixture.perfusion, masks[t]) for t in ('GM', 'WM')
         }
+    score['tissue_contrast'] = score_tissue_contrast(fixture, aslprep_dir, extra_cbf)
     return score
+
+
+#: Tissue fraction above which a voxel counts as pure in :func:`score_tissue_contrast`.
+PURE_FRACTION = 0.9
+
+
+def score_tissue_contrast(fixture, aslprep_dir, extra_cbf=()):
+    """Median CBF in voxels that are truly one tissue (report-only).
+
+    Coarse voxels, through-slice blurring and noise all raise CBF where there is little or
+    none: CSF has no perfusion, so its median shows how much signal reaches it from
+    elsewhere. Keys are ``native`` and ``desc-<desc>``; a tissue with under 20 pure voxels is
+    left out.
+    """
+    out = {}
+    pure = {t: fixture.pv[t] >= PURE_FRACTION for t in ('GM', 'WM', 'CSF')}
+    for key, desc in (('native', None), *((f'desc-{d}', d) for d in extra_cbf)):
+        path = find_output(aslprep_dir, fixture.acq, 'cbf', desc=desc)
+        if path is None:
+            continue
+        cbf = np.squeeze(on_grid(nb.load(path), fixture.affine, fixture.shape))
+        out[key] = {t: float(np.nanmedian(cbf[m])) for t, m in pure.items() if m.sum() >= 20}
+        out[key]['truth'] = {
+            t: float(np.median(fixture.perfusion[m])) for t, m in pure.items() if m.sum() >= 20
+        }
+    return out
 
 
 def lookup(score, path):

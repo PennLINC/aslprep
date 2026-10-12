@@ -1,0 +1,6 @@
+phantom = "crop:tfmni:15:178,6:224,11:155"
+acq = "ukb"
+anat = "derivatives"
+snr_per_pair = 8.0
+keep_labeling_efficiency = false
+m0_divisor = 10.0

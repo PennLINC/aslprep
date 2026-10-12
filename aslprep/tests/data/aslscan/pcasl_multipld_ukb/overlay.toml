@@ -1,0 +1,25 @@
+seed = 20261011
+[acquisition]
+oversample = 2
+matrix = [48, 64]
+noise_variance = 0.0
+[readout]
+ky_segments = 1
+kz_segments = 2
+phase_encoding_direction = "j-"
+line_spacing = 0.4
+[m0]
+repetition_time = 5.39
+[macrovascular]
+arterial_blood_volume = { grey_matter = 0.02, white_matter = 0.01, csf = 0.0 }
+arterial_transit_time = { grey_matter = 0.7, white_matter = 1.0, csf = 0.0 }
+[background_suppression]
+# aslscan scales the label difference by (1 - 2 x inversion_efficiency) per pulse; 0.975 keeps
+# 95% of the ASL signal per pulse, the white-paper convention (Alsop et al. 2015).
+inversion_efficiency = 0.975
+presaturation = true
+# Two inversions per delay, after labeling ends. UK Biobank times them to null T1 = 0.7 and
+# 1.4 s at 100 ms before excitation, which puts pulses inside the labeling period; aslscan
+# cannot keep the label sign through those, so the times here minimise the static GM, WM and CSF
+# signal while keeping it positive (pre-saturation at labeling start).
+pulse_times_per_pld = [[1.81, 2.17], [1.81, 2.46], [1.81, 2.718], [1.81, 3.016], [2.003, 3.359]]
