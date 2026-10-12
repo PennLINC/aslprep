@@ -760,3 +760,11 @@ agree. F7's end-to-end error fell to 0.14 voxel (rotation arc 0.06) and its disp
 is an ordinary check again. The full integration tier was rerun locally with the new T1w:
 every other item is unchanged (F2: #702; F3: #707 and #706; F6: #705 and #707 as known
 failures).
+
+### Fixture change: tissue-probability derivatives from the phantom's labels
+
+The anatomical derivatives carried the template's population-average tissue probabilities,
+which read 0.85 where the phantom is pure GM. BASIL's partial-volume correction divides by
+that map, so its GM CBF came out about 15 % above its uncorrected value in pure GM (85 against
+72 on a UK Biobank-like simulation). The derivatives now hold the phantom's own labels. The
+full integration tier was rerun locally: every item is unchanged.

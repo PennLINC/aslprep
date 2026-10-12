@@ -517,8 +517,13 @@ def _build_templateflow_phantom(params, out):
     header.set_data_dtype(np.float32)
     nb.Nifti1Image(synth, t1_img.affine, header).to_filename(anat / 'T1w.nii.gz')
     nb.Nifti1Image(mask.astype(np.uint8), affine).to_filename(anat / 'brainmask.nii.gz')
-    for i, t in enumerate(('GM', 'WM', 'CSF')):
-        nb.Nifti1Image(probs[..., i], affine).to_filename(anat / f'probseg-{t}.nii.gz')
+    # The tissue-probability derivatives are the phantom's own labels, not the template's
+    # population-average maps: those give 0.85 where the phantom is pure GM, which inflated
+    # partial-volume-corrected CBF by the same factor.
+    for i, t in enumerate(('GM', 'WM', 'CSF'), start=1):
+        nb.Nifti1Image((labels == i).astype(np.float32), affine).to_filename(
+            anat / f'probseg-{t}.nii.gz'
+        )
 
 
 def _crop_phantom(base_dir, ranges, out):
