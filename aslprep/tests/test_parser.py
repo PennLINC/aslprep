@@ -278,3 +278,33 @@ def test_gradient_file_errors(tmp_path, supp_args, message):
     with pytest.raises(ValueError, match=message):
         parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
     reset_config()
+
+
+def test_use_gpu(tmp_path, monkeypatch, capsys):
+    """--use-gpu is accepted only when a GPU array library is usable."""
+    import sys
+
+    from aslprep.cli.parser import parse_args
+    from aslprep.tests.tests import stand_in_cupy
+
+    args = _gradwarp_cli_args(tmp_path)
+    # The check sets this variable if it is unset; setting it here restores it afterwards.
+    monkeypatch.setenv('CUPY_CACHE_DIR', str(tmp_path / 'cupy_cache'))
+
+    reset_config()
+    parse_args(args)
+    assert config.nipype.use_gpu is False
+
+    reset_config()
+    monkeypatch.setitem(sys.modules, 'cupy', stand_in_cupy())
+    parse_args(args + ['--use-gpu'])
+    assert config.nipype.use_gpu is True
+
+    reset_config()
+    monkeypatch.setitem(sys.modules, 'cupy', None)
+    with pytest.raises(SystemExit) as error:
+        parse_args(args + ['--use-gpu'])
+
+    assert error.value.code == 2
+    assert '--use-gpu: Running on a GPU requires CuPy' in capsys.readouterr().err
+    reset_config()

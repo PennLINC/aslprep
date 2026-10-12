@@ -330,6 +330,8 @@ class nipype(_Config):
     """Enable resource monitor."""
     stop_on_first_crash = True
     """Whether the workflow should stop or continue after the first error."""
+    use_gpu = False
+    """Run the steps that support it (currently the multi-delay model fit) on a GPU."""
 
     @classmethod
     def get_plugin(cls):
