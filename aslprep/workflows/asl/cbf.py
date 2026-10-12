@@ -363,7 +363,7 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
 
     # The multi-delay model fit is the only part of ComputeCBF that is slow enough to thread.
     # Its speedup levels off after a few threads, because it is limited by memory bandwidth.
-    fit_nthreads = min(config.nipype.omp_nthreads or 1, 8) if is_multi_pld else 1
+    fit_nthreads = min(config.nipype.omp_nthreads or 1, 3) if is_multi_pld else 1
     compute_cbf = pe.Node(
         ComputeCBF(
             cbf_only=processing_target == 'cbf',
