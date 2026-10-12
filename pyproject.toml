@@ -178,9 +178,14 @@ pytorch = "2.8.*"
 [tool.pixi.feature.container.dependencies]
 git = "*"
 git-annex = { version = "*", build = "alldep*" }
-# GPU array library for --use-gpu, with the CUDA 12 runtime libraries it needs.
+# GPU array library for --use-gpu, with only the CUDA 12 libraries the model fit uses:
+# NVRTC to compile kernels, the CUDA runtime and its headers, and cuBLAS.
+# The full cupy package would also bring cuFFT, cuRAND, cuSOLVER, and cuSPARSE.
 # The NVIDIA driver itself comes from the host (docker --gpus, singularity --nv).
-cupy = "14.2.*"
+cupy-core = "14.2.*"
+cuda-nvrtc = "12.*"
+cuda-cudart-dev = "12.*"
+libcublas = "12.*"
 cuda-version = "12.*"
 
 [tool.pixi.feature.container.pypi-dependencies]
