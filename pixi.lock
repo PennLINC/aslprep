@@ -1772,10 +1772,9 @@ packages:
   - pytest ; extra == 'tests'
   - pytest-cov ; extra == 'tests'
   requires_python: '>=3.12'
-  editable: true
 - pypi: ./
   name: aslprep
-  version: 26.1.0.dev32+ge4c8cadf8.d20261012
+  version: 26.1.0.dev33+gcf35b2b8f
   sha256: 7e9fbd0593de3c5a35dc8129a3cf484434eeb811b5b1f1bcb9ae149cd1b01663
   requires_dist:
   - acres>=0.5.0
@@ -1845,6 +1844,7 @@ packages:
   - pytest ; extra == 'tests'
   - pytest-cov ; extra == 'tests'
   requires_python: '>=3.12'
+  editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/asttokens-3.0.1-pyhd8ed1ab_0.conda
   sha256: ee4da0f3fe9d59439798ee399ef3e482791e48784873d546e706d0935f9ff010
   md5: 9673a61a297b00016442e022d689faa6
