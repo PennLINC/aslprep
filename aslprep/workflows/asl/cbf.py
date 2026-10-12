@@ -183,6 +183,9 @@ ATT and aBAT were found by a grid search,
 with CBF and aBV solved exactly for each candidate.
 The data only constrain aBAT to an interval between consecutive labeled-bolus arrival and
 departure times, so aBAT was reported as the midpoint of its interval.
+Where a range of ATT values fit equally well
+(for example, when ATT was shorter than every delay),
+ATT was likewise reported as the midpoint of that range.
 """
 
     elif is_casl:

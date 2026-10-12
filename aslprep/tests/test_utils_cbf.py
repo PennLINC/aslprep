@@ -314,3 +314,39 @@ def test_fit_deltam_multipld_threads():
     threaded = cbf.fit_deltam_multipld(**kwargs, n_jobs=4)
     for serial_estimate, threaded_estimate in zip(serial, threaded, strict=True):
         np.testing.assert_array_equal(threaded_estimate, serial_estimate)
+
+
+def test_fit_deltam_multipld_unidentifiable_att():
+    """An ATT shorter than every delay is reported as the midpoint of the range it could take.
+
+    Once all of the labeled blood has arrived by the first delay, the signal no longer depends
+    on ATT, so any ATT from zero to that delay fits equally well.
+    """
+    n_voxels = 20
+    rng = np.random.default_rng(5)
+    first_delays = rng.uniform(0.5, 1.0, (n_voxels, 1))
+    plds = first_delays + np.array([0.0, 0.5, 1.0, 1.5, 2.0])
+    params = np.column_stack(
+        [
+            rng.uniform(20, 90, n_voxels),
+            rng.uniform(0.05, 0.45, n_voxels),
+            np.full(n_voxels, 1.0),
+            np.zeros(n_voxels),
+        ]
+    )
+    m0 = rng.uniform(500, 1500, n_voxels)
+    deltam = _simulate_multipld(True, plds, 1.8, params, m0)
+    fit_cbf, fit_att, _, fit_abv, failures = cbf.fit_deltam_multipld(
+        deltam_arr=deltam,
+        scaled_m0data=m0,
+        plds=plds,
+        labeleff=0.7,
+        t1blood=1.65,
+        partition_coefficient=0.9,
+        is_casl=True,
+        tau=1.8,
+    )
+    assert not failures.any()
+    np.testing.assert_allclose(fit_att, first_delays[:, 0] / 2, atol=1e-9)
+    np.testing.assert_allclose(fit_cbf, params[:, 0], rtol=1e-6)
+    np.testing.assert_allclose(fit_abv, 0, atol=1e-9)

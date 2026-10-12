@@ -24,9 +24,12 @@ MIN_VOXELS = 500
 SINGLE_DELAY = sorted(n for n in af.RECIPES if n.startswith('fast_') and 'multipld' not in n)
 MULTI_DELAY = sorted(n for n in af.RECIPES if n.startswith('fast_') and 'multipld' in n)
 #: Multi-delay Tier A bounds (spec Section 4.7) and the size of the refitted voxel subset.
-MULTI_CBF_TOL = 0.02
-MULTI_ATT_TOL = 0.05  # s
-MULTI_FINITE = 0.98
+# Both fits minimize the same objective on the same data, so they agree to within the
+# reference's ATT grid (measured: 1e-7 in CBF, 0.6 ms in ATT); the mutations move CBF by
+# at least 5 % or ATT by 0.1 s.
+MULTI_CBF_TOL = 0.005
+MULTI_ATT_TOL = 0.005  # s
+MULTI_FINITE = 0.999
 MULTI_SUBSET = 300
 MUTATIONS = ('swap', 'reverse_slices', 'pld_shift', 'm0_scale', 'efficiency_ignored')
 
@@ -143,7 +146,7 @@ class Run:
         out = {}
         for tissue in ('GM', 'WM'):
             mask = self.valid(self.perfusion) & (self.pv[tissue] >= 0.7)
-            # nanmedian: a voxel whose multi-delay fit failed is NaN in ASLPrep's output
+            # nanmedian: a voxel without a positive M0 is NaN in ASLPrep's multi-delay output
             out[tissue] = float(np.nanmedian(self.cbf[mask] / self.perfusion[mask]))
         return out
 

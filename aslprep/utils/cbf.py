@@ -1133,6 +1133,21 @@ def _tie_rank(loss, tol, axis, xp):
     return xp.floor((loss - loss.min(axis=axis, keepdims=True)) / tol)
 
 
+def _argmin_att(loss, tol, xp):
+    """Find the best ATT along the last axis, at the middle of a run of equally good ATTs.
+
+    Where a range of ATTs fits equally well, the data do not locate ATT within that range,
+    so the middle of the first run of grid points tied for the minimum is returned.
+    Without ties, this is the minimum.
+    """
+    tied = _tie_rank(loss, tol, -1, xp) == 0
+    first = xp.argmax(tied, axis=-1)[..., None]
+    # Grid points belong to the first run if no untied point separates them from its start.
+    breaks = xp.cumsum(~tied, axis=-1)
+    in_run = tied & (breaks == xp.take_along_axis(breaks, first, axis=-1))
+    return first + (in_run.sum(axis=-1, keepdims=True) - 1) // 2
+
+
 def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
     """Fit the general kinetic model to a chunk of voxels by searching over ATT and aBAT.
 
@@ -1153,6 +1168,7 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
     (see :func:`_delay_edges`) separately.
     aBAT is fixed at its interval's midpoint, because the data cannot localize it further.
     ATT is searched with a grid that spans its interval, including the edges.
+    Where a range of ATTs fits equally well, the middle of that range is selected.
     The first pass evaluates every combination,
     and later passes refine the best :data:`MULTIPLD_REFINED_INTERVALS` combinations,
     each narrowing the grid to the neighbors of the previous pass's best ATT.
@@ -1197,7 +1213,7 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
         tol=tol[:, None, None, None],
         xp=xp,
     )
-    best = xp.argmin(_tie_rank(loss, tol[:, None, None, None], 3, xp), axis=3)[..., None]
+    best = _argmin_att(loss, tol[:, None, None, None], xp)
     att = xp.broadcast_to(att[:, :, None, :], loss.shape)
     lower = xp.take_along_axis(att, xp.maximum(best - 1, 0), axis=3).reshape(n_voxels, -1)
     upper = xp.take_along_axis(att, xp.minimum(best + 1, grid.size - 1), axis=3)
@@ -1233,7 +1249,7 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
             tol=tol[:, None, None],
             xp=xp,
         )
-        best = xp.argmin(_tie_rank(loss, tol[:, None, None], 2, xp), axis=2)[..., None]
+        best = _argmin_att(loss, tol[:, None, None], xp)
         lower = xp.take_along_axis(att, xp.maximum(best - 1, 0), axis=2)[..., 0]
         upper = xp.take_along_axis(att, xp.minimum(best + 1, grid.size - 1), axis=2)[..., 0]
 
@@ -1331,10 +1347,13 @@ def fit_deltam_multipld(
     Within its interval, ATT is found with a grid search that is repeatedly narrowed around the
     best value (see :func:`_fit_gkm_chunk`), to a precision of well under 1 ms.
     aBAT is only identifiable up to its interval, so it is reported as the interval's midpoint.
+    ATT is likewise not identifiable where a range of values fits equally well,
+    most commonly when it is shorter than every delay, so that all of the labeled blood has
+    arrived by the first one. It is then reported as the midpoint of that range.
     For (P)CASL data, the fitted aBV depends on the reported aBAT,
     because only aBV * exp(-aBAT / T1b) is identifiable.
-    When several solutions fit equally well (to within rounding error),
-    the first one in a fixed search order is reported,
+    When solutions in different intervals fit equally well (to within rounding error),
+    the one with the shortest ATT, then the shortest aBAT, then the smallest aBV is reported,
     so the results do not depend on the array library or the chunk size.
 
     Volumes that share the same delay (and labeling duration) in every voxel are averaged before
