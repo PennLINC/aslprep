@@ -394,8 +394,9 @@ def _fit_stats(cbf, att, fit, voxels, abat=None, abv=None):
 def _score_native_multi(fixture, preproc, cbf, att_masks_from, subset, aslprep_dir, fwhm):
     """Multi-delay Tier A on a voxel subset (the reference fit is per voxel and slow).
 
-    The four-parameter fit is ill-conditioned (CBF trades against aBV), so voxels near that
-    ridge reach different optima under tiny input differences: per-voxel tails measure the
+    The four-parameter fit is ill-conditioned (CBF trades against aBV, and ATT and aBAT are
+    not identifiable over ranges that fit equally well), so voxels near those ridges reach
+    different optima under tiny input differences: per-voxel tails measure the
     fit's conditioning, not the plumbing, and only medians are asserted.
     """
     masks = att_masks_from

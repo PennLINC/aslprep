@@ -531,12 +531,23 @@ M0 handling. Tier A is scored on raw inputs, in two variants.
   fit uses its own implementation of the documented forward models:
   - PCASL: Buxton with an arterial component, as described in ASLPrep's documentation and
     Woods 2023; PASL likewise.
-  - The same four parameters, initial values `(60, 1.2, 1, 0.02)`, bounds
-    `((0, 0, 0, 0), (300, 5, 5, 0.1))`, and failed-fit-to-NaN handling as ASLPrep, stated in
-    the scorer with citations.
+  - The same four parameters and bounds `((0, 0, 0, 0), (300, 5, 5, 0.1))` as ASLPrep,
+    minimized by an exhaustive bounded least squares search (a 2 ms ATT grid, one aBAT
+    per interval between the delays' arrival and departure times, CBF and aBV solved at
+    each candidate), not by ASLPrep's search strategy. A voxel without a positive M0
+    gives NaN.
+  - Where the data cannot settle a parameter, the scorer follows the conventions ASLPrep
+    documents: aBAT is the midpoint of its interval; among equally good fits the one with
+    the smallest ATT, then aBAT, then aBV is selected; and a run of equally good ATTs
+    within an interval is reported at its middle (PennLINC/aslprep#709).
+
+  The original scorer started a local optimizer (`curve_fit`) from
+  `(60, 1.2, 1, 0.02)`, as ASLPrep then did. Both stopped at the same local minima, so they
+  agreed while being far from the least squares solution (on the fast PCASL fixture, a
+  median ATT of 4.1 s against a true 1.2 s).
 
   The fast tier runs it on cropped fixtures of at most 2,000 voxels. It is accepted when the
-  median CBF ratio is within 2 % and ATT within 0.05 s. The same mutation tests apply.
+  median CBF ratio is within 0.5 % and ATT within 0.005 s. The same mutation tests apply.
 
   Its independence is limited to the forward equations. Tier B is what checks the physics.
 

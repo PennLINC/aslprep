@@ -36,6 +36,7 @@ ARG BASE_IMAGE=pennlinc/aslprep-base:20261008
 #   - ANTs (via conda-forge)
 #   - Connectome Workbench (via conda-forge)
 #   - TensorFlow, PyTorch (via conda-forge)
+#   - CuPy and the CUDA runtime libraries (via conda-forge; production environment only)
 #   - ...
 #
 FROM ghcr.io/prefix-dev/pixi:0.58.0 AS build
@@ -65,6 +66,8 @@ COPY . /app
 # inherit editable-install behavior needed for test workflows.
 RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e test --frozen
 RUN --mount=type=cache,target=/root/.cache/rattler pixi install -e aslprep --frozen
+# The production environment must include CuPy for --use-gpu. Importing it does not need a GPU.
+RUN /app/.pixi/envs/aslprep/bin/python -c "import cupy"
 # Ensure aslprep is installed non-editably in the aslprep env so the copied env is
 # self-contained in the runtime image (lockfile may resolve to editable variant).
 # Pixi envs do not include pip; use uv to install into the env's Python.
@@ -117,6 +120,10 @@ RUN cat /shell-hook.sh >> $HOME/.bashrc
 ENV PATH="/app/.pixi/envs/aslprep/bin:$PATH"
 
 ENV FSLDIR="/app/.pixi/envs/aslprep"
+# The environment is not activated here, so point CuPy to the CUDA headers it compiles its
+# kernels against (for --use-gpu).
+ENV CUDA_PATH="/app/.pixi/envs/aslprep/targets/x86_64-linux"
+RUN test -f "$CUDA_PATH/include/cuda_fp16.h"
 
 ENV IS_DOCKER_8395080871=1
 # Verify the runtime image can import aslprep without source tree mounts.

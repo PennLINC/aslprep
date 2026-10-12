@@ -234,10 +234,14 @@ def expected_cbf(
 # ---------------------------------------------------------------------------------------------
 # Multi-delay
 # ---------------------------------------------------------------------------------------------
-#: Fit settings ASLPrep documents for its general-kinetic-model fit (utils/cbf.py,
-#: fit_deltam_multipld): initial (CBF, ATT, aBAT, aBV) and bounds.
-FIT_P0 = (60.0, 1.2, 1.0, 0.02)
+#: Bounds ASLPrep documents for its general-kinetic-model fit (utils/cbf.py,
+#: fit_deltam_multipld), as (lower, upper) for (CBF, ATT, aBAT, aBV).
 FIT_BOUNDS = ((0.0, 0.0, 0.0, 0.0), (300.0, 5.0, 5.0, 0.1))
+#: ATT spacing of the reference fit's exhaustive search, in seconds.
+FIT_ATT_STEP = 0.002
+#: Fits whose sums of squared errors differ by less than this fraction of the data's sum of
+#: squares are treated as equally good.
+FIT_TIE_TOLERANCE = 1e-9
 
 
 def gkm_pcasl(pld, tau, cbf, att, abat, abv, alpha, t1b, m0a, m0b):
@@ -292,45 +296,129 @@ def deltam_observations(asl, context, swap=False):
     return diff, idx['control']
 
 
+def delay_edges(plds, bolus, casl):
+    """The ATT and aBAT values at which a delay's signal changes form, within the fit bounds.
+
+    A delay's tissue term changes form where ATT, and its arterial term where aBAT, crosses the
+    delay or the delay plus the labeling duration ((P)CASL), or the inversion time minus TI1 or
+    the inversion time (PASL). The bounds are included, so consecutive edges tile them.
+    """
+    lower, upper = FIT_BOUNDS[0][1], FIT_BOUNDS[1][1]
+    edges = np.concatenate([plds, plds + bolus] if casl else [plds - bolus, plds])
+    return np.unique(np.clip(np.concatenate([edges, [lower, upper]]), lower, upper))
+
+
+def _bounded_pair(y, tissue, arterial):
+    """Bounded least squares for (CBF, aBV) at every ATT, by enumerating the candidates.
+
+    ``tissue`` is (n_att, n_obs) and ``arterial`` is (n_obs,), both per unit of their
+    parameter. The objective is convex, so its bounded minimum is the unconstrained solution
+    when that is in bounds, and otherwise lies on an edge of the box, where the other parameter
+    is its clipped one-parameter solution. Returns the CBF, aBV and sum of squared errors of the
+    best candidate at each ATT; among equally good candidates, the one with the smallest aBV.
+    """
+    (c_lo, _, _, v_lo), (c_hi, _, _, v_hi) = FIT_BOUNDS
+    tt = np.einsum('ao,ao->a', tissue, tissue)
+    aa = arterial @ arterial
+    ta = tissue @ arterial
+    ty = tissue @ y
+    ay = arterial @ y
+    with np.errstate(divide='ignore', invalid='ignore'):
+        det = tt * aa - ta**2
+        free_c = (aa * ty - ta * ay) / det
+        free_v = (tt * ay - ta * ty) / det
+        free_ok = (
+            (det > 1e-10 * tt * aa)
+            & (free_c >= c_lo)
+            & (free_c <= c_hi)
+            & (free_v >= v_lo)
+            & (free_v <= v_hi)
+        )
+
+        def best_c(v):
+            return np.where(tt > 0, np.clip((ty - v * ta) / tt, c_lo, c_hi), c_lo)
+
+        def best_v(c):
+            return np.clip((ay - c * ta) / aa, v_lo, v_hi) if aa > 0 else np.full(c.shape, v_lo)
+
+    n_att = tissue.shape[0]
+    candidates = [
+        (best_c(v_lo), np.full(n_att, v_lo)),
+        (np.full(n_att, c_lo), best_v(np.full(n_att, c_lo))),
+        (np.full(n_att, c_hi), best_v(np.full(n_att, c_hi))),
+        (np.where(free_ok, free_c, c_lo), np.where(free_ok, free_v, v_lo)),
+        (best_c(v_hi), np.full(n_att, v_hi)),
+    ]
+    cbf = np.stack([c for c, _ in candidates])
+    abv = np.stack([v for _, v in candidates])
+    residual = y - cbf[..., None] * tissue - abv[..., None] * arterial
+    sse = (residual**2).sum(axis=-1)
+    # Smallest aBV among the candidates within the tie tolerance of the best one
+    tied = sse <= sse.min(axis=0) + FIT_TIE_TOLERANCE * (y @ y)
+    pick = np.argmin(np.where(tied, abv, np.inf), axis=0)
+    cols = np.arange(n_att)
+    return cbf[pick, cols], abv[pick, cols], sse[pick, cols]
+
+
 def fit_multi_delay(deltam, m0, plds, metadata, alpha, rows=None):
-    """Fit CBF, ATT, aBAT and aBV per voxel, over every observation.
+    """Fit CBF, ATT, aBAT and aBV per voxel by exhaustive bounded least squares.
 
     ``deltam`` and ``plds`` are (n_voxels, n_observations); ``m0`` is the calibration image
     (already TR-corrected and scaled), (n_voxels,). ``rows`` are the observations' sidecar
-    rows, needed when ``LabelingDuration`` is per volume. Uses :data:`FIT_P0` and
-    :data:`FIT_BOUNDS`; ``M0b`` equals ``M0a = M0 / lambda``, as ASLPrep documents. A failed
-    fit gives NaN.
-    """
-    from scipy.optimize import curve_fit
+    rows, needed when ``LabelingDuration`` is per volume.
 
+    This is the model ASLPrep documents, minimized without ASLPrep's search strategy: every
+    observation is used as is, ATT is searched on a :data:`FIT_ATT_STEP` grid over its bounds
+    (plus the edges of :func:`delay_edges`), and CBF and aBV are solved at each candidate.
+    Four conventions follow ASLPrep's documentation, because the data cannot settle them:
+    ``M0b`` equals ``M0a = M0 / lambda``; aBAT is the midpoint of its interval between
+    consecutive edges; among fits within :data:`FIT_TIE_TOLERANCE` of the best, the one with
+    the smallest ATT, then the smallest aBAT, then the smallest aBV is selected; and where the
+    ATTs that follow it within its interval fit equally well, the middle of that run is reported.
+    A voxel without a positive, finite M0 or with non-finite data gives NaN.
+    """
     t1b = T1_BLOOD[metadata['MagneticFieldStrength']]
-    kind = metadata['ArterialSpinLabelingType']
+    casl = metadata['ArterialSpinLabelingType'] in ('PCASL', 'CASL')
     n_obs = deltam.shape[1]
-    if kind in ('PCASL', 'CASL'):
-        tau = np.atleast_1d(np.asarray(metadata['LabelingDuration'], float))
-        if tau.size > 1:
+    if casl:
+        bolus = np.atleast_1d(np.asarray(metadata['LabelingDuration'], float))
+        if bolus.size > 1:
             if rows is None:
                 raise ValueError('a per-volume LabelingDuration needs the observation rows')
-            tau = tau[rows]
-        tau = np.broadcast_to(tau, (n_obs,))
+            bolus = bolus[rows]
+        bolus = np.broadcast_to(bolus, (n_obs,))
+        model = gkm_pcasl
     else:
-        ti1 = float(np.atleast_1d(metadata['BolusCutOffDelayTime'])[0])
+        bolus = float(np.atleast_1d(metadata['BolusCutOffDelayTime'])[0])
+        model = gkm_pasl
+    lower, upper = FIT_BOUNDS[0][1], FIT_BOUNDS[1][1]
+    att_grid = np.arange(lower, upper + FIT_ATT_STEP / 2, FIT_ATT_STEP)
+
     out = np.full((deltam.shape[0], 4), np.nan)
     for i in range(deltam.shape[0]):
         m0a = m0[i] / LAMBDA
-        if kind in ('PCASL', 'CASL'):
-
-            def model(p, cbf, att, abat, abv, m0a=m0a):
-                return gkm_pcasl(p, tau, cbf, att, abat, abv, alpha, t1b, m0a, m0a)
-        else:
-
-            def model(p, cbf, att, abat, abv, m0a=m0a):
-                return gkm_pasl(p, ti1, cbf, att, abat, abv, alpha, t1b, m0a, m0a)
-
-        try:
-            out[i] = curve_fit(model, plds[i], deltam[i], p0=FIT_P0, bounds=FIT_BOUNDS)[0]
-        except (RuntimeError, ValueError):
-            pass
+        y = deltam[i]
+        if not (np.isfinite(m0a) and m0a > 0 and np.all(np.isfinite(y))):
+            continue
+        edges = delay_edges(plds[i], bolus, casl)
+        att = np.unique(np.concatenate([att_grid, edges]))
+        abat = (edges[:-1] + edges[1:]) / 2
+        # Signal per unit CBF at each ATT, and per unit aBV at each aBAT
+        tissue = model(plds[i], bolus, 1.0, att[:, None], 0.0, 0.0, alpha, t1b, m0a, m0a)
+        arterial = model(plds[i], bolus, 0.0, 0.0, abat[:, None], 1.0, alpha, t1b, m0a, m0a)
+        # (n_att, n_abat) arrays, so that raveling orders the candidates by ATT, then aBAT
+        cbf, abv, sse = (
+            np.stack(columns, axis=1)
+            for columns in zip(*(_bounded_pair(y, tissue, a) for a in arterial), strict=True)
+        )
+        tied = sse <= sse.min() + FIT_TIE_TOLERANCE * (y @ y)
+        a, b = np.unravel_index(np.argmax(tied), tied.shape)
+        # The run of equally good ATTs from there to the end of its interval
+        next_edge = min(np.searchsorted(edges, att[a], side='right'), edges.size - 1)
+        run = tied[a:, b] & (att[a:] <= edges[next_edge])
+        run_length = run.size if run.all() else int(np.argmin(run))
+        a += (run_length - 1) // 2
+        out[i] = cbf[a, b], att[a], abat[b], abv[a, b]
     return out
 
 

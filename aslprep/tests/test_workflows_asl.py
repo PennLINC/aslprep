@@ -88,3 +88,46 @@ def test_init_asl_wf_t1w_outputs_on_asl_grid():
         ]
         assert ref_sources == ['asl_anat_wf']
         assert ds_inputnode is not None
+
+
+@pytest.mark.parametrize(
+    ('delays', 'use_gpu', 'n_procs', 'node_use_gpu'),
+    [
+        ([1.0, 1.0, 1.5, 1.5, 2.0, 2.0], False, 3, False),
+        ([1.0, 1.0, 1.5, 1.5, 2.0, 2.0], True, 1, True),
+        (1.8, True, 1, False),
+    ],
+)
+def test_init_cbf_wf_fit_resources(tmp_path, delays, use_gpu, n_procs, node_use_gpu):
+    """The multi-delay fit gets threads on the CPU, or one process and a GPU slot on a GPU."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PostLabelingDelay': delays,
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+        'RepetitionTimePreparation': 4.0,
+    }
+    with mock_config():
+        config.nipype.omp_nthreads = 8
+        config.nipype.use_gpu = use_gpu
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 3}),
+            metadata=metadata,
+        )
+        node = wf.get_node('compute_cbf')
+
+    assert node.n_procs == n_procs
+    assert node.inputs.num_threads == n_procs
+    assert node.inputs.use_gpu is node_use_gpu
+    assert node.is_gpu_node() is node_use_gpu

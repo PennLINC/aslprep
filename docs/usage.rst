@@ -138,6 +138,38 @@ you are ready to run *ASLPrep*. ::
         --participant-label label
 
 
+Running on a GPU
+================
+
+The ``--use-gpu`` flag runs the steps that support it on a GPU.
+At present that is only the model fit for multi-delay data;
+single-delay data and the rest of the workflow are unaffected.
+The estimates match the ones computed on the CPU.
+
+The flag needs an NVIDIA GPU and `CuPy <https://cupy.dev>`_.
+The Docker image includes CuPy and the CUDA 12 libraries it uses,
+so only the GPU and its driver have to be exposed to the container: ::
+
+    $ docker run -ti --rm --gpus all \
+        -v path/to/data:/data:ro \
+        -v path/to/output:/out \
+        pennlinc/aslprep:<latest-version> \
+        /data /out participant --use-gpu
+
+    $ singularity run --cleanenv --nv aslprep.simg \
+        path/to/data/dir path/to/output/dir \
+        participant --use-gpu
+
+The host needs an NVIDIA driver that supports CUDA 12, and Docker needs the
+`NVIDIA Container Toolkit <https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/>`_.
+Outside the container, CuPy is not installed with *ASLPrep*;
+install the build that matches your CUDA version (for example, ``pip install cupy-cuda12x``).
+
+*ASLPrep* checks for CuPy and a GPU when it starts, and stops with an error if either is missing.
+CuPy compiles its GPU kernels the first time they are used and caches them in the working
+directory, so the first run with a new working directory spends some extra time on that.
+
+
 Handling environment variables
 ==============================
 

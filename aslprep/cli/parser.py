@@ -300,6 +300,17 @@ def _build_parser():
         help='attempt to reduce memory usage (will increase disk usage in working directory)',
     )
     g_perfm.add_argument(
+        '--use-gpu',
+        action='store_true',
+        default=False,
+        help=(
+            'Run the steps that support it on a GPU. '
+            'Currently, this is only the model fit for multi-delay data. '
+            'Requires a CUDA device that is visible to ASLPrep '
+            '(docker --gpus all, singularity --nv).'
+        ),
+    )
+    g_perfm.add_argument(
         '--use-plugin',
         '--nipype-plugin-file',
         action='store',
@@ -898,6 +909,15 @@ def parse_args(args=None, namespace=None):
             config.nipype.nprocs = opts.nprocs or config.nipype.plugin_args.get(
                 'n_procs', config.nipype.nprocs
             )
+
+    # Fail now, rather than partway through the workflow, if the GPU cannot be used.
+    if config.nipype.use_gpu:
+        from aslprep.utils.cbf import get_array_module
+
+        try:
+            get_array_module(use_gpu=True)
+        except RuntimeError as exc:
+            parser.error(f'--use-gpu: {exc}')
 
     # Resource management options
     # Note that we're making strong assumptions about valid plugin args

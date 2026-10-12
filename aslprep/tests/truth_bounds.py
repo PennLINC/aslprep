@@ -34,10 +34,10 @@ CEILINGS = {
     ),
     'finite_multi': (
         ('native', 'coverage', 'finite'),
-        0.98,
+        0.999,
         None,
         'fraction',
-        'the multi-delay fit may fail in a few voxels',
+        'the multi-delay search always returns an estimate where M0 is positive',
     ),
     'fit_bound': (
         ('native', 'coverage', 'at_fit_bound'),
@@ -83,8 +83,8 @@ CEILINGS = {
         'only M0 registration and interpolation separate the two',
     ),
     # The four-parameter fit is ill-conditioned: given the same series, the ~1 % M0
-    # differences of registration move a quarter to a third of voxels by more than 10 %
-    # (F5 0.75, F6 0.66 within 10 %). The floor catches gross spatial errors (CBF wrong in
+    # differences of registration move a seventh to a quarter of voxels by more than 10 %
+    # (F5 0.86, F6 0.73 within 10 %). The floor catches gross spatial errors (CBF wrong in
     # half the voxels), which the median cannot.
     'tier_a_quant_agree': (
         ('native', 'tier_a_quant', 'frac_within_10pct'),
@@ -96,9 +96,10 @@ CEILINGS = {
     'tier_a_att': (
         ('native', 'tier_a_quant', 'att_median_abs_diff'),
         None,
-        0.1,
+        0.02,
         's',
-        'ATT from the same model fitted to the same preprocessed series',
+        'ATT from the same model fitted to the same preprocessed series (measured: under '
+        "1 ms, against the reference fit's 2 ms grid)",
     ),
     'tier_b': (
         ('native', 'tier_b', '{t}', 'median'),
