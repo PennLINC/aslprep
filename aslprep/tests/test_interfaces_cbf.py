@@ -124,13 +124,17 @@ def test_computecbf_casl(datasets, tmp_path_factory):
                 estimate = nb.load(getattr(results.outputs, name)).get_fdata()
                 lower = nb.load(getattr(results.outputs, f'{name}_lower')).get_fdata()
                 upper = nb.load(getattr(results.outputs, f'{name}_upper')).get_fdata()
-                assert np.all(lower <= estimate)
-                assert np.all(estimate <= upper)
+                # Voxels where the model could not be fit are NaN in every map
+                fit = np.isfinite(estimate)
+                assert fit.any()
+                assert np.all(lower[fit] <= estimate[fit])
+                assert np.all(estimate[fit] <= upper[fit])
 
             # The identifiable arterial signal is no larger than aBV, which it scales down
             abv = nb.load(results.outputs.abv).get_fdata()
             abv_decayed = nb.load(results.outputs.abv_decayed).get_fdata()
-            assert np.all(abv_decayed <= abv)
+            fit = np.isfinite(abv)
+            assert np.all(abv_decayed[fit] <= abv[fit])
 
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
