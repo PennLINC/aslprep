@@ -609,10 +609,11 @@ shifted 4 mm.
 - **Constant reference offset.** The corrected series sits 0.3-0.6 mm from the static frame
   even without motion: the reference's contrast differs from the volumes', most with
   background suppression. Report-only.
-- **M0 resampling.** The separate M0 is resampled onto the ASL grid with ANTs' `Gaussian`
-  interpolation even under an identity transform, blurring M0 before the 5 mm smoothing. On
-  the phantom, which has no scalp, this raises CBF near the brain-mask edge: median 1.19 within
-  5 mm. Report-only (`tier_a.edge`).
+- **M0 resampling (#703, fixed).** The separate M0 was resampled onto the ASL grid with ANTs'
+  `Gaussian` interpolation even under an identity transform, blurring M0 before the 5 mm
+  smoothing. On the phantom, which has no scalp, this raised CBF near the brain-mask edge:
+  median 1.19 within 5 mm. An M0 already on the ASL grid now skips that resampling. Still
+  report-only (`tier_a.edge`).
 
 - **Multi-delay fits cover every voxel (by design).** `ComputeCBF` deliberately quantifies the
   whole field of view, because ASL-based brain masks are often poor. The cost is runtime: F5
