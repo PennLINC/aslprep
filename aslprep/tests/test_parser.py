@@ -288,6 +288,8 @@ def test_use_gpu(tmp_path, monkeypatch, capsys):
     from aslprep.tests.tests import stand_in_cupy
 
     args = _gradwarp_cli_args(tmp_path)
+    # The check sets this variable if it is unset; setting it here restores it afterwards.
+    monkeypatch.setenv('CUPY_CACHE_DIR', str(tmp_path / 'cupy_cache'))
 
     reset_config()
     parse_args(args)

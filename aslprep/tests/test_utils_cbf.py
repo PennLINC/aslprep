@@ -353,18 +353,28 @@ def test_fit_deltam_multipld_unidentifiable_att():
     np.testing.assert_allclose(fit_abv, 0, atol=1e-9)
 
 
-def test_get_array_module(monkeypatch):
+def test_get_array_module(monkeypatch, tmp_path):
     """The GPU array library is returned only when it is importable and finds a device."""
+    import os
     import sys
 
+    from aslprep import config
     from aslprep.tests.tests import stand_in_cupy
 
+    monkeypatch.delenv('CUPY_CACHE_DIR', raising=False)
+    monkeypatch.setattr(config.execution, 'work_dir', tmp_path)
     assert cbf.get_array_module() is np
     assert cbf.get_array_module(use_gpu=False) is np
+    assert 'CUPY_CACHE_DIR' not in os.environ
 
     fake = stand_in_cupy()
     monkeypatch.setitem(sys.modules, 'cupy', fake)
     assert cbf.get_array_module(use_gpu=True) is fake
+    # Compiled kernels are cached in the working directory, unless the user chose a location
+    assert os.environ['CUPY_CACHE_DIR'] == str(tmp_path / 'cupy_cache')
+    monkeypatch.setenv('CUPY_CACHE_DIR', '/somewhere/else')
+    cbf.get_array_module(use_gpu=True)
+    assert os.environ['CUPY_CACHE_DIR'] == '/somewhere/else'
 
     monkeypatch.setitem(sys.modules, 'cupy', stand_in_cupy(n_devices=0))
     with pytest.raises(RuntimeError, match='did not find a CUDA device'):

@@ -306,7 +306,8 @@ def _build_parser():
         help=(
             'Run the steps that support it on a GPU. '
             'Currently, this is only the model fit for multi-delay data. '
-            'Requires a CUDA device and CuPy, which is not installed by default.'
+            'Requires a CUDA device that is visible to ASLPrep '
+            '(docker --gpus all, singularity --nv).'
         ),
     )
     g_perfm.add_argument(

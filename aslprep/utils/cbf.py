@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -1295,12 +1297,20 @@ def get_array_module(use_gpu=False):
     if not use_gpu:
         return np
 
+    # CuPy caches its compiled kernels on disk, by default in the home directory,
+    # which is read-only in some containers. Keep them in the working directory instead,
+    # where later runs can reuse them.
+    if config.execution.work_dir is not None:
+        cache_dir = Path(config.execution.work_dir) / 'cupy_cache'
+        os.environ.setdefault('CUPY_CACHE_DIR', str(cache_dir))
+
     try:
         import cupy
     except ImportError as exc:
         raise RuntimeError(
             'Running on a GPU requires CuPy, which could not be imported. '
-            'Install the CuPy build that matches your CUDA version (e.g., cupy-cuda12x).'
+            'It is included in the ASLPrep Docker image. Elsewhere, install the CuPy build '
+            'that matches your CUDA version (e.g., cupy-cuda12x).'
         ) from exc
 
     try:
