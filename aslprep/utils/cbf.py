@@ -1546,6 +1546,42 @@ def fit_deltam_multipld(
     return cbf, att, abat, abv, failures
 
 
+#: M0 below this fraction of its 98th percentile over the field of view is treated as absent.
+M0_THRESHOLD = 0.1
+
+
+def zero_low_m0(m0data, threshold=M0_THRESHOLD):
+    """Set M0 values with almost no signal to zero.
+
+    CBF is proportional to delta-M divided by M0, so voxels with almost no M0 signal
+    (air, mostly) would otherwise get arbitrarily large CBF values,
+    which resampling then spreads into neighboring voxels.
+    A voxel with an M0 of zero gets no CBF estimate.
+
+    Parameters
+    ----------
+    m0data : :obj:`numpy.ndarray`
+        M0 values.
+    threshold : :obj:`float`, optional
+        Fraction of the 98th percentile of the finite M0 values below which M0 is set to zero.
+        The 98th percentile stands in for the brain's M0, without relying on a brain mask.
+
+    Returns
+    -------
+    m0data : :obj:`numpy.ndarray`
+        A copy of the M0 values, with the low ones set to zero.
+        Non-finite values are left as they are.
+    """
+    m0data = np.array(m0data, dtype=float)
+    finite = np.isfinite(m0data)
+    if not finite.any():
+        return m0data
+
+    cutoff = threshold * np.percentile(m0data[finite], 98)
+    m0data[finite & (m0data < cutoff)] = 0
+    return m0data
+
+
 def estimate_t1(metadata):
     """Estimate the relaxation rates of blood and gray matter based on magnetic field strength.
 

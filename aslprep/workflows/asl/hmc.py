@@ -253,7 +253,7 @@ def init_m0scan_hmc_wf(
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
     from niworkflows.interfaces.itk import MCFLIRT2ITK
 
-    from aslprep.interfaces.ants import ApplyTransforms
+    from aslprep.interfaces.ants import RegridImage
     from aslprep.interfaces.bids import DerivativesDataSink
     from aslprep.interfaces.utility import Ensure4D, GetImageType, MeanImage
 
@@ -284,9 +284,11 @@ def init_m0scan_hmc_wf(
     get_image_type = pe.Node(GetImageType(), name='get_image_type')
     workflow.connect([(inputnode, get_image_type, [('m0scan', 'image')])])
 
-    # Resample M0 scan to ASL reference resolution/orientation
+    # Resample M0 scan to ASL reference resolution/orientation.
+    # An M0 scan already on that grid is passed through, as Gaussian interpolation would only
+    # smooth it.
     resample_m0scan_to_asl = pe.Node(
-        ApplyTransforms(
+        RegridImage(
             interpolation='Gaussian',
             transforms=['identity'],
             args='--verbose',
