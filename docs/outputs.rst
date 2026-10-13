@@ -44,7 +44,9 @@ The outputs will be a `BIDS Derivatives`_ dataset of the form::
 For each participant in the dataset,
 a directory of derivatives (``sub-<label>/``)
 and a visual report (``sub-<label>.html``) are generated.
-The log directory contains `citation boilerplate`_ text.
+The log directory contains the citation boilerplate text (``CITATION.md``, ``CITATION.html``,
+``CITATION.tex`` and ``CITATION.bib``), which describes the processing that was run and
+lists the references to cite.
 ``dataset_description.json`` is a metadata file in which ASLPrep
 records metadata recommended by the BIDS standard.
 The atlases directory contains the relevant json, tsv, and nifti files
@@ -312,7 +314,8 @@ volume-to-surface sampling.
 a container format that holds both volumetric (regularly sampled in a grid) and surface
 (sampled on a triangular mesh) samples.
 Sub-cortical time series are sampled on a regular grid derived from one MNI template, while
-cortical time series are sampled on surfaces projected from the [Glasser2016]_ template.
+cortical time series are sampled on surfaces projected from the Glasser template
+:footcite:p:`Glasser_2016`.
 If CIFTI outputs are requested (with the ``--cifti-outputs`` argument), the ASL series are also
 saved as ``dtseries.nii`` CIFTI2 files::
 
@@ -431,7 +434,7 @@ ASL Confounds
 
 For each :abbr:`ASL (arterial spin labelling)` run processed with *ASLPrep*, an
 accompanying *confounds* file will be generated.
-`CBF Confounds`_ are saved as a :abbr:`TSV (tab-separated value)` file::
+The confounds are saved as a :abbr:`TSV (tab-separated value)` file::
 
    sub-<label>/[ses-<label>/]
       perf/
