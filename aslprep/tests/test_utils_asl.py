@@ -2,7 +2,8 @@
 
 import pytest
 
-from aslprep.utils.asl import prepare_basil_kwargs
+from aslprep import config
+from aslprep.utils.asl import estimate_labeling_efficiency, prepare_basil_kwargs
 
 
 def ascending(n_slices, spacing=0.09375):
@@ -147,3 +148,75 @@ def test_prepare_basil_kwargs(desc, metadata, expected):
     """Parametrized tests for prepare_basil_kwargs."""
     result = prepare_basil_kwargs(metadata)
     assert result == expected, f'Failed case: {desc}'
+
+
+@pytest.mark.parametrize(
+    ('desc', 'metadata', 'expected'),
+    [
+        (
+            'default PCASL, no suppression',
+            {'ArterialSpinLabelingType': 'PCASL', 'BackgroundSuppression': False},
+            0.85,
+        ),
+        (
+            'default PASL, suppression not stated',
+            {'ArterialSpinLabelingType': 'PASL'},
+            0.98,
+        ),
+        (
+            'default CASL with two suppression pulses',
+            {
+                'ArterialSpinLabelingType': 'CASL',
+                'BackgroundSuppression': True,
+                'BackgroundSuppressionNumberPulses': 2,
+            },
+            0.68 * 0.95**2,
+        ),
+        (
+            'sidecar efficiency, no suppression',
+            {
+                'ArterialSpinLabelingType': 'PCASL',
+                'LabelingEfficiency': 0.7,
+                'BackgroundSuppression': False,
+            },
+            0.7,
+        ),
+        (
+            'sidecar efficiency with four suppression pulses',
+            {
+                'ArterialSpinLabelingType': 'PCASL',
+                'LabelingEfficiency': 0.7,
+                'BackgroundSuppression': True,
+                'BackgroundSuppressionNumberPulses': 4,
+            },
+            0.7 * 0.95**4,
+        ),
+        (
+            'pulse count ignored without suppression',
+            {
+                'ArterialSpinLabelingType': 'PCASL',
+                'LabelingEfficiency': 0.7,
+                'BackgroundSuppression': False,
+                'BackgroundSuppressionNumberPulses': 4,
+            },
+            0.7,
+        ),
+    ],
+)
+def test_estimate_labeling_efficiency(desc, metadata, expected):
+    """The suppression loss applies whether or not the sidecar gives LabelingEfficiency."""
+    assert estimate_labeling_efficiency(metadata) == pytest.approx(expected), desc
+
+
+@pytest.mark.parametrize('sidecar', [{}, {'LabelingEfficiency': 0.7}])
+def test_estimate_labeling_efficiency_missing_pulse_count(sidecar, monkeypatch):
+    """Without BackgroundSuppressionNumberPulses, one pulse is assumed, with a warning."""
+    messages = []
+    monkeypatch.setattr(config.loggers.utils, 'warning', messages.append)
+    metadata = {'ArterialSpinLabelingType': 'PCASL', 'BackgroundSuppression': True, **sidecar}
+
+    labeleff = estimate_labeling_efficiency(metadata)
+
+    assert labeleff == pytest.approx(sidecar.get('LabelingEfficiency', 0.85) * 0.95)
+    assert len(messages) == 1
+    assert 'BackgroundSuppressionNumberPulses is not defined' in messages[0]
