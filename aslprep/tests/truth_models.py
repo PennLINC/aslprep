@@ -94,14 +94,15 @@ def m0_tr_correction(m0, tr, field_strength):
 
 
 def labeling_efficiency(metadata):
-    """ASLPrep's rule: the sidecar value, else base x 0.95^n for n suppression pulses.
+    """ASLPrep's rule: the sidecar value, else the base value, x 0.95^n for n suppression pulses.
 
-    Each pulse keeps about 95 % of the ASL signal (Alsop et al. 2015). When the sidecar has
-    LabelingEfficiency, ASLPrep applies no suppression loss; that part is ASLPrep's choice.
+    Each pulse keeps about 95 % of the ASL signal (Alsop et al. 2015). The sidecar's
+    LabelingEfficiency describes the labeling alone, so the loss applies to it as well.
     """
     if 'LabelingEfficiency' in metadata:
-        return float(metadata['LabelingEfficiency'])
-    alpha = BASE_EFFICIENCY[metadata['ArterialSpinLabelingType']]
+        alpha = float(metadata['LabelingEfficiency'])
+    else:
+        alpha = BASE_EFFICIENCY[metadata['ArterialSpinLabelingType']]
     if metadata.get('BackgroundSuppression'):
         alpha *= BS_PULSE_EFFICIENCY ** metadata.get('BackgroundSuppressionNumberPulses', 1)
     return alpha

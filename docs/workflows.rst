@@ -412,7 +412,9 @@ model :footcite:p:`alsop_recommended_2015`.
    :math:`\alpha` : Labeling efficiency.
    This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
    If that field is not set, then :math:`\alpha` will be determined based on the ASL type
-   (PASL, CASL, or PCASL) and the number of background suppression pulses.
+   (PASL, CASL, or PCASL).
+   In either case, if background suppression was applied, :math:`\alpha` is multiplied by 0.95
+   for each background suppression pulse :footcite:p:`alsop_recommended_2015`.
 
    :math:`w` : Post-labeling delay (PLD) for PCASL data, in seconds.
    In BIDS, this is encoded with the ``PostLabelingDelay`` field.
