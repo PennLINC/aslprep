@@ -327,7 +327,7 @@ However, '170k' outputs are also possible, and produce higher resolution CIFTI o
 (170494 grayordinates @ 1.6mm).
 
 CBF Derivatives
----------------
+~~~~~~~~~~~~~~~
 
 Cerebral blood flow (CBF) derivatives are generated in each of the volumetric spaces,
 surface spaces, and CIFTI2 resolutions requested for the preprocessed ASL data.
@@ -365,7 +365,7 @@ If ``--basil`` is used::
 .. _basil_outputs:
 
 Interpreting the BASIL outputs
-==============================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 *ASLPrep* runs BASIL through FSL's ``oxford_asl`` command, and
 each BASIL derivative is one of the files that ``oxford_asl`` writes.
@@ -523,5 +523,9 @@ as outputting the reference image-space versions would produce too many extra ou
             <source_entities>_space-<label>_atlas-<label>[_desc-<basil>]_coverage.tsv
             <source_entities>_space-<label>_atlas-<label>[_desc-<basil|basilGM|basilWM|score|scrub>]_cbf.tsv
 
+
+**********
+References
+**********
 
 .. footbibliography::
