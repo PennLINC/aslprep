@@ -34,14 +34,7 @@ MULTI_SUBSET = 300
 MUTATIONS = ('swap', 'reverse_slices', 'pld_shift', 'm0_scale', 'efficiency_ignored')
 
 #: Known disagreements with the documented model, as strict expected failures (spec Section 8).
-KNOWN_TIER_A = {
-    'fast_pasl_q2tips': (
-        'ASLPrep quantifies single-delay Q2TIPS with exp(TI2 / T1b) and no slice-time shift '
-        '(aslprep/interfaces/cbf.py, ComputeCBF); Alsop 2015 eq. 2 uses the inversion time TI. '
-        'Here CBF is 0.81 of the white-paper value, and the white paper matches the truth as '
-        'well as QUIPSS II does. Reported; pending a decision.'
-    ),
-}
+KNOWN_TIER_A = {}
 
 
 def _known(names):
@@ -213,27 +206,27 @@ def test_background_suppression_matches_physics(runs):
     assert p99 <= P99_TOL, f'p99 |cbf / cbf_physical - 1| = {p99:.4g}'
 
 
-def test_q2tips_convention_is_as_diagnosed(runs):
-    """Pin the cause of the known Q2TIPS disagreement, so a partial change cannot hide.
+def test_q2tips_does_not_use_saturation_stop_time(runs):
+    """Single-delay Q2TIPS must not decay over the end of the saturation train (#701).
 
-    ASLPrep's current single-delay Q2TIPS CBF equals the white-paper form with ``TI2`` in the
-    exponent instead of the slice-shifted inversion time.
+    ASLPrep used to put the second ``BolusCutOffDelayTime`` in the exponent, with no slice-time
+    shift, instead of the slice-shifted inversion time. That form must now break the bounds.
     """
     run = runs('fast_pasl_q2tips')
     md = run.metadata
-    ti1, ti2 = md['BolusCutOffDelayTime']
+    ti1, ti1_stop = md['BolusCutOffDelayTime']
     t1b = tm.T1_BLOOD[md['MagneticFieldStrength']]
     deltam = tm.deltam_mean(run.asl, run.context)
-    convention = (
+    former = (
         tm.UNIT_CONVERSION
         * tm.LAMBDA
         * deltam
-        * np.exp(ti2 / t1b)
+        * np.exp(ti1_stop / t1b)
         / (2 * tm.labeling_efficiency(md) * ti1 * run.m0scan)
     )
-    median, p99 = run.deviation(convention)
-    assert median <= MEDIAN_TOL
-    assert p99 <= P99_TOL
+    median, p99 = run.deviation(former, run.valid(run.expected()))
+    assert median > MEDIAN_TOL
+    assert p99 > P99_TOL
 
 
 def _multi_subset(run):
