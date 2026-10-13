@@ -77,33 +77,47 @@ def estimate_labeling_efficiency(metadata):
 
     Notes
     -----
-    If LabelingEfficiency is defined in the metadata, then this value will be used.
-    Otherwise, efficiency will be estimated based on the ASL type and number of background
-    suppression pulses (if any).
+    If LabelingEfficiency is defined in the metadata, then this value will be used as the
+    efficiency of the labeling itself.
+    Otherwise, that efficiency will be chosen based on the ASL type.
     PCASL and PASL values come from :footcite:t:`alsop_recommended_2015`.
     The CASL value comes from :footcite:t:`wang2005amplitude`.
-    The adjustment based on number of background suppression pulses is not described in any papers,
-    as far as we know, but is apparently widely used.
+
+    If background suppression was applied, the labeling efficiency is then multiplied by 0.95
+    for each background suppression pulse, whether or not LabelingEfficiency is defined,
+    since each inversion pulse reduces the ASL signal by approximately 5%
+    :footcite:p:`alsop_recommended_2015`.
+    The BIDS LabelingEfficiency field describes the labeling alone, so it does not include
+    this loss.
+    If BackgroundSuppressionNumberPulses is not defined, one pulse is assumed.
 
     References
     ----------
     .. footbibliography::
     """
+    BASE_LABELEFF = {
+        'CASL': 0.68,
+        'PCASL': 0.85,
+        'PASL': 0.98,
+    }
+    BS_PULSE_EFF = 0.95  # hardcoded BackgroundSuppressionPulse efficiency
+
     if 'LabelingEfficiency' in metadata.keys():
         labeleff = metadata['LabelingEfficiency']
     else:
-        BASE_LABELEFF = {
-            'CASL': 0.68,
-            'PCASL': 0.85,
-            'PASL': 0.98,
-        }
         labeleff = BASE_LABELEFF[metadata['ArterialSpinLabelingType']]
 
-        if metadata.get('BackgroundSuppression', False):
-            BS_PULSE_EFF = 0.95  # hardcoded BackgroundSuppressionPulse efficiency
-            # We assume there was one pulse if suppression was applied,
-            # but the number of pulses isn't defined.
-            labeleff *= BS_PULSE_EFF ** metadata.get('BackgroundSuppressionNumberPulses', 1)
+    if metadata.get('BackgroundSuppression', False):
+        if 'BackgroundSuppressionNumberPulses' not in metadata.keys():
+            from aslprep import config
+
+            config.loggers.utils.warning(
+                'BackgroundSuppression is true, but BackgroundSuppressionNumberPulses is not '
+                'defined. Assuming one background suppression pulse to estimate the labeling '
+                'efficiency.'
+            )
+
+        labeleff *= BS_PULSE_EFF ** metadata.get('BackgroundSuppressionNumberPulses', 1)
 
     return labeleff
 

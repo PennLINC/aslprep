@@ -106,8 +106,8 @@ should achieve and are never fitted to ASLPrep's output; a ceiling is loosened o
 commit that explains why the method cannot meet it. A missing metric or ceiling fails.
 
 Known disagreements are strict expected failures whose size is asserted first, so a change in
-either direction fails: for example the absence of any background-suppression loss when the
-sidecar has ``LabelingEfficiency`` (#706).
+either direction fails: for example the displacement that motion correction leaves on a
+motion-free series (#707).
 
 When simulating background suppression, set aslscan's ``[background_suppression]
 inversion_efficiency`` to 0.975. aslscan scales the label difference by (1 - 2 x efficiency)
