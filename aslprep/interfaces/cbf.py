@@ -1016,6 +1016,11 @@ class BASILCBF(FSLCommand):
     output_spec = _BASILCBFOutputSpec
 
     def _run_interface(self, runtime):
+        # oxford_asl keeps its intermediate files in a temporary directory named by FSL's
+        # tmpnam, which creates it in TMPDIR, or in /tmp if TMPDIR is not set.
+        # Inside a container, /tmp may be too small for these files,
+        # so point TMPDIR to the node's working directory.
+        runtime.environ['TMPDIR'] = runtime.cwd
         runtime = super()._run_interface(runtime)
         return runtime
 

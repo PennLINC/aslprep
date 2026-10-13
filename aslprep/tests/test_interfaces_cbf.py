@@ -459,6 +459,44 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
     assert np.array_equal(cbf_data[0], cbf_data[1])
 
 
+def test_basilcbf_tmpdir(tmp_path, monkeypatch):
+    """oxford_asl writes its temporary files to the working directory, not to /tmp (gh-557)."""
+    # A stand-in for oxford_asl that records where FSL's tmpnam would create its files,
+    # and writes the outputs that BASILCBF expects.
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    fake_oxford_asl = bin_dir / 'oxford_asl'
+    fake_oxford_asl.write_text(
+        '#!/bin/sh\n'
+        'echo "$TMPDIR" > tmpdir.txt\n'
+        'mkdir -p native_space/pvcorr\n'
+        'touch native_space/perfusion_calib.nii.gz\n'
+        'touch native_space/pvcorr/perfusion_calib.nii.gz\n'
+        'touch native_space/pvcorr/perfusion_wm_calib.nii.gz\n'
+    )
+    fake_oxford_asl.chmod(0o755)
+    monkeypatch.setenv('PATH', f'{bin_dir}{os.pathsep}{os.environ["PATH"]}')
+    monkeypatch.setenv('TMPDIR', str(tmp_path / 'elsewhere'))
+
+    shape = (4, 4, 4)
+    deltam = _save_img(np.ones(shape, dtype=np.float32), tmp_path, 'deltam.nii.gz')
+    mask = _save_img(np.ones(shape, dtype=np.uint8), tmp_path, 'mask.nii.gz')
+    work_dir = tmp_path / 'work'
+    work_dir.mkdir()
+
+    results = cbf.BASILCBF(
+        deltam=deltam,
+        mask=mask,
+        m0_scale=1,
+        tis=[3.6],
+        bolus=1.8,
+        pcasl=True,
+    ).run(cwd=str(work_dir))
+
+    assert (work_dir / 'tmpdir.txt').read_text().strip() == str(work_dir)
+    assert results.outputs.mean_cbf_basil == str(work_dir / 'native_space/perfusion_calib.nii.gz')
+
+
 def _save_img(arr, tmpdir, fname):
     img = nb.Nifti1Image(arr, affine=np.eye(4))
     fname = os.path.join(tmpdir, fname)
