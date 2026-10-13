@@ -738,11 +738,6 @@ BASIL is mostly suitable for multi-delay ASL data.
 It includes bolus arrival time estimation with spatial regularization :footcite:p:`groves2009combined`
 and the correction of partial volume effects :footcite:p:`chappell2011partial`.
 
-BASIL is run with FSL's ``oxford_asl`` command, which keeps its intermediate files in a temporary
-directory.
-*ASLPrep* places that directory in its working directory (``-w``) instead of ``/tmp``,
-which is often too small inside a container.
-
 A sample of BASIL CBF with spatial regularization is shown below:
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-basilplot_asl.svg
