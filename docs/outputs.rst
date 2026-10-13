@@ -343,6 +343,19 @@ CBF Outputs::
          <source_entities>[_space-<label>]_att.nii.gz  # arterial transit time (multi-PLD data only)
          <source_entities>[_space-<label>]_abv.nii.gz  # arterial blood volume (multi-PLD data only)
          <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-PLD data only)
+         <source_entities>_desc-<lower|upper>_att.nii.gz  # range of equally good arterial transit times (multi-PLD data only)
+         <source_entities>_desc-<lower|upper>_abat.nii.gz  # range of equally good arterial bolus arrival times (multi-PLD data only)
+         <source_entities>[_space-<label>]_desc-decayed_abv.nii.gz  # arterial blood volume times exp(-aBAT / T1blood) (multi-PLD (P)CASL data only)
+
+For multi-PLD data, the model cannot always locate the arterial transit time
+or the arterial bolus arrival time, and the ``att`` and ``abat`` maps then hold one value from
+the range of values that fit equally well.
+The ``desc-lower`` and ``desc-upper`` maps hold the ends of that range.
+These maps are only written in the ASL run's native space,
+which requires ``--level minimal``, ``--level resampling``, or ``asl`` in ``--output-spaces``,
+because the ranges change abruptly between neighboring voxels and slices,
+and interpolating them to another space would produce values that are no longer bounds.
+See :ref:`multidelay_identifiability` before interpreting these maps.
 
 If ``--scorescrub`` is used::
 

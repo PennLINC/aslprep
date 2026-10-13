@@ -67,6 +67,7 @@ def init_cbf_reporting_wf(
                 'att',
                 'abat',
                 'abv',
+                'abv_decayed',  # unused
                 # SCORE/SCRUB outputs
                 'cbf_ts_score',  # unused
                 'mean_cbf_score',
