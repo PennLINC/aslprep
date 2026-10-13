@@ -369,6 +369,18 @@ ASL data consist of multiple pairs of labeled and control images.
 In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
+A separate M0 scan with a different resolution or field of view from the ASL data is first
+resampled onto the ASL grid with Gaussian interpolation, which smooths the image.
+An M0 scan that is already on the ASL grid skips this step,
+so it is only interpolated once, along with the head-motion and distortion corrections.
+
+CBF is proportional to the difference signal divided by M0,
+so voxels with almost no M0 signal (mostly air) would get arbitrarily large CBF values,
+which resampling to other spaces would then spread into the neighboring voxels.
+*ASLPrep* therefore treats M0 values below 10% of the 98th percentile of the M0 image as zero.
+Those voxels get no CBF estimate: zero for single-delay data,
+and a failed fit (``NaN``) for multi-delay data.
+
 After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted:
 
 .. math::

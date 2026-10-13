@@ -1025,7 +1025,7 @@ def init_asl_native_wf(
         For multi-echo data, motion correction has already been applied, so
         this will be undefined.
     """
-    from aslprep.interfaces.ants import ApplyTransforms
+    from aslprep.interfaces.ants import RegridImage
     from aslprep.interfaces.utility import GetImageType
     from aslprep.utils.misc import estimate_asl_mem_usage
 
@@ -1170,9 +1170,12 @@ def init_asl_native_wf(
         get_image_type = pe.Node(GetImageType(), name='get_image_type')
         workflow.connect([(inputnode, get_image_type, [('m0scan', 'image')])])
 
-        # Resample separate M0 file to aslref resolution/orientation
+        # Resample separate M0 file to aslref resolution/orientation.
+        # Gaussian interpolation smooths the image, which reduces aliasing when a finer M0 scan
+        # is moved to the ASL grid. An M0 scan that is already on that grid is passed through,
+        # as the smoothing would only dilute M0 at tissue boundaries (and so inflate CBF there).
         resample_m0scan_to_asl = pe.Node(
-            ApplyTransforms(
+            RegridImage(
                 interpolation='Gaussian',
                 transforms=['identity'],
                 args='--verbose',

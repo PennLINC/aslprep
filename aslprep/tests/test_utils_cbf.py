@@ -432,3 +432,26 @@ def test_fit_deltam_multipld_other_array_module(monkeypatch):
     assert chunk_sizes == [25, 25, 10]
     for estimate, expected_estimate in zip(estimates, expected, strict=True):
         np.testing.assert_array_equal(estimate, expected_estimate)
+
+
+def test_zero_low_m0():
+    """M0 far below the brain's level is zeroed; everything else is untouched."""
+    m0 = np.full(1000, 100.0)
+    m0[:300] = np.linspace(-5, 9.9, 300)  # air: noise around zero, below 10 % of 100
+    m0[300:320] = np.linspace(10, 60, 20)  # partial volume at the edge: kept
+    m0[320] = np.nan
+
+    out = cbf.zero_low_m0(m0)
+    assert np.all(out[:300] == 0)
+    np.testing.assert_array_equal(out[300:320], m0[300:320])
+    assert np.isnan(out[320])
+    assert np.all(out[321:] == 100)
+    # The input is not modified.
+    assert m0[0] == -5
+
+    # A higher threshold removes more of the edge.
+    assert np.count_nonzero(cbf.zero_low_m0(m0, threshold=0.5) == 0) > 300
+
+    # A constant M0 (an M0Estimate) is never zeroed, and non-finite data pass through.
+    np.testing.assert_array_equal(cbf.zero_low_m0(np.full(10, 3.0)), np.full(10, 3.0))
+    assert np.isnan(cbf.zero_low_m0(np.full(10, np.nan))).all()

@@ -89,7 +89,7 @@ def init_raw_aslref_wf(
     """
     from niworkflows.interfaces.images import RobustAverage
 
-    from aslprep.interfaces.ants import ApplyTransforms
+    from aslprep.interfaces.ants import RegridImage
     from aslprep.interfaces.utility import GetImageType, IndexImage
 
     workflow = Workflow(name=name)
@@ -156,8 +156,10 @@ methodology of *ASLPrep*, for use in head motion correction.
         get_image_type = pe.Node(GetImageType(), name='get_image_type')
         workflow.connect([(val_m0scan, get_image_type, [('out_file', 'image')])])
 
+        # An M0 scan already on the ASL grid is passed through, as Gaussian interpolation would
+        # only smooth it.
         resample_m0scan_to_asl = pe.Node(
-            ApplyTransforms(
+            RegridImage(
                 interpolation='Gaussian',
                 transforms=['identity'],
                 args='--verbose',
