@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from aslprep.utils.bids import collect_derivatives
+from aslprep.utils.bids import collect_derivatives, explain_missing_asl
 
 XFM_NAMES = {
     'desc': {
@@ -124,3 +124,51 @@ def test_collect_run_data_rejects_unexpected_m0scan(tmp_path, monkeypatch):
     layout = BIDSLayout(tmp_path, validate=False)
     with pytest.raises(ValueError, match='M0Type is Included, but an M0 scan was found'):
         collect_run_data(layout, str(perf / 'sub-01_asl.nii.gz'))
+
+
+def _make_asl_dataset(root):
+    """Write a minimal dataset with one ASL run and return its layout."""
+    from bids.layout import BIDSLayout
+
+    perf_dir = root / 'sub-01' / 'perf'
+    perf_dir.mkdir(parents=True)
+    (root / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'test', 'BIDSVersion': '1.8.0'})
+    )
+    (perf_dir / 'sub-01_asl.nii.gz').write_bytes(b'')
+    (perf_dir / 'sub-01_asl.json').write_text('{}')
+    return BIDSLayout(str(root), validate=False)
+
+
+def test_explain_missing_asl_no_hint(tmp_path):
+    """There is no hint when the ASL files have the right datatype, or do not exist."""
+    layout = _make_asl_dataset(tmp_path / 'dset')
+
+    assert explain_missing_asl(layout, '01') == ''
+    assert explain_missing_asl(layout, '02') == ''
+
+
+def test_explain_missing_asl_datatype_in_path(tmp_path):
+    """A dataset under a directory named after a BIDS datatype gets a hint (gh-704)."""
+    layout = _make_asl_dataset(tmp_path / 'motion' / 'dset')
+    asl_files = layout.get(subject='01', suffix='asl', extension='.nii.gz')
+    if asl_files[0].entities.get('datatype') == 'perf':
+        pytest.skip('This version of PyBIDS only parses entities within the dataset root.')
+
+    hint = explain_missing_asl(layout, '01')
+    assert 'found 1 ASL file(s)' in hint
+    assert "datatype 'motion' instead of 'perf'" in hint
+    assert "contains a directory named 'motion'" in hint
+
+
+def test_explain_missing_asl_wrong_directory(tmp_path):
+    """ASL files outside of perf/ get a hint that does not blame the dataset path."""
+    from types import SimpleNamespace
+
+    asl_file = SimpleNamespace(entities={'datatype': 'func', 'suffix': 'asl'})
+    layout = SimpleNamespace(root=str(tmp_path / 'dset'), get=lambda **kwargs: [asl_file])
+
+    hint = explain_missing_asl(layout, '01')
+    assert "datatype 'func' instead of 'perf'" in hint
+    assert 'perf/ directory' in hint
+    assert 'contains a directory named' not in hint
