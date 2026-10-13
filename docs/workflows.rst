@@ -722,6 +722,8 @@ An example of CBF denoised by SCRUB is shown below.
 
    Computed CBF maps denoised by SCRUB
 
+.. _basil_workflow:
+
 BASIL
 -----
 
@@ -747,6 +749,9 @@ The CBF map shown below is the result of partial volume corrected CBF computed b
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-pvcplot_asl.svg
 
    Partial volume corrected CBF maps by BASIL
+
+See :ref:`basil_outputs` for how to interpret each BASIL derivative,
+including the partial volume corrected maps.
 
 
 ************************

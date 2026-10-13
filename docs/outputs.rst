@@ -44,7 +44,9 @@ The outputs will be a `BIDS Derivatives`_ dataset of the form::
 For each participant in the dataset,
 a directory of derivatives (``sub-<label>/``)
 and a visual report (``sub-<label>.html``) are generated.
-The log directory contains `citation boilerplate`_ text.
+The log directory contains the citation boilerplate text (``CITATION.md``, ``CITATION.html``,
+``CITATION.tex`` and ``CITATION.bib``), which describes the processing that was run and
+lists the references to cite.
 ``dataset_description.json`` is a metadata file in which ASLPrep
 records metadata recommended by the BIDS standard.
 The atlases directory contains the relevant json, tsv, and nifti files
@@ -312,7 +314,8 @@ volume-to-surface sampling.
 a container format that holds both volumetric (regularly sampled in a grid) and surface
 (sampled on a triangular mesh) samples.
 Sub-cortical time series are sampled on a regular grid derived from one MNI template, while
-cortical time series are sampled on surfaces projected from the [Glasser2016]_ template.
+cortical time series are sampled on surfaces projected from the Glasser template
+:footcite:p:`Glasser_2016`.
 If CIFTI outputs are requested (with the ``--cifti-outputs`` argument), the ASL series are also
 saved as ``dtseries.nii`` CIFTI2 files::
 
@@ -327,7 +330,7 @@ However, '170k' outputs are also possible, and produce higher resolution CIFTI o
 (170494 grayordinates @ 1.6mm).
 
 CBF Derivatives
----------------
+~~~~~~~~~~~~~~~
 
 Cerebral blood flow (CBF) derivatives are generated in each of the volumetric spaces,
 surface spaces, and CIFTI2 resolutions requested for the preprocessed ASL data.
@@ -375,6 +378,68 @@ If ``--basil`` is used::
          <source_entities>[_space-<label>]_desc-basil_att.nii.gz  # arterial transit time (multi-PLD data only)
          <source_entities>[_space-<label>]_desc-basil_abv.nii.gz  # arterial blood volume (multi-PLD data only)
 
+.. _basil_outputs:
+
+Interpreting the BASIL outputs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*ASLPrep* runs BASIL through FSL's ``oxford_asl`` command, and
+each BASIL derivative is one of the files that ``oxford_asl`` writes.
+The table below gives the source file of each derivative, relative to the ``oxford_asl``
+output directory.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 30 50
+
+   * - Derivative
+     - ``oxford_asl`` file
+     - Contents
+   * - ``desc-basil_cbf``
+     - ``native_space/perfusion_calib``
+     - CBF in mL/100 g/min, with spatial regularization and without partial volume correction.
+       Compare this map with *ASLPrep*'s own ``cbf`` map.
+   * - ``desc-basilGM_cbf``
+     - ``native_space/pvcorr/perfusion_calib``
+     - Gray matter CBF in mL/100 g/min, after partial volume correction.
+   * - ``desc-basilWM_cbf``
+     - ``native_space/pvcorr/perfusion_wm_calib``
+     - White matter CBF in mL/100 g/min, after partial volume correction.
+   * - ``desc-basil_att``
+     - ``native_space/arrival``
+     - Arterial transit time in seconds. Multi-delay data only.
+   * - ``desc-basil_abv``
+     - ``native_space/aCBV_calib``
+     - Arterial blood volume. Multi-delay data only.
+
+A voxel in an ASL image usually holds a mixture of gray matter, white matter and CSF,
+so the CBF measured in that voxel is a weighted average of the CBF in each tissue.
+Partial volume correction :footcite:p:`chappell2011partial` separates that average into
+one CBF map for gray matter and one for white matter.
+Keep the following in mind when using the corrected maps:
+
+- Each value is the CBF of the *tissue* in that voxel, not of the voxel.
+  A voxel that is 30% gray matter and has a ``desc-basilGM_cbf`` value of 60
+  holds gray matter with a CBF of 60 mL/100 g/min.
+  Do not multiply the map by the gray matter fraction again.
+- Each map is only meaningful where its tissue is present.
+  Mask ``desc-basilGM_cbf`` with a gray matter mask and ``desc-basilWM_cbf`` with a white matter
+  mask before averaging or comparing values.
+  Estimates are least reliable in voxels with only a small fraction of the tissue.
+- The partial volume estimates are the gray matter and white matter probability maps from the
+  anatomical workflow, resampled to the ASL image.
+  The corrected maps therefore depend on the quality of the anatomical segmentation and
+  of the ASL-to-anatomical registration.
+- Corrected and uncorrected values are not interchangeable.
+  Gray matter CBF is typically higher after correction, because the uncorrected value
+  is diluted by white matter and CSF.
+- The arterial transit time and arterial blood volume maps come from the analysis without
+  partial volume correction.
+
+See the `oxford_asl user guide <https://asl-docs.readthedocs.io/en/latest/oxford_asl_userguide.html>`_
+for a full description of these files, and :ref:`the BASIL section <basil_workflow>` for how
+*ASLPrep* runs BASIL.
+
 
 *************
 ASL Confounds
@@ -382,7 +447,7 @@ ASL Confounds
 
 For each :abbr:`ASL (arterial spin labelling)` run processed with *ASLPrep*, an
 accompanying *confounds* file will be generated.
-`CBF Confounds`_ are saved as a :abbr:`TSV (tab-separated value)` file::
+The confounds are saved as a :abbr:`TSV (tab-separated value)` file::
 
    sub-<label>/[ses-<label>/]
       perf/
@@ -473,3 +538,10 @@ as outputting the reference image-space versions would produce too many extra ou
          perf/
             <source_entities>_space-<label>_atlas-<label>[_desc-<basil>]_coverage.tsv
             <source_entities>_space-<label>_atlas-<label>[_desc-<basil|basilGM|basilWM|score|scrub>]_cbf.tsv
+
+
+**********
+References
+**********
+
+.. footbibliography::
