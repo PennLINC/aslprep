@@ -30,6 +30,7 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
     prepare_basil_kwargs,
 )
+from aslprep.utils.cbf import M0_THRESHOLD
 
 
 def init_cbf_wf(
@@ -159,6 +160,12 @@ Cerebral blood flow computation and denoising
             'The control volumes in the ASL scans were smoothed with a '
             f'Gaussian kernel (FWHM={smooth_kernel} mm) and the average control image was '
             f'calculated and scaled by {m0_scale}.'
+        )
+
+    if m0type != 'Estimate':
+        m0_str += (
+            f' Voxels where it fell below {100 * M0_THRESHOLD:g}% of its 98th percentile were '
+            'treated as having no signal, and were given no CBF estimate.'
         )
 
     if processing_target == 'cbf':

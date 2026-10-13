@@ -369,6 +369,18 @@ ASL data consist of multiple pairs of labeled and control images.
 In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
+A separate M0 scan with a different resolution or field of view from the ASL data is first
+resampled onto the ASL grid with Gaussian interpolation, which smooths the image.
+An M0 scan that is already on the ASL grid skips this step,
+so it is only interpolated once, along with the head-motion and distortion corrections.
+
+CBF is proportional to the difference signal divided by M0,
+so voxels with almost no M0 signal (mostly air) would get arbitrarily large CBF values,
+which resampling to other spaces would then spread into the neighboring voxels.
+*ASLPrep* therefore treats M0 values below 10% of the 98th percentile of the M0 image as zero.
+Those voxels get no CBF estimate: zero for single-delay data,
+and a failed fit (``NaN``) for multi-delay data.
+
 After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted:
 
 .. math::
@@ -424,9 +436,6 @@ model :footcite:p:`alsop_recommended_2015`.
 
    :math:`TI_{1}` : Bolus cutoff delay time, in seconds.
    For Q2TIPS, this is the *first* bolus cutoff.
-
-   :math:`TI_{2}` : For Q2TIPS, this is the *last* bolus cutoff delay time, in seconds.
-   The other methods do not have this variable.
 
 
 (Pseudo-)Continuous ASL
@@ -494,18 +503,30 @@ Q2TIPS Modification
 ^^^^^^^^^^^^^^^^^^^
 
 For PASL data with the Q2TIPS bolus cut-off technique,
-the formula from the commercial Q2TIPS CBF calculation is used,
-as described in :footcite:t:`noguchi2015technical`.
+the formula from :footcite:t:`alsop_recommended_2015` is used,
+which is also the commercial Q2TIPS CBF calculation described in
+:footcite:t:`noguchi2015technical`.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ { \frac{TI_{2} }{ T1_{blood} } } }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
    { 2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
-where :math:`TI_{1}` is the first bolus cutoff delay time and
-:math:`TI_{2}` is the last bolus cutoff delay time.
+where :math:`TI_{1}` is the first bolus cutoff delay time.
 
-Note that the formula for Q2TIPS is the same as QUIPSS II,
-except :math:`TI_{2}` replaces :math:`TI` in the numerator.
+Note that the formula for Q2TIPS is the same as QUIPSS II.
+In BIDS, Q2TIPS has two bolus cutoff delay times:
+the start times of the first and last saturation pulses.
+The first is the bolus duration, :math:`TI_{1}`.
+The last is not used in the calculation.
+It is not the inversion time
+(:math:`TI` here, called :math:`TI_{2}` by :footcite:t:`noguchi2015technical`),
+which is the ``PostLabelingDelay``.
+
+.. warning::
+
+   ASLPrep 26.0.3 and earlier used the last bolus cutoff delay time in place of :math:`TI`,
+   without the slice timing shift,
+   which underestimated CBF for single-delay Q2TIPS data.
 
 
 Multi-Delay ASL

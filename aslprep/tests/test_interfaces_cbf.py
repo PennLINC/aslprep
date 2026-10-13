@@ -358,6 +358,56 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         assert mean_cbf_img.ndim == 3
 
 
+@pytest.mark.parametrize(
+    'acq_dict',
+    [
+        {'MRAcquisitionType': '3D'},
+        {'MRAcquisitionType': '2D', 'SliceTiming': list(np.linspace(0, 0.25, 30))},
+    ],
+    ids=['3D', '2D'],
+)
+def test_computecbf_q2tips_uses_inversion_time(acq_dict, tmp_path):
+    """Single-delay Q2TIPS decays over the (slice-shifted) inversion time, like QUIPSS II.
+
+    The second BolusCutOffDelayTime is the end of the saturation pulse train,
+    so it must not affect CBF.
+    """
+    asl_data = np.random.random((30, 30, 30, 4)).astype(np.float32)
+    asl_file = _save_img(asl_data, tmp_path, 'asl.nii.gz')
+    asl_mask = np.zeros((30, 30, 30), dtype=np.uint8)
+    asl_mask[10:20, 10:20, 10:20] = 1
+    m0_file = _save_img(asl_mask, tmp_path, 'm0.nii.gz')
+
+    base_metadata = {
+        'ArterialSpinLabelingType': 'PASL',
+        'MagneticFieldStrength': 3,
+        'BolusCutOffFlag': True,
+        'PostLabelingDelay': 1.8,
+        **acq_dict,
+    }
+    bolus_cutoffs = {
+        'quipss2': {'BolusCutOffTechnique': 'QUIPSSII', 'BolusCutOffDelayTime': 0.7},
+        'q2tips': {'BolusCutOffTechnique': 'Q2TIPS', 'BolusCutOffDelayTime': [0.7, 1.6]},
+        'q2tips_short': {'BolusCutOffTechnique': 'Q2TIPS', 'BolusCutOffDelayTime': [0.7, 1.2]},
+    }
+    mean_cbf = {}
+    for name, bolus_cutoff in bolus_cutoffs.items():
+        out_dir = tmp_path / name
+        out_dir.mkdir()
+        results = cbf.ComputeCBF(
+            cbf_only=False,
+            deltam=asl_file,
+            metadata={**base_metadata, **bolus_cutoff},
+            m0_scale=1,
+            m0_file=m0_file,
+        ).run(cwd=out_dir)
+        mean_cbf[name] = nb.load(results.outputs.mean_cbf).get_fdata()
+
+    assert mean_cbf['quipss2'].max() > 0
+    np.testing.assert_allclose(mean_cbf['q2tips'], mean_cbf['quipss2'])
+    np.testing.assert_allclose(mean_cbf['q2tips_short'], mean_cbf['quipss2'])
+
+
 def test_compare_slicetiming(datasets, tmp_path_factory):
     """CBF estimates should be the same with slice-timing modification as not.
 
