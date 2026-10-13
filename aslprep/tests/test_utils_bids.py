@@ -1,6 +1,7 @@
 """Tests for aslprep.utils.bids."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -124,3 +125,47 @@ def test_collect_run_data_rejects_unexpected_m0scan(tmp_path, monkeypatch):
     layout = BIDSLayout(tmp_path, validate=False)
     with pytest.raises(ValueError, match='M0Type is Included, but an M0 scan was found'):
         collect_run_data(layout, str(perf / 'sub-01_asl.nii.gz'))
+
+
+@pytest.mark.parametrize(
+    ('ignore', 'expected'),
+    [
+        ([], ['m0scan', 'control', 'label', 'cbf']),
+        (['cbf'], ['m0scan', 'control', 'label', 'ignored']),
+    ],
+)
+def test_collect_run_data_ignores_volume_types(tmp_path, monkeypatch, ignore, expected):
+    """--ignore cbf hides CBF volumes from the workflow without touching the dataset."""
+    import nibabel as nb
+    import numpy as np
+    import pandas as pd
+    from bids.layout import BIDSLayout
+
+    from aslprep import config
+    from aslprep.utils.bids import collect_run_data
+
+    bids_dir = tmp_path / 'bids'
+    work_dir = tmp_path / 'work'
+    monkeypatch.setattr(config.workflow, 'ignore', ignore)
+    monkeypatch.setattr(config.execution, 'work_dir', work_dir)
+    perf = bids_dir / 'sub-01' / 'perf'
+    perf.mkdir(parents=True)
+    (bids_dir / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'test', 'BIDSVersion': '1.10.0'})
+    )
+    img = nb.Nifti1Image(np.zeros((2, 2, 2, 4), np.float32), np.eye(4))
+    img.to_filename(perf / 'sub-01_asl.nii.gz')
+    (perf / 'sub-01_asl.json').write_text(json.dumps({'M0Type': 'Included'}))
+    raw_aslcontext = perf / 'sub-01_aslcontext.tsv'
+    raw_text = 'volume_type\nm0scan\ncontrol\nlabel\ncbf\n'
+    raw_aslcontext.write_text(raw_text)
+    layout = BIDSLayout(bids_dir, validate=False)
+
+    run_data = collect_run_data(layout, str(perf / 'sub-01_asl.nii.gz'))
+
+    assert pd.read_table(run_data['aslcontext'])['volume_type'].tolist() == expected
+    assert raw_aslcontext.read_text() == raw_text
+    if ignore:
+        assert Path(run_data['aslcontext']).parent == work_dir / 'aslcontext'
+    else:
+        assert Path(run_data['aslcontext']) == raw_aslcontext

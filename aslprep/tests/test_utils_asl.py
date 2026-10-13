@@ -3,7 +3,12 @@
 import pytest
 
 from aslprep import config
-from aslprep.utils.asl import estimate_labeling_efficiency, prepare_basil_kwargs
+from aslprep.utils.asl import (
+    estimate_labeling_efficiency,
+    ignore_volume_types,
+    prepare_basil_kwargs,
+    select_processing_target,
+)
 
 
 def ascending(n_slices, spacing=0.09375):
@@ -220,3 +225,78 @@ def test_estimate_labeling_efficiency_missing_pulse_count(sidecar, monkeypatch):
     assert labeleff == pytest.approx(sidecar.get('LabelingEfficiency', 0.85) * 0.95)
     assert len(messages) == 1
     assert 'BackgroundSuppressionNumberPulses is not defined' in messages[0]
+
+
+def _write_volume_types(tmp_path, volume_types):
+    aslcontext = tmp_path / 'sub-01_aslcontext.tsv'
+    aslcontext.write_text('\n'.join(['volume_type', *volume_types]) + '\n')
+    return str(aslcontext)
+
+
+@pytest.mark.parametrize(
+    ('volume_types', 'ignore', 'target', 'reference'),
+    [
+        # Scanner-calculated CBF next to control-label pairs: the reference is no longer CBF.
+        (['m0scan', 'control', 'label', 'cbf'], ['cbf'], 'control', 'm0scan'),
+        (['control', 'label', 'cbf'], ['cbf'], 'control', 'control'),
+        (['control', 'label', 'deltam', 'cbf'], ['cbf'], 'control', 'deltam'),
+        (['control', 'label', 'deltam', 'cbf'], ['cbf', 'deltam'], 'control', 'control'),
+        # GE-style series: ignoring one precomputed type falls back on the other.
+        (['m0scan', 'deltam', 'cbf'], ['deltam'], 'cbf', 'cbf'),
+        (['m0scan', 'deltam', 'cbf'], ['cbf'], 'deltam', 'deltam'),
+    ],
+)
+def test_ignore_volume_types(tmp_path, volume_types, ignore, target, reference):
+    """Ignored volume types are not processed and are not used for the reference image."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.fit import select_reference_volume_type
+
+    aslcontext = _write_volume_types(tmp_path, volume_types)
+    out_file = ignore_volume_types(aslcontext, ignore=ignore, out_dir=tmp_path / 'work')
+
+    assert out_file != aslcontext
+    out_types = pd.read_table(out_file)['volume_type'].tolist()
+    # The number of rows still matches the number of volumes in the ASL file.
+    assert len(out_types) == len(volume_types)
+    assert not set(out_types) & set(ignore)
+    assert [t for t in out_types if t != 'ignored'] == [t for t in volume_types if t not in ignore]
+
+    assert select_processing_target(out_file) == target
+    assert (
+        select_reference_volume_type(
+            aslcontext=out_file,
+            metadata={'M0Type': 'Included' if 'm0scan' in volume_types else 'Absent'},
+            prioritize_m0=False,
+        )
+        == reference
+    )
+
+
+@pytest.mark.parametrize(
+    'ignore',
+    [[], ['cbf'], ['fieldmaps', 'sbref'], None],
+)
+def test_ignore_volume_types_unchanged(tmp_path, ignore):
+    """The aslcontext file is used as is when it has no volumes to ignore."""
+    aslcontext = _write_volume_types(tmp_path, ['m0scan', 'control', 'label'])
+
+    assert ignore_volume_types(aslcontext, ignore=ignore, out_dir=tmp_path / 'work') == aslcontext
+    assert not (tmp_path / 'work').exists()
+
+
+@pytest.mark.parametrize(
+    ('volume_types', 'ignore'),
+    [
+        (['m0scan', 'cbf'], ['cbf']),
+        (['m0scan', 'deltam'], ['deltam']),
+        (['deltam', 'cbf'], ['cbf', 'deltam']),
+        (['control', 'cbf'], ['cbf']),
+    ],
+)
+def test_ignore_volume_types_nothing_left(tmp_path, volume_types, ignore):
+    """Ignoring every volume type that can be processed is an error."""
+    aslcontext = _write_volume_types(tmp_path, volume_types)
+
+    with pytest.raises(ValueError, match=r'\(--ignore\) leaves no'):
+        ignore_volume_types(aslcontext, ignore=ignore, out_dir=tmp_path / 'work')

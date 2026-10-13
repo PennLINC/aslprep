@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
+# Volume types in the aslcontext file that users may ask ASLPrep to ignore with --ignore.
+IGNORABLE_VOLUME_TYPES = ('cbf', 'deltam')
+
 
 def pcasl_or_pasl(metadata):
     """Determine if metadata indicates a PCASL or ASL scan."""
@@ -37,6 +40,59 @@ def determine_multi_pld(metadata):
     """
     plds = np.array(metadata['PostLabelingDelay'])
     return np.unique(plds).size > 1
+
+
+def ignore_volume_types(aslcontext, ignore, out_dir):
+    """Hide volume types the user asked to ignore from the rest of the workflow.
+
+    The ignored volumes are relabeled in a copy of the aslcontext file,
+    so that ASLPrep neither builds the reference image from them nor processes them.
+    The ASL file itself is not changed, which keeps the aslcontext file in line with it.
+
+    Parameters
+    ----------
+    aslcontext : :obj:`str`
+        Path to the aslcontext file.
+    ignore : :obj:`list` of :obj:`str`
+        The ``--ignore`` values. Only the volume types (``cbf`` and ``deltam``) are used.
+    out_dir : :obj:`str` or :obj:`pathlib.Path`
+        Directory in which to write the modified aslcontext file.
+
+    Returns
+    -------
+    aslcontext : :obj:`str`
+        Path to the modified aslcontext file,
+        or the original path if the file has no volumes to ignore.
+
+    Raises
+    ------
+    ValueError
+        If ignoring the volumes leaves nothing that ASLPrep can process.
+    """
+    from pathlib import Path
+
+    import pandas as pd
+
+    ignored_types = sorted(set(ignore or []) & set(IGNORABLE_VOLUME_TYPES))
+    aslcontext_df = pd.read_table(aslcontext)
+    to_ignore = aslcontext_df['volume_type'].isin(ignored_types)
+    if not to_ignore.any():
+        return aslcontext
+
+    aslcontext_df.loc[to_ignore, 'volume_type'] = 'ignored'
+    voltypes = aslcontext_df['volume_type'].tolist()
+    if not (('control' in voltypes and 'label' in voltypes) or {'deltam', 'cbf'} & set(voltypes)):
+        raise ValueError(
+            f'Ignoring the {" and ".join(ignored_types)} volumes (--ignore) leaves no '
+            f'control-label pairs, deltam volumes or cbf volumes to process in {aslcontext}.'
+        )
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / Path(aslcontext).name
+    aslcontext_df.to_csv(out_file, sep='\t', index=False)
+
+    return str(out_file)
 
 
 def select_processing_target(aslcontext):
