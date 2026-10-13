@@ -41,8 +41,10 @@ There are three relevant repetition time fields in ASL data:
    can be either a single value or an array of values (one value per volume in the ASL file).
 2. RepetitionTimePreparation: This is effectively the same as RepetitionTime, but can be an array.
 
-   - This value (especially for the M0 scan) may be useful for calculating CBF.
-     It's not used in ASLPrep, but other tools may use it.
+   - ASLPrep uses this value for the M0 volumes (or the control volumes, when there is no M0)
+     to scale the M0 data when the repetition time is shorter than 5 seconds.
+     It must be greater than zero.
+     ASLPrep raises an error otherwise, because CBF cannot be calculated.
 
 3. RepetitionTimeExcitation: The "true" time between the beginning of the first excitation pulse
    and the last one.

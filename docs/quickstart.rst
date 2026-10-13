@@ -15,6 +15,12 @@ Using Chrome, you can download the data via the browser.
 Note that you might have to create a new folder into which you can download the data.
 You can also download the data using using ``datalad`` or ``aws``.
 
+.. warning::
+   Version 2.0.0 of this dataset sets ``RepetitionTimePreparation`` to 0 in the ASL sidecars.
+   *ASLPrep* needs a positive value to calibrate CBF, and raises an error otherwise.
+   Before running *ASLPrep*, set ``RepetitionTimePreparation`` in each ``*_asl.json`` file
+   to the value of ``RepetitionTime`` in the same file.
+
 This BIDS dataset should include the following file tree:
 
 .. code-block::
