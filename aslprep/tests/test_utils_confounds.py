@@ -8,7 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from aslprep.utils.confounds import compute_cbf_threshold_stats
+from aslprep.utils.confounds import (
+    compute_cbf_threshold_stats,
+    compute_clipped_voxel_percentage,
+)
 
 
 def _save_img(arr, tmpdir, fname):
@@ -219,3 +222,136 @@ def test_camel_to_snake(name, expected):
     from aslprep.utils.confounds import _camel_to_snake
 
     assert _camel_to_snake(name) == expected
+
+
+def _clipping_series(tmp_path, clipped_fraction, shape=(10, 10, 10, 4), ceiling=4095):
+    """Write a series with noise below a ceiling, and a block of voxels clipped at it."""
+    rng = np.random.default_rng(0)
+    data = rng.integers(100, 3000, size=shape).astype(np.int16)
+    n_clipped = round(clipped_fraction * shape[0])
+    # Clip the block in one volume only, as a voxel is unusable once any volume is clipped.
+    data[:n_clipped, :, :, 1] = ceiling
+    in_file = os.path.join(str(tmp_path), 'series.nii.gz')
+    nb.Nifti1Image(data, np.eye(4)).to_filename(in_file)
+    return in_file
+
+
+@pytest.mark.parametrize(
+    ('clipped_fraction', 'expected'),
+    [(0, 0.1), (0.2, 20.0), (1, 100.0)],
+)
+def test_clipped_voxel_percentage(tmp_path, clipped_fraction, expected):
+    """The percentage reflects the share of brain voxels at the maximum intensity."""
+    in_file = _clipping_series(tmp_path, clipped_fraction)
+    mask = _save_img(np.ones((10, 10, 10), dtype=np.uint8), tmp_path, 'mask.nii.gz')
+
+    perc = compute_clipped_voxel_percentage(in_file, mask)
+    if clipped_fraction == 0:
+        # Without clipping, only the voxel(s) holding the maximum are counted.
+        assert 0 < perc <= expected
+    else:
+        assert perc == pytest.approx(expected)
+
+
+def test_clipped_voxel_percentage_outside_mask(tmp_path):
+    """Voxels at the maximum intensity outside of the mask are not counted."""
+    in_file = _clipping_series(tmp_path, 0.2)
+    mask_data = np.zeros((10, 10, 10), dtype=np.uint8)
+    mask_data[5:, :, :] = 1
+    mask = _save_img(mask_data, tmp_path, 'mask.nii.gz')
+
+    assert compute_clipped_voxel_percentage(in_file, mask) == 0
+
+
+def test_clipped_voxel_percentage_3d_and_scaled(tmp_path):
+    """A 3D image with a scale factor (for example, an M0 scan) is handled."""
+    data = np.full((10, 10, 10), 1000, dtype=np.int16)
+    data[:3] = 4095
+    img = nb.Nifti1Image(data, np.eye(4))
+    img.header.set_slope_inter(2.5, 0)
+    in_file = os.path.join(str(tmp_path), 'm0scan.nii.gz')
+    img.to_filename(in_file)
+    mask = _save_img(np.ones((10, 10, 10), dtype=np.uint8), tmp_path, 'mask.nii.gz')
+
+    assert compute_clipped_voxel_percentage(in_file, mask) == pytest.approx(30.0)
+
+
+def test_clipped_voxel_percentage_resamples_mask(tmp_path):
+    """A mask on a different grid is resampled to the image."""
+    # The image has 2 mm voxels; the mask covers the same field of view with 4 mm voxels.
+    data = np.full((10, 10, 10), 1000, dtype=np.int16)
+    data[:5] = 4095
+    in_file = os.path.join(str(tmp_path), 'm0scan.nii.gz')
+    nb.Nifti1Image(data, np.diag([2, 2, 2, 1])).to_filename(in_file)
+    mask_file = os.path.join(str(tmp_path), 'mask.nii.gz')
+    mask_affine = np.diag([4.0, 4.0, 4.0, 1.0])
+    mask_affine[:3, 3] = 1
+    nb.Nifti1Image(np.ones((5, 5, 5), dtype=np.uint8), mask_affine).to_filename(mask_file)
+
+    assert compute_clipped_voxel_percentage(in_file, mask_file) == pytest.approx(50.0)
+
+
+def test_clipped_voxel_percentage_empty_mask(tmp_path):
+    """An empty mask gives NaN, not a division by zero."""
+    in_file = _clipping_series(tmp_path, 0.2)
+    mask = _save_img(np.zeros((10, 10, 10), dtype=np.uint8), tmp_path, 'mask.nii.gz')
+
+    assert np.isnan(compute_clipped_voxel_percentage(in_file, mask))
+
+
+@pytest.mark.parametrize('with_inputs', [True, False])
+def test_cbf_qc_interface_clipping_columns(tmp_path, with_inputs):
+    """ComputeCBFQC reports clipping for the ASL file and the M0 scan when they are given."""
+    from aslprep.interfaces.confounds import ComputeCBFQC
+
+    shape = (10, 10, 10)
+    cbf_data = np.full(shape, 50.0, dtype=np.float32)
+    cbf_data[5:, :, :] = 60.0
+    gm = np.zeros(shape, dtype=np.float32)
+    gm[2:8, 2:8, 2:8] = 0.9
+    wm = np.zeros(shape, dtype=np.float32)
+    wm[0:2, :, :] = 0.9
+    csf = np.zeros(shape, dtype=np.float32)
+    csf[8:, :, :] = 0.9
+    mask = np.ones(shape, dtype=np.uint8)
+    confounds_file = os.path.join(str(tmp_path), 'confounds.tsv')
+    pd.DataFrame({'framewise_displacement': [0.1, 0.2], 'rmsd': [0.05, 0.06]}).to_csv(
+        confounds_file,
+        sep='\t',
+        index=False,
+    )
+    m0_data = np.full(shape, 1000, dtype=np.int16)
+    m0_data[:4] = 4095
+
+    kwargs = {}
+    if with_inputs:
+        kwargs = {
+            'asl_file': _clipping_series(tmp_path, 0.2),
+            'm0scan': _save_img(m0_data, tmp_path, 'sub-01_m0scan.nii.gz'),
+        }
+
+    results = ComputeCBFQC(
+        name_source=_save_img(np.zeros(shape, dtype=np.float32), tmp_path, 'sub-01_asl.nii.gz'),
+        mean_cbf=_save_img(cbf_data, tmp_path, 'mean_cbf.nii.gz'),
+        gm_tpm=_save_img(gm, tmp_path, 'gm.nii.gz'),
+        wm_tpm=_save_img(wm, tmp_path, 'wm.nii.gz'),
+        csf_tpm=_save_img(csf, tmp_path, 'csf.nii.gz'),
+        asl_mask=_save_img(mask, tmp_path, 'asl_mask.nii.gz'),
+        t1w_mask=_save_img(mask, tmp_path, 't1w_mask.nii.gz'),
+        confounds_file=confounds_file,
+        **kwargs,
+    ).run(cwd=str(tmp_path))
+
+    qc_df = pd.read_csv(results.outputs.qc_file, sep='\t')
+    if with_inputs:
+        assert qc_df['perc_voxels_clipped'].iloc[0] == pytest.approx(20.0)
+        assert qc_df['perc_voxels_clipped_m0scan'].iloc[0] == pytest.approx(40.0)
+    else:
+        assert pd.isna(qc_df['perc_voxels_clipped'].iloc[0])
+        assert pd.isna(qc_df['perc_voxels_clipped_m0scan'].iloc[0])
+
+    with open(results.outputs.qc_metadata) as f:
+        metadata = json.load(f)
+
+    for key in ('perc_voxels_clipped', 'perc_voxels_clipped_m0scan'):
+        assert metadata[key]['Units'] == 'percent'
