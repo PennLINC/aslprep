@@ -35,3 +35,29 @@ def test_init_asl_wf_auto_asl2anat_init():
         wf = init_asl_wf(asl_file=str(asl_file))
         summary = wf.get_node('asl_fit_wf.summary')
         assert summary.inputs.registration_init == 't1w'
+
+
+def test_init_single_subject_wf_datatype_in_path(tmp_path):
+    """The error for missing ASL runs explains a dataset path that PyBIDS misreads (gh-704)."""
+    import shutil
+
+    import pytest
+
+    from aslprep.workflows.base import init_single_subject_wf
+
+    reset_config()
+    with mock_config():
+        bids_dir = tmp_path / 'motion' / 'ds000240'
+        shutil.copytree(config.execution.bids_dir, bids_dir)
+        config.execution.bids_dir = bids_dir
+        config.execution.bids_database_dir = None
+        config.execution.layout = None
+        config.execution._layout = None
+        config.execution.init()
+
+        asl_files = config.execution.layout.get(subject='01', suffix='asl', extension='.nii.gz')
+        if asl_files[0].entities.get('datatype') == 'perf':
+            pytest.skip('This version of PyBIDS only parses entities within the dataset root.')
+
+        with pytest.raises(RuntimeError, match="contains a directory named 'motion'"):
+            init_single_subject_wf('01')

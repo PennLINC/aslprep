@@ -178,7 +178,11 @@ def _build_parser():
         '--skip_bids_validation',
         action='store_true',
         default=False,
-        help='assume the input dataset is BIDS compliant and skip the validation',
+        help=(
+            'assume the input dataset is BIDS compliant and skip the BIDS Validator. '
+            'The dataset must still have a dataset_description.json file at its root, '
+            'because PyBIDS needs it to index the dataset.'
+        ),
     )
     g_bids.add_argument(
         '--participant-label',

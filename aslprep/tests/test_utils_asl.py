@@ -1,11 +1,13 @@
 """Tests for the aslprep.utils.asl module."""
 
+import numpy as np
 import pytest
 
 from aslprep import config
 from aslprep.utils.asl import (
     estimate_labeling_efficiency,
     ignore_volume_types,
+    infer_m0tr,
     prepare_basil_kwargs,
     select_processing_target,
 )
@@ -153,6 +155,98 @@ def test_prepare_basil_kwargs(desc, metadata, expected):
     """Parametrized tests for prepare_basil_kwargs."""
     result = prepare_basil_kwargs(metadata)
     assert result == expected, f'Failed case: {desc}'
+
+
+def _write_aslcontext(tmp_path, volume_types):
+    aslcontext = tmp_path / 'aslcontext.tsv'
+    aslcontext.write_text('\n'.join(['volume_type', *volume_types]) + '\n')
+    return str(aslcontext)
+
+
+@pytest.mark.parametrize(
+    ('volume_types', 'metadata', 'm0scan_metadata', 'expected'),
+    [
+        (
+            ['control', 'label'],
+            {'M0Type': 'Separate', 'RepetitionTimePreparation': 4.0},
+            {'RepetitionTimePreparation': 6.0},
+            6.0,
+        ),
+        (
+            ['m0scan', 'control', 'label'],
+            {'M0Type': 'Included', 'RepetitionTimePreparation': [8.0, 4.0, 4.0]},
+            None,
+            [8.0],
+        ),
+        (
+            ['control', 'label'],
+            {
+                'M0Type': 'Absent',
+                'BackgroundSuppression': False,
+                'RepetitionTimePreparation': 4.0,
+            },
+            None,
+            4.0,
+        ),
+        (
+            ['control', 'label'],
+            {'M0Type': 'Estimate', 'M0Estimate': 100, 'RepetitionTimePreparation': 0},
+            None,
+            None,
+        ),
+    ],
+)
+def test_infer_m0tr(tmp_path, volume_types, metadata, m0scan_metadata, expected):
+    """infer_m0tr returns the TR of the volumes used for calibration."""
+    m0tr = infer_m0tr(
+        aslcontext=_write_aslcontext(tmp_path, volume_types),
+        metadata=metadata,
+        m0scan_metadata=m0scan_metadata,
+    )
+    if expected is None:
+        assert m0tr is None
+    else:
+        assert np.array_equal(m0tr, expected)
+
+
+@pytest.mark.parametrize(
+    ('volume_types', 'metadata', 'm0scan_metadata'),
+    [
+        (
+            ['control', 'label'],
+            {'M0Type': 'Separate', 'RepetitionTimePreparation': 4.0},
+            {'RepetitionTimePreparation': 0},
+        ),
+        # The ds000240 case from gh-654.
+        (
+            ['m0scan', 'control', 'label'],
+            {'M0Type': 'Included', 'RepetitionTimePreparation': 0},
+            None,
+        ),
+        (
+            ['m0scan', 'control', 'label'],
+            {'M0Type': 'Included', 'RepetitionTimePreparation': [0, 4.0, 4.0]},
+            None,
+        ),
+        (
+            ['control', 'label'],
+            {
+                'M0Type': 'Absent',
+                'BackgroundSuppression': False,
+                'RepetitionTimePreparation': 0,
+            },
+            None,
+        ),
+    ],
+)
+def test_infer_m0tr_nonpositive(tmp_path, volume_types, metadata, m0scan_metadata):
+    """A zero M0 TR raises an error instead of silently zeroing CBF."""
+    with pytest.raises(ValueError, match=r'RepetitionTimePreparation .* must be positive'):
+        infer_m0tr(
+            aslcontext=_write_aslcontext(tmp_path, volume_types),
+            metadata=metadata,
+            m0scan_metadata=m0scan_metadata,
+        )
 
 
 @pytest.mark.parametrize(

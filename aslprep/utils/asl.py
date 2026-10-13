@@ -262,6 +262,32 @@ def reduce_metadata_lists(metadata, n_volumes, keep_idx):
     return metadata
 
 
+def check_m0tr(m0tr):
+    """Raise an error if the repetition time of the M0 volumes is not positive.
+
+    A repetition time of zero leaves no longitudinal recovery,
+    so the M0 scaling in :footcite:t:`alsop_recommended_2015` divides by zero and
+    every voxel's CBF becomes zero.
+
+    Parameters
+    ----------
+    m0tr : float, array-like, or None
+        The TR of the M0 volumes, in seconds. None means that no M0 TR is needed.
+
+    Raises
+    ------
+    ValueError
+        If any M0 TR is zero or negative.
+    """
+    if m0tr is not None and np.any(np.asarray(m0tr, dtype=float) <= 0):
+        raise ValueError(
+            f'RepetitionTimePreparation for the M0 volumes is {m0tr}, but it must be positive. '
+            'ASLPrep uses this value to scale the M0 data, so CBF cannot be calculated. '
+            'Please set RepetitionTimePreparation in the sidecar to the time, in seconds, '
+            'between successive excitations of the same slice.'
+        )
+
+
 def infer_m0tr(
     *,
     aslcontext,
@@ -336,6 +362,8 @@ def infer_m0tr(
 
     else:
         raise RuntimeError('no pathway to m0scan')
+
+    check_m0tr(m0tr)
 
     return m0tr
 
