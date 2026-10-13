@@ -21,6 +21,7 @@ from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
 from aslprep.utils.asl import (
+    check_m0tr,
     determine_multi_pld,
     estimate_labeling_efficiency,
     pcasl_or_pasl,
@@ -220,6 +221,8 @@ class ExtractCBF(SimpleInterface):
 
         else:
             raise RuntimeError('no pathway to m0scan')
+
+        check_m0tr(m0tr)
 
         if deltam_volume_idx:
             config.loggers.interface.info('Extracting deltaM from ASL file.')
