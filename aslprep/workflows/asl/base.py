@@ -8,7 +8,7 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces.bids import DerivativesDataSink
-from aslprep.utils.asl import determine_multi_pld, select_processing_target
+from aslprep.utils.asl import determine_multi_pld, pcasl_or_pasl, select_processing_target
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
 from aslprep.utils.misc import _get_wf_name, estimate_asl_mem_usage, get_n_volumes
@@ -264,6 +264,9 @@ def init_asl_wf(
 
     # Determine which CBF outputs to expect
     att_derivs = []
+    # The ATT and aBAT bounds step between neighboring voxels, and interpolation would blend
+    # them into values that are no longer bounds, so they are only written in native space.
+    native_att_derivs = []
     cbf_3d_derivs = ['mean_cbf']
     cbf_4d_derivs = []
 
@@ -273,6 +276,15 @@ def init_asl_wf(
             'abat',
             'abv',
         ]
+        native_att_derivs += [
+            'att_lower',
+            'att_upper',
+            'abat_lower',
+            'abat_upper',
+        ]
+        if pcasl_or_pasl(metadata=metadata):
+            # For PASL, the arterial signal does not depend on aBAT, so aBV needs no counterpart.
+            att_derivs += ['abv_decayed']
     else:
         cbf_4d_derivs += ['cbf_ts']
 
@@ -490,7 +502,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             asl_output=aslref_out,
             cbf_3d=cbf_3d_derivs,
             cbf_4d=cbf_4d_derivs,
-            att=att_derivs,
+            att=att_derivs + native_att_derivs,
         )
         ds_asl_native_wf.inputs.inputnode.source_files = [asl_file]
 
@@ -502,7 +514,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
             ]),
             (cbf_wf, ds_asl_native_wf, [
-                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
+                for cbf_deriv in cbf_derivs + native_att_derivs
             ]),
         ])  # fmt:skip
 

@@ -7,7 +7,7 @@
     "ConsistencyInfo": "N4_VE11C_LATEST_20160120",
     "ConversionSoftware": "dcm2niix",
     "ConversionSoftwareVersion": "v1.0.20190902",
-    "RepetitionTimePreparation":0,
+    "RepetitionTimePreparation":3.5,
     "DeviceSerialNumber": "66044",
     "EchoTime": 0.0029,
     "FlipAngle": 90,

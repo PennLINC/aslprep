@@ -174,6 +174,14 @@ Cerebral blood flow computation and denoising
 """
 
     elif is_multi_pld:
+        abv_str = ''
+        if is_casl:
+            abv_str = (
+                '\nBecause the arterial signal only determines the product of aBV and the decay '
+                'of the label over aBAT, the reported aBV depends on the reported aBAT.\n'
+                'That product, which does not, was also written out.'
+            )
+
         workflow.__desc__ += f"""\
 : *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
 {metadata['ArterialSpinLabelingType']} data using a two-compartment general kinetic model (GKM)
@@ -192,7 +200,9 @@ The data only constrain aBAT to an interval between consecutive labeled-bolus ar
 departure times, so aBAT was reported as the midpoint of its interval.
 Where a range of ATT values fit equally well
 (for example, when ATT was shorter than every delay),
-ATT was likewise reported as the midpoint of that range.{
+ATT was reported as a single value from that range.
+The lower and upper bounds of the ATT and aBAT values that fit equally well were also calculated,
+and are written out with the native-space outputs.{abv_str}{
             ' The fit was run on a GPU with CuPy.' if config.nipype.use_gpu else ''
         }
 """
@@ -252,6 +262,11 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
                 'att',  # Only calculated for multi-delay data
                 'abat',  # Only calculated for multi-delay data
                 'abv',  # Only calculated for multi-delay data
+                'att_lower',  # Only calculated for multi-delay data
+                'att_upper',  # Only calculated for multi-delay data
+                'abat_lower',  # Only calculated for multi-delay data
+                'abat_upper',  # Only calculated for multi-delay data
+                'abv_decayed',  # Only calculated for multi-delay (P)CASL data
                 'plds',
                 # SCORE/SCRUB outputs
                 'cbf_ts_score',
@@ -406,6 +421,11 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
             ('plds', 'plds'),
             ('abat', 'abat'),
             ('abv', 'abv'),
+            ('att_lower', 'att_lower'),
+            ('att_upper', 'att_upper'),
+            ('abat_lower', 'abat_lower'),
+            ('abat_upper', 'abat_upper'),
+            ('abv_decayed', 'abv_decayed'),
         ]),
     ])  # fmt:skip
 

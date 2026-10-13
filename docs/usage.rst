@@ -16,6 +16,17 @@ and it must include at least one T1w structural image.
 We highly recommend that you validate your dataset with the free, online
 `BIDS Validator <http://bids-standard.github.io/bids-validator/>`_.
 
+.. note::
+    The ``--skip-bids-validation`` flag only skips the BIDS Validator.
+    *ASLPrep* still indexes the dataset with PyBIDS,
+    which needs a ``dataset_description.json`` file at the root of the dataset.
+    Without that file, *ASLPrep* stops with an error, even when the flag is used.
+    A minimal file is enough:
+
+    .. code-block:: json
+
+        {"Name": "Example dataset", "BIDSVersion": "1.8.0"}
+
 .. important::
     Please note that ASL data in BIDS datasets should
     `already be scaled <https://bids-specification.readthedocs.io/en/v1.8.0/

@@ -21,6 +21,7 @@ from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
 from aslprep.utils.asl import (
+    check_m0tr,
     determine_multi_pld,
     estimate_labeling_efficiency,
     pcasl_or_pasl,
@@ -221,6 +222,8 @@ class ExtractCBF(SimpleInterface):
         else:
             raise RuntimeError('no pathway to m0scan')
 
+        check_m0tr(m0tr)
+
         if deltam_volume_idx:
             config.loggers.interface.info('Extracting deltaM from ASL file.')
             metadata_idx = deltam_volume_idx
@@ -356,6 +359,47 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         File(exists=True),
         None,
         desc='Arterial blood volume map. Only generated for multi-delay data.',
+    )
+    att_lower = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Shortest arterial transit time that fits as well as the estimate, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    att_upper = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Longest arterial transit time that fits as well as the estimate, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    abat_lower = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Shortest arterial bolus arrival time that fits as well as the estimate, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    abat_upper = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Longest arterial bolus arrival time that fits as well as the estimate, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    abv_decayed = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Arterial blood volume multiplied by exp(-aBAT / T1blood), '
+            'which does not depend on where aBAT falls within its interval between delays. '
+            'Only generated for multi-delay (P)CASL data.'
+        ),
     )
     plds = traits.Either(
         File(exists=True),
@@ -570,7 +614,7 @@ class ComputeCBF(SimpleInterface):
                     'for multi-PLD data.'
                 )
 
-            cbf, att, abat, abv, failures = fit_deltam_multipld(
+            cbf, att, abat, abv, failures, bounds = fit_deltam_multipld(
                 deltam_arr=deltam_arr,
                 scaled_m0data=scaled_m0data,
                 plds=plds,
@@ -610,6 +654,25 @@ class ComputeCBF(SimpleInterface):
                 newpath=runtime.cwd,
             )
             abv_img.to_filename(self._results['abv'])
+            for name, bound in bounds.items():
+                self._results[name] = fname_presuffix(
+                    self.inputs.deltam,
+                    suffix=f'_{name}',
+                    newpath=runtime.cwd,
+                )
+                masker.inverse_transform(bound).to_filename(self._results[name])
+
+            # For (P)CASL, the data only determine the product of aBV and the decay of the
+            # label over aBAT. For PASL, the arterial signal does not depend on aBAT.
+            self._results['abv_decayed'] = None
+            if is_casl:
+                self._results['abv_decayed'] = fname_presuffix(
+                    self.inputs.deltam,
+                    suffix='_abv_decayed',
+                    newpath=runtime.cwd,
+                )
+                abv_decayed_img = masker.inverse_transform(abv * np.exp(-abat / t1blood))
+                abv_decayed_img.to_filename(self._results['abv_decayed'])
             self._results['failures'] = fname_presuffix(
                 self.inputs.deltam,
                 suffix='_failures',
