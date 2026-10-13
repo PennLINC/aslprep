@@ -460,13 +460,32 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
         ])  # fmt:skip
 
     if basil:
+        # Partial volume correction takes most of oxford_asl's run time
+        # (its spatial step runs ten times as many iterations as the uncorrected fit),
+        # so it is skipped in sloppy mode.
+        basil_pvc = not config.execution.sloppy
+        if basil_pvc:
+            pvc_str = ' and\nadditionally calculates a partial-volume corrected CBF image [@chappell_pvc].'
+        else:
+            pvc_str = (
+                '.\nPartial volume correction was skipped, because *ASLPrep* was run in sloppy '
+                'mode.\nThe partial-volume corrected CBF outputs are copies of the uncorrected '
+                'BASIL CBF image.'
+            )
+
         workflow.__desc__ += f"""
 
 CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
 [@chappell2008variational], as implemented in *FSL* {Info.version()}.
-BASIL computes CBF using a spatial regularization of the estimated perfusion image and
-additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
+BASIL computes CBF using a spatial regularization of the estimated perfusion image{pvc_str}
 """
+        if not basil_pvc:
+            config.loggers.workflow.warning(
+                'Sloppy mode: BASIL partial volume correction will be skipped. '
+                'The partial-volume corrected CBF outputs (desc-basilGM and desc-basilWM) '
+                'will be copies of the uncorrected BASIL CBF image.'
+            )
+
         # Node to define bolus
         determine_bolus_duration = pe.Node(
             niu.Function(
@@ -509,7 +528,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         basilcbf = pe.Node(
             BASILCBF(
                 m0_scale=m0_scale,
-                pvc=True,
+                pvc=basil_pvc,
                 pcasl=is_casl,
                 **basil_kwargs,
             ),
@@ -527,14 +546,26 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             (determine_bolus_duration, basilcbf, [('bolus', 'bolus')]),
             (determine_inflow_times, basilcbf, [('tis', 'tis')]),
             (estimate_alpha, basilcbf, [('labeling_efficiency', 'alpha')]),
-            (gm_tfm, basilcbf, [('output_image', 'gm_tpm')]),
-            (wm_tfm, basilcbf, [('output_image', 'wm_tpm')]),
-            (basilcbf, outputnode, [
-                ('mean_cbf_basil', 'mean_cbf_basil'),
-                ('mean_cbf_gm_basil', 'mean_cbf_gm_basil'),
-                ('mean_cbf_wm_basil', 'mean_cbf_wm_basil'),
-            ]),
+            (basilcbf, outputnode, [('mean_cbf_basil', 'mean_cbf_basil')]),
         ])  # fmt:skip
+
+        if basil_pvc:
+            workflow.connect([
+                (gm_tfm, basilcbf, [('output_image', 'gm_tpm')]),
+                (wm_tfm, basilcbf, [('output_image', 'wm_tpm')]),
+                (basilcbf, outputnode, [
+                    ('mean_cbf_gm_basil', 'mean_cbf_gm_basil'),
+                    ('mean_cbf_wm_basil', 'mean_cbf_wm_basil'),
+                ]),
+            ])  # fmt:skip
+        else:
+            # Stand in for the corrected maps, so the rest of the workflow still runs.
+            workflow.connect([
+                (basilcbf, outputnode, [
+                    ('mean_cbf_basil', 'mean_cbf_gm_basil'),
+                    ('mean_cbf_basil', 'mean_cbf_wm_basil'),
+                ]),
+            ])  # fmt:skip
 
         if is_multi_pld:
             # BASIL's ATT and aBV estimates are only meaningful for multi-PLD data.
