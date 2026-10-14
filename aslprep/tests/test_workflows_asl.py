@@ -154,3 +154,122 @@ def test_init_asl_wf_clipping_qc_inputs():
         confounds_inputnode = wf.get_node('cbf_confounds_wf.inputnode')
         # The bundled dataset has its M0 volumes in the ASL file, so there is no separate scan.
         assert not isdefined(confounds_inputnode.inputs.m0scan)
+
+
+@pytest.mark.parametrize(
+    ('ignore', 'reference_volume_type'),
+    [([], 'cbf'), (['cbf'], 'm0scan')],
+)
+def test_init_asl_wf_ignore_volume_types(tmp_path, ignore, reference_volume_type):
+    """--ignore cbf keeps scanner-calculated CBF volumes out of the reference image."""
+    import shutil
+    from pathlib import Path
+
+    reset_config()
+    with mock_config():
+        bids_dir = tmp_path / 'ds000240'
+        shutil.copytree(config.execution.bids_dir, bids_dir)
+        aslcontext = bids_dir / 'sub-01' / 'perf' / 'sub-01_aslcontext.tsv'
+        volume_types = aslcontext.read_text().split()
+        # Stand in for a series with scanner-calculated CBF volumes at the end.
+        aslcontext.write_text('\n'.join([*volume_types[:-2], 'cbf', 'cbf']) + '\n')
+
+        config.execution.bids_dir = bids_dir
+        config.execution.bids_database_dir = None
+        config.execution.layout = None
+        config.execution._layout = None
+        config.execution.init()
+        config.workflow.ignore = ignore
+        from aslprep.workflows.asl.base import init_asl_wf
+
+        asl_file = bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        wf = init_asl_wf(asl_file=str(asl_file))
+
+        hmc_aslref_wf = wf.get_node('asl_fit_wf').get_node('hmc_aslref_wf')
+        assert f'generated from the {reference_volume_type} volumes' in hmc_aslref_wf.__desc__
+        used_aslcontext = wf.get_node('asl_fit_wf.inputnode').inputs.aslcontext
+        assert (used_aslcontext == str(aslcontext)) is (not ignore)
+        assert ('ignored' in Path(used_aslcontext).read_text()) is bool(ignore)
+
+
+@pytest.mark.parametrize('sloppy', [False, True])
+def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
+    """Sloppy mode skips BASIL's partial volume correction, which takes most of its run time."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PostLabelingDelay': 1.8,
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+        'RepetitionTimePreparation': 4.0,
+    }
+    reset_config()
+    with mock_config():
+        config.execution.sloppy = sloppy
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 3}),
+            metadata=metadata,
+            basil=True,
+        )
+        basilcbf = wf.get_node('basilcbf')
+        outputs = {
+            dst_field: (src.name, src_field)
+            for src, dst, data in wf._graph.edges(data=True)
+            if dst.name == 'outputnode'
+            for src_field, dst_field in data['connect']
+        }
+        basil_inputs = {
+            dst_field
+            for _, dst, data in wf._graph.edges(data=True)
+            if dst.name == 'basilcbf'
+            for _, dst_field in data['connect']
+        }
+
+    assert basilcbf.inputs.pvc is (not sloppy)
+    assert ('--pvcorr' in basilcbf.interface._parse_inputs(skip=['deltam', 'mask'])) is (
+        not sloppy
+    )
+    assert outputs['mean_cbf_basil'] == ('basilcbf', 'mean_cbf_basil')
+    if sloppy:
+        # The corrected maps are stand-ins, so the rest of the workflow still runs.
+        assert outputs['mean_cbf_gm_basil'] == ('basilcbf', 'mean_cbf_basil')
+        assert outputs['mean_cbf_wm_basil'] == ('basilcbf', 'mean_cbf_basil')
+        assert not {'gm_tpm', 'wm_tpm'} & basil_inputs
+        assert 'Partial volume correction was skipped' in wf.__desc__
+    else:
+        assert outputs['mean_cbf_gm_basil'] == ('basilcbf', 'mean_cbf_gm_basil')
+        assert outputs['mean_cbf_wm_basil'] == ('basilcbf', 'mean_cbf_wm_basil')
+        assert {'gm_tpm', 'wm_tpm'} <= basil_inputs
+        assert 'partial-volume corrected CBF image' in wf.__desc__
+
+
+@pytest.mark.parametrize('disable_n4', [False, True])
+def test_init_synthstrip_aslref_wf_nodes(disable_n4):
+    """The ASL reference workflow has no 3dUnifize branch, whose output nothing used."""
+    from aslprep.workflows.asl.reference import init_synthstrip_aslref_wf
+
+    reset_config()
+    with mock_config():
+        wf = init_synthstrip_aslref_wf(disable_n4=disable_n4)
+        graph = wf._create_flat_graph()
+
+    names = {node.name for node in graph.nodes()}
+    assert not names & {'unifize', 'fixhdr_unifize', 'apply_mask'}
+    assert ('n4_correct' in names) is not disable_n4
+    outputs = {
+        dst_field
+        for _, dst, data in graph.edges(data=True)
+        if dst.fullname == 'synthstrip_aslref_wf.outputnode'
+        for _, dst_field in data['connect']
+    }
+    assert outputs == {'bias_corrected_file', 'mask_file'}

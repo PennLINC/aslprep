@@ -326,7 +326,11 @@ def _build_parser():
         '--sloppy',
         action='store_true',
         default=False,
-        help='Use low-quality tools for speed - TESTING ONLY',
+        help=(
+            'Use low-quality tools for speed - TESTING ONLY. '
+            'With --basil, partial volume correction is skipped, and the partial-volume '
+            'corrected outputs are copies of the uncorrected BASIL CBF map.'
+        ),
     )
 
     g_subset = parser.add_argument_group('Options for performing only a subset of the workflow')
@@ -375,10 +379,15 @@ def _build_parser():
             'fmap-jacobian',
             'gradwarp',
             'gradwarp-jacobian',
+            'cbf',
+            'deltam',
         ],
         help=(
             'ignore selected aspects of the input dataset to disable corresponding '
             'parts of the workflow (a space delimited list)\n'
+            ' * cbf: Ignore CBF volumes in the ASL file (for example, maps calculated '
+            'on the scanner). They are neither processed nor used for the reference image\n'
+            ' * deltam: Ignore delta-M volumes in the ASL file, in the same way\n'
             ' * gradwarp: Skip gradient nonlinearity correction, even with --gradient-file\n'
             ' * gradwarp-jacobian: Apply gradient nonlinearity correction without '
             'Jacobian intensity modulation\n'

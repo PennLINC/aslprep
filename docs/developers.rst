@@ -32,6 +32,14 @@ Integration tier (one CircleCI job per recipe)
    against a known anatomical offset, and the alignment of T1w- and MNI-space outputs.
    Each ``test_aslscan_<recipe>.py`` runs ASLPrep once and checks one metric per test item.
 
+   These runs use ``--sloppy``.
+   In sloppy mode, BASIL's partial volume correction is skipped, because it takes most of
+   ``oxford_asl``'s run time.
+   The ``desc-basilGM`` and ``desc-basilWM`` outputs are then copies of the uncorrected
+   ``desc-basil`` CBF map, so the tests exercise how those outputs are written, but not the
+   correction itself.
+   The ``desc-basil`` map is the same as in a normal run.
+
 Why two tiers of CBF accuracy
 =============================
 

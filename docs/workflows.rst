@@ -129,6 +129,21 @@ split into multiple sub-workflows described below.
    Additionally, SCORE/SCRUB cannot be used with these short sequences,
    as the denoising method requires a long time series from which to identify outliers.
 
+.. topic:: Ignoring volumes calculated on the scanner
+
+   An ASL file may contain delta-M or CBF volumes that were calculated on the scanner
+   (``deltam`` and ``cbf`` in the ``aslcontext.tsv`` file).
+   By default, *ASLPrep* builds the reference image from these volumes when they are present,
+   because they usually have more tissue contrast than control volumes.
+   When a file has no control-label pairs, *ASLPrep* also uses them to calculate CBF:
+   delta-M volumes if there are any, and CBF volumes otherwise.
+
+   If these volumes are of poor quality, use ``--ignore cbf``, ``--ignore deltam``, or both.
+   *ASLPrep* then treats the ignored volumes as if they were not in the file:
+   they are not used for the reference image, and they are not processed.
+   The dataset itself is not changed.
+   *ASLPrep* stops with an error if ignoring the volumes leaves nothing to calculate CBF from.
+
 
 .. _asl_ref:
 
@@ -147,8 +162,8 @@ ASL reference image estimation
 
 This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labelling)` series.
 The reference image is then used to calculate a brain mask for the
-:abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
-:py:func:`~niworkflows.func.util.init_enhance_and_skullstrip_bold_wf`.
+:abbr:`ASL (Arterial Spin Labelling)` signal using SynthStrip
+(:py:func:`~aslprep.workflows.asl.reference.init_synthstrip_aslref_wf`).
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.

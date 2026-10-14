@@ -1016,6 +1016,11 @@ class BASILCBF(FSLCommand):
     output_spec = _BASILCBFOutputSpec
 
     def _run_interface(self, runtime):
+        # oxford_asl keeps its intermediate files in a temporary directory named by FSL's
+        # tmpnam, which creates it in TMPDIR, or in /tmp if TMPDIR is not set.
+        # Inside a container, /tmp may be too small for these files,
+        # so point TMPDIR to the node's working directory.
+        runtime.environ['TMPDIR'] = runtime.cwd
         runtime = super()._run_interface(runtime)
         return runtime
 
@@ -1028,12 +1033,14 @@ class BASILCBF(FSLCommand):
         outputs = self.output_spec().get()
 
         outputs['mean_cbf_basil'] = os.path.abspath('native_space/perfusion_calib.nii.gz')
-        outputs['mean_cbf_gm_basil'] = os.path.abspath(
-            'native_space/pvcorr/perfusion_calib.nii.gz',
-        )
-        outputs['mean_cbf_wm_basil'] = os.path.abspath(
-            'native_space/pvcorr/perfusion_wm_calib.nii.gz',
-        )
+        # oxford_asl only writes the partial-volume corrected maps with --pvcorr
+        if self.inputs.pvc is True:
+            outputs['mean_cbf_gm_basil'] = os.path.abspath(
+                'native_space/pvcorr/perfusion_calib.nii.gz',
+            )
+            outputs['mean_cbf_wm_basil'] = os.path.abspath(
+                'native_space/pvcorr/perfusion_wm_calib.nii.gz',
+            )
 
         # These are only meaningful for multi-PLD data, and oxford_asl only writes them when
         # it infers arterial transit time / the macrovascular (arterial) component. For
