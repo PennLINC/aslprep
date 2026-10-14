@@ -162,8 +162,8 @@ ASL reference image estimation
 
 This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labelling)` series.
 The reference image is then used to calculate a brain mask for the
-:abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
-:py:func:`~niworkflows.func.util.init_enhance_and_skullstrip_bold_wf`.
+:abbr:`ASL (Arterial Spin Labelling)` signal using SynthStrip
+(:py:func:`~aslprep.workflows.asl.reference.init_synthstrip_aslref_wf`).
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.
