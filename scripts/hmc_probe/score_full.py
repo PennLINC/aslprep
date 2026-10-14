@@ -138,9 +138,14 @@ def score_full(fixture_dir, aslprep_dir):
             out['fieldmap'] = {'problems': ['no aslref-to-fieldmap transform found']}
         else:
             q = np.asarray(extras['fieldmap']['pose'])
+            # sdcflows' aslref-to-fieldmap file is the pull from the aslref to the fieldmap's
+            # space read the other way round: inverting it gives the aslref -> fieldmap pull
+            # (checked on rc_pcasl: 0.64 mm this way, 9.8 mm the other).
             out['fieldmap'] = {
                 'file': fmap_file.name,
-                **_transform_error(_one(fmap_file), q @ np.linalg.inv(frame), points),
+                **_transform_error(
+                    np.linalg.inv(_one(fmap_file)), q @ np.linalg.inv(frame), points
+                ),
             }
     return out
 
