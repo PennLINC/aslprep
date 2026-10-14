@@ -211,11 +211,41 @@ def add_extras(fixture_dir, recipe_dir):
     return truth
 
 
-def generate(names, data_dir, threads=8):
+def seed_variants(names, seeds, staging):
+    """Copy recipes (ASLPrep's or the probe's) into ``staging`` as ``<name>__s<seed>``.
+
+    Each copy has its overlay ``seed`` replaced, so it is another noise realization of the
+    same protocol. The original recipe directory is not changed.
+    """
+    import re
+
+    staging.mkdir(parents=True, exist_ok=True)
+    out = []
+    for name in names:
+        src = RECIPES_DIR / name
+        if not src.exists():
+            src = af.TESTS_DIR / 'data' / 'aslscan' / name
+        for seed in seeds:
+            dest = staging / f'{name}__s{seed}'
+            shutil.rmtree(dest, ignore_errors=True)
+            shutil.copytree(src, dest)
+            overlay = (dest / 'overlay.toml').read_text()
+            overlay, n = re.subn(r'(?m)^seed\s*=.*$', f'seed = {seed}', overlay)
+            if n != 1:
+                raise ValueError(f'{name}: expected one seed line in overlay.toml')
+            (dest / 'overlay.toml').write_text(overlay)
+            out.append(dest.name)
+    return out
+
+
+def generate(names, data_dir, threads=8, recipes_dir=None):
     use_probe_recipes()
+    if recipes_dir is not None:
+        af.RECIPES_DIR = recipes_dir
+        af.RECIPES = af._discover_recipes()
     for name in names:
         out = af.generate(name, data_dir, BINARY, threads=threads)
-        add_extras(out, RECIPES_DIR / name)
+        add_extras(out, af.RECIPES_DIR / name)
         print(f'{name} -> {out}', flush=True)
 
 
@@ -224,10 +254,21 @@ def main(argv=None):
     parser.add_argument('--data-dir', type=Path, required=True)
     parser.add_argument('--only', nargs='*')
     parser.add_argument('--threads', type=int, default=8)
+    parser.add_argument(
+        '--seeds',
+        type=int,
+        nargs='*',
+        help='Generate these noise realizations of each recipe (as <name>__s<seed>).',
+    )
     args = parser.parse_args(argv)
     use_probe_recipes()
     names = args.only or sorted(af.RECIPES)
-    generate(names, args.data_dir, args.threads)
+    if args.seeds:
+        staging = args.data_dir / 'recipes-staging'
+        names = seed_variants(names, args.seeds, staging)
+        generate(names, args.data_dir, args.threads, recipes_dir=staging)
+    else:
+        generate(names, args.data_dir, args.threads)
 
 
 if __name__ == '__main__':

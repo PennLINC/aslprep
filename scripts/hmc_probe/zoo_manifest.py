@@ -261,6 +261,8 @@ def build(zoo):
             row = {
                 'dataset': name,
                 'run': asl.name.replace('_asl.nii.gz', ''),
+                'asl_path': str(asl.relative_to(root)),
+                'root': str(root),
                 'subject': ents['sub'],
                 'session': ents.get('ses'),
                 'echo': ents.get('echo'),

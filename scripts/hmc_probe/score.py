@@ -201,7 +201,8 @@ def deltam_metrics(fixture, harness_dir, hmc, poses, indices, context, abar, ref
     if not cand_img.exists():
         return {'available': False, 'reason': 'no control-label pairs'}
     ref_img = nb.load(harness_dir / 'aslref.nii.gz')
-    asl_file = json.loads((harness_dir / 'harness.json').read_text())['inputs']['asl_file']
+    # The harness may have run in a container; take the raw series from the fixture itself.
+    asl_file = next((fixture.path / 'sub-01' / 'perf').glob('*_asl.nii.gz'))
     cand = np.asanyarray(nb.load(cand_img).dataobj).mean(-1)
     gm = fixture.pv['GM'] >= 0.7
     out = {'available': True}
@@ -270,9 +271,9 @@ def reference_frame(fixture, harness, indices_all):
 def score(fixture_dir, harness_dir):
     fixture_dir, harness_dir = Path(fixture_dir), Path(harness_dir)
     manifest = json.loads((fixture_dir / 'manifest.json').read_text())
-    from aslprep.tests.aslscan_fixtures import load_recipe
-
-    acq = load_recipe(manifest['recipe']).acq
+    # From the file name, so probe recipes and seed variants need no recipe lookup.
+    asl = next((fixture_dir / 'sub-01' / 'perf').glob('*_asl.nii.gz'))
+    acq = asl.name.split('_acq-')[1].split('_')[0]
     fixture = Fixture(fixture_dir, acq)
     harness = json.loads((harness_dir / 'harness.json').read_text())
     indices = json.loads((harness_dir / 'hmc_indices.json').read_text())
