@@ -251,6 +251,19 @@ def run_compat(inputs, work):
 CANDIDATES = {'c0': run_c0, 'compat': run_compat}
 
 
+def _register_candidates():
+    """Add the candidates of ``candidates.py`` (c1-c4)."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from candidates import CANDIDATES as extra
+
+    CANDIDATES.update(extra)
+
+
+_register_candidates()
+
+
 # ---------------------------------------------------------------------------------------------
 # Resampling and subtraction
 # ---------------------------------------------------------------------------------------------
@@ -327,6 +340,7 @@ def run(inputs, candidate, out, **kwargs):
         'reference_type': res['reference_type'],
         'processing_target': res['processing_target'],
         'use_ge': res['use_ge'],
+        'groups': res.get('groups'),
         'aslprep': aslprep.__file__,
         'aslprep_version': getattr(aslprep, '__version__', None),
         'options': kwargs,
@@ -345,9 +359,12 @@ def main(argv=None):
     parser.add_argument('--m0scan', help='Separate M0 scan, if not next to the run.')
     parser.add_argument('--smooth-kernel', type=float, default=5.0)
     parser.add_argument('--force-ge', choices=('yes', 'no'))
+    parser.add_argument(
+        '--opt', action='append', default=[], help='Candidate option, key=value (repeatable).'
+    )
     args = parser.parse_args(argv)
     inputs = resolve_inputs(args.asl, args.aslcontext, args.metadata, args.m0scan)
-    kwargs = {}
+    kwargs = dict(o.split('=', 1) for o in args.opt)
     if args.candidate == 'c0':
         kwargs['smooth_kernel'] = args.smooth_kernel
         if args.force_ge:
