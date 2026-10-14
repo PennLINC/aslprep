@@ -326,7 +326,11 @@ def _build_parser():
         '--sloppy',
         action='store_true',
         default=False,
-        help='Use low-quality tools for speed - TESTING ONLY',
+        help=(
+            'Use low-quality tools for speed - TESTING ONLY. '
+            'With --basil, partial volume correction is skipped, and the partial-volume '
+            'corrected outputs are copies of the uncorrected BASIL CBF map.'
+        ),
     )
 
     g_subset = parser.add_argument_group('Options for performing only a subset of the workflow')
