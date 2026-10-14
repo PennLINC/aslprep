@@ -191,6 +191,9 @@ def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None):
         'aslcontext': str(collected / 'hmc_aslcontext.tsv'),
         'indices': indices,
         'reference_type': ref_type,
+        'reference_volumes': 'separate_m0'
+        if ref_type == 'separate_m0scan'
+        else [i for i, t in enumerate(full) if t == ref_type],
         'processing_target': target,
         'use_ge': use_ge,
     }
@@ -242,6 +245,9 @@ def run_compat(inputs, work):
         'aslcontext': str(ctx_file),
         'indices': list(range(len(context))),
         'reference_type': ref_type,
+        'reference_volumes': 'separate_m0'
+        if inputs['m0scan']
+        else [i for i, t in enumerate(context) if t == ref_type],
         'processing_target': 'all',
         'use_ge': None,
         'fsl_mats': mats,
@@ -341,6 +347,8 @@ def run(inputs, candidate, out, **kwargs):
         'processing_target': res['processing_target'],
         'use_ge': res['use_ge'],
         'groups': res.get('groups'),
+        # Raw volumes the reference was built from, or 'separate_m0' (scoring uses their poses).
+        'reference_volumes': res.get('reference_volumes'),
         'aslprep': aslprep.__file__,
         'aslprep_version': getattr(aslprep, '__version__', None),
         'options': kwargs,

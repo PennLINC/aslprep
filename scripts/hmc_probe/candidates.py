@@ -174,13 +174,17 @@ def run_c1(inputs, work, **options):
     m0_groups = [g for g in templates if g[0] == 'm0scan']
     if frame == 'm0' and inputs.get('m0scan'):
         frame_file = _regrid(inputs['m0scan'], img, work / 'frame_m0.nii.gz')
-    elif frame == 'm0' and m0_groups:
-        frame_file = templates[m0_groups[0]]
-    elif controls:
-        # With several control groups (one per delay), the longest-delay group's template.
-        frame_file = templates[max(controls, key=lambda g: (g[1] is None, g[1] or 0))]
+        ref_volumes = 'separate_m0'
     else:
-        frame_file = templates[next(iter(templates))]
+        if frame == 'm0' and m0_groups:
+            g = m0_groups[0]
+        elif controls:
+            # With several control groups (one per delay), the longest-delay group's template.
+            g = max(controls, key=lambda g: (g[1] is None, g[1] or 0))
+        else:
+            g = next(iter(templates))
+        frame_file = templates[g]
+        ref_volumes = [idx[k] for k in groups[g]]
 
     cross_mats = {}
     for g, tpl in templates.items():
@@ -203,6 +207,7 @@ def run_c1(inputs, work, **options):
         'aslcontext': str(ctx_file),
         'indices': idx,
         'reference_type': f'{frame} frame ({Path(frame_file).name})',
+        'reference_volumes': ref_volumes,
         'processing_target': target,
         'use_ge': None,
         'groups': {f'{g[0]}@{g[1]}': len(ks) for g, ks in groups.items()},
@@ -212,6 +217,24 @@ def run_c1(inputs, work, **options):
 def run_c2(inputs, work, **options):
     options = {'iterations': 3, **options}
     return run_c1(inputs, work, **options)
+
+
+def polar_mean(mats):
+    """Mean of rigid 4x4 matrices, with the linear part projected onto a rotation.
+
+    The same as ``score.polar_mean``, repeated here because the harness runs in a container
+    without the repository.
+    """
+    m = np.mean(np.asarray(mats), axis=0)
+    u, _, vt = np.linalg.svd(m[:3, :3])
+    r = u @ vt
+    if np.linalg.det(r) < 0:
+        u[:, -1] *= -1
+        r = u @ vt
+    out = np.eye(4)
+    out[:3, :3] = r
+    out[:3, 3] = m[:3, 3]
+    return out
 
 
 def _write_itk(path, mats):
@@ -260,13 +283,12 @@ def run_c3(inputs, work, **options):
         'aslref': str(aslref),
         'xforms': str(_write_itk(work / 'hmc_xfms.txt', new)),
         'reference_type': f're-referenced to volume {res["indices"][ref_k]}',
+        'reference_volumes': [res['indices'][ref_k]],
     }
 
 
 def run_c4(inputs, work, **options):
     """One transform per control-label pair: the polar mean of the pair's two transforms."""
-    from score import polar_mean
-
     base = _opt(options, 'base', 'c0')
     res, h = _base(inputs, work, base, options)
     types = pd.read_table(res['aslcontext'])['volume_type'].tolist()

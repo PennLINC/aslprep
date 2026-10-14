@@ -260,6 +260,12 @@ def reference_frame(fixture, harness, indices_all):
     ref_type = harness.get('reference_type')
     if not moving:
         return np.eye(4), 'static (no motion)'
+    ref_volumes = harness.get('reference_volumes')
+    if ref_volumes == 'separate_m0':
+        return np.eye(4), 'static (separate M0 does not move in aslscan)'
+    if ref_volumes:
+        note = 'exact: one volume' if len(ref_volumes) == 1 else 'approximate: polar mean of'
+        return polar_mean(poses[ref_volumes]), f'{note} {len(ref_volumes)} volume pose(s)'
     if ref_type in ('separate_m0scan', 'separate m0scan'):
         return np.eye(4), 'static (separate M0 does not move in aslscan)'
     sel = [i for i, t in enumerate(fixture.context) if t == ref_type]
