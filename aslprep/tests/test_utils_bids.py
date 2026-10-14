@@ -217,3 +217,134 @@ def test_explain_missing_asl_wrong_directory(tmp_path):
     assert "datatype 'func' instead of 'perf'" in hint
     assert 'perf/ directory' in hint
     assert 'contains a directory named' not in hint
+
+
+def _haematocrit_dataset(
+    root, sessions=True, sidecar=None, scans=None, session_rows=None, participant_rows=None
+):
+    """Write a minimal BIDS dataset with one ASL run and optional haematocrit sources."""
+    from bids.layout import BIDSLayout
+
+    root.mkdir(parents=True)
+    (root / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'test', 'BIDSVersion': '1.10.0'})
+    )
+    data_dir = root / 'sub-01' / 'ses-1' if sessions else root / 'sub-01'
+    prefix = 'sub-01_ses-1' if sessions else 'sub-01'
+    perf = data_dir / 'perf'
+    perf.mkdir(parents=True)
+    asl_file = perf / f'{prefix}_asl.nii.gz'
+    asl_file.write_bytes(b'')
+    (perf / f'{prefix}_asl.json').write_text(json.dumps({'M0Type': 'Absent', **(sidecar or {})}))
+    (perf / f'{prefix}_aslcontext.tsv').write_text('volume_type\ncontrol\nlabel\n')
+    if scans is not None:
+        (data_dir / f'{prefix}_scans.tsv').write_text(
+            f'filename\t{scans[0]}\nperf/{prefix}_asl.nii.gz\t{scans[1]}\n'
+        )
+    if session_rows is not None:
+        (root / 'sub-01' / 'sub-01_sessions.tsv').write_text(session_rows)
+    if participant_rows is not None:
+        (root / 'participants.tsv').write_text(participant_rows)
+    layout = BIDSLayout(root, validate=False)
+    return layout, str(asl_file)
+
+
+@pytest.mark.parametrize(
+    ('sources', 'expected', 'source'),
+    [
+        # Each source on its own
+        (
+            {'participant_rows': 'participant_id\thaematocrit\nsub-01\t0.41\n'},
+            0.41,
+            'participants',
+        ),
+        ({'session_rows': 'session_id\thaematocrit\nses-1\t0.39\n'}, 0.39, 'sessions'),
+        ({'scans': ('haematocrit', '0.37')}, 0.37, 'scans'),
+        ({'sidecar': {'Haematocrit': 0.35}}, 0.35, 'Haematocrit field'),
+        # The most specific source wins
+        (
+            {
+                'sidecar': {'Haematocrit': 0.35},
+                'scans': ('haematocrit', '0.37'),
+                'session_rows': 'session_id\thaematocrit\nses-1\t0.39\n',
+                'participant_rows': 'participant_id\thaematocrit\nsub-01\t0.41\n',
+            },
+            0.35,
+            'Haematocrit field',
+        ),
+        (
+            {
+                'scans': ('haematocrit', '0.37'),
+                'participant_rows': 'participant_id\thaematocrit\nsub-01\t0.41\n',
+            },
+            0.37,
+            'scans',
+        ),
+        # A missing value falls through to the next source
+        (
+            {
+                'session_rows': 'session_id\thaematocrit\nses-1\tn/a\n',
+                'participant_rows': 'participant_id\thaematocrit\nsub-01\t0.41\n',
+            },
+            0.41,
+            'participants',
+        ),
+        # Percentages, the American spelling, and other participants' rows
+        ({'participant_rows': 'participant_id\tHematocrit\nsub-01\t43\n'}, 0.43, 'participants'),
+        ({'sidecar': {'Hematocrit': 0.44}}, 0.44, 'Hematocrit field'),
+        ({'participant_rows': 'participant_id\thaematocrit\nsub-02\t0.41\n'}, None, None),
+        # Values that are not a haematocrit are ignored
+        ({'participant_rows': 'participant_id\thaematocrit\nsub-01\t250\n'}, None, None),
+        ({'participant_rows': 'participant_id\thaematocrit\nsub-01\tlow\n'}, None, None),
+        ({'participant_rows': 'participant_id\tage\nsub-01\t30\n'}, None, None),
+        ({}, None, None),
+    ],
+)
+def test_collect_haematocrit(tmp_path, sources, expected, source):
+    """A measured haematocrit is taken from the most specific source that has one (gh-295)."""
+    from aslprep.utils.bids import collect_haematocrit
+
+    layout, asl_file = _haematocrit_dataset(tmp_path / 'bids', **sources)
+    metadata = layout.get_metadata(asl_file)
+
+    haematocrit, found_in = collect_haematocrit(layout, asl_file, metadata)
+
+    if expected is None:
+        assert haematocrit is None
+        assert found_in is None
+    else:
+        assert haematocrit == pytest.approx(expected)
+        assert source in found_in
+
+
+def test_collect_haematocrit_without_sessions(tmp_path):
+    """Without sessions, scans.tsv sits in the subject directory."""
+    from aslprep.utils.bids import collect_haematocrit
+
+    layout, asl_file = _haematocrit_dataset(
+        tmp_path / 'bids',
+        sessions=False,
+        scans=('haematocrit', '0.38'),
+        participant_rows='participant_id\thaematocrit\nsub-01\t0.41\n',
+    )
+
+    haematocrit, found_in = collect_haematocrit(layout, asl_file, layout.get_metadata(asl_file))
+
+    assert haematocrit == pytest.approx(0.38)
+    assert found_in == 'sub-01_scans.tsv'
+
+
+def test_collect_run_data_haematocrit(tmp_path, monkeypatch):
+    """collect_run_data adds the haematocrit to the ASL metadata, where estimate_t1 reads it."""
+    from aslprep import config
+    from aslprep.utils.bids import collect_run_data
+
+    monkeypatch.setattr(config.workflow, 'ignore', [])
+    layout, asl_file = _haematocrit_dataset(
+        tmp_path / 'bids',
+        participant_rows='participant_id\tsex\thaematocrit\nsub-01\tF\t38.5\n',
+    )
+
+    run_data = collect_run_data(layout, asl_file)
+
+    assert run_data['asl_metadata']['Haematocrit'] == pytest.approx(0.385)

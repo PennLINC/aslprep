@@ -346,3 +346,46 @@ def test_basil_sd_output_metadata():
         estimate = field.replace('_sd_basil', '_basil').replace('cbf_', 'mean_cbf_')
         estimate = 'att_basil' if field == 'att_sd_basil' else estimate
         assert BASE_INPUT_FIELDS[estimate]['Units'] == units
+
+
+@pytest.mark.parametrize('haematocrit', [None, 0.20])
+def test_init_cbf_wf_haematocrit(tmp_path, haematocrit):
+    """BASIL gets the same T1blood as ASLPrep's model, and the boilerplate reports a haematocrit."""
+    import pandas as pd
+
+    from aslprep.utils.cbf import estimate_t1
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PostLabelingDelay': 1.8,
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+        'RepetitionTimePreparation': 4.0,
+    }
+    if haematocrit is not None:
+        metadata['Haematocrit'] = haematocrit
+    reset_config()
+    with mock_config():
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 3}),
+            metadata=metadata,
+            basil=True,
+        )
+
+    t1blood = wf.get_node('basilcbf').inputs.t1blood
+    assert t1blood == pytest.approx(estimate_t1(metadata)[0])
+    if haematocrit is None:
+        assert t1blood == pytest.approx(1.65)
+        assert 'haematocrit' not in wf.__desc__
+    else:
+        assert t1blood == pytest.approx(1.948, abs=0.0005)
+        assert 'measured haematocrit (0.2)' in wf.__desc__
+        assert '@hales2016general' in wf.__desc__

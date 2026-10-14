@@ -389,6 +389,13 @@ resampled onto the ASL grid with Gaussian interpolation, which smooths the image
 An M0 scan that is already on the ASL grid skips this step,
 so it is only interpolated once, along with the head-motion and distortion corrections.
 
+M0 should be the fully relaxed magnetization.
+If the calibration volumes were acquired with a repetition time (``RepetitionTimePreparation``)
+shorter than 5 seconds, tissue magnetization has not fully recovered,
+so *ASLPrep* divides the M0 image by :math:`1 - e^{-TR / T_{1,tissue}}`
+:footcite:p:`alsop_recommended_2015`.
+BASIL makes the same correction from the repetition time it is given.
+
 CBF is proportional to the difference signal divided by M0,
 so voxels with almost no M0 signal (mostly air) would get arbitrarily large CBF values,
 which resampling to other spaces would then spread into the neighboring voxels.
@@ -440,6 +447,8 @@ model :footcite:p:`alsop_recommended_2015`.
    :math:`T_{1,blood}` : Relaxation time for arterial blood, in seconds.
    ASLPrep infers this automatically based on the magnetic field strength
    :footcite:p:`zhang2013vivo,alsop_recommended_2015`.
+   If the participant's haematocrit is available in the dataset, this value is scaled for it
+   :footcite:p:`hales2016general`; see :ref:`haematocrit`.
 
    :math:`T_{1,tissue}` : Relaxation time for gray matter,
    used in the two-compartment model for multi-delay data (in seconds).
