@@ -21,7 +21,10 @@ line as ``--opt key=value``.
   one reference (``reference=mean``, their mean, or ``reference=production``, the separate M0);
   the label/control alternation (one regressor per delay) is regressed out of the six rigid
   parameters about the field-of-view centre; in-series M0 volumes are registered separately,
-  as their own group, and derived volumes follow P1.
+  as their own group, and derived volumes follow P1. ``convention=spm`` reproduces ASLtbx and
+  ExploreASL's ``cleanandsave_parameters`` instead: SPM parameters of the world-space
+  transforms relative to the first volume, a positional +/-1 regressor projected out with no
+  intercept, then re-referenced to the first volume (``fit`` and ``regressors`` are ignored).
 
 All registrations use FSL (MCFLIRT for series, FLIRT for single images) with ``cost``
 (``mutualinfo`` by default). Transforms are composed as FSL matrices on the raw grid and
@@ -328,6 +331,56 @@ def _from_centre(p, c):
     return out
 
 
+def _fsl_to_world(img):
+    """FSL scaled-voxel coordinates -> the image's world (RAS mm) coordinates."""
+    zooms = np.array(img.header.get_zooms()[:3], float)
+    d = np.diag(np.r_[zooms, 1.0])
+    if np.linalg.det(img.affine[:3, :3]) > 0:  # FSL flips x: x_fsl = (N - 1 - i) * zx
+        d[0, 0] = -zooms[0]
+        d[0, 3] = (img.shape[0] - 1) * zooms[0]
+    return img.affine @ np.linalg.inv(d)
+
+
+def spm_matrix(p):
+    """SPM's ``spm_matrix`` for the six rigid parameters (mm, radians): T @ R1 @ R2 @ R3."""
+    c, s = np.cos(p[3:6]), np.sin(p[3:6])
+    t = np.eye(4)
+    t[:3, 3] = p[:3]
+    r1, r2, r3 = np.eye(4), np.eye(4), np.eye(4)
+    r1[1:3, 1:3] = [[c[0], s[0]], [-s[0], c[0]]]
+    r2[np.ix_([0, 2], [0, 2])] = [[c[1], s[1]], [-s[1], c[1]]]
+    r3[:2, :2] = [[c[2], s[2]], [-s[2], c[2]]]
+    return t @ r1 @ r2 @ r3
+
+
+def spm_imatrix(m):
+    """SPM's ``spm_imatrix`` for a rigid matrix: the six parameters (mm, radians)."""
+    r = m[:3, :3]
+    p5 = np.arcsin(np.clip(r[0, 2], -1.0, 1.0))
+    if abs(p5) - np.pi / 2 >= -1e-12:  # gimbal lock, as SPM handles it
+        p4, p6 = 0.0, np.arctan2(-r[1, 0], -r[2, 0] / r[0, 2])
+    else:
+        c = np.cos(p5)
+        p4, p6 = np.arctan2(r[1, 2] / c, r[2, 2] / c), np.arctan2(r[0, 1] / c, r[0, 0] / c)
+    return np.r_[m[:3, 3], p4, p5, p6]
+
+
+def spm_zigzag_clean(params, n_first_label=True):
+    """ASLtbx/ExploreASL ``cleanandsave_parameters``, transcribed.
+
+    ``params`` are SPM parameters of each volume relative to the first. The regressor is a
+    hard-coded +/-1 alternation by position (-1 first, as when label comes first; the sign does
+    not change the projection), projected out with no intercept, then every column is
+    re-referenced to the first volume.
+    """
+    n = len(params)
+    ref = -np.ones(n) if n_first_label else np.ones(n)
+    ref[1::2] *= -1
+    cleaned = params - np.outer(ref, ref @ params) / (ref @ ref)
+    cleaned = cleaned - cleaned[0]
+    return cleaned, params - cleaned, ref
+
+
 def _huber(y, x, k=1.345, iterations=50):
     """Huber regression by iteratively reweighted least squares (MAD scale)."""
     b, *_ = np.linalg.lstsq(x, y, rcond=None)
@@ -420,14 +473,36 @@ def run_c8(inputs, work, **options):
     # FSL coordinates flip x for a positive-determinant affine (i -> N-1-i), which leaves the
     # field-of-view midpoint unchanged, so this centre is right in either case.
     centre = (np.array(img.shape[:3]) - 1) / 2 * zooms
-    params = np.array([_about_centre(m, centre) for m in mats])
-    cleaned, removed, audit = zigzag_clean(
-        params,
-        [types[k] for k in cl],
-        [plds[k] for k in cl],
-        robust=_opt(options, 'fit', 'ols') == 'huber',
-        regressors=_opt(options, 'regressors', 'pooled'),
-    )
+    convention = _opt(options, 'convention', 'centre')
+    cl_types = [types[k] for k in cl]
+    if convention == 'spm':
+        # ASLtbx/ExploreASL: SPM parameters of world-space transforms relative to the first
+        # volume (Euler angles about the world origin), positional alternation, no intercept.
+        f2w = _fsl_to_world(img)
+        world = [f2w @ m @ np.linalg.inv(f2w) for m in mats]
+        params = np.array([spm_imatrix(w @ np.linalg.inv(world[0])) for w in world])
+        cleaned, removed, ref = spm_zigzag_clean(params)
+        is_control = np.array([t == 'control' for t in cl_types])
+        audit = {
+            'design': ref[:, None],
+            'beta': (ref @ params / (ref @ ref))[None],
+            'regressors': 'spm positional',
+            'fell_back_to_pooled': False,
+            'alternation_matches_context': bool(
+                np.all(is_control == (ref > 0)) or np.all(is_control == (ref < 0))
+            ),
+        }
+    elif convention == 'centre':
+        params = np.array([_about_centre(m, centre) for m in mats])
+        cleaned, removed, audit = zigzag_clean(
+            params,
+            cl_types,
+            [plds[k] for k in cl],
+            robust=_opt(options, 'fit', 'ols') == 'huber',
+            regressors=_opt(options, 'regressors', 'pooled'),
+        )
+    else:
+        raise ValueError(f'Unknown convention: {convention}')
     if _opt(options, 'regress', 1, int) == 0:  # joint estimation only (a diagnostic variant)
         cleaned, removed = params, np.zeros_like(params)
         audit['regressors'] = 'none'
@@ -443,14 +518,20 @@ def run_c8(inputs, work, **options):
     (art / 'zigzag.json').write_text(
         json.dumps(
             {
-                'convention': 'rotation vector (degrees) and translation (mm) about the '
-                'field-of-view centre, in FSL scaled-voxel coordinates, per volume of the '
-                'control-label series (acquisition order)',
+                'convention': (
+                    'SPM spm_imatrix of world-space transforms relative to the first volume '
+                    '(translation mm, Euler radians about the world origin)'
+                    if convention == 'spm'
+                    else 'rotation vector (degrees) and translation (mm) about the '
+                    'field-of-view centre, in FSL scaled-voxel coordinates'
+                )
+                + ', per volume of the control-label series (acquisition order)',
                 'centre_fsl_mm': centre.tolist(),
                 'volumes': [idx[k] for k in cl],
                 'regressors': audit['regressors'],
                 'fell_back_to_pooled': audit['fell_back_to_pooled'],
-                'fit': _opt(options, 'fit', 'ols'),
+                'alternation_matches_context': audit.get('alternation_matches_context'),
+                'fit': 'ols, no intercept' if convention == 'spm' else _opt(options, 'fit', 'ols'),
                 'removed_max': float(np.abs(removed).max()) if removed.size else 0.0,
             },
             indent=2,
@@ -458,7 +539,10 @@ def run_c8(inputs, work, **options):
     )
     final = [None] * len(idx)
     for k, p in zip(cl, cleaned, strict=True):
-        final[k] = _from_centre(p, centre)
+        if convention == 'spm':  # Vo(j).mat = spm_matrix(clQ(j,:)) * V(1).mat
+            final[k] = np.linalg.inv(f2w) @ spm_matrix(p) @ world[0] @ f2w
+        else:
+            final[k] = _from_centre(p, centre)
 
     # M0 volumes: their own group, registered to its mean, then the mean to the reference.
     m0 = [k for k, t in enumerate(types) if t == 'm0scan']

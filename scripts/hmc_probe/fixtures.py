@@ -238,8 +238,24 @@ def seed_variants(names, seeds, staging):
     return out
 
 
+def _robust_snr(raw_noisy, raw_clean, context, gm_mask):
+    """As ``aslscan_fixtures._snr``, with the signal a per-voxel median over pair estimates.
+
+    The clean series carries the recipe's motion, so its plain mean delta-M includes motion
+    contamination; with 2 mm / 2 degree spikes in a 10-pair series it is negative and the
+    calibration fails. The median ignores the spiked pairs and equals the mean when the head
+    is still.
+    """
+    noisy = af.deltam_estimates(nb.load(af._raw_paths(raw_noisy)['asl']).get_fdata(), context)
+    clean = af.deltam_estimates(nb.load(af._raw_paths(raw_clean)['asl']).get_fdata(), context)
+    signal = float(np.mean(np.median(clean, axis=-1)[gm_mask]))
+    noise = float(np.std((noisy - clean)[gm_mask]))
+    return signal, noise
+
+
 def generate(names, data_dir, threads=8, recipes_dir=None):
     use_probe_recipes()
+    af._snr = _robust_snr  # probe-only: the CI fixtures keep the plain mean
     if recipes_dir is not None:
         af.RECIPES_DIR = recipes_dir
         af.RECIPES = af._discover_recipes()
