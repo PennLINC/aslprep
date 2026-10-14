@@ -22,6 +22,7 @@ from packaging.version import Version
 
 from aslprep import config
 from aslprep.data import load as load_data
+from aslprep.utils.asl import IGNORABLE_VOLUME_TYPES, ignore_volume_types
 
 LOGGER = logging.getLogger('nipype.utils')
 
@@ -57,6 +58,21 @@ def collect_run_data(layout, asl_file):
     # The aslcontext file is required
     if not run_data['aslcontext']:
         raise FileNotFoundError(f'aslcontext file for {asl_file} not found.')
+
+    # Hide the volume types the user asked to ignore (e.g., CBF maps calculated on the scanner)
+    ignored_types = sorted(set(config.workflow.ignore or []) & set(IGNORABLE_VOLUME_TYPES))
+    if ignored_types:
+        original_aslcontext = run_data['aslcontext']
+        run_data['aslcontext'] = ignore_volume_types(
+            aslcontext=original_aslcontext,
+            ignore=ignored_types,
+            out_dir=Path(config.execution.work_dir) / 'aslcontext',
+        )
+        if run_data['aslcontext'] != original_aslcontext:
+            config.loggers.workflow.info(
+                f'Ignoring the {" and ".join(ignored_types)} volumes in {asl_file}, '
+                'as requested with --ignore.'
+            )
 
     # Now let's look for an m0scan
     m0scan_candidates = [
