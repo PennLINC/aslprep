@@ -30,7 +30,12 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
     prepare_basil_kwargs,
 )
-from aslprep.utils.cbf import M0_THRESHOLD
+from aslprep.utils.cbf import (
+    M0_THRESHOLD,
+    REFERENCE_HAEMATOCRIT,
+    estimate_t1,
+    haematocrit_applies,
+)
 
 
 def init_cbf_wf(
@@ -237,6 +242,19 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
             'Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise '
             'basis based on the slice timing.'
         )
+
+    t1blood = None
+    if processing_target != 'cbf':
+        # Also passed to BASIL, so both models use the same value.
+        t1blood, _ = estimate_t1(metadata=metadata)
+        if haematocrit_applies(metadata):
+            workflow.__desc__ += (
+                f' The T1 of arterial blood was set to {t1blood:.3f} s: '
+                f'the value for {metadata["MagneticFieldStrength"]:g} T, scaled for the '
+                f"participant's measured haematocrit ({metadata['Haematocrit']:g}) relative to "
+                f'a typical haematocrit of {REFERENCE_HAEMATOCRIT:g} [@lu2004determining], '
+                'using the model of @hales2016general.'
+            )
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -535,6 +553,7 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
                 m0_scale=m0_scale,
                 pvc=basil_pvc,
                 pcasl=is_casl,
+                t1blood=t1blood,
                 **basil_kwargs,
             ),
             name='basilcbf',

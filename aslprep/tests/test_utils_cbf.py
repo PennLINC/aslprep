@@ -640,3 +640,52 @@ def test_zero_low_m0():
     # A constant M0 (an M0Estimate) is never zeroed, and non-finite data pass through.
     np.testing.assert_array_equal(cbf.zero_low_m0(np.full(10, 3.0)), np.full(10, 3.0))
     assert np.isnan(cbf.zero_low_m0(np.full(10, np.nan))).all()
+
+
+@pytest.mark.parametrize(('haematocrit', 'expected'), [(0.47, 1.70), (0.20, 2.09)])
+def test_t1blood_from_haematocrit(haematocrit, expected):
+    """The model reproduces the arterial examples in Hales et al. (2016), at 3 T."""
+    assert cbf.t1blood_from_haematocrit(haematocrit, 3.0) == pytest.approx(expected, abs=0.005)
+
+
+@pytest.mark.parametrize(('field_strength', 'default'), [(1.5, 1.35), (3, 1.65), (7, 2.087)])
+def test_estimate_t1_haematocrit(field_strength, default):
+    """A measured haematocrit scales the default T1blood, which a typical one leaves unchanged."""
+    t1blood, t1tissue = cbf.estimate_t1({'MagneticFieldStrength': field_strength})
+    assert t1blood == default
+
+    typical = cbf.estimate_t1({'MagneticFieldStrength': field_strength, 'Haematocrit': 0.42})
+    assert typical == pytest.approx((default, t1tissue))
+
+    # Fewer red blood cells lengthen T1blood, more shorten it; T1tissue is unaffected.
+    low = cbf.estimate_t1({'MagneticFieldStrength': field_strength, 'Haematocrit': 0.20})
+    high = cbf.estimate_t1({'MagneticFieldStrength': field_strength, 'Haematocrit': 0.47})
+    assert low[0] > default > high[0]
+    assert low[1] == high[1] == t1tissue
+    expected_ratio = cbf.t1blood_from_haematocrit(0.20, field_strength) / (
+        cbf.t1blood_from_haematocrit(0.42, field_strength)
+    )
+    assert low[0] == pytest.approx(default * expected_ratio)
+
+
+def test_estimate_t1_haematocrit_value_at_3t():
+    """The documented 3 T value for a haematocrit of 0.20."""
+    t1blood, _ = cbf.estimate_t1({'MagneticFieldStrength': 3, 'Haematocrit': 0.20})
+    assert t1blood == pytest.approx(1.948, abs=0.0005)
+
+
+@pytest.mark.parametrize(
+    ('metadata', 'expected'),
+    [
+        ({'MagneticFieldStrength': 3}, False),
+        ({'MagneticFieldStrength': 3, 'Haematocrit': 0.4}, True),
+        ({'MagneticFieldStrength': 1.5, 'Haematocrit': 0.4}, True),
+        ({'MagneticFieldStrength': 7, 'Haematocrit': 0.4}, True),
+        # Outside the field strengths the model was fitted on
+        ({'MagneticFieldStrength': 1.0, 'Haematocrit': 0.4}, False),
+        ({'MagneticFieldStrength': 9.4, 'Haematocrit': 0.4}, False),
+    ],
+)
+def test_haematocrit_applies(metadata, expected):
+    """The haematocrit is only used within the model's 1.5-7 T range."""
+    assert cbf.haematocrit_applies(metadata) is expected

@@ -110,11 +110,135 @@ def collect_run_data(layout, asl_file):
         ),
     )
 
+    # A measured haematocrit sets T1blood (see estimate_t1), so carry it with the ASL metadata.
+    haematocrit, source = collect_haematocrit(layout, asl_file, asl_metadata)
+    if haematocrit is not None:
+        config.loggers.workflow.info(
+            f'Using a haematocrit of {haematocrit:g} for {asl_file}, from {source}.'
+        )
+        asl_metadata['Haematocrit'] = haematocrit
+
     # Add metadata to dictionary now (we don't want to print these with the logger).
     run_data['asl_metadata'] = asl_metadata
     run_data['m0scan_metadata'] = m0scan_metadata
 
     return run_data
+
+
+# Names accepted for a measured haematocrit, compared without regard to case.
+# Haematocrit is the BIDS metadata field (defined for PET blood data).
+HAEMATOCRIT_NAMES = ('haematocrit', 'hematocrit')
+
+
+def _parse_haematocrit(value, source):
+    """Convert a haematocrit value to a fraction, or return None if it cannot be used.
+
+    BIDS defines haematocrit as a fraction of whole-blood volume.
+    Values above 1 are read as percentages.
+    """
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if value != value:  # NaN, as pandas reads "n/a"
+        return None
+
+    if 1 < value <= 100:
+        config.loggers.workflow.info(
+            f'Reading the haematocrit of {value:g} in {source} as a percentage.'
+        )
+        value /= 100
+
+    if not 0 < value < 1:
+        config.loggers.workflow.warning(
+            f'Ignoring the haematocrit of {value:g} in {source}: '
+            'it must be a fraction between 0 and 1 (or a percentage).'
+        )
+        return None
+
+    return value
+
+
+def _haematocrit_from_tsv(tsv_file, key_column, key):
+    """Return the haematocrit in the row of a BIDS TSV file whose ``key_column`` is ``key``."""
+    import pandas as pd
+
+    tsv_file = Path(tsv_file)
+    if not tsv_file.is_file():
+        return None
+
+    df = pd.read_table(tsv_file, dtype=str, na_values='n/a')
+    columns = [col for col in df.columns if col.lower() in HAEMATOCRIT_NAMES]
+    if not columns or key_column not in df.columns:
+        return None
+
+    rows = df.loc[df[key_column] == key, columns[0]]
+    if rows.empty:
+        return None
+
+    return _parse_haematocrit(rows.iloc[0], f'{tsv_file.name} ({key})')
+
+
+def collect_haematocrit(layout, asl_file, metadata):
+    """Find a measured haematocrit for an ASL file, from the most specific source available.
+
+    The sources are checked in this order, and the first usable value wins:
+
+    1. The ASL file's JSON sidecar, as a ``Haematocrit`` (or ``Hematocrit``) field.
+    2. The ``scans.tsv`` file of the subject or session, in the ASL file's row.
+    3. The subject's ``sessions.tsv`` file, in the ASL file's session's row.
+    4. The dataset's ``participants.tsv`` file, in the subject's row.
+
+    In the TSV files, the value is read from a ``haematocrit`` (or ``hematocrit``) column.
+
+    Parameters
+    ----------
+    layout : :obj:`bids.layout.BIDSLayout`
+        The layout of the input dataset.
+    asl_file : :obj:`str`
+        Path to the ASL file.
+    metadata : :obj:`dict`
+        The ASL file's metadata.
+
+    Returns
+    -------
+    haematocrit : :obj:`float` or None
+        The haematocrit, as a fraction of whole-blood volume.
+    source : :obj:`str` or None
+        A description of where the value was found.
+    """
+    for key, value in metadata.items():
+        if key.lower() in HAEMATOCRIT_NAMES:
+            haematocrit = _parse_haematocrit(value, f'the {key} field of the ASL sidecar')
+            if haematocrit is not None:
+                return haematocrit, f'the {key} field of the ASL sidecar'
+
+    entities = layout.parse_file_entities(asl_file)
+    subject = f'sub-{entities["subject"]}'
+    session = f'ses-{entities["session"]}' if entities.get('session') else None
+    root = Path(layout.root)
+    data_dir = root / subject / session if session else root / subject
+
+    scans_file = data_dir / '_'.join(filter(None, [subject, session, 'scans.tsv']))
+    # scans.tsv lists files relative to the subject or session directory
+    try:
+        scans_key = Path(asl_file).resolve().relative_to(data_dir.resolve()).as_posix()
+    except ValueError:
+        scans_key = None
+    candidates = [
+        (scans_file, 'filename', scans_key),
+        (root / subject / f'{subject}_sessions.tsv', 'session_id', session),
+        (root / 'participants.tsv', 'participant_id', subject),
+    ]
+    for tsv_file, key_column, key in candidates:
+        if key is None:
+            continue
+        haematocrit = _haematocrit_from_tsv(tsv_file, key_column, key)
+        if haematocrit is not None:
+            return haematocrit, tsv_file.name
+
+    return None, None
 
 
 def explain_missing_asl(layout, subject_id):

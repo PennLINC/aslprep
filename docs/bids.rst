@@ -86,6 +86,114 @@ It will be used for CBF calculations, and may be used for other purposes within 
 (e.g., as a high-contrast image for coregistration).
 
 
+.. _haematocrit:
+
+**********************************
+Haematocrit and the T1 of blood
+**********************************
+
+CBF depends directly on the T1 of arterial blood (:math:`T_{1,blood}`),
+which in turn depends on the haematocrit: the fraction of the blood's volume taken up by
+red blood cells.
+By default, *ASLPrep* uses a fixed :math:`T_{1,blood}` for the scanner's field strength
+(1.65 s at 3 T :footcite:p:`alsop_recommended_2015`), which assumes a typical haematocrit.
+In people whose haematocrit is far from typical, such as people with anaemia or sickle cell
+disease, that assumption can bias CBF by tens of percent :footcite:p:`hales2016general`.
+
+*ASLPrep* will automatically use a measured haematocrit when the dataset includes one.
+For each ASL file, these sources are checked in order, and the first usable value is used:
+
+1. **ASL sidecar:** a ``Haematocrit`` field in the ASL file's JSON sidecar
+   (including sidecars inherited from higher levels of the dataset).
+2. **Scans file:** ``<bids-root>/sub-<label>/[ses-<label>/]sub-<label>[_ses-<label>]_scans.tsv``,
+   in the row for the ASL file.
+3. **Sessions file:** ``<bids-root>/sub-<label>/sub-<label>_sessions.tsv``,
+   in the row for the ASL file's session.
+4. **Participants file:** ``<bids-root>/participants.tsv``, in the row for the participant.
+
+In the TSV files, the value goes in a ``haematocrit`` column.
+The American spelling (``Hematocrit`` or ``hematocrit``) is also accepted, in any of the sources.
+A missing value (``n/a``) moves on to the next source.
+
+The value should be a fraction between 0 and 1, as BIDS defines it.
+Values between 1 and 100 are read as percentages, and other values are ignored with a warning.
+We recommend adding a JSON sidecar for the TSV file that describes the column, for example::
+
+   {
+       "haematocrit": {
+           "Description": "Haematocrit measured from a blood sample on the day of the scan",
+           "Units": "fraction"
+       }
+   }
+
+.. note::
+
+   BIDS does not yet define a haematocrit field for ASL data.
+   ``Haematocrit`` is the field BIDS defines for PET blood data (``*_blood.json``),
+   so *ASLPrep* uses the same name, spelling and definition.
+   Extra columns in the participants, sessions and scans files are allowed in BIDS.
+
+When a haematocrit is found, *ASLPrep* scales its usual :math:`T_{1,blood}` for that
+haematocrit, using the model of :footcite:t:`hales2016general`.
+The model accounts for the haematocrit, the field strength and the oxygen saturation of the
+blood (assumed to be 0.97, for arterial blood):
+
+.. math::
+
+   T_{1,blood} = T_{1,blood}^{default} \cdot
+   \frac{T_{1,blood}^{Hales}(\mathrm{Hct})}{T_{1,blood}^{Hales}(0.42)}
+
+The default values are taken to correspond to a typical haematocrit of 0.42
+:footcite:p:`lu2004determining`, so a participant with that haematocrit gets exactly the
+default, and CBF stays comparable between participants with and without a measured haematocrit.
+The published model is not used on its own, because at a typical haematocrit it gives values
+7-21% longer than the defaults, which would shift CBF for every participant with a measurement.
+
+.. list-table:: :math:`T_{1,blood}` (s) for a few haematocrit values
+   :header-rows: 1
+
+   * - Haematocrit
+     - 1.5 T
+     - 3 T
+     - 7 T
+   * - 0.20
+     - 1.596
+     - 1.948
+     - 2.447
+   * - 0.30
+     - 1.477
+     - 1.804
+     - 2.274
+   * - 0.42 (default)
+     - 1.350
+     - 1.650
+     - 2.087
+   * - 0.47
+     - 1.301
+     - 1.591
+     - 2.015
+
+For single-delay PCASL at 3 T (1.8 s labeling duration and post-labeling delay),
+a haematocrit of 0.20 instead of a typical one lowers CBF by about 21%.
+The same :math:`T_{1,blood}` is used for BASIL, and the methods boilerplate reports it.
+
+The model is valid between 1.5 and 7 T.
+At other field strengths, the haematocrit is ignored with a warning,
+and :math:`T_{1,blood}` is set from the field strength as usual.
+Without a haematocrit, *ASLPrep* behaves as before.
+
+.. important::
+
+   *ASLPrep* does not estimate the haematocrit from the participant's age or sex.
+   Population-average haematocrit differs by age and sex,
+   but using an average in place of a measurement would change CBF for every dataset with
+   ``age`` and ``sex`` columns, without improving accuracy for the participants whose
+   haematocrit is atypical.
+   If you want to use population-average values, add them to the ``haematocrit`` column yourself.
+
+.. footbibliography::
+
+
 *********************
 Other metadata fields
 *********************

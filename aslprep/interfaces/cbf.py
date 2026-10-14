@@ -986,6 +986,13 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         ),
         argstr='--alpha %.2f',
     )
+    t1blood = traits.Float(
+        desc=(
+            'T1 of blood, in seconds [default: 1.65]. '
+            'ASLPrep passes the value it uses itself (see aslprep.utils.cbf.estimate_t1).'
+        ),
+        argstr='--t1b %.4f',
+    )
 
 
 class _BASILCBFOutputSpec(TraitedSpec):

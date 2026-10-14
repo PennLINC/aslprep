@@ -1725,6 +1725,100 @@ def zero_low_m0(m0data, threshold=M0_THRESHOLD):
     return m0data
 
 
+# Oxygen saturation of arterial blood, as used by Hales et al. (2016) for arterial T1.
+ARTERIAL_OXYGEN_SATURATION = 0.97
+# Field strengths, in tesla, over which the Hales et al. (2016) model was fitted and validated.
+HALES_FIELD_STRENGTH_RANGE = (1.5, 7.0)
+# Haematocrit that the default T1blood values are taken to assume:
+# the "typical human Hct" of Lu et al. (2004).
+REFERENCE_HAEMATOCRIT = 0.42
+
+
+def t1blood_from_haematocrit(haematocrit, field_strength, oxygen_saturation=None):
+    """Estimate the T1 of blood from haematocrit, with the model of Hales et al. (2016).
+
+    The model treats blood as erythrocytes and plasma in fast exchange,
+    with relaxation rates that depend on the magnetic field strength,
+    and on oxygen saturation for the erythrocytes.
+    It was fitted to in vitro measurements between 1.5 and 7 T,
+    and includes the authors' +108 ms offset for in vivo blood.
+
+    Parameters
+    ----------
+    haematocrit : :obj:`float`
+        Haematocrit, as a fraction of whole-blood volume (0-1).
+    field_strength : :obj:`float`
+        Magnetic field strength, in tesla.
+    oxygen_saturation : :obj:`float`, optional
+        Oxygen saturation of the blood (0-1).
+        Defaults to 0.97, for arterial blood.
+
+    Returns
+    -------
+    t1blood : :obj:`float`
+        T1 of blood, in seconds.
+
+    Notes
+    -----
+    From :footcite:t:`hales2016general`, equations 7 and 8:
+
+    .. math::
+
+        f_e = \\frac{0.70 \\cdot Hct}{0.70 \\cdot Hct + 0.95 \\cdot (1 - Hct)}
+
+        R_{1,bl} = f_e \\cdot (1.099 - 0.057 B_0 + 0.033 [Hb] (1 - Y))
+                   + (1 - f_e) \\cdot (0.496 - 0.023 B_0)
+
+        T_{1,bl} = 1 / R_{1,bl} + 0.108
+
+    where [Hb] is the mean corpuscular haemoglobin concentration (5.15 mmol/L).
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    if oxygen_saturation is None:
+        oxygen_saturation = ARTERIAL_OXYGEN_SATURATION
+
+    haemoglobin = 5.15  # mmol Hb tetramer/L plasma
+    in_vivo_offset = 0.108  # seconds
+    # Fraction of the water in whole blood that resides in erythrocytes
+    fe = (0.70 * haematocrit) / (0.70 * haematocrit + 0.95 * (1 - haematocrit))
+    r1_erythrocytes = (
+        1.099 - 0.057 * field_strength + 0.033 * haemoglobin * (1 - oxygen_saturation)
+    )
+    r1_plasma = 0.496 - 0.023 * field_strength
+    r1_blood = fe * r1_erythrocytes + (1 - fe) * r1_plasma
+    return 1 / r1_blood + in_vivo_offset
+
+
+def haematocrit_applies(metadata):
+    """Determine whether T1blood should be calculated from the haematocrit in the metadata.
+
+    The haematocrit is used when it is present and the field strength is within the range of
+    the model of :footcite:t:`hales2016general` (1.5-7 T).
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    haematocrit = metadata.get('Haematocrit')
+    if haematocrit is None:
+        return False
+
+    field_strength = metadata['MagneticFieldStrength']
+    low, high = HALES_FIELD_STRENGTH_RANGE
+    if not low <= field_strength <= high:
+        config.loggers.interface.warning(
+            f'A haematocrit of {haematocrit:g} is available, but the model that uses it is only '
+            f'valid between {low} and {high} T, not at {field_strength} T. '
+            'T1blood will be set from the field strength alone.'
+        )
+        return False
+
+    return True
+
+
 def estimate_t1(metadata):
     """Estimate the relaxation rates of blood and gray matter based on magnetic field strength.
 
@@ -1733,6 +1827,23 @@ def estimate_t1(metadata):
     If recommended values from these publications cannot be used
     (i.e., if the field strength isn't 1.5T, 3T, 7T),
     then the formula from :footcite:t:`zhang2013vivo` will be applied.
+
+    If the metadata include a ``Haematocrit`` (as a fraction),
+    and the field strength is between 1.5 and 7 T,
+    that value is then scaled for the participant's haematocrit,
+    with the model of :footcite:t:`hales2016general` (see :func:`t1blood_from_haematocrit`):
+
+    .. math::
+
+        T_{1,blood} = T_{1,blood}^{default} \\cdot
+        \\frac{T_{1,bl}^{Hales}(Hct)}{T_{1,bl}^{Hales}(0.42)}
+
+    The defaults assume a typical haematocrit, taken as 0.42 (the "typical human Hct" of
+    :footcite:t:`lu2004determining`, whose measurements underlie the 3 T default),
+    so a haematocrit of 0.42 leaves them unchanged.
+    The published model on its own gives 7-21% longer values than the defaults at a typical
+    haematocrit, which would make CBF from participants with and without a measured haematocrit
+    differ systematically.
 
     t1tissue is set based on the scanner's field strength as well,
     according to :footcite:t:`wright2008water`.
@@ -1755,18 +1866,24 @@ def estimate_t1(metadata):
     ----------
     .. footbibliography::
     """
+    field_strength = metadata['MagneticFieldStrength']
     T1BLOOD_DICT = {
         1.5: 1.35,
         3: 1.65,
         7: 2.087,
     }
-    t1blood = T1BLOOD_DICT.get(metadata['MagneticFieldStrength'])
+    t1blood = T1BLOOD_DICT.get(field_strength)
     if not t1blood:
         config.loggers.interface.warning(
             f'T1blood cannot be inferred for {metadata["MagneticFieldStrength"]}T data. '
             'Defaulting to formula from Zhang et al. (2013).'
         )
         t1blood = (110 * metadata['MagneticFieldStrength'] + 1316) / 1000
+
+    if haematocrit_applies(metadata):
+        t1blood *= t1blood_from_haematocrit(
+            metadata['Haematocrit'], field_strength
+        ) / t1blood_from_haematocrit(REFERENCE_HAEMATOCRIT, field_strength)
 
     # TODO: Supplement with formula for other field strengths
     T1TISSUE_DICT = {
