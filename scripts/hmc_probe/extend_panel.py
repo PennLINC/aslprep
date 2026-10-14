@@ -137,7 +137,23 @@ class Spec:
         return []
 
     def fix_context(self, context, asl, data):
-        return context, data, []
+        """Drop the last unpaired control or label (ASLPrep requires equal counts).
+
+        Returns the context, the data, notes, and the indices of the kept volumes.
+        """
+        keep = list(range(len(context)))
+        n_c, n_l = context.count('control'), context.count('label')
+        if n_c == n_l:
+            return context, data, [], keep
+        extra = 'control' if n_c > n_l else 'label'
+        drop = max(i for i, t in enumerate(context) if t == extra)
+        keep.remove(drop)
+        return (
+            [context[i] for i in keep],
+            data[..., keep],
+            [f'dropped unpaired {extra} {drop}'],
+            keep,
+        )
 
 
 class DS008719(Spec):
@@ -182,16 +198,12 @@ class DS004856(Spec):
         stacked = ['control'] * (n // 2) + ['label'] * (n // 2)
         shipped, alt = contrast(context), contrast(stacked)
         if alt > max(shipped, 0.2) and shipped < 0.2:
-            return (
-                stacked,
-                data,
-                [f'aslcontext: stacked order (contrast {alt:.2f} vs {shipped:.2f})'],
-            )
-        return (
-            context,
-            data,
-            [f'aslcontext as shipped (contrast {shipped:.2f}; stacked {alt:.2f})'],
-        )
+            note = f'aslcontext: stacked order (contrast {alt:.2f} vs {shipped:.2f})'
+            context = stacked
+        else:
+            note = f'aslcontext as shipped (contrast {shipped:.2f}; stacked {alt:.2f})'
+        context, data, notes, keep = super().fix_context(context, asl, data)
+        return context, data, [note, *notes], keep
 
 
 class DS004146(Spec):
@@ -222,15 +234,6 @@ class DS006148(Spec):
             meta['RepetitionTimePreparation'] /= 1000
             return ['RepetitionTimePreparation ms -> s']
         return []
-
-    def fix_context(self, context, asl, data):
-        n_c, n_l = context.count('control'), context.count('label')
-        if n_c == n_l:
-            return context, data, []
-        extra = 'control' if n_c > n_l else 'label'
-        drop = max(i for i, t in enumerate(context) if t == extra)
-        keep = [i for i in range(len(context)) if i != drop]
-        return [context[i] for i in keep], data[..., keep], [f'dropped unpaired {extra} {drop}']
 
 
 class PennSpiral(Spec):
@@ -333,7 +336,7 @@ def build(spec, n, out):
                 context = pd.read_table(ctx_src, keep_default_na=False)['volume_type'].tolist()
                 img = nb.load(asl)
                 data = np.asanyarray(img.dataobj)
-                context, data, more = spec.fix_context(context, asl, data.astype(np.float32))
+                context, data, more, keep = spec.fix_context(context, asl, data.astype(np.float32))
                 changes += more
                 (dest / rel).parent.mkdir(parents=True, exist_ok=True)
                 if data.shape[-1] != img.shape[-1]:
@@ -343,7 +346,7 @@ def build(spec, n, out):
                             and len(value) == img.shape[-1]
                             and key != 'SliceTiming'
                         ):
-                            meta[key] = [v for i, v in enumerate(value) if i < data.shape[-1]]
+                            meta[key] = [value[i] for i in keep]
                     img = nb.Nifti1Image(data, img.affine, img.header)
                     img.to_filename(dest / rel)
                 else:

@@ -132,6 +132,9 @@ def _grid_relation(m0_img, asl_img):
     ``same-physical``: different storage (axis order or flips) of the same voxel centres.
     ``different``: a different physical sampling.
     """
+    for img in (m0_img, asl_img):
+        if abs(np.linalg.det(img.affine[:3, :3])) < 1e-6:
+            return 'degenerate-affine'
     if m0_img.shape[:3] == asl_img.shape[:3] and np.allclose(
         m0_img.affine, asl_img.affine, rtol=0, atol=1e-4
     ):
@@ -158,6 +161,8 @@ def _pairs_by_delay(context, meta):
 def _predict(row, meta, context):
     """Failures and path that ASLPrep's code predicts for a run."""
     failures = []
+    if 'degenerate-affine' in row['m0_grid'] or 0 in row['zooms_mm']:
+        failures.append('degenerate affine (a zero voxel size): the image cannot be resampled')
     m0type = meta.get('M0Type')
     if m0type == 'Separate' and not row['m0_candidates']:
         failures.append('M0Type Separate but no M0 scan found (collect_run_data)')
@@ -182,7 +187,7 @@ def _predict(row, meta, context):
             failures.append('M0 RepetitionTimePreparation is 0: non-finite calibration')
     if meta.get('MRAcquisitionType') == '2D' and 'SliceTiming' not in meta:
         failures.append('2D without SliceTiming (fails BIDS validation)')
-    if row['echo'] is not None:
+    if row['echo'] is not None and row.get('n_echoes', 1) > 1:
         failures.append('multi-echo: outputs drop the echo entity and overwrite each other')
     unknown = sorted(set(context) - {'control', 'label', 'm0scan', 'deltam', 'cbf', 'n/a', 'noRF'})
     if unknown:
@@ -259,6 +264,11 @@ def build(zoo):
                 'subject': ents['sub'],
                 'session': ents.get('ses'),
                 'echo': ents.get('echo'),
+                'n_echoes': len(
+                    list(asl.parent.glob(asl.name.replace(f'echo-{ents.get("echo")}', 'echo-*')))
+                )
+                if ents.get('echo')
+                else 1,
                 'family': FAMILIES.get((name, ents['sub']), FAMILIES.get(name, 'unassigned')),
                 'manufacturer': meta.get('Manufacturer'),
                 'scanner_serial': meta.get('DeviceSerialNumber'),

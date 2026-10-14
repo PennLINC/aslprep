@@ -47,6 +47,9 @@ def jobs_from(manifest, zoo, adapted, originals, no_adapt=False):
     jobs = {}
     for row in manifest:
         name, sub = row['dataset'], row['subject']
+        if any(f.startswith('degenerate affine') for f in row.get('predicted_failures', [])):
+            print(f'skipping {name} sub-{sub}: {row["run"]} has a degenerate affine')
+            continue
         if no_adapt:
             jobs[(name, sub)] = _root(zoo, name)
         elif originals:
