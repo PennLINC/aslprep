@@ -192,3 +192,25 @@ def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
         assert outputs['mean_cbf_wm_basil'] == ('basilcbf', 'mean_cbf_wm_basil')
         assert {'gm_tpm', 'wm_tpm'} <= basil_inputs
         assert 'partial-volume corrected CBF image' in wf.__desc__
+
+
+@pytest.mark.parametrize('disable_n4', [False, True])
+def test_init_synthstrip_aslref_wf_nodes(disable_n4):
+    """The ASL reference workflow has no 3dUnifize branch, whose output nothing used."""
+    from aslprep.workflows.asl.reference import init_synthstrip_aslref_wf
+
+    reset_config()
+    with mock_config():
+        wf = init_synthstrip_aslref_wf(disable_n4=disable_n4)
+        graph = wf._create_flat_graph()
+
+    names = {node.name for node in graph.nodes()}
+    assert not names & {'unifize', 'fixhdr_unifize', 'apply_mask'}
+    assert ('n4_correct' in names) is not disable_n4
+    outputs = {
+        dst_field
+        for _, dst, data in graph.edges(data=True)
+        if dst.fullname == 'synthstrip_aslref_wf.outputnode'
+        for _, dst_field in data['connect']
+    }
+    assert outputs == {'bias_corrected_file', 'mask_file'}
