@@ -30,6 +30,7 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
     prepare_basil_kwargs,
 )
+from aslprep.utils.cbf import M0_THRESHOLD
 
 
 def init_cbf_wf(
@@ -161,12 +162,26 @@ Cerebral blood flow computation and denoising
             f'calculated and scaled by {m0_scale}.'
         )
 
+    if m0type != 'Estimate':
+        m0_str += (
+            f' Voxels where it fell below {100 * M0_THRESHOLD:g}% of its 98th percentile were '
+            'treated as having no signal, and were given no CBF estimate.'
+        )
+
     if processing_target == 'cbf':
         workflow.__desc__ += """\
 : *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
 """
 
     elif is_multi_pld:
+        abv_str = ''
+        if is_casl:
+            abv_str = (
+                '\nBecause the arterial signal only determines the product of aBV and the decay '
+                'of the label over aBAT, the reported aBV depends on the reported aBAT.\n'
+                'That product, which does not, was also written out.'
+            )
+
         workflow.__desc__ += f"""\
 : *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
 {metadata['ArterialSpinLabelingType']} data using a two-compartment general kinetic model (GKM)
@@ -185,7 +200,9 @@ The data only constrain aBAT to an interval between consecutive labeled-bolus ar
 departure times, so aBAT was reported as the midpoint of its interval.
 Where a range of ATT values fit equally well
 (for example, when ATT was shorter than every delay),
-ATT was likewise reported as the midpoint of that range.{
+ATT was reported as a single value from that range.
+The lower and upper bounds of the ATT and aBAT values that fit equally well were also calculated,
+and are written out with the native-space outputs.{abv_str}{
             ' The fit was run on a GPU with CuPy.' if config.nipype.use_gpu else ''
         }
 """
@@ -245,6 +262,11 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
                 'att',  # Only calculated for multi-delay data
                 'abat',  # Only calculated for multi-delay data
                 'abv',  # Only calculated for multi-delay data
+                'att_lower',  # Only calculated for multi-delay data
+                'att_upper',  # Only calculated for multi-delay data
+                'abat_lower',  # Only calculated for multi-delay data
+                'abat_upper',  # Only calculated for multi-delay data
+                'abv_decayed',  # Only calculated for multi-delay (P)CASL data
                 'plds',
                 # SCORE/SCRUB outputs
                 'cbf_ts_score',
@@ -399,6 +421,11 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
             ('plds', 'plds'),
             ('abat', 'abat'),
             ('abv', 'abv'),
+            ('att_lower', 'att_lower'),
+            ('att_upper', 'att_upper'),
+            ('abat_lower', 'abat_lower'),
+            ('abat_upper', 'abat_upper'),
+            ('abv_decayed', 'abv_decayed'),
         ]),
     ])  # fmt:skip
 
@@ -433,13 +460,32 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
         ])  # fmt:skip
 
     if basil:
+        # Partial volume correction takes most of oxford_asl's run time
+        # (its spatial step runs ten times as many iterations as the uncorrected fit),
+        # so it is skipped in sloppy mode.
+        basil_pvc = not config.execution.sloppy
+        if basil_pvc:
+            pvc_str = ' and\nadditionally calculates a partial-volume corrected CBF image [@chappell_pvc].'
+        else:
+            pvc_str = (
+                '.\nPartial volume correction was skipped, because *ASLPrep* was run in sloppy '
+                'mode.\nThe partial-volume corrected CBF outputs are copies of the uncorrected '
+                'BASIL CBF image.'
+            )
+
         workflow.__desc__ += f"""
 
 CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
 [@chappell2008variational], as implemented in *FSL* {Info.version()}.
-BASIL computes CBF using a spatial regularization of the estimated perfusion image and
-additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
+BASIL computes CBF using a spatial regularization of the estimated perfusion image{pvc_str}
 """
+        if not basil_pvc:
+            config.loggers.workflow.warning(
+                'Sloppy mode: BASIL partial volume correction will be skipped. '
+                'The partial-volume corrected CBF outputs (desc-basilGM and desc-basilWM) '
+                'will be copies of the uncorrected BASIL CBF image.'
+            )
+
         # Node to define bolus
         determine_bolus_duration = pe.Node(
             niu.Function(
@@ -482,7 +528,7 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
         basilcbf = pe.Node(
             BASILCBF(
                 m0_scale=m0_scale,
-                pvc=True,
+                pvc=basil_pvc,
                 pcasl=is_casl,
                 **basil_kwargs,
             ),
@@ -500,14 +546,26 @@ additionally calculates a partial-volume corrected CBF image [@chappell_pvc].
             (determine_bolus_duration, basilcbf, [('bolus', 'bolus')]),
             (determine_inflow_times, basilcbf, [('tis', 'tis')]),
             (estimate_alpha, basilcbf, [('labeling_efficiency', 'alpha')]),
-            (gm_tfm, basilcbf, [('output_image', 'gm_tpm')]),
-            (wm_tfm, basilcbf, [('output_image', 'wm_tpm')]),
-            (basilcbf, outputnode, [
-                ('mean_cbf_basil', 'mean_cbf_basil'),
-                ('mean_cbf_gm_basil', 'mean_cbf_gm_basil'),
-                ('mean_cbf_wm_basil', 'mean_cbf_wm_basil'),
-            ]),
+            (basilcbf, outputnode, [('mean_cbf_basil', 'mean_cbf_basil')]),
         ])  # fmt:skip
+
+        if basil_pvc:
+            workflow.connect([
+                (gm_tfm, basilcbf, [('output_image', 'gm_tpm')]),
+                (wm_tfm, basilcbf, [('output_image', 'wm_tpm')]),
+                (basilcbf, outputnode, [
+                    ('mean_cbf_gm_basil', 'mean_cbf_gm_basil'),
+                    ('mean_cbf_wm_basil', 'mean_cbf_wm_basil'),
+                ]),
+            ])  # fmt:skip
+        else:
+            # Stand in for the corrected maps, so the rest of the workflow still runs.
+            workflow.connect([
+                (basilcbf, outputnode, [
+                    ('mean_cbf_basil', 'mean_cbf_gm_basil'),
+                    ('mean_cbf_basil', 'mean_cbf_wm_basil'),
+                ]),
+            ])  # fmt:skip
 
         if is_multi_pld:
             # BASIL's ATT and aBV estimates are only meaningful for multi-PLD data.

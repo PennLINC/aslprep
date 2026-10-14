@@ -289,6 +289,57 @@ def compute_cbf_threshold_stats(cbf, mask, thresholds=CBF_THRESH_DEFAULTS):
     return stats
 
 
+def compute_clipped_voxel_percentage(in_file, mask):
+    """Compute the percentage of in-mask voxels that reach the image's maximum intensity.
+
+    When the scanner's reconstruction clips the signal at the top of its dynamic range
+    (for example, 4095 for 12-bit data), many voxels share exactly the same, maximal value.
+    In data that are not clipped, at most a handful of voxels have the maximal value,
+    so this percentage is close to zero.
+
+    Parameters
+    ----------
+    in_file : :obj:`str`
+        Path to a 3D or 4D image, as acquired (not resampled).
+        Interpolation would smooth over the clipped values.
+    mask : :obj:`str`
+        Path to a binary brain mask.
+        It is resampled to the grid of ``in_file`` if the two grids differ.
+
+    Returns
+    -------
+    :obj:`float`
+        Percentage of in-mask voxels with the maximal value in at least one volume.
+        NaN if the mask is empty or the image has no finite values.
+    """
+    from nilearn import image
+
+    img = nb.load(in_file)
+    mask_img = nb.load(mask)
+    if mask_img.shape[:3] != img.shape[:3] or not np.allclose(mask_img.affine, img.affine):
+        mask_img = image.resample_to_img(
+            mask_img,
+            image.index_img(img, 0) if img.ndim > 3 else img,
+            interpolation='nearest',
+            force_resample=True,
+            copy_header=True,
+        )
+
+    data = img.get_fdata()
+    if data.ndim == 3:
+        data = data[..., None]
+
+    mask_bool = mask_img.get_fdata() > 0
+    n_voxels = int(mask_bool.sum())
+    finite = np.isfinite(data)
+    if n_voxels == 0 or not finite.any():
+        return np.nan
+
+    max_value = data[finite].max()
+    clipped = np.any(data == max_value, axis=3)
+    return 100.0 * np.sum(clipped & mask_bool) / n_voxels
+
+
 def _load_one_image(nii_file):
     if isinstance(nii_file, str):
         img = nb.load(nii_file)

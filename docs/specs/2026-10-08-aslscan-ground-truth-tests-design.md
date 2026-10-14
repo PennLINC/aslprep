@@ -114,8 +114,8 @@ repositories.
 
 **Background suppression.**
 
-- ASLPrep's default efficiency, when the sidecar has no `LabelingEfficiency`, is
-  `base x 0.95^n`, with n = `BackgroundSuppressionNumberPulses`, default 1 (`utils/asl.py`).
+- ASLPrep's efficiency is `base x 0.95^n`, with n = `BackgroundSuppressionNumberPulses`,
+  default 1 (`utils/asl.py`). `base` is the sidecar's `LabelingEfficiency` when given.
 - aslscan's signed BS factor on the label is `(1 - 2 x 0.95)^n` at its default inversion
   efficiency: magnitude 0.9 per pulse, with the sign alternating (`longitudinal.rs:254`).
 - These disagree physically, so Tier B scores and documents the gap (Section 8).
@@ -823,13 +823,12 @@ would allow sharp Tier B bounds for the single-delay equation.
   gap of (0.95/0.9)ⁿ.
   - Every recipe with suppression now sets ε = 0.975 (1 − 2ε = −0.95). The physical-agreement
     items of `fast_bs_le_absent` and F2 are ordinary checks.
-- **LabelingEfficiency in the sidecar (#706).** When the sidecar has
-  `LabelingEfficiency`, ASLPrep applies no suppression loss. BIDS defines that field as the
-  labeling efficiency alone, so with suppression ASLPrep's CBF is 0.95ⁿ of the physically
+- **LabelingEfficiency in the sidecar (#706, resolved).** When the sidecar had
+  `LabelingEfficiency`, ASLPrep applied no suppression loss. BIDS defines that field as the
+  labeling efficiency alone, so with suppression ASLPrep's CBF was 0.95ⁿ of the physically
   calibrated value (F3: 0.81 for four pulses).
-  - Decided: ASLPrep should apply the per-pulse loss whether or not the sidecar gives
-    `LabelingEfficiency`. Reported as #706; until it is fixed, the item is an expected failure,
-    asserted first at its predicted size.
+  - ASLPrep now applies the per-pulse loss whether or not the sidecar gives
+    `LabelingEfficiency`, and F3's physical-agreement item is an ordinary check.
 - **BS pulse count.** With `BackgroundSuppressionNumberPulses` absent, ASLPrep assumes 1. The
   recipes state the pulse count explicitly so that the items above are isolated.
 

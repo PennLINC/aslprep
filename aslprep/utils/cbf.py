@@ -1006,6 +1006,10 @@ MULTIPLD_ATT_PASSES = 6
 #: that later passes refine in each voxel.
 MULTIPLD_REFINED_INTERVALS = 8
 
+#: Number of bisection steps used to locate each end of the range of equally good ATTs.
+#: The search starts from an interval no wider than one first-pass grid step.
+MULTIPLD_BOUND_STEPS = 30
+
 #: Number of voxels fit at once with NumPy.
 MULTIPLD_CHUNK_SIZE = 256
 
@@ -1083,7 +1087,7 @@ def _delay_edges(plds, bolus, is_casl, xp):
     return xp.sort(xp.clip(edges, lower, upper), axis=1)
 
 
-def _solve_box_lsq(yt, ya, tt, aa, ta, tol, xp):
+def _solve_box_lsq(yt, ya, tt, aa, ta, tol, xp, v_hi=None):
     """Solve the bounded two-parameter linear least squares problem for CBF and aBV.
 
     With ``c`` as CBF, ``v`` as aBV, ``t`` as the tissue basis, ``a`` as the arterial basis,
@@ -1093,8 +1097,10 @@ def _solve_box_lsq(yt, ya, tt, aa, ta, tol, xp):
     if it is in bounds, or the best bounded one-parameter solution on one of the box edges.
     A candidate only replaces an earlier one if its loss is lower by more than ``tol``,
     so that ties are not broken by rounding error.
+    ``v_hi`` replaces the upper bound on aBV, and may be an array.
     """
-    (c_lo, c_hi), _, _, (v_lo, v_hi) = MULTIPLD_BOUNDS
+    (c_lo, c_hi), _, _, (v_lo, default_v_hi) = MULTIPLD_BOUNDS
+    v_hi = default_v_hi if v_hi is None else v_hi
 
     def loss(c, v):
         return c * (c * tt - 2 * yt) + v * (v * aa - 2 * ya) + 2 * c * v * ta
@@ -1126,7 +1132,8 @@ def _solve_box_lsq(yt, ya, tt, aa, ta, tol, xp):
         keep_better(c, v_edge)
 
     for c_edge in (c_lo, c_hi):
-        v = xp.where(has_arterial, xp.clip((ya - c_edge * ta) / safe_aa, v_lo, v_hi), v_lo)
+        v = (ya - c_edge * ta) / safe_aa
+        v = xp.where(has_arterial, xp.minimum(xp.maximum(v, v_lo), v_hi), v_lo)
         keep_better(c_edge, v)
 
     return best_c, best_v, best_loss
@@ -1181,6 +1188,24 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
     The first pass evaluates every combination,
     and later passes refine the best :data:`MULTIPLD_REFINED_INTERVALS` combinations,
     each narrowing the grid to the neighbors of the previous pass's best ATT.
+
+    aBV is solved as if aBAT were at its interval's midpoint.
+    For (P)CASL, a shorter aBAT in the same interval gives more arterial signal per unit aBV,
+    so the aBV bound is relaxed to allow the signal that the true bound allows at the interval's
+    lower edge. aBAT is then reported as the midpoint of the part of the interval in which the
+    fitted arterial signal respects the aBV bound, which is the whole interval unless aBV is
+    close to its bound.
+
+    Returns
+    -------
+    cbf, att, abat, abv : arrays of shape (n_voxels,)
+        The estimates.
+    att_lower, att_upper : arrays of shape (n_voxels,)
+        The ends of the range of ATTs around ``att`` that fit as well as it does,
+        with aBAT in the same interval, and with CBF and aBV free.
+    abat_lower, abat_upper : arrays of shape (n_voxels,)
+        The ends of the range of aBATs around ``abat`` that fit as well as it does,
+        with ATT fixed at ``att``, and with CBF and aBV free.
     """
     n_voxels = y.shape[0]
     rows = xp.arange(n_voxels)
@@ -1194,14 +1219,20 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
     n_intervals = edges.shape[1] - 1
 
     # Arterial terms at each aBAT interval's midpoint: (voxels, aBATs, delays)
-    abat = (edges[:, :-1] + edges[:, 1:]) / 2
-    arterial = _gkm_arterial_basis(
-        abat[:, :, None],
+    abat_mid = (edges[:, :-1] + edges[:, 1:]) / 2
+    all_arterial = _gkm_arterial_basis(
+        abat_mid[:, :, None],
         plds[:, None, :],
         bolus[:, None, :] if is_casl else bolus,
         **basis_kwargs,
     )
-    arterial *= weights
+    all_arterial *= weights
+    # The largest midpoint-equivalent aBV in each aBAT interval: (voxels, aBATs)
+    abv_max = MULTIPLD_BOUNDS[3][1]
+    if is_casl:
+        all_abv_cap = abv_max * xp.exp((abat_mid - edges[:, :-1]) / t1blood)
+    else:
+        all_abv_cap = xp.full(abat_mid.shape, abv_max)
 
     # First pass over every combination, with shape (voxels, ATTs, aBATs, ATT grid).
     # The tissue terms only depend on the ATT interval.
@@ -1215,12 +1246,13 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
     tissue *= weights
     _, _, loss = _solve_box_lsq(
         yt=xp.einsum('vd,vagd->vag', y, tissue)[:, :, None, :],
-        ya=xp.einsum('vd,vbd->vb', y, arterial)[:, None, :, None],
+        ya=xp.einsum('vd,vbd->vb', y, all_arterial)[:, None, :, None],
         tt=xp.einsum('vagd,vagd->vag', tissue, tissue)[:, :, None, :],
-        aa=xp.einsum('vbd,vbd->vb', arterial, arterial)[:, None, :, None],
-        ta=xp.einsum('vagd,vbd->vabg', tissue, arterial),
+        aa=xp.einsum('vbd,vbd->vb', all_arterial, all_arterial)[:, None, :, None],
+        ta=xp.einsum('vagd,vbd->vabg', tissue, all_arterial),
         tol=tol[:, None, None, None],
         xp=xp,
+        v_hi=all_abv_cap[:, None, :, None],
     )
     best = _argmin_att(loss, tol[:, None, None, None], xp)
     att = xp.broadcast_to(att[:, :, None, :], loss.shape)
@@ -1234,8 +1266,9 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
     keep = keep[:, :MULTIPLD_REFINED_INTERVALS]
     lower = xp.take_along_axis(lower, keep, axis=1)
     upper = xp.take_along_axis(upper, keep, axis=1)
-    abat = xp.take_along_axis(abat, keep % n_intervals, axis=1)
-    arterial = xp.take_along_axis(arterial, (keep % n_intervals)[..., None], axis=1)
+    abat_idx = keep % n_intervals
+    arterial = xp.take_along_axis(all_arterial, abat_idx[..., None], axis=1)
+    abv_cap = xp.take_along_axis(all_abv_cap, abat_idx, axis=1)[..., None]
     ya = xp.einsum('vd,vcd->vc', y, arterial)[..., None]
     aa = xp.einsum('vcd,vcd->vc', arterial, arterial)[..., None]
 
@@ -1257,6 +1290,7 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
             ta=xp.einsum('vcgd,vcd->vcg', tissue, arterial),
             tol=tol[:, None, None],
             xp=xp,
+            v_hi=abv_cap,
         )
         best = _argmin_att(loss, tol[:, None, None], xp)
         lower = xp.take_along_axis(att, xp.maximum(best - 1, 0), axis=2)[..., 0]
@@ -1268,7 +1302,101 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
     # Among tied combinations, prefer the one that comes first in the original order.
     tied = _tie_rank(loss, tol[:, None], 1, xp) == 0
     best = xp.argmin(xp.where(tied, keep, keep.max() + 1), axis=1)
-    return cbf[rows, best], att[rows, best], abat[rows, best], abv[rows, best]
+    cbf, att, abv, loss, abat_idx = (arr[rows, best] for arr in (cbf, att, abv, loss, abat_idx))
+
+    def solve_at(att, arterial, abv_cap):
+        """Solve for CBF and aBV with ATTs of shape (voxels, n) and broadcastable arterial terms."""
+        tissue = _gkm_tissue_basis(
+            att[..., None],
+            plds[:, None, :],
+            bolus[:, None, :] if is_casl else bolus,
+            **basis_kwargs,
+        )
+        tissue = tissue * weights
+        return _solve_box_lsq(
+            yt=(y[:, None, :] * tissue).sum(axis=-1),
+            ya=(y[:, None, :] * arterial).sum(axis=-1),
+            tt=(tissue * tissue).sum(axis=-1),
+            aa=(arterial * arterial).sum(axis=-1),
+            ta=(tissue * arterial).sum(axis=-1),
+            tol=tol[:, None],
+            xp=xp,
+            v_hi=abv_cap,
+        )
+
+    # The range of ATTs that fit as well as the estimate, with aBAT in the same interval.
+    # The first-pass grid brackets each end of the range, and bisection then locates it.
+    tied_loss = (loss + tol)[:, None]
+    best_arterial = all_arterial[rows, abat_idx][:, None, :]
+    best_abv_cap = all_abv_cap[rows, abat_idx][:, None]
+    grid_att = edges[:, :-1, None] + (edges[:, 1:] - edges[:, :-1])[:, :, None] * grid
+    grid_att = grid_att.reshape(n_voxels, -1)
+    n_points = grid_att.shape[1]
+    points = xp.arange(n_points)
+    tied = solve_at(grid_att, best_arterial, best_abv_cap)[2] <= tied_loss
+    # The grid points on either side of the estimate
+    below = xp.maximum((grid_att <= att[:, None]).sum(axis=1) - 1, 0)
+    above = xp.minimum((grid_att < att[:, None]).sum(axis=1), n_points - 1)
+    # The nearest grid points beyond the estimate that fit worse, if there are any
+    worse_below = xp.where(~tied & (points <= below[:, None]), points, -1).max(axis=1)
+    worse_above = xp.where(~tied & (points >= above[:, None]), points, n_points).min(axis=1)
+    inside = xp.stack(
+        [
+            xp.where(tied[rows, below], grid_att[rows, worse_below + 1], att),
+            xp.where(tied[rows, above], grid_att[rows, worse_above - 1], att),
+        ],
+        axis=1,
+    )
+    outside = xp.stack(
+        [
+            grid_att[rows, xp.maximum(worse_below, 0)],
+            grid_att[rows, xp.minimum(worse_above, n_points - 1)],
+        ],
+        axis=1,
+    )
+    for _ in range(MULTIPLD_BOUND_STEPS):
+        middle = (inside + outside) / 2
+        is_tied = solve_at(middle, best_arterial, best_abv_cap)[2] <= tied_loss
+        inside = xp.where(is_tied, middle, inside)
+        outside = xp.where(is_tied, outside, middle)
+
+    att_lower = xp.minimum(inside[:, 0], att)
+    att_upper = xp.maximum(inside[:, 1], att)
+
+    # The run of aBAT intervals that fit as well as the estimate, with ATT fixed at the estimate
+    _, all_abv, all_loss = solve_at(att[:, None], all_arterial, all_abv_cap)
+    intervals = xp.arange(n_intervals)
+    is_best = intervals == abat_idx[:, None]
+    tied = (all_loss <= tied_loss) | is_best
+    all_abv = xp.where(is_best, abv[:, None], all_abv)
+    all_upper = edges[:, 1:]
+    if is_casl:
+        # The longest aBAT in each interval at which the fitted arterial signal needs no more
+        # than the largest allowed aBV
+        longest = abat_mid + t1blood * xp.log(abv_max / xp.maximum(all_abv, 1e-300))
+        all_upper = xp.maximum(xp.minimum(all_upper, longest), edges[:, :-1])
+
+    # The range extends through neighboring intervals that fit as well over their whole width.
+    # An interval whose longest aBATs are ruled out ends the range part of the way through it.
+    partial = all_upper < edges[:, 1:]
+    below = intervals < abat_idx[:, None]
+    first = xp.where((~tied | partial) & below, intervals, -1).max(axis=1) + 1
+    last = xp.minimum(
+        xp.where(~tied & ~below & ~is_best, intervals, n_intervals).min(axis=1) - 1,
+        xp.where(partial & ~below, intervals, n_intervals).min(axis=1),
+    )
+
+    abat = (edges[rows, abat_idx] + all_upper[rows, abat_idx]) / 2
+    if is_casl:
+        # An interval does not include its lower edge, where the arterial term changes form,
+        # so an aBV at its bound leaves aBAT just above that edge. The margin of 1 ns is far
+        # larger than the rounding error in the model's comparisons of aBAT with the delays.
+        abat = xp.maximum(abat, xp.minimum(edges[rows, abat_idx] + 1e-9, abat_mid[rows, abat_idx]))
+        # Convert the midpoint-equivalent aBV to the aBV at the reported aBAT
+        abv = xp.minimum(abv * xp.exp((abat - abat_mid[rows, abat_idx]) / t1blood), abv_max)
+
+    abat_upper = xp.maximum(all_upper[rows, last], abat)
+    return cbf, att, abat, abv, att_lower, att_upper, edges[rows, first], abat_upper
 
 
 def _to_numpy(arr):
@@ -1394,6 +1522,11 @@ def fit_deltam_multipld(
         Boolean array indicating whether the model could not be fit for each voxel,
         because its M0 is not positive or its data are not finite.
         False indicates success, True indicates failure.
+    bounds : :obj:`dict` of :obj:`numpy.ndarray` of shape (n_voxels,)
+        The ranges of ATT and aBAT that fit the data as well as the estimates do,
+        with keys ``att_lower``, ``att_upper``, ``abat_lower``, and ``abat_upper``.
+        The ATT range is found with aBAT kept in its interval, and the aBAT range with ATT fixed
+        at its estimate. CBF and aBV are free in both.
 
     Notes
     -----
@@ -1410,8 +1543,17 @@ def fit_deltam_multipld(
     ATT is likewise not identifiable where a range of values fits equally well,
     most commonly when it is shorter than every delay, so that all of the labeled blood has
     arrived by the first one. It is then reported as the midpoint of that range.
+    The ranges themselves are returned in ``bounds``. A range can extend past the interval in
+    which the estimate was found, so the estimate is not always the midpoint of its bounds,
+    and CBF and aBV can differ across it. Where the data determine ATT,
+    its bounds differ from the estimate only by the precision of the search.
+    Where aBV is zero, aBAT does not affect the model at all,
+    and its bounds span every interval that fits equally well.
     For (P)CASL data, the fitted aBV depends on the reported aBAT,
     because only aBV * exp(-aBAT / T1b) is identifiable.
+    If that product is too large for aBV to stay within its bound over the whole aBAT interval,
+    aBAT is restricted to the lower part of the interval where it does,
+    down to the interval's lower edge when aBV is at its bound.
     When solutions in different intervals fit equally well (to within rounding error),
     the one with the shortest ATT, then the shortest aBAT, then the smallest aBV is reported,
     so the results do not depend on the array library or the chunk size.
@@ -1504,7 +1646,7 @@ def fit_deltam_multipld(
         elements_per_voxel = n_intervals**2 * MULTIPLD_ATT_GRID_SIZE
         chunk_size = max(1, MULTIPLD_GPU_CHUNK_ELEMENTS // elements_per_voxel)
 
-    estimates = np.full((4, n_voxels), np.nan)
+    estimates = np.full((8, n_voxels), np.nan)
     valid_idx = np.flatnonzero(valid)
     chunks = [
         valid_idx[start : start + chunk_size] for start in range(0, valid_idx.size, chunk_size)
@@ -1542,8 +1684,45 @@ def fit_deltam_multipld(
             'with non-positive M0 or non-finite data.'
         )
 
-    cbf, att, abat, abv = estimates
-    return cbf, att, abat, abv, failures
+    cbf, att, abat, abv, *bounds = estimates
+    bounds = dict(zip(('att_lower', 'att_upper', 'abat_lower', 'abat_upper'), bounds, strict=True))
+    return cbf, att, abat, abv, failures, bounds
+
+
+#: M0 below this fraction of its 98th percentile over the field of view is treated as absent.
+M0_THRESHOLD = 0.1
+
+
+def zero_low_m0(m0data, threshold=M0_THRESHOLD):
+    """Set M0 values with almost no signal to zero.
+
+    CBF is proportional to delta-M divided by M0, so voxels with almost no M0 signal
+    (air, mostly) would otherwise get arbitrarily large CBF values,
+    which resampling then spreads into neighboring voxels.
+    A voxel with an M0 of zero gets no CBF estimate.
+
+    Parameters
+    ----------
+    m0data : :obj:`numpy.ndarray`
+        M0 values.
+    threshold : :obj:`float`, optional
+        Fraction of the 98th percentile of the finite M0 values below which M0 is set to zero.
+        The 98th percentile stands in for the brain's M0, without relying on a brain mask.
+
+    Returns
+    -------
+    m0data : :obj:`numpy.ndarray`
+        A copy of the M0 values, with the low ones set to zero.
+        Non-finite values are left as they are.
+    """
+    m0data = np.array(m0data, dtype=float)
+    finite = np.isfinite(m0data)
+    if not finite.any():
+        return m0data
+
+    cutoff = threshold * np.percentile(m0data[finite], 98)
+    m0data[finite & (m0data < cutoff)] = 0
+    return m0data
 
 
 def estimate_t1(metadata):

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
+# Volume types in the aslcontext file that users may ask ASLPrep to ignore with --ignore.
+IGNORABLE_VOLUME_TYPES = ('cbf', 'deltam')
+
 
 def pcasl_or_pasl(metadata):
     """Determine if metadata indicates a PCASL or ASL scan."""
@@ -37,6 +40,59 @@ def determine_multi_pld(metadata):
     """
     plds = np.array(metadata['PostLabelingDelay'])
     return np.unique(plds).size > 1
+
+
+def ignore_volume_types(aslcontext, ignore, out_dir):
+    """Hide volume types the user asked to ignore from the rest of the workflow.
+
+    The ignored volumes are relabeled in a copy of the aslcontext file,
+    so that ASLPrep neither builds the reference image from them nor processes them.
+    The ASL file itself is not changed, which keeps the aslcontext file in line with it.
+
+    Parameters
+    ----------
+    aslcontext : :obj:`str`
+        Path to the aslcontext file.
+    ignore : :obj:`list` of :obj:`str`
+        The ``--ignore`` values. Only the volume types (``cbf`` and ``deltam``) are used.
+    out_dir : :obj:`str` or :obj:`pathlib.Path`
+        Directory in which to write the modified aslcontext file.
+
+    Returns
+    -------
+    aslcontext : :obj:`str`
+        Path to the modified aslcontext file,
+        or the original path if the file has no volumes to ignore.
+
+    Raises
+    ------
+    ValueError
+        If ignoring the volumes leaves nothing that ASLPrep can process.
+    """
+    from pathlib import Path
+
+    import pandas as pd
+
+    ignored_types = sorted(set(ignore or []) & set(IGNORABLE_VOLUME_TYPES))
+    aslcontext_df = pd.read_table(aslcontext)
+    to_ignore = aslcontext_df['volume_type'].isin(ignored_types)
+    if not to_ignore.any():
+        return aslcontext
+
+    aslcontext_df.loc[to_ignore, 'volume_type'] = 'ignored'
+    voltypes = aslcontext_df['volume_type'].tolist()
+    if not (('control' in voltypes and 'label' in voltypes) or {'deltam', 'cbf'} & set(voltypes)):
+        raise ValueError(
+            f'Ignoring the {" and ".join(ignored_types)} volumes (--ignore) leaves no '
+            f'control-label pairs, deltam volumes or cbf volumes to process in {aslcontext}.'
+        )
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / Path(aslcontext).name
+    aslcontext_df.to_csv(out_file, sep='\t', index=False)
+
+    return str(out_file)
 
 
 def select_processing_target(aslcontext):
@@ -77,33 +133,47 @@ def estimate_labeling_efficiency(metadata):
 
     Notes
     -----
-    If LabelingEfficiency is defined in the metadata, then this value will be used.
-    Otherwise, efficiency will be estimated based on the ASL type and number of background
-    suppression pulses (if any).
+    If LabelingEfficiency is defined in the metadata, then this value will be used as the
+    efficiency of the labeling itself.
+    Otherwise, that efficiency will be chosen based on the ASL type.
     PCASL and PASL values come from :footcite:t:`alsop_recommended_2015`.
     The CASL value comes from :footcite:t:`wang2005amplitude`.
-    The adjustment based on number of background suppression pulses is not described in any papers,
-    as far as we know, but is apparently widely used.
+
+    If background suppression was applied, the labeling efficiency is then multiplied by 0.95
+    for each background suppression pulse, whether or not LabelingEfficiency is defined,
+    since each inversion pulse reduces the ASL signal by approximately 5%
+    :footcite:p:`alsop_recommended_2015`.
+    The BIDS LabelingEfficiency field describes the labeling alone, so it does not include
+    this loss.
+    If BackgroundSuppressionNumberPulses is not defined, one pulse is assumed.
 
     References
     ----------
     .. footbibliography::
     """
+    BASE_LABELEFF = {
+        'CASL': 0.68,
+        'PCASL': 0.85,
+        'PASL': 0.98,
+    }
+    BS_PULSE_EFF = 0.95  # hardcoded BackgroundSuppressionPulse efficiency
+
     if 'LabelingEfficiency' in metadata.keys():
         labeleff = metadata['LabelingEfficiency']
     else:
-        BASE_LABELEFF = {
-            'CASL': 0.68,
-            'PCASL': 0.85,
-            'PASL': 0.98,
-        }
         labeleff = BASE_LABELEFF[metadata['ArterialSpinLabelingType']]
 
-        if metadata.get('BackgroundSuppression', False):
-            BS_PULSE_EFF = 0.95  # hardcoded BackgroundSuppressionPulse efficiency
-            # We assume there was one pulse if suppression was applied,
-            # but the number of pulses isn't defined.
-            labeleff *= BS_PULSE_EFF ** metadata.get('BackgroundSuppressionNumberPulses', 1)
+    if metadata.get('BackgroundSuppression', False):
+        if 'BackgroundSuppressionNumberPulses' not in metadata.keys():
+            from aslprep import config
+
+            config.loggers.utils.warning(
+                'BackgroundSuppression is true, but BackgroundSuppressionNumberPulses is not '
+                'defined. Assuming one background suppression pulse to estimate the labeling '
+                'efficiency.'
+            )
+
+        labeleff *= BS_PULSE_EFF ** metadata.get('BackgroundSuppressionNumberPulses', 1)
 
     return labeleff
 
@@ -192,6 +262,32 @@ def reduce_metadata_lists(metadata, n_volumes, keep_idx):
     return metadata
 
 
+def check_m0tr(m0tr):
+    """Raise an error if the repetition time of the M0 volumes is not positive.
+
+    A repetition time of zero leaves no longitudinal recovery,
+    so the M0 scaling in :footcite:t:`alsop_recommended_2015` divides by zero and
+    every voxel's CBF becomes zero.
+
+    Parameters
+    ----------
+    m0tr : float, array-like, or None
+        The TR of the M0 volumes, in seconds. None means that no M0 TR is needed.
+
+    Raises
+    ------
+    ValueError
+        If any M0 TR is zero or negative.
+    """
+    if m0tr is not None and np.any(np.asarray(m0tr, dtype=float) <= 0):
+        raise ValueError(
+            f'RepetitionTimePreparation for the M0 volumes is {m0tr}, but it must be positive. '
+            'ASLPrep uses this value to scale the M0 data, so CBF cannot be calculated. '
+            'Please set RepetitionTimePreparation in the sidecar to the time, in seconds, '
+            'between successive excitations of the same slice.'
+        )
+
+
 def infer_m0tr(
     *,
     aslcontext,
@@ -266,6 +362,8 @@ def infer_m0tr(
 
     else:
         raise RuntimeError('no pathway to m0scan')
+
+    check_m0tr(m0tr)
 
     return m0tr
 

@@ -21,6 +21,7 @@ from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
 from aslprep.utils.asl import (
+    check_m0tr,
     determine_multi_pld,
     estimate_labeling_efficiency,
     pcasl_or_pasl,
@@ -31,6 +32,7 @@ from aslprep.utils.cbf import (
     estimate_t1,
     fit_deltam_multipld,
     get_array_module,
+    zero_low_m0,
 )
 
 
@@ -220,6 +222,8 @@ class ExtractCBF(SimpleInterface):
         else:
             raise RuntimeError('no pathway to m0scan')
 
+        check_m0tr(m0tr)
+
         if deltam_volume_idx:
             config.loggers.interface.info('Extracting deltaM from ASL file.')
             metadata_idx = deltam_volume_idx
@@ -356,6 +360,47 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         None,
         desc='Arterial blood volume map. Only generated for multi-delay data.',
     )
+    att_lower = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Shortest arterial transit time that fits as well as the estimate, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    att_upper = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Longest arterial transit time that fits as well as the estimate, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    abat_lower = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Shortest arterial bolus arrival time that fits as well as the estimate, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    abat_upper = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Longest arterial bolus arrival time that fits as well as the estimate, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    abv_decayed = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Arterial blood volume multiplied by exp(-aBAT / T1blood), '
+            'which does not depend on where aBAT falls within its interval between delays. '
+            'Only generated for multi-delay (P)CASL data.'
+        ),
+    )
     plds = traits.Either(
         File(exists=True),
         None,
@@ -469,7 +514,9 @@ class ComputeCBF(SimpleInterface):
             # Alsop 2015, page 113
             m0data = m0data * (1 / (1 - np.exp(-self.inputs.m0tr / t1tissue)))
 
-        scaled_m0data = m0_scale * m0data
+        # Voxels with almost no M0 signal get no CBF estimate (zero for single-delay data,
+        # a failed fit for multi-delay data), rather than an arbitrarily large one.
+        scaled_m0data = zero_low_m0(m0_scale * m0data)
 
         self._results['plds'] = None
         if 'SliceTiming' in metadata:
@@ -567,7 +614,7 @@ class ComputeCBF(SimpleInterface):
                     'for multi-PLD data.'
                 )
 
-            cbf, att, abat, abv, failures = fit_deltam_multipld(
+            cbf, att, abat, abv, failures, bounds = fit_deltam_multipld(
                 deltam_arr=deltam_arr,
                 scaled_m0data=scaled_m0data,
                 plds=plds,
@@ -607,6 +654,25 @@ class ComputeCBF(SimpleInterface):
                 newpath=runtime.cwd,
             )
             abv_img.to_filename(self._results['abv'])
+            for name, bound in bounds.items():
+                self._results[name] = fname_presuffix(
+                    self.inputs.deltam,
+                    suffix=f'_{name}',
+                    newpath=runtime.cwd,
+                )
+                masker.inverse_transform(bound).to_filename(self._results[name])
+
+            # For (P)CASL, the data only determine the product of aBV and the decay of the
+            # label over aBAT. For PASL, the arterial signal does not depend on aBAT.
+            self._results['abv_decayed'] = None
+            if is_casl:
+                self._results['abv_decayed'] = fname_presuffix(
+                    self.inputs.deltam,
+                    suffix='_abv_decayed',
+                    newpath=runtime.cwd,
+                )
+                abv_decayed_img = masker.inverse_transform(abv * np.exp(-abat / t1blood))
+                abv_decayed_img.to_filename(self._results['abv_decayed'])
             self._results['failures'] = fname_presuffix(
                 self.inputs.deltam,
                 suffix='_failures',
@@ -664,7 +730,8 @@ class ComputeCBF(SimpleInterface):
                 )
 
             # Scale difference signal to absolute CBF units by dividing by PD image (M0 * M0scale).
-            deltam_scaled = deltam_arr / scaled_m0data[:, None]
+            with np.errstate(divide='ignore', invalid='ignore'):
+                deltam_scaled = deltam_arr / scaled_m0data[:, None]
 
             perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
                 denom_factor * 2 * labeleff
@@ -949,6 +1016,11 @@ class BASILCBF(FSLCommand):
     output_spec = _BASILCBFOutputSpec
 
     def _run_interface(self, runtime):
+        # oxford_asl keeps its intermediate files in a temporary directory named by FSL's
+        # tmpnam, which creates it in TMPDIR, or in /tmp if TMPDIR is not set.
+        # Inside a container, /tmp may be too small for these files,
+        # so point TMPDIR to the node's working directory.
+        runtime.environ['TMPDIR'] = runtime.cwd
         runtime = super()._run_interface(runtime)
         return runtime
 
@@ -961,12 +1033,14 @@ class BASILCBF(FSLCommand):
         outputs = self.output_spec().get()
 
         outputs['mean_cbf_basil'] = os.path.abspath('native_space/perfusion_calib.nii.gz')
-        outputs['mean_cbf_gm_basil'] = os.path.abspath(
-            'native_space/pvcorr/perfusion_calib.nii.gz',
-        )
-        outputs['mean_cbf_wm_basil'] = os.path.abspath(
-            'native_space/pvcorr/perfusion_wm_calib.nii.gz',
-        )
+        # oxford_asl only writes the partial-volume corrected maps with --pvcorr
+        if self.inputs.pvc is True:
+            outputs['mean_cbf_gm_basil'] = os.path.abspath(
+                'native_space/pvcorr/perfusion_calib.nii.gz',
+            )
+            outputs['mean_cbf_wm_basil'] = os.path.abspath(
+                'native_space/pvcorr/perfusion_wm_calib.nii.gz',
+            )
 
         # These are only meaningful for multi-PLD data, and oxford_asl only writes them when
         # it infers arterial transit time / the macrovascular (arterial) component. For

@@ -305,28 +305,11 @@ def scored_items(fixture_name, recipe, spaces=(), suppression_pulses=None, known
         def test_background_suppression(request):
             """ASLPrep's suppression loss against the simulator's (spec Section 8).
 
-            Both keep about 95 % of the ASL signal per pulse (Alsop et al. 2015). Without
-            LabelingEfficiency in the sidecar, ASLPrep applies 0.95^n and must match the
-            physically calibrated CBF. With it, ASLPrep applies no suppression loss, so its CBF
-            is 0.95^n of the physical value (#706): asserted at that size, then marked expected.
+            Both keep about 95 % of the ASL signal per pulse (Alsop et al. 2015). ASLPrep
+            applies 0.95^n whether or not the sidecar gives LabelingEfficiency, and must match
+            the physically calibrated CBF.
             """
-            run = request.getfixturevalue(fixture_name)
-            score = run.score
-            if 'LabelingEfficiency' not in _asl_sidecar(run):
-                tb.check(score, 'physical_median', recipe)
-                return
-            predicted = 0.95**suppression_pulses
-            measured = ts.lookup(score, ('native', 'physical', 'median'))
-            if not _finite(measured) or abs(measured / predicted - 1) > 0.05:
-                pytest.fail(
-                    f'the suppression result changed: measured {measured}, '
-                    f'predicted {predicted:.4f}'
-                )
-            pytest.xfail(
-                'PennLINC/aslprep#706: with LabelingEfficiency in the sidecar ASLPrep applies no '
-                f'suppression loss ({suppression_pulses} pulses), so CBF is {measured:.4f} of the '
-                f'physically calibrated value (predicted {predicted:.4f})'
-            )
+            tb.check(_score(request), 'physical_median', recipe)
 
         items['test_background_suppression'] = test_background_suppression
     for name, entry in (known or {}).items():

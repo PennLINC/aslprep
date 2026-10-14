@@ -219,9 +219,16 @@ their manuscripts unchanged. It is released under the unchanged
     anat_only = config.workflow.anat_only
     # Make sure we always go through these two checks
     if not anat_only and not subject_data['asl']:
-        raise RuntimeError(
+        from aslprep.utils.bids import explain_missing_asl
+
+        msg = (
             f'No ASL images found for participant {subject_id}. All workflows require ASL images.'
         )
+        hint = explain_missing_asl(config.execution.layout, subject_id)
+        if hint:
+            msg += f' {hint}'
+
+        raise RuntimeError(msg)
 
     if subject_data['roi']:
         warnings.warn(

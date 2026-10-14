@@ -22,6 +22,7 @@ from packaging.version import Version
 
 from aslprep import config
 from aslprep.data import load as load_data
+from aslprep.utils.asl import IGNORABLE_VOLUME_TYPES, ignore_volume_types
 
 LOGGER = logging.getLogger('nipype.utils')
 
@@ -57,6 +58,21 @@ def collect_run_data(layout, asl_file):
     # The aslcontext file is required
     if not run_data['aslcontext']:
         raise FileNotFoundError(f'aslcontext file for {asl_file} not found.')
+
+    # Hide the volume types the user asked to ignore (e.g., CBF maps calculated on the scanner)
+    ignored_types = sorted(set(config.workflow.ignore or []) & set(IGNORABLE_VOLUME_TYPES))
+    if ignored_types:
+        original_aslcontext = run_data['aslcontext']
+        run_data['aslcontext'] = ignore_volume_types(
+            aslcontext=original_aslcontext,
+            ignore=ignored_types,
+            out_dir=Path(config.execution.work_dir) / 'aslcontext',
+        )
+        if run_data['aslcontext'] != original_aslcontext:
+            config.loggers.workflow.info(
+                f'Ignoring the {" and ".join(ignored_types)} volumes in {asl_file}, '
+                'as requested with --ignore.'
+            )
 
     # Now let's look for an m0scan
     m0scan_candidates = [
@@ -99,6 +115,56 @@ def collect_run_data(layout, asl_file):
     run_data['m0scan_metadata'] = m0scan_metadata
 
     return run_data
+
+
+def explain_missing_asl(layout, subject_id):
+    """Explain why no ASL runs were found, when the dataset's location is the cause.
+
+    PyBIDS versions without bids-standard/pybids#1273 parse the ``datatype`` entity from the
+    whole path of each file.
+    A dataset stored under a directory named after a BIDS datatype
+    (for example, ``/data/projects/motion/``) then gets that datatype for every file,
+    so a query for ``datatype='perf'`` finds nothing.
+
+    Parameters
+    ----------
+    layout : :obj:`bids.layout.BIDSLayout`
+        The layout of the input dataset.
+    subject_id : :obj:`str`
+        The participant label, without the ``sub-`` prefix.
+
+    Returns
+    -------
+    :obj:`str`
+        A hint to append to the error message.
+        Empty if the participant has no ASL files with a datatype other than ``perf``.
+    """
+    asl_files = layout.get(subject=subject_id, suffix='asl', extension=['.nii', '.nii.gz'])
+    datatypes = sorted(
+        {f.entities.get('datatype') for f in asl_files} - {'perf', None},
+    )
+    if not datatypes:
+        return ''
+
+    root_parts = Path(layout.root).absolute().parts
+    culprits = [datatype for datatype in datatypes if datatype in root_parts]
+    hint = (
+        f'ASLPrep found {len(asl_files)} ASL file(s) for this participant, '
+        f'but PyBIDS assigned them the datatype {", ".join(repr(d) for d in datatypes)} '
+        "instead of 'perf'. "
+    )
+    if culprits:
+        hint += (
+            f'The path to the dataset ({layout.root}) contains a directory named '
+            f'{", ".join(repr(d) for d in culprits)}, which PyBIDS mistakes for the datatype '
+            'of every file in the dataset (bids-standard/pybids#1270). '
+            'Please move the dataset, or rename that directory, so that no directory above '
+            'the dataset is named after a BIDS datatype.'
+        )
+    else:
+        hint += 'Please check that the ASL files are in a perf/ directory.'
+
+    return hint
 
 
 def collect_derivatives(

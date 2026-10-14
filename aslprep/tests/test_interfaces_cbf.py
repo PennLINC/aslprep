@@ -6,6 +6,7 @@ import nibabel as nb
 import numpy as np
 import pandas as pd
 import pytest
+from nipype.interfaces.base import isdefined
 
 from aslprep.interfaces import cbf
 
@@ -119,6 +120,22 @@ def test_computecbf_casl(datasets, tmp_path_factory):
             assert os.path.isfile(results.outputs.att)
             att_img = nb.load(results.outputs.att)
             assert att_img.ndim == 3
+            # The bounds enclose the estimates
+            for name in ('att', 'abat'):
+                estimate = nb.load(getattr(results.outputs, name)).get_fdata()
+                lower = nb.load(getattr(results.outputs, f'{name}_lower')).get_fdata()
+                upper = nb.load(getattr(results.outputs, f'{name}_upper')).get_fdata()
+                # Voxels where the model could not be fit are NaN in every map
+                fit = np.isfinite(estimate)
+                assert fit.any()
+                assert np.all(lower[fit] <= estimate[fit])
+                assert np.all(estimate[fit] <= upper[fit])
+
+            # The identifiable arterial signal is no larger than aBV, which it scales down
+            abv = nb.load(results.outputs.abv).get_fdata()
+            abv_decayed = nb.load(results.outputs.abv_decayed).get_fdata()
+            fit = np.isfinite(abv)
+            assert np.all(abv_decayed[fit] <= abv[fit])
 
 
 def test_computecbf_pasl(datasets, tmp_path_factory):
@@ -289,6 +306,10 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         assert os.path.isfile(results.outputs.mean_cbf)
         mean_cbf_img = nb.load(results.outputs.mean_cbf)
         assert mean_cbf_img.ndim == 3
+        assert os.path.isfile(results.outputs.att_lower)
+        assert os.path.isfile(results.outputs.abat_upper)
+        # The PASL arterial signal does not depend on aBAT
+        assert results.outputs.abv_decayed is None
 
         # Scenario 7: Q2TIPS PASL with one PostLabelingDelay
         # This should produce CBF time series and mean CBF, but no ATT
@@ -437,6 +458,84 @@ def test_compare_slicetiming(datasets, tmp_path_factory):
         cbf_data.append(nb.load(results.outputs.cbf_ts).get_fdata())
 
     assert np.array_equal(cbf_data[0], cbf_data[1])
+
+
+def test_basilcbf_tmpdir(tmp_path, monkeypatch):
+    """oxford_asl writes its temporary files to the working directory, not to /tmp (gh-557)."""
+    # A stand-in for oxford_asl that records where FSL's tmpnam would create its files,
+    # and writes the outputs that BASILCBF expects.
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    fake_oxford_asl = bin_dir / 'oxford_asl'
+    fake_oxford_asl.write_text(
+        '#!/bin/sh\n'
+        'echo "$TMPDIR" > tmpdir.txt\n'
+        'mkdir -p native_space/pvcorr\n'
+        'touch native_space/perfusion_calib.nii.gz\n'
+        'touch native_space/pvcorr/perfusion_calib.nii.gz\n'
+        'touch native_space/pvcorr/perfusion_wm_calib.nii.gz\n'
+    )
+    fake_oxford_asl.chmod(0o755)
+    monkeypatch.setenv('PATH', f'{bin_dir}{os.pathsep}{os.environ["PATH"]}')
+    monkeypatch.setenv('TMPDIR', str(tmp_path / 'elsewhere'))
+
+    shape = (4, 4, 4)
+    deltam = _save_img(np.ones(shape, dtype=np.float32), tmp_path, 'deltam.nii.gz')
+    mask = _save_img(np.ones(shape, dtype=np.uint8), tmp_path, 'mask.nii.gz')
+    work_dir = tmp_path / 'work'
+    work_dir.mkdir()
+
+    results = cbf.BASILCBF(
+        deltam=deltam,
+        mask=mask,
+        m0_scale=1,
+        tis=[3.6],
+        bolus=1.8,
+        pcasl=True,
+    ).run(cwd=str(work_dir))
+
+    assert (work_dir / 'tmpdir.txt').read_text().strip() == str(work_dir)
+    assert results.outputs.mean_cbf_basil == str(work_dir / 'native_space/perfusion_calib.nii.gz')
+
+
+@pytest.mark.parametrize('pvc', [True, False])
+def test_basilcbf_pvc_outputs(tmp_path, monkeypatch, pvc):
+    """BASILCBF only reports partial-volume corrected maps when oxford_asl writes them."""
+    # A stand-in for oxford_asl that writes the outputs that the real command would.
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    fake_oxford_asl = bin_dir / 'oxford_asl'
+    fake_oxford_asl.write_text(
+        '#!/bin/sh\n'
+        'echo "$@" > args.txt\n'
+        'mkdir -p native_space\n'
+        'touch native_space/perfusion_calib.nii.gz\n'
+        'case "$*" in *--pvcorr*)\n'
+        '    mkdir -p native_space/pvcorr\n'
+        '    touch native_space/pvcorr/perfusion_calib.nii.gz\n'
+        '    touch native_space/pvcorr/perfusion_wm_calib.nii.gz\n'
+        'esac\n'
+    )
+    fake_oxford_asl.chmod(0o755)
+    monkeypatch.setenv('PATH', f'{bin_dir}{os.pathsep}{os.environ["PATH"]}')
+
+    shape = (4, 4, 4)
+    work_dir = tmp_path / 'work'
+    work_dir.mkdir()
+    results = cbf.BASILCBF(
+        deltam=_save_img(np.ones(shape, dtype=np.float32), tmp_path, 'deltam.nii.gz'),
+        mask=_save_img(np.ones(shape, dtype=np.uint8), tmp_path, 'mask.nii.gz'),
+        m0_scale=1,
+        tis=[3.6],
+        bolus=1.8,
+        pcasl=True,
+        pvc=pvc,
+    ).run(cwd=str(work_dir))
+
+    assert ('--pvcorr' in (work_dir / 'args.txt').read_text()) is pvc
+    assert results.outputs.mean_cbf_basil == str(work_dir / 'native_space/perfusion_calib.nii.gz')
+    assert isdefined(results.outputs.mean_cbf_gm_basil) is pvc
+    assert isdefined(results.outputs.mean_cbf_wm_basil) is pvc
 
 
 def _save_img(arr, tmpdir, fname):

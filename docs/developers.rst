@@ -32,6 +32,14 @@ Integration tier (one CircleCI job per recipe)
    against a known anatomical offset, and the alignment of T1w- and MNI-space outputs.
    Each ``test_aslscan_<recipe>.py`` runs ASLPrep once and checks one metric per test item.
 
+   These runs use ``--sloppy``.
+   In sloppy mode, BASIL's partial volume correction is skipped, because it takes most of
+   ``oxford_asl``'s run time.
+   The ``desc-basilGM`` and ``desc-basilWM`` outputs are then copies of the uncorrected
+   ``desc-basil`` CBF map, so the tests exercise how those outputs are written, but not the
+   correction itself.
+   The ``desc-basil`` map is the same as in a normal run.
+
 Why two tiers of CBF accuracy
 =============================
 
@@ -106,8 +114,8 @@ should achieve and are never fitted to ASLPrep's output; a ceiling is loosened o
 commit that explains why the method cannot meet it. A missing metric or ceiling fails.
 
 Known disagreements are strict expected failures whose size is asserted first, so a change in
-either direction fails: for example the absence of any background-suppression loss when the
-sidecar has ``LabelingEfficiency`` (#706).
+either direction fails: for example the displacement that motion correction leaves on a
+motion-free series (#707).
 
 When simulating background suppression, set aslscan's ``[background_suppression]
 inversion_efficiency`` to 0.975. aslscan scales the label difference by (1 - 2 x efficiency)

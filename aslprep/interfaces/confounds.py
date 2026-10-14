@@ -13,6 +13,7 @@ from nipype.interfaces.base import (
     File,
     SimpleInterface,
     TraitedSpec,
+    isdefined,
     traits,
 )
 from nipype.utils.filemanip import fname_presuffix
@@ -23,6 +24,7 @@ from aslprep.utils.confounds import (
     _gather_confounds,
     average_cbf_by_tissue,
     compute_cbf_threshold_stats,
+    compute_clipped_voxel_percentage,
     compute_qei,
     dice,
     overlap,
@@ -162,6 +164,16 @@ class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
         usedefault=True,
         mandatory=False,
         desc='Tissue probability threshold for binarizing GM, WM, and CSF masks.',
+    )
+    asl_file = File(
+        exists=True,
+        mandatory=False,
+        desc='ASL file, as acquired. Used to check for clipped values.',
+    )
+    m0scan = File(
+        exists=True,
+        mandatory=False,
+        desc='Separate M0 scan, as acquired. Used to check for clipped values.',
     )
     # Non-GE-only inputs
     confounds_file = File(
@@ -347,10 +359,28 @@ class ComputeCBFQC(SimpleInterface):
 
         ratio_gm_wm_cbf = np.divide(mean_cbf_mean[0], mean_cbf_mean[1])
 
+        # Clipping in the acquired data
+        perc_voxels_clipped = np.nan
+        if isdefined(self.inputs.asl_file):
+            perc_voxels_clipped = compute_clipped_voxel_percentage(
+                self.inputs.asl_file,
+                self.inputs.asl_mask,
+            )
+
+        perc_voxels_clipped_m0scan = np.nan
+        if isdefined(self.inputs.m0scan):
+            perc_voxels_clipped_m0scan = compute_clipped_voxel_percentage(
+                self.inputs.m0scan,
+                self.inputs.asl_mask,
+            )
+
         metrics_dict = {
             # Motion metrics
             'mean_fd': [mean_fd],
             'rmsd': [mean_rms],
+            # Clipping metrics
+            'perc_voxels_clipped': [perc_voxels_clipped],
+            'perc_voxels_clipped_m0scan': [perc_voxels_clipped_m0scan],
             # Coregistration metrics
             'coreg_dice': [coreg_dice],
             'coreg_correlation': [coreg_correlation],
@@ -418,6 +448,28 @@ class ComputeCBFQC(SimpleInterface):
                     "Relative in this case means 'relative to the previous scan'."
                 ),
                 'Units': 'arbitrary',
+            },
+            # Clipping metrics
+            'perc_voxels_clipped': {
+                'LongName': 'Percentage of Voxels with Clipped Values in the ASL File',
+                'Description': (
+                    'Percentage of voxels in the brain mask that reach the maximum intensity '
+                    'of the ASL file, as acquired, in at least one volume. '
+                    'Values are close to zero unless the scanner clipped the signal at the top '
+                    'of its dynamic range, in which case many voxels share the maximum value. '
+                    'CBF is not reliable in clipped voxels.'
+                ),
+                'Units': 'percent',
+            },
+            'perc_voxels_clipped_m0scan': {
+                'LongName': 'Percentage of Voxels with Clipped Values in the M0 Scan',
+                'Description': (
+                    'Percentage of voxels in the brain mask that reach the maximum intensity '
+                    'of the separate M0 scan, as acquired, in at least one volume. '
+                    'The brain mask is resampled to the M0 scan, without registration. '
+                    'n/a if the run has no separate M0 scan.'
+                ),
+                'Units': 'percent',
             },
             # Coregistration metrics
             'coreg_dice': {

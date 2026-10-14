@@ -129,6 +129,21 @@ split into multiple sub-workflows described below.
    Additionally, SCORE/SCRUB cannot be used with these short sequences,
    as the denoising method requires a long time series from which to identify outliers.
 
+.. topic:: Ignoring volumes calculated on the scanner
+
+   An ASL file may contain delta-M or CBF volumes that were calculated on the scanner
+   (``deltam`` and ``cbf`` in the ``aslcontext.tsv`` file).
+   By default, *ASLPrep* builds the reference image from these volumes when they are present,
+   because they usually have more tissue contrast than control volumes.
+   When a file has no control-label pairs, *ASLPrep* also uses them to calculate CBF:
+   delta-M volumes if there are any, and CBF volumes otherwise.
+
+   If these volumes are of poor quality, use ``--ignore cbf``, ``--ignore deltam``, or both.
+   *ASLPrep* then treats the ignored volumes as if they were not in the file:
+   they are not used for the reference image, and they are not processed.
+   The dataset itself is not changed.
+   *ASLPrep* stops with an error if ignoring the volumes leaves nothing to calculate CBF from.
+
 
 .. _asl_ref:
 
@@ -147,8 +162,8 @@ ASL reference image estimation
 
 This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labelling)` series.
 The reference image is then used to calculate a brain mask for the
-:abbr:`ASL (Arterial Spin Labelling)` signal using *NiWorkflow's*
-:py:func:`~niworkflows.func.util.init_enhance_and_skullstrip_bold_wf`.
+:abbr:`ASL (Arterial Spin Labelling)` signal using SynthStrip
+(:py:func:`~aslprep.workflows.asl.reference.init_synthstrip_aslref_wf`).
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.
@@ -369,6 +384,18 @@ ASL data consist of multiple pairs of labeled and control images.
 In the absence of M0 images or an M0 estimate provided in the metadata,
 the average of control images is used as the reference image.
 
+A separate M0 scan with a different resolution or field of view from the ASL data is first
+resampled onto the ASL grid with Gaussian interpolation, which smooths the image.
+An M0 scan that is already on the ASL grid skips this step,
+so it is only interpolated once, along with the head-motion and distortion corrections.
+
+CBF is proportional to the difference signal divided by M0,
+so voxels with almost no M0 signal (mostly air) would get arbitrarily large CBF values,
+which resampling to other spaces would then spread into the neighboring voxels.
+*ASLPrep* therefore treats M0 values below 10% of the 98th percentile of the M0 image as zero.
+Those voxels get no CBF estimate: zero for single-delay data,
+and a failed fit (``NaN``) for multi-delay data.
+
 After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control images are subtracted:
 
 .. math::
@@ -400,7 +427,9 @@ model :footcite:p:`alsop_recommended_2015`.
    :math:`\alpha` : Labeling efficiency.
    This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
    If that field is not set, then :math:`\alpha` will be determined based on the ASL type
-   (PASL, CASL, or PCASL) and the number of background suppression pulses.
+   (PASL, CASL, or PCASL).
+   In either case, if background suppression was applied, :math:`\alpha` is multiplied by 0.95
+   for each background suppression pulse :footcite:p:`alsop_recommended_2015`.
 
    :math:`w` : Post-labeling delay (PLD) for PCASL data, in seconds.
    In BIDS, this is encoded with the ``PostLabelingDelay`` field.
@@ -591,6 +620,73 @@ The intravascular compartment is modeled as:
 For reference, please see Equations 3 and 5 in :footcite:t:`woods2023recommendations`.
 
 
+.. _multidelay_identifiability:
+
+What the Data Can Say About ATT and aBAT
+----------------------------------------
+
+The two-compartment model cannot always locate ATT and aBAT.
+This is a property of the model and of the delays that were sampled, not of the fitting method.
+Where it happens, a range of values fits the data equally well.
+*ASLPrep* reports one value from that range as the estimate,
+and writes the ends of the range to the native-space ``desc-lower`` and ``desc-upper`` maps
+(see the CBF derivatives in :doc:`outputs`).
+The estimate is the midpoint of the part of the range that lies between two consecutive
+crossing points (defined below), so it is not always the midpoint of the whole range.
+Where the data do locate a parameter, its lower and upper bounds equal the estimate.
+The estimate in a voxel with a wide range is a convention, not a measurement.
+
+**aBAT is only located to an interval.**
+aBAT selects which delays contain arterial signal.
+That selection only changes when aBAT crosses a :math:`PLD` or a :math:`PLD + LD` (PCASL),
+or a :math:`TI - TI_1` or a :math:`TI` (PASL).
+Between two consecutive crossing points, every aBAT predicts the same data,
+so aBAT is never resolved more finely than the spacing of those points.
+Where no arterial signal is detected (aBV is zero), aBAT has no effect at all,
+and its bounds span every interval that fits equally well.
+With very few delays, neighboring intervals can also fit equally well with different aBVs,
+and the bounds then span those intervals.
+
+**PCASL aBV depends on the reported aBAT.**
+Within an interval, aBAT only scales the PCASL arterial signal by
+:math:`e^{- \frac{aBAT}{T_{1b}}}`, which aBV cancels.
+Within that interval, the data therefore determine the product
+:math:`aBV \cdot e^{- \frac{aBAT}{T_{1b}}}`, but not aBV itself.
+(Where the aBAT bounds span more than one interval, the product can differ between them.)
+*ASLPrep* writes that product to the ``desc-decayed`` aBV map,
+and the aBV map holds the aBV implied by the reported aBAT.
+The one exception is an arterial signal that is large enough to need the largest allowed aBV
+(10% of the voxel): longer aBATs in the interval would need more than that,
+so they are ruled out, and the aBAT upper bound falls inside the interval.
+For PASL, the arterial signal does not contain aBAT, so the aBV map needs no counterpart.
+
+**ATT is only bounded above when it is shorter than every delay.**
+The tissue signal depends on ATT only at delays where the labeled blood is still arriving
+(:math:`PLD < ATT \leq PLD + LD` for PCASL, :math:`TI - TI_1 < ATT \leq TI` for PASL).
+Once ATT is shorter than the earliest :math:`PLD` (PCASL) or the earliest :math:`TI - TI_1` (PASL),
+all of the labeled blood has arrived at every delay, and the signal no longer contains ATT.
+The data then only say that ATT is at most the first delay:
+the lower bound is zero and the upper bound is that delay.
+This is common in 2D acquisitions, because slice timing adds to the delay of later slices,
+and it makes both the range and the reported ATT vary with slice position.
+A protocol whose earliest delay (including slice-timing offsets) exceeds the expected ATT
+cannot measure ATT with this model.
+CBF is unaffected in that case, because the signal does not depend on ATT there.
+
+Ranges of equally good ATTs can also occur between delays,
+when the arterial term can absorb the part of the tissue signal that ATT changes.
+Unlike the case above, CBF and aBV can differ across such a range.
+Where no tissue signal is detected (CBF is zero), ATT has no effect at all,
+and its bounds span every value that fits equally well.
+
+.. note::
+   The ATT bounds are found with aBAT kept in its reported interval,
+   and the aBAT bounds with ATT fixed at its reported value.
+   CBF and aBV are free in both cases.
+   The bounds describe exact ties in the least squares fit.
+   They are not confidence intervals, and they say nothing about the effect of noise.
+
+
 Additional Denoising Options
 ============================
 
@@ -641,6 +737,8 @@ An example of CBF denoised by SCRUB is shown below.
 
    Computed CBF maps denoised by SCRUB
 
+.. _basil_workflow:
+
 BASIL
 -----
 
@@ -666,6 +764,9 @@ The CBF map shown below is the result of partial volume corrected CBF computed b
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-pvcplot_asl.svg
 
    Partial volume corrected CBF maps by BASIL
+
+See :ref:`basil_outputs` for how to interpret each BASIL derivative,
+including the partial volume corrected maps.
 
 
 ************************
