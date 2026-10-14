@@ -491,6 +491,15 @@ The QEI is included for objective quality evaluation of CBF maps.
 It quantifies the quality of the CBF image based on structural similarity, spatial variability, and
 percentage of voxels in gray matter with negative CBF values.
 
+The QC file also reports signal clipping in the acquired data.
+Some scanners clip the signal at the top of their dynamic range (for example, at 4095),
+so that many voxels share exactly the same, maximal value.
+CBF is not reliable in those voxels.
+``perc_voxels_clipped`` is the percentage of voxels in the brain mask that reach
+the maximum intensity of the ASL file in at least one volume, and
+``perc_voxels_clipped_m0scan`` is the same measure for a separate M0 scan.
+Both are close to zero for data that are not clipped.
+
 
 ***********************
 Parcellated CBF Results

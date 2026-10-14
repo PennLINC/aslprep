@@ -1,6 +1,7 @@
 """Tests for ASL workflow wiring."""
 
 import pytest
+from nipype.interfaces.base import isdefined
 
 from aslprep import config
 from aslprep.tests.tests import mock_config, reset_config
@@ -131,6 +132,28 @@ def test_init_cbf_wf_fit_resources(tmp_path, delays, use_gpu, n_procs, node_use_
     assert node.inputs.num_threads == n_procs
     assert node.inputs.use_gpu is node_use_gpu
     assert node.is_gpu_node() is node_use_gpu
+
+
+def test_init_asl_wf_clipping_qc_inputs():
+    """The acquired ASL file reaches the QC node, which checks it for clipped values."""
+    reset_config()
+    with mock_config():
+        from aslprep.workflows.asl.base import init_asl_wf
+
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        wf = init_asl_wf(asl_file=str(asl_file))
+        graph = wf._create_flat_graph()
+        qc_inputs = {
+            dst_field: (src.fullname, src_field)
+            for src, dst, data in graph.edges(data=True)
+            if dst.fullname.endswith('cbf_confounds_wf.compute_qc_metrics')
+            for src_field, dst_field in data['connect']
+        }
+        assert qc_inputs['asl_file'][1] == 'asl_file'
+        assert qc_inputs['m0scan'][1] == 'm0scan'
+        confounds_inputnode = wf.get_node('cbf_confounds_wf.inputnode')
+        # The bundled dataset has its M0 volumes in the ASL file, so there is no separate scan.
+        assert not isdefined(confounds_inputnode.inputs.m0scan)
 
 
 @pytest.mark.parametrize(

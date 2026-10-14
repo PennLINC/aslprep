@@ -564,9 +564,13 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         basil=basil,
         name='cbf_confounds_wf',
     )
+    if run_data['m0scan']:
+        cbf_confounds_wf.inputs.inputnode.m0scan = run_data['m0scan']
+
     workflow.connect([
         (inputnode, cbf_confounds_wf, [
             ('asl_file', 'inputnode.name_source'),
+            ('asl_file', 'inputnode.asl_file'),
             ('t1w_tpms', 'inputnode.t1w_tpms'),
             ('t1w_mask', 'inputnode.t1w_mask'),
             ('anat2mni2009c_xfm', 'inputnode.anat2mni2009c_xfm'),
