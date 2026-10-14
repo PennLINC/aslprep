@@ -56,7 +56,7 @@ from harness import load_itk_series, pair_deltam, resample_series  # noqa: E402
 from aslprep.tests import truth_geometry as tg  # noqa: E402
 from aslprep.tests.truth_scoring import Fixture  # noqa: E402
 
-SCORE_VERSION = 1
+SCORE_VERSION = 2
 #: Shell bounds (mm from the brain edge).
 SHELLS = ((0.0, 3.0), (3.0, 6.0))
 
@@ -211,10 +211,15 @@ def deltam_metrics(fixture, harness_dir, hmc, poses, indices, context, abar, ref
         oracle = pair_deltam(
             resample_series(asl_file, indices, pulls, harness_dir / 'aslref.nii.gz'), context
         )
-        oracle = np.asanyarray(oracle.dataobj).mean(-1)
+        oracle = np.asanyarray(oracle.dataobj)
+        oracle = oracle[..., None] if oracle.ndim == 3 else oracle
         brain = mask_in_frame(fixture.brain, fixture.affine, target, ref_img)
         gm_t = mask_in_frame(gm, fixture.affine, target, ref_img)
-        scale = float(np.mean(oracle[gm_t])) if gm_t.any() else None
+        # The scale is the median over pairs of the oracle's GM mean: large spikes are not
+        # rigid-correctable in the simulator (the B0 field stays with the scanner), and two
+        # spiked pairs in ten can make the plain mean negative.
+        scale = float(np.median(oracle[gm_t].mean(0))) if gm_t.any() else None
+        oracle = oracle.mean(-1)
         regions = shells(brain, ref_img.affine)
         regions['brain'] = brain
         out[name] = _diff_stats(cand, oracle, regions, scale)

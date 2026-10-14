@@ -74,6 +74,12 @@ EXTRA_ARGS = {
     # The image's legacy BIDS validator rejects the BIDS volume type noRF.
     '2d_mb_pcasl': ['--skip-bids-validation'],
     'ds004873': ['--skip-bids-validation'],
+    # The legacy validator rejects these on checks newer BIDS no longer makes or ASLPrep does
+    # not need: the echo entity in perf/ (ds008719), an aslcontext volume type outside its list
+    # (morys_bad_brainmask), and M0Type separate without an m0scan file (ds007522).
+    'ds007522': ['--skip-bids-validation'],
+    'ds008719': ['--skip-bids-validation'],
+    'morys_bad_brainmask': ['--skip-bids-validation'],
     'ds008020': ['--skull-strip-t1w', 'skip'],
 }
 
