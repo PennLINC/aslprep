@@ -46,8 +46,16 @@ sub-01/perf/sub-01_acq-paslmultipld_att.json
 sub-01/perf/sub-01_acq-paslmultipld_att.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_cbf.json
 sub-01/perf/sub-01_acq-paslmultipld_cbf.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_desc-basilGMSD_cbf.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-basilGMSD_cbf.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-basilGM_cbf.json
 sub-01/perf/sub-01_acq-paslmultipld_desc-basilGM_cbf.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_desc-basilSD_att.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-basilSD_att.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_desc-basilSD_cbf.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-basilSD_cbf.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_desc-basilWMSD_cbf.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-basilWMSD_cbf.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-basilWM_cbf.json
 sub-01/perf/sub-01_acq-paslmultipld_desc-basilWM_cbf.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-basil_abv.json
