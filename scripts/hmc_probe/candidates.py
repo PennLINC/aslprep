@@ -28,6 +28,7 @@ All registrations use FSL (MCFLIRT for series, FLIRT for single images) with ``c
 converted to ITK once.
 """
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -338,33 +339,54 @@ def _huber(y, x, k=1.345, iterations=50):
     return b
 
 
-def zigzag_clean(params, types, plds, robust=False):
-    """Remove the label/control alternation from motion parameters (Wang 2012).
+def zigzag_design(types, plds, regressors='pooled'):
+    """The design: an intercept plus label/control alternation regressor(s).
 
-    ``params`` is (n, 6) for the control and label volumes in acquisition order. The design is
-    an intercept plus one +1/-1 (control/label) regressor per delay, non-zero only for that
-    delay's volumes; only the fitted alternation is subtracted, so drift and spikes stay.
+    ``pooled`` (Wang 2012): one +1/-1 (control/label) regressor over the whole series.
+    ``per_delay`` (an extension for multi-delay data): one regressor per delay, non-zero only
+    for that delay's volumes. With one pair at a delay, its regressor fits that pair's whole
+    difference, which makes the pair's two cleaned transforms identical: a strict pair
+    constraint, not zig-zag regression. So ``per_delay`` is used only when every delay has at
+    least two pairs; otherwise the pooled design is used and ``fell_back`` is True.
     """
     n = len(types)
-    delays = sorted(set(plds))
+    alt = np.array([1.0 if t == 'control' else -1.0 for t in types])
+    fell_back = False
+    if regressors == 'per_delay':
+        delays = sorted(set(plds))
+        pairs_per_delay = [
+            sum(1 for t, p in zip(types, plds, strict=True) if p == d and t == 'control')
+            for d in delays
+        ]
+        if min(pairs_per_delay) < 2:
+            regressors, fell_back = 'pooled', True
     cols = [np.ones(n)]
-    for d in delays:
-        col = np.array(
-            [
-                (1.0 if t == 'control' else -1.0) if p == d else 0.0
-                for t, p in zip(types, plds, strict=True)
-            ]
-        )
-        nz = col != 0
-        col[nz] -= col[nz].mean()
-        if np.any(col):
+    if regressors == 'pooled':
+        cols.append(alt - alt.mean())
+    else:
+        for d in sorted(set(plds)):
+            col = np.where(np.asarray(plds) == d, alt, 0.0)
+            nz = col != 0
+            col[nz] -= col[nz].mean()
             cols.append(col)
-    x = np.column_stack(cols)
+    return np.column_stack(cols), regressors, fell_back
+
+
+def zigzag_clean(params, types, plds, robust=False, regressors='pooled'):
+    """Remove the label/control alternation from motion parameters.
+
+    ``params`` is (n, 6) for the control and label volumes in acquisition order. Only the fitted
+    alternation is subtracted; the intercept, drift and spikes stay. Returns the cleaned
+    parameters, the removed component, and an audit record (design, coefficients, fallback).
+    """
+    x, used, fell_back = zigzag_design(types, plds, regressors)
     if robust:
         beta = np.column_stack([_huber(params[:, j], x) for j in range(params.shape[1])])
     else:
         beta, *_ = np.linalg.lstsq(x, params, rcond=None)
-    return params - x[:, 1:] @ beta[1:], x[:, 1:] @ beta[1:]
+    removed = x[:, 1:] @ beta[1:]
+    audit = {'design': x, 'beta': beta, 'regressors': used, 'fell_back_to_pooled': fell_back}
+    return params - removed, removed, audit
 
 
 def run_c8(inputs, work, **options):
@@ -381,24 +403,59 @@ def run_c8(inputs, work, **options):
     plds = _plds(inputs, data.shape[-1], idx)
     cl_data = data[..., [idx[k] for k in cl]]
     series = _save(cl_data, img, work / 'cl_series.nii.gz')
-    if reference == 'production' and inputs.get('m0scan'):
-        ref_file = _regrid(inputs['m0scan'], img, work / 'ref_m0.nii.gz')
-        ref_volumes = 'separate_m0'
+    if reference == 'production':
+        # Production's own reference: its selection, RobustAverage, M0 regridding and GE
+        # smoothing, built by the c0 path (its HMC is discarded).
+        from harness import run_c0
+
+        sub = work / 'production_reference'
+        sub.mkdir()
+        c0 = run_c0(inputs, sub)
+        ref_file, ref_volumes = c0['aslref'], c0['reference_volumes']
     else:
         ref_file = _save(cl_data.mean(-1), img, work / 'ref_cl_mean.nii.gz')
         ref_volumes = [idx[k] for k in cl]
     mats, _ = _mcflirt(series, ref_file, work / 'mcf_cl', cost)
     zooms = np.array(img.header.get_zooms()[:3])
+    # FSL coordinates flip x for a positive-determinant affine (i -> N-1-i), which leaves the
+    # field-of-view midpoint unchanged, so this centre is right in either case.
     centre = (np.array(img.shape[:3]) - 1) / 2 * zooms
     params = np.array([_about_centre(m, centre) for m in mats])
-    cleaned, removed = zigzag_clean(
+    cleaned, removed, audit = zigzag_clean(
         params,
         [types[k] for k in cl],
         [plds[k] for k in cl],
         robust=_opt(options, 'fit', 'ols') == 'huber',
+        regressors=_opt(options, 'regressors', 'pooled'),
     )
     if _opt(options, 'regress', 1, int) == 0:  # joint estimation only (a diagnostic variant)
         cleaned, removed = params, np.zeros_like(params)
+        audit['regressors'] = 'none'
+    # Audit trail: what was estimated, the parameter convention, and what was removed.
+    art = work / 'artifacts'
+    art.mkdir()
+    np.save(art / 'initial_fsl_mats.npy', np.asarray(mats))
+    np.save(art / 'params_initial.npy', params)
+    np.save(art / 'params_cleaned.npy', cleaned)
+    np.save(art / 'removed.npy', removed)
+    np.save(art / 'design.npy', audit['design'])
+    np.save(art / 'beta.npy', audit['beta'])
+    (art / 'zigzag.json').write_text(
+        json.dumps(
+            {
+                'convention': 'rotation vector (degrees) and translation (mm) about the '
+                'field-of-view centre, in FSL scaled-voxel coordinates, per volume of the '
+                'control-label series (acquisition order)',
+                'centre_fsl_mm': centre.tolist(),
+                'volumes': [idx[k] for k in cl],
+                'regressors': audit['regressors'],
+                'fell_back_to_pooled': audit['fell_back_to_pooled'],
+                'fit': _opt(options, 'fit', 'ols'),
+                'removed_max': float(np.abs(removed).max()) if removed.size else 0.0,
+            },
+            indent=2,
+        )
+    )
     final = [None] * len(idx)
     for k, p in zip(cl, cleaned, strict=True):
         final[k] = _from_centre(p, centre)
@@ -423,17 +480,16 @@ def run_c8(inputs, work, **options):
     shutil.copyfile(ref_file, aslref)
     ctx_file = work / 'hmc_aslcontext.tsv'
     pd.DataFrame({'volume_type': types}).to_csv(ctx_file, sep='\t', index=False)
-    np.savetxt(work / 'zigzag_removed.txt', removed, fmt='%.6f')
     return {
         'aslref': str(aslref),
         'xforms': str(_to_itk(final, aslref, work)),
         'aslcontext': str(ctx_file),
         'indices': idx,
-        'reference_type': f'zig-zag ({reference} reference)',
+        'reference_type': f'zig-zag ({reference} reference, {audit["regressors"]})',
         'reference_volumes': ref_volumes,
         'processing_target': target,
         'use_ge': None,
-        'zigzag_removed_max': float(np.abs(removed).max()) if removed.size else 0.0,
+        'artifacts': str(art),
     }
 
 

@@ -319,6 +319,9 @@ def run(inputs, candidate, out, **kwargs):
         shutil.copyfile(res['aslref'], out / 'aslref.nii.gz')
         shutil.copyfile(res['xforms'], out / 'hmc_xfms.txt')
         shutil.copyfile(res['aslcontext'], out / 'hmc_aslcontext.tsv')
+        artifacts = res.pop('artifacts', None)
+        if artifacts:  # a candidate's audit trail (e.g. C8's regression), kept with the outputs
+            shutil.copytree(artifacts, out / 'artifacts', dirs_exist_ok=True)
         fsl_mats = res.pop('fsl_mats', None)
         if fsl_mats:
             mat_dir = out / 'fsl_mats'

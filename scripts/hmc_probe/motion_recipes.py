@@ -104,6 +104,18 @@ def _pairs(context):
     return out
 
 
+def _jump(rng, trans_mm, rot_deg):
+    """A random rigid jump: translation of norm ``trans_mm`` and rotation of norm ``rot_deg``.
+
+    Translation and rotation directions are drawn and scaled independently, so each amplitude
+    is the vector norm of its part (a 2 mm / 2 degree spike is 2 mm and 2 degrees, not a
+    rotation scaled by the translation's norm).
+    """
+    t = rng.normal(size=3)
+    r = rng.normal(size=3)
+    return np.r_[trans_mm * t / np.linalg.norm(t), rot_deg * r / np.linalg.norm(r)]
+
+
 def trajectory(kind, context, plds, rng):
     n = len(context)
     t = np.zeros((n, 6))
@@ -112,9 +124,7 @@ def trajectory(kind, context, plds, rng):
         t = ramp * np.array([0.8, -0.6, 1.0, 0.8, -0.5, 0.7]) * rng.uniform(0.8, 1.2)
     elif kind == 'spikes':
         for v in sorted(rng.choice(np.arange(2, n - 1), size=min(2, n - 3), replace=False)):
-            direction = rng.normal(size=6)
-            direction /= np.linalg.norm(direction[:3])
-            t[v] = direction * 2.0
+            t[v] = _jump(rng, 2.0, 2.0)
     elif kind == 'throughplane':
         t[:, 2] = ramp[:, 0] * 2.0 * rng.uniform(0.8, 1.2)
         t[:, 3] = ramp[:, 0] * 2.0 * rng.uniform(0.8, 1.2)
@@ -127,8 +137,7 @@ def trajectory(kind, context, plds, rng):
         if kind == 'withinpairs':
             for v, ty in enumerate(context):
                 if ty == 'label':
-                    jump = rng.normal(size=6)
-                    t[v] += 0.5 * jump / np.linalg.norm(jump[:3])
+                    t[v] += _jump(rng, 0.5, 0.5)
     elif kind == 'synchronous':
         offset = np.array([0.4, 0.0, 0.0, 0.0, 0.0, 0.4]) * rng.choice([-1, 1])
         t[[v for v, ty in enumerate(context) if ty == 'label']] = offset
@@ -188,11 +197,38 @@ def write(protocol_name, kind, split):
     return name
 
 
+#: Largest translation (mm) and rotation (degrees) per kind, as vector norms of each volume's
+#: pose; checked for every generated trajectory.
+BOUNDS = {
+    'drift': (2.0, 1.6),
+    'spikes': (2.0, 2.0),
+    'throughplane': (2.5, 2.5),
+    'betweenpairs': (None, None),  # a random walk; no fixed bound
+    'withinpairs': (None, None),
+    'synchronous': (0.4, 0.4),
+    'pldconfounded': (1.0, 1.0),
+    'constant': (1.5, 1.7),  # the fixed pose (1, -0.8, 0.6 mm; 1, -1, 0.8 deg): 1.41 mm, 1.62 deg
+}
+
+
+def check(name, kind):
+    rows = np.loadtxt(OUT / name / 'motion.tsv', skiprows=1, ndmin=2)
+    trans = np.linalg.norm(rows[:, :3], axis=1).max()
+    rot = np.degrees(np.linalg.norm(rows[:, 3:], axis=1)).max()
+    t_max, r_max = BOUNDS[kind]
+    # motion.tsv keeps six decimals (radians for rotations), so allow 1e-3 of rounding.
+    if t_max is not None and (trans > t_max + 1e-3 or rot > r_max + 1e-3):
+        raise ValueError(f'{name}: {trans:.2f} mm / {rot:.2f} deg exceeds {t_max} / {r_max}')
+    return trans, rot
+
+
 def main():
     names = []
     for split in ('dev', 'heldout'):
         for protocol_name, kind in PLAN:
-            names.append(write(protocol_name, kind, split))
+            name = write(protocol_name, kind, split)
+            trans, rot = check(name, kind)
+            names.append(f'{name}\t{trans:.2f} mm\t{rot:.2f} deg')
     print('\n'.join(names))
 
 
