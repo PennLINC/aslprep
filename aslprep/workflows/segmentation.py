@@ -8,18 +8,14 @@ SynthStrip workflows
 
 """
 
-from nipype.interfaces import afni, ants
+from nipype.interfaces import afni, ants, fsl
 from nipype.interfaces import utility as niu
 from nipype.interfaces.ants import BrainExtraction
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
 from aslprep import config
-from aslprep.interfaces.freesurfer import (
-    FixHeaderSynthStrip,
-    MockSynthStrip,
-    PrepareSynthStripGrid,
-)
+from aslprep.interfaces.freesurfer import FixHeaderSynthStrip, SynthStripPadding, Zeropad
 
 ANTS_VERSION = BrainExtraction().version or '<ver>'
 FS_VERSION = '7.3.1'
@@ -41,8 +37,9 @@ def init_dl_prep_wf(name='dl_prep_wf') -> Workflow:
         afni.Autobox(outputtype='NIFTI_GZ', padding=3),
         name='skulled_autobox',
     )
+    synthstrip_padding = pe.Node(SynthStripPadding(), name='synthstrip_padding')
     prepare_synthstrip_reference = pe.Node(
-        PrepareSynthStripGrid(),
+        Zeropad(out_file='synthstrip_grid.nii.gz'),
         name='prepare_synthstrip_reference',
     )
     resample_skulled_to_reference = pe.Node(
@@ -57,9 +54,17 @@ def init_dl_prep_wf(name='dl_prep_wf') -> Workflow:
     workflow.connect([
         (inputnode, skulled_1mm_resample, [('image', 'in_file')]),
         (skulled_1mm_resample, skulled_autobox, [('out_file', 'in_file')]),
-        (skulled_autobox, prepare_synthstrip_reference, [('out_file', 'input_image')]),
+        (skulled_autobox, synthstrip_padding, [('out_file', 'input_image')]),
+        (skulled_autobox, prepare_synthstrip_reference, [('out_file', 'in_files')]),
+        (synthstrip_padding, prepare_synthstrip_reference, [
+            ('S', 'S'),
+            ('R', 'R'),
+            ('L', 'L'),
+            ('A', 'A'),
+            ('P', 'P'),
+        ]),
         (prepare_synthstrip_reference, resample_skulled_to_reference, [
-            ('prepared_image', 'reference_image'),
+            ('out_file', 'reference_image'),
         ]),
         (inputnode, resample_skulled_to_reference, [('image', 'input_image')]),
         (resample_skulled_to_reference, outputnode, [('output_image', 'padded_image')]),
@@ -85,11 +90,14 @@ def init_synthstrip_wf(do_padding=True, name='synthstrip_wf') -> Workflow:
             name='synthstrip',
             n_procs=config.nipype.omp_nthreads,
         )
+        in_field, mask_field = 'input_image', 'out_brain_mask'
     else:
+        # In sloppy mode, BET stands in for SynthStrip.
         synthstrip = pe.Node(
-            MockSynthStrip(),
-            name='mocksynthstrip',
+            fsl.BET(mask=True, output_type='NIFTI_GZ'),
+            name='bet',
         )
+        in_field, mask_field = 'in_file', 'mask_file'
 
     mask_to_original_grid = pe.Node(
         ants.ApplyTransforms(
@@ -107,13 +115,13 @@ def init_synthstrip_wf(do_padding=True, name='synthstrip_wf') -> Workflow:
         padding_wf = init_dl_prep_wf(name='pad_before_' + name)
         workflow.connect([
             (inputnode, padding_wf, [('original_image', 'inputnode.image')]),
-            (padding_wf, synthstrip, [('outputnode.padded_image', 'input_image')]),
+            (padding_wf, synthstrip, [('outputnode.padded_image', in_field)]),
         ])  # fmt:skip
     else:
-        workflow.connect([(inputnode, synthstrip, [('padded_image', 'input_image')])])
+        workflow.connect([(inputnode, synthstrip, [('padded_image', in_field)])])
 
     workflow.connect([
-        (synthstrip, mask_to_original_grid, [('out_brain_mask', 'input_image')]),
+        (synthstrip, mask_to_original_grid, [(mask_field, 'input_image')]),
         (inputnode, mask_to_original_grid, [('original_image', 'reference_image')]),
         (mask_to_original_grid, outputnode, [('output_image', 'brain_mask')]),
         (inputnode, mask_brain, [('original_image', 'first_input')]),

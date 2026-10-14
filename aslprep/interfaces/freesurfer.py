@@ -9,7 +9,7 @@ SynthStrip interfaces
 import os.path as op
 
 import nibabel as nb
-from nipype.interfaces.afni import Zeropad
+from nipype.interfaces import afni
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     File,
@@ -18,7 +18,6 @@ from nipype.interfaces.base import (
     traits,
 )
 from nipype.interfaces.freesurfer.base import FSCommandOpenMP, FSTraitedSpec
-from nipype.utils.filemanip import fname_presuffix
 from niworkflows.utils.images import _copyxform
 
 
@@ -26,62 +25,65 @@ class FSTraitedSpecOpenMP(FSTraitedSpec):
     num_threads = traits.Int(desc='allows for specifying more threads', nohash=True)
 
 
-class _PrepareSynthStripGridInputSpec(BaseInterfaceInputSpec):
-    input_image = File(exists=True, mandatory=True)
+def _get_padding(nvoxels):
+    """Return the number of voxels that brings ``nvoxels`` up to a multiple of 64."""
+    extra_slices = nvoxels % 64
+    if extra_slices == 0:
+        return 0
+    complete_64s = nvoxels // 64
+    return 64 * (complete_64s + 1) - nvoxels
 
 
-class _PrepareSynthStripGridOutputSpec(TraitedSpec):
-    prepared_image = File(exists=True)
+def _split_padding(padding):
+    halfpad = padding // 2
+    return halfpad, halfpad + halfpad % 2
 
 
-class PrepareSynthStripGrid(SimpleInterface):
-    input_spec = _PrepareSynthStripGridInputSpec
-    output_spec = _PrepareSynthStripGridOutputSpec
+class _SynthStripPaddingInputSpec(BaseInterfaceInputSpec):
+    input_image = File(exists=True, mandatory=True, desc='3D image to pad.')
+
+
+class _SynthStripPaddingOutputSpec(TraitedSpec):
+    S = traits.Int(desc='Number of slices to add at the superior edge.')
+    R = traits.Int(desc='Number of slices to add at the right edge.')
+    L = traits.Int(desc='Number of slices to add at the left edge.')
+    A = traits.Int(desc='Number of slices to add at the anterior edge.')
+    P = traits.Int(desc='Number of slices to add at the posterior edge.')
+
+
+class SynthStripPadding(SimpleInterface):
+    """Determine the zero-padding that puts an image on a SynthStrip-friendly grid.
+
+    SynthStrip works on grids whose dimensions are multiples of 64 voxels.
+    The padding is applied by a separate ``afni.Zeropad`` node.
+    """
+
+    input_spec = _SynthStripPaddingInputSpec
+    output_spec = _SynthStripPaddingOutputSpec
 
     def _run_interface(self, runtime):
-        out_fname = fname_presuffix(
-            self.inputs.input_image,
-            newpath=runtime.cwd,
-            suffix='_SynthStripGrid.nii',
-            use_ext=False,
-        )
-        self._results['prepared_image'] = out_fname
-
-        # possibly downsample the image for sloppy mode. Always ensure float32
         img = nb.load(self.inputs.input_image)
         if not img.ndim == 3:
-            raise Exception('3D inputs are required for Synthstrip')
+            raise ValueError('3D inputs are required for SynthStrip')
         xvoxels, yvoxels, zvoxels = img.shape
 
-        def get_padding(nvoxels):
-            extra_slices = nvoxels % 64
-            if extra_slices == 0:
-                return 0
-            complete_64s = nvoxels // 64
-            return 64 * (complete_64s + 1) - nvoxels
-
-        def split_padding(padding):
-            halfpad = padding // 2
-            return halfpad, halfpad + halfpad % 2
-
-        spad = get_padding(zvoxels)
-        rpad, lpad = split_padding(get_padding(xvoxels))
-        apad, ppad = split_padding(get_padding(yvoxels))
-
-        zeropad = Zeropad(
-            S=spad,
-            R=rpad,
-            L=lpad,
-            A=apad,
-            P=ppad,
-            in_files=self.inputs.input_image,
-            out_file=out_fname,
-        )
-
-        _ = zeropad.run()
-        if not op.exists(out_fname):
-            raise Exception('zeropad failed! You may need to increase the memory limit.')
+        self._results['S'] = _get_padding(zvoxels)
+        self._results['R'], self._results['L'] = _split_padding(_get_padding(xvoxels))
+        self._results['A'], self._results['P'] = _split_padding(_get_padding(yvoxels))
         return runtime
+
+
+class Zeropad(afni.Zeropad):
+    """AFNI's 3dZeropad, reporting the file it writes.
+
+    Nipype's interface leaves ``out_file`` undefined in its outputs,
+    so ``out_file`` must be set, and is returned as given.
+    """
+
+    def _list_outputs(self):
+        outputs = self.output_spec().get()
+        outputs['out_file'] = op.abspath(self.inputs.out_file)
+        return outputs
 
 
 class _SynthStripInputSpec(FSTraitedSpecOpenMP):
@@ -133,24 +135,5 @@ class FixHeaderSynthStrip(SynthStrip):
             _copyxform(self.inputs.input_image, outputs['out_brain_mask'])
 
         _copyxform(self.inputs.input_image, outputs['out_brain'])
-
-        return runtime
-
-
-class MockSynthStrip(SimpleInterface):
-    input_spec = _SynthStripInputSpec
-    output_spec = _SynthStripOutputSpec
-
-    def _run_interface(self, runtime):
-        from nipype.interfaces.fsl import BET
-
-        this_bet = BET(
-            mask=True,
-            in_file=self.inputs.input_image,
-            output_type='NIFTI_GZ',
-        )
-        result = this_bet.run()
-        self._results['out_brain'] = result.outputs.out_file
-        self._results['out_brain_mask'] = result.outputs.mask_file
 
         return runtime
