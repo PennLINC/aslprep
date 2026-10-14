@@ -175,6 +175,11 @@ fsl-topup = "2203.5.*"
 tensorflow = "2.19.*"
 pytorch = "2.8.*"
 
+[tool.pixi.pypi-dependencies]
+# mri_synthstrip (copied into the base image from FreeSurfer) runs on the environment's Python,
+# so every environment that may run it, including the test environment, needs surfa.
+surfa = "*"
+
 [tool.pixi.feature.container.dependencies]
 git = "*"
 git-annex = { version = "*", build = "alldep*" }
@@ -187,9 +192,6 @@ cuda-nvrtc = "12.*"
 cuda-cudart-dev = "12.*"
 libcublas = "12.*"
 cuda-version = "12.*"
-
-[tool.pixi.feature.container.pypi-dependencies]
-surfa = "*"
 
 #
 # Developer tool configurations
