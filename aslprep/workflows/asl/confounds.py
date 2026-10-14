@@ -512,6 +512,10 @@ def init_cbf_confounds_wf(
     ------
     *cbf
         all cbf
+    asl_file
+        ASL file, as acquired. Used to check for clipped values.
+    m0scan
+        Separate M0 scan, as acquired, if there is one. Used to check for clipped values.
     asl_mask
         asl mask NIFTI file
     t1w_tpms
@@ -539,6 +543,8 @@ negative CBF values.
         niu.IdentityInterface(
             fields=[
                 'name_source',
+                'asl_file',
+                'm0scan',
                 'asl_mask',
                 't1w_mask',
                 't1w_tpms',
@@ -690,6 +696,8 @@ negative CBF values.
         (warp_t1w_mask_to_aslref, compute_qc_metrics, [('output_image', 't1w_mask')]),
         (inputnode, compute_qc_metrics, [
             ('name_source', 'name_source'),
+            ('asl_file', 'asl_file'),
+            ('m0scan', 'm0scan'),
             ('asl_mask', 'asl_mask'),
             ('mean_cbf', 'mean_cbf'),
             ('confounds_file', 'confounds_file'),
