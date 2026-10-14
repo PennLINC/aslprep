@@ -133,6 +133,42 @@ def test_init_cbf_wf_fit_resources(tmp_path, delays, use_gpu, n_procs, node_use_
     assert node.is_gpu_node() is node_use_gpu
 
 
+@pytest.mark.parametrize(
+    ('ignore', 'reference_volume_type'),
+    [([], 'cbf'), (['cbf'], 'm0scan')],
+)
+def test_init_asl_wf_ignore_volume_types(tmp_path, ignore, reference_volume_type):
+    """--ignore cbf keeps scanner-calculated CBF volumes out of the reference image."""
+    import shutil
+    from pathlib import Path
+
+    reset_config()
+    with mock_config():
+        bids_dir = tmp_path / 'ds000240'
+        shutil.copytree(config.execution.bids_dir, bids_dir)
+        aslcontext = bids_dir / 'sub-01' / 'perf' / 'sub-01_aslcontext.tsv'
+        volume_types = aslcontext.read_text().split()
+        # Stand in for a series with scanner-calculated CBF volumes at the end.
+        aslcontext.write_text('\n'.join([*volume_types[:-2], 'cbf', 'cbf']) + '\n')
+
+        config.execution.bids_dir = bids_dir
+        config.execution.bids_database_dir = None
+        config.execution.layout = None
+        config.execution._layout = None
+        config.execution.init()
+        config.workflow.ignore = ignore
+        from aslprep.workflows.asl.base import init_asl_wf
+
+        asl_file = bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        wf = init_asl_wf(asl_file=str(asl_file))
+
+        hmc_aslref_wf = wf.get_node('asl_fit_wf').get_node('hmc_aslref_wf')
+        assert f'generated from the {reference_volume_type} volumes' in hmc_aslref_wf.__desc__
+        used_aslcontext = wf.get_node('asl_fit_wf.inputnode').inputs.aslcontext
+        assert (used_aslcontext == str(aslcontext)) is (not ignore)
+        assert ('ignored' in Path(used_aslcontext).read_text()) is bool(ignore)
+
+
 @pytest.mark.parametrize('sloppy', [False, True])
 def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
     """Sloppy mode skips BASIL's partial volume correction, which takes most of its run time."""
