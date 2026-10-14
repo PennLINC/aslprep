@@ -40,8 +40,14 @@ sub-01/perf/sub-01_acq-pcasl1pldge3d_atlas-4S156Parcels_desc-basil_coverage.json
 sub-01/perf/sub-01_acq-pcasl1pldge3d_atlas-4S156Parcels_desc-basil_coverage.tsv
 sub-01/perf/sub-01_acq-pcasl1pldge3d_cbf.json
 sub-01/perf/sub-01_acq-pcasl1pldge3d_cbf.nii.gz
+sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilGMSD_cbf.json
+sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilGMSD_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilGM_cbf.json
 sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilGM_cbf.nii.gz
+sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilSD_cbf.json
+sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilSD_cbf.nii.gz
+sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilWMSD_cbf.json
+sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilWMSD_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilWM_cbf.json
 sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basilWM_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcasl1pldge3d_desc-basil_cbf.json

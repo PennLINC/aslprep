@@ -79,6 +79,10 @@ def init_cbf_reporting_wf(
                 'mean_cbf_wm_basil',  # unused
                 'att_basil',  # unused
                 'abv_basil',  # unused
+                'cbf_sd_basil',  # unused
+                'cbf_gm_sd_basil',  # unused
+                'cbf_wm_sd_basil',  # unused
+                'att_sd_basil',  # unused
             ],
         ),
         name='inputnode',

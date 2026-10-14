@@ -301,9 +301,12 @@ def init_asl_wf(
             'mean_cbf_gm_basil',
             'mean_cbf_wm_basil',
         ]
+        # Posterior standard deviations go with the maps that are resampled and written in
+        # every space, but are not parcellated or scored like CBF maps.
+        att_derivs += ['cbf_sd_basil', 'cbf_gm_sd_basil', 'cbf_wm_sd_basil']
         if is_multi_pld:
             # BASIL's ATT and aBV estimates are only meaningful for multi-PLD data.
-            att_derivs += ['att_basil', 'abv_basil']
+            att_derivs += ['att_basil', 'abv_basil', 'att_sd_basil']
 
     cbf_derivs = att_derivs + cbf_3d_derivs + cbf_4d_derivs
 

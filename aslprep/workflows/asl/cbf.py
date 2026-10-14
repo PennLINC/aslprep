@@ -279,6 +279,11 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
                 'mean_cbf_wm_basil',
                 'att_basil',
                 'abv_basil',
+                # BASIL posterior standard deviations
+                'cbf_sd_basil',
+                'cbf_gm_sd_basil',
+                'cbf_wm_sd_basil',
+                'att_sd_basil',  # Only for multi-delay data
             ]
         ),
         name='outputnode',
@@ -546,7 +551,10 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
             (determine_bolus_duration, basilcbf, [('bolus', 'bolus')]),
             (determine_inflow_times, basilcbf, [('tis', 'tis')]),
             (estimate_alpha, basilcbf, [('labeling_efficiency', 'alpha')]),
-            (basilcbf, outputnode, [('mean_cbf_basil', 'mean_cbf_basil')]),
+            (basilcbf, outputnode, [
+                ('mean_cbf_basil', 'mean_cbf_basil'),
+                ('cbf_sd_basil', 'cbf_sd_basil'),
+            ]),
         ])  # fmt:skip
 
         if basil_pvc:
@@ -556,6 +564,8 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
                 (basilcbf, outputnode, [
                     ('mean_cbf_gm_basil', 'mean_cbf_gm_basil'),
                     ('mean_cbf_wm_basil', 'mean_cbf_wm_basil'),
+                    ('cbf_gm_sd_basil', 'cbf_gm_sd_basil'),
+                    ('cbf_wm_sd_basil', 'cbf_wm_sd_basil'),
                 ]),
             ])  # fmt:skip
         else:
@@ -564,15 +574,19 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
                 (basilcbf, outputnode, [
                     ('mean_cbf_basil', 'mean_cbf_gm_basil'),
                     ('mean_cbf_basil', 'mean_cbf_wm_basil'),
+                    ('cbf_sd_basil', 'cbf_gm_sd_basil'),
+                    ('cbf_sd_basil', 'cbf_wm_sd_basil'),
                 ]),
             ])  # fmt:skip
 
         if is_multi_pld:
             # BASIL's ATT and aBV estimates are only meaningful for multi-PLD data.
+            # For single-delay data, ATT is fixed, and its "uncertainty" is only the prior.
             workflow.connect([
                 (basilcbf, outputnode, [
                     ('att_basil', 'att_basil'),
                     ('abv_basil', 'abv_basil'),
+                    ('att_sd_basil', 'att_sd_basil'),
                 ]),
             ])  # fmt:skip
 

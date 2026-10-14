@@ -377,6 +377,10 @@ If ``--basil`` is used::
          <source_entities>[_space-<label>]_desc-basilWM_cbf.nii.gz  # WM partial volume corrected CBF with BASIL
          <source_entities>[_space-<label>]_desc-basil_att.nii.gz  # arterial transit time (multi-PLD data only)
          <source_entities>[_space-<label>]_desc-basil_abv.nii.gz  # arterial blood volume (multi-PLD data only)
+         <source_entities>[_space-<label>]_desc-basilSD_cbf.nii.gz  # posterior SD of desc-basil_cbf
+         <source_entities>[_space-<label>]_desc-basilGMSD_cbf.nii.gz  # posterior SD of desc-basilGM_cbf
+         <source_entities>[_space-<label>]_desc-basilWMSD_cbf.nii.gz  # posterior SD of desc-basilWM_cbf
+         <source_entities>[_space-<label>]_desc-basilSD_att.nii.gz  # posterior SD of desc-basil_att (multi-PLD data only)
 
 .. _basil_outputs:
 
@@ -411,6 +415,18 @@ output directory.
    * - ``desc-basil_abv``
      - ``native_space/aCBV_calib``
      - Arterial blood volume. Multi-delay data only.
+   * - ``desc-basilSD_cbf``
+     - ``native_space/perfusion_var_calib``
+     - Posterior standard deviation of ``desc-basil_cbf``, in mL/100 g/min.
+   * - ``desc-basilGMSD_cbf``
+     - ``native_space/pvcorr/perfusion_var_calib``
+     - Posterior standard deviation of ``desc-basilGM_cbf``, in mL/100 g/min.
+   * - ``desc-basilWMSD_cbf``
+     - ``native_space/pvcorr/perfusion_wm_var_calib``
+     - Posterior standard deviation of ``desc-basilWM_cbf``, in mL/100 g/min.
+   * - ``desc-basilSD_att``
+     - ``native_space/arrival_var``
+     - Posterior standard deviation of ``desc-basil_att``, in seconds. Multi-delay data only.
 
 A voxel in an ASL image usually holds a mixture of gray matter, white matter and CSF,
 so the CBF measured in that voxel is a weighted average of the CBF in each tissue.
@@ -435,6 +451,26 @@ Keep the following in mind when using the corrected maps:
   is diluted by white matter and CSF.
 - The arterial transit time and arterial blood volume maps come from the analysis without
   partial volume correction.
+
+BASIL also estimates how uncertain each value is.
+*ASLPrep* writes this as a posterior standard deviation map (``SD`` in the ``desc`` entity)
+for each CBF map, and for the arterial transit time with multi-delay data.
+Each is the square root of the posterior variance that ``oxford_asl`` writes,
+so it has the same units as the estimate.
+Voxels outside BASIL's analysis mask are set to zero.
+Keep the following in mind:
+
+- A small standard deviation means the data constrain the estimate well.
+  It does not mean the estimate is correct: it only reflects the noise and the model,
+  not errors such as misregistration or a wrong labeling efficiency.
+- Relative to the estimate, values are usually larger in white matter and at the edge of
+  the brain, where the ASL signal is weaker.
+- There is no standard deviation map for the arterial blood volume,
+  because ``oxford_asl`` does not write its variance.
+- For single-delay data, the arterial transit time is fixed rather than estimated,
+  so neither it nor its standard deviation is written.
+- In standard and anatomical spaces, the maps are resampled like the estimates.
+  Interpolation can introduce small negative values near sharp edges.
 
 See the `oxford_asl user guide <https://asl-docs.readthedocs.io/en/latest/oxford_asl_userguide.html>`_
 for a full description of these files, and :ref:`the BASIL section <basil_workflow>` for how

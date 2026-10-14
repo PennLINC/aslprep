@@ -997,6 +997,42 @@ class _BASILCBFOutputSpec(TraitedSpec):
     )
     att_basil = File(exists=True, desc='arterial transit time')
     abv_basil = File(exists=True, desc='arterial blood volume')
+    cbf_sd_basil = File(exists=True, desc='posterior standard deviation of mean_cbf_basil')
+    cbf_gm_sd_basil = File(
+        exists=True,
+        desc='posterior standard deviation of mean_cbf_gm_basil',
+    )
+    cbf_wm_sd_basil = File(
+        exists=True,
+        desc='posterior standard deviation of mean_cbf_wm_basil',
+    )
+    att_sd_basil = File(exists=True, desc='posterior standard deviation of att_basil')
+
+
+# Posterior variance maps written by oxford_asl, and the standard-deviation outputs made from
+# them. The CBF variances are calibrated by oxford_asl, so they are in (mL/100 g/min)^2.
+_BASIL_VARIANCE_MAPS = {
+    'cbf_sd_basil': 'native_space/perfusion_var_calib.nii.gz',
+    'cbf_gm_sd_basil': 'native_space/pvcorr/perfusion_var_calib.nii.gz',
+    'cbf_wm_sd_basil': 'native_space/pvcorr/perfusion_wm_var_calib.nii.gz',
+    'att_sd_basil': 'native_space/arrival_var.nii.gz',
+}
+
+
+def _variance_to_sd(variance_file, mask_file, out_file):
+    """Write the square root of a BASIL variance map, with zeros outside the analysis mask.
+
+    oxford_asl fills voxels it did not fit with a variance of 1e12,
+    which would otherwise show up as a standard deviation of 1e6.
+    """
+    img = nb.load(variance_file)
+    variance = np.asanyarray(img.dataobj, dtype=np.float64)
+    mask = np.asanyarray(nb.load(mask_file).dataobj) > 0
+    sd = np.zeros_like(variance, dtype=np.float32)
+    sd[mask] = np.sqrt(np.clip(variance[mask], 0, None))
+    out_img = nb.Nifti1Image(sd, img.affine, img.header)
+    out_img.set_data_dtype(np.float32)
+    out_img.to_filename(out_file)
 
 
 class BASILCBF(FSLCommand):
@@ -1022,6 +1058,19 @@ class BASILCBF(FSLCommand):
         # so point TMPDIR to the node's working directory.
         runtime.environ['TMPDIR'] = runtime.cwd
         runtime = super()._run_interface(runtime)
+
+        # Convert BASIL's posterior variance maps to standard deviations,
+        # which share the units of the estimates.
+        mask_file = os.path.join(runtime.cwd, 'native_space', 'mask.nii.gz')
+        for output, variance_file in _BASIL_VARIANCE_MAPS.items():
+            variance_file = os.path.join(runtime.cwd, variance_file)
+            if os.path.isfile(variance_file) and os.path.isfile(mask_file):
+                _variance_to_sd(
+                    variance_file,
+                    mask_file,
+                    os.path.join(runtime.cwd, f'{output}.nii.gz'),
+                )
+
         return runtime
 
     def _gen_outfilename(self, suffix):
@@ -1055,5 +1104,14 @@ class BASILCBF(FSLCommand):
         abv_basil = os.path.abspath('native_space/aCBV_calib.nii.gz')
         if os.path.isfile(abv_basil):
             outputs['abv_basil'] = abv_basil
+
+        # Standard deviations exist only for the variance maps oxford_asl wrote.
+        # oxford_asl writes no variance for aCBV.
+        for output in _BASIL_VARIANCE_MAPS:
+            if output in ('cbf_gm_sd_basil', 'cbf_wm_sd_basil') and self.inputs.pvc is not True:
+                continue
+            sd_file = os.path.abspath(f'{output}.nii.gz')
+            if os.path.isfile(sd_file):
+                outputs[output] = sd_file
 
         return outputs

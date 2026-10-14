@@ -174,6 +174,43 @@ BASE_INPUT_FIELDS = {
             'The fraction of the voxel occupied by the arterial vessel.'
         ),
     },
+    # BASIL posterior standard deviations
+    'cbf_sd_basil': {
+        'desc': 'basilSD',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Posterior standard deviation of the cerebral blood flow estimated by BASIL '
+            '(desc-basil). The square root of the posterior variance written by BASIL.'
+        ),
+    },
+    'cbf_gm_sd_basil': {
+        'desc': 'basilGMSD',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Posterior standard deviation of the gray matter partial-volume corrected '
+            'cerebral blood flow estimated by BASIL (desc-basilGM).'
+        ),
+    },
+    'cbf_wm_sd_basil': {
+        'desc': 'basilWMSD',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Posterior standard deviation of the white matter partial-volume corrected '
+            'cerebral blood flow estimated by BASIL (desc-basilWM).'
+        ),
+    },
+    'att_sd_basil': {
+        'desc': 'basilSD',
+        'suffix': 'att',
+        'Units': 's',
+        'Description': (
+            'Posterior standard deviation of the arterial transit time estimated by BASIL '
+            '(desc-basil).'
+        ),
+    },
 }
 
 

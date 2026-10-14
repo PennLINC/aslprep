@@ -538,6 +538,79 @@ def test_basilcbf_pvc_outputs(tmp_path, monkeypatch, pvc):
     assert isdefined(results.outputs.mean_cbf_wm_basil) is pvc
 
 
+@pytest.mark.parametrize(('pvc', 'multi_delay'), [(True, True), (True, False), (False, True)])
+def test_basilcbf_posterior_sd(tmp_path, monkeypatch, pvc, multi_delay):
+    """BASILCBF turns oxford_asl's posterior variance maps into standard deviations (gh-671)."""
+    shape = (4, 4, 4)
+    mask = np.zeros(shape, dtype=np.uint8)
+    mask[1:3, 1:3, 1:3] = 1
+    inside = mask.astype(bool)
+
+    # What oxford_asl would write: calibrated CBF variances that are 0 outside the mask,
+    # and an uncalibrated ATT variance with its 1e12 filler for voxels it did not fit.
+    canned = tmp_path / 'canned'
+    variances = {
+        'perfusion_var_calib': np.where(inside, 25.0, 0.0),
+    }
+    if multi_delay:
+        variances['arrival_var'] = np.where(inside, 0.04, 1e12)
+    if pvc:
+        variances['pvcorr/perfusion_var_calib'] = np.where(inside, 9.0, 0.0)
+        variances['pvcorr/perfusion_wm_var_calib'] = np.where(inside, 16.0, 0.0)
+    (canned / 'native_space' / 'pvcorr').mkdir(parents=True)
+    _save_img(mask, str(canned / 'native_space'), 'mask.nii.gz')
+    _save_img(np.ones(shape, np.float32), str(canned / 'native_space'), 'perfusion_calib.nii.gz')
+    for name, data in variances.items():
+        _save_img(data.astype(np.float32), str(canned / 'native_space'), f'{name}.nii.gz')
+    if pvc:
+        for name in ('perfusion_calib', 'perfusion_wm_calib'):
+            _save_img(
+                np.ones(shape, np.float32),
+                str(canned / 'native_space' / 'pvcorr'),
+                f'{name}.nii.gz',
+            )
+
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    fake_oxford_asl = bin_dir / 'oxford_asl'
+    fake_oxford_asl.write_text(f'#!/bin/sh\ncp -r {canned}/native_space .\n')
+    fake_oxford_asl.chmod(0o755)
+    monkeypatch.setenv('PATH', f'{bin_dir}{os.pathsep}{os.environ["PATH"]}')
+
+    work_dir = tmp_path / 'work'
+    work_dir.mkdir()
+    out = (
+        cbf.BASILCBF(
+            deltam=_save_img(np.ones(shape, dtype=np.float32), str(tmp_path), 'deltam.nii.gz'),
+            mask=_save_img(mask, str(tmp_path), 'mask.nii.gz'),
+            m0_scale=1,
+            tis=[3.6],
+            bolus=1.8,
+            pcasl=True,
+            pvc=pvc,
+        )
+        .run(cwd=str(work_dir))
+        .outputs
+    )
+
+    expected = {'cbf_sd_basil': 5.0}
+    if pvc:
+        expected.update({'cbf_gm_sd_basil': 3.0, 'cbf_wm_sd_basil': 4.0})
+    if multi_delay:
+        expected['att_sd_basil'] = 0.2
+    for field, value in expected.items():
+        img = nb.load(getattr(out, field))
+        assert img.get_data_dtype() == np.float32
+        data = img.get_fdata()
+        assert np.allclose(data[inside], value)
+        # Zero outside the mask, including where oxford_asl wrote its 1e12 filler.
+        assert np.all(data[~inside] == 0)
+
+    assert isdefined(out.cbf_gm_sd_basil) is pvc
+    assert isdefined(out.cbf_wm_sd_basil) is pvc
+    assert isdefined(out.att_sd_basil) is multi_delay
+
+
 def _save_img(arr, tmpdir, fname):
     img = nb.Nifti1Image(arr, affine=np.eye(4))
     fname = os.path.join(tmpdir, fname)
