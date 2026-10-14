@@ -36,6 +36,17 @@ ADAPTATIONS = {
             'direction as the ASL runs (dir-PA) is kept.',
         },
     ],
+    'ds004856': [
+        {
+            'op': 'set_context',
+            'glob': 'sub-*/ses-wave[23]/perf/*_aslcontext.tsv',
+            'volume_types': ['control'] * 30 + ['label'] * 30,
+            'why': 'Waves 2 and 3 are stacked as 30 controls then 30 labels: with the shipped '
+            'alternating order the difference image has no perfusion contrast (|mean|/SD 0.06 '
+            'and 0.01 in the 70th-percentile brain mask), with the stacked order it does (0.51 '
+            'and 0.52, positive control minus label). Wave 1 follows its shipped order.',
+        },
+    ],
     'jsr-aslprep-debug': [
         {
             'op': 'unlink_m0',
@@ -69,6 +80,4 @@ NO_CBF_METRICS = {
     'ds000240': 'M0 RepetitionTimePreparation is 0 (non-finite saturation correction, #654).',
     'ds005752': 'GE M0 scaling factor unknown.',
     'ds007522/sub-HML0202': 'M0 and ASL on different, undocumented intensity scales.',
-    'ds004856/ses-wave2': 'Suspected control/label order error.',
-    'ds004856/ses-wave3': 'Suspected control/label order error.',
 }

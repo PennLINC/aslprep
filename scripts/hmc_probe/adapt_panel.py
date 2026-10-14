@@ -71,7 +71,23 @@ def _drop_unpaired(root, step):
     return done
 
 
-OPS = {'remove_files': _remove_files, 'unlink_m0': _unlink_m0, 'drop_unpaired': _drop_unpaired}
+def _set_context(root, step):
+    done = []
+    for ctx_file in sorted(root.glob(step['glob'])):
+        old = pd.read_table(ctx_file, keep_default_na=False)['volume_type'].tolist()
+        if len(old) != len(step['volume_types']):
+            raise ValueError(f'{ctx_file}: {len(old)} rows, not {len(step["volume_types"])}')
+        pd.DataFrame({'volume_type': step['volume_types']}).to_csv(ctx_file, sep='\t', index=False)
+        done.append(f'rewrote {ctx_file.relative_to(root)}')
+    return done
+
+
+OPS = {
+    'remove_files': _remove_files,
+    'unlink_m0': _unlink_m0,
+    'drop_unpaired': _drop_unpaired,
+    'set_context': _set_context,
+}
 
 
 def adapt(zoo, out, names=None):
