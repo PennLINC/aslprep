@@ -35,8 +35,9 @@ def _get_padding(nvoxels):
 
 
 def _split_padding(padding):
+    """Split ``padding`` between the two sides of an axis, putting any odd voxel on the second."""
     halfpad = padding // 2
-    return halfpad, halfpad + halfpad % 2
+    return halfpad, padding - halfpad
 
 
 class _SynthStripPaddingInputSpec(BaseInterfaceInputSpec):

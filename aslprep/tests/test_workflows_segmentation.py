@@ -21,6 +21,22 @@ def _edges(wf, dst_name):
     }
 
 
+@pytest.mark.parametrize('shape', [(64, 64, 64), (150, 59, 100), (160, 191, 1)])
+def test_synthstrip_padding(tmp_path, shape):
+    """The padding brings each in-plane axis up to a multiple of 64, split across both sides."""
+    in_file = tmp_path / 'image.nii.gz'
+    nb.Nifti1Image(np.zeros(shape, dtype=np.float32), np.eye(4)).to_filename(in_file)
+
+    out = SynthStripPadding(input_image=str(in_file)).run(cwd=str(tmp_path)).outputs
+
+    for nvoxels, low, high in [(shape[0], out.R, out.L), (shape[1], out.A, out.P)]:
+        assert (nvoxels + low + high) % 64 == 0
+        assert 0 <= high - low <= 1
+    assert (shape[2] + out.S) % 64 == 0
+    if shape == (64, 64, 64):
+        assert (out.S, out.R, out.L, out.A, out.P) == (0, 0, 0, 0, 0)
+
+
 def test_synthstrip_padding_rejects_4d(tmp_path):
     """SynthStrip needs a 3D image."""
     in_file = tmp_path / 'image.nii.gz'
