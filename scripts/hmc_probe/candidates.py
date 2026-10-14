@@ -17,6 +17,11 @@ line as ``--opt key=value``.
   by default the first control), whose raw image becomes the reference.
 - ``c4``: one transform per control-label pair (strict pair constraint): each pair gets the
   polar mean of its two transforms from ``base`` (``c0`` or ``c1``).
+- ``c8``: zig-zag regression (Wang 2012). Control and label volumes are registered together to
+  one reference (``reference=mean``, their mean, or ``reference=production``, the separate M0);
+  the label/control alternation (one regressor per delay) is regressed out of the six rigid
+  parameters about the field-of-view centre; in-series M0 volumes are registered separately,
+  as their own group, and derived volumes follow P1.
 
 All registrations use FSL (MCFLIRT for series, FLIRT for single images) with ``cost``
 (``mutualinfo`` by default). Transforms are composed as FSL matrices on the raw grid and
@@ -304,4 +309,132 @@ def run_c4(inputs, work, **options):
     }
 
 
-CANDIDATES = {'c1': run_c1, 'c2': run_c2, 'c3': run_c3, 'c4': run_c4}
+def _about_centre(m, c):
+    """FSL matrix -> (rotation vector in degrees, translation in mm about centre ``c``)."""
+    from scipy.spatial.transform import Rotation
+
+    r, t = m[:3, :3], m[:3, 3]
+    return np.r_[np.degrees(Rotation.from_matrix(r).as_rotvec()), r @ c + t - c]
+
+
+def _from_centre(p, c):
+    from scipy.spatial.transform import Rotation
+
+    r = Rotation.from_rotvec(np.radians(p[:3])).as_matrix()
+    out = np.eye(4)
+    out[:3, :3] = r
+    out[:3, 3] = p[3:] - r @ c + c
+    return out
+
+
+def _huber(y, x, k=1.345, iterations=50):
+    """Huber regression by iteratively reweighted least squares (MAD scale)."""
+    b, *_ = np.linalg.lstsq(x, y, rcond=None)
+    for _ in range(iterations):
+        r = y - x @ b
+        scale = np.median(np.abs(r - np.median(r))) / 0.6745 + 1e-9
+        w = np.sqrt(np.minimum(1.0, k * scale / np.maximum(np.abs(r), 1e-12)))
+        b, *_ = np.linalg.lstsq(x * w[:, None], y * w, rcond=None)
+    return b
+
+
+def zigzag_clean(params, types, plds, robust=False):
+    """Remove the label/control alternation from motion parameters (Wang 2012).
+
+    ``params`` is (n, 6) for the control and label volumes in acquisition order. The design is
+    an intercept plus one +1/-1 (control/label) regressor per delay, non-zero only for that
+    delay's volumes; only the fitted alternation is subtracted, so drift and spikes stay.
+    """
+    n = len(types)
+    delays = sorted(set(plds))
+    cols = [np.ones(n)]
+    for d in delays:
+        col = np.array(
+            [
+                (1.0 if t == 'control' else -1.0) if p == d else 0.0
+                for t, p in zip(types, plds, strict=True)
+            ]
+        )
+        nz = col != 0
+        col[nz] -= col[nz].mean()
+        if np.any(col):
+            cols.append(col)
+    x = np.column_stack(cols)
+    if robust:
+        beta = np.column_stack([_huber(params[:, j], x) for j in range(params.shape[1])])
+    else:
+        beta, *_ = np.linalg.lstsq(x, params, rcond=None)
+    return params - x[:, 1:] @ beta[1:], x[:, 1:] @ beta[1:]
+
+
+def run_c8(inputs, work, **options):
+    """Zig-zag regression (C8): joint estimation, alternation regressed out, M0 separate."""
+    cost = _opt(options, 'cost', 'mutualinfo')
+    reference = _opt(options, 'reference', 'mean')
+    target, idx, types = _kept(inputs)
+    cl = [k for k, t in enumerate(types) if t in ('control', 'label')]
+    if not cl:
+        return run_c1(inputs, work, cost=cost)
+    img = nb.load(inputs['asl_file'])
+    data = np.asanyarray(img.dataobj, np.float32)
+    data = data[..., None] if data.ndim == 3 else data
+    plds = _plds(inputs, data.shape[-1], idx)
+    cl_data = data[..., [idx[k] for k in cl]]
+    series = _save(cl_data, img, work / 'cl_series.nii.gz')
+    if reference == 'production' and inputs.get('m0scan'):
+        ref_file = _regrid(inputs['m0scan'], img, work / 'ref_m0.nii.gz')
+        ref_volumes = 'separate_m0'
+    else:
+        ref_file = _save(cl_data.mean(-1), img, work / 'ref_cl_mean.nii.gz')
+        ref_volumes = [idx[k] for k in cl]
+    mats, _ = _mcflirt(series, ref_file, work / 'mcf_cl', cost)
+    zooms = np.array(img.header.get_zooms()[:3])
+    centre = (np.array(img.shape[:3]) - 1) / 2 * zooms
+    params = np.array([_about_centre(m, centre) for m in mats])
+    cleaned, removed = zigzag_clean(
+        params,
+        [types[k] for k in cl],
+        [plds[k] for k in cl],
+        robust=_opt(options, 'fit', 'ols') == 'huber',
+    )
+    if _opt(options, 'regress', 1, int) == 0:  # joint estimation only (a diagnostic variant)
+        cleaned, removed = params, np.zeros_like(params)
+    final = [None] * len(idx)
+    for k, p in zip(cl, cleaned, strict=True):
+        final[k] = _from_centre(p, centre)
+
+    # M0 volumes: their own group, registered to its mean, then the mean to the reference.
+    m0 = [k for k, t in enumerate(types) if t == 'm0scan']
+    if m0:
+        m0_data = data[..., [idx[k] for k in m0]]
+        tpl = _save(m0_data.mean(-1), img, work / 'm0_mean.nii.gz')
+        if len(m0) > 1:
+            m0_mats, _ = _mcflirt(
+                _save(m0_data, img, work / 'm0_series.nii.gz'), tpl, work / 'mcf_m0', cost
+            )
+        else:
+            m0_mats = [np.eye(4)]
+        cross = _flirt(tpl, ref_file, work / 'cross_m0.mat', cost)
+        for k, m in zip(m0, m0_mats, strict=True):
+            final[k] = cross @ m
+    # Derived volumes (policy P1): identity.
+    final = [np.eye(4) if f is None else f for f in final]
+    aslref = work / 'aslref.nii.gz'
+    shutil.copyfile(ref_file, aslref)
+    ctx_file = work / 'hmc_aslcontext.tsv'
+    pd.DataFrame({'volume_type': types}).to_csv(ctx_file, sep='\t', index=False)
+    np.savetxt(work / 'zigzag_removed.txt', removed, fmt='%.6f')
+    return {
+        'aslref': str(aslref),
+        'xforms': str(_to_itk(final, aslref, work)),
+        'aslcontext': str(ctx_file),
+        'indices': idx,
+        'reference_type': f'zig-zag ({reference} reference)',
+        'reference_volumes': ref_volumes,
+        'processing_target': target,
+        'use_ge': None,
+        'zigzag_removed_max': float(np.abs(removed).max()) if removed.size else 0.0,
+    }
+
+
+CANDIDATES = {'c1': run_c1, 'c2': run_c2, 'c3': run_c3, 'c4': run_c4, 'c8': run_c8}
