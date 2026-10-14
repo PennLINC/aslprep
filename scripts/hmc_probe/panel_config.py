@@ -63,6 +63,12 @@ EXCLUDED = {
     'suppressed controls at workflow construction, so no outputs exist to score.',
 }
 
+#: Datasets left out of full ASLPrep runs only (the anatomy-free harness still uses them).
+FULL_PIPELINE_EXCLUDED = {
+    'ds000240': 'M0 RepetitionTimePreparation is 0; ASLPrep (check_m0tr) refuses the run at '
+    'workflow construction.',
+}
+
 #: Extra command-line arguments per dataset.
 EXTRA_ARGS = {
     # The image's legacy BIDS validator rejects the BIDS volume type noRF.

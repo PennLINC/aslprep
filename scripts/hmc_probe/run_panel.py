@@ -23,7 +23,13 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from panel_config import ADAPTATIONS, BIDS_FILTERS, EXCLUDED, EXTRA_ARGS
+from panel_config import (
+    ADAPTATIONS,
+    BIDS_FILTERS,
+    EXCLUDED,
+    EXTRA_ARGS,
+    FULL_PIPELINE_EXCLUDED,
+)
 
 IMAGE = 'pennlinc/aslprep:unstable'
 SITE = '/app/.pixi/envs/aslprep/lib/python3.12/site-packages/aslprep'
@@ -50,11 +56,13 @@ def jobs_from(manifest, zoo, adapted, originals, no_adapt=False):
         if any(f.startswith('degenerate affine') for f in row.get('predicted_failures', [])):
             print(f'skipping {name} sub-{sub}: {row["run"]} has a degenerate affine')
             continue
-        if no_adapt:
-            jobs[(name, sub)] = _root(zoo, name)
-        elif originals:
+        if originals:
             if name not in ADAPTATIONS and name not in EXCLUDED:
                 continue
+            root = _root(zoo, name)
+        elif name in FULL_PIPELINE_EXCLUDED:
+            continue
+        elif no_adapt:
             root = _root(zoo, name)
         else:
             if name in EXCLUDED:
@@ -79,6 +87,11 @@ def run_job(name, sub, root, args):
     license_file = args.out / 'license.txt'
     filters = BIDS_FILTERS.get(name)
     extra = list(EXTRA_ARGS.get(name, []))
+    # Copies made by adapt_panel.py or extend_panel.py carry probe notes and edits that the
+    # image's legacy validator rejects; they are generated, so validation is skipped.
+    if root != _root(args.zoo, name) or args.no_adapt:
+        if '--skip-bids-validation' not in extra:
+            extra.append('--skip-bids-validation')
     mounts = [
         (args.src / 'aslprep', SITE, 'ro'),
         (root, '/data', 'ro'),
@@ -162,7 +175,7 @@ def main(argv=None):
     )
     parser.add_argument('extra', nargs='*', help='Extra ASLPrep arguments (after --).')
     args = parser.parse_args(argv)
-    args.out = args.out.resolve()
+    args.out, args.zoo = args.out.resolve(), args.zoo.resolve()
     (args.out / args.label).mkdir(parents=True, exist_ok=True)
     (args.out / 'license.txt').write_text(base64.b64decode(LICENSE).decode())
 
