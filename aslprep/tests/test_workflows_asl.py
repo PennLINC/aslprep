@@ -273,3 +273,76 @@ def test_init_synthstrip_aslref_wf_nodes(disable_n4):
         for _, dst_field in data['connect']
     }
     assert outputs == {'bias_corrected_file', 'mask_file'}
+
+
+@pytest.mark.parametrize(
+    ('sloppy', 'delays'),
+    [(False, 1.8), (True, 1.8), (False, [1.0, 1.0, 1.5, 1.5, 2.0, 2.0])],
+)
+def test_init_cbf_wf_basil_sd(tmp_path, sloppy, delays):
+    """BASIL's posterior standard deviations follow the estimates they belong to (gh-671)."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PostLabelingDelay': delays,
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+        'RepetitionTimePreparation': 4.0,
+    }
+    n_pairs = len(delays) if isinstance(delays, list) else 3
+    reset_config()
+    with mock_config():
+        config.execution.sloppy = sloppy
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * n_pairs}),
+            metadata=metadata,
+            basil=True,
+        )
+        outputs = {
+            dst_field: (src.name, src_field)
+            for src, dst, data in wf._graph.edges(data=True)
+            if dst.name == 'outputnode'
+            for src_field, dst_field in data['connect']
+        }
+
+    assert outputs['cbf_sd_basil'] == ('basilcbf', 'cbf_sd_basil')
+    for tissue in ('gm', 'wm'):
+        # In sloppy mode, the corrected maps and their SDs are stand-ins for the uncorrected ones.
+        source = 'cbf_sd_basil' if sloppy else f'cbf_{tissue}_sd_basil'
+        assert outputs[f'cbf_{tissue}_sd_basil'] == ('basilcbf', source)
+    if isinstance(delays, list):
+        assert outputs['att_sd_basil'] == ('basilcbf', 'att_sd_basil')
+    else:
+        assert 'att_sd_basil' not in outputs
+
+
+def test_basil_sd_output_metadata():
+    """The posterior SD derivatives have names that do not collide, and units like the estimates."""
+    from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
+
+    names = {
+        field: (spec['desc'], spec['suffix'])
+        for field, spec in BASE_INPUT_FIELDS.items()
+        if 'desc' in spec
+    }
+    assert len(set(names.values())) == len(names)
+    for field, units in [
+        ('cbf_sd_basil', 'mL/100 g/min'),
+        ('cbf_gm_sd_basil', 'mL/100 g/min'),
+        ('cbf_wm_sd_basil', 'mL/100 g/min'),
+        ('att_sd_basil', 's'),
+    ]:
+        assert BASE_INPUT_FIELDS[field]['Units'] == units
+        estimate = field.replace('_sd_basil', '_basil').replace('cbf_', 'mean_cbf_')
+        estimate = 'att_basil' if field == 'att_sd_basil' else estimate
+        assert BASE_INPUT_FIELDS[estimate]['Units'] == units
