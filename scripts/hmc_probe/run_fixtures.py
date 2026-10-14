@@ -53,6 +53,9 @@ def run_one(name, args):
         cmd += ['-v', f'{host}:{container}:{mode}']
     cmd += [IMAGE, '/data', '/out', 'participant', '--participant-label', '01', '-w', '/work']
     cmd += ['--fs-license-file', '/license.txt', '--fs-no-reconall', '--notrack']
+    # The image's legacy validator rejects the probe's BIDS fieldmaps (*_fieldmap with
+    # *_magnitude); the fixtures are generated, so validation is skipped.
+    cmd += ['--skip-bids-validation']
     cmd += ['--output-spaces', 'asl', 'T1w', '--smooth_kernel', '5']
     cmd += ['--nprocs', str(args.nprocs), '--omp-nthreads', str(args.nprocs)]
     cmd += ['--mem', str(args.mem_mb)]
