@@ -65,6 +65,8 @@ EXCLUDED = {
 
 #: Extra command-line arguments per dataset.
 EXTRA_ARGS = {
+    # The image's legacy BIDS validator rejects the BIDS volume type noRF.
+    '2d_mb_pcasl': ['--skip-bids-validation'],
     'ds004873': ['--skip-bids-validation'],
     'ds008020': ['--skull-strip-t1w', 'skip'],
 }

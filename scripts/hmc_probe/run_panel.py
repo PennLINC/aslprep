@@ -38,12 +38,18 @@ def _root(zoo, name):
     return base / 'dset' if (base / 'dset' / 'dataset_description.json').exists() else base
 
 
-def jobs_from(manifest, zoo, adapted, originals):
-    """One job per (dataset, subject). ``originals`` runs the unadapted and excluded datasets."""
+def jobs_from(manifest, zoo, adapted, originals, no_adapt=False):
+    """One job per (dataset, subject).
+
+    ``originals`` runs the unadapted and excluded datasets. ``no_adapt`` takes every dataset
+    from ``zoo`` as it is (for the extended panel, which ``extend_panel.py`` already adapted).
+    """
     jobs = {}
     for row in manifest:
         name, sub = row['dataset'], row['subject']
-        if originals:
+        if no_adapt:
+            jobs[(name, sub)] = _root(zoo, name)
+        elif originals:
             if name not in ADAPTATIONS and name not in EXCLUDED:
                 continue
             root = _root(zoo, name)
@@ -125,6 +131,9 @@ def run_job(name, sub, root, args):
         'cmd': cmd,
     }
     done.write_text(json.dumps(record, indent=2) + '\n')
+    # Disk space is limited: a successful run's working directory is not needed again.
+    if proc.returncode == 0 and not args.keep_work:
+        shutil.rmtree(work, ignore_errors=True)
     return tag, proc.returncode
 
 
@@ -137,11 +146,17 @@ def main(argv=None):
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--label', required=True)
     parser.add_argument('--originals', action='store_true', help='Run unadapted originals.')
+    parser.add_argument(
+        '--no-adapt', action='store_true', help='Use every dataset in --zoo as it is.'
+    )
     parser.add_argument('--only', nargs='*', help='Datasets to run.')
     parser.add_argument('--jobs', type=int, default=4)
     parser.add_argument('--nprocs', type=int, default=6)
     parser.add_argument('--mem-mb', type=int, default=7000)
     parser.add_argument('--rerun', action='store_true')
+    parser.add_argument(
+        '--keep-work', action='store_true', help='Keep working directories of successful runs.'
+    )
     parser.add_argument('extra', nargs='*', help='Extra ASLPrep arguments (after --).')
     args = parser.parse_args(argv)
     args.out = args.out.resolve()
@@ -149,7 +164,9 @@ def main(argv=None):
     (args.out / 'license.txt').write_text(base64.b64decode(LICENSE).decode())
 
     manifest = json.loads(args.manifest.read_text())
-    jobs = jobs_from(manifest, args.zoo.resolve(), args.adapted.resolve(), args.originals)
+    jobs = jobs_from(
+        manifest, args.zoo.resolve(), args.adapted.resolve(), args.originals, args.no_adapt
+    )
     if args.only:
         jobs = {k: v for k, v in jobs.items() if k[0] in args.only}
     print(f'{len(jobs)} jobs, {args.jobs} at a time', flush=True)
