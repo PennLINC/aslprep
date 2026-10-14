@@ -1,0 +1,4 @@
+acq = "mopcaslbetweenpairsho"
+phantom = "tfmni-flat"
+anat = "derivatives"
+snr_per_pair = 50.0
