@@ -138,6 +138,8 @@ def main(argv=None):
         for r in json.loads(args.manifest.read_text())
         if r['dataset'] not in EXCLUDED
         and not any(f.startswith('degenerate') for f in r['predicted_failures'])
+        # e.g. a ds005752 series with 2 volumes under a 3-row dataset-level aslcontext
+        and r.get('context_matches_volumes', True)
         and (not args.only or r['dataset'] in args.only)
     ]
     print(f'{len(rows)} runs, {args.jobs} at a time', flush=True)

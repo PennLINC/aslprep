@@ -56,6 +56,9 @@ def jobs_from(manifest, zoo, adapted, originals, no_adapt=False):
         if any(f.startswith('degenerate affine') for f in row.get('predicted_failures', [])):
             print(f'skipping {name} sub-{sub}: {row["run"]} has a degenerate affine')
             continue
+        if not row.get('context_matches_volumes', True):
+            print(f'skipping {name} sub-{sub}: {row["run"]} has more aslcontext rows than volumes')
+            continue
         if originals:
             if name not in ADAPTATIONS and name not in EXCLUDED:
                 continue
