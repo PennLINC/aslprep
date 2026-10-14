@@ -1033,12 +1033,14 @@ class BASILCBF(FSLCommand):
         outputs = self.output_spec().get()
 
         outputs['mean_cbf_basil'] = os.path.abspath('native_space/perfusion_calib.nii.gz')
-        outputs['mean_cbf_gm_basil'] = os.path.abspath(
-            'native_space/pvcorr/perfusion_calib.nii.gz',
-        )
-        outputs['mean_cbf_wm_basil'] = os.path.abspath(
-            'native_space/pvcorr/perfusion_wm_calib.nii.gz',
-        )
+        # oxford_asl only writes the partial-volume corrected maps with --pvcorr
+        if self.inputs.pvc is True:
+            outputs['mean_cbf_gm_basil'] = os.path.abspath(
+                'native_space/pvcorr/perfusion_calib.nii.gz',
+            )
+            outputs['mean_cbf_wm_basil'] = os.path.abspath(
+                'native_space/pvcorr/perfusion_wm_calib.nii.gz',
+            )
 
         # These are only meaningful for multi-PLD data, and oxford_asl only writes them when
         # it infers arterial transit time / the macrovascular (arterial) component. For

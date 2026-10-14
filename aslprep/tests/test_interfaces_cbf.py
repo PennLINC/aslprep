@@ -6,6 +6,7 @@ import nibabel as nb
 import numpy as np
 import pandas as pd
 import pytest
+from nipype.interfaces.base import isdefined
 
 from aslprep.interfaces import cbf
 
@@ -495,6 +496,46 @@ def test_basilcbf_tmpdir(tmp_path, monkeypatch):
 
     assert (work_dir / 'tmpdir.txt').read_text().strip() == str(work_dir)
     assert results.outputs.mean_cbf_basil == str(work_dir / 'native_space/perfusion_calib.nii.gz')
+
+
+@pytest.mark.parametrize('pvc', [True, False])
+def test_basilcbf_pvc_outputs(tmp_path, monkeypatch, pvc):
+    """BASILCBF only reports partial-volume corrected maps when oxford_asl writes them."""
+    # A stand-in for oxford_asl that writes the outputs that the real command would.
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    fake_oxford_asl = bin_dir / 'oxford_asl'
+    fake_oxford_asl.write_text(
+        '#!/bin/sh\n'
+        'echo "$@" > args.txt\n'
+        'mkdir -p native_space\n'
+        'touch native_space/perfusion_calib.nii.gz\n'
+        'case "$*" in *--pvcorr*)\n'
+        '    mkdir -p native_space/pvcorr\n'
+        '    touch native_space/pvcorr/perfusion_calib.nii.gz\n'
+        '    touch native_space/pvcorr/perfusion_wm_calib.nii.gz\n'
+        'esac\n'
+    )
+    fake_oxford_asl.chmod(0o755)
+    monkeypatch.setenv('PATH', f'{bin_dir}{os.pathsep}{os.environ["PATH"]}')
+
+    shape = (4, 4, 4)
+    work_dir = tmp_path / 'work'
+    work_dir.mkdir()
+    results = cbf.BASILCBF(
+        deltam=_save_img(np.ones(shape, dtype=np.float32), tmp_path, 'deltam.nii.gz'),
+        mask=_save_img(np.ones(shape, dtype=np.uint8), tmp_path, 'mask.nii.gz'),
+        m0_scale=1,
+        tis=[3.6],
+        bolus=1.8,
+        pcasl=True,
+        pvc=pvc,
+    ).run(cwd=str(work_dir))
+
+    assert ('--pvcorr' in (work_dir / 'args.txt').read_text()) is pvc
+    assert results.outputs.mean_cbf_basil == str(work_dir / 'native_space/perfusion_calib.nii.gz')
+    assert isdefined(results.outputs.mean_cbf_gm_basil) is pvc
+    assert isdefined(results.outputs.mean_cbf_wm_basil) is pvc
 
 
 def _save_img(arr, tmpdir, fname):
