@@ -495,7 +495,6 @@ class ComputeCBF(SimpleInterface):
         labeleff = estimate_labeling_efficiency(metadata=metadata)
 
         UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
-        PARTITION_COEF = PARTITION_COEFFICIENT  # blood-brain partition coefficient (lambda)
 
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
@@ -624,7 +623,7 @@ class ComputeCBF(SimpleInterface):
                 plds=plds,
                 labeleff=labeleff,
                 t1blood=t1blood,
-                partition_coefficient=PARTITION_COEF,
+                partition_coefficient=PARTITION_COEFFICIENT,
                 is_casl=is_casl,
                 tau=tau,  # defined for (P)CASL
                 ti1=ti1,  # defined for PASL
@@ -737,7 +736,7 @@ class ComputeCBF(SimpleInterface):
             with np.errstate(divide='ignore', invalid='ignore'):
                 deltam_scaled = deltam_arr / scaled_m0data[:, None]
 
-            perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
+            perfusion_factor = (UNIT_CONV * PARTITION_COEFFICIENT * np.exp(plds / t1blood)) / (
                 denom_factor * 2 * labeleff
             )
 
