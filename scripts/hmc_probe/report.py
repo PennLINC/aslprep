@@ -316,6 +316,39 @@ def strip_plot(cats, values, xlabel, w=680, label='chart', xmax=None, color='var
     return ''.join(out)
 
 
+def scatter(points, xlabel, ylabel, w=680, h=340, label='chart'):
+    """``points``: dicts with x, y, color, name, optional ring (bool) and tag (short text)."""
+    m = (14, 16, 42, 56)
+    pw, ph = _frame(w, h, m)
+    xs_all = [p['x'] for p in points]
+    ys_all = [p['y'] for p in points]
+    xt, yt = nice_ticks(0, max(xs_all)), nice_ticks(0, max(ys_all))
+    x1, y1 = xt[-1], yt[-1]
+
+    def xs(v):
+        return m[3] + v / x1 * pw
+
+    def ys(v):
+        return m[0] + ph - v / y1 * ph
+
+    out = [svg_open(w, h, label)]
+    out += axes(w, h, m, xt, yt, xs, ys, xlabel, ylabel, lambda t: f'{t:g}', lambda t: f'{t:g}')
+    for p in points:
+        cx, cy = xs(p['x']), ys(p['y'])
+        r = 6 if p.get('ring') else 4.2
+        out.append(
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r}" fill="{p["color"]}" fill-opacity="0.85" '
+            f'stroke="{"var(--fg)" if p.get("ring") else p["color"]}" stroke-width="{2 if p.get("ring") else 1}">'
+            f'<title>{esc(p["name"])}: {p["x"]:.3f}, {p["y"]:.3f}</title></circle>'
+        )
+        if p.get('tag'):
+            out.append(
+                f'<text class="tick" x="{cx + 7:.1f}" y="{cy - 6:.1f}">{esc(p["tag"])}</text>'
+            )
+    out.append('</svg>')
+    return ''.join(out)
+
+
 def heat_table(rows, cols, values, notes=None, digits=2, vmax=None, col_labels=None):
     """HTML table with cells shaded on a log scale (color-mix with the theme tokens)."""
     finite = [v for r in values for v in r if v is not None and np.isfinite(v) and v > 0]
@@ -1029,6 +1062,280 @@ it has no alternation power and is not shown.</p>
 </section>"""
 
 
+FAMILY_COLOR = {
+    'c0': 'var(--s-c0)',
+    'c1': 'var(--s-c1)',
+    'c2': 'var(--s-c2)',
+    'c4': 'var(--s-c4)',
+    'c8': 'var(--s-c8)',
+    'c3': 'var(--s-c3)',
+    'fixvol': 'var(--s-c3)',
+    'perfref': 'var(--s-c8-noreg)',
+}
+ENGINE_NOTES = {
+    'c1': 'MCFLIRT',
+    'c1-m0': 'MCFLIRT, M0 frame',
+    'c1-volreg': 'AFNI 3dvolreg',
+    'c1-ants': 'ANTs rigid',
+    'c1-niimath': 'niimath fast (rigid projection)',
+    'c1-niimath-ls': 'niimath rigid least squares',
+    'c1-pld': 'grouped by type and delay',
+    'c1-idcross': 'identity cross-type step',
+}
+
+
+def section_engines(root, fig):
+    f = root / 'fixture-scores' / 'estimator_screen.tsv'
+    if not f.exists():
+        return ''
+    s = pd.read_csv(f, sep='\t')
+    s = s[~s.diagnostic.astype(bool)]
+    short = s[s['rank'].eq(1)].label.tolist()
+    pts = []
+    for r in s.itertuples():
+        ring = r.label in short or r.label == 'c0'
+        tag = r.label if ring or r.family in ('fixvol', 'perfref') or 'volreg' in r.label else ''
+        pts.append(
+            {
+                'x': r.rel_max,
+                'y': r.pair_max,
+                'color': FAMILY_COLOR.get(r.family, 'var(--muted)'),
+                'name': r.label,
+                'ring': ring,
+                'tag': tag,
+            }
+        )
+    chart = scatter(
+        pts,
+        'median relative-pose error (mm, max over volumes)',
+        'median worst pair error (mm)',
+        label='Estimator screen',
+    )
+    leg = legend(
+        [
+            (FAMILY_COLOR[k], n, False)
+            for k, n in (
+                ('c0', 'production'),
+                ('c1', 'C1'),
+                ('c2', 'C2'),
+                ('c4', 'C4'),
+                ('c8', 'C8'),
+                ('fixvol', 'fixed-volume comparator'),
+                ('perfref', 'perfusion-reference comparator'),
+            )
+        ]
+    )
+    row = s.set_index('label')
+
+    def g(label, col):
+        return float(row.at[label, col]) if label in row.index else np.nan
+
+    ranked = s[s.family.isin(['c1', 'c2', 'c4', 'c8'])].sort_values(['family', 'rank'])
+    rows = [
+        [
+            f'{"<b>" if r.label in short else ""}<code>{esc(r.label)}</code>{"</b>" if r.label in short else ""}',
+            esc(ENGINE_NOTES.get(r.label, ENGINE_NOTES.get(r.label.replace('c2', 'c1'), ''))),
+            fmt(r.rel_max, 3),
+            fmt(r.pair_max, 3),
+            fmt(r.dm_edge, 2),
+            f'{r.rank:.0f}',
+        ]
+        for r in ranked.itertuples()
+    ]
+    return f"""
+<section id="engines">
+<h2>Registration engines and the short list</h2>
+<p>The plan's estimator screen runs every variant of each family on the {
+        int(s.n.max())
+    } development
+fixtures and keeps the best of each by two metrics fixed in advance: relative-pose error (are the
+volumes aligned with each other?) and pair error (are control and label aligned?). C1 and C2 were
+crossed with four registration engines (MCFLIRT, AFNI 3dvolreg, ANTs rigid and niimath's port of
+3dAllineate), the grouping (by type, or by type and delay), the common frame and the cross-type
+step. Each engine was first checked against known rigid transforms (all recover them to within
+0.31 mm for 2.5&ndash;3.8 mm motions).</p>
+<p>3dvolreg stands out on relative pose: {fmt(g('c1-volreg', 'rel_max'), 3)} mm for C1 against
+production's {fmt(g('c0', 'rel_max'), 3)} mm. Least squares within one contrast is the right cost
+for a same-contrast template. Its pair error is higher, though ({
+        fmt(g('c1-volreg', 'pair_max'), 3)
+    }
+against {fmt(g('c0', 'pair_max'), 3)} mm), because control and label templates are still joined by
+one cross-contrast step, and pair error drives subtraction. ANTs has the worst pair error of the
+engines ({fmt(g('c1-ants', 'pair_max'), 3)} mm).</p>
+{
+        figure(
+            leg + chart,
+            'Each arm of the screen: median relative-pose error against median pair error. '
+            'Ringed points are production and the variant that goes forward from each family.',
+            fig,
+        )
+    }
+{
+        plain_table(
+            ['Arm', 'Variant', 'Relative pose (mm)', 'Pair (mm)', 'Edge error', 'Rank'],
+            rows,
+            (2, 3, 4, 5),
+        )
+    }
+<p class="note">Medians over the development fixtures; rank within the family by the sum of the two
+screening ranks, ties broken on pair error. C8's diagnostic-only runs and C1's leave-one-out null
+test are not ranked.</p>
+<p>The short list is production plus {', '.join(f'<code>{esc(x)}</code>' for x in short)}. The two
+comparators from #513 bracket it. Registering everything to one acquired volume
+(<code>fixvol</code>) is close to production. Re-registering each pair to a preliminary perfusion
+image (<code>perfref</code>) keeps pairs aligned but adds {fmt(g('perfref', 'rel_max'), 2)} mm of
+relative-pose error, because a single pair's delta-M is too noisy to register.</p>
+</section>"""
+
+
+def section_policy(df, fig):
+    short = ['c0', 'c1-volreg', 'c2-volreg', 'c4', 'c8-huber-perdelay']
+    labels = set(df.label)
+    if not any(f'{s}-d1' in labels for s in short):
+        return ''
+    rows = []
+    for s in short:
+        cells = [f'<code>{esc(s)}</code>']
+        for lab in (f'{s}-d0', f'{s}-d1', s):
+            sub = df[df.label == lab]
+            cells += (
+                [fmt(sub.ref_med.median(), 3), fmt(sub.dmref_edge.median(), 2)]
+                if len(sub)
+                else ['&ndash;', '&ndash;']
+            )
+        rows.append(cells)
+    head = ['Estimator'] + [
+        f'{p} {m}' for p in ('D0', 'D1', 'D2') for m in ('ref. offset (mm)', 'edge error')
+    ]
+    return f"""
+<section id="policy">
+<h2>Which reference the later steps receive</h2>
+<p>The HMC target and the image handed to later steps need not be the same. D0 keeps production's
+reference and expresses the candidate's transforms in its frame; D1 rebuilds production's reference
+from the same volume selection after the candidate's correction; D2 hands on the candidate's own
+template. The relative metrics do not change between policies; what changes is how well the
+corrected volumes agree with the reference the later steps see.</p>
+{plain_table(head, rows, tuple(range(1, 7)))}
+<p class="note">Medians over the development fixtures: the median offset between corrected volumes and
+the reference, and the edge delta-M error against the reference-frame oracle.</p>
+</section>"""
+
+
+def section_coreg(root, fig):
+    out = []
+    f = root / 'coreg-5b' / 'coreg_5b.tsv'
+    if f.exists():
+        c = pd.read_csv(f, sep='\t')
+        rows = []
+        for fx, g in c.groupby('fixture', sort=False):
+
+            def v(src, sign='default', col='rms_mm', g=g):
+                hit = g[(g.source == src) & (g.sign == sign)]
+                return hit.iloc[0][col] if len(hit) else np.nan
+
+            fb = v('conventional', col='fallback')
+            rows.append(
+                [
+                    f'<code>{esc(fx)}</code>',
+                    fmt(v('production (ASLPrep run)'), 2),
+                    fmt(v('conventional'), 2)
+                    + (' (fell back)' if fb is True or fb == 'True' else ''),
+                    fmt(v('conventional', 'opposite'), 2),
+                    fmt(v('P-robust'), 2),
+                    fmt(v('P-masked'), 2),
+                    fmt(v('conventional', col='gm_wm_ratio'), 2),
+                    fmt(v('P-robust', col='gm_wm_ratio'), 2),
+                ]
+            )
+        g = c[c.fixture == 'rc_grase']
+
+        def gv(src, sign='default', col='rms_mm'):
+            hit = g[(g.source == src) & (g.sign == sign)]
+            return float(hit.iloc[0][col]) if len(hit) else np.nan
+
+        out.append(f"""
+<p>Each reference was registered to the T1w exactly as fMRIPrep's FSL path does it (<code>mri_coreg</code>
+initialization, then FLIRT with the boundary-based cost), standalone, and scored against the
+fixture's truth. The standalone registration of the conventional reference reproduces ASLPrep's own
+result on every fixture, so the comparison is like for like.</p>
+{
+            plain_table(
+                [
+                    'Fixture',
+                    'ASLPrep',
+                    'Conventional',
+                    'Conventional, opposite BBR sign',
+                    'P-robust',
+                    'P-masked',
+                    'Grey/white, conventional',
+                    'Grey/white, perfusion',
+                ],
+                rows,
+                tuple(range(1, 8)),
+            )
+        }
+<p class="note">Coregistration error against truth (mm RMS over the brain). Default BBR sign unless
+stated. "Fell back" means FLIRT-BBR moved too far from its initialization and the initialization was
+kept, as fMRIPrep does.</p>
+<p>The 3D GRASE fixture explains its 1 mm coregistration error. Its conventional reference has white
+matter brighter than grey (grey/white {fmt(gv('conventional', col='gm_wm_ratio'), 2)}), so BBR's
+default sign, which assumes the opposite, fails ({
+            fmt(gv('conventional', col='bbr_rms_mm'), 1)
+        } mm) and
+the run silently falls back to <code>mri_coreg</code> ({fmt(gv('conventional'), 2)} mm). With the
+opposite sign the same reference registers to {fmt(gv('conventional', 'opposite'), 2)} mm. The
+perfusion image (grey/white about {
+            fmt(gv('P-robust', col='gm_wm_ratio'), 1)
+        }) avoids the problem and
+reaches {
+            fmt(gv('P-robust'), 2)
+        } mm, but on every other fixture the conventional reference registers
+better. Choosing the BBR sign from the reference's measured contrast, which the plan already calls
+for, may be the simpler fix.</p>""")
+    e = root / 'harness-runs' / 'perfusion_c0.tsv'
+    if e.exists():
+        p = pd.read_csv(e, sep='\t')
+        p = p[p.edge_r.notna()]
+        med = p.groupby('family').edge_r.median().sort_values()
+        strip = strip_plot(
+            med.index.tolist(),
+            [p.loc[p.family == fm, 'edge_r'] for fm in med.index],
+            'edge statistic (split-half correlation of gradient magnitude)',
+            xmax=1.0,
+            label='Perfusion-image eligibility',
+        )
+        out.append(f"""
+<h3>Which real runs could use a perfusion image</h3>
+<p>A run is eligible for the perfusion reference only if its perfusion image has reproducible edges.
+The statistic correlates the gradient magnitude of two half-run perfusion images. On the
+{len(p)} real runs with control-label pairs, stack-of-spirals runs are far above every other family
+(median {fmt(med.max(), 2)}); most families sit near the placeholder limit of 0.5, so its calibration
+will decide eligibility for them.</p>
+{figure(strip, 'Edge statistic per real run, by family; the tick is the median.', fig)}""")
+    r = root / 'coreg-5b-real' / 'coreg_5b_real.tsv'
+    if r.exists():
+        d = pd.read_csv(r, sep='\t')
+        d = d[(d.source == 'P-robust') & (d.sign == 'default') & d.vs_conventional_mm.notna()]
+        if len(d):
+            med = d.groupby('family').vs_conventional_mm.median().sort_values()
+            strip = strip_plot(
+                med.index.tolist(),
+                [d.loc[d.family == fm, 'vs_conventional_mm'] for fm in med.index],
+                'distance between the perfusion and conventional registrations (mm)',
+                label='Coregistration disagreement',
+                color='var(--s-c8)',
+            )
+            out.append(f"""
+<p>On real data there is no truth, only disagreement. Across {len(d)} runs the perfusion
+registration lands a median {fmt(d.vs_conventional_mm.median(), 2)} mm from the conventional one, and
+{(d.vs_conventional_mm > 1).mean() * 100:.0f}% of runs differ by more than 1 mm. Those runs are what the
+blind review has to adjudicate.</p>
+{figure(strip, 'Distance between the P-robust and the conventional coregistration per run.', fig + 1)}""")
+    if not out:
+        return ''
+    return f'<section id="coreg"><h2>A perfusion image as the coregistration reference (#672)</h2>{"".join(out)}</section>'
+
+
 CSS = """
 :root {
   /* Layout: one reading column (about 70 characters) with figures allowed a little wider. */
@@ -1114,8 +1421,13 @@ def build(root):
     fig += 2
     zig = section_zigzag(root, df, fig)
     fig += 2
+    engines = section_engines(root, fig)
+    fig += 1
+    policy = section_policy(df, fig)
     consumers = section_consumers(root)
     real = section_real(root, fig)
+    fig += 2
+    coreg = section_coreg(root, fig)
 
     piv = df.pivot_table(index='fixture', columns='label', values='dm_edge')
     med = piv.median()
@@ -1141,6 +1453,12 @@ templates whenever the head moves.</li>
 real motion</b> (median {fmt(med.get('c8'), 2)}). Spikes alias onto the alternation (a Huber fit fixes
 that), and drift is removed with it (nothing fixes that). Their exact parameter convention changes
 nothing.</li>
+<li><b>AFNI 3dvolreg is the most precise engine for same-contrast templates</b>, but the cross-contrast
+step between templates still limits pair alignment, so no C1/C2 variant beats production on
+subtraction yet.</li>
+<li><b>ASLPrep's 1 mm GRASE coregistration error is a BBR sign problem.</b> White matter is brighter than
+grey in that reference, BBR fails and the run falls back to its initialization; the opposite sign
+registers it to under 0.5 mm.</li>
 </ul>"""
     return f"""{head}
 <div class="wrap">
@@ -1153,11 +1471,12 @@ alternative does better, tested on simulated data with known truth and on the as
 #673, #700, #672 · development fixtures only; held-out fixtures and real-data candidate runs are pending.</p>
 <nav class="toc" aria-label="Sections">
 <a href="#noise">Noise and cost</a><a href="#blur">Blur bias</a><a href="#screen">Candidate screen</a>
-<a href="#zigzag">Zig-zag regression</a><a href="#consumers">Reference consumers</a><a href="#real">Real data</a>
+<a href="#zigzag">Zig-zag regression</a><a href="#engines">Engines and short list</a>
+<a href="#consumers">Reference consumers</a><a href="#real">Real data</a><a href="#coreg">Perfusion coregistration</a>
 <a href="#next">Next steps</a></nav>
 </header>
 <section id="summary"><h2>Findings so far</h2>{summary}</section>
-{noise}{blur}{screen}{zig}{consumers}{real}
+{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}
 <section id="next">
 <h2>Caveats and next steps</h2>
 <ul>
