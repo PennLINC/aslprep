@@ -38,7 +38,9 @@ BASE_INPUT_FIELDS = {
         'suffix': 'att',
         'Units': 's',
         'Description': (
-            'Arterial transit time. The time taken for the labeled blood water to reach the voxel. '
+            'Arterial transit time. The time from labeling until the labeled blood water first '
+            'arrives in the voxel. '
+            'It depends on where the labeling plane or slab was placed. '
             'Where a range of values fits the data equally well, this is one value from the range, '
             'and the ends of the range are in the desc-lower and desc-upper maps.'
         ),
@@ -48,7 +50,8 @@ BASE_INPUT_FIELDS = {
         'Units': 's',
         'Description': (
             'Arterial bolus arrival time. '
-            'The first arrival of the labeled blood water in the voxel within the arterial vessel. '
+            'The time from labeling until the labeled blood water first arrives in the arteries '
+            'within the voxel. This is not the tissue arterial transit time (att). '
             'The data only locate it within an interval set by the sampled delays, '
             'so this is the midpoint of that interval, '
             'and the ends of the interval are in the desc-lower and desc-upper maps.'
@@ -162,7 +165,8 @@ BASE_INPUT_FIELDS = {
         'Units': 's',
         'Description': (
             'Arterial transit time, estimated by BASIL. '
-            'The time taken for the labeled blood water to reach the voxel.'
+            'The time from labeling until the labeled blood water first arrives in the voxel. '
+            'It depends on where the labeling plane or slab was placed.'
         ),
     },
     'abv_basil': {

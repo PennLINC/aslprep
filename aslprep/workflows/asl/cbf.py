@@ -22,6 +22,9 @@ from aslprep.interfaces.cbf import (
 )
 from aslprep.interfaces.parcellation import NiftiParcellate
 from aslprep.utils.asl import (
+    BOLUS_CUTOFF_TECHNIQUES,
+    describe_asl_acquisition,
+    describe_labeling_efficiency,
     determine_multi_pld,
     estimate_labeling_efficiency,
     get_bolus_duration,
@@ -32,6 +35,7 @@ from aslprep.utils.asl import (
 )
 from aslprep.utils.cbf import (
     M0_THRESHOLD,
+    PARTITION_COEFFICIENT,
     REFERENCE_HAEMATOCRIT,
     estimate_t1,
     haematocrit_applies,
@@ -119,7 +123,11 @@ def init_cbf_wf(
     """
     workflow = Workflow(name=name)
 
-    workflow.__desc__ = """
+    workflow.__desc__ = f"""
+
+ASL acquisition
+
+: {describe_asl_acquisition(metadata=metadata, aslcontext=aslcontext)}
 
 Cerebral blood flow computation and denoising
 
@@ -145,10 +153,13 @@ Cerebral blood flow computation and denoising
             f'calculated. '
         )
         if isinstance(m0tr, Number) and m0tr < 5:
+            _, t1tissue = estimate_t1(metadata=metadata)
             m0_str += (
                 f'As the TR of the calibration volumes was less than 5 seconds ({m0tr}), '
-                'the average calibration volume was scaled by the T1tissue estimate in order to '
-                'compensate for T1 relaxation, as recommended in @alsop_recommended_2015. '
+                'the average calibration volume was divided by 1 - exp(-TR / T1) to '
+                'compensate for incomplete T1 recovery, as recommended in '
+                f'@alsop_recommended_2015, using a gray matter T1 of {t1tissue:g} s '
+                '[@wright2008water]. '
             )
 
         m0_str += f'The calibration volume was then scaled by {m0_scale}.'
@@ -161,7 +172,7 @@ Cerebral blood flow computation and denoising
     else:
         m0_str = (
             f'As no calibration images or provided M0 estimate was available for the ASL scan, '
-            'the control volumes used as a substitute. '
+            'the control volumes were used as a substitute. '
             'The control volumes in the ASL scans were smoothed with a '
             f'Gaussian kernel (FWHM={smooth_kernel} mm) and the average control image was '
             f'calculated and scaled by {m0_scale}.'
@@ -194,10 +205,14 @@ Cerebral blood flow computation and denoising
 This model contains separate terms for tissue and macrovascular delta-M signals.
 
 {m0_str}
-The voxel-wise M0 values were used as both M0a and M0b in the GKM.
+The equilibrium magnetization of arterial blood (M0b) was estimated voxel-wise as
+M0 divided by the blood-brain partition coefficient,
+and was used in both the tissue and the macrovascular terms of the GKM.
 
-CBF, arterial transit time (ATT), arterial bolus arrival time (aBAT),
-and arterial blood volume (aBV) were estimated with a bounded least squares fit.
+CBF, arterial transit time (ATT; the arrival time of the labeled blood in the tissue),
+arterial bolus arrival time (aBAT; the arrival time of the labeled blood in the arteries
+within each voxel), and arterial blood volume (aBV) were estimated with a bounded least squares
+fit.
 Because the model is linear in CBF and aBV for fixed ATT and aBAT,
 ATT and aBAT were found by a grid search,
 with CBF and aBV solved exactly for each candidate.
@@ -216,7 +231,7 @@ and are written out with the native-space outputs.{abv_str}{
         # Single-delay (P)CASL data
         workflow.__desc__ += f"""\
 : *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
-{metadata['ArterialSpinLabelingType']} using a single-compartment general kinetic model
+{metadata['ArterialSpinLabelingType']} data using a one-compartment general kinetic model
 [@buxton1998general].
 {m0_str}
 """
@@ -224,22 +239,28 @@ and are written out with the native-space outputs.{abv_str}{
     else:
         # Single-delay PASL data, with different bolus cut-off techniques
         bcut = metadata.get('BolusCutOffTechnique')
+        bcut_name, bcut_citation = BOLUS_CUTOFF_TECHNIQUES.get(bcut, (bcut, None))
+        # Sources of the CBF formula for each technique
         singlepld_pasl_strs = {
             'QUIPSS': '@wong1998quantitative',
             'QUIPSSII': '@alsop_recommended_2015',
-            'Q2TIPS': '@noguchi2015technical',
+            'Q2TIPS': '@alsop_recommended_2015 and @noguchi2015technical',
         }
+        bcut_str = f'the {bcut_name} bolus cut-off technique'
+        if bcut_citation:
+            bcut_str += f' [{bcut_citation}]'
 
         workflow.__desc__ += f"""\
-: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL
-using a single-compartment general kinetic model [@buxton1998general]
-using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay PASL data
+using a one-compartment general kinetic model [@buxton1998general]
+modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_citation)}.
 {m0_str}
 """
 
     if 'SliceTiming' in metadata:
+        delay_name = 'post-labeling delays' if is_casl else 'inversion times'
         workflow.__desc__ += (
-            'Prior to calculating CBF, post-labeling delay values were shifted on a slice-wise '
+            f'Prior to calculating CBF, the {delay_name} were shifted on a slice-wise '
             'basis based on the slice timing.'
         )
 
@@ -255,6 +276,21 @@ using the {bcut} modification, as described in {singlepld_pasl_strs[bcut]}.
                 f'a typical haematocrit of {REFERENCE_HAEMATOCRIT:g} [@lu2004determining], '
                 'using the model of @hales2016general.'
             )
+        else:
+            field_strength = metadata['MagneticFieldStrength']
+            t1blood_citation = (
+                '@alsop_recommended_2015' if field_strength in (1.5, 3) else '@zhang2013vivo'
+            )
+            workflow.__desc__ += (
+                f' The T1 of arterial blood was set to {t1blood:g} s, '
+                f'the value for {field_strength:g} T [{t1blood_citation}].'
+            )
+
+        workflow.__desc__ += (
+            ' CBF was calculated with a blood-brain partition coefficient of '
+            f'{PARTITION_COEFFICIENT:g} mL/g [@alsop_recommended_2015] and '
+            f'{describe_labeling_efficiency(metadata)}.'
+        )
 
     inputnode = pe.Node(
         niu.IdentityInterface(

@@ -6,6 +6,8 @@ import pytest
 from aslprep import config
 from aslprep.utils.asl import (
     count_reduced_volumes,
+    describe_asl_acquisition,
+    describe_labeling_efficiency,
     estimate_labeling_efficiency,
     ignore_volume_types,
     infer_m0tr,
@@ -320,6 +322,145 @@ def test_estimate_labeling_efficiency_missing_pulse_count(sidecar, monkeypatch):
     assert labeleff == pytest.approx(sidecar.get('LabelingEfficiency', 0.85) * 0.95)
     assert len(messages) == 1
     assert 'BackgroundSuppressionNumberPulses is not defined' in messages[0]
+
+
+def test_estimate_labeling_efficiency_no_warning(monkeypatch):
+    """The boilerplate can ask for the same value without repeating the warning."""
+    messages = []
+    monkeypatch.setattr(config.loggers.utils, 'warning', messages.append)
+    metadata = {'ArterialSpinLabelingType': 'PCASL', 'BackgroundSuppression': True}
+
+    assert estimate_labeling_efficiency(metadata, warn=False) == pytest.approx(0.85 * 0.95)
+    assert not messages
+
+
+@pytest.mark.parametrize(
+    ('metadata', 'expected'),
+    [
+        (
+            {'ArterialSpinLabelingType': 'PCASL', 'BackgroundSuppression': False},
+            ['a labeling efficiency of 0.85', 'typical labeling efficiency for PCASL'],
+        ),
+        (
+            {'ArterialSpinLabelingType': 'CASL'},
+            ['a labeling efficiency of 0.68', '@wang2005amplitude'],
+        ),
+        (
+            {
+                'ArterialSpinLabelingType': 'PCASL',
+                'LabelingEfficiency': 0.8,
+                'BackgroundSuppression': True,
+                'BackgroundSuppressionNumberPulses': 2,
+            },
+            [
+                'a labeling efficiency of 0.722',
+                'labeling efficiency in the BIDS metadata',
+                'each of the 2 background suppression pulses',
+            ],
+        ),
+        (
+            {'ArterialSpinLabelingType': 'PASL', 'BackgroundSuppression': True},
+            ['a labeling efficiency of 0.931', 'which was assumed'],
+        ),
+    ],
+)
+def test_describe_labeling_efficiency(metadata, expected):
+    """The description reports the value that estimate_labeling_efficiency returns."""
+    description = describe_labeling_efficiency(metadata)
+    for text in expected:
+        assert text in description
+
+
+def test_describe_asl_acquisition_pcasl():
+    """Multi-delay PCASL reports the OSIPI parameters in the sidecar, ignoring M0 volumes."""
+    import pandas as pd
+
+    volume_types = ['m0scan', 'control', 'label', 'control', 'label', 'control', 'label']
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PCASLType': 'unbalanced',
+        'BackgroundSuppression': True,
+        'BackgroundSuppressionNumberPulses': 2,
+        'BackgroundSuppressionPulseTime': [1.2, 2.1],
+        'LabelingDuration': 1.8,
+        'PostLabelingDelay': [0, 1.0, 1.0, 1.5, 1.5, 2.0, 2.0],
+        'AcquisitionVoxelSize': [3.5, 3.5, 4],
+        'VascularCrushing': False,
+        'LabelingDistance': -90,
+        'LabelingPulseAverageGradient': 0.6,
+        'LabelingPulseDuration': 0.5,
+    }
+    description = describe_asl_acquisition(metadata, pd.DataFrame({'volume_type': volume_types}))
+
+    assert description.startswith(
+        'The ASL data were acquired with an unbalanced pseudo-continuous ASL (PCASL) sequence, '
+        'with background suppression (2 pulses).'
+    )
+    assert 'applied 1.2 and 2.1 s after the start of labeling' in description
+    assert (
+        'The labeling duration was 1.8 s and the post-labeling delays were 1, 1.5, and 2 s.'
+    ) in description
+    assert 'The ASL file contained 3 control-label pairs.' in description
+    assert 'The acquisition voxel size was 3.5 x 3.5 x 4 mm.' in description
+    assert 'No vascular crushing was applied.' in description
+    assert 'center of the labeling plane was 90 mm from the center' in description
+    assert (
+        'The labeling pulses had an average gradient of 0.6 mT/m and a duration of 0.5 ms.'
+    ) in description
+
+
+def test_describe_asl_acquisition_pasl(tmp_path):
+    """PASL reports inversion times and the bolus cut-off, and nothing it does not know."""
+    aslcontext = _write_volume_types(tmp_path, ['label', 'control'] * 4)
+    metadata = {
+        'ArterialSpinLabelingType': 'PASL',
+        'PASLType': 'PICORE',
+        'PostLabelingDelay': 1.8,
+        'BolusCutOffFlag': True,
+        'BolusCutOffTechnique': 'Q2TIPS',
+        'BolusCutOffDelayTime': [0.7, 1.6],
+        'TotalAcquiredPairs': 40,
+        'VascularCrushing': True,
+        'VascularCrushingVENC': 4,
+        'LabelingSlabThickness': 100,
+        'LabelingPulseDuration': 10,
+    }
+    description = describe_asl_acquisition(metadata, aslcontext)
+
+    assert 'with a pulsed ASL (PASL, PICORE) sequence.' in description
+    assert 'background suppression' not in description
+    assert 'The inversion time was 1.8 s.' in description
+    assert 'post-labeling delay' not in description
+    assert (
+        'The Q2TIPS bolus cut-off technique was used [@luh1999quipss], with a bolus cut-off '
+        'delay time (TI1) of 0.7 s and a last saturation pulse (TI1s) at 1.6 s.'
+    ) in description
+    assert 'A total of 40 control-label pairs were acquired.' in description
+    assert 'The ASL file contained' not in description
+    assert 'Vascular crushing was applied (VENC = 4 cm/s).' in description
+    assert 'The labeling slab was 100 mm thick.' in description
+    # Pulse parameters only apply to (P)CASL
+    assert 'labeling pulses' not in description
+    assert 'voxel size' not in description
+
+
+def test_describe_asl_acquisition_scanner_volumes():
+    """Files without control-label pairs report the scanner-calculated volumes instead."""
+    import pandas as pd
+
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'BackgroundSuppression': True,
+        'BolusCutOffFlag': False,
+        'PostLabelingDelay': 2.025,
+    }
+    aslcontext = pd.DataFrame({'volume_type': ['deltam', 'm0scan']})
+    description = describe_asl_acquisition(metadata, aslcontext)
+
+    assert 'a pseudo-continuous ASL (PCASL) sequence, with background suppression.' in description
+    assert 'The post-labeling delay was 2.025 s.' in description
+    assert 'The ASL file contained 1 delta-M volume calculated on the scanner.' in description
+    assert 'bolus cut-off' not in description
 
 
 def _write_volume_types(tmp_path, volume_types):

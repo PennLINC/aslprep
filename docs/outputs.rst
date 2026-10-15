@@ -343,14 +343,14 @@ CBF Outputs::
       perf/
          <source_entities>[_space-<label>]_cbf.nii.gz  # mean CBF
          <source_entities>[_space-<label>]_desc-timeseries_cbf.nii.gz  # computed CBF timeseries
-         <source_entities>[_space-<label>]_att.nii.gz  # arterial transit time (multi-PLD data only)
-         <source_entities>[_space-<label>]_abv.nii.gz  # arterial blood volume (multi-PLD data only)
-         <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-PLD data only)
-         <source_entities>_desc-<lower|upper>_att.nii.gz  # range of equally good arterial transit times (multi-PLD data only)
-         <source_entities>_desc-<lower|upper>_abat.nii.gz  # range of equally good arterial bolus arrival times (multi-PLD data only)
-         <source_entities>[_space-<label>]_desc-decayed_abv.nii.gz  # arterial blood volume times exp(-aBAT / T1blood) (multi-PLD (P)CASL data only)
+         <source_entities>[_space-<label>]_att.nii.gz  # arterial transit time (multi-delay data only)
+         <source_entities>[_space-<label>]_abv.nii.gz  # arterial blood volume (multi-delay data only)
+         <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-delay data only)
+         <source_entities>_desc-<lower|upper>_att.nii.gz  # range of equally good arterial transit times (multi-delay data only)
+         <source_entities>_desc-<lower|upper>_abat.nii.gz  # range of equally good arterial bolus arrival times (multi-delay data only)
+         <source_entities>[_space-<label>]_desc-decayed_abv.nii.gz  # arterial blood volume times exp(-aBAT / T1blood) (multi-delay (P)CASL data only)
 
-For multi-PLD data, the model cannot always locate the arterial transit time
+For multi-delay data, the model cannot always locate the arterial transit time
 or the arterial bolus arrival time, and the ``att`` and ``abat`` maps then hold one value from
 the range of values that fit equally well.
 The ``desc-lower`` and ``desc-upper`` maps hold the ends of that range.
@@ -375,12 +375,12 @@ If ``--basil`` is used::
          <source_entities>[_space-<label>]_desc-basil_cbf.nii.gz  # mean CBF computed with BASIL
          <source_entities>[_space-<label>]_desc-basilGM_cbf.nii.gz  # GM partial volume corrected CBF with BASIL
          <source_entities>[_space-<label>]_desc-basilWM_cbf.nii.gz  # WM partial volume corrected CBF with BASIL
-         <source_entities>[_space-<label>]_desc-basil_att.nii.gz  # arterial transit time (multi-PLD data only)
-         <source_entities>[_space-<label>]_desc-basil_abv.nii.gz  # arterial blood volume (multi-PLD data only)
+         <source_entities>[_space-<label>]_desc-basil_att.nii.gz  # arterial transit time (multi-delay data only)
+         <source_entities>[_space-<label>]_desc-basil_abv.nii.gz  # arterial blood volume (multi-delay data only)
          <source_entities>[_space-<label>]_desc-basilSD_cbf.nii.gz  # posterior SD of desc-basil_cbf
          <source_entities>[_space-<label>]_desc-basilGMSD_cbf.nii.gz  # posterior SD of desc-basilGM_cbf
          <source_entities>[_space-<label>]_desc-basilWMSD_cbf.nii.gz  # posterior SD of desc-basilWM_cbf
-         <source_entities>[_space-<label>]_desc-basilSD_att.nii.gz  # posterior SD of desc-basil_att (multi-PLD data only)
+         <source_entities>[_space-<label>]_desc-basilSD_att.nii.gz  # posterior SD of desc-basil_att (multi-delay data only)
 
 .. _basil_outputs:
 
@@ -481,7 +481,7 @@ for a full description of these files, and :ref:`the BASIL section <basil_workfl
 ASL Confounds
 *************
 
-For each :abbr:`ASL (arterial spin labelling)` run processed with *ASLPrep*, an
+For each :abbr:`ASL (arterial spin labeling)` run processed with *ASLPrep*, an
 accompanying *confounds* file will be generated.
 The confounds are saved as a :abbr:`TSV (tab-separated value)` file::
 
@@ -492,7 +492,7 @@ The confounds are saved as a :abbr:`TSV (tab-separated value)` file::
 
 These :abbr:`TSV (tab-separated values)` tables look like the example below,
 where each row of the file corresponds to one time point found in the
-corresponding :abbr:`ASL (arterial spin labelling)` time series::
+corresponding :abbr:`ASL (arterial spin labeling)` time series::
 
      std_dvars	dvars	framewise_displacement	trans_x	trans_y	trans_z	rot_x	rot_y	rot_z
      n/a	n/a	n/a	0	0	0	-0.00017029	0	0
@@ -520,7 +520,7 @@ CBF Quality Control
 
 The following QC measures were estimated: framewise displacement and relative root mean square (relRMS).
 Other QC measurers include Dice and Jaccard indices, cross-correlation,
-coverage estimates of the coregistration quality of :abbr:`ASL (arterial spin labelling)` and T1w images,
+coverage estimates of the coregistration quality of :abbr:`ASL (arterial spin labeling)` and T1w images,
 and normalization quality of ASL image to the template.
 The quality evaluation index (QEI) was also computed for CBF [Sudipto Dolui 2016].
 The QEI is included for objective quality evaluation of CBF maps.
