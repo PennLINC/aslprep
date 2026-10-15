@@ -1703,8 +1703,8 @@ packages:
   timestamp: 1760831179410
 - pypi: ./
   name: aslprep
-  version: 26.1.0.dev43+g2bf626f95
-  sha256: f85eb27f72d24662bee8a778da71d380313124ddfc4afae3ce5133f7bd212148
+  version: 26.1.0.dev43+g5ef6bd952
+  sha256: b149ff8c244028fba2f5f954a9533f9ac9186159136ccca7fa7ebf27488c44a3
   requires_dist:
   - acres>=0.5.0
   - fmriprep~=25.2.6
@@ -1721,7 +1721,7 @@ packages:
   - packaging>=24
   - pandas>=2.2.3
   - psutil>=5.9.6
-  - pybids>=0.18.1
+  - pybids>=0.21.0
   - requests>=2.27
   - sdcflows>=2.15.2
   - sentry-sdk
@@ -1776,8 +1776,8 @@ packages:
   editable: true
 - pypi: ./
   name: aslprep
-  version: 26.1.0.dev43+g2bf626f95
-  sha256: f85eb27f72d24662bee8a778da71d380313124ddfc4afae3ce5133f7bd212148
+  version: 26.1.0.dev43+g5ef6bd952
+  sha256: b149ff8c244028fba2f5f954a9533f9ac9186159136ccca7fa7ebf27488c44a3
   requires_dist:
   - acres>=0.5.0
   - fmriprep~=25.2.6
@@ -1794,7 +1794,7 @@ packages:
   - packaging>=24
   - pandas>=2.2.3
   - psutil>=5.9.6
-  - pybids>=0.18.1
+  - pybids>=0.21.0
   - requests>=2.27
   - sdcflows>=2.15.2
   - sentry-sdk
