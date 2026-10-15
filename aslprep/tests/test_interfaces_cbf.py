@@ -425,8 +425,14 @@ def test_computecbf_q2tips_uses_inversion_time(acq_dict, tmp_path):
             'BolusCutOffTechnique': 'QUIPSS',
             'BolusCutOffDelayTime': 0.7,
         },
+        {
+            'ArterialSpinLabelingType': 'PASL',
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'Q2TIPS',
+            'BolusCutOffDelayTime': [0.7, 1.6],
+        },
     ],
-    ids=['pcasl', 'quipss2', 'quipss'],
+    ids=['pcasl', 'quipss2', 'quipss', 'q2tips'],
 )
 @pytest.mark.parametrize(
     'acq_dict',
@@ -441,11 +447,16 @@ def test_computecbf_calibration_outputs(labeling, acq_dict, m0tr, tmp_path):
     """The calibration outputs reproduce the CBF quantification (PVC spec test 6).
 
     Mean CBF times the calibration M0 is the time-averaged q * delta-M (the M0-free signal
-    regressed by partial volume correction), and voxels zeroed for low M0 are not valid.
+    regressed by partial volume correction), with q and the TR correction computed
+    independently (:mod:`aslprep.tests.truth_models`). Voxels zeroed for low M0, and voxels
+    with a non-finite delta-M sample, are not valid.
     """
+    from aslprep.tests import truth_models as tm
+
     rng = np.random.default_rng(0)
     shape = (10, 11, 12)
     deltam = rng.normal(50, 10, (*shape, 4)).astype(np.float32)
+    deltam[5, 5, 5, 1] = np.nan  # a missing sample: the masker would turn it into zero
     deltam_file = _save_img(deltam, tmp_path, 'deltam.nii.gz')
     m0 = rng.uniform(800, 1200, shape).astype(np.float32)
     m0[:2] = 1.0  # almost no signal: zeroed, so not quantifiable
@@ -465,26 +476,33 @@ def test_computecbf_calibration_outputs(labeling, acq_dict, m0tr, tmp_path):
     mean_cbf = nb.load(results.outputs.mean_cbf).get_fdata()
     m0_calib = nb.load(results.outputs.m0_calib).get_fdata()
     quant_valid = nb.load(results.outputs.quant_valid).get_fdata().astype(bool)
-    assert quant_valid[2:].all()
-    assert not quant_valid[:2].any()
+    expected_valid = np.ones(shape, bool)
+    expected_valid[:2] = False
+    expected_valid[5, 5, 5] = False
+    np.testing.assert_array_equal(quant_valid, expected_valid)
     assert np.all(m0_calib[:2] == 0)
-    # Away from the zeroed voxels, the calibration is the scaled M0 (times the TR correction).
-    ratio = m0_calib[2:] / m0[2:]
-    np.testing.assert_allclose(ratio, ratio.flat[0], rtol=1e-5)
-    if m0tr is None:
-        assert ratio.flat[0] == pytest.approx(2.0)
-    else:
-        assert ratio.flat[0] > 2.0
 
-    # mean CBF * M0 is q * mean(delta-M), with q (the M0-free quantification factor) constant
-    # within each slice, and across slices without slice timing.
-    q = (mean_cbf * m0_calib / deltam.mean(axis=3))[2:]
-    for k in range(shape[2]):
-        np.testing.assert_allclose(q[..., k], q[0, 0, k], rtol=1e-4)
-    if 'SliceTiming' in acq_dict:
-        assert not np.isclose(q[0, 0, -1], q[0, 0, 0], rtol=1e-3)  # delays differ by slice
+    # The calibration is the scaled M0, corrected for incomplete recovery when TR < 5 s.
+    expected_m0 = tm.m0_tr_correction(2.0 * m0.astype(float), m0tr, 3)
+    np.testing.assert_allclose(m0_calib[2:], expected_m0[2:], rtol=1e-5)
+
+    # mean CBF * M0 is q * mean(delta-M), with q from the independent model.
+    pld = tm.pld_map(metadata, shape)
+    alpha = tm.labeling_efficiency(metadata)
+    if labeling.get('BolusCutOffTechnique') == 'QUIPSS':
+        # Wong 1998: the bolus duration is TI - TI1, per voxel
+        t1b = tm.T1_BLOOD[3]
+        q = (
+            tm.UNIT_CONVERSION
+            * tm.LAMBDA
+            * np.exp(pld / t1b)
+            / (2 * alpha * (pld - labeling['BolusCutOffDelayTime']))
+        )
     else:
-        np.testing.assert_allclose(q, q[0, 0, 0], rtol=1e-4)
+        q = tm.cbf_single_delay(np.ones(shape), np.ones(shape), metadata, alpha, pld)
+    signal = mean_cbf * m0_calib
+    expected = q * deltam.astype(float).mean(axis=3)
+    np.testing.assert_allclose(signal[quant_valid], expected[quant_valid], rtol=1e-4)
 
 
 def test_computecbf_calibration_outputs_multipld(tmp_path):

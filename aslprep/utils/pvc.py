@@ -215,8 +215,8 @@ def resolve_effective_resolution(option, metadata, voxel_size, slice_axis):
     values = [float(v) for v in option]
     if len(values) != 3:
         raise ValueError(f'Expected three effective-resolution values, got {values}.')
-    if any(v <= 0 for v in values):
-        raise ValueError(f'Effective-resolution values must be positive, got {values}.')
+    if not all(np.isfinite(v) and v > 0 for v in values):
+        raise ValueError(f'Effective-resolution values must be finite and positive, got {values}.')
     fwhm = kernel_size_to_axes(values, slice_axis)
     too_small = [
         (ax, f, v) for ax, (f, v) in enumerate(zip(fwhm, voxel_size, strict=True)) if f < v - 1e-6

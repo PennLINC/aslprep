@@ -2,6 +2,7 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Parser."""
 
+import math
 import sys
 from pathlib import Path
 
@@ -894,8 +895,10 @@ def _parse_effective_resolution(values, parser):
         fwhm = [float(v) for v in values]
     except ValueError:
         parser.error(f'--asl-effective-resolution values must be numbers. Received {values}.')
-    if any(v <= 0 for v in fwhm):
-        parser.error(f'--asl-effective-resolution values must be positive. Received {values}.')
+    if not all(math.isfinite(v) and v > 0 for v in fwhm):
+        parser.error(
+            f'--asl-effective-resolution values must be finite and positive. Received {values}.'
+        )
     return fwhm
 
 

@@ -80,8 +80,9 @@ def test_resolve_effective_resolution_rejects_bad_values():
     """User FWHMs below the voxel size, or non-positive, are rejected."""
     with pytest.raises(ValueError, match='finer than the voxel size'):
         pvc.resolve_effective_resolution([2.0, 3.0, 4.0], {}, (3.0, 3.0, 4.0), slice_axis=2)
-    with pytest.raises(ValueError, match='positive'):
-        pvc.resolve_effective_resolution([3.0, -3.0, 4.0], {}, (3.0, 3.0, 4.0), slice_axis=2)
+    for bad in (-3.0, np.nan, np.inf):
+        with pytest.raises(ValueError, match='finite and positive'):
+            pvc.resolve_effective_resolution([3.0, bad, 4.0], {}, (3.0, 3.0, 4.0), slice_axis=2)
     with pytest.raises(ValueError, match='three'):
         pvc.resolve_effective_resolution([3.0, 4.0], {}, (3.0, 3.0, 4.0), slice_axis=2)
 

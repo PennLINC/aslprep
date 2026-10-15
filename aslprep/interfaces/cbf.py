@@ -775,10 +775,23 @@ class ComputeCBF(SimpleInterface):
 
             # The calibration image and where quantification succeeded, for partial volume
             # correction, which regresses CBF * M0 (the M0-free signal) and divides by M0 again.
+            # The masker replaces non-finite values with zeros, so finiteness is taken from the
+            # images themselves, mapped through the same masker to keep the voxel order.
+            def _all_finite(in_file):
+                img = nb.load(in_file)
+                finite = np.isfinite(img.get_fdata())
+                if finite.ndim == 4:
+                    finite = finite.all(axis=3)
+                return (
+                    masker.transform(nb.Nifti1Image(finite.astype(np.uint8), img.affine)).ravel()
+                    > 0
+                )
+
             quant_valid = (
                 np.isfinite(scaled_m0data)
                 & (scaled_m0data > 0)
-                & np.all(np.isfinite(deltam_arr), axis=1)
+                & _all_finite(deltam_file)
+                & _all_finite(m0_file)
                 & np.all(np.isfinite(np.broadcast_to(perfusion_factor, deltam_arr.shape)), axis=1)
             )
             self._results['m0_calib'] = fname_presuffix(
