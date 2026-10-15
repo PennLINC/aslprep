@@ -401,7 +401,7 @@ def test_basil_sd_output_metadata():
     from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
 
     names = {
-        field: (spec['desc'], spec['suffix'])
+        field: (spec.get('label'), spec['desc'], spec['suffix'])
         for field, spec in BASE_INPUT_FIELDS.items()
         if 'desc' in spec
     }

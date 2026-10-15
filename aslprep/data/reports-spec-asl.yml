@@ -254,6 +254,19 @@ sections:
       BASIL gray matter partial volume-corrected output, separated by tissue type.
       The unit is mL/100 g/min.
     subtitle: BASIL GM-PVC CBF by Tissue Type
+  - bids: {datatype: figures, desc: lrGM, suffix: cbf, extension: [.svg]}
+    caption: |
+      The maps plot gray matter cerebral blood flow (CBF) after partial volume correction by
+      local linear regression. Voxels where it was not estimated are zero.
+      The unit is mL/100 g/min.
+    subtitle: Local-regression GM-PVC CBF
+  - bids: {datatype: figures, desc: lr, suffix: pvc, extension: [.svg]}
+    caption: |
+      Local-regression partial volume correction diagnostics: the gray matter fraction at the
+      acquisition's effective resolution, the fit status of each voxel, the noise amplification
+      of the gray matter estimate, and the distributions of uncorrected and corrected CBF where
+      gray matter CBF was estimated.
+    subtitle: Local-regression PVC diagnostics
 
 - name: About
   reportlets:

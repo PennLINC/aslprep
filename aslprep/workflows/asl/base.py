@@ -37,7 +37,9 @@ from aslprep.workflows.asl.outputs import (
     _remove_keys,
     init_ds_asl_native_wf,
     init_ds_ciftis_wf,
+    init_ds_pvc_native_wf,
     init_ds_volumes_wf,
+    lr_pvc_names,
 )
 from aslprep.workflows.asl.plotting import init_cbf_reporting_wf
 
@@ -319,6 +321,21 @@ def init_asl_wf(
 
     cbf_derivs = att_derivs + cbf_3d_derivs + cbf_4d_derivs
 
+    # Local-regression partial volume correction outputs.
+    # The corrected maps are only estimated in some voxels, so they are resampled and
+    # parcellated with their validity masks (lr_sparse: map -> mask). Their standard errors and
+    # fit diagnostics are only meaningful in aslref space (lr_native).
+    lr_sources = []
+    if config.workflow.pvc_method == 'local-regression':
+        lr_sources = ['mean_cbf'] + (['mean_cbf_score'] if scorescrub else [])
+    lr_sparse = {}
+    lr_native = []
+    for source in lr_sources:
+        lr_names = lr_pvc_names(source)
+        lr_sparse.update(lr_names['valid'])
+        lr_native += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics']
+    lr_resampled = list(lr_sparse) + sorted(set(lr_sparse.values()))
+
     # Build workflow
     workflow = Workflow(name=_get_wf_name(asl_file, 'asl'))
     workflow.__desc__ = f"""
@@ -333,6 +350,12 @@ Resampling
 Gridded (volumetric) resampling was performed using `antsApplyTransforms`,
 configured with *Lanczos* interpolation to minimize the smoothing effects of other kernels
 [@lanczos].
+"""
+    if lr_sources:
+        workflow.__postdesc__ += """\
+The partial-volume corrected CBF maps, which are only estimated in some voxels,
+were instead resampled with linear interpolation normalized by the resampled mask of estimated
+voxels, so that voxels without an estimate did not blend into neighboring estimates.
 """
 
     inputnode = pe.Node(
@@ -468,6 +491,9 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         aslcontext=run_data['aslcontext'],
         metadata=metadata,
         m0scan_metadata=run_data['m0scan_metadata'],
+        pvc_method=config.workflow.pvc_method,
+        pvc_kernel_size=tuple(config.workflow.pvc_kernel_size),
+        asl_effective_resolution=config.workflow.asl_effective_resolution,
         name='cbf_wf',
     )
     workflow.connect([
@@ -535,6 +561,22 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             (cbf_wf, ds_asl_native_wf, [
                 (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
                 for cbf_deriv in cbf_derivs + native_att_derivs
+            ]),
+        ])  # fmt:skip
+
+    if lr_sources:
+        # PVC outputs are always written in aslref space, where their standard errors,
+        # diagnostics and partial volume maps are defined.
+        ds_pvc_native_wf = init_ds_pvc_native_wf(
+            source_file=asl_file,
+            output_dir=config.execution.aslprep_dir,
+            sources=lr_sources,
+        )
+        ds_pvc_native_wf.inputs.inputnode.source_files = [asl_file]
+        workflow.connect([
+            (cbf_wf, ds_pvc_native_wf, [
+                (f'outputnode.{field}', f'inputnode.{field}')
+                for field in ['gm_pv', 'wm_pv', 'pv_metadata', 'pvc_metadata'] + lr_native
             ]),
         ])  # fmt:skip
 
@@ -617,8 +659,24 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         scorescrub=scorescrub,
         basil=basil,
         is_multi_pld=is_multi_pld,
+        lr_pvc=bool(lr_sources),
         name='cbf_reporting_wf',
     )
+    if lr_sources:
+        workflow.connect([
+            (cbf_wf, cbf_reporting_wf, [
+                (f'outputnode.{field}', f'inputnode.{field}')
+                for field in [
+                    'mean_cbf_gm_lr',
+                    'gm_valid_lr',
+                    'gm_pv',
+                    'status_lr',
+                    'gm_noise_lr',
+                    'pvc_summary',
+                    'pv_metadata',
+                ]
+            ]),
+        ])  # fmt:skip
     workflow.connect([
         (inputnode, cbf_reporting_wf, [
             ('t1w_dseg', 'inputnode.t1w_dseg'),
@@ -710,6 +768,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             cbf_3d=cbf_3d_derivs,
             cbf_4d=cbf_4d_derivs,
             att=att_derivs,
+            sparse_3d=lr_sparse,
             name='ds_asl_t1_wf',
         )
         ds_asl_t1_wf.inputs.inputnode.space = 'T1w'
@@ -730,7 +789,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ('outputnode.resampling_reference', 'inputnode.ref_file'),
             ]),
             (cbf_wf, ds_asl_t1_wf, [
-                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
+                for cbf_deriv in cbf_derivs + lr_resampled
             ]),
         ])  # fmt:skip
 
@@ -758,6 +818,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
             cbf_3d=cbf_3d_derivs,
             cbf_4d=cbf_4d_derivs,
             att=att_derivs,
+            sparse_3d=lr_sparse,
             name='ds_asl_std_wf',
         )
         workflow.connect([
@@ -801,7 +862,8 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
                 ('outputnode.resampling_reference', 'inputnode.ref_file'),
             ]),
             (cbf_wf, ds_asl_std_wf, [
-                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
+                for cbf_deriv in cbf_derivs + lr_resampled
             ]),
         ])  # fmt:skip
 
@@ -1075,6 +1137,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
             parcellate_cbf_wf = init_parcellate_cbf_wf(
                 cbf_3d=cbf_3d_derivs,
+                sparse_3d=lr_sparse,
                 mem_gb=mem_gb['resampled'],
                 omp_nthreads=omp_nthreads,
                 name='parcellate_cbf_wf',
@@ -1101,7 +1164,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ]),
             ])  # fmt:skip
 
-            for cbf_deriv in cbf_3d_derivs:
+            for cbf_deriv in cbf_3d_derivs + lr_resampled:
                 workflow.connect([
                     (cbf_wf, parcellate_cbf_wf, [
                         (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),

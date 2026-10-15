@@ -308,3 +308,59 @@ def test_use_gpu(tmp_path, monkeypatch, capsys):
     assert error.value.code == 2
     assert '--use-gpu: Running on a GPU requires CuPy' in capsys.readouterr().err
     reset_config()
+
+
+@pytest.mark.parametrize(
+    ('supp_args', 'method', 'resolution', 'kernel'),
+    [
+        ([], 'none', 'auto', (5, 5, 1)),
+        (['--pvc-method', 'local-regression'], 'local-regression', 'auto', (5, 5, 1)),
+        (['--asl-effective-resolution', 'nominal'], 'none', 'nominal', (5, 5, 1)),
+        (
+            ['--asl-effective-resolution', '3.5', '3.5', '9', '--pvc-kernel-size', '7', '7', '1'],
+            'none',
+            [3.5, 3.5, 9.0],
+            (7, 7, 1),
+        ),
+    ],
+)
+def test_pvc_options(tmp_path, supp_args, method, resolution, kernel):
+    """Partial volume correction options reach the config and survive a round trip."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert config.workflow.pvc_method == method
+    assert config.workflow.asl_effective_resolution == resolution
+    assert tuple(config.workflow.pvc_kernel_size) == kernel
+
+    config_file = tmp_path / 'config.toml'
+    config.to_filename(config_file)
+    reset_config()
+    config.load(config_file)
+    assert config.workflow.pvc_method == method
+    assert config.workflow.asl_effective_resolution == resolution
+    assert tuple(config.workflow.pvc_kernel_size) == kernel
+    reset_config()
+
+
+@pytest.mark.parametrize(
+    ('supp_args', 'message'),
+    [
+        (['--asl-effective-resolution', '3', '3'], 'three FWHM values'),
+        (['--asl-effective-resolution', 'big'], 'three FWHM values'),
+        (['--asl-effective-resolution', '3', 'x', '3'], 'must be numbers'),
+        (['--asl-effective-resolution', '3', '-3', '3'], 'must be positive'),
+        (['--pvc-kernel-size', '4', '5', '1'], 'must be odd'),
+        (['--pvc-method', 'basil'], 'invalid choice'),
+    ],
+)
+def test_pvc_option_errors(tmp_path, capsys, supp_args, message):
+    """Invalid partial volume correction options stop the run at parse time."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    with pytest.raises(SystemExit):
+        parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert message in capsys.readouterr().err
+    reset_config()

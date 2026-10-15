@@ -409,6 +409,108 @@ def test_computecbf_q2tips_uses_inversion_time(acq_dict, tmp_path):
     np.testing.assert_allclose(mean_cbf['q2tips_short'], mean_cbf['quipss2'])
 
 
+@pytest.mark.parametrize(
+    'labeling',
+    [
+        {'ArterialSpinLabelingType': 'PCASL', 'LabelingDuration': 1.6},
+        {
+            'ArterialSpinLabelingType': 'PASL',
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'QUIPSSII',
+            'BolusCutOffDelayTime': 0.7,
+        },
+        {
+            'ArterialSpinLabelingType': 'PASL',
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'QUIPSS',
+            'BolusCutOffDelayTime': 0.7,
+        },
+    ],
+    ids=['pcasl', 'quipss2', 'quipss'],
+)
+@pytest.mark.parametrize(
+    'acq_dict',
+    [
+        {'MRAcquisitionType': '3D'},
+        {'MRAcquisitionType': '2D', 'SliceTiming': list(np.linspace(0, 0.5, 12))},
+    ],
+    ids=['3D', '2D'],
+)
+@pytest.mark.parametrize('m0tr', [None, 3.0], ids=['longTR', 'shortTR'])
+def test_computecbf_calibration_outputs(labeling, acq_dict, m0tr, tmp_path):
+    """The calibration outputs reproduce the CBF quantification (PVC spec test 6).
+
+    Mean CBF times the calibration M0 is the time-averaged q * delta-M (the M0-free signal
+    regressed by partial volume correction), and voxels zeroed for low M0 are not valid.
+    """
+    rng = np.random.default_rng(0)
+    shape = (10, 11, 12)
+    deltam = rng.normal(50, 10, (*shape, 4)).astype(np.float32)
+    deltam_file = _save_img(deltam, tmp_path, 'deltam.nii.gz')
+    m0 = rng.uniform(800, 1200, shape).astype(np.float32)
+    m0[:2] = 1.0  # almost no signal: zeroed, so not quantifiable
+    m0_file = _save_img(m0, tmp_path, 'm0.nii.gz')
+
+    metadata = {'MagneticFieldStrength': 3, 'PostLabelingDelay': 1.8, **labeling, **acq_dict}
+    kwargs = {'m0tr': m0tr} if m0tr else {}
+    results = cbf.ComputeCBF(
+        cbf_only=False,
+        deltam=deltam_file,
+        metadata=metadata,
+        m0_scale=2.0,
+        m0_file=m0_file,
+        **kwargs,
+    ).run(cwd=tmp_path)
+
+    mean_cbf = nb.load(results.outputs.mean_cbf).get_fdata()
+    m0_calib = nb.load(results.outputs.m0_calib).get_fdata()
+    quant_valid = nb.load(results.outputs.quant_valid).get_fdata().astype(bool)
+    assert quant_valid[2:].all()
+    assert not quant_valid[:2].any()
+    assert np.all(m0_calib[:2] == 0)
+    # Away from the zeroed voxels, the calibration is the scaled M0 (times the TR correction).
+    ratio = m0_calib[2:] / m0[2:]
+    np.testing.assert_allclose(ratio, ratio.flat[0], rtol=1e-5)
+    if m0tr is None:
+        assert ratio.flat[0] == pytest.approx(2.0)
+    else:
+        assert ratio.flat[0] > 2.0
+
+    # mean CBF * M0 is q * mean(delta-M), with q (the M0-free quantification factor) constant
+    # within each slice, and across slices without slice timing.
+    q = (mean_cbf * m0_calib / deltam.mean(axis=3))[2:]
+    for k in range(shape[2]):
+        np.testing.assert_allclose(q[..., k], q[0, 0, k], rtol=1e-4)
+    if 'SliceTiming' in acq_dict:
+        assert not np.isclose(q[0, 0, -1], q[0, 0, 0], rtol=1e-3)  # delays differ by slice
+    else:
+        np.testing.assert_allclose(q, q[0, 0, 0], rtol=1e-4)
+
+
+def test_computecbf_calibration_outputs_multipld(tmp_path):
+    """Multi-delay data have no calibration outputs (LR PVC is single-delay only)."""
+    rng = np.random.default_rng(0)
+    deltam_file = _save_img(
+        rng.normal(50, 10, (6, 6, 6, 3)).astype(np.float32), tmp_path, 'd.nii.gz'
+    )
+    m0_file = _save_img(np.full((6, 6, 6), 1000, np.float32), tmp_path, 'm0.nii.gz')
+    results = cbf.ComputeCBF(
+        cbf_only=False,
+        deltam=deltam_file,
+        metadata={
+            'ArterialSpinLabelingType': 'PCASL',
+            'LabelingDuration': 1.6,
+            'MagneticFieldStrength': 3,
+            'MRAcquisitionType': '3D',
+            'PostLabelingDelay': [1.0, 1.5, 2.0],
+        },
+        m0_scale=1,
+        m0_file=m0_file,
+    ).run(cwd=tmp_path)
+    assert results.outputs.m0_calib is None
+    assert results.outputs.quant_valid is None
+
+
 def test_compare_slicetiming(datasets, tmp_path_factory):
     """CBF estimates should be the same with slice-timing modification as not.
 

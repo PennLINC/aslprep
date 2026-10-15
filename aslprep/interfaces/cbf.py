@@ -415,6 +415,24 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         None,
         desc='Boolean map of failed model fits. Only generated for multi-delay data.',
     )
+    m0_calib = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'The M0 image that delta-M was divided by to quantify CBF: scaled, corrected for '
+            'a short TR, and with low values set to zero. '
+            'Only generated for single-delay data.'
+        ),
+    )
+    quant_valid = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Mask of voxels where CBF could be quantified: M0 is finite and positive, and the '
+            'delta-M values and quantification factor are finite. '
+            'Only generated for single-delay data.'
+        ),
+    )
 
 
 class ComputeCBF(SimpleInterface):
@@ -459,6 +477,8 @@ class ComputeCBF(SimpleInterface):
         deltam_img = nb.load(deltam_file)
         dims = deltam_img.shape[:3]
         mask_img = nb.Nifti1Image(np.ones(dims), deltam_img.affine, deltam_img.header)
+        self._results['m0_calib'] = None
+        self._results['quant_valid'] = None
 
         if self.inputs.cbf_only:
             config.loggers.interface.debug('CBF data detected. Skipping CBF estimation.')
@@ -752,6 +772,31 @@ class ComputeCBF(SimpleInterface):
             cbf_ts_img.to_filename(self._results['cbf_ts'])
             # Single-delay data won't produce an ATT image
             self._results['att'] = None
+
+            # The calibration image and where quantification succeeded, for partial volume
+            # correction, which regresses CBF * M0 (the M0-free signal) and divides by M0 again.
+            quant_valid = (
+                np.isfinite(scaled_m0data)
+                & (scaled_m0data > 0)
+                & np.all(np.isfinite(deltam_arr), axis=1)
+                & np.all(np.isfinite(np.broadcast_to(perfusion_factor, deltam_arr.shape)), axis=1)
+            )
+            self._results['m0_calib'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_m0calib',
+                newpath=runtime.cwd,
+            )
+            masker.inverse_transform(np.nan_to_num(scaled_m0data)).to_filename(
+                self._results['m0_calib']
+            )
+            self._results['quant_valid'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_quantvalid',
+                newpath=runtime.cwd,
+            )
+            masker.inverse_transform(quant_valid.astype(np.uint8)).to_filename(
+                self._results['quant_valid']
+            )
 
         # Mean CBF is returned no matter what
         self._results['mean_cbf'] = fname_presuffix(

@@ -255,3 +255,98 @@ class CBFByTissueTypePlot(SimpleInterface):
             fig.clf()
 
         return runtime
+
+
+class _PVCDiagnosticsPlotInputSpec(BaseInterfaceInputSpec):
+    mean_cbf = File(exists=True, mandatory=True, desc='Uncorrected mean CBF.')
+    gm_cbf = File(exists=True, mandatory=True, desc='Gray matter CBF after LR PVC.')
+    gm_valid = File(exists=True, mandatory=True, desc='Where gray matter CBF was estimated.')
+    gm_pv = File(exists=True, mandatory=True, desc='Gray matter PV map.')
+    status = File(exists=True, mandatory=True, desc='LR PVC fit status.')
+    gm_noise = File(exists=True, mandatory=True, desc='Gray matter noise amplification.')
+    summary = traits.Dict(mandatory=True, desc='Fraction of brain voxels with each status.')
+    pv_metadata = traits.Dict(mandatory=True, desc='How the PV maps were built.')
+
+
+class _PVCDiagnosticsPlotOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='The figure.')
+
+
+class PVCDiagnosticsPlot(SimpleInterface):
+    """Plot local-regression partial volume correction diagnostics for the report.
+
+    The panels show the gray matter PV map, the fit status, the gray matter noise
+    amplification, and the distributions of uncorrected and corrected CBF where gray matter
+    CBF was estimated.
+    """
+
+    input_spec = _PVCDiagnosticsPlotInputSpec
+    output_spec = _PVCDiagnosticsPlotOutputSpec
+
+    def _run_interface(self, runtime):
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
+
+        mean_cbf = nb.load(self.inputs.mean_cbf).get_fdata()
+        gm_cbf = nb.load(self.inputs.gm_cbf).get_fdata()
+        gm_valid = nb.load(self.inputs.gm_valid).get_fdata() > 0
+        gm_pv = nb.load(self.inputs.gm_pv).get_fdata()
+        status = nb.load(self.inputs.status).get_fdata()
+        gm_noise = nb.load(self.inputs.gm_noise).get_fdata()
+
+        # Show the axial slice with the most brain voxels
+        k = int(np.argmax((status > 0).sum(axis=(0, 1))))
+
+        fig, axes = plt.subplots(1, 4, figsize=(20, 5.5))
+        im = axes[0].imshow(np.rot90(gm_pv[:, :, k]), cmap='gray', vmin=0, vmax=1)
+        axes[0].set_title('Gray matter fraction (effective resolution)')
+        fig.colorbar(im, ax=axes[0], fraction=0.046)
+
+        status_cmap = ListedColormap(['black', '#1b60a5', '#2da467', '#9d8f25', '#c0392b'])
+        im = axes[1].imshow(
+            np.rot90(status[:, :, k]),
+            cmap=status_cmap,
+            vmin=-0.5,
+            vmax=4.5,
+            interpolation='nearest',
+        )
+        axes[1].set_title('Fit status')
+        cbar = fig.colorbar(im, ax=axes[1], fraction=0.046, ticks=range(5))
+        cbar.ax.set_yticklabels(['outside', 'GM + WM', 'GM only', 'WM only', 'none'])
+
+        noise = np.where(gm_valid, gm_noise, np.nan)
+        finite = noise[np.isfinite(noise)]
+        vmax = float(np.percentile(finite, 99)) if finite.size else 1.0
+        im = axes[2].imshow(np.rot90(noise[:, :, k]), cmap='magma', vmin=0, vmax=vmax)
+        axes[2].set_title('GM noise amplification')
+        fig.colorbar(im, ax=axes[2], fraction=0.046)
+        for ax in axes[:3]:
+            ax.axis('off')
+
+        if gm_valid.any():
+            values = np.concatenate([mean_cbf[gm_valid], gm_cbf[gm_valid]])
+            low, high = np.percentile(values, [1, 99])
+            bins = np.linspace(low, high, 60)
+            axes[3].hist(mean_cbf[gm_valid], bins=bins, alpha=0.6, label='uncorrected')
+            axes[3].hist(gm_cbf[gm_valid], bins=bins, alpha=0.6, label='GM corrected')
+            axes[3].legend()
+        axes[3].set_xlabel('CBF (mL/100 g/min)')
+        axes[3].set_title('Where GM CBF was estimated')
+
+        summary = self.inputs.summary
+        meta = self.inputs.pv_metadata
+        fwhm = ' x '.join(f'{v:.2g}' for v in meta.get('EffectiveResolution', []))
+        status_str = ', '.join(f'{name}: {100 * frac:.1f}%' for name, frac in summary.items())
+        fig.suptitle(
+            f'Effective resolution {fwhm} mm FWHM ({meta.get("EffectiveResolutionSource")}). '
+            f'Brain voxels: {status_str}',
+            fontsize=11,
+        )
+        fig.tight_layout()
+
+        self._results['out_file'] = fname_presuffix(
+            self.inputs.gm_cbf, suffix='_pvcplot.svg', use_ext=False, newpath=runtime.cwd
+        )
+        fig.savefig(self._results['out_file'])
+        plt.close(fig)
+        return runtime

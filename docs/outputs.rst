@@ -467,6 +467,64 @@ Keep the following in mind:
   the brain, where the ASL signal is weaker.
 - There is no standard deviation map for the arterial blood volume,
   because ``oxford_asl`` does not write its variance.
+
+If ``--pvc-method local-regression`` is used (single-delay data only)::
+
+   sub-<label>/[ses-<label>/]
+      perf/
+         <source_entities>[_space-<label>]_desc-lrGM_cbf.nii.gz  # GM CBF after local-regression PVC
+         <source_entities>[_space-<label>]_desc-lrWM_cbf.nii.gz  # WM CBF after local-regression PVC
+         <source_entities>_desc-lrGMSE_cbf.nii.gz  # standard error of desc-lrGM_cbf (aslref only)
+         <source_entities>_desc-lrWMSE_cbf.nii.gz  # standard error of desc-lrWM_cbf (aslref only)
+         <source_entities>_desc-lr_pvstatus.nii.gz  # fit status of each voxel (aslref only)
+         <source_entities>_desc-lr_pvcondition.nii.gz  # condition number of each fit (aslref only)
+         <source_entities>_desc-lrGM_pvnoise.nii.gz  # GM noise amplification (aslref only)
+         <source_entities>_desc-lrWM_pvnoise.nii.gz  # WM noise amplification (aslref only)
+         <source_entities>_desc-lr_pvrmse.nii.gz  # residual of each fit (aslref only)
+         <source_entities>_label-GM_desc-psf_probseg.nii.gz  # GM fraction used (aslref only)
+         <source_entities>_label-WM_desc-psf_probseg.nii.gz  # WM fraction used (aslref only)
+
+With ``--scorescrub``, the same correction is applied to the SCORE map,
+with ``desc-scoreLR`` in place of ``desc-lr``.
+
+.. _lr_pvc_outputs:
+
+Interpreting the local-regression PVC outputs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Local-regression partial volume correction :footcite:p:`asllani2008regression`
+assumes that, within a small kernel around each voxel (by default 5 x 5 voxels in-plane and
+one slice), gray and white matter each have one perfusion value, and that CSF has none.
+The perfusion signal of the voxels in the kernel is regressed on their gray and white matter
+fractions, and the tissue signals are calibrated with the voxel's M0,
+the same calibration the uncorrected CBF uses.
+The uncorrected CBF maps are always kept; partial volume correction is recommended as an
+additional analysis, not a replacement :footcite:p:`chappell2021partial`.
+
+- As for BASIL, each value is the CBF of the *tissue* in that voxel, and each map is written
+  only where its tissue makes up at least 10% of the voxel.
+  Elsewhere, and where the fit failed, the value is zero.
+  ``desc-lr_pvstatus`` says which: 1 for a gray and white matter fit,
+  2 or 3 for a fit of gray or white matter alone (when the other tissue's contribution to that
+  estimate was below 5%), and 4 where neither tissue could be estimated.
+  Parcellated values average only the voxels with an estimate,
+  and their coverage files give the fraction of each parcel that had one.
+- The correction smooths CBF within the kernel. Fine detail within a kernel is lost.
+- The tissue fractions (``label-GM_desc-psf_probseg``) model the effective resolution of the
+  acquisition :footcite:p:`petr2018effects`. With ``--asl-effective-resolution auto``,
+  single-shot 3D GRASE and 3D spiral readouts get the sequence-specific blurring of
+  :footcite:t:`vidorreta2013comparison` and :footcite:t:`petr2018effects`;
+  other acquisitions use the voxel size. The sidecar records which was used.
+  Blurring from motion and distortion correction resampling is not modelled.
+- ``desc-lrGMSE_cbf`` and ``desc-lrWMSE_cbf`` are standard errors that assume independent
+  noise between voxels, conditional on M0. Neighboring ASL voxels are correlated, so these
+  are approximate. They are written in the ASL reference space only, because interpolating a
+  standard error does not give the standard error of the interpolated estimate.
+- The corrected maps are resampled to other spaces with linear interpolation normalized by the
+  resampled mask of estimated voxels, so voxels without an estimate do not lower their
+  neighbors' values.
+- With slice-timed (2D multi-slice) data, the kernel must span a single slice,
+  because the tissue signal depends on each slice's delay.
 - For single-delay data, the arterial transit time is fixed rather than estimated,
   so neither it nor its standard deviation is written.
 - In standard and anatomical spaces, the maps are resampled like the estimates.

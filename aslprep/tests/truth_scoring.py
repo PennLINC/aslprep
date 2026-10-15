@@ -613,7 +613,65 @@ def score_clean(aslprep_dir):
     return {'crash_files': crashes, 'report_ok': bool(report_ok)}
 
 
-def score_run(fixture_path, aslprep_dir, acq, fwhm=5.0, spaces=(), extra_cbf=()):
+def score_lr_pvc(fixture, aslprep_dir):
+    """Local-regression PVC against the truth (PVC design spec Section 7.2(b)). Report only.
+
+    For the flat phantom, the conditional pure-tissue perfusion is the tissue's constant,
+    so the corrected maps are compared with it where the fit used both tissues and the
+    tissue's estimate was written. Non-flat phantoms need per-tissue truth maps (PR 2).
+    """
+    from aslprep.tests import aslscan_fixtures as af
+
+    perf = Path(aslprep_dir) / 'sub-01' / 'perf'
+    stem = f'sub-01_acq-{fixture.acq}'
+    out = {'problems': []}
+
+    def _load(name):
+        path = perf / name
+        if not path.exists():
+            out['problems'].append(f'{name} not found')
+            return None
+        return on_grid(nb.load(path), fixture.affine, fixture.shape, order=0)
+
+    status = _load(f'{stem}_desc-lr_pvstatus.nii.gz')
+    if status is None:
+        return out
+    brain = status > 0
+    out['status_share'] = {
+        str(code): float(np.mean(status[brain] == code)) for code in (1, 2, 3, 4)
+    }
+
+    recipe = af.load_recipe(fixture.truth['recipe'])
+    flat = recipe.phantom.endswith('-flat')
+    constants = {'GM': af.TISSUES[1]['perfusion'], 'WM': af.TISSUES[2]['perfusion']}
+    for tissue in ('GM', 'WM'):
+        cbf = _load(f'{stem}_desc-lr{tissue}_cbf.nii.gz')
+        pv_map = _load(f'{stem}_label-{tissue}_desc-psf_probseg.nii.gz')
+        entry = {}
+        if pv_map is not None:
+            # Registration and segmentation errors of the PV maps ASLPrep built
+            inside = fixture.brain
+            entry['pv_map_median_abs_error'] = float(
+                np.median(np.abs(pv_map[inside] - fixture.pv[tissue][inside]))
+            )
+        if cbf is not None:
+            estimated = (status == 1) & (cbf != 0) & np.isfinite(cbf)
+            entry['n'] = int(estimated.sum())
+            if flat and estimated.any():
+                ratio = cbf[estimated] / constants[tissue]
+                entry['median'] = float(np.median(ratio))
+                entry['p95_abs_dev'] = float(np.percentile(np.abs(ratio - 1), 95))
+            basil = find_output(aslprep_dir, fixture.acq, 'cbf', desc=f'basil{tissue}')
+            if basil is not None and estimated.any():
+                basil_data = on_grid(nb.load(basil), fixture.affine, fixture.shape)
+                entry['median_minus_basil'] = float(
+                    np.median(cbf[estimated] - basil_data[estimated])
+                )
+        out[tissue] = entry
+    return out
+
+
+def score_run(fixture_path, aslprep_dir, acq, fwhm=5.0, spaces=(), extra_cbf=(), lr_pvc=False):
     """Score one run (spec Section 4.7). Never raises for a missing output."""
     fixture = Fixture(fixture_path, acq)
     score = {'recipe': fixture.truth['recipe'], 'acq': acq}
@@ -633,6 +691,8 @@ def score_run(fixture_path, aslprep_dir, acq, fwhm=5.0, spaces=(), extra_cbf=())
         score[f'desc-{desc}'] = {
             t: ratio_stats(cbf, fixture.perfusion, masks[t]) for t in ('GM', 'WM')
         }
+    if lr_pvc:
+        score['lr_pvc'] = score_lr_pvc(fixture, aslprep_dir)
     return score
 
 

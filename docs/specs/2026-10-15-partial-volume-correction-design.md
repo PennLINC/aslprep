@@ -360,13 +360,17 @@ So:
   assumption that d_t is constant within the kernel.
 - No M0 enters the regression.
 
-`ComputeCBF` gains three internal (non-derivative) outputs, taken from arrays it already holds:
+`ComputeCBF` gains two internal (non-derivative) outputs, taken from arrays it already holds:
 
 | Output | Content |
 |---|---|
-| `mean_qdeltam` | mean over volumes of q_k·ΔM_k, before any sanitization |
 | `m0_calib` | m̄, exactly the denominator used for CBF |
-| `quant_valid` | mask where m̄ is finite and > 0 and q is finite |
+| `quant_valid` | mask where m̄ is finite and > 0, and q and every ΔM_k are finite |
+
+*Implementation note (PR 1):* the signal is formed in `LocalRegressionPVC` as y = CBF·m̄ on
+`quant_valid` voxels. There, CBF is the time average of q·ΔM/m̄ with q and m̄ time-invariant, so
+CBF·m̄ equals the mean of q·ΔM up to rounding. A separate `mean_qdeltam` output is therefore not
+needed, and the same path serves the SCORE map. Unit test 6 checks the identity.
 
 **Calibrate with the centre voxel's M0.**
 
@@ -570,6 +574,15 @@ map files, the resolved FWHM and its source.
 - LR PVC runs in `--sloppy` mode too, because it is cheap.
 
 ### 5.6 Reports
+
+*Implementation note (PR 1):*
+
+- The status fractions and the resolved FWHM appear in the diagnostics figure's title, not in
+  the `CBFSummary` text.
+- The panel comparing p̃_GM with the Gaussian-interpolated pGM is not included, because the
+  interpolated map is internal to `init_cbf_wf`.
+- LR maps are not projected to surfaces or CIFTI in PR 1. Their validity-aware surface input
+  arrives with PR 3.
 
 - `desc-lrGM_cbf.svg`: a `CBFSummaryPlot` like the one for `basilGM`.
 - `desc-lr_pvc.svg` (the `pvc` figure suffix already exists): one figure with four panels:

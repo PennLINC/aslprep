@@ -10,7 +10,11 @@ from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.confounds import GatherCBFConfounds
-from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummaryPlot
+from aslprep.interfaces.plotting import (
+    CBFByTissueTypePlot,
+    CBFSummaryPlot,
+    PVCDiagnosticsPlot,
+)
 from aslprep.interfaces.reports import CBFSummary
 from aslprep.utils.misc import _select_last_in_list
 from aslprep.workflows.asl.confounds import init_carpetplot_wf
@@ -22,6 +26,7 @@ def init_cbf_reporting_wf(
     scorescrub=False,
     basil=False,
     is_multi_pld=False,
+    lr_pvc=False,
     name='cbf_reporting_wf',
 ):
     """Generate CBF reports.
@@ -83,6 +88,14 @@ def init_cbf_reporting_wf(
                 'cbf_gm_sd_basil',  # unused
                 'cbf_wm_sd_basil',  # unused
                 'att_sd_basil',  # unused
+                # Local-regression PVC outputs
+                'mean_cbf_gm_lr',
+                'gm_valid_lr',
+                'gm_pv',
+                'status_lr',
+                'gm_noise_lr',
+                'pvc_summary',
+                'pv_metadata',
             ],
         ),
         name='inputnode',
@@ -449,5 +462,50 @@ def init_cbf_reporting_wf(
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([(pvc_by_tt_plot, ds_report_pvc_by_tt, [('out_file', 'in_file')])])
+
+    if lr_pvc:
+        lr_summary = pe.Node(
+            CBFSummaryPlot(label='pvc', vmax=120),
+            name='lr_summary',
+            mem_gb=1,
+        )
+        workflow.connect([
+            (inputnode, lr_summary, [
+                ('mean_cbf_gm_lr', 'in_file'),
+                ('aslref', 'ref_vol'),
+            ]),
+        ])  # fmt:skip
+
+        ds_report_lr = pe.Node(
+            DerivativesDataSink(datatype='figures', desc='lrGM', suffix='cbf', keep_dtype=True),
+            name='ds_report_lr',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([(lr_summary, ds_report_lr, [('out_file', 'in_file')])])
+
+        lr_diagnostics = pe.Node(PVCDiagnosticsPlot(), name='lr_diagnostics', mem_gb=1)
+        workflow.connect([
+            (inputnode, lr_diagnostics, [
+                ('mean_cbf', 'mean_cbf'),
+                ('mean_cbf_gm_lr', 'gm_cbf'),
+                ('gm_valid_lr', 'gm_valid'),
+                ('gm_pv', 'gm_pv'),
+                ('status_lr', 'status'),
+                ('gm_noise_lr', 'gm_noise'),
+                ('pvc_summary', 'summary'),
+                ('pv_metadata', 'pv_metadata'),
+            ]),
+        ])  # fmt:skip
+
+        ds_report_lr_diagnostics = pe.Node(
+            DerivativesDataSink(datatype='figures', desc='lr', suffix='pvc', keep_dtype=True),
+            name='ds_report_lr_diagnostics',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (lr_diagnostics, ds_report_lr_diagnostics, [('out_file', 'in_file')]),
+        ])  # fmt:skip
 
     return workflow

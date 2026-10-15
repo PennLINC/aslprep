@@ -537,7 +537,52 @@ any spatial references.""",
         '--basil',
         action='store_true',
         default=False,
-        help="FSL's CBF computation with spatial regularization and partial volume correction",
+        help=(
+            "FSL's CBF computation with spatial regularization and partial volume correction. "
+            'BASIL partial volume correction always runs with --basil (except in sloppy mode), '
+            'independently of --pvc-method.'
+        ),
+    )
+    g_conf.add_argument(
+        '--pvc-method',
+        action='store',
+        choices=['none', 'local-regression'],
+        default='none',
+        help=(
+            'Additional partial volume correction of the CBF maps. '
+            "'local-regression' regresses perfusion on gray and white matter partial volume "
+            'maps within a local kernel (Asllani et al., 2008), using partial volume maps that '
+            'model the effective resolution of the acquisition. '
+            'Single-delay data only. The uncorrected CBF maps are always kept.'
+        ),
+    )
+    g_conf.add_argument(
+        '--asl-effective-resolution',
+        action='store',
+        nargs='+',
+        default=['auto'],
+        metavar='{auto,nominal} | FWHM FWHM FWHM',
+        help=(
+            'Effective resolution of the ASL acquisition, used to build the partial volume '
+            "maps for --pvc-method. 'auto' infers it from the metadata "
+            '(single-shot 3D GRASE and 3D spiral readouts; otherwise the voxel size), '
+            "'nominal' uses the voxel size, and three values give the total response FWHM "
+            'in mm, ordered (in-plane, in-plane, slice). '
+            'Blurring from motion and distortion correction resampling is not included.'
+        ),
+    )
+    g_conf.add_argument(
+        '--pvc-kernel-size',
+        action='store',
+        nargs=3,
+        type=PositiveInt,
+        default=[5, 5, 1],
+        metavar='N',
+        help=(
+            'Kernel size, in voxels, for --pvc-method local-regression, ordered '
+            '(in-plane, in-plane, slice). Values must be odd. '
+            'Slice-timed acquisitions must use a single slice.'
+        ),
     )
 
     g_outputs = parser.add_argument_group('Options for modulating outputs')
@@ -836,6 +881,24 @@ discourage its usage.""",
     return parser
 
 
+def _parse_effective_resolution(values, parser):
+    """Turn --asl-effective-resolution into 'auto', 'nominal', or three positive floats."""
+    if len(values) == 1 and values[0] in ('auto', 'nominal'):
+        return values[0]
+    if len(values) != 3:
+        parser.error(
+            '--asl-effective-resolution takes "auto", "nominal", or three FWHM values in mm '
+            f'(in-plane, in-plane, slice). Received {values}.'
+        )
+    try:
+        fwhm = [float(v) for v in values]
+    except ValueError:
+        parser.error(f'--asl-effective-resolution values must be numbers. Received {values}.')
+    if any(v <= 0 for v in fwhm):
+        parser.error(f'--asl-effective-resolution values must be positive. Received {values}.')
+    return fwhm
+
+
 def parse_args(args=None, namespace=None):
     """Parse args and run further checks on the command line."""
     import logging
@@ -899,6 +962,15 @@ def parse_args(args=None, namespace=None):
         raise ValueError(msg)
 
     validate_gradient_flags(config.workflow.gradient_file, force_set, ignore_set)
+
+    # Partial volume correction options
+    config.workflow.asl_effective_resolution = _parse_effective_resolution(
+        opts.asl_effective_resolution, parser
+    )
+    if any(k % 2 == 0 for k in config.workflow.pvc_kernel_size):
+        parser.error(
+            f'--pvc-kernel-size values must be odd, got {config.workflow.pvc_kernel_size}.'
+        )
 
     # Initialize --output-spaces if not defined
     if config.execution.output_spaces is None:
