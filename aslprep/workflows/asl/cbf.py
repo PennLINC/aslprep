@@ -23,7 +23,6 @@ from aslprep.interfaces.cbf import (
 from aslprep.interfaces.parcellation import NiftiParcellate
 from aslprep.utils.asl import (
     BOLUS_CUTOFF_TECHNIQUES,
-    describe_asl_acquisition,
     describe_labeling_efficiency,
     determine_multi_pld,
     estimate_labeling_efficiency,
@@ -123,11 +122,7 @@ def init_cbf_wf(
     """
     workflow = Workflow(name=name)
 
-    workflow.__desc__ = f"""
-
-ASL acquisition
-
-: {describe_asl_acquisition(metadata=metadata, aslcontext=aslcontext)}
+    workflow.__desc__ = """
 
 Cerebral blood flow computation and denoising
 
@@ -291,6 +286,9 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             f'{PARTITION_COEFFICIENT:g} mL/g [@alsop_recommended_2015] and '
             f'{describe_labeling_efficiency(metadata)}.'
         )
+
+    # End the paragraph, so that the next workflow's description does not run into it.
+    workflow.__desc__ += '\n'
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -737,8 +735,8 @@ def init_parcellate_cbf_wf(
     workflow = Workflow(name=name)
     output_dir = config.execution.output_dir
 
-    workflow.__desc__ = f"""
-CBF maps were parcellated in ASL reference space using the segmentations.
+    workflow.__desc__ = f"""\
+CBF maps were parcellated in ASL reference space using these atlases.
 In cases of partial coverage, either uncovered voxels (values of all zeros or NaNs) were
 ignored (when the parcel had >{min_coverage * 100}% coverage)
 or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% coverage).
@@ -952,9 +950,7 @@ def init_load_atlases_wf(
 
     # Write a description
     atlas_str = describe_atlases(atlas_names)
-    workflow.__desc__ = f"""
-#### Segmentations
-
+    workflow.__desc__ = f"""\
 The following atlases were used in the workflow: {atlas_str}.
 """
 

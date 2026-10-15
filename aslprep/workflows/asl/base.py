@@ -10,6 +10,7 @@ from aslprep import config
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.utils.asl import (
     count_reduced_volumes,
+    describe_asl_acquisition,
     determine_multi_pld,
     pcasl_or_pasl,
     select_processing_target,
@@ -320,8 +321,15 @@ def init_asl_wf(
 
     # Build workflow
     workflow = Workflow(name=_get_wf_name(asl_file, 'asl'))
-    workflow.__postdesc__ = """\
-All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations.
+    workflow.__desc__ = f"""
+ASL acquisition
+
+: {describe_asl_acquisition(metadata=metadata, aslcontext=run_data['aslcontext'])}
+"""
+    workflow.__postdesc__ = """
+Resampling
+
+: All resampling in *ASLPrep* uses a single interpolation step that concatenates all transformations.
 Gridded (volumetric) resampling was performed using `antsApplyTransforms`,
 configured with *Lanczos* interpolation to minimize the smoothing effects of other kernels
 [@lanczos].
@@ -1071,6 +1079,12 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 omp_nthreads=omp_nthreads,
                 name='parcellate_cbf_wf',
             )
+            # The atlas workflow has no inputs, so the boilerplate would describe it before the
+            # ASL preprocessing. Describe the atlases with the parcellation instead.
+            parcellate_cbf_wf.__desc__ = (
+                f'\nCBF parcellation\n\n: {load_atlases_wf.__desc__}{parcellate_cbf_wf.__desc__}'
+            )
+            load_atlases_wf.__desc__ = None
             workflow.connect([
                 (inputnode, parcellate_cbf_wf, [
                     ('asl_file', 'inputnode.source_file'),

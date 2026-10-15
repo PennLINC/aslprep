@@ -112,9 +112,11 @@ def init_asl_confounds_wf(
     from niworkflows.interfaces.nibabel import ApplyMask, Binarize
 
     workflow = Workflow(name=name)
-    workflow.__desc__ = """\
-Several confounding timeseries were calculated, including both framewise displacement
-(FD) and DVARS. FD and DVARS are calculated using the implementations in in *Nipype*
+    workflow.__desc__ = """
+Confounds
+
+: Several confounding timeseries were calculated, including both framewise displacement
+(FD) and DVARS. FD and DVARS are calculated using the implementations in *Nipype*
 (following the definition by [@power_fd_dvars]) for each ASL run.  ASLPrep summarizes
 in-scanner motion as the mean framewise displacement and relative root-mean square displacement.
 """
@@ -535,7 +537,9 @@ def init_cbf_confounds_wf(
     """
     workflow = Workflow(name=name)
     workflow.__desc__ = """
-The quality evaluation index (QEI) was computed for each CBF map [@dolui2024automated].
+CBF quality control
+
+: The quality evaluation index (QEI) was computed for each CBF map [@dolui2024automated].
 QEI is based on the similarity between the CBF and the structural images, the spatial
 variability of the CBF image, and the percentage of grey matter voxels containing
 negative CBF values.
