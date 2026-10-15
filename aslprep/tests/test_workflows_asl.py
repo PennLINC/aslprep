@@ -192,6 +192,51 @@ def test_init_asl_wf_ignore_volume_types(tmp_path, ignore, reference_volume_type
         assert ('ignored' in Path(used_aslcontext).read_text()) is bool(ignore)
 
 
+@pytest.mark.parametrize(
+    ('volume_types', 'force', 'expect_relative'),
+    [
+        # GE product output (#728): the reduced series is the M0 and delta-M, two volumes.
+        (['m0scan', 'deltam', 'cbf'], [], False),
+        (['m0scan', 'deltam', 'cbf'], ['no-ge'], False),
+        (['m0scan'] * 2 + ['deltam'] * 4 + ['cbf'], ['no-ge'], True),
+    ],
+)
+def test_init_asl_wf_relative_confounds_use_reduced_series(
+    tmp_path, volume_types, force, expect_relative
+):
+    """DVARS, FD and the carpet plot depend on the reduced series, not the whole ASL file."""
+    import shutil
+
+    import nibabel as nb
+
+    reset_config()
+    with mock_config():
+        bids_dir = tmp_path / 'ds000240'
+        shutil.copytree(config.execution.bids_dir, bids_dir)
+        perf_dir = bids_dir / 'sub-01' / 'perf'
+        asl_file = perf_dir / 'sub-01_asl.nii.gz'
+        img = nb.load(asl_file)
+        img.slicer[..., : len(volume_types)].to_filename(asl_file)
+        (perf_dir / 'sub-01_aslcontext.tsv').write_text(
+            '\n'.join(['volume_type', *volume_types]) + '\n'
+        )
+
+        config.execution.bids_dir = bids_dir
+        config.execution.bids_database_dir = None
+        config.execution.layout = None
+        config.execution._layout = None
+        config.execution.init()
+        config.workflow.force = force
+        from aslprep.workflows.asl.base import init_asl_wf
+
+        wf = init_asl_wf(asl_file=str(asl_file))
+
+        confounds_wf = wf.get_node('asl_confounds_wf')
+        assert (confounds_wf.get_node('dvars') is not None) is expect_relative
+        assert (confounds_wf.get_node('fdisp') is not None) is expect_relative
+        assert (wf.get_node('carpetplot_wf') is not None) is expect_relative
+
+
 @pytest.mark.parametrize('sloppy', [False, True])
 def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
     """Sloppy mode skips BASIL's partial volume correction, which takes most of its run time."""

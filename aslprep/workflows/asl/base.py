@@ -8,7 +8,12 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces.bids import DerivativesDataSink
-from aslprep.utils.asl import determine_multi_pld, pcasl_or_pasl, select_processing_target
+from aslprep.utils.asl import (
+    count_reduced_volumes,
+    determine_multi_pld,
+    pcasl_or_pasl,
+    select_processing_target,
+)
 from aslprep.utils.bids import collect_run_data
 from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
 from aslprep.utils.misc import _get_wf_name, estimate_asl_mem_usage, get_n_volumes
@@ -243,6 +248,9 @@ def init_asl_wf(
 
     # Determine which volumes to use in the pipeline
     processing_target = select_processing_target(aslcontext=run_data['aslcontext'])
+    # The confounds and carpet plot workflows see the series reduced to the processing target,
+    # which may have fewer volumes than the ASL file.
+    n_reduced_vols = count_reduced_volumes(run_data['aslcontext'], processing_target)
 
     # Gradient nonlinearity correction, from --gradient-file and the ImageType metadata
     gradwarp_plan = resolve_gradwarp_plan(metadata=metadata, asl_file=asl_file)
@@ -523,7 +531,7 @@ configured with *Lanczos* interpolation to minimize the smoothing effects of oth
         ])  # fmt:skip
 
     asl_confounds_wf = init_asl_confounds_wf(
-        n_volumes=n_vols,
+        n_volumes=n_reduced_vols,
         mem_gb=mem_gb['largemem'],
         freesurfer=False,  # sMRIPrep always uses FAST for TPMs
         name='asl_confounds_wf',
@@ -1008,8 +1016,9 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
     # Should always be reached, since ASLPrep includes MNI152NLin2009cAsym automatically
     if spaces.get_spaces(nonstandard=False, dim=(3,)):
-        # Don't make carpet plots for short or GE data
-        if not use_ge:
+        # Don't make carpet plots for short or GE data.
+        # The carpet plot shows DVARS and FD, which the confounds workflow skips for short series.
+        if not use_ge and n_reduced_vols > 2:
             carpetplot_wf = init_carpetplot_wf(
                 mem_gb=mem_gb['resampled'],
                 confounds_list=[

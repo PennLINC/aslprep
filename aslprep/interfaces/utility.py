@@ -16,7 +16,7 @@ from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
 from nipype.interfaces.nilearn import NilearnBaseInterface
 from nipype.utils.filemanip import fname_presuffix, load_json, save_json
 
-from aslprep.utils.asl import reduce_metadata_lists
+from aslprep.utils.asl import get_kept_volume_types, reduce_metadata_lists
 
 
 class _ReduceASLFilesInputSpec(BaseInterfaceInputSpec):
@@ -47,12 +47,7 @@ class ReduceASLFiles(SimpleInterface):
                 f'number of rows in {self.inputs.aslcontext} ({aslcontext.shape[0]}).'
             )
 
-        if self.inputs.processing_target == 'control':
-            files_to_keep = ['control', 'label', 'm0scan']
-        elif self.inputs.processing_target == 'deltam':
-            files_to_keep = ['deltam', 'm0scan']
-        else:
-            files_to_keep = ['cbf', 'm0scan']
+        files_to_keep = get_kept_volume_types(self.inputs.processing_target)
 
         n_volumes = aslcontext.shape[0]
         asl_idx = aslcontext.loc[aslcontext['volume_type'].isin(files_to_keep)].index.values
