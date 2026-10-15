@@ -26,6 +26,13 @@ line as ``--opt key=value``.
   transforms relative to the first volume, a positional +/-1 regressor projected out with no
   intercept, then re-referenced to the first volume (``fit`` and ``regressors`` are ignored).
 
+Comparators from #513: ``fixvol`` registers every kept volume to one acquired raw volume;
+``perfref`` re-registers each pair's corrected delta-M to a preliminary perfusion image built
+after a first pass (``base``) and applies the residual to both volumes of the pair.
+
+C1 and C2 take ``engine=mcflirt|volreg|ants`` for the series step (AFNI 3dvolreg, least
+squares; ANTs rigid, mutual information); everything else is FSL.
+
 All registrations use FSL (MCFLIRT for series, FLIRT for single images) with ``cost``
 (``mutualinfo`` by default). Transforms are composed as FSL matrices on the raw grid and
 converted to ITK once.
@@ -663,4 +670,89 @@ def run_c8(inputs, work, **options):
     }
 
 
-CANDIDATES = {'c1': run_c1, 'c2': run_c2, 'c3': run_c3, 'c4': run_c4, 'c8': run_c8}
+def run_fixvol(inputs, work, **options):
+    """Comparator (#513): every kept volume registered by MCFLIRT to one acquired raw volume.
+
+    ``ref_volume`` is a position in the kept series (default: the first control, else the
+    first volume), as MCFLIRT's own ``-refvol`` would use a raw volume.
+    """
+    cost = _opt(options, 'cost', 'mutualinfo')
+    target, idx, types = _kept(inputs)
+    img = nb.load(inputs['asl_file'])
+    data = np.asanyarray(img.dataobj, np.float32)
+    data = data[..., None] if data.ndim == 3 else data
+    ref_k = _opt(options, 'ref_volume', None, int)
+    if ref_k is None:
+        ref_k = types.index('control') if 'control' in types else 0
+    series = _save(data[..., idx], img, work / 'series.nii.gz')
+    ref_file = _save(data[..., idx[ref_k]], img, work / 'aslref.nii.gz')
+    mats, _ = _mcflirt(series, ref_file, work / 'mcf', cost)
+    ctx_file = work / 'hmc_aslcontext.tsv'
+    pd.DataFrame({'volume_type': types}).to_csv(ctx_file, sep='\t', index=False)
+    return {
+        'aslref': str(ref_file),
+        'xforms': str(_to_itk(mats, ref_file, work)),
+        'aslcontext': str(ctx_file),
+        'indices': idx,
+        'reference_type': f'fixed raw volume {idx[ref_k]}',
+        'reference_volumes': [idx[ref_k]],
+        'processing_target': target,
+        'use_ge': None,
+    }
+
+
+def run_perfref(inputs, work, **options):
+    """Comparator (#513): a preliminary perfusion image as a second-pass HMC target.
+
+    Pass 1 is ``base`` (``c0`` by default). Its corrected pairs give a robust perfusion image
+    (``perfusion.combine``, level ``robust``, delays at or above the median); each pair's
+    corrected delta-M is then registered rigidly to that image (same contrast, normalized
+    correlation, +/-4 degree search) and the residual is applied to both volumes of the pair.
+    Needs ``min_pairs`` pairs; otherwise the run is pass 1 unchanged and says so.
+    """
+    from harness import resample_series
+    from perfusion import combine, select_inputs
+
+    base = _opt(options, 'base', 'c0')
+    min_pairs = _opt(options, 'min_pairs', 4, int)
+    res, h = _base(inputs, work, base, {})
+    types = pd.read_table(res['aslcontext'])['volume_type'].tolist()
+    idx = list(res['indices'])
+    controls = [i for i, t in enumerate(types) if t == 'control']
+    labels = [i for i, t in enumerate(types) if t == 'label']
+    if len(controls) < min_pairs or len(controls) != len(labels):
+        return {**res, 'reference_type': f'{res["reference_type"]}; perfref skipped (pairs)'}
+    corrected = resample_series(inputs['asl_file'], idx, h, res['aslref'])
+    cdata = np.asanyarray(corrected.dataobj, np.float32)
+    raw_plds = _plds(inputs, nb.load(inputs['asl_file']).shape[-1], idx)
+    stack, _, _ = select_inputs(cdata, types, raw_plds)
+    ref_img = nb.load(res['aslref'])
+    perf = _save(combine(stack, 'robust'), ref_img, work / 'perfusion_robust.nii.gz')
+    f2w = _fsl_to_world(ref_img)
+    new = list(h)
+    for p, (c, lab) in enumerate(zip(controls, labels, strict=True)):
+        dm = _save(cdata[..., c] - cdata[..., lab], ref_img, work / f'pair_{p:03d}.nii.gz')
+        mat = work / f'pair_{p:03d}.mat'
+        cmd = ['flirt', '-in', str(dm), '-ref', str(perf), '-omat', str(mat), '-dof', '6']
+        cmd += ['-cost', 'normcorr', '-searchrx', '-4', '4', '-searchry', '-4', '4']
+        cmd += ['-searchrz', '-4', '4']
+        subprocess.run(cmd, check=True, capture_output=True)
+        push = f2w @ np.loadtxt(mat) @ np.linalg.inv(f2w)  # pair frame -> perfusion frame
+        for v in (c, lab):
+            new[v] = h[v] @ np.linalg.inv(push)
+    return {
+        **res,
+        'xforms': str(_write_itk(work / 'hmc_xfms_perfref.txt', new)),
+        'reference_type': f'{res["reference_type"]}; pairs re-registered to a perfusion image',
+    }
+
+
+CANDIDATES = {
+    'c1': run_c1,
+    'c2': run_c2,
+    'c3': run_c3,
+    'c4': run_c4,
+    'c8': run_c8,
+    'fixvol': run_fixvol,
+    'perfref': run_perfref,
+}
