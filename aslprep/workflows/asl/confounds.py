@@ -55,9 +55,10 @@ def init_asl_confounds_wf(
     Parameters
     ----------
     n_volumes : :obj:`int`
-        Number of volumes in the ASL file.
-        Some relative measures (e.g., FD, DVARS, RMSD) will produce empty arrays for single-volume
-        datasets, so we must skip those.
+        Number of volumes in the ``asl`` input, which is the ASL series after it is reduced to
+        the processing target, not the full ASL file.
+        Some relative measures (e.g., FD, DVARS, RMSD) fail or produce empty arrays for series
+        with two or fewer volumes, so we must skip those.
     mem_gb : :obj:`float`
         Size of asl file in GB - please note that this size
         should be calculated after resamplings that may extend

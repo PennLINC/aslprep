@@ -118,6 +118,51 @@ def select_processing_target(aslcontext):
     return processing_target
 
 
+def get_kept_volume_types(processing_target):
+    """List the volume types that are kept when the ASL series is reduced.
+
+    Parameters
+    ----------
+    processing_target : {"control", "deltam", "cbf"}
+        The processing target, from :func:`select_processing_target`.
+
+    Returns
+    -------
+    :obj:`list` of :obj:`str`
+        Volume types, as written in the aslcontext file, that are kept.
+    """
+    if processing_target == 'control':
+        return ['control', 'label', 'm0scan']
+    elif processing_target == 'deltam':
+        return ['deltam', 'm0scan']
+    else:
+        return ['cbf', 'm0scan']
+
+
+def count_reduced_volumes(aslcontext, processing_target):
+    """Count the volumes in the ASL series after it is reduced to the processing target.
+
+    Workflows downstream of the reduction (e.g., the confounds workflow) see this series,
+    not the full ASL file, so they must use this count.
+
+    Parameters
+    ----------
+    aslcontext : :obj:`str`
+        Path to the aslcontext file.
+    processing_target : {"control", "deltam", "cbf"}
+        The processing target, from :func:`select_processing_target`.
+
+    Returns
+    -------
+    :obj:`int`
+        Number of volumes in the reduced series.
+    """
+    import pandas as pd
+
+    volume_types = pd.read_table(aslcontext)['volume_type']
+    return int(volume_types.isin(get_kept_volume_types(processing_target)).sum())
+
+
 def estimate_labeling_efficiency(metadata):
     """Estimate labeling efficiency based on the available metadata.
 

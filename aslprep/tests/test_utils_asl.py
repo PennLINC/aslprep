@@ -5,6 +5,7 @@ import pytest
 
 from aslprep import config
 from aslprep.utils.asl import (
+    count_reduced_volumes,
     estimate_labeling_efficiency,
     ignore_volume_types,
     infer_m0tr,
@@ -394,3 +395,35 @@ def test_ignore_volume_types_nothing_left(tmp_path, volume_types, ignore):
 
     with pytest.raises(ValueError, match=r'\(--ignore\) leaves no'):
         ignore_volume_types(aslcontext, ignore=ignore, out_dir=tmp_path / 'work')
+
+
+@pytest.mark.parametrize(
+    ('volume_types', 'n_reduced'),
+    [
+        # GE product output (#728): the CBF volume is dropped, leaving the M0 and delta-M.
+        (['m0scan', 'deltam', 'cbf'], 2),
+        (['m0scan', 'cbf'], 2),
+        (['m0scan', 'm0scan'] + ['label', 'control'] * 3 + ['deltam', 'cbf'], 8),
+        (['deltam'] * 4 + ['cbf'], 4),
+    ],
+)
+def test_count_reduced_volumes(tmp_path, volume_types, n_reduced):
+    """The count matches the series that ReduceASLFiles writes."""
+    import nibabel as nb
+
+    from aslprep.interfaces.utility import ReduceASLFiles
+
+    aslcontext = _write_volume_types(tmp_path, volume_types)
+    target = select_processing_target(aslcontext)
+    assert count_reduced_volumes(aslcontext, target) == n_reduced
+
+    asl_file = tmp_path / 'asl.nii.gz'
+    data = np.zeros((2, 2, 2, len(volume_types)), dtype=np.float32)
+    nb.Nifti1Image(data, np.eye(4)).to_filename(asl_file)
+    result = ReduceASLFiles(
+        asl_file=str(asl_file),
+        aslcontext=aslcontext,
+        processing_target=target,
+        metadata={},
+    ).run(cwd=str(tmp_path))
+    assert nb.load(result.outputs.asl_file).shape[3] == n_reduced
