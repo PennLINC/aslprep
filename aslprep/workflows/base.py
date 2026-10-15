@@ -175,7 +175,7 @@ which is based on *fMRIPrep* (@esteban2019fmriprep; @esteban2020analysis; RRID:S
 *Nipype* {config.environment.nipype_version} [@nipype].
 
 """
-    workflow.__postdesc__ = f""" \
+    workflow.__postdesc__ = f"""
 Many internal operations of *ASLPrep* use
 *Nilearn* {NILEARN_VERSION} [@nilearn], *NumPy* [@numpy], and *SciPy* [@scipy].
 For more details of the pipeline, see
@@ -894,7 +894,8 @@ tasks and sessions), the following preprocessing was performed.
         if asl_wf is None:
             continue
 
-        asl_wf.__desc__ = asl_pre_desc + (asl_wf.__desc__ or '')
+        # The run's acquisition, then the preprocessing that its subworkflows describe
+        asl_wf.__desc__ = (asl_wf.__desc__ or '') + asl_pre_desc
 
         workflow.connect([
             (anat_fit_wf, asl_wf, [

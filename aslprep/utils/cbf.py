@@ -674,7 +674,7 @@ def estimate_cbf_pcasl_multipld(
     unit_conversion : :obj:`float`
         The factor to convert CBF units from mL/g/s to mL/ (100 g)/min. 6000.
     partition_coefficient : :obj:`float`
-        The brain/blood partition coefficient in mL/g. Called lambda in the literature.
+        The blood-brain partition coefficient in mL/g. Called lambda in the literature.
 
     Returns
     -------
@@ -822,12 +822,14 @@ def calculate_deltam_pcasl(X, cbf, att, abat, abv):
         Longitudinal relaxation time of arterial blood in seconds.
         Used for both deltam_tiss and deltam_art calculation.
     m0_a : :obj:`float`
-        Equilibrium magnetization of tissue, calculated as M0a = SIpd / lambda,
-        where SIpd is a proton density weighted image and lambda is the tissue/blood partition
-        coefficient.
+        Equilibrium magnetization of arterial blood (M0b in the OSIPI lexicon),
+        calculated as M0a = SIpd / lambda,
+        where SIpd is a proton density weighted image (the equilibrium magnetization of tissue)
+        and lambda is the blood-brain partition coefficient.
         Used for deltam_tiss calculation.
     m0_b : :obj:`float`
         Equilibrium magnetization of arterial blood.
+        ASLPrep uses the same value as ``m0_a``.
         Used for deltam_art calculation.
     plds : :obj:`numpy.ndarray`
         Post-labeling delays.
@@ -939,13 +941,15 @@ def calculate_deltam_pasl(X, cbf, att, abat, abv):
         Longitudinal relaxation time of arterial blood in seconds.
         Used for both deltam_tiss and deltam_art calculation.
     m0_a : :obj:`float`
-        Equilibrium magnetization of tissue, calculated as M0a = SIpd / lambda,
-        where SIpd is a proton density weighted image and lambda is the tissue/blood partition
-        coefficient.
+        Equilibrium magnetization of arterial blood (M0b in the OSIPI lexicon),
+        calculated as M0a = SIpd / lambda,
+        where SIpd is a proton density weighted image (the equilibrium magnetization of tissue)
+        and lambda is the blood-brain partition coefficient.
         SIpd is also already scaled by any user-provided scaling factor.
         Used for deltam_tiss calculation.
     m0_b : :obj:`float`
         Equilibrium magnetization of arterial blood.
+        ASLPrep uses the same value as ``m0_a``.
         Used for deltam_art calculation.
     tis : :obj:`numpy.ndarray`
         Inversion times in seconds.
@@ -1478,7 +1482,7 @@ def fit_deltam_multipld(
     scaled_m0data : :obj:`numpy.ndarray` of shape (n_voxels,)
         M0 data, after any scaling requested by the user.
     plds : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
-        Post-labeling delay values. This uses the TI values for PASL data.
+        Delay times: post-labeling delays for (P)CASL data, inversion times for PASL data.
     labeleff : :obj:`float`
         Labeling efficiency, also referred to as alpha.
         In the case of background suppression, this combines alpha and alpha_bs,
@@ -1487,7 +1491,7 @@ def fit_deltam_multipld(
         Longitudinal relaxation time of arterial blood in seconds.
         Used for both deltam_tiss and deltam_art calculation.
     partition_coefficient : :obj:`float`
-        Brain partition coefficient (lambda in Alsop 2015). Generally 0.9.
+        Blood-brain partition coefficient, in mL/g (lambda in Alsop 2015). Generally 0.9.
     is_casl : :obj:`bool`
         True if is (P)CASL sequence.
     tau : :obj:`float` or :obj:`numpy.ndarray` or None, optional
@@ -1691,6 +1695,9 @@ def fit_deltam_multipld(
 
 #: M0 below this fraction of its 98th percentile over the field of view is treated as absent.
 M0_THRESHOLD = 0.1
+
+#: Blood-brain partition coefficient (lambda), in mL/g, from Alsop et al. (2015).
+PARTITION_COEFFICIENT = 0.9
 
 
 def zero_low_m0(m0data, threshold=M0_THRESHOLD):

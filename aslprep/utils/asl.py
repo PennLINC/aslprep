@@ -163,13 +163,16 @@ def count_reduced_volumes(aslcontext, processing_target):
     return int(volume_types.isin(get_kept_volume_types(processing_target)).sum())
 
 
-def estimate_labeling_efficiency(metadata):
+def estimate_labeling_efficiency(metadata, warn=True):
     """Estimate labeling efficiency based on the available metadata.
 
     Parameters
     ----------
     metadata : :obj:`dict`
         Dictionary of metadata from the ASL file.
+    warn : :obj:`bool`, optional
+        Whether to warn when the number of background suppression pulses must be assumed.
+        Default is True.
 
     Returns
     -------
@@ -209,7 +212,7 @@ def estimate_labeling_efficiency(metadata):
         labeleff = BASE_LABELEFF[metadata['ArterialSpinLabelingType']]
 
     if metadata.get('BackgroundSuppression', False):
-        if 'BackgroundSuppressionNumberPulses' not in metadata.keys():
+        if warn and 'BackgroundSuppressionNumberPulses' not in metadata.keys():
             from aslprep import config
 
             config.loggers.utils.warning(
@@ -226,8 +229,9 @@ def estimate_labeling_efficiency(metadata):
 def get_inflow_times(metadata, is_casl):
     """Determine the appropriate inflow times for BASIL.
 
-    For PASL data, the inflow time (TI) is just the post-labeling delay (PLD).
-    For (P)CASL data, TI is PLD plus the labeling duration.
+    For PASL data, the inflow time is the inversion time (TI),
+    which BIDS stores in the ``PostLabelingDelay`` field.
+    For (P)CASL data, the inflow time is the post-labeling delay plus the labeling duration.
 
     Parameters
     ----------
@@ -488,3 +492,262 @@ def prepare_basil_kwargs(metadata):
             )
 
     return basil_kwargs
+
+
+#: Names of the ASL labeling types, as written in the methods boilerplate.
+ASL_TYPE_NAMES = {
+    'CASL': 'continuous ASL (CASL)',
+    'PCASL': 'pseudo-continuous ASL (PCASL)',
+    'PASL': 'pulsed ASL (PASL)',
+}
+
+#: Names and citations of the bolus cut-off techniques, keyed by BIDS ``BolusCutOffTechnique``.
+BOLUS_CUTOFF_TECHNIQUES = {
+    'QUIPSS': ('QUIPSS', '@wong1998quantitative'),
+    'QUIPSSII': ('QUIPSS II', '@wong1998quantitative'),
+    'Q2TIPS': ('Q2TIPS', '@luh1999quipss'),
+}
+
+# Volume types whose delay times and labeling durations describe the ASL acquisition.
+LABELED_VOLUME_TYPES = ('control', 'label', 'deltam', 'cbf')
+
+
+def _join_words(words):
+    """Join a list of strings with commas and a final "and"."""
+    if len(words) <= 2:
+        return ' and '.join(words)
+    return f'{", ".join(words[:-1])}, and {words[-1]}'
+
+
+def _plural(count, noun):
+    """Write a count and a noun, adding an "s" to the noun unless the count is one."""
+    return f'{count} {noun}' + ('' if count == 1 else 's')
+
+
+def _labeled_values(values, volume_types):
+    """Get the sorted, unique values of a metadata field, ignoring the values for M0 volumes."""
+    values = np.atleast_1d(np.asarray(values, dtype=float))
+    if values.size > 1 and values.size == len(volume_types):
+        keep = np.isin(volume_types, LABELED_VOLUME_TYPES)
+        if keep.any():
+            values = values[keep]
+    return np.unique(np.round(values, 6)).tolist()
+
+
+def _describe_timing(name, values):
+    """Describe one or more timing values, in seconds."""
+    if len(values) == 1:
+        return f'the {name} was {values[0]:g} s'
+    return f'the {name}s were {_join_words([f"{value:g}" for value in values])} s'
+
+
+def describe_asl_acquisition(metadata, aslcontext):
+    """Describe the ASL acquisition for the methods boilerplate.
+
+    The description covers the acquisition parameters that the OSIPI ASL lexicon and reporting
+    recommendations :footcite:p:`suzuki2024asl` ask authors to report,
+    for those that are available in the BIDS metadata.
+    Parameters that are not in the metadata are left out.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        BIDS metadata for the ASL file, before any volumes were removed.
+    aslcontext : :obj:`str` or :obj:`pandas.DataFrame`
+        The aslcontext file for the ASL file, or its contents.
+
+    Returns
+    -------
+    :obj:`str`
+        The description, with Markdown citations.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    import pandas as pd
+
+    if not isinstance(aslcontext, pd.DataFrame):
+        aslcontext = pd.read_table(aslcontext)
+    volume_types = aslcontext['volume_type'].to_numpy()
+
+    asl_type = metadata.get('ArterialSpinLabelingType')
+    is_pasl = asl_type == 'PASL'
+    sentences = []
+
+    # Labeling type and background suppression
+    sequence = ASL_TYPE_NAMES.get(asl_type, f'{asl_type} ASL')
+    if asl_type == 'PCASL' and metadata.get('PCASLType'):
+        sequence = f'{metadata["PCASLType"]} {sequence}'
+    elif is_pasl and metadata.get('PASLType'):
+        sequence = f'{sequence[:-1]}, {metadata["PASLType"]})'
+    article = 'an' if sequence[0] in 'aeiou' else 'a'
+    sentence = f'The ASL data were acquired with {article} {sequence} sequence'
+    if asl_type == 'CASL' and metadata.get('CASLType') == 'double-coil':
+        sentence += ' with a separate labeling coil'
+    if 'BackgroundSuppression' in metadata:
+        if metadata['BackgroundSuppression']:
+            sentence += ', with background suppression'
+            n_pulses = metadata.get('BackgroundSuppressionNumberPulses')
+            if n_pulses is not None:
+                sentence += f' ({_plural(n_pulses, "pulse")})'
+        else:
+            sentence += ', without background suppression'
+    sentences.append(f'{sentence}.')
+
+    pulse_times = metadata.get('BackgroundSuppressionPulseTime')
+    if metadata.get('BackgroundSuppression') and pulse_times:
+        pulse_times = _join_words([f'{time:g}' for time in np.atleast_1d(pulse_times)])
+        sentences.append(
+            f'The background suppression pulses were applied {pulse_times} s after the start of '
+            'labeling.'
+        )
+
+    # Labeling duration and delay times
+    timing = []
+    if not is_pasl and 'LabelingDuration' in metadata:
+        timing.append(
+            _describe_timing(
+                'labeling duration',
+                _labeled_values(metadata['LabelingDuration'], volume_types),
+            )
+        )
+    if 'PostLabelingDelay' in metadata:
+        timing.append(
+            _describe_timing(
+                'inversion time' if is_pasl else 'post-labeling delay',
+                _labeled_values(metadata['PostLabelingDelay'], volume_types),
+            )
+        )
+    if timing:
+        timing = ' and '.join(timing)
+        sentences.append(f'{timing[0].upper()}{timing[1:]}.')
+
+    # Bolus cut-off
+    if is_pasl and 'BolusCutOffFlag' in metadata:
+        technique = metadata.get('BolusCutOffTechnique')
+        if not metadata['BolusCutOffFlag']:
+            sentences.append('No bolus cut-off technique was used.')
+        elif technique is None:
+            sentences.append('A bolus cut-off technique was used.')
+        else:
+            name, citation = BOLUS_CUTOFF_TECHNIQUES.get(technique, (technique, None))
+            sentence = f'The {name} bolus cut-off technique was used'
+            if citation:
+                sentence += f' [{citation}]'
+            delay_times = np.atleast_1d(metadata.get('BolusCutOffDelayTime', [])).tolist()
+            if delay_times:
+                sentence += f', with a bolus cut-off delay time (TI1) of {delay_times[0]:g} s'
+                if technique == 'Q2TIPS' and len(delay_times) > 1:
+                    sentence += f' and a last saturation pulse (TI1s) at {delay_times[-1]:g} s'
+            sentences.append(f'{sentence}.')
+
+    # Number of label-control pairs and scanner-calculated volumes
+    if 'TotalAcquiredPairs' in metadata:
+        n_pairs = metadata['TotalAcquiredPairs']
+        verb = 'was' if n_pairs == 1 else 'were'
+        sentences.append(f'A total of {_plural(n_pairs, "control-label pair")} {verb} acquired.')
+
+    contents = []
+    if 'TotalAcquiredPairs' not in metadata:
+        n_pairs = int(min((volume_types == 'control').sum(), (volume_types == 'label').sum()))
+        if n_pairs:
+            contents.append(_plural(n_pairs, 'control-label pair'))
+    for volume_type, noun in (
+        ('deltam', 'delta-M volume'),
+        ('cbf', 'CBF volume'),
+    ):
+        n_volumes = int((volume_types == volume_type).sum())
+        if n_volumes:
+            contents.append(f'{_plural(n_volumes, noun)} calculated on the scanner')
+    if contents:
+        sentences.append(f'The ASL file contained {_join_words(contents)}.')
+
+    # Voxel size
+    if 'AcquisitionVoxelSize' in metadata:
+        voxel_size = ' x '.join(f'{size:g}' for size in metadata['AcquisitionVoxelSize'])
+        sentences.append(f'The acquisition voxel size was {voxel_size} mm.')
+
+    # Vascular crushing
+    if 'VascularCrushing' in metadata:
+        if metadata['VascularCrushing']:
+            sentence = 'Vascular crushing was applied'
+            venc = np.atleast_1d(metadata.get('VascularCrushingVENC', []))
+            venc = [f'{value:g}' for value in np.unique(venc) if value]
+            if venc:
+                sentence += f' (VENC = {_join_words(venc)} cm/s)'
+            sentences.append(f'{sentence}.')
+        else:
+            sentences.append('No vascular crushing was applied.')
+
+    # Labeling location
+    distance = metadata.get('LabelingDistance')
+    if distance is not None:
+        target = 'leading edge of the labeling slab' if is_pasl else 'center of the labeling plane'
+        sentences.append(
+            f'The {target} was {abs(distance):g} mm from the center of the imaging slab.'
+        )
+    if is_pasl and metadata.get('LabelingSlabThickness'):
+        sentences.append(f'The labeling slab was {metadata["LabelingSlabThickness"]:g} mm thick.')
+    if metadata.get('LabelingLocationDescription'):
+        description = metadata['LabelingLocationDescription'].strip().rstrip('.')
+        sentences.append(f'The labeling location was described as follows: {description}.')
+
+    # (P)CASL labeling pulses
+    pulse_fields = (
+        ('LabelingPulseAverageGradient', 'an average gradient', 'mT/m'),
+        ('LabelingPulseMaximumGradient', 'a maximum gradient', 'mT/m'),
+        ('LabelingPulseAverageB1', 'an average B1', 'uT'),
+        ('LabelingPulseFlipAngle', 'a flip angle', 'degrees'),
+        ('LabelingPulseInterval', 'an interval', 'ms'),
+        ('LabelingPulseDuration', 'a duration', 'ms'),
+    )
+    pulses = [
+        f'{label} of {metadata[field]:g} {unit}'
+        for field, label, unit in pulse_fields
+        if not is_pasl and field in metadata
+    ]
+    if pulses:
+        sentences.append(f'The labeling pulses had {_join_words(pulses)}.')
+
+    return ' '.join(sentences)
+
+
+def describe_labeling_efficiency(metadata):
+    """Describe the labeling efficiency used to calculate CBF, for the methods boilerplate.
+
+    This describes the value from :func:`estimate_labeling_efficiency`.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata from the ASL file.
+
+    Returns
+    -------
+    :obj:`str`
+        The description, with Markdown citations.
+    """
+    labeleff = estimate_labeling_efficiency(metadata, warn=False)
+    asl_type = metadata['ArterialSpinLabelingType']
+    if 'LabelingEfficiency' in metadata:
+        source = 'the labeling efficiency in the BIDS metadata'
+    else:
+        citation = '@wang2005amplitude' if asl_type == 'CASL' else '@alsop_recommended_2015'
+        source = f'the typical labeling efficiency for {asl_type} [{citation}]'
+
+    text = f'a labeling efficiency of {labeleff:.3g} ({source}'
+    if metadata.get('BackgroundSuppression', False):
+        n_pulses = metadata.get('BackgroundSuppressionNumberPulses')
+        if n_pulses is None:
+            text += (
+                ', multiplied by 0.95 for the loss of label from one background suppression '
+                'pulse, which was assumed because the number of pulses was not specified '
+                '[@alsop_recommended_2015]'
+            )
+        else:
+            text += (
+                ', multiplied by 0.95 for the loss of label from each of the '
+                f'{_plural(n_pulses, "background suppression pulse")} [@alsop_recommended_2015]'
+            )
+    return f'{text})'

@@ -113,30 +113,30 @@ ASL preprocessing
       asl_file = str(config.execution.bids_dir / "sub-01" / "perf"/ "sub-01_asl.nii.gz")
       wf = init_asl_wf(asl_file=asl_file)
 
-Preprocessing of :abbr:`ASL (Arterial Spin Labelling)` files is
+Preprocessing of :abbr:`ASL (Arterial Spin Labeling)` files is
 split into multiple sub-workflows described below.
 
 .. topic:: Processing GE data
 
    ASLPrep can process data from any of the big three manufacturers (Siemens, Philips, GE),
-   but the GE ASL product sequence is unique in that it typically only produces a single deltaM or
+   but the GE ASL product sequence is unique in that it typically only produces a single ΔM or
    CBF volume (optionally along with an M0 volume).
 
    For these short sequences, ASLPrep operates in basically the same manner as it does with other
    sequences, except that the M0 volume (when available) is used as the reference image instead of
-   the deltaM or CBF volume, since GE deltaM volumes tend to have extreme background noise in a
+   the ΔM or CBF volume, since GE ΔM volumes tend to have extreme background noise in a
    circle around the brain.
    Additionally, SCORE/SCRUB cannot be used with these short sequences,
    as the denoising method requires a long time series from which to identify outliers.
 
 .. topic:: Ignoring volumes calculated on the scanner
 
-   An ASL file may contain delta-M or CBF volumes that were calculated on the scanner
+   An ASL file may contain ASL difference (ΔM) or CBF volumes that were calculated on the scanner
    (``deltam`` and ``cbf`` in the ``aslcontext.tsv`` file).
    By default, *ASLPrep* builds the reference image from these volumes when they are present,
    because they usually have more tissue contrast than control volumes.
    When a file has no control-label pairs, *ASLPrep* also uses them to calculate CBF:
-   delta-M volumes if there are any, and CBF volumes otherwise.
+   ΔM volumes if there are any, and CBF volumes otherwise.
 
    If these volumes are of poor quality, use ``--ignore cbf``, ``--ignore deltam``, or both.
    *ASLPrep* then treats the ignored volumes as if they were not in the file:
@@ -160,9 +160,9 @@ ASL reference image estimation
 
    wf = init_raw_aslref_wf()
 
-This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labelling)` series.
+This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labeling)` series.
 The reference image is then used to calculate a brain mask for the
-:abbr:`ASL (Arterial Spin Labelling)` signal using SynthStrip
+:abbr:`ASL (Arterial Spin Labeling)` signal using SynthStrip
 (:py:func:`~aslprep.workflows.asl.reference.init_synthstrip_aslref_wf`).
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
@@ -195,7 +195,7 @@ Head-motion estimation
 Using the previously estimated reference scan,
 FSL ``mcflirt`` is used to estimate head-motion.
 As a result, one rigid-body transform with respect to
-the reference image is written for each :abbr:`ASL (Arterial Spin Labelling)`
+the reference image is written for each :abbr:`ASL (Arterial Spin Labeling)`
 time-step.
 Additionally, a list of 6-parameters (three rotations and
 three translations) per time-step is written and fed to the
@@ -329,9 +329,9 @@ Limitations:
 Preprocessed ASL in native space
 ================================
 
-A new *preproc* :abbr:`ASL (Arterial Spin Labelling)` series is generated
+A new *preproc* :abbr:`ASL (Arterial Spin Labeling)` series is generated
 from the original data in the original space.
-All volumes in the :abbr:`ASL (Arterial Spin Labelling)` series are
+All volumes in the :abbr:`ASL (Arterial Spin Labeling)` series are
 resampled in their native space by concatenating the mappings found in previous correction workflows
 (:abbr:`HMC (head-motion correction)`,
 :abbr:`SDC (susceptibility-derived distortion correction)`, and
@@ -396,7 +396,7 @@ so *ASLPrep* divides the M0 image by :math:`1 - e^{-TR / T_{1,tissue}}`
 :footcite:p:`alsop_recommended_2015`.
 BASIL makes the same correction from the repetition time it is given.
 
-CBF is proportional to the difference signal divided by M0,
+CBF is proportional to the ASL difference signal (ΔM) divided by M0,
 so voxels with almost no M0 signal (mostly air) would get arbitrarily large CBF values,
 which resampling to other spaces would then spread into the neighboring voxels.
 *ASLPrep* therefore treats M0 values below 10% of the 98th percentile of the M0 image as zero.
@@ -410,26 +410,28 @@ After :ref:`preprocessing <asl_preproc>`, the pairs of labeled and control image
 
 .. topic:: 2D Acquisitions and Slice Timing
 
-   If slice timing is available for the ASL data, then ASLPrep will shift post-labeling delay
-   values on a slice-wise basis.
+   If slice timing is available for the ASL data, then ASLPrep will shift the delay times
+   (post-labeling delays for (P)CASL, inversion times for PASL) on a slice-wise basis.
 
    .. figure:: _static/slice_timing_and_pld.svg
 
-      Slice time-shifted post-labeling delay values plotted next to a corresponding delta-M volume.
+      Slice time-shifted delay times plotted next to a corresponding ΔM volume.
 
 
 Single-Delay ASL
 ================
 
-The CBF computation of single-delay (post labeling delay) ASL data is done using a one-compartment
+The CBF computation of single-delay (single PLD or TI) ASL data is done using a one-compartment
 model :footcite:p:`alsop_recommended_2015`.
 
 .. sidebar:: Notation
 
-   :math:`\tau` : Labeling duration, in seconds.
+   Terms and symbols follow the OSIPI ASL lexicon :footcite:p:`suzuki2024asl` where possible.
 
-   :math:`\lambda` : Brain-blood partition coefficient.
-   Set to 0.9 g/mL :footcite:p:`alsop_recommended_2015`.
+   :math:`\tau` : Labeling duration (LD), in seconds.
+
+   :math:`\lambda` : Blood-brain partition coefficient.
+   Set to 0.9 mL/g :footcite:p:`alsop_recommended_2015`.
 
    :math:`\alpha` : Labeling efficiency.
    This may be directly encoded in the ASL file's sidecar file with the ``LabelingEfficiency`` field.
@@ -437,6 +439,9 @@ model :footcite:p:`alsop_recommended_2015`.
    (PASL, CASL, or PCASL).
    In either case, if background suppression was applied, :math:`\alpha` is multiplied by 0.95
    for each background suppression pulse :footcite:p:`alsop_recommended_2015`.
+   As in the OSIPI lexicon, :math:`\alpha` therefore combines the efficiency of the labeling itself
+   with the loss of label caused by background suppression.
+   The BIDS ``LabelingEfficiency`` field describes the labeling alone.
 
    :math:`w` : Post-labeling delay (PLD) for PCASL data, in seconds.
    In BIDS, this is encoded with the ``PostLabelingDelay`` field.
@@ -444,24 +449,28 @@ model :footcite:p:`alsop_recommended_2015`.
    :math:`TI` : Inversion time for PASL data, in seconds.
    In BIDS, this is encoded with the ``PostLabelingDelay`` field.
 
-   :math:`T_{1,blood}` : Relaxation time for arterial blood, in seconds.
+   :math:`T_{1b}` : Longitudinal relaxation time of arterial blood, in seconds.
    ASLPrep infers this automatically based on the magnetic field strength
    :footcite:p:`zhang2013vivo,alsop_recommended_2015`.
    If the participant's haematocrit is available in the dataset, this value is scaled for it
    :footcite:p:`hales2016general`; see :ref:`haematocrit`.
 
-   :math:`T_{1,tissue}` : Relaxation time for gray matter,
-   used in the two-compartment model for multi-delay data (in seconds).
+   :math:`T_{1,tissue}` : Longitudinal relaxation time of gray matter, in seconds.
+   Used to correct M0 images acquired with a short repetition time.
    ASLPrep infers this automatically based on the magnetic field strength
    :footcite:p:`wright2008water`.
 
-   :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization.
+   :math:`M_{0}` : Fully relaxed, equilibrium tissue magnetization
+   (:math:`M_{0t}` in the OSIPI lexicon).
+   :math:`M_{0} / \lambda` is the equilibrium magnetization of arterial blood
+   (:math:`M_{0b}` in the OSIPI lexicon).
 
-   :math:`\Delta{TI}` : Post-labeling delay minus bolus cutoff delay time, in seconds.
-   Per :footcite:t:`alsop_recommended_2015`, this is QUIPSS II's equivalent to (P)CASL's :math:`w`.
+   :math:`TI_{1}` : Bolus duration set by the bolus cut-off, in seconds.
+   In BIDS, this is the first value of ``BolusCutOffDelayTime``.
+   For Q2TIPS, this is the time of the *first* saturation pulse.
 
-   :math:`TI_{1}` : Bolus cutoff delay time, in seconds.
-   For Q2TIPS, this is the *first* bolus cutoff.
+   :math:`\Delta{TI}` : Inversion time minus :math:`TI_{1}` (:math:`TI_{2} - TI_{1}`), in seconds.
+   Used by the original QUIPSS technique.
 
 
 (Pseudo-)Continuous ASL
@@ -471,17 +480,17 @@ For (P)CASL ([pseudo-]continuous ASL),
 CBF is calculated using a general kinetic model :footcite:p:`buxton1998general`.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T_{1,blood} } }
-   {2 \cdot \alpha \cdot M_{0} \cdot T_{1,blood} \cdot (1 - e^{\frac{ - \tau }{ T_{1,blood} } }) }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ w }{ T_{1b} } }
+   {2 \cdot \alpha \cdot M_{0} \cdot T_{1b} \cdot (1 - e^{\frac{ - \tau }{ T_{1b} } }) }
 
 :math:`\tau`, :math:`\lambda`, :math:`\alpha`, and :math:`w` are labeling duration,
-brain-blood partition coefficient, labeling efficiency, and post-labeling delay (PLD), respectively.
+blood-brain partition coefficient, labeling efficiency, and post-labeling delay (PLD), respectively.
 
 In the absence of any of these parameters, standard values are used based on the scan type and
 scanning parameters.
 
 The element which differentiates single-delay PCASL's CBF calculation from the PASL equivalents is
-:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+:math:`T_{1b} \cdot (1 - e^{\frac{ - \tau }{ T_{1b} } })`.
 
 
 Pulsed ASL
@@ -497,26 +506,27 @@ For pulsed ASL (PASL) data with the QUIPSS bolus cut-off technique,
 the formula from :footcite:t:`wong1998quantitative` is used.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{ M } \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{ M } \cdot e ^ \frac{ TI }{ T_{1b} } }
    { 2 \cdot \alpha \cdot M_{0} \cdot \Delta{TI} }
 
-where :math:`\Delta{TI}` is the post-labeling delay (PLD) minus the bolus cutoff delay time.
+where :math:`\Delta{TI}` is the inversion time minus the bolus cut-off delay time
+(:math:`TI_{2} - TI_{1}`).
 
 Given that :math:`TI` is equivalent to :math:`w` in BIDS datasets
 (i.e., as the ``PostLabelingDelay`` field),
 the formula for QUIPSS is the same as PCASL,
 except :math:`\Delta{TI}` replaces
-:math:`T1_{blood} \cdot (1 - e^{\frac{ - \tau }{ T1_{blood} } })`.
+:math:`T_{1b} \cdot (1 - e^{\frac{ - \tau }{ T_{1b} } })`.
 
 
 QUIPSS II Modification
 ^^^^^^^^^^^^^^^^^^^^^^
 
-For PASL data with the QUIPSS II bolus cut-off technique,
+For PASL data with the QUIPSS II bolus cut-off technique :footcite:p:`wong1998quantitative`,
 the formula from :footcite:t:`alsop_recommended_2015` is used.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T_{1b} } }
    {2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
 where :math:`TI_{1}` is the bolus cutoff delay time.
@@ -528,22 +538,26 @@ except :math:`TI_{1}` replaces :math:`\Delta{TI}`.
 Q2TIPS Modification
 ^^^^^^^^^^^^^^^^^^^
 
-For PASL data with the Q2TIPS bolus cut-off technique,
+For PASL data with the Q2TIPS bolus cut-off technique :footcite:p:`luh1999quipss`,
 the formula from :footcite:t:`alsop_recommended_2015` is used,
 which is also the commercial Q2TIPS CBF calculation described in
 :footcite:t:`noguchi2015technical`.
 
 .. math::
-   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T1_{blood} } }
+   CBF = \frac{ 6000 \cdot \lambda \cdot \Delta{M} \cdot e ^ \frac{ TI }{ T_{1b} } }
    { 2 \cdot \alpha \cdot M_{0} \cdot TI_{1} }
 
 where :math:`TI_{1}` is the first bolus cutoff delay time.
 
 Note that the formula for Q2TIPS is the same as QUIPSS II.
-In BIDS, Q2TIPS has two bolus cutoff delay times:
-the start times of the first and last saturation pulses.
+In BIDS, Q2TIPS has two bolus cut-off delay times:
+the times from the end of labeling to the start of the first and last saturation pulses.
 The first is the bolus duration, :math:`TI_{1}`.
-The last is not used in the calculation.
+The last, which the OSIPI lexicon calls :math:`TI_{1s}` ("TI1 stop"),
+is not used in the calculation.
+The OSIPI lexicon measures both from the center of the labeling pulse to the center of the
+saturation pulse, which differs from the BIDS definition by a few milliseconds;
+*ASLPrep* uses the values in the BIDS sidecar as they are.
 It is not the inversion time
 (:math:`TI` here, called :math:`TI_{2}` by :footcite:t:`noguchi2015technical`),
 which is the ``PostLabelingDelay``.
@@ -558,11 +572,24 @@ which is the ``PostLabelingDelay``.
 Multi-Delay ASL
 ===============
 
-In multi-delay ASL, control-label pairs are acquired for multiple post-labeling delay values.
+In multi-delay ASL, control-label pairs are acquired at multiple delay times
+(post-labeling delays for (P)CASL, inversion times for PASL).
+The OSIPI lexicon :footcite:p:`suzuki2024asl` calls this "multi-timepoint ASL",
+a term that also covers acquisitions in which the labeling duration varies;
+*ASLPrep* uses the same model for both.
 This type of acquisition requires more complicated models, but it also results in more accurate
 CBF estimates.
 Also, multi-delay ASL allows for the estimation of arterial transit time (ATT),
 arterial bolus arrival time (aBAT), and arterial blood volume (aBV).
+
+ATT is the time from labeling until the labeled blood first arrives in the tissue of a voxel.
+aBAT is the time from labeling until the labeled blood first arrives in the arteries
+(the macrovascular compartment) within a voxel :footcite:p:`woods2023recommendations`.
+The two are separate parameters of the model.
+Note that the OSIPI lexicon lists "bolus arrival time" (BAT) as another name for ATT,
+so "aBAT" should not be read as a synonym of ATT.
+Both depend on where the labeling plane or slab was placed,
+so they are not directly comparable across studies.
 
 For multi-delay ASL, ASLPrep uses a two-compartment general kinetic model recommended by
 :footcite:t:`woods2023recommendations`.
@@ -601,6 +628,12 @@ The intravascular compartment is modeled as:
    \end{cases}
 
 For reference, please see Equations 2 and 4 in :footcite:t:`woods2023recommendations`.
+
+Here, :math:`M_{0a}` (tissue term) and :math:`M_{0b}` (arterial term) are both the equilibrium
+magnetization of arterial blood, which the OSIPI lexicon calls :math:`M_{0b}`.
+*ASLPrep* estimates them voxel-wise as :math:`M_{0} / \lambda`, with :math:`\lambda = 0.9` mL/g.
+:math:`\alpha \cdot \alpha_{BS}` is the labeling efficiency :math:`\alpha` described above,
+which already includes the loss of label caused by background suppression.
 
 
 Pulsed ASL
@@ -759,7 +792,7 @@ is an FSL tool for CBF estimation.
 BASIL implements a simple kinetic model as described above,
 but uses Bayesian inference principles :footcite:p:`chappell2008variational`.
 BASIL is mostly suitable for multi-delay ASL data.
-It includes bolus arrival time estimation with spatial regularization :footcite:p:`groves2009combined`
+It includes arterial transit time (ATT) estimation with spatial regularization :footcite:p:`groves2009combined`
 and the correction of partial volume effects :footcite:p:`chappell2011partial`.
 
 A sample of BASIL CBF with spatial regularization is shown below:
@@ -832,13 +865,13 @@ ASL and CBF to T1w registration
    )
 
 *ASLPrep* uses the ``FSL BBR`` routine to calculate the alignment between each run's
-:abbr:`ASL (arterial spin labelling)` reference image and the reconstructed subject using the
+:abbr:`ASL (arterial spin labeling)` reference image and the reconstructed subject using the
 gray/white matter boundary.
 
 
 .. figure:: _static/EPIT1Normalization.svg
 
-   Animation showing :abbr:`ASL (arterial spin labelling)` to T1w registration.
+   Animation showing :abbr:`ASL (arterial spin labeling)` to T1w registration.
 
 
 FSL ``flirt`` is run with the :abbr:`BBR (boundary-based registration)` cost function, using the

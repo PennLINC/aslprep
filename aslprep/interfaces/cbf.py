@@ -27,6 +27,7 @@ from aslprep.utils.asl import (
     pcasl_or_pasl,
 )
 from aslprep.utils.cbf import (
+    PARTITION_COEFFICIENT,
     _getcbfscore,
     _scrubcbf,
     estimate_t1,
@@ -148,7 +149,7 @@ class ExtractCBF(SimpleInterface):
                 f'number of volumes in ASL file ({asl_img.shape[3]})'
             )
 
-        # get the control, tag, moscan or label
+        # get the control, label, m0scan, deltam, or cbf volumes
         vol_types = aslcontext['volume_type'].tolist()
         control_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'control']
         label_volume_idx = [i for i, vol_type in enumerate(vol_types) if vol_type == 'label']
@@ -404,7 +405,10 @@ class _ComputeCBFOutputSpec(TraitedSpec):
     plds = traits.Either(
         File(exists=True),
         None,
-        desc='Post-labeling delays. Only defined if slice-timing correction is applied.',
+        desc=(
+            'Delay times (post-labeling delays for (P)CASL, inversion times for PASL). '
+            'Only defined if slice-timing correction is applied.'
+        ),
     )
     failures = traits.Either(
         File(exists=True),
@@ -491,7 +495,6 @@ class ComputeCBF(SimpleInterface):
         labeleff = estimate_labeling_efficiency(metadata=metadata)
 
         UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
-        PARTITION_COEF = 0.9  # brain partition coefficient (lambda in Alsop 2015)
 
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
@@ -620,7 +623,7 @@ class ComputeCBF(SimpleInterface):
                 plds=plds,
                 labeleff=labeleff,
                 t1blood=t1blood,
-                partition_coefficient=PARTITION_COEF,
+                partition_coefficient=PARTITION_COEFFICIENT,
                 is_casl=is_casl,
                 tau=tau,  # defined for (P)CASL
                 ti1=ti1,  # defined for PASL
@@ -733,7 +736,7 @@ class ComputeCBF(SimpleInterface):
             with np.errstate(divide='ignore', invalid='ignore'):
                 deltam_scaled = deltam_arr / scaled_m0data[:, None]
 
-            perfusion_factor = (UNIT_CONV * PARTITION_COEF * np.exp(plds / t1blood)) / (
+            perfusion_factor = (UNIT_CONV * PARTITION_COEFFICIENT * np.exp(plds / t1blood)) / (
                 denom_factor * 2 * labeleff
             )
 
@@ -892,7 +895,8 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     deltam = File(
         exists=True,
         desc=(
-            'ASL data after subtracting tag-control or control-tag. '
+            'ASL difference (deltaM) data, after subtracting the label images from the control '
+            'images. '
             'This matches with ``--iaf diff``, which is the default.'
         ),
         argstr='-i %s',
@@ -936,8 +940,8 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     )
     pcasl = traits.Bool(
         desc=(
-            'Data were acquired using cASL or pcASL labelling '
-            '(pASL labeling is assumed by default).'
+            'Data were acquired using CASL or PCASL labeling '
+            '(PASL labeling is assumed by default).'
         ),
         argstr='--casl',
         mandatory=False,

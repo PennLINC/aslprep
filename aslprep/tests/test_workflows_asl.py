@@ -16,6 +16,31 @@ def test_remove_keys():
     assert _remove_keys(metadata, []) == metadata
 
 
+def test_init_asl_wf_boilerplate_order():
+    """The run's boilerplate opens with the acquisition and gives each section a heading."""
+    reset_config()
+    with mock_config():
+        config.workflow.level = 'minimal'
+        config.execution.output_spaces = 'asl'
+        config.init_spaces()
+        from aslprep.workflows.asl.base import init_asl_wf
+
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        wf = init_asl_wf(asl_file=str(asl_file))
+        desc = wf.visit_desc()
+
+    assert desc.startswith('\nASL acquisition\n\n: The ASL data were acquired with')
+    for heading in (
+        'Cerebral blood flow computation and denoising',
+        'Confounds',
+        'CBF quality control',
+        'Resampling',
+    ):
+        assert f'\n\n{heading}\n\n: ' in desc
+    assert desc.index('ASL acquisition') < desc.index('Cerebral blood flow computation')
+    assert '####' not in desc
+
+
 @pytest.mark.parametrize('level', ['minimal', 'full'])
 def test_init_asl_wf_output_metadata(level):
     """Preprocessed ASL sidecars use the reduced series' metadata."""
@@ -434,3 +459,60 @@ def test_init_cbf_wf_haematocrit(tmp_path, haematocrit):
         assert t1blood == pytest.approx(1.948, abs=0.0005)
         assert 'measured haematocrit (0.2)' in wf.__desc__
         assert '@hales2016general' in wf.__desc__
+        assert 'the value for 3 T [' not in wf.__desc__
+
+
+@pytest.mark.parametrize('asl_type', ['PCASL', 'PASL'])
+def test_init_cbf_wf_boilerplate(tmp_path, asl_type):
+    """The boilerplate reports the acquisition and the constants used to calculate CBF."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': asl_type,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': True,
+        'BackgroundSuppressionNumberPulses': 4,
+        'RepetitionTimePreparation': 4.0,
+        'SliceTiming': [0.0, 0.05, 0.1],
+    }
+    if asl_type == 'PCASL':
+        metadata['LabelingDuration'] = 1.8
+        metadata['PostLabelingDelay'] = [1.0, 1.0, 2.0, 2.0]
+    else:
+        metadata['PostLabelingDelay'] = 1.8
+        metadata['BolusCutOffFlag'] = True
+        metadata['BolusCutOffTechnique'] = 'QUIPSSII'
+        metadata['BolusCutOffDelayTime'] = 0.7
+
+    reset_config()
+    with mock_config():
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 2}),
+            metadata=metadata,
+        )
+    desc = wf.__desc__
+
+    # The acquisition is described by the run's workflow, before the preprocessing.
+    assert 'ASL acquisition' not in desc
+    # The next workflow's description starts on a new line.
+    assert desc.endswith('\n')
+    assert 'The T1 of arterial blood was set to 1.65 s, the value for 3 T' in desc
+    assert 'blood-brain partition coefficient of 0.9 mL/g' in desc
+    assert 'each of the 4 background suppression pulses' in desc
+    if asl_type == 'PCASL':
+        assert 'the post-labeling delays were shifted' in desc
+        assert 'M0a and M0b' not in desc
+        assert 'arterial blood (M0b) was estimated voxel-wise' in desc
+    else:
+        assert 'the inversion times were shifted' in desc
+        assert 'post-labeling delay' not in desc
+        assert 'QUIPSS II bolus cut-off technique [@wong1998quantitative]' in desc
+        assert 'as described in @alsop_recommended_2015' in desc
