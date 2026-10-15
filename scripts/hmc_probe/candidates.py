@@ -231,12 +231,20 @@ def _apply_fsl(data, mats, img):
 
 
 def _flirt(moving, ref, out_mat, cost):
-    """Rigid FLIRT of one image to another; returns the FSL matrix (moving -> reference)."""
-    cmd = ['flirt', '-in', str(moving), '-ref', str(ref), '-omat', str(out_mat), '-dof', '6']
-    cmd += ['-cost', cost, '-searchrx', '-10', '10', '-searchry', '-10', '10']
-    cmd += ['-searchrz', '-10', '10']
-    subprocess.run(cmd, check=True, capture_output=True)
-    return np.loadtxt(out_mat)
+    """Rigid registration of one image to another; the FSL matrix (moving -> reference).
+
+    MCFLIRT on the single volume (local optimization from the identity), as the plan specifies
+    for the cross-type step. FLIRT's global search was used until revision 13 and is not used:
+    between near-identical images (label and control templates, correlation 0.9998 on real
+    data) its cost is lower off the voxel grid, where interpolation smooths the noise, so it
+    returned spurious 1.5-2 degree rotations on real data (``ds008020``, ``ds004856``,
+    ``ds006148``) while MCFLIRT and 3dvolreg returned the identity.
+    """
+    # MCFLIRT writes its matrices into ``<base>.mat/``, so the base must not be ``out_mat``'s stem.
+    base = Path(out_mat).with_name(f'{Path(out_mat).stem}_mcf')
+    mats, _ = _mcflirt(moving, ref, base, cost)
+    np.savetxt(out_mat, mats[0])
+    return mats[0]
 
 
 def _to_itk(mats, ref_file, work):
@@ -767,7 +775,7 @@ def run_perfref(inputs, work, **options):
     Pass 1 is ``base`` (``c0`` by default). Its corrected pairs give a robust perfusion image
     (``perfusion.combine``, level ``robust``, delays at or above the median); each pair's
     corrected delta-M is then registered rigidly to that image (same contrast, normalized
-    correlation, +/-4 degree search) and the residual is applied to both volumes of the pair.
+    correlation, MCFLIRT) and the residual is applied to both volumes of the pair.
     Needs ``min_pairs`` pairs; otherwise the run is pass 1 unchanged and says so.
     """
     from harness import resample_series
@@ -792,12 +800,8 @@ def run_perfref(inputs, work, **options):
     new = list(h)
     for p, (c, lab) in enumerate(zip(controls, labels, strict=True)):
         dm = _save(cdata[..., c] - cdata[..., lab], ref_img, work / f'pair_{p:03d}.nii.gz')
-        mat = work / f'pair_{p:03d}.mat'
-        cmd = ['flirt', '-in', str(dm), '-ref', str(perf), '-omat', str(mat), '-dof', '6']
-        cmd += ['-cost', 'normcorr', '-searchrx', '-4', '4', '-searchry', '-4', '4']
-        cmd += ['-searchrz', '-4', '4']
-        subprocess.run(cmd, check=True, capture_output=True)
-        push = f2w @ np.loadtxt(mat) @ np.linalg.inv(f2w)  # pair frame -> perfusion frame
+        mat = _flirt(dm, perf, work / f'pair_{p:03d}.mat', 'normcorr')
+        push = f2w @ mat @ np.linalg.inv(f2w)  # pair frame -> perfusion frame
         for v in (c, lab):
             new[v] = h[v] @ np.linalg.inv(push)
     return {
