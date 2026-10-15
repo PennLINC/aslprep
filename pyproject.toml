@@ -38,7 +38,7 @@ dependencies = [
     "packaging >= 24",
     "pandas >= 2.2.3",
     "psutil >= 5.9.6",
-    "pybids >= 0.18.1",
+    "pybids >= 0.21.0",  # Resolves BIDS URIs in IntendedFor
     "requests >= 2.27",
     "sdcflows >= 2.15.2",
     "sentry-sdk",

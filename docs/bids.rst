@@ -81,6 +81,19 @@ The M0 scan can be linked to multiple ASL series, or each ASL series can have it
 The ``IntendedFor`` field is used to link the M0 scan to the ASL series,
 but it is not used in the same way as other ``IntendedFor`` cases (e.g., to link field maps to images).
 
+Each entry in ``IntendedFor`` may be a BIDS URI, relative to the dataset root,
+as recommended since BIDS 1.7,
+or a path relative to the subject directory, which BIDS has deprecated but still allows.
+For example, in ``sub-01/ses-1/perf/sub-01_ses-1_m0scan.json``:
+
+.. code-block:: json
+
+   {
+       "IntendedFor": ["bids::sub-01/ses-1/perf/sub-01_ses-1_asl.nii.gz"]
+   }
+
+is equivalent to ``"IntendedFor": ["ses-1/perf/sub-01_ses-1_asl.nii.gz"]``.
+
 The M0 scan is not necessarily used for distortion correction.
 It will be used for CBF calculations, and may be used for other purposes within ASLPrep
 (e.g., as a high-contrast image for coregistration).
