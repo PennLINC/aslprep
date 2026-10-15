@@ -258,14 +258,22 @@ def _oracle_floor(fixture, oracle, regions, scale, target, ref_img):
 # ---------------------------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------------------------
-def reference_frame(fixture, harness, indices_all):
-    """``F`` for a production-style reference (see the module docstring)."""
+def reference_frame(fixture, harness, indices_all, a=None):
+    """``F`` for the run's reference (see the module docstring).
+
+    A reference averaged from corrected volumes (``reference_frame_kind`` ``corrected``, e.g.
+    downstream policy D1) depicts those volumes' corrected frames, so ``F`` is the polar mean of
+    their ``A_v``, not of their raw poses.
+    """
     poses = fixture.poses()
     moving = fixture.motion is not None
     ref_type = harness.get('reference_type')
+    ref_volumes = harness.get('reference_volumes')
+    if harness.get('reference_frame_kind') == 'corrected' and a is not None and ref_volumes:
+        pos = [indices_all.index(v) for v in ref_volumes]
+        return polar_mean(a[pos]), f'corrected: polar mean of {len(pos)} corrected frame(s)'
     if not moving:
         return np.eye(4), 'static (no motion)'
-    ref_volumes = harness.get('reference_volumes')
     if ref_volumes == 'separate_m0':
         return np.eye(4), 'static (separate M0 does not move in aslscan)'
     if ref_volumes:
@@ -293,7 +301,7 @@ def score(fixture_dir, harness_dir):
     poses = fixture.poses()[indices]
     _, points = fixture.voxel_centers(fixture.brain)
     a = frames(hmc, poses)
-    ref_frame, ref_note = reference_frame(fixture, harness, indices)
+    ref_frame, ref_note = reference_frame(fixture, harness, indices, a)
     out = {
         'score_version': SCORE_VERSION,
         'fixture': str(fixture_dir),

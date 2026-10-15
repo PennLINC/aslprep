@@ -310,12 +310,82 @@ def pair_deltam(corrected, context):
     return nb.Nifti1Image(dm.astype(np.float32), corrected.affine)
 
 
-def run(inputs, candidate, out, **kwargs):
+def apply_downstream(inputs, res, work, policy):
+    """Replace a candidate's reference by downstream policy D0 or D1 (plan: "Downstream policy").
+
+    - ``d1``: production's own volume selection, each volume resampled through the candidate's
+      transform and averaged (plain mean; ``RobustAverage`` would re-register the volumes and
+      move the frame). Defined only when every selected volume is in the corrected series;
+      otherwise the run falls back to D0 and says so.
+    - ``d0``: production's reference exactly, with the candidate's transforms re-expressed in
+      its frame. The change of frame ``T`` (production aslref point -> candidate aslref point)
+      is the polar mean of ``H_v^-1 H0_v`` over production's selected volumes that both runs
+      corrected; with a separate M0 (no shared volume), a rigid FLIRT of the candidate's
+      reference to production's.
+
+    Returns the updated result and a record of what was done.
+    """
+    from candidates import _flirt, _fsl_to_world, _write_itk, polar_mean
+
+    prod = run_c0(inputs, _mkdir(work / 'downstream_c0'))
+    sel = prod['reference_volumes']
+    h = load_itk_series(res['xforms'])
+    idx = list(res['indices'])
+    note = {'policy': policy, 'production_reference_volumes': sel}
+    if policy == 'd1':
+        if sel != 'separate_m0' and all(s in idx for s in sel):
+            vols = resample_series(
+                inputs['asl_file'], sel, [h[idx.index(s)] for s in sel], res['aslref']
+            )
+            ref = nb.Nifti1Image(np.asanyarray(vols.dataobj).mean(-1), vols.affine)
+            ref.to_filename(work / 'aslref_d1.nii.gz')
+            note['d1'] = f'mean of {len(sel)} corrected volume(s)'
+            return {
+                **res,
+                'aslref': str(work / 'aslref_d1.nii.gz'),
+                'reference_volumes': sel,
+                'reference_frame_kind': 'corrected',
+            }, note
+        note['d1_fallback_to_d0'] = 'production selects volumes outside the corrected series'
+    h0 = load_itk_series(prod['xforms'])
+    idx0 = list(prod['indices'])
+    shared = [s for s in (sel if sel != 'separate_m0' else []) if s in idx and s in idx0]
+    if shared:
+        t = polar_mean([np.linalg.inv(h[idx.index(s)]) @ h0[idx0.index(s)] for s in shared])
+        note['frame_change'] = f'polar mean over {len(shared)} shared volume(s)'
+    else:
+        cand_img, prod_img = nb.load(res['aslref']), nb.load(prod['aslref'])
+        m = _flirt(res['aslref'], prod['aslref'], work / 'd0_frame.mat', 'mutualinfo')
+        world = _fsl_to_world(prod_img) @ m @ np.linalg.inv(_fsl_to_world(cand_img))
+        t = np.linalg.inv(world)  # production point -> candidate point
+        note['frame_change'] = 'rigid FLIRT (mutual information) of the candidate reference'
+    xforms = _write_itk(work / 'hmc_xfms_d0.txt', [m @ t for m in h])
+    return {
+        **res,
+        'aslref': prod['aslref'],
+        'xforms': str(xforms),
+        'reference_volumes': sel,
+        'reference_type': f'{res["reference_type"]}; D0 ({prod["reference_type"]})',
+        'reference_frame_kind': 'raw',
+    }, note
+
+
+def _mkdir(path):
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def run(inputs, candidate, out, downstream='d2', **kwargs):
     out = Path(out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=out) as tmp:
         work = Path(tmp)
-        res = CANDIDATES[candidate](inputs, work, **kwargs)
+        res = CANDIDATES[candidate](inputs, _mkdir(work / 'candidate'), **kwargs)
+        downstream_note = {'policy': downstream}
+        if downstream in ('d0', 'd1'):
+            res, downstream_note = apply_downstream(inputs, res, work, downstream)
+        elif downstream != 'd2':
+            raise ValueError(f'Unknown downstream policy: {downstream}')
         shutil.copyfile(res['aslref'], out / 'aslref.nii.gz')
         shutil.copyfile(res['xforms'], out / 'hmc_xfms.txt')
         shutil.copyfile(res['aslcontext'], out / 'hmc_aslcontext.tsv')
@@ -352,6 +422,10 @@ def run(inputs, candidate, out, **kwargs):
         'groups': res.get('groups'),
         # Raw volumes the reference was built from, or 'separate_m0' (scoring uses their poses).
         'reference_volumes': res.get('reference_volumes'),
+        # 'corrected': the reference is an average of volumes after this run's correction, so it
+        # depicts the corrected frame; otherwise it depicts raw volumes (as production's does).
+        'reference_frame_kind': res.get('reference_frame_kind', 'raw'),
+        'downstream': downstream_note,
         'aslprep': aslprep.__file__,
         'aslprep_version': getattr(aslprep, '__version__', None),
         'options': kwargs,
@@ -371,6 +445,13 @@ def main(argv=None):
     parser.add_argument('--smooth-kernel', type=float, default=5.0)
     parser.add_argument('--force-ge', choices=('yes', 'no'))
     parser.add_argument(
+        '--downstream',
+        choices=('d0', 'd1', 'd2'),
+        default='d2',
+        help="Reference policy: production's (d0), rebuilt from production's selection after "
+        "correction (d1), or the candidate's own (d2, the default).",
+    )
+    parser.add_argument(
         '--opt', action='append', default=[], help='Candidate option, key=value (repeatable).'
     )
     args = parser.parse_args(argv)
@@ -380,7 +461,8 @@ def main(argv=None):
         kwargs['smooth_kernel'] = args.smooth_kernel
         if args.force_ge:
             kwargs['force_ge'] = args.force_ge == 'yes'
-    print(json.dumps(run(inputs, args.candidate, args.out, **kwargs), indent=2))
+    record = run(inputs, args.candidate, args.out, downstream=args.downstream, **kwargs)
+    print(json.dumps(record, indent=2))
 
 
 if __name__ == '__main__':

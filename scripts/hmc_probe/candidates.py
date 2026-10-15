@@ -81,6 +81,88 @@ def _mcflirt(series, ref, out_base, cost):
     return [np.loadtxt(m) for m in mats], Path(f'{out_base}.nii.gz')
 
 
+def _pull_ras_to_fsl(pulls, img):
+    """RAS pull matrices (reference point -> volume point) -> FSL matrices (volume -> reference)."""
+    f2w = _fsl_to_world(img)
+    return [np.linalg.inv(f2w) @ np.linalg.inv(p) @ f2w for p in pulls]
+
+
+def _volreg(series, ref, out_base):
+    """AFNI 3dvolreg (least squares, heptic) of a 4D file to a reference; FSL matrices.
+
+    ``-1Dmatrix_save`` writes, per volume, the 3x4 matrix from base to input coordinates in
+    AFNI's DICOM order (x right-to-left, y anterior-to-posterior: LPS).
+    """
+    aff = f'{out_base}.aff12.1D'
+    cmd = ['3dvolreg', '-base', str(ref), '-prefix', f'{out_base}.nii.gz', '-1Dmatrix_save', aff]
+    subprocess.run([*cmd, str(series)], check=True, capture_output=True)
+    rows = np.atleast_2d(np.loadtxt(aff))
+    flip = np.diag([-1.0, -1.0, 1.0, 1.0])
+    pulls = []
+    for r in rows:
+        m = np.eye(4)
+        m[:3, :] = r.reshape(3, 4)
+        pulls.append(flip @ m @ flip)
+    return _pull_ras_to_fsl(pulls, nb.load(series))
+
+
+def _ants(series, ref, out_base):
+    """ANTs rigid (mutual information, three levels) of each volume to a reference; FSL matrices.
+
+    The ITK transform maps fixed (reference) points to moving (volume) points, in LPS;
+    nitransforms reads it as a RAS pull matrix.
+    """
+    import nitransforms as nt
+
+    img = nb.load(series)
+    data = np.asanyarray(img.dataobj, np.float32)
+    pulls = []
+    for k in range(data.shape[-1]):
+        vol = _save(data[..., k], img, Path(f'{out_base}_v{k:03d}.nii.gz'))
+        prefix = f'{out_base}_v{k:03d}_'
+        cmd = ['antsRegistration', '--dimensionality', '3', '--float', '1']
+        cmd += ['--output', prefix, '--interpolation', 'Linear']
+        cmd += ['--transform', 'Rigid[0.1]', '--metric', f'MI[{ref},{vol},1,32,Regular,0.25]']
+        cmd += ['--convergence', '[100x50x25,1e-6,10]', '--shrink-factors', '4x2x1']
+        cmd += ['--smoothing-sigmas', '2x1x0vox']
+        subprocess.run(cmd, check=True, capture_output=True)
+        xfm = nt.linear.load(f'{prefix}0GenericAffine.mat', fmt='itk')
+        pulls.append(np.asarray(xfm.matrix))
+    return _pull_ras_to_fsl(pulls, img)
+
+
+def _register_series(series, ref, out_base, cost, engine):
+    """Register each volume of ``series`` to ``ref`` with ``engine``.
+
+    Returns FSL matrices and, for MCFLIRT, its own resampled series (``None`` otherwise).
+    ``cost`` applies to MCFLIRT only: 3dvolreg is least squares, ANTs uses mutual information.
+    """
+    if engine == 'mcflirt':
+        return _mcflirt(series, ref, out_base, cost)
+    if engine == 'volreg':
+        return _volreg(series, ref, out_base), None
+    if engine == 'ants':
+        return _ants(series, ref, out_base), None
+    raise ValueError(f'Unknown engine: {engine}')
+
+
+def _apply_fsl(data, mats, img):
+    """Resample each volume of ``data`` into the reference grid (linear), from FSL matrices."""
+    from scipy.ndimage import map_coordinates
+
+    fsl2vox = np.linalg.inv(img.affine) @ _fsl_to_world(img)
+    ijk = np.indices(img.shape[:3]).reshape(3, -1)
+    hom = np.vstack([ijk, np.ones(ijk.shape[1])])
+    out = np.empty_like(data)
+    for k, m in enumerate(mats):
+        # Reference voxel -> reference FSL -> volume FSL (m^-1) -> volume voxel.
+        src = fsl2vox @ np.linalg.inv(m) @ np.linalg.inv(fsl2vox) @ hom
+        out[..., k] = map_coordinates(data[..., k], src[:3], order=1, mode='nearest').reshape(
+            img.shape[:3]
+        )
+    return out
+
+
 def _flirt(moving, ref, out_mat, cost):
     """Rigid FLIRT of one image to another; returns the FSL matrix (moving -> reference)."""
     cmd = ['flirt', '-in', str(moving), '-ref', str(ref), '-omat', str(out_mat), '-dof', '6']
@@ -142,6 +224,7 @@ def run_c1(inputs, work, **options):
     cross = _opt(options, 'cross', 'flirt')
     iterations = _opt(options, 'iterations', 1, int)
     loo = _opt(options, 'loo', 0, int) == 1
+    engine = _opt(options, 'engine', 'mcflirt')
 
     target, idx, types = _kept(inputs)
     img = nb.load(inputs['asl_file'])
@@ -170,9 +253,12 @@ def run_c1(inputs, work, **options):
             continue
         tpl = _save(vols.mean(-1), img, work / f'tpl_{tag}_it0.nii.gz')
         for it in range(iterations):
-            got, moved = _mcflirt(series, tpl, work / f'mcf_{tag}_it{it}', cost)
+            got, moved = _register_series(series, tpl, work / f'reg_{tag}_it{it}', cost, engine)
             if it < iterations - 1:
-                moved_data = np.asanyarray(nb.load(moved).dataobj, np.float32)
+                if moved is not None:  # MCFLIRT's own (spline) resampling, as before
+                    moved_data = np.asanyarray(nb.load(moved).dataobj, np.float32)
+                else:
+                    moved_data = _apply_fsl(vols, got, img)
                 tpl = _save(moved_data.mean(-1), img, work / f'tpl_{tag}_it{it + 1}.nii.gz')
         for k, m in zip(ks, got, strict=True):
             mats[k] = m
