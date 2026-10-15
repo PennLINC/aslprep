@@ -10,6 +10,14 @@ Decision metrics (direction fixed in advance):
   than two pairs at any delay are not eligible (``None``).
 - ``negative_fraction``: fraction of brain voxels whose mean delta-M is negative.
 
+- ``mean_dm_ssd`` (lower is better, compared within a run only): the mean, over one mask shared
+  by every candidate of the run (the union of their references' EPI masks), of the squared mean
+  delta-M; ``mean_dm_ssd_vs_c0`` is its ratio to production's on the same run. On the
+  development fixtures it ranks candidates as the truth-based edge error does (median Spearman
+  0.90; ``ssd_check.py``), but not at still-head offsets (about zero or negative on the still
+  and constant-pose fixtures, where it favours production): it is evidence about
+  motion-driven errors, not about the spurious label offset.
+
 Diagnostics (no assumed good direction):
 
 - ``edge_leakage_r``: correlation of absolute mean delta-M with the gradient magnitude of the
@@ -104,6 +112,36 @@ def score_run(run_dir, plds_by_volume):
     return out
 
 
+def shared_ssd(records, runs):
+    """Add ``mean_dm_ssd`` (and its ratio to ``c0``) per run, in one mask shared by its candidates."""
+    from perfusion import epi_mask
+
+    df = pd.DataFrame(records)
+    df['mean_dm_ssd'] = np.nan
+    for (dataset, run), g in df.groupby(['dataset', 'run']):
+        dirs = {r.label: runs / r.label / dataset / run for r in g.itertuples()}
+        dirs = {k: d for k, d in dirs.items() if (d / 'deltam.nii.gz').exists()}
+        if not dirs:
+            continue
+        masks = [epi_mask(d / 'aslref.nii.gz') for d in dirs.values()]
+        if len({m.shape for m in masks}) != 1:
+            continue
+        mask = np.logical_or.reduce(masks)
+        for label, d in dirs.items():
+            dm = np.asanyarray(nb.load(d / 'deltam.nii.gz').dataobj, np.float32)
+            dm = dm[..., None] if dm.ndim == 3 else dm
+            if dm.shape[:3] == mask.shape:
+                idx = g.index[g.label == label]
+                df.loc[idx, 'mean_dm_ssd'] = float((dm.mean(-1)[mask] ** 2).mean())
+    c0 = df[df.label == 'c0'].set_index(['dataset', 'run']).mean_dm_ssd
+    keys = list(zip(df.dataset, df.run, strict=True))
+    df['mean_dm_ssd_vs_c0'] = [
+        s / c0.get(k, np.nan) if np.isfinite(s) else np.nan
+        for s, k in zip(df.mean_dm_ssd, keys, strict=True)
+    ]
+    return df
+
+
 def plds(manifest_row):
     root = Path(manifest_row['root'])
     side = root / manifest_row['asl_path'].replace('.nii.gz', '.json')
@@ -140,8 +178,14 @@ def main(argv=None):
                 s = {'error': repr(exc)[:200]}
             records.append({'label': label, 'dataset': key[0], 'run': key[1],
                             'family': rows[key]['family'], **s})  # fmt: skip
-    df = pd.DataFrame(records)
-    cols = ['split_half_r', 'negative_fraction', 'edge_leakage_r', 'alternation_power']
+    df = shared_ssd(records, args.runs)
+    cols = [
+        'split_half_r',
+        'negative_fraction',
+        'mean_dm_ssd_vs_c0',
+        'edge_leakage_r',
+        'alternation_power',
+    ]
     with pd.option_context('display.width', 200):
         print(df.groupby(['family', 'label'])[cols].median().round(4))
     if args.tsv:

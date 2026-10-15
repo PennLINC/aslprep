@@ -37,7 +37,7 @@ sys.path.insert(0, str(HERE))
 from perfusion import epi_mask  # noqa: E402
 from report import load_scores  # noqa: E402
 
-METRICS = ('ssd_brain', 'ssd_pairs', 'var_pairs', 'ssd_edge', 'ssd_outer')
+METRICS = ('ssd_brain', 'ssd_brain_shared', 'ssd_pairs', 'var_pairs', 'ssd_edge', 'ssd_outer')
 
 
 def metrics(run_dir):
@@ -80,6 +80,21 @@ def main(argv=None):
             }
         )
     df = pd.DataFrame(rows)
+    # The same metric inside one mask per fixture: the union of every arm's estimated mask.
+    shared = {}
+    for fx, g in scores[scores.fixture.isin(set(df.fixture))].groupby('fixture'):
+        masks = [epi_mask(p / 'aslref.nii.gz') for p in g.path if (p / 'deltam.nii.gz').exists()]
+        shapes = {m.shape for m in masks}
+        shared[fx] = np.logical_or.reduce(masks) if len(shapes) == 1 else None
+    vals = []
+    for r in df.itertuples():
+        mask = shared.get(r.fixture)
+        path = scores[(scores.label == r.label) & (scores.fixture == r.fixture)].path.iloc[0]
+        dm = np.asanyarray(nb.load(path / 'deltam.nii.gz').dataobj, np.float32)
+        dm = dm[..., None] if dm.ndim == 3 else dm
+        ok = mask is not None and mask.shape == dm.shape[:3]
+        vals.append(float((dm.mean(-1)[mask] ** 2).mean()) if ok else np.nan)
+    df['ssd_brain_shared'] = vals
     df.to_csv(args.out, sep='\t', index=False)
     corr = []
     for fx, g in df.groupby('fixture'):
