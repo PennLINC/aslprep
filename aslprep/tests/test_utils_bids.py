@@ -128,6 +128,49 @@ def test_collect_run_data_rejects_unexpected_m0scan(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
+    'intended_for',
+    [
+        # BIDS URIs, relative to the dataset root (#458)
+        'bids::sub-01/ses-1/perf/sub-01_ses-1_asl.nii.gz',
+        ['bids::sub-01/ses-1/perf/sub-01_ses-1_asl.nii.gz'],
+        # Paths relative to the subject directory, deprecated since BIDS 1.7
+        'ses-1/perf/sub-01_ses-1_asl.nii.gz',
+        ['ses-1/perf/sub-01_ses-1_asl.nii.gz'],
+    ],
+)
+def test_collect_run_data_m0scan_intendedfor(tmp_path, monkeypatch, intended_for):
+    """A separate M0 scan is found from its IntendedFor, as a BIDS URI or a relative path."""
+    import nibabel as nb
+    import numpy as np
+    from bids.layout import BIDSLayout
+
+    from aslprep import config
+    from aslprep.utils.bids import collect_run_data
+
+    monkeypatch.setattr(config.workflow, 'ignore', [])
+    (tmp_path / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'test', 'BIDSVersion': '1.10.0'})
+    )
+    perf = tmp_path / 'sub-01' / 'ses-1' / 'perf'
+    perf.mkdir(parents=True)
+    img = nb.Nifti1Image(np.zeros((2, 2, 2, 2), np.float32), np.eye(4))
+    asl_file = perf / 'sub-01_ses-1_asl.nii.gz'
+    img.to_filename(asl_file)
+    (perf / 'sub-01_ses-1_asl.json').write_text(json.dumps({'M0Type': 'Separate'}))
+    (perf / 'sub-01_ses-1_aslcontext.tsv').write_text('volume_type\ncontrol\nlabel\n')
+    m0scan = perf / 'sub-01_ses-1_m0scan.nii.gz'
+    img.slicer[..., 0].to_filename(m0scan)
+    (perf / 'sub-01_ses-1_m0scan.json').write_text(
+        json.dumps({'IntendedFor': intended_for, 'RepetitionTimePreparation': 6.0})
+    )
+    layout = BIDSLayout(tmp_path, validate=False)
+
+    run_data = collect_run_data(layout, str(asl_file))
+    assert run_data['m0scan'] == str(m0scan)
+    assert run_data['m0scan_metadata']['RepetitionTimePreparation'] == 6.0
+
+
+@pytest.mark.parametrize(
     ('ignore', 'expected'),
     [
         ([], ['m0scan', 'control', 'label', 'cbf']),
