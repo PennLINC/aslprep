@@ -138,6 +138,46 @@ def _ants(series, ref, out_base):
     return _pull_ras_to_fsl(pulls, img)
 
 
+def _nearest_rigid(m, centre):
+    """The rigid matrix nearest an affine ``m`` (polar factor), agreeing with it at ``centre``."""
+    u, _, vt = np.linalg.svd(m[:3, :3])
+    r = u @ vt
+    if np.linalg.det(r) < 0:
+        u[:, -1] *= -1
+        r = u @ vt
+    out = np.eye(4)
+    out[:3, :3] = r
+    out[:3, 3] = m[:3, :3] @ centre + m[:3, 3] - r @ centre
+    return out
+
+
+def _niimath(series, ref, out_base, rigid_ls=False):
+    """niimath ``-allineate`` (a port of AFNI 3dAllineate) of each volume to a reference.
+
+    The default (fast) engine fits a full affine only, so its result is projected onto the
+    nearest rigid transform about the reference's centre; ``rigid_ls`` uses the classic engine
+    with a rigid warp (``-warp shr``) and least squares instead. ``-savemat`` writes the
+    world-space pull matrix (``fixed_to_moving``).
+    """
+    import os
+
+    exe = os.environ.get('NIIMATH', 'niimath')
+    img = nb.load(series)
+    data = np.asanyarray(img.dataobj, np.float32)
+    ref_img = nb.load(ref)
+    centre = ref_img.affine @ np.r_[(np.array(ref_img.shape[:3]) - 1) / 2, 1]
+    pulls = []
+    for k in range(data.shape[-1]):
+        vol = _save(data[..., k], img, Path(f'{out_base}_v{k:03d}.nii.gz'))
+        mat = Path(f'{out_base}_v{k:03d}.json')
+        opts = ['-cost', 'ls', '-warp', 'shr'] if rigid_ls else ['-cost', 'fast']
+        cmd = [exe, str(vol), '-allineate', str(ref), *opts, '-savemat', str(mat)]
+        subprocess.run([*cmd, f'{out_base}_v{k:03d}_out.nii.gz'], check=True, capture_output=True)
+        pull = np.asarray(json.loads(mat.read_text())['fixed_to_moving'], float)
+        pulls.append(pull if rigid_ls else _nearest_rigid(pull, centre[:3]))
+    return _pull_ras_to_fsl(pulls, img)
+
+
 def _register_series(series, ref, out_base, cost, engine):
     """Register each volume of ``series`` to ``ref`` with ``engine``.
 
@@ -150,6 +190,10 @@ def _register_series(series, ref, out_base, cost, engine):
         return _volreg(series, ref, out_base), None
     if engine == 'ants':
         return _ants(series, ref, out_base), None
+    if engine == 'niimath':
+        return _niimath(series, ref, out_base), None
+    if engine == 'niimath_ls':
+        return _niimath(series, ref, out_base, rigid_ls=True), None
     raise ValueError(f'Unknown engine: {engine}')
 
 

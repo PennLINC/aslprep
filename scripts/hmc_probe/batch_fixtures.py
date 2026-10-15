@@ -26,6 +26,10 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from run_panel import IMAGE, SITE  # noqa: E402
 
+#: niimath (v1.0.20260924, official release binary), mounted for the ``niimath`` engines; the
+#: ASLPrep image does not include it.
+NIIMATH_DIR = Path('/home/tsalo/hmc-probe/tools/niimath-1.0.20260924')
+
 
 def run_one(fixture, args):
     out = args.out / args.label / fixture.name
@@ -43,6 +47,8 @@ def run_one(fixture, args):
         (out, '/out', 'rw'),
     ):
         cmd += ['-v', f'{host}:{container}:{mode}']
+    if (NIIMATH_DIR / 'niimath').exists():
+        cmd += ['-v', f'{NIIMATH_DIR}:/opt/niimath:ro', '-e', 'NIIMATH=/opt/niimath/niimath']
     cmd += ['--entrypoint', '/app/.pixi/envs/aslprep/bin/python', IMAGE, '/probe/harness.py']
     cmd += ['--asl', f'/fx/sub-01/perf/{asl.name}', '--candidate', args.candidate, '--out', '/out']
     cmd += args.harness_args
