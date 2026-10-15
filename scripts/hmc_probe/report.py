@@ -1207,6 +1207,16 @@ def section_policy(df, fig):
     head = ['Estimator'] + [
         f'{p} {m}' for p in ('D0', 'D1', 'D2') for m in ('ref. offset (mm)', 'edge error')
     ]
+    d1 = df[df.label.str.endswith('-d1')]
+    fallbacks = sum(
+        'd1_fallback_to_d0' in json.loads((p / 'harness.json').read_text()).get('downstream', {})
+        for p in d1.path
+    )
+
+    def med(label, col):
+        sub = df[df.label == label]
+        return float(sub[col].median()) if len(sub) else np.nan
+
     return f"""
 <section id="policy">
 <h2>Which reference the later steps receive</h2>
@@ -1218,6 +1228,14 @@ corrected volumes agree with the reference the later steps see.</p>
 {plain_table(head, rows, tuple(range(1, 7)))}
 <p class="note">Medians over the development fixtures: the median offset between corrected volumes and
 the reference, and the edge delta-M error against the reference-frame oracle.</p>
+<p>Handing on the candidate's own template (D2) brings the corrected volumes within
+{fmt(med('c1-volreg', 'ref_med'), 2)}&ndash;{fmt(med('c2-volreg', 'ref_med'), 2)} mm of the reference for
+the template candidates, against about {fmt(med('c0', 'ref_med'), 2)} mm for production. D1 differs
+little from D0 here because {fallbacks} of {len(d1)} D1 runs fell back to D0: most fixtures have a
+separate M0, which production selects but which is not in the corrected series. The edge error is
+set by the estimator, not the policy; the policy matters for the later steps (brain mask,
+coregistration, M0 and fieldmap registration), which only the full-pipeline runs of Task 7 can
+score.</p>
 </section>"""
 
 
