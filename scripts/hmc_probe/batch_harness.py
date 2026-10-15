@@ -103,6 +103,7 @@ def run_one(row, args):
         direction = next((p for p in row['run'].split('_') if p.startswith('dir-')), None)
         same_dir = [m for m in m0 if direction and f'_{direction}_' in m]
         cmd += ['--m0scan', f'/data/{(same_dir or m0)[0]}']
+    cmd += args.harness_args
     with (out / 'harness.log').open('w') as log:
         proc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, check=False)
     if proc.returncode:
@@ -127,6 +128,12 @@ def main(argv=None):
     parser.add_argument('--no-adapt', action='store_true')
     parser.add_argument('--only', nargs='*')
     parser.add_argument('--rerun', action='store_true')
+    parser.add_argument(
+        '--harness-args',
+        nargs=argparse.REMAINDER,
+        default=[],
+        help='Passed to harness.py (e.g. --opt engine=volreg --downstream d1); must come last.',
+    )
     args = parser.parse_args(argv)
     args.out, args.src, args.adapted = (
         args.out.resolve(),
