@@ -170,11 +170,27 @@ def _niimath(series, ref, out_base, rigid_ls=False):
     for k in range(data.shape[-1]):
         vol = _save(data[..., k], img, Path(f'{out_base}_v{k:03d}.nii.gz'))
         mat = Path(f'{out_base}_v{k:03d}.json')
-        opts = ['-cost', 'ls', '-warp', 'shr'] if rigid_ls else ['-cost', 'fast']
-        cmd = [exe, str(vol), '-allineate', str(ref), *opts, '-savemat', str(mat)]
-        subprocess.run([*cmd, f'{out_base}_v{k:03d}_out.nii.gz'], check=True, capture_output=True)
+        classic = ['-cost', 'ls', '-warp', 'shr']
+        opts = classic if rigid_ls else ['-cost', 'fast']
+        cmd = [exe, str(vol), '-allineate', str(ref), '-savemat', str(mat)]
+        out = f'{out_base}_v{k:03d}_out.nii.gz'
+        proc = subprocess.run([*cmd, *opts, out], capture_output=True, text=True, check=False)
+        used_classic = rigid_ls
+        if proc.returncode and not rigid_ls and 'pyramid' in proc.stderr:
+            # The fast engine cannot build its pyramid on coarse grids (e.g. 4 x 4 x 6 mm).
+            print(
+                f'niimath: fast engine failed on volume {k} ({proc.stderr.strip()}); '
+                'using the classic rigid least-squares engine',
+                flush=True,
+            )
+            proc = subprocess.run(
+                [*cmd, *classic, out], capture_output=True, text=True, check=False
+            )
+            used_classic = True
+        if proc.returncode:
+            raise RuntimeError(f'niimath failed on volume {k}: {proc.stderr.strip()}')
         pull = np.asarray(json.loads(mat.read_text())['fixed_to_moving'], float)
-        pulls.append(pull if rigid_ls else _nearest_rigid(pull, centre[:3]))
+        pulls.append(pull if used_classic else _nearest_rigid(pull, centre[:3]))
     return _pull_ras_to_fsl(pulls, img)
 
 
