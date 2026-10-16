@@ -1058,7 +1058,8 @@ it has no alternation power and is not shown.</p>
             (1, 2, 3, 4, 5, 6),
         )
     }
-<p class="note">Medians per family. The candidates have not been run on real data yet.</p>
+<p class="note">Medians per family, production only.</p>
+{section_real_shortlist(root)}
 </section>"""
 
 
@@ -1130,6 +1131,7 @@ def section_engines(root, fig):
     def g(label, col):
         return float(row.at[label, col]) if label in row.index else np.nan
 
+    pair_word = 'below' if g('c2-volreg', 'pair_max') < g('c0', 'pair_max') else 'above'
     ranked = s[s.family.isin(['c1', 'c2', 'c4', 'c8'])].sort_values(['family', 'rank'])
     rows = [
         [
@@ -1156,12 +1158,14 @@ step. Each engine was first checked against known rigid transforms (all recover 
 0.31 mm for 2.5&ndash;3.8 mm motions).</p>
 <p>3dvolreg stands out on relative pose: {fmt(g('c1-volreg', 'rel_max'), 3)} mm for C1 against
 production's {fmt(g('c0', 'rel_max'), 3)} mm. Least squares within one contrast is the right cost
-for a same-contrast template. Its pair error is higher, though ({
-        fmt(g('c1-volreg', 'pair_max'), 3)
-    }
-against {fmt(g('c0', 'pair_max'), 3)} mm), because control and label templates are still joined by
-one cross-contrast step, and pair error drives subtraction. ANTs has the worst pair error of the
-engines ({fmt(g('c1-ants', 'pair_max'), 3)} mm).</p>
+for a same-contrast template. Its pair error is {pair_word} production's
+({fmt(g('c2-volreg', 'pair_max'), 3)} mm for C2 against {
+        fmt(g('c0', 'pair_max'), 3)
+    } mm), but its edge
+error is not: {fmt(g('c2-volreg', 'dm_edge'), 2)} against {
+        fmt(g('c0', 'dm_edge'), 2)
+    }. ANTs has the
+worst pair error of the engines ({fmt(g('c1-ants', 'pair_max'), 3)} mm).</p>
 {
         figure(
             leg + chart,
@@ -1188,8 +1192,17 @@ relative-pose error, because a single pair's delta-M is too noisy to register.</
 </section>"""
 
 
-def section_policy(df, fig):
-    short = ['c0', 'c1-volreg', 'c2-volreg', 'c4', 'c8-huber-perdelay']
+def shortlist(root):
+    """C0 plus each family's first-ranked arm in ``estimator_screen.tsv``."""
+    f = root / 'fixture-scores' / 'estimator_screen.tsv'
+    if not f.exists():
+        return ['c0']
+    s = pd.read_csv(f, sep='\t')
+    return ['c0', *s[s['rank'].eq(1) & ~s.diagnostic.astype(bool)].label.tolist()]
+
+
+def section_policy(df, fig, root):
+    short = shortlist(root)
     labels = set(df.label)
     if not any(f'{s}-d1' in labels for s in short):
         return ''
@@ -1217,6 +1230,8 @@ def section_policy(df, fig):
         sub = df[df.label == label]
         return float(sub[col].median()) if len(sub) else np.nan
 
+    tpl_ref = [med(s, 'ref_med') for s in short if s.startswith(('c1', 'c2'))] or [np.nan]
+
     return f"""
 <section id="policy">
 <h2>Which reference the later steps receive</h2>
@@ -1229,7 +1244,7 @@ corrected volumes agree with the reference the later steps see.</p>
 <p class="note">Medians over the development fixtures: the median offset between corrected volumes and
 the reference, and the edge delta-M error against the reference-frame oracle.</p>
 <p>Handing on the candidate's own template (D2) brings the corrected volumes within
-{fmt(med('c1-volreg', 'ref_med'), 2)}&ndash;{fmt(med('c2-volreg', 'ref_med'), 2)} mm of the reference for
+{fmt(min(tpl_ref), 2)}&ndash;{fmt(max(tpl_ref), 2)} mm of the reference for
 the template candidates, against about {fmt(med('c0', 'ref_med'), 2)} mm for production. D1 differs
 little from D0 here because {fallbacks} of {len(d1)} D1 runs fell back to D0: most fixtures have a
 separate M0, which production selects but which is not in the corrected series. The edge error is
@@ -1237,6 +1252,47 @@ set by the estimator, not the policy; the policy matters for the later steps (br
 coregistration, M0 and fieldmap registration), which only the full-pipeline runs of Task 7 can
 score.</p>
 </section>"""
+
+
+def section_real_shortlist(root):
+    f = root / 'harness-runs' / 'real_shortlist.tsv'
+    if not f.exists():
+        return ''
+    d = pd.read_csv(f, sep='\t')
+    labels = [x for x in shortlist(root) if x in set(d.label)]
+    if len(labels) < 2:
+        return ''
+    d = d[d.label.isin(labels)]
+    piv = d.pivot_table(
+        index='family', columns='label', values='mean_dm_ssd_vs_c0', aggfunc='median'
+    )
+    neg = d.pivot_table(
+        index='family', columns='label', values='negative_fraction', aggfunc='median'
+    )
+    others = [x for x in labels if x != 'c0']
+    rows = [
+        [
+            esc(fam),
+            *[fmt(piv.at[fam, x], 3) for x in others],
+            *[fmt(neg.at[fam, x], 3) for x in labels],
+        ]
+        for fam in piv.index
+        if piv.loc[fam, others].notna().any()
+    ]
+    head = (
+        ['Family']
+        + [f'<code>{esc(x)}</code> energy vs C0' for x in others]
+        + [f'<code>{esc(x)}</code> neg. fraction' for x in labels]
+    )
+    wins = {x: float((d[d.label == x].mean_dm_ssd_vs_c0 < 1).mean() * 100) for x in others}
+    return f"""
+<h3>The short list on real data</h3>
+<p>Each short-listed estimator ran on the same real runs, scored with the shared-mask mean delta-M
+energy (as a ratio to production on the same run; below 1 is better) and the negative fraction.
+The share of runs on which each beats production: {', '.join(f'<code>{esc(x)}</code> {v:.0f}%' for x, v in wins.items())}.
+The energy only measures motion-driven errors; at still-head offsets it favours production.</p>
+{plain_table(head, rows, tuple(range(1, len(head))))}
+<p class="note">Medians per family. GE product output has no pairs and is not scored.</p>"""
 
 
 def section_coreg(root, fig):
@@ -1441,7 +1497,7 @@ def build(root):
     fig += 2
     engines = section_engines(root, fig)
     fig += 1
-    policy = section_policy(df, fig)
+    policy = section_policy(df, fig, root)
     consumers = section_consumers(root)
     real = section_real(root, fig)
     fig += 2
@@ -1471,9 +1527,13 @@ templates whenever the head moves.</li>
 real motion</b> (median {fmt(med.get('c8'), 2)}). Spikes alias onto the alternation (a Huber fit fixes
 that), and drift is removed with it (nothing fixes that). Their exact parameter convention changes
 nothing.</li>
-<li><b>AFNI 3dvolreg is the most precise engine for same-contrast templates</b>, but the cross-contrast
-step between templates still limits pair alignment, so no C1/C2 variant beats production on
-subtraction yet.</li>
+<li><b>AFNI 3dvolreg is the most precise engine for same-contrast templates.</b> With it, C2's pair
+alignment matches or beats production's, but its edge delta-M error is still higher, so no C1/C2
+variant beats production on subtraction yet.</li>
+<li><b>A harness bug, found on real data, is fixed.</b> The single-image registrations used FLIRT's
+global search, which put a spurious 1.5&ndash;2&deg; offset on every label volume of C1/C2 on real
+data; every affected run was redone with MCFLIRT. The split-half correlation rated the broken runs
+best, so it is not read alone.</li>
 <li><b>ASLPrep's 1 mm GRASE coregistration error is a BBR sign problem.</b> White matter is brighter than
 grey in that reference, BBR fails and the run falls back to its initialization; the opposite sign
 registers it to under 0.5 mm.</li>
