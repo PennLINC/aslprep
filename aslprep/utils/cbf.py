@@ -1616,8 +1616,14 @@ def voxel_delays(metadata, deltam_img, masker, n_voxels, is_multi_pld):
     pld_img : :obj:`nibabel.Nifti1Image` or None
         The slice-shifted delays as an image, with slice timing.
     """
-    plds = np.atleast_1d(metadata['PostLabelingDelay'])
+    plds = np.atleast_1d(np.asarray(metadata['PostLabelingDelay'], dtype=float))
+    # The masker below replaces non-finite values with zeros, which would silently turn a
+    # missing delay into a delay of zero, so non-finite timing metadata are refused here.
+    if not np.all(np.isfinite(plds)):
+        raise ValueError(f'PostLabelingDelay has non-finite values: {plds.tolist()}')
     if 'SliceTiming' in metadata:
+        if not np.all(np.isfinite(np.asarray(metadata['SliceTiming'], dtype=float))):
+            raise ValueError(f'SliceTiming has non-finite values: {metadata["SliceTiming"]}')
         # Offset PLD(s) by slice times.
         # If there are multiple PLDs, then the second dimension of the PLD array will
         # correspond to volumes in the time series.

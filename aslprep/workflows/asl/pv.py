@@ -169,6 +169,7 @@ def init_lr_pvc_wf(
     multi_delay=False,
     num_threads=1,
     use_gpu=False,
+    mem_gb=None,
     name='lr_pvc_wf',
 ):
     """Correct CBF maps for partial volume effects by local linear regression.
@@ -195,6 +196,9 @@ def init_lr_pvc_wf(
         is fit with the general kinetic model (spec Section 5.7).
     num_threads, use_gpu
         Threads and GPU use for the multi-delay kinetic fits.
+    mem_gb : :obj:`float` or None
+        Memory to declare for the multi-delay node
+        (see :func:`~aslprep.utils.pvc.estimate_lr_pvc_mem_gb`).
     name : :obj:`str`
         Workflow name.
 
@@ -340,7 +344,7 @@ kinetic curve gave an apparent CSF CBF, which should be near zero.
                 use_gpu=use_gpu,
             ),
             name='lr_pvc',
-            mem_gb=1 + 0.1 * num_threads,
+            mem_gb=mem_gb if mem_gb is not None else 2 + 0.1 * num_threads,
             n_procs=num_threads,
         )
         gm_cbf, wm_cbf = names['cbf']

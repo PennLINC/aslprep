@@ -848,6 +848,8 @@ def local_regression_csf(
         status[voxels] = code
         undecided[voxels] = False
 
+    del rhs  # only the coefficients are needed from here on
+
     # Residuals, computed directly over the kernel offsets, pooled over volumes
     fitted = np.isin(status, [code for code, _ in _CSF_SUBSETS])
     pad = [kk // 2 for kk in kernel_size]
@@ -870,7 +872,9 @@ def local_regression_csf(
     rmse = np.zeros(shape)
     rmse[fitted] = np.sqrt(rss[fitted] / (n_vol * (n[fitted] - n_params[fitted])))
 
-    beta_csf = beta[..., 2, :]
+    # A copy, so the GM and WM coefficients of this fit (which are not used) can be freed.
+    beta_csf = beta[..., 2, :].copy()
+    del beta
     if not series:
         beta_csf = beta_csf[..., 0]
 
@@ -923,6 +927,12 @@ def summarize_csf_qc(cbf_csf, valid_csf, pv_csf, min_pv=0.5):
 #: and clipping it at the voxel fit's bound distorts ATT and the arterial term.
 LR_CBF_MAX = 1000.0
 
+#: A tissue curve's fitted CBF at or below this (mL/100 g/min) is at the lower bound.
+KINETIC_CBF_TOLERANCE = 1e-6
+
+#: A tissue curve's fitted CBF within this fraction of the upper bound is at the upper bound.
+KINETIC_BOUND_RTOL = 1e-5
+
 #: Kinetic fit status codes of a tissue curve (spec Section 5.7.3).
 KINETIC_STATUS = {
     0: 'not fitted',
@@ -931,6 +941,24 @@ KINETIC_STATUS = {
     3: 'CBF at its upper bound',
     4: 'input not finite',
 }
+
+
+def estimate_lr_pvc_mem_gb(shape, num_threads=1):
+    """Estimate the memory multi-delay local-regression PVC needs, in GB.
+
+    The peak holds about 16 float64 arrays the size of the series (the signal, the GM, WM and
+    CSF coefficients and right-hand sides, padded copies and temporaries), plus the kinetic fits.
+
+    Parameters
+    ----------
+    shape : :obj:`tuple` of :obj:`int`
+        Shape of the ASL series (3D or 4D).
+    num_threads : :obj:`int`
+        Threads used by the kinetic fits.
+    """
+    n_voxels = int(np.prod(shape[:3]))
+    n_volumes = int(shape[3]) if len(shape) > 3 else 1
+    return 1.0 + 16 * 8 * n_voxels * n_volumes / 1024**3 + 0.1 * num_threads
 
 
 def _bolus_array(tau, ti1, is_casl, n_volumes):
@@ -1037,10 +1065,16 @@ def fit_tissue_curves(
         cbf_max=cbf_max,
     )
     fitted = ~failures & np.isfinite(cbf) & np.isfinite(att)
+    # The solver returns bound solutions only to within rounding error (for example ~1e-13 for
+    # a curve with no tissue signal), so bounds are recognized with a tolerance, and a
+    # numerically zero CBF is set to zero.
+    at_lower = fitted & (cbf <= KINETIC_CBF_TOLERANCE)
+    at_upper = fitted & (cbf >= cbf_max * (1 - KINETIC_BOUND_RTOL))
+    cbf = np.where(at_lower, 0.0, cbf)
     status = np.full(n_voxels, 4, dtype=np.uint8)
     status[fitted] = 1
-    status[fitted & (cbf <= 0)] = 2
-    status[fitted & (cbf >= cbf_max * (1 - 1e-9))] = 3
+    status[at_lower] = 2
+    status[at_upper] = 3
 
     predicted = np.zeros_like(curves)
     if fitted.any():

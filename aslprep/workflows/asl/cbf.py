@@ -44,6 +44,19 @@ from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
 from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf, lr_pvc_fields
 
 
+def _lr_pvc_mem_gb(name_source, num_threads):
+    """Memory for multi-delay LR PVC, from the ASL series' shape (2 GB if it cannot be read)."""
+    import nibabel as nb
+
+    from aslprep.utils.pvc import estimate_lr_pvc_mem_gb
+
+    try:
+        shape = nb.load(name_source).shape
+    except Exception:  # noqa: BLE001 - the name source may be a placeholder, as in tests
+        return 2.0 + 0.1 * num_threads
+    return estimate_lr_pvc_mem_gb(shape, num_threads)
+
+
 def init_cbf_wf(
     *,
     name_source,
@@ -713,6 +726,7 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
             multi_delay=is_multi_pld,
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
+            mem_gb=_lr_pvc_mem_gb(name_source, fit_nthreads) if is_multi_pld else None,
         )
         if is_multi_pld:
             # Each delay volume is unmixed, so the fit needs the delta-M series and the

@@ -506,6 +506,9 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
             maps[f'{tissue}_valid'] = cbf_valid
             maps[f'{tissue}_att_valid'] = att_valid
 
+        # The tissue curves are no longer needed; free them before the CSF regression.
+        del fit['beta_gm'], fit['beta_wm']
+
         # CSF quality control: the signed projection of the CSF curve onto the voxel's
         # uncorrected kinetic curve, in units of its uncorrected CBF
         csf_fit = local_regression_csf(
