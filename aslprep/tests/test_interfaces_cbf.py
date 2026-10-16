@@ -7,8 +7,20 @@ import numpy as np
 import pandas as pd
 import pytest
 from nipype.interfaces.base import isdefined
+from traits.api import TraitError
 
 from aslprep.interfaces import cbf
+from aslprep.utils.cbf import ROBUST_TUNING_CONSTANTS
+
+
+def test_scoreandscrubcbf_wavelet_function():
+    """The SCRUB weight function input accepts only implemented weight functions."""
+    assert cbf.ScoreAndScrubCBF().inputs.wavelet_function == 'huber'
+    for wfun in ROBUST_TUNING_CONSTANTS:
+        cbf.ScoreAndScrubCBF(wavelet_function=wfun)
+
+    with pytest.raises(TraitError):
+        cbf.ScoreAndScrubCBF(wavelet_function='logistics')
 
 
 def test_computecbf_casl(datasets, tmp_path_factory):

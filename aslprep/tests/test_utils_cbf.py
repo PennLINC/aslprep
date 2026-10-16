@@ -167,6 +167,127 @@ def test_getcbfscore_constant_volume():
     assert np.any(index[1:] == 2)
 
 
+@pytest.mark.parametrize('wfun', sorted(cbf.ROBUST_TUNING_CONSTANTS))
+def test_weightfun_bounds(wfun):
+    """Every weight function returns finite, symmetric weights in [0, 1], with w(0) = 1."""
+    x = np.linspace(-5, 5, 101).reshape(1, -1).repeat(3, axis=0)
+    weight, tuner = cbf._weightfun(x, wfun)
+    assert weight.shape == x.shape
+    assert np.all(np.isfinite(weight))
+    assert np.all((weight >= 0) & (weight <= 1))
+    np.testing.assert_allclose(weight, weight[:, ::-1])
+    assert np.all(weight[:, 50] == 1)
+    assert tuner == cbf.ROBUST_TUNING_CONSTANTS[wfun]
+
+
+def test_weightfun_values():
+    """Weights match the robustfit definitions."""
+    x = np.array([0.5, 2.0])
+    np.testing.assert_allclose(cbf._weightfun(x, 'huber')[0], [1, 0.5])
+    np.testing.assert_allclose(cbf._weightfun(x, 'fair')[0], [1 / 1.5, 1 / 3])
+    np.testing.assert_allclose(cbf._weightfun(x, 'andrews')[0], np.sin(x) / x)
+    np.testing.assert_allclose(cbf._weightfun(np.array([4.0]), 'andrews')[0], [0])
+    np.testing.assert_allclose(cbf._weightfun(x, 'bisquare')[0], [0.5625, 0])
+
+
+def test_weightfun_unknown():
+    """Unknown weight function names raise instead of silently falling back to Huber."""
+    with pytest.raises(ValueError, match='Unknown weight function'):
+        cbf._weightfun(np.ones(3), 'logistics')
+
+    with pytest.raises(ValueError, match='Unknown weight function'):
+        cbf._tune('logistics')
+
+
+@pytest.mark.parametrize(
+    ('n', 'table_thresh', 'table_ratio'),
+    [
+        # Values from the simulated lookup table this function replaced
+        (2, 15.484663, 2.177715),
+        (3, 8.886835, 1.446966),
+        (10, 3.731612, 1.079783),
+        (40, 2.039329, 1.017134),
+        (100, 1.609462, 1.007087),
+    ],
+)
+def test_getchisquare_matches_simulated_table(n, table_thresh, table_ratio):
+    """The closed-form values agree with the simulated table they replaced."""
+    thresh, ratio = cbf._getchisquare(n)
+    np.testing.assert_allclose(thresh, table_thresh, rtol=0.05)
+    np.testing.assert_allclose(ratio, table_ratio, rtol=0.01)
+
+
+def test_getchisquare_limits():
+    """Long runs no longer overflow the table, and fewer than two volumes are rejected."""
+    thresh, ratio = cbf._getchisquare(500)
+    assert 1 < thresh < cbf._getchisquare(100)[0]
+    assert 1 < ratio < cbf._getchisquare(100)[1]
+
+    with pytest.raises(ValueError, match='At least two volumes'):
+        cbf._getchisquare(1)
+
+
+def test_scrub_prior_weight():
+    """Lambda is zero up to the threshold and continuous, with a continuous slope, at 10x."""
+    thresh = 2.0
+    norm_var = np.array([0, 1, thresh, 3, 10 * thresh, 40])
+    lam = cbf._scrub_prior_weight(norm_var, thresh)
+    np.testing.assert_allclose(lam, [0, 0, 0, 1, 9 * thresh, 40**2 / 40 + 4 * thresh])
+
+    eps = 1e-6
+    below, at, above = cbf._scrub_prior_weight(
+        np.array([10 * thresh - eps, 10 * thresh, 10 * thresh + eps]), thresh
+    )
+    np.testing.assert_allclose([below, above], at, atol=1e-5)
+    np.testing.assert_allclose((above - at) / eps, (at - below) / eps, atol=1e-4)
+
+
+def test_robust_fit_waits_for_every_voxel():
+    """A voxel that converges immediately must not stop the fit for the others."""
+    rng = np.random.default_rng(0)
+    noisy = 50 + 10 * rng.standard_normal(30)
+    noisy[:3] += 200
+    Y = np.column_stack([np.full(30, 5.0), noisy])
+    kwargs = {'wfun': 'bisquare', 'tune': cbf._tune('bisquare'), 'flagstd': 0, 'flagmodrobust': 0}
+
+    joint = cbf._robust_fit(
+        Y, mu=np.zeros(2), Globalprior=np.zeros(2), modrobprior=np.zeros(2), **kwargs
+    )
+    alone = cbf._robust_fit(
+        Y[:, 1:], mu=np.zeros(1), Globalprior=np.zeros(1), modrobprior=np.zeros(1), **kwargs
+    )
+    assert joint[0] == 5
+    np.testing.assert_allclose(joint[1], alone[0])
+    # The fit must have moved well away from the outlier-contaminated mean
+    assert abs(alone[0] - 50) < abs(noisy.mean() - 50) / 2
+
+
+@pytest.mark.parametrize('n_vol', [40, 150])
+def test_scrubcbf_noise_only_phantom(n_vol):
+    """On artifact-free data, SCRUB leaves clean voxels at their temporal mean."""
+    cbf_ts, gm, wm, csf, mask = _score_phantom(n_vol=n_vol, seed=3)
+    scrub = cbf._scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber')
+    mean_cbf = cbf_ts.mean(axis=3)
+
+    gm_bin, wm_bin = gm == 1, wm == 1
+    assert abs(scrub[gm_bin].mean() - 60) < 1
+    assert abs(scrub[wm_bin].mean() - 20) < 1
+    # Only voxels beyond the 99.99th percentile of temporal variance get a nonzero prior weight
+    assert np.mean(np.isclose(scrub, mean_cbf)) > 0.99
+
+
+def test_scrubcbf_shrinks_high_variance_voxels():
+    """Voxels with very high temporal variance are pulled toward the tissue prior."""
+    cbf_ts, gm, wm, csf, mask = _score_phantom(seed=5)
+    rng = np.random.default_rng(5)
+    cbf_ts[2:4, 2:4, 1:3] += 300 * rng.standard_normal((2, 2, 2, cbf_ts.shape[3]))
+    scrub = cbf._scrubcbf(cbf_ts, gm, wm, csf, mask, wfun='huber')
+    mean_cbf = cbf_ts.mean(axis=3)
+
+    artifact = (slice(2, 4), slice(2, 4), slice(1, 3))
+    assert np.abs(scrub[artifact] - 60).mean() < np.abs(mean_cbf[artifact] - 60).mean() / 2
+
+
 def _simulate_multipld(is_casl, plds, bolus, params, m0, labeleff=0.7, t1blood=1.65):
     """Simulate delta-M for each voxel with the scalar reference models."""
     n_voxels, n_volumes = plds.shape
