@@ -133,6 +133,11 @@ def _scrub_prior_weight(norm_var, thresh):
     The quadratic branch's constant term makes lambda and its derivative continuous
     at ``10 * thresh``.
     """
+    # The upper breakpoint (10 * thresh) follows the SCRUB write-up ("a decibel of p99.99").
+    # Sudipto Dolui's MATLAB snippet for the original lookup table (aslprep#394) also computes
+    # a second percentile, thresh2 = prctile(v, p2), which the Python port never used.
+    # It is unclear whether the MATLAB code uses thresh2 as this breakpoint
+    # or for something else, so 10 * thresh is kept until that is confirmed.
     linear = (norm_var > thresh) & (norm_var < 10 * thresh)
     quadratic = norm_var >= 10 * thresh
     return linear * (norm_var - thresh) + quadratic * (
