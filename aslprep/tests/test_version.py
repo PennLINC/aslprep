@@ -11,10 +11,15 @@ from aslprep.cli.version import DATE_FMT, check_latest, is_flagged, requests
 
 
 class MockResponse:
-    """Mocks the requests module so that Pypi is not actually queried."""
+    """Mocks the requests module so that Docker Hub is not actually queried."""
 
     status_code = 200
-    _json = {'releases': {'1.0.0': None, '1.0.1': None, '1.1.0': None, '1.1.1rc1': None}}
+    _json = {
+        'results': [
+            {'name': name}
+            for name in ('latest', 'unstable', '1.1.1rc1', '1.1.0', '1.0.1', '1.0.0')
+        ]
+    }
 
     def __init__(self, code=200, json=None):
         """Allow setting different response codes."""
@@ -31,9 +36,17 @@ class MockResponse:
     ('result', 'code', 'json'),
     [
         (None, 404, None),
-        (None, 200, {'releases': {'1.0.0rc1': None}}),
+        (None, 200, {'results': [{'name': '1.0.0rc1'}]}),
+        (None, 200, {'message': 'Too many requests'}),
+        (None, 429, {'message': 'Too many requests'}),
+        (Version('1.0.0'), 200, {'results': [{'name': 'not-a-version'}, {'name': '1.0.0'}]}),
+        (
+            Version('26.0.3'),
+            200,
+            {'results': [{'name': '0.7.5'}, {'name': '26.0.3'}, {'name': '25.2.1'}]},
+        ),
         (Version('1.1.0'), 200, None),
-        (Version('1.0.0'), 200, {'releases': {'1.0.0': None}}),
+        (Version('1.0.0'), 200, {'results': [{'name': '1.0.0'}]}),
     ],
 )
 def test_check_latest2(tmpdir, monkeypatch, result, code, json):
