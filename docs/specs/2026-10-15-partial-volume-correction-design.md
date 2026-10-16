@@ -37,7 +37,8 @@ Non-goals (this change):
 
 - Changing BASIL PVC, its inputs, or its coupling to `--basil`. A follow-up may feed BASIL the
   new PV maps (Section 9).
-- LR PVC of multi-PLD data or of scanner-provided CBF (Section 5.1 explains why).
+- LR PVC of scanner-provided CBF (Section 5.1 explains why). Multi-delay data were a non-goal in
+  revision 4. They are now covered by §5.7 (PR 1b).
 - A user-supplied PSF kernel image.
 - Total-least-squares or trimmed regression, Bayesian PVC, and surface-based (Toblerone-style)
   PV estimation.
@@ -317,7 +318,8 @@ error that points to `--basil`.
   ATT differ.
 - Scanner CBF has unknown calibration.
 
-Tissue-specific kinetic fitting is what BASIL already does.
+Tissue-specific kinetic fitting is what BASIL already does. *Superseded for multi-delay data
+by §5.7: unmix each delay first, then fit each tissue.*
 
 **What `ComputeCBF` does.** For single-PLD data it computes
 
@@ -601,7 +603,7 @@ The diagnostics figure title reports the median, and F1 scoring reports it (trut
 - `parse_args` validates:
   - odd, positive kernel sizes;
   - a positive FWHM triple or a keyword;
-  - `local-regression` is incompatible with multi-PLD data and `--force`d CBF-only processing.
+  - `local-regression` is incompatible with `--force`d CBF-only processing (multi-delay data: §5.7).
     This check happens when the data are known, in workflow construction.
 - `--pvc-method` is separate from `--basil`. BASIL PVC stays tied to `--basil`, and the help text
   says so. Adding `basil` as a value would change what `--basil` means, so it is a follow-up.
@@ -635,6 +637,236 @@ The diagnostics figure title reports the median, and F1 scoring reports it (trut
   - states that corrected values are an additional analysis;
   - states that motion and SDC resampling blur is not modelled;
   - states that the spiral and GRASE defaults are approximations.
+
+### 5.7 Multi-delay LR PVC (PR 1b, added 2026-10-16; revised after Codex review)
+
+§5.1 excluded multi-delay data because a kinetic fit of a mixed signal is not a mixture of
+tissue fits. That is a reason to unmix *before* fitting, not to leave the data out: ΔM at each
+delay is linear in the tissue signals. BASIL also corrects single- and multi-delay data, but its
+overlap is not a reason to skip this. LR adds the PSF-aware PV maps, explicit identifiability
+rules and diagnostics, and a regression-based estimate to compare with BASIL.
+
+#### 5.7.1 Model and assumptions
+
+- **The model.** For delay volume v, with delay PLD_k,v (slice-shifted with slice timing),
+
+      ΔM_k,v = Σ_t p̃_t,k · s_t,v(k) + ε,
+
+  where s_t,v(k) is tissue t's ΔM at voxel k. Linear superposition always holds. Factoring the
+  sum into one coefficient per tissue per volume, s_t,v(k) = s_t,v, is an approximation. It
+  requires the tissue signal to be constant over the regression kernel and over the support of
+  the acquisition response.
+- **Ways the approximation breaks.** A within-kernel spread of ATT, CBF, tissue M0 or
+  background-suppression efficiency breaks it. So does through-plane mixing from preprocessing.
+  The coefficient β_t,v is then a signed combination of kinetic curves, generally not a
+  single-ATT GKM curve.
+- **What this means for the outputs.** These are inherited limitations. They are stated in the
+  docs and boilerplate, and the kinetic residual of §5.7.3 is reported so they can be seen.
+- **Delays within a kernel.** The kernel's voxels must share their delays. That holds within one
+  slice. The §5.5 rule therefore carries over: with varying `SliceTiming`, the kernel's slice
+  extent must be 1.
+- **Data without slice timing.** Absent `SliceTiming` is treated as simultaneous acquisition
+  (3D readouts), as ASLPrep's uncorrected quantification already does.
+- **No quantification factor.** ΔM is regressed directly, because the delays inside a kernel are
+  equal and nothing needs cancelling. Calibration happens in the kinetic fit.
+
+#### 5.7.2 Step 1: spatial regression of each volume
+
+- **Validity.** `ComputeCBF`'s multi-delay branch gains `m0_calib` (exactly the `scaled_m0data`
+  it fits with) and `quant_valid`. `quant_valid` is computed **from the images before Nilearn
+  sanitizes them**, as in the single-delay branch (`_all_finite`, `interfaces/cbf.py`). It
+  requires m̄ finite and > 0, every volume's ΔM finite, and every delay finite.
+- **One design for every volume.** With V intersected over all volumes and the PV maps fixed, X
+  is the same for every volume. G, the supports, the conditioning, the contamination ratios and
+  the status (§5.3) are computed once, and only b_v = Xᵀ y_v changes. This gives coefficients
+  β_t,v(c) for each voxel c.
+- **Per-volume regression and repeated delays.** Each volume is regressed separately and its
+  coefficient goes to the fit as one observation. Because β is linear in y, the *average* of the
+  coefficients over a delay's repetitions equals the coefficient of that delay's average. Single
+  noisy coefficients do not.
+  - `fit_deltam_multipld` groups observations by delay and labelling duration, and weights
+    averages by √count (`utils/cbf.py:1616-1630`). Passing every volume's coefficient therefore
+    gives the same objective as fitting the uncorrected data with the same grouping. Pre-averaging
+    without counts would not.
+- **Spatial residual.** `pvrmse` = sqrt(Σ_v RSS_v / (n_vol · (|V| − n_params))), in **ΔM units**
+  (not CBF × M0 as for single-delay data). The sidecar says so.
+- **What the spatial diagnostics describe.** Noise amplification, condition number, contamination
+  and `pvrmse` describe the spatial regression of each volume's amplitude. They do not bound the
+  error in the fitted CBF or ATT.
+
+#### 5.7.3 Step 2: kinetic fit of each tissue curve
+
+- **Which fits run.** For each tissue t and voxel where step 1 estimated t (status 1, or 2 for
+  GM, or 3 for WM) and p̃_t(c) ≥ 0.1, `fit_deltam_multipld` is run on β_t,·(c).
+- **Fit inputs.** The fit uses:
+  - the centre voxel's delays, with the labelling durations, or TI1 for PASL;
+  - the uncorrected fit's labelling efficiency (including the background-suppression factor),
+    T1 of blood and λ;
+  - `scaled_m0data` = m̄_c.
+- **The estimand.** Under the exact model, the fitted CBF is the **centre-M0-calibrated tissue
+  amplitude** f_t · M0_t / m̄_c. That is the §5.1 convention, and it matches how the uncorrected
+  multi-delay CBF is calibrated (verified in review: `ComputeCBF` scales M0, corrects short TR,
+  applies `zero_low_m0`, and the fit divides by M0/λ). It is not tissue-M0 physiological CBF.
+- **Bounds.** `fit_deltam_multipld` gains an optional `bounds` argument; the default stays
+  `MULTIPLD_BOUNDS`.
+  - Tissue fits use a CBF upper bound of 1000 instead of 300. A coefficient calibrated by mixed
+    M0 can exceed 300, and in review clipping at 300 distorted ATT and manufactured an arterial
+    component (an effective CBF of 360 came back as 300, with ATT 0.887 s and aBV 0.015).
+  - CBF stays non-negative. ATT is undefined for a non-positive signal, and the uncorrected
+    multi-delay fit is non-negative too. This departs from the signed single-delay estimator,
+    and the docs say so.
+- **Arterial signal.** The fit keeps its non-negative arterial term (aBV ≤ 0.1, the uncorrected
+  bound). It is a nuisance term: the per-tissue aBV and aBAT are discarded.
+  - It does **not** make the tissue estimates immune to macrovascular signal. A sparse artery
+    projects into the tissue coefficients through L = G⁻¹Xᵀ, whose entries can be negative (in
+    review, one arterial voxel gave GM +0.178 and WM −0.098 contamination coefficients). Several
+    arrival times cannot be represented by one arterial term. Contamination that lies in the
+    column space of X leaves `pvrmse` unchanged.
+  - This is a stated limitation. The kinetic residual below is the diagnostic for it, not
+    `pvrmse`.
+- **Kinetic diagnostics.** For each tissue fit, written natively:
+  - `desc-lr{GM,WM}_pvkinres`: the relative kinetic residual ‖β − m̂‖/‖β‖, with m̂ the fitted
+    model curve computed with the existing forward models (`calculate_deltam_pcasl/pasl`).
+  - `desc-lr{GM,WM}Lower_att` and `desc-lr{GM,WM}Upper_att`: the ATT bounds the fit returns, as
+    the uncorrected native-only `lower`/`upper` ATT outputs do. They are not resampled.
+  - A bound-hit flag folded into the kinetic status below.
+- **Kinetic status** (`desc-lr{GM,WM}_pvkinstatus`, native only):
+
+  | Code | Meaning |
+  |---|---|
+  | 0 | not fitted (step 1 did not estimate this tissue) |
+  | 1 | fitted |
+  | 2 | CBF at its lower bound (0): the curve carries no positive tissue signal |
+  | 3 | CBF at its upper bound |
+  | 4 | input not finite (`failures`) |
+
+  `failures = False` is only an input check (it is true where M0 is positive and the data and
+  delays are finite). It is not evidence of a good fit.
+- **Output validity.**
+  - CBF_t is written where step 1 estimated t and the kinetic status is 1 or 2. A CBF of 0 at
+    the lower bound is a legitimate, if clipped, estimate.
+  - ATT_t is written only where the kinetic status is 1. Elsewhere it is undefined.
+  - Whether ATT is identifiable is not thresholded. It is read from the written bounds, as for
+    the uncorrected maps.
+  - Each map has its own validity mask (CBF and ATT separately), and those masks drive
+    resampling and parcellation.
+
+#### 5.7.4 CSF quality control
+
+A GKM fit with non-negative bounds would destroy the signed meaning of §5.4a (in review, a
+negative curve came back as CBF 0 with no failure), so the CSF diagnostic stays a signed linear
+quantity.
+
+- **The CSF curve.** The three-tissue fit of §5.4a runs per volume (one design, with per-volume
+  b), and gives a CSF curve β_CSF,v(c).
+- **Template.** It is the centre voxel's **uncorrected** fitted model curve ŷ_c, computed from
+  `ComputeCBF`'s CBF, ATT, aBAT and aBV with the forward model.
+- **Apparent CSF CBF.** CBF_uncorr(c) · ⟨β_CSF, ŷ_c⟩ / ⟨ŷ_c, ŷ_c⟩: the signed CSF amplitude in
+  the shape of the voxel's own kinetic curve, scaled to CBF units.
+- **Where it is undefined.** Where ŷ_c = 0 (uncorrected CBF and aBV both 0), it is undefined and
+  status 4.
+- **Residual.** The CSF curve's relative residual against that template is written
+  (`desc-lrCSF_pvkinres`).
+- **QC columns and figure.** As for single-delay data, documented as "signed projection onto the
+  uncorrected kinetic curve" for multi-delay data.
+- **Cost.** This needs no extra nonlinear fit.
+
+#### 5.7.5 Outputs (mode-specific)
+
+`lr_pvc_names(source, multi_delay)` enumerates names per mode. The single-delay names are
+unchanged. For multi-delay data:
+
+| Output | Where it goes |
+|---|---|
+| `desc-lrGM_cbf`, `desc-lrWM_cbf` | native, resampled (normalized), **parcellated**, with CBF validity masks |
+| `desc-lrGM_att`, `desc-lrWM_att` | native, resampled (normalized), **not** parcellated, with ATT validity masks |
+| `desc-lr{GM,WM}{Lower,Upper}_att` | native only |
+| `desc-lr{GM,WM}_pvkinstatus`, `desc-lr{GM,WM}_pvkinres` | native only |
+| `desc-lr_pvstatus`, `desc-lr_pvcondition`, `desc-lr{GM,WM}_pvnoise`, `desc-lr_pvrmse` | native only |
+| `desc-lrCSF_cbf`, `desc-lrCSF_pvstatus`, `desc-lrCSF_pvnoise`, `desc-lrCSF_pvkinres` | native only |
+| PV maps (§4.4) | native only |
+
+- No SE maps (`desc-lr*SE`) are produced for multi-delay data, and none of their sinks or
+  connections exist in that mode. A propagated or bootstrap uncertainty is a follow-up (#682).
+- There are no `scoreLR` outputs, because SCORE/SCRUB is disabled for multi-delay data
+  (`base.py:245-250`).
+- `base.py` keeps two maps:
+  - `lr_sparse_cbf` (map → mask) for normalized resampling **and** parcellation;
+  - `lr_sparse_other` for normalized resampling **only** (the ATT maps).
+- `init_ds_volumes_wf.sparse_3d` receives both; `init_parcellate_cbf_wf.sparse_3d` receives only
+  the first.
+- New suffixes `pvkinstatus` and `pvkinres` are added to the perf NIfTI pattern. `att` is already
+  allowed, and the new `desc` values do not collide with existing ones (checked in review).
+
+#### 5.7.6 Plumbing, cost and resources
+
+- **Shared helpers.** The delay-array construction (slice timing, reversal, per-volume delays)
+  and the labelling-duration/TI1 selection are factored out of `ComputeCBF` into shared helpers,
+  used by both interfaces.
+- **The new interface.** `MultiDelayLocalRegressionPVC` takes the ΔM series `ExtractCBF` writes,
+  its reduced metadata, `m0_calib`, `quant_valid`, the uncorrected `mean_cbf`, `att`, `abat` and
+  `abv` (for the CSF template), the mask and the PV maps. `init_lr_pvc_wf` selects it by delay
+  count.
+- **Cost.** Step 1 is one Gram matrix plus n_vol right-hand sides and residual loops. Step 2 is
+  two tissue fits over the voxels each tissue covers, about 2× the uncorrected fit's work *in
+  addition to* it, so up to about 3× total fitting. The CSF projection is linear.
+- **Resources.** The node declares threads, GPU use and memory the way the multi-delay
+  `ComputeCBF` node does (`workflows/asl/cbf.py`). The per-volume coefficient arrays (n_voxels ×
+  n_vol × 3 tissues, float64) are held once. For a 64×64×30 grid and 84 volumes that is about
+  250 MB, which is declared.
+- **Benchmark.** One benchmark on the `pcasl_multipld` fixture is recorded in the PR.
+
+#### 5.7.7 Validation
+
+1. **Unit: exact model, identifiable schedule.**
+   - Data: GKM GM and WM curves (for example CBF 60/ATT 1.0 s and 20/1.6 s) with an identifiable
+     schedule (delays 0.25-3.0 s), mixed by smooth p̃, noiseless.
+   - Step 1 recovers each tissue curve exactly.
+   - Step 2 recovers the calibrated amplitude f_t · M0_t / m̄_c to within 1% and ATT to within
+     10 ms, and the returned ATT bounds are narrow.
+   - Covered: PCASL and PASL, with and without an arterial term, and slice timing with a
+     single-slice kernel.
+2. **Unit: unidentifiable and edge cases.**
+   - A schedule whose delays all exceed ATT gives wide ATT bounds, and ATT is not claimed.
+   - A negative curve gives kinetic status 2 and no ATT.
+   - A curve above 300 is not clipped (no status 3 at 360).
+   - Non-finite input gives status 4.
+3. **Unit: averaging.** The mean of the per-volume coefficients equals the coefficient of the
+   average, and the fit's objective is unchanged with unequal repetition counts and repeated
+   delays with different labelling durations.
+4. **Unit: approximation tests (report the error, assert only its direction where it is
+   certain):**
+   - a within-kernel ATT gradient;
+   - a sparse vessel with a negative projected arterial component;
+   - suppression variation.
+   The kinetic residual must rise in each case.
+5. **Unit: plumbing.**
+   - `quant_valid` is false for a real NIfTI NaN in any volume.
+   - Graph tests: multi-delay selects the new interface, ATT maps are resampled but not
+     parcellated, no SE sinks exist, the native ATT bounds exist, and the outputs coexist with
+     BASIL.
+   - Filenames build.
+6. **aslscan (report only, model mismatch).** On `pcasl_multipld`, an explicit adapter:
+   - selects the label rows of `desc-deltam_gt` by `aslcontext`;
+   - uses the truth sidecar to decide whether the arterial and background-suppression factors
+     are included, and applies the same factor ASLPrep's labelling efficiency assumes;
+   - divides by the recipe's `m0_divisor`.
+   Then it reports:
+   - the spatial residual of a per-slice regression (not exact here: the review measured median
+     2.5% because `tfmni` modulates CBF ±20% and ATT ±15%);
+   - the kinetic residual, given aslscan's tissue-T1′ kinetics against ASLPrep's blood-T1 model;
+   - the tissue values against the centre-M0 estimand.
+   An exact spatial-recovery check on simulated data needs a flat multi-delay recipe, which
+   comes with PR 2.
+7. **Integration (report only).** The `pcasl_multipld` run adds `--pvc-method local-regression`.
+   The manifest and `lr_pvc` scores are updated.
+
+#### 5.7.8 Clauses elsewhere that change
+
+- §1 (Non-goals) and §5.1: multi-delay data are now in scope.
+- §5.5: `check_lr_pvc_supported` accepts multi-delay data. Scanner CBF is still refused.
+- §6.2: LR validity for multi-delay maps is the §5.7.3 output validity.
+- §12: multi-delay LR PVC no longer fails. It writes the §5.7.5 outputs.
 
 ## 6. Part B: weighted surface projection
 
@@ -900,7 +1132,7 @@ support mask, precision with a floor, and goodvoxels.
 13. **Filenames.** Every new output and sidecar builds a valid path through ASLPrep's
     `DerivativesDataSink` config.
 14. **CLI and config.** The options round-trip through ToML. Invalid kernels and resolutions are
-    rejected. Multi-PLD and CBF-only data with `local-regression` raise an error.
+    rejected. CBF-only data with `local-regression` raise an error; multi-delay data are covered by §5.7.
 
 ### 7.2 aslscan integration (report-only first)
 
@@ -1007,8 +1239,9 @@ a smoke run in one existing CIFTI-producing integration test. Surface truth is a
 1. **PR 1 (#681).** `init_asl_pv_wf`, the `ComputeCBF` internal outputs,
    `LocalRegressionPVC`, CLI and config, derivatives and plumbing, reports, unit tests 1-8 and
    12-14, and 7.2(a)-(b).
-2. **PR 2 (#681).** The `desc-perfusion{GM,WM}_gt` fixtures and 7.2(c).
-3. **PR 3 (#676).** Surface weighting, support outputs, reports, and unit tests 9-11.
+2. **PR 1b (#681).** Multi-delay LR PVC (§5.7), stacked on PR 1 (#732).
+3. **PR 2 (#681).** The `desc-perfusion{GM,WM}_gt` fixtures and 7.2(c).
+4. **PR 3 (#676).** Surface weighting, support outputs, reports, and unit tests 9-11.
 
 ## 11. Review log
 
@@ -1144,6 +1377,44 @@ fixture and aslscan's kinetic model. Each finding was checked, and all were acce
 11. **Stale text.** The Lanczos boilerplate (`base.py:332`) becomes conditional. The temporal
     coverage text now notes SCORE's global retained-volume index (§5.4, §6.6).
 
+### Section 5.7 review (12 findings: 9 major, 3 minor)
+
+The Codex adversarial review of the first draft of §5.7 ran numerical probes of
+`fit_deltam_multipld` and the `pcasl_multipld` fixture. Each finding was checked, and all were
+accepted. Changes by finding:
+
+1. **The fitter's bounds suit voxels, not LR coefficients** (verified: `MULTIPLD_BOUNDS` CBF
+   0-300; the probe's effective CBF of 360 came back as 300, with ATT distorted and aBV
+   manufactured). Added a `bounds` argument; tissue fits use a CBF ceiling of 1000; bound hits
+   are flagged (§5.7.3).
+2. **"The arterial term absorbs arterial signal" was overclaimed.** Projected contamination can
+   be negative and can sit in the PV column space. Restated as a limitation, with a kinetic
+   residual diagnostic and approximation tests (§5.7.3, test 4).
+3. **`failures` only checks the inputs** (verified: `utils/cbf.py`). Added a kinetic status and
+   native per-tissue ATT bounds, and separate CBF and ATT validity (§5.7.3).
+4. **A non-negative CSF fit destroys the signed QC.** The CSF diagnostic is now a signed
+   projection onto the voxel's uncorrected kinetic curve (§5.7.4).
+5. **"Per-slice regression is exact" is false for `pcasl_multipld`** (`tfmni` modulates
+   perfusion and ATT; measured median 2.5%; aslscan uses tissue T1′). The aslscan comparison is
+   now report-only model mismatch. Exact spatial recovery is tested on synthetic data, and a flat
+   multi-delay recipe moves to PR 2 (§5.7.7).
+6. **The oracle needed an adapter.** Row selection, the arterial and background-suppression
+   stage, and `m0_divisor` are now specified (§5.7.7, test 6).
+7. **The assumptions were understated.** They are now stated as approximations: within-kernel
+   heterogeneity, suppression, and through-plane mixing (§5.7.1).
+8. **The validation did not establish identifiability.** Identifiable and unidentifiable
+   schedules are now tested, the bounds are checked, and the calibrated amplitude is asserted
+   rather than f_t (§5.7.7, tests 1-2).
+9. **The plumbing assumed SE maps and parcellation of every LR map** (verified: `outputs.py`,
+   `base.py`). Names are now mode-specific, and `lr_sparse_cbf` is split from `lr_sparse_other`
+   (§5.7.5).
+10. **Validity must be measured before sanitization.** It now reuses the image-level finiteness
+    check (§5.7.2).
+11. **The averaging claim needed qualifying, and `pvrmse` changes units.** Both are stated
+    precisely (§5.7.2).
+12. **Cost and conflicting clauses.** The added cost is now separated from the total, resources
+    are declared, and §1, §5.5, §6.2 and §12 are updated (§5.7.6, §5.7.8).
+
 ## 12. Acceptance criteria
 
 - **Defaults.** With no new flags, the workflow graph and the derivative list are unchanged (unit
@@ -1153,7 +1424,7 @@ fixture and aslscan's kinetic model. Each finding was checked, and all were acce
     method, the kernel, the thresholds, the FWHM and its source, and the calibration;
   - passes unit tests 1-8 and 12-14;
   - reports §7.2(a) and (b).
-  - On multi-PLD or CBF-only data it fails with a clear message.
+  - On CBF-only data it fails with a clear message. Multi-delay data write the §5.7.5 outputs.
 - **`--surface-weighting`**:
   - runs the Workbench nodes with `-weighted` and a single `volume_roi` source;
   - writes the support GIFTIs;
