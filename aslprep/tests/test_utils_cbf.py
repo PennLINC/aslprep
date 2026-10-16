@@ -133,6 +133,40 @@ def test_getcbfscore_never_increases_variance():
         assert v_final <= v_start
 
 
+def _score_phantom_with_artifact(seed=3):
+    """Add a zero-mean checkerboard to 12 volumes, which SCORE's second pass partly removes."""
+    cbf_ts, gm, wm, csf, mask = _score_phantom(seed=seed)
+    checker = np.indices(gm.shape).sum(axis=0) % 2 * 2 - 1.0
+    cbf_ts[..., :12] += 60 * checker[..., None]
+    return cbf_ts, gm, wm, csf, mask
+
+
+def test_getcbfscore_empty_tissue_mask():
+    """An empty tissue mask must not disable SCORE's structural-correlation pass."""
+    cbf_ts, gm, wm, _, mask = _score_phantom_with_artifact()
+    # A CSF mask with no voxels and one with a single voxel inside GM both carry no
+    # within-tissue variance, so they must give the same labels
+    csf_empty = np.zeros_like(gm)
+    csf_one = np.zeros_like(gm)
+    csf_one[0, 0, 0] = 1
+    _, index_empty = cbf._getcbfscore(cbf_ts, wm, gm, csf_empty, mask)
+    _, index_one = cbf._getcbfscore(cbf_ts, wm, gm, csf_one, mask)
+    np.testing.assert_array_equal(index_empty, index_one)
+    assert np.any(index_empty == 2)
+
+
+def test_getcbfscore_constant_volume():
+    """A volume with an undefined correlation must never be picked as the most correlated."""
+    cbf_ts, gm, wm, csf, mask = _score_phantom_with_artifact()
+    # Its GM mean is near the median, so the first pass keeps it. Rounding keeps it exactly
+    # constant, so its correlation is NaN rather than roundoff noise.
+    flat = np.full(gm.shape, np.round(np.median(cbf_ts[gm >= 0.7].mean(axis=0))))
+    cbf_ts = np.concatenate([flat[..., None], cbf_ts], axis=-1)
+    _, index = cbf._getcbfscore(cbf_ts, wm, gm, csf, mask)
+    assert index[0] == 0
+    assert np.any(index[1:] == 2)
+
+
 def _simulate_multipld(is_casl, plds, bolus, params, m0, labeleff=0.7, t1blood=1.65):
     """Simulate delta-M for each voxel with the scalar reference models."""
     n_voxels, n_volumes = plds.shape
