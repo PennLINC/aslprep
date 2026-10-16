@@ -465,6 +465,102 @@ def test_kernel_size_to_axes_and_slice_timing():
     assert not pvc.has_varying_slice_timing({})
 
 
+def _three_tissue_phantom(shape=(20, 20, 3), seed=0):
+    """Random but well-mixed GM, WM and CSF fractions that sum to one."""
+    rng = np.random.default_rng(seed)
+    raw = rng.random((3, *shape)) + 0.2
+    raw /= raw.sum(axis=0)
+    return raw[0], raw[1], raw[2]
+
+
+@pytest.mark.parametrize('csf_amplitude', [0.0, 12.0])
+def test_lr_csf_exact_recovery(csf_amplitude):
+    """The three-tissue fit recovers the CSF amplitude, whether or not it is zero."""
+    pv_gm, pv_wm, pv_csf = _three_tissue_phantom()
+    y = 54.0 * pv_gm + 16.0 * pv_wm + csf_amplitude * pv_csf
+    mask = np.ones(y.shape, bool)
+    fit = pvc.local_regression_csf(y, pv_gm, pv_wm, pv_csf, mask, mask)
+    full = fit['status'] == 1
+    assert full.mean() > 0.5
+    np.testing.assert_allclose(fit['beta_csf'][full], csf_amplitude, atol=1e-6 * 54)
+    np.testing.assert_allclose(fit['rmse'][full], 0, atol=1e-8 * 54)
+
+
+def test_lr_csf_matches_brute_force():
+    """The three-tissue fit matches a per-voxel least-squares fit."""
+    rng = np.random.default_rng(5)
+    pv_gm, pv_wm, pv_csf = _three_tissue_phantom(shape=(12, 11, 2), seed=5)
+    y = 50 * pv_gm + 20 * pv_wm + rng.normal(0, 3, pv_gm.shape)
+    y[3, 3, 0] = np.nan
+    mask = rng.random(y.shape) > 0.05
+    valid = mask & (rng.random(y.shape) > 0.05)
+    kernel = (5, 5, 1)
+    fit = pvc.local_regression_csf(y, pv_gm, pv_wm, pv_csf, mask, valid, kernel_size=kernel)
+    ok = valid & np.isfinite(y)
+    checked = 0
+    for idx in zip(*np.nonzero(fit['status'] == 1), strict=True):
+        sl = tuple(
+            slice(max(i - 2 * (k > 1), 0), min(i + 2 * (k > 1) + 1, n))
+            for i, k, n in zip(idx, kernel, y.shape, strict=True)
+        )
+        sel = ok[sl]
+        design = np.column_stack([pv_gm[sl][sel], pv_wm[sl][sel], pv_csf[sl][sel]])
+        beta, *_ = np.linalg.lstsq(design, y[sl][sel], rcond=None)
+        rss = np.sum((y[sl][sel] - design @ beta) ** 2)
+        assert fit['beta_csf'][idx] == pytest.approx(beta[2], rel=1e-8, abs=1e-8)
+        assert fit['rmse'][idx] ** 2 * (sel.sum() - 3) == pytest.approx(rss, rel=1e-8)
+        g_inv = np.linalg.inv(design.T @ design)
+        assert fit['noise_csf'][idx] == pytest.approx(np.sqrt(g_inv[2, 2]), rel=1e-8)
+        checked += 1
+    assert checked > 50
+
+
+def test_lr_csf_reduced_fits_and_identifiability():
+    """Absent tissues are dropped only when they cannot leak into the CSF estimate."""
+    shape = (9, 9, 1)
+    mask = np.ones(shape, bool)
+    zeros = np.zeros(shape)
+
+    # Pure CSF: a CSF-only fit
+    fit = pvc.local_regression_csf(np.full(shape, 5.0), zeros, zeros, np.ones(shape), mask, mask)
+    assert np.all(fit['status'] == 5)
+    np.testing.assert_allclose(fit['beta_csf'], 5.0)
+
+    # GM and CSF mixed, no WM: a GM + CSF fit
+    rng = np.random.default_rng(2)
+    pv_gm = rng.uniform(0.2, 0.8, shape)
+    pv_csf = 1 - pv_gm
+    fit = pvc.local_regression_csf(60 * pv_gm, pv_gm, zeros, pv_csf, mask, mask)
+    assert np.all(fit['status'] == 2)
+    np.testing.assert_allclose(fit['beta_csf'], 0, atol=1e-8)
+
+    # CSF everywhere at a constant 50:50 with GM: not identifiable, and no leaked value.
+    half = np.full(shape, 0.5)
+    fit = pvc.local_regression_csf(30 + 0 * half, half, zeros, half, mask, mask)
+    assert np.all(fit['status'] == 4)
+    assert np.all(fit['beta_csf'] == 0)
+
+    # No CSF in the kernel: not identifiable
+    fit = pvc.local_regression_csf(60 * np.ones(shape), np.ones(shape), zeros, zeros, mask, mask)
+    assert np.all(fit['status'] == 4)
+
+
+def test_calibrate_csf_and_summary():
+    """CSF CBF is calibrated by the centre M0 and summarized where CSF dominates."""
+    shape = (7, 7, 1)
+    mask = np.ones(shape, bool)
+    zeros = np.zeros(shape)
+    fit = pvc.local_regression_csf(np.full(shape, 4.0), zeros, zeros, np.ones(shape), mask, mask)
+    out = pvc.calibrate_csf(fit, np.full(shape, 0.8), np.ones(shape))
+    np.testing.assert_allclose(out['cbf_csf'], 5.0)
+    assert out['valid_csf'].all()
+    summary = pvc.summarize_csf_qc(out['cbf_csf'], out['valid_csf'], np.ones(shape))
+    assert summary == {'median': 5.0, 'iqr': 0.0, 'n': 49}
+    empty = pvc.summarize_csf_qc(out['cbf_csf'], out['valid_csf'], np.zeros(shape))
+    assert empty['n'] == 0
+    assert np.isnan(empty['median'])
+
+
 def test_normalized_resample_ratio():
     """Normalized resampling keeps a constant next to invalid zeros."""
     # A 1D 'warp' half-way between voxels: linear weights 0.5/0.5, then 0.75/0.25.

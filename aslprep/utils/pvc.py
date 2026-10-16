@@ -703,6 +703,193 @@ def calibrate_pvc(fit, m0, pv_gm, pv_wm, min_pv=0.1):
     return out
 
 
+#: CSF fit status codes. Every fit includes CSF; the code says which other tissues it includes.
+CSF_FIT_STATUS = {
+    0: 'outside the brain mask',
+    1: 'gray matter, white matter and CSF fit',
+    2: 'gray matter and CSF fit (white matter contamination below the limit)',
+    3: 'white matter and CSF fit (gray matter contamination below the limit)',
+    4: 'not identifiable',
+    5: 'CSF only fit (gray and white matter contamination below the limit)',
+}
+
+# Tissue indices (GM, WM, CSF) of each fit, in order of precedence, with its status code.
+_CSF_SUBSETS = ((1, (0, 1, 2)), (2, (0, 2)), (3, (1, 2)), (5, (2,)))
+
+
+def local_regression_csf(
+    y,
+    pv_gm,
+    pv_wm,
+    pv_csf,
+    mask,
+    valid,
+    kernel_size=(5, 5, 1),
+    tau=0.5,
+    kappa_max=100.0,
+    c_max=0.05,
+):
+    """Estimate the CSF signal amplitude by local regression on GM, WM and CSF, for QC.
+
+    CSF has no perfusion, so its estimate should be near zero. A clearly nonzero estimate points
+    at partial volume map errors (segmentation, registration, effective resolution),
+    macrovascular or choroid plexus signal, or a poorly fitting kinetic model.
+    The gray and white matter estimates of this fit are not used: the corrected GM and WM maps
+    come from :func:`local_regression_pvc`, which assumes CSF has no perfusion.
+
+    The fits are tried in the order of :data:`CSF_FIT_STATUS` (all three tissues, then CSF with
+    one tissue, then CSF alone). A tissue is left out only when its contamination of the CSF
+    estimate (the coefficient of its PV map on the CSF estimate, ``[G_S^-1 X_S^T p_o]_CSF``)
+    is at most ``c_max``. Each fit needs ``tau`` of support for every included tissue, a
+    normalized Gram matrix with condition number at most ``kappa_max``, and at least three
+    residual degrees of freedom.
+
+    Parameters
+    ----------
+    y, pv_gm, pv_wm, pv_csf, mask, valid, kernel_size, tau, kappa_max, c_max
+        As for :func:`local_regression_pvc`, with the CSF PV map added.
+
+    Returns
+    -------
+    :obj:`dict` of :obj:`numpy.ndarray`
+        ``beta_csf``, ``status`` (see :data:`CSF_FIT_STATUS`), ``noise_csf``, ``rmse`` and
+        ``n``.
+    """
+    kernel_size = tuple(int(k) for k in kernel_size)
+    if any(k < 1 or k % 2 == 0 for k in kernel_size):
+        raise ValueError(f'Kernel sizes must be odd and positive, got {kernel_size}.')
+
+    y = np.asarray(y, dtype=np.float64)
+    pvs = [np.asarray(p, dtype=np.float64) for p in (pv_gm, pv_wm, pv_csf)]
+    mask = np.asarray(mask, dtype=bool)
+    finite = np.isfinite(y)
+    for p in pvs:
+        finite &= np.isfinite(p)
+    valid = (
+        np.asarray(valid, dtype=bool) & mask & finite & (sum(np.nan_to_num(p) for p in pvs) > 0)
+    )
+    v = valid.astype(np.float64)
+    yv = np.where(valid, y, 0.0)
+    ps = [np.where(valid, p, 0.0) for p in pvs]
+
+    n = np.rint(_box_sum(v, kernel_size))
+    support = [_box_sum(p, kernel_size) for p in ps]
+    gram = np.empty((*y.shape, 3, 3))
+    for i in range(3):
+        for j in range(i, 3):
+            gram[..., i, j] = gram[..., j, i] = _box_sum(ps[i] * ps[j], kernel_size)
+    rhs = np.stack([_box_sum(p * yv, kernel_size) for p in ps], axis=-1)
+
+    status = np.zeros(y.shape, dtype=np.uint8)
+    status[mask] = 4
+    beta = np.zeros((*y.shape, 3))
+    noise_csf = np.zeros(y.shape)
+    undecided = mask & valid
+    tiny = 1e-12
+
+    for code, subset in _CSF_SUBSETS:
+        subset = list(subset)
+        omitted = [t for t in range(3) if t not in subset]
+        k = len(subset)
+        candidate = undecided & (n >= k + 3)
+        for t in subset:
+            candidate &= (support[t] >= tau) & (gram[..., t, t] > tiny)
+        if not candidate.any():
+            continue
+
+        g = gram[candidate][:, subset][:, :, subset]
+        d = np.sqrt(np.einsum('...ii->...i', g))
+        normalized = g / (d[:, :, None] * d[:, None, :])
+        eig = np.linalg.eigvalsh(normalized)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            kappa = np.where(eig[:, 0] > tiny, eig[:, -1] / eig[:, 0], np.inf)
+        ok = kappa <= kappa_max
+
+        g_ok = g[ok]
+        g_inv = np.linalg.inv(g_ok) if g_ok.size else g_ok
+        csf_row = subset.index(2)
+        # Contamination of the CSF coefficient by each omitted tissue
+        for o in omitted:
+            cross = gram[candidate][ok][:, subset, o]
+            leak = np.einsum('vij,vj->vi', g_inv, cross)[:, csf_row]
+            keep = np.abs(leak) <= c_max
+            ok_index = np.flatnonzero(ok)
+            ok[ok_index[~keep]] = False
+            g_inv = g_inv[keep]
+
+        voxels = tuple(idx[ok] for idx in np.nonzero(candidate))
+        b = rhs[voxels][:, subset]
+        coef = np.einsum('vij,vj->vi', g_inv, b)
+        for row, t in enumerate(subset):
+            beta[(*voxels, np.full(len(voxels[0]), t))] = coef[:, row]
+        noise_csf[voxels] = np.sqrt(g_inv[:, csf_row, csf_row])
+        status[voxels] = code
+        undecided[voxels] = False
+
+    # Residuals, computed directly over the kernel offsets
+    fitted = np.isin(status, [code for code, _ in _CSF_SUBSETS])
+    pad = [kk // 2 for kk in kernel_size]
+    shape = y.shape
+    y_pad = np.pad(yv, [(p, p) for p in pad])
+    p_pad = [np.pad(p, [(q, q) for q in pad]) for p in ps]
+    v_pad = np.pad(v, [(q, q) for q in pad])
+    rss = np.zeros(shape)
+    for offset in np.ndindex(*kernel_size):
+        offset = tuple(o - p for o, p in zip(offset, pad, strict=True))
+        fit_value = sum(beta[..., t] * _shifted(p_pad[t], offset, pad, shape) for t in range(3))
+        resid = _shifted(y_pad, offset, pad, shape) - fit_value
+        rss += _shifted(v_pad, offset, pad, shape) * resid**2
+
+    n_params = np.zeros(shape)
+    for code, subset in _CSF_SUBSETS:
+        n_params[status == code] = len(subset)
+    rmse = np.zeros(shape)
+    rmse[fitted] = np.sqrt(rss[fitted] / (n[fitted] - n_params[fitted]))
+
+    return {
+        'beta_csf': beta[..., 2],
+        'status': status,
+        'noise_csf': noise_csf,
+        'rmse': rmse,
+        'n': n,
+    }
+
+
+def calibrate_csf(fit, m0, pv_csf, min_pv=0.1):
+    """Calibrate the CSF amplitude of :func:`local_regression_csf` with the centre voxel's M0.
+
+    Returns
+    -------
+    :obj:`dict` of :obj:`numpy.ndarray`
+        ``cbf_csf``, ``se_csf`` (zero where not estimated) and the boolean mask ``valid_csf``.
+    """
+    m0 = np.asarray(m0, dtype=np.float64)
+    calibratable = np.isfinite(m0) & (m0 > 0)
+    fitted = np.isin(fit['status'], [code for code, _ in _CSF_SUBSETS])
+    valid = fitted & (np.asarray(pv_csf) >= min_pv) & calibratable
+    cbf = np.zeros(m0.shape)
+    se = np.zeros(m0.shape)
+    cbf[valid] = fit['beta_csf'][valid] / m0[valid]
+    se[valid] = fit['noise_csf'][valid] * fit['rmse'][valid] / m0[valid]
+    return {'cbf_csf': cbf, 'se_csf': se, 'valid_csf': valid}
+
+
+def summarize_csf_qc(cbf_csf, valid_csf, pv_csf, min_pv=0.5):
+    """QC summary of the CSF estimate: median and spread where CSF makes up most of the voxel.
+
+    Returns
+    -------
+    :obj:`dict`
+        ``median`` and ``iqr`` (mL/100 g/min; NaN without voxels) and ``n`` (the voxels used).
+    """
+    sel = np.asarray(valid_csf, dtype=bool) & (np.asarray(pv_csf) >= min_pv)
+    values = np.asarray(cbf_csf)[sel]
+    if not values.size:
+        return {'median': float('nan'), 'iqr': float('nan'), 'n': 0}
+    q25, q50, q75 = np.percentile(values, [25, 50, 75])
+    return {'median': float(q50), 'iqr': float(q75 - q25), 'n': int(values.size)}
+
+
 def normalized_resample_ratio(data, weight, threshold=0.5):
     """Finish a validity-normalized resampling: divide the warped data by the warped weight.
 

@@ -668,6 +668,14 @@ def score_lr_pvc(fixture, aslprep_dir):
                     np.median(cbf[estimated] - basil_data[estimated])
                 )
         out[tissue] = entry
+
+    # CSF quality-control estimate: the truth is zero perfusion, in mL/100 g/min.
+    csf = _load(f'{stem}_desc-lrCSF_cbf.nii.gz')
+    if csf is not None:
+        estimated = (csf != 0) & np.isfinite(csf) & (fixture.pv['CSF'] >= 0.5)
+        out['CSF'] = {'n': int(estimated.sum())}
+        if estimated.any():
+            out['CSF']['median'] = float(np.median(csf[estimated]))
     return out
 
 

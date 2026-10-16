@@ -31,10 +31,13 @@ def pv_inputs(tmp_path):
     gm = _sphere((60, 60, 60), (30, 30, 30), 10)
     wm = _sphere((60, 60, 60), (30, 30, 30), 5)
     gm = np.clip(gm - wm, 0, 1)
+    csf = np.clip(_sphere((60, 60, 60), (30, 30, 30), 14) - gm - wm, 0, 1)
     gm_file = tmp_path / 'gm.nii.gz'
     wm_file = tmp_path / 'wm.nii.gz'
+    csf_file = tmp_path / 'csf.nii.gz'
     nb.Nifti1Image(gm, anat_affine).to_filename(gm_file)
     nb.Nifti1Image(wm, anat_affine).to_filename(wm_file)
+    nb.Nifti1Image(csf, anat_affine).to_filename(csf_file)
 
     ref_affine = np.diag([4.0, 4.0, 4.0, 1.0])
     ref_affine[:3, 3] = [-28, -28, -28]
@@ -49,6 +52,7 @@ def pv_inputs(tmp_path):
     return {
         'gm': gm_file,
         'wm': wm_file,
+        'csf': csf_file,
         'ref': ref_file,
         'xfm': xfm_file,
         'shift': shift,
@@ -62,6 +66,7 @@ def test_partial_volume_maps_transform_direction(pv_inputs, tmp_path):
     results = pvc.PartialVolumeMaps(
         gm_tpm=str(pv_inputs['gm']),
         wm_tpm=str(pv_inputs['wm']),
+        csf_tpm=str(pv_inputs['csf']),
         reference=str(pv_inputs['ref']),
         aslref2anat_xfm=str(pv_inputs['xfm']),
         metadata={'MRAcquisitionType': '2D'},
@@ -70,6 +75,9 @@ def test_partial_volume_maps_transform_direction(pv_inputs, tmp_path):
 
     pv_gm = nb.load(results.outputs.gm_pv).get_fdata()
     assert pv_gm.max() > 0.5
+    pv_csf = nb.load(results.outputs.csf_pv).get_fdata()
+    csf_volume = nb.load(pv_inputs['csf']).get_fdata().sum()
+    assert pv_csf.sum() * 64 == pytest.approx(csf_volume, rel=0.02)
 
     # Oracle: nitransforms pulls the anatomical image onto the ASL grid through the inverse
     # of the aslref-to-anat point mapping, as antsApplyTransforms does with the inverse flag.
@@ -99,6 +107,7 @@ def test_partial_volume_maps_blur(pv_inputs, tmp_path):
     kwargs = {
         'gm_tpm': str(pv_inputs['gm']),
         'wm_tpm': str(pv_inputs['wm']),
+        'csf_tpm': str(pv_inputs['csf']),
         'reference': str(pv_inputs['ref']),
         'aslref2anat_xfm': str(pv_inputs['xfm']),
         'metadata': {'MRAcquisitionType': '3D', 'PulseSequenceType': 'GRASE'},
@@ -126,12 +135,14 @@ def test_local_regression_pvc_interface(tmp_path):
     affine = np.diag([3.0, 3.0, 5.0, 1.0])
     pv_gm = rng.uniform(0.1, 0.8, shape)
     pv_wm = (1 - pv_gm) * rng.uniform(0.5, 1.0, shape)
+    pv_csf = 1 - pv_gm - pv_wm
     m0 = rng.uniform(800, 1200, shape)
     m0[0] = 0  # not quantifiable
-    # Tissue amplitudes d_t = M0_t * f_t; uncorrected CBF = (sum_t pv_t d_t) / M0
-    d_gm, d_wm = 60.0 * 1000, 20.0 * 800
+    # Tissue amplitudes d_t = M0_t * f_t; uncorrected CBF = (sum_t pv_t d_t) / M0.
+    # CSF carries a small spurious signal, which the CSF QC fit must find.
+    d_gm, d_wm, d_csf = 60.0 * 1000, 20.0 * 800, 5.0 * 1500
     with np.errstate(divide='ignore', invalid='ignore'):
-        cbf = np.nan_to_num((pv_gm * d_gm + pv_wm * d_wm) / m0)
+        cbf = np.nan_to_num((pv_gm * d_gm + pv_wm * d_wm + pv_csf * d_csf) / m0)
     quant_valid = m0 > 0
     mask = np.ones(shape, bool)
 
@@ -143,6 +154,7 @@ def test_local_regression_pvc_interface(tmp_path):
         'mask': mask.astype(np.uint8),
         'gm_pv': pv_gm,
         'wm_pv': pv_wm,
+        'csf_pv': pv_csf,
     }.items():
         files[name] = str(tmp_path / f'{name}.nii.gz')
         nb.Nifti1Image(data, affine).to_filename(files[name])
@@ -153,17 +165,70 @@ def test_local_regression_pvc_interface(tmp_path):
     ).run(cwd=tmp_path)
     out = results.outputs
     status = nb.load(out.status).get_fdata()
-    gm = nb.load(out.gm_cbf).get_fdata()
-    gm_valid = nb.load(out.gm_valid).get_fdata() > 0
+    csf_status = nb.load(out.csf_status).get_fdata()
+    csf_cbf = nb.load(out.csf_cbf).get_fdata()
 
     assert np.all(status[0] == 4)
-    assert not gm_valid[0].any()
+    assert np.all(csf_status[0] == 4)
+    # The three-tissue QC fit recovers the CSF signal, calibrated by the voxel's M0.
+    full = (csf_status == 1) & (pv_csf >= 0.1)
+    assert full.sum() > 100
+    np.testing.assert_allclose(csf_cbf[full], d_csf / m0[full], rtol=1e-6)
+    # The two-tissue fit assumes CSF is zero, so its GM estimate absorbs the CSF signal:
+    # the QC fit is what exposes it, and the GM map must not come from the QC fit.
+    gm = nb.load(out.gm_cbf).get_fdata()
+    gm_valid = nb.load(out.gm_valid).get_fdata() > 0
     two = (status == 1) & gm_valid
     assert two.sum() > 100
-    np.testing.assert_allclose(gm[two], d_gm / m0[two], rtol=1e-6)
     assert np.all(gm[~gm_valid] == 0)
+    assert not np.allclose(gm[two], d_gm / m0[two], rtol=1e-3)
     assert sum(out.summary.values()) == pytest.approx(1.0)
     assert out.pvc_metadata['KernelSize'] == [5, 5, 1]
+    assert out.qc['lr_csf_n_voxels'] == 0  # no voxel is half CSF in this phantom
+    assert set(out.qc) == {
+        'lr_csf_cbf_median',
+        'lr_csf_cbf_iqr',
+        'lr_csf_n_voxels',
+        'lr_fraction_two_tissue',
+    }
+
+
+def test_local_regression_pvc_interface_exact_two_tissue(tmp_path):
+    """Without CSF signal, the GM map is exact and the CSF QC estimate is zero."""
+    rng = np.random.default_rng(3)
+    shape = (16, 16, 2)
+    affine = np.diag([3.0, 3.0, 5.0, 1.0])
+    pv_gm = rng.uniform(0.1, 0.6, shape)
+    pv_csf = rng.uniform(0.3, 0.6, shape) * (1 - pv_gm)
+    pv_wm = 1 - pv_gm - pv_csf
+    m0 = rng.uniform(800, 1200, shape)
+    d_gm, d_wm = 60.0 * 1000, 20.0 * 800
+    cbf = (pv_gm * d_gm + pv_wm * d_wm) / m0
+    files = {}
+    for name, data in {
+        'cbf': cbf,
+        'm0_calib': m0,
+        'quant_valid': np.ones(shape, np.uint8),
+        'mask': np.ones(shape, np.uint8),
+        'gm_pv': pv_gm,
+        'wm_pv': pv_wm,
+        'csf_pv': pv_csf,
+    }.items():
+        files[name] = str(tmp_path / f'{name}.nii.gz')
+        nb.Nifti1Image(data, affine).to_filename(files[name])
+    out = (
+        pvc.LocalRegressionPVC(metadata={'MRAcquisitionType': '3D'}, **files)
+        .run(cwd=tmp_path)
+        .outputs
+    )
+    status = nb.load(out.status).get_fdata()
+    gm = nb.load(out.gm_cbf).get_fdata()
+    two = (status == 1) & (nb.load(out.gm_valid).get_fdata() > 0)
+    np.testing.assert_allclose(gm[two], d_gm / m0[two], rtol=1e-6)
+    csf = nb.load(out.csf_cbf).get_fdata()
+    csf_valid = nb.load(out.csf_status).get_fdata() == 1
+    assert csf_valid.sum() > 100
+    np.testing.assert_allclose(csf[csf_valid & (pv_csf >= 0.1)], 0, atol=1e-6)
 
 
 def test_pvc_diagnostics_plot(tmp_path):

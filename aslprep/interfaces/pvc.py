@@ -16,18 +16,22 @@ from aslprep import config
 from aslprep.utils.pvc import (
     PVC_STATUS,
     build_pv_maps,
+    calibrate_csf,
     calibrate_pvc,
     get_slice_axis,
     kernel_size_to_axes,
+    local_regression_csf,
     local_regression_pvc,
     normalized_resample_ratio,
     resolve_effective_resolution,
+    summarize_csf_qc,
 )
 
 
 class _PartialVolumeMapsInputSpec(BaseInterfaceInputSpec):
     gm_tpm = File(exists=True, mandatory=True, desc='Gray matter probability map (anatomical).')
     wm_tpm = File(exists=True, mandatory=True, desc='White matter probability map (anatomical).')
+    csf_tpm = File(exists=True, mandatory=True, desc='CSF probability map (anatomical).')
     reference = File(
         exists=True,
         mandatory=True,
@@ -60,6 +64,7 @@ class _PartialVolumeMapsInputSpec(BaseInterfaceInputSpec):
 class _PartialVolumeMapsOutputSpec(TraitedSpec):
     gm_pv = File(exists=True, desc='Gray matter PV map on the ASL reference grid.')
     wm_pv = File(exists=True, desc='White matter PV map on the ASL reference grid.')
+    csf_pv = File(exists=True, desc='CSF PV map on the ASL reference grid.')
     pv_metadata = traits.Dict(desc='How the PV maps were built, for their sidecars.')
 
 
@@ -98,14 +103,15 @@ class PartialVolumeMaps(SimpleInterface):
             matrix = matrix[0]
         ref2anat = np.linalg.inv(matrix)
 
-        gm_img = nb.load(self.inputs.gm_tpm)
-        wm_img = nb.load(self.inputs.wm_tpm)
-        if not np.allclose(gm_img.affine, wm_img.affine):
-            raise ValueError('The gray and white matter maps must share a grid.')
+        tpm_imgs = [
+            nb.load(f) for f in (self.inputs.gm_tpm, self.inputs.wm_tpm, self.inputs.csf_tpm)
+        ]
+        if not all(np.allclose(img.affine, tpm_imgs[0].affine) for img in tpm_imgs[1:]):
+            raise ValueError('The tissue probability maps must share a grid.')
 
         pv_maps, info = build_pv_maps(
-            [gm_img.get_fdata(dtype=np.float32), wm_img.get_fdata(dtype=np.float32)],
-            gm_img.affine,
+            [img.get_fdata(dtype=np.float32) for img in tpm_imgs],
+            tpm_imgs[0].affine,
             ref_img.shape[:3],
             ref_affine,
             ref2anat,
@@ -114,7 +120,7 @@ class PartialVolumeMaps(SimpleInterface):
             slice_axis=slice_axis,
         )
 
-        for name, data in zip(('gm_pv', 'wm_pv'), pv_maps, strict=True):
+        for name, data in zip(('gm_pv', 'wm_pv', 'csf_pv'), pv_maps, strict=True):
             out_img = nb.Nifti1Image(data.astype(np.float32), ref_affine, ref_img.header)
             out_img.set_data_dtype(np.float32)
             self._results[name] = fname_presuffix(
@@ -151,6 +157,11 @@ class _LocalRegressionPVCInputSpec(BaseInterfaceInputSpec):
     mask = File(exists=True, mandatory=True, desc='Brain mask.')
     gm_pv = File(exists=True, mandatory=True, desc='Gray matter PV map.')
     wm_pv = File(exists=True, mandatory=True, desc='White matter PV map.')
+    csf_pv = File(
+        exists=True,
+        mandatory=True,
+        desc='CSF PV map, for the CSF quality-control fit (the GM/WM fit assumes CSF is 0).',
+    )
     metadata = traits.Dict(mandatory=True, desc='ASL metadata, for the slice-encoding axis.')
     kernel_size = traits.List(
         traits.Int,
@@ -184,7 +195,12 @@ class _LocalRegressionPVCOutputSpec(TraitedSpec):
     gm_noise = File(exists=True, desc='Noise amplification of the gray matter estimate.')
     wm_noise = File(exists=True, desc='Noise amplification of the white matter estimate.')
     rmse = File(exists=True, desc='Residual root mean square error of each fit.')
+    csf_cbf = File(exists=True, desc='CSF "CBF" from the three-tissue QC fit (expected near 0).')
+    csf_se = File(exists=True, desc='Standard error of the CSF estimate.')
+    csf_status = File(exists=True, desc='Status of the three-tissue CSF QC fit.')
+    csf_noise = File(exists=True, desc='Noise amplification of the CSF estimate.')
     summary = traits.Dict(desc='Fraction of brain voxels with each status.')
+    qc = traits.Dict(desc='Scalar quality-control measures, for the CBF QC file.')
     pvc_metadata = traits.Dict(desc='Settings, for the sidecars.')
 
 
@@ -231,6 +247,24 @@ class LocalRegressionPVC(SimpleInterface):
         )
         calibrated = calibrate_pvc(fit, m0, pv_gm, pv_wm, min_pv=self.inputs.min_pv)
 
+        # Quality control: a separate fit with CSF as a third tissue. CSF has no perfusion,
+        # so its estimate should be near zero. The GM and WM maps above are unaffected.
+        pv_csf = nb.load(self.inputs.csf_pv).get_fdata()
+        csf_fit = local_regression_csf(
+            signal,
+            pv_gm,
+            pv_wm,
+            pv_csf,
+            mask=mask,
+            valid=quant_valid,
+            kernel_size=kernel,
+            tau=self.inputs.tau,
+            kappa_max=self.inputs.kappa_max,
+            c_max=self.inputs.c_max,
+        )
+        csf = calibrate_csf(csf_fit, m0, pv_csf, min_pv=self.inputs.min_pv)
+        csf_summary = summarize_csf_qc(csf['cbf_csf'], csf['valid_csf'], pv_csf)
+
         outputs = {
             'gm_cbf': (calibrated['cbf_gm'], np.float32),
             'wm_cbf': (calibrated['cbf_wm'], np.float32),
@@ -243,6 +277,10 @@ class LocalRegressionPVC(SimpleInterface):
             'gm_noise': (fit['noise_gm'], np.float32),
             'wm_noise': (fit['noise_wm'], np.float32),
             'rmse': (fit['rmse'], np.float32),
+            'csf_cbf': (csf['cbf_csf'], np.float32),
+            'csf_se': (csf['se_csf'], np.float32),
+            'csf_status': (csf_fit['status'], np.uint8),
+            'csf_noise': (np.where(csf['valid_csf'], csf_fit['noise_csf'], 0.0), np.float32),
         }
         for name, (data, dtype) in outputs.items():
             out_img = nb.Nifti1Image(data.astype(dtype), cbf_img.affine, cbf_img.header)
@@ -258,6 +296,12 @@ class LocalRegressionPVC(SimpleInterface):
         self._results['summary'] = {
             PVC_STATUS[code]: float(np.sum(fit['status'][mask] == code) / n_mask)
             for code in (1, 2, 3, 4)
+        }
+        self._results['qc'] = {
+            'lr_csf_cbf_median': csf_summary['median'],
+            'lr_csf_cbf_iqr': csf_summary['iqr'],
+            'lr_csf_n_voxels': csf_summary['n'],
+            'lr_fraction_two_tissue': self._results['summary'][PVC_STATUS[1]],
         }
         self._results['pvc_metadata'] = {
             'KernelSize': list(self.inputs.kernel_size),

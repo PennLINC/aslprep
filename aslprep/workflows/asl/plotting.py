@@ -95,6 +95,7 @@ def init_cbf_reporting_wf(
                 'status_lr',
                 'gm_noise_lr',
                 'pvc_summary',
+                'pvc_qc',
                 'pv_metadata',
             ],
         ),
@@ -494,6 +495,7 @@ def init_cbf_reporting_wf(
                 ('status_lr', 'status'),
                 ('gm_noise_lr', 'gm_noise'),
                 ('pvc_summary', 'summary'),
+                ('pvc_qc', 'qc'),
                 ('pv_metadata', 'pv_metadata'),
             ]),
         ])  # fmt:skip

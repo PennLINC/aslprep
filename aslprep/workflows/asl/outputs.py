@@ -235,6 +235,15 @@ BASE_INPUT_FIELDS = {
             'resolution of the ASL acquisition.'
         ),
     },
+    'csf_pv': {
+        'label': 'CSF',
+        'desc': 'psf',
+        'suffix': 'probseg',
+        'Description': (
+            'CSF fraction on the ASL reference grid, modelling the effective resolution of the '
+            'ASL acquisition.'
+        ),
+    },
 }
 
 #: Local-regression partial volume correction outputs, per corrected CBF map.
@@ -254,10 +263,18 @@ def lr_pvc_names(source):
     -------
     :obj:`dict`
         ``cbf`` (corrected CBF maps), ``se`` (their standard errors), ``valid`` (where they
-        were estimated, by corrected map), and ``diagnostics`` (native-only fit diagnostics).
+        were estimated, by corrected map), ``diagnostics`` (native-only fit diagnostics), and
+        ``csf`` (the native-only CSF quality-control map, its standard error, fit status and
+        noise amplification).
     """
     suffix = '' if source == 'mean_cbf' else '_score'
     return {
+        'csf': [
+            f'mean_cbf_csf_lr{suffix}',
+            f'cbf_csf_se_lr{suffix}',
+            f'status_csf_lr{suffix}',
+            f'csf_noise_lr{suffix}',
+        ],
         'cbf': [f'mean_cbf_gm_lr{suffix}', f'mean_cbf_wm_lr{suffix}'],
         'se': [f'cbf_gm_se_lr{suffix}', f'cbf_wm_se_lr{suffix}'],
         'valid': {
@@ -337,6 +354,53 @@ def _add_lr_pvc_fields():
             'suffix': 'pvrmse',
             'Description': (
                 'Root mean square residual of each local regression, in units of CBF times M0.'
+            ),
+        }
+        csf_cbf, csf_se, csf_status, csf_noise = names['csf']
+        csf_fit_str = (
+            'from a separate local regression on gray matter, white matter and CSF partial '
+            f'volume maps of the CBF map{source_str}, for quality control'
+        )
+        BASE_INPUT_FIELDS[csf_cbf] = {
+            'desc': f'{prefix}CSF',
+            'suffix': 'cbf',
+            'Units': 'mL/100 g/min',
+            'Description': (
+                f'Apparent CSF cerebral blood flow, {csf_fit_str}. CSF has no perfusion, so '
+                'values far from zero indicate partial volume map errors, macrovascular or '
+                'choroid plexus signal, or model error. The gray and white matter maps '
+                f'(desc-{prefix}GM, desc-{prefix}WM) do not come from this fit. '
+                'Zero where it was not estimated. Valid in this (native) space only.'
+            ),
+        }
+        BASE_INPUT_FIELDS[csf_se] = {
+            'desc': f'{prefix}CSFSE',
+            'suffix': 'cbf',
+            'Units': 'mL/100 g/min',
+            'Description': (
+                f'Standard error of desc-{prefix}CSF, assuming independent, identically '
+                'distributed noise and conditional on M0. Valid in this (native) space only.'
+            ),
+        }
+        BASE_INPUT_FIELDS[csf_status] = {
+            'desc': f'{prefix}CSF',
+            'suffix': 'pvstatus',
+            'Description': f'Outcome of the CSF quality-control fit (desc-{prefix}CSF).',
+            'Levels': {
+                '0': 'Outside the brain mask.',
+                '1': 'Gray matter, white matter and CSF fit.',
+                '2': 'Gray matter and CSF fit (white matter contamination below the limit).',
+                '3': 'White matter and CSF fit (gray matter contamination below the limit).',
+                '4': 'Not identifiable.',
+                '5': 'CSF only fit (gray and white matter contamination below the limit).',
+            },
+        }
+        BASE_INPUT_FIELDS[csf_noise] = {
+            'desc': f'{prefix}CSF',
+            'suffix': 'pvnoise',
+            'Description': (
+                'Noise amplification of the CSF estimate: its standard error per unit of voxel '
+                'noise, assuming independent noise.'
             ),
         }
 
@@ -954,11 +1018,12 @@ def init_ds_pvc_native_wf(
     names = []
     for source in sources:
         lr_names = lr_pvc_names(source)
-        names += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics']
+        names += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics'] + lr_names['csf']
 
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=['source_files', 'gm_pv', 'wm_pv', 'pv_metadata', 'pvc_metadata'] + names
+            fields=['source_files', 'gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata']
+            + names
         ),
         name='inputnode',
     )
@@ -973,9 +1038,9 @@ def init_ds_pvc_native_wf(
     )
     workflow.connect([(inputnode, sources_node, [('source_files', 'in1')])])
 
-    for out_name in ['gm_pv', 'wm_pv'] + names:
+    for out_name in ['gm_pv', 'wm_pv', 'csf_pv'] + names:
         fields = BASE_INPUT_FIELDS[out_name]
-        meta_field = 'pv_metadata' if out_name in ('gm_pv', 'wm_pv') else 'pvc_metadata'
+        meta_field = 'pv_metadata' if out_name in ('gm_pv', 'wm_pv', 'csf_pv') else 'pvc_metadata'
         ds = pe.Node(
             DerivativesDataSink(
                 source_file=source_file,

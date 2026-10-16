@@ -66,6 +66,9 @@ def test_init_cbf_wf_lr_pvc(tmp_path, scorescrub):
         assert ('compute_cbf', 'quant_valid', 'lr_pvc_wf', 'inputnode.quant_valid') in to_pvc
         assert to_output['mean_cbf_gm_lr'] == 'lr_pvc_wf'
         assert to_output['gm_pv'] == 'asl_pv_wf'
+        assert to_output['csf_pv'] == 'asl_pv_wf'
+        assert to_output['mean_cbf_csf_lr'] == 'lr_pvc_wf'
+        assert to_output['pvc_qc'] == 'lr_pvc_wf'
         assert ('mean_cbf_gm_lr_score' in to_output) is scorescrub
         assert 'mean_cbf_scrub_lr' not in str(to_output)
         desc = wf.visit_desc()
@@ -168,6 +171,20 @@ def test_init_asl_wf_lr_pvc():
         assert 'cbf_wf.asl_pv_wf.pv_maps' in names
         assert 'ds_pvc_native_wf.ds_status_lr' in names
         assert 'ds_pvc_native_wf.ds_gm_pv' in names
+        assert 'ds_pvc_native_wf.ds_csf_pv' in names
+        assert 'ds_pvc_native_wf.ds_mean_cbf_csf_lr' in names
+        # The CSF QC map is native only, and its scalar summary reaches the QC file.
+        assert not [n for n in names if 'csf_lr' in n and not n.startswith('ds_pvc_native_wf')]
+        qc_edges = [
+            e for e in _edges(wf, dst_name='cbf_confounds_wf') if e[3] == 'inputnode.pvc_qc'
+        ]
+        assert qc_edges == [
+            ('cbf_wf', 'outputnode.pvc_qc', 'cbf_confounds_wf', 'inputnode.pvc_qc')
+        ]
+        qc_node = wf.get_node('cbf_confounds_wf')
+        assert ('inputnode', 'pvc_qc', 'compute_qc_metrics', 'pvc_qc') in _edges(
+            qc_node, dst_name='compute_qc_metrics'
+        )
         assert 'ds_asl_t1_wf.normalize_mean_cbf_gm_lr' in names
         assert 'ds_asl_std_wf.normalize_mean_cbf_wm_lr' in names
         assert 'cbf_reporting_wf.lr_diagnostics' in names
@@ -183,10 +200,10 @@ def test_lr_pvc_derivative_filenames(tmp_path):
     from aslprep.interfaces.bids import DerivativesDataSink
     from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS, LR_PVC_SOURCES, lr_pvc_names
 
-    names = ['gm_pv', 'wm_pv']
+    names = ['gm_pv', 'wm_pv', 'csf_pv']
     for source in LR_PVC_SOURCES:
         lr_names = lr_pvc_names(source)
-        names += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics']
+        names += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics'] + lr_names['csf']
 
     in_file = tmp_path / 'in.nii.gz'
     nb.Nifti1Image(np.zeros((2, 2, 2), np.float32), np.eye(4)).to_filename(in_file)
@@ -211,4 +228,7 @@ def test_lr_pvc_derivative_filenames(tmp_path):
     assert 'sub-01_desc-lrGM_cbf.nii.gz' in out_names
     assert 'sub-01_desc-scoreLRWMSE_cbf.nii.gz' in out_names
     assert 'sub-01_desc-lr_pvstatus.nii.gz' in out_names
+    assert 'sub-01_desc-lrCSF_cbf.nii.gz' in out_names
+    assert 'sub-01_desc-lrCSF_pvstatus.nii.gz' in out_names
+    assert 'sub-01_label-CSF_desc-psf_probseg.nii.gz' in out_names
     assert len(out_names) == len(names)

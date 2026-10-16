@@ -313,11 +313,15 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             kernel_size=pvc_kernel_size,
         )
         lr_sources = ['mean_cbf'] + (['mean_cbf_score'] if scorescrub else [])
-        lr_fields = ['gm_pv', 'wm_pv', 'pv_metadata', 'pvc_metadata']
+        lr_fields = ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata', 'pvc_qc']
         for source in lr_sources:
             names = lr_pvc_names(source)
             lr_fields += (
-                names['cbf'] + names['se'] + list(names['valid'].values()) + names['diagnostics']
+                names['cbf']
+                + names['se']
+                + list(names['valid'].values())
+                + names['diagnostics']
+                + names['csf']
             )
             lr_fields.append(f'pvc_summary{"" if source == "mean_cbf" else "_score"}')
 
@@ -703,16 +707,18 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
             (asl_pv_wf, lr_pvc_wf, [
                 ('outputnode.gm_pv', 'inputnode.gm_pv'),
                 ('outputnode.wm_pv', 'inputnode.wm_pv'),
+                ('outputnode.csf_pv', 'inputnode.csf_pv'),
             ]),
             (asl_pv_wf, outputnode, [
                 ('outputnode.gm_pv', 'gm_pv'),
                 ('outputnode.wm_pv', 'wm_pv'),
+                ('outputnode.csf_pv', 'csf_pv'),
                 ('outputnode.pv_metadata', 'pv_metadata'),
             ]),
             (lr_pvc_wf, outputnode, [
                 (f'outputnode.{field}', field)
                 for field in lr_fields
-                if field not in ('gm_pv', 'wm_pv', 'pv_metadata')
+                if field not in ('gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata')
             ]),
         ])  # fmt:skip
         if scorescrub:

@@ -483,6 +483,11 @@ If ``--pvc-method local-regression`` is used (single-delay data only)::
          <source_entities>_desc-lr_pvrmse.nii.gz  # residual of each fit (aslref only)
          <source_entities>_label-GM_desc-psf_probseg.nii.gz  # GM fraction used (aslref only)
          <source_entities>_label-WM_desc-psf_probseg.nii.gz  # WM fraction used (aslref only)
+         <source_entities>_label-CSF_desc-psf_probseg.nii.gz  # CSF fraction used (aslref only)
+         <source_entities>_desc-lrCSF_cbf.nii.gz  # apparent CSF CBF, for QC (aslref only)
+         <source_entities>_desc-lrCSFSE_cbf.nii.gz  # standard error of desc-lrCSF_cbf (aslref only)
+         <source_entities>_desc-lrCSF_pvstatus.nii.gz  # status of the CSF QC fit (aslref only)
+         <source_entities>_desc-lrCSF_pvnoise.nii.gz  # CSF noise amplification (aslref only)
 
 With ``--scorescrub``, the same correction is applied to the SCORE map,
 with ``desc-scoreLR`` in place of ``desc-lr``.
@@ -510,12 +515,23 @@ additional analysis, not a replacement :footcite:p:`chappell2021partial`.
   Parcellated values average only the voxels with an estimate,
   and their coverage files give the fraction of each parcel that had one.
 - The correction smooths CBF within the kernel. Fine detail within a kernel is lost.
-- The tissue fractions (``label-GM_desc-psf_probseg``) model the effective resolution of the
-  acquisition :footcite:p:`petr2018effects`. With ``--asl-effective-resolution auto``,
-  single-shot 3D GRASE and 3D spiral readouts get the sequence-specific blurring of
-  :footcite:t:`vidorreta2013comparison` and :footcite:t:`petr2018effects`;
-  other acquisitions use the voxel size. The sidecar records which was used.
-  Blurring from motion and distortion correction resampling is not modelled.
+- The tissue fractions (``label-*_desc-psf_probseg``) are blurred to the acquisition's
+  effective resolution; see :ref:`effective_resolution`.
+- ``desc-lrCSF_cbf`` is a quality-control map, not a correction.
+  It comes from a separate regression with CSF as a third tissue
+  (the gray and white matter maps above come from the two-tissue fit, which assumes CSF has no
+  perfusion). Because CSF has no perfusion, this apparent CSF CBF should be close to zero.
+  Values far from zero, especially over large CSF spaces, suggest that the partial volume maps
+  do not match the ASL data (segmentation or registration errors, or a wrong effective
+  resolution), or that the data contain macrovascular signal or model error.
+  Real signal from the choroid plexus, which sits in the ventricles and is perfused,
+  can also appear here.
+  ``desc-lrCSF_pvstatus`` says which tissues each voxel's fit included
+  (1: all three; 2: gray matter and CSF; 3: white matter and CSF; 5: CSF alone;
+  4: not identifiable), and the CBF QC file (``desc-qualitycontrol_cbf.tsv``) adds its median
+  (``lr_csf_cbf_median``) and interquartile range (``lr_csf_cbf_iqr``) over voxels that are at
+  least 50% CSF, and the fraction of brain voxels with a two-tissue fit
+  (``lr_fraction_two_tissue``).
 - ``desc-lrGMSE_cbf`` and ``desc-lrWMSE_cbf`` are standard errors that assume independent
   noise between voxels, conditional on M0. Neighboring ASL voxels are correlated, so these
   are approximate. They are written in the ASL reference space only, because interpolating a
@@ -525,6 +541,72 @@ additional analysis, not a replacement :footcite:p:`chappell2021partial`.
   neighbors' values.
 - With slice-timed (2D multi-slice) data, the kernel must span a single slice,
   because the tissue signal depends on each slice's delay.
+
+.. _effective_resolution:
+
+Choosing the effective resolution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An ASL image is blurrier than its voxel size suggests.
+The readout spreads each point of tissue over a region larger than one voxel
+(the point-spread function), so each voxel's value is a weighted average of the tissue in and
+around it.
+The *effective resolution* is the width of that blur: its full width at half maximum (FWHM),
+in mm, along each axis of the image.
+It is never smaller than the voxel itself.
+
+Partial volume correction needs it because the gray, white matter and CSF fractions it
+regresses on must describe the same blurred mixture of tissue that each ASL voxel measured.
+If the fractions are sharper than the data, the correction attributes signal to the wrong
+tissue near tissue boundaries, which biases gray matter CBF :footcite:p:`petr2018effects`.
+The setting only affects the tissue maps used by ``--pvc-method``;
+it changes neither the uncorrected CBF nor BASIL.
+
+How blurry an acquisition is depends mostly on its readout:
+
+- **2D EPI** is close to the voxel size :footcite:p:`petr2018effects`.
+- **3D GRASE** blurs along the slice direction, because the signal decays over the long echo
+  train that encodes the slices. For single-shot GRASE, simulations give 1.38 times the slice
+  thickness, and about 1.1 times the voxel size in-plane :footcite:p:`vidorreta2013comparison`.
+- **3D (stack-of-)spiral** readouts blur most along the slice direction. For one GE protocol
+  with 3.8 x 3.8 x 4 mm voxels, the measured effective resolution was 4.6 x 4.3 x 11.8 mm,
+  about three times the slice thickness :footcite:p:`petr2018effects`.
+
+``--asl-effective-resolution`` takes one of:
+
+``auto`` (default)
+   Uses the sidecar's ``MRAcquisitionType``, ``PulseSequenceType`` and ``NumberShots``.
+   Single-shot 3D GRASE gets 1.1 x 1.1 x 1.38 times the voxel size, and 3D spiral gets
+   1.17 x 1.17 x 2.95 times the voxel size (the measurement above, with the two in-plane values
+   averaged). 2D acquisitions use the voxel size.
+   Anything else, including segmented (multi-shot) GRASE, uses the voxel size with a warning,
+   because no validated value is available.
+   The spiral factors come from a single protocol, so treat them as an approximation.
+
+``nominal``
+   The voxel size: each voxel is treated as measuring exactly the tissue inside it.
+
+Three numbers
+   The FWHM in mm, in the order in-plane, in-plane, slice direction.
+   The slice direction is the axis named by ``SliceEncodingDirection``
+   (the third image axis if it is absent).
+   Each value includes the voxel itself, so the smallest allowed value is the voxel size,
+   and a value equal to the voxel size means no extra blur along that axis.
+   For example, for the spiral protocol above:
+   ``--asl-effective-resolution 4.6 4.3 11.8``.
+
+If you know the effective resolution of your protocol, for example from the vendor, a
+point-spread function simulation, or a measurement like that of :footcite:t:`petr2018effects`,
+which smooths a high-resolution tissue-based image until it best matches the ASL image,
+give it explicitly. Otherwise ``auto`` is a reasonable default.
+The value used, and where it came from, are written to the ``EffectiveResolution`` and
+``EffectiveResolutionSource`` fields of the ``label-*_desc-psf_probseg.json`` sidecars.
+Blurring added by preprocessing, such as interpolation during motion and distortion correction,
+is not included.
+
+BASIL does not model the effective resolution.
+*ASLPrep* gives it gray and white matter maps that were interpolated to the ASL grid
+without additional blurring, and ``oxford_asl`` uses them as they are.
 - For single-delay data, the arterial transit time is fixed rather than estimated,
   so neither it nor its standard deviation is written.
 - In standard and anatomical spaces, the maps are resampled like the estimates.

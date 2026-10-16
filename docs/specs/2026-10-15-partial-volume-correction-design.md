@@ -1,7 +1,7 @@
 # PSF-aware partial volume correction and weighted surface projection: design
 
-Status: revision 4 (2026-10-15). This revision addresses the Codex adversarial reviews of
-revisions 1, 2 and 3 (Section 11).
+Status: revision 4 (2026-10-15), amended 2026-10-16 with the CSF quality-control fit (§5.4a).
+Revision 4 addresses the Codex adversarial reviews of revisions 1, 2 and 3 (Section 11).
 Branch: `worktree-pvc-spec`.
 Issues: PennLINC/aslprep#681 (native PSF-aware PVC), PennLINC/aslprep#676 (PV- and
 uncertainty-aware surface projection). Related: #671 and #726 (BASIL posterior SDs),
@@ -293,7 +293,7 @@ The integration error is controlled by convergence, not asserted. Tests (§7.1.8
   grids;
 - slab and whole-volume results agree to 1e-6, including with the slice axis set to i or j.
 
-p̃_CSF is not built. No regression uses it.
+p̃_CSF is built the same way. Only the CSF quality-control fit (§5.4a) uses it.
 
 ### 4.4 Derivatives (native ASL space only)
 
@@ -552,6 +552,43 @@ estimates with failed ones.
 Every sidecar records the method, the kernel, the thresholds, the calibration convention, the PV
 map files, the resolved FWHM and its source.
 
+### 5.4a CSF quality-control fit (added after PR 1 review, 2026-10-16)
+
+CSF has no perfusion. An apparent CSF CBF far from zero is therefore a diagnostic of model
+mismatch. Possible causes are segmentation or registration errors, a wrong effective
+resolution, macrovascular signal, or model error. Choroid plexus perfusion in the ventricles
+is real signal and can also appear.
+
+`local_regression_csf` (`aslprep/utils/pvc.py`) runs a separate fit on (p̃_GM, p̃_WM, p̃_CSF)
+with the same kernel, validity, guards and thresholds as §5.2-5.3:
+
+- **Subsets, in order of precedence:** {GM, WM, CSF} (status 1), {GM, CSF} (2), {WM, CSF}
+  (3), {CSF} (5). Status 4 means not identifiable.
+- **Each subset needs:**
+  - support ≥ τ for every included tissue;
+  - |V| ≥ |S| + 3;
+  - κ(D^{-1/2} G_S D^{-1/2}) ≤ κ_max.
+- **Omitting a tissue** o is allowed only if its leak into the CSF coefficient,
+  |[G_S⁻¹ X_Sᵀ p̃_o]_CSF|, is ≤ c_max. This generalizes the §5.3 contamination ratio.
+- **Calibration and SE** are as in §5.4: CBF_CSF = d_CSF/m̄_c, written where p̃_CSF ≥ 0.1.
+
+The GM and WM coefficients of this fit are discarded. The corrected GM/WM maps stay those of
+the two-tissue fit, so adding the QC fit cannot change them.
+
+Outputs (native only):
+
+- `desc-lrCSF_cbf`, `desc-lrCSFSE_cbf`, `desc-lrCSF_pvstatus`, `desc-lrCSF_pvnoise`, and
+  `label-CSF_desc-psf_probseg`;
+- with SCORE, `desc-scoreLRCSF*`.
+
+The CBF QC TSV (`desc-qualitycontrol_cbf`) gains four columns, present only when LR PVC ran:
+
+- `lr_csf_cbf_median` and `lr_csf_cbf_iqr`, over estimated voxels with p̃_CSF ≥ 0.5;
+- `lr_csf_n_voxels`;
+- `lr_fraction_two_tissue`.
+
+The diagnostics figure title reports the median, and F1 scoring reports it (truth 0).
+
 ### 5.5 CLI and config
 
 ```text
@@ -568,9 +605,10 @@ map files, the resolved FWHM and its source.
     This check happens when the data are known, in workflow construction.
 - `--pvc-method` is separate from `--basil`. BASIL PVC stays tied to `--basil`, and the help text
   says so. Adding `basil` as a value would change what `--basil` means, so it is a follow-up.
-- `--pvc-tissues` from #681 is not added. A free CSF *perfusion* regressor adds a parameter whose
-  expected value is zero, and it worsens conditioning. No M0 is regressed (§5.1), so CSF does
-  not enter anywhere.
+- `--pvc-tissues` from #681 is not added. A free CSF *perfusion* regressor in the GM/WM fit
+  adds a parameter whose expected value is zero, and it worsens conditioning, so the GM/WM fit
+  keeps CSF at zero. CSF is estimated instead in a separate quality-control fit (§5.4a), which
+  always runs with LR PVC.
 - LR PVC runs in `--sloppy` mode too, because it is cheap.
 
 ### 5.6 Reports

@@ -564,12 +564,17 @@ any spatial references.""",
         default=['auto'],
         metavar='{auto,nominal} | FWHM FWHM FWHM',
         help=(
-            'Effective resolution of the ASL acquisition, used to build the partial volume '
-            "maps for --pvc-method. 'auto' infers it from the metadata "
-            '(single-shot 3D GRASE and 3D spiral readouts; otherwise the voxel size), '
-            "'nominal' uses the voxel size, and three values give the total response FWHM "
-            'in mm, ordered (in-plane, in-plane, slice). '
-            'Blurring from motion and distortion correction resampling is not included.'
+            'How blurry the ASL images are, used only to build the tissue maps for '
+            '--pvc-method. ASL readouts blur each voxel into its neighbours (3D GRASE and '
+            '3D spiral readouts mostly along the slice direction), so the gray and white '
+            'matter fractions are blurred to match. '
+            "'auto' (default): blur single-shot 3D GRASE and 3D spiral data by published "
+            'amounts, and treat anything else as unblurred. '
+            "'nominal': no blur beyond the voxel itself. "
+            'Three numbers: the width of the blur (full width at half maximum, in mm, '
+            'including the voxel itself) in-plane, in-plane, and along the slice direction; '
+            'each must be at least the voxel size. '
+            'See "Choosing the effective resolution" in the documentation.'
         ),
     )
     g_conf.add_argument(

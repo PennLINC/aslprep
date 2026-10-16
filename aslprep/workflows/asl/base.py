@@ -333,7 +333,7 @@ def init_asl_wf(
     for source in lr_sources:
         lr_names = lr_pvc_names(source)
         lr_sparse.update(lr_names['valid'])
-        lr_native += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics']
+        lr_native += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics'] + lr_names['csf']
     lr_resampled = list(lr_sparse) + sorted(set(lr_sparse.values()))
 
     # Build workflow
@@ -576,7 +576,8 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         workflow.connect([
             (cbf_wf, ds_pvc_native_wf, [
                 (f'outputnode.{field}', f'inputnode.{field}')
-                for field in ['gm_pv', 'wm_pv', 'pv_metadata', 'pvc_metadata'] + lr_native
+                for field in ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata']
+                + lr_native
             ]),
         ])  # fmt:skip
 
@@ -623,8 +624,13 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     cbf_confounds_wf = init_cbf_confounds_wf(
         scorescrub=scorescrub,
         basil=basil,
+        lr_pvc=bool(lr_sources),
         name='cbf_confounds_wf',
     )
+    if lr_sources:
+        workflow.connect([
+            (cbf_wf, cbf_confounds_wf, [('outputnode.pvc_qc', 'inputnode.pvc_qc')]),
+        ])  # fmt:skip
     if run_data['m0scan']:
         cbf_confounds_wf.inputs.inputnode.m0scan = run_data['m0scan']
 
@@ -673,6 +679,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
                     'status_lr',
                     'gm_noise_lr',
                     'pvc_summary',
+                    'pvc_qc',
                     'pv_metadata',
                 ]
             ]),

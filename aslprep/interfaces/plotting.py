@@ -266,6 +266,7 @@ class _PVCDiagnosticsPlotInputSpec(BaseInterfaceInputSpec):
     gm_noise = File(exists=True, mandatory=True, desc='Gray matter noise amplification.')
     summary = traits.Dict(mandatory=True, desc='Fraction of brain voxels with each status.')
     pv_metadata = traits.Dict(mandatory=True, desc='How the PV maps were built.')
+    qc = traits.Dict(mandatory=False, desc='Scalar QC measures, including the CSF estimate.')
 
 
 class _PVCDiagnosticsPlotOutputSpec(TraitedSpec):
@@ -337,11 +338,18 @@ class PVCDiagnosticsPlot(SimpleInterface):
         meta = self.inputs.pv_metadata
         fwhm = ' x '.join(f'{v:.2g}' for v in meta.get('EffectiveResolution', []))
         status_str = ', '.join(f'{name}: {100 * frac:.1f}%' for name, frac in summary.items())
-        fig.suptitle(
+        title = (
             f'Effective resolution {fwhm} mm FWHM ({meta.get("EffectiveResolutionSource")}). '
-            f'Brain voxels: {status_str}',
-            fontsize=11,
+            f'Brain voxels: {status_str}'
         )
+        if isdefined(self.inputs.qc) and self.inputs.qc.get('lr_csf_n_voxels'):
+            qc = self.inputs.qc
+            title += (
+                f'\nApparent CSF CBF (QC, expected near 0): median {qc["lr_csf_cbf_median"]:.1f}'
+                f', IQR {qc["lr_csf_cbf_iqr"]:.1f} mL/100 g/min '
+                f'in {qc["lr_csf_n_voxels"]} voxels with at least 50% CSF'
+            )
+        fig.suptitle(title, fontsize=11)
         fig.tight_layout()
 
         self._results['out_file'] = fname_presuffix(

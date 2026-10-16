@@ -18,6 +18,10 @@ def _pick_wm(files):
     return files[1]
 
 
+def _pick_csf(files):
+    return files[2]
+
+
 def init_asl_pv_wf(
     *,
     metadata,
@@ -84,7 +88,7 @@ def init_asl_pv_wf(
             '(in-plane, in-plane, slice)'
         )
     workflow.__desc__ = f"""\
-Gray and white matter partial volume maps were built on the ASL reference grid
+Gray matter, white matter and CSF partial volume maps were built on the ASL reference grid
 by averaging the linearly interpolated tissue probability maps over each ASL voxel and
 convolving them to {resolution_str} [@petr2018effects; @chappell2021partial].
 Blurring from head motion and distortion correction resampling was not modelled.
@@ -95,7 +99,7 @@ Blurring from head motion and distortion correction resampling was not modelled.
         name='inputnode',
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=['gm_pv', 'wm_pv', 'pv_metadata']),
+        niu.IdentityInterface(fields=['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata']),
         name='outputnode',
     )
 
@@ -108,12 +112,14 @@ Blurring from head motion and distortion correction resampling was not modelled.
         (inputnode, pv_maps, [
             (('t1w_tpms', _pick_gm), 'gm_tpm'),
             (('t1w_tpms', _pick_wm), 'wm_tpm'),
+            (('t1w_tpms', _pick_csf), 'csf_tpm'),
             ('asl_mask', 'reference'),
             ('aslref2anat_xfm', 'aslref2anat_xfm'),
         ]),
         (pv_maps, outputnode, [
             ('gm_pv', 'gm_pv'),
             ('wm_pv', 'wm_pv'),
+            ('csf_pv', 'csf_pv'),
             ('pv_metadata', 'pv_metadata'),
         ]),
     ])  # fmt:skip
@@ -160,14 +166,14 @@ def init_lr_pvc_wf(
         Where CBF could be quantified.
     asl_mask
         ASL brain mask.
-    gm_pv, wm_pv
-        Gray and white matter PV maps.
+    gm_pv, wm_pv, csf_pv
+        Gray matter, white matter and CSF PV maps.
 
     Outputs
     -------
-    The corrected maps, standard errors, validity masks and diagnostics named by
-    :func:`~aslprep.workflows.asl.outputs.lr_pvc_names`, plus ``pvc_metadata`` and
-    ``pvc_summary``.
+    The corrected maps, standard errors, validity masks, diagnostics and CSF quality-control
+    maps named by :func:`~aslprep.workflows.asl.outputs.lr_pvc_names`, plus ``pvc_metadata``,
+    ``pvc_summary`` and ``pvc_qc`` (scalar QC measures, from ``mean_cbf``).
     """
     workflow = Workflow(name=name)
     kernel_str = ' x '.join(str(k) for k in kernel_size)
@@ -187,19 +193,26 @@ otherwise, no estimate was made.
 Tissue estimates were retained where that tissue's partial volume was at least 10%.
 The uncorrected CBF maps were retained, as partial volume correction is recommended as an
 additional analysis [@chappell2021partial].
+For quality control, a separate regression on the gray matter, white matter and CSF partial
+volume maps estimated an apparent CSF CBF, which should be near zero;
+CSF was left out of the gray and white matter fit.
 """
 
-    out_fields = ['pvc_metadata']
+    out_fields = ['pvc_metadata', 'pvc_qc']
     for source in sources:
         names = lr_pvc_names(source)
         out_fields += (
-            names['cbf'] + names['se'] + list(names['valid'].values()) + names['diagnostics']
+            names['cbf']
+            + names['se']
+            + list(names['valid'].values())
+            + names['diagnostics']
+            + names['csf']
         )
         out_fields.append(f'pvc_summary{"" if source == "mean_cbf" else "_score"}')
 
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=sources + ['m0_calib', 'quant_valid', 'asl_mask', 'gm_pv', 'wm_pv'],
+            fields=sources + ['m0_calib', 'quant_valid', 'asl_mask', 'gm_pv', 'wm_pv', 'csf_pv'],
         ),
         name='inputnode',
     )
@@ -217,6 +230,7 @@ additional analysis [@chappell2021partial].
         gm_se, wm_se = names['se']
         gm_valid, wm_valid = names['valid'][gm_cbf], names['valid'][wm_cbf]
         status, condition, gm_noise, wm_noise, rmse = names['diagnostics']
+        csf_cbf, csf_se, csf_status, csf_noise = names['csf']
         workflow.connect([
             (inputnode, lr_pvc, [
                 (source, 'cbf'),
@@ -225,6 +239,7 @@ additional analysis [@chappell2021partial].
                 ('asl_mask', 'mask'),
                 ('gm_pv', 'gm_pv'),
                 ('wm_pv', 'wm_pv'),
+                ('csf_pv', 'csf_pv'),
             ]),
             (lr_pvc, outputnode, [
                 ('gm_cbf', gm_cbf),
@@ -238,10 +253,16 @@ additional analysis [@chappell2021partial].
                 ('gm_noise', gm_noise),
                 ('wm_noise', wm_noise),
                 ('rmse', rmse),
+                ('csf_cbf', csf_cbf),
+                ('csf_se', csf_se),
+                ('csf_status', csf_status),
+                ('csf_noise', csf_noise),
                 ('summary', f'pvc_summary{suffix}'),
             ]),
         ])  # fmt:skip
         if source == 'mean_cbf':
-            workflow.connect([(lr_pvc, outputnode, [('pvc_metadata', 'pvc_metadata')])])
+            workflow.connect([
+                (lr_pvc, outputnode, [('pvc_metadata', 'pvc_metadata'), ('qc', 'pvc_qc')]),
+            ])  # fmt:skip
 
     return workflow

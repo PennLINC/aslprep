@@ -55,6 +55,7 @@ globals().update(
             ('lr_pvc', 'GM', 'pv_map_median_abs_error'),
             ('lr_pvc', 'GM', 'median_minus_basil'),
             ('lr_pvc', 'status_share', '1'),
+            ('lr_pvc', 'CSF', 'median'),
         ],
     )
 )
