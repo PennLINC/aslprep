@@ -776,12 +776,19 @@ class _ScoreAndScrubCBFInputSpec(BaseInterfaceInputSpec):
         mandatory=False,
         desc='Tissue probability threshold for binarizing GM, WM, and CSF masks.',
     )
-    wavelet_function = traits.Str(
-        default_value='huber',
+    wavelet_function = traits.Enum(
+        'huber',
+        'andrews',
+        'bisquare',
+        'cauchy',
+        'fair',
+        'logistic',
+        'ols',
+        'talwar',
+        'welsch',
         usedefault=True,
         mandatory=False,
-        option=['bisquare', 'andrews', 'cauchy', 'fair', 'logistics', 'ols', 'talwar', 'welsch'],
-        desc='Wavelet function',
+        desc="Robust weight function for SCRUB's data fidelity term.",
     )
 
 
