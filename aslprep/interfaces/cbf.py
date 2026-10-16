@@ -33,6 +33,8 @@ from aslprep.utils.cbf import (
     estimate_t1,
     fit_deltam_multipld,
     get_array_module,
+    multipld_bolus,
+    voxel_delays,
     zero_low_m0,
 )
 
@@ -421,7 +423,7 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         desc=(
             'The M0 image that delta-M was divided by to quantify CBF: scaled, corrected for '
             'a short TR, and with low values set to zero. '
-            'Only generated for single-delay data.'
+            'Not generated for scanner-provided CBF.'
         ),
     )
     quant_valid = traits.Either(
@@ -430,9 +432,21 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         desc=(
             'Mask of voxels where CBF could be quantified: M0 is finite and positive, and the '
             'delta-M values and quantification factor are finite. '
-            'Only generated for single-delay data.'
+            'Not generated for scanner-provided CBF.'
         ),
     )
+
+
+def _image_finite(in_file, masker):
+    """Whether every value of each voxel in an image is finite, in the masker's voxel order.
+
+    NiftiMasker replaces non-finite values with zeros, so this is taken from the image itself.
+    """
+    img = nb.load(in_file)
+    finite = np.isfinite(img.get_fdata())
+    if finite.ndim == 4:
+        finite = finite.all(axis=3)
+    return masker.transform(nb.Nifti1Image(finite.astype(np.uint8), img.affine)).ravel() > 0
 
 
 class ComputeCBF(SimpleInterface):
@@ -542,54 +556,10 @@ class ComputeCBF(SimpleInterface):
         scaled_m0data = zero_low_m0(m0_scale * m0data)
 
         self._results['plds'] = None
-        if 'SliceTiming' in metadata:
-            # Offset PLD(s) by slice times
-            # This step builds a voxel-wise array of post-labeling delay values,
-            # where voxels from each slice have the appropriately-shifted PLD value.
-            # If there are multiple PLDs, then the second dimension of the PLD array will
-            # correspond to volumes in the time series.
-            config.loggers.interface.info(
-                '2D acquisition with slice timing information detected. '
-                'Shifting post-labeling delay values across the brain by slice times.'
-            )
-            slice_times = np.array(metadata['SliceTiming'])
-
-            # Determine which axis slices come from.
-            # ASL data typically acquires along z axis, from inferior to superior.
-            slice_encoding_direction = metadata.get('SliceEncodingDirection', 'k')
-            slice_encoding_axis = 'ijk'.index(slice_encoding_direction[0])
-
-            deltam_img = nb.load(deltam_file)
-            shape = deltam_img.shape[:3]
-            if slice_times.size != shape[slice_encoding_axis]:
-                raise ValueError(
-                    f'Number of slices ({shape[slice_encoding_axis]}) != '
-                    f'slice times ({slice_times.size})'
-                )
-
-            # Reverse the slice times if slices go from maximum index to zero.
-            # This probably won't occur with ASL data though, since I --> S makes more sense than
-            # S --> I.
-            if slice_encoding_direction.endswith('-'):
-                slice_times = slice_times[::-1]
-
-            # Determine which dimensions to add to the slice times array,
-            # so that all 4 dims are 1, except for the slice encoding axis,
-            # which will have the slice times.
-            new_dims = [0, 1, 2, 3]
-            new_dims.pop(slice_encoding_axis)
-            slice_times = np.expand_dims(slice_times, new_dims)
-
-            # Create a 4D array of PLDs, matching shape of ASL data (except only one volume).
-            pld_brain = np.tile(plds, list(shape) + [1])
-
-            # Shift the PLDs by the appropriate slice times.
-            pld_brain = pld_brain + slice_times
-
-            # Mask the PLD array to go from (X, Y, Z, delay) to (S, delay)
-            pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
-            plds = masker.transform(pld_img).T
-
+        plds, pld_img = voxel_delays(
+            metadata, nb.load(deltam_file), masker, deltam_arr.shape[0], is_multi_pld
+        )
+        if pld_img is not None:
             # Write out the slice-shifted PLDs to the working directory, for debugging.
             pld_file = fname_presuffix(
                 deltam_file,
@@ -599,43 +569,12 @@ class ComputeCBF(SimpleInterface):
             pld_img.to_filename(pld_file)
             self._results['plds'] = pld_file
 
-        elif is_multi_pld:
-            # 3D acquisition multi-PLD
-            # Broadcast PLDs to voxels by PLDs, even though there's no slice timing to account for.
-            plds = np.dot(plds[:, None], np.ones((1, deltam_arr.shape[0]))).T
-
         # tau is defined for (P)CASL
         tau = metadata['LabelingDuration'] if is_casl else None
 
         # Now estimate CBF and any other metrics
         if is_multi_pld:
-            ti1 = None
-
-            # PASL needs ti1, but not tau
-            if metadata.get('BolusCutOffTechnique') == 'QUIPSSII':
-                # PASL + QUIPSSII
-                # Only one BolusCutOffDelayTime allowed.
-                if not isinstance(metadata['BolusCutOffDelayTime'], Number):
-                    raise ValueError(
-                        f'Expected a single BolusCutOffDelayTime, but got '
-                        f'{metadata["BolusCutOffDelayTime"]}'
-                    )
-                ti1 = metadata['BolusCutOffDelayTime']
-
-            elif metadata.get('BolusCutOffTechnique') == 'Q2TIPS':
-                # PASL + Q2TIPS
-                # Q2TIPS should have two BolusCutOffDelayTimes.
-                if len(metadata['BolusCutOffDelayTime']) != 2:
-                    raise ValueError(
-                        f'Expected two BolusCutOffDelayTimes, but got '
-                        f'{metadata["BolusCutOffDelayTime"]}'
-                    )
-                ti1 = metadata['BolusCutOffDelayTime'][0]
-            elif 'BolusCutOffTechnique' in metadata:
-                raise ValueError(
-                    f'Unsupported BolusCutOffTechnique ({metadata.get("BolusCutOffTechnique")}) '
-                    'for multi-PLD data.'
-                )
+            tau, ti1 = multipld_bolus(metadata, is_casl)
 
             cbf, att, abat, abv, failures, bounds = fit_deltam_multipld(
                 deltam_arr=deltam_arr,
@@ -773,43 +712,37 @@ class ComputeCBF(SimpleInterface):
             # Single-delay data won't produce an ATT image
             self._results['att'] = None
 
-            # The calibration image and where quantification succeeded, for partial volume
-            # correction, which regresses CBF * M0 (the M0-free signal) and divides by M0 again.
-            # The masker replaces non-finite values with zeros, so finiteness is taken from the
-            # images themselves, mapped through the same masker to keep the voxel order.
-            def _all_finite(in_file):
-                img = nb.load(in_file)
-                finite = np.isfinite(img.get_fdata())
-                if finite.ndim == 4:
-                    finite = finite.all(axis=3)
-                return (
-                    masker.transform(nb.Nifti1Image(finite.astype(np.uint8), img.affine)).ravel()
-                    > 0
-                )
-
-            quant_valid = (
-                np.isfinite(scaled_m0data)
-                & (scaled_m0data > 0)
-                & _all_finite(deltam_file)
-                & _all_finite(m0_file)
-                & np.all(np.isfinite(np.broadcast_to(perfusion_factor, deltam_arr.shape)), axis=1)
+        # The calibration image and where quantification can succeed, for partial volume
+        # correction, which unmixes the M0-free signal and calibrates with this M0 again.
+        # The masker replaces non-finite values with zeros, so finiteness is taken from the
+        # images themselves, mapped through the same masker to keep the voxel order.
+        quant_valid = (
+            np.isfinite(scaled_m0data)
+            & (scaled_m0data > 0)
+            & _image_finite(deltam_file, masker)
+            & _image_finite(m0_file, masker)
+            & np.all(np.isfinite(np.broadcast_to(plds, deltam_arr.shape)), axis=1)
+        )
+        if not is_multi_pld:
+            quant_valid &= np.all(
+                np.isfinite(np.broadcast_to(perfusion_factor, deltam_arr.shape)), axis=1
             )
-            self._results['m0_calib'] = fname_presuffix(
-                self.inputs.deltam,
-                suffix='_m0calib',
-                newpath=runtime.cwd,
-            )
-            masker.inverse_transform(np.nan_to_num(scaled_m0data)).to_filename(
-                self._results['m0_calib']
-            )
-            self._results['quant_valid'] = fname_presuffix(
-                self.inputs.deltam,
-                suffix='_quantvalid',
-                newpath=runtime.cwd,
-            )
-            masker.inverse_transform(quant_valid.astype(np.uint8)).to_filename(
-                self._results['quant_valid']
-            )
+        self._results['m0_calib'] = fname_presuffix(
+            self.inputs.deltam,
+            suffix='_m0calib',
+            newpath=runtime.cwd,
+        )
+        masker.inverse_transform(np.nan_to_num(scaled_m0data)).to_filename(
+            self._results['m0_calib']
+        )
+        self._results['quant_valid'] = fname_presuffix(
+            self.inputs.deltam,
+            suffix='_quantvalid',
+            newpath=runtime.cwd,
+        )
+        masker.inverse_transform(quant_valid.astype(np.uint8)).to_filename(
+            self._results['quant_valid']
+        )
 
         # Mean CBF is returned no matter what
         self._results['mean_cbf'] = fname_presuffix(

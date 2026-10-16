@@ -251,32 +251,28 @@ BASE_INPUT_FIELDS = {
 LR_PVC_SOURCES = {'mean_cbf': 'lr', 'mean_cbf_score': 'scoreLR'}
 
 
-def lr_pvc_names(source):
+def lr_pvc_names(source, multi_delay=False):
     """Return the output names of local-regression PVC applied to one CBF map.
 
     Parameters
     ----------
     source : :obj:`str`
         ``'mean_cbf'`` or ``'mean_cbf_score'``.
+    multi_delay : :obj:`bool`
+        Whether the data have several delays (PVC design spec Section 5.7.5).
 
     Returns
     -------
     :obj:`dict`
-        ``cbf`` (corrected CBF maps), ``se`` (their standard errors), ``valid`` (where they
-        were estimated, by corrected map), ``diagnostics`` (native-only fit diagnostics), and
-        ``csf`` (the native-only CSF quality-control map, its standard error, fit status and
-        noise amplification).
+        ``cbf`` (corrected CBF maps), ``se`` (their standard errors; single-delay only),
+        ``valid`` (where each corrected CBF map was estimated), ``diagnostics`` (native-only
+        spatial-regression diagnostics), ``csf`` (the native-only CSF quality-control outputs),
+        and, for multi-delay data, ``att`` (corrected ATT maps), ``att_valid`` (where each was
+        estimated), ``att_bounds`` and ``kinetic`` (native-only kinetic-fit outputs).
     """
     suffix = '' if source == 'mean_cbf' else '_score'
-    return {
-        'csf': [
-            f'mean_cbf_csf_lr{suffix}',
-            f'cbf_csf_se_lr{suffix}',
-            f'status_csf_lr{suffix}',
-            f'csf_noise_lr{suffix}',
-        ],
+    names = {
         'cbf': [f'mean_cbf_gm_lr{suffix}', f'mean_cbf_wm_lr{suffix}'],
-        'se': [f'cbf_gm_se_lr{suffix}', f'cbf_wm_se_lr{suffix}'],
         'valid': {
             f'mean_cbf_gm_lr{suffix}': f'gm_valid_lr{suffix}',
             f'mean_cbf_wm_lr{suffix}': f'wm_valid_lr{suffix}',
@@ -289,6 +285,56 @@ def lr_pvc_names(source):
             f'rmse_lr{suffix}',
         ],
     }
+    if not multi_delay:
+        names.update(
+            {
+                'se': [f'cbf_gm_se_lr{suffix}', f'cbf_wm_se_lr{suffix}'],
+                'csf': [
+                    f'mean_cbf_csf_lr{suffix}',
+                    f'cbf_csf_se_lr{suffix}',
+                    f'status_csf_lr{suffix}',
+                    f'csf_noise_lr{suffix}',
+                ],
+                'att': [],
+                'att_valid': {},
+                'att_bounds': [],
+                'kinetic': [],
+            }
+        )
+        return names
+
+    if source != 'mean_cbf':
+        raise ValueError('Multi-delay partial volume correction only applies to mean_cbf.')
+    names.update(
+        {
+            'se': [],
+            'csf': ['mean_cbf_csf_lr', 'status_csf_lr', 'csf_noise_lr', 'csf_kinres_lr'],
+            'att': ['att_gm_lr', 'att_wm_lr'],
+            'att_valid': {'att_gm_lr': 'gm_att_valid_lr', 'att_wm_lr': 'wm_att_valid_lr'},
+            'att_bounds': [
+                'att_gm_lower_lr',
+                'att_gm_upper_lr',
+                'att_wm_lower_lr',
+                'att_wm_upper_lr',
+            ],
+            'kinetic': ['kinstatus_gm_lr', 'kinstatus_wm_lr', 'kinres_gm_lr', 'kinres_wm_lr'],
+        }
+    )
+    return names
+
+
+def lr_pvc_native(source, multi_delay=False):
+    """Native-only output names of local-regression PVC (written by ``init_ds_pvc_native_wf``)."""
+    names = lr_pvc_names(source, multi_delay)
+    return (
+        names['cbf']
+        + names['se']
+        + names['diagnostics']
+        + names['csf']
+        + names['att']
+        + names['att_bounds']
+        + names['kinetic']
+    )
 
 
 def _add_lr_pvc_fields():
@@ -304,8 +350,10 @@ def _add_lr_pvc_fields():
                 'Units': 'mL/100 g/min',
                 'Description': (
                     f'{tissue_names[tissue].capitalize()} cerebral blood flow after partial '
-                    f'volume correction by local linear regression of the CBF map{source_str}. '
-                    'Zero where it was not estimated.'
+                    'volume correction by local linear regression: of the CBF map'
+                    f'{source_str} for single-delay data, or of each delta-M volume followed by '
+                    'a kinetic fit of each tissue curve for multi-delay data. '
+                    "Calibrated by the voxel's M0. Zero where it was not estimated."
                 ),
             }
             BASE_INPUT_FIELDS[se_name] = {
@@ -353,13 +401,18 @@ def _add_lr_pvc_fields():
             'desc': prefix,
             'suffix': 'pvrmse',
             'Description': (
-                'Root mean square residual of each local regression, in units of CBF times M0.'
+                'Root mean square residual of each local regression, in units of the regressed '
+                'signal: CBF times M0 for single-delay data, and delta-M (pooled over volumes) '
+                'for multi-delay data. A spatial-regression diagnostic only.'
             ),
         }
         csf_cbf, csf_se, csf_status, csf_noise = names['csf']
         csf_fit_str = (
             'from a separate local regression on gray matter, white matter and CSF partial '
-            f'volume maps of the CBF map{source_str}, for quality control'
+            f'volume maps, for quality control: of the CBF map{source_str} for single-delay '
+            'data, or of each delta-M volume for multi-delay data, where the CSF curve is '
+            "projected (with its sign) onto the voxel's uncorrected kinetic curve and scaled "
+            'by its uncorrected CBF'
         )
         BASE_INPUT_FIELDS[csf_cbf] = {
             'desc': f'{prefix}CSF',
@@ -403,6 +456,70 @@ def _add_lr_pvc_fields():
                 'noise, assuming independent noise.'
             ),
         }
+
+    # Multi-delay outputs (PVC design spec Section 5.7.5)
+    names = lr_pvc_names('mean_cbf', multi_delay=True)
+    tissue_names = {'GM': 'gray matter', 'WM': 'white matter'}
+    for name, tissue in zip(names['att'], ('GM', 'WM'), strict=True):
+        BASE_INPUT_FIELDS[name] = {
+            'desc': f'lr{tissue}',
+            'suffix': 'att',
+            'Units': 's',
+            'Description': (
+                f'{tissue_names[tissue].capitalize()} arterial transit time from multi-delay '
+                'local-regression partial volume correction: the kinetic fit of the tissue '
+                'curve unmixed at each delay. Written only where that fit had positive CBF '
+                'within its bounds; zero elsewhere. Check the native-space bounds '
+                f'(desc-lr{tissue}Lower_att, desc-lr{tissue}Upper_att) for identifiability.'
+            ),
+        }
+    for name, (tissue, end) in zip(
+        names['att_bounds'],
+        (('GM', 'Lower'), ('GM', 'Upper'), ('WM', 'Lower'), ('WM', 'Upper')),
+        strict=True,
+    ):
+        BASE_INPUT_FIELDS[name] = {
+            'desc': f'lr{tissue}{end}',
+            'suffix': 'att',
+            'Units': 's',
+            'Description': (
+                f'{"Shortest" if end == "Lower" else "Longest"} {tissue_names[tissue]} '
+                f'arterial transit time that fits the tissue curve as well as desc-lr{tissue}. '
+                'Valid in this (native) space only.'
+            ),
+        }
+    for name, tissue in zip(names['kinetic'][:2], ('GM', 'WM'), strict=True):
+        BASE_INPUT_FIELDS[name] = {
+            'desc': f'lr{tissue}',
+            'suffix': 'pvkinstatus',
+            'Description': f'Outcome of the kinetic fit of the {tissue_names[tissue]} curve.',
+            'Levels': {
+                '0': 'Not fitted (the spatial regression did not estimate this tissue).',
+                '1': 'Fitted.',
+                '2': 'CBF at its lower bound (0): no positive tissue signal; ATT undefined.',
+                '3': 'CBF at its upper bound; not written.',
+                '4': 'Input not finite.',
+            },
+        }
+    for name, tissue in zip(names['kinetic'][2:], ('GM', 'WM'), strict=True):
+        BASE_INPUT_FIELDS[name] = {
+            'desc': f'lr{tissue}',
+            'suffix': 'pvkinres',
+            'Description': (
+                f'Relative residual of the kinetic fit of the {tissue_names[tissue]} curve '
+                '(norm of the curve minus the fitted model, divided by the norm of the curve). '
+                'Large values point at kinetics the single-ATT model does not describe, such '
+                'as arterial contamination or within-kernel ATT variation.'
+            ),
+        }
+    BASE_INPUT_FIELDS['csf_kinres_lr'] = {
+        'desc': 'lrCSF',
+        'suffix': 'pvkinres',
+        'Description': (
+            'Relative residual of the CSF curve against the scaled uncorrected kinetic curve '
+            'used for the multi-delay CSF quality-control projection (desc-lrCSF_cbf).'
+        ),
+    }
 
 
 _add_lr_pvc_fields()
@@ -997,13 +1114,14 @@ def init_ds_pvc_native_wf(
     source_file: str,
     output_dir: str,
     sources: list[str],
+    multi_delay: bool = False,
     name: str = 'ds_pvc_native_wf',
 ) -> pe.Workflow:
     """Write out local-regression partial volume correction outputs in aslref space.
 
-    The corrected CBF maps, their standard errors, the fit diagnostics and the PV maps are
-    always written in aslref space, because the standard errors, diagnostics and PV maps only
-    exist there.
+    The corrected maps, their standard errors (single-delay data), the fit diagnostics and the
+    PV maps are always written in aslref space, because the standard errors, diagnostics and
+    PV maps only exist there.
 
     Parameters
     ----------
@@ -1011,14 +1129,15 @@ def init_ds_pvc_native_wf(
     output_dir
     sources : list of str
         The corrected CBF maps (``mean_cbf``, and ``mean_cbf_score`` with SCORE).
+    multi_delay : bool
+        Whether the data have several delays, which changes the outputs (spec Section 5.7.5).
     name
     """
     workflow = pe.Workflow(name=name)
 
     names = []
     for source in sources:
-        lr_names = lr_pvc_names(source)
-        names += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics'] + lr_names['csf']
+        names += lr_pvc_native(source, multi_delay)
 
     inputnode = pe.Node(
         niu.IdentityInterface(

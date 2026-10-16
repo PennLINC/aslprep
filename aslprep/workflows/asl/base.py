@@ -40,6 +40,7 @@ from aslprep.workflows.asl.outputs import (
     init_ds_pvc_native_wf,
     init_ds_volumes_wf,
     lr_pvc_names,
+    lr_pvc_native,
 )
 from aslprep.workflows.asl.plotting import init_cbf_reporting_wf
 
@@ -328,13 +329,18 @@ def init_asl_wf(
     lr_sources = []
     if config.workflow.pvc_method == 'local-regression':
         lr_sources = ['mean_cbf'] + (['mean_cbf_score'] if scorescrub else [])
+    # lr_sparse maps each corrected CBF map to its validity mask: resampled and parcellated.
+    # lr_sparse_other does the same for the multi-delay ATT maps: resampled, not parcellated.
     lr_sparse = {}
+    lr_sparse_other = {}
     lr_native = []
     for source in lr_sources:
-        lr_names = lr_pvc_names(source)
+        lr_names = lr_pvc_names(source, multi_delay=is_multi_pld)
         lr_sparse.update(lr_names['valid'])
-        lr_native += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics'] + lr_names['csf']
-    lr_resampled = list(lr_sparse) + sorted(set(lr_sparse.values()))
+        lr_sparse_other.update(lr_names['att_valid'])
+        lr_native += lr_pvc_native(source, multi_delay=is_multi_pld)
+    lr_resampled_maps = {**lr_sparse, **lr_sparse_other}
+    lr_resampled = list(lr_resampled_maps) + sorted(set(lr_resampled_maps.values()))
 
     # Build workflow
     workflow = Workflow(name=_get_wf_name(asl_file, 'asl'))
@@ -571,6 +577,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
             sources=lr_sources,
+            multi_delay=is_multi_pld,
         )
         ds_pvc_native_wf.inputs.inputnode.source_files = [asl_file]
         workflow.connect([
@@ -775,7 +782,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             cbf_3d=cbf_3d_derivs,
             cbf_4d=cbf_4d_derivs,
             att=att_derivs,
-            sparse_3d=lr_sparse,
+            sparse_3d=lr_resampled_maps,
             name='ds_asl_t1_wf',
         )
         ds_asl_t1_wf.inputs.inputnode.space = 'T1w'
@@ -825,7 +832,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             cbf_3d=cbf_3d_derivs,
             cbf_4d=cbf_4d_derivs,
             att=att_derivs,
-            sparse_3d=lr_sparse,
+            sparse_3d=lr_resampled_maps,
             name='ds_asl_std_wf',
         )
         workflow.connect([
@@ -1171,7 +1178,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ]),
             ])  # fmt:skip
 
-            for cbf_deriv in cbf_3d_derivs + lr_resampled:
+            lr_parcellated = list(lr_sparse) + sorted(set(lr_sparse.values()))
+            for cbf_deriv in cbf_3d_derivs + lr_parcellated:
                 workflow.connect([
                     (cbf_wf, parcellate_cbf_wf, [
                         (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),

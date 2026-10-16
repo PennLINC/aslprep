@@ -506,12 +506,18 @@ def test_computecbf_calibration_outputs(labeling, acq_dict, m0tr, tmp_path):
 
 
 def test_computecbf_calibration_outputs_multipld(tmp_path):
-    """Multi-delay data have no calibration outputs (LR PVC is single-delay only)."""
+    """Multi-delay data get the calibration outputs too (PVC spec 5.7.2).
+
+    A non-finite sample in any volume makes the voxel invalid, even though the masker would
+    replace it with zero.
+    """
     rng = np.random.default_rng(0)
-    deltam_file = _save_img(
-        rng.normal(50, 10, (6, 6, 6, 3)).astype(np.float32), tmp_path, 'd.nii.gz'
-    )
-    m0_file = _save_img(np.full((6, 6, 6), 1000, np.float32), tmp_path, 'm0.nii.gz')
+    deltam = rng.normal(50, 10, (6, 6, 6, 3)).astype(np.float32)
+    deltam[2, 2, 2, 1] = np.nan
+    deltam_file = _save_img(deltam, tmp_path, 'd.nii.gz')
+    m0 = np.full((6, 6, 6), 1000, np.float32)
+    m0[0] = 1.0  # zeroed as having no signal
+    m0_file = _save_img(m0, tmp_path, 'm0.nii.gz')
     results = cbf.ComputeCBF(
         cbf_only=False,
         deltam=deltam_file,
@@ -525,8 +531,14 @@ def test_computecbf_calibration_outputs_multipld(tmp_path):
         m0_scale=1,
         m0_file=m0_file,
     ).run(cwd=tmp_path)
-    assert results.outputs.m0_calib is None
-    assert results.outputs.quant_valid is None
+    quant_valid = nb.load(results.outputs.quant_valid).get_fdata() > 0
+    m0_calib = nb.load(results.outputs.m0_calib).get_fdata()
+    expected = np.ones((6, 6, 6), bool)
+    expected[0] = False
+    expected[2, 2, 2] = False
+    np.testing.assert_array_equal(quant_valid, expected)
+    np.testing.assert_allclose(m0_calib[1:], 1000.0)
+    assert np.all(m0_calib[0] == 0)
 
 
 def test_compare_slicetiming(datasets, tmp_path_factory):

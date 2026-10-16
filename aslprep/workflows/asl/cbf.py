@@ -40,8 +40,21 @@ from aslprep.utils.cbf import (
     haematocrit_applies,
 )
 from aslprep.utils.pvc import check_lr_pvc_supported
-from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS, lr_pvc_names
-from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf
+from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
+from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf, lr_pvc_fields
+
+
+def _lr_pvc_mem_gb(name_source, num_threads):
+    """Memory for multi-delay LR PVC, from the ASL series' shape (2 GB if it cannot be read)."""
+    import nibabel as nb
+
+    from aslprep.utils.pvc import estimate_lr_pvc_mem_gb
+
+    try:
+        shape = nb.load(name_source).shape
+    except Exception:  # noqa: BLE001 - the name source may be a placeholder, as in tests
+        return 2.0 + 0.1 * num_threads
+    return estimate_lr_pvc_mem_gb(shape, num_threads)
 
 
 def init_cbf_wf(
@@ -314,16 +327,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
         )
         lr_sources = ['mean_cbf'] + (['mean_cbf_score'] if scorescrub else [])
         lr_fields = ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata', 'pvc_qc']
-        for source in lr_sources:
-            names = lr_pvc_names(source)
-            lr_fields += (
-                names['cbf']
-                + names['se']
-                + list(names['valid'].values())
-                + names['diagnostics']
-                + names['csf']
-            )
-            lr_fields.append(f'pvc_summary{"" if source == "mean_cbf" else "_score"}')
+        lr_fields += lr_pvc_fields(lr_sources, multi_delay=is_multi_pld)
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -691,7 +695,25 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
             metadata=metadata,
             sources=lr_sources,
             kernel_size=tuple(pvc_kernel_size),
+            multi_delay=is_multi_pld,
+            num_threads=fit_nthreads,
+            use_gpu=fit_on_gpu,
+            mem_gb=_lr_pvc_mem_gb(name_source, fit_nthreads) if is_multi_pld else None,
         )
+        if is_multi_pld:
+            # Each delay volume is unmixed, so the fit needs the delta-M series and the
+            # metadata of the selected volumes, plus the uncorrected fit for the CSF QC template.
+            workflow.connect([
+                (extract_deltam, lr_pvc_wf, [
+                    ('out_file', 'inputnode.deltam'),
+                    ('metadata', 'inputnode.asl_metadata'),
+                ]),
+                (compute_cbf, lr_pvc_wf, [
+                    ('att', 'inputnode.att'),
+                    ('abat', 'inputnode.abat'),
+                    ('abv', 'inputnode.abv'),
+                ]),
+            ])  # fmt:skip
         workflow.connect([
             (inputnode, asl_pv_wf, [
                 ('t1w_tpms', 'inputnode.t1w_tpms'),
