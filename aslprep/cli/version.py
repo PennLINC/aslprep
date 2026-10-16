@@ -66,11 +66,10 @@ def check_latest():
     if latest is None or outdated is True:
         response = None
         with suppress(Exception):
-            # ASLPrep is distributed as a container, not on PyPI, so use the GitHub tags.
+            # ASLPrep is distributed as a container, not on PyPI, so use the Docker Hub tags.
             response = requests.get(
-                url='https://api.github.com/repos/PennLINC/aslprep/tags',
-                params={'per_page': 100},
-                headers={'Accept': 'application/vnd.github+json'},
+                url='https://hub.docker.com/v2/repositories/pennlinc/aslprep/tags',
+                params={'page_size': 100},
                 timeout=1.0,
             )
 
@@ -78,7 +77,7 @@ def check_latest():
         if response and response.status_code == 200:
             versions = []
             with suppress(Exception):
-                for tag in response.json():
+                for tag in response.json()['results']:
                     with suppress(InvalidVersion):
                         versions.append(Version(tag['name']))
 

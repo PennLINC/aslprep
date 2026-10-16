@@ -21,9 +21,9 @@ like the following if one is::
    You are using aslprep-25.2.1, and a newer version of aslprep is available: 26.0.3.
 
 The latest release is determined from the
-`tags of the ASLPrep GitHub repository <https://github.com/PennLINC/aslprep/tags>`_,
+`ASLPrep image tags on Docker Hub <https://hub.docker.com/r/pennlinc/aslprep/tags>`_,
 and the result is cached in ``~/.cache/aslprep/latest`` for 14 days.
-The check never prevents *ASLPrep* from running, and it is skipped silently if GitHub cannot be
+The check never prevents *ASLPrep* from running, and it is skipped silently if Docker Hub cannot be
 reached.
 
 Should I upgrade?
