@@ -66,15 +66,25 @@ def check_latest():
     if latest is None or outdated is True:
         response = None
         with suppress(Exception):
-            response = requests.get(url='https://pypi.org/pypi/aslprep/json', timeout=1.0)
+            # ASLPrep is distributed as a container, not on PyPI, so use the GitHub tags.
+            response = requests.get(
+                url='https://api.github.com/repos/PennLINC/aslprep/tags',
+                params={'per_page': 100},
+                headers={'Accept': 'application/vnd.github+json'},
+                timeout=1.0,
+            )
 
+        latest = None
         if response and response.status_code == 200:
-            versions = [Version(rel) for rel in response.json()['releases'].keys()]
+            versions = []
+            with suppress(Exception):
+                for tag in response.json():
+                    with suppress(InvalidVersion):
+                        versions.append(Version(tag['name']))
+
             versions = [rel for rel in versions if not rel.is_prerelease]
             if versions:
                 latest = max(versions)
-        else:
-            latest = None
 
     if cachefile is not None and latest is not None:
         with suppress(OSError):

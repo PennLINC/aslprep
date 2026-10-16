@@ -28,4 +28,5 @@ Contents
    developers
    api
    bids
+   faq
    What's New <https://github.com/PennLINC/aslprep/releases>
