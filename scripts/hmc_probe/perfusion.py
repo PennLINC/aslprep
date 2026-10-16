@@ -99,9 +99,12 @@ def eligibility(
     out = {'data_type': dtype, 'n_inputs': int(n), 'min_pairs': min_pairs, 'limit': limit}
     if dtype == 'derived_single':
         return out | {'eligible': False, 'arm': 'D3-single', 'reason': 'no replicate'}
+    # Both halves must hold every retained delay, or they differ in delay composition (as in
+    # real_score.py's split-half rule).
+    counts = {float(d): int((np.asarray(plds) == d).sum()) for d in np.unique(plds)}
+    if min(counts.values()) < 2:
+        return out | {'eligible': False, 'reason': 'a retained delay has fewer than two inputs'}
     a, b = split_halves(plds)
-    if not a or not b:
-        return out | {'eligible': False, 'reason': 'fewer than two inputs at every delay'}
     ia, ib = combine(stack[..., a], level, mask), combine(stack[..., b], level, mask)
     edge = float(np.corrcoef(_grad(ia, zooms)[mask], _grad(ib, zooms)[mask])[0, 1])
     value = float(np.corrcoef(ia[mask], ib[mask])[0, 1])

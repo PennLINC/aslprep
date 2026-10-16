@@ -191,9 +191,11 @@ def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None):
         'aslcontext': str(collected / 'hmc_aslcontext.tsv'),
         'indices': indices,
         'reference_type': ref_type,
+        # RobustAverage registers the selected volumes (all of ``ref_type``) to the first of them
+        # (3dvolreg's default base), so the reference depicts that volume's pose.
         'reference_volumes': 'separate_m0'
         if ref_type == 'separate_m0scan'
-        else [i for i, t in enumerate(full) if t == ref_type],
+        else [i for i, t in enumerate(full) if t == ref_type][:1],
         'processing_target': target,
         'use_ge': use_ge,
     }
@@ -289,7 +291,9 @@ def resample_series(asl_file, indices, matrices, reference, order=3):
     ref = nb.load(reference)
     out = np.zeros(ref.shape[:3] + (len(indices),), dtype=np.float32)
     for k, (i, mat) in enumerate(zip(indices, matrices, strict=True)):
-        vol = nb.Nifti1Image(np.asanyarray(asl.dataobj[..., i], dtype=np.float32), asl.affine)
+        # A 3D file is a one-volume series (index 0), not a stack of slices.
+        raw = asl.dataobj if asl.ndim == 3 else asl.dataobj[..., i]
+        vol = nb.Nifti1Image(np.asanyarray(raw, dtype=np.float32), asl.affine)
         moved = apply(Affine(mat, reference=ref), vol, reference=ref, order=order)
         out[..., k] = np.asanyarray(moved.dataobj)
     return nb.Nifti1Image(out, ref.affine)

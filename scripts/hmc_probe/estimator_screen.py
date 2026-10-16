@@ -34,6 +34,11 @@ METRICS = ('rel_max', 'pair_max')
 DIAGNOSTIC = ('c8-noreg', 'c8-prod', 'c8-prod-huber', 'c8-spm', 'c1-loo')
 
 
+def is_held_out(fixture):
+    """Held-out fixtures (recipes ending in ``_ho``, and their seed variants)."""
+    return fixture.split('__s')[0].endswith('_ho')
+
+
 def family(label):
     for f in FAMILIES:
         if label == f or label.startswith(f'{f}-'):
@@ -46,7 +51,10 @@ def screen(df):
     df = df[~df.label.str.endswith(('-d0', '-d1'))]
     df = df[df.label.map(family).notna()].copy()
     df['family'] = df.label.map(family)
-    fixtures = sorted(set(df.query("label == 'c0'").fixture))
+    # Development fixtures only: never a held-out (``_ho``) fixture or a noise-seed variant.
+    fixtures = sorted(
+        f for f in set(df.query("label == 'c0'").fixture) if not is_held_out(f) and '__s' not in f
+    )
     df = df[df.fixture.isin(fixtures)]
     summary = (
         df.groupby(['family', 'label'])
@@ -61,7 +69,8 @@ def screen(df):
     summary['complete'] = summary.n == len(fixtures)
     summary['diagnostic'] = summary.label.isin(DIAGNOSTIC)
     summary['rank'] = np.nan
-    eligible = summary[summary.family.isin(FAMILIES) & ~summary.diagnostic]
+    # Only complete arms are ranked: an arm missing fixtures could win on the easy ones.
+    eligible = summary[summary.family.isin(FAMILIES) & ~summary.diagnostic & summary.complete]
     for _, g in eligible.groupby('family'):
         ranks = sum(g[m].rank(method='min') for m in METRICS)
         # Ties on the rank sum are broken by the pair error, which drives subtraction.

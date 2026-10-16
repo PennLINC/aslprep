@@ -56,7 +56,7 @@ from harness import load_itk_series, pair_deltam, resample_series  # noqa: E402
 from aslprep.tests import truth_geometry as tg  # noqa: E402
 from aslprep.tests.truth_scoring import Fixture  # noqa: E402
 
-SCORE_VERSION = 2
+SCORE_VERSION = 3
 #: Shell bounds (mm from the brain edge).
 SHELLS = ((0.0, 3.0), (3.0, 6.0))
 
@@ -95,29 +95,32 @@ def _summary(values):
     }
 
 
+def _between(a, b, points):
+    """RMS distance between where frames ``a`` and ``b`` put the same static points.
+
+    A static point ``s`` appears at ``a s`` and ``b s``; ``|a s - b s| = |b^-1 a s - s|`` for a
+    rigid ``b``, so the map evaluated at the static points is ``b^-1 a``. (Evaluating
+    ``a b^-1`` at ``s`` instead, as before score version 3, depends on the common frame.)
+    """
+    return tg.rms_displacement(np.linalg.inv(b) @ a, points)
+
+
 def transform_metrics(a, context, points, ref_frame):
     """Metrics 1-3 from the frames ``a`` of the corrected volumes."""
     abar = polar_mean(a)
     out = {
         'relative_pose': {
-            'to_first': _summary(
-                [tg.rms_displacement(m @ np.linalg.inv(a[0]), points) for m in a]
-            ),
-            'to_mean': _summary([tg.rms_displacement(m @ np.linalg.inv(abar), points) for m in a]),
+            'to_first': _summary([_between(m, a[0], points) for m in a]),
+            'to_mean': _summary([_between(m, abar, points) for m in a]),
         },
-        'reference_consistency': _summary(
-            [tg.rms_displacement(m @ np.linalg.inv(ref_frame), points) for m in a]
-        ),
-        'mean_frame_offset_mm': tg.rms_displacement(abar @ np.linalg.inv(ref_frame), points),
+        'reference_consistency': _summary([_between(m, ref_frame, points) for m in a]),
+        'mean_frame_offset_mm': _between(abar, ref_frame, points),
     }
     controls = [i for i, t in enumerate(context) if t == 'control']
     labels = [i for i, t in enumerate(context) if t == 'label']
     if controls and len(controls) == len(labels):
         out['pair'] = _summary(
-            [
-                tg.rms_displacement(a[c] @ np.linalg.inv(a[lab]), points)
-                for c, lab in zip(controls, labels, strict=True)
-            ]
+            [_between(a[c], a[lab], points) for c, lab in zip(controls, labels, strict=True)]
         )
     return out, abar
 
@@ -127,9 +130,9 @@ def framewise(hmc, poses, indices, points):
     order = np.argsort(indices)
     est, true = [], []
     for k0, k1 in itertools.pairwise(order):
-        # The estimate of the head's motion between the two volumes is H_1 H_0^-1 (pull maps).
-        est.append(tg.rms_displacement(hmc[k1] @ np.linalg.inv(hmc[k0]), points))
-        true.append(tg.rms_displacement(poses[k1] @ np.linalg.inv(poses[k0]), points))
+        # A reference point y is seen at H_0 y and H_1 y; a static point s at P_0 s and P_1 s.
+        est.append(_between(hmc[k1], hmc[k0], points))
+        true.append(_between(poses[k1], poses[k0], points))
     est, true = np.asarray(est), np.asarray(true)
     if not est.size:
         return {'n': 0}

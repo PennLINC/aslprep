@@ -100,17 +100,19 @@ def _volreg(series, ref, out_base):
     ``-1Dmatrix_save`` writes, per volume, the 3x4 matrix from base to input coordinates in
     AFNI's DICOM order (x right-to-left, y anterior-to-posterior: LPS).
     """
+    from nitransforms.io.afni import AFNILinearTransformArray
+
     aff = f'{out_base}.aff12.1D'
     cmd = ['3dvolreg', '-base', str(ref), '-prefix', f'{out_base}.nii.gz', '-1Dmatrix_save', aff]
     subprocess.run([*cmd, str(series)], check=True, capture_output=True)
-    rows = np.atleast_2d(np.loadtxt(aff))
-    flip = np.diag([-1.0, -1.0, 1.0, 1.0])
-    pulls = []
-    for r in rows:
-        m = np.eye(4)
-        m[:3, :] = r.reshape(3, 4)
-        pulls.append(flip @ m @ flip)
-    return _pull_ras_to_fsl(pulls, nb.load(series))
+    # AFNI deobliques implicitly: its matrices are in the cardinal (plumb) DICOM frames of the
+    # two headers, so a plain LPS/RAS sign flip is wrong for oblique images (until revision 13
+    # it was used, which was right only for the simulated, non-oblique fixtures).
+    series_img, ref_img = nb.load(series), nb.load(ref)
+    pulls = AFNILinearTransformArray.from_filename(aff).to_ras(
+        moving=series_img, reference=ref_img
+    )
+    return _pull_ras_to_fsl(list(np.asarray(pulls).reshape(-1, 4, 4)), series_img)
 
 
 def _ants(series, ref, out_base):
@@ -310,6 +312,7 @@ def run_c1(inputs, work, **options):
 
     mats = [None] * len(idx)
     templates = {}
+    corrected_groups = set()
     for g, ks in groups.items():
         tag = f'{g[0]}_{g[1] if g[1] is not None else "all"}'.replace('.', 'p').replace('/', '')
         vols = data[..., [idx[k] for k in ks]]
@@ -329,7 +332,7 @@ def run_c1(inputs, work, **options):
         tpl = _save(vols.mean(-1), img, work / f'tpl_{tag}_it0.nii.gz')
         for it in range(iterations):
             got, moved = _register_series(series, tpl, work / f'reg_{tag}_it{it}', cost, engine)
-            if it < iterations - 1:
+            if iterations > 1:  # the next template, and after the last pass the final one
                 if moved is not None:  # MCFLIRT's own (spline) resampling, as before
                     moved_data = np.asanyarray(nb.load(moved).dataobj, np.float32)
                 else:
@@ -338,10 +341,15 @@ def run_c1(inputs, work, **options):
         for k, m in zip(ks, got, strict=True):
             mats[k] = m
         templates[g] = tpl
+        if iterations > 1:
+            # The last template is rebuilt from the final transforms, so it is an average of
+            # corrected volumes: it depicts their corrected frame (score.py's 'corrected').
+            corrected_groups.add(g)
 
     # The common frame.
     controls = [g for g in templates if g[0] == 'control']
     m0_groups = [g for g in templates if g[0] == 'm0scan']
+    frame_kind = 'raw'
     if frame == 'm0' and inputs.get('m0scan'):
         frame_file = _regrid(inputs['m0scan'], img, work / 'frame_m0.nii.gz')
         ref_volumes = 'separate_m0'
@@ -355,6 +363,7 @@ def run_c1(inputs, work, **options):
             g = next(iter(templates))
         frame_file = templates[g]
         ref_volumes = [idx[k] for k in groups[g]]
+        frame_kind = 'corrected' if g in corrected_groups else 'raw'
 
     cross_mats = {}
     for g, tpl in templates.items():
@@ -378,6 +387,7 @@ def run_c1(inputs, work, **options):
         'indices': idx,
         'reference_type': f'{frame} frame ({Path(frame_file).name})',
         'reference_volumes': ref_volumes,
+        'reference_frame_kind': frame_kind,
         'processing_target': target,
         'use_ge': None,
         'groups': {f'{g[0]}@{g[1]}': len(ks) for g, ks in groups.items()},
@@ -444,7 +454,9 @@ def run_c3(inputs, work, **options):
     new = [m @ np.linalg.inv(h[ref_k]) for m in h]
     img = nb.load(inputs['asl_file'])
     aslref = _save(
-        np.asanyarray(img.dataobj[..., res['indices'][ref_k]], np.float32),
+        np.asanyarray(
+            img.dataobj if img.ndim == 3 else img.dataobj[..., res['indices'][ref_k]], np.float32
+        ),
         img,
         work / 'aslref.nii.gz',
     )

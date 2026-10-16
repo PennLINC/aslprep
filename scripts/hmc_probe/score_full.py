@@ -37,7 +37,7 @@ from score import mask_in_frame, polar_mean, shells  # noqa: E402
 from aslprep.tests import truth_geometry as tg  # noqa: E402
 from aslprep.tests import truth_scoring as ts  # noqa: E402
 
-SCORE_FULL_VERSION = 1
+SCORE_FULL_VERSION = 2
 
 
 def _load_series(path):
@@ -114,10 +114,29 @@ def score_full(fixture_dir, aslprep_dir):
     if coreg_file is not None:
         c = _one(coreg_file)
         # aslref point y shows static(F^-1 y); T1w point x shows static(R^-1 x). The pull from
-        # T1w to aslref is then C = F R^-1, so C^-1 F R^-1 is the registration step's error.
-        out['coregistration_vs_aslref_frame'] = _transform_error(
-            c, frame @ np.linalg.inv(fixture.R), points
+        # T1w to aslref is then C = F R^-1. The error is evaluated at the brain's points in the
+        # T1w domain (R s for static s), where the pull is defined.
+        t1_points = tg.apply_points(fixture.R, points)
+        r_inv = np.linalg.inv(fixture.R)
+        # End to end: against the frame of the corrected series (F above), which the transform
+        # is applied to.
+        out['coregistration_vs_aslref_frame'] = _transform_error(c, frame @ r_inv, t1_points)
+        # Registration step: against the frame the reference image itself depicts. With a
+        # separate M0 that is the M0's recorded pose; otherwise it is not recorded here.
+        perf_dir = fixture_dir / 'sub-01' / 'perf'
+        extras_file = perf_dir / 'ground-truth' / 'probe_extras.json'
+        separate = (
+            json.loads(asl.with_name(asl.name.replace('.nii.gz', '.json')).read_text()).get(
+                'M0Type'
+            )
+            == 'Separate'
         )
+        extras = json.loads(extras_file.read_text()) if extras_file.exists() else {}
+        pose = extras.get('m0', {}).get('pose') if separate else None
+        if pose is not None:
+            out['coregistration_vs_reference_image'] = _transform_error(
+                c, np.asarray(pose, float) @ r_inv, t1_points
+            )
 
     # 11: M0 and fieldmap registration against known poses
     extras_file = fixture_dir / 'sub-01' / 'perf' / 'ground-truth' / 'probe_extras.json'

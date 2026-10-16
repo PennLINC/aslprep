@@ -16,7 +16,9 @@ Decision metrics (direction fixed in advance):
   development fixtures it ranks candidates as the truth-based edge error does (median Spearman
   0.90; ``ssd_check.py``), but not at still-head offsets (about zero or negative on the still
   and constant-pose fixtures, where it favours production): it is evidence about
-  motion-driven errors, not about the spurious label offset.
+  motion-driven errors, not about the spurious label offset. Interpolation alone moves it by up
+  to 4.5 % (``energy_controls.py``), so ``mean_dm_ssd_verdict`` calls a ratio within
+  ``ENERGY_MARGIN`` (5 %) a tie and only larger ratios better or worse.
 
 Diagnostics (no assumed good direction):
 
@@ -42,6 +44,11 @@ import nibabel as nb
 import numpy as np
 import pandas as pd
 from scipy import ndimage as ndi
+
+#: A ratio to production within this margin is a tie: a common shift of control and label alike
+#: (no misregistration) changes the energy by up to 4.5 % through interpolation and the fixed
+#: mask alone (``energy_controls.py``).
+ENERGY_MARGIN = 0.05
 
 
 def brain_mask(ref):
@@ -139,6 +146,12 @@ def shared_ssd(records, runs):
         s / c0.get(k, np.nan) if np.isfinite(s) else np.nan
         for s, k in zip(df.mean_dm_ssd, keys, strict=True)
     ]
+    r = df.mean_dm_ssd_vs_c0
+    df['mean_dm_ssd_verdict'] = np.select(
+        [~np.isfinite(r), r < 1 - ENERGY_MARGIN, r > 1 + ENERGY_MARGIN],
+        [None, 'better', 'worse'],
+        default='tie',
+    )
     return df
 
 

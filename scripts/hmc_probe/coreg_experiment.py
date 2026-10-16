@@ -178,9 +178,22 @@ def estimates(work):
             if not mat.exists():
                 continue
             bbr = _pull(mat, src_img, t1_img)
-            fallback = bool(np.linalg.norm(bbr - init) > FALLBACK_NORM)
+            fallback = fmriprep_fallback(init, bbr)
             out[(name, sign)] = (init if fallback else bbr, bbr, init, fallback)
     return out
+
+
+def fmriprep_fallback(init, bbr):
+    """fMRIPrep's ``compare_xforms``: keep the initialization when BBR moved too far.
+
+    The norm is nipype's ``_calc_norm_affine`` (the largest displacement of the midpoints of the
+    faces of a cube) between the two RAS matrices, against 15 mm. (Until revision 13 a Frobenius
+    norm of the matrix difference was used, which made different decisions.)
+    """
+    from nipype.algorithms.rapidart import _calc_norm_affine
+
+    norm, _ = _calc_norm_affine([init, bbr], use_differences=True)
+    return bool(norm[1] > FALLBACK_NORM)
 
 
 def _contrast(work, gm, wm):
@@ -195,9 +208,21 @@ def _contrast(work, gm, wm):
 # ---------------------------------------------------------------------------------------------
 # Fixtures (truth)
 # ---------------------------------------------------------------------------------------------
-def run_fixture(fixture_dir, run_dir, work, license_file):
+def run_fixture(fixture_dir, run_dir, work, license_file, rescore=False):
+    """Register (unless ``rescore``) and score every source against two truths.
+
+    - ``rms_mm`` (end to end): against the frame of the corrected series, ``F_series R^-1``,
+      which is what the transform is applied to;
+    - ``step_rms_mm`` (registration step): against the frame the source image itself depicts.
+      The perfusion images are built from the corrected series, so both truths coincide for
+      them; the conventional reference depicts the volume production built it from (a separate
+      M0 at its recorded pose, or the first selected volume, ``RobustAverage``'s base).
+
+    Errors are evaluated at the brain's points in the T1w domain (``R s`` for static ``s``).
+    """
     perf = run_dir / 'sub-01' / 'perf'
     fperf = fixture_dir / 'sub-01' / 'perf'
+    meta = json.loads(next(fperf.glob('*_asl.json')).read_text())
     prep = prepare(
         work,
         fixture_dir / 'derivatives' / 'anat' / 'sub-01' / 'anat',
@@ -205,33 +230,55 @@ def run_fixture(fixture_dir, run_dir, work, license_file):
         _native(perf, 'desc-brain_mask.nii.gz'),
         _native(perf, 'desc-preproc_asl.nii.gz'),
         pd.read_table(next(fperf.glob('*_aslcontext.tsv')))['volume_type'].tolist(),
-        json.loads(next(fperf.glob('*_asl.json')).read_text()),
+        meta,
     )
-    register(work, license_file)
+    if not rescore:
+        register(work, license_file)
     asl = next(fperf.glob('*_asl.nii.gz'))
     acq = asl.name.split('_acq-')[1].split('_')[0]
     fixture = ts.Fixture(fixture_dir, acq)
-    _, points = fixture.voxel_centers(fixture.brain)
+    _, static_points = fixture.voxel_centers(fixture.brain)
+    points = apply_affine(fixture.R, static_points)  # the same points in the T1w domain
     hmc = _load_series(next(perf.glob(f'*_acq-{acq}_from-orig_to-aslref*_xfm.txt')))
     poses = fixture.poses()
     keep = [i for i, t in enumerate(fixture.context) if t in ('control', 'label', 'm0scan')]
     keep = keep if len(keep) == len(hmc) else list(range(len(hmc)))
-    frame = polar_mean([np.linalg.inv(h) @ poses[i] for h, i in zip(hmc, keep, strict=True)])
-    truth = frame @ np.linalg.inv(fixture.R)
+    series_frame = polar_mean(
+        [np.linalg.inv(h) @ poses[i] for h, i in zip(hmc, keep, strict=True)]
+    )
+    extras_file = fperf / 'ground-truth' / 'probe_extras.json'
+    extras = json.loads(extras_file.read_text()) if extras_file.exists() else {}
+    if meta.get('M0Type') == 'Separate':
+        conv_frame = np.asarray(extras.get('m0', {}).get('pose', np.eye(4)), float)
+        conv_note = 'separate M0 at its recorded pose'
+    else:
+        first = next((i for i, t in enumerate(fixture.context) if t == 'm0scan'), keep[0])
+        conv_frame, conv_note = poses[first], f'volume {first} (RobustAverage base)'
+    r_inv = np.linalg.inv(fixture.R)
+    truth = series_frame @ r_inv
     production = _one(ts.find_xfm(run_dir, acq, 'from-aslref_to-T1w'))
     gm_wm = _contrast(work, fixture.pv['GM'] >= 0.7, fixture.pv['WM'] >= 0.7)
-    base = {'fixture': fixture_dir.name}
+    base = {
+        'fixture': fixture_dir.name,
+        'conventional_frame': conv_note,
+        'conventional_vs_series_frame_mm': _transform_error(
+            conv_frame, series_frame, static_points
+        )['rms_mm'],
+    }
     rows = [
         base
         | {'source': 'production (ASLPrep run)', 'sign': 'default'}
         | _transform_error(production, truth, points)
+        | {'step_rms_mm': _transform_error(production, conv_frame @ r_inv, points)['rms_mm']}
     ]
     for (name, sign), (final, bbr, init, fallback) in estimates(work).items():
+        step_truth = (conv_frame if name == 'conventional' else series_frame) @ r_inv
         rows.append(
             base
             | {'source': name, 'sign': sign}
             | _transform_error(final, truth, points)
             | {
+                'step_rms_mm': _transform_error(final, step_truth, points)['rms_mm'],
                 'bbr_rms_mm': _transform_error(bbr, truth, points)['rms_mm'],
                 'init_rms_mm': _transform_error(init, truth, points)['rms_mm'],
                 'fallback': fallback,
@@ -250,8 +297,12 @@ def _strip(stem, entity):
     return '_'.join(p for p in stem.split('_') if not p.startswith(f'{entity}-'))
 
 
-def run_real(record, runs, adapted, work, license_file):
-    """One panel run: every source registered; distances to the conventional registration."""
+def run_real(record, runs, adapted, work, license_file, rescore=False, seen=None):
+    """One panel run: every source registered; distances to the conventional registration.
+
+    ``seen`` holds the preprocessed series already used: several manifest echoes can resolve to
+    the same echo-stripped derivative, which is registered and counted once.
+    """
     from panel_config import ADAPTATIONS
 
     run_dir = runs / f'{record["dataset"]}_sub-{record["subject"]}'
@@ -275,6 +326,10 @@ def run_real(record, runs, adapted, work, license_file):
                 break
         else:
             raise FileNotFoundError(f'no {stem}_{suffix} in {perf}')
+    if seen is not None:
+        if names['desc-preproc_asl'] in seen:
+            raise FileExistsError(f'{names["desc-preproc_asl"].name} already scored')
+        seen.add(names['desc-preproc_asl'])
     context = pd.read_table(asl.parent / record['aslcontext'].split('/')[-1])[
         'volume_type'
     ].tolist()
@@ -288,7 +343,8 @@ def run_real(record, runs, adapted, work, license_file):
         context,
         meta,
     )
-    register(work, license_file)
+    if not rescore:
+        register(work, license_file)
     t1_mask = nb.load(work / 't1w_mask.nii.gz')
     ijk = np.argwhere(np.asanyarray(t1_mask.dataobj) > 0)[::7]
     points = apply_affine(t1_mask.affine, ijk)
@@ -320,6 +376,11 @@ def main(argv=None):
     parser.add_argument('--work', type=Path, required=True)
     parser.add_argument('--license', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument(
+        '--rescore',
+        action='store_true',
+        help='Score the registrations already in --work again, without re-registering.',
+    )
     args = parser.parse_args(argv)
     rows = []
     if args.manifest:
@@ -328,11 +389,17 @@ def main(argv=None):
             for r in json.loads(args.manifest.read_text())
             if not args.names or r['dataset'] in args.names
         ]
+        seen = set()
         for r in records:
             work = args.work / f'{r["dataset"]}__{r["run"]}'
-            shutil.rmtree(work, ignore_errors=True)
+            if args.rescore and not (work / 'conventional_init.mat').exists():
+                continue
+            if not args.rescore:
+                shutil.rmtree(work, ignore_errors=True)
             try:
-                rows += run_real(r, args.runs, args.adapted, work, args.license)
+                rows += run_real(
+                    r, args.runs, args.adapted, work, args.license, args.rescore, seen
+                )
                 print(f'{r["dataset"]} {r["run"]}: done', flush=True)
             except Exception as exc:  # noqa: BLE001 - report and continue over the panel
                 print(f'{r["dataset"]} {r["run"]}: {type(exc).__name__}: {exc}', flush=True)
@@ -349,17 +416,22 @@ def main(argv=None):
         return
     for name in args.names:
         work = args.work / name
-        shutil.rmtree(work, ignore_errors=True)
-        rows += run_fixture(args.fixtures / name, args.runs / name, work, args.license)
+        if not args.rescore:
+            shutil.rmtree(work, ignore_errors=True)
+        rows += run_fixture(
+            args.fixtures / name, args.runs / name, work, args.license, rescore=args.rescore
+        )
         print(f'{name}: done', flush=True)
     df = pd.DataFrame(rows)
     df.to_csv(args.out, sep='\t', index=False)
     with pd.option_context('display.width', 200, 'display.max_rows', 200):
-        print(
-            df.pivot_table(
-                index=['source', 'sign'], columns='fixture', values='rms_mm', aggfunc='first'
-            ).round(2)
-        )
+        for col in ('rms_mm', 'step_rms_mm'):
+            print(f'== {col}')
+            print(
+                df.pivot_table(
+                    index=['source', 'sign'], columns='fixture', values=col, aggfunc='first'
+                ).round(2)
+            )
 
 
 if __name__ == '__main__':

@@ -399,6 +399,8 @@ def load_scores(root):
         s = json.loads(f.read_text())
         if s.get('score_version', 1) < 2:  # older scale (noise-seed runs whose fixtures are gone)
             continue
+        if f.parent.name.split('__s')[0].endswith('_ho'):  # held-out: never shown with development
+            continue
         rec = {'label': f.parent.parent.name, 'fixture': f.parent.name, 'path': f.parent}
         rec.update({k: _get(s, p) for k, p in METRICS.items()})
         rec['pair_by'] = s.get('pair', {}).get('by_volume_mm')
@@ -1284,12 +1286,24 @@ def section_real_shortlist(root):
         + [f'<code>{esc(x)}</code> energy vs C0' for x in others]
         + [f'<code>{esc(x)}</code> neg. fraction' for x in labels]
     )
-    wins = {x: float((d[d.label == x].mean_dm_ssd_vs_c0 < 1).mean() * 100) for x in others}
+    # Over finite, matched comparisons only (runs without pairs have no ratio), with real_score's
+    # margin: a ratio within it is a tie (interpolation alone moves the energy by up to 4.5 %).
+    scored = {x: d[(d.label == x) & np.isfinite(d.mean_dm_ssd_vs_c0)] for x in others}
+    verdicts = {
+        x: {
+            v: float((g.mean_dm_ssd_verdict == v).mean() * 100) for v in ('better', 'tie', 'worse')
+        }
+        for x, g in scored.items()
+    }
+    n_scored = min(len(g) for g in scored.values())
     return f"""
 <h3>The short list on real data</h3>
 <p>Each short-listed estimator ran on the same real runs, scored with the shared-mask mean delta-M
 energy (as a ratio to production on the same run; below 1 is better) and the negative fraction.
-The share of runs on which each beats production: {', '.join(f'<code>{esc(x)}</code> {v:.0f}%' for x, v in wins.items())}.
+A common shift of control and label alike, which creates no misregistration, already moves the
+energy by up to 4.5% through interpolation alone, so a ratio within 5% of production's is counted
+as a tie. On the {n_scored} scorable runs (better / tie / worse than production):
+{'; '.join(f'<code>{esc(x)}</code> {v["better"]:.0f}% / {v["tie"]:.0f}% / {v["worse"]:.0f}%' for x, v in verdicts.items())}.
 The energy only measures motion-driven errors; at still-head offsets it favours production.</p>
 {plain_table(head, rows, tuple(range(1, len(head))))}
 <p class="note">Medians per family. GE product output has no pairs and is not scored.</p>"""
@@ -1348,9 +1362,21 @@ result on every fixture, so the comparison is like for like.</p>
                 tuple(range(1, 8)),
             )
         }
-<p class="note">Coregistration error against truth (mm RMS over the brain). Default BBR sign unless
-stated. "Fell back" means FLIRT-BBR moved too far from its initialization and the initialization was
-kept, as fMRIPrep does.</p>
+<p class="note">End-to-end coregistration error against truth (mm RMS over the brain, in the T1w):
+the transform as applied to the corrected series. Default BBR sign unless stated. "Fell back" means
+FLIRT-BBR moved too far from its initialization (fMRIPrep's displacement rule, 15 mm) and the
+initialization was kept, as fMRIPrep does.</p>
+<p>End to end, the conventional reference carries two errors: the registration itself, and the
+offset between the image it depicts (here the separate M0) and the corrected series, which HMC
+leaves. On this fixture that offset is {
+            fmt(gv('conventional', col='conventional_vs_series_frame_mm'), 2)
+        } mm.
+Against its own frame, the conventional reference's registration error is
+{fmt(gv('conventional', col='step_rms_mm'), 2)} mm with the default sign and
+{
+            fmt(gv('conventional', 'opposite', col='step_rms_mm'), 2)
+        } mm with the opposite sign. The perfusion
+images are built from the corrected series, so for them the two errors are the same.</p>
 <p>The 3D GRASE fixture explains its 1 mm coregistration error. Its conventional reference has white
 matter brighter than grey (grey/white {fmt(gv('conventional', col='gm_wm_ratio'), 2)}), so BBR's
 default sign, which assumes the opposite, fails ({
