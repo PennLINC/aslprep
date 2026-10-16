@@ -20,7 +20,15 @@ def f5_run(data_dir, output_dir, working_dir):
         data_dir,
         output_dir,
         working_dir,
-        extra_args=('--scorescrub', '--atlases', '4S156Parcels', '4S1056Parcels'),
+        extra_args=(
+            '--scorescrub',
+            '--pvc-method',
+            'local-regression',
+            '--atlases',
+            '4S156Parcels',
+            '4S1056Parcels',
+        ),
+        lr_pvc=True,
     )
 
 
@@ -35,6 +43,9 @@ globals().update(
             ('native', 'tier_b_att', 'WM', 'median_abs_error'),
             ('native', 'tier_a_quant', 'abat_median_abs_diff'),
             ('native', 'tier_a_quant', 'abv_median_abs_diff'),
+            # Multi-delay local-regression PVC (PVC design spec Section 5.7.7), report-only
+            ('lr_pvc', 'status_share', '1'),
+            ('lr_pvc', 'GM', 'pv_map_median_abs_error'),
         ],
     )
 )

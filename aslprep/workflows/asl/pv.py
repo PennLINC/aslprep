@@ -6,8 +6,32 @@ from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
-from aslprep.interfaces.pvc import LocalRegressionPVC, PartialVolumeMaps
+from aslprep.interfaces.pvc import (
+    LocalRegressionPVC,
+    MultiDelayLocalRegressionPVC,
+    PartialVolumeMaps,
+)
 from aslprep.workflows.asl.outputs import lr_pvc_names
+
+
+def lr_pvc_fields(sources, multi_delay=False):
+    """Output fields of :func:`init_lr_pvc_wf` (besides ``pvc_metadata`` and ``pvc_qc``)."""
+    fields = []
+    for source in sources:
+        names = lr_pvc_names(source, multi_delay)
+        fields += (
+            names['cbf']
+            + names['se']
+            + list(names['valid'].values())
+            + names['diagnostics']
+            + names['csf']
+            + names['att']
+            + list(names['att_valid'].values())
+            + names['att_bounds']
+            + names['kinetic']
+        )
+        fields.append(f'pvc_summary{"" if source == "mean_cbf" else "_score"}')
+    return fields
 
 
 def _pick_gm(files):
@@ -132,6 +156,9 @@ def init_lr_pvc_wf(
     metadata,
     sources,
     kernel_size=(5, 5, 1),
+    multi_delay=False,
+    num_threads=1,
+    use_gpu=False,
     name='lr_pvc_wf',
 ):
     """Correct CBF maps for partial volume effects by local linear regression.
@@ -153,6 +180,11 @@ def init_lr_pvc_wf(
         The CBF maps to correct: ``mean_cbf``, and ``mean_cbf_score`` with SCORE.
     kernel_size : :obj:`tuple` of :obj:`int`
         Kernel size in voxels, ordered (in-plane, in-plane, slice).
+    multi_delay : :obj:`bool`
+        Whether the data have several delays. If so, each delay is unmixed and each tissue curve
+        is fit with the general kinetic model (spec Section 5.7).
+    num_threads, use_gpu
+        Threads and GPU use for the multi-delay kinetic fits.
     name : :obj:`str`
         Workflow name.
 
@@ -160,6 +192,9 @@ def init_lr_pvc_wf(
     ------
     mean_cbf, mean_cbf_score
         CBF maps.
+    deltam, asl_metadata, att, abat, abv
+        Multi-delay data only: the delta-M series and its metadata, and the uncorrected
+        kinetic maps (for the CSF quality-control template).
     m0_calib
         The M0 image CBF was divided by.
     quant_valid
@@ -198,25 +233,102 @@ volume maps estimated an apparent CSF CBF, which should be near zero;
 CSF was left out of the gray and white matter fit.
 """
 
-    out_fields = ['pvc_metadata', 'pvc_qc']
-    for source in sources:
-        names = lr_pvc_names(source)
-        out_fields += (
-            names['cbf']
-            + names['se']
-            + list(names['valid'].values())
-            + names['diagnostics']
-            + names['csf']
-        )
-        out_fields.append(f'pvc_summary{"" if source == "mean_cbf" else "_score"}')
+    out_fields = ['pvc_metadata', 'pvc_qc'] + lr_pvc_fields(sources, multi_delay)
 
-    inputnode = pe.Node(
-        niu.IdentityInterface(
-            fields=sources + ['m0_calib', 'quant_valid', 'asl_mask', 'gm_pv', 'wm_pv', 'csf_pv'],
-        ),
-        name='inputnode',
-    )
+    in_fields = sources + ['m0_calib', 'quant_valid', 'asl_mask', 'gm_pv', 'wm_pv', 'csf_pv']
+    if multi_delay:
+        in_fields += ['deltam', 'asl_metadata', 'att', 'abat', 'abv']
+    inputnode = pe.Node(niu.IdentityInterface(fields=in_fields), name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=out_fields), name='outputnode')
+
+    if multi_delay:
+        workflow.__desc__ = f"""\
+Partial volume correction was additionally performed by local linear regression
+[@asllani2008regression], extended to multi-delay data.
+Within a {kernel_str} voxel kernel (in-plane, in-plane, slice) around each voxel,
+the delta-M of each volume was regressed on the gray and white matter partial volume maps,
+without an intercept, assuming CSF has no perfusion and that each tissue's signal is constant
+within the kernel. This gave a gray and a white matter curve across delays,
+each of which was then fit with the same general kinetic model as the uncorrected data,
+calibrated by the voxel's M0 and with a non-negative arterial nuisance term,
+giving tissue CBF and arterial transit time.
+Voxels were fit for both tissues when each had at least half a voxel of support in the kernel
+and the normalized design was well conditioned (condition number at most 100),
+and for one tissue only when the other tissue's contamination of that estimate was below 5%.
+Tissue estimates were retained where that tissue's partial volume was at least 10%,
+and tissue arterial transit times only where the tissue's CBF was positive.
+Arterial signal and variation of the kinetics within the kernel are not modelled by the
+unmixing; the residual of each tissue's kinetic fit is reported.
+The uncorrected CBF maps were retained, as partial volume correction is recommended as an
+additional analysis [@chappell2021partial].
+For quality control, a separate regression on the gray matter, white matter and CSF partial
+volume maps estimated a CSF curve, whose signed projection onto each voxel's uncorrected
+kinetic curve gave an apparent CSF CBF, which should be near zero.
+"""
+        names = lr_pvc_names('mean_cbf', multi_delay=True)
+        lr_pvc = pe.Node(
+            MultiDelayLocalRegressionPVC(
+                kernel_size=list(kernel_size),
+                num_threads=num_threads,
+                use_gpu=use_gpu,
+            ),
+            name='lr_pvc',
+            mem_gb=1 + 0.1 * num_threads,
+            n_procs=num_threads,
+        )
+        gm_cbf, wm_cbf = names['cbf']
+        gm_att, wm_att = names['att']
+        gm_lower, gm_upper, wm_lower, wm_upper = names['att_bounds']
+        gm_kinstatus, wm_kinstatus, gm_kinres, wm_kinres = names['kinetic']
+        status, condition, gm_noise, wm_noise, rmse = names['diagnostics']
+        csf_cbf, csf_status, csf_noise, csf_kinres = names['csf']
+        workflow.connect([
+            (inputnode, lr_pvc, [
+                ('deltam', 'deltam'),
+                ('asl_metadata', 'metadata'),
+                ('m0_calib', 'm0_calib'),
+                ('quant_valid', 'quant_valid'),
+                ('asl_mask', 'mask'),
+                ('gm_pv', 'gm_pv'),
+                ('wm_pv', 'wm_pv'),
+                ('csf_pv', 'csf_pv'),
+                ('mean_cbf', 'mean_cbf'),
+                ('att', 'att'),
+                ('abat', 'abat'),
+                ('abv', 'abv'),
+            ]),
+            (lr_pvc, outputnode, [
+                ('gm_cbf', gm_cbf),
+                ('wm_cbf', wm_cbf),
+                ('gm_valid', names['valid'][gm_cbf]),
+                ('wm_valid', names['valid'][wm_cbf]),
+                ('gm_att', gm_att),
+                ('wm_att', wm_att),
+                ('gm_att_valid', names['att_valid'][gm_att]),
+                ('wm_att_valid', names['att_valid'][wm_att]),
+                ('gm_att_lower', gm_lower),
+                ('gm_att_upper', gm_upper),
+                ('wm_att_lower', wm_lower),
+                ('wm_att_upper', wm_upper),
+                ('gm_kinstatus', gm_kinstatus),
+                ('wm_kinstatus', wm_kinstatus),
+                ('gm_kinres', gm_kinres),
+                ('wm_kinres', wm_kinres),
+                ('status', status),
+                ('condition', condition),
+                ('gm_noise', gm_noise),
+                ('wm_noise', wm_noise),
+                ('rmse', rmse),
+                ('csf_cbf', csf_cbf),
+                ('csf_status', csf_status),
+                ('csf_noise', csf_noise),
+                ('csf_kinres', csf_kinres),
+                ('summary', 'pvc_summary'),
+                ('pvc_metadata', 'pvc_metadata'),
+                ('qc', 'pvc_qc'),
+            ]),
+        ])  # fmt:skip
+        return workflow
 
     for source in sources:
         names = lr_pvc_names(source)
