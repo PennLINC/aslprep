@@ -144,6 +144,59 @@ def test_multidelay_slice_timing_single_slice_kernel():
     np.testing.assert_allclose(result['att'], 1.0, atol=0.01)
 
 
+@pytest.mark.parametrize('abv', [0.01, 0.05, 0.1])
+def test_fit_tissue_curves_pure_arterial(abv):
+    """A curve with only arterial signal has no tissue CBF, so its ATT is not claimed.
+
+    The solver returns ~1e-13 rather than exactly 0 here, which must count as the lower bound.
+    """
+    curve = _tissue_curve(0.0, 1.0, 1000.0, abv=abv, abat=0.4)
+    result = pvc.fit_tissue_curves(curve[None, :], np.array([1000.0]), PLDS[None, :], **KINETICS)
+    assert result['status'][0] == 2
+    assert result['cbf'][0] == 0
+
+
+def test_fit_tissue_curves_at_ceiling():
+    """A curve at the CBF ceiling is flagged, although the solver stops just below it."""
+    curve = _tissue_curve(pvc.LR_CBF_MAX, 1.0, 1000.0)
+    result = pvc.fit_tissue_curves(curve[None, :], np.array([1000.0]), PLDS[None, :], **KINETICS)
+    assert result['status'][0] == 3
+
+
+def test_voxel_delays_refuses_non_finite_timing():
+    """Non-finite delays or slice times are refused, not turned into zeros by the masker."""
+    import nibabel as nb
+    from nilearn import maskers
+
+    from aslprep.utils.cbf import voxel_delays
+
+    img = nb.Nifti1Image(np.zeros((2, 2, 3, 3)), np.eye(4))
+    masker = maskers.NiftiMasker(mask_img=nb.Nifti1Image(np.ones((2, 2, 3)), np.eye(4))).fit()
+    with pytest.raises(ValueError, match='PostLabelingDelay'):
+        voxel_delays({'PostLabelingDelay': [0.5, np.nan, 1.5]}, img, masker, 12, True)
+    with pytest.raises(ValueError, match='SliceTiming'):
+        voxel_delays(
+            {'PostLabelingDelay': [0.5, 1.0, 1.5], 'SliceTiming': [0, np.nan, 0.2]},
+            img,
+            masker,
+            12,
+            True,
+        )
+    plds, _ = voxel_delays(
+        {'PostLabelingDelay': [0.5, 1.0, 1.5], 'SliceTiming': [0, 0.1, 0.2]}, img, masker, 12, True
+    )
+    assert plds.shape == (12, 3)
+    assert np.all(np.isfinite(plds))
+
+
+def test_estimate_lr_pvc_mem_gb():
+    """The memory estimate scales with the series size."""
+    small = pvc.estimate_lr_pvc_mem_gb((16, 16, 8, 84))
+    large = pvc.estimate_lr_pvc_mem_gb((64, 64, 30, 84), num_threads=3)
+    assert small < 1.2
+    assert large > 2.0  # the 1.33 GB of regression arrays measured in review, plus overhead
+
+
 def test_fit_tissue_curves_edge_cases():
     """Negative curves, curves above the voxel bound, unidentifiable ATT and bad inputs."""
     m0 = 1000.0

@@ -350,8 +350,10 @@ def _add_lr_pvc_fields():
                 'Units': 'mL/100 g/min',
                 'Description': (
                     f'{tissue_names[tissue].capitalize()} cerebral blood flow after partial '
-                    f'volume correction by local linear regression of the CBF map{source_str}. '
-                    'Zero where it was not estimated.'
+                    'volume correction by local linear regression: of the CBF map'
+                    f'{source_str} for single-delay data, or of each delta-M volume followed by '
+                    'a kinetic fit of each tissue curve for multi-delay data. '
+                    "Calibrated by the voxel's M0. Zero where it was not estimated."
                 ),
             }
             BASE_INPUT_FIELDS[se_name] = {
@@ -407,7 +409,10 @@ def _add_lr_pvc_fields():
         csf_cbf, csf_se, csf_status, csf_noise = names['csf']
         csf_fit_str = (
             'from a separate local regression on gray matter, white matter and CSF partial '
-            f'volume maps of the CBF map{source_str}, for quality control'
+            f'volume maps, for quality control: of the CBF map{source_str} for single-delay '
+            'data, or of each delta-M volume for multi-delay data, where the CSF curve is '
+            "projected (with its sign) onto the voxel's uncorrected kinetic curve and scaled "
+            'by its uncorrected CBF'
         )
         BASE_INPUT_FIELDS[csf_cbf] = {
             'desc': f'{prefix}CSF',
