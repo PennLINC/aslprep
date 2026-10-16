@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor
+from numbers import Number
 from pathlib import Path
 
+import nibabel as nb
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.stats import chi2, median_abs_deviation
@@ -975,7 +977,7 @@ def _delay_edges(plds, bolus, is_casl, xp):
     return xp.sort(xp.clip(edges, lower, upper), axis=1)
 
 
-def _solve_box_lsq(yt, ya, tt, aa, ta, tol, xp, v_hi=None):
+def _solve_box_lsq(yt, ya, tt, aa, ta, tol, xp, v_hi=None, c_hi=None):
     """Solve the bounded two-parameter linear least squares problem for CBF and aBV.
 
     With ``c`` as CBF, ``v`` as aBV, ``t`` as the tissue basis, ``a`` as the arterial basis,
@@ -986,8 +988,10 @@ def _solve_box_lsq(yt, ya, tt, aa, ta, tol, xp, v_hi=None):
     A candidate only replaces an earlier one if its loss is lower by more than ``tol``,
     so that ties are not broken by rounding error.
     ``v_hi`` replaces the upper bound on aBV, and may be an array.
+    ``c_hi`` replaces the upper bound on CBF.
     """
-    (c_lo, c_hi), _, _, (v_lo, default_v_hi) = MULTIPLD_BOUNDS
+    (c_lo, default_c_hi), _, _, (v_lo, default_v_hi) = MULTIPLD_BOUNDS
+    c_hi = default_c_hi if c_hi is None else c_hi
     v_hi = default_v_hi if v_hi is None else v_hi
 
     def loss(c, v):
@@ -1052,7 +1056,7 @@ def _argmin_att(loss, tol, xp):
     return first + (in_run.sum(axis=-1, keepdims=True) - 1) // 2
 
 
-def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
+def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp, cbf_max=None):
     """Fit the general kinetic model to a chunk of voxels by searching over ATT and aBAT.
 
     Parameters
@@ -1065,6 +1069,8 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
         Labeling durations (PCASL) or TI1 (PASL).
     weights : array of shape (1, n_delays)
         Square root of the number of volumes averaged for each delay.
+    cbf_max : float or None
+        Upper bound on CBF. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
 
     Notes
     -----
@@ -1141,6 +1147,7 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
         tol=tol[:, None, None, None],
         xp=xp,
         v_hi=all_abv_cap[:, None, :, None],
+        c_hi=cbf_max,
     )
     best = _argmin_att(loss, tol[:, None, None, None], xp)
     att = xp.broadcast_to(att[:, :, None, :], loss.shape)
@@ -1179,6 +1186,7 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
             tol=tol[:, None, None],
             xp=xp,
             v_hi=abv_cap,
+            c_hi=cbf_max,
         )
         best = _argmin_att(loss, tol[:, None, None], xp)
         lower = xp.take_along_axis(att, xp.maximum(best - 1, 0), axis=2)[..., 0]
@@ -1210,6 +1218,7 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp):
             tol=tol[:, None],
             xp=xp,
             v_hi=abv_cap,
+            c_hi=cbf_max,
         )
 
     # The range of ATTs that fit as well as the estimate, with aBAT in the same interval.
@@ -1353,6 +1362,7 @@ def fit_deltam_multipld(
     xp=None,
     chunk_size=None,
     n_jobs=1,
+    cbf_max=None,
 ):
     """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
 
@@ -1395,6 +1405,10 @@ def fit_deltam_multipld(
         Number of threads across which chunks are distributed.
         The array operations that dominate the fit release the GIL, so threads run in parallel.
         Memory use scales linearly with this value. The results do not depend on it.
+    cbf_max : :obj:`float` or None, optional
+        Upper bound on CBF. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
+        Partial volume correction raises it, because a tissue amplitude calibrated by the
+        voxel's mixed M0 can exceed physiological values.
 
     Returns
     -------
@@ -1550,6 +1564,7 @@ def fit_deltam_multipld(
             labeleff=labeleff,
             t1blood=t1blood,
             xp=xp,
+            cbf_max=cbf_max,
         )
         # Chunks hold different voxels, so threads never write to the same elements.
         estimates[:, chunk] = [_to_numpy(estimate) for estimate in chunk_estimates]
@@ -1575,6 +1590,107 @@ def fit_deltam_multipld(
     cbf, att, abat, abv, *bounds = estimates
     bounds = dict(zip(('att_lower', 'att_upper', 'abat_lower', 'abat_upper'), bounds, strict=True))
     return cbf, att, abat, abv, failures, bounds
+
+
+def voxel_delays(metadata, deltam_img, masker, n_voxels, is_multi_pld):
+    """Build the delay (PLD or TI) of each voxel and volume, shifted by the slice times.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        ASL metadata, after volume selection.
+    deltam_img : :obj:`nibabel.Nifti1Image`
+        The delta-M image whose grid the delays are built on.
+    masker : :obj:`nilearn.maskers.NiftiMasker`
+        The fitted masker that maps the grid to voxels.
+    n_voxels : :obj:`int`
+        Number of voxels the masker selects.
+    is_multi_pld : :obj:`bool`
+        Whether the data have more than one delay.
+
+    Returns
+    -------
+    plds : :obj:`numpy.ndarray`
+        Of shape (n_voxels, n_delays) with slice timing or multi-delay data, otherwise the
+        delays from the metadata (1D).
+    pld_img : :obj:`nibabel.Nifti1Image` or None
+        The slice-shifted delays as an image, with slice timing.
+    """
+    plds = np.atleast_1d(metadata['PostLabelingDelay'])
+    if 'SliceTiming' in metadata:
+        # Offset PLD(s) by slice times.
+        # If there are multiple PLDs, then the second dimension of the PLD array will
+        # correspond to volumes in the time series.
+        config.loggers.interface.info(
+            '2D acquisition with slice timing information detected. '
+            'Shifting post-labeling delay values across the brain by slice times.'
+        )
+        slice_times = np.array(metadata['SliceTiming'])
+
+        # Determine which axis slices come from.
+        # ASL data typically acquires along z axis, from inferior to superior.
+        slice_encoding_direction = metadata.get('SliceEncodingDirection', 'k')
+        slice_encoding_axis = 'ijk'.index(slice_encoding_direction[0])
+
+        shape = deltam_img.shape[:3]
+        if slice_times.size != shape[slice_encoding_axis]:
+            raise ValueError(
+                f'Number of slices ({shape[slice_encoding_axis]}) != '
+                f'slice times ({slice_times.size})'
+            )
+
+        # Reverse the slice times if slices go from maximum index to zero.
+        if slice_encoding_direction.endswith('-'):
+            slice_times = slice_times[::-1]
+
+        # Make all 4 dims singletons, except the slice encoding axis, which has the slice times.
+        new_dims = [0, 1, 2, 3]
+        new_dims.pop(slice_encoding_axis)
+        slice_times = np.expand_dims(slice_times, new_dims)
+
+        # A 4D array of PLDs, matching the shape of the ASL data, shifted by the slice times
+        pld_brain = np.tile(plds, list(shape) + [1]) + slice_times
+
+        # Mask the PLD array to go from (X, Y, Z, delay) to (S, delay)
+        pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
+        return masker.transform(pld_img).T, pld_img
+
+    if is_multi_pld:
+        # 3D acquisition: broadcast the PLDs to voxels, with no slice timing to account for.
+        return np.dot(plds[:, None], np.ones((1, n_voxels))).T, None
+
+    return plds, None
+
+
+def multipld_bolus(metadata, is_casl):
+    """Return the labeling duration (tau, for (P)CASL) and TI1 (for PASL) of multi-delay data.
+
+    Returns
+    -------
+    tau : :obj:`float`, :obj:`list`, or None
+    ti1 : :obj:`float` or None
+    """
+    tau = metadata['LabelingDuration'] if is_casl else None
+    ti1 = None
+    technique = metadata.get('BolusCutOffTechnique')
+    if technique == 'QUIPSSII':
+        # Only one BolusCutOffDelayTime allowed.
+        if not isinstance(metadata['BolusCutOffDelayTime'], Number):
+            raise ValueError(
+                f'Expected a single BolusCutOffDelayTime, but got '
+                f'{metadata["BolusCutOffDelayTime"]}'
+            )
+        ti1 = metadata['BolusCutOffDelayTime']
+    elif technique == 'Q2TIPS':
+        # Q2TIPS should have two BolusCutOffDelayTimes.
+        if len(metadata['BolusCutOffDelayTime']) != 2:
+            raise ValueError(
+                f'Expected two BolusCutOffDelayTimes, but got {metadata["BolusCutOffDelayTime"]}'
+            )
+        ti1 = metadata['BolusCutOffDelayTime'][0]
+    elif technique is not None:
+        raise ValueError(f'Unsupported BolusCutOffTechnique ({technique}) for multi-PLD data.')
+    return tau, ti1
 
 
 #: M0 below this fraction of its 98th percentile over the field of view is treated as absent.

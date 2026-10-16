@@ -103,20 +103,105 @@ def test_init_cbf_wf_no_pvc(tmp_path):
 @pytest.mark.parametrize(
     ('kwargs', 'message'),
     [
-        (
-            {'metadata': {**SINGLE_DELAY, 'PostLabelingDelay': [1.0, 1.5, 2.0]}},
-            'single-delay',
-        ),
         ({'processing_target': 'cbf'}, 'scanner-provided CBF'),
         ({'pvc_kernel_size': (5, 5, 3)}, 'single slice'),
+        (
+            {
+                'metadata': {**SINGLE_DELAY, 'PostLabelingDelay': [1.0, 1.5, 2.0]},
+                'pvc_kernel_size': (5, 5, 3),
+            },
+            'single slice',
+        ),
     ],
-    ids=['multi-delay', 'cbf-only', 'through-plane-slice-timing'],
+    ids=['cbf-only', 'through-plane-slice-timing', 'multi-delay-through-plane-slice-timing'],
 )
 def test_init_cbf_wf_lr_pvc_unsupported(tmp_path, kwargs, message):
-    """LR PVC refuses data it cannot model (spec Sections 5.1 and 5.5)."""
+    """LR PVC refuses data it cannot model (spec Sections 5.1, 5.5 and 5.7.1)."""
     reset_config()
     with mock_config(), pytest.raises(ValueError, match=message):
         _build_cbf_wf(tmp_path, **kwargs)
+
+
+MULTI_DELAY = {**SINGLE_DELAY, 'PostLabelingDelay': [1.0, 1.0, 1.5, 1.5, 2.0, 2.0]}
+
+
+def test_init_cbf_wf_lr_pvc_multidelay(tmp_path):
+    """Multi-delay data unmix each delta-M volume and fit each tissue (spec Section 5.7)."""
+    from aslprep.interfaces.pvc import MultiDelayLocalRegressionPVC
+
+    reset_config()
+    with mock_config():
+        wf = _build_cbf_wf(
+            tmp_path,
+            metadata=MULTI_DELAY,
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 6}),
+        )
+        lr_wf = wf.get_node('lr_pvc_wf')
+        node = lr_wf.get_node('lr_pvc')
+        assert isinstance(node.interface, MultiDelayLocalRegressionPVC)
+        assert lr_wf.get_node('lr_pvc_score') is None
+        to_pvc = _edges(wf, dst_name='lr_pvc_wf')
+        assert ('extract_deltam', 'out_file', 'lr_pvc_wf', 'inputnode.deltam') in to_pvc
+        assert ('extract_deltam', 'metadata', 'lr_pvc_wf', 'inputnode.asl_metadata') in to_pvc
+        assert ('compute_cbf', 'att', 'lr_pvc_wf', 'inputnode.att') in to_pvc
+        to_output = {
+            dst_field: src for src, _, dst, dst_field in _edges(wf, dst_name='outputnode')
+        }
+        for field in (
+            'mean_cbf_gm_lr',
+            'att_gm_lr',
+            'gm_att_valid_lr',
+            'att_wm_upper_lr',
+            'kinstatus_gm_lr',
+            'kinres_wm_lr',
+            'csf_kinres_lr',
+            'pvc_qc',
+        ):
+            assert to_output[field] == 'lr_pvc_wf', field
+        # No standard errors for multi-delay data
+        assert 'cbf_gm_se_lr' not in to_output
+        assert 'cbf_csf_se_lr' not in to_output
+        assert 'arterial transit time' in wf.visit_desc()
+
+
+def test_ds_pvc_native_wf_multidelay():
+    """Multi-delay native outputs include the kinetic maps and no standard errors."""
+    from aslprep.workflows.asl.outputs import init_ds_pvc_native_wf
+
+    reset_config()
+    with mock_config():
+        wf = init_ds_pvc_native_wf(
+            source_file='sub-01_asl.nii.gz',
+            output_dir='.',
+            sources=['mean_cbf'],
+            multi_delay=True,
+        )
+        names = wf.list_node_names()
+        for name in (
+            'ds_att_gm_lr',
+            'ds_att_gm_lower_lr',
+            'ds_kinstatus_wm_lr',
+            'ds_kinres_gm_lr',
+            'ds_csf_kinres_lr',
+            'ds_mean_cbf_gm_lr',
+        ):
+            assert name in names, name
+        assert not [n for n in names if '_se_' in n]
+        assert wf.get_node('ds_att_gm_lower_lr').inputs.desc == 'lrGMLower'
+        assert wf.get_node('ds_kinstatus_gm_lr').inputs.suffix == 'pvkinstatus'
+
+
+def test_lr_pvc_names_multidelay():
+    """Multi-delay names separate parcellated CBF maps from resampled-only ATT maps."""
+    from aslprep.workflows.asl.outputs import lr_pvc_names
+
+    names = lr_pvc_names('mean_cbf', multi_delay=True)
+    assert names['se'] == []
+    assert set(names['valid']) == {'mean_cbf_gm_lr', 'mean_cbf_wm_lr'}
+    assert set(names['att_valid']) == {'att_gm_lr', 'att_wm_lr'}
+    assert not set(names['valid']) & set(names['att_valid'])
+    with pytest.raises(ValueError, match='only applies to mean_cbf'):
+        lr_pvc_names('mean_cbf_score', multi_delay=True)
 
 
 def test_init_cbf_wf_lr_pvc_through_plane_3d(tmp_path):
@@ -149,6 +234,77 @@ def test_parcellate_cbf_wf_uses_validity_masks():
         assert masks['parcellate_mean_cbf_gm_lr'] == 'gm_valid_lr'
         assert wf.get_node('ds_coverage_mean_cbf_gm_lr') is not None
         assert wf.get_node('ds_mean_cbf_gm_lr').inputs.desc == 'lrGM'
+
+
+def _multidelay_dataset(tmp_path):
+    """Copy the mock dataset and give its ASL run three delays (each control/label pair one)."""
+    import json
+    import shutil
+
+    bids_dir = tmp_path / 'ds000240'
+    shutil.copytree(config.execution.bids_dir, bids_dir)
+    perf = bids_dir / 'sub-01' / 'perf'
+    context = (perf / 'sub-01_aslcontext.tsv').read_text().split()[1:]
+    delays, pair = [], 0
+    for kind in context:
+        if kind == 'm0scan':
+            delays.append(0)
+            continue
+        delays.append((1.0, 1.5, 2.0)[(pair // 2) % 3])
+        pair += 1
+    sidecar = json.loads((perf / 'sub-01_asl.json').read_text())
+    sidecar['PostLabelingDelay'] = delays
+    (perf / 'sub-01_asl.json').write_text(json.dumps(sidecar))
+    config.execution.bids_dir = bids_dir
+    config.execution.bids_database_dir = tmp_path / 'bids_db'
+    config.execution._layout = None
+    config.execution.layout = None
+    config.execution.init()
+
+
+def _stub_atlases_wf(name='load_atlases_wf'):
+    """Stand in for the atlas workflow, whose atlas datasets are not available in unit tests."""
+    from nipype.interfaces import utility as niu
+    from nipype.pipeline import engine as pe
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+
+    workflow = Workflow(name=name)
+    workflow.__desc__ = 'stub atlases.'
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['atlas_names', 'atlas_files', 'atlas_labels_files']),
+        name='outputnode',
+    )
+    workflow.add_nodes([outputnode])
+    return workflow
+
+
+def test_init_asl_wf_lr_pvc_multidelay(tmp_path, monkeypatch):
+    """The full workflow wires multi-delay PVC: ATT maps resampled, not parcellated (5.7.5)."""
+    from aslprep.workflows.asl import base
+
+    monkeypatch.setattr(base, 'init_load_atlases_wf', _stub_atlases_wf)
+    reset_config()
+    with mock_config():
+        _multidelay_dataset(tmp_path)
+        config.execution.atlases = ['4S156Parcels']
+        wf = _init_asl_wf('local-regression')
+        names = wf.list_node_names()
+        assert 'cbf_wf.lr_pvc_wf.lr_pvc' in names
+        assert 'ds_pvc_native_wf.ds_att_gm_lower_lr' in names
+        assert 'ds_pvc_native_wf.ds_kinres_wm_lr' in names
+        assert not [n for n in names if n.startswith('ds_pvc_native_wf') and '_se_' in n]
+        # Both CBF and ATT maps are resampled with normalization ...
+        assert 'ds_asl_std_wf.normalize_mean_cbf_gm_lr' in names
+        assert 'ds_asl_std_wf.normalize_att_wm_lr' in names
+        # ... but only CBF maps are parcellated.
+        assert 'parcellate_cbf_wf.parcellate_mean_cbf_gm_lr' in names
+        assert not [n for n in names if n.startswith('parcellate_cbf_wf') and 'att' in n]
+        qc_edges = [
+            e for e in _edges(wf, dst_name='cbf_confounds_wf') if e[3] == 'inputnode.pvc_qc'
+        ]
+        assert qc_edges
+        # Everything connected into the workflow exists on the source outputnode.
+        wf._create_flat_graph()
 
 
 def _init_asl_wf(pvc_method, level='full'):
@@ -212,12 +368,13 @@ def test_init_asl_wf_lr_pvc():
 def test_lr_pvc_derivative_filenames(tmp_path):
     """Every new output builds a valid path through ASLPrep's sink configuration."""
     from aslprep.interfaces.bids import DerivativesDataSink
-    from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS, LR_PVC_SOURCES, lr_pvc_names
+    from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS, LR_PVC_SOURCES, lr_pvc_native
 
     names = ['gm_pv', 'wm_pv', 'csf_pv']
     for source in LR_PVC_SOURCES:
-        lr_names = lr_pvc_names(source)
-        names += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics'] + lr_names['csf']
+        names += lr_pvc_native(source)
+    # Multi-delay outputs that single-delay data do not have
+    names += [name for name in lr_pvc_native('mean_cbf', multi_delay=True) if name not in names]
 
     in_file = tmp_path / 'in.nii.gz'
     nb.Nifti1Image(np.zeros((2, 2, 2), np.float32), np.eye(4)).to_filename(in_file)
@@ -245,4 +402,8 @@ def test_lr_pvc_derivative_filenames(tmp_path):
     assert 'sub-01_desc-lrCSF_cbf.nii.gz' in out_names
     assert 'sub-01_desc-lrCSF_pvstatus.nii.gz' in out_names
     assert 'sub-01_label-CSF_desc-psf_probseg.nii.gz' in out_names
+    assert 'sub-01_desc-lrGM_att.nii.gz' in out_names
+    assert 'sub-01_desc-lrWMUpper_att.nii.gz' in out_names
+    assert 'sub-01_desc-lrGM_pvkinstatus.nii.gz' in out_names
+    assert 'sub-01_desc-lrCSF_pvkinres.nii.gz' in out_names
     assert len(out_names) == len(names)

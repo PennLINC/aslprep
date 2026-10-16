@@ -282,7 +282,9 @@ rmse_lr:
   desc: lr
   suffix: pvrmse
   Description: >-
-    Root mean square residual of each local regression, in units of CBF times M0.
+    Root mean square residual of each local regression, in units of the regressed
+    signal: CBF times M0 for single-delay data, and delta-M (pooled over volumes)
+    for multi-delay data. A spatial-regression diagnostic only.
 
 mean_cbf_csf_lr:
   desc: lrCSF
@@ -393,7 +395,9 @@ rmse_lr_score:
   desc: scoreLR
   suffix: pvrmse
   Description: >-
-    Root mean square residual of each local regression, in units of CBF times M0.
+    Root mean square residual of each local regression, in units of the regressed
+    signal: CBF times M0 for single-delay data, and delta-M (pooled over volumes)
+    for multi-delay data. A spatial-regression diagnostic only.
 
 mean_cbf_csf_lr_score:
   desc: scoreLRCSF
@@ -433,3 +437,102 @@ csf_noise_lr_score:
   Description: >-
     Noise amplification of the CSF estimate: its standard error per unit of voxel
     noise, assuming independent noise.
+
+att_gm_lr:
+  desc: lrGM
+  suffix: att
+  Units: s
+  Description: >-
+    Gray matter arterial transit time from multi-delay local-regression partial volume
+    correction: the kinetic fit of the tissue curve unmixed at each delay. Written
+    only where that fit had positive CBF within its bounds; zero elsewhere. Check
+    the native-space bounds (desc-lrGMLower_att, desc-lrGMUpper_att) for identifiability.
+
+att_wm_lr:
+  desc: lrWM
+  suffix: att
+  Units: s
+  Description: >-
+    White matter arterial transit time from multi-delay local-regression partial volume
+    correction: the kinetic fit of the tissue curve unmixed at each delay. Written
+    only where that fit had positive CBF within its bounds; zero elsewhere. Check
+    the native-space bounds (desc-lrWMLower_att, desc-lrWMUpper_att) for identifiability.
+
+att_gm_lower_lr:
+  desc: lrGMLower
+  suffix: att
+  Units: s
+  Description: >-
+    Shortest gray matter arterial transit time that fits the tissue curve as well
+    as desc-lrGM. Valid in this (native) space only.
+
+att_gm_upper_lr:
+  desc: lrGMUpper
+  suffix: att
+  Units: s
+  Description: >-
+    Longest gray matter arterial transit time that fits the tissue curve as well as
+    desc-lrGM. Valid in this (native) space only.
+
+att_wm_lower_lr:
+  desc: lrWMLower
+  suffix: att
+  Units: s
+  Description: >-
+    Shortest white matter arterial transit time that fits the tissue curve as well
+    as desc-lrWM. Valid in this (native) space only.
+
+att_wm_upper_lr:
+  desc: lrWMUpper
+  suffix: att
+  Units: s
+  Description: >-
+    Longest white matter arterial transit time that fits the tissue curve as well
+    as desc-lrWM. Valid in this (native) space only.
+
+kinstatus_gm_lr:
+  desc: lrGM
+  suffix: pvkinstatus
+  Description: Outcome of the kinetic fit of the gray matter curve.
+  Levels:
+    '0': Not fitted (the spatial regression did not estimate this tissue).
+    '1': Fitted.
+    '2': 'CBF at its lower bound (0): no positive tissue signal; ATT undefined.'
+    '3': CBF at its upper bound; not written.
+    '4': Input not finite.
+
+kinstatus_wm_lr:
+  desc: lrWM
+  suffix: pvkinstatus
+  Description: Outcome of the kinetic fit of the white matter curve.
+  Levels:
+    '0': Not fitted (the spatial regression did not estimate this tissue).
+    '1': Fitted.
+    '2': 'CBF at its lower bound (0): no positive tissue signal; ATT undefined.'
+    '3': CBF at its upper bound; not written.
+    '4': Input not finite.
+
+kinres_gm_lr:
+  desc: lrGM
+  suffix: pvkinres
+  Description: >-
+    Relative residual of the kinetic fit of the gray matter curve (norm of the curve
+    minus the fitted model, divided by the norm of the curve). Large values point
+    at kinetics the single-ATT model does not describe, such as arterial contamination
+    or within-kernel ATT variation.
+
+kinres_wm_lr:
+  desc: lrWM
+  suffix: pvkinres
+  Description: >-
+    Relative residual of the kinetic fit of the white matter curve (norm of the curve
+    minus the fitted model, divided by the norm of the curve). Large values point
+    at kinetics the single-ATT model does not describe, such as arterial contamination
+    or within-kernel ATT variation.
+
+csf_kinres_lr:
+  desc: lrCSF
+  suffix: pvkinres
+  Description: >-
+    Relative residual of the CSF curve against the scaled uncorrected kinetic curve
+    used for the multi-delay CSF quality-control projection (desc-lrCSF_cbf).

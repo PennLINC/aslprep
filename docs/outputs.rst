@@ -468,7 +468,7 @@ Keep the following in mind:
 - There is no standard deviation map for the arterial blood volume,
   because ``oxford_asl`` does not write its variance.
 
-If ``--pvc-method local-regression`` is used (single-delay data only)::
+If ``--pvc-method local-regression`` is used with single-delay data::
 
    sub-<label>/[ses-<label>/]
       perf/
@@ -491,6 +491,28 @@ If ``--pvc-method local-regression`` is used (single-delay data only)::
 
 With ``--scorescrub``, the same correction is applied to the SCORE map,
 with ``desc-scoreLR`` in place of ``desc-lr``.
+
+With multi-delay data, the outputs are::
+
+   sub-<label>/[ses-<label>/]
+      perf/
+         <source_entities>[_space-<label>]_desc-lrGM_cbf.nii.gz  # GM CBF after local-regression PVC
+         <source_entities>[_space-<label>]_desc-lrWM_cbf.nii.gz  # WM CBF after local-regression PVC
+         <source_entities>[_space-<label>]_desc-lrGM_att.nii.gz  # GM arterial transit time
+         <source_entities>[_space-<label>]_desc-lrWM_att.nii.gz  # WM arterial transit time
+         <source_entities>_desc-lrGMLower_att.nii.gz  # shortest GM ATT that fits as well (aslref only)
+         <source_entities>_desc-lrGMUpper_att.nii.gz  # longest GM ATT that fits as well (aslref only)
+         <source_entities>_desc-lrWMLower_att.nii.gz  # shortest WM ATT that fits as well (aslref only)
+         <source_entities>_desc-lrWMUpper_att.nii.gz  # longest WM ATT that fits as well (aslref only)
+         <source_entities>_desc-lrGM_pvkinstatus.nii.gz  # GM kinetic fit status (aslref only)
+         <source_entities>_desc-lrWM_pvkinstatus.nii.gz  # WM kinetic fit status (aslref only)
+         <source_entities>_desc-lrGM_pvkinres.nii.gz  # GM kinetic fit residual (aslref only)
+         <source_entities>_desc-lrWM_pvkinres.nii.gz  # WM kinetic fit residual (aslref only)
+         <source_entities>_desc-lrCSF_cbf.nii.gz  # signed apparent CSF CBF, for QC (aslref only)
+         <source_entities>_desc-lrCSF_pvkinres.nii.gz  # residual of the CSF projection (aslref only)
+
+plus the spatial-regression diagnostics and partial volume maps listed above.
+No standard error maps are written for multi-delay data.
 
 .. _lr_pvc_outputs:
 
@@ -545,6 +567,26 @@ additional analysis, not a replacement :footcite:p:`chappell2021partial`.
   neighbors' values.
 - With slice-timed (2D multi-slice) data, the kernel must span a single slice,
   because the tissue signal depends on each slice's delay.
+
+With multi-delay data, the regression is applied to the delta-M of every volume, with one design
+for all volumes, which gives a gray matter and a white matter curve across the delays.
+Each curve is then fit with the same general kinetic model as the uncorrected data,
+calibrated by the voxel's M0, giving tissue CBF and ATT.
+
+- The tissue CBF is non-negative, as for the uncorrected multi-delay fit. Its upper bound is
+  raised to 1000 mL/100 g/min, because a tissue's signal calibrated by the voxel's mixed M0 can
+  exceed physiological values; ``desc-lr*_pvkinstatus`` flags estimates at either bound.
+- Tissue ATT is written only where the tissue's CBF is positive. As for the uncorrected ATT,
+  check its bounds (``desc-lr*Lower_att``, ``desc-lr*Upper_att``): where a range of ATT fits
+  equally well, for example when ATT is shorter than every delay, the middle of the range is
+  reported.
+- The unmixing assumes each tissue's signal, including its arrival time, is the same throughout
+  the kernel. Arterial (macrovascular) signal does not follow the tissue maps: the kinetic fit's
+  arterial term absorbs some of it, but it can bias the tissue estimates, in either direction.
+  ``desc-lr*_pvkinres`` is the relative residual of each tissue's kinetic fit, and is the
+  diagnostic for these problems; the spatial residual (``desc-lr_pvrmse``) cannot detect them.
+- ``desc-lrCSF_cbf`` is the signed projection of the CSF curve onto the voxel's uncorrected
+  kinetic curve, scaled by the uncorrected CBF. Like the single-delay map, it should be near zero.
 
 .. _effective_resolution:
 

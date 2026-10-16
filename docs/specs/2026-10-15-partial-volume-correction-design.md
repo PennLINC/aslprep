@@ -722,8 +722,9 @@ rules and diagnostics, and a regression-based estimate to compare with BASIL.
   amplitude** f_t · M0_t / m̄_c. That is the §5.1 convention, and it matches how the uncorrected
   multi-delay CBF is calibrated (verified in review: `ComputeCBF` scales M0, corrects short TR,
   applies `zero_low_m0`, and the fit divides by M0/λ). It is not tissue-M0 physiological CBF.
-- **Bounds.** `fit_deltam_multipld` gains an optional `bounds` argument; the default stays
-  `MULTIPLD_BOUNDS`.
+- **Bounds.** `fit_deltam_multipld` gains an optional `cbf_max` argument; the default stays
+  `MULTIPLD_BOUNDS`. Only the CBF ceiling needs to change, and it enters only through the box
+  solver, so a general `bounds` argument was not needed.
   - Tissue fits use a CBF upper bound of 1000 instead of 300. A coefficient calibrated by mixed
     M0 can exceed 300, and in review clipping at 300 distorted ATT and manufactured an arterial
     component (an effective CBF of 360 came back as 300, with ATT 0.887 s and aBV 0.015).
