@@ -161,11 +161,10 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
     wm_bin = wm >= thresh
     csf_bin = csf >= thresh
 
-    # get the total number of voxle within csf,gm and wm
-    n_gm_voxels = np.sum(gm_bin) - 1
-    n_wm_voxels = np.sum(wm_bin) - 1
-    n_csf_voxels = np.sum(csf_bin) - 1
     mask1 = gm_bin + wm_bin + csf_bin
+    # Tissue classes with fewer than two voxels have no within-tissue variance,
+    # so they are left out of the pooled variance (as in OSIPI's SCORE_denoising.m)
+    tissue_masks = [tissue_bin for tissue_bin in (gm_bin, wm_bin, csf_bin) if tissue_bin.sum() > 1]
 
     # mean  of times series cbf within greymatter
     gm_cbf_ts = np.squeeze(np.mean(cbfts[gm_bin, :], axis=0))
@@ -177,36 +176,37 @@ def _getcbfscore(cbfts, wm, gm, csf, mask, thresh=0.7):
 
     def _pooled_variance(R):
         # Pooled within-tissue variance of the mean CBF map
-        return (
-            n_gm_voxels * np.var(R[gm_bin])
-            + n_wm_voxels * np.var(R[wm_bin])
-            + n_csf_voxels * np.var(R[csf_bin])
-        )
+        return sum((tissue_bin.sum() - 1) * np.var(R[tissue_bin]) for tissue_bin in tissue_masks)
 
     # Iteratively remove the volume most correlated with the mean CBF map,
     # for as long as doing so lowers the pooled within-tissue variance.
     R = np.mean(cbfts[:, :, :, index == 0], axis=3)
     V = _pooled_variance(R)
-    V_prev = np.inf
-    inx = None
-    while V < V_prev and np.sum(index == 0) > 2:
-        V_prev = V
-        CC = np.full(cbfts.shape[3], -2.0)
+    while np.sum(index == 0) > 2:
+        CC = np.full(cbfts.shape[3], np.nan)
         for s in range(cbfts.shape[3]):
             if index[s] != 0:
                 continue
 
             tmp1 = cbfts[:, :, :, s]
-            CC[s] = np.corrcoef(R[mask1 > 0], tmp1[mask1 > 0])[0][1]
+            with np.errstate(divide='ignore', invalid='ignore'):
+                CC[s] = np.corrcoef(R[mask1 > 0], tmp1[mask1 > 0])[0][1]
 
-        inx = np.argmax(CC)
+        # A volume that is constant within the tissue mask has an undefined correlation,
+        # so it is never the most correlated one (MATLAB's max skips NaNs too)
+        if np.all(np.isnan(CC)):
+            break
+
+        inx = np.nanargmax(CC)
         index[inx] = 2
         R = np.mean(cbfts[:, :, :, index == 0], axis=3)
-        V = _pooled_variance(R)
+        V_new = _pooled_variance(R)
+        if not V_new < V:
+            # The removal did not lower the variance, so undo it
+            index[inx] = 0
+            break
 
-    if inx is not None and not V < V_prev:
-        # The last removal did not lower the variance, so undo it
-        index[inx] = 0
+        V = V_new
 
     config.loggers.utils.warning(f'SCORE retains {np.sum(index == 0)}/{index.size} volumes')
     cbfts_recon = cbfts[:, :, :, index == 0]
