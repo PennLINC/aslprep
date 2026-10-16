@@ -118,6 +118,18 @@ def test_box_gaussian_sigma_box_only():
         pvc.solve_box_gaussian_sigma(3.0, 4.0)
 
 
+def test_box_gaussian_sigma_float32_voxel_size():
+    """A nominal FWHM from float32 zooms equals a box width from the affine's column norms.
+
+    ds004146 (1.71875 mm voxels) has zooms of 1.71875 and an affine column norm of
+    1.7187500238...; the nominal resolution must still be the box alone.
+    """
+    affine_width = 1.7187500238949662
+    zoom = float(np.float32(1.71875))
+    assert zoom < affine_width
+    assert pvc.solve_box_gaussian_sigma(zoom, affine_width) == 0
+
+
 @pytest.mark.parametrize('relative_fwhm', [1.0, 1.1, 1.38, 2.95])
 def test_discrete_kernel_matches_continuous(relative_fwhm):
     """The bin-integrated kernel matches the continuous kernel averaged over each bin."""

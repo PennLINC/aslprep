@@ -36,6 +36,8 @@ PVC_STATUS = {
 }
 
 _FWHM_TO_SIGMA = 1 / (2 * np.sqrt(2 * np.log(2)))
+#: Relative tolerance for an FWHM equal to the box width (float32 precision of voxel sizes).
+_WIDTH_RTOL = 1e-6
 
 
 def get_slice_axis(metadata):
@@ -293,9 +295,11 @@ def solve_box_gaussian_sigma(fwhm, width):
     :obj:`float`
         The Gaussian sigma, in the units of ``width``. Zero when ``fwhm`` equals ``width``.
     """
-    if fwhm < width - 1e-9 * width:
+    # Voxel sizes come from float32 header zooms or from affine column norms, which can differ
+    # by float32 rounding (~1e-7 relative), so "equal" is judged at that precision.
+    if fwhm < width * (1 - _WIDTH_RTOL):
         raise ValueError(f'FWHM ({fwhm}) must be at least the box width ({width}).')
-    if fwhm <= width * (1 + 1e-9):
+    if fwhm <= width * (1 + _WIDTH_RTOL):
         return 0.0
 
     # The FWHM increases monotonically with sigma, from the box width up.
