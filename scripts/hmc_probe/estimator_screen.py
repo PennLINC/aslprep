@@ -42,6 +42,8 @@ def family(label):
 
 
 def screen(df):
+    # Downstream-policy runs (``-d0``/``-d1``) belong to the policy screen, not to this one.
+    df = df[~df.label.str.endswith(('-d0', '-d1'))]
     df = df[df.label.map(family).notna()].copy()
     df['family'] = df.label.map(family)
     fixtures = sorted(set(df.query("label == 'c0'").fixture))
