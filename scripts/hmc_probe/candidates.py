@@ -1114,6 +1114,43 @@ def run_c6(inputs, work, **options):
     }
 
 
+def run_oracle(inputs, work, **options):
+    """Diagnostic, simulation only: the true poses as the HMC transforms (Task 7, metric 5).
+
+    The transforms are the simulator's poses ``P_v`` (a pull from a reference that depicts the
+    static phantom to each volume), read from the fixture's ground truth, and the reference is
+    the mean of the processing-target volumes corrected with them, so it depicts the static
+    frame. A full ASLPrep run given these products is the target for the CBF comparison. Never
+    a candidate: it reads the truth.
+    """
+    from harness import resample_series
+
+    from aslprep.tests.truth_scoring import Fixture
+
+    target, idx, types = _kept(inputs)
+    asl = Path(inputs['asl_file'])
+    fixture = Fixture(asl.parents[2], asl.name.split('_acq-')[1].split('_')[0])
+    pulls = fixture.poses()[idx]
+    img = nb.load(asl)
+    grid = _save(np.asanyarray(img.dataobj, np.float32)[..., 0], img, work / 'grid.nii.gz')
+    sel = [k for k, t in enumerate(types) if t == target]
+    corrected = resample_series(str(asl), [idx[k] for k in sel], pulls[sel], grid)
+    aslref = _save(np.asanyarray(corrected.dataobj).mean(-1), img, work / 'aslref.nii.gz')
+    ctx_file = work / 'hmc_aslcontext.tsv'
+    pd.DataFrame({'volume_type': types}).to_csv(ctx_file, sep='\t', index=False)
+    return {
+        'aslref': str(aslref),
+        'xforms': str(_write_itk(work / 'hmc_xfms.txt', pulls)),
+        'aslcontext': str(ctx_file),
+        'indices': idx,
+        'reference_type': f'oracle: mean {target} corrected with the true poses',
+        'reference_volumes': [idx[k] for k in sel],
+        'reference_frame_kind': 'corrected',
+        'processing_target': target,
+        'use_ge': None,
+    }
+
+
 def run_fixvol(inputs, work, **options):
     """Comparator (#513): every kept volume registered by MCFLIRT to one acquired raw volume.
 
@@ -1190,6 +1227,7 @@ def run_perfref(inputs, work, **options):
 CANDIDATES = {
     'c5': run_c5,
     'c6': run_c6,
+    'oracle': run_oracle,
     'c1': run_c1,
     'c2': run_c2,
     'c3': run_c3,

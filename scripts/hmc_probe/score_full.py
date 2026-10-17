@@ -65,7 +65,9 @@ def _transform_error(est_pull, truth_pull, points):
     }
 
 
-def score_full(fixture_dir, aslprep_dir):
+def score_full(fixture_dir, aslprep_dir, hmc_file=None):
+    """``hmc_file``: the HMC transforms, when the run was given them as precomputed derivatives
+    (Task 7's injected runs; ASLPrep writes no HMC transform it did not compute)."""
     fixture_dir, aslprep_dir = Path(fixture_dir), Path(aslprep_dir)
     asl = next((fixture_dir / 'sub-01' / 'perf').glob('*_asl.nii.gz'))
     acq = asl.name.split('_acq-')[1].split('_')[0]
@@ -74,7 +76,8 @@ def score_full(fixture_dir, aslprep_dir):
     out = {'score_full_version': SCORE_FULL_VERSION, 'fixture': str(fixture_dir)}
     _, points = fixture.voxel_centers(fixture.brain)
 
-    hmc_file = _xfm(perf, f'sub-01_acq-{acq}_from-orig_to-aslref*_xfm.txt')
+    if hmc_file is None:
+        hmc_file = _xfm(perf, f'sub-01_acq-{acq}_from-orig_to-aslref*_xfm.txt')
     if hmc_file is None:
         return {**out, 'problems': ['no HMC transform']}
     hmc = _load_series(hmc_file)
@@ -174,8 +177,9 @@ def main(argv=None):
     parser.add_argument('--fixture', type=Path, required=True)
     parser.add_argument('--aslprep', type=Path, required=True)
     parser.add_argument('--out', type=Path)
+    parser.add_argument('--hmc', type=Path, help='HMC transforms given to the run, if injected.')
     args = parser.parse_args(argv)
-    text = json.dumps(score_full(args.fixture, args.aslprep), indent=2, default=float)
+    text = json.dumps(score_full(args.fixture, args.aslprep, args.hmc), indent=2, default=float)
     if args.out:
         args.out.write_text(text + '\n')
     else:

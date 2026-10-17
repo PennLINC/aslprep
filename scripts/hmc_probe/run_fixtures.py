@@ -51,6 +51,11 @@ def run_one(name, args):
         (license_file, '/license.txt', 'ro'),
     ):
         cmd += ['-v', f'{host}:{container}:{mode}']
+    hmc = (args.hmc_derivs / name).resolve() if args.hmc_derivs else None
+    if hmc is not None:
+        if not hmc.exists():
+            return name, 'no injected HMC derivatives'
+        cmd += ['-v', f'{hmc}:/hmcderiv:ro']
     cmd += [IMAGE, '/data', '/out', 'participant', '--participant-label', '01', '-w', '/work']
     cmd += ['--fs-license-file', '/license.txt', '--fs-no-reconall', '--notrack']
     # The image's legacy validator rejects the probe's BIDS fieldmaps (*_fieldmap with
@@ -59,7 +64,19 @@ def run_one(name, args):
     cmd += ['--output-spaces', 'asl', 'T1w', '--smooth_kernel', '5']
     cmd += ['--nprocs', str(args.nprocs), '--omp-nthreads', str(args.nprocs)]
     cmd += ['--mem', str(args.mem_mb)]
-    if (fixture / 'derivatives' / 'anat').exists():
+    if hmc is not None:
+        # One dataset holds the anatomical derivatives and the injected HMC products, and it must
+        # be collected last: each derivatives dataset's functional cache replaces the
+        # ``transforms`` entry, and ASLPrep appends its atlas datasets after the user's (cli/
+        # parser.py), so by default they wipe any precomputed transform. Naming them first keeps
+        # them out of the way (the parser only adds them when absent).
+        cmd += [
+            '--derivatives',
+            'aslprepatlases=/home/aslprep/.cache/aslprep/XCPDAtlases',
+            'aslprep4s=/home/aslprep/.cache/aslprep/AtlasPack',
+            'anat=/hmcderiv',
+        ]
+    elif (fixture / 'derivatives' / 'anat').exists():
         cmd += ['--derivatives', 'anat=/data/derivatives/anat']
     divisor = float(truth.get('m0_divisor', 1.0))
     if divisor != 1:
@@ -103,6 +120,11 @@ def main(argv=None):
     parser.add_argument('--mem-mb', type=int, default=7000)
     parser.add_argument('--rerun', action='store_true')
     parser.add_argument('--keep-work', action='store_true')
+    parser.add_argument(
+        '--hmc-derivs',
+        type=Path,
+        help='Task 7: <dir>/<fixture> holds injected HMC derivatives (inject_hmc.py).',
+    )
     args = parser.parse_args(argv)
     args.out = args.out.resolve()
     args.src = args.src.resolve()
