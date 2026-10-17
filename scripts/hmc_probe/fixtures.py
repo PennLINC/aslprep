@@ -30,6 +30,7 @@ Usage::
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import sys
 import tomllib
@@ -46,7 +47,13 @@ from aslprep.tests import aslscan_fixtures as af  # noqa: E402
 from aslprep.tests import truth_geometry as tg  # noqa: E402
 
 RECIPES_DIR = HERE / 'recipes'
-BINARY = Path.home() / 'aslscan-build' / 'target' / 'release' / 'aslscan'
+#: The aslscan binary: the pinned CI build, unless ``ASLSCAN_BINARY`` names another (``st_spiral``
+#: needs a newer build, for spiral gridding reconstruction). The fixture manifest records which.
+BINARY = Path(
+    os.environ.get(
+        'ASLSCAN_BINARY', Path.home() / 'aslscan-build' / 'target' / 'release' / 'aslscan'
+    )
+)
 
 #: Probe phantoms: base phantom plus a B0 map, as (centre in MNI mm, sigma in mm, peak Hz).
 B0_BLOBS = (
@@ -54,7 +61,32 @@ B0_BLOBS = (
     ((-45.0, 0.0, -35.0), 12.0, -80.0),  # left temporal lobe (ear canal)
     ((45.0, 0.0, -35.0), 12.0, -80.0),  # right temporal lobe
 )
-PROBE_PHANTOMS = {'tfmni-b0': {'base': 'tfmni', 'b0_blobs': B0_BLOBS}}
+#: Arterial segments for the macrovascular stress phantom, as (start, end) in MNI mm and a
+#: radius in mm: the M1 segments of both middle cerebral arteries, the proximal anterior cerebral
+#: arteries and their pericallosal course, and the P2 segments of the posterior cerebral arteries.
+VESSELS = (
+    ((-18.0, 4.0, -16.0), (-44.0, -2.0, -8.0), 2.5),
+    ((18.0, 4.0, -16.0), (44.0, -2.0, -8.0), 2.5),
+    ((-4.0, 14.0, -12.0), (0.0, 30.0, 18.0), 2.0),
+    ((0.0, 30.0, 18.0), (0.0, -10.0, 34.0), 1.5),
+    ((-10.0, -30.0, -14.0), (-26.0, -68.0, 0.0), 2.0),
+    ((10.0, -30.0, -14.0), (26.0, -68.0, 0.0), 2.0),
+)
+#: Peak arterial blood volume fraction on a vessel's axis, and the arterial transit time (s)
+#: there. Label is in the arteries only while aatt < t < aatt + tau; with rc_pcasl's 1.8 s label,
+#: 1.8 s delay and 2D slices read 0-1.14 s later (t = 3.6-4.74 s), aatt must lie in 2.94-3.6 s:
+#: a very slow-flow case (stenosis, older subjects), chosen so every slice shows the vessels.
+VESSEL_ABV_PEAK = 0.3
+VESSEL_AATT_S = 3.0
+#: A territory with no perfusion: a sphere (MNI mm centre, radius mm) over the left middle
+#: cerebral artery territory.
+NO_PERFUSION = ((-40.0, -20.0, 20.0), 30.0)
+PROBE_PHANTOMS = {
+    'tfmni-b0': {'base': 'tfmni', 'b0_blobs': B0_BLOBS},
+    # Task 4 stress phantoms for the D3 perfusion image (plan: "Stress cases").
+    'tfmni-b0-vessels': {'base': 'tfmni-b0', 'vessels': VESSELS},
+    'tfmni-b0-noperf': {'base': 'tfmni-b0', 'no_perfusion': NO_PERFUSION},
+}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -67,9 +99,24 @@ _orig_phantom_digest = af.phantom_digest
 def _phantom_digest(name):
     if name in PROBE_PHANTOMS:
         spec = PROBE_PHANTOMS[name]
-        text = json.dumps({'base': _orig_phantom_digest(spec['base']), 'b0': spec['b0_blobs']})
+        if set(spec) == {'base', 'b0_blobs'}:  # the original form, so existing fixtures stay valid
+            text = json.dumps({'base': _orig_phantom_digest(spec['base']), 'b0': spec['b0_blobs']})
+            return hashlib.sha256(text.encode()).hexdigest()
+        mods = {k: v for k, v in spec.items() if k != 'base'}
+        if 'vessels' in spec:
+            # Revision 2: arteries confined to the tissue labels (aslscan refuses background blood).
+            mods['vessel_profile'] = [VESSEL_ABV_PEAK, VESSEL_AATT_S, 'rev3']
+        text = json.dumps({'base': _phantom_digest(spec['base']), 'mods': mods})
         return hashlib.sha256(text.encode()).hexdigest()
     return _orig_phantom_digest(name)
+
+
+def _segment_distance(xyz, p0, p1):
+    """Distance (mm) from each point to the segment p0-p1."""
+    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
+    d = p1 - p0
+    t = np.clip(((xyz - p0) @ d) / (d @ d), 0.0, 1.0)
+    return np.linalg.norm(xyz - (p0 + t[:, None] * d), axis=1)
 
 
 def _build_phantom(name, data_dir):
@@ -81,18 +128,45 @@ def _build_phantom(name, data_dir):
     prov = out / 'provenance.json'
     if prov.exists() and json.loads(prov.read_text()).get('digest') == digest:
         return out
-    base = _orig_build_phantom(spec['base'], data_dir)
+    base = _build_phantom(spec['base'], data_dir)  # a probe phantom may build on another
     shutil.rmtree(out, ignore_errors=True)
     shutil.copytree(base, out)
+    (out / 'provenance.json').unlink(missing_ok=True)
     img = nb.load(out / 'dseg.nii.gz')
     ijk = np.indices(img.shape).reshape(3, -1).T
     xyz = tg.apply_points(img.affine, ijk)
-    field = np.zeros(len(xyz), np.float32)
-    for centre, sigma, peak in spec['b0_blobs']:
-        d2 = ((xyz - np.asarray(centre)) ** 2).sum(axis=1)
-        field += peak * np.exp(-d2 / (2 * sigma**2))
-    nb.Nifti1Image(field.reshape(img.shape), img.affine).to_filename(out / 'fieldmap.nii.gz')
-    (out / 'fieldmap.json').write_text(json.dumps({'Units': 'Hz'}) + '\n')
+    if 'b0_blobs' in spec:
+        field = np.zeros(len(xyz), np.float32)
+        for centre, sigma, peak in spec['b0_blobs']:
+            d2 = ((xyz - np.asarray(centre)) ** 2).sum(axis=1)
+            field += peak * np.exp(-d2 / (2 * sigma**2))
+        nb.Nifti1Image(field.reshape(img.shape), img.affine).to_filename(out / 'fieldmap.nii.gz')
+        (out / 'fieldmap.json').write_text(json.dumps({'Units': 'Hz'}) + '\n')
+    if 'vessels' in spec:
+        # Arterial blood volume: a Gaussian profile across each vessel (sigma = radius), the
+        # largest over vessels; aslscan switches its arterial compartment on from these maps.
+        abv = np.zeros(len(xyz), np.float32)
+        for p0, p1, radius in spec['vessels']:
+            dist = _segment_distance(xyz, p0, p1)
+            abv = np.maximum(abv, VESSEL_ABV_PEAK * np.exp(-(dist**2) / (2 * radius**2)))
+        abv[abv < 1e-3] = 0.0
+        # aslscan refuses blood in background voxels: keep the arteries inside the tissue labels.
+        abv[np.asanyarray(img.dataobj).ravel() == 0] = 0.0
+        aatt = np.full(len(xyz), VESSEL_AATT_S, np.float32)
+        for fname, data, units in (('abv', abv, 'fraction'), ('aatt', aatt, 's')):
+            nb.Nifti1Image(data.reshape(img.shape), img.affine).to_filename(
+                out / f'{fname}.nii.gz'
+            )
+            (out / f'{fname}.json').write_text(json.dumps({'Units': units}) + '\n')
+    if 'no_perfusion' in spec:
+        centre, radius = spec['no_perfusion']
+        perf_img = nb.load(out / 'perfusion.nii.gz')
+        perf = np.asanyarray(perf_img.dataobj, np.float32).copy()
+        inside = (((xyz - np.asarray(centre)) ** 2).sum(axis=1) <= radius**2).reshape(img.shape)
+        perf[inside] = 0.0
+        nb.Nifti1Image(perf, perf_img.affine, perf_img.header).to_filename(
+            out / 'perfusion.nii.gz'
+        )
     prov.write_text(json.dumps({'name': name, 'digest': digest, 'base': spec['base']}) + '\n')
     return out
 
@@ -102,6 +176,13 @@ def use_probe_recipes():
     af.RECIPES = af._discover_recipes()
     af.build_phantom = _build_phantom
     af.phantom_digest = _phantom_digest
+    if 'ASLSCAN_BINARY' in os.environ:
+        # An explicitly named, non-pinned build: accept the revisions its own provenance record
+        # states (check_aslscan still verifies the binary's hash), so the fixture's manifest
+        # records the build that actually made it.
+        stamp = json.loads((BINARY.parent / af.STAMP_NAME).read_text())
+        keys = ('aslscan', 'mrsim-acq', 'toolchain', 'features', 'cargo_lock')
+        af._expected_stamp = lambda: {k: stamp[k] for k in keys}
 
 
 # ---------------------------------------------------------------------------------------------
