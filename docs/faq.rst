@@ -47,6 +47,12 @@ Unsupported data
 The following kinds of ASL data are *not* supported by *ASLPrep*.
 Other tools that can process them are listed where we know of one.
 
+.. warning::
+
+   This list, and the tools listed for each kind of data, may be out of date.
+   *ASLPrep* and the other tools add support for new kinds of ASL data over time,
+   so check each tool's documentation before choosing one.
+
 -  **Multi-echo (multi-TE) ASL**, which is used to estimate water exchange across
    the blood-brain barrier.
    *ASLPrep* does not model the echo time,
@@ -77,6 +83,9 @@ Other tools that can process them are listed where we know of one.
 
 If you have a kind of ASL data that is not listed here,
 please `open an issue <https://github.com/PennLINC/aslprep/issues>`_ to ask about it.
+If you would like *ASLPrep* to support a new kind of ASL data,
+we will probably ask you to share example data,
+since we need data of that kind to develop and test the new feature.
 
 
 .. _upgrading:
