@@ -72,6 +72,19 @@ class NiftiParcellate(SimpleInterface):
         atlas_values = atlas_values.astype(int)
         masker_lut = masker_lut.loc[masker_lut['index'].isin(atlas_values)].reset_index(drop=True)
 
+        if not np.any(nb.load(mask).get_fdata()):
+            # Nothing was estimated (possible for maps with their own validity masks, such as
+            # partial-volume corrected CBF). Nilearn rejects empty masks, so write the outputs
+            # directly: no parcel has coverage or a value.
+            LOGGER.warning(f'The mask {mask} is empty, so every parcel has 0% coverage.')
+            self._write_outputs(
+                runtime,
+                timeseries_arr=np.full((1, len(node_labels)), np.nan),
+                parcel_coverage=np.zeros(len(node_labels)),
+                node_labels=node_labels,
+            )
+            return runtime
+
         # Before anything, we need to measure coverage
         atlas_img_bin = nb.Nifti1Image(
             (atlas_img.get_fdata() > 0).astype(np.uint8),
@@ -197,6 +210,10 @@ class NiftiParcellate(SimpleInterface):
             del new_parcel_coverage
             gc.collect()
 
+        self._write_outputs(runtime, timeseries_arr, parcel_coverage, node_labels)
+        return runtime
+
+    def _write_outputs(self, runtime, timeseries_arr, parcel_coverage, node_labels):
         # The time series file is tab-delimited, with node names included in the first row.
         self._results['timeseries'] = fname_presuffix(
             'timeseries.tsv',
@@ -218,5 +235,3 @@ class NiftiParcellate(SimpleInterface):
             use_ext=True,
         )
         coverage_df.to_csv(self._results['coverage'], sep='\t', na_rep='n/a', index_label='Node')
-
-        return runtime

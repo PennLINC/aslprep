@@ -22,9 +22,18 @@ def f1_run(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         spaces=('asl', 'T1w', 'MNI152NLin2009cAsym'),
-        extra_args=('--scorescrub', '--basil', '--atlases', '4S156Parcels', '4S1056Parcels'),
+        extra_args=(
+            '--scorescrub',
+            '--basil',
+            '--pvc-method',
+            'local-regression',
+            '--atlases',
+            '4S156Parcels',
+            '4S1056Parcels',
+        ),
         score_spaces=('T1w', 'MNI152NLin2009cAsym'),
         extra_cbf=('basil', 'score', 'scrub'),
+        lr_pvc=True,
     )
 
 
@@ -40,6 +49,13 @@ globals().update(
             ('native', 'tier_a', 'edge', 'median'),
             ('native', 'hmc_deltam', 'p95_abs_dev'),
             ('frames', 'motion', 'rms_error_max_mm'),
+            # Local-regression PVC (PVC design spec Section 7.2(b)), report-only until measured
+            ('lr_pvc', 'GM', 'median'),
+            ('lr_pvc', 'WM', 'median'),
+            ('lr_pvc', 'GM', 'pv_map_median_abs_error'),
+            ('lr_pvc', 'GM', 'median_minus_basil'),
+            ('lr_pvc', 'status_share', '1'),
+            ('lr_pvc', 'CSF', 'median'),
         ],
     )
 )

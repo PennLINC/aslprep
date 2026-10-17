@@ -186,6 +186,44 @@ class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
         mandatory=False,
         desc='RMSD file. Will not be defined for GE data.',
     )
+    pvc_qc = traits.Dict(
+        mandatory=False,
+        desc=(
+            'Scalar quality-control measures from local-regression partial volume correction. '
+            'Only defined when it ran.'
+        ),
+    )
+
+
+#: Sidecar metadata of the local-regression PVC quality-control measures.
+PVC_QC_METADATA = {
+    'lr_csf_cbf_median': {
+        'LongName': 'Median Apparent CSF Cerebral Blood Flow (Local-Regression PVC)',
+        'Description': (
+            'Median apparent CSF CBF from the local-regression quality-control fit, over voxels '
+            'that are at least 50% CSF and where it was estimated. CSF has no perfusion, so '
+            'values far from zero suggest partial volume map errors (segmentation, registration '
+            'or effective resolution), macrovascular or choroid plexus signal, or model error.'
+        ),
+        'Units': 'mL/100 g/min',
+    },
+    'lr_csf_cbf_iqr': {
+        'LongName': 'Interquartile Range of Apparent CSF Cerebral Blood Flow',
+        'Description': 'Interquartile range of the values summarized by lr_csf_cbf_median.',
+        'Units': 'mL/100 g/min',
+    },
+    'lr_csf_n_voxels': {
+        'LongName': 'Number of Voxels in the Apparent CSF CBF Summary',
+        'Description': 'Number of voxels summarized by lr_csf_cbf_median.',
+    },
+    'lr_fraction_two_tissue': {
+        'LongName': 'Fraction of Brain Voxels with a Two-Tissue Local-Regression Fit',
+        'Description': (
+            'Fraction of brain voxels where local-regression partial volume correction fit '
+            'both gray and white matter.'
+        ),
+    },
+}
 
 
 class _ComputeCBFQCOutputSpec(TraitedSpec):
@@ -854,6 +892,11 @@ class ComputeCBFQC(SimpleInterface):
                     },
                 }
             )
+
+        if isdefined(self.inputs.pvc_qc):
+            for key, value in self.inputs.pvc_qc.items():
+                metrics_dict[key] = [value]
+                qc_metadata[key] = PVC_QC_METADATA.get(key, {})
 
         # Extract entities from the input file.
         # Useful for identifying ASL files after concatenating the QC files across runs.

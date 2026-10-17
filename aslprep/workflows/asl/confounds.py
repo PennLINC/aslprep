@@ -485,6 +485,7 @@ def init_carpetplot_wf(
 def init_cbf_confounds_wf(
     scorescrub=False,
     basil=False,
+    lr_pvc=False,
     name='cbf_confounds_wf',
 ):
     """Create a workflow for :abbr:`dolui2024automated (compute cbf)`.
@@ -508,6 +509,9 @@ def init_cbf_confounds_wf(
     ----------
     scorescrub : bool
     basil : bool
+    lr_pvc : bool
+        Whether local-regression PVC ran. If so, its scalar QC measures (``pvc_qc``) are added
+        to the QC file.
     name : :obj:`str`
         Name of workflow (default: "cbf_qc_wf")
 
@@ -564,6 +568,8 @@ negative CBF values.
                 'mean_cbf_basil',
                 'mean_cbf_gm_basil',
                 'mean_cbf_wm_basil',
+                # Local-regression PVC quality-control measures (a dict)
+                'pvc_qc',
                 # non-GE inputs
                 'confounds_file',
             ],
@@ -715,6 +721,9 @@ negative CBF values.
         (csf_tfm, compute_qc_metrics, [('output_image', 'csf_tpm')]),
         (compute_qc_metrics, outputnode, [('qc_file', 'qc_file')]),
     ])  # fmt:skip
+
+    if lr_pvc:
+        workflow.connect([(inputnode, compute_qc_metrics, [('pvc_qc', 'pvc_qc')])])
 
     ds_qc = pe.Node(
         DerivativesDataSink(

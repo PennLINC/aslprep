@@ -9,6 +9,7 @@ from niworkflows.utils.images import dseg_label
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import BIDSURI, DerivativesDataSink
+from aslprep.interfaces.pvc import DivideByWeight
 
 BASE_INPUT_FIELDS = {
     'asl': {
@@ -215,7 +216,196 @@ BASE_INPUT_FIELDS = {
             '(desc-basil).'
         ),
     },
+    # Partial volume maps used by local-regression partial volume correction
+    'gm_pv': {
+        'label': 'GM',
+        'desc': 'psf',
+        'suffix': 'probseg',
+        'Description': (
+            'Gray matter fraction on the ASL reference grid, modelling the effective '
+            'resolution of the ASL acquisition.'
+        ),
+    },
+    'wm_pv': {
+        'label': 'WM',
+        'desc': 'psf',
+        'suffix': 'probseg',
+        'Description': (
+            'White matter fraction on the ASL reference grid, modelling the effective '
+            'resolution of the ASL acquisition.'
+        ),
+    },
+    'csf_pv': {
+        'label': 'CSF',
+        'desc': 'psf',
+        'suffix': 'probseg',
+        'Description': (
+            'CSF fraction on the ASL reference grid, modelling the effective resolution of the '
+            'ASL acquisition.'
+        ),
+    },
 }
+
+#: Local-regression partial volume correction outputs, per corrected CBF map.
+#: Keys are the corrected map's name in the CBF workflow; values are the desc prefix.
+LR_PVC_SOURCES = {'mean_cbf': 'lr', 'mean_cbf_score': 'scoreLR'}
+
+
+def lr_pvc_names(source):
+    """Return the output names of local-regression PVC applied to one CBF map.
+
+    Parameters
+    ----------
+    source : :obj:`str`
+        ``'mean_cbf'`` or ``'mean_cbf_score'``.
+
+    Returns
+    -------
+    :obj:`dict`
+        ``cbf`` (corrected CBF maps), ``se`` (their standard errors), ``valid`` (where they
+        were estimated, by corrected map), ``diagnostics`` (native-only fit diagnostics), and
+        ``csf`` (the native-only CSF quality-control map, its standard error, fit status and
+        noise amplification).
+    """
+    suffix = '' if source == 'mean_cbf' else '_score'
+    return {
+        'csf': [
+            f'mean_cbf_csf_lr{suffix}',
+            f'cbf_csf_se_lr{suffix}',
+            f'status_csf_lr{suffix}',
+            f'csf_noise_lr{suffix}',
+        ],
+        'cbf': [f'mean_cbf_gm_lr{suffix}', f'mean_cbf_wm_lr{suffix}'],
+        'se': [f'cbf_gm_se_lr{suffix}', f'cbf_wm_se_lr{suffix}'],
+        'valid': {
+            f'mean_cbf_gm_lr{suffix}': f'gm_valid_lr{suffix}',
+            f'mean_cbf_wm_lr{suffix}': f'wm_valid_lr{suffix}',
+        },
+        'diagnostics': [
+            f'status_lr{suffix}',
+            f'condition_lr{suffix}',
+            f'gm_noise_lr{suffix}',
+            f'wm_noise_lr{suffix}',
+            f'rmse_lr{suffix}',
+        ],
+    }
+
+
+def _add_lr_pvc_fields():
+    for source, prefix in LR_PVC_SOURCES.items():
+        names = lr_pvc_names(source)
+        source_desc = BASE_INPUT_FIELDS[source].get('desc')
+        source_str = f' (desc-{source_desc})' if source_desc else ''
+        tissue_names = {'GM': 'gray matter', 'WM': 'white matter'}
+        for name, se_name, tissue in zip(names['cbf'], names['se'], ('GM', 'WM'), strict=True):
+            BASE_INPUT_FIELDS[name] = {
+                'desc': f'{prefix}{tissue}',
+                'suffix': 'cbf',
+                'Units': 'mL/100 g/min',
+                'Description': (
+                    f'{tissue_names[tissue].capitalize()} cerebral blood flow after partial '
+                    f'volume correction by local linear regression of the CBF map{source_str}. '
+                    'Zero where it was not estimated.'
+                ),
+            }
+            BASE_INPUT_FIELDS[se_name] = {
+                'desc': f'{prefix}{tissue}SE',
+                'suffix': 'cbf',
+                'Units': 'mL/100 g/min',
+                'Description': (
+                    f'Standard error of the {tissue_names[tissue]} CBF estimated by local linear '
+                    f'regression (desc-{prefix}{tissue}), assuming independent, identically '
+                    'distributed noise and conditional on M0. '
+                    'Valid in this (native) space only.'
+                ),
+            }
+        status, condition, gm_noise, wm_noise, rmse = names['diagnostics']
+        BASE_INPUT_FIELDS[status] = {
+            'desc': prefix,
+            'suffix': 'pvstatus',
+            'Description': 'Outcome of the local-regression partial volume correction fit.',
+            'Levels': {
+                '0': 'Outside the brain mask.',
+                '1': 'Gray and white matter fit.',
+                '2': 'Gray matter only fit (white matter contamination below the limit).',
+                '3': 'White matter only fit (gray matter contamination below the limit).',
+                '4': 'Not identifiable: too little tissue support, ill-conditioned, or no M0.',
+            },
+        }
+        BASE_INPUT_FIELDS[condition] = {
+            'desc': prefix,
+            'suffix': 'pvcondition',
+            'Description': (
+                'Condition number of the normalized gray/white matter Gram matrix of each '
+                'local regression. Zero where undefined.'
+            ),
+        }
+        for name, tissue in ((gm_noise, 'GM'), (wm_noise, 'WM')):
+            BASE_INPUT_FIELDS[name] = {
+                'desc': f'{prefix}{tissue}',
+                'suffix': 'pvnoise',
+                'Description': (
+                    f'Noise amplification of the {tissue_names[tissue]} estimate: its standard '
+                    'error per unit of voxel noise, assuming independent noise.'
+                ),
+            }
+        BASE_INPUT_FIELDS[rmse] = {
+            'desc': prefix,
+            'suffix': 'pvrmse',
+            'Description': (
+                'Root mean square residual of each local regression, in units of CBF times M0.'
+            ),
+        }
+        csf_cbf, csf_se, csf_status, csf_noise = names['csf']
+        csf_fit_str = (
+            'from a separate local regression on gray matter, white matter and CSF partial '
+            f'volume maps of the CBF map{source_str}, for quality control'
+        )
+        BASE_INPUT_FIELDS[csf_cbf] = {
+            'desc': f'{prefix}CSF',
+            'suffix': 'cbf',
+            'Units': 'mL/100 g/min',
+            'Description': (
+                f'Apparent CSF cerebral blood flow, {csf_fit_str}. CSF has no perfusion, so '
+                'values far from zero indicate partial volume map errors, macrovascular or '
+                'choroid plexus signal, or model error. The gray and white matter maps '
+                f'(desc-{prefix}GM, desc-{prefix}WM) do not come from this fit. '
+                'Zero where it was not estimated. Valid in this (native) space only.'
+            ),
+        }
+        BASE_INPUT_FIELDS[csf_se] = {
+            'desc': f'{prefix}CSFSE',
+            'suffix': 'cbf',
+            'Units': 'mL/100 g/min',
+            'Description': (
+                f'Standard error of desc-{prefix}CSF, assuming independent, identically '
+                'distributed noise and conditional on M0. Valid in this (native) space only.'
+            ),
+        }
+        BASE_INPUT_FIELDS[csf_status] = {
+            'desc': f'{prefix}CSF',
+            'suffix': 'pvstatus',
+            'Description': f'Outcome of the CSF quality-control fit (desc-{prefix}CSF).',
+            'Levels': {
+                '0': 'Outside the brain mask.',
+                '1': 'Gray matter, white matter and CSF fit.',
+                '2': 'Gray matter and CSF fit (white matter contamination below the limit).',
+                '3': 'White matter and CSF fit (gray matter contamination below the limit).',
+                '4': 'Not identifiable.',
+                '5': 'CSF only fit (gray and white matter contamination below the limit).',
+            },
+        }
+        BASE_INPUT_FIELDS[csf_noise] = {
+            'desc': f'{prefix}CSF',
+            'suffix': 'pvnoise',
+            'Description': (
+                'Noise amplification of the CSF estimate: its standard error per unit of voxel '
+                'noise, assuming independent noise.'
+            ),
+        }
+
+
+_add_lr_pvc_fields()
 
 
 def prepare_timing_parameters(metadata: dict):
@@ -802,6 +992,75 @@ def init_ds_asl_native_wf(
     return workflow
 
 
+def init_ds_pvc_native_wf(
+    *,
+    source_file: str,
+    output_dir: str,
+    sources: list[str],
+    name: str = 'ds_pvc_native_wf',
+) -> pe.Workflow:
+    """Write out local-regression partial volume correction outputs in aslref space.
+
+    The corrected CBF maps, their standard errors, the fit diagnostics and the PV maps are
+    always written in aslref space, because the standard errors, diagnostics and PV maps only
+    exist there.
+
+    Parameters
+    ----------
+    source_file
+    output_dir
+    sources : list of str
+        The corrected CBF maps (``mean_cbf``, and ``mean_cbf_score`` with SCORE).
+    name
+    """
+    workflow = pe.Workflow(name=name)
+
+    names = []
+    for source in sources:
+        lr_names = lr_pvc_names(source)
+        names += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics'] + lr_names['csf']
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=['source_files', 'gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata']
+            + names
+        ),
+        name='inputnode',
+    )
+
+    sources_node = pe.Node(
+        BIDSURI(
+            numinputs=1,
+            dataset_links=config.execution.dataset_links,
+            out_dir=str(output_dir),
+        ),
+        name='sources',
+    )
+    workflow.connect([(inputnode, sources_node, [('source_files', 'in1')])])
+
+    for out_name in ['gm_pv', 'wm_pv', 'csf_pv'] + names:
+        fields = BASE_INPUT_FIELDS[out_name]
+        meta_field = 'pv_metadata' if out_name in ('gm_pv', 'wm_pv', 'csf_pv') else 'pvc_metadata'
+        ds = pe.Node(
+            DerivativesDataSink(
+                source_file=source_file,
+                base_directory=output_dir,
+                compress=True,
+                dismiss_entities=('echo',),
+                **fields,
+            ),
+            name=f'ds_{out_name}',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (inputnode, ds, [(out_name, 'in_file'), (meta_field, 'meta_dict')]),
+            (sources_node, ds, [('out', 'Sources')]),
+        ])  # fmt:skip
+
+    return workflow
+
+
 def init_ds_volumes_wf(
     *,
     source_file: str,
@@ -810,9 +1069,20 @@ def init_ds_volumes_wf(
     cbf_3d: list[str],
     cbf_4d: list[str],
     att: list[str],
+    sparse_3d: dict[str, str] | None = None,
     name: str = 'ds_volumes_wf',
 ) -> pe.Workflow:
-    """Apply transforms from reference to anatomical/standard space and write out derivatives."""
+    """Apply transforms from reference to anatomical/standard space and write out derivatives.
+
+    Parameters
+    ----------
+    sparse_3d : dict or None
+        Maps that are only estimated in some voxels (zero elsewhere), keyed by name, with the
+        name of their validity mask as the value. They are resampled with validity-normalized
+        linear interpolation, so the zeros that stand for "not estimated" do not blend into the
+        estimates.
+    """
+    sparse_3d = sparse_3d or {}
     workflow = pe.Workflow(name=name)
     inputnode_fields = [
         'source_files',
@@ -837,6 +1107,7 @@ def init_ds_volumes_wf(
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
     inputnode_fields += att
+    inputnode_fields += list(sparse_3d) + sorted(set(sparse_3d.values()))
     inputnode = pe.Node(
         niu.IdentityInterface(fields=inputnode_fields),
         name='inputnode',
@@ -1010,6 +1281,58 @@ def init_ds_volumes_wf(
         datasinks.append(ds_att)
 
         workflow.connect([(inputnode, resample_att, [(att_name, 'input_image')])])
+
+    # Validity-normalized resampling: warp(value) / warp(valid), with linear interpolation.
+    # The values are already zero where they are not valid.
+    sparse_resamplers = []
+    for sparse_name, valid_name in sparse_3d.items():
+        fields = BASE_INPUT_FIELDS[sparse_name]
+        resample_value = pe.Node(
+            ApplyTransforms(interpolation='Linear', float=True, input_image_type=3, args='-v'),
+            name=f'warp_{sparse_name}_to_std',
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        resample_valid = pe.Node(
+            ApplyTransforms(interpolation='Linear', float=True, input_image_type=3, args='-v'),
+            name=f'warp_{sparse_name}_valid_to_std',
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        normalize = pe.Node(
+            DivideByWeight(threshold=0.5),
+            name=f'normalize_{sparse_name}',
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        ds_sparse = pe.Node(
+            DerivativesDataSink(
+                source_file=source_file,
+                base_directory=output_dir,
+                compress=True,
+                dismiss_entities=('echo',),
+                **fields,
+            ),
+            name=f'ds_{sparse_name}',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        sparse_resamplers += [resample_value, resample_valid]
+        datasinks.append(ds_sparse)
+        workflow.connect([
+            (inputnode, resample_value, [(sparse_name, 'input_image')]),
+            (inputnode, resample_valid, [(valid_name, 'input_image')]),
+            (resample_value, normalize, [('output_image', 'in_file')]),
+            (resample_valid, normalize, [('output_image', 'weight_file')]),
+            (normalize, ds_sparse, [('out_file', 'in_file')]),
+        ])  # fmt:skip
+
+    workflow.connect(
+        [
+            (inputnode, resampler, [('ref_file', 'reference_image')])
+            for resampler in sparse_resamplers
+        ] + [
+            (aslref2target, resampler, [('out', 'transforms')])
+            for resampler in sparse_resamplers
+        ]
+    )  # fmt:skip
 
     workflow.connect(
         [
