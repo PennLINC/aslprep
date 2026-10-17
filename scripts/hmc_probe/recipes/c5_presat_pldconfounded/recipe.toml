@@ -1,0 +1,5 @@
+phantom = "tfmni"
+acq = "c5presatpldconfounded"
+anat = "derivatives"
+snr_per_pair = 50.0
+m0_divisor = 10.0

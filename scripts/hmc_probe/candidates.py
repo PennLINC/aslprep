@@ -750,6 +750,215 @@ def run_c8(inputs, work, **options):
     }
 
 
+def c5_eligibility(metadata, plds_cl, presat_delay):
+    """Reasons C5 cannot apply (#673): an empty list means eligible."""
+    reasons = []
+    if metadata.get('MRAcquisitionType') != '2D':
+        reasons.append('not a 2D readout')
+    if not metadata.get('SliceTiming'):
+        reasons.append('no SliceTiming')
+    if metadata.get('BackgroundSuppression') and metadata.get(
+        'BackgroundSuppressionNumberPulses', 0
+    ):
+        reasons.append('background-suppression inversion pulses alter the recovery')
+    if len(set(plds_cl)) < 2:
+        reasons.append('fewer than two delays sample the recovery')
+    if presat_delay is None:
+        reasons.append('pre-saturation timing unknown (give presat_delay)')
+    if metadata.get('ArterialSpinLabelingType') != 'PCASL':
+        reasons.append('only (P)CASL timing is modelled')
+    return reasons
+
+
+def fit_recovery(data, times, t1_grid=None):
+    """Per-voxel saturation recovery ``S = M0 (1 - exp(-t / T1eff))`` by grid search over T1eff.
+
+    ``data`` is (x, y, z, n); ``times`` is (z, n), the recovery time of each volume at each slice.
+    For each candidate T1eff the best M0 is closed-form (least squares); the T1eff with the
+    smallest residual is kept. Returns M0 and T1eff maps.
+    """
+    t1_grid = np.linspace(0.3, 4.0, 75) if t1_grid is None else t1_grid
+    m0 = np.zeros(data.shape[:3], np.float32)
+    t1 = np.full(data.shape[:3], np.nan, np.float32)
+    for z in range(data.shape[2]):
+        s = data[:, :, z, :].reshape(-1, data.shape[-1]).astype(np.float64)
+        best_res = np.full(s.shape[0], np.inf)
+        best_m0 = np.zeros(s.shape[0])
+        best_t1 = np.full(s.shape[0], np.nan)
+        for t1_c in t1_grid:
+            b = 1.0 - np.exp(-times[z] / t1_c)
+            m0_c = s @ b / (b @ b)
+            res = ((s - np.outer(m0_c, b)) ** 2).sum(axis=1)
+            better = res < best_res
+            best_res[better], best_m0[better], best_t1[better] = res[better], m0_c[better], t1_c
+        m0[:, :, z] = best_m0.reshape(data.shape[:2])
+        t1[:, :, z] = best_t1.reshape(data.shape[:2])
+    return m0, t1
+
+
+def run_c5(inputs, work, **options):
+    """Saturation-recovery normalization for motion estimation (C5; #673 ``motion-only``).
+
+    Eligible runs only (see ``c5_eligibility``); an ineligible run is processed as production
+    (C0) and says so. Pass 1 fits ``S = M0 (1 - exp(-t/T1eff))`` to the unaligned controls,
+    with ``t = presat_delay + LabelingDuration + PLD + SliceTiming[slice]`` (pre-saturation
+    ``presat_delay`` seconds before labeling starts; default 0, at labeling start), divides
+    controls and labels alike by ``1 - exp(-t/T1eff)``, and registers the normalized volumes
+    jointly to their mean (MCFLIRT). Pass 2 refits on the aligned controls, maps the fitted
+    T1eff back into each volume's frame, normalizes again and re-registers. The transforms are
+    applied to the original intensities by the harness. M0 volumes and derived volumes are
+    handled as in C8.
+
+    ``t1_model``: ``slice`` (default) fits one T1eff per slice to the brain-mean control signal,
+    normalizes once and registers twice (to the normalized mean, then to the aligned mean).
+    ``voxel`` is the voxelwise two-pass fit above; on the drift fixtures it is biased toward
+    its own pass-1 poses, because the T1eff map's edges, placed at the estimated pose, are
+    imprinted on the normalized images.
+    """
+    cost = _opt(options, 'cost', 'mutualinfo')
+    presat_delay = _opt(options, 'presat_delay', 0.0, float)
+    t1_model = _opt(options, 't1_model', 'slice')
+    if t1_model not in ('slice', 'voxel'):
+        raise ValueError(f't1_model must be slice or voxel, not {t1_model}')
+    target, idx, types = _kept(inputs)
+    meta = inputs['metadata']
+    img = nb.load(inputs['asl_file'])
+    data = np.asanyarray(img.dataobj, np.float32)
+    data = data[..., None] if data.ndim == 3 else data
+    plds = _plds(inputs, data.shape[-1], idx)
+    cl = [k for k, t in enumerate(types) if t in ('control', 'label')]
+    reasons = c5_eligibility(meta, [plds[k] for k in cl], presat_delay)
+    art = work / 'artifacts'
+    art.mkdir()
+    if reasons or not cl:
+        from harness import run_c0
+
+        sub = work / 'refused_c0'
+        sub.mkdir()
+        res = run_c0(inputs, sub)
+        (art / 'c5.json').write_text(json.dumps({'eligible': False, 'reasons': reasons}, indent=2))
+        return {
+            **res,
+            'reference_type': f'{res["reference_type"]}; C5 refused',
+            'artifacts': str(art),
+        }
+
+    slice_times = np.asarray(meta['SliceTiming'], float)
+    if slice_times.size != data.shape[2]:
+        raise ValueError(f'{slice_times.size} slice times for {data.shape[2]} slices')
+    tau = float(meta['LabelingDuration'])
+    cl_data = data[..., [idx[k] for k in cl]]
+    cl_types = [types[k] for k in cl]
+    times = np.array(
+        [[presat_delay + tau + plds[k] + slice_times[z] for k in cl] for z in range(data.shape[2])]
+    )
+    is_control = np.array([t == 'control' for t in cl_types])
+
+    def normalize(t1):
+        factor = 1.0 - np.exp(
+            -times[None, None, :, :] / np.where(np.isfinite(t1), t1, 1.0)[..., None]
+        )
+        return cl_data / np.maximum(factor, 0.05)
+
+    # Pass 1: fit on the unaligned controls, normalize, register jointly to the normalized mean.
+    if t1_model == 'slice':
+        # One T1eff per slice, fitted to the mean control signal of the brain voxels in it: the
+        # factor depends only on (slice, volume), in the acquisition frame, so it cannot carry
+        # anatomy at an assumed pose (the voxelwise map does, and biases registration toward it).
+        ctrl = cl_data[..., is_control]
+        brain = ctrl.mean(-1) > 0.2 * np.percentile(ctrl.mean(-1), 99)
+        per_slice = np.array(
+            [
+                ctrl[:, :, z][brain[:, :, z]].mean(0)
+                if brain[:, :, z].sum() >= 20
+                else np.full(ctrl.shape[-1], np.nan)
+                for z in range(ctrl.shape[2])
+            ]
+        )
+        ok = np.isfinite(per_slice).all(1)
+        _, t1_slice = fit_recovery(per_slice[ok][None, None], times[ok][:, is_control])
+        t1_z = np.full(ctrl.shape[2], float(np.nanmedian(t1_slice)))
+        t1_z[ok] = t1_slice[0, 0]
+        t1 = np.broadcast_to(t1_z[None, None, :], cl_data.shape[:3]).astype(np.float32)
+        norm2 = normalize(t1)
+        mats = None
+        t1_ref = t1
+    else:
+        _, t1 = fit_recovery(cl_data[..., is_control], times[:, is_control])
+        norm = normalize(t1)
+        series = _save(norm, img, work / 'norm1.nii.gz')
+        ref1 = _save(norm.mean(-1), img, work / 'norm1_mean.nii.gz')
+        mats, _ = _mcflirt(series, ref1, work / 'mcf1', cost)
+        # Pass 2: refit on the aligned controls, map T1eff back to each volume, normalize.
+        aligned = _apply_fsl(cl_data, mats, img)
+        _, t1_ref = fit_recovery(aligned[..., is_control], times[:, is_control])
+        t1_vols = _apply_fsl(
+            np.repeat(np.nan_to_num(t1_ref, nan=1.0)[..., None], len(cl), -1),
+            [np.linalg.inv(m) for m in mats],
+            img,
+        )
+        factor = 1.0 - np.exp(-times[None, None, :, :] / np.maximum(t1_vols, 0.05))
+        norm2 = cl_data / np.maximum(factor, 0.05)
+    if mats is None:  # slice model: one normalization, then the same two-step registration
+        mats, _ = _mcflirt(
+            _save(norm2, img, work / 'norm1.nii.gz'),
+            _save(norm2.mean(-1), img, work / 'norm1_mean.nii.gz'),
+            work / 'mcf1',
+            cost,
+        )
+    moved2 = _apply_fsl(norm2, mats, img)
+    ref_file = _save(moved2.mean(-1), img, work / 'norm2_mean.nii.gz')
+    mats2, _ = _mcflirt(_save(norm2, img, work / 'norm2.nii.gz'), ref_file, work / 'mcf2', cost)
+    np.save(art / 't1eff_pass1.npy', t1)
+    np.save(art / 't1eff_pass2.npy', t1_ref)
+    (art / 'c5.json').write_text(
+        json.dumps(
+            {
+                'eligible': True,
+                't1_model': t1_model,
+                'presat_delay_s': presat_delay,
+                'labeling_duration_s': tau,
+                'recovery_time_range_s': [float(times.min()), float(times.max())],
+                't1eff_median_s': float(np.nanmedian(t1_ref[t1_ref > 0])),
+            },
+            indent=2,
+        )
+    )
+
+    final = [None] * len(idx)
+    for k, m in zip(cl, mats2, strict=True):
+        final[k] = m
+    m0 = [k for k, t in enumerate(types) if t == 'm0scan']
+    if m0:  # as in C8: its own group, then its mean to the reference
+        m0_data = data[..., [idx[k] for k in m0]]
+        tpl = _save(m0_data.mean(-1), img, work / 'm0_mean.nii.gz')
+        m0_mats = (
+            _mcflirt(_save(m0_data, img, work / 'm0_series.nii.gz'), tpl, work / 'mcf_m0', cost)[0]
+            if len(m0) > 1
+            else [np.eye(4)]
+        )
+        cross = _flirt(tpl, ref_file, work / 'cross_m0.mat', cost)
+        for k, m in zip(m0, m0_mats, strict=True):
+            final[k] = cross @ m
+    final = [np.eye(4) if f is None else f for f in final]
+    aslref = work / 'aslref.nii.gz'
+    shutil.copyfile(ref_file, aslref)
+    ctx_file = work / 'hmc_aslcontext.tsv'
+    pd.DataFrame({'volume_type': types}).to_csv(ctx_file, sep='\t', index=False)
+    return {
+        'aslref': str(aslref),
+        'xforms': str(_to_itk(final, aslref, work)),
+        'aslcontext': str(ctx_file),
+        'indices': idx,
+        'reference_type': 'saturation-recovery normalized mean (two passes)',
+        'reference_volumes': [idx[k] for k in cl],
+        'reference_frame_kind': 'corrected',
+        'processing_target': target,
+        'use_ge': None,
+        'artifacts': str(art),
+    }
+
+
 def run_fixvol(inputs, work, **options):
     """Comparator (#513): every kept volume registered by MCFLIRT to one acquired raw volume.
 
@@ -824,6 +1033,7 @@ def run_perfref(inputs, work, **options):
 
 
 CANDIDATES = {
+    'c5': run_c5,
     'c1': run_c1,
     'c2': run_c2,
     'c3': run_c3,
