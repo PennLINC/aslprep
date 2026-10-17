@@ -1482,6 +1482,66 @@ reaches {
         } mm, but on every other fixture the conventional reference registers
 better. Choosing the BBR sign from the reference's measured contrast, which the plan already calls
 for, may be the simpler fix.</p>""")
+    s = root / 'coreg-5b' / 'coreg_5b_stress.tsv'
+    if s.exists():
+        st = pd.read_csv(s, sep='\t')
+
+        def sv(fx, src, sign='default', col='rms_mm'):
+            hit = st[(st.fixture == fx) & (st.source == src) & (st.sign == sign)]
+            return float(hit.iloc[0][col]) if len(hit) else np.nan
+
+        names = {
+            'st_vessels': 'macrovascular signal',
+            'st_noperf': 'perfusion deficit',
+            'st_spiral': 'stack-of-spirals (#503)',
+        }
+        srows = [
+            [
+                esc(names.get(fx, fx)),
+                fmt(sv(fx, 'production (ASLPrep run)'), 2),
+                fmt(sv(fx, 'conventional', 'opposite'), 2),
+                fmt(sv(fx, 'P-robust'), 2),
+                fmt(sv(fx, 'P-masked'), 2),
+                fmt(sv(fx, 'conventional', col='gm_wm_ratio'), 2),
+            ]
+            for fx in st.fixture.unique()
+        ]
+        out.append(f"""
+<h3>Stress fixtures</h3>
+<p>Three fixtures stress the perfusion reference: arterial signal in large vessels (eleven times the
+grey-matter signal), a territory with no perfusion, and a stack-of-spirals readout, the case of #503.</p>
+{
+            plain_table(
+                [
+                    'Fixture',
+                    'ASLPrep',
+                    'Conventional, opposite BBR sign',
+                    'P-robust',
+                    'P-masked',
+                    'Grey/white, conventional',
+                ],
+                srows,
+                tuple(range(1, 6)),
+            )
+        }
+<p class="note">End-to-end error against truth, mm RMS over the brain in the T1w, as above.</p>
+<p>Neither vessels nor the deficit breaks the perfusion reference, but neither helps it: the
+conventional reference registers better on both (about {fmt(sv('st_vessels', 'conventional'), 2)}
+mm against {
+            fmt(sv('st_vessels', 'P-robust'), 2)
+        }). On the spirals fixture, ASLPrep's coregistration
+misses by {fmt(sv('st_spiral', 'production (ASLPrep run)'), 1)} mm, and every perfusion image lands
+within {fmt(sv('st_spiral', 'P-masked'), 2)}&ndash;{fmt(sv('st_spiral', 'P-robust'), 2)} mm. The
+cause is the same as on GRASE: the conventional reference has white matter brighter than grey
+({fmt(sv('st_spiral', 'conventional', col='gm_wm_ratio'), 2)}), BBR's default sign fails, and here
+the failure ({
+            fmt(sv('st_spiral', 'conventional', col='bbr_rms_mm'), 1)
+        } mm) stays inside fMRIPrep's
+15 mm fallback rule, so nothing catches it. With the opposite sign, the same reference registers to
+{fmt(sv('st_spiral', 'conventional', 'opposite'), 2)} mm. Choosing the BBR sign from the measured
+contrast would fix both the GRASE and the spirals cases. The simulated spirals are milder than real
+ones (3.7% haze, no severe ringing), so on real data the perfusion reference may matter more than it
+does here.</p>""")
     e = root / 'harness-runs' / 'perfusion_c0.tsv'
     if e.exists():
         p = pd.read_csv(e, sep='\t')
@@ -1669,6 +1729,10 @@ best, so it is not read alone.</li>
 <li><b>ASLPrep's 1 mm GRASE coregistration error is a BBR sign problem.</b> White matter is brighter than
 grey in that reference, BBR fails and the run falls back to its initialization; the opposite sign
 registers it to under 0.5 mm.</li>
+<li><b>The same sign problem explains #503 in simulation.</b> On a stack-of-spirals fixture, ASLPrep's
+coregistration misses by 10 mm without triggering the fallback. The opposite BBR sign, or a perfusion
+image as the reference, brings it under 0.4 mm. Vessels and a perfusion deficit do not break the
+perfusion reference, but the conventional one is better on those fixtures.</li>
 </ul>"""
     return f"""{head}
 <div class="wrap">
@@ -1699,9 +1763,9 @@ reason.</li>
 brain edge beyond the voxel grid). The real-data runs of the candidates will test whether the drift
 penalty on pair-based methods carries over.</li>
 <li>Next: a failure guard for production (detect disagreement with <code>c2-volreg</code> or an
-implausible FD, then fall back); score the held-out fixtures; the stress fixtures (macrovascular
-signal, a perfusion deficit, stack-of-spirals for #503); the C6 identifiability test; and the
-full-pipeline runs of the short list (Task 7).</li>
+implausible FD, then fall back); choosing the BBR sign from the reference's grey/white contrast;
+score the held-out fixtures; the C6 identifiability test; and the full-pipeline runs of the short
+list (Task 7).</li>
 </ul>
 </section>
 </div>"""
