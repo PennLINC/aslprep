@@ -1399,6 +1399,151 @@ slice-time contrast that #673 is about, but not tissue differences in T1eff.</p>
 </section>"""
 
 
+C6_MODELS = {
+    'free': 'free contrast maps, free P per delay',
+    'smooth-pd': 'smooth contrast, free P per delay',
+    'smooth': 'smooth contrast, one P',
+    'gain': 'gain per group, one P',
+    'smooth+supp-s': 'smooth contrast, one P, zero outside the image mask',
+    'smooth+supp-t': 'smooth contrast, one P, zero outside true tissue',
+    'gain+supp-t': 'gain per group, one P, zero outside true tissue',
+}
+C6_ARMS = {
+    'c0': 'production',
+    'c2-volreg': 'C2 (3dvolreg)',
+    'c6-h1-pb3': 'C6, interpolation model, P bounded',
+    'c6-pb3': 'C6, acquisition model, P bounded',
+}
+C6_KEY = ['mo_pcasl_synchronous', 'mo_pcasl_spikes', 'mo_pcasl_withinpairs', 'mo_pcasl_drift']
+
+
+def section_c6(root, df, fig):
+    """C6: the identifiability test and the prototype's development screen."""
+    out = []
+    f = root / 'c6' / 'identifiability.tsv'
+    if f.exists():
+        t = pd.read_csv(f, sep='\t')
+        t = t[t.noise_pct == 2.0]
+        worst = t.groupby(['model', 'fixture']).max_sd_trans_mm.max().unstack()
+        fixtures = [x for x in ('c5_presat', 'rc_pasl_multipld', 'rc_pcasl') if x in worst.columns]
+        rows = [
+            [esc(C6_MODELS.get(m, m))]
+            + [
+                '&infin;' if not np.isfinite(worst.at[m, x]) else fmt(worst.at[m, x], 3)
+                for x in fixtures
+            ]
+            for m in C6_MODELS
+            if m in worst.index
+        ]
+        out.append(f"""
+<p>C6 predicts every control and label volume in its own contrast and fits the poses jointly, with no
+cross-contrast cost and no fixed reference. As first written it is not identifiable, so the plan
+required an identifiability test before any prototype. The test is exact and local: the Fisher
+information at the truth, with every nuisance parameter (static image, contrast, perfusion, delay
+weights) eliminated, bounds the confounded motion patterns: a whole delay block moved, every label
+moved, and the labels of one delay moved. Criterion, fixed in advance: at most 0.1 mm at white
+noise of 2% of the brain control signal.</p>
+{
+            plain_table(
+                ['Model'] + [f'<code>{esc(x)}</code> worst SD (mm)' for x in fixtures],
+                rows,
+                tuple(range(1, len(fixtures) + 1)),
+            )
+        }
+<p class="note">Worst Cram&eacute;r&ndash;Rao standard deviation over the confounded patterns and the
+three translations, at 2% noise. &infin;: a pattern the nuisance parameters absorb completely.</p>
+<p>Free contrast maps absorb every displacement shared by a group, as the plan expected. A
+perfusion image that is free everywhere absorbs any shift shared by the labels on single-delay data,
+and label shifts proportional to the delay weights on multi-delay data without pre-saturation. The
+displaced label differs from the static image by about the shift times its gradient, which a free
+perfusion image can cancel at every delay at once. Fixing the perfusion image to zero outside a
+brain support makes every pattern identifiable, to 0.01 mm. The test passed, with the support
+as part of the model.</p>""")
+    arms = [a for a in C6_ARMS if a in set(df.label)]
+    if 'c6-h1-pb3' in arms or 'c6-pb3' in arms:
+        sub = df[df.label.isin(arms) & df.fixture.str.startswith(('mo_', 'c5_'))]
+        full = sub.groupby('fixture').label.nunique()
+        fx = full[full == len(arms)].index
+        sub = sub[sub.fixture.isin(fx)]
+        piv = sub.pivot_table(index='fixture', columns='label', values='dm_edge')
+        pair = sub.pivot_table(index='fixture', columns='label', values='pair_max')
+        rel = sub.pivot_table(index='fixture', columns='label', values='rel_max')
+
+        def verdict(a):
+            r = piv[a] / piv['c0']
+            return int((r < 0.9).sum()), int(((r >= 0.9) & (r <= 1.1)).sum()), int((r > 1.1).sum())
+
+        rows = [
+            [
+                esc(C6_ARMS[a]),
+                fmt(piv[a].median(), 2),
+                fmt(pair[a].median(), 3),
+                fmt(rel[a].median(), 3),
+                '&ndash;' if a == 'c0' else '{} / {} / {}'.format(*verdict(a)),
+            ]
+            for a in arms
+        ]
+        key = [k for k in C6_KEY if k in piv.index]
+        krows = [
+            [f'<code>{esc(k)}</code>']
+            + [f'{fmt(piv.at[k, a], 2)} / {fmt(pair.at[k, a], 3)}' for a in arms]
+            for k in key
+        ]
+        out.append(f"""
+<h3>The prototype</h3>
+<p>The prototype (PyTorch on the GPU, fitted on the host because the ASLPrep image has no PyTorch)
+ran into two problems the local test cannot see. First, the model cannot reproduce how the
+simulator forms a moved image: with the poses frozen at the truth the fit stays above the noise,
+and free poses settle up to 0.15 mm away (from any start, so not a local minimum). An acquisition
+model (a finer in-plane grid, cropped in k-space, with a learned weight per phase-encoding line)
+halves that misfit but barely moves the poses. Second, with that misfit the fit preferred to leave
+labels unmoved and absorb their displacement into the perfusion image (pair error 0.54 mm on the
+synchronous fixture), because moving a volume costs the misfit while absorbing costs only the
+residual outside the support. Bounding the perfusion image to &plusmn;3% of the static image
+(delta-M is about 1% of the control signal) removes that.</p>
+{
+            plain_table(
+                [
+                    'Arm',
+                    'Median edge error',
+                    'Median worst pair (mm)',
+                    'Median worst pose vs mean (mm)',
+                    'Edge error vs production: better / tie / worse',
+                ],
+                rows,
+                (1, 2, 3),
+            )
+        }
+<p class="note">{
+            len(piv.dropna())
+        } development motion fixtures that every arm ran on and that have control-label pairs (the
+edge error needs them). Better or worse: an edge error more than 10% below or above
+production's.</p>
+{
+            plain_table(
+                ['Fixture'] + [esc(C6_ARMS[a]) for a in arms],
+                krows,
+                tuple(range(1, len(arms) + 1)),
+            )
+        }
+<p class="note">Edge error / worst pair error (mm) on the fixtures that test the type confound
+(synchronous, spikes, within-pair motion) and on drift.</p>
+<p><b>C6 does not join the short list.</b> Its edge error is several times production's on most
+fixtures, including still heads, where its misfit adds motion that is not there. Its gains are
+confined to motion confounded with the volume type or the pairs (within-pair and between-pair
+motion, constant offsets), where C2 with 3dvolreg already does as well or better. The prototype
+fits a model the simulator does not obey exactly, and that misfit, not identifiability or the
+optimizer, limits it. A real scanner's departures from the model would be different but no smaller.
+The plan builds C7 (a learned initializer) only if C6 succeeds, so C7 is not built.</p>""")
+    if not out:
+        return ''
+    return (
+        '<section id="c6"><h2>A joint contrast and motion model (C6)</h2>'
+        + ''.join(out)
+        + '</section>'
+    )
+
+
 def section_coreg(root, fig):
     out = []
     f = root / 'coreg-5b' / 'coreg_5b.tsv'
@@ -1682,6 +1827,7 @@ def build(root):
     coreg = section_coreg(root, fig)
     fig += 2
     c5 = section_c5(root, fig)
+    c6 = section_c6(root, df, fig + 1)
 
     piv = df.pivot_table(index='fixture', columns='label', values='dm_edge')
     med = piv.median()
@@ -1711,6 +1857,11 @@ failure guard and a fallback, not for keeping it unchanged.</li>
 <li><b>Saturation-recovery normalization (C5, #673) ties production.</b> It refuses ineligible runs
 correctly. A voxelwise T1eff fit is biased toward its own pose estimates; a per-slice fit avoids that
 but does not beat production.</li>
+<li><b>A joint contrast and motion model (C6) is identifiable but does not beat production.</b> An
+exact identifiability test shows that the perfusion image must be zero outside the brain, or it
+absorbs label motion. The GPU prototype also needs the perfusion image bounded, and is still limited
+by how far the simulator departs from its model. It helps only on motion confounded with volume
+type, where C2 is already as good.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
 spin history and high SNR: the conditions per-type MCFLIRT is built for. The approaches of mature
 pipelines (zig-zag regression, saturation recovery) target effects the simulator barely produces, and
@@ -1747,10 +1898,10 @@ alternative does better, tested on simulated data with known truth and on the as
 <a href="#noise">Noise and cost</a><a href="#blur">Blur bias</a><a href="#screen">Candidate screen</a>
 <a href="#zigzag">Zig-zag regression</a><a href="#engines">Engines and short list</a>
 <a href="#consumers">Reference consumers</a><a href="#real">Real data</a><a href="#coreg">Perfusion coregistration</a>
-<a href="#c5">Saturation recovery</a><a href="#next">Next steps</a></nav>
+<a href="#c5">Saturation recovery</a><a href="#c6">Joint model (C6)</a><a href="#next">Next steps</a></nav>
 </header>
 <section id="summary"><h2>Findings so far</h2>{summary}</section>
-{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}{c5}
+{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}{c5}{c6}
 <section id="next">
 <h2>Caveats and next steps</h2>
 <ul>
@@ -1764,8 +1915,7 @@ brain edge beyond the voxel grid). The real-data runs of the candidates will tes
 penalty on pair-based methods carries over.</li>
 <li>Next: a failure guard for production (detect disagreement with <code>c2-volreg</code> or an
 implausible FD, then fall back); choosing the BBR sign from the reference's grey/white contrast;
-score the held-out fixtures; the C6 identifiability test; and the full-pipeline runs of the short
-list (Task 7).</li>
+score the held-out fixtures; and the full-pipeline runs of the short list (Task 7).</li>
 </ul>
 </section>
 </div>"""
