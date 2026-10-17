@@ -1309,6 +1309,96 @@ The energy only measures motion-driven errors; at still-head offsets it favours 
 <p class="note">Medians per family. GE product output has no pairs and is not scored.</p>"""
 
 
+C5_FIXTURES = [
+    ('c5_presat', 'still'),
+    ('c5_presat_drift', 'drift'),
+    ('c5_presat_pldconfounded', 'one delay moved'),
+    ('c5_presat_bs', 'BS, still'),
+    ('c5_presat_bs_drift', 'BS, drift'),
+    ('c5_presat_3d', '3D, still'),
+    ('c5_presat_3d_drift', '3D, drift'),
+]
+
+
+def section_c5(root, fig):
+    """C5 (#673): saturation-recovery normalization on its own fixtures, against production."""
+    base = root / 'fixture-scores'
+    arms = [
+        ('c0', 'production', 'var(--s-c0)'),
+        ('c5-voxel', 'C5 voxelwise T1eff', 'var(--s-c5-voxel)'),
+        ('c5', 'C5 per-slice T1eff', 'var(--s-c5)'),
+    ]
+
+    def score(lab, name):
+        f = base / lab / name / 'score.json'
+        return json.loads(f.read_text()) if f.exists() else None
+
+    if score('c5', 'c5_presat') is None:
+        return ''
+    rows, eligible = [], []
+    for name, what in C5_FIXTURES:
+        rec = base / 'c5' / name / 'artifacts' / 'c5.json'
+        info = json.loads(rec.read_text()) if rec.exists() else {}
+        cells = [esc(what)]
+        for lab, _, _ in arms:
+            s = score(lab, name)
+            cells += (
+                [
+                    fmt(s['relative_pose']['to_mean']['median_mm'], 3),
+                    fmt(s['relative_pose']['to_mean']['max_mm'], 3),
+                    fmt(s['pair']['median_mm'], 4),
+                ]
+                if s
+                else ['&ndash;'] * 3
+            )
+        status = 'applied' if info.get('eligible') else '; '.join(info.get('reasons', ['&ndash;']))
+        rows.append([*cells, esc(status)])
+        if info.get('eligible'):
+            eligible.append(name)
+    groups = [w for n, w in C5_FIXTURES if n in eligible]
+    values = [
+        [
+            (s['relative_pose']['to_mean']['median_mm'] if (s := score(lab, n)) else np.nan)
+            for lab, _, _ in arms
+        ]
+        for n in eligible
+    ]
+    series = [{'name': nm, 'color': c} for _, nm, c in arms]
+    chart = grouped_bars(
+        groups, series, values, 'pose error to the mean (mm)', label='C5 pose error'
+    )
+    head = (
+        ['Fixture']
+        + [f'{nm} {m}' for _, nm, _ in arms for m in ('to-mean med.', 'to-mean max', 'pair med.')]
+        + ['C5']
+    )
+    return f"""
+<section id="c5">
+<h2>Saturation-recovery normalization (#673)</h2>
+<p>With a pre-saturation pulse and no background-suppression inversions, each control image is a
+point on a recovery curve, <code>M0 (1 &minus; e<sup>&minus;t/T1eff</sup>)</code>, where
+<code>t</code> is the labeling duration plus the delay plus the slice time. Volumes at different delays
+therefore differ in contrast, and production registers them to one another as they are. C5 divides
+every control and label volume by its recovery factor and registers the normalized volumes jointly.
+It refuses runs it cannot model (3D readouts, inversion pulses, no slice timing, a single delay)
+and processes them as production. Its three fixtures are a 2D EPI pCASL protocol with five delays
+(0.2&ndash;2.2 s) and pre-saturation at labeling start, and two negative controls that C5 must
+refuse: the same protocol with two inversion pulses (BS), and with a 3D GRASE readout.</p>
+{figure(legend([(s['color'], s['name'], False) for s in series]) + chart, 'Median pose error to the mean on the eligible fixtures. Lower is better.', fig)}
+{plain_table(head, rows, tuple(range(1, len(head) - 1)))}
+<p>C5 refuses both negative controls and reproduces production on them exactly. On the eligible
+protocol, the voxelwise fit looks perfect on the still head and is the worst arm with motion. The
+error jumps at the delay-block boundaries and grows with the motion, which points to a feedback
+loop: the T1eff map has sharp edges, normalizing by it at the estimated pose imprints those edges
+there, and registration then confirms the pose it was given. With no motion, the identity is that
+fixed point. A single T1eff per slice, in the acquisition frame, cannot carry a pose. It ties
+production: a little better with drift, worse on the one moved delay block, about the same on the
+still head.</p>
+<p class="note">Development fixtures; SNR 50 per pair. A per-slice T1eff removes the delay and
+slice-time contrast that #673 is about, but not tissue differences in T1eff.</p>
+</section>"""
+
+
 def section_coreg(root, fig):
     out = []
     f = root / 'coreg-5b' / 'coreg_5b.tsv'
@@ -1443,7 +1533,7 @@ CSS = """
   --accent: #1d6a83; --hot: #c4472c; --rule: #c9d3d9;
   --s-c0: #18232b; --s-c3: #7b8a94; --s-c1: #2f7fb1; --s-c2: #86b7d8; --s-c4: #c98a1d;
   --s-c8-noreg: #7a5ab8; --s-c8: #c4472c; --s-c8-huber: #e2897a; --s-c8-perdelay: #a8586e;
-  --s-c8-prod: #8a5a2b; --s-c8-spm: #2d8a5a;
+  --s-c8-prod: #8a5a2b; --s-c8-spm: #2d8a5a; --s-c5: #1f8f8a; --s-c5-voxel: #9fd3cf;
   --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --body: "Source Serif 4", Georgia, "Times New Roman", serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -1453,13 +1543,15 @@ CSS = """
   --accent: #5fb3cf; --hot: #e0644a; --rule: #2e3c46;
   --s-c0: #e3e9ed; --s-c3: #8d9ca6; --s-c1: #5aa8dc; --s-c2: #9dc9e8; --s-c4: #e0a640;
   --s-c8-noreg: #a88be0; --s-c8: #ef6a50; --s-c8-huber: #f2a596; --s-c8-perdelay: #d1849a;
-  --s-c8-prod: #c9925e; --s-c8-spm: #55c08a; color-scheme: dark; } }
+  --s-c8-prod: #c9925e; --s-c8-spm: #55c08a; --s-c5: #45c2bb; --s-c5-voxel: #2a6f6b;
+  color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #11181d; --surface: #182229; --fg: #e3e9ed; --muted: #97a6b0; --grid: #26333c;
   --accent: #5fb3cf; --hot: #e0644a; --rule: #2e3c46;
   --s-c0: #e3e9ed; --s-c3: #8d9ca6; --s-c1: #5aa8dc; --s-c2: #9dc9e8; --s-c4: #e0a640;
   --s-c8-noreg: #a88be0; --s-c8: #ef6a50; --s-c8-huber: #f2a596; --s-c8-perdelay: #d1849a;
-  --s-c8-prod: #c9925e; --s-c8-spm: #55c08a; color-scheme: dark; }
+  --s-c8-prod: #c9925e; --s-c8-spm: #55c08a; --s-c5: #45c2bb; --s-c5-voxel: #2a6f6b;
+  color-scheme: dark; }
 body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--body); }
 .wrap { max-width: 900px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; }
 header { border-bottom: 1px solid var(--rule); padding-block-end: 20px; }
@@ -1528,6 +1620,8 @@ def build(root):
     real = section_real(root, fig)
     fig += 2
     coreg = section_coreg(root, fig)
+    fig += 2
+    c5 = section_c5(root, fig)
 
     piv = df.pivot_table(index='fixture', columns='label', values='dm_edge')
     med = piv.median()
@@ -1546,9 +1640,21 @@ without noise, and noise makes it worse.</li>
 <li><b>Blurred references bias registration.</b> A sharp image registered to a blurred copy of itself
 moves; matched blur removes it. This contributes to the GE path's errors (#702) and penalizes averaged
 templates whenever the head moves.</li>
-<li><b>Production is still the best estimator overall</b> on simulated motion (median edge error
+<li><b>Production is the best estimator on average</b> on simulated motion (median edge error
 {fmt(med.get('c0'), 2)}). Own-type templates win on still heads and lose with motion
-({fmt(med.get('c1'), 2)} and {fmt(med.get('c2'), 2)}).</li>
+({fmt(med.get('c1'), 2)} and {fmt(med.get('c2'), 2)}). The margins are small, often under 0.1 mm.</li>
+<li><b>Production fails badly in the tail on real data.</b> With a 5% tie margin on the shared-mask
+energy, <code>c1-pld</code> and <code>c2-volreg</code> beat production on about a tenth of real runs
+and lose on 1&ndash;2%. The runs they win are mostly production failures, not small gains (ds007116
+sub-21035: production FD 10 mm, C2 0.15 mm). That argues for keeping production's estimator with a
+failure guard and a fallback, not for keeping it unchanged.</li>
+<li><b>Saturation-recovery normalization (C5, #673) ties production.</b> It refuses ineligible runs
+correctly. A voxelwise T1eff fit is biased toward its own pose estimates; a per-slice fit avoids that
+but does not beat production.</li>
+<li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
+spin history and high SNR: the conditions per-type MCFLIRT is built for. The approaches of mature
+pipelines (zig-zag regression, saturation recovery) target effects the simulator barely produces, and
+C8 reimplements only ExploreASL's and ASLtbx's motion step, not their whole pipelines.</li>
 <li><b>Zig-zag regression, as in ASLtbx and ExploreASL, is perfect on still heads and harmful with
 real motion</b> (median {fmt(med.get('c8'), 2)}). Spikes alias onto the alternation (a Huber fit fixes
 that), and drift is removed with it (nothing fixes that). Their exact parameter convention changes
@@ -1571,16 +1677,16 @@ registers it to under 0.5 mm.</li>
 <h1>HMC Probe Findings</h1>
 <p class="lede">What drives the spurious motion in ASLPrep's head-motion correction, and whether any
 alternative does better, tested on simulated data with known truth and on the aslprep-zoo panel.</p>
-<p class="meta">Branch <code>worktree-hmc-probe</code> · plan revision 12 · issues #702, #705, #707, #508,
-#673, #700, #672 · development fixtures only; held-out fixtures and real-data candidate runs are pending.</p>
+<p class="meta">Branch <code>worktree-hmc-probe</code> · plan revision 13 · issues #702, #705, #707, #508,
+#673, #700, #672 · development fixtures only; held-out fixtures are pending.</p>
 <nav class="toc" aria-label="Sections">
 <a href="#noise">Noise and cost</a><a href="#blur">Blur bias</a><a href="#screen">Candidate screen</a>
 <a href="#zigzag">Zig-zag regression</a><a href="#engines">Engines and short list</a>
 <a href="#consumers">Reference consumers</a><a href="#real">Real data</a><a href="#coreg">Perfusion coregistration</a>
-<a href="#next">Next steps</a></nav>
+<a href="#c5">Saturation recovery</a><a href="#next">Next steps</a></nav>
 </header>
 <section id="summary"><h2>Findings so far</h2>{summary}</section>
-{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}
+{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}{c5}
 <section id="next">
 <h2>Caveats and next steps</h2>
 <ul>
@@ -1592,9 +1698,10 @@ reason.</li>
 <li>Edge sensitivity may be higher in simulation than in real data (no partial-volume blurring of the
 brain edge beyond the voxel grid). The real-data runs of the candidates will test whether the drift
 penalty on pair-based methods carries over.</li>
-<li>Next: score the held-out fixtures; run the short-listed candidates on the real panel; the matched-
-smoothing variant of C2; the coregistration-reference experiment (#672); and a Codex review of the
-harness and scorer.</li>
+<li>Next: a failure guard for production (detect disagreement with <code>c2-volreg</code> or an
+implausible FD, then fall back); score the held-out fixtures; the stress fixtures (macrovascular
+signal, a perfusion deficit, stack-of-spirals for #503); the C6 identifiability test; and the
+full-pipeline runs of the short list (Task 7).</li>
 </ul>
 </section>
 </div>"""
