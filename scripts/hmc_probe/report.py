@@ -1544,6 +1544,122 @@ The plan builds C7 (a learned initializer) only if C6 succeeds, so C7 is not bui
     )
 
 
+T7_ARMS = {
+    'c0': 'production',
+    'c1-pld': 'C1 (own-type, per delay)',
+    'c2-volreg': 'C2 (3dvolreg)',
+    'c4-c1': 'C4 (pair-shared)',
+    'c8-huber-perdelay': 'C8 (zig-zag, Huber)',
+}
+T7_METRICS = [
+    ('cbf_gm_bias_rel', 'CBF bias in GM', 3),
+    ('cbf_brain_rmse_rel', 'CBF RMSE, brain', 3),
+    ('cbf_edge_rmse_rel', 'CBF RMSE, outer 3 mm', 3),
+    ('coreg_end_to_end_mm', 'Coregistration, end to end (mm)', 2),
+    ('m0_mm', 'M0 registration (mm)', 2),
+    ('mask_dice', 'Mask Dice', 3),
+]
+
+
+def section_task7(root):
+    """Task 7: the short list through full ASLPrep (metrics 5, 6, 9-11) and D3 per arm."""
+    f = root / 'task7' / 'scores' / 'task7.tsv'
+    if not f.exists():
+        return ''
+    d = pd.read_csv(f, sep='\t')
+    d = d[d.label.isin(T7_ARMS)]
+    d['kind'] = np.where(d.fixture.str.startswith('mo_'), 'motion', 'still')
+    arms = [a for a in T7_ARMS if a in set(d.label)]
+    tables = []
+    for kind, what in (('still', 'still head'), ('motion', 'simulated motion')):
+        sub = d[d.kind == kind]
+        med = sub.groupby('label').median(numeric_only=True)
+        rows = [
+            [esc(name)] + [fmt(med.at[a, col], dg) if a in med.index else '&ndash;' for a in arms]
+            for col, name, dg in T7_METRICS
+        ]
+        n = sub.fixture.nunique()
+        tables.append(
+            f'<h3>{what.capitalize()} ({n} fixtures)</h3>'
+            + plain_table(
+                ['Median'] + [esc(T7_ARMS[a]) for a in arms], rows, tuple(range(1, len(arms) + 1))
+            )
+        )
+    still = d[d.kind == 'still'].groupby('label').median(numeric_only=True)
+    motion = d[d.kind == 'motion'].groupby('label').median(numeric_only=True)
+    dropped = sorted(set(d.fixture[d.cbf_brain_rmse_rel.isna()]))
+    out = [
+        f"""
+<p>Each short-listed estimator was wired into full ASLPrep by handing its HMC reference and
+transforms to a fresh run as precomputed derivatives. ASLPrep then skips its own HMC and builds
+everything after it from the candidate's products: M0 and fieldmap registration, the
+coregistration reference, the mask, coregistration and CBF. Production's harness output, injected
+the same way, reproduces the baseline run (motion, M0 and mask identical, coregistration within
+0.002 mm). The CBF target is an oracle run given the true poses: the same quantification of the
+same data without motion-correction error, compared in each run's own frame inside the true
+brain. Values are relative to the oracle's grey-matter CBF.</p>
+<p>Getting there exposed an ASLPrep bug: precomputed transforms are silently dropped whenever
+atlases are enabled (the default), because the atlas datasets are collected after the user's and
+each replaces the transforms. The probe works around it; the fix belongs in ASLPrep.</p>
+{''.join(tables)}
+<p class="note">Medians over fixtures. The motion fixtures' CBF excludes {
+            ', '.join(f'<code>{esc(x)}</code>' for x in dropped) or 'none'
+        }, where even the oracle's CBF is corrupt (2 mm spikes through a B0 field fixed to the
+scanner cannot be undone by any rigid transform).</p>
+<p><b>On still heads production's spurious label motion reaches the CBF.</b> Its grey-matter CBF
+is biased by {fmt(still.at['c0', 'cbf_gm_bias_rel'] * 100, 1)}% (median) and its edge error is
+{fmt(still.at['c0', 'cbf_edge_rmse_rel'] * 100, 0)}% of grey-matter CBF; every candidate is within
+{fmt(max(abs(still.loc[a, 'cbf_gm_bias_rel']) for a in arms if a != 'c0') * 100, 1)}% bias. <b>With
+motion the order reverses</b>: production's brain CBF error is
+{fmt(motion.at['c0', 'cbf_brain_rmse_rel'] * 100, 0)}% against
+{fmt(motion.loc[[a for a in arms if a != 'c0'], 'cbf_brain_rmse_rel'].min() * 100, 0)}% or more
+for every candidate, and pair-shared and zig-zag estimators (C4, C8) are far worse. No estimator
+wins on both. The candidates' own templates also make the separate M0's registration cross-contrast,
+which costs accuracy (worst on GRASE).</p>""",
+    ]
+    c = root / 'task7' / 'coreg_d3.tsv'
+    if c.exists():
+        cd = pd.read_csv(c, sep='\t')
+        cd = cd[cd.label.isin(arms) & cd.source.notna()]
+        piv = cd[cd.sign == 'default'].pivot_table(
+            index='label', columns='source', values='rms_mm', aggfunc='median'
+        )
+        cols = [
+            s for s in ('conventional', 'P-mean', 'P-robust', 'P-winsor', 'P-masked') if s in piv
+        ]
+        spiral = cd[(cd.fixture == 'st_spiral') & (cd.sign == 'default')].pivot_table(
+            index='label', columns='source', values='rms_mm', aggfunc='median'
+        )
+        rows = [
+            [esc(T7_ARMS[a])]
+            + [fmt(piv.at[a, s], 2) for s in cols]
+            + [fmt(spiral.at[a, 'conventional'], 1) if a in spiral.index else '&ndash;']
+            + [fmt(spiral.at[a, 'P-robust'], 2) if a in spiral.index else '&ndash;']
+            for a in arms
+            if a in piv.index
+        ]
+        out.append(f"""
+<h3>D3 on every arm</h3>
+<p>The perfusion-image levels were built from each run's corrected series and registered by
+fMRIPrep's FSL path, next to the run's conventional reference (default BBR sign).</p>
+{
+            plain_table(
+                ['Arm']
+                + [f'{esc(s)} (mm)' for s in cols]
+                + ['spirals: conventional', 'spirals: P-robust'],
+                rows,
+                tuple(range(1, len(cols) + 3)),
+            )
+        }
+<p class="note">Median end-to-end coregistration error over the fixtures, and on the
+stack-of-spirals fixture.</p>""")
+    return (
+        '<section id="task7"><h2>The short list through full ASLPrep (Task 7)</h2>'
+        + ''.join(out)
+        + '</section>'
+    )
+
+
 def section_coreg(root, fig):
     out = []
     f = root / 'coreg-5b' / 'coreg_5b.tsv'
@@ -1828,6 +1944,7 @@ def build(root):
     fig += 2
     c5 = section_c5(root, fig)
     c6 = section_c6(root, df, fig + 1)
+    task7 = section_task7(root)
 
     piv = df.pivot_table(index='fixture', columns='label', values='dm_edge')
     med = piv.median()
@@ -1898,10 +2015,10 @@ alternative does better, tested on simulated data with known truth and on the as
 <a href="#noise">Noise and cost</a><a href="#blur">Blur bias</a><a href="#screen">Candidate screen</a>
 <a href="#zigzag">Zig-zag regression</a><a href="#engines">Engines and short list</a>
 <a href="#consumers">Reference consumers</a><a href="#real">Real data</a><a href="#coreg">Perfusion coregistration</a>
-<a href="#c5">Saturation recovery</a><a href="#c6">Joint model (C6)</a><a href="#next">Next steps</a></nav>
+<a href="#c5">Saturation recovery</a><a href="#c6">Joint model (C6)</a><a href="#task7">Full pipeline</a><a href="#next">Next steps</a></nav>
 </header>
 <section id="summary"><h2>Findings so far</h2>{summary}</section>
-{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}{c5}{c6}
+{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}{c5}{c6}{task7}
 <section id="next">
 <h2>Caveats and next steps</h2>
 <ul>

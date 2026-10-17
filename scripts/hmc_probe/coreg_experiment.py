@@ -208,8 +208,11 @@ def _contrast(work, gm, wm):
 # ---------------------------------------------------------------------------------------------
 # Fixtures (truth)
 # ---------------------------------------------------------------------------------------------
-def run_fixture(fixture_dir, run_dir, work, license_file, rescore=False):
+def run_fixture(fixture_dir, run_dir, work, license_file, rescore=False, hmc_file=None):
     """Register (unless ``rescore``) and score every source against two truths.
+
+    ``hmc_file``: the HMC transforms, for a run that was given them as precomputed derivatives
+    (Task 7; ASLPrep writes no HMC transform it did not compute).
 
     - ``rms_mm`` (end to end): against the frame of the corrected series, ``F_series R^-1``,
       which is what the transform is applied to;
@@ -239,7 +242,9 @@ def run_fixture(fixture_dir, run_dir, work, license_file, rescore=False):
     fixture = ts.Fixture(fixture_dir, acq)
     _, static_points = fixture.voxel_centers(fixture.brain)
     points = apply_affine(fixture.R, static_points)  # the same points in the T1w domain
-    hmc = _load_series(next(perf.glob(f'*_acq-{acq}_from-orig_to-aslref*_xfm.txt')))
+    hmc = _load_series(
+        hmc_file or next(perf.glob(f'*_acq-{acq}_from-orig_to-aslref*_xfm.txt'))
+    )
     poses = fixture.poses()
     keep = [i for i, t in enumerate(fixture.context) if t in ('control', 'label', 'm0scan')]
     keep = keep if len(keep) == len(hmc) else list(range(len(hmc)))

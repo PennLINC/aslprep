@@ -40,7 +40,13 @@ ROW = {
     'cbf_brain_p95': ('cbf', 'cbf', 'brain', 'p95_abs'),
     'att_brain_rmse_rel': ('cbf', 'att', 'brain', 'rmse_rel_gm'),
     'att_at_bound': ('cbf', 'att', 'fraction_at_bound'),
+    'oracle_gm_cbf': ('cbf', 'cbf', 'GM', 'oracle_mean'),
 }
+#: The oracle's grey-matter CBF must be positive for metric 5 to mean anything. On
+#: ``mo_pcasl_spikes`` it is not: the simulated head moves through a B0 field fixed to the
+#: scanner, so 2 mm spikes change the distortion and even the true poses leave the spike pairs
+#: corrupt (the harness reports the same for its oracle). Such fixtures are dropped from metric 5.
+CBF_COLUMNS = [k for k in ROW if k.startswith(('cbf_', 'att_'))]
 
 
 def _get(d, path):
@@ -94,6 +100,10 @@ def main(argv=None):
         rows.append({'label': label, 'fixture': name} | {k: _get(rec, p) for k, p in ROW.items()})
         print(f'{label}/{name}: scored', flush=True)
     df = pd.DataFrame(rows)
+    invalid = ~(df.oracle_gm_cbf > 0)
+    if invalid.any():
+        print('metric 5 dropped (oracle GM CBF not positive):', sorted(set(df.fixture[invalid])))
+    df.loc[invalid, CBF_COLUMNS] = float('nan')
     df.to_csv(args.out / 'task7.tsv', sep='\t', index=False)
     with pd.option_context('display.width', 250, 'display.max_columns', 30):
         print(df.groupby('label').median(numeric_only=True).round(3).T.to_string())
