@@ -45,6 +45,7 @@ def run_one(fixture, args):
         (args.src / 'aslprep', SITE, 'ro'),
         (fixture, '/fx', 'ro'),
         (out, '/out', 'rw'),
+        *((Path(h).resolve(), c, 'ro') for h, c in (m.split(':', 1) for m in args.mount)),
     ):
         cmd += ['-v', f'{host}:{container}:{mode}']
     if (NIIMATH_DIR / 'niimath').exists():
@@ -81,6 +82,13 @@ def main(argv=None):
     parser.add_argument('--jobs', type=int, default=6)
     parser.add_argument('--rerun', action='store_true')
     parser.add_argument('--delete-fixtures', action='store_true')
+    parser.add_argument(
+        '--mount',
+        action='append',
+        default=[],
+        metavar='HOST:CONTAINER',
+        help='An extra read-only mount (for example host-side C6 fits).',
+    )
     parser.add_argument(
         '--harness-args', nargs=argparse.REMAINDER, default=[], help='Passed to harness.py.'
     )

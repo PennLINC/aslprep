@@ -750,6 +750,25 @@ def run_c8(inputs, work, **options):
     }
 
 
+def _m0_into(final, data, idx, types, img, ref_file, work, cost):
+    """Fill the M0 volumes' FSL matrices as in C8 (their own group, then their mean to the
+    reference), and the identity for any volume still unset (derived volumes)."""
+    final = list(final)
+    m0 = [k for k, t in enumerate(types) if t == 'm0scan']
+    if m0:
+        m0_data = data[..., [idx[k] for k in m0]]
+        tpl = _save(m0_data.mean(-1), img, work / 'm0_mean.nii.gz')
+        m0_mats = (
+            _mcflirt(_save(m0_data, img, work / 'm0_series.nii.gz'), tpl, work / 'mcf_m0', cost)[0]
+            if len(m0) > 1
+            else [np.eye(4)]
+        )
+        cross = _flirt(tpl, ref_file, work / 'cross_m0.mat', cost)
+        for k, m in zip(m0, m0_mats, strict=True):
+            final[k] = cross @ m
+    return [np.eye(4) if f is None else f for f in final]
+
+
 def c5_eligibility(metadata, plds_cl, presat_delay):
     """Reasons C5 cannot apply (#673): an empty list means eligible."""
     reasons = []
@@ -928,19 +947,7 @@ def run_c5(inputs, work, **options):
     final = [None] * len(idx)
     for k, m in zip(cl, mats2, strict=True):
         final[k] = m
-    m0 = [k for k, t in enumerate(types) if t == 'm0scan']
-    if m0:  # as in C8: its own group, then its mean to the reference
-        m0_data = data[..., [idx[k] for k in m0]]
-        tpl = _save(m0_data.mean(-1), img, work / 'm0_mean.nii.gz')
-        m0_mats = (
-            _mcflirt(_save(m0_data, img, work / 'm0_series.nii.gz'), tpl, work / 'mcf_m0', cost)[0]
-            if len(m0) > 1
-            else [np.eye(4)]
-        )
-        cross = _flirt(tpl, ref_file, work / 'cross_m0.mat', cost)
-        for k, m in zip(m0, m0_mats, strict=True):
-            final[k] = cross @ m
-    final = [np.eye(4) if f is None else f for f in final]
+    final = _m0_into(final, data, idx, types, img, ref_file, work, cost)
     aslref = work / 'aslref.nii.gz'
     shutil.copyfile(ref_file, aslref)
     ctx_file = work / 'hmc_aslcontext.tsv'
@@ -952,6 +959,154 @@ def run_c5(inputs, work, **options):
         'indices': idx,
         'reference_type': 'saturation-recovery normalized mean (two passes)',
         'reference_volumes': [idx[k] for k in cl],
+        'reference_frame_kind': 'corrected',
+        'processing_target': target,
+        'use_ge': None,
+        'artifacts': str(art),
+    }
+
+
+def c6_fit_inputs(
+    inputs,
+    init='zero',
+    init_mm=1.0,
+    seed=0,
+    scale_iters=1.0,
+    hires=2,
+    support_mask=None,
+    p_bound=None,
+):
+    """Fit the C6 model to a run's control and label volumes (needs PyTorch and, ideally, a GPU).
+
+    The perfusion support is the static-image mask (mean control above 20% of its 99th
+    percentile), the form that passed the identifiability test. ``init``: ``zero`` or ``random``
+    (uniform within ``init_mm`` mm and degrees, for the initialization test). ``hires``: the
+    acquisition model (maps on an in-plane grid ``hires`` times finer, k-space cropped, with a
+    learned weight per phase-encoding line on the axis ``PhaseEncodingDirection`` names); 1 is
+    the plain interpolation model. ``support_mask`` replaces the static-image support (a boolean
+    array on the run's grid; the probe passes the true tissue mask as an upper bound). Returns
+    None for a run without both controls and labels.
+    """
+    from c6_model import fit
+
+    _, idx, types = _kept(inputs)
+    img = nb.load(inputs['asl_file'])
+    data = np.asanyarray(img.dataobj, np.float32)
+    data = data[..., None] if data.ndim == 3 else data
+    plds = _plds(inputs, data.shape[-1], idx)
+    cl = [k for k, t in enumerate(types) if t in ('control', 'label')]
+    if not {'control', 'label'} <= {types[k] for k in cl}:
+        return None
+    cl_data = data[..., [idx[k] for k in cl]].astype(np.float64)
+    ctrl_mean = cl_data[..., [types[k] == 'control' for k in cl]].mean(-1)
+    support = ctrl_mean > 0.2 * np.percentile(ctrl_mean, 99)
+    if support_mask is not None:
+        support = np.asarray(support_mask, bool)
+    if data.shape[0] % 2 or data.shape[1] % 2:
+        hires = 1  # the centred k-space crop needs even in-plane sizes
+    rng = np.random.default_rng(seed)
+    start = None if init == 'zero' else rng.uniform(-init_mm, init_mm, (len(cl), 6))
+    stages = tuple(
+        (fwhm, max(1, round(it * scale_iters)))
+        for fwhm, it in ((None, 200), (4.0, 300), (2.0, 300), (0.0, 400))
+    )
+    res = fit(
+        cl_data,
+        [types[k] for k in cl],
+        [plds[k] for k in cl],
+        img.affine,
+        support,
+        init=start,
+        stages=stages,
+        seed=seed,
+        hires=hires,
+        pe_axis={'i': 0, 'j': 1}.get(
+            str(inputs['metadata'].get('PhaseEncodingDirection', 'j'))[0]
+        ),
+        p_bound=p_bound,
+    )
+    return {
+        **res,
+        'cl': cl,
+        'init': init,
+        'init_mm': init_mm,
+        'seed': seed,
+        'start': start,
+        'hires': hires,
+        'p_bound': p_bound,
+    }
+
+
+def c6_fit_file(fit_dir, asl_file):
+    return Path(fit_dir) / f'{Path(asl_file).name.removesuffix(".nii.gz")}.npz'
+
+
+def run_c6(inputs, work, **options):
+    """Differentiable contrast model fitted jointly with the motion (C6; ``c6_model``).
+
+    The fit needs PyTorch, which the ASLPrep image does not have: ``c6_fit.py`` fits each run on
+    the host and ``fit_dir`` (mounted read-only) holds the results; without ``fit_dir`` the fit
+    runs here. Control and label volumes only; a run without both is processed as production
+    and says so. The static image is the reference handed on; M0 volumes are handled as in C8.
+    """
+    cost = _opt(options, 'cost', 'mutualinfo')
+    fit_dir = _opt(options, 'fit_dir', None)
+    target, idx, types = _kept(inputs)
+    img = nb.load(inputs['asl_file'])
+    data = np.asanyarray(img.dataobj, np.float32)
+    data = data[..., None] if data.ndim == 3 else data
+    art = work / 'artifacts'
+    art.mkdir()
+    if fit_dir is not None:
+        f = c6_fit_file(fit_dir, inputs['asl_file'])
+        z = np.load(f, allow_pickle=False)
+        res = (
+            {k: z[k] for k in ('pulls', 'theta', 'S', 'P', 'cl')} | json.loads(str(z['meta']))
+            if z['applied']
+            else None
+        )
+    else:
+        res = c6_fit_inputs(
+            inputs,
+            _opt(options, 'init', 'zero'),
+            _opt(options, 'init_mm', 1.0, float),
+            _opt(options, 'seed', 0, int),
+            _opt(options, 'iters', 1.0, float),
+            _opt(options, 'hires', 2, int),
+        )
+    if res is None:
+        from harness import run_c0
+
+        sub = work / 'refused_c0'
+        sub.mkdir()
+        res = run_c0(inputs, sub)
+        (art / 'c6.json').write_text(json.dumps({'applied': False, 'reason': 'no pairs'}))
+        return {
+            **res,
+            'reference_type': f'{res["reference_type"]}; C6 not applicable',
+            'artifacts': str(art),
+        }
+
+    ref_file = _save(res['S'], img, work / 'c6_static.nii.gz')
+    _save(res['P'], img, art / 'c6_perfusion.nii.gz')
+    np.save(art / 'theta.npy', res['theta'])
+    meta = {k: res.get(k) for k in ('init', 'init_mm', 'seed', 'hires', 'p_bound', 'w', 'history')}
+    (art / 'c6.json').write_text(json.dumps({'applied': True, **meta}, indent=2))
+    final = [None] * len(idx)
+    for k, m in zip(res['cl'], _pull_ras_to_fsl(res['pulls'], img), strict=True):
+        final[k] = m
+    final = _m0_into(final, data, idx, types, img, ref_file, work, cost)
+    aslref = work / 'aslref.nii.gz'
+    shutil.copyfile(ref_file, aslref)
+    ctx_file = work / 'hmc_aslcontext.tsv'
+    pd.DataFrame({'volume_type': types}).to_csv(ctx_file, sep='\t', index=False)
+    return {
+        'aslref': str(aslref),
+        'xforms': str(_to_itk(final, aslref, work)),
+        'aslcontext': str(ctx_file),
+        'indices': idx,
+        'reference_type': 'C6 static image (joint contrast and motion model)',
+        'reference_volumes': [idx[int(k)] for k in res['cl']],
         'reference_frame_kind': 'corrected',
         'processing_target': target,
         'use_ge': None,
@@ -1034,6 +1189,7 @@ def run_perfref(inputs, work, **options):
 
 CANDIDATES = {
     'c5': run_c5,
+    'c6': run_c6,
     'c1': run_c1,
     'c2': run_c2,
     'c3': run_c3,
