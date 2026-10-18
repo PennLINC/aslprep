@@ -35,8 +35,8 @@ DIAGNOSTIC = ('c8-noreg', 'c8-prod', 'c8-prod-huber', 'c8-spm', 'c1-loo')
 
 
 def is_held_out(fixture):
-    """Held-out fixtures (recipes ending in ``_ho``, and their seed variants)."""
-    return fixture.split('__s')[0].endswith('_ho')
+    """Held-out fixtures (recipes ending in ``_ho`` or ``_ho2``, and their seed variants)."""
+    return fixture.split('__s')[0].endswith(('_ho', '_ho2'))
 
 
 def family(label):

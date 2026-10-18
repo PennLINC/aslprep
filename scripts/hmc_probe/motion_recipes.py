@@ -39,7 +39,9 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 OUT = HERE / 'recipes'
-SEEDS = {'dev': 20261015, 'heldout': 20261016}
+#: ``heldout2`` (recipes ending ``_ho2``) is a fresh held-out set, made after the first one had
+#: been used to judge C9-late, for the C9 variant designed in view of that result.
+SEEDS = {'dev': 20261015, 'heldout': 20261016, 'heldout2': 20261018}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -176,7 +178,7 @@ def write(protocol_name, kind, split):
     seed = SEEDS[split] + zlib.crc32(f'{protocol_name}/{kind}'.encode()) % 1000
     rng = np.random.default_rng(seed)
     traj = trajectory(kind, context, plds, rng)
-    name = f'mo_{protocol_name}_{kind}' + ('_ho' if split == 'heldout' else '')
+    name = f'mo_{protocol_name}_{kind}' + {'heldout': '_ho', 'heldout2': '_ho2'}.get(split, '')
     acq = name.replace('_', '')
     d = OUT / name
     shutil.rmtree(d, ignore_errors=True)
@@ -222,9 +224,14 @@ def check(name, kind):
     return trans, rot
 
 
-def main():
+def main(argv=None):
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
+    parser.add_argument('--splits', nargs='+', default=['dev', 'heldout'], choices=sorted(SEEDS))
+    args = parser.parse_args(argv)
     names = []
-    for split in ('dev', 'heldout'):
+    for split in args.splits:
         for protocol_name, kind in PLAN:
             name = write(protocol_name, kind, split)
             trans, rot = check(name, kind)

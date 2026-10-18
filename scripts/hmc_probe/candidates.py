@@ -1129,7 +1129,11 @@ def run_c9(inputs, work, **options):
     against every control; ``late`` pools the delays at or above the run's median delay (D3's
     rule) and applies that one offset to every label. At short delays the label still holds
     arterial signal, so its mean differs from the control mean in structure and biases the
-    estimate (on ``pcasl_multipld`` a 0.03 mm error there doubles the edge error).
+    estimate (on ``pcasl_multipld`` a 0.03 mm error there doubles the edge error). ``auto``
+    estimates per delay but lets the early, arterial delays borrow the nearest other delay's
+    estimate; it was designed after the first held-out result (late pooling regressed in the
+    PASL families, where per-delay estimates also follow drift), so it is judged on fresh
+    held-out fixtures.
     """
     from harness import resample_series
 
@@ -1149,13 +1153,30 @@ def run_c9(inputs, work, **options):
         # apply the one offset to every label.
         apply_to = [k for k, t in enumerate(types) if t == 'label']
         plds = [0.0 if p >= cut else -1.0 for p in plds]
-    elif grouping != 'delay':
-        raise ValueError(f'grouping must be delay, all or late, not {grouping}')
+    elif grouping not in ('delay', 'auto'):
+        raise ValueError(f'grouping must be delay, all, late or auto, not {grouping}')
+    # ``auto``: per delay (the offset changes with the head's position, so a local estimate
+    # tracks it), except that delays whose labels still hold arterial signal (PCASL/CASL
+    # delays under 0.5 s, PASL inversion times under 0.8 s) borrow the estimate of the nearest
+    # other delay in acquisition order.
+    asl_type = str(inputs['metadata'].get('ArterialSpinLabelingType', 'PCASL')).upper()
+    arterial_cut = 0.8 if asl_type == 'PASL' else 0.5
+    borrowed = set()
+    if grouping == 'auto':
+        borrowed = {
+            p for p, t in zip(plds, types, strict=True) if t == 'label' and p < arterial_cut
+        }
     ref_img = nb.load(res['aslref'])
     f2w = _fsl_to_world(ref_img)
     new = list(h)
     offsets = {}
-    for d in sorted({p for p, t in zip(plds, types, strict=True) if t == 'label' and p >= 0}):
+    pushes = {}
+    label_delays = sorted({p for p, t in zip(plds, types, strict=True) if t == 'label' and p >= 0})
+    if borrowed and borrowed >= set(label_delays):
+        borrowed = set()  # every delay is early: estimate each from its own data
+    for d in label_delays:
+        if d in borrowed:
+            continue
         labels = [
             k for k, (t, p) in enumerate(zip(types, plds, strict=True)) if t == 'label' and p == d
         ]
@@ -1180,6 +1201,7 @@ def run_c9(inputs, work, **options):
             means['label'], means['control'], work / f'offset_{d:g}', 'normcorr', engine
         )
         push = f2w @ mats[0] @ np.linalg.inv(f2w)  # label-mean frame -> control-mean frame
+        pushes[d] = (push, float(np.mean(labels)))
         for k in labels if apply_to is None else apply_to:
             new[k] = h[k] @ np.linalg.inv(push)
         offsets[f'{d:g}'] = {
@@ -1190,10 +1212,29 @@ def run_c9(inputs, work, **options):
                 np.degrees(np.arccos(np.clip((np.trace(push[:3, :3]) - 1) / 2, -1, 1)))
             ),
         }
+    for d in sorted(borrowed):
+        labels = [
+            k for k, (t, p) in enumerate(zip(types, plds, strict=True)) if t == 'label' and p == d
+        ]
+        if not pushes or not labels:
+            continue
+        at = float(np.mean(labels))
+        src = min(pushes, key=lambda e: abs(pushes[e][1] - at))
+        for k in labels:
+            new[k] = h[k] @ np.linalg.inv(pushes[src][0])
+        offsets[f'{d:g}'] = {'borrowed_from': f'{src:g}', 'n_labels': len(labels)}
     art = work / 'artifacts'
     art.mkdir()
     (art / 'c9.json').write_text(
-        json.dumps({'engine': engine, 'grouping': grouping, 'offsets': offsets}, indent=2)
+        json.dumps(
+            {
+                'engine': engine,
+                'grouping': grouping,
+                'arterial_cut_s': arterial_cut if grouping == 'auto' else None,
+                'offsets': offsets,
+            },
+            indent=2,
+        )
     )
     return {
         **res,

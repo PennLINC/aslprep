@@ -399,7 +399,8 @@ def load_scores(root):
         s = json.loads(f.read_text())
         if s.get('score_version', 1) < 2:  # older scale (noise-seed runs whose fixtures are gone)
             continue
-        if f.parent.name.split('__s')[0].endswith('_ho'):  # held-out: never shown with development
+        # held-out (``_ho``, ``_ho2``): never shown with development
+        if f.parent.name.split('__s')[0].endswith(('_ho', '_ho2')):
             continue
         rec = {'label': f.parent.parent.name, 'fixture': f.parent.name, 'path': f.parent}
         rec.update({k: _get(s, p) for k, p in METRICS.items()})
