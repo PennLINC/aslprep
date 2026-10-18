@@ -193,6 +193,17 @@ def test_correct_label_offset_passes_deltam_through(tmp_path):
     np.testing.assert_allclose(out, np.repeat(np.eye(4)[None], 3, axis=0), atol=1e-6)
 
 
+def test_magnitude_keeps_small_rotations():
+    """A 0.02 degree rotation whose diagonal rounds to 1 is still reported."""
+    from aslprep.interfaces.hmc import _magnitude
+
+    ref = nb.Nifti1Image(np.zeros((10, 10, 10), np.float32), np.eye(4))
+    a = np.radians(0.02)
+    m = np.eye(4)
+    m[0, 1], m[1, 0] = -np.round(np.sin(a), 6), np.round(np.sin(a), 6)  # diagonal stays 1.0
+    assert _magnitude(m, ref)['rotation_deg'] == pytest.approx(0.02, rel=0.05)
+
+
 def test_init_asl_hmc_wf_adds_label_offset_only_when_asked():
     """The correction node exists only with --hmc-method typewise_offset."""
     from aslprep import config

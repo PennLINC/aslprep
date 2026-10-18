@@ -192,5 +192,9 @@ def _magnitude(pull, ref_img):
     """Translation at the reference's centre (mm) and rotation angle (degrees) of a transform."""
     centre = ref_img.affine @ np.r_[(np.array(ref_img.shape[:3]) - 1) / 2, 1]
     shift = (pull @ centre - centre)[:3]
-    angle = np.degrees(np.arccos(np.clip((np.trace(pull[:3, :3]) - 1) / 2, -1, 1)))
+    # From both the antisymmetric part and the trace: 3dvolreg writes its matrices with few
+    # decimals, so for small rotations the diagonal rounds to 1 and the trace alone gives 0.
+    r = pull[:3, :3]
+    sin = np.linalg.norm([r[2, 1] - r[1, 2], r[0, 2] - r[2, 0], r[1, 0] - r[0, 1]]) / 2
+    angle = np.degrees(np.arctan2(sin, (np.trace(r) - 1) / 2))
     return {'translation_mm': float(np.linalg.norm(shift)), 'rotation_deg': float(angle)}
