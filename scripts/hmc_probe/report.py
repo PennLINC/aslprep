@@ -2002,7 +2002,11 @@ motion.</b> It keeps production's transforms and composes into every label one r
 that brings the corrected label mean onto the control mean (estimated from the later delays).
 Median edge delta-M error with motion falls from 0.29 to 0.11; through full ASLPrep its CBF error
 is lower than production's on 11 of 14 fixtures (a third lower on still heads, more than half
-with motion). It is the only arm better than production on both.</li>
+with motion). It is the only arm better than production on both. <b>It does not pass gate 3:</b>
+on the held-out simulations it regresses in the PASL families (drift errors about double), and
+on real data, against criteria written beforehand, it does no harm by energy (worse on 0.8% of
+260 runs) but fails one family's split-half criterion (3D EPI at 7 T, by 0.003). A grouping that
+depends on the protocol is the next variant, and needs fresh held-out fixtures.</li>
 <li><b>ASLPrep ignores precomputed transforms whenever atlases are enabled</b> (found wiring the
 candidates in): the atlas datasets are collected last and replace the transforms.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
