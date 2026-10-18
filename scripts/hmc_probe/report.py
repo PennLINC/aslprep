@@ -1652,7 +1652,13 @@ fMRIPrep's FSL path, next to the run's conventional reference (default BBR sign)
             )
         }
 <p class="note">Median end-to-end coregistration error over the fixtures, and on the
-stack-of-spirals fixture.</p>""")
+stack-of-spirals fixture.</p>
+<p>The conventional reference still registers best overall for every arm. Built from
+production's corrected series, the perfusion images register worse (about 0.5 mm) than from any
+candidate's (about 0.25 mm): production's spurious label offset blurs the pairs they are made
+from. On the spirals fixture every conventional reference fails, production's and the
+candidates' templates alike, which is the BBR sign problem, and the perfusion image recovers
+it on every arm.</p>""")
     return (
         '<section id="task7"><h2>The short list through full ASLPrep (Task 7)</h2>'
         + ''.join(out)
@@ -1979,6 +1985,13 @@ exact identifiability test shows that the perfusion image must be zero outside t
 absorbs label motion. The GPU prototype also needs the perfusion image bounded, and is still limited
 by how far the simulator departs from its model. It helps only on motion confounded with volume
 type, where C2 is already as good.</li>
+<li><b>Through full ASLPrep, the spurious label motion biases CBF.</b> On still heads production's
+grey-matter CBF is biased by about 3% and its edge CBF error is about 20% of grey-matter CBF,
+against the oracle; every short-listed candidate is within 0.1%. With simulated motion production
+is best and the candidates are worse (C4 and C8 badly). No estimator wins on both, which points
+to fixing production's label offset rather than replacing it.</li>
+<li><b>ASLPrep ignores precomputed transforms whenever atlases are enabled</b> (found wiring the
+candidates in): the atlas datasets are collected last and replace the transforms.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
 spin history and high SNR: the conditions per-type MCFLIRT is built for. The approaches of mature
 pipelines (zig-zag regression, saturation recovery) target effects the simulator barely produces, and
