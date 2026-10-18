@@ -2010,8 +2010,12 @@ no family regressing).</li>
 <li><b>On real data C9-auto does no harm by the motion-sensitive metrics</b> (delta-M energy
 worse than production's on none of 260 runs, better on 15%; negative fraction unchanged), but
 fails the pre-registered split-half criterion in two small families (3D EPI at 7 T, 17 runs from
-one dataset; 3D GRASE multi-delay, 7 runs), where the paired per-run change is -0.005. Whether
-that blocks adoption is the Task 9 decision.</li>
+one dataset; 3D GRASE multi-delay, 7 runs), where the paired per-run change is -0.005.</li>
+<li><b>Decision: C9-auto is in ASLPrep as an opt-in method,</b> <code>--hmc-method
+typewise_offset</code>, with production (<code>typewise</code>) still the default. The integrated
+version reproduces the probe's CBF results exactly on the three fixtures checked end to end, and
+passed an adversarial and an ordinary Codex review. Making it the default waits for the blind
+review of real data.</li>
 <li><b>ASLPrep ignores precomputed transforms whenever atlases are enabled</b> (found wiring the
 candidates in): the atlas datasets are collected last and replace the transforms.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
