@@ -83,6 +83,7 @@ def run_one(name, args):
         cmd += ['--m0_scale', str(divisor)]
     if args.sloppy:
         cmd.append('--sloppy')
+    cmd += args.extra
     start = time.time()
     with (args.out / label / f'{name}.log').open('w') as fobj:
         fobj.write(' '.join(cmd) + '\n\n')
@@ -124,6 +125,9 @@ def main(argv=None):
         '--hmc-derivs',
         type=Path,
         help='Task 7: <dir>/<fixture> holds injected HMC derivatives (inject_hmc.py).',
+    )
+    parser.add_argument(
+        '--extra', nargs=argparse.REMAINDER, default=[], help='Extra ASLPrep arguments (last).'
     )
     args = parser.parse_args(argv)
     args.out = args.out.resolve()
