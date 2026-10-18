@@ -47,6 +47,11 @@ ROW = {
 #: scanner, so 2 mm spikes change the distortion and even the true poses leave the spike pairs
 #: corrupt (the harness reports the same for its oracle). Such fixtures are dropped from metric 5.
 CBF_COLUMNS = [k for k in ROW if k.startswith(('cbf_', 'att_'))]
+#: The CBF target must be in the run's own frame, or the comparison resamples the target and not
+#: the run. Production and C9 use production's reference (a separate M0 can sit millimetres from
+#: the volumes), so they are compared with the oracle built in production's frame; the template
+#: arms' frames are within a few hundredths of a millimetre of the static one.
+ORACLE_FOR = {'c0': 'oracle-c0', 'c9': 'oracle-c0', 'c9-late': 'oracle-c0'}
 
 
 def _get(d, path):
@@ -77,8 +82,11 @@ def main(argv=None):
         if json.loads(done.read_text())['returncode'] != 0 or name not in fixture_dirs:
             continue
         hmc = hmc_file(args.derivs, label, name)
-        oracle_hmc = hmc_file(args.derivs, 'oracle', name)
-        oracle_run = args.runs / 'oracle' / name
+        oracle = ORACLE_FOR.get(label, 'oracle')
+        if not (args.runs / oracle / name / 'DONE.json').exists():
+            oracle = 'oracle'
+        oracle_hmc = hmc_file(args.derivs, oracle, name)
+        oracle_run = args.runs / oracle / name
         out = args.out / label / name
         out.mkdir(parents=True, exist_ok=True)
         rec = {}
@@ -97,7 +105,11 @@ def main(argv=None):
             except Exception as exc:  # noqa: BLE001 - record and continue
                 rec[kind] = {'problems': [repr(exc)]}
             f.write_text(json.dumps(rec[kind], indent=2, default=float) + '\n')
-        rows.append({'label': label, 'fixture': name} | {k: _get(rec, p) for k, p in ROW.items()})
+        rows.append(
+            {'label': label, 'fixture': name, 'oracle': oracle}
+            | {k: _get(rec, p) for k, p in ROW.items()}
+            | {'frame_vs_oracle_mm': _get(rec, ('cbf', 'frame_offset_mm'))}
+        )
         print(f'{label}/{name}: scored', flush=True)
     df = pd.DataFrame(rows)
     invalid = ~(df.oracle_gm_cbf > 0)

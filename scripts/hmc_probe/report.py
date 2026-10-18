@@ -1546,6 +1546,7 @@ The plan builds C7 (a learned initializer) only if C6 succeeds, so C7 is not bui
 
 T7_ARMS = {
     'c0': 'production',
+    'c9-late': 'C9 (production, label offset removed)',
     'c1-pld': 'C1 (own-type, per delay)',
     'c2-volreg': 'C2 (3dvolreg)',
     'c4-c1': 'C4 (pair-shared)',
@@ -1596,8 +1597,12 @@ everything after it from the candidate's products: M0 and fieldmap registration,
 coregistration reference, the mask, coregistration and CBF. Production's harness output, injected
 the same way, reproduces the baseline run (motion, M0 and mask identical, coregistration within
 0.002 mm). The CBF target is an oracle run given the true poses: the same quantification of the
-same data without motion-correction error, compared in each run's own frame inside the true
-brain. Values are relative to the oracle's grey-matter CBF.</p>
+same data without motion-correction error, inside the true brain. It is built in each arm's own
+frame, so that neither map is resampled more than the other: production and C9 use production's
+reference, which with a separate M0 can sit 2.5 mm from the volumes, and are compared with an
+oracle built in that frame. (A first version compared every arm with an oracle in the static
+frame; resampling that oracle into production's frame smoothed it and showed production a 3%
+grey-matter bias that was not there.) Values are relative to the oracle's grey-matter CBF.</p>
 <p>Getting there exposed an ASLPrep bug: precomputed transforms are silently dropped whenever
 atlases are enabled (the default), because the atlas datasets are collected after the user's and
 each replaces the transforms. The probe works around it; the fix belongs in ASLPrep.</p>
@@ -1606,16 +1611,21 @@ each replaces the transforms. The probe works around it; the fix belongs in ASLP
             ', '.join(f'<code>{esc(x)}</code>' for x in dropped) or 'none'
         }, where even the oracle's CBF is corrupt (2 mm spikes through a B0 field fixed to the
 scanner cannot be undone by any rigid transform).</p>
-<p><b>On still heads production's spurious label motion reaches the CBF.</b> Its grey-matter CBF
-is biased by {fmt(still.at['c0', 'cbf_gm_bias_rel'] * 100, 1)}% (median) and its edge error is
-{fmt(still.at['c0', 'cbf_edge_rmse_rel'] * 100, 0)}% of grey-matter CBF; every candidate is within
-{fmt(max(abs(still.loc[a, 'cbf_gm_bias_rel']) for a in arms if a != 'c0') * 100, 1)}% bias. <b>With
-motion the order reverses</b>: production's brain CBF error is
-{fmt(motion.at['c0', 'cbf_brain_rmse_rel'] * 100, 0)}% against
-{fmt(motion.loc[[a for a in arms if a != 'c0'], 'cbf_brain_rmse_rel'].min() * 100, 0)}% or more
-for every candidate, and pair-shared and zig-zag estimators (C4, C8) are far worse. No estimator
-wins on both. The candidates' own templates also make the separate M0's registration cross-contrast,
-which costs accuracy (worst on GRASE).</p>""",
+<p><b>No arm has a grey-matter CBF bias worth the name</b> (all within
+{fmt(max(abs(still.loc[a, 'cbf_gm_bias_rel']) for a in arms) * 100, 1)}% on still heads); the
+differences are in the spatial error. On still heads production's brain CBF error is
+{fmt(still.at['c0', 'cbf_brain_rmse_rel'] * 100, 0)}% of grey-matter CBF, the own-type templates
+are near zero, and C9 is in between ({fmt(still.at['c9-late', 'cbf_brain_rmse_rel'] * 100, 0)}%).
+With motion the template arms lose: production
+{fmt(motion.at['c0', 'cbf_brain_rmse_rel'] * 100, 0)}%, C1 and C2 about
+{fmt(motion.loc[['c1-pld', 'c2-volreg'], 'cbf_brain_rmse_rel'].mean() * 100, 0)}%, C4 and C8 far
+worse, and C9 {fmt(motion.at['c9-late', 'cbf_brain_rmse_rel'] * 100, 0)}%. <b>C9 is the only arm
+better than production on both</b>: removing production's label offset keeps its motion tracking
+and cuts its CBF error by a third on still heads and by more than half with motion. What remains
+on still heads is per-volume jitter from registering every volume, across contrast, to a
+reference that can sit millimetres away, which C9 does not touch. The template arms also make the
+separate M0's registration cross-contrast, which costs accuracy (worst on GRASE); C9 keeps
+production's.</p>""",
     ]
     c = root / 'task7' / 'coreg_d3.tsv'
     if c.exists():
@@ -1985,11 +1995,14 @@ exact identifiability test shows that the perfusion image must be zero outside t
 absorbs label motion. The GPU prototype also needs the perfusion image bounded, and is still limited
 by how far the simulator departs from its model. It helps only on motion confounded with volume
 type, where C2 is already as good.</li>
-<li><b>Through full ASLPrep, the spurious label motion biases CBF.</b> On still heads production's
-grey-matter CBF is biased by about 3% and its edge CBF error is about 20% of grey-matter CBF,
-against the oracle; every short-listed candidate is within 0.1%. With simulated motion production
-is best and the candidates are worse (C4 and C8 badly). No estimator wins on both, which points
-to fixing production's label offset rather than replacing it.</li>
+<li><b>No short-listed estimator passes gate 2.</b> Each improves what it targets (pair alignment,
+reference offset) but is worse end to end with motion, in the harness and through full ASLPrep.</li>
+<li><b>C9, production with its label offset removed, beats production on both still heads and
+motion.</b> It keeps production's transforms and composes into every label one rigid correction
+that brings the corrected label mean onto the control mean (estimated from the later delays).
+Median edge delta-M error with motion falls from 0.29 to 0.11; through full ASLPrep its CBF error
+is lower than production's on 11 of 14 fixtures (a third lower on still heads, more than half
+with motion). It is the only arm better than production on both.</li>
 <li><b>ASLPrep ignores precomputed transforms whenever atlases are enabled</b> (found wiring the
 candidates in): the atlas datasets are collected last and replace the transforms.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no

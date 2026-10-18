@@ -1210,9 +1210,12 @@ def run_oracle(inputs, work, **options):
     static phantom to each volume), read from the fixture's ground truth, and the reference is
     the mean of the processing-target volumes corrected with them, so it depicts the static
     frame. A full ASLPrep run given these products is the target for the CBF comparison. Never
-    a candidate: it reads the truth.
+    a candidate: it reads the truth. ``frame=<arm>`` builds the target in that arm's frame and
+    with its reference instead, for arms whose frame is far from the static one (production's,
+    with a separate M0 at another pose): comparing in the static frame would resample the
+    target and not the run.
     """
-    from harness import resample_series
+    from harness import load_itk_series, resample_series
 
     from aslprep.tests.truth_scoring import Fixture
 
@@ -1221,10 +1224,30 @@ def run_oracle(inputs, work, **options):
     fixture = Fixture(asl.parents[2], asl.name.split('_acq-')[1].split('_')[0])
     pulls = fixture.poses()[idx]
     img = nb.load(asl)
-    grid = _save(np.asanyarray(img.dataobj, np.float32)[..., 0], img, work / 'grid.nii.gz')
+    frame_of = _opt(options, 'frame', None)
+    if frame_of is not None:
+        # The target in another arm's frame (metric 5 compares in the candidate's own frame,
+        # so that neither map is resampled more than the other): that arm's reference, and the
+        # true poses expressed in its frame F (the polar mean of H_v^-1 P_v), H*_v = P_v F^-1.
+        from harness import CANDIDATES
+
+        sub = work / f'frame_{frame_of}'
+        sub.mkdir()
+        base = CANDIDATES[frame_of](inputs, sub)
+        h = load_itk_series(base['xforms'])
+        m = np.mean([np.linalg.inv(a) @ p for a, p in zip(h, pulls, strict=True)], axis=0)
+        u, _, vt = np.linalg.svd(m[:3, :3])
+        frame = np.eye(4)
+        frame[:3, :3] = u @ np.diag([1, 1, np.sign(np.linalg.det(u @ vt))]) @ vt
+        frame[:3, 3] = m[:3, 3]
+        pulls = np.stack([p @ np.linalg.inv(frame) for p in pulls])
+        aslref = Path(base['aslref'])
+    else:
+        grid = _save(np.asanyarray(img.dataobj, np.float32)[..., 0], img, work / 'grid.nii.gz')
+        sel = [k for k, t in enumerate(types) if t == target]
+        corrected = resample_series(str(asl), [idx[k] for k in sel], pulls[sel], grid)
+        aslref = _save(np.asanyarray(corrected.dataobj).mean(-1), img, work / 'aslref.nii.gz')
     sel = [k for k, t in enumerate(types) if t == target]
-    corrected = resample_series(str(asl), [idx[k] for k in sel], pulls[sel], grid)
-    aslref = _save(np.asanyarray(corrected.dataobj).mean(-1), img, work / 'aslref.nii.gz')
     ctx_file = work / 'hmc_aslcontext.tsv'
     pd.DataFrame({'volume_type': types}).to_csv(ctx_file, sep='\t', index=False)
     return {
@@ -1232,7 +1255,11 @@ def run_oracle(inputs, work, **options):
         'xforms': str(_write_itk(work / 'hmc_xfms.txt', pulls)),
         'aslcontext': str(ctx_file),
         'indices': idx,
-        'reference_type': f'oracle: mean {target} corrected with the true poses',
+        'reference_type': (
+            f'oracle: mean {target} corrected with the true poses'
+            if frame_of is None
+            else f"oracle in {frame_of}'s frame and reference"
+        ),
         'reference_volumes': [idx[k] for k in sel],
         'reference_frame_kind': 'corrected',
         'processing_target': target,
