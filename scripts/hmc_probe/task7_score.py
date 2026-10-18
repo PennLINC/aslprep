@@ -51,7 +51,7 @@ CBF_COLUMNS = [k for k in ROW if k.startswith(('cbf_', 'att_'))]
 #: the run. Production and C9 use production's reference (a separate M0 can sit millimetres from
 #: the volumes), so they are compared with the oracle built in production's frame; the template
 #: arms' frames are within a few hundredths of a millimetre of the static one.
-ORACLE_FOR = {'c0': 'oracle-c0', 'c9': 'oracle-c0', 'c9-late': 'oracle-c0'}
+ORACLE_FOR = {'c0': 'oracle-c0', 'c9': 'oracle-c0', 'c9-late': 'oracle-c0', 'c9-auto': 'oracle-c0'}
 
 
 def _get(d, path):

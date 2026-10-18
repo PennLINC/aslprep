@@ -1547,7 +1547,7 @@ The plan builds C7 (a learned initializer) only if C6 succeeds, so C7 is not bui
 
 T7_ARMS = {
     'c0': 'production',
-    'c9-late': 'C9 (production, label offset removed)',
+    'c9-auto': 'C9 (production, label offset removed)',
     'c1-pld': 'C1 (own-type, per delay)',
     'c2-volreg': 'C2 (3dvolreg)',
     'c4-c1': 'C4 (pair-shared)',
@@ -1616,11 +1616,11 @@ scanner cannot be undone by any rigid transform).</p>
 {fmt(max(abs(still.loc[a, 'cbf_gm_bias_rel']) for a in arms) * 100, 1)}% on still heads); the
 differences are in the spatial error. On still heads production's brain CBF error is
 {fmt(still.at['c0', 'cbf_brain_rmse_rel'] * 100, 0)}% of grey-matter CBF, the own-type templates
-are near zero, and C9 is in between ({fmt(still.at['c9-late', 'cbf_brain_rmse_rel'] * 100, 0)}%).
+are near zero, and C9 is in between ({fmt(still.at['c9-auto', 'cbf_brain_rmse_rel'] * 100, 0)}%).
 With motion the template arms lose: production
 {fmt(motion.at['c0', 'cbf_brain_rmse_rel'] * 100, 0)}%, C1 and C2 about
 {fmt(motion.loc[['c1-pld', 'c2-volreg'], 'cbf_brain_rmse_rel'].mean() * 100, 0)}%, C4 and C8 far
-worse, and C9 {fmt(motion.at['c9-late', 'cbf_brain_rmse_rel'] * 100, 0)}%. <b>C9 is the only arm
+worse, and C9 {fmt(motion.at['c9-auto', 'cbf_brain_rmse_rel'] * 100, 0)}%. <b>C9 is the only arm
 better than production on both</b>: removing production's label offset keeps its motion tracking
 and cuts its CBF error by a third on still heads and by more than half with motion. What remains
 on still heads is per-volume jitter from registering every volume, across contrast, to a
@@ -1999,15 +1999,19 @@ type, where C2 is already as good.</li>
 <li><b>No short-listed estimator passes gate 2.</b> Each improves what it targets (pair alignment,
 reference offset) but is worse end to end with motion, in the harness and through full ASLPrep.</li>
 <li><b>C9, production with its label offset removed, beats production on both still heads and
-motion.</b> It keeps production's transforms and composes into every label one rigid correction
-that brings the corrected label mean onto the control mean (estimated from the later delays).
-Median edge delta-M error with motion falls from 0.29 to 0.11; through full ASLPrep its CBF error
-is lower than production's on 11 of 14 fixtures (a third lower on still heads, more than half
-with motion). It is the only arm better than production on both. <b>It does not pass gate 3:</b>
-on the held-out simulations it regresses in the PASL families (drift errors about double), and
-on real data, against criteria written beforehand, it does no harm by energy (worse on 0.8% of
-260 runs) but fails one family's split-half criterion (3D EPI at 7 T, by 0.003). A grouping that
-depends on the protocol is the next variant, and needs fresh held-out fixtures.</li>
+motion.</b> It keeps production's transforms and composes into the labels of each delay one
+rigid correction that brings the corrected label mean onto the control mean; early, arterial
+delays borrow the nearest other delay's estimate (C9-auto). Median edge delta-M error with motion
+falls from 0.29 to 0.09; through full ASLPrep its CBF error is lower than production's on 12 of
+14 fixtures (a third lower on still heads, more than half with motion). It is the only arm better
+than production on both. A first version (one offset from the later delays) regressed in the
+PASL families on held-out simulations; C9-auto passes a fresh held-out set (better on 15 of 18,
+no family regressing).</li>
+<li><b>On real data C9-auto does no harm by the motion-sensitive metrics</b> (delta-M energy
+worse than production's on none of 260 runs, better on 15%; negative fraction unchanged), but
+fails the pre-registered split-half criterion in two small families (3D EPI at 7 T, 17 runs from
+one dataset; 3D GRASE multi-delay, 7 runs), where the paired per-run change is -0.005. Whether
+that blocks adoption is the Task 9 decision.</li>
 <li><b>ASLPrep ignores precomputed transforms whenever atlases are enabled</b> (found wiring the
 candidates in): the atlas datasets are collected last and replace the transforms.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
