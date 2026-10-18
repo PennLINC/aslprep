@@ -1114,6 +1114,95 @@ def run_c6(inputs, work, **options):
     }
 
 
+def run_c9(inputs, work, **options):
+    """Production with its label offset removed (C9; after Task 7).
+
+    Task 7 showed that production tracks motion best but leaves a systematic offset between
+    its corrected labels and controls, which biases CBF on still heads. C9 keeps production's
+    transforms and removes only that offset: within each delay, the production-corrected label
+    mean is registered rigidly to the production-corrected control mean (nearly the same
+    contrast; ``engine``, 3dvolreg by default), and that one correction is composed into every
+    label volume of the delay. Controls, M0 and the reference are production's. A run without
+    both labels and controls at a delay is left as production there.
+
+    ``grouping``: ``delay`` (default) estimates one offset per delay; ``all`` pools every label
+    against every control; ``late`` pools the delays at or above the run's median delay (D3's
+    rule) and applies that one offset to every label. At short delays the label still holds
+    arterial signal, so its mean differs from the control mean in structure and biases the
+    estimate (on ``pcasl_multipld`` a 0.03 mm error there doubles the edge error).
+    """
+    from harness import resample_series
+
+    engine = _opt(options, 'engine', 'volreg')
+    grouping = _opt(options, 'grouping', 'delay')
+    res, h = _base(inputs, work, 'c0', {})
+    types = pd.read_table(res['aslcontext'])['volume_type'].tolist()
+    idx = list(res['indices'])
+    plds = _plds(inputs, nb.load(inputs['asl_file']).shape[-1], idx)
+    apply_to = None
+    if grouping == 'all':
+        plds = [0.0] * len(plds)
+    elif grouping == 'late':
+        cl_plds = [p for p, t in zip(plds, types, strict=True) if t in ('control', 'label')]
+        cut = float(np.median(cl_plds)) if cl_plds else 0.0
+        # Estimate from the late delays only (others get a sentinel that has no labels), then
+        # apply the one offset to every label.
+        apply_to = [k for k, t in enumerate(types) if t == 'label']
+        plds = [0.0 if p >= cut else -1.0 for p in plds]
+    elif grouping != 'delay':
+        raise ValueError(f'grouping must be delay, all or late, not {grouping}')
+    ref_img = nb.load(res['aslref'])
+    f2w = _fsl_to_world(ref_img)
+    new = list(h)
+    offsets = {}
+    for d in sorted({p for p, t in zip(plds, types, strict=True) if t == 'label' and p >= 0}):
+        labels = [
+            k for k, (t, p) in enumerate(zip(types, plds, strict=True)) if t == 'label' and p == d
+        ]
+        controls = [
+            k
+            for k, (t, p) in enumerate(zip(types, plds, strict=True))
+            if t == 'control' and p == d
+        ]
+        if not labels or not controls:
+            continue
+        means = {}
+        for name, sel in (('label', labels), ('control', controls)):
+            corr = resample_series(
+                inputs['asl_file'], [idx[k] for k in sel], [h[k] for k in sel], res['aslref']
+            )
+            means[name] = _save(
+                np.asanyarray(corr.dataobj, np.float32).mean(-1),
+                ref_img,
+                work / f'{name}_{d:g}.nii.gz',
+            )
+        mats, _ = _register_series(
+            means['label'], means['control'], work / f'offset_{d:g}', 'normcorr', engine
+        )
+        push = f2w @ mats[0] @ np.linalg.inv(f2w)  # label-mean frame -> control-mean frame
+        for k in labels if apply_to is None else apply_to:
+            new[k] = h[k] @ np.linalg.inv(push)
+        offsets[f'{d:g}'] = {
+            'n_labels': len(labels),
+            'n_controls': len(controls),
+            'translation_mm': [float(v) for v in push[:3, 3]],
+            'rotation_deg': float(
+                np.degrees(np.arccos(np.clip((np.trace(push[:3, :3]) - 1) / 2, -1, 1)))
+            ),
+        }
+    art = work / 'artifacts'
+    art.mkdir()
+    (art / 'c9.json').write_text(
+        json.dumps({'engine': engine, 'grouping': grouping, 'offsets': offsets}, indent=2)
+    )
+    return {
+        **res,
+        'xforms': str(_write_itk(work / 'hmc_xfms_c9.txt', new)),
+        'reference_type': f'{res["reference_type"]}; label offset removed per delay',
+        'artifacts': str(art),
+    }
+
+
 def run_oracle(inputs, work, **options):
     """Diagnostic, simulation only: the true poses as the HMC transforms (Task 7, metric 5).
 
@@ -1228,6 +1317,7 @@ CANDIDATES = {
     'c5': run_c5,
     'c6': run_c6,
     'oracle': run_oracle,
+    'c9': run_c9,
     'c1': run_c1,
     'c2': run_c2,
     'c3': run_c3,
