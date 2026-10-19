@@ -170,7 +170,11 @@ def init_cbf_wf(
         for each field).
     mean_cbf_gm_lr_score, ..., csf_noise_lr_score, pvc_summary_score
         The same for ``mean_cbf_score`` (with ``pvc_method='local-regression'`` and
-        ``scorescrub``).
+        ``scorescrub``; single-delay data only).
+    att_gm_lr, ..., csf_kinres_lr
+        For multi-delay data, the local-regression tissue ATT maps, their bounds, the
+        kinetic-fit status and residuals, and the CSF curve's residual; the standard errors
+        are absent (see :func:`~aslprep.workflows.asl.pv.init_lr_pvc_wf`).
     """
     workflow = Workflow(name=name)
 
