@@ -56,18 +56,23 @@ def init_asl_pv_wf(
     Inputs
     ------
     t1w_tpms
-        Anatomical tissue probability maps ([GM, WM, CSF]).
+        Anatomical tissue probability maps, as a list ordered [GM, WM, CSF].
     asl_mask
-        ASL brain mask, on the ASL reference grid.
+        ASL brain mask. Only its grid is used: the PV maps are built on it.
     aslref2anat_xfm
-        Affine transform from the ASL reference to the anatomical image.
+        Affine transform from the ASL reference to the anatomical image (ITK format).
 
     Outputs
     -------
-    gm_pv, wm_pv
-        Gray and white matter PV maps on the ASL reference grid.
+    gm_pv
+        Gray matter PV map on the ASL reference grid (fraction, 0-1).
+    wm_pv
+        White matter PV map on the ASL reference grid (fraction, 0-1).
+    csf_pv
+        CSF PV map on the ASL reference grid (fraction, 0-1).
     pv_metadata
-        How the maps were built.
+        Dictionary describing how the maps were built (effective resolution and its source,
+        slice-encoding axis, supersampling, Gaussian sigma), for the maps' sidecars.
 
     References
     ----------
@@ -90,7 +95,8 @@ def init_asl_pv_wf(
             f'{" x ".join(f"{v:g}" for v in effective_resolution)} mm FWHM '
             '(in-plane, in-plane, slice).'
         )
-    workflow.__desc__ = f"""\
+    # Start a new paragraph: niworkflows joins the parent's description and this one directly.
+    workflow.__desc__ = f"""
 Gray matter, white matter and CSF partial volume maps were built on the ASL reference grid
 by averaging the linearly interpolated tissue probability maps over each ASL voxel
 [@petr2018effects; @chappell2021partial].
@@ -162,22 +168,51 @@ def init_lr_pvc_wf(
 
     Inputs
     ------
-    mean_cbf, mean_cbf_score
-        CBF maps.
+    mean_cbf
+        Mean CBF map to correct. Present when ``'mean_cbf'`` is in ``sources``.
+    mean_cbf_score
+        SCORE CBF map to correct. Present when ``'mean_cbf_score'`` is in ``sources``.
     m0_calib
-        The M0 image CBF was divided by.
+        The M0 image the CBF maps were divided by (ComputeCBF's calibration image).
     quant_valid
-        Where CBF could be quantified.
+        Mask of voxels where CBF could be quantified.
     asl_mask
         ASL brain mask.
     gm_pv, wm_pv, csf_pv
-        Gray matter, white matter and CSF PV maps.
+        Gray matter, white matter and CSF PV maps on the ASL reference grid.
 
     Outputs
     -------
-    The corrected maps, standard errors, validity masks, diagnostics and CSF quality-control
-    maps named by :func:`~aslprep.workflows.asl.outputs.lr_pvc_names`, plus ``pvc_metadata``,
-    ``pvc_summary`` and ``pvc_qc`` (scalar QC measures, from ``mean_cbf``).
+    mean_cbf_gm_lr, mean_cbf_wm_lr
+        Gray and white matter CBF after correction of ``mean_cbf``.
+        Zero where not estimated.
+    cbf_gm_se_lr, cbf_wm_se_lr
+        Standard errors of the corrected gray and white matter CBF.
+    gm_valid_lr, wm_valid_lr
+        Masks of voxels where each tissue's CBF was estimated.
+    status_lr
+        Fit status of each voxel (0: outside the mask; 1: two-tissue fit; 2: GM only;
+        3: WM only; 4: not identifiable).
+    condition_lr
+        Condition number of each voxel's normalized design.
+    gm_noise_lr, wm_noise_lr
+        Noise amplification of the gray and white matter estimates.
+    rmse_lr
+        Root mean square residual of each voxel's regression.
+    mean_cbf_csf_lr, cbf_csf_se_lr, status_csf_lr, csf_noise_lr
+        Apparent CSF CBF from the separate three-tissue quality-control fit, its standard
+        error, fit status (as ``status_lr``, plus 5: CSF only) and noise amplification.
+    pvc_summary
+        Dictionary with the fraction of brain voxels in each fit status.
+    mean_cbf_gm_lr_score, ..., csf_noise_lr_score, pvc_summary_score
+        The same outputs for ``mean_cbf_score``, with the ``_score`` suffix.
+        Present when ``'mean_cbf_score'`` is in ``sources``.
+    pvc_metadata
+        Dictionary of the correction's settings, for the outputs' sidecars.
+    pvc_qc
+        Dictionary of scalar quality-control measures (from ``mean_cbf``) for the CBF QC
+        file: ``lr_csf_cbf_median``, ``lr_csf_cbf_iqr``, ``lr_csf_n_voxels`` and
+        ``lr_fraction_two_tissue``.
     """
     workflow = Workflow(name=name)
     kernel_str = ' x '.join(str(k) for k in kernel_size)

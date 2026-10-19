@@ -76,6 +76,18 @@ def test_init_cbf_wf_lr_pvc(tmp_path, scorescrub):
         assert 'effective resolution' in desc
 
 
+def test_init_cbf_wf_lr_pvc_boilerplate_paragraph(tmp_path):
+    """The PV-map and LR description starts its own paragraph, after the BASIL text."""
+    reset_config()
+    with mock_config():
+        wf = _build_cbf_wf(tmp_path, basil=True)
+        desc = wf.visit_desc()
+        pv_start = desc.index('Gray matter, white matter and CSF partial volume maps')
+        assert desc.index('BASIL computes CBF') < pv_start
+        assert desc[:pv_start].endswith('\n\n')
+        assert desc.index('Partial volume correction was additionally performed') > pv_start
+
+
 def test_init_cbf_wf_no_pvc(tmp_path):
     """Without --pvc-method, no PVC nodes or outputs are added."""
     reset_config()

@@ -517,8 +517,15 @@ def init_cbf_confounds_wf(
 
     Inputs
     ------
-    *cbf
-        all cbf
+    mean_cbf
+        Mean CBF.
+    mean_cbf_score, mean_cbf_scrub
+        SCORE and SCRUB CBF (with ``scorescrub``).
+    mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil
+        BASIL CBF, uncorrected and partial-volume corrected (with ``basil``).
+    pvc_qc
+        Dictionary of scalar quality-control measures from local-regression partial volume
+        correction (with ``lr_pvc``), added as columns of the QC file.
     asl_file
         ASL file, as acquired. Used to check for clipped values.
     m0scan

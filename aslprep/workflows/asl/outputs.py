@@ -244,6 +244,258 @@ BASE_INPUT_FIELDS = {
             'ASL acquisition.'
         ),
     },
+    # Local-regression partial volume correction (--pvc-method local-regression)
+    'mean_cbf_gm_lr': {
+        'desc': 'lrGM',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Gray matter cerebral blood flow after partial volume correction by local '
+            'linear regression of the CBF map. Zero where it was not estimated.'
+        ),
+    },
+    'cbf_gm_se_lr': {
+        'desc': 'lrGMSE',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Standard error of the gray matter CBF estimated by local linear regression '
+            '(desc-lrGM), assuming independent, identically distributed noise and '
+            'conditional on M0. Valid in this (native) space only.'
+        ),
+    },
+    'mean_cbf_wm_lr': {
+        'desc': 'lrWM',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'White matter cerebral blood flow after partial volume correction by local '
+            'linear regression of the CBF map. Zero where it was not estimated.'
+        ),
+    },
+    'cbf_wm_se_lr': {
+        'desc': 'lrWMSE',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Standard error of the white matter CBF estimated by local linear regression '
+            '(desc-lrWM), assuming independent, identically distributed noise and '
+            'conditional on M0. Valid in this (native) space only.'
+        ),
+    },
+    'status_lr': {
+        'desc': 'lr',
+        'suffix': 'pvstatus',
+        'Description': 'Outcome of the local-regression partial volume correction fit.',
+        'Levels': {
+            '0': 'Outside the brain mask.',
+            '1': 'Gray and white matter fit.',
+            '2': 'Gray matter only fit (white matter contamination below the limit).',
+            '3': 'White matter only fit (gray matter contamination below the limit).',
+            '4': ('Not identifiable: too little tissue support, ill-conditioned, or no M0.'),
+        },
+    },
+    'condition_lr': {
+        'desc': 'lr',
+        'suffix': 'pvcondition',
+        'Description': (
+            'Condition number of the normalized gray/white matter Gram matrix of each '
+            'local regression. Zero where undefined.'
+        ),
+    },
+    'gm_noise_lr': {
+        'desc': 'lrGM',
+        'suffix': 'pvnoise',
+        'Description': (
+            'Noise amplification of the gray matter estimate: its standard error per unit'
+            ' of voxel noise, assuming independent noise.'
+        ),
+    },
+    'wm_noise_lr': {
+        'desc': 'lrWM',
+        'suffix': 'pvnoise',
+        'Description': (
+            'Noise amplification of the white matter estimate: its standard error per '
+            'unit of voxel noise, assuming independent noise.'
+        ),
+    },
+    'rmse_lr': {
+        'desc': 'lr',
+        'suffix': 'pvrmse',
+        'Description': (
+            'Root mean square residual of each local regression, in units of CBF times M0.'
+        ),
+    },
+    'mean_cbf_csf_lr': {
+        'desc': 'lrCSF',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Apparent CSF cerebral blood flow, from a separate local regression on gray '
+            'matter, white matter and CSF partial volume maps of the CBF map, for quality'
+            ' control. CSF has no perfusion, so values far from zero indicate partial '
+            'volume map errors, macrovascular or choroid plexus signal, or model error. '
+            'The gray and white matter maps (desc-lrGM, desc-lrWM) do not come from this '
+            'fit. Zero where it was not estimated. Valid in this (native) space only.'
+        ),
+    },
+    'cbf_csf_se_lr': {
+        'desc': 'lrCSFSE',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Standard error of desc-lrCSF, assuming independent, identically distributed '
+            'noise and conditional on M0. Valid in this (native) space only.'
+        ),
+    },
+    'status_csf_lr': {
+        'desc': 'lrCSF',
+        'suffix': 'pvstatus',
+        'Description': 'Outcome of the CSF quality-control fit (desc-lrCSF).',
+        'Levels': {
+            '0': 'Outside the brain mask.',
+            '1': 'Gray matter, white matter and CSF fit.',
+            '2': 'Gray matter and CSF fit (white matter contamination below the limit).',
+            '3': 'White matter and CSF fit (gray matter contamination below the limit).',
+            '4': 'Not identifiable.',
+            '5': 'CSF only fit (gray and white matter contamination below the limit).',
+        },
+    },
+    'csf_noise_lr': {
+        'desc': 'lrCSF',
+        'suffix': 'pvnoise',
+        'Description': (
+            'Noise amplification of the CSF estimate: its standard error per unit of '
+            'voxel noise, assuming independent noise.'
+        ),
+    },
+    'mean_cbf_gm_lr_score': {
+        'desc': 'scoreLRGM',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Gray matter cerebral blood flow after partial volume correction by local '
+            'linear regression of the CBF map (desc-score). Zero where it was not '
+            'estimated.'
+        ),
+    },
+    'cbf_gm_se_lr_score': {
+        'desc': 'scoreLRGMSE',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Standard error of the gray matter CBF estimated by local linear regression '
+            '(desc-scoreLRGM), assuming independent, identically distributed noise and '
+            'conditional on M0. Valid in this (native) space only.'
+        ),
+    },
+    'mean_cbf_wm_lr_score': {
+        'desc': 'scoreLRWM',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'White matter cerebral blood flow after partial volume correction by local '
+            'linear regression of the CBF map (desc-score). Zero where it was not '
+            'estimated.'
+        ),
+    },
+    'cbf_wm_se_lr_score': {
+        'desc': 'scoreLRWMSE',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Standard error of the white matter CBF estimated by local linear regression '
+            '(desc-scoreLRWM), assuming independent, identically distributed noise and '
+            'conditional on M0. Valid in this (native) space only.'
+        ),
+    },
+    'status_lr_score': {
+        'desc': 'scoreLR',
+        'suffix': 'pvstatus',
+        'Description': 'Outcome of the local-regression partial volume correction fit.',
+        'Levels': {
+            '0': 'Outside the brain mask.',
+            '1': 'Gray and white matter fit.',
+            '2': 'Gray matter only fit (white matter contamination below the limit).',
+            '3': 'White matter only fit (gray matter contamination below the limit).',
+            '4': ('Not identifiable: too little tissue support, ill-conditioned, or no M0.'),
+        },
+    },
+    'condition_lr_score': {
+        'desc': 'scoreLR',
+        'suffix': 'pvcondition',
+        'Description': (
+            'Condition number of the normalized gray/white matter Gram matrix of each '
+            'local regression. Zero where undefined.'
+        ),
+    },
+    'gm_noise_lr_score': {
+        'desc': 'scoreLRGM',
+        'suffix': 'pvnoise',
+        'Description': (
+            'Noise amplification of the gray matter estimate: its standard error per unit'
+            ' of voxel noise, assuming independent noise.'
+        ),
+    },
+    'wm_noise_lr_score': {
+        'desc': 'scoreLRWM',
+        'suffix': 'pvnoise',
+        'Description': (
+            'Noise amplification of the white matter estimate: its standard error per '
+            'unit of voxel noise, assuming independent noise.'
+        ),
+    },
+    'rmse_lr_score': {
+        'desc': 'scoreLR',
+        'suffix': 'pvrmse',
+        'Description': (
+            'Root mean square residual of each local regression, in units of CBF times M0.'
+        ),
+    },
+    'mean_cbf_csf_lr_score': {
+        'desc': 'scoreLRCSF',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Apparent CSF cerebral blood flow, from a separate local regression on gray '
+            'matter, white matter and CSF partial volume maps of the CBF map (desc-'
+            'score), for quality control. CSF has no perfusion, so values far from zero '
+            'indicate partial volume map errors, macrovascular or choroid plexus signal, '
+            'or model error. The gray and white matter maps (desc-scoreLRGM, desc-'
+            'scoreLRWM) do not come from this fit. Zero where it was not estimated. Valid'
+            ' in this (native) space only.'
+        ),
+    },
+    'cbf_csf_se_lr_score': {
+        'desc': 'scoreLRCSFSE',
+        'suffix': 'cbf',
+        'Units': 'mL/100 g/min',
+        'Description': (
+            'Standard error of desc-scoreLRCSF, assuming independent, identically '
+            'distributed noise and conditional on M0. Valid in this (native) space only.'
+        ),
+    },
+    'status_csf_lr_score': {
+        'desc': 'scoreLRCSF',
+        'suffix': 'pvstatus',
+        'Description': 'Outcome of the CSF quality-control fit (desc-scoreLRCSF).',
+        'Levels': {
+            '0': 'Outside the brain mask.',
+            '1': 'Gray matter, white matter and CSF fit.',
+            '2': 'Gray matter and CSF fit (white matter contamination below the limit).',
+            '3': 'White matter and CSF fit (gray matter contamination below the limit).',
+            '4': 'Not identifiable.',
+            '5': 'CSF only fit (gray and white matter contamination below the limit).',
+        },
+    },
+    'csf_noise_lr_score': {
+        'desc': 'scoreLRCSF',
+        'suffix': 'pvnoise',
+        'Description': (
+            'Noise amplification of the CSF estimate: its standard error per unit of '
+            'voxel noise, assuming independent noise.'
+        ),
+    },
 }
 
 #: Local-regression partial volume correction outputs, per corrected CBF map.
@@ -289,123 +541,6 @@ def lr_pvc_names(source):
             f'rmse_lr{suffix}',
         ],
     }
-
-
-def _add_lr_pvc_fields():
-    for source, prefix in LR_PVC_SOURCES.items():
-        names = lr_pvc_names(source)
-        source_desc = BASE_INPUT_FIELDS[source].get('desc')
-        source_str = f' (desc-{source_desc})' if source_desc else ''
-        tissue_names = {'GM': 'gray matter', 'WM': 'white matter'}
-        for name, se_name, tissue in zip(names['cbf'], names['se'], ('GM', 'WM'), strict=True):
-            BASE_INPUT_FIELDS[name] = {
-                'desc': f'{prefix}{tissue}',
-                'suffix': 'cbf',
-                'Units': 'mL/100 g/min',
-                'Description': (
-                    f'{tissue_names[tissue].capitalize()} cerebral blood flow after partial '
-                    f'volume correction by local linear regression of the CBF map{source_str}. '
-                    'Zero where it was not estimated.'
-                ),
-            }
-            BASE_INPUT_FIELDS[se_name] = {
-                'desc': f'{prefix}{tissue}SE',
-                'suffix': 'cbf',
-                'Units': 'mL/100 g/min',
-                'Description': (
-                    f'Standard error of the {tissue_names[tissue]} CBF estimated by local linear '
-                    f'regression (desc-{prefix}{tissue}), assuming independent, identically '
-                    'distributed noise and conditional on M0. '
-                    'Valid in this (native) space only.'
-                ),
-            }
-        status, condition, gm_noise, wm_noise, rmse = names['diagnostics']
-        BASE_INPUT_FIELDS[status] = {
-            'desc': prefix,
-            'suffix': 'pvstatus',
-            'Description': 'Outcome of the local-regression partial volume correction fit.',
-            'Levels': {
-                '0': 'Outside the brain mask.',
-                '1': 'Gray and white matter fit.',
-                '2': 'Gray matter only fit (white matter contamination below the limit).',
-                '3': 'White matter only fit (gray matter contamination below the limit).',
-                '4': 'Not identifiable: too little tissue support, ill-conditioned, or no M0.',
-            },
-        }
-        BASE_INPUT_FIELDS[condition] = {
-            'desc': prefix,
-            'suffix': 'pvcondition',
-            'Description': (
-                'Condition number of the normalized gray/white matter Gram matrix of each '
-                'local regression. Zero where undefined.'
-            ),
-        }
-        for name, tissue in ((gm_noise, 'GM'), (wm_noise, 'WM')):
-            BASE_INPUT_FIELDS[name] = {
-                'desc': f'{prefix}{tissue}',
-                'suffix': 'pvnoise',
-                'Description': (
-                    f'Noise amplification of the {tissue_names[tissue]} estimate: its standard '
-                    'error per unit of voxel noise, assuming independent noise.'
-                ),
-            }
-        BASE_INPUT_FIELDS[rmse] = {
-            'desc': prefix,
-            'suffix': 'pvrmse',
-            'Description': (
-                'Root mean square residual of each local regression, in units of CBF times M0.'
-            ),
-        }
-        csf_cbf, csf_se, csf_status, csf_noise = names['csf']
-        csf_fit_str = (
-            'from a separate local regression on gray matter, white matter and CSF partial '
-            f'volume maps of the CBF map{source_str}, for quality control'
-        )
-        BASE_INPUT_FIELDS[csf_cbf] = {
-            'desc': f'{prefix}CSF',
-            'suffix': 'cbf',
-            'Units': 'mL/100 g/min',
-            'Description': (
-                f'Apparent CSF cerebral blood flow, {csf_fit_str}. CSF has no perfusion, so '
-                'values far from zero indicate partial volume map errors, macrovascular or '
-                'choroid plexus signal, or model error. The gray and white matter maps '
-                f'(desc-{prefix}GM, desc-{prefix}WM) do not come from this fit. '
-                'Zero where it was not estimated. Valid in this (native) space only.'
-            ),
-        }
-        BASE_INPUT_FIELDS[csf_se] = {
-            'desc': f'{prefix}CSFSE',
-            'suffix': 'cbf',
-            'Units': 'mL/100 g/min',
-            'Description': (
-                f'Standard error of desc-{prefix}CSF, assuming independent, identically '
-                'distributed noise and conditional on M0. Valid in this (native) space only.'
-            ),
-        }
-        BASE_INPUT_FIELDS[csf_status] = {
-            'desc': f'{prefix}CSF',
-            'suffix': 'pvstatus',
-            'Description': f'Outcome of the CSF quality-control fit (desc-{prefix}CSF).',
-            'Levels': {
-                '0': 'Outside the brain mask.',
-                '1': 'Gray matter, white matter and CSF fit.',
-                '2': 'Gray matter and CSF fit (white matter contamination below the limit).',
-                '3': 'White matter and CSF fit (gray matter contamination below the limit).',
-                '4': 'Not identifiable.',
-                '5': 'CSF only fit (gray and white matter contamination below the limit).',
-            },
-        }
-        BASE_INPUT_FIELDS[csf_noise] = {
-            'desc': f'{prefix}CSF',
-            'suffix': 'pvnoise',
-            'Description': (
-                'Noise amplification of the CSF estimate: its standard error per unit of voxel '
-                'noise, assuming independent noise.'
-            ),
-        }
-
-
-_add_lr_pvc_fields()
 
 
 def prepare_timing_parameters(metadata: dict):
@@ -1007,11 +1142,43 @@ def init_ds_pvc_native_wf(
 
     Parameters
     ----------
-    source_file
-    output_dir
+    source_file : str
+        The ASL file the derivatives are named after.
+    output_dir : str
+        The output directory.
     sources : list of str
-        The corrected CBF maps (``mean_cbf``, and ``mean_cbf_score`` with SCORE).
-    name
+        The CBF maps that were corrected: ``mean_cbf``, and ``mean_cbf_score`` with SCORE.
+    name : str
+        Workflow name.
+
+    Inputs
+    ------
+    source_files
+        Files to list in each output's ``Sources`` field.
+    gm_pv, wm_pv, csf_pv
+        Partial volume maps on the ASL reference grid, written as
+        ``label-{GM,WM,CSF}_desc-psf_probseg``.
+    pv_metadata
+        Dictionary added to the PV maps' sidecars.
+    pvc_metadata
+        Dictionary added to the correction outputs' sidecars.
+    mean_cbf_gm_lr, mean_cbf_wm_lr
+        Corrected gray and white matter CBF (``desc-lrGM_cbf``, ``desc-lrWM_cbf``).
+    cbf_gm_se_lr, cbf_wm_se_lr
+        Their standard errors (``desc-lrGMSE_cbf``, ``desc-lrWMSE_cbf``).
+    status_lr, condition_lr, gm_noise_lr, wm_noise_lr, rmse_lr
+        Fit diagnostics (``desc-lr_pvstatus``, ``desc-lr_pvcondition``,
+        ``desc-lr{GM,WM}_pvnoise``, ``desc-lr_pvrmse``).
+    mean_cbf_csf_lr, cbf_csf_se_lr, status_csf_lr, csf_noise_lr
+        The CSF quality-control outputs (``desc-lrCSF_cbf``, ``desc-lrCSFSE_cbf``,
+        ``desc-lrCSF_pvstatus``, ``desc-lrCSF_pvnoise``).
+    mean_cbf_gm_lr_score, ..., csf_noise_lr_score
+        The same outputs for the SCORE CBF (``desc-scoreLR*``), when ``'mean_cbf_score'`` is in
+        ``sources``.
+
+    Outputs
+    -------
+    None. The inputs are written to ``output_dir``.
     """
     workflow = pe.Workflow(name=name)
 
@@ -1076,11 +1243,52 @@ def init_ds_volumes_wf(
 
     Parameters
     ----------
+    source_file : str
+        The ASL file the derivatives are named after.
+    bids_root : str
+        The BIDS dataset root.
+    output_dir : str
+        The output directory.
+    cbf_3d : list of str
+        Names of the 3D CBF maps to resample (``BASE_INPUT_FIELDS`` keys).
+    cbf_4d : list of str
+        Names of the 4D CBF series to resample.
+    att : list of str
+        Names of the multi-delay timing maps to resample (ATT, aBAT, aBV).
     sparse_3d : dict or None
         Maps that are only estimated in some voxels (zero elsewhere), keyed by name, with the
         name of their validity mask as the value. They are resampled with validity-normalized
         linear interpolation, so the zeros that stand for "not estimated" do not blend into the
         estimates.
+    name : str
+        Workflow name.
+
+    Inputs
+    ------
+    source_files
+        Files to list in each output's ``Sources`` field.
+    ref_file
+        Reference image of the target space.
+    asl, asl_metadata
+        The ASL series resampled into the target space, and its metadata.
+    asl_mask, aslref
+        Brain mask and reference image in aslref space.
+    aslref2anat_xfm, anat2std_xfm
+        Transforms from aslref to the anatomical image and on to the target space.
+    template
+        The target space's reference image (listed in ``Sources``).
+    motion_xfm, aslref2fmap_xfm
+        Transforms previously used to generate the outputs.
+    space, cohort, resolution
+        Entities of the target space.
+    <each name in cbf_3d, cbf_4d and att>
+        The maps to resample, in aslref space.
+    <each key and value of sparse_3d>
+        The sparsely estimated maps and their validity masks, in aslref space.
+
+    Outputs
+    -------
+    None. The resampled maps are written to ``output_dir``.
     """
     sparse_3d = sparse_3d or {}
     workflow = pe.Workflow(name=name)

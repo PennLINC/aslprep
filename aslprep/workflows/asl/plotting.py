@@ -44,6 +44,54 @@ def init_cbf_reporting_wf(
                     "RepetitionTimePreparation": 4,
                 },
             )
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        ASL metadata.
+    plot_timeseries : :obj:`bool`
+        Whether to plot the CBF time series carpet plot.
+    scorescrub : :obj:`bool`
+        Whether SCORE/SCRUB outputs are available to plot.
+    basil : :obj:`bool`
+        Whether BASIL outputs are available to plot.
+    is_multi_pld : :obj:`bool`
+        Whether the data have several delays (plots ATT, aBAT and aBV).
+    lr_pvc : :obj:`bool`
+        Whether local-regression partial volume correction ran. If so, the corrected gray
+        matter CBF and a diagnostics figure are added to the report.
+    name : :obj:`str`
+        Workflow name.
+
+    Inputs
+    ------
+    aslref, asl_mask, t1w_dseg, aslref2anat_xfm, std2anat_xfm
+        Reference image, brain mask, anatomical segmentation and transforms for the plots.
+    confounds_file, qc_file
+        Confounds and CBF QC tables.
+    crown_mask, acompcor_masks
+        Masks for the carpet plot (with ``plot_timeseries``).
+    mean_cbf, cbf_ts, cifti_cbf_ts
+        Mean CBF, volume-wise CBF (single-delay data) and its CIFTI version (with CIFTI
+        outputs).
+    att, abat, abv, abv_decayed
+        Multi-delay outputs (with ``is_multi_pld``).
+    cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
+        SCORE/SCRUB outputs (with ``scorescrub``).
+    mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil, att_basil, abv_basil
+        BASIL outputs (with ``basil``).
+    cbf_sd_basil, cbf_gm_sd_basil, cbf_wm_sd_basil, att_sd_basil
+        BASIL posterior standard deviations (accepted, not plotted).
+    mean_cbf_gm_lr, gm_valid_lr, gm_pv, status_lr, gm_noise_lr
+        Local-regression gray matter CBF, where it was estimated, the gray matter PV map, the
+        fit status and the noise amplification (with ``lr_pvc``).
+    pvc_summary, pvc_qc, pv_metadata
+        The fit-status fractions, the scalar QC measures and how the PV maps were built, for
+        the diagnostics figure's annotations (with ``lr_pvc``).
+
+    Outputs
+    -------
+    None. The reportlets are written to the ``figures`` directory.
     """
     from niworkflows.interfaces.images import SignalExtraction
 
