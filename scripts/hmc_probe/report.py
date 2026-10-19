@@ -2014,8 +2014,13 @@ one dataset; 3D GRASE multi-delay, 7 runs), where the paired per-run change is -
 <li><b>Decision: C9-auto is in ASLPrep as an opt-in method,</b> <code>--hmc-method
 typewise_offset</code>, with production (<code>typewise</code>) still the default. The integrated
 version reproduces the probe's CBF results exactly on the three fixtures checked end to end, and
-passed an adversarial and an ordinary Codex review. Making it the default waits for the blind
-review of real data.</li>
+passed an adversarial and an ordinary Codex review. It keeps production's reference, so masks,
+coregistration and M0 registration are production's; what stands between it and the default is
+the real-data split-half criterion in two small families.</li>
+<li><b>Reusing derivatives now works and is all-or-nothing.</b> The atlas datasets no longer wipe
+precomputed transforms (PennLINC/aslprep#738), products are reused only with what they were
+made from, and transforms record the HMC method they were made with. A run given its own outputs
+reproduces them exactly.</li>
 <li><b>ASLPrep ignores precomputed transforms whenever atlases are enabled</b> (found wiring the
 candidates in): the atlas datasets are collected last and replace the transforms.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
