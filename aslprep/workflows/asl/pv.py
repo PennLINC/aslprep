@@ -25,7 +25,7 @@ def _pick_csf(files):
 def init_asl_pv_wf(
     *,
     metadata,
-    effective_resolution='auto',
+    effective_resolution='nominal',
     name='asl_pv_wf',
 ):
     """Build gray and white matter partial volume maps on the ASL reference grid.
@@ -48,7 +48,8 @@ def init_asl_pv_wf(
     metadata : :obj:`dict`
         ASL metadata.
     effective_resolution : :obj:`str` or :obj:`list` of :obj:`float`
-        ``'auto'``, ``'nominal'``, or the effective FWHM in mm (in-plane, in-plane, slice).
+        ``'nominal'`` (the default), ``'auto'``, or the effective FWHM in mm
+        (in-plane, in-plane, slice).
     name : :obj:`str`
         Workflow name.
 
@@ -73,24 +74,27 @@ def init_asl_pv_wf(
     .. footbibliography::
     """
     workflow = Workflow(name=name)
-    if effective_resolution in ('auto', 'nominal'):
-        resolution_str = {
-            'auto': (
-                'the effective resolution of the acquisition, inferred from its metadata '
-                "(see the PV maps' sidecars)"
-            ),
-            'nominal': 'the voxel size, without additional readout blurring',
-        }[effective_resolution]
+    if effective_resolution == 'nominal':
+        resolution_str = (
+            'The effective resolution was taken to be the voxel size, '
+            'so readout blurring beyond the voxel was not modelled.'
+        )
+    elif effective_resolution == 'auto':
+        resolution_str = (
+            'The maps were then convolved to the effective resolution of the acquisition, '
+            "inferred from its metadata (see the PV maps' sidecars)."
+        )
     else:
         resolution_str = (
-            'a user-specified effective resolution of '
+            'The maps were then convolved to a user-specified effective resolution of '
             f'{" x ".join(f"{v:g}" for v in effective_resolution)} mm FWHM '
-            '(in-plane, in-plane, slice)'
+            '(in-plane, in-plane, slice).'
         )
     workflow.__desc__ = f"""\
 Gray matter, white matter and CSF partial volume maps were built on the ASL reference grid
-by averaging the linearly interpolated tissue probability maps over each ASL voxel and
-convolving them to {resolution_str} [@petr2018effects; @chappell2021partial].
+by averaging the linearly interpolated tissue probability maps over each ASL voxel
+[@petr2018effects; @chappell2021partial].
+{resolution_str}
 Blurring from head motion and distortion correction resampling was not modelled.
 """
 

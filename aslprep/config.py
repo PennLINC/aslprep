@@ -626,9 +626,9 @@ class workflow(_Config):
     partial volume correction."""
     pvc_method = 'none'
     """Additional partial volume correction of the CBF maps: ``none`` or ``local-regression``."""
-    asl_effective_resolution = 'auto'
-    """Effective resolution used to build partial volume maps: ``auto``, ``nominal``, or the
-    total response FWHM in mm, ordered (in-plane, in-plane, slice)."""
+    asl_effective_resolution = 'nominal'
+    """Effective resolution used to build partial volume maps: ``nominal`` (the default),
+    ``auto``, or the total response FWHM in mm, ordered (in-plane, in-plane, slice)."""
     pvc_kernel_size = (5, 5, 1)
     """Local-regression kernel size in voxels, ordered (in-plane, in-plane, slice)."""
 

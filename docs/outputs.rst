@@ -574,7 +574,10 @@ How blurry an acquisition is depends mostly on its readout:
 
 ``--asl-effective-resolution`` takes one of:
 
-``auto`` (default)
+``nominal`` (default)
+   The voxel size: each voxel is treated as measuring exactly the tissue inside it.
+
+``auto``
    Uses the sidecar's ``MRAcquisitionType``, ``PulseSequenceType`` and ``NumberShots``.
    Single-shot 3D GRASE gets 1.1 x 1.1 x 1.38 times the voxel size, and 3D spiral gets
    1.17 x 1.17 x 2.95 times the voxel size (the measurement above, with the two in-plane values
@@ -582,9 +585,6 @@ How blurry an acquisition is depends mostly on its readout:
    Anything else, including segmented (multi-shot) GRASE, uses the voxel size with a warning,
    because no validated value is available.
    The spiral factors come from a single protocol, so treat them as an approximation.
-
-``nominal``
-   The voxel size: each voxel is treated as measuring exactly the tissue inside it.
 
 Three numbers
    The FWHM in mm, in the order in-plane, in-plane, slice direction.
@@ -595,10 +595,24 @@ Three numbers
    For example, for the spiral protocol above:
    ``--asl-effective-resolution 4.6 4.3 11.8``.
 
-If you know the effective resolution of your protocol, for example from the vendor, a
-point-spread function simulation, or a measurement like that of :footcite:t:`petr2018effects`,
-which smooths a high-resolution tissue-based image until it best matches the ASL image,
-give it explicitly. Otherwise ``auto`` is a reasonable default.
+``nominal`` is the default because assuming too much blur does more harm than assuming none.
+Extra assumed blur moves signal from white matter to gray matter: in simulations of 2D EPI,
+3D spiral and 3D GRASE readouts, each extra half-voxel of slice blur raised corrected gray
+matter CBF by a few percent and lowered white matter CBF by 10-40%.
+The readouts' true point-spread functions are sharply peaked with long tails, while the model
+is a box convolved with a Gaussian. Matched by FWHM, the model blurs the core too much, so even
+the true FWHM of a readout overcorrects. In those simulations, the voxel size was the best
+setting or close to it for every readout, including 3D GRASE with a through-plane FWHM of
+almost five slices. The published factors used by ``auto`` overcorrected the simulated 3D
+spiral badly.
+
+Give a wider value only when the voxel is known to be smaller than what was acquired.
+The common case is an image reconstructed or interpolated onto a finer grid than it was
+acquired on, for example Siemens 2D EPI with ``Interpolation2D`` (a 64 matrix stored as 128).
+There, give the acquired voxel size as the in-plane FWHM.
+If you know the effective resolution of your protocol, for example from a measurement like
+that of :footcite:t:`petr2018effects`, which smooths a high-resolution tissue-based image until
+it best matches the ASL image, compare it with ``nominal`` before relying on it.
 The value used, and where it came from, are written to the ``EffectiveResolution`` and
 ``EffectiveResolutionSource`` fields of the ``label-*_desc-psf_probseg.json`` sidecars.
 Blurring added by preprocessing, such as interpolation during motion and distortion correction,

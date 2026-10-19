@@ -220,10 +220,25 @@ resampling operators is a follow-up (Section 9).
 
 The option `--asl-effective-resolution` accepts:
 
-- `auto` (default);
-- `nominal`;
+- `nominal` (default since the ASLPrep vs BASIL comparison of 16 Oct 2026; see below);
+- `auto`;
 - three numbers: the **total** response FWHM in mm, given in the order (in-plane, in-plane,
   slice).
+
+**Default.** The default was `auto` until the 16 Oct 2026 head-to-head comparison with BASIL
+on aslscan simulations and zoo runs. That comparison swept 19 effective resolutions; the
+results:
+
+- `nominal` was the best setting, or close to it, for every simulated readout (2D EPI single-
+  and multi-delay, GE 3D spiral, 3D GRASE).
+- Overestimating the blur moved signal from WM to GM, which is far more damaging than
+  ignoring it: about +3-5% GM and -10-40% WM per extra half-voxel of slice FWHM.
+- The true PSFs are peaked with long tails, so a box-Gaussian with the same FWHM over-blurs.
+  `auto`'s spiral factors gave GM +23% and WM -83% on the simulated spiral.
+- `auto` rarely engages on real data, because `PulseSequenceType` is usually absent.
+
+`auto` remains available. The documentation tells users to widen the FWHM only when the stored
+voxel is smaller than the acquired one (interpolated reconstructions).
 
 **Axes.** The slice axis is the one named in `SliceEncodingDirection`, or k if that field is
 absent. The two in-plane factors in every built-in default are equal, so how the two in-plane
@@ -593,7 +608,7 @@ The diagnostics figure title reports the median, and F1 scoring reports it (trut
 
 ```text
 --pvc-method {none,local-regression}              default none -> config.workflow.pvc_method
---asl-effective-resolution {auto,nominal | F F F} default auto -> config.workflow.asl_effective_resolution
+--asl-effective-resolution {nominal,auto | F F F} default nominal -> config.workflow.asl_effective_resolution
 --pvc-kernel-size N N N                            default 5 5 1 -> config.workflow.pvc_kernel_size
 ```
 

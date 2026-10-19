@@ -313,9 +313,9 @@ def test_use_gpu(tmp_path, monkeypatch, capsys):
 @pytest.mark.parametrize(
     ('supp_args', 'method', 'resolution', 'kernel'),
     [
-        ([], 'none', 'auto', (5, 5, 1)),
-        (['--pvc-method', 'local-regression'], 'local-regression', 'auto', (5, 5, 1)),
-        (['--asl-effective-resolution', 'nominal'], 'none', 'nominal', (5, 5, 1)),
+        ([], 'none', 'nominal', (5, 5, 1)),
+        (['--pvc-method', 'local-regression'], 'local-regression', 'nominal', (5, 5, 1)),
+        (['--asl-effective-resolution', 'auto'], 'none', 'auto', (5, 5, 1)),
         (
             ['--asl-effective-resolution', '3.5', '3.5', '9', '--pvc-kernel-size', '7', '7', '1'],
             'none',

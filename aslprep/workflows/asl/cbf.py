@@ -57,7 +57,7 @@ def init_cbf_wf(
     smooth_kernel=5,
     pvc_method='none',
     pvc_kernel_size=(5, 5, 1),
-    asl_effective_resolution='auto',
+    asl_effective_resolution='nominal',
     name='cbf_wf',
 ):
     """Create a workflow for :abbr:`CCBF (compute cbf)`.

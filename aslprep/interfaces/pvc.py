@@ -44,12 +44,12 @@ class _PartialVolumeMapsInputSpec(BaseInterfaceInputSpec):
     )
     metadata = traits.Dict(mandatory=True, desc='ASL metadata.')
     effective_resolution = traits.Either(
-        traits.Enum('auto', 'nominal'),
+        traits.Enum('nominal', 'auto'),
         traits.List(traits.Float, minlen=3, maxlen=3),
-        default='auto',
+        default='nominal',
         usedefault=True,
         desc=(
-            "'auto', 'nominal', or the total response FWHM in mm, "
+            "'nominal', 'auto', or the total response FWHM in mm, "
             'ordered (in-plane, in-plane, slice).'
         ),
     )
