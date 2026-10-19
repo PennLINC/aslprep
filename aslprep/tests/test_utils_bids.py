@@ -69,6 +69,88 @@ def test_collect_derivatives_sanitizes_fieldmap_id(tmp_path):
     assert derivs['transforms']['aslref2fmap'] == str(xfm)
 
 
+def test_collect_derivatives_mask_key(tmp_path):
+    """The native brain mask is collected as ``aslref_mask``, the key the fit workflow reads."""
+    deriv_dir = tmp_path / 'derivatives'
+    perf_dir = deriv_dir / 'sub-01' / 'perf'
+    perf_dir.mkdir(parents=True)
+    (deriv_dir / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'test', 'BIDSVersion': '1.9.0', 'DatasetType': 'derivative'})
+    )
+    mask = perf_dir / 'sub-01_desc-brain_mask.nii.gz'
+    mask.write_text('')
+    derivs = collect_derivatives(derivatives_dir=deriv_dir, entities={'subject': '01'})
+    assert derivs['aslref_mask'] == str(mask)
+
+
+def _cache(**kwargs):
+    transforms = kwargs.pop('transforms', {})
+    return {**kwargs, 'transforms': transforms}
+
+
+def test_merge_functional_derivatives_keeps_transforms_across_datasets():
+    """A later dataset without transforms does not wipe earlier ones (PennLINC/aslprep#738)."""
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    user = _cache(
+        hmc_aslref='ref.nii.gz',
+        coreg_aslref='coreg.nii.gz',
+        transforms={'hmc': 'hmc.txt', 'aslref2anat': 'anat.txt'},
+    )
+    atlases = _cache()
+    precomputed, dropped = merge_functional_derivatives([user, atlases])
+    assert precomputed['transforms'] == {'hmc': 'hmc.txt', 'aslref2anat': 'anat.txt'}
+    assert precomputed['hmc_aslref'] == 'ref.nii.gz'
+    assert dropped == []
+
+
+def test_merge_functional_derivatives_is_all_or_nothing():
+    """Products are reused only with their parent, from the same dataset."""
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    # No HMC reference: everything that depends on it goes, and what depends on that too.
+    orphan = _cache(
+        coreg_aslref='coreg.nii.gz',
+        aslref_mask='mask.nii.gz',
+        transforms={'hmc': 'hmc.txt', 'aslref2anat': 'anat.txt', 'm0scan2aslref': 'm0.txt'},
+    )
+    precomputed, dropped = merge_functional_derivatives([orphan])
+    assert precomputed == {'transforms': {}}
+    assert len(dropped) == 5
+
+    # The coregistration products from a different dataset than the HMC reference go.
+    a = _cache(hmc_aslref='a/ref.nii.gz', transforms={'hmc': 'a/hmc.txt'})
+    b = _cache(
+        coreg_aslref='b/coreg.nii.gz',
+        aslref_mask='b/mask.nii.gz',
+        transforms={'aslref2anat': 'b/anat.txt'},
+    )
+    precomputed, dropped = merge_functional_derivatives([a, b])
+    assert precomputed == {'hmc_aslref': 'a/ref.nii.gz', 'transforms': {'hmc': 'a/hmc.txt'}}
+    assert len(dropped) == 3
+
+
+def test_merge_functional_derivatives_checks_hmc_method(tmp_path):
+    """Head-motion transforms made with another --hmc-method are estimated anew."""
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    xfm = tmp_path / 'hmc.txt'
+    xfm.write_text('')
+    cache = _cache(hmc_aslref='ref.nii.gz', transforms={'hmc': str(xfm)})
+
+    # No sidecar: made before the option existed, i.e. typewise.
+    precomputed, dropped = merge_functional_derivatives([cache], hmc_method='typewise')
+    assert precomputed['transforms'] == {'hmc': str(xfm)}
+    precomputed, dropped = merge_functional_derivatives([cache], hmc_method='typewise_offset')
+    assert precomputed['transforms'] == {}
+    assert 'typewise_offset' in dropped[0]
+
+    xfm.with_suffix('.json').write_text(json.dumps({'HMCMethod': 'typewise_offset'}))
+    precomputed, _ = merge_functional_derivatives([cache], hmc_method='typewise_offset')
+    assert precomputed['transforms'] == {'hmc': str(xfm)}
+    assert precomputed['hmc_aslref'] == 'ref.nii.gz'
+
+
 def test_write_derivative_description(tmp_path, monkeypatch):
     """DatasetLinks declare the datasets referenced by BIDS URIs in Sources."""
     from aslprep.utils.bids import write_derivative_description

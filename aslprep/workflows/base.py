@@ -868,19 +868,26 @@ tasks and sessions), the following preprocessing was performed.
         if config.execution.derivatives:
             from fmriprep.utils.bids import extract_entities
 
-            from aslprep.utils.bids import collect_derivatives
+            from aslprep.utils.bids import collect_derivatives, merge_functional_derivatives
 
             entities = extract_entities(asl_file)
             # Echo and part entities should not constrain the derivatives query
             entities = {k: v for k, v in entities.items() if k not in ('echo', 'part')}
 
-            for deriv_dir in config.execution.derivatives.values():
-                functional_cache.update(
+            functional_cache, dropped = merge_functional_derivatives(
+                [
                     collect_derivatives(
                         derivatives_dir=deriv_dir,
                         entities=entities,
                         fieldmap_id=fieldmap_id,
                     )
+                    for deriv_dir in config.execution.derivatives.values()
+                ],
+                hmc_method=config.workflow.hmc_method,
+            )
+            for note in dropped:
+                config.loggers.workflow.warning(
+                    'Not reusing the precomputed %s for %s.', note, os.path.basename(asl_file)
                 )
 
         asl_wf = init_asl_wf(

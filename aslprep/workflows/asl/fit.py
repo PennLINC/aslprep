@@ -376,16 +376,9 @@ def init_asl_fit_wf(
         config.loggers.workflow.debug('Reusing motion correction reference: %s', hmc_aslref)
     if hmc_xforms:
         hmc_buffer.inputs.hmc_xforms = hmc_xforms
+        # Only transforms whose sidecar records the requested --hmc-method reach this point
+        # (merge_functional_derivatives drops the others).
         config.loggers.workflow.debug('Reusing motion correction transforms: %s', hmc_xforms)
-        if config.workflow.hmc_method != 'typewise':
-            # Reused transforms bypass head-motion correction entirely, so the requested method
-            # is not applied; the derivatives do not record which method produced them.
-            config.loggers.workflow.warning(
-                'Reusing precomputed motion correction transforms (%s): --hmc-method %s is not '
-                'applied to them. Remove them from the derivatives to estimate motion anew.',
-                hmc_xforms,
-                config.workflow.hmc_method,
-            )
     if m0scan2aslref_xform:
         m0scanreg_buffer.inputs.m0scan2aslref_xfm = m0scan2aslref_xform
         config.loggers.workflow.debug(
@@ -595,6 +588,10 @@ def init_asl_fit_wf(
         # some fields.
         ds_hmc_wf.get_node('ds_xforms').inputs.datatype = 'perf'
         ds_hmc_wf.get_node('ds_xforms').inputs.to = 'aslref'
+        # Provenance: reuse of these transforms is limited to runs with the same method.
+        ds_hmc_wf.get_node('ds_xforms').inputs.meta_dict = {
+            'HMCMethod': config.workflow.hmc_method
+        }
 
         workflow.connect([
             (hmcref_buffer, asl_hmc_wf, [('aslref', 'inputnode.raw_ref_image')]),

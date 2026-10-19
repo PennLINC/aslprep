@@ -56,6 +56,11 @@ def run_one(name, args):
         if not hmc.exists():
             return name, 'no injected HMC derivatives'
         cmd += ['-v', f'{hmc}:/hmcderiv:ro']
+    reuse = (args.reuse_derivs / name).resolve() if args.reuse_derivs else None
+    if reuse is not None:
+        if not reuse.exists():
+            return name, 'no derivatives to reuse'
+        cmd += ['-v', f'{reuse}:/reuse:ro']
     cmd += [IMAGE, '/data', '/out', 'participant', '--participant-label', '01', '-w', '/work']
     cmd += ['--fs-license-file', '/license.txt', '--fs-no-reconall', '--notrack']
     # The image's legacy validator rejects the probe's BIDS fieldmaps (*_fieldmap with
@@ -78,6 +83,8 @@ def run_one(name, args):
         ]
     elif (fixture / 'derivatives' / 'anat').exists():
         cmd += ['--derivatives', 'anat=/data/derivatives/anat']
+        if reuse is not None:  # an earlier run's outputs, as a second derivatives dataset
+            cmd.append('prev=/reuse')
     divisor = float(truth.get('m0_divisor', 1.0))
     if divisor != 1:
         cmd += ['--m0_scale', str(divisor)]
@@ -125,6 +132,11 @@ def main(argv=None):
         '--hmc-derivs',
         type=Path,
         help='Task 7: <dir>/<fixture> holds injected HMC derivatives (inject_hmc.py).',
+    )
+    parser.add_argument(
+        '--reuse-derivs',
+        type=Path,
+        help='Task 9: <dir>/<fixture> is an earlier run whose outputs are passed as derivatives.',
     )
     parser.add_argument(
         '--extra', nargs=argparse.REMAINDER, default=[], help='Extra ASLPrep arguments (last).'

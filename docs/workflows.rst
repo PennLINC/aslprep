@@ -212,8 +212,16 @@ and the correction is composed into the transforms of that delay's label volumes
 Delays shorter than 0.5 s (0.8 s for PASL), whose labels still hold arterial signal,
 use the estimate of the nearest other delay.
 The motion confounds are computed from the corrected transforms.
-Precomputed motion-correction transforms passed with ``--derivatives`` are reused as they are,
-whichever method is requested.
+The method is recorded in the transforms' sidecar (``HMCMethod``),
+and precomputed transforms passed with ``--derivatives`` are reused only if they were made with
+the requested method; otherwise head motion is estimated anew.
+
+Precomputed products are reused all or nothing:
+a motion-correction transform, M0 or fieldmap registration, or coregistration reference
+only together with the motion-correction reference it was made from,
+and a brain mask or ASL-to-anatomical transform only together with its coregistration
+reference, each pair from the same derivatives dataset.
+Anything else is recomputed, and the log says so.
 
 
 .. _asl_confounds:
