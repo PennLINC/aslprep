@@ -306,6 +306,31 @@ def test_precomputed_geometry_is_recomputed(tmp_path):
         assert recomputed.get_node('unwarp_aslref') is not None
 
 
+def test_reused_m0_transform_has_no_m0_report():
+    """A reused M0 registration has no registered M0 to show, so the M0 report is not built.
+
+    Building it anyway left the report node without its 'before' image; the node failed and the
+    run stalled.
+    """
+    from aslprep.workflows.asl.fit import init_asl_fit_wf
+
+    reset_config()
+    with mock_config():
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        kwargs = {
+            'asl_file': str(asl_file),
+            'aslcontext': str(asl_file).replace('.nii.gz', 'context.tsv'),
+            'm0scan': str(asl_file),
+            'use_ge': False,
+        }
+        fresh = init_asl_fit_wf(precomputed={}, **kwargs)
+        assert fresh.get_node('asl_fit_reports_wf.m0_asl_report') is not None
+        reused = init_asl_fit_wf(
+            precomputed={'transforms': {'m0scan2aslref': str(asl_file)}}, **kwargs
+        )
+        assert reused.get_node('asl_fit_reports_wf.m0_asl_report') is None
+
+
 def _edges_into(graph, dst_suffix, field):
     """Find the nodes connected to one input of a node.
 

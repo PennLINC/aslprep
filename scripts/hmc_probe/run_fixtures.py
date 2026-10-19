@@ -42,7 +42,10 @@ def run_one(name, args):
     (work / 'home').mkdir()
     license_file = args.out / 'license.txt'
     license_file.write_text(base64.b64decode(LICENSE).decode())
-    cmd = ['docker', 'run', '--rm', '-u', f'{os.getuid()}:{os.getgid()}', '-e', 'HOME=/work/home']
+    # A run that stalls (nipype's scheduler can wait forever after a node fails) is stopped:
+    # ``timeout`` signals the docker client, which forwards the signal to the container.
+    cmd = ['timeout', '--kill-after=60', f'{args.timeout_min}m']
+    cmd += ['docker', 'run', '--rm', '-u', f'{os.getuid()}:{os.getgid()}', '-e', 'HOME=/work/home']
     for host, container, mode in (
         (args.src / 'aslprep', SITE, 'ro'),
         (fixture, '/data', 'ro'),
@@ -132,6 +135,9 @@ def main(argv=None):
         '--hmc-derivs',
         type=Path,
         help='Task 7: <dir>/<fixture> holds injected HMC derivatives (inject_hmc.py).',
+    )
+    parser.add_argument(
+        '--timeout-min', type=int, default=90, help='Stop a run after this many minutes.'
     )
     parser.add_argument(
         '--reuse-derivs',

@@ -421,7 +421,9 @@ def init_asl_fit_wf(
         source_file=asl_file,
         # TODO: Enable sdc report even if we find coregref
         sdc_correction=fieldmap_id is not None,
-        separate_m0scan=m0scan is not None,
+        # The M0 report shows the M0 registered here; with a reused M0 transform there is none
+        # (the report node failed for want of its 'before' image and stalled the run).
+        separate_m0scan=m0scan is not None and not m0scan2aslref_xform,
         freesurfer=config.workflow.run_reconall,
         output_dir=config.execution.aslprep_dir,
     )
