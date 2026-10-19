@@ -396,6 +396,22 @@ def test_init_cbf_wf_basil_sd(tmp_path, sloppy, delays):
         assert 'att_sd_basil' not in outputs
 
 
+def test_base_input_fields_yaml():
+    """The output fields load from aslprep/data and every output has a valid specification."""
+    from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
+
+    entities = {'desc', 'label', 'suffix'}
+    metadata = {'Units', 'Description', 'Levels'}
+    assert 'mean_cbf' in BASE_INPUT_FIELDS
+    for field, spec in BASE_INPUT_FIELDS.items():
+        assert isinstance(spec, dict), field
+        assert 'suffix' in spec, field
+        assert set(spec) <= entities | metadata, (field, set(spec) - entities - metadata)
+        assert all(isinstance(spec[k], str) for k in spec if k != 'Levels'), field
+        if 'Levels' in spec:
+            assert all(isinstance(k, str) for k in spec['Levels']), field
+
+
 def test_basil_sd_output_metadata():
     """The posterior SD derivatives have names that do not collide, and units like the estimates."""
     from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
