@@ -20,7 +20,8 @@ from aslprep.utils.bids import collect_run_data
 from aslprep.utils.calibration import (
     DEFAULT_M0_SCALE,
     DEFAULT_SMOOTH_KERNEL,
-    calibration_sidecar,
+    MODELS,
+    describe_model,
     resolve_calibration,
 )
 from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
@@ -267,7 +268,7 @@ def init_asl_wf(
     # Resolve the calibration and physiological parameters once, for every model and output.
     # Pre-calculated CBF is not quantified, so it has none.
     calibration = None
-    calibration_metadata = None
+    model_metadata = None
     if processing_target != 'cbf':
         calibration = resolve_calibration(
             metadata,
@@ -286,7 +287,16 @@ def init_asl_wf(
         )
         for warning in calibration['Warnings']:
             config.loggers.workflow.warning(f'{asl_file}: {warning}')
-        calibration_metadata = calibration_sidecar(calibration)
+        # The "Model" sidecar dictionary of each model, as in BIDS diffusion derivatives (BEP 016)
+        model_metadata = {
+            model: describe_model(
+                calibration,
+                model,
+                asl_type=metadata['ArterialSpinLabelingType'],
+                multi_delay=determine_multi_pld(metadata=metadata),
+            )
+            for model in MODELS
+        }
 
     # Gradient nonlinearity correction, from --gradient-file and the ImageType metadata
     gradwarp_plan = resolve_gradwarp_plan(metadata=metadata, asl_file=asl_file)
@@ -599,7 +609,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     write_native = (config.workflow.level in ('minimal', 'resampling')) or aslref_out
     if write_native:
         ds_asl_native_wf = init_ds_asl_native_wf(
-            calibration_metadata=calibration_metadata,
+            model_metadata=model_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -627,7 +637,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         # PVC outputs are always written in aslref space, where their standard errors,
         # diagnostics and partial volume maps are defined.
         ds_pvc_native_wf = init_ds_pvc_native_wf(
-            calibration_metadata=calibration_metadata,
+            model_metadata=model_metadata,
             source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
             sources=lr_sources,
@@ -845,7 +855,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     # Write out anatomical-space derivatives.
     if nonstd_spaces.intersection(('anat', 'T1w')):
         ds_asl_t1_wf = init_ds_volumes_wf(
-            calibration_metadata=calibration_metadata,
+            model_metadata=model_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -901,7 +911,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             name='asl_std_wf',
         )
         ds_asl_std_wf = init_ds_volumes_wf(
-            calibration_metadata=calibration_metadata,
+            model_metadata=model_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -1007,7 +1017,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         # The uninitialized fMRIPrep config will have config.workflow.ignore set to None
         # instead of a list, which will raise an error.
         asl_surf_wf = init_asl_surf_wf(
-            calibration_metadata=calibration_metadata,
+            model_metadata=model_metadata,
             mem_gb=mem_gb['resampled'],
             metadata=metadata,
             surface_spaces=freesurfer_spaces,
@@ -1085,7 +1095,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
     if config.workflow.cifti_output:
         ds_asl_cifti_wf = init_ds_ciftis_wf(
-            calibration_metadata=calibration_metadata,
+            model_metadata=model_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -1148,7 +1158,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
         config.loggers.workflow.debug('Creating ASL Workbench surface-resampling workflow.')
         asl_wb_surf_wf = init_asl_wb_surf_wf(
-            calibration_metadata=calibration_metadata,
+            model_metadata=model_metadata,
             source_file=asl_file,
             surface_spaces=surf_std,
             metadata=metadata,

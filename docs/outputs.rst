@@ -406,9 +406,35 @@ The ``Source`` is one of these, in order of precedence:
    or the effective labeling efficiency from the labeling efficiency and background suppression.
 4. ``default``: a documented value from the literature, such as a blood T1 of 1.65 s at 3 T.
 
-The values (without their provenance) are also copied to the ``CalibrationParameters`` field of
-the JSON sidecar of each quantitative map, in every output space,
-and the participant report shows the full table.
+The JSON sidecar of each quantitative map, in every output space, also describes the model that
+produced the map, in a ``Model`` dictionary organized as proposed for BIDS diffusion derivatives
+(`BEP 016 <https://github.com/bids-standard/bids-specification/pull/2258>`_).
+The dictionary is the same for all maps from one model:
+*ASLPrep*'s own kinetic model, BASIL, or local-regression partial volume correction.
+It has a ``Description`` of the model, a ``TermURL`` with the reference for the model,
+and the ``Parameters`` the model used: the values of the calibration parameters above,
+under the same names, without their provenance.
+For example, the sidecar of a ``desc-basil_cbf`` map::
+
+   {
+     "Description": "Cerebral blood flow, estimated by BASIL.",
+     "Units": "mL/100 g/min",
+     "Model": {
+       "Description": "Bayesian Inference for Arterial Spin Labeling (BASIL) of ...",
+       "TermURL": "https://doi.org/10.1109/TSP.2008.2005752",
+       "Parameters": {
+         "EffectiveLabelingEfficiency": 0.692,
+         "BloodT1": 1.65,
+         "PartitionCoefficient": 0.9,
+         "BASILTissueT1": 1.3,
+         ...
+       }
+     }
+   }
+
+Only BASIL's dictionary has ``BASILTissueT1``, and only the others have ``M0Threshold``,
+because only those models use them.
+The participant report shows the full table.
 These outputs are not written for scanner-calculated CBF, which *ASLPrep* does not quantify.
 
 If ``--scorescrub`` is used::

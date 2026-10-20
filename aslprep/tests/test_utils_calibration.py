@@ -9,10 +9,11 @@ import pytest
 from aslprep.utils.calibration import (
     BASIL_TISSUE_T1,
     M0_RECOVERY_TR_THRESHOLD,
+    MODELS,
     SOURCE_PRECEDENCE,
     basil_calibration_inputs,
-    calibration_sidecar,
     calibration_value,
+    describe_model,
     resolve_calibration,
 )
 
@@ -245,13 +246,55 @@ def test_resolve_calibration_haematocrit_source():
     assert 'Hales et al. (2016)' in calibration['Parameters']['BloodT1']['Origin']
 
 
-def test_calibration_sidecar():
-    """Sidecars of quantitative maps get each parameter's value."""
-    calibration = resolve_calibration(PCASL, m0tr=6.0)
-    sidecar = calibration_sidecar(calibration)
-    assert sidecar['BloodT1'] == pytest.approx(1.65)
-    assert sidecar['M0Type'] == 'Separate'
-    assert set(sidecar) == set(calibration['Parameters'])
+@pytest.mark.parametrize('multi_delay', [False, True])
+def test_describe_model(multi_delay):
+    """Each model's sidecar dictionary has the calibration values that the model used."""
+    calibration = resolve_calibration(PCASL, m0tr=6.0, basil=True)
+
+    models = {
+        model: describe_model(calibration, model, asl_type='PCASL', multi_delay=multi_delay)
+        for model in MODELS
+    }
+    for model in models.values():
+        assert set(model) == {'Description', 'TermURL', 'Parameters'}
+        assert model['TermURL'].startswith('https://doi.org/')
+        assert model['Parameters']['BloodT1'] == pytest.approx(1.65)
+        assert model['Parameters']['M0Type'] == 'Separate'
+        assert json.loads(json.dumps(model)) == model
+
+    # Only BASIL uses its kinetic tissue T1, and it does not drop low-M0 voxels.
+    assert models['basil']['Parameters']['BASILTissueT1'] == BASIL_TISSUE_T1
+    assert 'M0Threshold' not in models['basil']['Parameters']
+    for name in ('aslprep', 'lr'):
+        assert 'BASILTissueT1' not in models[name]['Parameters']
+        assert models[name]['Parameters']['M0Threshold'] == pytest.approx(0.1)
+    assert ('multi-delay' in models['aslprep']['Description']) is multi_delay
+
+    with pytest.raises(ValueError, match='Unknown model'):
+        describe_model(calibration, 'other', asl_type='PCASL', multi_delay=multi_delay)
+
+
+@pytest.mark.parametrize(
+    ('name', 'model'),
+    [
+        ('mean_cbf', 'aslprep'),
+        ('cbf_ts_score', 'aslprep'),
+        ('att', 'aslprep'),
+        ('mean_cbf_basil', 'basil'),
+        ('cbf_wm_sd_basil', 'basil'),
+        ('mean_cbf_gm_lr', 'lr'),
+        ('mean_cbf_gm_lr_score', 'lr'),
+        ('kinres_wm_lr', 'lr'),
+    ],
+)
+def test_output_model(name, model):
+    """Each output's sidecar gets the dictionary of the model that produced it."""
+    from aslprep.workflows.asl.outputs import output_fields, output_model
+
+    assert output_model(name) == model
+    models = {key: {'Description': key} for key in MODELS}
+    assert output_fields(name, models)['Model'] == {'Description': model}
+    assert 'Model' not in output_fields(name)
 
 
 @pytest.mark.parametrize(

@@ -493,15 +493,100 @@ def calibration_value(calibration, name, default=None):
     return default if param is None else param['Value']
 
 
-def calibration_sidecar(calibration):
-    """Summarize a calibration specification for the sidecars of quantitative maps.
+#: The models that quantify ASLPrep's outputs, as named in :func:`describe_model`.
+MODELS = ('aslprep', 'basil', 'lr')
+
+#: Calibration parameters that a model does not use, and so leaves out of its metadata.
+_UNUSED_PARAMETERS = {
+    'aslprep': ('BASILTissueT1',),
+    # oxford_asl does not drop voxels with a low M0.
+    'basil': ('M0Threshold',),
+    # Local regression unmixes the signal calibrated by ASLPrep's model, with its parameters.
+    'lr': ('BASILTissueT1',),
+}
+
+
+def describe_model(calibration, model, *, asl_type, multi_delay):
+    """Describe a model, and the calibration parameters it used, for the sidecars of its maps.
+
+    The metadata follow the organization of model fits proposed for BIDS diffusion derivatives
+    (BEP 016, bids-standard/bids-specification#2258): a ``Model`` dictionary,
+    identical in the sidecars of all maps from that model, with a ``Description``,
+    a ``TermURL`` and the ``Parameters`` of the fit.
+    The parameters are the values of the calibration specification that the model used,
+    under the same names; their provenance is in ``*_desc-calibration_parameters.json``.
+
+    Parameters
+    ----------
+    calibration : :obj:`dict`
+        The specification, from :func:`resolve_calibration`.
+    model : {"aslprep", "basil", "lr"}
+        ASLPrep's general kinetic model, BASIL, or local-regression partial volume correction.
+    asl_type : :obj:`str`
+        The ``ArterialSpinLabelingType``.
+    multi_delay : :obj:`bool`
+        Whether the data have several delays.
 
     Returns
     -------
     :obj:`dict`
-        Each parameter's value, keyed by name.
+        The ``Model`` dictionary.
     """
-    return {name: param['Value'] for name, param in calibration['Parameters'].items()}
+    if model not in MODELS:
+        raise ValueError(f'Unknown model {model!r}; expected one of {MODELS}.')
+
+    delays = 'multi-delay' if multi_delay else 'single-delay'
+    if multi_delay:
+        kinetic_model = (
+            'two-compartment general kinetic model, with tissue and macrovascular terms '
+            '(Buxton et al., 1998; Woods et al., 2023)'
+        )
+    else:
+        kinetic_model = (
+            'single-compartment general kinetic model (Buxton et al., 1998; Alsop et al., 2015)'
+        )
+
+    if model == 'aslprep':
+        description = f'The {kinetic_model} for {delays} {asl_type} data, ' + (
+            'fit voxelwise by bounded least squares in ASLPrep.'
+            if multi_delay
+            else 'solved voxelwise in ASLPrep.'
+        )
+        term_url = (
+            'https://doi.org/10.1002/mrm.1910400308'
+            if multi_delay
+            else 'https://doi.org/10.1002/mrm.25197'
+        )
+    elif model == 'basil':
+        description = (
+            f'Bayesian Inference for Arterial Spin Labeling (BASIL) of {delays} {asl_type} data, '
+            "with spatial regularization (Chappell et al., 2009), run with FSL's oxford_asl. "
+            'The desc-basilGM and desc-basilWM maps also use its partial volume correction '
+            '(Chappell et al., 2011).'
+        )
+        term_url = 'https://doi.org/10.1109/TSP.2008.2005752'
+    else:
+        description = (
+            'Local-regression partial volume correction (Asllani et al., 2008) of the CBF '
+            f'from ASLPrep, which quantified it with the {kinetic_model}'
+            + (
+                '. Each tissue curve was then fit with the same kinetic model.'
+                if multi_delay
+                else '.'
+            )
+        )
+        term_url = 'https://doi.org/10.1002/mrm.21670'
+
+    unused = _UNUSED_PARAMETERS[model]
+    parameters = {
+        name: param['Value']
+        for name, param in calibration['Parameters'].items()
+        if name not in unused
+    }
+    if model == 'basil' and 'BASILTissueT1' not in parameters:
+        parameters['BASILTissueT1'] = BASIL_TISSUE_T1
+
+    return {'Description': description, 'TermURL': term_url, 'Parameters': parameters}
 
 
 def basil_calibration_inputs(calibration):

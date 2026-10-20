@@ -648,8 +648,9 @@ def test_init_asl_wf_calibration_outputs():
     assert wf.get_node('ds_calibration_wf.ds_report_calibration') is not None
     calibration = write_calibration.inputs.calibration
     assert calibration == compute_cbf.inputs.calibration
-    sidecar = ds_mean_cbf.interface._metadata['CalibrationParameters']
-    assert sidecar['BloodT1'] == calibration['Parameters']['BloodT1']['Value']
+    model = ds_mean_cbf.interface._metadata['Model']
+    assert 'ASLPrep' in model['Description']
+    assert model['Parameters']['BloodT1'] == calibration['Parameters']['BloodT1']['Value']
 
 
 def test_calibration_summary(tmp_path):

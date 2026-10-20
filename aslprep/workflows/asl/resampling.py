@@ -47,7 +47,7 @@ def init_asl_surf_wf(
     cbf_4d: list[str],
     att: list[str],
     output_dir: str,
-    calibration_metadata: dict | None = None,
+    model_metadata: dict | None = None,
     name: str = 'asl_surf_wf',
 ):
     """Sample functional images to FreeSurfer surfaces.
@@ -92,7 +92,7 @@ def init_asl_surf_wf(
         native surface.
     medial_surface_nan : :obj:`bool`
         Replace medial wall values with NaNs on functional GIFTI files
-    calibration_metadata : :obj:`dict` or None
+    model_metadata : :obj:`dict` or None
         Added to the sidecars of the CBF and ATT maps
         (see :func:`~aslprep.workflows.asl.outputs.output_fields`).
 
@@ -191,7 +191,7 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
     ])  # fmt:skip
 
     for cbf_deriv in cbf_4d + cbf_3d + att:
-        fields = output_fields(cbf_deriv, calibration_metadata)
+        fields = output_fields(cbf_deriv, model_metadata)
 
         kwargs = {}
         if cbf_deriv in cbf_4d:
@@ -312,7 +312,7 @@ def init_asl_wb_surf_wf(
     att: list[str],
     omp_nthreads: int,
     mem_gb: float,
-    calibration_metadata: dict | None = None,
+    model_metadata: dict | None = None,
     name: str = 'asl_wb_surf_wf',
 ):
     """Resample CBF derivatives to surface templates using the Connectome Workbench.
@@ -363,7 +363,7 @@ def init_asl_wb_surf_wf(
         Maximum number of threads an individual process may use.
     mem_gb
         Size of the resampled ASL file in GB.
-    calibration_metadata
+    model_metadata
         Added to the sidecars of the CBF and ATT maps
         (see :func:`~aslprep.workflows.asl.outputs.output_fields`).
     name
@@ -540,7 +540,7 @@ dilated by 10 mm, and then resampled to the following surface templates:
                     density=density,
                     extension='.func.gii',
                     **timing_parameters,
-                    **output_fields(cbf_deriv, calibration_metadata),
+                    **output_fields(cbf_deriv, model_metadata),
                 ),
                 iterfield=['in_file', 'hemi'],
                 name=f'ds_{cbf_deriv}_{template}_{density}',
