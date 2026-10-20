@@ -1916,35 +1916,97 @@ def estimate_t1(metadata):
     ----------
     .. footbibliography::
     """
+    t1blood, _ = estimate_t1blood(metadata)
+    t1tissue = estimate_t1tissue(metadata['MagneticFieldStrength'])
+    return t1blood, t1tissue
+
+
+#: T1 of arterial blood, in seconds, by field strength in tesla
+#: (Alsop et al., 2015 at 1.5 and 3 T; Zhang et al., 2013 at 7 T).
+T1BLOOD_BY_FIELD_STRENGTH = {
+    1.5: 1.35,
+    3: 1.65,
+    7: 2.087,
+}
+
+#: T1 of gray matter, in seconds, by field strength in tesla (Wright et al., 2008).
+T1TISSUE_BY_FIELD_STRENGTH = {
+    1.5: 1.197,
+    3: 1.607,
+    7: 1.939,
+}
+
+
+def estimate_t1blood(metadata, warn=True):
+    """Estimate the T1 of arterial blood, and say how it was estimated.
+
+    See :func:`estimate_t1` for the values and models.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata from the ASL file.
+    warn : :obj:`bool`, optional
+        Whether to warn when the field strength is not in the table of values.
+
+    Returns
+    -------
+    t1blood : :obj:`float`
+        T1 of arterial blood, in seconds.
+    method : {"field strength", "field strength formula", "haematocrit"}
+        Whether the value was taken from the table of values for the field strength,
+        calculated from the field strength with the formula of :footcite:t:`zhang2013vivo`,
+        or then scaled for the haematocrit in the metadata.
+
+    References
+    ----------
+    .. footbibliography::
+    """
     field_strength = metadata['MagneticFieldStrength']
-    T1BLOOD_DICT = {
-        1.5: 1.35,
-        3: 1.65,
-        7: 2.087,
-    }
-    t1blood = T1BLOOD_DICT.get(field_strength)
+    t1blood = T1BLOOD_BY_FIELD_STRENGTH.get(field_strength)
+    method = 'field strength'
     if not t1blood:
-        config.loggers.interface.warning(
-            f'T1blood cannot be inferred for {metadata["MagneticFieldStrength"]}T data. '
-            'Defaulting to formula from Zhang et al. (2013).'
-        )
-        t1blood = (110 * metadata['MagneticFieldStrength'] + 1316) / 1000
+        if warn:
+            config.loggers.interface.warning(
+                f'T1blood cannot be inferred for {field_strength}T data. '
+                'Defaulting to formula from Zhang et al. (2013).'
+            )
+        t1blood = (110 * field_strength + 1316) / 1000
+        method = 'field strength formula'
 
     if haematocrit_applies(metadata):
         t1blood *= t1blood_from_haematocrit(
             metadata['Haematocrit'], field_strength
         ) / t1blood_from_haematocrit(REFERENCE_HAEMATOCRIT, field_strength)
+        method = 'haematocrit'
 
+    return t1blood, method
+
+
+def estimate_t1tissue(field_strength):
+    """Get the T1 of gray matter for a field strength, from :footcite:t:`wright2008water`.
+
+    Parameters
+    ----------
+    field_strength : :obj:`float`
+        Magnetic field strength, in tesla.
+
+    Returns
+    -------
+    t1tissue : :obj:`float`
+        T1 of gray matter, in seconds.
+
+    Raises
+    ------
+    ValueError
+        If the field strength is not 1.5, 3 or 7 T.
+
+    References
+    ----------
+    .. footbibliography::
+    """
     # TODO: Supplement with formula for other field strengths
-    T1TISSUE_DICT = {
-        1.5: 1.197,
-        3: 1.607,
-        7: 1.939,
-    }
-    t1tissue = T1TISSUE_DICT.get(metadata['MagneticFieldStrength'])
+    t1tissue = T1TISSUE_BY_FIELD_STRENGTH.get(field_strength)
     if not t1tissue:
-        raise ValueError(
-            f'T1tissue cannot be inferred for {metadata["MagneticFieldStrength"]}T data.'
-        )
-
-    return t1blood, t1tissue
+        raise ValueError(f'T1tissue cannot be inferred for {field_strength}T data.')
+    return t1tissue

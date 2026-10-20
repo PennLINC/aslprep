@@ -166,6 +166,13 @@ sections:
       cerebellum (green), white matter and CSF (red), indicated by the color map on the left-hand side.
       The SCORE index with values greater than zero indicates which volume(s) are removed by SCORE.
     subtitle: CBF Summary
+  - bids: {datatype: figures, desc: calibration, suffix: asl, extension: [.html]}
+    caption: |
+      The calibration and physiological parameters used to quantify CBF, by every model.
+      The source of each value is the command line ("user"), the BIDS metadata ("metadata"),
+      a calculation from other acquisition parameters ("inferred"), or a default from the
+      literature ("default"). The same values are in the desc-calibration_parameters.json file.
+    subtitle: Calibration
   - bids: {datatype: figures, desc: brain, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for basic CBF.
