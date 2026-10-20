@@ -116,6 +116,8 @@ def run_recipe(
         *spaces,
         '--fs-no-reconall',
         f'--smooth_kernel={fwhm}',
+        # Truth scoring reads the preprocessed ASL series
+        '--output-timeseries',
     ]
     if recipe.anat == 'derivatives':
         parameters += ['--derivatives', f'anat={fixture / "derivatives" / "anat"}']

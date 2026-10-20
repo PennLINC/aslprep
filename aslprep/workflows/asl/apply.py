@@ -18,6 +18,7 @@ def init_asl_volumetric_resample_wf(
     fallback_total_readout_time: str | float | None = None,
     fieldmap_id: str | None = None,
     omp_nthreads: int = 1,
+    resample_series: bool = True,
     name: str = 'asl_volumetric_resample_wf',
 ) -> pe.Workflow:
     """Resample an ASL series to a volumetric target space.
@@ -64,6 +65,9 @@ def init_asl_volumetric_resample_wf(
         Fieldmap identifier, if fieldmap correction is to be applied.
     omp_nthreads
         Maximum number of threads an individual process may use.
+    resample_series
+        Whether to resample the ASL series.
+        If False, only ``resampling_reference`` is generated, and ``bold_file`` is undefined.
     name
         Name of workflow (default: ``asl_volumetric_resample_wf``)
 
@@ -151,6 +155,18 @@ def init_asl_volumetric_resample_wf(
     )
 
     gen_ref = pe.Node(GenerateSamplingReference(), name='gen_ref', mem_gb=0.3)
+    workflow.connect([
+        (inputnode, gen_ref, [
+            ('bold_ref_file', 'moving_image'),
+            ('target_ref_file', 'fixed_image'),
+            ('target_mask', 'fov_mask'),
+            (('resolution', _is_native), 'keep_native'),
+        ]),
+        (gen_ref, outputnode, [('out_file', 'resampling_reference')]),
+    ])  # fmt:skip
+
+    if not resample_series:
+        return workflow
 
     boldref2target = pe.Node(niu.Merge(2), name='boldref2target', run_without_submitting=True)
     bold2target = pe.Node(niu.Merge(2), name='bold2target', run_without_submitting=True)
@@ -165,12 +181,6 @@ def init_asl_volumetric_resample_wf(
     )
 
     workflow.connect([
-        (inputnode, gen_ref, [
-            ('bold_ref_file', 'moving_image'),
-            ('target_ref_file', 'fixed_image'),
-            ('target_mask', 'fov_mask'),
-            (('resolution', _is_native), 'keep_native'),
-        ]),
         (inputnode, boldref2target, [
             ('boldref2anat_xfm', 'in1'),
             ('anat2std_xfm', 'in2'),
@@ -180,7 +190,6 @@ def init_asl_volumetric_resample_wf(
         (gen_ref, resample, [('out_file', 'ref_file')]),
         (boldref2target, bold2target, [('out', 'in2')]),
         (bold2target, resample, [('out', 'transforms')]),
-        (gen_ref, outputnode, [('out_file', 'resampling_reference')]),
         (resample, outputnode, [('out_file', 'bold_file')]),
     ])  # fmt:skip
 
