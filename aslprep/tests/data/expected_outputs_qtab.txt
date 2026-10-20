@@ -50,6 +50,7 @@ sub-01/ses-01/perf/sub-01_ses-01_desc-coreg_aslref.json
 sub-01/ses-01/perf/sub-01_ses-01_desc-coreg_aslref.nii.gz
 sub-01/ses-01/perf/sub-01_ses-01_desc-hmc_aslref.json
 sub-01/ses-01/perf/sub-01_ses-01_desc-hmc_aslref.nii.gz
+sub-01/ses-01/perf/sub-01_ses-01_desc-calibration_parameters.json
 sub-01/ses-01/perf/sub-01_ses-01_desc-qualitycontrol_cbf.tsv
 sub-01/ses-01/perf/sub-01_ses-01_desc-score_cbf.json
 sub-01/ses-01/perf/sub-01_ses-01_desc-score_cbf.nii.gz
@@ -92,6 +93,7 @@ sub-01/ses-02/perf/sub-01_ses-02_desc-coreg_aslref.json
 sub-01/ses-02/perf/sub-01_ses-02_desc-coreg_aslref.nii.gz
 sub-01/ses-02/perf/sub-01_ses-02_desc-hmc_aslref.json
 sub-01/ses-02/perf/sub-01_ses-02_desc-hmc_aslref.nii.gz
+sub-01/ses-02/perf/sub-01_ses-02_desc-calibration_parameters.json
 sub-01/ses-02/perf/sub-01_ses-02_desc-qualitycontrol_cbf.tsv
 sub-01/ses-02/perf/sub-01_ses-02_desc-score_cbf.json
 sub-01/ses-02/perf/sub-01_ses-02_desc-score_cbf.nii.gz

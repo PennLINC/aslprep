@@ -366,3 +366,38 @@ def test_pvc_option_errors(tmp_path, capsys, supp_args, message):
         parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
     assert message in capsys.readouterr().err
     reset_config()
+
+
+@pytest.mark.parametrize(
+    ('supp_args', 'method'),
+    [
+        ([], 'synthstrip'),
+        (['--skull-strip-asl', 'synthstrip'], 'synthstrip'),
+        (['--skull-strip-asl', 'legacy'], 'legacy'),
+    ],
+)
+def test_skull_strip_asl(tmp_path, supp_args, method):
+    """The ASL brain extraction method reaches the config and survives a round trip (gh-749)."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert config.workflow.skull_strip_asl == method
+
+    config_file = tmp_path / 'config.toml'
+    config.to_filename(config_file)
+    reset_config()
+    config.load(config_file)
+    assert config.workflow.skull_strip_asl == method
+    reset_config()
+
+
+def test_skull_strip_asl_errors(tmp_path, capsys):
+    """Unknown ASL brain extraction methods stop the run at parse time."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    with pytest.raises(SystemExit):
+        parse_args(_gradwarp_cli_args(tmp_path) + ['--skull-strip-asl', 'bet'])
+    assert 'invalid choice' in capsys.readouterr().err
+    reset_config()

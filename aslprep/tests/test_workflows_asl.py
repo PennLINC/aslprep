@@ -262,6 +262,73 @@ def test_init_asl_wf_relative_confounds_use_reduced_series(
         assert (wf.get_node('carpetplot_wf') is not None) is expect_relative
 
 
+@pytest.mark.parametrize(
+    ('slice_timing', 'expected', 'slice_spacing'),
+    [
+        (None, 'none', None),
+        ([0.0, 0.045, 0.09, 0.135], 'slicedt', 0.045),
+        # Rounded to 2.5 ms, as in DICOM-derived metadata
+        ([0.0, 0.0425, 0.0875, 0.13], 'slicedt', 0.0434),
+        # Interleaved
+        ([0.0, 0.09, 0.045, 0.135], 'tiimg', None),
+    ],
+)
+def test_init_cbf_wf_basil_slice_timing(tmp_path, slice_timing, expected, slice_spacing):
+    """BASIL gets --slicedt for evenly spaced ascending slices, else an inflow time image."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PostLabelingDelay': 1.8,
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+        'RepetitionTimePreparation': 4.0,
+    }
+    if slice_timing is not None:
+        metadata['SliceTiming'] = slice_timing
+
+    reset_config()
+    with mock_config():
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 3}),
+            metadata=metadata,
+            basil=True,
+        )
+    basilcbf = wf.get_node('basilcbf')
+    basil_sources = {
+        dst_field: (src.name, src_field)
+        for src, dst, data in wf._graph.edges(data=True)
+        if dst.name == 'basilcbf'
+        for src_field, dst_field in data['connect']
+    }
+
+    if expected == 'tiimg':
+        assert basil_sources['tiimg'] == ('make_tiimg', 'out_file')
+        assert 'tis' not in basil_sources
+        assert not isdefined(basilcbf.inputs.slice_spacing)
+        assert 'inflow time of each voxel' in wf.__desc__
+    else:
+        assert wf.get_node('make_tiimg') is None
+        assert basil_sources['tis'] == ('determine_inflow_times', 'tis')
+        assert 'tiimg' not in basil_sources
+
+    if expected == 'slicedt':
+        assert basilcbf.inputs.slice_spacing == pytest.approx(slice_spacing, abs=1e-4)
+        assert 'BASIL accounted for slice timing by adding 4' in wf.__desc__
+    elif expected == 'none':
+        assert not isdefined(basilcbf.inputs.slice_spacing)
+        assert 'BASIL accounted for slice timing' not in wf.__desc__
+
+
 @pytest.mark.parametrize('sloppy', [False, True])
 def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
     """Sloppy mode skips BASIL's partial volume correction, which takes most of its run time."""
@@ -343,6 +410,161 @@ def test_init_synthstrip_aslref_wf_nodes(disable_n4):
         for _, dst_field in data['connect']
     }
     assert outputs == {'bias_corrected_file', 'mask_file'}
+
+
+@pytest.mark.parametrize('disable_n4', [False, True])
+def test_init_enhance_and_skullstrip_asl_wf_nodes(disable_n4):
+    """The legacy workflow intersects BET and 3dAutomask masks (gh-749).
+
+    The template registration only weights N4, so it is dropped along with N4.
+    """
+    from aslprep.workflows.asl.reference import init_enhance_and_skullstrip_asl_wf
+
+    reset_config()
+    with mock_config():
+        wf = init_enhance_and_skullstrip_asl_wf(disable_n4=disable_n4)
+        graph = wf._create_flat_graph()
+
+    names = {node.name for node in graph.nodes()}
+    assert {'skullstrip_first_pass', 'unifize', 'skullstrip_second_pass', 'combine_masks'} <= names
+    registration = {'init_aff', 'norm', 'map_brainmask', 'fix_header', 'n4_correct'}
+    if disable_n4:
+        assert not names & registration
+    else:
+        assert registration <= names
+
+    edges = {
+        (dst.name, dst_field): (src.name, src_field)
+        for src, dst, data in graph.edges(data=True)
+        for src_field, dst_field in data['connect']
+    }
+    assert edges[('outputnode', 'mask_file')] == ('combine_masks', 'out_file')
+    assert edges[('combine_masks', 'in_file')] == ('skullstrip_first_pass', 'mask_file')
+    assert edges[('combine_masks', 'operand_file')] == ('fixhdr_skullstrip2', 'out_file')
+    # BET and the output both take the (possibly) bias-corrected image
+    assert edges[('skullstrip_first_pass', 'in_file')] == ('n4_buffer', 'bias_corrected_file')
+    assert edges[('outputnode', 'bias_corrected_file')] == ('n4_buffer', 'bias_corrected_file')
+    if disable_n4:
+        assert edges[('n4_buffer', 'bias_corrected_file')] == ('inputnode', 'in_file')
+    else:
+        assert edges[('n4_correct', 'weight_image')] == ('fix_header', 'out_file')
+        assert edges[('n4_buffer', 'bias_corrected_file')] == ('n4_correct', 'output_image')
+
+
+@pytest.mark.parametrize('method', ['synthstrip', 'legacy'])
+@pytest.mark.parametrize('disable_n4', [False, True])
+def test_skull_strip_asl_boilerplate(method, disable_n4):
+    """Each brain extraction method describes itself, citing only references in the bib file."""
+    import re
+
+    from aslprep.data import load as load_data
+    from aslprep.workflows.asl.reference import (
+        init_enhance_and_skullstrip_asl_wf,
+        init_synthstrip_aslref_wf,
+    )
+
+    reset_config()
+    with mock_config():
+        if method == 'legacy':
+            wf = init_enhance_and_skullstrip_asl_wf(disable_n4=disable_n4)
+        else:
+            wf = init_synthstrip_aslref_wf(disable_n4=disable_n4)
+        desc = wf.visit_desc()
+
+    cited = set(re.findall(r'@([\w-]+)', desc))
+    if method == 'synthstrip':
+        expected = {'synthstrip'} | ({'n4'} if not disable_n4 else set())
+    else:
+        # N4 is weighted by a template mask, so the registration is only cited along with N4
+        n4_refs = {'n4', 'ants', 'mni152nlin2009casym'}
+        expected = {'bet', 'afni'} | (n4_refs if not disable_n4 else set())
+    assert cited == expected
+
+    bib = load_data('boilerplate.bib').read_text()
+    bib_keys = set(re.findall(r'^@\w+\{([^,]+),', bib, re.MULTILINE))
+    assert cited <= bib_keys
+
+
+@pytest.mark.parametrize('method', ['synthstrip', 'legacy'])
+def test_init_skullstrip_aslref_wf(method):
+    """Final references are masked with the method from --skull-strip-asl (gh-749)."""
+    from aslprep.workflows.asl.reference import init_skullstrip_aslref_wf
+
+    reset_config()
+    with mock_config():
+        config.workflow.skull_strip_asl = method
+        wf = init_skullstrip_aslref_wf(name='mask_wf')
+        names = {node.name for node in wf._create_flat_graph().nodes()}
+
+    assert wf.name == 'mask_wf'
+    assert {'inputnode', 'outputnode'} <= names
+    assert 'in_file' in wf.get_node('inputnode').inputs.copyable_trait_names()
+    assert 'mask_file' in wf.get_node('outputnode').outputs.copyable_trait_names()
+    # Mock SynthStrip stands in for SynthStrip in sloppy mode
+    uses_synthstrip = bool(names & {'synthstrip', 'mocksynthstrip'})
+    assert uses_synthstrip is (method == 'synthstrip')
+    assert ('skullstrip_second_pass' in names) is (method == 'legacy')
+    # The reference is already final, so SynthStrip's N4 is skipped
+    assert 'n4_correct' not in names
+
+
+@pytest.mark.parametrize('method', ['synthstrip', 'legacy'])
+@pytest.mark.parametrize('case', ['plain', 'fieldmap', 'gradwarp', 'precomputed'])
+def test_init_asl_fit_wf_skull_strip_asl(tmp_path, method, case):
+    """--skull-strip-asl picks the brain extraction for every ASL reference (gh-749).
+
+    With distortion or gradient nonlinearity correction, the final mask comes from the
+    corrected reference, and with a precomputed reference, from that reference.
+    Both use the same method as the coregistration reference.
+    """
+    from aslprep.tests.test_workflows_gradwarp import _grad_file
+    from aslprep.utils.gradwarp import GradwarpPlan
+    from aslprep.workflows.asl.fit import init_asl_fit_wf
+
+    reset_config()
+    with mock_config():
+        config.workflow.skull_strip_asl = method
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        kwargs = {}
+        if case == 'fieldmap':
+            kwargs['fieldmap_id'] = 'auto_00000'
+        elif case == 'gradwarp':
+            kwargs['gradwarp_plan'] = GradwarpPlan(
+                str(_grad_file(tmp_path)), '3D', False, 'metadata'
+            )
+        elif case == 'precomputed':
+            kwargs['precomputed'] = {'coreg_aslref': str(asl_file)}
+        wf = init_asl_fit_wf(
+            asl_file=str(asl_file),
+            aslcontext=str(asl_file).replace('.nii.gz', 'context.tsv'),
+            m0scan=None,
+            use_ge=False,
+            **kwargs,
+        )
+        desc = wf.visit_desc()
+
+    legacy = wf.get_node('enhance_and_skullstrip_asl_wf')
+    synthstrip = wf.get_node('synthstrip_aslref_wf')
+    if case == 'precomputed':
+        # The reference is not recomputed, so only its mask is
+        assert legacy is synthstrip is None
+        final_mask_wf = wf.get_node('skullstrip_precomp_ref_wf')
+    else:
+        assert (legacy is not None) is (method == 'legacy')
+        assert (synthstrip is not None) is (method == 'synthstrip')
+        assert ('[@bet]' in desc) is (method == 'legacy')
+        final_mask_wf = wf.get_node('skullstrip_asl_wf')
+    assert ('[@synthstrip]' in desc) is (method == 'synthstrip')
+
+    if case == 'plain':
+        assert final_mask_wf is None
+    else:
+        names = {node.name for node in final_mask_wf._create_flat_graph().nodes()}
+        assert bool(names & {'synthstrip', 'mocksynthstrip'}) is (method == 'synthstrip')
+        assert ('skullstrip_second_pass' in names) is (method == 'legacy')
+    if case in ('fieldmap', 'gradwarp'):
+        # The method is described once, by the coregistration reference workflow
+        assert desc.count('A brain mask was computed') == 1
 
 
 @pytest.mark.parametrize(
@@ -532,3 +754,145 @@ def test_init_cbf_wf_boilerplate(tmp_path, asl_type):
         assert 'post-labeling delay' not in desc
         assert 'QUIPSS II bolus cut-off technique [@wong1998quantitative]' in desc
         assert 'as described in @alsop_recommended_2015' in desc
+
+
+@pytest.mark.parametrize('m0type', ['Estimate', 'Included'])
+def test_init_cbf_wf_backends_share_calibration(tmp_path, m0type):
+    """ASLPrep's model and BASIL are given the same calibration and physiological parameters."""
+    import pandas as pd
+
+    from aslprep.utils.calibration import M0_RECOVERY_TR_THRESHOLD, calibration_value
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    volume_types = ['control', 'label'] * 3
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PostLabelingDelay': 1.8,
+        'LabelingDuration': 1.8,
+        'M0Type': m0type,
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': True,
+        'BackgroundSuppressionNumberPulses': 4,
+        'RepetitionTimePreparation': 4.0,
+    }
+    if m0type == 'Included':
+        volume_types = ['m0scan'] + volume_types
+    aslcontext = tmp_path / 'sub-01_aslcontext.tsv'
+    pd.DataFrame({'volume_type': volume_types}).to_csv(aslcontext, sep='\t', index=False)
+    reset_config()
+    with mock_config():
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+            basil=True,
+            m0_scale=0.001,
+        )
+        calibration = wf.get_node('compute_cbf').inputs.calibration
+        basil = wf.get_node('basilcbf').inputs
+
+    assert basil.alpha == calibration_value(calibration, 'EffectiveLabelingEfficiency')
+    assert basil.alpha == pytest.approx(0.85 * 0.95**4)
+    assert basil.t1blood == calibration_value(calibration, 'BloodT1')
+    assert basil.m0_scale == calibration_value(calibration, 'M0Scale') == 0.001
+    if m0type == 'Included':
+        # Both correct the 4 s M0 for T1 recovery, with the same tissue T1.
+        assert basil.m0tr == 4.0
+        assert basil.t1tissue_calib == calibration_value(calibration, 'TissueT1')
+    else:
+        # Neither corrects the M0 estimate (oxford_asl would assume a 3.2 s TR without --tr).
+        assert calibration_value(calibration, 'M0RecoveryCorrection') == 'none'
+        assert basil.m0tr == M0_RECOVERY_TR_THRESHOLD
+        assert not isdefined(basil.t1tissue_calib)
+
+
+def test_init_cbf_wf_smoothing_from_calibration(tmp_path):
+    """The M0 image is smoothed with the kernel the given specification records."""
+    import pandas as pd
+
+    from aslprep.utils.calibration import resolve_calibration
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PostLabelingDelay': 1.8,
+        'LabelingDuration': 1.8,
+        'M0Type': 'Absent',
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+        'RepetitionTimePreparation': 6.0,
+    }
+    calibration = resolve_calibration(
+        metadata, m0tr=6.0, smooth_kernel=3.0, smooth_kernel_source='user'
+    )
+    aslcontext = tmp_path / 'sub-01_aslcontext.tsv'
+    pd.DataFrame({'volume_type': ['control', 'label'] * 3}).to_csv(
+        aslcontext, sep='\t', index=False
+    )
+    reset_config()
+    with mock_config():
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+            calibration=calibration,
+        )
+
+    assert wf.get_node('extract_deltam').inputs.fwhm == 3.0
+    assert 'FWHM=3.0 mm' in wf.__desc__
+
+
+def test_init_asl_wf_calibration_outputs():
+    """The calibration parameters are written, reported and added to the CBF sidecars."""
+    reset_config()
+    with mock_config():
+        config.workflow.level = 'minimal'
+        config.execution.output_spaces = 'asl'
+        config.init_spaces()
+        from aslprep.workflows.asl.base import init_asl_wf
+
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        wf = init_asl_wf(asl_file=str(asl_file))
+        ds_calibration = wf.get_node('ds_calibration_wf.ds_calibration')
+        write_calibration = wf.get_node('ds_calibration_wf.write_calibration')
+        compute_cbf = wf.get_node('cbf_wf.compute_cbf')
+        ds_mean_cbf = wf.get_node('ds_asl_native_wf.ds_mean_cbf')
+
+    assert ds_calibration.inputs.desc == 'calibration'
+    assert ds_calibration.inputs.suffix == 'parameters'
+    assert wf.get_node('ds_calibration_wf.ds_report_calibration') is not None
+    calibration = write_calibration.inputs.calibration
+    assert calibration == compute_cbf.inputs.calibration
+    model = ds_mean_cbf.interface._metadata['Model']
+    assert 'ASLPrep' in model['Description']
+    assert model['Parameters']['BloodT1'] == calibration['Parameters']['BloodT1']['Value']
+
+
+def test_calibration_summary(tmp_path):
+    """The calibration reportlet lists each parameter and the warnings."""
+    from aslprep.interfaces.reports import CalibrationSummary
+    from aslprep.utils.calibration import resolve_calibration
+
+    calibration = resolve_calibration(
+        {
+            'ArterialSpinLabelingType': 'PCASL',
+            'M0Type': 'Absent',
+            'MagneticFieldStrength': 3,
+            'BackgroundSuppression': True,
+        },
+        m0tr=3.0,
+    )
+    result = CalibrationSummary(calibration=calibration).run(cwd=str(tmp_path))
+    with open(result.outputs.out_report) as fobj:
+        report = fobj.read()
+
+    assert '<td>BloodT1</td><td>1.65 s</td><td>default</td>' in report
+    assert '<td>TissueT1</td><td>1.607 s</td>' in report
+    assert 'One background suppression pulse is assumed' in report

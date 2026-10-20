@@ -45,6 +45,7 @@ sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-coreg_aslref.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-coreg_aslref.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-hmc_aslref.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-hmc_aslref.nii.gz
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-calibration_parameters.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-qualitycontrol_cbf.tsv
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_from-aslref_to-T1w_mode-image_desc-coreg_xfm.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_from-aslref_to-T1w_mode-image_desc-coreg_xfm.txt

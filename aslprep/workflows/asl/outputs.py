@@ -17,6 +17,40 @@ BASE_INPUT_FIELDS = yaml.safe_load(load_data.readable('base_input_fields.yml').r
 """Derivative entities and sidecar metadata of each output, from
 ``aslprep/data/base_input_fields.yml``."""
 
+
+def output_model(name):
+    """Name the model that produced an output (one of :data:`~aslprep.utils.calibration.MODELS`).
+
+    BASIL outputs have ``basil`` in their names, and local-regression partial volume correction
+    outputs an ``_lr`` part (see :func:`lr_pvc_names`).
+    Every other quantitative output comes from ASLPrep's own kinetic model.
+    """
+    if 'basil' in name:
+        return 'basil'
+    if '_lr_' in f'{name}_':
+        return 'lr'
+    return 'aslprep'
+
+
+def output_fields(name, model_metadata=None):
+    """Get the entities and sidecar metadata of an output, from :data:`BASE_INPUT_FIELDS`.
+
+    Parameters
+    ----------
+    name : :obj:`str`
+        The output's name.
+    model_metadata : :obj:`dict` or None
+        The ``Model`` dictionary of each model that quantified the run's outputs, keyed by the
+        model's name (see :func:`~aslprep.utils.calibration.describe_model`).
+        The dictionary of the model that produced this output (see :func:`output_model`)
+        is added to its sidecar as ``Model``.
+    """
+    fields = dict(BASE_INPUT_FIELDS[name])
+    if model_metadata:
+        fields['Model'] = model_metadata[output_model(name)]
+    return fields
+
+
 #: Local-regression partial volume correction outputs, per corrected CBF map.
 #: Keys are the corrected map's name in the CBF workflow; values are the desc prefix.
 LR_PVC_SOURCES = {'mean_cbf': 'lr', 'mean_cbf_score': 'scoreLR'}
@@ -584,10 +618,13 @@ def init_ds_asl_native_wf(
     cbf_3d: list[str],
     cbf_4d: list[str],
     att: list[str],
+    model_metadata: dict | None = None,
     name='ds_asl_native_wf',
 ) -> pe.Workflow:
     """Write out aslref-space outputs.
 
+    ``model_metadata`` is added to the sidecars of the CBF and ATT maps
+    (see :func:`output_fields`).
     The outputnode has the written path of each CBF and ATT map, under the map's name.
     """
     workflow = pe.Workflow(name=name)
@@ -633,7 +670,7 @@ def init_ds_asl_native_wf(
     # Write out CBF and ATT maps in aslref space
     for cbf_name in cbf_4d + cbf_3d:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        fields = BASE_INPUT_FIELDS[cbf_name]
+        fields = output_fields(cbf_name, model_metadata)
 
         ds_cbf = pe.Node(
             DerivativesDataSink(
@@ -655,7 +692,7 @@ def init_ds_asl_native_wf(
 
     for att_name in att:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        fields = BASE_INPUT_FIELDS[att_name]
+        fields = output_fields(att_name, model_metadata)
 
         ds_att = pe.Node(
             DerivativesDataSink(
@@ -705,12 +742,84 @@ def init_ds_asl_native_wf(
     return workflow
 
 
+def init_ds_calibration_wf(
+    *,
+    source_file: str,
+    output_dir: str,
+    calibration: dict,
+    name: str = 'ds_calibration_wf',
+) -> pe.Workflow:
+    """Write out the calibration specification and its report.
+
+    The specification (see :func:`~aslprep.utils.calibration.resolve_calibration`) is written
+    to ``desc-calibration_parameters.json``, and summarized in a reportlet
+    (``desc-calibration_asl.html``).
+
+    Parameters
+    ----------
+    source_file : str
+        The ASL file the derivatives are named after.
+    output_dir : str
+        The output directory.
+    calibration : dict
+        The calibration specification.
+    name : str
+        Workflow name.
+    """
+    from aslprep.interfaces.cbf import WriteCalibration
+    from aslprep.interfaces.reports import CalibrationSummary
+
+    workflow = pe.Workflow(name=name)
+
+    write_calibration = pe.Node(
+        WriteCalibration(calibration=calibration),
+        name='write_calibration',
+        run_without_submitting=True,
+    )
+    ds_calibration = pe.Node(
+        DerivativesDataSink(
+            source_file=source_file,
+            base_directory=output_dir,
+            desc='calibration',
+            suffix='parameters',
+            extension='.json',
+            dismiss_entities=('echo',),
+        ),
+        name='ds_calibration',
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    workflow.connect([(write_calibration, ds_calibration, [('out_file', 'in_file')])])
+
+    calibration_summary = pe.Node(
+        CalibrationSummary(calibration=calibration),
+        name='calibration_summary',
+        run_without_submitting=True,
+    )
+    ds_report_calibration = pe.Node(
+        DerivativesDataSink(
+            source_file=source_file,
+            base_directory=output_dir,
+            desc='calibration',
+            datatype='figures',
+            dismiss_entities=('echo',),
+        ),
+        name='ds_report_calibration',
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    workflow.connect([(calibration_summary, ds_report_calibration, [('out_report', 'in_file')])])
+
+    return workflow
+
+
 def init_ds_pvc_native_wf(
     *,
     source_file: str,
     output_dir: str,
     sources: list[str],
     multi_delay: bool = False,
+    model_metadata: dict | None = None,
     name: str = 'ds_pvc_native_wf',
 ) -> pe.Workflow:
     """Write out local-regression partial volume correction outputs in aslref space.
@@ -729,6 +838,8 @@ def init_ds_pvc_native_wf(
         The CBF maps that were corrected: ``mean_cbf``, and ``mean_cbf_score`` with SCORE.
     multi_delay : bool
         Whether the data have several delays, which changes the outputs (spec Section 5.7.5).
+    model_metadata : dict or None
+        Added to the sidecars of the correction outputs (see :func:`output_fields`).
     name : str
         Workflow name.
 
@@ -804,8 +915,9 @@ def init_ds_pvc_native_wf(
     workflow.connect([(inputnode, sources_node, [('source_files', 'in1')])])
 
     for out_name in ['gm_pv', 'wm_pv', 'csf_pv'] + names:
-        fields = BASE_INPUT_FIELDS[out_name]
-        meta_field = 'pv_metadata' if out_name in ('gm_pv', 'wm_pv', 'csf_pv') else 'pvc_metadata'
+        is_pv_map = out_name in ('gm_pv', 'wm_pv', 'csf_pv')
+        fields = output_fields(out_name, None if is_pv_map else model_metadata)
+        meta_field = 'pv_metadata' if is_pv_map else 'pvc_metadata'
         ds = pe.Node(
             DerivativesDataSink(
                 source_file=source_file,
@@ -837,6 +949,7 @@ def init_ds_volumes_wf(
     att: list[str],
     sparse_3d: dict[str, str] | None = None,
     asl_output: bool = True,
+    model_metadata: dict | None = None,
     name: str = 'ds_volumes_wf',
 ) -> pe.Workflow:
     """Apply transforms from reference to anatomical/standard space and write out derivatives.
@@ -862,6 +975,8 @@ def init_ds_volumes_wf(
         estimates.
     asl_output : bool
         Whether to write out the preprocessed ASL series (``asl``).
+    model_metadata : dict or None
+        Added to the sidecars of the CBF and ATT maps (see :func:`output_fields`).
     name : str
         Workflow name.
 
@@ -1029,7 +1144,7 @@ def init_ds_volumes_wf(
 
     for cbf_name in cbf_4d + cbf_3d:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        fields = BASE_INPUT_FIELDS[cbf_name]
+        fields = output_fields(cbf_name, model_metadata)
 
         kwargs = {}
         if cbf_name in cbf_4d:
@@ -1066,7 +1181,7 @@ def init_ds_volumes_wf(
 
     for att_name in att:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        fields = BASE_INPUT_FIELDS[att_name]
+        fields = output_fields(att_name, model_metadata)
 
         resample_att = pe.Node(
             ApplyTransforms(
@@ -1101,7 +1216,7 @@ def init_ds_volumes_wf(
     # The values are already zero where they are not valid.
     sparse_resamplers = []
     for sparse_name, valid_name in sparse_3d.items():
-        fields = BASE_INPUT_FIELDS[sparse_name]
+        fields = output_fields(sparse_name, model_metadata)
         resample_value = pe.Node(
             ApplyTransforms(interpolation='Linear', float=True, input_image_type=3, args='-v'),
             name=f'warp_{sparse_name}_to_std',
@@ -1186,11 +1301,14 @@ def init_ds_ciftis_wf(
     att: list[str],
     omp_nthreads: int,
     asl_output: bool = True,
+    model_metadata: dict | None = None,
     name: str = 'ds_ciftis_wf',
 ) -> pe.Workflow:
     """Apply transforms from reference to fsLR space and write out derivatives.
 
     The preprocessed ASL series (``asl_cifti``) is only written with ``asl_output``.
+    ``model_metadata`` is added to the sidecars of the CBF and ATT maps
+    (see :func:`output_fields`).
     """
     from fmriprep.workflows.bold.resampling import (
         init_bold_fsLR_resampling_wf,
@@ -1359,7 +1477,7 @@ def init_ds_ciftis_wf(
                 density=config.workflow.cifti_output,
                 extension=extension,
                 compress=False,
-                **BASE_INPUT_FIELDS[cbf_deriv],
+                **output_fields(cbf_deriv, model_metadata),
             ),
             name=f'ds_{cbf_deriv}_cifti',
             run_without_submitting=True,

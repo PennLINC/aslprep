@@ -36,7 +36,6 @@ from fmriprep.workflows.bold.reference import init_validation_and_dummies_wf
 from fmriprep.workflows.bold.registration import init_bold_reg_wf
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
-from niworkflows.func.util import init_skullstrip_bold_wf
 from niworkflows.interfaces.header import ValidateImage
 from niworkflows.interfaces.nitransforms import ConcatenateXFMs
 from niworkflows.interfaces.utility import KeySelect
@@ -52,7 +51,12 @@ from aslprep.utils.asl import select_processing_target
 from aslprep.utils.gradwarp import GradwarpPlan
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
-from aslprep.workflows.asl.reference import init_raw_aslref_wf, init_synthstrip_aslref_wf
+from aslprep.workflows.asl.reference import (
+    init_enhance_and_skullstrip_asl_wf,
+    init_raw_aslref_wf,
+    init_skullstrip_aslref_wf,
+    init_synthstrip_aslref_wf,
+)
 
 
 def get_sbrefs(
@@ -734,9 +738,15 @@ def init_asl_fit_wf(
             )
             workflow.connect(raw_sbref_wf, 'outputnode.aslref', fmapref_buffer, 'sbref_files')
 
-        enhance_aslref_wf = init_synthstrip_aslref_wf(
-            disable_n4=config.workflow.disable_n4,
-        )
+        if config.workflow.skull_strip_asl == 'legacy':
+            enhance_aslref_wf = init_enhance_and_skullstrip_asl_wf(
+                disable_n4=config.workflow.disable_n4,
+                omp_nthreads=omp_nthreads,
+            )
+        else:
+            enhance_aslref_wf = init_synthstrip_aslref_wf(
+                disable_n4=config.workflow.disable_n4,
+            )
         coreg_ref_source_files = pe.Node(
             niu.Merge(3),
             name='coreg_ref_source_files',
@@ -774,7 +784,9 @@ def init_asl_fit_wf(
                 mem_gb=mem_gb['resampled'],
             )
 
-            skullstrip_asl_wf = init_skullstrip_bold_wf()
+            skullstrip_asl_wf = init_skullstrip_aslref_wf(name='skullstrip_asl_wf')
+            # enhance_aslref_wf already describes the brain extraction method
+            skullstrip_asl_wf.__desc__ = None
 
             workflow.connect([
                 (fmapref_buffer, unwarp_aslref, [('out', 'ref_file')]),
@@ -868,7 +880,7 @@ def init_asl_fit_wf(
 
         # TODO: Allow precomputed bold masks to be passed
         # Also needs consideration for how it interacts above
-        skullstrip_precomp_ref_wf = init_skullstrip_bold_wf(name='skullstrip_precomp_ref_wf')
+        skullstrip_precomp_ref_wf = init_skullstrip_aslref_wf(name='skullstrip_precomp_ref_wf')
         skullstrip_precomp_ref_wf.inputs.inputnode.in_file = coreg_aslref
         workflow.connect([
             (skullstrip_precomp_ref_wf, aslmask_buffer, [('outputnode.mask_file', 'aslmask')])
