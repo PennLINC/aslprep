@@ -20,6 +20,18 @@ def ascending(n_slices, spacing=0.09375):
     return [i * spacing for i in range(n_slices)]
 
 
+def rounded(slice_times, step):
+    return [round(t / step) * step for t in slice_times]
+
+
+def interleaved(n_slices, spacing):
+    order = list(range(0, n_slices, 2)) + list(range(1, n_slices, 2))
+    slice_times = [0.0] * n_slices
+    for i_acq, i_slice in enumerate(order):
+        slice_times[i_slice] = i_acq * spacing
+    return slice_times
+
+
 @pytest.mark.parametrize(
     ('desc', 'metadata', 'expected'),
     [
@@ -59,25 +71,6 @@ def ascending(n_slices, spacing=0.09375):
             {'slice_spacing': 0.125},
         ),
         (
-            'single-band non-monotonic',
-            {
-                'ArterialSpinLabelingType': 'PCASL',
-                'MagneticFieldStrength': 3,
-                # duplicate slice-time at index 10
-                'SliceTiming': (ascending(32)[:10] + [ascending(32)[9]] + ascending(32)[11:]),
-            },
-            {},
-        ),
-        (
-            'single-band descending',
-            {
-                'ArterialSpinLabelingType': 'PCASL',
-                'MagneticFieldStrength': 3,
-                'SliceTiming': list(reversed(ascending(32))),
-            },
-            {},
-        ),
-        (
             'single-band floating-point precision handled',
             {
                 'ArterialSpinLabelingType': 'PCASL',
@@ -112,36 +105,6 @@ def ascending(n_slices, spacing=0.09375):
             {'sliceband': 16, 'slice_spacing': 4.0 / 16},
         ),
         (
-            'multiband factor 2 non-monotonic in first band',
-            {
-                'ArterialSpinLabelingType': 'PCASL',
-                'MagneticFieldStrength': 3,
-                'MultibandAccelerationFactor': 2,
-                # break monotonicity in the first band only
-                'SliceTiming': (
-                    ascending(16, spacing=3.0 / 16)[:5]
-                    + [ascending(16, spacing=3.0 / 16)[4]]
-                    + ascending(16, spacing=3.0 / 16)[6:]
-                )
-                + ascending(16, spacing=3.0 / 16),
-            },
-            {},
-        ),
-        (
-            'multiband factor 2 second band descending',
-            {
-                'ArterialSpinLabelingType': 'PCASL',
-                'MagneticFieldStrength': 3,
-                'MultibandAccelerationFactor': 2,
-                # first band ascending, second band reversed
-                'SliceTiming': (
-                    ascending(16, spacing=3.0 / 16)
-                    + list(reversed(ascending(16, spacing=3.0 / 16)))
-                ),
-            },
-            {},
-        ),
-        (
             'multiband factor 3 ascending (10 slices/band, TR=3)',
             {
                 'ArterialSpinLabelingType': 'PCASL',
@@ -152,12 +115,96 @@ def ascending(n_slices, spacing=0.09375):
             },
             {'sliceband': 10, 'slice_spacing': 3.0 / 10},
         ),
+        (
+            'all slices at time zero',
+            {'SliceTiming': [0.0] * 20},
+            {},
+        ),
+        (
+            'ascending times rounded to 2.5 ms, so steps alternate between 42.5 and 45 ms',
+            {'SliceTiming': rounded(ascending(20, spacing=0.04375), 0.0025)},
+            {'slice_spacing': 0.04375},
+        ),
+        (
+            'ascending times rounded to 2.5 ms, multiband factor 2',
+            {
+                'MultibandAccelerationFactor': 2,
+                'SliceTiming': rounded(ascending(10, spacing=0.04375), 0.0025) * 2,
+            },
+            {'sliceband': 10, 'slice_spacing': 0.04375},
+        ),
+        (
+            'descending times, with slices encoded along k-',
+            {
+                'SliceEncodingDirection': 'k-',
+                'SliceTiming': list(reversed(ascending(32))),
+            },
+            {'slice_spacing': 0.09375},
+        ),
     ],
 )
 def test_prepare_basil_kwargs(desc, metadata, expected):
-    """Parametrized tests for prepare_basil_kwargs."""
-    result = prepare_basil_kwargs(metadata)
-    assert result == expected, f'Failed case: {desc}'
+    """BASIL gets --slicedt (and --sliceband) when it can describe the slice times."""
+    basil_kwargs, use_tiimg = prepare_basil_kwargs(metadata)
+    assert basil_kwargs == pytest.approx(expected, abs=1e-4), f'Failed case: {desc}'
+    assert not use_tiimg, f'Failed case: {desc}'
+
+
+@pytest.mark.parametrize(
+    ('desc', 'metadata'),
+    [
+        (
+            'single-band non-monotonic',
+            # duplicate slice time at index 10
+            {'SliceTiming': ascending(32)[:10] + [ascending(32)[9]] + ascending(32)[11:]},
+        ),
+        (
+            'multiband factor 2, non-monotonic in the first band',
+            {
+                'MultibandAccelerationFactor': 2,
+                'SliceTiming': (
+                    ascending(16)[:5] + [ascending(16)[4]] + ascending(16)[5:15] + ascending(16)
+                ),
+            },
+        ),
+        ('single-band descending', {'SliceTiming': list(reversed(ascending(32)))}),
+        (
+            'interleaved, even slices first',
+            {'SliceTiming': interleaved(20, spacing=0.045)},
+        ),
+        (
+            'ascending, but the first slice is not at time zero',
+            {'SliceTiming': [0.01 + t for t in ascending(20, spacing=0.045)]},
+        ),
+        (
+            'ascending, but slices are encoded along j',
+            {'SliceEncodingDirection': 'j', 'SliceTiming': ascending(20, spacing=0.045)},
+        ),
+        (
+            'multiband factor 2, second band descending',
+            {
+                'MultibandAccelerationFactor': 2,
+                'SliceTiming': ascending(16) + list(reversed(ascending(16))),
+            },
+        ),
+        (
+            'multiband factor 2, bands acquired at different times',
+            {
+                'MultibandAccelerationFactor': 2,
+                'SliceTiming': ascending(8, spacing=0.05) + ascending(8, spacing=0.06),
+            },
+        ),
+        (
+            'multiband factor that does not divide the slices',
+            {'MultibandAccelerationFactor': 3, 'SliceTiming': ascending(16)},
+        ),
+    ],
+)
+def test_prepare_basil_kwargs_tiimg(desc, metadata):
+    """BASIL needs a voxelwise inflow time image when --slicedt cannot describe the slices."""
+    basil_kwargs, use_tiimg = prepare_basil_kwargs(metadata)
+    assert basil_kwargs == {}, f'Failed case: {desc}'
+    assert use_tiimg, f'Failed case: {desc}'
 
 
 def _write_aslcontext(tmp_path, volume_types):

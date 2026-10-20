@@ -34,6 +34,7 @@ from aslprep.utils.cbf import (
     fit_deltam_multipld,
     get_array_module,
     multipld_bolus,
+    slice_shifted_delays,
     voxel_delays,
     zero_low_m0,
 )
@@ -896,6 +897,56 @@ class ScoreAndScrubCBF(SimpleInterface):
         return runtime
 
 
+class _BASILInflowTimeImageInputSpec(BaseInterfaceInputSpec):
+    deltam = File(
+        exists=True,
+        mandatory=True,
+        desc='The deltaM file passed to BASIL, on the acquired slice grid.',
+    )
+    tis = traits.Either(
+        traits.Float(),
+        traits.List(traits.Float()),
+        mandatory=True,
+        desc='The inflow times BASIL would otherwise get with ``--tis``.',
+    )
+    metadata = traits.Dict(
+        mandatory=True,
+        desc='ASL metadata, with SliceTiming.',
+    )
+
+
+class _BASILInflowTimeImageOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='4D image of the inflow time of each voxel.')
+
+
+class BASILInflowTimeImage(SimpleInterface):
+    """Write the voxelwise inflow time image for BASIL's ``--tiimg``.
+
+    Each volume holds one of the inflow times, plus the acquisition time of each voxel's slice.
+    BASIL reads these values as inflow times (TIs), and does not add the labeling duration,
+    so for (P)CASL data they must already include it.
+    """
+
+    input_spec = _BASILInflowTimeImageInputSpec
+    output_spec = _BASILInflowTimeImageOutputSpec
+
+    def _run_interface(self, runtime):
+        tiimg = slice_shifted_delays(
+            self.inputs.tis,
+            self.inputs.metadata,
+            nb.load(self.inputs.deltam),
+        )
+        tiimg = nb.Nifti1Image(tiimg.get_fdata(dtype=np.float32), tiimg.affine, tiimg.header)
+        tiimg.set_data_dtype(np.float32)
+        self._results['out_file'] = fname_presuffix(
+            self.inputs.deltam,
+            suffix='_tiimg',
+            newpath=runtime.cwd,
+        )
+        tiimg.to_filename(self._results['out_file'])
+        return runtime
+
+
 class _BASILCBFInputSpec(FSLCommandInputSpec):
     # We use position args here as list indices - so a negative number
     # will put something on the end
@@ -943,7 +994,19 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         ),
         argstr='--tis %s',
         mandatory=True,
+        xor=['tis', 'tiimg'],
         sep=',',
+    )
+    tiimg = File(
+        exists=True,
+        desc=(
+            'A 4D image of the inflow time (TI) of each voxel, with one volume per entry of '
+            '``tis``. Used in place of ``tis`` when slice timing cannot be described by '
+            '``--slicedt``, such as for interleaved slice orders.'
+        ),
+        argstr='--tiimg %s',
+        mandatory=True,
+        xor=['tis', 'tiimg', 'slice_spacing', 'sliceband'],
     )
     pcasl = traits.Bool(
         desc=(
@@ -963,14 +1026,16 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         sep=',',
     )
     slice_spacing = traits.Float(
-        desc='Slice times',
+        desc='Increase in inflow time per slice, in seconds.',
         argstr='--slicedt %s',
         mandatory=False,
+        xor=['tiimg'],
     )
     sliceband = traits.Int(
         desc='Number of slices per band in a multi-band acquisition.',
         argstr='--sliceband %d',
         mandatory=False,
+        xor=['tiimg'],
     )
     pvc = traits.Bool(
         desc='Do partial volume correction.',

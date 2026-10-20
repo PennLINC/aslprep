@@ -417,8 +417,26 @@ def infer_m0tr(
     return m0tr
 
 
+#: How far (in seconds) BASIL's evenly spaced slice-timing model (``--slicedt``) may be from
+#: any slice time before a voxelwise inflow time image is used instead.
+#: DICOM-derived slice times are often rounded to 2.5 ms, which puts evenly spaced slices
+#: more than 1.25 ms off the best-fitting line. Over 2.5 ms, the label decays by less than 0.2%
+#: (the T1 of blood is at least 1.3 s), so the difference does not matter.
+SLICEDT_TOLERANCE = 0.0025
+
+
 def prepare_basil_kwargs(metadata):
-    """Prepare keyword arguments for BASIL based on slice timing and multiband metadata.
+    """Choose how BASIL accounts for slice timing.
+
+    BASIL (fabber's ``aslrest`` model) has two ways to add the slice times to the inflow times.
+    ``--slicedt`` (with ``--sliceband`` for multiband data) adds ``slicedt * z`` to each slice,
+    where ``z`` counts slices along the third array axis, from the start of its band.
+    ``--tiimg`` takes the inflow time of each voxel and inflow time as an image,
+    so it can describe any slice order.
+
+    ``--slicedt`` is used when it reproduces every slice time to within
+    :data:`SLICEDT_TOLERANCE`. Otherwise, such as for interleaved slice orders,
+    a voxelwise inflow time image is needed.
 
     Parameters
     ----------
@@ -428,70 +446,53 @@ def prepare_basil_kwargs(metadata):
     Returns
     -------
     basil_kwargs : dict
-        Dictionary of keyword arguments to pass to BASILCBF interface.
-
-    Notes
-    -----
-    This function handles slice timing correction for both single-band and multiband acquisitions.
-    For multiband data, it checks that slice times within each band are monotonic and ascending
-    before setting the sliceband and slice_spacing parameters.
+        Keyword arguments for the BASILCBF interface (``slice_spacing`` and ``sliceband``).
+    use_tiimg : bool
+        Whether BASIL needs a voxelwise inflow time image
+        (see :class:`~aslprep.interfaces.cbf.BASILInflowTimeImage`).
     """
     from aslprep import config
 
-    basil_kwargs = {}
+    slice_times = np.asarray(metadata.get('SliceTiming', []), dtype=float)
+    if not np.any(slice_times):
+        # No slice timing, or every slice acquired at the start of the readout
+        return {}, False
 
-    if 'SliceTiming' not in metadata:
-        return basil_kwargs
+    # Put the slice times in array order along the slice axis.
+    slice_encoding_direction = metadata.get('SliceEncodingDirection', 'k')
+    if slice_encoding_direction.endswith('-'):
+        slice_times = slice_times[::-1]
 
+    n_slices = slice_times.size
     mb_factor = metadata.get('MultibandAccelerationFactor', 1)
-    slice_times = metadata['SliceTiming']
-
-    if mb_factor > 1:
-        # Multiband acquisition
-        n_slices = len(slice_times)
-        n_slices_in_band = n_slices // mb_factor
-        ascending_slicetimes = True
-        monotonic_slicetimes = True
-
-        for i_band in range(mb_factor):
-            band_start = n_slices_in_band * i_band
-            band_end = band_start + n_slices_in_band
-            band_slice_times = slice_times[band_start:band_end]
-            # Round to handle floating point precision issues
-            slicetime_diffs = np.unique(np.round(np.diff(band_slice_times), 10))
-
-            # Check if slice times are monotonic for this band
-            if slicetime_diffs.size != 1:
-                monotonic_slicetimes = False
-
-            # Check if slice times are ascending for this band
-            if not np.all(slicetime_diffs > 0):
-                ascending_slicetimes = False
-
-        if ascending_slicetimes and monotonic_slicetimes:
-            basil_kwargs['sliceband'] = n_slices_in_band
-            basil_kwargs['slice_spacing'] = slicetime_diffs[0]
-        else:
-            config.loggers.utils.warning(
-                'Slice times are not ascending. They will be ignored in the BASIL call.'
-            )
+    if slice_encoding_direction[0] != 'k':
+        reason = f'slices are encoded along {slice_encoding_direction[0]}, not k'
+    elif n_slices % mb_factor:
+        reason = f'{n_slices} slices do not divide into {mb_factor} multiband bands'
+    elif n_slices // mb_factor < 2:
+        reason = 'each multiband band has only one slice'
     else:
-        # Single-band acquisition
-        # Round to handle floating point precision issues
-        slicetime_diffs = np.unique(np.round(np.diff(slice_times), 10))
-        # Check if slice times are monotonic
-        monotonic_slicetimes = slicetime_diffs.size == 1
-        # Check if slice times are ascending
-        ascending_slicetimes = np.all(slicetime_diffs > 0)
+        # The number of each slice within its band, which --slicedt multiplies.
+        n_slices_in_band = n_slices // mb_factor
+        slice_in_band = np.arange(n_slices) % n_slices_in_band
+        # Least-squares slice spacing for slice_times = slice_spacing * slice_in_band
+        slice_spacing = np.dot(slice_in_band, slice_times) / np.dot(slice_in_band, slice_in_band)
+        max_error = np.max(np.abs(slice_times - slice_spacing * slice_in_band))
+        if slice_spacing > 0 and max_error <= SLICEDT_TOLERANCE:
+            basil_kwargs = {'slice_spacing': float(slice_spacing)}
+            if mb_factor > 1:
+                basil_kwargs['sliceband'] = int(n_slices_in_band)
+            return basil_kwargs, False
 
-        if monotonic_slicetimes and ascending_slicetimes:
-            basil_kwargs['slice_spacing'] = slicetime_diffs[0]
-        else:
-            config.loggers.utils.warning(
-                'Slice times are not ascending. They will be ignored in the BASIL call.'
-            )
+        reason = (
+            'the slice times are not evenly spaced and ascending from zero within each band '
+            f'(an even spacing is up to {1000 * max_error:.1f} ms off)'
+        )
 
-    return basil_kwargs
+    config.loggers.utils.info(
+        f'BASIL will use a voxelwise inflow time image for slice timing, because {reason}.'
+    )
+    return {}, True
 
 
 #: Names of the ASL labeling types, as written in the methods boilerplate.
