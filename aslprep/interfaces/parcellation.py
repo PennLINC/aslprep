@@ -225,15 +225,85 @@ class NiftiParcellate(SimpleInterface):
         timeseries_df = pd.DataFrame(data=timeseries_arr, columns=node_labels)
         timeseries_df.to_csv(self._results['timeseries'], sep='\t', na_rep='n/a', index=False)
 
-        # Save out the coverage tsv
+        # The coverage file has the same layout: one row, with node names as columns.
         coverage_df = pd.DataFrame(
-            data=parcel_coverage.astype(np.float32),
-            index=node_labels,
-            columns=['coverage'],
+            data=parcel_coverage.astype(np.float32)[None, :],
+            columns=node_labels,
         )
         self._results['coverage'] = fname_presuffix(
             'coverage.tsv',
             newpath=runtime.cwd,
             use_ext=True,
         )
-        coverage_df.to_csv(self._results['coverage'], sep='\t', na_rep='n/a', index_label='Node')
+        coverage_df.to_csv(self._results['coverage'], sep='\t', na_rep='n/a', index=False)
+
+
+class _StackParcellatedTablesInputSpec(BaseInterfaceInputSpec):
+    in_files = traits.List(
+        traits.List(File(exists=True)),
+        mandatory=True,
+        desc=(
+            'One-row parcellated tables, from NiftiParcellate. '
+            'The outer list is over estimates, and the inner list is over atlases.'
+        ),
+    )
+    estimates = traits.List(
+        traits.Str(),
+        mandatory=True,
+        desc='Label of each estimate in in_files, used as its column name.',
+    )
+
+
+class _StackParcellatedTablesOutputSpec(TraitedSpec):
+    out_files = traits.List(
+        File(exists=True),
+        desc='One table per atlas, with one row per parcel and one column per estimate.',
+    )
+
+
+class StackParcellatedTables(SimpleInterface):
+    """Combine one-row parcellated tables into one table per atlas.
+
+    Each output table has a ``node`` column, with the name of the parcel in that row,
+    followed by one column per estimate. This matches the tables of the BIDS Derivatives
+    Toolbox (BDT).
+    """
+
+    input_spec = _StackParcellatedTablesInputSpec
+    output_spec = _StackParcellatedTablesOutputSpec
+
+    def _run_interface(self, runtime):
+        in_files = self.inputs.in_files
+        estimates = self.inputs.estimates
+        if len(in_files) != len(estimates):
+            raise ValueError(
+                f'Got {len(in_files)} lists of tables but {len(estimates)} estimate labels.'
+            )
+        if len(set(estimates)) != len(estimates):
+            raise ValueError(f'Estimate labels must be unique, got {estimates}.')
+
+        n_atlases = {len(atlas_files) for atlas_files in in_files}
+        if len(n_atlases) != 1:
+            raise ValueError(f'Every estimate needs one table per atlas, got {n_atlases}.')
+
+        self._results['out_files'] = []
+        for i_atlas, atlas_files in enumerate(zip(*in_files, strict=True)):
+            columns = {}
+            for estimate, in_file in zip(estimates, atlas_files, strict=True):
+                df = pd.read_table(in_file)
+                if df.shape[0] != 1:
+                    raise ValueError(f'{in_file} has {df.shape[0]} rows, not 1.')
+                if columns and list(df.columns) != list(next(iter(columns.values())).index):
+                    raise ValueError(f'{in_file} has different parcels than {atlas_files[0]}.')
+                columns[estimate] = df.iloc[0]
+
+            out_file = fname_presuffix(
+                f'atlas{i_atlas:02d}.tsv',
+                newpath=runtime.cwd,
+                use_ext=True,
+            )
+            out_df = pd.DataFrame(columns)
+            out_df.to_csv(out_file, sep='\t', na_rep='n/a', index_label='node')
+            self._results['out_files'].append(out_file)
+
+        return runtime

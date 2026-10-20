@@ -539,7 +539,7 @@ additional analysis, not a replacement :footcite:p:`chappell2021partial`.
   2 or 3 for a fit of gray or white matter alone (when the other tissue's contribution to that
   estimate was below 5%), and 4 where neither tissue could be estimated.
   Parcellated values average only the voxels with an estimate,
-  and their coverage files give the fraction of each parcel that had one.
+  and their rows in the coverage tables give the fraction of each parcel that had one.
 - The correction smooths CBF within the kernel. Fine detail within a kernel is lost.
 - The tissue fractions (``label-*_desc-psf_probseg``) are blurred to the acquisition's
   effective resolution; see :ref:`effective_resolution`.
@@ -813,8 +813,32 @@ as outputting the reference image-space versions would produce too many extra ou
 
       sub-<label>/[ses-<label>/]
          perf/
-            <source_entities>_space-<label>_atlas-<label>[_desc-<basil>]_coverage.tsv
-            <source_entities>_space-<label>_atlas-<label>[_desc-<basil|basilGM|basilWM|score|scrub>]_cbf.tsv
+            <source_entities>_atlas-<label>_scalarstats.tsv
+            <source_entities>_atlas-<label>_coverage.tsv
+
+Each atlas has one table of parcellated CBF (``scalarstats``) and one coverage table,
+each with a JSON sidecar.
+Both tables have one row per parcel and one column per CBF map,
+the same layout as the `BIDS Derivatives Toolbox <https://github.com/PennLINC/bdt>`_.
+The first column, ``node``, is the parcel's name from the atlas's labels table.
+Each other column is named after the ``desc`` entity of the voxel-wise CBF map
+(for example, ``score``, ``basilGM`` or ``lrGM``), or ``cbf`` for the CBF map without one.
+The sidecar describes each column.
+The ``scalarstats`` table gives each parcel's mean CBF,
+and is ``n/a`` for parcels with too little coverage.
+The coverage table gives the fraction of each parcel in which that map was estimated.
+Coverage is the same for every map estimated over the whole brain mask,
+but differs for maps that are only estimated in some voxels,
+such as the local-regression partial volume corrected maps.
+
+For example, with ``--scorescrub``, the ``scalarstats`` table for one atlas looks like:
+
+.. code-block:: text
+
+   node      cbf   score  scrub
+   LH_Vis_1  52.1  50.8   51.0
+   LH_Vis_2  61.3  59.9   60.2
+   ...
 
 
 **********

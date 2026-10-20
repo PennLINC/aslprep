@@ -220,7 +220,7 @@ def test_init_cbf_wf_lr_pvc_through_plane_3d(tmp_path):
 
 
 def test_parcellate_cbf_wf_uses_validity_masks():
-    """LR maps are parcellated within their own validity masks, with coverage files."""
+    """LR maps are parcellated within their own validity masks, in the stacked tables."""
     from aslprep.workflows.asl.cbf import init_parcellate_cbf_wf
 
     reset_config()
@@ -236,8 +236,16 @@ def test_parcellate_cbf_wf_uses_validity_masks():
         }
         assert masks['parcellate_mean_cbf'] == 'asl_mask'
         assert masks['parcellate_mean_cbf_gm_lr'] == 'gm_valid_lr'
-        assert wf.get_node('ds_coverage_mean_cbf_gm_lr') is not None
-        assert wf.get_node('ds_mean_cbf_gm_lr').inputs.desc == 'lrGM'
+        # One CBF table and one coverage table per atlas, with a column for each map.
+        for suffix in ('scalarstats', 'coverage'):
+            assert wf.get_node(f'stack_{suffix}').inputs.estimates == ['cbf', 'lrGM']
+            ds = wf.get_node(f'ds_{suffix}')
+            assert ds.inputs.suffix == suffix
+            assert {'node', 'cbf', 'lrGM'} <= set(ds.interface._metadata)
+        assert wf.get_node('ds_scalarstats').interface._metadata['lrGM']['Units'] == (
+            'mL/100 g/min'
+        )
+        assert not [n for n in wf.list_node_names() if n.startswith('ds_mean_cbf')]
 
 
 def _multidelay_dataset(tmp_path):

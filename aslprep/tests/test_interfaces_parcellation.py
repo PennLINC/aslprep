@@ -5,8 +5,9 @@ import os
 import nibabel as nb
 import numpy as np
 import pandas as pd
+import pytest
 
-from aslprep.interfaces.parcellation import NiftiParcellate
+from aslprep.interfaces.parcellation import NiftiParcellate, StackParcellatedTables
 
 
 def test_nifti_parcellate(tmp_path_factory):
@@ -45,11 +46,11 @@ def test_nifti_parcellate(tmp_path_factory):
     timeseries = results.outputs.timeseries
     assert os.path.isfile(coverage)
     assert os.path.isfile(timeseries)
-    coverage_df = pd.read_table(coverage, index_col='Node')
+    coverage_df = pd.read_table(coverage)
     timeseries_df = pd.read_table(timeseries)
-    assert coverage_df.shape == (5, 1)
+    assert coverage_df.shape == (1, 5)
     assert timeseries_df.shape == (1, 5)
-    assert np.array_equal(coverage_df['coverage'].to_numpy(), np.array([0, 0, 1, 1, 1]))
+    assert np.array_equal(coverage_df.to_numpy()[0], np.array([0, 0, 1, 1, 1]))
     assert np.array_equal(
         timeseries_df.to_numpy(),
         np.array([[np.nan, np.nan, 3, 4, 5]]),
@@ -75,11 +76,11 @@ def test_nifti_parcellate(tmp_path_factory):
     timeseries = results.outputs.timeseries
     assert os.path.isfile(coverage)
     assert os.path.isfile(timeseries)
-    coverage_df = pd.read_table(coverage, index_col='Node')
+    coverage_df = pd.read_table(coverage)
     timeseries_df = pd.read_table(timeseries)
-    assert coverage_df.shape == (5, 1)
+    assert coverage_df.shape == (1, 5)
     assert timeseries_df.shape == (1, 5)
-    assert np.array_equal(coverage_df['coverage'].to_numpy(), np.array([0, 0, 0.75, 0.5, 0.25]))
+    assert np.array_equal(coverage_df.to_numpy()[0], np.array([0, 0, 0.75, 0.5, 0.25]))
     assert np.array_equal(
         timeseries_df.to_numpy(),
         np.array([[np.nan, np.nan, 3, 4, np.nan]]),
@@ -114,10 +115,10 @@ def test_nifti_parcellate_validity_mask(tmp_path):
         min_coverage=0.25, **_parcellation_inputs(tmp_path, values, mask)
     ).run(cwd=tmp_path)
     timeseries = pd.read_table(results.outputs.timeseries)
-    coverage = pd.read_table(results.outputs.coverage, index_col='Node')
+    coverage = pd.read_table(results.outputs.coverage)
     assert timeseries['A'].iloc[0] == 60.0
     assert timeseries['B'].iloc[0] == 0.0
-    np.testing.assert_allclose(coverage['coverage'].to_numpy(), [0.5, 1.0])
+    np.testing.assert_allclose(coverage.to_numpy()[0], [0.5, 1.0])
 
 
 def test_nifti_parcellate_empty_mask(tmp_path):
@@ -128,10 +129,10 @@ def test_nifti_parcellate_empty_mask(tmp_path):
         **_parcellation_inputs(tmp_path, values, np.zeros((4, 4, 4), bool)),
     ).run(cwd=tmp_path)
     timeseries = pd.read_table(results.outputs.timeseries)
-    coverage = pd.read_table(results.outputs.coverage, index_col='Node')
+    coverage = pd.read_table(results.outputs.coverage)
     assert timeseries.shape == (1, 2)
     assert timeseries.isna().all().all()
-    np.testing.assert_array_equal(coverage['coverage'].to_numpy(), [0.0, 0.0])
+    np.testing.assert_array_equal(coverage.to_numpy()[0], [0.0, 0.0])
 
 
 def test_nifti_parcellate_empty_mask_4d(tmp_path):
@@ -143,3 +144,55 @@ def test_nifti_parcellate_empty_mask_4d(tmp_path):
     timeseries = pd.read_table(results.outputs.timeseries)
     assert timeseries.shape == (3, 2)
     assert timeseries.isna().all().all()
+
+
+def _write_table(path, data):
+    pd.DataFrame(data).to_csv(path, sep='\t', na_rep='n/a', index=False)
+    return str(path)
+
+
+def test_stack_parcellated_tables(tmp_path):
+    """One-row tables become one table per atlas: a row per parcel, a column per estimate."""
+    in_files = [
+        [  # estimate "cbf": atlas 1, atlas 2
+            _write_table(tmp_path / 'cbf_1.tsv', {'A': [60.0], 'B': [np.nan]}),
+            _write_table(tmp_path / 'cbf_2.tsv', {'X': [50.0], 'Y': [40.0], 'Z': [30.0]}),
+        ],
+        [  # estimate "score"
+            _write_table(tmp_path / 'score_1.tsv', {'A': [55.0], 'B': [np.nan]}),
+            _write_table(tmp_path / 'score_2.tsv', {'X': [45.0], 'Y': [35.0], 'Z': [25.0]}),
+        ],
+    ]
+    results = StackParcellatedTables(in_files=in_files, estimates=['cbf', 'score']).run(
+        cwd=tmp_path
+    )
+    assert len(results.outputs.out_files) == 2
+
+    atlas1 = pd.read_table(results.outputs.out_files[0])
+    assert list(atlas1.columns) == ['node', 'cbf', 'score']
+    assert atlas1['node'].tolist() == ['A', 'B']
+    assert atlas1.set_index('node').loc['A'].tolist() == [60.0, 55.0]
+    assert atlas1.set_index('node').loc['B'].isna().all()
+
+    atlas2 = pd.read_table(results.outputs.out_files[1])
+    assert list(atlas2.columns) == ['node', 'cbf', 'score']
+    assert atlas2['node'].tolist() == ['X', 'Y', 'Z']
+    assert atlas2['score'].tolist() == [45.0, 35.0, 25.0]
+
+
+def test_stack_parcellated_tables_rejects_bad_inputs(tmp_path):
+    """Mismatched parcels or multi-row tables are errors, not silently misaligned rows."""
+    one = _write_table(tmp_path / 'one.tsv', {'A': [1.0], 'B': [2.0]})
+    other = _write_table(tmp_path / 'other.tsv', {'A': [1.0], 'C': [2.0]})
+    two_rows = _write_table(tmp_path / 'two.tsv', {'A': [1.0, 2.0], 'B': [3.0, 4.0]})
+
+    with pytest.raises(ValueError, match='different parcels'):
+        StackParcellatedTables(in_files=[[one], [other]], estimates=['a', 'b']).run(cwd=tmp_path)
+    with pytest.raises(ValueError, match='not 1'):
+        StackParcellatedTables(in_files=[[two_rows]], estimates=['a']).run(cwd=tmp_path)
+    with pytest.raises(ValueError, match='unique'):
+        StackParcellatedTables(in_files=[[one], [one]], estimates=['a', 'a']).run(cwd=tmp_path)
+    with pytest.raises(ValueError, match='one table per atlas'):
+        StackParcellatedTables(in_files=[[one], [one, one]], estimates=['a', 'b']).run(
+            cwd=tmp_path
+        )

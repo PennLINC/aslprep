@@ -20,7 +20,7 @@ from aslprep.interfaces.cbf import (
     ExtractCBF,
     ScoreAndScrubCBF,
 )
-from aslprep.interfaces.parcellation import NiftiParcellate
+from aslprep.interfaces.parcellation import NiftiParcellate, StackParcellatedTables
 from aslprep.utils.asl import (
     BOLUS_CUTOFF_TECHNIQUES,
     describe_labeling_efficiency,
@@ -845,31 +845,11 @@ def init_parcellate_cbf_wf(
 
     Outputs
     -------
-    None. For each map and atlas, a parcellated CBF table (``*_cbf.tsv``) is written to the
-    output directory. ``mean_cbf``, ``mean_cbf_basil`` and the ``sparse_3d`` maps also get a
-    coverage table (``*_coverage.tsv``).
+    None. For each atlas, a parcellated CBF table (``*_scalarstats.tsv``) and a coverage table
+    (``*_coverage.tsv``) are written to the output directory. Each has a ``node`` column,
+    with one row per parcel, then one column per CBF map.
     """
-    CBF_ENTITIES = {
-        'mean_cbf': {},
-        'mean_cbf_score': {
-            'desc': 'score',
-        },
-        'mean_cbf_scrub': {
-            'desc': 'scrub',
-        },
-        'mean_cbf_basil': {
-            'desc': 'basil',
-        },
-        'mean_cbf_gm_basil': {
-            'desc': 'basilGM',
-        },
-        'mean_cbf_wm_basil': {
-            'desc': 'basilWM',
-        },
-    }
     sparse_3d = sparse_3d or {}
-    for sparse_name in sparse_3d:
-        CBF_ENTITIES[sparse_name] = {'desc': BASE_INPUT_FIELDS[sparse_name]['desc']}
     workflow = Workflow(name=name)
     output_dir = config.execution.output_dir
 
@@ -961,7 +941,22 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         ]),
     ])  # fmt:skip
 
-    for cbf_type in cbf_3d + list(sparse_3d):
+    # Each estimate is parcellated separately, then the one-row tables are combined into one
+    # CBF table (scalarstats) and one coverage table per atlas, with one row per parcel and
+    # one column per estimate, as in BDT.
+    cbf_types = cbf_3d + list(sparse_3d)
+    estimates = [BASE_INPUT_FIELDS[cbf_type].get('desc', 'cbf') for cbf_type in cbf_types]
+    merge_cbf = pe.Node(
+        niu.Merge(len(cbf_types), no_flatten=True),
+        name='merge_cbf',
+        run_without_submitting=True,
+    )
+    merge_coverage = pe.Node(
+        niu.Merge(len(cbf_types), no_flatten=True),
+        name='merge_coverage',
+        run_without_submitting=True,
+    )
+    for i_type, cbf_type in enumerate(cbf_types, start=1):
         parcellate_cbf = pe.MapNode(
             NiftiParcellate(min_coverage=min_coverage),
             name=f'parcellate_{cbf_type}',
@@ -976,53 +971,66 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
                 ('atlas_labels_files', 'atlas_labels'),
             ]),
             (warp_atlases_to_asl_space, parcellate_cbf, [('output_image', 'atlas')]),
+            (parcellate_cbf, merge_cbf, [('timeseries', f'in{i_type}')]),
+            (parcellate_cbf, merge_coverage, [('coverage', f'in{i_type}')]),
         ])  # fmt:skip
 
-        ds_cbf = pe.MapNode(
+    # Describe each column in the sidecars, as BIDS does for tabular files.
+    node_meta = {'Description': 'Name of the parcel, from the atlas labels table.'}
+    column_meta = {
+        'scalarstats': {
+            estimate: {
+                'Description': (
+                    f'Mean in each parcel of: {BASE_INPUT_FIELDS[cbf_type]["Description"]} '
+                    'n/a for parcels with too little coverage.'
+                ),
+                'Units': BASE_INPUT_FIELDS[cbf_type]['Units'],
+            }
+            for estimate, cbf_type in zip(estimates, cbf_types, strict=True)
+        },
+        'coverage': {
+            estimate: {
+                'Description': (
+                    'Fraction of each parcel in which this map was estimated: '
+                    f'{BASE_INPUT_FIELDS[cbf_type]["Description"]}'
+                ),
+            }
+            for estimate, cbf_type in zip(estimates, cbf_types, strict=True)
+        },
+    }
+    # The column descriptions are passed to the datasinks as metadata keyword arguments.
+    reserved = set(DerivativesDataSink._allowed_entities) | set(
+        DerivativesDataSink.input_spec().copyable_trait_names()
+    )
+    if clashes := reserved & ({'node'} | set(estimates)):
+        raise ValueError(f'Column names {sorted(clashes)} are datasink inputs or entities.')
+
+    for suffix, merge_node in (('scalarstats', merge_cbf), ('coverage', merge_coverage)):
+        stack = pe.Node(
+            StackParcellatedTables(estimates=estimates),
+            name=f'stack_{suffix}',
+        )
+        ds_stacked = pe.MapNode(
             DerivativesDataSink(
                 base_directory=config.execution.aslprep_dir,
                 check_hdr=False,
-                suffix='cbf',
-                **CBF_ENTITIES[cbf_type],
+                suffix=suffix,
+                node=node_meta,
+                **column_meta[suffix],
             ),
-            name=f'ds_{cbf_type}',
+            name=f'ds_{suffix}',
             iterfield=['atlas', 'in_file', 'meta_dict'],
             run_without_submitting=True,
         )
         workflow.connect([
-            (inputnode, ds_cbf, [
+            (merge_node, stack, [('out', 'in_files')]),
+            (inputnode, ds_stacked, [
                 ('source_file', 'source_file'),
                 ('atlas_names', 'atlas'),
             ]),
-            (parcellate_cbf, ds_cbf, [('timeseries', 'in_file')]),
-            (atlas_srcs, ds_cbf, [('metadata', 'meta_dict')]),
+            (stack, ds_stacked, [('out_files', 'in_file')]),
+            (atlas_srcs, ds_stacked, [('metadata', 'meta_dict')]),
         ])  # fmt:skip
-
-        # Maps with their own validity masks also get coverage files: estimation coverage.
-        if cbf_type in ('mean_cbf', 'mean_cbf_basil') or cbf_type in sparse_3d:
-            # I think it is easier to only retain the coverage file for the regular CBF estimates.
-            # SCORE/SCRUB CBF should have the same coverage as the regular CBF.
-            # BASIL might have different coverage because it drops any voxels with negative CBF,
-            # but the different PVC types will have the same coverage as the main BASIL CBF.
-            ds_coverage = pe.MapNode(
-                DerivativesDataSink(
-                    base_directory=config.execution.aslprep_dir,
-                    check_hdr=False,
-                    suffix='coverage',
-                    **CBF_ENTITIES[cbf_type],
-                ),
-                name=f'ds_coverage_{cbf_type}',
-                iterfield=['atlas', 'in_file', 'meta_dict'],
-                run_without_submitting=True,
-            )
-            workflow.connect([
-                (inputnode, ds_coverage, [
-                    ('source_file', 'source_file'),
-                    ('atlas_names', 'atlas'),
-                ]),
-                (parcellate_cbf, ds_coverage, [('coverage', 'in_file')]),
-                (atlas_srcs, ds_coverage, [('metadata', 'meta_dict')]),
-            ])  # fmt:skip
 
     return workflow
 
