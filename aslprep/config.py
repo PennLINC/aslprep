@@ -599,6 +599,9 @@ class workflow(_Config):
     """Exclude voxels with locally high coefficient of variation from sampling."""
     run_reconall = True
     """Run FreeSurfer's surface reconstruction."""
+    skull_strip_asl = 'synthstrip'
+    """Brain extraction method for the ASL reference image: ``synthstrip`` (default) or
+    ``legacy`` (BET and ``3dAutomask``)."""
     skull_strip_fixed_seed = False
     """Fix a seed for skull-stripping."""
     skull_strip_template = 'OASIS30ANTs'

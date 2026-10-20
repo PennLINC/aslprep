@@ -192,13 +192,19 @@ def test_test_003_minimal(data_dir, output_dir, working_dir):
 
 @pytest.mark.test_003_resampling
 def test_test_003_resampling(data_dir, output_dir, working_dir):
-    """Run ASLPrep resampling workflow on test_003 dataset."""
+    """Run ASLPrep resampling workflow on test_003 dataset.
+
+    This also exercises the legacy (BET and 3dAutomask) ASL brain extraction,
+    on both the coregistration reference and the distortion-corrected reference.
+    These runs use --sloppy, which replaces SynthStrip with a mock but leaves the legacy
+    method intact, so this is the one real-data run of a real ASL brain extraction.
+    """
     base_test_003(
         data_dir,
         output_dir,
         working_dir,
         level='resampling',
-        extra_params=['--fs-no-resume'],
+        extra_params=['--fs-no-resume', '--skull-strip-asl', 'legacy'],
     )
 
 
