@@ -912,7 +912,8 @@ unchanged. For multi-delay data:
 
 **Still required (not in this PR).** Items 1-7 test internal consistency, mostly where the
 generating model matches the fitted one. Before any accuracy claim or default use, the method
-needs the following (from the 2026-10-20 literature assessment). Existing issues are noted.
+needs the following (from the 2026-10-20 literature assessment), tracked in #750. Related
+issues are noted.
 
 - **Within-kernel heterogeneity.** Simulate CBF and ATT varying independently within GM and WM,
   and measure the tissue bias against kernel size and local ATT dispersion, for ATT especially.
