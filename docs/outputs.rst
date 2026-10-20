@@ -225,7 +225,22 @@ ASL and CBF derivatives are stored in the ``perf/`` subfolder::
 .. note::
 
    The mask file is part of the *minimal* processing level.
-   The ASL series is only generated at the *full* processing level.
+   The ASL series is only generated at the *full* processing level,
+   and only when ``--output-timeseries`` is used.
+
+.. _timeseries_outputs:
+
+**Time series outputs**.
+The preprocessed ASL series (``desc-preproc_asl``), the volume-wise CBF series
+(``desc-timeseries_cbf``), and the SCORE-denoised CBF series (``desc-scoreTimeseries_cbf``)
+are large and rarely used directly,
+so they are only written out when ``--output-timeseries`` is used.
+Without it, the steps that only resample the ASL series to the output spaces are skipped,
+which saves processing time, memory, and disk space.
+The time series are still computed in the ASL reference space,
+and the mean CBF maps and QC metrics do not depend on this option.
+With ``--cifti-output``, the ASL carpet plot in the report only shows the CIFTI ASL series
+when ``--output-timeseries`` is used; otherwise it shows the volumetric series.
 
 **Motion correction outputs**.
 
@@ -316,7 +331,8 @@ a container format that holds both volumetric (regularly sampled in a grid) and 
 Sub-cortical time series are sampled on a regular grid derived from one MNI template, while
 cortical time series are sampled on surfaces projected from the Glasser template
 :footcite:p:`Glasser_2016`.
-If CIFTI outputs are requested (with the ``--cifti-outputs`` argument), the ASL series are also
+If CIFTI outputs are requested (with the ``--cifti-output`` argument)
+along with ``--output-timeseries``, the ASL series are also
 saved as ``dtseries.nii`` CIFTI2 files::
 
    sub-<label>/[ses-<label>/]
@@ -342,7 +358,7 @@ CBF Outputs::
    sub-<label>/[ses-<label>/]
       perf/
          <source_entities>[_space-<label>]_cbf.nii.gz  # mean CBF
-         <source_entities>[_space-<label>]_desc-timeseries_cbf.nii.gz  # computed CBF timeseries
+         <source_entities>[_space-<label>]_desc-timeseries_cbf.nii.gz  # computed CBF timeseries (single-delay data, with --output-timeseries)
          <source_entities>[_space-<label>]_att.nii.gz  # arterial transit time (multi-delay data only)
          <source_entities>[_space-<label>]_abv.nii.gz  # arterial blood volume (multi-delay data only)
          <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-delay data only)
@@ -364,7 +380,7 @@ If ``--scorescrub`` is used::
 
    sub-<label>/[ses-<label>/]
       perf/
-         <source_entities>[_space-<label>]_desc-scoreTimeseries_cbf.nii.gz  # CBF timeseries denoised with SCORE
+         <source_entities>[_space-<label>]_desc-scoreTimeseries_cbf.nii.gz  # CBF timeseries denoised with SCORE (with --output-timeseries)
          <source_entities>[_space-<label>]_desc-score_cbf.nii.gz  # mean CBF denoised with SCORE
          <source_entities>[_space-<label>]_desc-scrub_cbf.nii.gz  # mean CBF denoised with SCRUB
 

@@ -325,6 +325,12 @@ def init_asl_wf(
 
     cbf_derivs = att_derivs + cbf_3d_derivs + cbf_4d_derivs
 
+    # The preprocessed ASL and CBF time series are large and rarely used directly,
+    # so they are only written out (and resampled to output spaces) with --output-timeseries.
+    output_timeseries = config.workflow.output_timeseries
+    cbf_4d_outputs = cbf_4d_derivs if output_timeseries else []
+    cbf_out_derivs = att_derivs + cbf_3d_derivs + cbf_4d_outputs
+
     # Local-regression partial volume correction outputs.
     # The corrected maps are only estimated in some voxels, so they are resampled and
     # parcellated with their validity masks (lr_sparse: map -> mask). Their standard errors and
@@ -544,7 +550,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     # In minimal or resampling mode, aslref-space CBF derivatives are always written out.
     # In full mode, they are only written out if aslref is a requested output space.
     # Additionally, the preprocessed ASL data is only written out if it is a requested output
-    # space and full mode is enabled.
+    # space, full mode is enabled, and time series outputs are requested.
     aslref_out = bool(nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')))
     aslref_out &= config.workflow.level == 'full'
 
@@ -554,9 +560,9 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
-            asl_output=aslref_out,
+            asl_output=aslref_out and output_timeseries,
             cbf_3d=cbf_3d_derivs,
-            cbf_4d=cbf_4d_derivs,
+            cbf_4d=cbf_4d_outputs,
             att=att_derivs + native_att_derivs,
         )
         ds_asl_native_wf.inputs.inputnode.source_files = [asl_file]
@@ -570,7 +576,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             ]),
             (cbf_wf, ds_asl_native_wf, [
                 (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
-                for cbf_deriv in cbf_derivs + native_att_derivs
+                for cbf_deriv in cbf_out_derivs + native_att_derivs
             ]),
         ])  # fmt:skip
 
@@ -742,8 +748,22 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         (asl_fit_wf, merge_asl_sources, [('outputnode.coreg_aslref', 'in2')]),
     ])  # fmt:skip
 
+    if surf_std and not config.workflow.run_reconall:
+        config.loggers.workflow.warning(
+            'Resampling to surface templates requires FreeSurfer surfaces. '
+            f'Skipping {", ".join(str(ref) for ref in surf_std)}.'
+        )
+        surf_std = []
+
+    # The goodvoxels mask is estimated from the anatomical-space ASL series.
+    project_goodvoxels = config.workflow.project_goodvoxels and bool(
+        config.workflow.cifti_output or surf_std
+    )
+
     # Resample ASL file to anatomical space.
     # This doesn't write out the resampled file to the derivatives.
+    # The resampled series is only needed for time series outputs and the goodvoxels mask.
+    # Otherwise, only the resampling reference is generated.
     asl_anat_wf = init_asl_volumetric_resample_wf(
         metadata=metadata,
         fieldmap_id=fieldmap_id,
@@ -753,6 +773,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         gradwarp=gradwarp,
         gradwarp_jacobian=gradwarp_jacobian,
         fallback_total_readout_time=config.workflow.fallback_total_readout_time,
+        resample_series=output_timeseries or project_goodvoxels,
         name='asl_anat_wf',
     )
     asl_anat_wf.inputs.inputnode.resolution = 'native'
@@ -784,9 +805,10 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
             cbf_3d=cbf_3d_derivs,
-            cbf_4d=cbf_4d_derivs,
+            cbf_4d=cbf_4d_outputs,
             att=att_derivs,
             sparse_3d=lr_resampled_maps,
+            asl_output=output_timeseries,
             name='ds_asl_t1_wf',
         )
         ds_asl_t1_wf.inputs.inputnode.space = 'T1w'
@@ -802,15 +824,18 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
                 ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
             ]),
             (asl_anat_wf, ds_asl_t1_wf, [
-                ('outputnode.bold_file', 'inputnode.asl'),
                 # Write all T1w-space outputs on the ASL-resolution grid, as fMRIPrep does
                 ('outputnode.resampling_reference', 'inputnode.ref_file'),
             ]),
             (cbf_wf, ds_asl_t1_wf, [
                 (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
-                for cbf_deriv in cbf_derivs + lr_resampled
+                for cbf_deriv in cbf_out_derivs + lr_resampled
             ]),
         ])  # fmt:skip
+        if output_timeseries:
+            workflow.connect([
+                (asl_anat_wf, ds_asl_t1_wf, [('outputnode.bold_file', 'inputnode.asl')]),
+            ])  # fmt:skip
 
     # Resample derivatives to standard space and write them out.
     # This is different from having internally-produced standard-space data.
@@ -827,6 +852,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             gradwarp=gradwarp,
             gradwarp_jacobian=gradwarp_jacobian,
             fallback_total_readout_time=config.workflow.fallback_total_readout_time,
+            resample_series=output_timeseries,
             name='asl_std_wf',
         )
         ds_asl_std_wf = init_ds_volumes_wf(
@@ -834,9 +860,10 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
             cbf_3d=cbf_3d_derivs,
-            cbf_4d=cbf_4d_derivs,
+            cbf_4d=cbf_4d_outputs,
             att=att_derivs,
             sparse_3d=lr_resampled_maps,
+            asl_output=output_timeseries,
             name='ds_asl_std_wf',
         )
         workflow.connect([
@@ -876,25 +903,21 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
                 ('outputnode.aslref2fmap_xfm', 'inputnode.aslref2fmap_xfm'),
             ]),
             (asl_std_wf, ds_asl_std_wf, [
-                ('outputnode.bold_file', 'inputnode.asl'),
                 ('outputnode.resampling_reference', 'inputnode.ref_file'),
             ]),
             (cbf_wf, ds_asl_std_wf, [
                 (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
-                for cbf_deriv in cbf_derivs + lr_resampled
+                for cbf_deriv in cbf_out_derivs + lr_resampled
             ]),
         ])  # fmt:skip
-
-    if surf_std and not config.workflow.run_reconall:
-        config.loggers.workflow.warning(
-            'Resampling to surface templates requires FreeSurfer surfaces. '
-            f'Skipping {", ".join(str(ref) for ref in surf_std)}.'
-        )
-        surf_std = []
+        if output_timeseries:
+            workflow.connect([
+                (asl_std_wf, ds_asl_std_wf, [('outputnode.bold_file', 'inputnode.asl')]),
+            ])  # fmt:skip
 
     # Goodvoxels mask might be needed in any surface resampling
     goodvoxels_bold_mask_wf = None
-    if config.workflow.project_goodvoxels and (config.workflow.cifti_output or surf_std):
+    if project_goodvoxels:
         from fmriprep.workflows.bold.resampling import init_goodvoxels_bold_mask_wf
 
         goodvoxels_bold_mask_wf = init_goodvoxels_bold_mask_wf(mem_gb['resampled'])
@@ -944,7 +967,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             medial_surface_nan=config.workflow.medial_surface_nan,
             output_dir=config.execution.aslprep_dir,
             cbf_3d=cbf_3d_derivs,
-            cbf_4d=cbf_4d_derivs,
+            cbf_4d=cbf_4d_outputs,
             att=att_derivs,
             name='asl_surf_wf',
         )
@@ -961,11 +984,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
             ]),
             (cbf_wf, asl_surf_wf, [
-                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
+                for cbf_deriv in cbf_out_derivs
             ]),
         ])  # fmt:skip
 
-    if config.workflow.cifti_output:
+    # The CIFTI ASL series is only resampled for time series outputs.
+    asl_cifti_resample_wf = None
+    if config.workflow.cifti_output and output_timeseries:
         asl_cifti_resample_wf = init_asl_cifti_resample_wf(
             asl_file=asl_file,
             metadata=metadata,
@@ -1003,16 +1029,24 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             ]),
             (asl_anat_wf, asl_cifti_resample_wf, [('outputnode.bold_file', 'inputnode.asl_anat')]),
         ])  # fmt:skip
+        if goodvoxels_bold_mask_wf is not None:
+            workflow.connect([
+                (goodvoxels_bold_mask_wf, asl_cifti_resample_wf, [
+                    ('outputnode.goodvoxels_mask', 'inputnode.goodvoxels_mask'),
+                ]),
+            ])  # fmt:skip
 
+    if config.workflow.cifti_output:
         ds_asl_cifti_wf = init_ds_ciftis_wf(
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
             metadata=metadata,
             cbf_3d=cbf_3d_derivs,
-            cbf_4d=cbf_4d_derivs,
+            cbf_4d=cbf_4d_outputs,
             att=att_derivs,
             omp_nthreads=omp_nthreads,
+            asl_output=output_timeseries,
             name='ds_asl_cifti_wf',
         )
         workflow.connect([
@@ -1035,25 +1069,26 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
             ]),
             (cbf_wf, ds_asl_cifti_wf, [
-                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
-            ]),
-            (asl_cifti_resample_wf, ds_asl_cifti_wf, [
-                ('outputnode.asl_cifti', 'inputnode.asl_cifti'),
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
+                for cbf_deriv in cbf_out_derivs
             ]),
         ])  # fmt:skip
+        if asl_cifti_resample_wf is not None:
+            workflow.connect([
+                (asl_cifti_resample_wf, ds_asl_cifti_wf, [
+                    ('outputnode.asl_cifti', 'inputnode.asl_cifti'),
+                ]),
+            ])  # fmt:skip
 
         if goodvoxels_bold_mask_wf is not None:
             workflow.connect([
-                (goodvoxels_bold_mask_wf, asl_cifti_resample_wf, [
-                    ('outputnode.goodvoxels_mask', 'inputnode.goodvoxels_mask'),
-                ]),
                 (goodvoxels_bold_mask_wf, ds_asl_cifti_wf, [
                     ('outputnode.goodvoxels_mask', 'inputnode.goodvoxels_mask'),
                 ]),
             ])  # fmt:skip
 
         # Feed CIFTI into CBF-reporting workflow
-        if 'cbf_ts' in cbf_4d_derivs:
+        if 'cbf_ts' in cbf_4d_outputs:
             workflow.connect([
                 (ds_asl_cifti_wf, cbf_reporting_wf, [
                     ('outputnode.cbf_ts', 'inputnode.cifti_cbf_ts'),
@@ -1070,7 +1105,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             metadata=metadata,
             output_dir=config.execution.aslprep_dir,
             cbf_3d=cbf_3d_derivs,
-            cbf_4d=cbf_4d_derivs,
+            cbf_4d=cbf_4d_outputs,
             att=att_derivs,
             omp_nthreads=omp_nthreads,
             mem_gb=mem_gb['resampled'],
@@ -1092,7 +1127,8 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ('outputnode.aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
             ]),
             (cbf_wf, asl_wb_surf_wf, [
-                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}') for cbf_deriv in cbf_derivs
+                (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}')
+                for cbf_deriv in cbf_out_derivs
             ]),
         ])  # fmt:skip
         if goodvoxels_bold_mask_wf is not None:
@@ -1107,6 +1143,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         # Don't make carpet plots for short or GE data.
         # The carpet plot shows DVARS and FD, which the confounds workflow skips for short series.
         if not use_ge and n_reduced_vols > 2:
+            # The carpet plot only uses the CIFTI ASL series if it was resampled for output.
             carpetplot_wf = init_carpetplot_wf(
                 mem_gb=mem_gb['resampled'],
                 confounds_list=[
@@ -1117,12 +1154,14 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                     ('framewise_displacement', 'mm', 'FD'),
                 ],
                 metadata=metadata,
-                cifti_output=config.workflow.cifti_output,
+                cifti_output=(
+                    config.workflow.cifti_output if asl_cifti_resample_wf is not None else False
+                ),
                 suffix='asl',
                 name='carpetplot_wf',
             )
 
-            if config.workflow.cifti_output:
+            if asl_cifti_resample_wf is not None:
                 workflow.connect([
                     (asl_cifti_resample_wf, carpetplot_wf, [
                         ('outputnode.asl_cifti', 'inputnode.cifti_asl'),
