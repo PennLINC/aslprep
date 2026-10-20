@@ -28,6 +28,7 @@ from aslprep.utils.asl import (
 from aslprep.utils.calibration import (
     CBF_UNIT_CONVERSION,
     calibration_value,
+    m0_partition_coefficient,
     resolve_calibration,
 )
 from aslprep.utils.cbf import (
@@ -548,7 +549,8 @@ class ComputeCBF(SimpleInterface):
                 config.loggers.interface.warning(warning)
 
         t1blood = calibration_value(calibration, 'BloodT1')
-        partition_coefficient = calibration_value(calibration, 'PartitionCoefficient')
+        # 1 for an M0Estimate, which is already the M0 of blood
+        partition_coefficient = m0_partition_coefficient(calibration)
         # Labeling efficiency, including the loss from background suppression (alpha in Alsop 2015)
         labeleff = calibration_value(calibration, 'EffectiveLabelingEfficiency')
         # mL/g/s to mL/100 g/min. A fixed constant, which the multi-delay model and BASIL share,
@@ -1020,13 +1022,27 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         desc='mask in the same space as deltam',
         mandatory=True,
     )
-    mzero = File(exists=True, argstr='-c %s', desc='m0 scan', mandatory=False)
+    mzero = File(
+        exists=True,
+        argstr='-c %s',
+        desc='Calibration (M0) image, which oxford_asl divides by the partition coefficient.',
+        xor=['m0_value'],
+    )
+    m0_value = traits.Float(
+        desc=(
+            'A single M0 value of arterial blood (an M0Estimate, multiplied by M0Scale), '
+            'used in place of a calibration image. oxford_asl does not divide it by the '
+            'partition coefficient, or apply --cgain or --tr to it.'
+        ),
+        argstr='--M0 %s',
+        xor=['mzero', 'm0_scale'],
+    )
     # oxford_asl only passes --cgain to fslmaths, which reads exponents, so small scales keep
     # their precision. The other values also go through bc, which does not read exponents.
     m0_scale = traits.Float(
         desc='Relative scale between ASL and M0 (the M0Scale calibration parameter).',
         argstr='--cgain %.10g',
-        mandatory=True,
+        xor=['m0_value'],
     )
     m0tr = traits.Float(
         desc=(
@@ -1208,6 +1224,13 @@ class BASILCBF(FSLCommand):
     _cmd = 'oxford_asl'
     input_spec = _BASILCBFInputSpec
     output_spec = _BASILCBFOutputSpec
+
+    def _format_arg(self, name, spec, value):
+        if name == 'm0_value':
+            # oxford_asl multiplies the value with bc, which does not read exponents
+            value = np.format_float_positional(value, precision=10, fractional=False, trim='-')
+            return spec.argstr % value
+        return super()._format_arg(name, spec, value)
 
     def _run_interface(self, runtime):
         # oxford_asl keeps its intermediate files in a temporary directory named by FSL's

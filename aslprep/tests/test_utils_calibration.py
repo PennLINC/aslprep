@@ -14,6 +14,7 @@ from aslprep.utils.calibration import (
     basil_calibration_inputs,
     calibration_value,
     describe_model,
+    m0_partition_coefficient,
     resolve_calibration,
 )
 
@@ -303,8 +304,6 @@ def test_output_model(name, model):
         ('Separate', 3.0, 3.0, 1.607),
         ('Separate', 6.0, 6.0, None),
         ('Included', 4.9, 4.9, 1.607),
-        # oxford_asl assumes a 3.2 s TR without --tr, and would then correct the M0 estimate.
-        ('Estimate', None, M0_RECOVERY_TR_THRESHOLD, None),
     ],
 )
 def test_basil_calibration_inputs(m0type, m0tr, expected_tr, expected_t1t):
@@ -312,7 +311,6 @@ def test_basil_calibration_inputs(m0type, m0tr, expected_tr, expected_t1t):
     metadata = {
         **PCASL,
         'M0Type': m0type,
-        'M0Estimate': 1000.0,
         'LabelingEfficiency': 0.81,
         'BackgroundSuppression': True,
         'BackgroundSuppressionNumberPulses': 4,
@@ -328,6 +326,85 @@ def test_basil_calibration_inputs(m0type, m0tr, expected_tr, expected_t1t):
     # oxford_asl corrects for T1 recovery exactly when ASLPrep does.
     assert (inputs['m0tr'] < M0_RECOVERY_TR_THRESHOLD) is (expected_t1t is not None)
     assert inputs.get('t1tissue_calib') == (pytest.approx(expected_t1t) if expected_t1t else None)
+    assert 'm0_value' not in inputs
+
+
+def test_basil_calibration_inputs_m0_estimate():
+    """An M0Estimate goes to oxford_asl as a single blood M0 value, scaled by ASLPrep."""
+    from aslprep.interfaces.cbf import BASILCBF
+
+    metadata = {**PCASL, 'M0Type': 'Estimate', 'M0Estimate': 1234.5}
+    calibration = resolve_calibration(metadata, m0_scale=0.001, basil=True)
+    inputs = basil_calibration_inputs(calibration)
+
+    # oxford_asl applies neither --cgain nor the T1 recovery correction to an --M0 value.
+    assert inputs['m0_value'] == pytest.approx(1.2345)
+    for name in ('m0_scale', 'm0tr', 't1tissue_calib'):
+        assert name not in inputs
+    assert inputs['alpha'] == calibration_value(calibration, 'EffectiveLabelingEfficiency')
+    assert inputs['t1blood'] == calibration_value(calibration, 'BloodT1')
+
+    args = BASILCBF(tis=[3.6], bolus=1.8, **inputs)._parse_inputs(skip=['deltam', 'mask'])
+    assert '--M0 1.2345' in args
+    assert not any(arg.startswith(('--cgain', '--tr', '-c ')) for arg in args)
+
+    # bc, which multiplies the value in oxford_asl, does not read exponents.
+    args = BASILCBF(tis=[3.6], bolus=1.8, m0_value=1.5e-7)._parse_inputs(skip=['deltam', 'mask'])
+    assert '--M0 0.00000015' in args
+
+
+def test_m0_estimate_is_blood_m0():
+    """An M0Estimate (the M0 of blood) is not divided by the partition coefficient."""
+    metadata = {**PCASL, 'M0Type': 'Estimate', 'M0Estimate': 1000.0}
+    calibration = resolve_calibration(metadata)
+    assert 'PartitionCoefficient' not in calibration['Parameters']
+    assert m0_partition_coefficient(calibration) == 1.0
+    assert 'partition coefficient' in calibration['Parameters']['M0Estimate']['Description']
+    for model in MODELS:
+        parameters = describe_model(calibration, model, asl_type='PCASL', multi_delay=False)
+        assert 'PartitionCoefficient' not in parameters['Parameters']
+
+    separate = resolve_calibration(PCASL, m0tr=6.0)
+    assert m0_partition_coefficient(separate) == calibration_value(
+        separate, 'PartitionCoefficient'
+    )
+
+
+@pytest.mark.parametrize('multi_delay', [False, True])
+def test_computecbf_m0_estimate(tmp_path, multi_delay):
+    """CBF from an M0Estimate is that from a uniform M0 image of lambda times the estimate."""
+    from aslprep.interfaces.cbf import ComputeCBF
+    from aslprep.utils.cbf import PARTITION_COEFFICIENT
+
+    rng = np.random.default_rng(0)
+    shape = (4, 4, 4)
+    plds = [0.5, 1.0, 1.5, 2.0] if multi_delay else [1.8, 1.8]
+    deltam = _write(rng.uniform(5, 15, (*shape, len(plds))), tmp_path / 'deltam.nii.gz')
+    m0_estimate = 1000.0
+    m0_file = _write(np.full(shape, m0_estimate), tmp_path / 'm0.nii.gz')
+    tissue_m0_file = _write(
+        np.full(shape, PARTITION_COEFFICIENT * m0_estimate), tmp_path / 'tissue_m0.nii.gz'
+    )
+
+    def _mean_cbf(name, m0, m0type):
+        metadata = {**PCASL, 'PostLabelingDelay': plds, 'M0Type': m0type}
+        if m0type == 'Estimate':
+            metadata['M0Estimate'] = m0_estimate
+        work_dir = tmp_path / name
+        work_dir.mkdir()
+        result = ComputeCBF(
+            deltam=deltam,
+            m0_file=m0,
+            metadata=metadata,
+            cbf_only=False,
+            calibration=resolve_calibration(metadata, m0tr=None if m0type == 'Estimate' else 6.0),
+        ).run(cwd=str(work_dir))
+        return nb.load(result.outputs.mean_cbf).get_fdata()
+
+    estimate = _mean_cbf('estimate', m0_file, 'Estimate')
+    tissue = _mean_cbf('tissue', tissue_m0_file, 'Separate')
+    assert np.any(estimate > 0)
+    np.testing.assert_allclose(estimate, tissue, rtol=1e-6)
 
 
 def test_basil_calibration_inputs_keep_precision():

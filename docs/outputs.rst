@@ -509,9 +509,13 @@ BASIL is given the same :ref:`calibration parameters <calibration_parameters>` a
 *ASLPrep*'s own model: the M0 scale, the effective labeling efficiency (including the loss from
 background suppression), the T1 of blood, and, for an M0 image with a repetition time below 5 s,
 the same gray matter T1 to correct it for incomplete T1 recovery.
-When *ASLPrep* does not correct the M0 image (a repetition time of at least 5 s, or an
-``M0Estimate``), it gives ``oxford_asl`` a repetition time of 5 s,
+When *ASLPrep* does not correct the M0 image (a repetition time of at least 5 s),
+it gives ``oxford_asl`` a repetition time of 5 s,
 because ``oxford_asl`` otherwise assumes 3.2 s and corrects the M0 image.
+An ``M0Estimate``, which BIDS defines as the M0 of arterial blood,
+is given to ``oxford_asl`` as a single M0 value (``--M0``), multiplied by the M0 scale,
+so that ``oxford_asl`` does not divide it by the partition coefficient
+as it does a calibration image.
 Two differences remain, because they are part of BASIL's model:
 BASIL's kinetic model uses a tissue T1 of 1.3 s (``BASILTissueT1``),
 whereas *ASLPrep*'s models describe the decay of the label with the T1 of blood alone,

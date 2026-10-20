@@ -428,7 +428,11 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
         from nilearn import maskers
 
         from aslprep.utils.asl import pcasl_or_pasl
-        from aslprep.utils.calibration import calibration_value, resolve_calibration
+        from aslprep.utils.calibration import (
+            calibration_value,
+            m0_partition_coefficient,
+            resolve_calibration,
+        )
         from aslprep.utils.cbf import (
             get_array_module,
             multipld_bolus,
@@ -461,7 +465,7 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
         kinetics = {
             'labeleff': calibration_value(calibration, 'EffectiveLabelingEfficiency'),
             't1blood': calibration_value(calibration, 'BloodT1'),
-            'partition_coefficient': calibration_value(calibration, 'PartitionCoefficient'),
+            'partition_coefficient': m0_partition_coefficient(calibration),
             'is_casl': is_casl,
             'tau': tau,
             'ti1': ti1,

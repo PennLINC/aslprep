@@ -588,12 +588,14 @@ def test_init_cbf_wf_boilerplate(tmp_path, asl_type):
     # The next workflow's description starts on a new line.
     assert desc.endswith('\n')
     assert 'The T1 of arterial blood was set to 1.65 s, the value for 3 T' in desc
-    assert 'blood-brain partition coefficient of 0.9 mL/g' in desc
+    # BIDS defines M0Estimate as the M0 of blood, so no partition coefficient is applied.
+    assert 'blood-brain partition coefficient of' not in desc
+    assert 'it was not divided by the blood-brain partition coefficient' in desc
     assert 'each of the 4 background suppression pulses' in desc
     if asl_type == 'PCASL':
         assert 'the post-labeling delays were shifted' in desc
         assert 'M0a and M0b' not in desc
-        assert 'arterial blood (M0b) was estimated voxel-wise' in desc
+        assert 'arterial blood (M0b) was estimated voxel-wise as\nthe M0 estimate' in desc
     else:
         assert 'the inversion times were shifted' in desc
         assert 'post-labeling delay' not in desc
@@ -606,7 +608,7 @@ def test_init_cbf_wf_backends_share_calibration(tmp_path, m0type):
     """ASLPrep's model and BASIL are given the same calibration and physiological parameters."""
     import pandas as pd
 
-    from aslprep.utils.calibration import M0_RECOVERY_TR_THRESHOLD, calibration_value
+    from aslprep.utils.calibration import calibration_value
     from aslprep.workflows.asl.cbf import init_cbf_wf
 
     asl_file = tmp_path / 'sub-01_asl.nii.gz'
@@ -638,21 +640,28 @@ def test_init_cbf_wf_backends_share_calibration(tmp_path, m0type):
             m0_scale=0.001,
         )
         calibration = wf.get_node('compute_cbf').inputs.calibration
-        basil = wf.get_node('basilcbf').inputs
+        basil_node = wf.get_node('basilcbf')
+        basil = basil_node.inputs
+        to_basil = wf._graph.get_edge_data(wf.get_node('extract_deltam'), basil_node)['connect']
 
     assert basil.alpha == calibration_value(calibration, 'EffectiveLabelingEfficiency')
     assert basil.alpha == pytest.approx(0.85 * 0.95**4)
     assert basil.t1blood == calibration_value(calibration, 'BloodT1')
-    assert basil.m0_scale == calibration_value(calibration, 'M0Scale') == 0.001
     if m0type == 'Included':
+        assert basil.m0_scale == calibration_value(calibration, 'M0Scale') == 0.001
+        assert ('m0_file', 'mzero') in to_basil
+        assert not isdefined(basil.m0_value)
         # Both correct the 4 s M0 for T1 recovery, with the same tissue T1.
         assert basil.m0tr == 4.0
         assert basil.t1tissue_calib == calibration_value(calibration, 'TissueT1')
     else:
-        # Neither corrects the M0 estimate (oxford_asl would assume a 3.2 s TR without --tr).
+        # The M0 of blood, as a single value that oxford_asl does not divide by 0.9.
+        # oxford_asl does not apply --cgain or --tr to it.
         assert calibration_value(calibration, 'M0RecoveryCorrection') == 'none'
-        assert basil.m0tr == M0_RECOVERY_TR_THRESHOLD
-        assert not isdefined(basil.t1tissue_calib)
+        assert basil.m0_value == pytest.approx(1000.0 * 0.001)
+        assert ('m0_file', 'mzero') not in to_basil
+        for name in ('m0_scale', 'm0tr', 't1tissue_calib'):
+            assert not isdefined(getattr(basil, name)), name
 
 
 def test_init_cbf_wf_smoothing_from_calibration(tmp_path):
