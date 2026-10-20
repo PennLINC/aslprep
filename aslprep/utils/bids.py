@@ -346,9 +346,95 @@ def collect_derivatives(
         if not item or len(item) != 1:
             continue
 
-        derivs_cache[k] = item[0]
+        # ``aslref_mask``, the key the fit workflow reads (it was stored as ``aslref``, so a
+        # precomputed mask was never reused).
+        derivs_cache[f'{k}_mask'] = item[0]
 
     return derivs_cache
+
+
+#: Each reusable product and the product it was estimated against, parents first. A product is
+#: reused only together with its parent, from the same derivatives dataset: an HMC transform,
+#: an M0 or fieldmap registration or a coregistration reference only with the HMC reference they
+#: were made from, and the brain mask and ASL-to-anatomical transform only with the
+#: coregistration reference.
+DERIVATIVE_PARENTS = (
+    (('coreg_aslref',), ('hmc_aslref',)),
+    (('transforms', 'hmc'), ('hmc_aslref',)),
+    (('transforms', 'm0scan2aslref'), ('hmc_aslref',)),
+    (('transforms', 'aslref2fmap'), ('hmc_aslref',)),
+    (('aslref_mask',), ('coreg_aslref',)),
+    (('transforms', 'aslref2anat'), ('coreg_aslref',)),
+)
+
+
+def merge_functional_derivatives(caches, hmc_method='typewise'):
+    """Merge the caches of several derivatives datasets into one consistent set of products.
+
+    Each dataset's ``collect_derivatives`` cache has a ``transforms`` entry, even when empty, so
+    updating one dict with the next replaced every transform found before (in particular with
+    the internal atlas datasets, which are collected last; PennLINC/aslprep#738). Here every
+    product is merged on its own (a later dataset wins), and then reuse is all-or-nothing along
+    :data:`DERIVATIVE_PARENTS`: a product whose parent is not reused, or comes from another
+    dataset, is dropped and recomputed. Precomputed head-motion transforms whose sidecar records
+    another ``HMCMethod`` than ``hmc_method`` are dropped as well (a missing record means
+    ``typewise``, the method before the option existed).
+
+    Parameters
+    ----------
+    caches : list of dict
+        ``collect_derivatives`` outputs, in the order of the derivatives datasets.
+    hmc_method : str
+        The requested head-motion correction method.
+
+    Returns
+    -------
+    precomputed : dict
+        The products to reuse, in ``collect_derivatives``' layout.
+    dropped : list of str
+        What was dropped, and why, for the log.
+    """
+    found = {}
+    for i, derivs_cache in enumerate(caches):
+        for key, value in derivs_cache.items():
+            if key == 'transforms':
+                for name, path in (value or {}).items():
+                    found['transforms', name] = (path, i)
+            elif value:
+                found[(key,)] = (value, i)
+
+    dropped = []
+    if ('transforms', 'hmc') in found:
+        path = found['transforms', 'hmc'][0]
+        sidecar = Path(path if isinstance(path, str) else path[0]).with_suffix('.json')
+        method = 'typewise'
+        if sidecar.exists():
+            method = json.loads(sidecar.read_text()).get('HMCMethod', 'typewise')
+        if method != hmc_method:
+            del found['transforms', 'hmc']
+            dropped.append(
+                f'head-motion transforms (made with --hmc-method {method}, '
+                f'not {hmc_method}): estimated anew'
+            )
+
+    for key, parent in DERIVATIVE_PARENTS:
+        if key not in found:
+            continue
+        if parent not in found:
+            dropped.append(f'{"/".join(key)} (no reused {"/".join(parent)})')
+        elif found[parent][1] != found[key][1]:
+            dropped.append(f'{"/".join(key)} (from another dataset than {"/".join(parent)})')
+        else:
+            continue
+        del found[key]
+
+    precomputed = {'transforms': {}}
+    for key, (value, _) in found.items():
+        if key[0] == 'transforms':
+            precomputed['transforms'][key[1]] = value
+        else:
+            precomputed[key[0]] = value
+    return precomputed, dropped
 
 
 def write_bidsignore(deriv_dir):
