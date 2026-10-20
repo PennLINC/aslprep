@@ -162,8 +162,7 @@ ASL reference image estimation
 
 This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labeling)` series.
 The reference image is then used to calculate a brain mask for the
-:abbr:`ASL (Arterial Spin Labeling)` signal using SynthStrip
-(:py:func:`~aslprep.workflows.asl.reference.init_synthstrip_aslref_wf`).
+:abbr:`ASL (Arterial Spin Labeling)` signal (see :ref:`asl_skullstrip`).
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.
@@ -171,6 +170,67 @@ ASL series onto the T1w image of the same subject.
 .. figure:: _static/brainextraction.svg
 
    Calculation of a brain mask from the ASL series.
+
+
+.. _asl_skullstrip:
+
+Brain extraction
+----------------
+
+*ASLPrep* offers two methods for computing the brain mask of the ASL reference image,
+selected with ``--skull-strip-asl``.
+ASL images have low resolution and contrast that vary a lot between sequences,
+and neither method works best on all ASL data.
+Always inspect the brain masks,
+and if they are poor, try running *ASLPrep* again with the other method.
+This option does not affect the brain extraction of the anatomical images.
+
+``synthstrip`` (default)
+   The brain mask is computed with SynthStrip :footcite:p:`synthstrip`,
+   a deep learning model trained to skull-strip images of any contrast and resolution
+   (:py:func:`~aslprep.workflows.asl.reference.init_synthstrip_aslref_wf`).
+   If ``--disable-n4`` is not used, the reference image is also corrected for intensity
+   non-uniformity with N4 :footcite:p:`n4`, but SynthStrip is run on the uncorrected image.
+
+   .. workflow::
+      :graph2use: orig
+      :simple_form: yes
+
+      from aslprep.tests.tests import mock_config
+      from aslprep.workflows.asl.reference import init_synthstrip_aslref_wf
+
+      with mock_config():
+          wf = init_synthstrip_aslref_wf()
+
+``legacy``
+   The method *ASLPrep* used before it switched to SynthStrip,
+   adapted from *fMRIPrep*'s BOLD reference workflow
+   (:py:func:`~aslprep.workflows.asl.reference.init_enhance_and_skullstrip_asl_wf`).
+   Unless ``--disable-n4`` is used, the reference image is first registered to
+   *fMRIPrep*'s MNI152NLin2009cAsym BOLD reference template,
+   and the template's brain mask is mapped back to weight N4 bias field correction.
+   A liberal brain mask is computed with FSL's BET :footcite:p:`bet` on the corrected image,
+   the BET-masked image is intensity-normalized with AFNI's ``3dUnifize``,
+   and a second mask is computed from it with AFNI's ``3dAutomask`` :footcite:p:`afni`.
+   The brain mask is the intersection of the two masks.
+   This method has worked better than SynthStrip on some datasets, such as HCP-Aging.
+
+   .. workflow::
+      :graph2use: orig
+      :simple_form: yes
+
+      from aslprep.tests.tests import mock_config
+      from aslprep.workflows.asl.reference import init_enhance_and_skullstrip_asl_wf
+
+      with mock_config():
+          wf = init_enhance_and_skullstrip_asl_wf()
+
+When the reference image is corrected for susceptibility distortion or gradient nonlinearity,
+or a precomputed reference image is reused,
+the brain mask is computed from the final reference image with the same method:
+SynthStrip for ``synthstrip``,
+and niworkflows' :py:func:`~niworkflows.func.util.init_skullstrip_bold_wf`
+(BET and ``3dAutomask``, without the template registration) for ``legacy``.
 
 
 .. _asl_hmc:

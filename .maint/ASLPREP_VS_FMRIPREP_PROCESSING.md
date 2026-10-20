@@ -35,7 +35,7 @@ ASLPrep’s `workflows/base.py` and fMRIPrep’s `workflows/base.py` both call:
 - FreeSurfer: `init_ds_fs_segs_wf`, `init_surface_derivatives_wf`, `init_ds_surfaces_wf`, `init_ds_surface_metrics_wf`
 - CIFTI: `init_gifti_morphometrics_wf`, `init_hcp_morphometrics_wf`, `init_morph_grayords_wf`, `init_resample_surfaces_wf`, `init_ds_grayord_metrics_wf`, `init_ds_fsLR_surfaces_wf`
 
-**ASLPrep-specific:** `workflows/segmentation.py` defines SynthStrip-related helpers (e.g. `init_dl_prep_wf`). Skull-stripping strategy is ultimately driven by smriprep/config (e.g. SynthStrip vs ANTs); this file is ASLPrep’s local hook for that stack.
+**ASLPrep-specific:** `workflows/segmentation.py` defines SynthStrip-related helpers (e.g. `init_dl_prep_wf`), used to mask the ASL reference image when `--skull-strip-asl synthstrip` (the default) is selected. `--skull-strip-asl legacy` uses BET and `3dAutomask` instead (`workflows/asl/reference.py`). Anatomical skull-stripping is driven by smriprep (`--skull-strip-t1w`, `--skull-strip-template`).
 
 ---
 
