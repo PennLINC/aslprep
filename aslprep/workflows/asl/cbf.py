@@ -219,6 +219,8 @@ Cerebral blood flow computation and denoising
     m0_str = ''
     if calibration is not None:
         m0_scale = calibration_value(calibration, 'M0Scale')
+        # The M0 image is smoothed as the specification records (absent for an M0Estimate).
+        smooth_kernel = calibration_value(calibration, 'M0SmoothingFWHM', smooth_kernel)
         recovery_tr = calibration_value(calibration, 'M0RepetitionTime')
         t1tissue = calibration_value(calibration, 'TissueT1')
         m0_threshold = calibration_value(calibration, 'M0Threshold')

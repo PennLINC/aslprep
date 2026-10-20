@@ -588,6 +588,45 @@ def test_init_cbf_wf_backends_share_calibration(tmp_path, m0type):
         assert not isdefined(basil.t1tissue_calib)
 
 
+def test_init_cbf_wf_smoothing_from_calibration(tmp_path):
+    """The M0 image is smoothed with the kernel the given specification records."""
+    import pandas as pd
+
+    from aslprep.utils.calibration import resolve_calibration
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PostLabelingDelay': 1.8,
+        'LabelingDuration': 1.8,
+        'M0Type': 'Absent',
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+        'RepetitionTimePreparation': 6.0,
+    }
+    calibration = resolve_calibration(
+        metadata, m0tr=6.0, smooth_kernel=3.0, smooth_kernel_source='user'
+    )
+    aslcontext = tmp_path / 'sub-01_aslcontext.tsv'
+    pd.DataFrame({'volume_type': ['control', 'label'] * 3}).to_csv(
+        aslcontext, sep='\t', index=False
+    )
+    reset_config()
+    with mock_config():
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+            calibration=calibration,
+        )
+
+    assert wf.get_node('extract_deltam').inputs.fwhm == 3.0
+    assert 'FWHM=3.0 mm' in wf.__desc__
+
+
 def test_init_asl_wf_calibration_outputs():
     """The calibration parameters are written, reported and added to the CBF sidecars."""
     reset_config()

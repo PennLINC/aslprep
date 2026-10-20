@@ -25,7 +25,11 @@ from aslprep.utils.asl import (
     determine_multi_pld,
     pcasl_or_pasl,
 )
-from aslprep.utils.calibration import calibration_value, resolve_calibration
+from aslprep.utils.calibration import (
+    CBF_UNIT_CONVERSION,
+    calibration_value,
+    resolve_calibration,
+)
 from aslprep.utils.cbf import (
     _getcbfscore,
     _scrubcbf,
@@ -546,7 +550,9 @@ class ComputeCBF(SimpleInterface):
         partition_coefficient = calibration_value(calibration, 'PartitionCoefficient')
         # Labeling efficiency, including the loss from background suppression (alpha in Alsop 2015)
         labeleff = calibration_value(calibration, 'EffectiveLabelingEfficiency')
-        UNIT_CONV = calibration_value(calibration, 'CBFUnitConversion')  # mL/g/s to mL/100 g/min
+        # mL/g/s to mL/100 g/min. A fixed constant, which the multi-delay model and BASIL share,
+        # so it is recorded in the specification but not read from it.
+        UNIT_CONV = CBF_UNIT_CONVERSION
 
         # PostLabelingDelay is either a single number or an array of numbers.
         # If it is an array of numbers, then there should be one value for every volume in the
