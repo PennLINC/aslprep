@@ -756,6 +756,7 @@ def init_ds_volumes_wf(
     cbf_4d: list[str],
     att: list[str],
     sparse_3d: dict[str, str] | None = None,
+    asl_output: bool = True,
     name: str = 'ds_volumes_wf',
 ) -> pe.Workflow:
     """Apply transforms from reference to anatomical/standard space and write out derivatives.
@@ -779,6 +780,8 @@ def init_ds_volumes_wf(
         name of their validity mask as the value. They are resampled with validity-normalized
         linear interpolation, so the zeros that stand for "not estimated" do not blend into the
         estimates.
+    asl_output : bool
+        Whether to write out the preprocessed ASL series (``asl``).
     name : str
         Workflow name.
 
@@ -790,6 +793,7 @@ def init_ds_volumes_wf(
         Reference image of the target space.
     asl, asl_metadata
         The ASL series resampled into the target space, and its metadata.
+        Only used with ``asl_output``.
     asl_mask, aslref
         Brain mask and reference image in aslref space.
     aslref2anat_xfm, anat2std_xfm
@@ -850,20 +854,6 @@ def init_ds_volumes_wf(
     )
     aslref2target = pe.Node(niu.Merge(2), name='aslref2target')
 
-    # ASL is pre-resampled
-    ds_asl = pe.Node(
-        DerivativesDataSink(
-            source_file=source_file,
-            base_directory=output_dir,
-            desc='preproc',
-            compress=True,
-            SkullStripped=True,
-            dismiss_entities=('echo',),
-        ),
-        name='ds_asl',
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
-    )
     workflow.connect([
         (inputnode, sources, [
             ('source_files', 'in1'),
@@ -879,15 +869,33 @@ def init_ds_volumes_wf(
             ('anat2std_xfm', 'in1'),
             ('aslref2anat_xfm', 'in2'),
         ]),
-        (sources, ds_asl, [('out', 'Sources')]),
-        (inputnode, ds_asl, [
-            ('asl', 'in_file'),
-            ('asl_metadata', 'meta_dict'),
-            ('space', 'space'),
-            ('cohort', 'cohort'),
-            ('resolution', 'resolution'),
-        ]),
     ])  # fmt:skip
+
+    if asl_output:
+        # ASL is pre-resampled
+        ds_asl = pe.Node(
+            DerivativesDataSink(
+                source_file=source_file,
+                base_directory=output_dir,
+                desc='preproc',
+                compress=True,
+                SkullStripped=True,
+                dismiss_entities=('echo',),
+            ),
+            name='ds_asl',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (sources, ds_asl, [('out', 'Sources')]),
+            (inputnode, ds_asl, [
+                ('asl', 'in_file'),
+                ('asl_metadata', 'meta_dict'),
+                ('space', 'space'),
+                ('cohort', 'cohort'),
+                ('resolution', 'resolution'),
+            ]),
+        ])  # fmt:skip
 
     resample_ref = pe.Node(
         ApplyTransforms(
@@ -1097,9 +1105,13 @@ def init_ds_ciftis_wf(
     cbf_4d: list[str],
     att: list[str],
     omp_nthreads: int,
+    asl_output: bool = True,
     name: str = 'ds_ciftis_wf',
 ) -> pe.Workflow:
-    """Apply transforms from reference to fsLR space and write out derivatives."""
+    """Apply transforms from reference to fsLR space and write out derivatives.
+
+    The preprocessed ASL series (``asl_cifti``) is only written with ``asl_output``.
+    """
     from fmriprep.workflows.bold.resampling import (
         init_bold_fsLR_resampling_wf,
         init_bold_grayords_wf,
@@ -1154,23 +1166,24 @@ def init_ds_ciftis_wf(
     )
     workflow.connect([(inputnode, sources, [('source_files', 'in1')])])
 
-    ds_asl_cifti = pe.Node(
-        DerivativesDataSink(
-            source_file=source_file,
-            base_directory=output_dir,
-            space='fsLR',
-            density=config.workflow.cifti_output,
-            suffix='asl',
-            extension='dtseries.nii',
-            compress=False,
-        ),
-        name='ds_asl_cifti',
-        run_without_submitting=True,
-    )
-    workflow.connect([
-        (inputnode, ds_asl_cifti, [('asl_cifti', 'in_file')]),
-        (sources, ds_asl_cifti, [('out', 'Sources')]),
-    ])  # fmt:skip
+    if asl_output:
+        ds_asl_cifti = pe.Node(
+            DerivativesDataSink(
+                source_file=source_file,
+                base_directory=output_dir,
+                space='fsLR',
+                density=config.workflow.cifti_output,
+                suffix='asl',
+                extension='dtseries.nii',
+                compress=False,
+            ),
+            name='ds_asl_cifti',
+            run_without_submitting=True,
+        )
+        workflow.connect([
+            (inputnode, ds_asl_cifti, [('asl_cifti', 'in_file')]),
+            (sources, ds_asl_cifti, [('out', 'Sources')]),
+        ])  # fmt:skip
 
     aslref2MNI6 = pe.Node(niu.Merge(2), name='aslref2MNI6')
     workflow.connect([
