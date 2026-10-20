@@ -206,17 +206,17 @@ def init_lr_pvc_wf(
     ------
     mean_cbf
         Mean CBF map to correct. Present when ``'mean_cbf'`` is in ``sources``.
-        For multi-delay data it is the uncorrected CBF, used for the CSF quality-control
-        template.
+        For multi-delay data it is the uncorrected CBF, which marks where the uncorrected ATT
+        was estimated (for the CSF quality-control basis).
     mean_cbf_score
         SCORE CBF map to correct. Present when ``'mean_cbf_score'`` is in ``sources``
         (single-delay data only).
     deltam, asl_metadata
         Multi-delay data only: the delta-M series that is unmixed, and its metadata (with
         the delays of the selected volumes).
-    att, abat, abv
-        Multi-delay data only: the uncorrected kinetic maps, for the CSF quality-control
-        template.
+    att
+        Multi-delay data only: the uncorrected ATT, which sets the shape of the CSF
+        quality-control basis.
     m0_calib
         The M0 image the CBF maps were divided by (ComputeCBF's calibration image).
     quant_valid
@@ -256,8 +256,8 @@ def init_lr_pvc_wf(
 
     For multi-delay data, the outputs are the single-delay ``mean_cbf`` outputs above
     without the standard errors (``cbf_gm_se_lr``, ``cbf_wm_se_lr``, ``cbf_csf_se_lr``),
-    with ``rmse_lr`` pooled over volumes and ``mean_cbf_csf_lr`` the signed projection of the
-    CSF curve, plus:
+    with ``rmse_lr`` pooled over volumes and ``mean_cbf_csf_lr`` the signed CBF of the CSF
+    curve against a unit-CBF tissue curve, plus:
 
     att_gm_lr, att_wm_lr
         Gray and white matter arterial transit time from each tissue curve's kinetic fit.
@@ -268,11 +268,11 @@ def init_lr_pvc_wf(
         The shortest and longest ATT that fit each tissue curve as well as the estimate.
     kinstatus_gm_lr, kinstatus_wm_lr
         Status of each tissue's kinetic fit (0: not fitted; 1: fitted; 2: CBF at its lower
-        bound; 3: CBF at its upper bound; 4: input not finite).
+        bound; 3: CBF at its upper bound; 4: input not finite; 5: aBV at its upper bound).
     kinres_gm_lr, kinres_wm_lr
         Relative residual of each tissue's kinetic fit.
     csf_kinres_lr
-        Relative residual of the CSF curve against its quality-control template.
+        Relative residual of the CSF curve against the fitted multiple of its unit-CBF basis.
 
     pvc_metadata
         Dictionary of the correction's settings, for the outputs' sidecars.
@@ -308,7 +308,7 @@ CSF was left out of the gray and white matter fit.
 
     in_fields = sources + ['m0_calib', 'quant_valid', 'asl_mask', 'gm_pv', 'wm_pv', 'csf_pv']
     if multi_delay:
-        in_fields += ['deltam', 'asl_metadata', 'att', 'abat', 'abv']
+        in_fields += ['deltam', 'asl_metadata', 'att']
     inputnode = pe.Node(niu.IdentityInterface(fields=in_fields), name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=out_fields), name='outputnode')
 
@@ -322,7 +322,9 @@ without an intercept, assuming CSF has no perfusion and that each tissue's signa
 within the kernel. This gave a gray and a white matter curve across delays,
 each of which was then fit with the same general kinetic model as the uncorrected data,
 calibrated by the voxel's M0 and with a non-negative arterial nuisance term,
-giving tissue CBF and arterial transit time.
+giving tissue CBF and arterial transit time. Because a tissue curve can be larger than the
+voxel's own curve, the bounds on CBF and on arterial blood volume were raised (to
+1000 mL/100 g/min and 1); fits at either bound were discarded.
 Voxels were fit for both tissues when each had at least half a voxel of support in the kernel
 and the normalized design was well conditioned (condition number at most 100),
 and for one tissue only when the other tissue's contamination of that estimate was below 5%.
@@ -333,8 +335,9 @@ unmixing; the residual of each tissue's kinetic fit is reported.
 The uncorrected CBF maps were retained, as partial volume correction is recommended as an
 additional analysis [@chappell2021partial].
 For quality control, a separate regression on the gray matter, white matter and CSF partial
-volume maps estimated a CSF curve, whose signed projection onto each voxel's uncorrected
-kinetic curve gave an apparent CSF CBF, which should be near zero.
+volume maps estimated a CSF curve, whose signed least-squares fit as a multiple of a unit-CBF
+tissue curve (at the voxel's uncorrected arterial transit time, or the median one where it was
+not estimated) gave an apparent CSF CBF, which should be near zero.
 """
         names = lr_pvc_names('mean_cbf', multi_delay=True)
         lr_pvc = pe.Node(
@@ -365,8 +368,6 @@ kinetic curve gave an apparent CSF CBF, which should be near zero.
                 ('csf_pv', 'csf_pv'),
                 ('mean_cbf', 'mean_cbf'),
                 ('att', 'att'),
-                ('abat', 'abat'),
-                ('abv', 'abv'),
             ]),
             (lr_pvc, outputnode, [
                 ('gm_cbf', gm_cbf),

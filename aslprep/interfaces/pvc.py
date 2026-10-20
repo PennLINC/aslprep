@@ -14,6 +14,8 @@ from nipype.utils.filemanip import fname_presuffix
 
 from aslprep import config
 from aslprep.utils.pvc import (
+    CSF_QC_DEFAULT_ATT,
+    LR_ABV_MAX,
     LR_CBF_MAX,
     PVC_STATUS,
     build_pv_maps,
@@ -336,10 +338,16 @@ class _MultiDelayLocalRegressionPVCInputSpec(BaseInterfaceInputSpec):
     gm_pv = File(exists=True, mandatory=True, desc='Gray matter PV map.')
     wm_pv = File(exists=True, mandatory=True, desc='White matter PV map.')
     csf_pv = File(exists=True, mandatory=True, desc='CSF PV map, for the CSF QC fit.')
-    mean_cbf = File(exists=True, mandatory=True, desc='Uncorrected CBF (for the CSF template).')
-    att = File(exists=True, mandatory=True, desc='Uncorrected ATT (for the CSF template).')
-    abat = File(exists=True, mandatory=True, desc='Uncorrected aBAT (for the CSF template).')
-    abv = File(exists=True, mandatory=True, desc='Uncorrected aBV (for the CSF template).')
+    mean_cbf = File(
+        exists=True,
+        mandatory=True,
+        desc='Uncorrected CBF: where it is positive, the uncorrected ATT was estimated.',
+    )
+    att = File(
+        exists=True,
+        mandatory=True,
+        desc='Uncorrected ATT, which sets the shape of the CSF quality-control basis.',
+    )
     kernel_size = traits.List(
         traits.Int,
         [5, 5, 1],
@@ -509,8 +517,10 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
         # The tissue curves are no longer needed; free them before the CSF regression.
         del fit['beta_gm'], fit['beta_wm']
 
-        # CSF quality control: the signed projection of the CSF curve onto the voxel's
-        # uncorrected kinetic curve, in units of its uncorrected CBF
+        # CSF quality control: the signed least-squares CBF of the CSF curve against a
+        # unit-CBF tissue curve (no arterial term), calibrated by the voxel's M0. Its ATT is the
+        # voxel's uncorrected ATT where that was estimated, and otherwise the median of those,
+        # so the value is defined in CSF voxels, where the uncorrected CBF is usually zero.
         csf_fit = local_regression_csf(
             signal, pv_gm, pv_wm, pv_csf, mask=mask, valid=quant_valid, **lr_kwargs
         )
@@ -519,21 +529,23 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
             & (pv_csf >= self.inputs.min_pv)
             & calibratable
         )
-        uncorrected = {
-            name: nb.load(getattr(self.inputs, name)).get_fdata()
-            for name in ('mean_cbf', 'att', 'abat', 'abv')
-        }
-        template = gkm_predict(
-            np.nan_to_num(uncorrected['mean_cbf'][csf_sel]),
-            np.nan_to_num(uncorrected['att'][csf_sel]),
-            np.nan_to_num(uncorrected['abat'][csf_sel]),
-            np.nan_to_num(uncorrected['abv'][csf_sel]),
+        unc_cbf = nb.load(self.inputs.mean_cbf).get_fdata()
+        unc_att = nb.load(self.inputs.att).get_fdata()
+        has_att = mask & np.isfinite(unc_cbf) & (unc_cbf > 0) & np.isfinite(unc_att)
+        default_att = float(np.median(unc_att[has_att])) if has_att.any() else CSF_QC_DEFAULT_ATT
+        basis_att = np.where(has_att, unc_att, default_att)
+        n_sel = int(csf_sel.sum())
+        basis = gkm_predict(
+            np.ones(n_sel),
+            basis_att[csf_sel],
+            np.zeros(n_sel),
+            np.zeros(n_sel),
             m0[csf_sel],
             plds[csf_sel],
             **kinetics,
         )
         csf_cbf_values, csf_kinres_values, defined = csf_kinetic_projection(
-            csf_fit['beta_csf'][csf_sel], template, uncorrected['mean_cbf'][csf_sel]
+            csf_fit['beta_csf'][csf_sel], basis
         )
         csf_status = csf_fit['status'].copy()
         undefined = np.zeros(shape, bool)
@@ -608,6 +620,8 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
                 'uncorrected multi-delay fit, with a non-negative arterial nuisance term.'
             ),
             'MaximumCBF': LR_CBF_MAX,
+            'MaximumArterialBloodVolume': LR_ABV_MAX,
+            'CSFQualityControlDefaultATT': default_att,
             'ResidualUnits': 'delta-M',
             'Calibration': (
                 "Each tissue curve is calibrated by the centre voxel's M0, the same M0 the "

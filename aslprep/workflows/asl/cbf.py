@@ -734,17 +734,13 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
         )
         if is_multi_pld:
             # Each delay volume is unmixed, so the fit needs the delta-M series and the
-            # metadata of the selected volumes, plus the uncorrected fit for the CSF QC template.
+            # metadata of the selected volumes, plus the uncorrected ATT for the CSF QC basis.
             workflow.connect([
                 (extract_deltam, lr_pvc_wf, [
                     ('out_file', 'inputnode.deltam'),
                     ('metadata', 'inputnode.asl_metadata'),
                 ]),
-                (compute_cbf, lr_pvc_wf, [
-                    ('att', 'inputnode.att'),
-                    ('abat', 'inputnode.abat'),
-                    ('abv', 'inputnode.abv'),
-                ]),
+                (compute_cbf, lr_pvc_wf, [('att', 'inputnode.att')]),
             ])  # fmt:skip
         workflow.connect([
             (inputnode, asl_pv_wf, [

@@ -250,16 +250,40 @@ def test_fit_tissue_curves_unidentifiable_att():
 
 
 def test_csf_kinetic_projection_is_signed():
-    """The CSF diagnostic keeps its sign, in units of the voxel's uncorrected CBF."""
-    template = np.stack([_tissue_curve(50.0, 1.2, 1000.0), _tissue_curve(40.0, 1.2, 1000.0)])
-    curves = np.stack([0.1 * template[0], -0.05 * template[1]])
-    cbf, kinres, defined = pvc.csf_kinetic_projection(curves, template, np.array([50.0, 40.0]))
+    """The CSF diagnostic is the signed CBF of the curve against a unit-CBF basis."""
+    basis = np.stack([_tissue_curve(1.0, 1.2, 1000.0), _tissue_curve(1.0, 0.8, 1200.0)])
+    curves = np.stack([5.0 * basis[0], -2.0 * basis[1]])
+    cbf, kinres, defined = pvc.csf_kinetic_projection(curves, basis)
     np.testing.assert_allclose(cbf, [5.0, -2.0])
     np.testing.assert_allclose(kinres, 0, atol=1e-12)
     assert defined.all()
-    cbf, _, defined = pvc.csf_kinetic_projection(curves, np.zeros_like(template), np.zeros(2))
+    cbf, _, defined = pvc.csf_kinetic_projection(curves, np.zeros_like(basis))
     assert not defined.any()
     assert np.all(cbf == 0)
+    curves[1, 0] = np.nan
+    _, _, defined = pvc.csf_kinetic_projection(curves, basis)
+    np.testing.assert_array_equal(defined, [True, False])
+
+
+def test_fit_tissue_curves_large_abv():
+    """A tissue curve with an arterial volume above the voxel fit's 0.1 bound is recovered.
+
+    With the voxel bound, the excess arterial signal was absorbed into tissue CBF and ATT.
+    """
+    curve = _tissue_curve(60.0, 1.0, 1000.0, abv=0.12, abat=0.5)
+    result = pvc.fit_tissue_curves(curve[None, :], np.array([1000.0]), PLDS[None, :], **KINETICS)
+    assert result['status'][0] == 1
+    assert result['cbf'][0] == pytest.approx(60.0, rel=0.01)
+    assert result['att'][0] == pytest.approx(1.0, abs=0.01)
+
+
+def test_fit_tissue_curves_abv_at_bound():
+    """A fit whose aBV is at its bound is flagged (status 5), so its CBF is not claimed."""
+    curve = _tissue_curve(60.0, 1.0, 1000.0, abv=0.12, abat=0.5)
+    result = pvc.fit_tissue_curves(
+        curve[None, :], np.array([1000.0]), PLDS[None, :], abv_max=0.05, **KINETICS
+    )
+    assert result['status'][0] == 5
 
 
 def test_csf_series_regression():

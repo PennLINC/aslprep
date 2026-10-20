@@ -722,17 +722,22 @@ rules and diagnostics, and a regression-based estimate to compare with BASIL.
   amplitude** f_t · M0_t / m̄_c. That is the §5.1 convention, and it matches how the uncorrected
   multi-delay CBF is calibrated (verified in review: `ComputeCBF` scales M0, corrects short TR,
   applies `zero_low_m0`, and the fit divides by M0/λ). It is not tissue-M0 physiological CBF.
-- **Bounds.** `fit_deltam_multipld` gains an optional `cbf_max` argument; the default stays
-  `MULTIPLD_BOUNDS`. Only the CBF ceiling needs to change, and it enters only through the box
-  solver, so a general `bounds` argument was not needed.
+- **Bounds.** `fit_deltam_multipld` gains optional `cbf_max` and `abv_max` arguments; the
+  defaults stay `MULTIPLD_BOUNDS`. Only these two ceilings need to change, and they enter only
+  through the box solver, so a general `bounds` argument was not needed.
   - Tissue fits use a CBF upper bound of 1000 instead of 300. A coefficient calibrated by mixed
     M0 can exceed 300, and in review clipping at 300 distorted ATT and manufactured an arterial
     component (an effective CBF of 360 came back as 300, with ATT 0.887 s and aBV 0.015).
   - CBF stays non-negative. ATT is undefined for a non-positive signal, and the uncorrected
     multi-delay fit is non-negative too. This departs from the signed single-delay estimator,
     and the docs say so.
-- **Arterial signal.** The fit keeps its non-negative arterial term (aBV ≤ 0.1, the uncorrected
-  bound). It is a nuisance term: the per-tissue aBV and aBAT are discarded.
+- **Arterial signal.** The fit keeps its non-negative arterial term. It is a nuisance term: the
+  per-tissue aBV and aBAT are discarded.
+  - Its bound is aBV ≤ 1.0, not the uncorrected 0.1. Unmixing assigns a voxel's arterial signal
+    to its tissue fractions (down to the 0.1 minimum PV), so a tissue curve's aBV can be up to
+    ten times the voxel's. In review, with the 0.1 bound, 40% CSF and a voxel aBV of 0.08 gave
+    GM CBF 104.5 (true 60) and ATT 0.125 s (true 1.0), with status 1.
+  - A fit at the aBV bound gets kinetic status 5, and neither its CBF nor its ATT is written.
   - It does **not** make the tissue estimates immune to macrovascular signal. A sparse artery
     projects into the tissue coefficients through L = G⁻¹Xᵀ, whose entries can be negative (in
     review, one arterial voxel gave GM +0.178 and WM −0.098 contamination coefficients). Several
@@ -755,6 +760,7 @@ rules and diagnostics, and a regression-based estimate to compare with BASIL.
   | 2 | CBF at its lower bound (0): the curve carries no positive tissue signal |
   | 3 | CBF at its upper bound |
   | 4 | input not finite (`failures`) |
+  | 5 | aBV at its upper bound |
 
   `failures = False` is only an input check (it is true where M0 is positive and the data and
   delays are finite). It is not evidence of a good fit.
@@ -775,16 +781,20 @@ quantity.
 
 - **The CSF curve.** The three-tissue fit of §5.4a runs per volume (one design, with per-volume
   b), and gives a CSF curve β_CSF,v(c).
-- **Template.** It is the centre voxel's **uncorrected** fitted model curve ŷ_c, computed from
-  `ComputeCBF`'s CBF, ATT, aBAT and aBV with the forward model.
-- **Apparent CSF CBF.** CBF_uncorr(c) · ⟨β_CSF, ŷ_c⟩ / ⟨ŷ_c, ŷ_c⟩: the signed CSF amplitude in
-  the shape of the voxel's own kinetic curve, scaled to CBF units.
-- **Where it is undefined.** Where ŷ_c = 0 (uncorrected CBF and aBV both 0), it is undefined and
-  status 4.
-- **Residual.** The CSF curve's relative residual against that template is written
+- **Basis.** It is a unit-CBF tissue curve u_c (no arterial term), from the forward model with the
+  centre voxel's M0 and delays. Its ATT is the voxel's uncorrected ATT where the uncorrected CBF
+  is positive and ATT finite, and otherwise the median of those (1.0 s if there are none; the
+  value used is recorded as `CSFQualityControlDefaultATT`).
+  - An earlier draft used the voxel's uncorrected fitted curve as the template. In review it was
+    undefined, or zero, in most CSF voxels, where the uncorrected CBF is 0.
+- **Apparent CSF CBF.** ⟨β_CSF, u_c⟩ / ⟨u_c, u_c⟩: the signed least-squares CBF of the CSF
+  curve, in CBF units.
+- **Where it is undefined.** Where u_c is zero or not finite, or the CSF curve is not finite, it
+  is undefined and status 4.
+- **Residual.** The CSF curve's relative residual against the fitted multiple of u_c is written
   (`desc-lrCSF_pvkinres`).
-- **QC columns and figure.** As for single-delay data, documented as "signed projection onto the
-  uncorrected kinetic curve" for multi-delay data.
+- **QC columns and figure.** As for single-delay data, documented as "signed CBF against a
+  unit-CBF tissue curve" for multi-delay data.
 - **Cost.** This needs no extra nonlinear fit.
 
 #### 5.7.5 Outputs (mode-specific)
@@ -820,8 +830,8 @@ unchanged. For multi-delay data:
   and the labelling-duration/TI1 selection are factored out of `ComputeCBF` into shared helpers,
   used by both interfaces.
 - **The new interface.** `MultiDelayLocalRegressionPVC` takes the ΔM series `ExtractCBF` writes,
-  its reduced metadata, `m0_calib`, `quant_valid`, the uncorrected `mean_cbf`, `att`, `abat` and
-  `abv` (for the CSF template), the mask and the PV maps. `init_lr_pvc_wf` selects it by delay
+  its reduced metadata, `m0_calib`, `quant_valid`, the uncorrected `mean_cbf` and `att` (for the
+  ATT of the CSF basis), the mask and the PV maps. `init_lr_pvc_wf` selects it by delay
   count.
 - **Cost.** Step 1 is one Gram matrix plus n_vol right-hand sides and residual loops. Step 2 is
   two tissue fits over the voxels each tissue covers, about 2× the uncorrected fit's work *in

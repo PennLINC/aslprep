@@ -298,8 +298,9 @@ mean_cbf_csf_lr:
     Apparent CSF cerebral blood flow, from a separate local regression on gray matter,
     white matter and CSF partial volume maps, for quality control: of the CBF map
     for single-delay data, or of each delta-M volume for multi-delay data, where the
-    CSF curve is projected (with its sign) onto the voxel's uncorrected kinetic curve
-    and scaled by its uncorrected CBF. CSF has no perfusion, so values far from zero
+    CSF curve is fit (with its sign) as a multiple of a unit-CBF tissue curve without
+    an arterial term, at the voxel's uncorrected ATT (or the median uncorrected ATT
+    where it was not estimated). CSF has no perfusion, so values far from zero
     indicate partial volume map errors, macrovascular or choroid plexus signal, or
     model error. The gray and white matter maps (desc-lrGM, desc-lrWM) do not come
     from this fit. Zero where it was not estimated. Valid in this (native) space only.
@@ -508,22 +509,32 @@ kinstatus_gm_lr:
   suffix: pvkinstatus
   Description: Outcome of the kinetic fit of the gray matter curve.
   Levels:
-    '0': Not fitted (the spatial regression did not estimate this tissue).
+    '0': >-
+      Not fitted: the spatial regression did not estimate this tissue, its partial
+      volume is below 10%, or the voxel's M0 cannot calibrate it.
     '1': Fitted.
     '2': 'CBF at its lower bound (0): no positive tissue signal; ATT undefined.'
     '3': CBF at its upper bound; not written.
     '4': Input not finite.
+    '5': >-
+      Arterial blood volume at its upper bound: the remaining arterial signal would
+      bias CBF and ATT, so neither is written.
 
 kinstatus_wm_lr:
   desc: lrWM
   suffix: pvkinstatus
   Description: Outcome of the kinetic fit of the white matter curve.
   Levels:
-    '0': Not fitted (the spatial regression did not estimate this tissue).
+    '0': >-
+      Not fitted: the spatial regression did not estimate this tissue, its partial
+      volume is below 10%, or the voxel's M0 cannot calibrate it.
     '1': Fitted.
     '2': 'CBF at its lower bound (0): no positive tissue signal; ATT undefined.'
     '3': CBF at its upper bound; not written.
     '4': Input not finite.
+    '5': >-
+      Arterial blood volume at its upper bound: the remaining arterial signal would
+      bias CBF and ATT, so neither is written.
 
 kinres_gm_lr:
   desc: lrGM
@@ -547,5 +558,5 @@ csf_kinres_lr:
   desc: lrCSF
   suffix: pvkinres
   Description: >-
-    Relative residual of the CSF curve against the scaled uncorrected kinetic curve
-    used for the multi-delay CSF quality-control projection (desc-lrCSF_cbf).
+    Relative residual of the CSF curve against the fitted multiple of the unit-CBF
+    tissue curve used for the multi-delay CSF quality-control estimate (desc-lrCSF_cbf).

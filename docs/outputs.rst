@@ -576,6 +576,13 @@ calibrated by the voxel's M0, giving tissue CBF and ATT.
 - The tissue CBF is non-negative, as for the uncorrected multi-delay fit. Its upper bound is
   raised to 1000 mL/100 g/min, because a tissue's signal calibrated by the voxel's mixed M0 can
   exceed physiological values; ``desc-lr*_pvkinstatus`` flags estimates at either bound.
+  The arterial blood volume bound is raised from 0.1 to 1 for the same reason: unmixing assigns
+  a voxel's arterial signal to its tissue fraction. A fit with aBV still at that bound is flagged
+  (status 5), and neither its CBF nor its ATT is written, because the arterial signal it could
+  not absorb would bias both.
+- Tissue curves are noisier than the voxel's own curve, and the non-negative fit skews noisy
+  estimates upward, so a parcel's mean tissue CBF can be biased up in noisy data; its median is
+  more robust.
 - Tissue ATT is written only where the tissue's CBF is positive. As for the uncorrected ATT,
   check its bounds (``desc-lr*Lower_att``, ``desc-lr*Upper_att``): where a range of ATT fits
   equally well, for example when ATT is shorter than every delay, the middle of the range is
@@ -585,8 +592,10 @@ calibrated by the voxel's M0, giving tissue CBF and ATT.
   arterial term absorbs some of it, but it can bias the tissue estimates, in either direction.
   ``desc-lr*_pvkinres`` is the relative residual of each tissue's kinetic fit, and is the
   diagnostic for these problems; the spatial residual (``desc-lr_pvrmse``) cannot detect them.
-- ``desc-lrCSF_cbf`` is the signed projection of the CSF curve onto the voxel's uncorrected
-  kinetic curve, scaled by the uncorrected CBF. Like the single-delay map, it should be near zero.
+- ``desc-lrCSF_cbf`` is the signed least-squares CBF of the CSF curve against a unit-CBF tissue
+  curve without an arterial term, calibrated by the voxel's M0, at the voxel's uncorrected ATT
+  (or the median uncorrected ATT where it was not estimated, as in most CSF). Like the
+  single-delay map, it should be near zero.
 
 .. _effective_resolution:
 

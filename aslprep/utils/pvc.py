@@ -927,6 +927,11 @@ def summarize_csf_qc(cbf_csf, valid_csf, pv_csf, min_pv=0.5):
 #: and clipping it at the voxel fit's bound distorts ATT and the arterial term.
 LR_CBF_MAX = 1000.0
 
+#: Upper bound on the aBV of a tissue curve's kinetic fit. Unmixing assigns a voxel's arterial
+#: signal to its tissue fraction (no less than the 0.1 minimum PV of a written estimate), so a
+#: tissue curve's aBV can be up to ten times the voxel fit's bound of 0.1.
+LR_ABV_MAX = 1.0
+
 #: A tissue curve's fitted CBF at or below this (mL/100 g/min) is at the lower bound.
 KINETIC_CBF_TOLERANCE = 1e-6
 
@@ -940,6 +945,7 @@ KINETIC_STATUS = {
     2: 'CBF at its lower bound (0): no positive tissue signal',
     3: 'CBF at its upper bound',
     4: 'input not finite',
+    5: 'aBV at its upper bound: the remaining arterial signal would bias CBF and ATT',
 }
 
 
@@ -1011,6 +1017,7 @@ def fit_tissue_curves(
     tau=None,
     ti1=None,
     cbf_max=LR_CBF_MAX,
+    abv_max=LR_ABV_MAX,
     xp=None,
     n_jobs=1,
 ):
@@ -1018,8 +1025,9 @@ def fit_tissue_curves(
 
     Each curve is a tissue's delta-M amplitude in every volume, from
     :func:`local_regression_pvc` applied to the delta-M series. It is fit with
-    :func:`~aslprep.utils.cbf.fit_deltam_multipld`, calibrated by the centre voxel's M0, with a
-    raised CBF bound (:data:`LR_CBF_MAX`). The arterial term is a nuisance and is not returned.
+    :func:`~aslprep.utils.cbf.fit_deltam_multipld`, calibrated by the centre voxel's M0, with
+    raised CBF and aBV bounds (:data:`LR_CBF_MAX`, :data:`LR_ABV_MAX`). The arterial term is a
+    nuisance and is not returned, but a fit whose aBV is at its bound is flagged (status 5).
 
     Parameters
     ----------
@@ -1033,6 +1041,8 @@ def fit_tissue_curves(
         As for :func:`~aslprep.utils.cbf.fit_deltam_multipld`.
     cbf_max : :obj:`float`
         Upper bound on CBF.
+    abv_max : :obj:`float`
+        Upper bound on aBV.
 
     Returns
     -------
@@ -1063,6 +1073,7 @@ def fit_tissue_curves(
         xp=xp,
         n_jobs=n_jobs,
         cbf_max=cbf_max,
+        abv_max=abv_max,
     )
     fitted = ~failures & np.isfinite(cbf) & np.isfinite(att)
     # The solver returns bound solutions only to within rounding error (for example ~1e-13 for
@@ -1070,10 +1081,12 @@ def fit_tissue_curves(
     # numerically zero CBF is set to zero.
     at_lower = fitted & (cbf <= KINETIC_CBF_TOLERANCE)
     at_upper = fitted & (cbf >= cbf_max * (1 - KINETIC_BOUND_RTOL))
+    abv_at_upper = fitted & ~at_lower & (abv >= abv_max * (1 - KINETIC_BOUND_RTOL))
     cbf = np.where(at_lower, 0.0, cbf)
     status = np.full(n_voxels, 4, dtype=np.uint8)
     status[fitted] = 1
     status[at_lower] = 2
+    status[abv_at_upper] = 5
     status[at_upper] = 3
 
     predicted = np.zeros_like(curves)
@@ -1105,41 +1118,44 @@ def fit_tissue_curves(
     return out
 
 
-def csf_kinetic_projection(curves, template, template_cbf):
+#: ATT (s) of the CSF quality-control basis where no voxel has an uncorrected ATT estimate.
+CSF_QC_DEFAULT_ATT = 1.0
+
+
+def csf_kinetic_projection(curves, basis):
     """Signed apparent CSF CBF of multi-delay data (spec Section 5.7.4).
 
-    The CSF curve is projected onto the voxel's uncorrected model curve, and the coefficient is
-    scaled by the uncorrected CBF. A negative value is kept: it is a signed QC diagnostic.
+    The CSF curve is fit, by least squares, as a multiple of a unit-CBF tissue curve: the
+    general kinetic model's tissue term at CBF 1 and the voxel's M0, without an arterial term.
+    The multiple is the apparent CSF CBF. A negative value is kept: it is a signed QC
+    diagnostic, and it does not depend on the voxel's uncorrected CBF.
 
     Parameters
     ----------
     curves : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
         CSF curves from :func:`local_regression_csf` applied to the delta-M series.
-    template : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
-        The uncorrected fitted delta-M of each voxel (:func:`gkm_predict`).
-    template_cbf : :obj:`numpy.ndarray` of shape (n_voxels,)
-        The uncorrected CBF of each voxel.
+    basis : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        The unit-CBF tissue curve of each voxel (:func:`gkm_predict` with CBF 1 and aBV 0).
 
     Returns
     -------
     cbf : :obj:`numpy.ndarray` of shape (n_voxels,)
         Apparent CSF CBF, zero where it is undefined.
     kinres : :obj:`numpy.ndarray` of shape (n_voxels,)
-        Relative residual of the CSF curve against the scaled template.
+        Relative residual of the CSF curve against the fitted multiple of the basis.
     defined : :obj:`numpy.ndarray` of :obj:`bool`
-        Where the template is not zero.
+        Where the basis is not zero and the curve is finite.
     """
     curves = np.asarray(curves, dtype=float)
-    template = np.asarray(template, dtype=float)
-    tt = np.einsum('vt,vt->v', template, template)
-    defined = np.isfinite(tt) & (tt > 0) & np.all(np.isfinite(curves), axis=1)
-    ratio = np.zeros(curves.shape[0])
-    ratio[defined] = np.einsum('vt,vt->v', curves[defined], template[defined]) / tt[defined]
-    cbf = np.where(defined, ratio * np.asarray(template_cbf, dtype=float), 0.0)
+    basis = np.asarray(basis, dtype=float)
+    bb = np.einsum('vt,vt->v', basis, basis)
+    defined = np.isfinite(bb) & (bb > 0) & np.all(np.isfinite(curves), axis=1)
+    cbf = np.zeros(curves.shape[0])
+    cbf[defined] = np.einsum('vt,vt->v', curves[defined], basis[defined]) / bb[defined]
     norm = np.linalg.norm(curves, axis=1)
     kinres = np.zeros(curves.shape[0])
     ok = defined & (norm > 0)
-    kinres[ok] = np.linalg.norm(curves[ok] - ratio[ok, None] * template[ok], axis=1) / norm[ok]
+    kinres[ok] = np.linalg.norm(curves[ok] - cbf[ok, None] * basis[ok], axis=1) / norm[ok]
     return cbf, kinres, defined
 
 

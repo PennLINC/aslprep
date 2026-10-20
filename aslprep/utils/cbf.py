@@ -1056,7 +1056,9 @@ def _argmin_att(loss, tol, xp):
     return first + (in_run.sum(axis=-1, keepdims=True) - 1) // 2
 
 
-def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp, cbf_max=None):
+def _fit_gkm_chunk(
+    y, plds, bolus, weights, is_casl, labeleff, t1blood, xp, cbf_max=None, abv_max=None
+):
     """Fit the general kinetic model to a chunk of voxels by searching over ATT and aBAT.
 
     Parameters
@@ -1071,6 +1073,8 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp, cbf_
         Square root of the number of volumes averaged for each delay.
     cbf_max : float or None
         Upper bound on CBF. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
+    abv_max : float or None
+        Upper bound on aBV. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
 
     Notes
     -----
@@ -1122,7 +1126,7 @@ def _fit_gkm_chunk(y, plds, bolus, weights, is_casl, labeleff, t1blood, xp, cbf_
     )
     all_arterial *= weights
     # The largest midpoint-equivalent aBV in each aBAT interval: (voxels, aBATs)
-    abv_max = MULTIPLD_BOUNDS[3][1]
+    abv_max = MULTIPLD_BOUNDS[3][1] if abv_max is None else abv_max
     if is_casl:
         all_abv_cap = abv_max * xp.exp((abat_mid - edges[:, :-1]) / t1blood)
     else:
@@ -1363,6 +1367,7 @@ def fit_deltam_multipld(
     chunk_size=None,
     n_jobs=1,
     cbf_max=None,
+    abv_max=None,
 ):
     """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
 
@@ -1409,6 +1414,10 @@ def fit_deltam_multipld(
         Upper bound on CBF. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
         Partial volume correction raises it, because a tissue amplitude calibrated by the
         voxel's mixed M0 can exceed physiological values.
+    abv_max : :obj:`float` or None, optional
+        Upper bound on aBV. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
+        Partial volume correction raises it, for the same reason: unmixing assigns a voxel's
+        arterial signal to its tissue fraction, which can be well below one.
 
     Returns
     -------
@@ -1565,6 +1574,7 @@ def fit_deltam_multipld(
             t1blood=t1blood,
             xp=xp,
             cbf_max=cbf_max,
+            abv_max=abv_max,
         )
         # Chunks hold different voxels, so threads never write to the same elements.
         estimates[:, chunk] = [_to_numpy(estimate) for estimate in chunk_estimates]
