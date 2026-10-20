@@ -62,6 +62,7 @@ def test_init_cbf_wf_lr_pvc(tmp_path, scorescrub):
         lr_wf = wf.get_node('lr_pvc_wf')
         assert lr_wf.get_node('lr_pvc') is not None
         assert (lr_wf.get_node('lr_pvc_score') is not None) is scorescrub
+        assert wf.get_node('compute_cbf').inputs.write_calibration is True
         assert ('compute_cbf', 'm0_calib', 'lr_pvc_wf', 'inputnode.m0_calib') in to_pvc
         assert ('compute_cbf', 'quant_valid', 'lr_pvc_wf', 'inputnode.quant_valid') in to_pvc
         assert to_output['mean_cbf_gm_lr'] == 'lr_pvc_wf'
@@ -93,6 +94,7 @@ def test_init_cbf_wf_no_pvc(tmp_path):
     reset_config()
     with mock_config():
         wf = _build_cbf_wf(tmp_path, pvc_method='none')
+        assert wf.get_node('compute_cbf').inputs.write_calibration is False
         assert wf.get_node('asl_pv_wf') is None
         assert wf.get_node('lr_pvc_wf') is None
         assert 'mean_cbf_gm_lr' not in wf.get_node('outputnode').outputs.copyable_trait_names()

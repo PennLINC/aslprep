@@ -482,6 +482,7 @@ def test_computecbf_calibration_outputs(labeling, acq_dict, m0tr, tmp_path):
         metadata=metadata,
         m0_scale=2.0,
         m0_file=m0_file,
+        write_calibration=True,
         **kwargs,
     ).run(cwd=tmp_path)
 
@@ -515,6 +516,32 @@ def test_computecbf_calibration_outputs(labeling, acq_dict, m0tr, tmp_path):
     signal = mean_cbf * m0_calib
     expected = q * deltam.astype(float).mean(axis=3)
     np.testing.assert_allclose(signal[quant_valid], expected[quant_valid], rtol=1e-4)
+
+
+def test_computecbf_calibration_outputs_off_by_default(tmp_path):
+    """Without write_calibration (no partial volume correction), nothing extra is written."""
+    rng = np.random.default_rng(0)
+    deltam_file = _save_img(
+        rng.normal(50, 10, (6, 6, 6, 2)).astype(np.float32), tmp_path, 'd.nii.gz'
+    )
+    m0_file = _save_img(np.full((6, 6, 6), 1000, np.float32), tmp_path, 'm0.nii.gz')
+    results = cbf.ComputeCBF(
+        cbf_only=False,
+        deltam=deltam_file,
+        metadata={
+            'ArterialSpinLabelingType': 'PCASL',
+            'LabelingDuration': 1.8,
+            'MagneticFieldStrength': 3,
+            'MRAcquisitionType': '3D',
+            'PostLabelingDelay': 1.8,
+        },
+        m0_scale=1,
+        m0_file=m0_file,
+    ).run(cwd=tmp_path)
+    assert results.outputs.m0_calib is None
+    assert results.outputs.quant_valid is None
+    assert not list(tmp_path.glob('*_m0calib*'))
+    assert not list(tmp_path.glob('*_quantvalid*'))
 
 
 def test_computecbf_calibration_outputs_multipld(tmp_path):

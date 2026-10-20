@@ -201,7 +201,8 @@ def init_lr_pvc_wf(
         Root mean square residual of each voxel's regression.
     mean_cbf_csf_lr, cbf_csf_se_lr, status_csf_lr, csf_noise_lr
         Apparent CSF CBF from the separate three-tissue quality-control fit, its standard
-        error, fit status (as ``status_lr``, plus 5: CSF only) and noise amplification.
+        error, fit status (0: outside the mask; 1: GM, WM and CSF; 2: GM and CSF; 3: WM and
+        CSF; 4: not identifiable; 5: CSF only) and noise amplification.
     pvc_summary
         Dictionary with the fraction of brain voxels in each fit status.
     mean_cbf_gm_lr_score, ..., csf_noise_lr_score, pvc_summary_score

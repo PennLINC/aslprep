@@ -35,7 +35,8 @@ PVC_STATUS = {
     4: 'not identifiable',
 }
 
-_FWHM_TO_SIGMA = 1 / (2 * np.sqrt(2 * np.log(2)))
+#: Gaussian sigma per unit FWHM: 1 / (2 * sqrt(2 * ln 2)).
+_FWHM_TO_SIGMA = 0.42466090014400953
 #: Relative tolerance for an FWHM equal to the box width (float32 precision of voxel sizes).
 _WIDTH_RTOL = 1e-6
 

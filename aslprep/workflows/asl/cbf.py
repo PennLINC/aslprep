@@ -520,6 +520,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             m0_scale=m0_scale,
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
+            write_calibration=pvc_method != 'none',
         ),
         mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else 0.2,
         n_procs=fit_nthreads,

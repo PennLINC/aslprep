@@ -337,6 +337,14 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         usedefault=True,
         desc='Fit the multi-delay model on a GPU, with CuPy. Ignored for single-delay data.',
     )
+    write_calibration = traits.Bool(
+        False,
+        usedefault=True,
+        desc=(
+            'Also write the calibration M0 and the quantification-valid mask '
+            '(m0_calib, quant_valid), which partial volume correction needs.'
+        ),
+    )
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -421,7 +429,7 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         desc=(
             'The M0 image that delta-M was divided by to quantify CBF: scaled, corrected for '
             'a short TR, and with low values set to zero. '
-            'Only generated for single-delay data.'
+            'Only generated for single-delay data, with write_calibration.'
         ),
     )
     quant_valid = traits.Either(
@@ -430,7 +438,7 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         desc=(
             'Mask of voxels where CBF could be quantified: M0 is finite and positive, and the '
             'delta-M values and quantification factor are finite. '
-            'Only generated for single-delay data.'
+            'Only generated for single-delay data, with write_calibration.'
         ),
     )
 
@@ -773,6 +781,7 @@ class ComputeCBF(SimpleInterface):
             # Single-delay data won't produce an ATT image
             self._results['att'] = None
 
+        if self.inputs.write_calibration and not is_multi_pld:
             # The calibration image and where quantification succeeded, for partial volume
             # correction, which regresses CBF * M0 (the M0-free signal) and divides by M0 again.
             # The masker replaces non-finite values with zeros, so finiteness is taken from the

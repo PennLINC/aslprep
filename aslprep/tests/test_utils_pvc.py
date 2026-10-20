@@ -118,6 +118,11 @@ def test_box_gaussian_sigma_box_only():
         pvc.solve_box_gaussian_sigma(3.0, 4.0)
 
 
+def test_fwhm_to_sigma_constant():
+    """The literal FWHM-to-sigma factor is 1 / (2 sqrt(2 ln 2))."""
+    assert pvc._FWHM_TO_SIGMA == pytest.approx(1 / (2 * np.sqrt(2 * np.log(2))), rel=1e-15)
+
+
 def test_box_gaussian_sigma_float32_voxel_size():
     """A nominal FWHM from float32 zooms equals a box width from the affine's column norms.
 
