@@ -407,6 +407,21 @@ def _build_parser():
         ),
     )
     g_conf.add_argument(
+        '--skull-strip-asl',
+        action='store',
+        choices=['synthstrip', 'legacy'],
+        default='synthstrip',
+        help=(
+            'Brain extraction method for the ASL reference image. '
+            "'synthstrip' (default): FreeSurfer's SynthStrip. "
+            "'legacy': the method ASLPrep used before SynthStrip, the intersection of masks "
+            "from FSL's BET and AFNI's 3dAutomask. "
+            'Neither method works best on all ASL data, so inspect the brain masks and try '
+            'the other method if they are poor. '
+            'This option does not affect the brain extraction of the anatomical images.'
+        ),
+    )
+    g_conf.add_argument(
         '--output-spaces',
         nargs='*',
         action=OutputReferencesAction,
@@ -477,7 +492,9 @@ any spatial references.""",
             'M0 scans are multiplied by m0_scale before calculating CBF. '
             'It is important to note, however, that BIDS expects ASL and M0 data to scaled in '
             'the raw dataset, so this parameter should only be used if your dataset does not '
-            'have pre-scaled data.'
+            'have pre-scaled data. '
+            "The value is recorded, with every other calibration parameter, in each run's "
+            '*_desc-calibration_parameters.json file.'
         ),
     )
     g_conf.add_argument(
