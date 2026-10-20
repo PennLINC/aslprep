@@ -7,11 +7,17 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from aslprep.interfaces.parcellation import NiftiParcellate, StackParcellatedTables
+from aslprep.interfaces.parcellation import NiftiParcellate
+
+
+def _read_tables(results):
+    scalarstats = pd.read_table(results.outputs.scalarstats, index_col='node')
+    coverage = pd.read_table(results.outputs.coverage, index_col='node')
+    return scalarstats, coverage
 
 
 def test_nifti_parcellate(tmp_path_factory):
-    """Convert nifti files to 32-bit."""
+    """Parcels missing from the atlas or with too little coverage are n/a."""
     tmpdir = tmp_path_factory.mktemp('test_nifti_parcellate')
 
     arr = np.zeros((4, 4, 4))
@@ -34,28 +40,19 @@ def test_nifti_parcellate(tmp_path_factory):
     lut.to_csv(lut_file, sep='\t', index=False)
 
     # Some parcels are not present, but none are masked out
-    parcellator = NiftiParcellate(
-        in_file=atlas_file,
-        mask=mask_file,
+    results = NiftiParcellate(
+        in_files=[atlas_file],
+        masks=[mask_file],
+        names=['cbf'],
         atlas=atlas_file,
         atlas_labels=lut_file,
         min_coverage=0.5,
-    )
-    results = parcellator.run(cwd=tmpdir)
-    coverage = results.outputs.coverage
-    timeseries = results.outputs.timeseries
-    assert os.path.isfile(coverage)
-    assert os.path.isfile(timeseries)
-    coverage_df = pd.read_table(coverage)
-    timeseries_df = pd.read_table(timeseries)
-    assert coverage_df.shape == (1, 5)
-    assert timeseries_df.shape == (1, 5)
-    assert np.array_equal(coverage_df.to_numpy()[0], np.array([0, 0, 1, 1, 1]))
-    assert np.array_equal(
-        timeseries_df.to_numpy(),
-        np.array([[np.nan, np.nan, 3, 4, 5]]),
-        equal_nan=True,
-    )
+    ).run(cwd=tmpdir)
+    scalarstats, coverage = _read_tables(results)
+    assert scalarstats.index.tolist() == lut['name'].tolist()
+    assert scalarstats.columns.tolist() == coverage.columns.tolist() == ['cbf']
+    np.testing.assert_array_equal(coverage['cbf'], [0, 0, 1, 1, 1])
+    np.testing.assert_array_equal(scalarstats['cbf'], [np.nan, np.nan, 3, 4, 5])
 
     # Now let's mask out some voxels
     mask[0, 0, 0] = 0  # 1/4 of the third parcel
@@ -64,43 +61,31 @@ def test_nifti_parcellate(tmp_path_factory):
     mask_img = nb.Nifti1Image(mask.astype(np.int32), np.eye(4))
     mask_file = os.path.join(tmpdir, 'mask_02.nii.gz')
     mask_img.to_filename(mask_file)
-    parcellator = NiftiParcellate(
-        in_file=atlas_file,
-        mask=mask_file,
+    results = NiftiParcellate(
+        in_files=[atlas_file],
+        masks=[mask_file],
+        names=['cbf'],
         atlas=atlas_file,
         atlas_labels=lut_file,
         min_coverage=0.5,
-    )
-    results = parcellator.run(cwd=tmpdir)
-    coverage = results.outputs.coverage
-    timeseries = results.outputs.timeseries
-    assert os.path.isfile(coverage)
-    assert os.path.isfile(timeseries)
-    coverage_df = pd.read_table(coverage)
-    timeseries_df = pd.read_table(timeseries)
-    assert coverage_df.shape == (1, 5)
-    assert timeseries_df.shape == (1, 5)
-    assert np.array_equal(coverage_df.to_numpy()[0], np.array([0, 0, 0.75, 0.5, 0.25]))
-    assert np.array_equal(
-        timeseries_df.to_numpy(),
-        np.array([[np.nan, np.nan, 3, 4, np.nan]]),
-        equal_nan=True,
-    )
+    ).run(cwd=tmpdir)
+    scalarstats, coverage = _read_tables(results)
+    np.testing.assert_array_equal(coverage['cbf'], [0, 0, 0.75, 0.5, 0.25])
+    np.testing.assert_array_equal(scalarstats['cbf'], [np.nan, np.nan, 3, 4, np.nan])
 
 
-def _parcellation_inputs(tmp_path, values, mask):
+def _write_img(path, data):
+    nb.Nifti1Image(data, np.eye(4)).to_filename(path)
+    return str(path)
+
+
+def _atlas_inputs(tmp_path):
     atlas = np.zeros((4, 4, 4), np.int32)
     atlas[:2] = 1
     atlas[2:] = 2
-    files = {}
-    for name, data in {'atlas': atlas, 'in_file': values, 'mask': mask.astype(np.int32)}.items():
-        files[name] = str(tmp_path / f'{name}.nii.gz')
-        nb.Nifti1Image(data, np.eye(4)).to_filename(files[name])
-    files['atlas_labels'] = str(tmp_path / 'lut.tsv')
-    pd.DataFrame({'index': [1, 2], 'name': ['A', 'B']}).to_csv(
-        files['atlas_labels'], sep='\t', index=False
-    )
-    return files
+    lut_file = str(tmp_path / 'lut.tsv')
+    pd.DataFrame({'index': [1, 2], 'name': ['A', 'B']}).to_csv(lut_file, sep='\t', index=False)
+    return {'atlas': _write_img(tmp_path / 'atlas.nii.gz', atlas), 'atlas_labels': lut_file}
 
 
 def test_nifti_parcellate_validity_mask(tmp_path):
@@ -108,91 +93,91 @@ def test_nifti_parcellate_validity_mask(tmp_path):
     values = np.zeros((4, 4, 4))
     values[:2, :2] = 60.0  # parcel A: half valid 60, half failed (0)
     values[2:] = 0.0  # parcel B: genuine zero estimates
-    mask = np.zeros((4, 4, 4), bool)
-    mask[:2, :2] = True
-    mask[2:] = True
+    mask = np.zeros((4, 4, 4), np.int32)
+    mask[:2, :2] = 1
+    mask[2:] = 1
     results = NiftiParcellate(
-        min_coverage=0.25, **_parcellation_inputs(tmp_path, values, mask)
+        in_files=[_write_img(tmp_path / 'map.nii.gz', values)],
+        masks=[_write_img(tmp_path / 'mask.nii.gz', mask)],
+        names=['cbf_lrGM'],
+        min_coverage=0.25,
+        **_atlas_inputs(tmp_path),
     ).run(cwd=tmp_path)
-    timeseries = pd.read_table(results.outputs.timeseries)
-    coverage = pd.read_table(results.outputs.coverage)
-    assert timeseries['A'].iloc[0] == 60.0
-    assert timeseries['B'].iloc[0] == 0.0
-    np.testing.assert_allclose(coverage.to_numpy()[0], [0.5, 1.0])
+    scalarstats, coverage = _read_tables(results)
+    assert scalarstats.loc['A', 'cbf_lrGM'] == 60.0
+    assert scalarstats.loc['B', 'cbf_lrGM'] == 0.0
+    np.testing.assert_allclose(coverage['cbf_lrGM'], [0.5, 1.0])
 
 
 def test_nifti_parcellate_empty_mask(tmp_path):
     """An empty mask (nothing estimated) gives zero coverage and no values, not an error."""
-    values = np.zeros((4, 4, 4))
     results = NiftiParcellate(
+        in_files=[_write_img(tmp_path / 'map.nii.gz', np.zeros((4, 4, 4)))],
+        masks=[_write_img(tmp_path / 'mask.nii.gz', np.zeros((4, 4, 4), np.int32))],
+        names=['cbf_lrGM'],
         min_coverage=0.5,
-        **_parcellation_inputs(tmp_path, values, np.zeros((4, 4, 4), bool)),
+        **_atlas_inputs(tmp_path),
     ).run(cwd=tmp_path)
-    timeseries = pd.read_table(results.outputs.timeseries)
-    coverage = pd.read_table(results.outputs.coverage)
-    assert timeseries.shape == (1, 2)
-    assert timeseries.isna().all().all()
-    np.testing.assert_array_equal(coverage.to_numpy()[0], [0.0, 0.0])
+    scalarstats, coverage = _read_tables(results)
+    assert scalarstats.shape == (2, 1)
+    assert scalarstats['cbf_lrGM'].isna().all()
+    np.testing.assert_array_equal(coverage['cbf_lrGM'], [0.0, 0.0])
 
 
-def test_nifti_parcellate_empty_mask_4d(tmp_path):
-    """With an empty mask, a 4D series keeps one (missing) row per volume."""
+def test_nifti_parcellate_several_maps(tmp_path):
+    """Maps sharing a mask are parcellated together; each keeps its own mask and column."""
+    full_mask = np.ones((4, 4, 4), np.int32)
+    half_mask = np.zeros((4, 4, 4), np.int32)
+    half_mask[:2, :2] = 1  # half of parcel A, none of parcel B
+    cbf = np.full((4, 4, 4), 50.0)
+    cbf[2:] = 40.0
+    att = np.full((4, 4, 4), 1.5)
+    sparse = np.zeros((4, 4, 4))
+    sparse[:2, :2] = 70.0
+
+    full_mask_file = _write_img(tmp_path / 'full_mask.nii.gz', full_mask)
     results = NiftiParcellate(
+        in_files=[
+            _write_img(tmp_path / 'cbf.nii.gz', cbf),
+            _write_img(tmp_path / 'sparse.nii.gz', sparse),
+            _write_img(tmp_path / 'att.nii.gz', att),
+        ],
+        masks=[
+            full_mask_file,
+            _write_img(tmp_path / 'half_mask.nii.gz', half_mask),
+            full_mask_file,
+        ],
+        names=['cbf', 'cbf_lrGM', 'att'],
         min_coverage=0.5,
-        **_parcellation_inputs(tmp_path, np.zeros((4, 4, 4, 3)), np.zeros((4, 4, 4), bool)),
+        **_atlas_inputs(tmp_path),
     ).run(cwd=tmp_path)
-    timeseries = pd.read_table(results.outputs.timeseries)
-    assert timeseries.shape == (3, 2)
-    assert timeseries.isna().all().all()
+    scalarstats, coverage = _read_tables(results)
+
+    # Columns keep the order of the inputs, not the order of the mask groups.
+    assert scalarstats.columns.tolist() == coverage.columns.tolist() == ['cbf', 'cbf_lrGM', 'att']
+    np.testing.assert_allclose(scalarstats['cbf'], [50.0, 40.0])
+    np.testing.assert_allclose(scalarstats['att'], [1.5, 1.5])
+    np.testing.assert_allclose(scalarstats.loc['A', 'cbf_lrGM'], 70.0)
+    assert np.isnan(scalarstats.loc['B', 'cbf_lrGM'])
+    np.testing.assert_allclose(coverage['cbf'], [1.0, 1.0])
+    np.testing.assert_allclose(coverage['att'], [1.0, 1.0])
+    np.testing.assert_allclose(coverage['cbf_lrGM'], [0.5, 0.0])
 
 
-def _write_table(path, data):
-    pd.DataFrame(data).to_csv(path, sep='\t', na_rep='n/a', index=False)
-    return str(path)
+def test_nifti_parcellate_rejects_bad_inputs(tmp_path):
+    """Mismatched inputs or repeated names are errors, not silently misaligned columns."""
+    map_file = _write_img(tmp_path / 'map.nii.gz', np.ones((4, 4, 4)))
+    mask_file = _write_img(tmp_path / 'mask.nii.gz', np.ones((4, 4, 4), np.int32))
+    atlas_inputs = _atlas_inputs(tmp_path)
 
-
-def test_stack_parcellated_tables(tmp_path):
-    """One-row tables become one table per atlas: a row per parcel, a column per estimate."""
-    in_files = [
-        [  # estimate "cbf": atlas 1, atlas 2
-            _write_table(tmp_path / 'cbf_1.tsv', {'A': [60.0], 'B': [np.nan]}),
-            _write_table(tmp_path / 'cbf_2.tsv', {'X': [50.0], 'Y': [40.0], 'Z': [30.0]}),
-        ],
-        [  # estimate "score"
-            _write_table(tmp_path / 'score_1.tsv', {'A': [55.0], 'B': [np.nan]}),
-            _write_table(tmp_path / 'score_2.tsv', {'X': [45.0], 'Y': [35.0], 'Z': [25.0]}),
-        ],
-    ]
-    results = StackParcellatedTables(in_files=in_files, estimates=['cbf', 'score']).run(
-        cwd=tmp_path
-    )
-    assert len(results.outputs.out_files) == 2
-
-    atlas1 = pd.read_table(results.outputs.out_files[0])
-    assert list(atlas1.columns) == ['node', 'cbf', 'score']
-    assert atlas1['node'].tolist() == ['A', 'B']
-    assert atlas1.set_index('node').loc['A'].tolist() == [60.0, 55.0]
-    assert atlas1.set_index('node').loc['B'].isna().all()
-
-    atlas2 = pd.read_table(results.outputs.out_files[1])
-    assert list(atlas2.columns) == ['node', 'cbf', 'score']
-    assert atlas2['node'].tolist() == ['X', 'Y', 'Z']
-    assert atlas2['score'].tolist() == [45.0, 35.0, 25.0]
-
-
-def test_stack_parcellated_tables_rejects_bad_inputs(tmp_path):
-    """Mismatched parcels or multi-row tables are errors, not silently misaligned rows."""
-    one = _write_table(tmp_path / 'one.tsv', {'A': [1.0], 'B': [2.0]})
-    other = _write_table(tmp_path / 'other.tsv', {'A': [1.0], 'C': [2.0]})
-    two_rows = _write_table(tmp_path / 'two.tsv', {'A': [1.0, 2.0], 'B': [3.0, 4.0]})
-
-    with pytest.raises(ValueError, match='different parcels'):
-        StackParcellatedTables(in_files=[[one], [other]], estimates=['a', 'b']).run(cwd=tmp_path)
-    with pytest.raises(ValueError, match='not 1'):
-        StackParcellatedTables(in_files=[[two_rows]], estimates=['a']).run(cwd=tmp_path)
+    with pytest.raises(ValueError, match='2 maps, 1 masks and 2 names'):
+        NiftiParcellate(
+            in_files=[map_file, map_file], masks=[mask_file], names=['a', 'b'], **atlas_inputs
+        ).run(cwd=tmp_path)
     with pytest.raises(ValueError, match='unique'):
-        StackParcellatedTables(in_files=[[one], [one]], estimates=['a', 'a']).run(cwd=tmp_path)
-    with pytest.raises(ValueError, match='one table per atlas'):
-        StackParcellatedTables(in_files=[[one], [one, one]], estimates=['a', 'b']).run(
-            cwd=tmp_path
-        )
+        NiftiParcellate(
+            in_files=[map_file, map_file],
+            masks=[mask_file, mask_file],
+            names=['a', 'a'],
+            **atlas_inputs,
+        ).run(cwd=tmp_path)

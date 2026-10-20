@@ -279,6 +279,7 @@ def init_asl_wf(
     # The ATT and aBAT bounds step between neighboring voxels, and interpolation would blend
     # them into values that are no longer bounds, so they are only written in native space.
     native_att_derivs = []
+    basil_sd_derivs = []
     cbf_3d_derivs = ['mean_cbf']
     cbf_4d_derivs = []
 
@@ -315,10 +316,12 @@ def init_asl_wf(
         ]
         # Posterior standard deviations go with the maps that are resampled and written in
         # every space, but are not parcellated or scored like CBF maps.
-        att_derivs += ['cbf_sd_basil', 'cbf_gm_sd_basil', 'cbf_wm_sd_basil']
+        basil_sd_derivs += ['cbf_sd_basil', 'cbf_gm_sd_basil', 'cbf_wm_sd_basil']
         if is_multi_pld:
             # BASIL's ATT and aBV estimates are only meaningful for multi-PLD data.
-            att_derivs += ['att_basil', 'abv_basil', 'att_sd_basil']
+            att_derivs += ['att_basil', 'abv_basil']
+            basil_sd_derivs += ['att_sd_basil']
+        att_derivs += basil_sd_derivs
 
     cbf_derivs = att_derivs + cbf_3d_derivs + cbf_4d_derivs
 
@@ -330,7 +333,7 @@ def init_asl_wf(
     if config.workflow.pvc_method == 'local-regression':
         lr_sources = ['mean_cbf'] + (['mean_cbf_score'] if scorescrub else [])
     # lr_sparse maps each corrected CBF map to its validity mask: resampled and parcellated.
-    # lr_sparse_other does the same for the multi-delay ATT maps: resampled, not parcellated.
+    # lr_sparse_other does the same for the multi-delay ATT maps.
     lr_sparse = {}
     lr_sparse_other = {}
     lr_native = []
@@ -1149,9 +1152,15 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         if config.execution.atlases:
             load_atlases_wf = init_load_atlases_wf(name='load_atlases_wf')
 
+            # Parcellate every perfusion map except the posterior standard deviations,
+            # whose parcel means are not parcel standard deviations.
+            parcellated_derivs = cbf_3d_derivs + [
+                deriv for deriv in att_derivs if deriv not in basil_sd_derivs
+            ]
+            parcellated_sparse = {**lr_sparse, **lr_sparse_other}
             parcellate_cbf_wf = init_parcellate_cbf_wf(
-                cbf_3d=cbf_3d_derivs,
-                sparse_3d=lr_sparse,
+                maps_3d=parcellated_derivs,
+                sparse_3d=parcellated_sparse,
                 mem_gb=mem_gb['resampled'],
                 omp_nthreads=omp_nthreads,
                 name='parcellate_cbf_wf',
@@ -1178,8 +1187,10 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ]),
             ])  # fmt:skip
 
-            lr_parcellated = list(lr_sparse) + sorted(set(lr_sparse.values()))
-            for cbf_deriv in cbf_3d_derivs + lr_parcellated:
+            sparse_parcellated = list(parcellated_sparse) + sorted(
+                set(parcellated_sparse.values())
+            )
+            for cbf_deriv in parcellated_derivs + sparse_parcellated:
                 workflow.connect([
                     (cbf_wf, parcellate_cbf_wf, [
                         (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),

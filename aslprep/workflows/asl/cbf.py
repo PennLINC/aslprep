@@ -20,7 +20,7 @@ from aslprep.interfaces.cbf import (
     ExtractCBF,
     ScoreAndScrubCBF,
 )
-from aslprep.interfaces.parcellation import NiftiParcellate, StackParcellatedTables
+from aslprep.interfaces.parcellation import NiftiParcellate
 from aslprep.utils.asl import (
     BOLUS_CUTOFF_TECHNIQUES,
     describe_labeling_efficiency,
@@ -780,14 +780,14 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
 
 
 def init_parcellate_cbf_wf(
-    cbf_3d,
+    maps_3d,
     sparse_3d=None,
     min_coverage=0.5,
     mem_gb=0.1,
     omp_nthreads=1,
     name='parcellate_cbf_wf',
 ):
-    """Parcellate CBF results using a set of atlases.
+    """Parcellate CBF, ATT and other perfusion maps using a set of atlases.
 
     Atlases are in MNI152NLin6Asym space, but ASLPrep is not guaranteed to generate
     MNI152NLin6Asym-space derivatives.
@@ -802,19 +802,19 @@ def init_parcellate_cbf_wf(
 
             from aslprep.workflows.asl.cbf import init_parcellate_cbf_wf
 
-            wf = init_parcellate_cbf_wf(cbf_3d=["mean_cbf", "mean_cbf_score"])
+            wf = init_parcellate_cbf_wf(maps_3d=["mean_cbf", "mean_cbf_score"])
 
     Parameters
     ----------
-    cbf_3d : list of str
-        CBF maps to parcellate within the ASL brain mask.
+    maps_3d : list of str
+        Maps to parcellate within the ASL brain mask.
     sparse_3d : dict or None
-        CBF maps that are only estimated in some voxels, keyed by name, with the name of their
+        Maps that are only estimated in some voxels, keyed by name, with the name of their
         validity mask as the value. They are parcellated within that mask, so voxels that were
-        not estimated (stored as zero) do not enter parcel means, and their coverage files
+        not estimated (stored as zero) do not enter parcel means, and their coverage columns
         report estimation coverage.
     min_coverage : float
-        Parcels with less coverage than this are set to zero.
+        Parcels with less coverage than this are set to n/a.
     mem_gb : float
         Memory for the atlas warping and parcellation nodes.
     omp_nthreads : int
@@ -827,7 +827,7 @@ def init_parcellate_cbf_wf(
     source_file : str
         The ASL file the parcellated tables are named after.
     asl_mask : str
-        ASL brain mask; the grid the atlases are warped to, and the mask for ``cbf_3d`` maps.
+        ASL brain mask; the grid the atlases are warped to, and the mask for ``maps_3d``.
     aslref2anat_xfm : str
         Transform from the ASL reference to the anatomical image.
     mni2009c2anat_xfm : str
@@ -838,26 +838,27 @@ def init_parcellate_cbf_wf(
         The atlases, in MNI152NLin6Asym space.
     atlas_labels_files : list of str
         The atlases' label tables.
-    <each name in cbf_3d> : str
-        The CBF maps to parcellate within ``asl_mask``.
+    <each name in maps_3d> : str
+        The maps to parcellate within ``asl_mask``.
     <each key and value of sparse_3d> : str
-        The sparsely estimated CBF maps, and the validity masks they are parcellated within.
+        The sparsely estimated maps, and the validity masks they are parcellated within.
 
     Outputs
     -------
-    None. For each atlas, a parcellated CBF table (``*_scalarstats.tsv``) and a coverage table
+    None. For each atlas, a table of parcel means (``*_scalarstats.tsv``) and a coverage table
     (``*_coverage.tsv``) are written to the output directory. Each has a ``node`` column,
-    with one row per parcel, then one column per CBF map.
+    with one row per parcel, then one column per map, named ``<suffix>[_<desc>]`` after the
+    map's voxel-wise output (for example, ``cbf``, ``cbf_scrub`` or ``att_basil``).
     """
     sparse_3d = sparse_3d or {}
     workflow = Workflow(name=name)
     output_dir = config.execution.output_dir
 
     workflow.__desc__ = f"""\
-CBF maps were parcellated in ASL reference space using these atlases.
-In cases of partial coverage, either uncovered voxels (values of all zeros or NaNs) were
+CBF and other perfusion maps were parcellated in ASL reference space using these atlases.
+In cases of partial coverage, either uncovered voxels were
 ignored (when the parcel had >{min_coverage * 100}% coverage)
-or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% coverage).
+or the whole parcel was set to n/a (when the parcel had <{min_coverage * 100}% coverage).
 """
 
     input_fields = [
@@ -869,7 +870,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         'atlas_files',
         'atlas_labels_files',
     ]
-    input_fields += cbf_3d
+    input_fields += maps_3d
     input_fields += list(sparse_3d) + sorted(set(sparse_3d.values()))
     inputnode = pe.Node(
         niu.IdentityInterface(fields=input_fields),
@@ -941,76 +942,75 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         ]),
     ])  # fmt:skip
 
-    # Each estimate is parcellated separately, then the one-row tables are combined into one
-    # CBF table (scalarstats) and one coverage table per atlas, with one row per parcel and
-    # one column per estimate, as in BDT.
-    cbf_types = cbf_3d + list(sparse_3d)
-    estimates = [BASE_INPUT_FIELDS[cbf_type].get('desc', 'cbf') for cbf_type in cbf_types]
-    merge_cbf = pe.Node(
-        niu.Merge(len(cbf_types), no_flatten=True),
-        name='merge_cbf',
-        run_without_submitting=True,
-    )
-    merge_coverage = pe.Node(
-        niu.Merge(len(cbf_types), no_flatten=True),
-        name='merge_coverage',
-        run_without_submitting=True,
-    )
-    for i_type, cbf_type in enumerate(cbf_types, start=1):
-        parcellate_cbf = pe.MapNode(
-            NiftiParcellate(min_coverage=min_coverage),
-            name=f'parcellate_{cbf_type}',
-            iterfield=['atlas', 'atlas_labels'],
-            mem_gb=mem_gb,
+    # Every map is parcellated with each atlas in one node, which writes one table of parcel
+    # means (scalarstats) and one coverage table, with a row per parcel and a column per map.
+    map_names = maps_3d + list(sparse_3d)
+    columns = []
+    for map_name in map_names:
+        fields = BASE_INPUT_FIELDS[map_name]
+        columns.append(
+            '_'.join([fields['suffix']] + ([fields['desc']] if 'desc' in fields else []))
         )
 
+    merge_maps = pe.Node(
+        niu.Merge(len(map_names)),
+        name='merge_maps',
+        run_without_submitting=True,
+    )
+    merge_masks = pe.Node(
+        niu.Merge(len(map_names)),
+        name='merge_masks',
+        run_without_submitting=True,
+    )
+    for i_map, map_name in enumerate(map_names, start=1):
         workflow.connect([
-            (inputnode, parcellate_cbf, [
-                (cbf_type, 'in_file'),
-                (sparse_3d.get(cbf_type, 'asl_mask'), 'mask'),
-                ('atlas_labels_files', 'atlas_labels'),
-            ]),
-            (warp_atlases_to_asl_space, parcellate_cbf, [('output_image', 'atlas')]),
-            (parcellate_cbf, merge_cbf, [('timeseries', f'in{i_type}')]),
-            (parcellate_cbf, merge_coverage, [('coverage', f'in{i_type}')]),
+            (inputnode, merge_maps, [(map_name, f'in{i_map}')]),
+            (inputnode, merge_masks, [(sparse_3d.get(map_name, 'asl_mask'), f'in{i_map}')]),
         ])  # fmt:skip
+
+    parcellate = pe.MapNode(
+        NiftiParcellate(names=columns, min_coverage=min_coverage),
+        name='parcellate',
+        iterfield=['atlas', 'atlas_labels'],
+        mem_gb=mem_gb,
+    )
+    workflow.connect([
+        (inputnode, parcellate, [('atlas_labels_files', 'atlas_labels')]),
+        (merge_maps, parcellate, [('out', 'in_files')]),
+        (merge_masks, parcellate, [('out', 'masks')]),
+        (warp_atlases_to_asl_space, parcellate, [('output_image', 'atlas')]),
+    ])  # fmt:skip
 
     # Describe each column in the sidecars, as BIDS does for tabular files.
     node_meta = {'Description': 'Name of the parcel, from the atlas labels table.'}
     column_meta = {
         'scalarstats': {
-            estimate: {
+            column: {
                 'Description': (
-                    f'Mean in each parcel of: {BASE_INPUT_FIELDS[cbf_type]["Description"]} '
-                    'n/a for parcels with too little coverage.'
+                    f'Mean of {column} in each parcel, '
+                    f'or n/a for parcels with less than {min_coverage * 100}% coverage. '
+                    f'{BASE_INPUT_FIELDS[map_name]["Description"]}'
                 ),
-                'Units': BASE_INPUT_FIELDS[cbf_type]['Units'],
+                'Units': BASE_INPUT_FIELDS[map_name]['Units'],
             }
-            for estimate, cbf_type in zip(estimates, cbf_types, strict=True)
+            for column, map_name in zip(columns, map_names, strict=True)
         },
         'coverage': {
-            estimate: {
-                'Description': (
-                    'Fraction of each parcel in which this map was estimated: '
-                    f'{BASE_INPUT_FIELDS[cbf_type]["Description"]}'
-                ),
+            column: {
+                'Description': f'Fraction of each parcel in which {column} was estimated.',
             }
-            for estimate, cbf_type in zip(estimates, cbf_types, strict=True)
+            for column in columns
         },
     }
     # The column descriptions are passed to the datasinks as metadata keyword arguments.
     reserved = set(DerivativesDataSink._allowed_entities) | set(
         DerivativesDataSink.input_spec().copyable_trait_names()
     )
-    if clashes := reserved & ({'node'} | set(estimates)):
+    if clashes := reserved & ({'node'} | set(columns)):
         raise ValueError(f'Column names {sorted(clashes)} are datasink inputs or entities.')
 
-    for suffix, merge_node in (('scalarstats', merge_cbf), ('coverage', merge_coverage)):
-        stack = pe.Node(
-            StackParcellatedTables(estimates=estimates),
-            name=f'stack_{suffix}',
-        )
-        ds_stacked = pe.MapNode(
+    for suffix in ('scalarstats', 'coverage'):
+        ds_table = pe.MapNode(
             DerivativesDataSink(
                 base_directory=config.execution.aslprep_dir,
                 check_hdr=False,
@@ -1023,13 +1023,12 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             run_without_submitting=True,
         )
         workflow.connect([
-            (merge_node, stack, [('out', 'in_files')]),
-            (inputnode, ds_stacked, [
+            (inputnode, ds_table, [
                 ('source_file', 'source_file'),
                 ('atlas_names', 'atlas'),
             ]),
-            (stack, ds_stacked, [('out_files', 'in_file')]),
-            (atlas_srcs, ds_stacked, [('metadata', 'meta_dict')]),
+            (parcellate, ds_table, [(suffix, 'in_file')]),
+            (atlas_srcs, ds_table, [('metadata', 'meta_dict')]),
         ])  # fmt:skip
 
     return workflow

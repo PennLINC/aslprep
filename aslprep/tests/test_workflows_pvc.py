@@ -220,32 +220,36 @@ def test_init_cbf_wf_lr_pvc_through_plane_3d(tmp_path):
 
 
 def test_parcellate_cbf_wf_uses_validity_masks():
-    """LR maps are parcellated within their own validity masks, in the stacked tables."""
+    """LR maps are parcellated within their own validity masks, in the per-atlas tables."""
     from aslprep.workflows.asl.cbf import init_parcellate_cbf_wf
 
     reset_config()
     with mock_config():
         wf = init_parcellate_cbf_wf(
-            cbf_3d=['mean_cbf'],
+            maps_3d=['mean_cbf', 'mean_cbf_scrub', 'att_basil'],
             sparse_3d={'mean_cbf_gm_lr': 'gm_valid_lr'},
         )
-        masks = {
-            dst: src_field
-            for _, src_field, dst, dst_field in _edges(wf, src_name='inputnode')
-            if dst_field == 'mask'
-        }
-        assert masks['parcellate_mean_cbf'] == 'asl_mask'
-        assert masks['parcellate_mean_cbf_gm_lr'] == 'gm_valid_lr'
-        # One CBF table and one coverage table per atlas, with a column for each map.
+        # Each map, and the mask it is parcellated within, takes the same position.
+        maps = {dst_field: src_field for _, src_field, _, dst_field in _edges(wf, 'merge_maps')}
+        masks = {dst_field: src_field for _, src_field, _, dst_field in _edges(wf, 'merge_masks')}
+        assert [maps[f'in{i}'] for i in range(1, 5)] == [
+            'mean_cbf',
+            'mean_cbf_scrub',
+            'att_basil',
+            'mean_cbf_gm_lr',
+        ]
+        assert [masks[f'in{i}'] for i in range(1, 5)] == ['asl_mask'] * 3 + ['gm_valid_lr']
+
+        # One table of parcel means and one coverage table per atlas, with a column per map.
+        columns = ['cbf', 'cbf_scrub', 'att_basil', 'cbf_lrGM']
+        assert wf.get_node('parcellate').inputs.names == columns
         for suffix in ('scalarstats', 'coverage'):
-            assert wf.get_node(f'stack_{suffix}').inputs.estimates == ['cbf', 'lrGM']
             ds = wf.get_node(f'ds_{suffix}')
             assert ds.inputs.suffix == suffix
-            assert {'node', 'cbf', 'lrGM'} <= set(ds.interface._metadata)
-        assert wf.get_node('ds_scalarstats').interface._metadata['lrGM']['Units'] == (
-            'mL/100 g/min'
-        )
-        assert not [n for n in wf.list_node_names() if n.startswith('ds_mean_cbf')]
+            assert {'node', *columns} <= set(ds.interface._metadata)
+        units = wf.get_node('ds_scalarstats').interface._metadata
+        assert units['cbf_lrGM']['Units'] == 'mL/100 g/min'
+        assert units['att_basil']['Units'] == 's'
 
 
 def _multidelay_dataset(tmp_path):
@@ -291,7 +295,7 @@ def _stub_atlases_wf(name='load_atlases_wf'):
 
 
 def test_init_asl_wf_lr_pvc_multidelay(tmp_path, monkeypatch):
-    """The full workflow wires multi-delay PVC: ATT maps resampled, not parcellated (5.7.5)."""
+    """The full workflow wires multi-delay PVC: CBF and ATT maps resampled and parcellated."""
     from aslprep.workflows.asl import base
 
     monkeypatch.setattr(base, 'init_load_atlases_wf', _stub_atlases_wf)
@@ -308,9 +312,12 @@ def test_init_asl_wf_lr_pvc_multidelay(tmp_path, monkeypatch):
         # Both CBF and ATT maps are resampled with normalization ...
         assert 'ds_asl_std_wf.normalize_mean_cbf_gm_lr' in names
         assert 'ds_asl_std_wf.normalize_att_wm_lr' in names
-        # ... but only CBF maps are parcellated.
-        assert 'parcellate_cbf_wf.parcellate_mean_cbf_gm_lr' in names
-        assert not [n for n in names if n.startswith('parcellate_cbf_wf') and 'att' in n]
+        # ... and parcellated, with every non-SD perfusion map.
+        parcellate = wf.get_node('parcellate_cbf_wf').get_node('parcellate')
+        columns = parcellate.inputs.names
+        for column in ('cbf', 'att', 'abat', 'abv', 'cbf_lrGM', 'att_lrGM', 'att_lrWM'):
+            assert column in columns
+        assert not [c for c in columns if 'SD' in c]
         qc_edges = [
             e for e in _edges(wf, dst_name='cbf_confounds_wf') if e[3] == 'inputnode.pvc_qc'
         ]

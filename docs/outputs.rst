@@ -769,11 +769,11 @@ the maximum intensity of the ASL file in at least one volume, and
 Both are close to zero for data that are not clipped.
 
 
-***********************
-Parcellated CBF Results
-***********************
+*****************************
+Parcellated Perfusion Results
+*****************************
 
-*ASLPrep* produces parcellated CBP outputs using a series of atlases.
+*ASLPrep* produces parcellated CBF, ATT, aBAT and aBV outputs using a series of atlases.
 
 The atlases currently used in *ASLPrep* can be separated into three groups: subcortical, cortical,
 and combined cortical/subcortical.
@@ -816,15 +816,19 @@ as outputting the reference image-space versions would produce too many extra ou
             <source_entities>_atlas-<label>_scalarstats.tsv
             <source_entities>_atlas-<label>_coverage.tsv
 
-Each atlas has one table of parcellated CBF (``scalarstats``) and one coverage table,
+Each atlas has one table of parcel means (``scalarstats``) and one coverage table,
 each with a JSON sidecar.
-Both tables have one row per parcel and one column per CBF map,
+Both tables have one row per parcel and one column per map,
 the same layout as the `BIDS Derivatives Toolbox <https://github.com/PennLINC/bdt>`_.
 The first column, ``node``, is the parcel's name from the atlas's labels table.
-Each other column is named after the ``desc`` entity of the voxel-wise CBF map
-(for example, ``score``, ``basilGM`` or ``lrGM``), or ``cbf`` for the CBF map without one.
-The sidecar describes each column.
-The ``scalarstats`` table gives each parcel's mean CBF,
+Each other column is named ``<suffix>[_<desc>]`` after the map's voxel-wise output:
+for example, ``cbf``, ``cbf_scrub``, ``cbf_basilGM``, ``cbf_lrGM``, ``att``, ``att_basil``
+or ``abv``.
+Every CBF, ATT, aBAT and aBV map is parcellated,
+but not the BASIL posterior standard deviations (``desc-basilSD``),
+whose parcel means are not parcel standard deviations.
+The sidecar describes each column and gives its units.
+The ``scalarstats`` table gives each parcel's mean,
 and is ``n/a`` for parcels with too little coverage.
 The coverage table gives the fraction of each parcel in which that map was estimated.
 Coverage is the same for every map estimated over the whole brain mask,
@@ -835,9 +839,9 @@ For example, with ``--scorescrub``, the ``scalarstats`` table for one atlas look
 
 .. code-block:: text
 
-   node      cbf   score  scrub
-   LH_Vis_1  52.1  50.8   51.0
-   LH_Vis_2  61.3  59.9   60.2
+   node      cbf   cbf_score  cbf_scrub
+   LH_Vis_1  52.1  50.8       51.0
+   LH_Vis_2  61.3  59.9       60.2
    ...
 
 
