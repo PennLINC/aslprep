@@ -132,3 +132,14 @@ def test_nifti_parcellate_empty_mask(tmp_path):
     assert timeseries.shape == (1, 2)
     assert timeseries.isna().all().all()
     np.testing.assert_array_equal(coverage['coverage'].to_numpy(), [0.0, 0.0])
+
+
+def test_nifti_parcellate_empty_mask_4d(tmp_path):
+    """With an empty mask, a 4D series keeps one (missing) row per volume."""
+    results = NiftiParcellate(
+        min_coverage=0.5,
+        **_parcellation_inputs(tmp_path, np.zeros((4, 4, 4, 3)), np.zeros((4, 4, 4), bool)),
+    ).run(cwd=tmp_path)
+    timeseries = pd.read_table(results.outputs.timeseries)
+    assert timeseries.shape == (3, 2)
+    assert timeseries.isna().all().all()

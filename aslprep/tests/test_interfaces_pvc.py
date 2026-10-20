@@ -102,6 +102,30 @@ def test_partial_volume_maps_transform_direction(pv_inputs, tmp_path):
     assert meta['SliceEncodingAxis'] == 'k'
 
 
+def test_partial_volume_maps_nominal_ignores_header_zooms(pv_inputs, tmp_path):
+    """'nominal' uses the affine's voxel size, so header zooms that disagree add no blur."""
+    ref_img = nb.load(pv_inputs['ref'])
+    bad_ref = tmp_path / 'ref_bad_zooms.nii.gz'
+    img = nb.Nifti1Image(np.asanyarray(ref_img.dataobj), ref_img.affine)
+    for zooms, name in (((3.0, 3.0, 3.0), 'smaller'), ((5.0, 5.0, 5.0), 'larger')):
+        img.header.set_zooms(zooms)
+        img.to_filename(bad_ref)
+        assert nb.load(bad_ref).header.get_zooms()[:3] == zooms
+        (tmp_path / name).mkdir()
+        results = pvc.PartialVolumeMaps(
+            gm_tpm=str(pv_inputs['gm']),
+            wm_tpm=str(pv_inputs['wm']),
+            csf_tpm=str(pv_inputs['csf']),
+            reference=str(bad_ref),
+            aslref2anat_xfm=str(pv_inputs['xfm']),
+            metadata={'MRAcquisitionType': '2D'},
+            effective_resolution='nominal',
+        ).run(cwd=tmp_path / name)
+        meta = results.outputs.pv_metadata
+        assert meta['EffectiveResolution'] == [4.0, 4.0, 4.0]
+        assert meta['GaussianSigma'] == [0.0, 0.0, 0.0]
+
+
 def test_partial_volume_maps_blur(pv_inputs, tmp_path):
     """A wider effective resolution spreads the tissue but keeps its volume."""
     kwargs = {

@@ -77,9 +77,11 @@ class NiftiParcellate(SimpleInterface):
             # partial-volume corrected CBF). Nilearn rejects empty masks, so write the outputs
             # directly: no parcel has coverage or a value.
             LOGGER.warning(f'The mask {mask} is empty, so every parcel has 0% coverage.')
+            in_shape = nb.load(self.inputs.in_file).shape
+            n_volumes = in_shape[3] if len(in_shape) == 4 else 1
             self._write_outputs(
                 runtime,
-                timeseries_arr=np.full((1, len(node_labels)), np.nan),
+                timeseries_arr=np.full((n_volumes, len(node_labels)), np.nan),
                 parcel_coverage=np.zeros(len(node_labels)),
                 node_labels=node_labels,
             )

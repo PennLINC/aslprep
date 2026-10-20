@@ -506,8 +506,12 @@ the same calibration the uncorrected CBF uses.
 The uncorrected CBF maps are always kept; partial volume correction is recommended as an
 additional analysis, not a replacement :footcite:p:`chappell2021partial`.
 
-- As for BASIL, each value is the CBF of the *tissue* in that voxel, and each map is written
-  only where its tissue makes up at least 10% of the voxel.
+- As for BASIL, each value estimates the CBF of the *tissue* in that voxel, and each map is
+  written only where its tissue makes up at least 10% of the voxel.
+  Like the uncorrected CBF, it is calibrated with the voxel's own M0, not a tissue-specific
+  one. In a mixed voxel that M0 averages the tissues' M0, so where gray and white matter M0
+  differ (their water contents differ by roughly 10-20%), each tissue's estimate carries
+  part of that difference.
   Elsewhere, and where the fit failed, the value is zero.
   ``desc-lr_pvstatus`` says which: 1 for a gray and white matter fit,
   2 or 3 for a fit of gray or white matter alone (when the other tissue's contribution to that

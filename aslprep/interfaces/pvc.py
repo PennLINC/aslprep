@@ -81,7 +81,9 @@ class PartialVolumeMaps(SimpleInterface):
     def _run_interface(self, runtime):
         ref_img = nb.load(self.inputs.reference)
         ref_affine = ref_img.affine
-        voxel_size = tuple(float(v) for v in ref_img.header.get_zooms()[:3])
+        # The same voxel size build_pv_maps integrates over (the affine's column norms), so
+        # 'nominal' always means no blur beyond the voxel, even if the header zooms disagree.
+        voxel_size = tuple(float(v) for v in np.sqrt((ref_affine[:3, :3] ** 2).sum(axis=0)))
         slice_axis = get_slice_axis(self.inputs.metadata)
 
         resolution = resolve_effective_resolution(
