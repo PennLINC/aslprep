@@ -528,8 +528,12 @@ def score_frames(fixture, aslprep_dir):
     a = np.stack([np.linalg.inv(h[v]) @ poses[v] for v in range(len(poses))])
     moving = fixture.motion is not None
     # Motion-correction error per volume, relative to the first volume's: whether the series
-    # was brought into register with itself (the aslref's own pose cancels out).
-    errors_hmc = [tg.rms_displacement(a[v] @ np.linalg.inv(a[0]), points) for v in range(len(a))]
+    # was brought into register with itself (the aslref's own pose cancels out). The relative
+    # transform acts on aslref coordinates, so it is evaluated where the brain lies there.
+    ref_points = tg.apply_points(a[0], points)
+    errors_hmc = [
+        tg.rms_displacement(a[v] @ np.linalg.inv(a[0]), ref_points) for v in range(len(a))
+    ]
     out['motion'] = {
         'rms_error_median_mm': float(np.median(errors_hmc)),
         'rms_error_max_mm': float(np.max(errors_hmc)),
@@ -537,7 +541,8 @@ def score_frames(fixture, aslprep_dir):
     }
     if fixture.motion_shots is not None:
         # Report-only: the within-volume motion of each volume that no rigid correction can
-        # remove, the floor under rms_error for a volume whose slices or segments moved apart.
+        # remove. rms_error measures HMC against the best rigid fit, so it does not include this:
+        # it stays in the corrected images as slices or segments out of register.
         misfit = fixture.shot_fits()[1]
         out['motion']['within_volume_rms_max_mm'] = float(misfit.max())
         out['motion']['within_volume_rms_by_volume_mm'] = [float(m) for m in misfit]
