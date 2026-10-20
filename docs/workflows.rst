@@ -795,6 +795,11 @@ BASIL is mostly suitable for multi-delay ASL data.
 It includes arterial transit time (ATT) estimation with spatial regularization :footcite:p:`groves2009combined`
 and the correction of partial volume effects :footcite:p:`chappell2011partial`.
 
+As in *ASLPrep*'s own models, the bolus duration is fixed (``--fixbolus``):
+it is the labeling duration for (P)CASL data,
+and the bolus cut-off delay time (TI1) for PASL data with a bolus cut-off.
+Without this flag, ``oxford_asl`` would estimate the bolus duration for multi-delay PASL data.
+
 A sample of BASIL CBF with spatial regularization is shown below:
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-basilplot_asl.svg
