@@ -1602,6 +1602,53 @@ def fit_deltam_multipld(
     return cbf, att, abat, abv, failures, bounds
 
 
+def slice_shifted_delays(delays, metadata, ref_img):
+    """Build a 4D image of delays, each shifted by the acquisition time of its slice.
+
+    Parameters
+    ----------
+    delays : array_like
+        The delays (PLDs or inflow times), one per volume of the output image.
+    metadata : :obj:`dict`
+        ASL metadata, with ``SliceTiming`` and (optionally) ``SliceEncodingDirection``.
+    ref_img : :obj:`nibabel.Nifti1Image`
+        An image on the acquired grid, which sets the output's shape, affine, and header.
+
+    Returns
+    -------
+    :obj:`nibabel.Nifti1Image`
+        Of shape (X, Y, Z, n_delays).
+    """
+    delays = np.atleast_1d(np.asarray(delays, dtype=float))
+    slice_times = np.asarray(metadata['SliceTiming'], dtype=float)
+    if not np.all(np.isfinite(slice_times)):
+        raise ValueError(f'SliceTiming has non-finite values: {metadata["SliceTiming"]}')
+
+    # Determine which axis slices come from.
+    # ASL data typically acquires along z axis, from inferior to superior.
+    slice_encoding_direction = metadata.get('SliceEncodingDirection', 'k')
+    slice_encoding_axis = 'ijk'.index(slice_encoding_direction[0])
+
+    shape = ref_img.shape[:3]
+    if slice_times.size != shape[slice_encoding_axis]:
+        raise ValueError(
+            f'Number of slices ({shape[slice_encoding_axis]}) != slice times ({slice_times.size})'
+        )
+
+    # Reverse the slice times if slices go from maximum index to zero.
+    if slice_encoding_direction.endswith('-'):
+        slice_times = slice_times[::-1]
+
+    # Make all 4 dims singletons, except the slice encoding axis, which has the slice times.
+    new_dims = [0, 1, 2, 3]
+    new_dims.pop(slice_encoding_axis)
+    slice_times = np.expand_dims(slice_times, new_dims)
+
+    # A 4D array of delays, matching the shape of the ASL data, shifted by the slice times
+    delay_brain = np.tile(delays, list(shape) + [1]) + slice_times
+    return nb.Nifti1Image(delay_brain, ref_img.affine, ref_img.header)
+
+
 def voxel_delays(metadata, deltam_img, masker, n_voxels, is_multi_pld):
     """Build the delay (PLD or TI) of each voxel and volume, shifted by the slice times.
 
@@ -1632,8 +1679,6 @@ def voxel_delays(metadata, deltam_img, masker, n_voxels, is_multi_pld):
     if not np.all(np.isfinite(plds)):
         raise ValueError(f'PostLabelingDelay has non-finite values: {plds.tolist()}')
     if 'SliceTiming' in metadata:
-        if not np.all(np.isfinite(np.asarray(metadata['SliceTiming'], dtype=float))):
-            raise ValueError(f'SliceTiming has non-finite values: {metadata["SliceTiming"]}')
         # Offset PLD(s) by slice times.
         # If there are multiple PLDs, then the second dimension of the PLD array will
         # correspond to volumes in the time series.
@@ -1641,34 +1686,9 @@ def voxel_delays(metadata, deltam_img, masker, n_voxels, is_multi_pld):
             '2D acquisition with slice timing information detected. '
             'Shifting post-labeling delay values across the brain by slice times.'
         )
-        slice_times = np.array(metadata['SliceTiming'])
-
-        # Determine which axis slices come from.
-        # ASL data typically acquires along z axis, from inferior to superior.
-        slice_encoding_direction = metadata.get('SliceEncodingDirection', 'k')
-        slice_encoding_axis = 'ijk'.index(slice_encoding_direction[0])
-
-        shape = deltam_img.shape[:3]
-        if slice_times.size != shape[slice_encoding_axis]:
-            raise ValueError(
-                f'Number of slices ({shape[slice_encoding_axis]}) != '
-                f'slice times ({slice_times.size})'
-            )
-
-        # Reverse the slice times if slices go from maximum index to zero.
-        if slice_encoding_direction.endswith('-'):
-            slice_times = slice_times[::-1]
-
-        # Make all 4 dims singletons, except the slice encoding axis, which has the slice times.
-        new_dims = [0, 1, 2, 3]
-        new_dims.pop(slice_encoding_axis)
-        slice_times = np.expand_dims(slice_times, new_dims)
-
-        # A 4D array of PLDs, matching the shape of the ASL data, shifted by the slice times
-        pld_brain = np.tile(plds, list(shape) + [1]) + slice_times
+        pld_img = slice_shifted_delays(plds, metadata, deltam_img)
 
         # Mask the PLD array to go from (X, Y, Z, delay) to (S, delay)
-        pld_img = nb.Nifti1Image(pld_brain, deltam_img.affine, deltam_img.header)
         return masker.transform(pld_img).T, pld_img
 
     if is_multi_pld:
