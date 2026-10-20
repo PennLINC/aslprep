@@ -163,6 +163,55 @@ def count_reduced_volumes(aslcontext, processing_target):
     return int(volume_types.isin(get_kept_volume_types(processing_target)).sum())
 
 
+#: Typical labeling efficiency of each labeling type, used when the metadata do not give one.
+#: PCASL and PASL values are from Alsop et al. (2015); the CASL value is from Wang et al. (2005).
+TYPICAL_LABELING_EFFICIENCY = {
+    'CASL': 0.68,
+    'PCASL': 0.85,
+    'PASL': 0.98,
+}
+
+#: Fraction of the label left by each background suppression pulse (Alsop et al., 2015).
+BACKGROUND_SUPPRESSION_PULSE_EFFICIENCY = 0.95
+
+
+def background_suppression_pulses(metadata):
+    """Determine how many background suppression pulses reduced the label.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata from the ASL file.
+
+    Returns
+    -------
+    n_pulses : :obj:`int`
+        The number of pulses. Zero if background suppression was not applied.
+    source : {"metadata", "inferred", "default"}
+        Where the number came from:
+        ``BackgroundSuppressionNumberPulses`` (or ``BackgroundSuppression`` being false or
+        absent), the number of ``BackgroundSuppressionPulseTime`` values,
+        or an assumed single pulse when neither field is defined.
+    """
+    if not metadata.get('BackgroundSuppression', False):
+        return 0, 'metadata'
+
+    if 'BackgroundSuppressionNumberPulses' in metadata:
+        n_pulses = metadata['BackgroundSuppressionNumberPulses']
+        if isinstance(n_pulses, bool) or n_pulses != int(n_pulses) or n_pulses < 0:
+            raise ValueError(
+                'BackgroundSuppressionNumberPulses must be a non-negative integer, '
+                f'but it is {n_pulses}.'
+            )
+        return int(n_pulses), 'metadata'
+
+    pulse_times = metadata.get('BackgroundSuppressionPulseTime')
+    if pulse_times is not None and np.size(pulse_times) > 0:
+        return int(np.size(pulse_times)), 'inferred'
+
+    return 1, 'default'
+
+
 def estimate_labeling_efficiency(metadata, warn=True):
     """Estimate labeling efficiency based on the available metadata.
 
@@ -193,37 +242,30 @@ def estimate_labeling_efficiency(metadata, warn=True):
     :footcite:p:`alsop_recommended_2015`.
     The BIDS LabelingEfficiency field describes the labeling alone, so it does not include
     this loss.
-    If BackgroundSuppressionNumberPulses is not defined, one pulse is assumed.
+    If BackgroundSuppressionNumberPulses is not defined, the number of pulses is taken from
+    BackgroundSuppressionPulseTime, or one pulse is assumed if that is not defined either
+    (see :func:`background_suppression_pulses`).
 
     References
     ----------
     .. footbibliography::
     """
-    BASE_LABELEFF = {
-        'CASL': 0.68,
-        'PCASL': 0.85,
-        'PASL': 0.98,
-    }
-    BS_PULSE_EFF = 0.95  # hardcoded BackgroundSuppressionPulse efficiency
-
     if 'LabelingEfficiency' in metadata.keys():
         labeleff = metadata['LabelingEfficiency']
     else:
-        labeleff = BASE_LABELEFF[metadata['ArterialSpinLabelingType']]
+        labeleff = TYPICAL_LABELING_EFFICIENCY[metadata['ArterialSpinLabelingType']]
 
-    if metadata.get('BackgroundSuppression', False):
-        if warn and 'BackgroundSuppressionNumberPulses' not in metadata.keys():
-            from aslprep import config
+    n_pulses, source = background_suppression_pulses(metadata)
+    if warn and source == 'default':
+        from aslprep import config
 
-            config.loggers.utils.warning(
-                'BackgroundSuppression is true, but BackgroundSuppressionNumberPulses is not '
-                'defined. Assuming one background suppression pulse to estimate the labeling '
-                'efficiency.'
-            )
+        config.loggers.utils.warning(
+            'BackgroundSuppression is true, but BackgroundSuppressionNumberPulses is not '
+            'defined. Assuming one background suppression pulse to estimate the labeling '
+            'efficiency.'
+        )
 
-        labeleff *= BS_PULSE_EFF ** metadata.get('BackgroundSuppressionNumberPulses', 1)
-
-    return labeleff
+    return labeleff * BACKGROUND_SUPPRESSION_PULSE_EFFICIENCY**n_pulses
 
 
 def get_inflow_times(metadata, is_casl):
@@ -588,8 +630,8 @@ def describe_asl_acquisition(metadata, aslcontext):
     if 'BackgroundSuppression' in metadata:
         if metadata['BackgroundSuppression']:
             sentence += ', with background suppression'
-            n_pulses = metadata.get('BackgroundSuppressionNumberPulses')
-            if n_pulses is not None:
+            n_pulses, pulse_source = background_suppression_pulses(metadata)
+            if pulse_source != 'default':
                 sentence += f' ({_plural(n_pulses, "pulse")})'
         else:
             sentence += ', without background suppression'
@@ -737,13 +779,19 @@ def describe_labeling_efficiency(metadata):
         source = f'the typical labeling efficiency for {asl_type} [{citation}]'
 
     text = f'a labeling efficiency of {labeleff:.3g} ({source}'
-    if metadata.get('BackgroundSuppression', False):
-        n_pulses = metadata.get('BackgroundSuppressionNumberPulses')
-        if n_pulses is None:
+    n_pulses, pulse_source = background_suppression_pulses(metadata)
+    if n_pulses:
+        if pulse_source == 'default':
             text += (
                 ', multiplied by 0.95 for the loss of label from one background suppression '
                 'pulse, which was assumed because the number of pulses was not specified '
                 '[@alsop_recommended_2015]'
+            )
+        elif pulse_source == 'inferred':
+            text += (
+                ', multiplied by 0.95 for the loss of label from each of the '
+                f'{_plural(n_pulses, "background suppression pulse")}, counted from the '
+                'background suppression pulse times [@alsop_recommended_2015]'
             )
         else:
             text += (

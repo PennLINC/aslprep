@@ -303,3 +303,46 @@ class AboutSummary(SummaryInterface):
             command=self.inputs.command,
             date=time.strftime('%Y-%m-%d %H:%M:%S %z'),
         )
+
+
+class _CalibrationSummaryInputSpec(BaseInterfaceInputSpec):
+    calibration = traits.Dict(
+        mandatory=True,
+        desc='Calibration specification, from aslprep.utils.calibration.resolve_calibration.',
+    )
+
+
+class CalibrationSummary(SummaryInterface):
+    """A table of the calibration and physiological parameters used to quantify CBF."""
+
+    input_spec = _CalibrationSummaryInputSpec
+
+    def _generate_segment(self):
+        from html import escape
+
+        rows = []
+        for name, param in self.inputs.calibration['Parameters'].items():
+            value = param['Value']
+            if isinstance(value, float):
+                value = f'{value:.4g}'
+            if param['Units'] and param['Units'] != 'fraction':
+                value = f'{value} {param["Units"]}'
+            rows.append(
+                f'\t\t\t<tr><td>{escape(name)}</td><td>{escape(str(value))}</td>'
+                f'<td>{escape(param["Source"])}</td><td>{escape(param["Origin"])}</td></tr>'
+            )
+
+        warnings = ''.join(
+            f'\t\t\t<li>{escape(warning)}</li>\n'
+            for warning in self.inputs.calibration['Warnings']
+        )
+        if warnings:
+            warnings = f'\t\t<p>Warnings:</p>\n\t\t<ul class="elem-desc">\n{warnings}\t\t</ul>\n'
+
+        rows = '\n'.join(rows)
+        return f"""\t\t<h3 class="elem-title">Calibration parameters</h3>
+\t\t<table class="table table-sm">
+\t\t\t<tr><th>Parameter</th><th>Value</th><th>Source</th><th>Origin</th></tr>
+{rows}
+\t\t</table>
+{warnings}"""

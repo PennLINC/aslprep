@@ -2,8 +2,6 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for calculating CBF."""
 
-from numbers import Number
-
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
@@ -25,20 +23,20 @@ from aslprep.utils.asl import (
     BOLUS_CUTOFF_TECHNIQUES,
     describe_labeling_efficiency,
     determine_multi_pld,
-    estimate_labeling_efficiency,
     get_bolus_duration,
     get_inflow_times,
     infer_m0tr,
     pcasl_or_pasl,
     prepare_basil_kwargs,
 )
-from aslprep.utils.cbf import (
-    M0_THRESHOLD,
-    PARTITION_COEFFICIENT,
-    REFERENCE_HAEMATOCRIT,
-    estimate_t1,
-    haematocrit_applies,
+from aslprep.utils.calibration import (
+    DEFAULT_M0_SCALE,
+    DEFAULT_SMOOTH_KERNEL,
+    basil_calibration_inputs,
+    calibration_value,
+    resolve_calibration,
 )
+from aslprep.utils.cbf import REFERENCE_HAEMATOCRIT, T1BLOOD_BY_FIELD_STRENGTH
 from aslprep.utils.pvc import check_lr_pvc_supported
 from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
 from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf, lr_pvc_fields
@@ -71,6 +69,7 @@ def init_cbf_wf(
     pvc_method='none',
     pvc_kernel_size=(5, 5, 1),
     asl_effective_resolution='nominal',
+    calibration=None,
     name='cbf_wf',
 ):
     """Create a workflow for :abbr:`CCBF (compute cbf)`.
@@ -110,6 +109,7 @@ def init_cbf_wf(
     scorescrub
     basil
     m0_scale
+        Used only to resolve ``calibration`` when it is None.
     smooth_kernel
     pvc_method : {'none', 'local-regression'}
         Additional partial volume correction of the mean CBF (and SCORE) maps.
@@ -117,6 +117,11 @@ def init_cbf_wf(
         Local-regression kernel size, ordered (in-plane, in-plane, slice).
     asl_effective_resolution : :obj:`str` or :obj:`list` of :obj:`float`
         Effective resolution used to build the partial volume maps.
+    calibration : :obj:`dict` or None
+        The calibration specification that every quantification step uses
+        (see :func:`~aslprep.utils.calibration.resolve_calibration`).
+        If None, it is resolved from ``metadata``, ``m0_scale`` and ``smooth_kernel``.
+        Not used for pre-calculated CBF data.
     name : :obj:`str`
         Name of workflow (default: ``cbf_wf``)
 
@@ -197,16 +202,40 @@ Cerebral blood flow computation and denoising
         )
         basil = False
 
-    if m0type in ('Included', 'Separate'):
+    if processing_target != 'cbf' and calibration is None:
+        calibration = resolve_calibration(
+            metadata,
+            m0tr=m0tr,
+            m0scan_metadata=m0scan_metadata,
+            m0_scale=m0_scale,
+            m0_scale_source='user' if m0_scale != DEFAULT_M0_SCALE else 'default',
+            smooth_kernel=smooth_kernel,
+            smooth_kernel_source=('user' if smooth_kernel != DEFAULT_SMOOTH_KERNEL else 'default'),
+            basil=basil,
+        )
+        for warning in calibration['Warnings']:
+            config.loggers.workflow.warning(warning)
+
+    m0_str = ''
+    if calibration is not None:
+        m0_scale = calibration_value(calibration, 'M0Scale')
+        recovery_tr = calibration_value(calibration, 'M0RepetitionTime')
+        t1tissue = calibration_value(calibration, 'TissueT1')
+        m0_threshold = calibration_value(calibration, 'M0Threshold')
+
+    if processing_target == 'cbf':
+        # Pre-calculated CBF is not calibrated.
+        pass
+
+    elif m0type in ('Included', 'Separate'):
         m0_str = (
             'Calibration (M0) volumes associated with the ASL scan were smoothed with a '
             f'Gaussian kernel (FWHM={smooth_kernel} mm) and the average calibration image was '
             f'calculated. '
         )
-        if isinstance(m0tr, Number) and m0tr < 5:
-            _, t1tissue = estimate_t1(metadata=metadata)
+        if t1tissue is not None:
             m0_str += (
-                f'As the TR of the calibration volumes was less than 5 seconds ({m0tr}), '
+                f'As the TR of the calibration volumes was less than 5 seconds ({recovery_tr}), '
                 'the average calibration volume was divided by 1 - exp(-TR / T1) to '
                 'compensate for incomplete T1 recovery, as recommended in '
                 f'@alsop_recommended_2015, using a gray matter T1 of {t1tissue:g} s '
@@ -226,12 +255,23 @@ Cerebral blood flow computation and denoising
             'the control volumes were used as a substitute. '
             'The control volumes in the ASL scans were smoothed with a '
             f'Gaussian kernel (FWHM={smooth_kernel} mm) and the average control image was '
-            f'calculated and scaled by {m0_scale}.'
+            f'calculated'
         )
+        if t1tissue is not None:
+            m0_str += (
+                f'. As the TR of the control volumes was less than 5 seconds ({recovery_tr}), '
+                'the average control image was divided by 1 - exp(-TR / T1) to '
+                'compensate for incomplete T1 recovery, as recommended in '
+                f'@alsop_recommended_2015, using a gray matter T1 of {t1tissue:g} s '
+                '[@wright2008water], and then scaled'
+            )
+        else:
+            m0_str += ' and scaled'
+        m0_str += f' by {m0_scale}.'
 
-    if m0type != 'Estimate':
+    if m0_str and m0_threshold is not None:
         m0_str += (
-            f' Voxels where it fell below {100 * M0_THRESHOLD:g}% of its 98th percentile were '
+            f' Voxels where it fell below {100 * m0_threshold:g}% of its 98th percentile were '
             'treated as having no signal, and were given no CBF estimate.'
         )
 
@@ -315,20 +355,25 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             'basis based on the slice timing.'
         )
 
-    t1blood = None
-    if processing_target != 'cbf':
-        # Also passed to BASIL, so both models use the same value.
-        t1blood, _ = estimate_t1(metadata=metadata)
-        if haematocrit_applies(metadata):
+    if calibration is not None:
+        # Every model (including BASIL) uses these values, from the calibration specification.
+        t1blood = calibration_value(calibration, 'BloodT1')
+        field_strength = calibration_value(calibration, 'MagneticFieldStrength')
+        if calibration['Parameters']['BloodT1']['Source'] == 'inferred':
             workflow.__desc__ += (
                 f' The T1 of arterial blood was set to {t1blood:.3f} s: '
-                f'the value for {metadata["MagneticFieldStrength"]:g} T, scaled for the '
-                f"participant's measured haematocrit ({metadata['Haematocrit']:g}) relative to "
+                f'the value for {field_strength:g} T, scaled for the '
+                f"participant's measured haematocrit "
+                f'({calibration_value(calibration, "Haematocrit"):g}) relative to '
                 f'a typical haematocrit of {REFERENCE_HAEMATOCRIT:g} [@lu2004determining], '
                 'using the model of @hales2016general.'
             )
+        elif field_strength not in T1BLOOD_BY_FIELD_STRENGTH:
+            workflow.__desc__ += (
+                f' The T1 of arterial blood was set to {t1blood:g} s, '
+                f'calculated from the field strength of {field_strength:g} T [@zhang2013vivo].'
+            )
         else:
-            field_strength = metadata['MagneticFieldStrength']
             t1blood_citation = (
                 '@alsop_recommended_2015' if field_strength in (1.5, 3) else '@zhang2013vivo'
             )
@@ -339,8 +384,8 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
 
         workflow.__desc__ += (
             ' CBF was calculated with a blood-brain partition coefficient of '
-            f'{PARTITION_COEFFICIENT:g} mL/g [@alsop_recommended_2015] and '
-            f'{describe_labeling_efficiency(metadata)}.'
+            f'{calibration_value(calibration, "PartitionCoefficient"):g} mL/g '
+            f'[@alsop_recommended_2015] and {describe_labeling_efficiency(metadata)}.'
         )
 
     # End the paragraph, so that the next workflow's description does not run into it.
@@ -525,7 +570,6 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
     compute_cbf = pe.Node(
         ComputeCBF(
             cbf_only=processing_target == 'cbf',
-            m0_scale=m0_scale,
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
             write_calibration=pvc_method != 'none',
@@ -535,12 +579,13 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
         run_without_submitting=not is_multi_pld,
         name='compute_cbf',
     )
+    if calibration is not None:
+        compute_cbf.inputs.calibration = calibration
 
     workflow.connect([
         (extract_deltam, compute_cbf, [
             ('out_file', 'deltam'),
             ('m0_file', 'm0_file'),
-            ('m0tr', 'm0tr'),
             ('metadata', 'metadata'),
         ]),
         (compute_cbf, outputnode, [
@@ -640,26 +685,14 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
 
         workflow.connect([(extract_deltam, determine_inflow_times, [('metadata', 'metadata')])])
 
-        # Node to estimate labeling efficiency
-        estimate_alpha = pe.Node(
-            niu.Function(
-                function=estimate_labeling_efficiency,
-                input_names=['metadata'],
-                output_names=['labeling_efficiency'],
-            ),
-            name='estimate_alpha',
-        )
-
-        workflow.connect([(extract_deltam, estimate_alpha, [('metadata', 'metadata')])])
-
         basil_kwargs = prepare_basil_kwargs(metadata)
 
         basilcbf = pe.Node(
             BASILCBF(
-                m0_scale=m0_scale,
                 pvc=basil_pvc,
                 pcasl=is_casl,
-                t1blood=t1blood,
+                # The calibration and physiological parameters of ASLPrep's own models
+                **basil_calibration_inputs(calibration),
                 **basil_kwargs,
             ),
             name='basilcbf',
@@ -675,7 +708,6 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
             ]),
             (determine_bolus_duration, basilcbf, [('bolus', 'bolus')]),
             (determine_inflow_times, basilcbf, [('tis', 'tis')]),
-            (estimate_alpha, basilcbf, [('labeling_efficiency', 'alpha')]),
             (basilcbf, outputnode, [
                 ('mean_cbf_basil', 'mean_cbf_basil'),
                 ('cbf_sd_basil', 'cbf_sd_basil'),
@@ -715,9 +747,6 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
                 ]),
             ])  # fmt:skip
 
-        if metadata['M0Type'] != 'Estimate':
-            workflow.connect([(extract_deltam, basilcbf, [('m0tr', 'm0tr')])])
-
     if lr_pvc:
         asl_pv_wf = init_asl_pv_wf(
             metadata=metadata,
@@ -731,6 +760,7 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
             mem_gb=_lr_pvc_mem_gb(name_source, fit_nthreads) if is_multi_pld else None,
+            calibration=calibration,
         )
         if is_multi_pld:
             # Each delay volume is unmixed, so the fit needs the delta-M series and the

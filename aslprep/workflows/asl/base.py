@@ -12,10 +12,17 @@ from aslprep.utils.asl import (
     count_reduced_volumes,
     describe_asl_acquisition,
     determine_multi_pld,
+    infer_m0tr,
     pcasl_or_pasl,
     select_processing_target,
 )
 from aslprep.utils.bids import collect_run_data
+from aslprep.utils.calibration import (
+    DEFAULT_M0_SCALE,
+    DEFAULT_SMOOTH_KERNEL,
+    calibration_sidecar,
+    resolve_calibration,
+)
 from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
 from aslprep.utils.misc import _get_wf_name, estimate_asl_mem_usage, get_n_volumes
 from aslprep.workflows.asl.apply import (
@@ -36,6 +43,7 @@ from aslprep.workflows.asl.fit import init_asl_fit_wf, init_asl_native_wf
 from aslprep.workflows.asl.outputs import (
     _remove_keys,
     init_ds_asl_native_wf,
+    init_ds_calibration_wf,
     init_ds_ciftis_wf,
     init_ds_pvc_native_wf,
     init_ds_volumes_wf,
@@ -255,6 +263,30 @@ def init_asl_wf(
     # The confounds and carpet plot workflows see the series reduced to the processing target,
     # which may have fewer volumes than the ASL file.
     n_reduced_vols = count_reduced_volumes(run_data['aslcontext'], processing_target)
+
+    # Resolve the calibration and physiological parameters once, for every model and output.
+    # Pre-calculated CBF is not quantified, so it has none.
+    calibration = None
+    calibration_metadata = None
+    if processing_target != 'cbf':
+        calibration = resolve_calibration(
+            metadata,
+            m0tr=infer_m0tr(
+                aslcontext=run_data['aslcontext'],
+                metadata=metadata,
+                m0scan_metadata=run_data['m0scan_metadata'],
+            ),
+            m0scan_metadata=run_data['m0scan_metadata'],
+            m0_scale=m0_scale,
+            m0_scale_source='user' if m0_scale != DEFAULT_M0_SCALE else 'default',
+            smooth_kernel=smooth_kernel,
+            smooth_kernel_source=('user' if smooth_kernel != DEFAULT_SMOOTH_KERNEL else 'default'),
+            haematocrit_source=run_data.get('haematocrit_source'),
+            basil=basil,
+        )
+        for warning in calibration['Warnings']:
+            config.loggers.workflow.warning(f'{asl_file}: {warning}')
+        calibration_metadata = calibration_sidecar(calibration)
 
     # Gradient nonlinearity correction, from --gradient-file and the ImageType metadata
     gradwarp_plan = resolve_gradwarp_plan(metadata=metadata, asl_file=asl_file)
@@ -506,8 +538,18 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         pvc_method=config.workflow.pvc_method,
         pvc_kernel_size=tuple(config.workflow.pvc_kernel_size),
         asl_effective_resolution=config.workflow.asl_effective_resolution,
+        calibration=calibration,
         name='cbf_wf',
     )
+
+    if calibration is not None:
+        # The calibration parameters and their report are always written, in every mode.
+        ds_calibration_wf = init_ds_calibration_wf(
+            source_file=asl_file,
+            output_dir=config.execution.aslprep_dir,
+            calibration=calibration,
+        )
+        workflow.add_nodes([ds_calibration_wf])
     workflow.connect([
         (inputnode, cbf_wf, [
             ('t1w_tpms', 'inputnode.t1w_tpms'),
@@ -553,6 +595,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
 
     if (config.workflow.level in ('minimal', 'resampling')) or aslref_out:
         ds_asl_native_wf = init_ds_asl_native_wf(
+            calibration_metadata=calibration_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -580,6 +623,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         # PVC outputs are always written in aslref space, where their standard errors,
         # diagnostics and partial volume maps are defined.
         ds_pvc_native_wf = init_ds_pvc_native_wf(
+            calibration_metadata=calibration_metadata,
             source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
             sources=lr_sources,
@@ -797,6 +841,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     # Write out anatomical-space derivatives.
     if nonstd_spaces.intersection(('anat', 'T1w')):
         ds_asl_t1_wf = init_ds_volumes_wf(
+            calibration_metadata=calibration_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -852,6 +897,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             name='asl_std_wf',
         )
         ds_asl_std_wf = init_ds_volumes_wf(
+            calibration_metadata=calibration_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -957,6 +1003,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         # The uninitialized fMRIPrep config will have config.workflow.ignore set to None
         # instead of a list, which will raise an error.
         asl_surf_wf = init_asl_surf_wf(
+            calibration_metadata=calibration_metadata,
             mem_gb=mem_gb['resampled'],
             metadata=metadata,
             surface_spaces=freesurfer_spaces,
@@ -1034,6 +1081,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
     if config.workflow.cifti_output:
         ds_asl_cifti_wf = init_ds_ciftis_wf(
+            calibration_metadata=calibration_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -1096,6 +1144,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
         config.loggers.workflow.debug('Creating ASL Workbench surface-resampling workflow.')
         asl_wb_surf_wf = init_asl_wb_surf_wf(
+            calibration_metadata=calibration_metadata,
             source_file=asl_file,
             surface_spaces=surf_std,
             metadata=metadata,
