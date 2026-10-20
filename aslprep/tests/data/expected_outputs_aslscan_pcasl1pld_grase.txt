@@ -62,6 +62,7 @@ sub-01/perf/sub-01_acq-pcasl1pldgrase_desc-basil_cbf.json
 sub-01/perf/sub-01_acq-pcasl1pldgrase_desc-basil_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcasl1pldgrase_desc-brain_mask.json
 sub-01/perf/sub-01_acq-pcasl1pldgrase_desc-brain_mask.nii.gz
+sub-01/perf/sub-01_acq-pcasl1pldgrase_desc-calibration_parameters.json
 sub-01/perf/sub-01_acq-pcasl1pldgrase_desc-confounds_timeseries.tsv
 sub-01/perf/sub-01_acq-pcasl1pldgrase_desc-coreg_aslref.json
 sub-01/perf/sub-01_acq-pcasl1pldgrase_desc-coreg_aslref.nii.gz

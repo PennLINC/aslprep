@@ -48,6 +48,7 @@ sub-01/perf/sub-01_acq-pcaslmultipld_cbf.json
 sub-01/perf/sub-01_acq-pcaslmultipld_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcaslmultipld_desc-brain_mask.json
 sub-01/perf/sub-01_acq-pcaslmultipld_desc-brain_mask.nii.gz
+sub-01/perf/sub-01_acq-pcaslmultipld_desc-calibration_parameters.json
 sub-01/perf/sub-01_acq-pcaslmultipld_desc-confounds_timeseries.tsv
 sub-01/perf/sub-01_acq-pcaslmultipld_desc-coreg_aslref.json
 sub-01/perf/sub-01_acq-pcaslmultipld_desc-coreg_aslref.nii.gz

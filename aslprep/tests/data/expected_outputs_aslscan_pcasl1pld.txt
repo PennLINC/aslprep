@@ -102,6 +102,7 @@ sub-01/perf/sub-01_acq-pcasl1pld_desc-basil_cbf.json
 sub-01/perf/sub-01_acq-pcasl1pld_desc-basil_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcasl1pld_desc-brain_mask.json
 sub-01/perf/sub-01_acq-pcasl1pld_desc-brain_mask.nii.gz
+sub-01/perf/sub-01_acq-pcasl1pld_desc-calibration_parameters.json
 sub-01/perf/sub-01_acq-pcasl1pld_desc-confounds_timeseries.tsv
 sub-01/perf/sub-01_acq-pcasl1pld_desc-coreg_aslref.json
 sub-01/perf/sub-01_acq-pcasl1pld_desc-coreg_aslref.nii.gz

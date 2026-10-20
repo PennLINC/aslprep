@@ -55,6 +55,7 @@ sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_desc-hmc_aslref.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_desc-hmc_aslref.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_desc-preproc_asl.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_desc-preproc_asl.nii.gz
+sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_desc-calibration_parameters.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_desc-qualitycontrol_cbf.tsv
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_desc-scoreTimeseries_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldsiemens3d_run-02_desc-scoreTimeseries_cbf.nii.gz
