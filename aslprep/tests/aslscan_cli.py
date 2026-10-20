@@ -84,6 +84,7 @@ def run_recipe(
     fwhm=5.0,
     score_spaces=(),
     extra_cbf=(),
+    lr_pvc=False,
 ):
     """Run ASLPrep on a fixture, score it against the truth, and write ``truth_score.json``.
 
@@ -128,7 +129,13 @@ def run_recipe(
         _write_score(test_dir, {'recipe': recipe_name, 'error': f'{type(exc).__name__}: {exc}'})
         raise
     score = ts.score_run(
-        fixture, out_dir, recipe.acq, fwhm=fwhm, spaces=score_spaces, extra_cbf=extra_cbf
+        fixture,
+        out_dir,
+        recipe.acq,
+        fwhm=fwhm,
+        spaces=score_spaces,
+        extra_cbf=extra_cbf,
+        lr_pvc=lr_pvc,
     )
     _write_score(test_dir, score)
     return RecipeRun(recipe_name, test_name, fixture, out_dir, score)

@@ -2,220 +2,64 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for writing out derivative files."""
 
+import yaml
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.utils.images import dseg_label
 
 from aslprep import config
+from aslprep.data import load as load_data
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import BIDSURI, DerivativesDataSink
+from aslprep.interfaces.pvc import DivideByWeight
 
-BASE_INPUT_FIELDS = {
-    'asl': {
-        'desc': 'preproc',
-        'suffix': 'asl',
-    },
-    'aslref': {
-        'suffix': 'aslref',
-    },
-    'asl_mask': {
-        'desc': 'brain',
-        'suffix': 'mask',
-    },
-    # CBF outputs
-    'cbf_ts': {
-        'desc': 'timeseries',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': 'Volume-wise cerebral blood flow, estimated by ASLPrep.',
-    },
-    'mean_cbf': {
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': 'Cerebral blood flow, estimated by ASLPrep.',
-    },
-    'att': {
-        'suffix': 'att',
-        'Units': 's',
-        'Description': (
-            'Arterial transit time. The time from labeling until the labeled blood water first '
-            'arrives in the voxel. '
-            'It depends on where the labeling plane or slab was placed. '
-            'Where a range of values fits the data equally well, this is one value from the range, '
-            'and the ends of the range are in the desc-lower and desc-upper maps.'
-        ),
-    },
-    'abat': {
-        'suffix': 'abat',
-        'Units': 's',
-        'Description': (
-            'Arterial bolus arrival time. '
-            'The time from labeling until the labeled blood water first arrives in the arteries '
-            'within the voxel. This is not the tissue arterial transit time (att). '
-            'The data only locate it within an interval set by the sampled delays, '
-            'so this is the midpoint of that interval, '
-            'and the ends of the interval are in the desc-lower and desc-upper maps.'
-        ),
-    },
-    'abv': {
-        'suffix': 'abv',
-        'Units': 'fraction',
-        'Description': (
-            'Arterial blood volume. The fraction of the voxel occupied by the arterial vessel. '
-            'For (P)CASL data, this value depends on the reported arterial bolus arrival time.'
-        ),
-    },
-    'att_lower': {
-        'desc': 'lower',
-        'suffix': 'att',
-        'Units': 's',
-        'Description': (
-            'Lower bound of the arterial transit time. '
-            'The shortest arterial transit time that fits the data as well as the estimate.'
-        ),
-    },
-    'att_upper': {
-        'desc': 'upper',
-        'suffix': 'att',
-        'Units': 's',
-        'Description': (
-            'Upper bound of the arterial transit time. '
-            'The longest arterial transit time that fits the data as well as the estimate.'
-        ),
-    },
-    'abat_lower': {
-        'desc': 'lower',
-        'suffix': 'abat',
-        'Units': 's',
-        'Description': (
-            'Lower bound of the arterial bolus arrival time. '
-            'The shortest arterial bolus arrival time that fits the data as well as the estimate.'
-        ),
-    },
-    'abat_upper': {
-        'desc': 'upper',
-        'suffix': 'abat',
-        'Units': 's',
-        'Description': (
-            'Upper bound of the arterial bolus arrival time. '
-            'The longest arterial bolus arrival time that fits the data as well as the estimate.'
-        ),
-    },
-    'abv_decayed': {
-        'desc': 'decayed',
-        'suffix': 'abv',
-        'Units': 'fraction',
-        'Description': (
-            'Arterial blood volume multiplied by exp(-aBAT / T1blood), '
-            'the decay of the label over the arterial bolus arrival time. '
-            'Unlike the arterial blood volume itself, '
-            'this product does not depend on where the arterial bolus arrival time falls '
-            'between the two sampled delays that enclose it.'
-        ),
-    },
-    # SCORE/SCRUB outputs
-    'cbf_ts_score': {
-        'desc': 'scoreTimeseries',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': (
-            'Volume-wise cerebral blood flow after SCORE denoising, estimated by ASLPrep.'
-        ),
-    },
-    'mean_cbf_score': {
-        'desc': 'score',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': 'Cerebral blood flow after SCORE denoising, estimated by ASLPrep.',
-    },
-    'mean_cbf_scrub': {
-        'desc': 'scrub',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': (
-            'Cerebral blood flow after SCORE and SCRUB denoising, estimated by ASLPrep.'
-        ),
-    },
-    # BASIL outputs
-    'mean_cbf_basil': {
-        'desc': 'basil',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': 'Cerebral blood flow, estimated by BASIL.',
-    },
-    'mean_cbf_gm_basil': {
-        'desc': 'basilGM',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': (
-            'Cerebral blood flow after gray matter partial volume correction, estimated by BASIL.'
-        ),
-    },
-    'mean_cbf_wm_basil': {
-        'desc': 'basilWM',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': (
-            'Cerebral blood flow after white matter partial volume correction, estimated by BASIL.'
-        ),
-    },
-    'att_basil': {
-        'desc': 'basil',
-        'suffix': 'att',
-        'Units': 's',
-        'Description': (
-            'Arterial transit time, estimated by BASIL. '
-            'The time from labeling until the labeled blood water first arrives in the voxel. '
-            'It depends on where the labeling plane or slab was placed.'
-        ),
-    },
-    'abv_basil': {
-        'desc': 'basil',
-        'suffix': 'abv',
-        'Units': 'fraction',
-        'Description': (
-            'Arterial (cerebral) blood volume, estimated by BASIL. '
-            'The fraction of the voxel occupied by the arterial vessel.'
-        ),
-    },
-    # BASIL posterior standard deviations
-    'cbf_sd_basil': {
-        'desc': 'basilSD',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': (
-            'Posterior standard deviation of the cerebral blood flow estimated by BASIL '
-            '(desc-basil). The square root of the posterior variance written by BASIL.'
-        ),
-    },
-    'cbf_gm_sd_basil': {
-        'desc': 'basilGMSD',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': (
-            'Posterior standard deviation of the gray matter partial-volume corrected '
-            'cerebral blood flow estimated by BASIL (desc-basilGM).'
-        ),
-    },
-    'cbf_wm_sd_basil': {
-        'desc': 'basilWMSD',
-        'suffix': 'cbf',
-        'Units': 'mL/100 g/min',
-        'Description': (
-            'Posterior standard deviation of the white matter partial-volume corrected '
-            'cerebral blood flow estimated by BASIL (desc-basilWM).'
-        ),
-    },
-    'att_sd_basil': {
-        'desc': 'basilSD',
-        'suffix': 'att',
-        'Units': 's',
-        'Description': (
-            'Posterior standard deviation of the arterial transit time estimated by BASIL '
-            '(desc-basil).'
-        ),
-    },
-}
+BASE_INPUT_FIELDS = yaml.safe_load(load_data.readable('base_input_fields.yml').read_text())
+"""Derivative entities and sidecar metadata of each output, from
+``aslprep/data/base_input_fields.yml``."""
+
+#: Local-regression partial volume correction outputs, per corrected CBF map.
+#: Keys are the corrected map's name in the CBF workflow; values are the desc prefix.
+LR_PVC_SOURCES = {'mean_cbf': 'lr', 'mean_cbf_score': 'scoreLR'}
+
+
+def lr_pvc_names(source):
+    """Return the output names of local-regression PVC applied to one CBF map.
+
+    Parameters
+    ----------
+    source : :obj:`str`
+        ``'mean_cbf'`` or ``'mean_cbf_score'``.
+
+    Returns
+    -------
+    :obj:`dict`
+        ``cbf`` (corrected CBF maps), ``se`` (their standard errors), ``valid`` (where they
+        were estimated, by corrected map), ``diagnostics`` (native-only fit diagnostics), and
+        ``csf`` (the native-only CSF quality-control map, its standard error, fit status and
+        noise amplification).
+    """
+    suffix = '' if source == 'mean_cbf' else '_score'
+    return {
+        'csf': [
+            f'mean_cbf_csf_lr{suffix}',
+            f'cbf_csf_se_lr{suffix}',
+            f'status_csf_lr{suffix}',
+            f'csf_noise_lr{suffix}',
+        ],
+        'cbf': [f'mean_cbf_gm_lr{suffix}', f'mean_cbf_wm_lr{suffix}'],
+        'se': [f'cbf_gm_se_lr{suffix}', f'cbf_wm_se_lr{suffix}'],
+        'valid': {
+            f'mean_cbf_gm_lr{suffix}': f'gm_valid_lr{suffix}',
+            f'mean_cbf_wm_lr{suffix}': f'wm_valid_lr{suffix}',
+        },
+        'diagnostics': [
+            f'status_lr{suffix}',
+            f'condition_lr{suffix}',
+            f'gm_noise_lr{suffix}',
+            f'wm_noise_lr{suffix}',
+            f'rmse_lr{suffix}',
+        ],
+    }
 
 
 def prepare_timing_parameters(metadata: dict):
@@ -802,6 +646,107 @@ def init_ds_asl_native_wf(
     return workflow
 
 
+def init_ds_pvc_native_wf(
+    *,
+    source_file: str,
+    output_dir: str,
+    sources: list[str],
+    name: str = 'ds_pvc_native_wf',
+) -> pe.Workflow:
+    """Write out local-regression partial volume correction outputs in aslref space.
+
+    The corrected CBF maps, their standard errors, the fit diagnostics and the PV maps are
+    always written in aslref space, because the standard errors, diagnostics and PV maps only
+    exist there.
+
+    Parameters
+    ----------
+    source_file : str
+        The ASL file the derivatives are named after.
+    output_dir : str
+        The output directory.
+    sources : list of str
+        The CBF maps that were corrected: ``mean_cbf``, and ``mean_cbf_score`` with SCORE.
+    name : str
+        Workflow name.
+
+    Inputs
+    ------
+    source_files
+        Files to list in each output's ``Sources`` field.
+    gm_pv, wm_pv, csf_pv
+        Partial volume maps on the ASL reference grid, written as
+        ``label-{GM,WM,CSF}_desc-psf_probseg``.
+    pv_metadata
+        Dictionary added to the PV maps' sidecars.
+    pvc_metadata
+        Dictionary added to the correction outputs' sidecars.
+    mean_cbf_gm_lr, mean_cbf_wm_lr
+        Corrected gray and white matter CBF (``desc-lrGM_cbf``, ``desc-lrWM_cbf``).
+    cbf_gm_se_lr, cbf_wm_se_lr
+        Their standard errors (``desc-lrGMSE_cbf``, ``desc-lrWMSE_cbf``).
+    status_lr, condition_lr, gm_noise_lr, wm_noise_lr, rmse_lr
+        Fit diagnostics (``desc-lr_pvstatus``, ``desc-lr_pvcondition``,
+        ``desc-lr{GM,WM}_pvnoise``, ``desc-lr_pvrmse``).
+    mean_cbf_csf_lr, cbf_csf_se_lr, status_csf_lr, csf_noise_lr
+        The CSF quality-control outputs (``desc-lrCSF_cbf``, ``desc-lrCSFSE_cbf``,
+        ``desc-lrCSF_pvstatus``, ``desc-lrCSF_pvnoise``).
+    mean_cbf_gm_lr_score, ..., csf_noise_lr_score
+        The same outputs for the SCORE CBF (``desc-scoreLR*``), when ``'mean_cbf_score'`` is in
+        ``sources``.
+
+    Outputs
+    -------
+    None. The inputs are written to ``output_dir``.
+    """
+    workflow = pe.Workflow(name=name)
+
+    names = []
+    for source in sources:
+        lr_names = lr_pvc_names(source)
+        names += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics'] + lr_names['csf']
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=['source_files', 'gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata']
+            + names
+        ),
+        name='inputnode',
+    )
+
+    sources_node = pe.Node(
+        BIDSURI(
+            numinputs=1,
+            dataset_links=config.execution.dataset_links,
+            out_dir=str(output_dir),
+        ),
+        name='sources',
+    )
+    workflow.connect([(inputnode, sources_node, [('source_files', 'in1')])])
+
+    for out_name in ['gm_pv', 'wm_pv', 'csf_pv'] + names:
+        fields = BASE_INPUT_FIELDS[out_name]
+        meta_field = 'pv_metadata' if out_name in ('gm_pv', 'wm_pv', 'csf_pv') else 'pvc_metadata'
+        ds = pe.Node(
+            DerivativesDataSink(
+                source_file=source_file,
+                base_directory=output_dir,
+                compress=True,
+                dismiss_entities=('echo',),
+                **fields,
+            ),
+            name=f'ds_{out_name}',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (inputnode, ds, [(out_name, 'in_file'), (meta_field, 'meta_dict')]),
+            (sources_node, ds, [('out', 'Sources')]),
+        ])  # fmt:skip
+
+    return workflow
+
+
 def init_ds_volumes_wf(
     *,
     source_file: str,
@@ -810,9 +755,61 @@ def init_ds_volumes_wf(
     cbf_3d: list[str],
     cbf_4d: list[str],
     att: list[str],
+    sparse_3d: dict[str, str] | None = None,
     name: str = 'ds_volumes_wf',
 ) -> pe.Workflow:
-    """Apply transforms from reference to anatomical/standard space and write out derivatives."""
+    """Apply transforms from reference to anatomical/standard space and write out derivatives.
+
+    Parameters
+    ----------
+    source_file : str
+        The ASL file the derivatives are named after.
+    bids_root : str
+        The BIDS dataset root.
+    output_dir : str
+        The output directory.
+    cbf_3d : list of str
+        Names of the 3D CBF maps to resample (``BASE_INPUT_FIELDS`` keys).
+    cbf_4d : list of str
+        Names of the 4D CBF series to resample.
+    att : list of str
+        Names of the multi-delay timing maps to resample (ATT, aBAT, aBV).
+    sparse_3d : dict or None
+        Maps that are only estimated in some voxels (zero elsewhere), keyed by name, with the
+        name of their validity mask as the value. They are resampled with validity-normalized
+        linear interpolation, so the zeros that stand for "not estimated" do not blend into the
+        estimates.
+    name : str
+        Workflow name.
+
+    Inputs
+    ------
+    source_files
+        Files to list in each output's ``Sources`` field.
+    ref_file
+        Reference image of the target space.
+    asl, asl_metadata
+        The ASL series resampled into the target space, and its metadata.
+    asl_mask, aslref
+        Brain mask and reference image in aslref space.
+    aslref2anat_xfm, anat2std_xfm
+        Transforms from aslref to the anatomical image and on to the target space.
+    template
+        The target space's reference image (listed in ``Sources``).
+    motion_xfm, aslref2fmap_xfm
+        Transforms previously used to generate the outputs.
+    space, cohort, resolution
+        Entities of the target space.
+    <each name in cbf_3d, cbf_4d and att>
+        The maps to resample, in aslref space.
+    <each key and value of sparse_3d>
+        The sparsely estimated maps and their validity masks, in aslref space.
+
+    Outputs
+    -------
+    None. The resampled maps are written to ``output_dir``.
+    """
+    sparse_3d = sparse_3d or {}
     workflow = pe.Workflow(name=name)
     inputnode_fields = [
         'source_files',
@@ -837,6 +834,7 @@ def init_ds_volumes_wf(
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
     inputnode_fields += att
+    inputnode_fields += list(sparse_3d) + sorted(set(sparse_3d.values()))
     inputnode = pe.Node(
         niu.IdentityInterface(fields=inputnode_fields),
         name='inputnode',
@@ -1010,6 +1008,58 @@ def init_ds_volumes_wf(
         datasinks.append(ds_att)
 
         workflow.connect([(inputnode, resample_att, [(att_name, 'input_image')])])
+
+    # Validity-normalized resampling: warp(value) / warp(valid), with linear interpolation.
+    # The values are already zero where they are not valid.
+    sparse_resamplers = []
+    for sparse_name, valid_name in sparse_3d.items():
+        fields = BASE_INPUT_FIELDS[sparse_name]
+        resample_value = pe.Node(
+            ApplyTransforms(interpolation='Linear', float=True, input_image_type=3, args='-v'),
+            name=f'warp_{sparse_name}_to_std',
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        resample_valid = pe.Node(
+            ApplyTransforms(interpolation='Linear', float=True, input_image_type=3, args='-v'),
+            name=f'warp_{sparse_name}_valid_to_std',
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        normalize = pe.Node(
+            DivideByWeight(threshold=0.5),
+            name=f'normalize_{sparse_name}',
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        ds_sparse = pe.Node(
+            DerivativesDataSink(
+                source_file=source_file,
+                base_directory=output_dir,
+                compress=True,
+                dismiss_entities=('echo',),
+                **fields,
+            ),
+            name=f'ds_{sparse_name}',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        sparse_resamplers += [resample_value, resample_valid]
+        datasinks.append(ds_sparse)
+        workflow.connect([
+            (inputnode, resample_value, [(sparse_name, 'input_image')]),
+            (inputnode, resample_valid, [(valid_name, 'input_image')]),
+            (resample_value, normalize, [('output_image', 'in_file')]),
+            (resample_valid, normalize, [('output_image', 'weight_file')]),
+            (normalize, ds_sparse, [('out_file', 'in_file')]),
+        ])  # fmt:skip
+
+    workflow.connect(
+        [
+            (inputnode, resampler, [('ref_file', 'reference_image')])
+            for resampler in sparse_resamplers
+        ] + [
+            (aslref2target, resampler, [('out', 'transforms')])
+            for resampler in sparse_resamplers
+        ]
+    )  # fmt:skip
 
     workflow.connect(
         [

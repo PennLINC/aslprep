@@ -10,7 +10,11 @@ from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.confounds import GatherCBFConfounds
-from aslprep.interfaces.plotting import CBFByTissueTypePlot, CBFSummaryPlot
+from aslprep.interfaces.plotting import (
+    CBFByTissueTypePlot,
+    CBFSummaryPlot,
+    PVCDiagnosticsPlot,
+)
 from aslprep.interfaces.reports import CBFSummary
 from aslprep.utils.misc import _select_last_in_list
 from aslprep.workflows.asl.confounds import init_carpetplot_wf
@@ -22,6 +26,7 @@ def init_cbf_reporting_wf(
     scorescrub=False,
     basil=False,
     is_multi_pld=False,
+    lr_pvc=False,
     name='cbf_reporting_wf',
 ):
     """Generate CBF reports.
@@ -39,6 +44,54 @@ def init_cbf_reporting_wf(
                     "RepetitionTimePreparation": 4,
                 },
             )
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        ASL metadata.
+    plot_timeseries : :obj:`bool`
+        Whether to plot the CBF time series carpet plot.
+    scorescrub : :obj:`bool`
+        Whether SCORE/SCRUB outputs are available to plot.
+    basil : :obj:`bool`
+        Whether BASIL outputs are available to plot.
+    is_multi_pld : :obj:`bool`
+        Whether the data have several delays (plots ATT, aBAT and aBV).
+    lr_pvc : :obj:`bool`
+        Whether local-regression partial volume correction ran. If so, the corrected gray
+        matter CBF and a diagnostics figure are added to the report.
+    name : :obj:`str`
+        Workflow name.
+
+    Inputs
+    ------
+    aslref, asl_mask, t1w_dseg, aslref2anat_xfm, std2anat_xfm
+        Reference image, brain mask, anatomical segmentation and transforms for the plots.
+    confounds_file, qc_file
+        Confounds and CBF QC tables.
+    crown_mask, acompcor_masks
+        Masks for the carpet plot (with ``plot_timeseries``).
+    mean_cbf, cbf_ts, cifti_cbf_ts
+        Mean CBF, volume-wise CBF (single-delay data) and its CIFTI version (with CIFTI
+        outputs).
+    att, abat, abv, abv_decayed
+        Multi-delay outputs (with ``is_multi_pld``).
+    cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
+        SCORE/SCRUB outputs (with ``scorescrub``).
+    mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil, att_basil, abv_basil
+        BASIL outputs (with ``basil``).
+    cbf_sd_basil, cbf_gm_sd_basil, cbf_wm_sd_basil, att_sd_basil
+        BASIL posterior standard deviations (accepted, not plotted).
+    mean_cbf_gm_lr, gm_valid_lr, gm_pv, status_lr, gm_noise_lr
+        Local-regression gray matter CBF, where it was estimated, the gray matter PV map, the
+        fit status and the noise amplification (with ``lr_pvc``).
+    pvc_summary, pvc_qc, pv_metadata
+        The fit-status fractions, the scalar QC measures and how the PV maps were built, for
+        the diagnostics figure's annotations (with ``lr_pvc``).
+
+    Outputs
+    -------
+    None. The reportlets are written to the ``figures`` directory.
     """
     from niworkflows.interfaces.images import SignalExtraction
 
@@ -83,6 +136,15 @@ def init_cbf_reporting_wf(
                 'cbf_gm_sd_basil',  # unused
                 'cbf_wm_sd_basil',  # unused
                 'att_sd_basil',  # unused
+                # Local-regression PVC outputs
+                'mean_cbf_gm_lr',
+                'gm_valid_lr',
+                'gm_pv',
+                'status_lr',
+                'gm_noise_lr',
+                'pvc_summary',
+                'pvc_qc',
+                'pv_metadata',
             ],
         ),
         name='inputnode',
@@ -449,5 +511,51 @@ def init_cbf_reporting_wf(
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([(pvc_by_tt_plot, ds_report_pvc_by_tt, [('out_file', 'in_file')])])
+
+    if lr_pvc:
+        lr_summary = pe.Node(
+            CBFSummaryPlot(label='pvc', vmax=120),
+            name='lr_summary',
+            mem_gb=1,
+        )
+        workflow.connect([
+            (inputnode, lr_summary, [
+                ('mean_cbf_gm_lr', 'in_file'),
+                ('aslref', 'ref_vol'),
+            ]),
+        ])  # fmt:skip
+
+        ds_report_lr = pe.Node(
+            DerivativesDataSink(datatype='figures', desc='lrGM', suffix='cbf', keep_dtype=True),
+            name='ds_report_lr',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([(lr_summary, ds_report_lr, [('out_file', 'in_file')])])
+
+        lr_diagnostics = pe.Node(PVCDiagnosticsPlot(), name='lr_diagnostics', mem_gb=1)
+        workflow.connect([
+            (inputnode, lr_diagnostics, [
+                ('mean_cbf', 'mean_cbf'),
+                ('mean_cbf_gm_lr', 'gm_cbf'),
+                ('gm_valid_lr', 'gm_valid'),
+                ('gm_pv', 'gm_pv'),
+                ('status_lr', 'status'),
+                ('gm_noise_lr', 'gm_noise'),
+                ('pvc_summary', 'summary'),
+                ('pvc_qc', 'qc'),
+                ('pv_metadata', 'pv_metadata'),
+            ]),
+        ])  # fmt:skip
+
+        ds_report_lr_diagnostics = pe.Node(
+            DerivativesDataSink(datatype='figures', desc='lr', suffix='pvc', keep_dtype=True),
+            name='ds_report_lr_diagnostics',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (lr_diagnostics, ds_report_lr_diagnostics, [('out_file', 'in_file')]),
+        ])  # fmt:skip
 
     return workflow

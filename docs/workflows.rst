@@ -811,6 +811,39 @@ See :ref:`basil_outputs` for how to interpret each BASIL derivative,
 including the partial volume corrected maps.
 
 
+Local-regression partial volume correction
+------------------------------------------
+
+:py:func:`~aslprep.workflows.asl.pv.init_asl_pv_wf`
+
+.. workflow::
+   :graph2use: orig
+   :simple_form: yes
+
+   from aslprep.workflows.asl.pv import init_asl_pv_wf
+
+   wf = init_asl_pv_wf(metadata={'MRAcquisitionType': '2D'})
+
+:py:func:`~aslprep.workflows.asl.pv.init_lr_pvc_wf`
+
+.. workflow::
+   :graph2use: orig
+   :simple_form: yes
+
+   from aslprep.workflows.asl.pv import init_lr_pvc_wf
+
+   wf = init_lr_pvc_wf(metadata={'MRAcquisitionType': '2D'}, sources=['mean_cbf'])
+
+With ``--pvc-method local-regression``, *ASLPrep* additionally corrects single-delay CBF for
+partial volume effects by local linear regression :footcite:p:`asllani2008regression`,
+independently of BASIL.
+The gray and white matter fractions are built on the ASL grid by averaging the anatomical
+tissue probability maps over each ASL voxel and convolving them to the acquisition's effective
+resolution (``--asl-effective-resolution``), so that they describe the tissue mixture each
+voxel actually measures :footcite:p:`petr2018effects,chappell2021partial`.
+See :ref:`lr_pvc_outputs` for how to interpret the outputs.
+
+
 ************************
 Quality control measures
 ************************

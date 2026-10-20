@@ -39,6 +39,9 @@ from aslprep.utils.cbf import (
     estimate_t1,
     haematocrit_applies,
 )
+from aslprep.utils.pvc import check_lr_pvc_supported
+from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS, lr_pvc_names
+from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf
 
 
 def init_cbf_wf(
@@ -52,6 +55,9 @@ def init_cbf_wf(
     basil=False,
     m0_scale=1,
     smooth_kernel=5,
+    pvc_method='none',
+    pvc_kernel_size=(5, 5, 1),
+    asl_effective_resolution='nominal',
     name='cbf_wf',
 ):
     """Create a workflow for :abbr:`CCBF (compute cbf)`.
@@ -92,6 +98,12 @@ def init_cbf_wf(
     basil
     m0_scale
     smooth_kernel
+    pvc_method : {'none', 'local-regression'}
+        Additional partial volume correction of the mean CBF (and SCORE) maps.
+    pvc_kernel_size : :obj:`tuple` of :obj:`int`
+        Local-regression kernel size, ordered (in-plane, in-plane, slice).
+    asl_effective_resolution : :obj:`str` or :obj:`list` of :obj:`float`
+        Effective resolution used to build the partial volume maps.
     name : :obj:`str`
         Name of workflow (default: ``cbf_wf``)
 
@@ -116,9 +128,36 @@ def init_cbf_wf(
 
     Outputs
     -------
-    *cbf
-       all cbf outputs
-       cbf,score, scrub, pv, and basil
+    mean_cbf
+        Mean CBF.
+    cbf_ts
+        Volume-wise CBF (single-delay data only).
+    att, abat, abv
+        Arterial transit time, arterial bolus arrival time and arterial blood volume
+        (multi-delay data only).
+    att_lower, att_upper, abat_lower, abat_upper
+        The ranges of ATT and aBAT that fit as well as the estimates (multi-delay data only).
+    abv_decayed
+        aBV times the label decay over aBAT (multi-delay (P)CASL data only).
+    plds
+        The post-labeling delays used for quantification.
+    cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
+        SCORE and SCRUB outputs (with ``scorescrub``).
+    mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil, att_basil, abv_basil
+        BASIL outputs (with ``basil``); ATT and aBV for multi-delay data only.
+    cbf_sd_basil, cbf_gm_sd_basil, cbf_wm_sd_basil, att_sd_basil
+        BASIL posterior standard deviations (with ``basil``).
+    gm_pv, wm_pv, csf_pv, pv_metadata
+        Partial volume maps on the ASL reference grid and how they were built
+        (with ``pvc_method='local-regression'``; see
+        :func:`~aslprep.workflows.asl.pv.init_asl_pv_wf`).
+    mean_cbf_gm_lr, ..., csf_noise_lr, pvc_summary, pvc_metadata, pvc_qc
+        Local-regression partial volume correction outputs for ``mean_cbf`` (with
+        ``pvc_method='local-regression'``; see :func:`~aslprep.workflows.asl.pv.init_lr_pvc_wf`
+        for each field).
+    mean_cbf_gm_lr_score, ..., csf_noise_lr_score, pvc_summary_score
+        The same for ``mean_cbf_score`` (with ``pvc_method='local-regression'`` and
+        ``scorescrub``).
     """
     workflow = Workflow(name=name)
 
@@ -290,6 +329,29 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
     # End the paragraph, so that the next workflow's description does not run into it.
     workflow.__desc__ += '\n'
 
+    lr_pvc = pvc_method == 'local-regression'
+    lr_sources = []
+    lr_fields = []
+    if lr_pvc:
+        check_lr_pvc_supported(
+            metadata=metadata,
+            processing_target=processing_target,
+            is_multi_pld=is_multi_pld,
+            kernel_size=pvc_kernel_size,
+        )
+        lr_sources = ['mean_cbf'] + (['mean_cbf_score'] if scorescrub else [])
+        lr_fields = ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata', 'pvc_qc']
+        for source in lr_sources:
+            names = lr_pvc_names(source)
+            lr_fields += (
+                names['cbf']
+                + names['se']
+                + list(names['valid'].values())
+                + names['diagnostics']
+                + names['csf']
+            )
+            lr_fields.append(f'pvc_summary{"" if source == "mean_cbf" else "_score"}')
+
     inputnode = pe.Node(
         niu.IdentityInterface(
             fields=[
@@ -337,6 +399,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'cbf_wm_sd_basil',
                 'att_sd_basil',  # Only for multi-delay data
             ]
+            + lr_fields
         ),
         name='outputnode',
     )
@@ -457,6 +520,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             m0_scale=m0_scale,
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
+            write_calibration=pvc_method != 'none',
         ),
         mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else 0.2,
         n_procs=fit_nthreads,
@@ -646,11 +710,56 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
         if metadata['M0Type'] != 'Estimate':
             workflow.connect([(extract_deltam, basilcbf, [('m0tr', 'm0tr')])])
 
+    if lr_pvc:
+        asl_pv_wf = init_asl_pv_wf(
+            metadata=metadata,
+            effective_resolution=asl_effective_resolution,
+        )
+        lr_pvc_wf = init_lr_pvc_wf(
+            metadata=metadata,
+            sources=lr_sources,
+            kernel_size=tuple(pvc_kernel_size),
+        )
+        workflow.connect([
+            (inputnode, asl_pv_wf, [
+                ('t1w_tpms', 'inputnode.t1w_tpms'),
+                ('asl_mask', 'inputnode.asl_mask'),
+                ('aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+            ]),
+            (inputnode, lr_pvc_wf, [('asl_mask', 'inputnode.asl_mask')]),
+            (compute_cbf, lr_pvc_wf, [
+                ('mean_cbf', 'inputnode.mean_cbf'),
+                ('m0_calib', 'inputnode.m0_calib'),
+                ('quant_valid', 'inputnode.quant_valid'),
+            ]),
+            (asl_pv_wf, lr_pvc_wf, [
+                ('outputnode.gm_pv', 'inputnode.gm_pv'),
+                ('outputnode.wm_pv', 'inputnode.wm_pv'),
+                ('outputnode.csf_pv', 'inputnode.csf_pv'),
+            ]),
+            (asl_pv_wf, outputnode, [
+                ('outputnode.gm_pv', 'gm_pv'),
+                ('outputnode.wm_pv', 'wm_pv'),
+                ('outputnode.csf_pv', 'csf_pv'),
+                ('outputnode.pv_metadata', 'pv_metadata'),
+            ]),
+            (lr_pvc_wf, outputnode, [
+                (f'outputnode.{field}', field)
+                for field in lr_fields
+                if field not in ('gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata')
+            ]),
+        ])  # fmt:skip
+        if scorescrub:
+            workflow.connect([
+                (score_and_scrub_cbf, lr_pvc_wf, [('mean_cbf_score', 'inputnode.mean_cbf_score')]),
+            ])  # fmt:skip
+
     return workflow
 
 
 def init_parcellate_cbf_wf(
     cbf_3d,
+    sparse_3d=None,
     min_coverage=0.5,
     mem_gb=0.1,
     omp_nthreads=1,
@@ -675,44 +784,48 @@ def init_parcellate_cbf_wf(
 
     Parameters
     ----------
-    min_coverage
-    scorescrub
-    basil
-    mem_gb
-    omp_nthreads
-    name
+    cbf_3d : list of str
+        CBF maps to parcellate within the ASL brain mask.
+    sparse_3d : dict or None
+        CBF maps that are only estimated in some voxels, keyed by name, with the name of their
+        validity mask as the value. They are parcellated within that mask, so voxels that were
+        not estimated (stored as zero) do not enter parcel means, and their coverage files
+        report estimation coverage.
+    min_coverage : float
+        Parcels with less coverage than this are set to zero.
+    mem_gb : float
+        Memory for the atlas warping and parcellation nodes.
+    omp_nthreads : int
+        Threads for the atlas warping.
+    name : str
         Default is "parcellate_cbf_wf".
 
     Inputs
     ------
     source_file : str
-    mean_cbf : str
-    mean_cbf_score : Undefined or str
-    mean_cbf_scrub : Undefined or str
-    mean_cbf_basil : Undefined or str
-    mean_cbf_gm_basil : Undefined or str
+        The ASL file the parcellated tables are named after.
     asl_mask : str
+        ASL brain mask; the grid the atlases are warped to, and the mask for ``cbf_3d`` maps.
     aslref2anat_xfm : str
+        Transform from the ASL reference to the anatomical image.
     mni2009c2anat_xfm : str
         The transform from MNI152NLin2009cAsym to the subject's anatomical space.
+    atlas_names : list of str
+        Names of the atlases, from :func:`~aslprep.workflows.asl.cbf.init_load_atlases_wf`.
+    atlas_files : list of str
+        The atlases, in MNI152NLin6Asym space.
+    atlas_labels_files : list of str
+        The atlases' label tables.
+    <each name in cbf_3d> : str
+        The CBF maps to parcellate within ``asl_mask``.
+    <each key and value of sparse_3d> : str
+        The sparsely estimated CBF maps, and the validity masks they are parcellated within.
 
     Outputs
     -------
-    atlas_names : list of str
-        A list of atlases used for parcellating the CBF results.
-        The list of atlas names is generated by :func:`aslprep.utils.atlas.select_atlases`.
-        The atlases include: "4S156Parcels", "4S256Parcels", "4S356Parcels", "4S456Parcels",
-        "4S556Parcels", "4S656Parcels", "4S756Parcels", "4S856Parcels", "4S956Parcels",
-        "4S1056Parcels", "Glasser", "Gordon", "Tian", and "HCP".
-    mean_cbf_parcellated : list of str
-    mean_cbf_score_parcellated : Undefined or list of str
-        Only defined if ``scorescrub`` is True.
-    mean_cbf_scrub_parcellated : Undefined or list of str
-        Only defined if ``scorescrub`` is True.
-    mean_cbf_basil_parcellated : Undefined or list of str
-        Only defined if ``basil`` is True.
-    mean_cbf_gm_basil_parcellated : Undefined or list of str
-        Only defined if ``basil`` is True.
+    None. For each map and atlas, a parcellated CBF table (``*_cbf.tsv``) is written to the
+    output directory. ``mean_cbf``, ``mean_cbf_basil`` and the ``sparse_3d`` maps also get a
+    coverage table (``*_coverage.tsv``).
     """
     CBF_ENTITIES = {
         'mean_cbf': {},
@@ -732,6 +845,9 @@ def init_parcellate_cbf_wf(
             'desc': 'basilWM',
         },
     }
+    sparse_3d = sparse_3d or {}
+    for sparse_name in sparse_3d:
+        CBF_ENTITIES[sparse_name] = {'desc': BASE_INPUT_FIELDS[sparse_name]['desc']}
     workflow = Workflow(name=name)
     output_dir = config.execution.output_dir
 
@@ -752,6 +868,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         'atlas_labels_files',
     ]
     input_fields += cbf_3d
+    input_fields += list(sparse_3d) + sorted(set(sparse_3d.values()))
     inputnode = pe.Node(
         niu.IdentityInterface(fields=input_fields),
         name='inputnode',
@@ -822,7 +939,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         ]),
     ])  # fmt:skip
 
-    for cbf_type in cbf_3d:
+    for cbf_type in cbf_3d + list(sparse_3d):
         parcellate_cbf = pe.MapNode(
             NiftiParcellate(min_coverage=min_coverage),
             name=f'parcellate_{cbf_type}',
@@ -833,7 +950,7 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         workflow.connect([
             (inputnode, parcellate_cbf, [
                 (cbf_type, 'in_file'),
-                ('asl_mask', 'mask'),
+                (sparse_3d.get(cbf_type, 'asl_mask'), 'mask'),
                 ('atlas_labels_files', 'atlas_labels'),
             ]),
             (warp_atlases_to_asl_space, parcellate_cbf, [('output_image', 'atlas')]),
@@ -859,7 +976,8 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
             (atlas_srcs, ds_cbf, [('metadata', 'meta_dict')]),
         ])  # fmt:skip
 
-        if cbf_type in ('mean_cbf', 'mean_cbf_basil'):
+        # Maps with their own validity masks also get coverage files: estimation coverage.
+        if cbf_type in ('mean_cbf', 'mean_cbf_basil') or cbf_type in sparse_3d:
             # I think it is easier to only retain the coverage file for the regular CBF estimates.
             # SCORE/SCRUB CBF should have the same coverage as the regular CBF.
             # BASIL might have different coverage because it drops any voxels with negative CBF,

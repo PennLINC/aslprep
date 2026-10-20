@@ -337,6 +337,14 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         usedefault=True,
         desc='Fit the multi-delay model on a GPU, with CuPy. Ignored for single-delay data.',
     )
+    write_calibration = traits.Bool(
+        False,
+        usedefault=True,
+        desc=(
+            'Also write the calibration M0 and the quantification-valid mask '
+            '(m0_calib, quant_valid), which partial volume correction needs.'
+        ),
+    )
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -415,6 +423,24 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         None,
         desc='Boolean map of failed model fits. Only generated for multi-delay data.',
     )
+    m0_calib = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'The M0 image that delta-M was divided by to quantify CBF: scaled, corrected for '
+            'a short TR, and with low values set to zero. '
+            'Only generated for single-delay data, with write_calibration.'
+        ),
+    )
+    quant_valid = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Mask of voxels where CBF could be quantified: M0 is finite and positive, and the '
+            'delta-M values and quantification factor are finite. '
+            'Only generated for single-delay data, with write_calibration.'
+        ),
+    )
 
 
 class ComputeCBF(SimpleInterface):
@@ -459,6 +485,8 @@ class ComputeCBF(SimpleInterface):
         deltam_img = nb.load(deltam_file)
         dims = deltam_img.shape[:3]
         mask_img = nb.Nifti1Image(np.ones(dims), deltam_img.affine, deltam_img.header)
+        self._results['m0_calib'] = None
+        self._results['quant_valid'] = None
 
         if self.inputs.cbf_only:
             config.loggers.interface.debug('CBF data detected. Skipping CBF estimation.')
@@ -752,6 +780,45 @@ class ComputeCBF(SimpleInterface):
             cbf_ts_img.to_filename(self._results['cbf_ts'])
             # Single-delay data won't produce an ATT image
             self._results['att'] = None
+
+        if self.inputs.write_calibration and not is_multi_pld:
+            # The calibration image and where quantification succeeded, for partial volume
+            # correction, which regresses CBF * M0 (the M0-free signal) and divides by M0 again.
+            # The masker replaces non-finite values with zeros, so finiteness is taken from the
+            # images themselves, mapped through the same masker to keep the voxel order.
+            def _all_finite(in_file):
+                img = nb.load(in_file)
+                finite = np.isfinite(img.get_fdata())
+                if finite.ndim == 4:
+                    finite = finite.all(axis=3)
+                return (
+                    masker.transform(nb.Nifti1Image(finite.astype(np.uint8), img.affine)).ravel()
+                    > 0
+                )
+
+            quant_valid = (
+                np.isfinite(scaled_m0data)
+                & (scaled_m0data > 0)
+                & _all_finite(deltam_file)
+                & _all_finite(m0_file)
+                & np.all(np.isfinite(np.broadcast_to(perfusion_factor, deltam_arr.shape)), axis=1)
+            )
+            self._results['m0_calib'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_m0calib',
+                newpath=runtime.cwd,
+            )
+            masker.inverse_transform(np.nan_to_num(scaled_m0data)).to_filename(
+                self._results['m0_calib']
+            )
+            self._results['quant_valid'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_quantvalid',
+                newpath=runtime.cwd,
+            )
+            masker.inverse_transform(quant_valid.astype(np.uint8)).to_filename(
+                self._results['quant_valid']
+            )
 
         # Mean CBF is returned no matter what
         self._results['mean_cbf'] = fname_presuffix(

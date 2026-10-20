@@ -485,6 +485,7 @@ def init_carpetplot_wf(
 def init_cbf_confounds_wf(
     scorescrub=False,
     basil=False,
+    lr_pvc=False,
     name='cbf_confounds_wf',
 ):
     """Create a workflow for :abbr:`dolui2024automated (compute cbf)`.
@@ -508,13 +509,23 @@ def init_cbf_confounds_wf(
     ----------
     scorescrub : bool
     basil : bool
+    lr_pvc : bool
+        Whether local-regression PVC ran. If so, its scalar QC measures (``pvc_qc``) are added
+        to the QC file.
     name : :obj:`str`
         Name of workflow (default: "cbf_qc_wf")
 
     Inputs
     ------
-    *cbf
-        all cbf
+    mean_cbf
+        Mean CBF.
+    mean_cbf_score, mean_cbf_scrub
+        SCORE and SCRUB CBF (with ``scorescrub``).
+    mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil
+        BASIL CBF, uncorrected and partial-volume corrected (with ``basil``).
+    pvc_qc
+        Dictionary of scalar quality-control measures from local-regression partial volume
+        correction (with ``lr_pvc``), added as columns of the QC file.
     asl_file
         ASL file, as acquired. Used to check for clipped values.
     m0scan
@@ -564,6 +575,8 @@ negative CBF values.
                 'mean_cbf_basil',
                 'mean_cbf_gm_basil',
                 'mean_cbf_wm_basil',
+                # Local-regression PVC quality-control measures (a dict)
+                'pvc_qc',
                 # non-GE inputs
                 'confounds_file',
             ],
@@ -715,6 +728,9 @@ negative CBF values.
         (csf_tfm, compute_qc_metrics, [('output_image', 'csf_tpm')]),
         (compute_qc_metrics, outputnode, [('qc_file', 'qc_file')]),
     ])  # fmt:skip
+
+    if lr_pvc:
+        workflow.connect([(inputnode, compute_qc_metrics, [('pvc_qc', 'pvc_qc')])])
 
     ds_qc = pe.Node(
         DerivativesDataSink(

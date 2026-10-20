@@ -355,3 +355,52 @@ def test_cbf_qc_interface_clipping_columns(tmp_path, with_inputs):
 
     for key in ('perc_voxels_clipped', 'perc_voxels_clipped_m0scan'):
         assert metadata[key]['Units'] == 'percent'
+
+
+@pytest.mark.parametrize('with_pvc', [True, False])
+def test_cbf_qc_interface_pvc_columns(tmp_path, with_pvc):
+    """Local-regression PVC QC measures are added to the QC file only when it ran."""
+    from aslprep.interfaces.confounds import PVC_QC_METADATA, ComputeCBFQC
+
+    shape = (10, 10, 10)
+    cbf_data = np.full(shape, 50.0, dtype=np.float32)
+    gm = np.zeros(shape, dtype=np.float32)
+    gm[2:8, 2:8, 2:8] = 0.9
+    wm = np.zeros(shape, dtype=np.float32)
+    wm[0:2, :, :] = 0.9
+    csf = np.zeros(shape, dtype=np.float32)
+    csf[8:, :, :] = 0.9
+    mask = np.ones(shape, dtype=np.uint8)
+    confounds_file = os.path.join(str(tmp_path), 'confounds.tsv')
+    pd.DataFrame({'framewise_displacement': [0.1, 0.2], 'rmsd': [0.05, 0.06]}).to_csv(
+        confounds_file, sep='\t', index=False
+    )
+    pvc_qc = {
+        'lr_csf_cbf_median': 2.5,
+        'lr_csf_cbf_iqr': 4.0,
+        'lr_csf_n_voxels': 120,
+        'lr_fraction_two_tissue': 0.9,
+    }
+    kwargs = {'pvc_qc': pvc_qc} if with_pvc else {}
+    results = ComputeCBFQC(
+        name_source=_save_img(np.zeros(shape, dtype=np.float32), tmp_path, 'sub-01_asl.nii.gz'),
+        mean_cbf=_save_img(cbf_data, tmp_path, 'mean_cbf.nii.gz'),
+        gm_tpm=_save_img(gm, tmp_path, 'gm.nii.gz'),
+        wm_tpm=_save_img(wm, tmp_path, 'wm.nii.gz'),
+        csf_tpm=_save_img(csf, tmp_path, 'csf.nii.gz'),
+        asl_mask=_save_img(mask, tmp_path, 'asl_mask.nii.gz'),
+        t1w_mask=_save_img(mask, tmp_path, 't1w_mask.nii.gz'),
+        confounds_file=confounds_file,
+        **kwargs,
+    ).run(cwd=str(tmp_path))
+
+    qc_df = pd.read_csv(results.outputs.qc_file, sep='\t')
+    with open(results.outputs.qc_metadata) as f:
+        metadata = json.load(f)
+    for key, value in pvc_qc.items():
+        if with_pvc:
+            assert qc_df[key].iloc[0] == pytest.approx(value)
+            assert metadata[key] == PVC_QC_METADATA[key]
+        else:
+            assert key not in qc_df.columns
+            assert key not in metadata

@@ -421,6 +421,153 @@ def test_computecbf_q2tips_uses_inversion_time(acq_dict, tmp_path):
     np.testing.assert_allclose(mean_cbf['q2tips_short'], mean_cbf['quipss2'])
 
 
+@pytest.mark.parametrize(
+    'labeling',
+    [
+        {'ArterialSpinLabelingType': 'PCASL', 'LabelingDuration': 1.6},
+        {
+            'ArterialSpinLabelingType': 'PASL',
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'QUIPSSII',
+            'BolusCutOffDelayTime': 0.7,
+        },
+        {
+            'ArterialSpinLabelingType': 'PASL',
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'QUIPSS',
+            'BolusCutOffDelayTime': 0.7,
+        },
+        {
+            'ArterialSpinLabelingType': 'PASL',
+            'BolusCutOffFlag': True,
+            'BolusCutOffTechnique': 'Q2TIPS',
+            'BolusCutOffDelayTime': [0.7, 1.6],
+        },
+    ],
+    ids=['pcasl', 'quipss2', 'quipss', 'q2tips'],
+)
+@pytest.mark.parametrize(
+    'acq_dict',
+    [
+        {'MRAcquisitionType': '3D'},
+        {'MRAcquisitionType': '2D', 'SliceTiming': list(np.linspace(0, 0.5, 12))},
+    ],
+    ids=['3D', '2D'],
+)
+@pytest.mark.parametrize('m0tr', [None, 3.0], ids=['longTR', 'shortTR'])
+def test_computecbf_calibration_outputs(labeling, acq_dict, m0tr, tmp_path):
+    """The calibration outputs reproduce the CBF quantification (PVC spec test 6).
+
+    Mean CBF times the calibration M0 is the time-averaged q * delta-M (the M0-free signal
+    regressed by partial volume correction), with q and the TR correction computed
+    independently (:mod:`aslprep.tests.truth_models`). Voxels zeroed for low M0, and voxels
+    with a non-finite delta-M sample, are not valid.
+    """
+    from aslprep.tests import truth_models as tm
+
+    rng = np.random.default_rng(0)
+    shape = (10, 11, 12)
+    deltam = rng.normal(50, 10, (*shape, 4)).astype(np.float32)
+    deltam[5, 5, 5, 1] = np.nan  # a missing sample: the masker would turn it into zero
+    deltam_file = _save_img(deltam, tmp_path, 'deltam.nii.gz')
+    m0 = rng.uniform(800, 1200, shape).astype(np.float32)
+    m0[:2] = 1.0  # almost no signal: zeroed, so not quantifiable
+    m0_file = _save_img(m0, tmp_path, 'm0.nii.gz')
+
+    metadata = {'MagneticFieldStrength': 3, 'PostLabelingDelay': 1.8, **labeling, **acq_dict}
+    kwargs = {'m0tr': m0tr} if m0tr else {}
+    results = cbf.ComputeCBF(
+        cbf_only=False,
+        deltam=deltam_file,
+        metadata=metadata,
+        m0_scale=2.0,
+        m0_file=m0_file,
+        write_calibration=True,
+        **kwargs,
+    ).run(cwd=tmp_path)
+
+    mean_cbf = nb.load(results.outputs.mean_cbf).get_fdata()
+    m0_calib = nb.load(results.outputs.m0_calib).get_fdata()
+    quant_valid = nb.load(results.outputs.quant_valid).get_fdata().astype(bool)
+    expected_valid = np.ones(shape, bool)
+    expected_valid[:2] = False
+    expected_valid[5, 5, 5] = False
+    np.testing.assert_array_equal(quant_valid, expected_valid)
+    assert np.all(m0_calib[:2] == 0)
+
+    # The calibration is the scaled M0, corrected for incomplete recovery when TR < 5 s.
+    expected_m0 = tm.m0_tr_correction(2.0 * m0.astype(float), m0tr, 3)
+    np.testing.assert_allclose(m0_calib[2:], expected_m0[2:], rtol=1e-5)
+
+    # mean CBF * M0 is q * mean(delta-M), with q from the independent model.
+    pld = tm.pld_map(metadata, shape)
+    alpha = tm.labeling_efficiency(metadata)
+    if labeling.get('BolusCutOffTechnique') == 'QUIPSS':
+        # Wong 1998: the bolus duration is TI - TI1, per voxel
+        t1b = tm.T1_BLOOD[3]
+        q = (
+            tm.UNIT_CONVERSION
+            * tm.LAMBDA
+            * np.exp(pld / t1b)
+            / (2 * alpha * (pld - labeling['BolusCutOffDelayTime']))
+        )
+    else:
+        q = tm.cbf_single_delay(np.ones(shape), np.ones(shape), metadata, alpha, pld)
+    signal = mean_cbf * m0_calib
+    expected = q * deltam.astype(float).mean(axis=3)
+    np.testing.assert_allclose(signal[quant_valid], expected[quant_valid], rtol=1e-4)
+
+
+def test_computecbf_calibration_outputs_off_by_default(tmp_path):
+    """Without write_calibration (no partial volume correction), nothing extra is written."""
+    rng = np.random.default_rng(0)
+    deltam_file = _save_img(
+        rng.normal(50, 10, (6, 6, 6, 2)).astype(np.float32), tmp_path, 'd.nii.gz'
+    )
+    m0_file = _save_img(np.full((6, 6, 6), 1000, np.float32), tmp_path, 'm0.nii.gz')
+    results = cbf.ComputeCBF(
+        cbf_only=False,
+        deltam=deltam_file,
+        metadata={
+            'ArterialSpinLabelingType': 'PCASL',
+            'LabelingDuration': 1.8,
+            'MagneticFieldStrength': 3,
+            'MRAcquisitionType': '3D',
+            'PostLabelingDelay': 1.8,
+        },
+        m0_scale=1,
+        m0_file=m0_file,
+    ).run(cwd=tmp_path)
+    assert results.outputs.m0_calib is None
+    assert results.outputs.quant_valid is None
+    assert not list(tmp_path.glob('*_m0calib*'))
+    assert not list(tmp_path.glob('*_quantvalid*'))
+
+
+def test_computecbf_calibration_outputs_multipld(tmp_path):
+    """Multi-delay data have no calibration outputs (LR PVC is single-delay only)."""
+    rng = np.random.default_rng(0)
+    deltam_file = _save_img(
+        rng.normal(50, 10, (6, 6, 6, 3)).astype(np.float32), tmp_path, 'd.nii.gz'
+    )
+    m0_file = _save_img(np.full((6, 6, 6), 1000, np.float32), tmp_path, 'm0.nii.gz')
+    results = cbf.ComputeCBF(
+        cbf_only=False,
+        deltam=deltam_file,
+        metadata={
+            'ArterialSpinLabelingType': 'PCASL',
+            'LabelingDuration': 1.6,
+            'MagneticFieldStrength': 3,
+            'MRAcquisitionType': '3D',
+            'PostLabelingDelay': [1.0, 1.5, 2.0],
+        },
+        m0_scale=1,
+        m0_file=m0_file,
+    ).run(cwd=tmp_path)
+    assert results.outputs.m0_calib is None
+    assert results.outputs.quant_valid is None
+
+
 def test_compare_slicetiming(datasets, tmp_path_factory):
     """CBF estimates should be the same with slice-timing modification as not.
 
