@@ -834,9 +834,13 @@ Local-regression partial volume correction
 
    wf = init_lr_pvc_wf(metadata={'MRAcquisitionType': '2D'}, sources=['mean_cbf'])
 
-With ``--pvc-method local-regression``, *ASLPrep* additionally corrects single-delay CBF for
-partial volume effects by local linear regression :footcite:p:`asllani2008regression`,
-independently of BASIL.
+With ``--pvc-method local-regression``, *ASLPrep* additionally corrects CBF for partial volume
+effects by local linear regression :footcite:p:`asllani2008regression`, independently of BASIL.
+For multi-delay data, each delta-M volume is unmixed and each tissue's curve is then fit with
+the kinetic model, giving tissue CBF and ATT.
+This multi-delay extension is specific to *ASLPrep* and experimental: its components are
+established, but their combination has not been validated against joint kinetic partial volume
+correction such as BASIL :footcite:p:`chappell2011partial` (see :ref:`lr_pvc_outputs`).
 The gray and white matter fractions are built on the ASL grid by averaging the anatomical
 tissue probability maps over each ASL voxel and convolving them to the acquisition's effective
 resolution (``--asl-effective-resolution``), so that they describe the tissue mixture each

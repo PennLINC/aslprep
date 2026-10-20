@@ -297,3 +297,139 @@ def test_divide_by_weight(tmp_path):
     results = pvc.DivideByWeight(in_file=in_file, weight_file=weight_file).run(cwd=tmp_path)
     out = nb.load(results.outputs.out_file).get_fdata()
     np.testing.assert_allclose(out, [[[60.0, 60.0, 0.0]]])
+
+
+def test_multidelay_local_regression_pvc_interface(tmp_path, monkeypatch):
+    """Multi-delay LR PVC unmixes each delay and fits each tissue curve (spec 5.7).
+
+    M0 varies over the image, so each estimate must be calibrated by its own voxel's M0. A
+    second run adds a negative CSF curve, which the signed CSF diagnostic must recover, also
+    where the uncorrected CBF is zero (its ATT then falls back to the median). A third run
+    forces each kinetic status, to check which estimates are written.
+    """
+    from aslprep.utils.pvc import gkm_predict
+
+    rng = np.random.default_rng(5)
+    shape = (16, 16, 2)
+    affine = np.diag([3.0, 3.0, 5.0, 1.0])
+    plds = np.repeat(np.arange(0.25, 3.01, 0.25), 2)  # two repeats of each delay
+    kinetics = {'labeleff': 0.85, 't1blood': 1.65, 'is_casl': True, 'tau': 1.8}
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'MagneticFieldStrength': 3,
+        'MRAcquisitionType': '3D',
+        'LabelingDuration': 1.8,
+        'PostLabelingDelay': plds.tolist(),
+        'LabelingEfficiency': 0.85,
+    }
+    pv_gm = rng.uniform(0.2, 0.7, shape)
+    pv_wm = (1 - pv_gm) * rng.uniform(0.6, 0.95, shape)
+    pv_csf = 1 - pv_gm - pv_wm
+    m0_gm, m0_wm, m0_csf = 1000.0, 800.0, 1500.0
+
+    def curve(cbf, att, m0):
+        return gkm_predict(
+            np.array([cbf]),
+            np.array([att]),
+            np.array([0.5]),
+            np.array([0.0]),
+            np.array([m0]),
+            plds[None, :],
+            **kinetics,
+        )[0]
+
+    tissue = pv_gm[..., None] * curve(60.0, 1.0, m0_gm) + pv_wm[..., None] * curve(
+        20.0, 1.6, m0_wm
+    )
+    csf_signal = pv_csf[..., None] * curve(-10.0, 1.2, m0_csf)
+    m0 = rng.uniform(700.0, 1100.0, shape)
+    m0[0, 0] = 0  # not quantifiable
+    mean_cbf = np.full(shape, 45.0)
+    att = np.full(shape, 1.2)
+    mean_cbf[8:] = 0  # no uncorrected CBF, so no uncorrected ATT either
+    att[8:] = 0
+
+    def run(deltam, name):
+        run_dir = tmp_path / name
+        run_dir.mkdir()
+        files = {}
+        for key, data in {
+            'deltam': deltam,
+            'm0_calib': m0,
+            'quant_valid': (m0 > 0).astype(np.uint8),
+            'mask': np.ones(shape, np.uint8),
+            'gm_pv': pv_gm,
+            'wm_pv': pv_wm,
+            'csf_pv': pv_csf,
+            'mean_cbf': mean_cbf,
+            'att': att,
+        }.items():
+            files[key] = str(run_dir / f'{key}.nii.gz')
+            nb.Nifti1Image(data, affine).to_filename(files[key])
+        interface = pvc.MultiDelayLocalRegressionPVC(metadata=metadata, **files)
+        return interface.run(cwd=run_dir).outputs
+
+    out = run(tissue, 'tissue')
+    status = nb.load(out.status).get_fdata()
+    gm_kinstatus = nb.load(out.gm_kinstatus).get_fdata()
+    gm = nb.load(out.gm_cbf).get_fdata()
+    gm_att = nb.load(out.gm_att).get_fdata()
+    wm_att = nb.load(out.wm_att).get_fdata()
+    good = (status == 1) & (gm_kinstatus == 1)
+    assert good.sum() > 100
+    # The estimand: tissue CBF calibrated by the centre voxel's M0
+    np.testing.assert_allclose(gm[good], 60.0 * m0_gm / m0[good], rtol=0.01)
+    np.testing.assert_allclose(gm_att[good], 1.0, atol=0.01)
+    wm_good = (status == 1) & (nb.load(out.wm_kinstatus).get_fdata() == 1)
+    assert wm_good.sum() > 100
+    np.testing.assert_allclose(wm_att[wm_good], 1.6, atol=0.01)
+    assert np.all(status[0, 0] == 4)
+    assert np.all(gm[0, 0] == 0)
+    # No CSF signal: the signed CSF diagnostic is zero where it is estimated.
+    csf = nb.load(out.csf_cbf).get_fdata()
+    csf_status = nb.load(out.csf_status).get_fdata()
+    csf_ok = (csf_status == 1) & (pv_csf >= 0.1)
+    assert csf_ok.sum() > 50
+    np.testing.assert_allclose(csf[csf_ok], 0, atol=1e-6)
+    assert out.pvc_metadata['ResidualUnits'] == 'delta-M'
+    assert out.pvc_metadata['CSFQualityControlDefaultATT'] == pytest.approx(1.2)
+    assert set(out.qc) == {
+        'lr_csf_cbf_median',
+        'lr_csf_cbf_iqr',
+        'lr_csf_n_voxels',
+        'lr_fraction_two_tissue',
+    }
+
+    # A negative CSF curve is recovered, with its sign, in both halves of the image.
+    out = run(tissue + csf_signal, 'csf')
+    csf = nb.load(out.csf_cbf).get_fdata()
+    csf_status = nb.load(out.csf_status).get_fdata()
+    csf_ok = (csf_status == 1) & (pv_csf >= 0.1)
+    assert csf_ok[:8].sum() > 25
+    assert csf_ok[8:].sum() > 25
+    np.testing.assert_allclose(csf[csf_ok], -10.0 * m0_csf / m0[csf_ok], rtol=0.01)
+
+    # Kinetic statuses: CBF is written for 1 and 2 only, ATT for 1 only.
+    real_fit = pvc.fit_tissue_curves
+
+    def cycled_fit(*args, **kwargs):
+        result = real_fit(*args, **kwargs)
+        result['status'] = np.resize(np.array([1, 2, 3, 5], np.uint8), result['status'].shape)
+        return result
+
+    monkeypatch.setattr(pvc, 'fit_tissue_curves', cycled_fit)
+    out = run(tissue, 'statuses')
+    for tissue_name in ('gm', 'wm'):
+        kinstatus = nb.load(getattr(out, f'{tissue_name}_kinstatus')).get_fdata()
+        cbf = nb.load(getattr(out, f'{tissue_name}_cbf')).get_fdata()
+        cbf_valid = nb.load(getattr(out, f'{tissue_name}_valid')).get_fdata()
+        att_out = nb.load(getattr(out, f'{tissue_name}_att')).get_fdata()
+        att_valid = nb.load(getattr(out, f'{tissue_name}_att_valid')).get_fdata()
+        assert set(np.unique(kinstatus)) >= {1, 2, 3, 5}
+        rejected = np.isin(kinstatus, (3, 5))
+        assert np.all(cbf[rejected] == 0)
+        assert np.all(cbf_valid[rejected] == 0)
+        np.testing.assert_array_equal(cbf_valid, np.isin(kinstatus, (1, 2)))
+        np.testing.assert_array_equal(att_valid, kinstatus == 1)
+        assert np.all(att_out[kinstatus != 1] == 0)
+        assert np.all(att_out[kinstatus == 1] > 0)

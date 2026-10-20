@@ -96,16 +96,10 @@ def check_lr_pvc_supported(metadata, processing_target, is_multi_pld, kernel_siz
     Raises
     ------
     ValueError
-        For multi-delay data, scanner-provided CBF, or a kernel spanning several slices of a
-        slice-timed acquisition.
+        For scanner-provided CBF, or a kernel spanning several slices of a slice-timed
+        acquisition. Multi-delay data are supported (spec Section 5.7): each delay is unmixed
+        before the kinetic fit, so ``is_multi_pld`` does not restrict anything else here.
     """
-    if is_multi_pld:
-        raise ValueError(
-            '--pvc-method local-regression only supports single-delay data. A kinetic fit of a '
-            'mixed signal is not a linear mixture of the tissue fits, because gray and white '
-            'matter arrival times differ. Use --basil, whose partial volume correction models '
-            'both tissues.'
-        )
     if processing_target == 'cbf':
         raise ValueError(
             '--pvc-method local-regression cannot be applied to scanner-provided CBF, whose '
@@ -537,7 +531,10 @@ def local_regression_pvc(
     Parameters
     ----------
     y : :obj:`numpy.ndarray`
-        The signal to unmix (3D).
+        The signal to unmix: 3D, or 4D with volumes on the last axis.
+        A series shares one design (PV maps and validity), so the status, conditioning and
+        noise amplification are the same for every volume, and only the amplitudes differ.
+        A voxel is valid only if its signal is finite in every volume.
     pv_gm, pv_wm : :obj:`numpy.ndarray`
         Gray and white matter PV maps (3D).
     mask : :obj:`numpy.ndarray` of :obj:`bool`
@@ -555,27 +552,31 @@ def local_regression_pvc(
     Returns
     -------
     :obj:`dict` of :obj:`numpy.ndarray`
-        ``beta_gm``, ``beta_wm``, ``status``, ``condition``, ``noise_gm``, ``noise_wm``,
-        ``rmse`` and ``n``.
+        ``beta_gm``, ``beta_wm`` (with the volume axis for a series), ``status``,
+        ``condition``, ``noise_gm``, ``noise_wm``, ``rmse`` and ``n``.
+        For a series, ``rmse`` pools the residuals of every volume.
     """
     kernel_size = tuple(int(k) for k in kernel_size)
     if any(k < 1 or k % 2 == 0 for k in kernel_size):
         raise ValueError(f'Kernel sizes must be odd and positive, got {kernel_size}.')
 
     y = np.asarray(y, dtype=np.float64)
+    series = y.ndim == 4
+    y4 = y if series else y[..., None]
+    n_vol = y4.shape[-1]
     pv_gm = np.asarray(pv_gm, dtype=np.float64)
     pv_wm = np.asarray(pv_wm, dtype=np.float64)
     mask = np.asarray(mask, dtype=bool)
     valid = (
         np.asarray(valid, dtype=bool)
         & mask
-        & np.isfinite(y)
+        & np.all(np.isfinite(y4), axis=-1)
         & np.isfinite(pv_gm)
         & np.isfinite(pv_wm)
         & ((np.nan_to_num(pv_gm) + np.nan_to_num(pv_wm)) > 0)
     )
     v = valid.astype(np.float64)
-    yv = np.where(valid, y, 0.0)
+    yv = np.where(valid[..., None], y4, 0.0)
     pg = np.where(valid, pv_gm, 0.0)
     pw = np.where(valid, pv_wm, 0.0)
 
@@ -585,8 +586,8 @@ def local_regression_pvc(
     s_gg = _box_sum(pg * pg, kernel_size)
     s_ww = _box_sum(pw * pw, kernel_size)
     s_gw = _box_sum(pg * pw, kernel_size)
-    b_g = _box_sum(pg * yv, kernel_size)
-    b_w = _box_sum(pw * yv, kernel_size)
+    b_g = np.stack([_box_sum(pg * yv[..., i], kernel_size) for i in range(n_vol)], axis=-1)
+    b_w = np.stack([_box_sum(pw * yv[..., i], kernel_size) for i in range(n_vol)], axis=-1)
 
     # The box filter can leave tiny negative values where the sums should be zero.
     tiny = 1e-12
@@ -602,7 +603,8 @@ def local_regression_pvc(
         c_w = np.where(s_ww > 0, s_gw / s_ww, np.inf)
 
     centre_ok = mask & valid
-    status = np.zeros(y.shape, dtype=np.uint8)
+    shape = mask.shape
+    status = np.zeros(shape, dtype=np.uint8)
     status[mask] = 4
     two = centre_ok & (n >= min_n_two) & (s_g >= tau) & (s_w >= tau) & both & (kappa <= kappa_max)
     gm_only = centre_ok & ~two & (n >= min_n_one) & (s_g >= tau) & (s_gg > 0) & (c_g <= c_max)
@@ -613,48 +615,52 @@ def local_regression_pvc(
     status[gm_only] = 2
     status[wm_only] = 3
 
-    beta_gm = np.zeros(y.shape)
-    beta_wm = np.zeros(y.shape)
-    noise_gm = np.zeros(y.shape)
-    noise_wm = np.zeros(y.shape)
+    beta_gm = np.zeros((*shape, n_vol))
+    beta_wm = np.zeros((*shape, n_vol))
+    noise_gm = np.zeros(shape)
+    noise_wm = np.zeros(shape)
 
-    det = s_gg[two] * s_ww[two] - s_gw[two] ** 2
-    beta_gm[two] = (s_ww[two] * b_g[two] - s_gw[two] * b_w[two]) / det
-    beta_wm[two] = (s_gg[two] * b_w[two] - s_gw[two] * b_g[two]) / det
-    noise_gm[two] = np.sqrt(s_ww[two] / det)
-    noise_wm[two] = np.sqrt(s_gg[two] / det)
+    det = (s_gg[two] * s_ww[two] - s_gw[two] ** 2)[:, None]
+    beta_gm[two] = (s_ww[two][:, None] * b_g[two] - s_gw[two][:, None] * b_w[two]) / det
+    beta_wm[two] = (s_gg[two][:, None] * b_w[two] - s_gw[two][:, None] * b_g[two]) / det
+    noise_gm[two] = np.sqrt(s_ww[two] / det[:, 0])
+    noise_wm[two] = np.sqrt(s_gg[two] / det[:, 0])
 
-    beta_gm[gm_only] = b_g[gm_only] / s_gg[gm_only]
+    beta_gm[gm_only] = b_g[gm_only] / s_gg[gm_only][:, None]
     noise_gm[gm_only] = 1 / np.sqrt(s_gg[gm_only])
-    beta_wm[wm_only] = b_w[wm_only] / s_ww[wm_only]
+    beta_wm[wm_only] = b_w[wm_only] / s_ww[wm_only][:, None]
     noise_wm[wm_only] = 1 / np.sqrt(s_ww[wm_only])
 
     # Residual sum of squares, computed directly rather than from the expansion,
-    # so near-exact fits are not lost to cancellation.
+    # so near-exact fits are not lost to cancellation. Pooled over volumes for a series.
     fitted = status > 0
     fitted &= status < 4
     pad = [k // 2 for k in kernel_size]
-    shape = y.shape
-    y_pad = np.pad(yv, [(p, p) for p in pad])
     g_pad = np.pad(pg, [(p, p) for p in pad])
     w_pad = np.pad(pw, [(p, p) for p in pad])
     v_pad = np.pad(v, [(p, p) for p in pad])
     rss = np.zeros(shape)
-    for offset in np.ndindex(*kernel_size):
-        offset = tuple(o - p for o, p in zip(offset, pad, strict=True))
-        resid = _shifted(y_pad, offset, pad, shape) - (
-            beta_gm * _shifted(g_pad, offset, pad, shape)
-            + beta_wm * _shifted(w_pad, offset, pad, shape)
-        )
-        rss += _shifted(v_pad, offset, pad, shape) * resid**2
+    for i_vol in range(n_vol):
+        y_pad = np.pad(yv[..., i_vol], [(p, p) for p in pad])
+        for offset in np.ndindex(*kernel_size):
+            offset = tuple(o - p for o, p in zip(offset, pad, strict=True))
+            resid = _shifted(y_pad, offset, pad, shape) - (
+                beta_gm[..., i_vol] * _shifted(g_pad, offset, pad, shape)
+                + beta_wm[..., i_vol] * _shifted(w_pad, offset, pad, shape)
+            )
+            rss += _shifted(v_pad, offset, pad, shape) * resid**2
 
     n_params = np.where(status == 1, 2, 1)
     rmse = np.zeros(shape)
-    rmse[fitted] = np.sqrt(rss[fitted] / (n[fitted] - n_params[fitted]))
+    rmse[fitted] = np.sqrt(rss[fitted] / (n_vol * (n[fitted] - n_params[fitted])))
 
     condition = np.zeros(shape)
     defined = mask & both
     condition[defined] = np.minimum(kappa[defined], 1e6)
+
+    if not series:
+        beta_gm = beta_gm[..., 0]
+        beta_wm = beta_wm[..., 0]
 
     return {
         'beta_gm': beta_gm,
@@ -757,38 +763,49 @@ def local_regression_csf(
     Returns
     -------
     :obj:`dict` of :obj:`numpy.ndarray`
-        ``beta_csf``, ``status`` (see :data:`CSF_FIT_STATUS`), ``noise_csf``, ``rmse`` and
-        ``n``.
+        ``beta_csf`` (with the volume axis for a series), ``status`` (see
+        :data:`CSF_FIT_STATUS`), ``noise_csf``, ``rmse`` and ``n``.
     """
     kernel_size = tuple(int(k) for k in kernel_size)
     if any(k < 1 or k % 2 == 0 for k in kernel_size):
         raise ValueError(f'Kernel sizes must be odd and positive, got {kernel_size}.')
 
     y = np.asarray(y, dtype=np.float64)
+    series = y.ndim == 4
+    y4 = y if series else y[..., None]
+    n_vol = y4.shape[-1]
     pvs = [np.asarray(p, dtype=np.float64) for p in (pv_gm, pv_wm, pv_csf)]
     mask = np.asarray(mask, dtype=bool)
-    finite = np.isfinite(y)
+    shape = mask.shape
+    finite = np.all(np.isfinite(y4), axis=-1)
     for p in pvs:
         finite &= np.isfinite(p)
     valid = (
         np.asarray(valid, dtype=bool) & mask & finite & (sum(np.nan_to_num(p) for p in pvs) > 0)
     )
     v = valid.astype(np.float64)
-    yv = np.where(valid, y, 0.0)
+    yv = np.where(valid[..., None], y4, 0.0)
     ps = [np.where(valid, p, 0.0) for p in pvs]
 
     n = np.rint(_box_sum(v, kernel_size))
     support = [_box_sum(p, kernel_size) for p in ps]
-    gram = np.empty((*y.shape, 3, 3))
+    gram = np.empty((*shape, 3, 3))
     for i in range(3):
         for j in range(i, 3):
             gram[..., i, j] = gram[..., j, i] = _box_sum(ps[i] * ps[j], kernel_size)
-    rhs = np.stack([_box_sum(p * yv, kernel_size) for p in ps], axis=-1)
+    # Right-hand sides: (*shape, 3 tissues, n_vol)
+    rhs = np.stack(
+        [
+            np.stack([_box_sum(p * yv[..., i], kernel_size) for i in range(n_vol)], axis=-1)
+            for p in ps
+        ],
+        axis=-2,
+    )
 
-    status = np.zeros(y.shape, dtype=np.uint8)
+    status = np.zeros(shape, dtype=np.uint8)
     status[mask] = 4
-    beta = np.zeros((*y.shape, 3))
-    noise_csf = np.zeros(y.shape)
+    beta = np.zeros((*shape, 3, n_vol))
+    noise_csf = np.zeros(shape)
     undecided = mask & valid
     tiny = 1e-12
 
@@ -823,36 +840,46 @@ def local_regression_csf(
             g_inv = g_inv[keep]
 
         voxels = tuple(idx[ok] for idx in np.nonzero(candidate))
-        b = rhs[voxels][:, subset]
-        coef = np.einsum('vij,vj->vi', g_inv, b)
+        b = rhs[voxels][:, subset, :]
+        coef = np.einsum('vij,vjt->vit', g_inv, b)
         for row, t in enumerate(subset):
-            beta[(*voxels, np.full(len(voxels[0]), t))] = coef[:, row]
+            beta[(*voxels, np.full(len(voxels[0]), t))] = coef[:, row, :]
         noise_csf[voxels] = np.sqrt(g_inv[:, csf_row, csf_row])
         status[voxels] = code
         undecided[voxels] = False
 
-    # Residuals, computed directly over the kernel offsets
+    del rhs  # only the coefficients are needed from here on
+
+    # Residuals, computed directly over the kernel offsets, pooled over volumes
     fitted = np.isin(status, [code for code, _ in _CSF_SUBSETS])
     pad = [kk // 2 for kk in kernel_size]
-    shape = y.shape
-    y_pad = np.pad(yv, [(p, p) for p in pad])
     p_pad = [np.pad(p, [(q, q) for q in pad]) for p in ps]
     v_pad = np.pad(v, [(q, q) for q in pad])
     rss = np.zeros(shape)
-    for offset in np.ndindex(*kernel_size):
-        offset = tuple(o - p for o, p in zip(offset, pad, strict=True))
-        fit_value = sum(beta[..., t] * _shifted(p_pad[t], offset, pad, shape) for t in range(3))
-        resid = _shifted(y_pad, offset, pad, shape) - fit_value
-        rss += _shifted(v_pad, offset, pad, shape) * resid**2
+    for i_vol in range(n_vol):
+        y_pad = np.pad(yv[..., i_vol], [(p, p) for p in pad])
+        for offset in np.ndindex(*kernel_size):
+            offset = tuple(o - p for o, p in zip(offset, pad, strict=True))
+            fit_value = sum(
+                beta[..., t, i_vol] * _shifted(p_pad[t], offset, pad, shape) for t in range(3)
+            )
+            resid = _shifted(y_pad, offset, pad, shape) - fit_value
+            rss += _shifted(v_pad, offset, pad, shape) * resid**2
 
     n_params = np.zeros(shape)
     for code, subset in _CSF_SUBSETS:
         n_params[status == code] = len(subset)
     rmse = np.zeros(shape)
-    rmse[fitted] = np.sqrt(rss[fitted] / (n[fitted] - n_params[fitted]))
+    rmse[fitted] = np.sqrt(rss[fitted] / (n_vol * (n[fitted] - n_params[fitted])))
+
+    # A copy, so the GM and WM coefficients of this fit (which are not used) can be freed.
+    beta_csf = beta[..., 2, :].copy()
+    del beta
+    if not series:
+        beta_csf = beta_csf[..., 0]
 
     return {
-        'beta_csf': beta[..., 2],
+        'beta_csf': beta_csf,
         'status': status,
         'noise_csf': noise_csf,
         'rmse': rmse,
@@ -893,6 +920,243 @@ def summarize_csf_qc(cbf_csf, valid_csf, pv_csf, min_pv=0.5):
         return {'median': float('nan'), 'iqr': float('nan'), 'n': 0}
     q25, q50, q75 = np.percentile(values, [25, 50, 75])
     return {'median': float(q50), 'iqr': float(q75 - q25), 'n': int(values.size)}
+
+
+#: Upper bound on the CBF of a tissue curve's kinetic fit (spec Section 5.7.3).
+#: A tissue amplitude calibrated by the voxel's mixed M0 can exceed physiological values,
+#: and clipping it at the voxel fit's bound distorts ATT and the arterial term.
+LR_CBF_MAX = 1000.0
+
+#: Upper bound on the aBV of a tissue curve's kinetic fit. Unmixing assigns a voxel's arterial
+#: signal to its tissue fraction (no less than the 0.1 minimum PV of a written estimate), so a
+#: tissue curve's aBV can be up to ten times the voxel fit's bound of 0.1.
+LR_ABV_MAX = 1.0
+
+#: A tissue curve's fitted CBF at or below this (mL/100 g/min) is at the lower bound.
+KINETIC_CBF_TOLERANCE = 1e-6
+
+#: A tissue curve's fitted CBF within this fraction of the upper bound is at the upper bound.
+KINETIC_BOUND_RTOL = 1e-5
+
+#: Kinetic fit status codes of a tissue curve (spec Section 5.7.3).
+KINETIC_STATUS = {
+    0: 'not fitted',
+    1: 'fitted',
+    2: 'CBF at its lower bound (0): no positive tissue signal',
+    3: 'CBF at its upper bound',
+    4: 'input not finite',
+    5: 'aBV at its upper bound: the remaining arterial signal would bias CBF and ATT',
+}
+
+
+def estimate_lr_pvc_mem_gb(shape, num_threads=1):
+    """Estimate the memory multi-delay local-regression PVC needs, in GB.
+
+    The peak holds about 16 float64 arrays the size of the series (the signal, the GM, WM and
+    CSF coefficients and right-hand sides, padded copies and temporaries), plus the kinetic fits.
+
+    Parameters
+    ----------
+    shape : :obj:`tuple` of :obj:`int`
+        Shape of the ASL series (3D or 4D).
+    num_threads : :obj:`int`
+        Threads used by the kinetic fits.
+    """
+    n_voxels = int(np.prod(shape[:3]))
+    n_volumes = int(shape[3]) if len(shape) > 3 else 1
+    return 1.0 + 16 * 8 * n_voxels * n_volumes / 1024**3 + 0.1 * num_threads
+
+
+def _bolus_array(tau, ti1, is_casl, n_volumes):
+    if is_casl:
+        return np.broadcast_to(np.asarray(tau, dtype=float), (n_volumes,))[None, :]
+    return float(ti1)
+
+
+def gkm_predict(cbf, att, abat, abv, m0, plds, *, labeleff, t1blood, is_casl, tau=None, ti1=None):
+    """Predict delta-M from general kinetic model parameters, as the multi-delay fit models it.
+
+    Parameters
+    ----------
+    cbf, att, abat, abv, m0 : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Model parameters, and the M0 the fit was calibrated with.
+    plds : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        Delays.
+    labeleff, t1blood, is_casl, tau, ti1
+        As for :func:`~aslprep.utils.cbf.fit_deltam_multipld`.
+
+    Returns
+    -------
+    :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+    """
+    from aslprep.utils.cbf import (
+        PARTITION_COEFFICIENT,
+        _gkm_arterial_basis,
+        _gkm_tissue_basis,
+    )
+
+    plds = np.asarray(plds, dtype=float)
+    bolus = _bolus_array(tau, ti1, is_casl, plds.shape[1])
+    kwargs = {'is_casl': is_casl, 'labeleff': labeleff, 't1blood': t1blood, 'xp': np}
+    tissue = _gkm_tissue_basis(np.asarray(att)[:, None], plds, bolus, **kwargs)
+    arterial = _gkm_arterial_basis(np.asarray(abat)[:, None], plds, bolus, **kwargs)
+    m0_a = np.asarray(m0, dtype=float) / PARTITION_COEFFICIENT
+    return m0_a[:, None] * (
+        np.asarray(cbf)[:, None] * tissue + np.asarray(abv)[:, None] * arterial
+    )
+
+
+def fit_tissue_curves(
+    curves,
+    m0,
+    plds,
+    *,
+    labeleff,
+    t1blood,
+    is_casl,
+    tau=None,
+    ti1=None,
+    cbf_max=LR_CBF_MAX,
+    abv_max=LR_ABV_MAX,
+    xp=None,
+    n_jobs=1,
+):
+    """Fit the general kinetic model to tissue curves from multi-delay local regression.
+
+    Each curve is a tissue's delta-M amplitude in every volume, from
+    :func:`local_regression_pvc` applied to the delta-M series. It is fit with
+    :func:`~aslprep.utils.cbf.fit_deltam_multipld`, calibrated by the centre voxel's M0, with
+    raised CBF and aBV bounds (:data:`LR_CBF_MAX`, :data:`LR_ABV_MAX`). The arterial term is a
+    nuisance and is not returned, but a fit whose aBV is at its bound is flagged (status 5).
+
+    Parameters
+    ----------
+    curves : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        Tissue curves.
+    m0 : :obj:`numpy.ndarray` of shape (n_voxels,)
+        The M0 of each curve's centre voxel.
+    plds : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        The delays of each curve's centre voxel.
+    labeleff, t1blood, is_casl, tau, ti1, xp, n_jobs
+        As for :func:`~aslprep.utils.cbf.fit_deltam_multipld`.
+    cbf_max : :obj:`float`
+        Upper bound on CBF.
+    abv_max : :obj:`float`
+        Upper bound on aBV.
+
+    Returns
+    -------
+    :obj:`dict` of :obj:`numpy.ndarray` of shape (n_voxels,)
+        ``cbf``, ``att``, ``att_lower``, ``att_upper``, ``kinres`` (relative kinetic residual,
+        ``||curve - model|| / ||curve||``) and ``status`` (see :data:`KINETIC_STATUS`).
+    """
+    from aslprep.utils.cbf import PARTITION_COEFFICIENT, fit_deltam_multipld
+
+    curves = np.asarray(curves, dtype=float)
+    m0 = np.asarray(m0, dtype=float)
+    n_voxels = curves.shape[0]
+    out = {key: np.zeros(n_voxels) for key in ('cbf', 'att', 'att_lower', 'att_upper', 'kinres')}
+    out['status'] = np.zeros(n_voxels, dtype=np.uint8)
+    if not n_voxels:
+        return out
+
+    cbf, att, abat, abv, failures, bounds = fit_deltam_multipld(
+        deltam_arr=curves,
+        scaled_m0data=m0,
+        plds=plds,
+        labeleff=labeleff,
+        t1blood=t1blood,
+        partition_coefficient=PARTITION_COEFFICIENT,
+        is_casl=is_casl,
+        tau=tau,
+        ti1=ti1,
+        xp=xp,
+        n_jobs=n_jobs,
+        cbf_max=cbf_max,
+        abv_max=abv_max,
+    )
+    fitted = ~failures & np.isfinite(cbf) & np.isfinite(att)
+    # The solver returns bound solutions only to within rounding error (for example ~1e-13 for
+    # a curve with no tissue signal), so bounds are recognized with a tolerance, and a
+    # numerically zero CBF is set to zero.
+    at_lower = fitted & (cbf <= KINETIC_CBF_TOLERANCE)
+    at_upper = fitted & (cbf >= cbf_max * (1 - KINETIC_BOUND_RTOL))
+    abv_at_upper = fitted & ~at_lower & (abv >= abv_max * (1 - KINETIC_BOUND_RTOL))
+    cbf = np.where(at_lower, 0.0, cbf)
+    status = np.full(n_voxels, 4, dtype=np.uint8)
+    status[fitted] = 1
+    status[at_lower] = 2
+    status[abv_at_upper] = 5
+    status[at_upper] = 3
+
+    predicted = np.zeros_like(curves)
+    if fitted.any():
+        predicted[fitted] = gkm_predict(
+            cbf[fitted],
+            att[fitted],
+            abat[fitted],
+            abv[fitted],
+            m0[fitted],
+            np.asarray(plds, dtype=float)[fitted],
+            labeleff=labeleff,
+            t1blood=t1blood,
+            is_casl=is_casl,
+            tau=tau,
+            ti1=ti1,
+        )
+    norm = np.linalg.norm(curves, axis=1)
+    kinres = np.zeros(n_voxels)
+    ok = fitted & (norm > 0)
+    kinres[ok] = np.linalg.norm(curves[ok] - predicted[ok], axis=1) / norm[ok]
+
+    out['cbf'][fitted] = cbf[fitted]
+    out['att'][fitted] = att[fitted]
+    out['att_lower'][fitted] = bounds['att_lower'][fitted]
+    out['att_upper'][fitted] = bounds['att_upper'][fitted]
+    out['kinres'] = kinres
+    out['status'] = status
+    return out
+
+
+#: ATT (s) of the CSF quality-control basis where no voxel has an uncorrected ATT estimate.
+CSF_QC_DEFAULT_ATT = 1.0
+
+
+def csf_kinetic_projection(curves, basis):
+    """Signed apparent CSF CBF of multi-delay data (spec Section 5.7.4).
+
+    The CSF curve is fit, by least squares, as a multiple of a unit-CBF tissue curve: the
+    general kinetic model's tissue term at CBF 1 and the voxel's M0, without an arterial term.
+    The multiple is the apparent CSF CBF. A negative value is kept: it is a signed QC
+    diagnostic, and it does not depend on the voxel's uncorrected CBF.
+
+    Parameters
+    ----------
+    curves : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        CSF curves from :func:`local_regression_csf` applied to the delta-M series.
+    basis : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        The unit-CBF tissue curve of each voxel (:func:`gkm_predict` with CBF 1 and aBV 0).
+
+    Returns
+    -------
+    cbf : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Apparent CSF CBF, zero where it is undefined.
+    kinres : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Relative residual of the CSF curve against the fitted multiple of the basis.
+    defined : :obj:`numpy.ndarray` of :obj:`bool`
+        Where the basis is not zero and the curve is finite.
+    """
+    curves = np.asarray(curves, dtype=float)
+    basis = np.asarray(basis, dtype=float)
+    bb = np.einsum('vt,vt->v', basis, basis)
+    defined = np.isfinite(bb) & (bb > 0) & np.all(np.isfinite(curves), axis=1)
+    cbf = np.zeros(curves.shape[0])
+    cbf[defined] = np.einsum('vt,vt->v', curves[defined], basis[defined]) / bb[defined]
+    norm = np.linalg.norm(curves, axis=1)
+    kinres = np.zeros(curves.shape[0])
+    ok = defined & (norm > 0)
+    kinres[ok] = np.linalg.norm(curves[ok] - cbf[ok, None] * basis[ok], axis=1) / norm[ok]
+    return cbf, kinres, defined
 
 
 def normalized_resample_ratio(data, weight, threshold=0.5):
