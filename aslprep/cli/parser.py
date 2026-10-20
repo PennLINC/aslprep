@@ -24,28 +24,6 @@ def _build_parser():
     from aslprep.cli.version import check_latest, is_flagged
     from aslprep.utils.atlas import select_atlases
 
-    deprecations = {
-        # parser attribute name: (replacement flag, version slated to be removed in)
-        'longitudinal': ('--subject-anatomical-reference unbiased', '26.1.0'),
-    }
-
-    class DeprecatedAction(Action):
-        def __init__(self, option_strings, dest, **kwargs):
-            super().__init__(option_strings, dest, nargs=0, **kwargs)
-
-        def __call__(self, parser, namespace, values, option_string=None):
-            new_opt, rem_vers = deprecations.get(self.dest, (None, None))
-            msg = (
-                f'{self.option_strings} has been deprecated and will be removed in '
-                f'{rem_vers or "a later version"}.'
-            )
-            if new_opt:
-                msg += f' Please use `{new_opt}` instead.'
-            print(msg, file=sys.stderr)
-            # Remove the attribute if it exists (argparse may have set it)
-            if hasattr(namespace, self.dest):
-                delattr(namespace, self.dest)
-
     class ToDict(Action):
         def __call__(self, parser, namespace, values, option_string=None):
             d = {}
@@ -443,12 +421,6 @@ the spatial normalization. To generate no ASL outputs, use this option without s
 any spatial references.""",
     )
     g_conf.add_argument(
-        '--longitudinal',
-        action=DeprecatedAction,
-        help='Deprecated - use `--subject-anatomical-reference unbiased` instead',
-    )
-
-    g_conf.add_argument(
         '--asl2anat-init',
         action='store',
         choices=['auto', 't1w', 't2w', 'header'],
@@ -490,18 +462,6 @@ any spatial references.""",
         type=int,
         default=None,
         help='Initialize the random seed for the workflow',
-    )
-
-    g_use_ge = g_conf.add_mutually_exclusive_group()
-    g_use_ge.add_argument(
-        '--force-ge',
-        action=DeprecatedAction,
-        help='Deprecated - use `--force ge` instead. See `--force` for more details.',
-    )
-    g_use_ge.add_argument(
-        '--force-no-ge',
-        action=DeprecatedAction,
-        help='Deprecated - use `--force no-ge` instead. See `--force` for more details.',
     )
 
     g_conf.add_argument(
@@ -847,14 +807,6 @@ def parse_args(args=None, namespace=None):
 
     parser = _build_parser()
     opts = parser.parse_args(args, namespace)
-
-    if opts.longitudinal:
-        opts.subject_anatomical_reference = 'unbiased'
-        msg = (
-            'The `--longitudinal` flag is deprecated - use '
-            '`--subject-anatomical-reference unbiased` instead.'
-        )
-        config.loggers.cli.warning(msg)
 
     if opts.config_file:
         reuse_skips = config.default_reuse_skips()
