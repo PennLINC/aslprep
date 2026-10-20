@@ -189,6 +189,25 @@ def test_voxel_delays_refuses_non_finite_timing():
     assert np.all(np.isfinite(plds))
 
 
+@pytest.mark.parametrize('bad', [np.nan, np.inf, -1.0, 0.0])
+def test_multipld_bolus_refuses_impossible_bolus(bad):
+    """A labeling duration or TI1 that is not finite and positive is refused."""
+    from aslprep.utils.cbf import multipld_bolus
+
+    with pytest.raises(ValueError, match='LabelingDuration'):
+        multipld_bolus({'LabelingDuration': bad}, is_casl=True)
+    with pytest.raises(ValueError, match='LabelingDuration'):
+        multipld_bolus({'LabelingDuration': [1.8, bad, 1.8]}, is_casl=True)
+    with pytest.raises(ValueError, match='BolusCutOffDelayTime'):
+        multipld_bolus(
+            {'BolusCutOffTechnique': 'QUIPSSII', 'BolusCutOffDelayTime': bad}, is_casl=False
+        )
+    assert multipld_bolus({'LabelingDuration': [1.8, 1.5]}, is_casl=True) == ([1.8, 1.5], None)
+    assert multipld_bolus(
+        {'BolusCutOffTechnique': 'QUIPSSII', 'BolusCutOffDelayTime': 0.7}, is_casl=False
+    ) == (None, 0.7)
+
+
 def test_estimate_lr_pvc_mem_gb():
     """The memory estimate scales with the series size."""
     small = pvc.estimate_lr_pvc_mem_gb((16, 16, 8, 84))

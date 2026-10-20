@@ -1696,6 +1696,13 @@ def multipld_bolus(metadata, is_casl):
         ti1 = metadata['BolusCutOffDelayTime'][0]
     elif technique is not None:
         raise ValueError(f'Unsupported BolusCutOffTechnique ({technique}) for multi-PLD data.')
+    # As for the delays, a missing or impossible bolus would silently corrupt every fit.
+    for name, value in (('LabelingDuration', tau), ('BolusCutOffDelayTime', ti1)):
+        if value is None:
+            continue
+        values = np.atleast_1d(np.asarray(value, dtype=float))
+        if not np.all(np.isfinite(values) & (values > 0)):
+            raise ValueError(f'{name} must be finite and positive, but got {value}')
     return tau, ti1
 
 
