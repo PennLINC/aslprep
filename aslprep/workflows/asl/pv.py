@@ -324,7 +324,7 @@ each of which was then fit with the same general kinetic model as the uncorrecte
 calibrated by the voxel's M0 and with a non-negative arterial nuisance term,
 giving tissue CBF and arterial transit time. Because a tissue curve can be larger than the
 voxel's own curve, the bounds on CBF and on arterial blood volume were raised (to
-1000 mL/100 g/min and 1); fits at either bound were discarded.
+1000 mL/100 g/min and 1); fits at either raised upper bound were discarded.
 Voxels were fit for both tissues when each had at least half a voxel of support in the kernel
 and the normalized design was well conditioned (condition number at most 100),
 and for one tissue only when the other tissue's contamination of that estimate was below 5%.

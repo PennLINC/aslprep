@@ -299,12 +299,13 @@ def test_divide_by_weight(tmp_path):
     np.testing.assert_allclose(out, [[[60.0, 60.0, 0.0]]])
 
 
-def test_multidelay_local_regression_pvc_interface(tmp_path):
+def test_multidelay_local_regression_pvc_interface(tmp_path, monkeypatch):
     """Multi-delay LR PVC unmixes each delay and fits each tissue curve (spec 5.7).
 
     M0 varies over the image, so each estimate must be calibrated by its own voxel's M0. A
     second run adds a negative CSF curve, which the signed CSF diagnostic must recover, also
-    where the uncorrected CBF is zero (its ATT then falls back to the median).
+    where the uncorrected CBF is zero (its ATT then falls back to the median). A third run
+    forces each kinetic status, to check which estimates are written.
     """
     from aslprep.utils.pvc import gkm_predict
 
@@ -407,3 +408,28 @@ def test_multidelay_local_regression_pvc_interface(tmp_path):
     assert csf_ok[:8].sum() > 25
     assert csf_ok[8:].sum() > 25
     np.testing.assert_allclose(csf[csf_ok], -10.0 * m0_csf / m0[csf_ok], rtol=0.01)
+
+    # Kinetic statuses: CBF is written for 1 and 2 only, ATT for 1 only.
+    real_fit = pvc.fit_tissue_curves
+
+    def cycled_fit(*args, **kwargs):
+        result = real_fit(*args, **kwargs)
+        result['status'] = np.resize(np.array([1, 2, 3, 5], np.uint8), result['status'].shape)
+        return result
+
+    monkeypatch.setattr(pvc, 'fit_tissue_curves', cycled_fit)
+    out = run(tissue, 'statuses')
+    for tissue_name in ('gm', 'wm'):
+        kinstatus = nb.load(getattr(out, f'{tissue_name}_kinstatus')).get_fdata()
+        cbf = nb.load(getattr(out, f'{tissue_name}_cbf')).get_fdata()
+        cbf_valid = nb.load(getattr(out, f'{tissue_name}_valid')).get_fdata()
+        att_out = nb.load(getattr(out, f'{tissue_name}_att')).get_fdata()
+        att_valid = nb.load(getattr(out, f'{tissue_name}_att_valid')).get_fdata()
+        assert set(np.unique(kinstatus)) >= {1, 2, 3, 5}
+        rejected = np.isin(kinstatus, (3, 5))
+        assert np.all(cbf[rejected] == 0)
+        assert np.all(cbf_valid[rejected] == 0)
+        np.testing.assert_array_equal(cbf_valid, np.isin(kinstatus, (1, 2)))
+        np.testing.assert_array_equal(att_valid, kinstatus == 1)
+        assert np.all(att_out[kinstatus != 1] == 0)
+        assert np.all(att_out[kinstatus == 1] > 0)

@@ -338,9 +338,7 @@ mean_cbf_gm_lr_score:
   Units: mL/100 g/min
   Description: >-
     Gray matter cerebral blood flow after partial volume correction by local linear
-    regression: of the CBF map (desc-score) for single-delay data, or of each delta-M
-    volume followed by a kinetic fit of each tissue curve for multi-delay data. Calibrated
-    by the voxel's M0. Zero where it was not estimated.
+    regression of the CBF map (desc-score). Zero where it was not estimated.
 
 cbf_gm_se_lr_score:
   desc: scoreLRGMSE
@@ -357,9 +355,7 @@ mean_cbf_wm_lr_score:
   Units: mL/100 g/min
   Description: >-
     White matter cerebral blood flow after partial volume correction by local linear
-    regression: of the CBF map (desc-score) for single-delay data, or of each delta-M
-    volume followed by a kinetic fit of each tissue curve for multi-delay data. Calibrated
-    by the voxel's M0. Zero where it was not estimated.
+    regression of the CBF map (desc-score). Zero where it was not estimated.
 
 cbf_wm_se_lr_score:
   desc: scoreLRWMSE
@@ -406,9 +402,7 @@ rmse_lr_score:
   desc: scoreLR
   suffix: pvrmse
   Description: >-
-    Root mean square residual of each local regression, in units of the regressed
-    signal: CBF times M0 for single-delay data, and delta-M (pooled over volumes)
-    for multi-delay data. A spatial-regression diagnostic only.
+    Root mean square residual of each local regression, in units of CBF times M0.
 
 mean_cbf_csf_lr_score:
   desc: scoreLRCSF
@@ -416,14 +410,11 @@ mean_cbf_csf_lr_score:
   Units: mL/100 g/min
   Description: >-
     Apparent CSF cerebral blood flow, from a separate local regression on gray matter,
-    white matter and CSF partial volume maps, for quality control: of the CBF map
-    (desc-score) for single-delay data, or of each delta-M volume for multi-delay
-    data, where the CSF curve is projected (with its sign) onto the voxel's uncorrected
-    kinetic curve and scaled by its uncorrected CBF. CSF has no perfusion, so values
-    far from zero indicate partial volume map errors, macrovascular or choroid plexus
-    signal, or model error. The gray and white matter maps (desc-scoreLRGM, desc-scoreLRWM)
-    do not come from this fit. Zero where it was not estimated. Valid in this (native)
-    space only.
+    white matter and CSF partial volume maps of the CBF map (desc-score), for quality
+    control. CSF has no perfusion, so values far from zero indicate partial volume
+    map errors, macrovascular or choroid plexus signal, or model error. The gray and
+    white matter maps (desc-scoreLRGM, desc-scoreLRWM) do not come from this fit.
+    Zero where it was not estimated. Valid in this (native) space only.
 
 cbf_csf_se_lr_score:
   desc: scoreLRCSFSE
