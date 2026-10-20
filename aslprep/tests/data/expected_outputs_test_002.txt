@@ -28,14 +28,14 @@ sub-01/anat/sub-01_space-MNI152NLin2009cAsym_desc-preproc_dseg.nii.gz
 sub-01/anat/sub-01_space-MNI152NLin2009cAsym_label-CSF_desc-preproc_probseg.nii.gz
 sub-01/anat/sub-01_space-MNI152NLin2009cAsym_label-GM_desc-preproc_probseg.nii.gz
 sub-01/anat/sub-01_space-MNI152NLin2009cAsym_label-WM_desc-preproc_probseg.nii.gz
-sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S1056Parcels_cbf.json
-sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S1056Parcels_cbf.tsv
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S1056Parcels_coverage.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S1056Parcels_coverage.tsv
-sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S156Parcels_cbf.json
-sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S156Parcels_cbf.tsv
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S1056Parcels_scalarstats.json
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S1056Parcels_scalarstats.tsv
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S156Parcels_coverage.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S156Parcels_coverage.tsv
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S156Parcels_scalarstats.json
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_atlas-4S156Parcels_scalarstats.tsv
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_cbf.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-brain_mask.json
@@ -45,6 +45,7 @@ sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-coreg_aslref.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-coreg_aslref.nii.gz
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-hmc_aslref.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-hmc_aslref.nii.gz
+sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-calibration_parameters.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_desc-qualitycontrol_cbf.tsv
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_from-aslref_to-T1w_mode-image_desc-coreg_xfm.json
 sub-01/perf/sub-01_acq-pcaslsinglepldge3d_run-02_from-aslref_to-T1w_mode-image_desc-coreg_xfm.txt

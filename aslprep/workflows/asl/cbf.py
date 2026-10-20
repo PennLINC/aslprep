@@ -2,8 +2,6 @@
 # vi: set ft=python sts=4 ts=4 sw=4 et:
 """Workflows for calculating CBF."""
 
-from numbers import Number
-
 from nipype.interfaces import utility as niu
 from nipype.interfaces.fsl import Info
 from nipype.pipeline import engine as pe
@@ -16,6 +14,7 @@ from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import BIDSURI, DerivativesDataSink
 from aslprep.interfaces.cbf import (
     BASILCBF,
+    BASILInflowTimeImage,
     ComputeCBF,
     ExtractCBF,
     ScoreAndScrubCBF,
@@ -25,20 +24,20 @@ from aslprep.utils.asl import (
     BOLUS_CUTOFF_TECHNIQUES,
     describe_labeling_efficiency,
     determine_multi_pld,
-    estimate_labeling_efficiency,
     get_bolus_duration,
     get_inflow_times,
     infer_m0tr,
     pcasl_or_pasl,
     prepare_basil_kwargs,
 )
-from aslprep.utils.cbf import (
-    M0_THRESHOLD,
-    PARTITION_COEFFICIENT,
-    REFERENCE_HAEMATOCRIT,
-    estimate_t1,
-    haematocrit_applies,
+from aslprep.utils.calibration import (
+    DEFAULT_M0_SCALE,
+    DEFAULT_SMOOTH_KERNEL,
+    basil_calibration_inputs,
+    calibration_value,
+    resolve_calibration,
 )
+from aslprep.utils.cbf import REFERENCE_HAEMATOCRIT, T1BLOOD_BY_FIELD_STRENGTH
 from aslprep.utils.pvc import check_lr_pvc_supported
 from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
 from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf, lr_pvc_fields
@@ -71,6 +70,7 @@ def init_cbf_wf(
     pvc_method='none',
     pvc_kernel_size=(5, 5, 1),
     asl_effective_resolution='nominal',
+    calibration=None,
     name='cbf_wf',
 ):
     """Create a workflow for :abbr:`CCBF (compute cbf)`.
@@ -110,6 +110,7 @@ def init_cbf_wf(
     scorescrub
     basil
     m0_scale
+        Used only to resolve ``calibration`` when it is None.
     smooth_kernel
     pvc_method : {'none', 'local-regression'}
         Additional partial volume correction of the mean CBF (and SCORE) maps.
@@ -117,6 +118,11 @@ def init_cbf_wf(
         Local-regression kernel size, ordered (in-plane, in-plane, slice).
     asl_effective_resolution : :obj:`str` or :obj:`list` of :obj:`float`
         Effective resolution used to build the partial volume maps.
+    calibration : :obj:`dict` or None
+        The calibration specification that every quantification step uses
+        (see :func:`~aslprep.utils.calibration.resolve_calibration`).
+        If None, it is resolved from ``metadata``, ``m0_scale`` and ``smooth_kernel``.
+        Not used for pre-calculated CBF data.
     name : :obj:`str`
         Name of workflow (default: ``cbf_wf``)
 
@@ -197,16 +203,42 @@ Cerebral blood flow computation and denoising
         )
         basil = False
 
-    if m0type in ('Included', 'Separate'):
+    if processing_target != 'cbf' and calibration is None:
+        calibration = resolve_calibration(
+            metadata,
+            m0tr=m0tr,
+            m0scan_metadata=m0scan_metadata,
+            m0_scale=m0_scale,
+            m0_scale_source='user' if m0_scale != DEFAULT_M0_SCALE else 'default',
+            smooth_kernel=smooth_kernel,
+            smooth_kernel_source=('user' if smooth_kernel != DEFAULT_SMOOTH_KERNEL else 'default'),
+            basil=basil,
+        )
+        for warning in calibration['Warnings']:
+            config.loggers.workflow.warning(warning)
+
+    m0_str = ''
+    if calibration is not None:
+        m0_scale = calibration_value(calibration, 'M0Scale')
+        # The M0 image is smoothed as the specification records (absent for an M0Estimate).
+        smooth_kernel = calibration_value(calibration, 'M0SmoothingFWHM', smooth_kernel)
+        recovery_tr = calibration_value(calibration, 'M0RepetitionTime')
+        t1tissue = calibration_value(calibration, 'TissueT1')
+        m0_threshold = calibration_value(calibration, 'M0Threshold')
+
+    if processing_target == 'cbf':
+        # Pre-calculated CBF is not calibrated.
+        pass
+
+    elif m0type in ('Included', 'Separate'):
         m0_str = (
             'Calibration (M0) volumes associated with the ASL scan were smoothed with a '
             f'Gaussian kernel (FWHM={smooth_kernel} mm) and the average calibration image was '
             f'calculated. '
         )
-        if isinstance(m0tr, Number) and m0tr < 5:
-            _, t1tissue = estimate_t1(metadata=metadata)
+        if t1tissue is not None:
             m0_str += (
-                f'As the TR of the calibration volumes was less than 5 seconds ({m0tr}), '
+                f'As the TR of the calibration volumes was less than 5 seconds ({recovery_tr}), '
                 'the average calibration volume was divided by 1 - exp(-TR / T1) to '
                 'compensate for incomplete T1 recovery, as recommended in '
                 f'@alsop_recommended_2015, using a gray matter T1 of {t1tissue:g} s '
@@ -226,12 +258,23 @@ Cerebral blood flow computation and denoising
             'the control volumes were used as a substitute. '
             'The control volumes in the ASL scans were smoothed with a '
             f'Gaussian kernel (FWHM={smooth_kernel} mm) and the average control image was '
-            f'calculated and scaled by {m0_scale}.'
+            f'calculated'
         )
+        if t1tissue is not None:
+            m0_str += (
+                f'. As the TR of the control volumes was less than 5 seconds ({recovery_tr}), '
+                'the average control image was divided by 1 - exp(-TR / T1) to '
+                'compensate for incomplete T1 recovery, as recommended in '
+                f'@alsop_recommended_2015, using a gray matter T1 of {t1tissue:g} s '
+                '[@wright2008water], and then scaled'
+            )
+        else:
+            m0_str += ' and scaled'
+        m0_str += f' by {m0_scale}.'
 
-    if m0type != 'Estimate':
+    if m0_str and m0_threshold is not None:
         m0_str += (
-            f' Voxels where it fell below {100 * M0_THRESHOLD:g}% of its 98th percentile were '
+            f' Voxels where it fell below {100 * m0_threshold:g}% of its 98th percentile were '
             'treated as having no signal, and were given no CBF estimate.'
         )
 
@@ -315,20 +358,25 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             'basis based on the slice timing.'
         )
 
-    t1blood = None
-    if processing_target != 'cbf':
-        # Also passed to BASIL, so both models use the same value.
-        t1blood, _ = estimate_t1(metadata=metadata)
-        if haematocrit_applies(metadata):
+    if calibration is not None:
+        # Every model (including BASIL) uses these values, from the calibration specification.
+        t1blood = calibration_value(calibration, 'BloodT1')
+        field_strength = calibration_value(calibration, 'MagneticFieldStrength')
+        if calibration['Parameters']['BloodT1']['Source'] == 'inferred':
             workflow.__desc__ += (
                 f' The T1 of arterial blood was set to {t1blood:.3f} s: '
-                f'the value for {metadata["MagneticFieldStrength"]:g} T, scaled for the '
-                f"participant's measured haematocrit ({metadata['Haematocrit']:g}) relative to "
+                f'the value for {field_strength:g} T, scaled for the '
+                f"participant's measured haematocrit "
+                f'({calibration_value(calibration, "Haematocrit"):g}) relative to '
                 f'a typical haematocrit of {REFERENCE_HAEMATOCRIT:g} [@lu2004determining], '
                 'using the model of @hales2016general.'
             )
+        elif field_strength not in T1BLOOD_BY_FIELD_STRENGTH:
+            workflow.__desc__ += (
+                f' The T1 of arterial blood was set to {t1blood:g} s, '
+                f'calculated from the field strength of {field_strength:g} T [@zhang2013vivo].'
+            )
         else:
-            field_strength = metadata['MagneticFieldStrength']
             t1blood_citation = (
                 '@alsop_recommended_2015' if field_strength in (1.5, 3) else '@zhang2013vivo'
             )
@@ -339,8 +387,8 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
 
         workflow.__desc__ += (
             ' CBF was calculated with a blood-brain partition coefficient of '
-            f'{PARTITION_COEFFICIENT:g} mL/g [@alsop_recommended_2015] and '
-            f'{describe_labeling_efficiency(metadata)}.'
+            f'{calibration_value(calibration, "PartitionCoefficient"):g} mL/g '
+            f'[@alsop_recommended_2015] and {describe_labeling_efficiency(metadata)}.'
         )
 
     # End the paragraph, so that the next workflow's description does not run into it.
@@ -525,7 +573,6 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
     compute_cbf = pe.Node(
         ComputeCBF(
             cbf_only=processing_target == 'cbf',
-            m0_scale=m0_scale,
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
             write_calibration=pvc_method != 'none',
@@ -535,12 +582,13 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
         run_without_submitting=not is_multi_pld,
         name='compute_cbf',
     )
+    if calibration is not None:
+        compute_cbf.inputs.calibration = calibration
 
     workflow.connect([
         (extract_deltam, compute_cbf, [
             ('out_file', 'deltam'),
             ('m0_file', 'm0_file'),
-            ('m0tr', 'm0tr'),
             ('metadata', 'metadata'),
         ]),
         (compute_cbf, outputnode, [
@@ -640,26 +688,30 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
 
         workflow.connect([(extract_deltam, determine_inflow_times, [('metadata', 'metadata')])])
 
-        # Node to estimate labeling efficiency
-        estimate_alpha = pe.Node(
-            niu.Function(
-                function=estimate_labeling_efficiency,
-                input_names=['metadata'],
-                output_names=['labeling_efficiency'],
-            ),
-            name='estimate_alpha',
-        )
-
-        workflow.connect([(extract_deltam, estimate_alpha, [('metadata', 'metadata')])])
-
-        basil_kwargs = prepare_basil_kwargs(metadata)
+        basil_kwargs, use_tiimg = prepare_basil_kwargs(metadata)
+        if use_tiimg:
+            workflow.__desc__ += (
+                'BASIL was given the inflow time of each voxel, shifted by the acquisition '
+                'time of its slice.\n'
+            )
+        elif 'slice_spacing' in basil_kwargs:
+            band_str = (
+                f' within each multiband band of {basil_kwargs["sliceband"]} slices'
+                if 'sliceband' in basil_kwargs
+                else ''
+            )
+            workflow.__desc__ += (
+                'BASIL accounted for slice timing by adding '
+                f'{1000 * basil_kwargs["slice_spacing"]:.2f} ms to the inflow time for each '
+                f'successive slice{band_str}.\n'
+            )
 
         basilcbf = pe.Node(
             BASILCBF(
-                m0_scale=m0_scale,
                 pvc=basil_pvc,
                 pcasl=is_casl,
-                t1blood=t1blood,
+                # The calibration and physiological parameters of ASLPrep's own models
+                **basil_calibration_inputs(calibration),
                 **basil_kwargs,
             ),
             name='basilcbf',
@@ -674,13 +726,29 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
                 ('m0_file', 'mzero'),
             ]),
             (determine_bolus_duration, basilcbf, [('bolus', 'bolus')]),
-            (determine_inflow_times, basilcbf, [('tis', 'tis')]),
-            (estimate_alpha, basilcbf, [('labeling_efficiency', 'alpha')]),
             (basilcbf, outputnode, [
                 ('mean_cbf_basil', 'mean_cbf_basil'),
                 ('cbf_sd_basil', 'cbf_sd_basil'),
             ]),
         ])  # fmt:skip
+
+        if use_tiimg:
+            make_tiimg = pe.Node(
+                BASILInflowTimeImage(),
+                name='make_tiimg',
+                run_without_submitting=True,
+                mem_gb=0.2,
+            )
+            workflow.connect([
+                (extract_deltam, make_tiimg, [
+                    ('out_file', 'deltam'),
+                    ('metadata', 'metadata'),
+                ]),
+                (determine_inflow_times, make_tiimg, [('tis', 'tis')]),
+                (make_tiimg, basilcbf, [('out_file', 'tiimg')]),
+            ])  # fmt:skip
+        else:
+            workflow.connect([(determine_inflow_times, basilcbf, [('tis', 'tis')])])
 
         if basil_pvc:
             workflow.connect([
@@ -715,9 +783,6 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
                 ]),
             ])  # fmt:skip
 
-        if metadata['M0Type'] != 'Estimate':
-            workflow.connect([(extract_deltam, basilcbf, [('m0tr', 'm0tr')])])
-
     if lr_pvc:
         asl_pv_wf = init_asl_pv_wf(
             metadata=metadata,
@@ -731,6 +796,7 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
             mem_gb=_lr_pvc_mem_gb(name_source, fit_nthreads) if is_multi_pld else None,
+            calibration=calibration,
         )
         if is_multi_pld:
             # Each delay volume is unmixed, so the fit needs the delta-M series and the
@@ -780,14 +846,15 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
 
 
 def init_parcellate_cbf_wf(
-    cbf_3d,
+    maps_3d,
     sparse_3d=None,
+    written_maps=(),
     min_coverage=0.5,
     mem_gb=0.1,
     omp_nthreads=1,
     name='parcellate_cbf_wf',
 ):
-    """Parcellate CBF results using a set of atlases.
+    """Parcellate CBF, ATT and other perfusion maps using a set of atlases.
 
     Atlases are in MNI152NLin6Asym space, but ASLPrep is not guaranteed to generate
     MNI152NLin6Asym-space derivatives.
@@ -802,19 +869,23 @@ def init_parcellate_cbf_wf(
 
             from aslprep.workflows.asl.cbf import init_parcellate_cbf_wf
 
-            wf = init_parcellate_cbf_wf(cbf_3d=["mean_cbf", "mean_cbf_score"])
+            wf = init_parcellate_cbf_wf(maps_3d=["mean_cbf", "mean_cbf_score"])
 
     Parameters
     ----------
-    cbf_3d : list of str
-        CBF maps to parcellate within the ASL brain mask.
+    maps_3d : list of str
+        Maps to parcellate within the ASL brain mask.
     sparse_3d : dict or None
-        CBF maps that are only estimated in some voxels, keyed by name, with the name of their
+        Maps that are only estimated in some voxels, keyed by name, with the name of their
         validity mask as the value. They are parcellated within that mask, so voxels that were
-        not estimated (stored as zero) do not enter parcel means, and their coverage files
+        not estimated (stored as zero) do not enter parcel means, and their coverage columns
         report estimation coverage.
+    written_maps : sequence of str
+        The maps in ``maps_3d`` or ``sparse_3d`` that are written to the output directory in
+        ASL reference space. Their written paths are listed, as BIDS-URIs, in the ``Sources``
+        of their ``scalarstats`` columns.
     min_coverage : float
-        Parcels with less coverage than this are set to zero.
+        Parcels with less coverage than this are set to n/a.
     mem_gb : float
         Memory for the atlas warping and parcellation nodes.
     omp_nthreads : int
@@ -827,7 +898,7 @@ def init_parcellate_cbf_wf(
     source_file : str
         The ASL file the parcellated tables are named after.
     asl_mask : str
-        ASL brain mask; the grid the atlases are warped to, and the mask for ``cbf_3d`` maps.
+        ASL brain mask; the grid the atlases are warped to, and the mask for ``maps_3d``.
     aslref2anat_xfm : str
         Transform from the ASL reference to the anatomical image.
     mni2009c2anat_xfm : str
@@ -838,46 +909,29 @@ def init_parcellate_cbf_wf(
         The atlases, in MNI152NLin6Asym space.
     atlas_labels_files : list of str
         The atlases' label tables.
-    <each name in cbf_3d> : str
-        The CBF maps to parcellate within ``asl_mask``.
+    <each name in maps_3d> : str
+        The maps to parcellate within ``asl_mask``.
     <each key and value of sparse_3d> : str
-        The sparsely estimated CBF maps, and the validity masks they are parcellated within.
+        The sparsely estimated maps, and the validity masks they are parcellated within.
+    <each name in written_maps>_file : str
+        The written path of that map.
 
     Outputs
     -------
-    None. For each map and atlas, a parcellated CBF table (``*_cbf.tsv``) is written to the
-    output directory. ``mean_cbf``, ``mean_cbf_basil`` and the ``sparse_3d`` maps also get a
-    coverage table (``*_coverage.tsv``).
+    None. For each atlas, a table of parcel means (``*_scalarstats.tsv``) and a coverage table
+    (``*_coverage.tsv``) are written to the output directory. Each has a ``node`` column,
+    with one row per parcel, then one column per map, named ``<suffix>[_<desc>]`` after the
+    map's voxel-wise output (for example, ``cbf``, ``cbf_scrub`` or ``att_basil``).
     """
-    CBF_ENTITIES = {
-        'mean_cbf': {},
-        'mean_cbf_score': {
-            'desc': 'score',
-        },
-        'mean_cbf_scrub': {
-            'desc': 'scrub',
-        },
-        'mean_cbf_basil': {
-            'desc': 'basil',
-        },
-        'mean_cbf_gm_basil': {
-            'desc': 'basilGM',
-        },
-        'mean_cbf_wm_basil': {
-            'desc': 'basilWM',
-        },
-    }
     sparse_3d = sparse_3d or {}
-    for sparse_name in sparse_3d:
-        CBF_ENTITIES[sparse_name] = {'desc': BASE_INPUT_FIELDS[sparse_name]['desc']}
     workflow = Workflow(name=name)
     output_dir = config.execution.output_dir
 
     workflow.__desc__ = f"""\
-CBF maps were parcellated in ASL reference space using these atlases.
-In cases of partial coverage, either uncovered voxels (values of all zeros or NaNs) were
+CBF and other perfusion maps were parcellated in ASL reference space using these atlases.
+In cases of partial coverage, either uncovered voxels were
 ignored (when the parcel had >{min_coverage * 100}% coverage)
-or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% coverage).
+or the whole parcel was set to n/a (when the parcel had <{min_coverage * 100}% coverage).
 """
 
     input_fields = [
@@ -889,8 +943,12 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         'atlas_files',
         'atlas_labels_files',
     ]
-    input_fields += cbf_3d
+    input_fields += maps_3d
     input_fields += list(sparse_3d) + sorted(set(sparse_3d.values()))
+    map_names = maps_3d + list(sparse_3d)
+    if unknown := sorted(set(written_maps) - set(map_names)):
+        raise ValueError(f'Written maps {unknown} are not parcellated.')
+    input_fields += [f'{map_name}_file' for map_name in map_names if map_name in written_maps]
     inputnode = pe.Node(
         niu.IdentityInterface(fields=input_fields),
         name='inputnode',
@@ -961,70 +1019,154 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         ]),
     ])  # fmt:skip
 
-    for cbf_type in cbf_3d + list(sparse_3d):
-        parcellate_cbf = pe.MapNode(
-            NiftiParcellate(min_coverage=min_coverage),
-            name=f'parcellate_{cbf_type}',
-            iterfield=['atlas', 'atlas_labels'],
-            mem_gb=mem_gb,
+    # Every map is parcellated with each atlas in one node, which writes one table of parcel
+    # means (scalarstats) and one coverage table, with a row per parcel and a column per map.
+    columns = []
+    for map_name in map_names:
+        fields = BASE_INPUT_FIELDS[map_name]
+        columns.append(
+            '_'.join([fields['suffix']] + ([fields['desc']] if 'desc' in fields else []))
         )
 
+    merge_maps = pe.Node(
+        niu.Merge(len(map_names)),
+        name='merge_maps',
+        run_without_submitting=True,
+    )
+    merge_masks = pe.Node(
+        niu.Merge(len(map_names)),
+        name='merge_masks',
+        run_without_submitting=True,
+    )
+    for i_map, map_name in enumerate(map_names, start=1):
         workflow.connect([
-            (inputnode, parcellate_cbf, [
-                (cbf_type, 'in_file'),
-                (sparse_3d.get(cbf_type, 'asl_mask'), 'mask'),
-                ('atlas_labels_files', 'atlas_labels'),
-            ]),
-            (warp_atlases_to_asl_space, parcellate_cbf, [('output_image', 'atlas')]),
+            (inputnode, merge_maps, [(map_name, f'in{i_map}')]),
+            (inputnode, merge_masks, [(sparse_3d.get(map_name, 'asl_mask'), f'in{i_map}')]),
         ])  # fmt:skip
 
-        ds_cbf = pe.MapNode(
+    parcellate = pe.MapNode(
+        NiftiParcellate(names=columns, min_coverage=min_coverage),
+        name='parcellate',
+        iterfield=['atlas', 'atlas_labels'],
+        mem_gb=mem_gb,
+    )
+    workflow.connect([
+        (inputnode, parcellate, [('atlas_labels_files', 'atlas_labels')]),
+        (merge_maps, parcellate, [('out', 'in_files')]),
+        (merge_masks, parcellate, [('out', 'masks')]),
+        (warp_atlases_to_asl_space, parcellate, [('output_image', 'atlas')]),
+    ])  # fmt:skip
+
+    # Describe each column in the sidecars, as BIDS does for tabular files.
+    node_meta = {'Description': 'Name of the parcel, from the atlas labels table.'}
+    column_meta = {
+        'scalarstats': {'node': node_meta},
+        'coverage': {'node': node_meta},
+    }
+    for column, map_name in zip(columns, map_names, strict=True):
+        column_meta['scalarstats'][column] = {
+            'Description': (
+                f'Mean of {column} in each parcel, '
+                f'or n/a for parcels with less than {min_coverage * 100}% coverage. '
+                f'{BASE_INPUT_FIELDS[map_name]["Description"]}'
+            ),
+            'Units': BASE_INPUT_FIELDS[map_name]['Units'],
+        }
+        column_meta['coverage'][column] = {
+            'Description': f'Fraction of each parcel in which {column} was estimated.',
+        }
+
+    # Each scalarstats column also lists the written map it came from, when there is one.
+    # The column metadata goes in meta_dict, rather than the datasinks' keyword arguments,
+    # because the datasinks would replace each column's entry (with its Sources) with theirs.
+    sourced_maps = [map_name for map_name in map_names if map_name in written_maps]
+    if sourced_maps:
+        merge_written = pe.Node(
+            niu.Merge(len(sourced_maps)),
+            name='merge_written',
+            run_without_submitting=True,
+        )
+        for i_map, map_name in enumerate(sourced_maps, start=1):
+            workflow.connect([
+                (inputnode, merge_written, [(f'{map_name}_file', f'in{i_map}')]),
+            ])  # fmt:skip
+
+    for suffix in ('scalarstats', 'coverage'):
+        table_meta = pe.MapNode(
+            niu.Function(
+                function=_add_column_metadata,
+                input_names=[
+                    'meta_dict',
+                    'column_meta',
+                    'sourced_columns',
+                    'source_files',
+                    'dataset_links',
+                    'out_dir',
+                ],
+                output_names=['metadata'],
+            ),
+            name=f'{suffix}_meta',
+            iterfield=['meta_dict'],
+            run_without_submitting=True,
+        )
+        table_meta.inputs.column_meta = column_meta[suffix]
+        table_meta.inputs.dataset_links = config.execution.dataset_links
+        table_meta.inputs.out_dir = str(output_dir)
+        if suffix == 'scalarstats' and sourced_maps:
+            table_meta.inputs.sourced_columns = [
+                columns[map_names.index(map_name)] for map_name in sourced_maps
+            ]
+            workflow.connect([(merge_written, table_meta, [('out', 'source_files')])])
+        else:
+            table_meta.inputs.sourced_columns = []
+            table_meta.inputs.source_files = []
+
+        ds_table = pe.MapNode(
             DerivativesDataSink(
                 base_directory=config.execution.aslprep_dir,
                 check_hdr=False,
-                suffix='cbf',
-                **CBF_ENTITIES[cbf_type],
+                suffix=suffix,
             ),
-            name=f'ds_{cbf_type}',
+            name=f'ds_{suffix}',
             iterfield=['atlas', 'in_file', 'meta_dict'],
             run_without_submitting=True,
         )
         workflow.connect([
-            (inputnode, ds_cbf, [
+            (atlas_srcs, table_meta, [('metadata', 'meta_dict')]),
+            (inputnode, ds_table, [
                 ('source_file', 'source_file'),
                 ('atlas_names', 'atlas'),
             ]),
-            (parcellate_cbf, ds_cbf, [('timeseries', 'in_file')]),
-            (atlas_srcs, ds_cbf, [('metadata', 'meta_dict')]),
+            (parcellate, ds_table, [(suffix, 'in_file')]),
+            (table_meta, ds_table, [('metadata', 'meta_dict')]),
         ])  # fmt:skip
 
-        # Maps with their own validity masks also get coverage files: estimation coverage.
-        if cbf_type in ('mean_cbf', 'mean_cbf_basil') or cbf_type in sparse_3d:
-            # I think it is easier to only retain the coverage file for the regular CBF estimates.
-            # SCORE/SCRUB CBF should have the same coverage as the regular CBF.
-            # BASIL might have different coverage because it drops any voxels with negative CBF,
-            # but the different PVC types will have the same coverage as the main BASIL CBF.
-            ds_coverage = pe.MapNode(
-                DerivativesDataSink(
-                    base_directory=config.execution.aslprep_dir,
-                    check_hdr=False,
-                    suffix='coverage',
-                    **CBF_ENTITIES[cbf_type],
-                ),
-                name=f'ds_coverage_{cbf_type}',
-                iterfield=['atlas', 'in_file', 'meta_dict'],
-                run_without_submitting=True,
-            )
-            workflow.connect([
-                (inputnode, ds_coverage, [
-                    ('source_file', 'source_file'),
-                    ('atlas_names', 'atlas'),
-                ]),
-                (parcellate_cbf, ds_coverage, [('coverage', 'in_file')]),
-                (atlas_srcs, ds_coverage, [('metadata', 'meta_dict')]),
-            ])  # fmt:skip
-
     return workflow
+
+
+def _add_column_metadata(
+    meta_dict,
+    column_meta,
+    sourced_columns,
+    source_files,
+    dataset_links,
+    out_dir,
+):
+    """Add column descriptions, and each sourced column's Sources, to a table's metadata."""
+    from copy import deepcopy
+
+    from aslprep.utils.bids import _get_bidsuris
+
+    if len(sourced_columns) != len(source_files):
+        raise ValueError(
+            f'Got {len(sourced_columns)} sourced columns but {len(source_files)} files.'
+        )
+
+    metadata = deepcopy(meta_dict)
+    metadata.update(deepcopy(column_meta))
+    for column, source_file in zip(sourced_columns, source_files, strict=True):
+        metadata[column]['Sources'] = _get_bidsuris([source_file], dataset_links, out_dir)
+    return metadata
 
 
 def init_load_atlases_wf(

@@ -125,6 +125,26 @@ def test_init_cbf_wf_lr_pvc_unsupported(tmp_path, kwargs, message):
 MULTI_DELAY = {**SINGLE_DELAY, 'PostLabelingDelay': [1.0, 1.0, 1.5, 1.5, 2.0, 2.0]}
 
 
+def test_init_cbf_wf_lr_pvc_multidelay_calibration(tmp_path):
+    """Multi-delay PVC is given the same calibration specification as ComputeCBF."""
+    from aslprep.utils.calibration import calibration_value
+
+    metadata = {**MULTI_DELAY, 'LabelingEfficiency': 0.7, 'Haematocrit': 0.3}
+    reset_config()
+    with mock_config():
+        wf = _build_cbf_wf(
+            tmp_path,
+            metadata=metadata,
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 6}),
+        )
+        calibration = wf.get_node('compute_cbf').inputs.calibration
+        lr_calibration = wf.get_node('lr_pvc_wf').get_node('lr_pvc').inputs.calibration
+
+    assert lr_calibration == calibration
+    assert calibration_value(calibration, 'EffectiveLabelingEfficiency') == 0.7
+    assert calibration['Parameters']['BloodT1']['Source'] == 'inferred'
+
+
 def test_init_cbf_wf_lr_pvc_multidelay(tmp_path):
     """Multi-delay data unmix each delta-M volume and fit each tissue (spec Section 5.7)."""
     from aslprep.interfaces.pvc import MultiDelayLocalRegressionPVC
@@ -220,24 +240,83 @@ def test_init_cbf_wf_lr_pvc_through_plane_3d(tmp_path):
 
 
 def test_parcellate_cbf_wf_uses_validity_masks():
-    """LR maps are parcellated within their own validity masks, with coverage files."""
+    """LR maps are parcellated within their own validity masks, in the per-atlas tables."""
     from aslprep.workflows.asl.cbf import init_parcellate_cbf_wf
 
     reset_config()
     with mock_config():
         wf = init_parcellate_cbf_wf(
-            cbf_3d=['mean_cbf'],
+            maps_3d=['mean_cbf', 'mean_cbf_scrub', 'att_basil'],
             sparse_3d={'mean_cbf_gm_lr': 'gm_valid_lr'},
+            written_maps=['mean_cbf', 'mean_cbf_gm_lr'],
         )
-        masks = {
-            dst: src_field
-            for _, src_field, dst, dst_field in _edges(wf, src_name='inputnode')
-            if dst_field == 'mask'
+        # Each map, and the mask it is parcellated within, takes the same position.
+        maps = {dst_field: src_field for _, src_field, _, dst_field in _edges(wf, 'merge_maps')}
+        masks = {dst_field: src_field for _, src_field, _, dst_field in _edges(wf, 'merge_masks')}
+        assert [maps[f'in{i}'] for i in range(1, 5)] == [
+            'mean_cbf',
+            'mean_cbf_scrub',
+            'att_basil',
+            'mean_cbf_gm_lr',
+        ]
+        assert [masks[f'in{i}'] for i in range(1, 5)] == ['asl_mask'] * 3 + ['gm_valid_lr']
+
+        # One table of parcel means and one coverage table per atlas, with a column per map.
+        columns = ['cbf', 'cbf_scrub', 'att_basil', 'cbf_lrGM']
+        assert wf.get_node('parcellate').inputs.names == columns
+        for suffix in ('scalarstats', 'coverage'):
+            assert wf.get_node(f'ds_{suffix}').inputs.suffix == suffix
+            column_meta = wf.get_node(f'{suffix}_meta').inputs.column_meta
+            assert list(column_meta) == ['node', *columns]
+        column_meta = wf.get_node('scalarstats_meta').inputs.column_meta
+        assert column_meta['cbf_lrGM']['Units'] == 'mL/100 g/min'
+        assert column_meta['att_basil']['Units'] == 's'
+
+        # Only the written maps' columns get Sources, from their written paths.
+        written = {
+            dst_field: src_field for _, src_field, _, dst_field in _edges(wf, 'merge_written')
         }
-        assert masks['parcellate_mean_cbf'] == 'asl_mask'
-        assert masks['parcellate_mean_cbf_gm_lr'] == 'gm_valid_lr'
-        assert wf.get_node('ds_coverage_mean_cbf_gm_lr') is not None
-        assert wf.get_node('ds_mean_cbf_gm_lr').inputs.desc == 'lrGM'
+        assert written == {'in1': 'mean_cbf_file', 'in2': 'mean_cbf_gm_lr_file'}
+        assert wf.get_node('scalarstats_meta').inputs.sourced_columns == ['cbf', 'cbf_lrGM']
+        assert wf.get_node('coverage_meta').inputs.sourced_columns == []
+
+
+def test_parcellate_cbf_wf_rejects_unknown_written_maps():
+    """A written map that is not parcellated is a mistake in the caller."""
+    from aslprep.workflows.asl.cbf import init_parcellate_cbf_wf
+
+    reset_config()
+    with mock_config(), pytest.raises(ValueError, match='not parcellated'):
+        init_parcellate_cbf_wf(maps_3d=['mean_cbf'], written_maps=['att'])
+
+
+def test_add_column_metadata(tmp_path):
+    """Column descriptions are added, and sourced columns get BIDS-URIs to their maps."""
+    from aslprep.workflows.asl.cbf import _add_column_metadata
+
+    cbf_file = tmp_path / 'sub-01' / 'perf' / 'sub-01_cbf.nii.gz'
+    column_meta = {
+        'node': {'Description': 'parcel'},
+        'cbf': {'Description': 'CBF', 'Units': 'mL/100 g/min'},
+        'att': {'Description': 'ATT', 'Units': 's'},
+    }
+    metadata = _add_column_metadata(
+        meta_dict={'Sources': ['bids:atlas:atlas.nii.gz']},
+        column_meta=column_meta,
+        sourced_columns=['cbf'],
+        source_files=[str(cbf_file)],
+        dataset_links={},
+        out_dir=str(tmp_path),
+    )
+    assert metadata['Sources'] == ['bids:atlas:atlas.nii.gz']
+    assert metadata['cbf'] == {
+        'Description': 'CBF',
+        'Units': 'mL/100 g/min',
+        'Sources': ['bids::sub-01/perf/sub-01_cbf.nii.gz'],
+    }
+    assert 'Sources' not in metadata['att']
+    # The static column metadata is shared across atlases, so it must not be changed.
+    assert 'Sources' not in column_meta['cbf']
 
 
 def _multidelay_dataset(tmp_path):
@@ -283,7 +362,7 @@ def _stub_atlases_wf(name='load_atlases_wf'):
 
 
 def test_init_asl_wf_lr_pvc_multidelay(tmp_path, monkeypatch):
-    """The full workflow wires multi-delay PVC: ATT maps resampled, not parcellated (5.7.5)."""
+    """The full workflow wires multi-delay PVC: CBF and ATT maps resampled and parcellated."""
     from aslprep.workflows.asl import base
 
     monkeypatch.setattr(base, 'init_load_atlases_wf', _stub_atlases_wf)
@@ -300,9 +379,22 @@ def test_init_asl_wf_lr_pvc_multidelay(tmp_path, monkeypatch):
         # Both CBF and ATT maps are resampled with normalization ...
         assert 'ds_asl_std_wf.normalize_mean_cbf_gm_lr' in names
         assert 'ds_asl_std_wf.normalize_att_wm_lr' in names
-        # ... but only CBF maps are parcellated.
-        assert 'parcellate_cbf_wf.parcellate_mean_cbf_gm_lr' in names
-        assert not [n for n in names if n.startswith('parcellate_cbf_wf') and 'att' in n]
+        # ... and parcellated, with every non-SD perfusion map.
+        parcellate = wf.get_node('parcellate_cbf_wf').get_node('parcellate')
+        columns = parcellate.inputs.names
+        for column in ('cbf', 'att', 'abat', 'abv', 'cbf_lrGM', 'att_lrGM', 'att_lrWM'):
+            assert column in columns
+        assert not [c for c in columns if 'SD' in c]
+        # aslref is an output space, so every column lists its written map: the LR maps from
+        # the PVC datasinks, the others from the native datasinks.
+        meta = wf.get_node('parcellate_cbf_wf').get_node('scalarstats_meta')
+        assert sorted(meta.inputs.sourced_columns) == sorted(columns)
+        written = {
+            dst_field: src for src, _, _, dst_field in _edges(wf, dst_name='parcellate_cbf_wf')
+        }
+        assert written['inputnode.att_gm_lr_file'] == 'ds_pvc_native_wf'
+        assert written['inputnode.mean_cbf_gm_lr_file'] == 'ds_pvc_native_wf'
+        assert written['inputnode.att_file'] == 'ds_asl_native_wf'
         qc_edges = [
             e for e in _edges(wf, dst_name='cbf_confounds_wf') if e[3] == 'inputnode.pvc_qc'
         ]
@@ -311,16 +403,37 @@ def test_init_asl_wf_lr_pvc_multidelay(tmp_path, monkeypatch):
         wf._create_flat_graph()
 
 
-def _init_asl_wf(pvc_method, level='full'):
+def _init_asl_wf(pvc_method, level='full', output_spaces='asl T1w MNI152NLin2009cAsym'):
     from aslprep.workflows.asl.base import init_asl_wf
 
     config.workflow.level = level
     config.workflow.cifti_output = False
     config.workflow.pvc_method = pvc_method
-    config.execution.output_spaces = 'asl T1w MNI152NLin2009cAsym'
+    config.execution.output_spaces = output_spaces
     config.init_spaces()
     asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
     return init_asl_wf(asl_file=str(asl_file))
+
+
+def test_init_asl_wf_scalarstats_sources_without_aslref(tmp_path, monkeypatch):
+    """Without aslref outputs, only the always-written LR maps are listed as column Sources."""
+    from aslprep.workflows.asl import base
+
+    monkeypatch.setattr(base, 'init_load_atlases_wf', _stub_atlases_wf)
+    reset_config()
+    with mock_config():
+        _multidelay_dataset(tmp_path)
+        config.execution.atlases = ['4S156Parcels']
+        wf = _init_asl_wf('local-regression', output_spaces='MNI152NLin2009cAsym')
+        assert 'ds_asl_native_wf' not in wf.list_node_names()
+        meta = wf.get_node('parcellate_cbf_wf').get_node('scalarstats_meta')
+        assert sorted(meta.inputs.sourced_columns) == [
+            'att_lrGM',
+            'att_lrWM',
+            'cbf_lrGM',
+            'cbf_lrWM',
+        ]
+        wf._create_flat_graph()
 
 
 def test_init_asl_wf_default_has_no_pvc():

@@ -12,10 +12,18 @@ from aslprep.utils.asl import (
     count_reduced_volumes,
     describe_asl_acquisition,
     determine_multi_pld,
+    infer_m0tr,
     pcasl_or_pasl,
     select_processing_target,
 )
 from aslprep.utils.bids import collect_run_data
+from aslprep.utils.calibration import (
+    DEFAULT_M0_SCALE,
+    DEFAULT_SMOOTH_KERNEL,
+    MODELS,
+    describe_model,
+    resolve_calibration,
+)
 from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
 from aslprep.utils.misc import _get_wf_name, estimate_asl_mem_usage, get_n_volumes
 from aslprep.workflows.asl.apply import (
@@ -36,6 +44,7 @@ from aslprep.workflows.asl.fit import init_asl_fit_wf, init_asl_native_wf
 from aslprep.workflows.asl.outputs import (
     _remove_keys,
     init_ds_asl_native_wf,
+    init_ds_calibration_wf,
     init_ds_ciftis_wf,
     init_ds_pvc_native_wf,
     init_ds_volumes_wf,
@@ -256,6 +265,39 @@ def init_asl_wf(
     # which may have fewer volumes than the ASL file.
     n_reduced_vols = count_reduced_volumes(run_data['aslcontext'], processing_target)
 
+    # Resolve the calibration and physiological parameters once, for every model and output.
+    # Pre-calculated CBF is not quantified, so it has none.
+    calibration = None
+    model_metadata = None
+    if processing_target != 'cbf':
+        calibration = resolve_calibration(
+            metadata,
+            m0tr=infer_m0tr(
+                aslcontext=run_data['aslcontext'],
+                metadata=metadata,
+                m0scan_metadata=run_data['m0scan_metadata'],
+            ),
+            m0scan_metadata=run_data['m0scan_metadata'],
+            m0_scale=m0_scale,
+            m0_scale_source='user' if m0_scale != DEFAULT_M0_SCALE else 'default',
+            smooth_kernel=smooth_kernel,
+            smooth_kernel_source=('user' if smooth_kernel != DEFAULT_SMOOTH_KERNEL else 'default'),
+            haematocrit_source=run_data.get('haematocrit_source'),
+            basil=basil,
+        )
+        for warning in calibration['Warnings']:
+            config.loggers.workflow.warning(f'{asl_file}: {warning}')
+        # The "Model" sidecar dictionary of each model, as in BIDS diffusion derivatives (BEP 016)
+        model_metadata = {
+            model: describe_model(
+                calibration,
+                model,
+                asl_type=metadata['ArterialSpinLabelingType'],
+                multi_delay=determine_multi_pld(metadata=metadata),
+            )
+            for model in MODELS
+        }
+
     # Gradient nonlinearity correction, from --gradient-file and the ImageType metadata
     gradwarp_plan = resolve_gradwarp_plan(metadata=metadata, asl_file=asl_file)
     gradwarp = gradwarp_plan is not None and gradwarp_plan.warp_dim is not None
@@ -279,6 +321,7 @@ def init_asl_wf(
     # The ATT and aBAT bounds step between neighboring voxels, and interpolation would blend
     # them into values that are no longer bounds, so they are only written in native space.
     native_att_derivs = []
+    basil_sd_derivs = []
     cbf_3d_derivs = ['mean_cbf']
     cbf_4d_derivs = []
 
@@ -315,10 +358,12 @@ def init_asl_wf(
         ]
         # Posterior standard deviations go with the maps that are resampled and written in
         # every space, but are not parcellated or scored like CBF maps.
-        att_derivs += ['cbf_sd_basil', 'cbf_gm_sd_basil', 'cbf_wm_sd_basil']
+        basil_sd_derivs += ['cbf_sd_basil', 'cbf_gm_sd_basil', 'cbf_wm_sd_basil']
         if is_multi_pld:
             # BASIL's ATT and aBV estimates are only meaningful for multi-PLD data.
-            att_derivs += ['att_basil', 'abv_basil', 'att_sd_basil']
+            att_derivs += ['att_basil', 'abv_basil']
+            basil_sd_derivs += ['att_sd_basil']
+        att_derivs += basil_sd_derivs
 
     cbf_derivs = att_derivs + cbf_3d_derivs + cbf_4d_derivs
 
@@ -336,7 +381,7 @@ def init_asl_wf(
     if config.workflow.pvc_method == 'local-regression':
         lr_sources = ['mean_cbf'] + (['mean_cbf_score'] if scorescrub else [])
     # lr_sparse maps each corrected CBF map to its validity mask: resampled and parcellated.
-    # lr_sparse_other does the same for the multi-delay ATT maps: resampled, not parcellated.
+    # lr_sparse_other does the same for the multi-delay ATT maps.
     lr_sparse = {}
     lr_sparse_other = {}
     lr_native = []
@@ -506,8 +551,18 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         pvc_method=config.workflow.pvc_method,
         pvc_kernel_size=tuple(config.workflow.pvc_kernel_size),
         asl_effective_resolution=config.workflow.asl_effective_resolution,
+        calibration=calibration,
         name='cbf_wf',
     )
+
+    if calibration is not None:
+        # The calibration parameters and their report are always written, in every mode.
+        ds_calibration_wf = init_ds_calibration_wf(
+            source_file=asl_file,
+            output_dir=config.execution.aslprep_dir,
+            calibration=calibration,
+        )
+        workflow.add_nodes([ds_calibration_wf])
     workflow.connect([
         (inputnode, cbf_wf, [
             ('t1w_tpms', 'inputnode.t1w_tpms'),
@@ -551,8 +606,10 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     aslref_out = bool(nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')))
     aslref_out &= config.workflow.level == 'full'
 
-    if (config.workflow.level in ('minimal', 'resampling')) or aslref_out:
+    write_native = (config.workflow.level in ('minimal', 'resampling')) or aslref_out
+    if write_native:
         ds_asl_native_wf = init_ds_asl_native_wf(
+            model_metadata=model_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -580,6 +637,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         # PVC outputs are always written in aslref space, where their standard errors,
         # diagnostics and partial volume maps are defined.
         ds_pvc_native_wf = init_ds_pvc_native_wf(
+            model_metadata=model_metadata,
             source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
             sources=lr_sources,
@@ -797,6 +855,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     # Write out anatomical-space derivatives.
     if nonstd_spaces.intersection(('anat', 'T1w')):
         ds_asl_t1_wf = init_ds_volumes_wf(
+            model_metadata=model_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -852,6 +911,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             name='asl_std_wf',
         )
         ds_asl_std_wf = init_ds_volumes_wf(
+            model_metadata=model_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -957,6 +1017,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         # The uninitialized fMRIPrep config will have config.workflow.ignore set to None
         # instead of a list, which will raise an error.
         asl_surf_wf = init_asl_surf_wf(
+            model_metadata=model_metadata,
             mem_gb=mem_gb['resampled'],
             metadata=metadata,
             surface_spaces=freesurfer_spaces,
@@ -1034,6 +1095,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
     if config.workflow.cifti_output:
         ds_asl_cifti_wf = init_ds_ciftis_wf(
+            model_metadata=model_metadata,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -1096,6 +1158,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
         config.loggers.workflow.debug('Creating ASL Workbench surface-resampling workflow.')
         asl_wb_surf_wf = init_asl_wb_surf_wf(
+            model_metadata=model_metadata,
             source_file=asl_file,
             surface_spaces=surf_std,
             metadata=metadata,
@@ -1188,9 +1251,21 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         if config.execution.atlases:
             load_atlases_wf = init_load_atlases_wf(name='load_atlases_wf')
 
+            # Parcellate every perfusion map except the posterior standard deviations,
+            # whose parcel means are not parcel standard deviations.
+            parcellated_derivs = cbf_3d_derivs + [
+                deriv for deriv in att_derivs if deriv not in basil_sd_derivs
+            ]
+            parcellated_sparse = {**lr_sparse, **lr_sparse_other}
+            # The scalarstats columns list the written aslref-space maps they came from.
+            # The PVC maps are always written in aslref space; the others only when it is an
+            # output space.
+            written_native = parcellated_derivs if write_native else []
+            written_pvc = list(parcellated_sparse)
             parcellate_cbf_wf = init_parcellate_cbf_wf(
-                cbf_3d=cbf_3d_derivs,
-                sparse_3d=lr_sparse,
+                maps_3d=parcellated_derivs,
+                sparse_3d=parcellated_sparse,
+                written_maps=written_native + written_pvc,
                 mem_gb=mem_gb['resampled'],
                 omp_nthreads=omp_nthreads,
                 name='parcellate_cbf_wf',
@@ -1217,11 +1292,28 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 ]),
             ])  # fmt:skip
 
-            lr_parcellated = list(lr_sparse) + sorted(set(lr_sparse.values()))
-            for cbf_deriv in cbf_3d_derivs + lr_parcellated:
+            sparse_parcellated = list(parcellated_sparse) + sorted(
+                set(parcellated_sparse.values())
+            )
+            for cbf_deriv in parcellated_derivs + sparse_parcellated:
                 workflow.connect([
                     (cbf_wf, parcellate_cbf_wf, [
                         (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),
+                    ]),
+                ])  # fmt:skip
+
+            if written_native:
+                workflow.connect([
+                    (ds_asl_native_wf, parcellate_cbf_wf, [
+                        (f'outputnode.{deriv}', f'inputnode.{deriv}_file')
+                        for deriv in written_native
+                    ]),
+                ])  # fmt:skip
+            if written_pvc:
+                workflow.connect([
+                    (ds_pvc_native_wf, parcellate_cbf_wf, [
+                        (f'outputnode.{deriv}', f'inputnode.{deriv}_file')
+                        for deriv in written_pvc
                     ]),
                 ])  # fmt:skip
 
