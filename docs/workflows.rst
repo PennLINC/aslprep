@@ -202,6 +202,19 @@ three translations) per time-step is written and fed to the
 :ref:`confounds workflow <asl_confounds>`,
 for a more accurate estimation of head-motion.
 
+Each volume type (control, label, M0, ...) is registered to the reference separately.
+This leaves a small rigid offset between the corrected label and control volumes,
+which appears at the edges of the brain after subtraction.
+With ``--hmc-method typewise_offset`` (experimental; the default is ``typewise``),
+*ASLPrep* removes it: for each post-labeling delay, the mean of the corrected label volumes is
+registered rigidly to the mean of the corrected control volumes with AFNI ``3dvolreg``,
+and the correction is composed into the transforms of that delay's label volumes.
+Delays shorter than 0.5 s (0.8 s for PASL), whose labels still hold arterial signal,
+use the estimate of the nearest other delay.
+The motion confounds are computed from the corrected transforms.
+Precomputed motion-correction transforms passed with ``--derivatives`` are reused as they are,
+whichever method is requested.
+
 
 .. _asl_confounds:
 
