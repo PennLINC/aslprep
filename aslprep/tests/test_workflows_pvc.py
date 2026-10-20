@@ -125,6 +125,26 @@ def test_init_cbf_wf_lr_pvc_unsupported(tmp_path, kwargs, message):
 MULTI_DELAY = {**SINGLE_DELAY, 'PostLabelingDelay': [1.0, 1.0, 1.5, 1.5, 2.0, 2.0]}
 
 
+def test_init_cbf_wf_lr_pvc_multidelay_calibration(tmp_path):
+    """Multi-delay PVC is given the same calibration specification as ComputeCBF."""
+    from aslprep.utils.calibration import calibration_value
+
+    metadata = {**MULTI_DELAY, 'LabelingEfficiency': 0.7, 'Haematocrit': 0.3}
+    reset_config()
+    with mock_config():
+        wf = _build_cbf_wf(
+            tmp_path,
+            metadata=metadata,
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 6}),
+        )
+        calibration = wf.get_node('compute_cbf').inputs.calibration
+        lr_calibration = wf.get_node('lr_pvc_wf').get_node('lr_pvc').inputs.calibration
+
+    assert lr_calibration == calibration
+    assert calibration_value(calibration, 'EffectiveLabelingEfficiency') == 0.7
+    assert calibration['Parameters']['BloodT1']['Source'] == 'inferred'
+
+
 def test_init_cbf_wf_lr_pvc_multidelay(tmp_path):
     """Multi-delay data unmix each delta-M volume and fit each tissue (spec Section 5.7)."""
     from aslprep.interfaces.pvc import MultiDelayLocalRegressionPVC

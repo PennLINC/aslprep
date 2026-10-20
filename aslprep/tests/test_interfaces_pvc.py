@@ -299,6 +299,100 @@ def test_divide_by_weight(tmp_path):
     np.testing.assert_allclose(out, [[[60.0, 60.0, 0.0]]])
 
 
+def test_multidelay_local_regression_pvc_uses_calibration(tmp_path):
+    """The tissue fits and the CSF diagnostic use the given calibration, not the metadata.
+
+    The data are simulated with a labeling efficiency, blood T1 and partition coefficient that
+    differ from what the metadata would give, so the true CBF values are only recovered if
+    the interface quantifies with the specification.
+    """
+    from aslprep.utils.calibration import resolve_calibration
+    from aslprep.utils.pvc import gkm_predict
+
+    rng = np.random.default_rng(7)
+    shape = (16, 16, 2)
+    affine = np.diag([3.0, 3.0, 5.0, 1.0])
+    plds = np.repeat(np.arange(0.25, 3.01, 0.25), 2)
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'MagneticFieldStrength': 3,
+        'MRAcquisitionType': '3D',
+        'LabelingDuration': 1.8,
+        'PostLabelingDelay': plds.tolist(),
+        'LabelingEfficiency': 0.85,
+        'BackgroundSuppression': False,
+    }
+    calibration = resolve_calibration(metadata)
+    params = calibration['Parameters']
+    params['EffectiveLabelingEfficiency']['Value'] = 0.6
+    params['BloodT1']['Value'] = 1.9
+    params['PartitionCoefficient']['Value'] = 0.8
+    kinetics = {
+        'labeleff': 0.6,
+        't1blood': 1.9,
+        'partition_coefficient': 0.8,
+        'is_casl': True,
+        'tau': 1.8,
+    }
+
+    def curve(cbf, att, m0):
+        return gkm_predict(
+            np.array([cbf]),
+            np.array([att]),
+            np.array([0.5]),
+            np.array([0.0]),
+            np.array([m0]),
+            plds[None, :],
+            **kinetics,
+        )[0]
+
+    pv_gm = rng.uniform(0.2, 0.7, shape)
+    pv_wm = (1 - pv_gm) * rng.uniform(0.6, 0.95, shape)
+    pv_csf = 1 - pv_gm - pv_wm
+    tissue = pv_gm[..., None] * curve(60.0, 1.0, 1000.0) + pv_wm[..., None] * curve(
+        20.0, 1.6, 800.0
+    )
+    csf_signal = pv_csf[..., None] * curve(-10.0, 1.2, 1500.0)
+    m0 = rng.uniform(700.0, 1100.0, shape)
+
+    def run(deltam, name):
+        run_dir = tmp_path / name
+        run_dir.mkdir()
+        files = {}
+        for key, data in {
+            'deltam': deltam,
+            'm0_calib': m0,
+            'quant_valid': np.ones(shape, np.uint8),
+            'mask': np.ones(shape, np.uint8),
+            'gm_pv': pv_gm,
+            'wm_pv': pv_wm,
+            'csf_pv': pv_csf,
+            'mean_cbf': np.full(shape, 45.0),
+            'att': np.full(shape, 1.2),
+        }.items():
+            files[key] = str(run_dir / f'{key}.nii.gz')
+            nb.Nifti1Image(data, affine).to_filename(files[key])
+        interface = pvc.MultiDelayLocalRegressionPVC(
+            metadata=metadata, calibration=calibration, **files
+        )
+        return interface.run(cwd=run_dir).outputs
+
+    # Tissue fits, without CSF signal (the two-tissue regression does not model it)
+    out = run(tissue, 'tissue')
+    status = nb.load(out.status).get_fdata()
+    good = (status == 1) & (nb.load(out.gm_kinstatus).get_fdata() == 1)
+    assert good.sum() > 100
+    gm = nb.load(out.gm_cbf).get_fdata()
+    np.testing.assert_allclose(gm[good], 60.0 * 1000.0 / m0[good], rtol=0.01)
+
+    # The CSF diagnostic, whose basis is predicted with the same parameters
+    out = run(tissue + csf_signal, 'csf')
+    csf = nb.load(out.csf_cbf).get_fdata()
+    csf_ok = (nb.load(out.csf_status).get_fdata() == 1) & (pv_csf >= 0.1)
+    assert csf_ok.sum() > 50
+    np.testing.assert_allclose(csf[csf_ok], -10.0 * 1500.0 / m0[csf_ok], rtol=0.01)
+
+
 def test_multidelay_local_regression_pvc_interface(tmp_path, monkeypatch):
     """Multi-delay LR PVC unmixes each delay and fits each tissue curve (spec 5.7).
 
