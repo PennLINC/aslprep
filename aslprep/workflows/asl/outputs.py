@@ -586,7 +586,10 @@ def init_ds_asl_native_wf(
     att: list[str],
     name='ds_asl_native_wf',
 ) -> pe.Workflow:
-    """Write out aslref-space outputs."""
+    """Write out aslref-space outputs.
+
+    The outputnode has the written path of each CBF and ATT map, under the map's name.
+    """
     workflow = pe.Workflow(name=name)
 
     inputnode_fields = [
@@ -604,6 +607,10 @@ def init_ds_asl_native_wf(
     inputnode = pe.Node(
         niu.IdentityInterface(fields=inputnode_fields),
         name='inputnode',
+    )
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=cbf_3d + cbf_4d + att),
+        name='outputnode',
     )
 
     sources = pe.Node(
@@ -641,7 +648,10 @@ def init_ds_asl_native_wf(
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         datasinks.append(ds_cbf)
-        workflow.connect([(inputnode, ds_cbf, [(cbf_name, 'in_file')])])
+        workflow.connect([
+            (inputnode, ds_cbf, [(cbf_name, 'in_file')]),
+            (ds_cbf, outputnode, [('out_file', cbf_name)]),
+        ])  # fmt:skip
 
     for att_name in att:
         # TODO: Add EstimationReference and EstimationAlgorithm
@@ -661,7 +671,10 @@ def init_ds_asl_native_wf(
         )
         datasinks.append(ds_att)
 
-        workflow.connect([(inputnode, ds_att, [(att_name, 'in_file')])])
+        workflow.connect([
+            (inputnode, ds_att, [(att_name, 'in_file')]),
+            (ds_att, outputnode, [('out_file', att_name)]),
+        ])  # fmt:skip
 
     if asl_output:
         # Write out the preprocessed ASL time series
@@ -759,7 +772,8 @@ def init_ds_pvc_native_wf(
 
     Outputs
     -------
-    None. The inputs are written to ``output_dir``.
+    <each written input>
+        The written path of that input, under the input's name.
     """
     workflow = pe.Workflow(name=name)
 
@@ -773,6 +787,10 @@ def init_ds_pvc_native_wf(
             + names
         ),
         name='inputnode',
+    )
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['gm_pv', 'wm_pv', 'csf_pv'] + names),
+        name='outputnode',
     )
 
     sources_node = pe.Node(
@@ -803,6 +821,7 @@ def init_ds_pvc_native_wf(
         workflow.connect([
             (inputnode, ds, [(out_name, 'in_file'), (meta_field, 'meta_dict')]),
             (sources_node, ds, [('out', 'Sources')]),
+            (ds, outputnode, [('out_file', out_name)]),
         ])  # fmt:skip
 
     return workflow

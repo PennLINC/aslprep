@@ -780,14 +780,15 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
 
 
 def init_parcellate_cbf_wf(
-    cbf_3d,
+    maps_3d,
     sparse_3d=None,
+    written_maps=(),
     min_coverage=0.5,
     mem_gb=0.1,
     omp_nthreads=1,
     name='parcellate_cbf_wf',
 ):
-    """Parcellate CBF results using a set of atlases.
+    """Parcellate CBF, ATT and other perfusion maps using a set of atlases.
 
     Atlases are in MNI152NLin6Asym space, but ASLPrep is not guaranteed to generate
     MNI152NLin6Asym-space derivatives.
@@ -802,19 +803,23 @@ def init_parcellate_cbf_wf(
 
             from aslprep.workflows.asl.cbf import init_parcellate_cbf_wf
 
-            wf = init_parcellate_cbf_wf(cbf_3d=["mean_cbf", "mean_cbf_score"])
+            wf = init_parcellate_cbf_wf(maps_3d=["mean_cbf", "mean_cbf_score"])
 
     Parameters
     ----------
-    cbf_3d : list of str
-        CBF maps to parcellate within the ASL brain mask.
+    maps_3d : list of str
+        Maps to parcellate within the ASL brain mask.
     sparse_3d : dict or None
-        CBF maps that are only estimated in some voxels, keyed by name, with the name of their
+        Maps that are only estimated in some voxels, keyed by name, with the name of their
         validity mask as the value. They are parcellated within that mask, so voxels that were
-        not estimated (stored as zero) do not enter parcel means, and their coverage files
+        not estimated (stored as zero) do not enter parcel means, and their coverage columns
         report estimation coverage.
+    written_maps : sequence of str
+        The maps in ``maps_3d`` or ``sparse_3d`` that are written to the output directory in
+        ASL reference space. Their written paths are listed, as BIDS-URIs, in the ``Sources``
+        of their ``scalarstats`` columns.
     min_coverage : float
-        Parcels with less coverage than this are set to zero.
+        Parcels with less coverage than this are set to n/a.
     mem_gb : float
         Memory for the atlas warping and parcellation nodes.
     omp_nthreads : int
@@ -827,7 +832,7 @@ def init_parcellate_cbf_wf(
     source_file : str
         The ASL file the parcellated tables are named after.
     asl_mask : str
-        ASL brain mask; the grid the atlases are warped to, and the mask for ``cbf_3d`` maps.
+        ASL brain mask; the grid the atlases are warped to, and the mask for ``maps_3d``.
     aslref2anat_xfm : str
         Transform from the ASL reference to the anatomical image.
     mni2009c2anat_xfm : str
@@ -838,46 +843,29 @@ def init_parcellate_cbf_wf(
         The atlases, in MNI152NLin6Asym space.
     atlas_labels_files : list of str
         The atlases' label tables.
-    <each name in cbf_3d> : str
-        The CBF maps to parcellate within ``asl_mask``.
+    <each name in maps_3d> : str
+        The maps to parcellate within ``asl_mask``.
     <each key and value of sparse_3d> : str
-        The sparsely estimated CBF maps, and the validity masks they are parcellated within.
+        The sparsely estimated maps, and the validity masks they are parcellated within.
+    <each name in written_maps>_file : str
+        The written path of that map.
 
     Outputs
     -------
-    None. For each map and atlas, a parcellated CBF table (``*_cbf.tsv``) is written to the
-    output directory. ``mean_cbf``, ``mean_cbf_basil`` and the ``sparse_3d`` maps also get a
-    coverage table (``*_coverage.tsv``).
+    None. For each atlas, a table of parcel means (``*_scalarstats.tsv``) and a coverage table
+    (``*_coverage.tsv``) are written to the output directory. Each has a ``node`` column,
+    with one row per parcel, then one column per map, named ``<suffix>[_<desc>]`` after the
+    map's voxel-wise output (for example, ``cbf``, ``cbf_scrub`` or ``att_basil``).
     """
-    CBF_ENTITIES = {
-        'mean_cbf': {},
-        'mean_cbf_score': {
-            'desc': 'score',
-        },
-        'mean_cbf_scrub': {
-            'desc': 'scrub',
-        },
-        'mean_cbf_basil': {
-            'desc': 'basil',
-        },
-        'mean_cbf_gm_basil': {
-            'desc': 'basilGM',
-        },
-        'mean_cbf_wm_basil': {
-            'desc': 'basilWM',
-        },
-    }
     sparse_3d = sparse_3d or {}
-    for sparse_name in sparse_3d:
-        CBF_ENTITIES[sparse_name] = {'desc': BASE_INPUT_FIELDS[sparse_name]['desc']}
     workflow = Workflow(name=name)
     output_dir = config.execution.output_dir
 
     workflow.__desc__ = f"""\
-CBF maps were parcellated in ASL reference space using these atlases.
-In cases of partial coverage, either uncovered voxels (values of all zeros or NaNs) were
+CBF and other perfusion maps were parcellated in ASL reference space using these atlases.
+In cases of partial coverage, either uncovered voxels were
 ignored (when the parcel had >{min_coverage * 100}% coverage)
-or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% coverage).
+or the whole parcel was set to n/a (when the parcel had <{min_coverage * 100}% coverage).
 """
 
     input_fields = [
@@ -889,8 +877,12 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         'atlas_files',
         'atlas_labels_files',
     ]
-    input_fields += cbf_3d
+    input_fields += maps_3d
     input_fields += list(sparse_3d) + sorted(set(sparse_3d.values()))
+    map_names = maps_3d + list(sparse_3d)
+    if unknown := sorted(set(written_maps) - set(map_names)):
+        raise ValueError(f'Written maps {unknown} are not parcellated.')
+    input_fields += [f'{map_name}_file' for map_name in map_names if map_name in written_maps]
     inputnode = pe.Node(
         niu.IdentityInterface(fields=input_fields),
         name='inputnode',
@@ -961,70 +953,154 @@ or the whole parcel was set to zero (when the parcel had <{min_coverage * 100}% 
         ]),
     ])  # fmt:skip
 
-    for cbf_type in cbf_3d + list(sparse_3d):
-        parcellate_cbf = pe.MapNode(
-            NiftiParcellate(min_coverage=min_coverage),
-            name=f'parcellate_{cbf_type}',
-            iterfield=['atlas', 'atlas_labels'],
-            mem_gb=mem_gb,
+    # Every map is parcellated with each atlas in one node, which writes one table of parcel
+    # means (scalarstats) and one coverage table, with a row per parcel and a column per map.
+    columns = []
+    for map_name in map_names:
+        fields = BASE_INPUT_FIELDS[map_name]
+        columns.append(
+            '_'.join([fields['suffix']] + ([fields['desc']] if 'desc' in fields else []))
         )
 
+    merge_maps = pe.Node(
+        niu.Merge(len(map_names)),
+        name='merge_maps',
+        run_without_submitting=True,
+    )
+    merge_masks = pe.Node(
+        niu.Merge(len(map_names)),
+        name='merge_masks',
+        run_without_submitting=True,
+    )
+    for i_map, map_name in enumerate(map_names, start=1):
         workflow.connect([
-            (inputnode, parcellate_cbf, [
-                (cbf_type, 'in_file'),
-                (sparse_3d.get(cbf_type, 'asl_mask'), 'mask'),
-                ('atlas_labels_files', 'atlas_labels'),
-            ]),
-            (warp_atlases_to_asl_space, parcellate_cbf, [('output_image', 'atlas')]),
+            (inputnode, merge_maps, [(map_name, f'in{i_map}')]),
+            (inputnode, merge_masks, [(sparse_3d.get(map_name, 'asl_mask'), f'in{i_map}')]),
         ])  # fmt:skip
 
-        ds_cbf = pe.MapNode(
+    parcellate = pe.MapNode(
+        NiftiParcellate(names=columns, min_coverage=min_coverage),
+        name='parcellate',
+        iterfield=['atlas', 'atlas_labels'],
+        mem_gb=mem_gb,
+    )
+    workflow.connect([
+        (inputnode, parcellate, [('atlas_labels_files', 'atlas_labels')]),
+        (merge_maps, parcellate, [('out', 'in_files')]),
+        (merge_masks, parcellate, [('out', 'masks')]),
+        (warp_atlases_to_asl_space, parcellate, [('output_image', 'atlas')]),
+    ])  # fmt:skip
+
+    # Describe each column in the sidecars, as BIDS does for tabular files.
+    node_meta = {'Description': 'Name of the parcel, from the atlas labels table.'}
+    column_meta = {
+        'scalarstats': {'node': node_meta},
+        'coverage': {'node': node_meta},
+    }
+    for column, map_name in zip(columns, map_names, strict=True):
+        column_meta['scalarstats'][column] = {
+            'Description': (
+                f'Mean of {column} in each parcel, '
+                f'or n/a for parcels with less than {min_coverage * 100}% coverage. '
+                f'{BASE_INPUT_FIELDS[map_name]["Description"]}'
+            ),
+            'Units': BASE_INPUT_FIELDS[map_name]['Units'],
+        }
+        column_meta['coverage'][column] = {
+            'Description': f'Fraction of each parcel in which {column} was estimated.',
+        }
+
+    # Each scalarstats column also lists the written map it came from, when there is one.
+    # The column metadata goes in meta_dict, rather than the datasinks' keyword arguments,
+    # because the datasinks would replace each column's entry (with its Sources) with theirs.
+    sourced_maps = [map_name for map_name in map_names if map_name in written_maps]
+    if sourced_maps:
+        merge_written = pe.Node(
+            niu.Merge(len(sourced_maps)),
+            name='merge_written',
+            run_without_submitting=True,
+        )
+        for i_map, map_name in enumerate(sourced_maps, start=1):
+            workflow.connect([
+                (inputnode, merge_written, [(f'{map_name}_file', f'in{i_map}')]),
+            ])  # fmt:skip
+
+    for suffix in ('scalarstats', 'coverage'):
+        table_meta = pe.MapNode(
+            niu.Function(
+                function=_add_column_metadata,
+                input_names=[
+                    'meta_dict',
+                    'column_meta',
+                    'sourced_columns',
+                    'source_files',
+                    'dataset_links',
+                    'out_dir',
+                ],
+                output_names=['metadata'],
+            ),
+            name=f'{suffix}_meta',
+            iterfield=['meta_dict'],
+            run_without_submitting=True,
+        )
+        table_meta.inputs.column_meta = column_meta[suffix]
+        table_meta.inputs.dataset_links = config.execution.dataset_links
+        table_meta.inputs.out_dir = str(output_dir)
+        if suffix == 'scalarstats' and sourced_maps:
+            table_meta.inputs.sourced_columns = [
+                columns[map_names.index(map_name)] for map_name in sourced_maps
+            ]
+            workflow.connect([(merge_written, table_meta, [('out', 'source_files')])])
+        else:
+            table_meta.inputs.sourced_columns = []
+            table_meta.inputs.source_files = []
+
+        ds_table = pe.MapNode(
             DerivativesDataSink(
                 base_directory=config.execution.aslprep_dir,
                 check_hdr=False,
-                suffix='cbf',
-                **CBF_ENTITIES[cbf_type],
+                suffix=suffix,
             ),
-            name=f'ds_{cbf_type}',
+            name=f'ds_{suffix}',
             iterfield=['atlas', 'in_file', 'meta_dict'],
             run_without_submitting=True,
         )
         workflow.connect([
-            (inputnode, ds_cbf, [
+            (atlas_srcs, table_meta, [('metadata', 'meta_dict')]),
+            (inputnode, ds_table, [
                 ('source_file', 'source_file'),
                 ('atlas_names', 'atlas'),
             ]),
-            (parcellate_cbf, ds_cbf, [('timeseries', 'in_file')]),
-            (atlas_srcs, ds_cbf, [('metadata', 'meta_dict')]),
+            (parcellate, ds_table, [(suffix, 'in_file')]),
+            (table_meta, ds_table, [('metadata', 'meta_dict')]),
         ])  # fmt:skip
 
-        # Maps with their own validity masks also get coverage files: estimation coverage.
-        if cbf_type in ('mean_cbf', 'mean_cbf_basil') or cbf_type in sparse_3d:
-            # I think it is easier to only retain the coverage file for the regular CBF estimates.
-            # SCORE/SCRUB CBF should have the same coverage as the regular CBF.
-            # BASIL might have different coverage because it drops any voxels with negative CBF,
-            # but the different PVC types will have the same coverage as the main BASIL CBF.
-            ds_coverage = pe.MapNode(
-                DerivativesDataSink(
-                    base_directory=config.execution.aslprep_dir,
-                    check_hdr=False,
-                    suffix='coverage',
-                    **CBF_ENTITIES[cbf_type],
-                ),
-                name=f'ds_coverage_{cbf_type}',
-                iterfield=['atlas', 'in_file', 'meta_dict'],
-                run_without_submitting=True,
-            )
-            workflow.connect([
-                (inputnode, ds_coverage, [
-                    ('source_file', 'source_file'),
-                    ('atlas_names', 'atlas'),
-                ]),
-                (parcellate_cbf, ds_coverage, [('coverage', 'in_file')]),
-                (atlas_srcs, ds_coverage, [('metadata', 'meta_dict')]),
-            ])  # fmt:skip
-
     return workflow
+
+
+def _add_column_metadata(
+    meta_dict,
+    column_meta,
+    sourced_columns,
+    source_files,
+    dataset_links,
+    out_dir,
+):
+    """Add column descriptions, and each sourced column's Sources, to a table's metadata."""
+    from copy import deepcopy
+
+    from aslprep.utils.bids import _get_bidsuris
+
+    if len(sourced_columns) != len(source_files):
+        raise ValueError(
+            f'Got {len(sourced_columns)} sourced columns but {len(source_files)} files.'
+        )
+
+    metadata = deepcopy(meta_dict)
+    metadata.update(deepcopy(column_meta))
+    for column, source_file in zip(sourced_columns, source_files, strict=True):
+        metadata[column]['Sources'] = _get_bidsuris([source_file], dataset_links, out_dir)
+    return metadata
 
 
 def init_load_atlases_wf(

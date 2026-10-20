@@ -828,7 +828,7 @@ unchanged. For multi-delay data:
 | Output | Where it goes |
 |---|---|
 | `desc-lrGM_cbf`, `desc-lrWM_cbf` | native, resampled (normalized), **parcellated**, with CBF validity masks |
-| `desc-lrGM_att`, `desc-lrWM_att` | native, resampled (normalized), **not** parcellated, with ATT validity masks |
+| `desc-lrGM_att`, `desc-lrWM_att` | native, resampled (normalized), **parcellated**, with ATT validity masks |
 | `desc-lr{GM,WM}{Lower,Upper}_att` | native only |
 | `desc-lr{GM,WM}_pvkinstatus`, `desc-lr{GM,WM}_pvkinres` | native only |
 | `desc-lr_pvstatus`, `desc-lr_pvcondition`, `desc-lr{GM,WM}_pvnoise`, `desc-lr_pvrmse` | native only |
@@ -839,11 +839,10 @@ unchanged. For multi-delay data:
   connections exist in that mode. A propagated or bootstrap uncertainty is a follow-up (#682).
 - There are no `scoreLR` outputs, because SCORE/SCRUB is disabled for multi-delay data
   (`base.py:245-250`).
-- `base.py` keeps two maps:
-  - `lr_sparse_cbf` (map → mask) for normalized resampling **and** parcellation;
-  - `lr_sparse_other` for normalized resampling **only** (the ATT maps).
-- `init_ds_volumes_wf.sparse_3d` receives both; `init_parcellate_cbf_wf.sparse_3d` receives only
-  the first.
+- `base.py` keeps two maps (map → validity mask): `lr_sparse` for the CBF maps and
+  `lr_sparse_other` for the ATT maps. Both are resampled with normalization and parcellated
+  within their validity masks: `init_ds_volumes_wf.sparse_3d` and
+  `init_parcellate_cbf_wf.sparse_3d` each receive both.
 - New suffixes `pvkinstatus` and `pvkinres` are added to the perf NIfTI pattern. `att` is already
   allowed, and the new `desc` values do not collide with existing ones (checked in review).
 
@@ -891,7 +890,7 @@ unchanged. For multi-delay data:
    The kinetic residual must rise in each case.
 5. **Unit: plumbing.**
    - `quant_valid` is false for a real NIfTI NaN in any volume.
-   - Graph tests: multi-delay selects the new interface, ATT maps are resampled but not
+   - Graph tests: multi-delay selects the new interface, ATT maps are resampled and
      parcellated, no SE sinks exist, the native ATT bounds exist, and the outputs coexist with
      BASIL.
    - Filenames build.
