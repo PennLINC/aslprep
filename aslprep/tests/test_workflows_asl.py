@@ -262,6 +262,73 @@ def test_init_asl_wf_relative_confounds_use_reduced_series(
         assert (wf.get_node('carpetplot_wf') is not None) is expect_relative
 
 
+@pytest.mark.parametrize(
+    ('slice_timing', 'expected', 'slice_spacing'),
+    [
+        (None, 'none', None),
+        ([0.0, 0.045, 0.09, 0.135], 'slicedt', 0.045),
+        # Rounded to 2.5 ms, as in DICOM-derived metadata
+        ([0.0, 0.0425, 0.0875, 0.13], 'slicedt', 0.0434),
+        # Interleaved
+        ([0.0, 0.09, 0.045, 0.135], 'tiimg', None),
+    ],
+)
+def test_init_cbf_wf_basil_slice_timing(tmp_path, slice_timing, expected, slice_spacing):
+    """BASIL gets --slicedt for evenly spaced ascending slices, else an inflow time image."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'PostLabelingDelay': 1.8,
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+        'RepetitionTimePreparation': 4.0,
+    }
+    if slice_timing is not None:
+        metadata['SliceTiming'] = slice_timing
+
+    reset_config()
+    with mock_config():
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 3}),
+            metadata=metadata,
+            basil=True,
+        )
+    basilcbf = wf.get_node('basilcbf')
+    basil_sources = {
+        dst_field: (src.name, src_field)
+        for src, dst, data in wf._graph.edges(data=True)
+        if dst.name == 'basilcbf'
+        for src_field, dst_field in data['connect']
+    }
+
+    if expected == 'tiimg':
+        assert basil_sources['tiimg'] == ('make_tiimg', 'out_file')
+        assert 'tis' not in basil_sources
+        assert not isdefined(basilcbf.inputs.slice_spacing)
+        assert 'inflow time of each voxel' in wf.__desc__
+    else:
+        assert wf.get_node('make_tiimg') is None
+        assert basil_sources['tis'] == ('determine_inflow_times', 'tis')
+        assert 'tiimg' not in basil_sources
+
+    if expected == 'slicedt':
+        assert basilcbf.inputs.slice_spacing == pytest.approx(slice_spacing, abs=1e-4)
+        assert 'BASIL accounted for slice timing by adding 4' in wf.__desc__
+    elif expected == 'none':
+        assert not isdefined(basilcbf.inputs.slice_spacing)
+        assert 'BASIL accounted for slice timing' not in wf.__desc__
+
+
 @pytest.mark.parametrize('sloppy', [False, True])
 def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
     """Sloppy mode skips BASIL's partial volume correction, which takes most of its run time."""

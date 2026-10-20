@@ -783,6 +783,67 @@ def test_basilcbf_posterior_sd(tmp_path, monkeypatch, pvc, multi_delay):
     assert isdefined(out.att_sd_basil) is multi_delay
 
 
+@pytest.mark.parametrize(
+    ('direction', 'tis'),
+    [('k', [3.6]), ('k-', [2.05, 2.55, 3.05]), ('j', [3.6]), ('i-', [2.05, 2.55])],
+)
+def test_basil_inflow_time_image(tmp_path, direction, tis):
+    """Each voxel's inflow time is shifted by the acquisition time of its slice (gh-743)."""
+    shape = (3, 4, 5)
+    axis = 'ijk'.index(direction[0])
+    n_slices = shape[axis]
+    # Interleaved: even slices first, then odd slices
+    order = list(range(0, n_slices, 2)) + list(range(1, n_slices, 2))
+    slice_times = np.zeros(n_slices)
+    slice_times[order] = 0.045 * np.arange(n_slices)
+    deltam = _save_img(np.ones(shape + (2,), dtype=np.float32), tmp_path, 'deltam.nii.gz')
+
+    out = (
+        cbf.BASILInflowTimeImage(
+            deltam=deltam,
+            tis=tis,
+            metadata={
+                'SliceTiming': slice_times.tolist(),
+                'SliceEncodingDirection': direction,
+            },
+        )
+        .run(cwd=str(tmp_path))
+        .outputs
+    )
+
+    img = nb.load(out.out_file)
+    assert img.shape == shape + (len(tis),)
+    assert img.get_data_dtype() == np.float32
+    data = img.get_fdata()
+    # Slice index i along the slice axis was acquired at slice_times[i], counting from the
+    # far end of the axis for a "-" direction.
+    times_by_index = slice_times[::-1] if direction.endswith('-') else slice_times
+    for i_slice in range(n_slices):
+        slice_data = np.take(data, i_slice, axis=axis)
+        for i_ti, ti in enumerate(tis):
+            assert np.allclose(slice_data[..., i_ti], ti + times_by_index[i_slice])
+
+
+def test_basilcbf_tiimg_cmdline(tmp_path):
+    """A voxelwise inflow time image replaces --tis and --slicedt in the oxford_asl call."""
+    shape = (4, 4, 4)
+    deltam = _save_img(np.ones(shape, dtype=np.float32), tmp_path, 'deltam.nii.gz')
+    mask = _save_img(np.ones(shape, dtype=np.uint8), tmp_path, 'mask.nii.gz')
+    tiimg = _save_img(np.full(shape, 3.6, dtype=np.float32), tmp_path, 'tiimg.nii.gz')
+    common = {'deltam': deltam, 'mask': mask, 'm0_scale': 1, 'bolus': 1.8, 'pcasl': True}
+
+    cmdline = cbf.BASILCBF(tiimg=tiimg, **common).cmdline
+    assert f'--tiimg {tiimg}' in cmdline
+    assert '--tis' not in cmdline
+
+    with pytest.raises(OSError, match='mutually exclusive'):
+        cbf.BASILCBF(tiimg=tiimg, tis=[3.6], **common)
+    with pytest.raises(OSError, match='mutually exclusive'):
+        cbf.BASILCBF(tiimg=tiimg, slice_spacing=0.045, **common)
+    with pytest.raises(ValueError, match='requires a value'):
+        cbf.BASILCBF(**common).cmdline  # noqa: B018
+
+
 def _save_img(arr, tmpdir, fname):
     img = nb.Nifti1Image(arr, affine=np.eye(4))
     fname = os.path.join(tmpdir, fname)

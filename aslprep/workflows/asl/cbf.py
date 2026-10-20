@@ -14,6 +14,7 @@ from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import BIDSURI, DerivativesDataSink
 from aslprep.interfaces.cbf import (
     BASILCBF,
+    BASILInflowTimeImage,
     ComputeCBF,
     ExtractCBF,
     ScoreAndScrubCBF,
@@ -687,7 +688,23 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
 
         workflow.connect([(extract_deltam, determine_inflow_times, [('metadata', 'metadata')])])
 
-        basil_kwargs = prepare_basil_kwargs(metadata)
+        basil_kwargs, use_tiimg = prepare_basil_kwargs(metadata)
+        if use_tiimg:
+            workflow.__desc__ += (
+                'BASIL was given the inflow time of each voxel, shifted by the acquisition '
+                'time of its slice.\n'
+            )
+        elif 'slice_spacing' in basil_kwargs:
+            band_str = (
+                f' within each multiband band of {basil_kwargs["sliceband"]} slices'
+                if 'sliceband' in basil_kwargs
+                else ''
+            )
+            workflow.__desc__ += (
+                'BASIL accounted for slice timing by adding '
+                f'{1000 * basil_kwargs["slice_spacing"]:.2f} ms to the inflow time for each '
+                f'successive slice{band_str}.\n'
+            )
 
         basilcbf = pe.Node(
             BASILCBF(
@@ -709,12 +726,29 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
                 ('m0_file', 'mzero'),
             ]),
             (determine_bolus_duration, basilcbf, [('bolus', 'bolus')]),
-            (determine_inflow_times, basilcbf, [('tis', 'tis')]),
             (basilcbf, outputnode, [
                 ('mean_cbf_basil', 'mean_cbf_basil'),
                 ('cbf_sd_basil', 'cbf_sd_basil'),
             ]),
         ])  # fmt:skip
+
+        if use_tiimg:
+            make_tiimg = pe.Node(
+                BASILInflowTimeImage(),
+                name='make_tiimg',
+                run_without_submitting=True,
+                mem_gb=0.2,
+            )
+            workflow.connect([
+                (extract_deltam, make_tiimg, [
+                    ('out_file', 'deltam'),
+                    ('metadata', 'metadata'),
+                ]),
+                (determine_inflow_times, make_tiimg, [('tis', 'tis')]),
+                (make_tiimg, basilcbf, [('out_file', 'tiimg')]),
+            ])  # fmt:skip
+        else:
+            workflow.connect([(determine_inflow_times, basilcbf, [('tis', 'tis')])])
 
         if basil_pvc:
             workflow.connect([
