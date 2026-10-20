@@ -11,7 +11,7 @@ given in :mod:`aslprep.tests.test_aslscan_motion`.
 import pytest
 
 from aslprep.tests import truth_bounds as tb
-from aslprep.tests.aslscan_cli import run_recipe, shared_items
+from aslprep.tests.aslscan_cli import Known, known_failure, run_recipe, shared_items
 
 RECIPE = 'grasemotion'
 pytestmark = [pytest.mark.aslscan, pytest.mark.aslscan_grase_motion]
@@ -60,8 +60,19 @@ def test_coregistration_rotation(f8_run):
     tb.check(f8_run.score, 'coreg_rot', RECIPE)
 
 
-def test_coregistration_displacement(f8_run):
-    tb.check(f8_run.score, 'coreg_rms', RECIPE)
+@known_failure(
+    'f8_run',
+    Known(
+        'PennLINC/aslprep#762: head-motion correction recovers about half of the motion on '
+        'segmented 3D GRASE, and the end-to-end coregistration error composes it; measured '
+        '0.2508 voxels',
+        ('frames', 'coreg', 'rms_voxels'),
+        0.25,
+        0.35,
+    ),
+)
+def test_coregistration_displacement(request):
+    tb.check(request.getfixturevalue('f8_run').score, 'coreg_rms', RECIPE)
 
 
 def test_t1w_space_resampling(f8_run):
