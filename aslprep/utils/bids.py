@@ -112,11 +112,14 @@ def collect_run_data(layout, asl_file):
 
     # A measured haematocrit sets T1blood (see estimate_t1), so carry it with the ASL metadata.
     haematocrit, source = collect_haematocrit(layout, asl_file, asl_metadata)
+    run_data['haematocrit_source'] = None
     if haematocrit is not None:
         config.loggers.workflow.info(
             f'Using a haematocrit of {haematocrit:g} for {asl_file}, from {source}.'
         )
         asl_metadata['Haematocrit'] = haematocrit
+        # Recorded in the calibration specification (see aslprep.utils.calibration)
+        run_data['haematocrit_source'] = source
 
     # Add metadata to dictionary now (we don't want to print these with the logger).
     run_data['asl_metadata'] = asl_metadata

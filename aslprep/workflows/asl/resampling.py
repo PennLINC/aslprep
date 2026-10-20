@@ -47,6 +47,7 @@ def init_asl_surf_wf(
     cbf_4d: list[str],
     att: list[str],
     output_dir: str,
+    model_metadata: dict | None = None,
     name: str = 'asl_surf_wf',
 ):
     """Sample functional images to FreeSurfer surfaces.
@@ -91,6 +92,9 @@ def init_asl_surf_wf(
         native surface.
     medial_surface_nan : :obj:`bool`
         Replace medial wall values with NaNs on functional GIFTI files
+    model_metadata : :obj:`dict` or None
+        Added to the sidecars of the CBF and ATT maps
+        (see :func:`~aslprep.workflows.asl.outputs.output_fields`).
 
     Inputs
     ------
@@ -117,10 +121,7 @@ def init_asl_surf_wf(
     from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 
     from aslprep.interfaces.bids import BIDSURI
-    from aslprep.workflows.asl.outputs import (
-        BASE_INPUT_FIELDS,
-        prepare_timing_parameters,
-    )
+    from aslprep.workflows.asl.outputs import output_fields, prepare_timing_parameters
 
     timing_parameters = prepare_timing_parameters(metadata)
 
@@ -190,7 +191,7 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
     ])  # fmt:skip
 
     for cbf_deriv in cbf_4d + cbf_3d + att:
-        fields = BASE_INPUT_FIELDS[cbf_deriv]
+        fields = output_fields(cbf_deriv, model_metadata)
 
         kwargs = {}
         if cbf_deriv in cbf_4d:
@@ -311,6 +312,7 @@ def init_asl_wb_surf_wf(
     att: list[str],
     omp_nthreads: int,
     mem_gb: float,
+    model_metadata: dict | None = None,
     name: str = 'asl_wb_surf_wf',
 ):
     """Resample CBF derivatives to surface templates using the Connectome Workbench.
@@ -361,6 +363,9 @@ def init_asl_wb_surf_wf(
         Maximum number of threads an individual process may use.
     mem_gb
         Size of the resampled ASL file in GB.
+    model_metadata
+        Added to the sidecars of the CBF and ATT maps
+        (see :func:`~aslprep.workflows.asl.outputs.output_fields`).
     name
         Name of workflow (default: ``asl_wb_surf_wf``).
 
@@ -386,7 +391,7 @@ def init_asl_wb_surf_wf(
     from smriprep.workflows.surfaces import init_resample_surfaces_wf
 
     from aslprep.interfaces.bids import BIDSURI
-    from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS, prepare_timing_parameters
+    from aslprep.workflows.asl.outputs import output_fields, prepare_timing_parameters
 
     targets = []
     for ref in surface_spaces:
@@ -535,7 +540,7 @@ dilated by 10 mm, and then resampled to the following surface templates:
                     density=density,
                     extension='.func.gii',
                     **timing_parameters,
-                    **BASE_INPUT_FIELDS[cbf_deriv],
+                    **output_fields(cbf_deriv, model_metadata),
                 ),
                 iterfield=['in_file', 'hemi'],
                 name=f'ds_{cbf_deriv}_{template}_{density}',

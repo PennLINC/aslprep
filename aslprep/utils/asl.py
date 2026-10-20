@@ -163,6 +163,55 @@ def count_reduced_volumes(aslcontext, processing_target):
     return int(volume_types.isin(get_kept_volume_types(processing_target)).sum())
 
 
+#: Typical labeling efficiency of each labeling type, used when the metadata do not give one.
+#: PCASL and PASL values are from Alsop et al. (2015); the CASL value is from Wang et al. (2005).
+TYPICAL_LABELING_EFFICIENCY = {
+    'CASL': 0.68,
+    'PCASL': 0.85,
+    'PASL': 0.98,
+}
+
+#: Fraction of the label left by each background suppression pulse (Alsop et al., 2015).
+BACKGROUND_SUPPRESSION_PULSE_EFFICIENCY = 0.95
+
+
+def background_suppression_pulses(metadata):
+    """Determine how many background suppression pulses reduced the label.
+
+    Parameters
+    ----------
+    metadata : :obj:`dict`
+        Dictionary of metadata from the ASL file.
+
+    Returns
+    -------
+    n_pulses : :obj:`int`
+        The number of pulses. Zero if background suppression was not applied.
+    source : {"metadata", "inferred", "default"}
+        Where the number came from:
+        ``BackgroundSuppressionNumberPulses`` (or ``BackgroundSuppression`` being false or
+        absent), the number of ``BackgroundSuppressionPulseTime`` values,
+        or an assumed single pulse when neither field is defined.
+    """
+    if not metadata.get('BackgroundSuppression', False):
+        return 0, 'metadata'
+
+    if 'BackgroundSuppressionNumberPulses' in metadata:
+        n_pulses = metadata['BackgroundSuppressionNumberPulses']
+        if isinstance(n_pulses, bool) or n_pulses != int(n_pulses) or n_pulses < 0:
+            raise ValueError(
+                'BackgroundSuppressionNumberPulses must be a non-negative integer, '
+                f'but it is {n_pulses}.'
+            )
+        return int(n_pulses), 'metadata'
+
+    pulse_times = metadata.get('BackgroundSuppressionPulseTime')
+    if pulse_times is not None and np.size(pulse_times) > 0:
+        return int(np.size(pulse_times)), 'inferred'
+
+    return 1, 'default'
+
+
 def estimate_labeling_efficiency(metadata, warn=True):
     """Estimate labeling efficiency based on the available metadata.
 
@@ -193,37 +242,30 @@ def estimate_labeling_efficiency(metadata, warn=True):
     :footcite:p:`alsop_recommended_2015`.
     The BIDS LabelingEfficiency field describes the labeling alone, so it does not include
     this loss.
-    If BackgroundSuppressionNumberPulses is not defined, one pulse is assumed.
+    If BackgroundSuppressionNumberPulses is not defined, the number of pulses is taken from
+    BackgroundSuppressionPulseTime, or one pulse is assumed if that is not defined either
+    (see :func:`background_suppression_pulses`).
 
     References
     ----------
     .. footbibliography::
     """
-    BASE_LABELEFF = {
-        'CASL': 0.68,
-        'PCASL': 0.85,
-        'PASL': 0.98,
-    }
-    BS_PULSE_EFF = 0.95  # hardcoded BackgroundSuppressionPulse efficiency
-
     if 'LabelingEfficiency' in metadata.keys():
         labeleff = metadata['LabelingEfficiency']
     else:
-        labeleff = BASE_LABELEFF[metadata['ArterialSpinLabelingType']]
+        labeleff = TYPICAL_LABELING_EFFICIENCY[metadata['ArterialSpinLabelingType']]
 
-    if metadata.get('BackgroundSuppression', False):
-        if warn and 'BackgroundSuppressionNumberPulses' not in metadata.keys():
-            from aslprep import config
+    n_pulses, source = background_suppression_pulses(metadata)
+    if warn and source == 'default':
+        from aslprep import config
 
-            config.loggers.utils.warning(
-                'BackgroundSuppression is true, but BackgroundSuppressionNumberPulses is not '
-                'defined. Assuming one background suppression pulse to estimate the labeling '
-                'efficiency.'
-            )
+        config.loggers.utils.warning(
+            'BackgroundSuppression is true, but BackgroundSuppressionNumberPulses is not '
+            'defined. Assuming one background suppression pulse to estimate the labeling '
+            'efficiency.'
+        )
 
-        labeleff *= BS_PULSE_EFF ** metadata.get('BackgroundSuppressionNumberPulses', 1)
-
-    return labeleff
+    return labeleff * BACKGROUND_SUPPRESSION_PULSE_EFFICIENCY**n_pulses
 
 
 def get_inflow_times(metadata, is_casl):
@@ -417,8 +459,26 @@ def infer_m0tr(
     return m0tr
 
 
+#: How far (in seconds) BASIL's evenly spaced slice-timing model (``--slicedt``) may be from
+#: any slice time before a voxelwise inflow time image is used instead.
+#: DICOM-derived slice times are often rounded to 2.5 ms, which puts evenly spaced slices
+#: more than 1.25 ms off the best-fitting line. Over 2.5 ms, the label decays by less than 0.2%
+#: (the T1 of blood is at least 1.3 s), so the difference does not matter.
+SLICEDT_TOLERANCE = 0.0025
+
+
 def prepare_basil_kwargs(metadata):
-    """Prepare keyword arguments for BASIL based on slice timing and multiband metadata.
+    """Choose how BASIL accounts for slice timing.
+
+    BASIL (fabber's ``aslrest`` model) has two ways to add the slice times to the inflow times.
+    ``--slicedt`` (with ``--sliceband`` for multiband data) adds ``slicedt * z`` to each slice,
+    where ``z`` counts slices along the third array axis, from the start of its band.
+    ``--tiimg`` takes the inflow time of each voxel and inflow time as an image,
+    so it can describe any slice order.
+
+    ``--slicedt`` is used when it reproduces every slice time to within
+    :data:`SLICEDT_TOLERANCE`. Otherwise, such as for interleaved slice orders,
+    a voxelwise inflow time image is needed.
 
     Parameters
     ----------
@@ -428,70 +488,53 @@ def prepare_basil_kwargs(metadata):
     Returns
     -------
     basil_kwargs : dict
-        Dictionary of keyword arguments to pass to BASILCBF interface.
-
-    Notes
-    -----
-    This function handles slice timing correction for both single-band and multiband acquisitions.
-    For multiband data, it checks that slice times within each band are monotonic and ascending
-    before setting the sliceband and slice_spacing parameters.
+        Keyword arguments for the BASILCBF interface (``slice_spacing`` and ``sliceband``).
+    use_tiimg : bool
+        Whether BASIL needs a voxelwise inflow time image
+        (see :class:`~aslprep.interfaces.cbf.BASILInflowTimeImage`).
     """
     from aslprep import config
 
-    basil_kwargs = {}
+    slice_times = np.asarray(metadata.get('SliceTiming', []), dtype=float)
+    if not np.any(slice_times):
+        # No slice timing, or every slice acquired at the start of the readout
+        return {}, False
 
-    if 'SliceTiming' not in metadata:
-        return basil_kwargs
+    # Put the slice times in array order along the slice axis.
+    slice_encoding_direction = metadata.get('SliceEncodingDirection', 'k')
+    if slice_encoding_direction.endswith('-'):
+        slice_times = slice_times[::-1]
 
+    n_slices = slice_times.size
     mb_factor = metadata.get('MultibandAccelerationFactor', 1)
-    slice_times = metadata['SliceTiming']
-
-    if mb_factor > 1:
-        # Multiband acquisition
-        n_slices = len(slice_times)
-        n_slices_in_band = n_slices // mb_factor
-        ascending_slicetimes = True
-        monotonic_slicetimes = True
-
-        for i_band in range(mb_factor):
-            band_start = n_slices_in_band * i_band
-            band_end = band_start + n_slices_in_band
-            band_slice_times = slice_times[band_start:band_end]
-            # Round to handle floating point precision issues
-            slicetime_diffs = np.unique(np.round(np.diff(band_slice_times), 10))
-
-            # Check if slice times are monotonic for this band
-            if slicetime_diffs.size != 1:
-                monotonic_slicetimes = False
-
-            # Check if slice times are ascending for this band
-            if not np.all(slicetime_diffs > 0):
-                ascending_slicetimes = False
-
-        if ascending_slicetimes and monotonic_slicetimes:
-            basil_kwargs['sliceband'] = n_slices_in_band
-            basil_kwargs['slice_spacing'] = slicetime_diffs[0]
-        else:
-            config.loggers.utils.warning(
-                'Slice times are not ascending. They will be ignored in the BASIL call.'
-            )
+    if slice_encoding_direction[0] != 'k':
+        reason = f'slices are encoded along {slice_encoding_direction[0]}, not k'
+    elif n_slices % mb_factor:
+        reason = f'{n_slices} slices do not divide into {mb_factor} multiband bands'
+    elif n_slices // mb_factor < 2:
+        reason = 'each multiband band has only one slice'
     else:
-        # Single-band acquisition
-        # Round to handle floating point precision issues
-        slicetime_diffs = np.unique(np.round(np.diff(slice_times), 10))
-        # Check if slice times are monotonic
-        monotonic_slicetimes = slicetime_diffs.size == 1
-        # Check if slice times are ascending
-        ascending_slicetimes = np.all(slicetime_diffs > 0)
+        # The number of each slice within its band, which --slicedt multiplies.
+        n_slices_in_band = n_slices // mb_factor
+        slice_in_band = np.arange(n_slices) % n_slices_in_band
+        # Least-squares slice spacing for slice_times = slice_spacing * slice_in_band
+        slice_spacing = np.dot(slice_in_band, slice_times) / np.dot(slice_in_band, slice_in_band)
+        max_error = np.max(np.abs(slice_times - slice_spacing * slice_in_band))
+        if slice_spacing > 0 and max_error <= SLICEDT_TOLERANCE:
+            basil_kwargs = {'slice_spacing': float(slice_spacing)}
+            if mb_factor > 1:
+                basil_kwargs['sliceband'] = int(n_slices_in_band)
+            return basil_kwargs, False
 
-        if monotonic_slicetimes and ascending_slicetimes:
-            basil_kwargs['slice_spacing'] = slicetime_diffs[0]
-        else:
-            config.loggers.utils.warning(
-                'Slice times are not ascending. They will be ignored in the BASIL call.'
-            )
+        reason = (
+            'the slice times are not evenly spaced and ascending from zero within each band '
+            f'(an even spacing is up to {1000 * max_error:.1f} ms off)'
+        )
 
-    return basil_kwargs
+    config.loggers.utils.info(
+        f'BASIL will use a voxelwise inflow time image for slice timing, because {reason}.'
+    )
+    return {}, True
 
 
 #: Names of the ASL labeling types, as written in the methods boilerplate.
@@ -588,8 +631,8 @@ def describe_asl_acquisition(metadata, aslcontext):
     if 'BackgroundSuppression' in metadata:
         if metadata['BackgroundSuppression']:
             sentence += ', with background suppression'
-            n_pulses = metadata.get('BackgroundSuppressionNumberPulses')
-            if n_pulses is not None:
+            n_pulses, pulse_source = background_suppression_pulses(metadata)
+            if pulse_source != 'default':
                 sentence += f' ({_plural(n_pulses, "pulse")})'
         else:
             sentence += ', without background suppression'
@@ -737,13 +780,19 @@ def describe_labeling_efficiency(metadata):
         source = f'the typical labeling efficiency for {asl_type} [{citation}]'
 
     text = f'a labeling efficiency of {labeleff:.3g} ({source}'
-    if metadata.get('BackgroundSuppression', False):
-        n_pulses = metadata.get('BackgroundSuppressionNumberPulses')
-        if n_pulses is None:
+    n_pulses, pulse_source = background_suppression_pulses(metadata)
+    if n_pulses:
+        if pulse_source == 'default':
             text += (
                 ', multiplied by 0.95 for the loss of label from one background suppression '
                 'pulse, which was assumed because the number of pulses was not specified '
                 '[@alsop_recommended_2015]'
+            )
+        elif pulse_source == 'inferred':
+            text += (
+                ', multiplied by 0.95 for the loss of label from each of the '
+                f'{_plural(n_pulses, "background suppression pulse")}, counted from the '
+                'background suppression pulse times [@alsop_recommended_2015]'
             )
         else:
             text += (
